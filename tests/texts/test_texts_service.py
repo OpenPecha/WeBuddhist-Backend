@@ -20,7 +20,8 @@ from pecha_api.texts.texts_service import (
     _validate_text_detail_request,
     get_root_text_by_collection_id,
     get_commentaries_by_text_id,
-    replace_pecha_segment_id_with_segment_id
+    replace_pecha_segment_id_with_segment_id,
+    get_text_by_pecha_text_ids_service
 )
 from pecha_api.terms.terms_response_models import TermsModel
 from pecha_api.texts.texts_response_models import (
@@ -41,7 +42,8 @@ from pecha_api.texts.texts_response_models import (
     UpdateTextRequest,
     TextDTOResponse,
     TextVersionResponse,
-    TextsCategoryResponse
+    TextsCategoryResponse,
+    TextsByPechaTextIdsRequest
 )
 from pecha_api.recitations.recitations_response_models import RecitationDTO, RecitationsResponse
 
@@ -3303,3 +3305,240 @@ async def test_replace_pecha_segment_id_with_segment_id_multiple_sections():
         assert result.sections[0].segments[0].segment_id == "db_seg_1"
         assert result.sections[1].segments[0].segment_id == "db_seg_2"
         assert result.sections[1].segments[1].segment_id == "db_seg_3"
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_service_success():
+    """Test get_text_by_pecha_text_ids_service with valid pecha_text_ids"""
+    class MockText:
+        def __init__(self, text_id, pecha_text_id, title, language, group_id, type_val, is_published, 
+                     created_date, updated_date, published_date, published_by, categories=None, 
+                     views=0, source_link=None, ranking=None, license_val=None):
+            self.id = text_id
+            self.pecha_text_id = pecha_text_id
+            self.title = title
+            self.language = language
+            self.group_id = group_id
+            self.type = type_val
+            self.is_published = is_published
+            self.created_date = created_date
+            self.updated_date = updated_date
+            self.published_date = published_date
+            self.published_by = published_by
+            self.categories = categories or []
+            self.views = views
+            self.source_link = source_link
+            self.ranking = ranking
+            self.license = license_val
+    
+    mock_texts = [
+        MockText(
+            text_id="text_id_1",
+            pecha_text_id="pecha_text_id_1",
+            title="Test Text 1",
+            language="bo",
+            group_id="group_id_1",
+            type_val="root_text",
+            is_published=True,
+            created_date="2025-01-01T00:00:00",
+            updated_date="2025-01-01T00:00:00",
+            published_date="2025-01-01T00:00:00",
+            published_by="user_1",
+            categories=["cat1"],
+            views=10,
+            source_link="https://source1.com",
+            ranking=1,
+            license_val="CC0"
+        ),
+        MockText(
+            text_id="text_id_2",
+            pecha_text_id="pecha_text_id_2",
+            title="Test Text 2",
+            language="en",
+            group_id="group_id_2",
+            type_val="version",
+            is_published=True,
+            created_date="2025-01-02T00:00:00",
+            updated_date="2025-01-02T00:00:00",
+            published_date="2025-01-02T00:00:00",
+            published_by="user_2",
+            categories=["cat2"],
+            views=20,
+            source_link="https://source2.com",
+            ranking=2,
+            license_val="CC BY"
+        )
+    ]
+    
+    request = TextsByPechaTextIdsRequest(pecha_text_ids=["pecha_text_id_1", "pecha_text_id_2"])
+    
+    with patch("pecha_api.texts.texts_service.get_texts_by_pecha_text_ids", new_callable=AsyncMock, return_value=mock_texts):
+        result = await get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request=request)
+        
+        assert result is not None
+        assert len(result) == 2
+        assert isinstance(result[0], TextDTO)
+        assert result[0].id == "text_id_1"
+        assert result[0].pecha_text_id == "pecha_text_id_1"
+        assert result[0].title == "Test Text 1"
+        assert result[0].language == "bo"
+        assert result[0].group_id == "group_id_1"
+        assert result[0].type == "root_text"
+        assert result[0].is_published == True
+        assert result[0].categories == ["cat1"]
+        assert result[0].views == 10
+        assert result[0].source_link == "https://source1.com"
+        assert result[0].ranking == 1
+        assert result[0].license == "CC0"
+        
+        assert isinstance(result[1], TextDTO)
+        assert result[1].id == "text_id_2"
+        assert result[1].pecha_text_id == "pecha_text_id_2"
+        assert result[1].title == "Test Text 2"
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_service_empty_result():
+    """Test get_text_by_pecha_text_ids_service when no texts are found"""
+    request = TextsByPechaTextIdsRequest(pecha_text_ids=["nonexistent_pecha_id"])
+    
+    with patch("pecha_api.texts.texts_service.get_texts_by_pecha_text_ids", new_callable=AsyncMock, return_value=[]):
+        result = await get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request=request)
+        
+        assert result is not None
+        assert len(result) == 0
+        assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_service_single_text():
+    """Test get_text_by_pecha_text_ids_service with single pecha_text_id"""
+    class MockText:
+        def __init__(self):
+            self.id = "text_id_single"
+            self.pecha_text_id = "pecha_text_id_single"
+            self.title = "Single Test Text"
+            self.language = "bo"
+            self.group_id = "group_id_single"
+            self.type = "root_text"
+            self.is_published = True
+            self.created_date = "2025-01-01T00:00:00"
+            self.updated_date = "2025-01-01T00:00:00"
+            self.published_date = "2025-01-01T00:00:00"
+            self.published_by = "user_single"
+            self.categories = []
+            self.views = 5
+            self.source_link = "https://source.com"
+            self.ranking = 1
+            self.license = "CC0"
+    
+    mock_texts = [MockText()]
+    request = TextsByPechaTextIdsRequest(pecha_text_ids=["pecha_text_id_single"])
+    
+    with patch("pecha_api.texts.texts_service.get_texts_by_pecha_text_ids", new_callable=AsyncMock, return_value=mock_texts):
+        result = await get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request=request)
+        
+        assert result is not None
+        assert len(result) == 1
+        assert isinstance(result[0], TextDTO)
+        assert result[0].id == "text_id_single"
+        assert result[0].pecha_text_id == "pecha_text_id_single"
+        assert result[0].title == "Single Test Text"
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_service_with_none_optional_fields():
+    """Test get_text_by_pecha_text_ids_service with texts having None optional fields"""
+    class MockText:
+        def __init__(self):
+            self.id = "text_id_minimal"
+            self.pecha_text_id = None
+            self.title = "Minimal Text"
+            self.language = "en"
+            self.group_id = "group_id_minimal"
+            self.type = "version"
+            self.is_published = False
+            self.created_date = "2025-01-01T00:00:00"
+            self.updated_date = "2025-01-01T00:00:00"
+            self.published_date = "2025-01-01T00:00:00"
+            self.published_by = "user_minimal"
+            self.categories = None
+            self.views = 0
+            self.source_link = None
+            self.ranking = None
+            self.license = None
+    
+    mock_texts = [MockText()]
+    request = TextsByPechaTextIdsRequest(pecha_text_ids=["pecha_text_id_minimal"])
+    
+    with patch("pecha_api.texts.texts_service.get_texts_by_pecha_text_ids", new_callable=AsyncMock, return_value=mock_texts):
+        result = await get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request=request)
+        
+        assert result is not None
+        assert len(result) == 1
+        assert isinstance(result[0], TextDTO)
+        assert result[0].id == "text_id_minimal"
+        # Note: str(None) returns "None" as a string in the service
+        assert result[0].pecha_text_id == "None"
+        assert result[0].title == "Minimal Text"
+        assert result[0].categories is None
+        assert result[0].views == 0
+        assert result[0].source_link is None
+        assert result[0].ranking is None
+        assert result[0].license is None
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_service_empty_request():
+    """Test get_text_by_pecha_text_ids_service with empty pecha_text_ids list"""
+    request = TextsByPechaTextIdsRequest(pecha_text_ids=[])
+    
+    with patch("pecha_api.texts.texts_service.get_texts_by_pecha_text_ids", new_callable=AsyncMock, return_value=[]):
+        result = await get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request=request)
+        
+        assert result is not None
+        assert len(result) == 0
+        assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_service_multiple_texts_various_types():
+    """Test get_text_by_pecha_text_ids_service with texts of various types"""
+    class MockText:
+        def __init__(self, text_id, pecha_text_id, title, text_type):
+            self.id = text_id
+            self.pecha_text_id = pecha_text_id
+            self.title = title
+            self.language = "bo"
+            self.group_id = "group_id_1"
+            self.type = text_type
+            self.is_published = True
+            self.created_date = "2025-01-01T00:00:00"
+            self.updated_date = "2025-01-01T00:00:00"
+            self.published_date = "2025-01-01T00:00:00"
+            self.published_by = "user_1"
+            self.categories = []
+            self.views = 10
+            self.source_link = "https://source.com"
+            self.ranking = 1
+            self.license = "CC0"
+    
+    mock_texts = [
+        MockText("text_id_1", "pecha_1", "Root Text", "root_text"),
+        MockText("text_id_2", "pecha_2", "Version Text", "version"),
+        MockText("text_id_3", "pecha_3", "Commentary Text", "commentary")
+    ]
+    
+    request = TextsByPechaTextIdsRequest(pecha_text_ids=["pecha_1", "pecha_2", "pecha_3"])
+    
+    with patch("pecha_api.texts.texts_service.get_texts_by_pecha_text_ids", new_callable=AsyncMock, return_value=mock_texts):
+        result = await get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request=request)
+        
+        assert result is not None
+        assert len(result) == 3
+        assert result[0].type == "root_text"
+        assert result[1].type == "version"
+        assert result[2].type == "commentary"
+        assert result[0].title == "Root Text"
+        assert result[1].title == "Version Text"
+        assert result[2].title == "Commentary Text"

@@ -8,7 +8,7 @@ from pecha_api.utils import Utils
 from ..config import get
 from ..collections.collections_response_models import CollectionModel, CollectionsResponse, Pagination, CreateCollectionRequest, UpdateCollectionRequest
 from .collections_repository import get_child_count, get_collections_by_parent, create_collection, update_collection_titles, delete_collection, \
-    get_collection_by_id
+    get_collection_by_id, get_collection_id_by_pecha_collection_id
 from .collections_cache_service import (
     get_collections_cache,
     set_collections_cache,
@@ -158,3 +158,9 @@ async def delete_existing_collection(collection_id: str, token: str):
         return collection_id
     
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ErrorConstants.ADMIN_ERROR_MESSAGE)
+
+async def get_collection_by_pecha_collection_id_service(pecha_collection_id: str) -> Optional[str]:
+    collection_id = await get_collection_id_by_pecha_collection_id(pecha_collection_id=pecha_collection_id)
+    if collection_id:
+        return collection_id
+    return None

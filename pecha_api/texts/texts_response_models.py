@@ -177,3 +177,6 @@ class TextInfos(BaseModel):
 
 class TextInfosResponse(BaseModel):
     text_infos: TextInfos
+
+class TextsByPechaTextIdsRequest(BaseModel):
+    pecha_text_ids: List[str]

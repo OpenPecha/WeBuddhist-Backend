@@ -98,3 +98,10 @@ async def get_collection_id_by_slug(slug: str) -> Optional[str]:
     if collection:
         return str(collection.id)
     return None
+
+
+async def get_collection_id_by_pecha_collection_id(pecha_collection_id: str) -> Optional[str]:
+    collection = await Collection.get_by_pecha_collection_id(pecha_collection_id=pecha_collection_id)
+    if collection:
+        return str(collection.id)
+    return None

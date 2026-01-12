@@ -16,7 +16,8 @@ from .texts_repository import (
     delete_text_by_id,
     fetch_sheets_from_db,
     get_all_texts_by_collection,
-    get_all_recitation_texts_by_collection
+    get_all_recitation_texts_by_collection,
+    get_texts_by_pecha_text_ids
 )
 from .texts_response_models import (
     TableOfContent,
@@ -33,7 +34,8 @@ from .texts_response_models import (
     UpdateTextRequest,
     TextDetailsRequest,
     Section,
-    DetailTableOfContentResponse
+    DetailTableOfContentResponse,
+    TextsByPechaTextIdsRequest
 )
 
 from pecha_api.recitations.recitations_response_models import(
@@ -756,3 +758,25 @@ def _search_table_of_content_where_segment_id_exists(table_of_contents: List[Tab
         status_code=status.HTTP_404_NOT_FOUND,
         detail=ErrorConstants.TABLE_OF_CONTENT_NOT_FOUND_MESSAGE
     )   
+
+async def get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request: TextsByPechaTextIdsRequest) -> Optional[List[TextDTO]]:
+    pecha_text_ids = texts_by_pecha_text_ids_request.pecha_text_ids
+    texts = await get_texts_by_pecha_text_ids(pecha_text_ids=pecha_text_ids)
+    return [TextDTO(
+        id=str(text.id),
+        pecha_text_id=str(text.pecha_text_id),
+        title=text.title,
+        language=text.language,
+        group_id=text.group_id,
+        type=text.type,
+        is_published=text.is_published,
+        created_date=text.created_date,
+        updated_date=text.updated_date,
+        published_date=text.published_date,
+        published_by=text.published_by,
+        categories=text.categories,
+        views=text.views,
+        source_link=text.source_link,
+        ranking=text.ranking,
+        license=text.license
+    ) for text in texts]
