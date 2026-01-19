@@ -4,6 +4,7 @@ from .segments_repository import (
     get_segment_by_id, 
     get_segments_by_ids,
     get_related_mapped_segments,
+    get_related_mapped_segments_batch,
     get_segments_by_text_id,
     delete_segments_by_text_id,
     update_segment_by_id

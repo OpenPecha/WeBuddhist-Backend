@@ -15,7 +15,7 @@ from pecha_api.error_contants import ErrorConstants
 from pecha_api.texts.texts_utils import TextUtils
 from pecha_api.texts.texts_response_models import TextDTO, TableOfContent
 from pecha_api.texts.texts_repository import get_contents_by_id, get_all_texts_by_group_id
-from pecha_api.texts.segments.segments_service import get_segment_by_id, get_related_mapped_segments, get_segment_details_by_id
+from pecha_api.texts.segments.segments_service import get_segment_by_id, get_related_mapped_segments, get_segment_details_by_id, get_related_mapped_segments_batch, get_segments_details_by_ids
 from pecha_api.texts.segments.segments_utils import SegmentUtils
 from pecha_api.texts.segments.segments_response_models import SegmentTranslation, SegmentTransliteration, SegmentAdaptation, SegmentRecitation
 from pecha_api.texts.segments.segments_response_models import SegmentDTO
@@ -85,14 +85,41 @@ async def get_text_details_by_text_id(text_id: str) -> TextDTO:
 
 
 async def segments_mapping_by_toc(table_of_contents: List[TableOfContent], recitation_details_request: RecitationDetailsRequest) -> List[Segment]:
+
+    needs_recitation = bool(recitation_details_request.recitation)
+    needs_translations = bool(recitation_details_request.translations)
+    needs_transliterations = bool(recitation_details_request.transliterations)
+    needs_adaptations = bool(recitation_details_request.adaptations)
+    
+    needs_mapped_segments = needs_translations or needs_transliterations or needs_adaptations
+    
+    all_segment_ids = []
+    for table_of_content in table_of_contents:
+        section = table_of_content.sections[0]
+        for segment in section.segments:
+            all_segment_ids.append(segment.segment_id)
+    
+    if not all_segment_ids:
+        return []
+    
+    segment_details_dict = await get_segments_details_by_ids(segment_ids=all_segment_ids)
+    
+    mapped_segments_dict = {}
+    if needs_mapped_segments:
+        mapped_segments_dict = await get_related_mapped_segments_batch(parent_segment_ids=all_segment_ids)
+    
     filter_mapped_segments = []
     for table_of_content in table_of_contents:
         section = table_of_content.sections[0]
 
         for segment in section.segments:
             recitation_segment = RecitationSegment()
-            mapped_segments = []
-            segment_details = await get_segment_details_by_id(segment_id=segment.segment_id, text_details=True)
+            segment_id = segment.segment_id
+            
+            segment_details = segment_details_dict.get(segment_id)
+            if not segment_details:
+                continue
+                
             segment_model = SegmentDTO(
                 id=segment_details.id,
                 text_id=segment_details.text_id,
@@ -101,29 +128,55 @@ async def segments_mapping_by_toc(table_of_contents: List[TableOfContent], recit
                 type=segment_details.type
             )
             
-            mapped_segments = await get_related_mapped_segments(parent_segment_id=segment.segment_id)
-            mapped_segments.append(segment_model)
+            all_segments_for_filter = [segment_model]
             
-            recitations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(segments=mapped_segments, type= TextType.VERSION.value)
-            translations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(segments=mapped_segments, type= TextType.VERSION.value)
-            transliterations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(segments=mapped_segments, type=TextType.VERSION.value)
-            adaptations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(segments=mapped_segments, type=TextType.VERSION.value)
-
-
-            for type, segments, langs in [
-                (RecitationListTextType.RECITATIONS.value, recitations, recitation_details_request.recitation),
-                (RecitationListTextType.TRANSLATIONS.value, translations, recitation_details_request.translations),
-                (RecitationListTextType.TRANSLITERATIONS.value, transliterations, recitation_details_request.transliterations),
-                (RecitationListTextType.ADAPTATIONS.value, adaptations, recitation_details_request.adaptations),
-            ]:
-                if type == RecitationListTextType.RECITATIONS.value:
-                    recitation_segment.recitation = filter_by_type_and_language(type=type, segments=segments, languages=langs)
-                elif type == RecitationListTextType.TRANSLATIONS.value:
-                    recitation_segment.translations = filter_by_type_and_language(type=type, segments=segments, languages=langs)
-                elif type == RecitationListTextType.TRANSLITERATIONS.value:
-                    recitation_segment.transliterations = filter_by_type_and_language(type=type, segments=segments, languages=langs)
-                elif type == RecitationListTextType.ADAPTATIONS.value:
-                    recitation_segment.adaptations = filter_by_type_and_language(type=type, segments=segments, languages=langs)
+            if needs_mapped_segments:
+                mapped_for_segment = mapped_segments_dict.get(segment_id, [])
+                all_segments_for_filter.extend(mapped_for_segment)
+            
+            if needs_recitation:
+                recitations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
+                    segments=all_segments_for_filter, 
+                    type=TextType.VERSION.value
+                )
+                recitation_segment.recitation = filter_by_type_and_language(
+                    type=RecitationListTextType.RECITATIONS.value, 
+                    segments=recitations, 
+                    languages=recitation_details_request.recitation
+                )
+            
+            if needs_translations:
+                translations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
+                    segments=all_segments_for_filter, 
+                    type=TextType.VERSION.value
+                )
+                recitation_segment.translations = filter_by_type_and_language(
+                    type=RecitationListTextType.TRANSLATIONS.value, 
+                    segments=translations, 
+                    languages=recitation_details_request.translations
+                )
+            
+            if needs_transliterations:
+                transliterations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
+                    segments=all_segments_for_filter, 
+                    type=TextType.VERSION.value
+                )
+                recitation_segment.transliterations = filter_by_type_and_language(
+                    type=RecitationListTextType.TRANSLITERATIONS.value, 
+                    segments=transliterations, 
+                    languages=recitation_details_request.transliterations
+                )
+            
+            if needs_adaptations:
+                adaptations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
+                    segments=all_segments_for_filter, 
+                    type=TextType.VERSION.value
+                )
+                recitation_segment.adaptations = filter_by_type_and_language(
+                    type=RecitationListTextType.ADAPTATIONS.value, 
+                    segments=adaptations, 
+                    languages=recitation_details_request.adaptations
+                )
            
             filter_mapped_segments.append(recitation_segment)
     return filter_mapped_segments
