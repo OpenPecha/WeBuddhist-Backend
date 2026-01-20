@@ -22,7 +22,8 @@ from pecha_api.search.search_service import (
     get_search_results,
     get_multilingual_search_results,
     call_external_search_api,
-    build_multilingual_sources
+    build_multilingual_sources,
+    apply_pagination_to_sources
 )
 
 @pytest.mark.asyncio
@@ -249,7 +250,7 @@ async def test_get_multilingual_search_results_success():
         assert len(response.sources) == 1
         assert response.sources[0].text.text_id == "text_123"
         assert len(response.sources[0].segment_matches) == 2
-        assert response.total == 2
+        assert response.total == 10  
 
 
 @pytest.mark.asyncio
@@ -915,3 +916,219 @@ async def test_get_url_link_none_segment_id():
         
         assert result is not None
         assert result == f"/chapter?text_id=text123&segment_id=None"
+
+@pytest.mark.asyncio
+async def test_get_multilingual_search_external_limit_calculation():
+    """Test that external API is called with limit * 5, max 100"""
+    mock_external_response = ExternalSearchResponse(
+        query="test query",
+        search_type="hybrid",
+        results=[],
+        count=0
+    )
+    
+    with patch("pecha_api.search.search_service.call_external_search_api", new_callable=AsyncMock, return_value=mock_external_response) as mock_call:
+        
+        await get_multilingual_search_results(
+            query="test query",
+            search_type="hybrid",
+            skip=0,
+            limit=10
+        )
+        
+        call_args = mock_call.call_args
+        assert call_args.kwargs["limit"] == 50  # 10 * 5 = 50
+
+
+@pytest.mark.asyncio
+async def test_get_multilingual_search_external_limit_max_cap():
+    """Test that external API limit is capped at 100"""
+    mock_external_response = ExternalSearchResponse(
+        query="test query",
+        search_type="hybrid",
+        results=[],
+        count=0
+    )
+    
+    with patch("pecha_api.search.search_service.call_external_search_api", new_callable=AsyncMock, return_value=mock_external_response) as mock_call:
+        
+        await get_multilingual_search_results(
+            query="test query",
+            search_type="hybrid",
+            skip=0,
+            limit=30
+        )
+        
+        call_args = mock_call.call_args
+        assert call_args.kwargs["limit"] == 100  # min(30 * 5, 100) = 100
+
+
+@pytest.mark.asyncio
+async def test_get_multilingual_search_total_returns_limit():
+    """Test that total returns the set limit value"""
+    mock_external_response = ExternalSearchResponse(
+        query="test query",
+        search_type="hybrid",
+        results=[
+            ExternalSearchResult(id="pecha_seg_1", distance=0.9, entity=ExternalSegmentEntity(text="Content 1")),
+            ExternalSearchResult(id="pecha_seg_2", distance=0.8, entity=ExternalSegmentEntity(text="Content 2")),
+            ExternalSearchResult(id="pecha_seg_3", distance=0.7, entity=ExternalSegmentEntity(text="Content 3")),
+        ],
+        count=100  
+    )
+    
+    mock_segment_1 = Mock()
+    mock_segment_1.id = uuid4()
+    mock_segment_1.content = "Content 1"
+    mock_segment_1.text_id = "text_123"
+    mock_segment_1.pecha_segment_id = "pecha_seg_1"
+    
+    mock_segment_2 = Mock()
+    mock_segment_2.id = uuid4()
+    mock_segment_2.content = "Content 2"
+    mock_segment_2.text_id = "text_123"
+    mock_segment_2.pecha_segment_id = "pecha_seg_2"
+    
+    mock_segments = [mock_segment_1, mock_segment_2]
+    
+    mock_text = Mock()
+    mock_text.title = "Test Text"
+    mock_text.language = "bo"
+    mock_text.created_at = "2024-01-01"
+    
+    with patch("pecha_api.search.search_service.call_external_search_api", new_callable=AsyncMock, return_value=mock_external_response), \
+         patch("pecha_api.search.search_service.Segment.get_segments_by_pecha_ids", new_callable=AsyncMock, return_value=mock_segments), \
+         patch("pecha_api.search.search_service.Text.get_text", new_callable=AsyncMock, return_value=mock_text):
+        
+        response = await get_multilingual_search_results(
+            query="test query",
+            search_type="hybrid",
+            skip=0,
+            limit=10
+        )
+        
+        assert response.total == 10
+
+
+def test_apply_pagination_to_sources_basic():
+    """Test basic pagination with skip and limit"""
+    text_info = TextIndex(text_id="text_123", language="bo", title="Test", published_date="")
+    
+    matches = [
+        MultilingualSegmentMatch(segment_id=str(uuid4()), content=f"Content {i}", relevance_score=float(i), pecha_segment_id=f"seg_{i}")
+        for i in range(10)
+    ]
+    
+    sources = [MultilingualSourceResult(text=text_info, segment_matches=matches)]
+    
+    paginated = apply_pagination_to_sources(sources, skip=0, limit=5)
+    
+    total_matches = sum(len(s.segment_matches) for s in paginated)
+    assert total_matches == 5
+
+
+def test_apply_pagination_to_sources_with_skip():
+    """Test pagination with skip parameter"""
+    text_info = TextIndex(text_id="text_123", language="bo", title="Test", published_date="")
+    
+    matches = [
+        MultilingualSegmentMatch(segment_id=str(uuid4()), content=f"Content {i}", relevance_score=float(i), pecha_segment_id=f"seg_{i}")
+        for i in range(10)
+    ]
+    
+    sources = [MultilingualSourceResult(text=text_info, segment_matches=matches)]
+    
+    paginated = apply_pagination_to_sources(sources, skip=3, limit=5)
+    
+    total_matches = sum(len(s.segment_matches) for s in paginated)
+    assert total_matches == 5
+    
+    all_paginated_matches = []
+    for source in paginated:
+        all_paginated_matches.extend(source.segment_matches)
+    
+    scores = [m.relevance_score for m in all_paginated_matches]
+    assert scores == [3.0, 4.0, 5.0, 6.0, 7.0]
+
+
+def test_apply_pagination_to_sources_multiple_texts():
+    """Test pagination across multiple text sources"""
+    text_info_1 = TextIndex(text_id="text_1", language="bo", title="Test 1", published_date="")
+    text_info_2 = TextIndex(text_id="text_2", language="en", title="Test 2", published_date="")
+    
+    matches_1 = [
+        MultilingualSegmentMatch(segment_id=str(uuid4()), content=f"Content 1-{i}", relevance_score=float(i), pecha_segment_id=f"seg_1_{i}")
+        for i in range(5)
+    ]
+    
+    matches_2 = [
+        MultilingualSegmentMatch(segment_id=str(uuid4()), content=f"Content 2-{i}", relevance_score=float(i + 0.5), pecha_segment_id=f"seg_2_{i}")
+        for i in range(5)
+    ]
+    
+    sources = [
+        MultilingualSourceResult(text=text_info_1, segment_matches=matches_1),
+        MultilingualSourceResult(text=text_info_2, segment_matches=matches_2)
+    ]
+    
+    paginated = apply_pagination_to_sources(sources, skip=0, limit=6)
+    
+    total_matches = sum(len(s.segment_matches) for s in paginated)
+    assert total_matches == 6
+
+
+def test_apply_pagination_to_sources_empty():
+    """Test pagination with empty sources"""
+    sources = []
+    
+    paginated = apply_pagination_to_sources(sources, skip=0, limit=10)
+    
+    assert paginated == []
+
+
+def test_apply_pagination_to_sources_skip_beyond_total():
+    """Test pagination when skip exceeds total results"""
+    text_info = TextIndex(text_id="text_123", language="bo", title="Test", published_date="")
+    
+    matches = [
+        MultilingualSegmentMatch(segment_id=str(uuid4()), content=f"Content {i}", relevance_score=float(i), pecha_segment_id=f"seg_{i}")
+        for i in range(5)
+    ]
+    
+    sources = [MultilingualSourceResult(text=text_info, segment_matches=matches)]
+    
+    paginated = apply_pagination_to_sources(sources, skip=10, limit=5)
+    
+    total_matches = sum(len(s.segment_matches) for s in paginated)
+    assert total_matches == 0
+
+
+def test_apply_pagination_to_sources_sorting():
+    """Test that pagination selects top results by relevance score"""
+    text_info_1 = TextIndex(text_id="text_1", language="bo", title="Test 1", published_date="")
+    text_info_2 = TextIndex(text_id="text_2", language="en", title="Test 2", published_date="")
+    
+    matches_1 = [
+        MultilingualSegmentMatch(segment_id=str(uuid4()), content="A", relevance_score=1.0, pecha_segment_id="seg_a"),
+        MultilingualSegmentMatch(segment_id=str(uuid4()), content="C", relevance_score=3.0, pecha_segment_id="seg_c"),
+    ]
+    
+    matches_2 = [
+        MultilingualSegmentMatch(segment_id=str(uuid4()), content="B", relevance_score=2.0, pecha_segment_id="seg_b"),
+        MultilingualSegmentMatch(segment_id=str(uuid4()), content="D", relevance_score=4.0, pecha_segment_id="seg_d"),
+    ]
+    
+    sources = [
+        MultilingualSourceResult(text=text_info_1, segment_matches=matches_1),
+        MultilingualSourceResult(text=text_info_2, segment_matches=matches_2)
+    ]
+    
+    paginated = apply_pagination_to_sources(sources, skip=0, limit=2)
+    
+    all_matches = []
+    for source in paginated:
+        all_matches.extend(source.segment_matches)
+    
+    assert len(all_matches) == 2
+    scores = sorted([m.relevance_score for m in all_matches])
+    assert scores == [1.0, 2.0]

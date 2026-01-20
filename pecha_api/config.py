@@ -63,7 +63,21 @@ DEFAULTS = dict(
 
     MAILTRAP_API_KEY = "",
     SENDER_EMAIL="",
-    SENDER_NAME=""
+    SENDER_NAME="",
+
+    OPENPECHA_SEARCH_API_URL="",
+
+    ### text uploader script configuration
+    APPLICATION = "webuddhist",
+    ACCESS_TOKEN="",
+    COLLECTION_LANGUAGES = ["bo", "en", "zh"],
+
+    #pecha api configuration
+    EXTERNAL_PECHA_API_URL="",
+
+    SQS_TIMEOUT=1800,
+
+
 )
 
 

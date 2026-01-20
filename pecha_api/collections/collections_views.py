@@ -6,7 +6,13 @@ from starlette import status
 from typing import Annotated, Optional
 
 from ..collections.collections_response_models import CreateCollectionRequest, UpdateCollectionRequest
-from ..collections.collections_service import get_all_collections, create_new_collection, update_existing_collection, delete_existing_collection
+from ..collections.collections_service import (
+    get_all_collections, 
+    create_new_collection, 
+    update_existing_collection, 
+    delete_existing_collection, 
+    get_collection_by_pecha_collection_id_service
+)
 
 oauth2_scheme = HTTPBearer()
 collections_router = APIRouter(
@@ -58,3 +64,4 @@ async def delete_collection_by_id(collection_id: str,
         collection_id=collection_id,
         token=authentication_credential.credentials
     )
+

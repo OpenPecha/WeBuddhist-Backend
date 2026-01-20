@@ -7,6 +7,8 @@ __pycache__/
 venv/
 ENV/
 env/
+.env
+.env_example
 .venv/
 env.bak/
 venv.bak/

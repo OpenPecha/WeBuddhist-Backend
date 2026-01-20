@@ -15,7 +15,8 @@ from pecha_api.texts.texts_response_models import (
     TableOfContent,
     TableOfContentType,
     Section,
-    TextDetailsRequest
+    TextDetailsRequest,
+    TextsByPechaTextIdsRequest
 )
 
 client = TestClient(api)
@@ -825,3 +826,295 @@ async def test_create_text_service_error(mocker):
     
     assert response.status_code == 400
     assert response.json()["detail"] == "Invalid group_id"
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_success(mocker):
+    """Test POST /text-uploader/list with valid pecha_text_ids"""
+    mock_text_1 = TextDTO(
+        id="text-1-uuid",
+        pecha_text_id="pecha_text_id_1",
+        title="Test Text 1",
+        language="bo",
+        group_id="group-1-uuid",
+        type="root_text",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="test_user",
+        categories=[],
+        views=10,
+        source_link="https://test-source-1.com",
+        ranking=1,
+        license="CC0"
+    )
+    
+    mock_text_2 = TextDTO(
+        id="text-2-uuid",
+        pecha_text_id="pecha_text_id_2",
+        title="Test Text 2",
+        language="en",
+        group_id="group-2-uuid",
+        type="version",
+        is_published=True,
+        created_date="2025-01-02T00:00:00",
+        updated_date="2025-01-02T00:00:00",
+        published_date="2025-01-02T00:00:00",
+        published_by="test_user_2",
+        categories=["category-1"],
+        views=20,
+        source_link="https://test-source-2.com",
+        ranking=2,
+        license="CC BY"
+    )
+    
+    mock_texts = [mock_text_1, mock_text_2]
+    
+    mock_get_texts = mocker.patch(
+        'pecha_api.text_uploader.text_metadata.text_metadata_views.get_text_by_pecha_text_ids_service',
+        new_callable=AsyncMock,
+        return_value=mock_texts
+    )
+    
+    request_data = {
+        "pecha_text_ids": ["pecha_text_id_1", "pecha_text_id_2"]
+    }
+    
+    async with AsyncClient(transport=ASGITransport(app=api), base_url="http://test") as ac:
+        response = await ac.post(
+            "/text-uploader/list",
+            json=request_data
+        )
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 2
+    assert data[0]["pecha_text_id"] == "pecha_text_id_1"
+    assert data[0]["title"] == "Test Text 1"
+    assert data[1]["pecha_text_id"] == "pecha_text_id_2"
+    assert data[1]["title"] == "Test Text 2"
+    
+    mock_get_texts.assert_called_once()
+    call_args = mock_get_texts.call_args[1]
+    assert isinstance(call_args["texts_by_pecha_text_ids_request"], TextsByPechaTextIdsRequest)
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_empty_list(mocker):
+    """Test POST /text-uploader/list with empty pecha_text_ids list"""
+    mock_get_texts = mocker.patch(
+        'pecha_api.text_uploader.text_metadata.text_metadata_views.get_text_by_pecha_text_ids_service',
+        new_callable=AsyncMock,
+        return_value=[]
+    )
+    
+    request_data = {
+        "pecha_text_ids": []
+    }
+    
+    async with AsyncClient(transport=ASGITransport(app=api), base_url="http://test") as ac:
+        response = await ac.post(
+            "/text-uploader/list",
+            json=request_data
+        )
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 0
+    assert data == []
+    
+    mock_get_texts.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_single_text(mocker):
+    """Test POST /text-uploader/list with single pecha_text_id"""
+    mock_text = TextDTO(
+        id="single-text-uuid",
+        pecha_text_id="pecha_text_id_single",
+        title="Single Test Text",
+        language="bo",
+        group_id="group-uuid",
+        type="root_text",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="test_user",
+        categories=[],
+        views=5,
+        source_link="https://test-source.com",
+        ranking=1,
+        license="CC0"
+    )
+    
+    mock_get_texts = mocker.patch(
+        'pecha_api.text_uploader.text_metadata.text_metadata_views.get_text_by_pecha_text_ids_service',
+        new_callable=AsyncMock,
+        return_value=[mock_text]
+    )
+    
+    request_data = {
+        "pecha_text_ids": ["pecha_text_id_single"]
+    }
+    
+    async with AsyncClient(transport=ASGITransport(app=api), base_url="http://test") as ac:
+        response = await ac.post(
+            "/text-uploader/list",
+            json=request_data
+        )
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["pecha_text_id"] == "pecha_text_id_single"
+    assert data[0]["title"] == "Single Test Text"
+    
+    mock_get_texts.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_none_result(mocker):
+    """Test POST /text-uploader/list when service returns None"""
+    mock_get_texts = mocker.patch(
+        'pecha_api.text_uploader.text_metadata.text_metadata_views.get_text_by_pecha_text_ids_service',
+        new_callable=AsyncMock,
+        return_value=None
+    )
+    
+    request_data = {
+        "pecha_text_ids": ["nonexistent_pecha_id"]
+    }
+    
+    async with AsyncClient(transport=ASGITransport(app=api), base_url="http://test") as ac:
+        response = await ac.post(
+            "/text-uploader/list",
+            json=request_data
+        )
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data is None
+    
+    mock_get_texts.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_invalid_request():
+    """Test POST /text-uploader/list with invalid request data"""
+    invalid_data = {
+        "invalid_field": ["pecha_text_id_1"]
+    }
+    
+    async with AsyncClient(transport=ASGITransport(app=api), base_url="http://test") as ac:
+        response = await ac.post(
+            "/text-uploader/list",
+            json=invalid_data
+        )
+    
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_service_error(mocker):
+    """Test POST /text-uploader/list when service raises an error"""
+    mock_get_texts = mocker.patch(
+        'pecha_api.text_uploader.text_metadata.text_metadata_views.get_text_by_pecha_text_ids_service',
+        new_callable=AsyncMock,
+        side_effect=HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+    )
+    
+    request_data = {
+        "pecha_text_ids": ["pecha_text_id_1"]
+    }
+    
+    async with AsyncClient(transport=ASGITransport(app=api), base_url="http://test") as ac:
+        response = await ac.post(
+            "/text-uploader/list",
+            json=request_data
+        )
+    
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert response.json()["detail"] == "Internal server error"
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_pecha_text_ids_multiple_texts_with_optional_fields(mocker):
+    """Test POST /text-uploader/list with texts having various optional fields"""
+    mock_text_with_all_fields = TextDTO(
+        id="text-all-fields-uuid",
+        pecha_text_id="pecha_text_id_all",
+        title="Text with All Fields",
+        language="bo",
+        group_id="group-uuid",
+        type="root_text",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="test_user",
+        categories=["cat1", "cat2"],
+        views=100,
+        source_link="https://source.com",
+        ranking=5,
+        license="CC BY-SA"
+    )
+    
+    mock_text_with_minimal_fields = TextDTO(
+        id="text-minimal-uuid",
+        pecha_text_id=None,
+        title="Text with Minimal Fields",
+        language="en",
+        group_id="group-uuid-2",
+        type="version",
+        is_published=False,
+        created_date="2025-01-02T00:00:00",
+        updated_date="2025-01-02T00:00:00",
+        published_date="2025-01-02T00:00:00",
+        published_by="test_user_2",
+        categories=None,
+        views=0,
+        source_link=None,
+        ranking=None,
+        license=None
+    )
+    
+    mock_texts = [mock_text_with_all_fields, mock_text_with_minimal_fields]
+    
+    mock_get_texts = mocker.patch(
+        'pecha_api.text_uploader.text_metadata.text_metadata_views.get_text_by_pecha_text_ids_service',
+        new_callable=AsyncMock,
+        return_value=mock_texts
+    )
+    
+    request_data = {
+        "pecha_text_ids": ["pecha_text_id_all", "pecha_text_id_minimal"]
+    }
+    
+    async with AsyncClient(transport=ASGITransport(app=api), base_url="http://test") as ac:
+        response = await ac.post(
+            "/text-uploader/list",
+            json=request_data
+        )
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data) == 2
+    
+    # Verify first text with all fields
+    assert data[0]["pecha_text_id"] == "pecha_text_id_all"
+    assert data[0]["categories"] == ["cat1", "cat2"]
+    assert data[0]["views"] == 100
+    assert data[0]["ranking"] == 5
+    
+    # Verify second text with minimal fields
+    assert data[1]["pecha_text_id"] is None
+    assert data[1]["categories"] is None
+    assert data[1]["views"] == 0
+    assert data[1]["source_link"] is None
+    assert data[1]["ranking"] is None
+    assert data[1]["license"] is None

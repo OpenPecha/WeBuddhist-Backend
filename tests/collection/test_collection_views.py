@@ -25,6 +25,7 @@ COLLECTION_ID = "60d21b4667d0d8992e610c85"
 # Mock data
 MOCK_COLLECTION = CollectionModel(
     id=COLLECTION_ID,
+    pecha_collection_id="pecha_60d21b4667d0d8992e610c85",
     title="Test Collection",
     description="Test Description",
     language="en",
@@ -39,6 +40,7 @@ MOCK_COLLECTIONS_RESPONSE = CollectionsResponse(
         MOCK_COLLECTION,
         CollectionModel(
             id="60d21b4667d0d8992e610c86",
+            pecha_collection_id="pecha_60d21b4667d0d8992e610c86",
             title="Another Collection",
             description="Another Description",
             language="en",
@@ -162,6 +164,7 @@ async def test_update_collection_success():
     # Test successful collection update
     updated_collection = CollectionModel(
         id=COLLECTION_ID,
+        pecha_collection_id="pecha_60d21b4667d0d8992e610c85",
         title="Updated Collection",
         description="Updated Description",
         language="en",
@@ -271,4 +274,51 @@ async def test_delete_collection_with_children():
                                headers={"Authorization": f"Bearer {VALID_TOKEN}"})
         
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+# Tests for GET /text-uploader/collections/{pecha_collection_id} endpoint
+
+@pytest.mark.asyncio
+async def test_get_collection_by_pecha_collection_id_success():
+    # Test successful retrieval of collection by pecha_collection_id
+    pecha_collection_id = "pecha_60d21b4667d0d8992e610c85"
+    expected_collection_id = "60d21b4667d0d8992e610c85"
+    
+    with patch("pecha_api.text_uploader.collections.uploader_collections_views.get_collection_by_pecha_collection_id_service",
+               new_callable=AsyncMock, return_value=expected_collection_id):
+        
+        response = client.get(f"/text-uploader/collections/{pecha_collection_id}")
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == expected_collection_id
+
+
+@pytest.mark.asyncio
+async def test_get_collection_by_pecha_collection_id_not_found():
+    # Test retrieval when pecha_collection_id doesn't exist
+    pecha_collection_id = "nonexistent_pecha_id"
+    
+    with patch("pecha_api.text_uploader.collections.uploader_collections_views.get_collection_by_pecha_collection_id_service",
+               new_callable=AsyncMock, return_value=None):
+        
+        response = client.get(f"/text-uploader/collections/{pecha_collection_id}")
+        
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() is None
+
+
+@pytest.mark.asyncio
+async def test_get_collection_by_pecha_collection_id_service_error():
+    # Test handling of service errors
+    pecha_collection_id = "pecha_error_id"
+    
+    with patch("pecha_api.text_uploader.collections.uploader_collections_views.get_collection_by_pecha_collection_id_service",
+               new_callable=AsyncMock, side_effect=HTTPException(
+                   status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                   detail="Internal server error"
+               )):
+        
+        response = client.get(f"/text-uploader/collections/{pecha_collection_id}")
+        
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
 

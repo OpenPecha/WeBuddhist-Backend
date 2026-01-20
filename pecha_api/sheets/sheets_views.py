@@ -37,7 +37,7 @@ sheets_router = APIRouter(
 
 @sheets_router.get("", status_code=status.HTTP_200_OK)
 async def get_sheets(
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    authentication_credential: Annotated[Optional[HTTPAuthorizationCredentials], Depends(HTTPBearer(auto_error=False))],
     language: Optional[str] = Query(default=None),
     email: Optional[str] = Query(default=None),
     sort_by: Optional[SortBy] = Query(default=None),

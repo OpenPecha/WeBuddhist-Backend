@@ -16,7 +16,9 @@ from .texts_repository import (
     delete_text_by_id,
     fetch_sheets_from_db,
     get_all_texts_by_collection,
-    get_all_recitation_texts_by_collection
+    get_all_recitation_texts_by_collection,
+    get_texts_by_pecha_text_ids
+
 )
 from .texts_response_models import (
     TableOfContent,
@@ -33,7 +35,8 @@ from .texts_response_models import (
     UpdateTextRequest,
     TextDetailsRequest,
     Section,
-    DetailTableOfContentResponse
+    DetailTableOfContentResponse,
+    TextsByPechaTextIdsRequest
 )
 
 from pecha_api.recitations.recitations_response_models import(
@@ -92,20 +95,20 @@ async def get_text_by_text_id_or_collection(
         skip: int = 0,
         limit: int = 10
 ) -> TextsCategoryResponse | TextDTO:
-    # if language is None:
-    #     language = get("DEFAULT_LANGUAGE")
+    if language is None:
+        language = get("DEFAULT_LANGUAGE")
 
-    # cached_data: TextsCategoryResponse | TextDTO = await get_text_by_text_id_or_collection_cache(
-    #     text_id = text_id,
-    #     collection_id = collection_id,
-    #     language = language,
-    #     skip = skip,
-    #     limit = limit,
-    #     cache_type = CacheType.TEXTS_BY_ID_OR_COLLECTION
-    # )
+    cached_data: TextsCategoryResponse | TextDTO = await get_text_by_text_id_or_collection_cache(
+        text_id = text_id,
+        collection_id = collection_id,
+        language = language,
+        skip = skip,
+        limit = limit,
+        cache_type = CacheType.TEXTS_BY_ID_OR_COLLECTION
+    )
 
-    # if cached_data is not None:
-    #     return cached_data
+    if cached_data is not None:
+        return cached_data
 
     if collection_id is not None:
         collection = await get_collection(collection_id=collection_id, language=language)
@@ -130,7 +133,6 @@ async def get_text_by_text_id_or_collection(
         cache_type = CacheType.TEXTS_BY_ID_OR_COLLECTION,
         data = response
     )
-
     return response
 
 
@@ -757,3 +759,25 @@ def _search_table_of_content_where_segment_id_exists(table_of_contents: List[Tab
         status_code=status.HTTP_404_NOT_FOUND,
         detail=ErrorConstants.TABLE_OF_CONTENT_NOT_FOUND_MESSAGE
     )   
+
+async def get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request: TextsByPechaTextIdsRequest) -> Optional[List[TextDTO]]:
+    pecha_text_ids = texts_by_pecha_text_ids_request.pecha_text_ids
+    texts = await get_texts_by_pecha_text_ids(pecha_text_ids=pecha_text_ids)
+    return [TextDTO(
+        id=str(text.id),
+        pecha_text_id=str(text.pecha_text_id),
+        title=text.title,
+        language=text.language,
+        group_id=text.group_id,
+        type=text.type,
+        is_published=text.is_published,
+        created_date=text.created_date,
+        updated_date=text.updated_date,
+        published_date=text.published_date,
+        published_by=text.published_by,
+        categories=text.categories,
+        views=text.views,
+        source_link=text.source_link,
+        ranking=text.ranking,
+        license=text.license
+    ) for text in texts]

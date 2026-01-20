@@ -6,7 +6,7 @@ from pecha_api.config import get
 from typing import List, Dict, Optional
 from pecha_api.texts.segments.segments_models import Segment
 from pecha_api.texts.texts_models import Text
-from pecha_api.config import get
+
 from pecha_api.http_message_utils import handle_http_status_error, handle_request_error
 import httpx
 import logging
@@ -209,7 +209,6 @@ def build_search_payload(
         "limit": limit,
         "return_text": False,
         "hierarchical": True,
-        "filter": {}
     }
     
     if language or title:
@@ -300,6 +299,36 @@ def create_empty_search_response(
     )
 
 
+def apply_pagination_to_sources(
+    sources: List[MultilingualSourceResult],
+    skip: int,
+    limit: int
+) -> List[MultilingualSourceResult]:
+
+    all_matches = []
+    for source in sources:
+        for match in source.segment_matches:
+            all_matches.append((source.text, match))
+    
+    all_matches.sort(key=lambda x: x[1].relevance_score)
+    
+    paginated_matches = all_matches[skip:skip + limit]
+    
+    text_to_matches: Dict[str, tuple] = {}
+    for text_info, match in paginated_matches:
+        text_key = text_info.text_id
+        if text_key not in text_to_matches:
+            text_to_matches[text_key] = (text_info, [])
+        text_to_matches[text_key][1].append(match)
+    
+    paginated_sources = [
+        MultilingualSourceResult(text=text_info, segment_matches=matches)
+        for text_info, matches in text_to_matches.values()
+    ]
+    
+    return paginated_sources
+
+
 async def fetch_segments_by_ids(
     segmentation_ids: List[str],
     text_id: Optional[str]
@@ -326,10 +355,12 @@ async def get_multilingual_search_results(
     try:
         title = await get_text_title_by_id(text_id)
         
+        external_limit = min(limit * 5, 100)
+        
         external_results = await call_external_search_api(
             query=query,
             search_type=search_type,
-            limit=limit,
+            limit=external_limit,
             title=title,
             language=language
         )
@@ -347,13 +378,15 @@ async def get_multilingual_search_results(
         
         final_display_sources = await build_multilingual_sources(segments, results_map)
         
+        paginated_sources = apply_pagination_to_sources(final_display_sources, skip, limit)
+        
         return MultilingualSearchResponse(
             query=query,
             search_type=search_type,
-            sources=final_display_sources,
+            sources=paginated_sources,
             skip=skip,
             limit=limit,
-            total=len(segments)
+            total=limit
         )
         
     except Exception as e:
@@ -369,11 +402,11 @@ async def call_external_search_api(
     language: Optional[str] = None
 ) -> ExternalSearchResponse:
 
-    external_api_url = "https://openpecha-search.onrender.com"
+    external_api_url = "https://search.buddhistai.tools"
     endpoint = f"{external_api_url}/search"
     
     payload = build_search_payload(query, search_type, limit, title, language)
-    
+    print(payload)
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(

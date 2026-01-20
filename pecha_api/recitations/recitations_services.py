@@ -28,6 +28,9 @@ from pecha_api.recitations.recitations_response_models import (
     RecitationSegment,  
     RecitationsResponse
 )
+from pecha_api.cache.cache_enums import CacheType
+from pecha_api.recitations.recication_cache_services import set_recitation_by_text_id_cache, get_recitation_by_text_id_cache
+
 
 async def get_list_of_recitations_service(search: Optional[str] = None, language: str = "en") -> RecitationsResponse:
     collection_id = await get_collection_id_by_slug(slug="Liturgy")
@@ -44,7 +47,11 @@ async def get_recitation_details_service(text_id: str, recitation_details_reques
     is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
     if not is_valid_text:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
-  
+        
+    cached_data: RecitationDetailsResponse = await get_recitation_by_text_id_cache(text_id=text_id, recitation_details_request=recitation_details_request, cache_type=CacheType.RECITATION_DETAILS)
+    if cached_data is not None:
+        return cached_data
+
     text_detail: TextDTO = await get_text_details_by_text_id(text_id=text_id)
 
     group_id: str = text_detail.group_id
@@ -62,6 +69,14 @@ async def get_recitation_details_service(text_id: str, recitation_details_reques
         title=text_detail.title,
         segments=segments   
     )
+
+    await set_recitation_by_text_id_cache(
+        text_id=text_id, 
+        recitation_details_request=recitation_details_request, 
+        cache_type=CacheType.RECITATION_DETAILS, 
+        data=recitation_details_response
+    )
+
    
     return recitation_details_response
 
