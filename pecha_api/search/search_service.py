@@ -402,7 +402,7 @@ async def call_external_search_api(
     language: Optional[str] = None
 ) -> ExternalSearchResponse:
 
-    external_api_url = get("OPENPECHA_SEARCH_API_URL")
+    external_api_url = "https://search.buddhistai.tools"
     endpoint = f"{external_api_url}/search"
     
     payload = build_search_payload(query, search_type, limit, title, language)
