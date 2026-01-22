@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict,Any
 
 
 class TextGroupPayload(BaseModel):
@@ -25,7 +25,7 @@ class CriticalInstance(BaseModel):
     source: str
     colophon: Optional[str] = None
     incipit_title: Optional[str] = None
-    alt_incipit_titles: List[str] = []
+    alt_incipit_titles: Any
     biblography_annotation: Optional[str] = None
 
 class CriticalInstanceResponse(BaseModel):
