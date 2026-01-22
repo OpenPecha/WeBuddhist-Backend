@@ -717,15 +717,15 @@ class TestGetRecitationDetailsServiceSuccess:
 class TestSegmentsMappingByTocWithData:
     """Test cases for segments_mapping_by_toc with actual data."""
 
-    @patch('pecha_api.recitations.recitations_services.get_segment_details_by_id')
-    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments')
+    @patch('pecha_api.recitations.recitations_services.get_segments_details_by_ids')
+    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments_batch')
     @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
     @pytest.mark.asyncio
     async def test_segments_mapping_by_toc_with_single_segment(
         self,
         mock_filter_segments,
-        mock_get_related_segments,
-        mock_get_segment_details
+        mock_get_related_segments_batch,
+        mock_get_segments_by_ids
     ):
         """Test segments_mapping_by_toc with a single segment."""
         segment_id = str(uuid4())
@@ -750,15 +750,15 @@ class TestSegmentsMappingByTocWithData:
             )
         ]
         
-        # Mock segment details
+        # Mock segment details - batch function returns dict
         segment_dto = SegmentDTO(
             id=segment_id,
             text_id=text_id,
             content="Test segment content",
             type=SegmentType.SOURCE
         )
-        mock_get_segment_details.return_value = segment_dto
-        mock_get_related_segments.return_value = []
+        mock_get_segments_by_ids.return_value = {segment_id: segment_dto}
+        mock_get_related_segments_batch.return_value = {segment_id: []}
         
         # Mock filter responses for each type
         mock_filter_segments.return_value = []
@@ -778,22 +778,22 @@ class TestSegmentsMappingByTocWithData:
         assert len(result) == 1
         assert isinstance(result[0], RecitationSegment)
         
-        # Verify segment details were fetched
-        mock_get_segment_details.assert_called_once_with(segment_id=segment_id, text_details=True)
-        mock_get_related_segments.assert_called_once_with(parent_segment_id=segment_id)
+        # Verify batch functions were called
+        mock_get_segments_by_ids.assert_called_once_with(segment_ids=[segment_id])
+        mock_get_related_segments_batch.assert_called_once_with(parent_segment_ids=[segment_id])
         
         # Verify filter was called 4 times (recitations, translations, transliterations, adaptations)
         assert mock_filter_segments.call_count == 4
 
-    @patch('pecha_api.recitations.recitations_services.get_segment_details_by_id')
-    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments')
+    @patch('pecha_api.recitations.recitations_services.get_segments_details_by_ids')
+    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments_batch')
     @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
     @pytest.mark.asyncio
     async def test_segments_mapping_by_toc_with_multiple_segments(
         self,
         mock_filter_segments,
-        mock_get_related_segments,
-        mock_get_segment_details
+        mock_get_related_segments_batch,
+        mock_get_segments_by_ids
     ):
         """Test segments_mapping_by_toc with multiple segments."""
         segment_id_1 = str(uuid4())
@@ -820,17 +820,22 @@ class TestSegmentsMappingByTocWithData:
             )
         ]
         
-        # Mock segment details
-        def get_segment_side_effect(segment_id, text_details):
-            return SegmentDTO(
-                id=segment_id,
+        # Mock segment details - batch function returns dict
+        mock_get_segments_by_ids.return_value = {
+            segment_id_1: SegmentDTO(
+                id=segment_id_1,
                 text_id=text_id,
-                content=f"Content for {segment_id}",
+                content=f"Content for {segment_id_1}",
+                type=SegmentType.SOURCE
+            ),
+            segment_id_2: SegmentDTO(
+                id=segment_id_2,
+                text_id=text_id,
+                content=f"Content for {segment_id_2}",
                 type=SegmentType.SOURCE
             )
-        
-        mock_get_segment_details.side_effect = get_segment_side_effect
-        mock_get_related_segments.return_value = []
+        }
+        mock_get_related_segments_batch.return_value = {segment_id_1: [], segment_id_2: []}
         mock_filter_segments.return_value = []
         
         request = RecitationDetailsRequest(
@@ -848,19 +853,20 @@ class TestSegmentsMappingByTocWithData:
         assert len(result) == 2
         assert all(isinstance(seg, RecitationSegment) for seg in result)
         
-        # Verify segment details were fetched for both segments
-        assert mock_get_segment_details.call_count == 2
-        assert mock_get_related_segments.call_count == 2
+        # Verify batch functions were called once with all segment IDs
+        mock_get_segments_by_ids.assert_called_once_with(segment_ids=[segment_id_1, segment_id_2])
+        # Related segments batch not called since no translations/transliterations/adaptations requested
+        mock_get_related_segments_batch.assert_not_called()
 
-    @patch('pecha_api.recitations.recitations_services.get_segment_details_by_id')
-    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments')
+    @patch('pecha_api.recitations.recitations_services.get_segments_details_by_ids')
+    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments_batch')
     @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
     @pytest.mark.asyncio
     async def test_segments_mapping_by_toc_with_filtered_data(
         self,
         mock_filter_segments,
-        mock_get_related_segments,
-        mock_get_segment_details
+        mock_get_related_segments_batch,
+        mock_get_segments_by_ids
     ):
         """Test segments_mapping_by_toc with filtered segment data."""
         segment_id = str(uuid4())
@@ -890,16 +896,16 @@ class TestSegmentsMappingByTocWithData:
             content="Test content",
             type=SegmentType.SOURCE
         )
-        mock_get_segment_details.return_value = segment_dto
+        mock_get_segments_by_ids.return_value = {segment_id: segment_dto}
         
-        # Mock some related segments
+        # Mock some related segments - batch function returns dict
         related_segment = SegmentDTO(
             id=str(uuid4()),
             text_id=str(uuid4()),
             content="Related content",
             type=SegmentType.SOURCE
         )
-        mock_get_related_segments.return_value = [related_segment]
+        mock_get_related_segments_batch.return_value = {segment_id: [related_segment]}
         
         # Mock filter to return actual segments
         mock_translation = SegmentTranslation(
@@ -934,11 +940,11 @@ class TestSegmentsMappingByTocWithData:
         recitation_segment = result[0]
         assert isinstance(recitation_segment, RecitationSegment)
         
-        # Verify that related segments were retrieved
-        mock_get_related_segments.assert_called_once_with(parent_segment_id=segment_id)
+        # Verify that related segments batch was called (since translations requested)
+        mock_get_related_segments_batch.assert_called_once_with(parent_segment_ids=[segment_id])
 
-    @patch('pecha_api.recitations.recitations_services.get_segment_details_by_id')
-    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments')
+    @patch('pecha_api.recitations.recitations_services.get_segments_details_by_ids')
+    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments_batch')
     @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
     @patch('pecha_api.recitations.recitations_services.filter_by_type_and_language')
     @pytest.mark.asyncio
@@ -946,8 +952,8 @@ class TestSegmentsMappingByTocWithData:
         self,
         mock_filter_by_type_lang,
         mock_filter_segments,
-        mock_get_related_segments,
-        mock_get_segment_details
+        mock_get_related_segments_batch,
+        mock_get_segments_by_ids
     ):
         """Test that segments_mapping_by_toc properly calls filter_by_type_and_language for all segment types."""
         segment_id = str(uuid4())
@@ -977,8 +983,8 @@ class TestSegmentsMappingByTocWithData:
             content="Test content",
             type=SegmentType.SOURCE
         )
-        mock_get_segment_details.return_value = segment_dto
-        mock_get_related_segments.return_value = []
+        mock_get_segments_by_ids.return_value = {segment_id: segment_dto}
+        mock_get_related_segments_batch.return_value = {segment_id: []}
         
         # Mock filter to return mock segments
         mock_recitation = SegmentTranslation(
