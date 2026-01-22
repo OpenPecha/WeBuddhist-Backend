@@ -7,7 +7,7 @@ from .segments_models import Segment
 from .segments_response_models import CreateSegmentRequest, SegmentDTO, MappingResponse, SegmentUpdateRequest
 import logging
 from beanie.exceptions import CollectionWasNotInitialized
-from typing import List, Dict
+from typing import List, Dict, Optional
 from fastapi import HTTPException
 from starlette import status
 from pecha_api.error_contants import ErrorConstants
@@ -97,6 +97,34 @@ async def get_related_mapped_segments(parent_segment_id: str) -> List[SegmentDTO
     except CollectionWasNotInitialized as e:
         logging.debug(e)
         return []
+
+
+async def get_related_mapped_segments_batch(
+    parent_segment_ids: List[str]
+) -> Dict[str, List[SegmentDTO]]:
+
+    try:
+        if not parent_segment_ids:
+            return {}
+        segments_dict = await Segment.get_related_mapped_segments_batch(
+            parent_segment_ids=parent_segment_ids
+        )
+        result: Dict[str, List[SegmentDTO]] = {}
+        for parent_id, segments in segments_dict.items():
+            result[parent_id] = [
+                SegmentDTO(
+                    id=str(segment.id),
+                    text_id=segment.text_id,
+                    content=segment.content,
+                    mapping=[MappingResponse(**mapping.model_dump()) for mapping in segment.mapping] if segment.mapping else [],
+                    type=segment.type
+                )
+                for segment in segments
+            ]
+        return result
+    except CollectionWasNotInitialized as e:
+        logging.debug(e)
+        return {}
 
 async def delete_segments_by_text_id(text_id: str):
     try:

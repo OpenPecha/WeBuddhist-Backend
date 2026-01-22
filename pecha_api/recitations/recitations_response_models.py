@@ -11,7 +11,7 @@ class RecitationsResponse(BaseModel):
 
 class RecitationDetailsRequest(BaseModel):
     language: str
-    recitation: List[str]
+    recitation: List[str] = []
     translations: List[str] = []
     transliterations: List[str] = []
     adaptations: List[str] = []

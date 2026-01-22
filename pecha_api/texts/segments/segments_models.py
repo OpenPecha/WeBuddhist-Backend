@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 import uuid
 from pydantic import BaseModel, Field
 from beanie import Document
@@ -102,17 +102,7 @@ class Segment(Document):
         pecha_segment_ids: List[str],
         text_id: Optional[str] = None
     ) -> List["Segment"]:
-        """
-        Get segments by their pecha_segment_id (external segmentation IDs).
-        Optionally filter by text_id for individual text search.
-        
-        Args:
-            pecha_segment_ids: List of external segmentation IDs
-            text_id: Optional text_id to filter results
-            
-        Returns:
-            List of Segment documents matching the pecha_segment_ids
-        """
+
         query = {"pecha_segment_id": {"$in": pecha_segment_ids}}
         if text_id:
             query["text_id"] = text_id
@@ -122,3 +112,35 @@ class Segment(Document):
     @classmethod
     async def delete_segment_by_text_id(cls, text_id: str):
         return await cls.find(cls.text_id == text_id).delete()
+
+    @classmethod
+    async def get_related_mapped_segments_batch(
+        cls, 
+        parent_segment_ids: List[str],
+        text_types: Optional[List[str]] = None
+    ) -> Dict[str, List["Segment"]]:
+
+        if not parent_segment_ids:
+            return {}
+        
+        query = {
+            "mapping": {
+                "$elemMatch": {
+                    "segments": {"$in": parent_segment_ids}
+                }
+            }
+        }
+        
+        segments = await cls.find(query).to_list()
+        
+        result: Dict[str, List["Segment"]] = {pid: [] for pid in parent_segment_ids}
+        
+        for segment in segments:
+            if segment.mapping:
+                for mapping in segment.mapping:
+                    for parent_id in parent_segment_ids:
+                        if parent_id in mapping.segments:
+                            if segment not in result[parent_id]:
+                                result[parent_id].append(segment)
+        
+        return result
