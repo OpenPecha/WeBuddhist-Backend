@@ -4,7 +4,13 @@ from uuid import UUID
 
 from pecha_api.constants import Constants
 from .segments_models import Segment
-from .segments_response_models import CreateSegmentRequest, SegmentDTO, MappingResponse, SegmentUpdateRequest
+from .segments_response_models import (
+    CreateSegmentRequest,
+    SegmentContentBulkUpdateRequest,
+    SegmentDTO,
+    MappingResponse,
+    SegmentUpdateRequest,
+)
 import logging
 from beanie.exceptions import CollectionWasNotInitialized
 from typing import List, Dict, Optional
@@ -147,3 +153,42 @@ async def update_segment_by_id(segment_update_request: SegmentUpdateRequest) -> 
     except CollectionWasNotInitialized as e:
         logging.debug(e)
         return None
+
+
+async def update_segment_content_bulk(
+    bulk_update_request: SegmentContentBulkUpdateRequest,
+) -> List[SegmentDTO]:
+    try:
+        if not bulk_update_request.segments:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorConstants.INVALID_UPDATE_REQUEST)
+
+        segment_ids: List[str] = [segment_update.id for segment_update in bulk_update_request.segments]
+        segments = await Segment.get_segments_by_ids(segment_ids=segment_ids)
+        segments_by_id: Dict[str, Segment] = {str(segment.id): segment for segment in segments}
+
+        missing_ids = [segment_id for segment_id in segment_ids if segment_id not in segments_by_id]
+        if missing_ids:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE)
+
+        updated_segments: List[SegmentDTO] = []
+
+        for segment_update in bulk_update_request.segments:
+            segment = segments_by_id[segment_update.id]
+            segment.content = segment_update.content
+            await segment.save()
+
+            updated_segments.append(
+                SegmentDTO(
+                    id=str(segment.id),
+                    pecha_segment_id=segment.pecha_segment_id,
+                    text_id=segment.text_id,
+                    content=segment.content,
+                    mapping=[MappingResponse(**mapping.model_dump()) for mapping in segment.mapping] if segment.mapping else [],
+                    type=segment.type,
+                )
+            )
+
+        return updated_segments
+    except CollectionWasNotInitialized as e:
+        logging.debug(e)
+        return []

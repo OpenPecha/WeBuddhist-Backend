@@ -11,7 +11,9 @@ from pecha_api.texts.segments.segments_response_models import (
     SegmentTranslation,
     SegmentDTO,
     SegmentUpdateRequest,
-    SegmentUpdate
+    SegmentUpdate,
+    SegmentContentBulkUpdateRequest,
+    SegmentContentUpdate,
 )
 from pecha_api.texts.texts_response_models import TextDTO
 
@@ -339,3 +341,63 @@ def test_update_segment_text_not_found(mock_update_segments_service):
     
     assert response.status_code == status.HTTP_404_NOT_FOUND
     assert response.json()["detail"] == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+
+
+@patch("pecha_api.texts.segments.segments_views.update_segment_content_bulk_service")
+def test_update_segment_content_bulk_success(mock_update_bulk_service):
+    request = SegmentContentBulkUpdateRequest(
+        segments=[SegmentContentUpdate(id=str(uuid4()), content="Updated content")]
+    )
+
+    mock_segment = SegmentDTO(
+        id=str(uuid4()),
+        pecha_segment_id="pecha-1",
+        text_id="text-1",
+        content="Updated content",
+        mapping=[],
+        type=SegmentType.SOURCE,
+    )
+    mock_update_bulk_service.return_value = [mock_segment]
+
+    response = client.put(
+        "/api/v1/segments/content",
+        json=request.model_dump(mode="json"),
+        headers={"Authorization": "Bearer admin_token"},
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    mock_update_bulk_service.assert_called_once()
+
+
+def test_update_segment_content_bulk_unauthorized():
+    request = SegmentContentBulkUpdateRequest(
+        segments=[SegmentContentUpdate(id=str(uuid4()), content="Updated content")]
+    )
+
+    response = client.put(
+        "/api/v1/segments/content",
+        json=request.model_dump(mode="json"),
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@patch("pecha_api.texts.segments.segments_views.update_segment_content_bulk_service")
+def test_update_segment_content_bulk_forbidden(mock_update_bulk_service):
+    request = SegmentContentBulkUpdateRequest(
+        segments=[SegmentContentUpdate(id=str(uuid4()), content="Updated content")]
+    )
+
+    mock_update_bulk_service.side_effect = HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=ErrorConstants.ADMIN_ERROR_MESSAGE,
+    )
+
+    response = client.put(
+        "/api/v1/segments/content",
+        json=request.model_dump(mode="json"),
+        headers={"Authorization": "Bearer user_token"},
+    )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.json()["detail"] == ErrorConstants.ADMIN_ERROR_MESSAGE

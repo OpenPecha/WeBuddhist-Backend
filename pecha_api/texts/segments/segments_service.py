@@ -7,7 +7,8 @@ from .segments_repository import (
     get_related_mapped_segments_batch,
     get_segments_by_text_id,
     delete_segments_by_text_id,
-    update_segment_by_id
+    update_segment_by_id,
+    update_segment_content_bulk,
 )
 from ...users.users_service import verify_admin_access
 from .segments_response_models import (
@@ -17,7 +18,8 @@ from .segments_response_models import (
     SegmentDTO, 
     SegmentInfoResponse,
     SegmentRootMappingResponse,
-    SegmentUpdateRequest
+    SegmentUpdateRequest,
+    SegmentContentBulkUpdateRequest,
 )
 
 from pecha_api.cache.cache_enums import CacheType
@@ -41,13 +43,15 @@ from .segments_response_models import (
 )
 
 from .segments_cache_service import (
-    set_segment_info_by_id_cache,
+    delete_segments_details_by_ids_cache,
+    get_segment_details_by_id_cache,
     get_segment_info_by_id_cache,
     get_segment_root_mapping_by_id_cache,
-    set_segment_root_mapping_by_id_cache,
     get_segments_details_by_ids_cache,
+    set_segment_details_by_id_cache,
+    set_segment_info_by_id_cache,
+    set_segment_root_mapping_by_id_cache,
     set_segments_details_by_ids_cache,
-    delete_segments_details_by_ids_cache
 )
 
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
@@ -226,3 +230,26 @@ async def update_segments_service(token: str, segment_update_request: SegmentUpd
 
 
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ErrorConstants.ADMIN_ERROR_MESSAGE)
+
+
+async def update_segment_content_bulk_service(
+    token: str,
+    bulk_update_request: SegmentContentBulkUpdateRequest,
+) -> List[SegmentDTO]:
+    is_admin = verify_admin_access(token=token)
+    if not is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ErrorConstants.ADMIN_ERROR_MESSAGE)
+
+    updated_segments = await update_segment_content_bulk(bulk_update_request=bulk_update_request)
+
+    if not updated_segments:
+        return []
+
+    segment_ids = [segment.id for segment in updated_segments]
+
+    await delete_segments_details_by_ids_cache(
+        segment_ids=segment_ids,
+        cache_type=CacheType.SEGMENTS_DETAILS,
+    )
+
+    return updated_segments

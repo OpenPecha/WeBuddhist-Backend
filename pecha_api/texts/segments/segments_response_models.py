@@ -42,6 +42,14 @@ class SegmentUpdateRequest(BaseModel):
     pecha_text_id: str
     segments: List[SegmentUpdate]
     
+class SegmentContentUpdate(BaseModel):
+    pecha_segment_id: str
+    content: str
+
+
+class SegmentContentBulkUpdateRequest(BaseModel):
+    segments: List[SegmentContentUpdate]
+
 class MappedSegmentDTO(BaseModel):
     segment_id: str
     content: str

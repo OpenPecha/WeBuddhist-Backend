@@ -11,7 +11,8 @@ from .segments_service import (
     get_segment_details_by_id, 
     get_info_by_segment_id,
     get_root_text_mapping_by_segment_id,
-    update_segments_service
+    update_segments_service,
+    update_segment_content_bulk_service,
 )
 from .segments_response_models import (
     CreateSegmentRequest,
@@ -20,7 +21,8 @@ from .segments_response_models import (
     SegmentInfoResponse,
     SegmentTranslationsResponse,
     SegmentCommentariesResponse,
-    SegmentUpdateRequest
+    SegmentUpdateRequest,
+    SegmentContentBulkUpdateRequest,
 )
 
 oauth2_scheme = HTTPBearer()
@@ -84,4 +86,15 @@ async def update_segment(
         token=authentication_credential.credentials,
         segment_update_request=segment_update_request,
 
+    )
+
+
+@segment_router.put("/content", status_code=status.HTTP_200_OK)
+async def update_segment_content_bulk(
+    bulk_update_request: SegmentContentBulkUpdateRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+) -> list[SegmentDTO]:
+    return await update_segment_content_bulk_service(
+        token=authentication_credential.credentials,
+        bulk_update_request=bulk_update_request,
     )

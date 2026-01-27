@@ -13,7 +13,8 @@ from pecha_api.texts.segments.segments_service import (
     remove_segments_by_text_id,
     fetch_segments_by_text_id,
     get_segments_details_by_ids,
-    update_segments_service
+    update_segments_service,
+    update_segment_content_bulk_service,
 )
 from pecha_api.texts.segments.segments_utils import SegmentUtils
 from pecha_api.texts.segments.segments_response_models import (
@@ -35,7 +36,9 @@ from pecha_api.texts.segments.segments_response_models import (
     SegmentRootMapping,
     MappedSegmentDTO,
     SegmentUpdateRequest,
-    SegmentUpdate
+    SegmentUpdate,
+    SegmentContentBulkUpdateRequest,
+    SegmentContentUpdate,
 )
 
 from pecha_api.texts.segments.segments_enum import SegmentType
@@ -784,3 +787,111 @@ async def test_update_segments_service_text_not_found():
             )
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+
+
+@pytest.mark.asyncio
+async def test_update_segment_content_bulk_service_success():
+    bulk_request = SegmentContentBulkUpdateRequest(
+        segments=[
+            SegmentContentUpdate(id="segment-id-1", content="Updated content")
+        ]
+    )
+
+    updated_segment = SegmentDTO(
+        id="segment-id-1",
+        pecha_segment_id="pecha-1",
+        text_id="text-1",
+        content="Updated content",
+        mapping=[],
+        type=SegmentType.SOURCE,
+    )
+
+    with patch("pecha_api.texts.segments.segments_service.verify_admin_access", return_value=True), \
+        patch(
+            "pecha_api.texts.segments.segments_service.update_segment_content_bulk",
+            new_callable=AsyncMock,
+            return_value=[updated_segment],
+        ) as mock_update, \
+        patch(
+            "pecha_api.texts.segments.segments_service.delete_segments_details_by_ids_cache",
+            new_callable=AsyncMock,
+        ) as mock_delete:
+
+        result = await update_segment_content_bulk_service(
+            token="admin-token",
+            bulk_update_request=bulk_request,
+        )
+
+        assert result == [updated_segment]
+        mock_update.assert_awaited_once_with(bulk_update_request=bulk_request)
+        mock_delete.assert_awaited_once_with(
+            segment_ids=["segment-id-1"],
+            cache_type=CacheType.SEGMENTS_DETAILS,
+        )
+
+
+@pytest.mark.asyncio
+async def test_update_segment_content_bulk_service_forbidden():
+    bulk_request = SegmentContentBulkUpdateRequest(
+        segments=[SegmentContentUpdate(id="segment-id-1", content="Updated content")]
+    )
+
+    with patch("pecha_api.texts.segments.segments_service.verify_admin_access", return_value=False):
+        with pytest.raises(HTTPException) as exc_info:
+            await update_segment_content_bulk_service(
+                token="user-token",
+                bulk_update_request=bulk_request,
+            )
+
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail == ErrorConstants.ADMIN_ERROR_MESSAGE
+
+
+@pytest.mark.asyncio
+async def test_update_segment_content_bulk_service_error_propagates():
+    bulk_request = SegmentContentBulkUpdateRequest(
+        segments=[SegmentContentUpdate(id="segment-id-1", content="Updated content")]
+    )
+
+    with patch("pecha_api.texts.segments.segments_service.verify_admin_access", return_value=True), \
+        patch(
+            "pecha_api.texts.segments.segments_service.update_segment_content_bulk",
+            new_callable=AsyncMock,
+            side_effect=HTTPException(status_code=404, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE),
+        ):
+
+        with pytest.raises(HTTPException) as exc_info:
+            await update_segment_content_bulk_service(
+                token="admin-token",
+                bulk_update_request=bulk_request,
+            )
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE
+
+
+@pytest.mark.asyncio
+async def test_update_segment_content_bulk_service_no_updates():
+    bulk_request = SegmentContentBulkUpdateRequest(
+        segments=[SegmentContentUpdate(id="segment-id-1", content="Updated content")]
+    )
+
+    with patch("pecha_api.texts.segments.segments_service.verify_admin_access", return_value=True), \
+        patch(
+            "pecha_api.texts.segments.segments_service.update_segment_content_bulk",
+            new_callable=AsyncMock,
+            return_value=[],
+        ) as mock_update, \
+        patch(
+            "pecha_api.texts.segments.segments_service.delete_segments_details_by_ids_cache",
+            new_callable=AsyncMock,
+        ) as mock_delete:
+
+        result = await update_segment_content_bulk_service(
+            token="admin-token",
+            bulk_update_request=bulk_request,
+        )
+
+        assert result == []
+        mock_update.assert_awaited_once_with(bulk_update_request=bulk_request)
+        mock_delete.assert_not_awaited()
