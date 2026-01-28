@@ -7,6 +7,7 @@ from .segments_models import Segment
 from .segments_response_models import (
     CreateSegmentRequest,
     SegmentContentBulkUpdateRequest,
+    SegmentContentUpdate,
     SegmentDTO,
     MappingResponse,
     SegmentUpdateRequest,
@@ -156,24 +157,14 @@ async def update_segment_by_id(segment_update_request: SegmentUpdateRequest) -> 
 
 
 async def update_segment_content_bulk(
-    bulk_update_request: SegmentContentBulkUpdateRequest,
+    segments_by_pecha_id: Dict[str, Segment],
+    segment_updates: List[SegmentContentUpdate],
 ) -> List[SegmentDTO]:
     try:
-        if not bulk_update_request.segments:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorConstants.INVALID_UPDATE_REQUEST)
-
-        segment_ids: List[str] = [segment_update.id for segment_update in bulk_update_request.segments]
-        segments = await Segment.get_segments_by_ids(segment_ids=segment_ids)
-        segments_by_id: Dict[str, Segment] = {str(segment.id): segment for segment in segments}
-
-        missing_ids = [segment_id for segment_id in segment_ids if segment_id not in segments_by_id]
-        if missing_ids:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE)
-
         updated_segments: List[SegmentDTO] = []
 
-        for segment_update in bulk_update_request.segments:
-            segment = segments_by_id[segment_update.id]
+        for segment_update in segment_updates:
+            segment = segments_by_pecha_id[segment_update.pecha_segment_id]
             segment.content = segment_update.content
             await segment.save()
 

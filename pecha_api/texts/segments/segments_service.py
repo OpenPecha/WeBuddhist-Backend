@@ -3,6 +3,7 @@ from .segments_repository import (
     create_segment,
     get_segment_by_id, 
     get_segments_by_ids,
+    get_segments_by_pecha_segment_ids,
     get_related_mapped_segments,
     get_related_mapped_segments_batch,
     get_segments_by_text_id,
@@ -240,7 +241,32 @@ async def update_segment_content_bulk_service(
     if not is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ErrorConstants.ADMIN_ERROR_MESSAGE)
 
-    updated_segments = await update_segment_content_bulk(bulk_update_request=bulk_update_request)
+    if not bulk_update_request.segments:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorConstants.INVALID_UPDATE_REQUEST)
+
+    pecha_segment_ids = [
+        segment_update.pecha_segment_id
+        for segment_update in bulk_update_request.segments
+    ]
+    segments = await get_segments_by_pecha_segment_ids(
+        pecha_segment_ids=pecha_segment_ids
+    )
+    segments_by_pecha_id = {
+        str(segment.pecha_segment_id): segment
+        for segment in segments
+    }
+    missing_ids = [
+        pecha_segment_id
+        for pecha_segment_id in pecha_segment_ids
+        if pecha_segment_id not in segments_by_pecha_id
+    ]
+    if missing_ids:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE)
+
+    updated_segments = await update_segment_content_bulk(
+        segments_by_pecha_id=segments_by_pecha_id,
+        segment_updates=bulk_update_request.segments,
+    )
 
     if not updated_segments:
         return []
