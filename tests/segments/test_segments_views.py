@@ -346,7 +346,7 @@ def test_update_segment_text_not_found(mock_update_segments_service):
 @patch("pecha_api.texts.segments.segments_views.update_segment_content_bulk_service")
 def test_update_segment_content_bulk_success(mock_update_bulk_service):
     request = SegmentContentBulkUpdateRequest(
-        segments=[SegmentContentUpdate(id=str(uuid4()), content="Updated content")]
+        segments=[SegmentContentUpdate(pecha_segment_id=str(uuid4()), content="Updated content")]
     )
 
     mock_segment = SegmentDTO(
@@ -371,7 +371,7 @@ def test_update_segment_content_bulk_success(mock_update_bulk_service):
 
 def test_update_segment_content_bulk_unauthorized():
     request = SegmentContentBulkUpdateRequest(
-        segments=[SegmentContentUpdate(id=str(uuid4()), content="Updated content")]
+        segments=[SegmentContentUpdate(pecha_segment_id=str(uuid4()), content="Updated content")]
     )
 
     response = client.put(
@@ -385,7 +385,7 @@ def test_update_segment_content_bulk_unauthorized():
 @patch("pecha_api.texts.segments.segments_views.update_segment_content_bulk_service")
 def test_update_segment_content_bulk_forbidden(mock_update_bulk_service):
     request = SegmentContentBulkUpdateRequest(
-        segments=[SegmentContentUpdate(id=str(uuid4()), content="Updated content")]
+        segments=[SegmentContentUpdate(pecha_segment_id=str(uuid4()), content="Updated content")]
     )
 
     mock_update_bulk_service.side_effect = HTTPException(
