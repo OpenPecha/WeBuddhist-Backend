@@ -8,13 +8,13 @@ from fastapi import HTTPException
 from pecha_api.db.database import SessionLocal
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_day_with_tasks_and_subtasks
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel
+from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id)
+from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id, get_all_unique_tags)
 
 logger = logging.getLogger(__name__)
 
@@ -185,3 +185,15 @@ async def get_plan_day_details(token: str, plan_id: UUID, day_number: int) -> Pl
             ]
         )   
         return plan_day_dto
+
+async def get_tags() -> TagsResponse:
+    try:
+        with SessionLocal() as db:
+            tags = get_all_unique_tags(db=db)
+            return TagsResponse(tags=tags)
+    except Exception as e:
+        logger.error(f"Error fetching tags: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch tags: {str(e)}"
+        )

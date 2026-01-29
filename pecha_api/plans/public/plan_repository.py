@@ -129,3 +129,14 @@ def get_published_plans_by_author_id(db: Session, author_id: UUID, skip: int, li
     total = query.count()
     rows = query.offset(skip).limit(limit).all()
     return convert_to_plan_aggregates(rows), total
+
+
+def get_all_unique_tags(db: Session) -> List[str]:
+    query = (
+        db.query(func.jsonb_array_elements_text(Plan.tags).label("tag"))
+        .filter(Plan.deleted_at.is_(None), Plan.status == PlanStatus.PUBLISHED)
+        .distinct()
+    )
+
+    results = query.all()
+    return [row.tag for row in results]
