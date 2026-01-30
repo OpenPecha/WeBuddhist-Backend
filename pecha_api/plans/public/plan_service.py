@@ -166,7 +166,7 @@ def _get_task_subtasks_dto(subtasks: List[PlanSubTask]) -> List[SubTaskDTO]:
 
 async def get_plan_day_details(token: str, plan_id: UUID, day_number: int) -> PlanDayDTO:
     """Get specific day's content with tasks"""
-    
+
     validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         plan_item = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
@@ -186,14 +186,16 @@ async def get_plan_day_details(token: str, plan_id: UUID, day_number: int) -> Pl
         )   
         return plan_day_dto
 
-async def get_tags() -> TagsResponse:
+
+async def get_tags(language: str = "en") -> TagsResponse:
     try:
         with SessionLocal() as db:
-            tags = get_all_unique_tags(db=db)
+            language_upper = language.upper()
+            tags = get_all_unique_tags(db=db, language=language_upper)
             return TagsResponse(tags=tags)
     except Exception as e:
         logger.error(f"Error fetching tags: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch tags: {str(e)}"
+            detail=f"Failed to fetch tags: {str(e)}",
         )

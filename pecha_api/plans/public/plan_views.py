@@ -33,10 +33,19 @@ async def get_plans(
 ):
     return await get_published_plans(search=search, language=language, sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
 
-@public_plans_router.get("/tags", status_code=status.HTTP_200_OK, response_model=TagsResponse)
-async def get_plan_tags():
-    return await get_tags()
-    
+
+@public_plans_router.get(
+    "/tags", status_code=status.HTTP_200_OK, response_model=TagsResponse
+)
+async def get_plan_tags(
+    language: str = Query(
+        "en",
+        description="Filter by language code (e.g., 'bo', 'en', 'zh'). Defaults to 'en'.",
+    )
+):
+    return await get_tags(language=language)
+
+
 @public_plans_router.get("/{plan_id}", status_code=status.HTTP_200_OK, response_model=PublicPlanDTO)
 async def get_plan_details(plan_id: UUID):
     return await get_published_plan(plan_id=plan_id)
