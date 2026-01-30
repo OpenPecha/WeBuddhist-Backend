@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from starlette import status
 
 from pecha_api.app import api
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, AuthorDTO, PlanDayBasic, PlanDayDTO, TaskDTO, SubTaskDTO,PlanDaysResponse
+from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, AuthorDTO, PlanDayBasic, PlanDayDTO, TaskDTO, SubTaskDTO,PlanDaysResponse, TagsResponse
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel,ContentType
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.public.plan_views import get_plan_days_list, get_plan_day_content
@@ -503,3 +503,38 @@ async def test_get_plan_day_content_no_tasks():
         assert response.id == expected_response.id
         assert response.day_number == day_number
         assert len(response.tasks) == 0
+
+@pytest.mark.asyncio
+async def test_get_plan_tags_success():
+    """Test successful retrieval of plan tags with default language='en'."""
+    mock_tags_response = TagsResponse(tags=["meditation", "sleep", "daily"])
+
+    with patch(
+        "pecha_api.plans.public.plan_views.get_tags", return_value=mock_tags_response
+    ) as mock_service:
+        response = client.get("/api/v1/plans/tags")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "tags" in data
+        assert isinstance(data["tags"], list)
+        assert data["tags"] == ["meditation", "sleep", "daily"]
+
+        mock_service.assert_called_once_with(language="en")
+
+
+@pytest.mark.asyncio
+async def test_get_plan_tags_with_language_param():
+    """Test retrieval of plan tags with specific language."""
+    mock_tags_response = TagsResponse(tags=["煙供", "教學"])
+
+    with patch(
+        "pecha_api.plans.public.plan_views.get_tags", return_value=mock_tags_response
+    ) as mock_service:
+        response = client.get("/api/v1/plans/tags?language=zh")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["tags"] == ["煙供", "教學"]
+
+        mock_service.assert_called_once_with(language="zh")

@@ -4,8 +4,8 @@ from unittest.mock import patch, MagicMock, Mock
 from fastapi import HTTPException
 from starlette import status
 
-from pecha_api.plans.public.plan_service import get_published_plans, get_published_plan,get_plan_days, get_plan_day_details
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDaysResponse, PlanDayDTO
+from pecha_api.plans.public.plan_service import get_published_plans, get_published_plan,get_plan_days, get_plan_day_details, get_tags
+from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDaysResponse, PlanDayDTO, TagsResponse
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel, LanguageCode
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.plans_enums import ContentType
@@ -753,3 +753,38 @@ async def test_get_plan_day_details_success():
         assert task.subtasks[0].content_type == ContentType.TEXT
         assert task.subtasks[0].content == "Subtask content 1"
         assert task.subtasks[0].display_order == 1
+
+@pytest.mark.asyncio
+async def test_get_tags_success(mock_db_session):
+    """Test successful retrieval of tags."""
+    mock_tags = ["meditation", "sleep", "daily"]
+
+    with patch(
+        "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
+    ), patch(
+        "pecha_api.plans.public.plan_service.get_all_unique_tags",
+        return_value=mock_tags,
+    ) as mock_repo:
+
+        result = await get_tags(language="en")
+
+        assert isinstance(result, TagsResponse)
+        assert result.tags == ["meditation", "sleep", "daily"]
+
+        mock_repo.assert_called_once_with(
+            db=mock_db_session.__enter__.return_value, language="EN"
+        )
+
+@pytest.mark.asyncio
+async def test_get_tags_empty(mock_db_session):
+    """Test retrieval when no tags exist."""
+    with patch(
+        "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
+    ), patch(
+        "pecha_api.plans.public.plan_service.get_all_unique_tags", return_value=[]
+    ) as mock_repo:
+
+        result = await get_tags(language="en")
+
+        assert isinstance(result, TagsResponse)
+        assert result.tags == []
