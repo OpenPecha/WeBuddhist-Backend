@@ -87,6 +87,7 @@ async def test_get_plans_success(sample_plans_response):
         assert "image" in plan["author"]
         
         mock_service.assert_called_once_with(
+            tag=None,
             search=None,
             language="en",
             sort_by="title",
@@ -107,6 +108,7 @@ async def test_get_plans_with_search_filter(sample_plans_response):
         assert len(data["plans"]) == 1
         
         mock_service.assert_called_once_with(
+            tag=None,
             search="meditation",
             language="en",
             sort_by="title",
@@ -127,6 +129,7 @@ async def test_get_plans_with_language_filter(sample_plans_response):
         assert len(data["plans"]) == 1
         
         mock_service.assert_called_once_with(
+            tag=None,
             search=None,
             language="en",
             sort_by="title",
@@ -147,6 +150,7 @@ async def test_get_plans_with_sorting(sample_plans_response):
         assert len(data["plans"]) == 1
         
         mock_service.assert_called_once_with(
+            tag=None,
             search=None,
             language="en",
             sort_by="subscription_count",
@@ -166,6 +170,7 @@ async def test_get_plans_with_pagination(sample_plans_response):
         data = response.json()
         
         mock_service.assert_called_once_with(
+            tag=None,
             search=None,
             language="en",
             sort_by="title",
@@ -187,6 +192,7 @@ async def test_get_plans_with_all_filters(sample_plans_response):
         data = response.json()
         
         mock_service.assert_called_once_with(
+            tag=None,
             search="meditation",
             language="en",
             sort_by="total_days",
@@ -538,3 +544,26 @@ async def test_get_plan_tags_with_language_param():
         assert data["tags"] == ["煙供", "教學"]
 
         mock_service.assert_called_once_with(language="zh")
+
+@pytest.mark.asyncio
+async def test_get_plans_with_tag_filter(sample_plans_response):
+    """Test retrieval of plans with tag filter."""
+    with patch(
+        "pecha_api.plans.public.plan_views.get_published_plans",
+        return_value=sample_plans_response,
+    ) as mock_service:
+        response = client.get("/api/v1/plans?tag=meditation")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert len(data["plans"]) == 1
+
+        mock_service.assert_called_once_with(
+            tag="meditation",
+            search=None,
+            language="en",
+            sort_by="title",
+            sort_order="asc",
+            skip=0,
+            limit=20,
+        )

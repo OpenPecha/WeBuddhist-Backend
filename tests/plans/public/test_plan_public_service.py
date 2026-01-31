@@ -106,7 +106,8 @@ async def test_get_published_plans_success(sample_plan_aggregate, mock_db_sessio
             search=None,
             language="EN",  
             sort_by="title",
-            sort_order="asc"
+            sort_order="asc",
+            tag=None
         )
 
 
@@ -134,7 +135,8 @@ async def test_get_published_plans_with_search(sample_plan_aggregate, mock_db_se
             search="meditation",
             language="EN", 
             sort_by="title",
-            sort_order="asc"
+            sort_order="asc",
+            tag=None
         )
 
 
@@ -162,7 +164,8 @@ async def test_get_published_plans_with_language_filter(sample_plan_aggregate, m
             search=None,
             language="EN", 
             sort_by="title",
-            sort_order="asc"
+            sort_order="asc",
+            tag=None
         )
 
 
@@ -416,7 +419,8 @@ async def test_get_published_plans_with_pagination(sample_plan_aggregate, mock_d
             search=None,
             language="EN",  # Service converts to uppercase before calling repository
             sort_by="title",
-            sort_order="asc"
+            sort_order="asc",
+            tag=None
         )
 
 
@@ -788,3 +792,41 @@ async def test_get_tags_empty(mock_db_session):
 
         assert isinstance(result, TagsResponse)
         assert result.tags == []
+
+@pytest.mark.asyncio
+async def test_get_published_plans_with_tag_filter(
+    sample_plan_aggregate, mock_db_session
+):
+    with patch(
+        "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
+    ), patch(
+        "pecha_api.plans.public.plan_service.get_published_plans_from_db",
+        return_value=[sample_plan_aggregate],
+    ) as mock_repo, patch(
+        "pecha_api.plans.public.plan_service.get_published_plans_count", return_value=1
+    ), patch(
+        "pecha_api.plans.public.plan_service.generate_presigned_access_url",
+        return_value="https://bucket.s3.amazonaws.com/presigned-url",
+    ):
+
+        result = await get_published_plans(
+            tag="meditation",
+            search=None,
+            language="en",
+            sort_by="title",
+            sort_order="asc",
+            skip=0,
+            limit=20,
+        )
+
+        assert len(result.plans) == 1
+        mock_repo.assert_called_once_with(
+            db=mock_db_session.__enter__.return_value,
+            skip=0,
+            limit=20,
+            search=None,
+            language="EN",
+            sort_by="title",
+            sort_order="asc",
+            tag="meditation",
+        )
