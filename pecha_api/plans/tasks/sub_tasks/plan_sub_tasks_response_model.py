@@ -5,12 +5,12 @@ from typing import List
 from uuid import UUID
 
 
-
-
 class SubTaskRequestFields(BaseModel):
     content_type: str
     content: str
     duration: Optional[str] = None
+    source_text_id: Optional[UUID] = None
+    pecha_segment_id: Optional[str] = None
 
 
 class SubTaskRequest(BaseModel):
@@ -24,6 +24,8 @@ class SubTaskDTO(BaseModel):
     content: str
     duration: Optional[str] = None
     image_url: Optional[str] = None
+    source_text_id: Optional[UUID] = None
+    pecha_segment_id: Optional[str] = None
     display_order: int
 
 class SubTaskResponse(BaseModel):
