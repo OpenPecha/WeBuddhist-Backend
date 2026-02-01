@@ -73,7 +73,9 @@ DEFAULTS = dict(
     COLLECTION_LANGUAGES = ["bo", "en", "zh"],
 
     #pecha api configuration
-    EXTERNAL_PECHA_API_URL="https://api-aq25662yyq-uc.a.run.app",
+    EXTERNAL_PECHA_API_URL="",
+
+    EXTERNAL_TITLE_SEARCH_API_URL="",
 
     SQS_TIMEOUT=1800,
 
