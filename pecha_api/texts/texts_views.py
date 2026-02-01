@@ -12,7 +12,8 @@ from .texts_service import (
     get_text_details_by_text_id,
     create_table_of_content,
     get_text_details_by_text_id,
-    get_commentaries_by_text_id
+    get_commentaries_by_text_id,
+    get_titles_and_ids_by_query
 )
 from .texts_response_models import (
     CreateTextRequest,
@@ -104,3 +105,17 @@ async def get_commentaries(
         limit: int = Query(default=10, le=100)
 ) -> List[TextDTO]:
     return await get_commentaries_by_text_id(text_id=text_id, skip=skip, limit=limit)
+
+@text_router.get("/title-search", status_code=status.HTTP_200_OK)
+async def search_titles(
+    title: Optional[str] = Query(default=None, description="Filter by title"),
+    author: Optional[str] = Query(default=None, description="Filter by author"),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0)
+) -> List[dict]:
+    return await get_titles_and_ids_by_query(
+        title=title,
+        author=author,
+        limit=limit,
+        offset=offset
+    )
