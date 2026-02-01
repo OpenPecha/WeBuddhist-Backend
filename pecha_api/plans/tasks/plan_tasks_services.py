@@ -111,8 +111,6 @@ async def change_task_order_service(token: str, day_id: UUID, update_task_order_
         update_task_order(db=db, day_id=day_id, update_task_orders=update_task_order_request.tasks)
 
 
-
-
 async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskResponse:
     current_user = validate_and_extract_author_details(token=token)
 
@@ -131,6 +129,8 @@ async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskRespons
                     content_type=sub_task.content_type,
                     content=content_and_image_url.content,
                     duration=sub_task.duration,
+                    source_text_id=sub_task.source_text_id,
+                    pecha_segment_id=sub_task.pecha_segment_id,
                     image_url=content_and_image_url.image_url,
                     display_order=sub_task.display_order,
                 )
