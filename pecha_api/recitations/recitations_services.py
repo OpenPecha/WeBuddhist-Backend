@@ -3,7 +3,7 @@ from pecha_api.texts.texts_enums import TextType
 from typing import List, Dict, Union,Optional
 from pecha_api.collections.collections_repository import get_all_collections_by_parent, get_collection_id_by_slug
 from pecha_api.collections.collections_service import get_collection
-from pecha_api.recitations.recitations_repository import apply_search_recitation_title_filter
+from pecha_api.recitations.recitations_repository import apply_search_recitation_title_filter, get_text_images_by_text_ids
 from pecha_api.recitations.recitations_response_models import RecitationDTO, RecitationsResponse
 from pecha_api.texts.texts_repository import get_all_texts_by_collection
 from pecha_api.texts.texts_service import get_root_text_by_collection_id
@@ -30,6 +30,9 @@ from pecha_api.recitations.recitations_response_models import (
 )
 from pecha_api.cache.cache_enums import CacheType
 from pecha_api.recitations.recication_cache_services import set_recitation_by_text_id_cache, get_recitation_by_text_id_cache
+from pecha_api.db.database import SessionLocal
+from pecha_api.uploads.S3_utils import generate_presigned_access_url
+from pecha_api.config import get
 
 
 async def get_list_of_recitations_service(search: Optional[str] = None, language: str = "en") -> RecitationsResponse:
@@ -40,7 +43,29 @@ async def get_list_of_recitations_service(search: Optional[str] = None, language
     recitation_list_text_response: RecitationsResponse = await get_root_text_by_collection_id(collection_id=collection_id, language=language)
 
     serched_texts=apply_search_recitation_title_filter(texts=recitation_list_text_response.recitations, search=search)
-    return RecitationsResponse(recitations=serched_texts)
+    text_ids = [
+        str(recitation.text_id) for recitation in serched_texts
+    ]  
+    with SessionLocal() as db_session:
+        image_keys = get_text_images_by_text_ids(db=db_session, text_ids=text_ids)
+
+    image_urls = {
+        text_id: generate_presigned_access_url(
+            bucket_name=get("AWS_BUCKET_NAME"), s3_key=s3_key
+        )
+        for text_id, s3_key in image_keys.items()
+    }
+
+    recitations_with_images = [
+        RecitationDTO(
+            title=recitation.title,
+            text_id=recitation.text_id,
+            image_url=image_urls.get(str(recitation.text_id)),
+        )
+        for recitation in serched_texts
+    ]
+
+    return RecitationsResponse(recitations=recitations_with_images)
 
 
 async def get_recitation_details_service(text_id: str, recitation_details_request: RecitationDetailsRequest) -> RecitationDetailsResponse:
