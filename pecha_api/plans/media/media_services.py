@@ -9,12 +9,16 @@ from ...config import get, get_int
 from ...image_utils import ImageUtils
 from ...uploads.S3_utils import upload_bytes, generate_presigned_access_url
 from ...plans.authors.plan_authors_service import validate_and_extract_author_details
-from .media_response_models import PlanUploadResponse, ImageUrlModel
+from .media_response_models import PlanUploadResponse, ImageUrlModel, TextImageUploadResponse
 from ...plans.response_message import (
     IMAGE_UPLOAD_SUCCESS,
     INVALID_FILE_FORMAT,
     FILE_TOO_LARGE
 )
+from ...texts.texts_models import Text
+from .media_repository import create_text_image
+from ...error_contants import ErrorConstants
+from ...db.database import SessionLocal
 
 
 def validate_file(file: UploadFile) -> None:
@@ -174,6 +178,76 @@ def upload_plan_image(token: str, plan_id: Optional[str], file: UploadFile) -> P
     return PlanUploadResponse(
         image=image_url_model,
         key=upload_keys[2],  # Use original image key as primary key
+        path=image_path_full,
+        message=IMAGE_UPLOAD_SUCCESS
+    )
+
+
+async def upload_text_image(token: str, text_id: str, file: UploadFile) -> TextImageUploadResponse:
+
+    validate_and_extract_author_details(token=token)
+    validate_file(file)
+
+    text_details = await Text.get_text(text_id=text_id)
+    if not text_details:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
+
+    file.file.seek(0)
+    try:
+        original_image = Image.open(file.file)
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Invalid image file")
+
+    file_name, _ = os.path.splitext(file.filename)
+    unique_id = str(uuid.uuid4())
+    path = "images/text_images"
+    image_path_full = f"{path}/{text_id}/{unique_id}"
+
+    thumbnail_image = compress_image_to_size(original_image.copy(), 200, quality=80)
+    medium_image = compress_image_to_size(original_image.copy(), 800, quality=85)
+    original_compressed = compress_image_original_size(original_image.copy(), quality=90)
+
+    image_versions = [
+        ('thumbnail', thumbnail_image),
+        ('medium', medium_image),
+        ('original', original_compressed)
+    ]
+
+    image_urls = {}
+    upload_keys = []
+
+    for version_name, compressed_image in image_versions:
+        s3_key = f"{image_path_full}/{version_name}/{file_name}.jpg"
+
+        upload_key = upload_bytes(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=s3_key,
+            file=compressed_image,
+            content_type='image/jpeg'
+        )
+        upload_keys.append(upload_key)
+
+        presigned_url = generate_presigned_access_url(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=upload_key
+        )
+
+        image_urls[version_name] = presigned_url
+
+    with SessionLocal() as db_session:
+        text_image = create_text_image(db=db_session, text_id=text_id, image_url=upload_keys[2])
+
+    image_url_model = ImageUrlModel(
+        thumbnail=image_urls['thumbnail'],
+        medium=image_urls['medium'],
+        original=image_urls['original']
+    )
+
+    return TextImageUploadResponse(
+        id=str(text_image.id),
+        text_id=text_id,
+        image=image_url_model,
+        key=upload_keys[2],
         path=image_path_full,
         message=IMAGE_UPLOAD_SUCCESS
     )
