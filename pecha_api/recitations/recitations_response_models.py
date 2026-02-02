@@ -1,10 +1,11 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 from pydantic import BaseModel, Field
 from uuid import UUID
 
 class RecitationDTO(BaseModel):
     title: str
     text_id: UUID
+    image_url: Optional[str] = None  
 
 class RecitationsResponse(BaseModel):
     recitations: List[RecitationDTO]
