@@ -34,22 +34,13 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.config import get
 
-
-async def get_list_of_recitations_service(search: Optional[str] = None, language: str = "en") -> RecitationsResponse:
-    collection_id = await get_collection_id_by_slug(slug="Liturgy")
-    if collection_id is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.COLLECTION_NOT_FOUND)
+def get_recitations_with_image_urls(recitations: List[RecitationDTO]) -> List[RecitationDTO]:
+    text_ids = [str(recitation.text_id) for recitation in recitations]
     
-    recitation_list_text_response: RecitationsResponse = await get_root_text_by_collection_id(collection_id=collection_id, language=language)
-
-    serched_texts=apply_search_recitation_title_filter(texts=recitation_list_text_response.recitations, search=search)
-    text_ids = [
-        str(recitation.text_id) for recitation in serched_texts
-    ]  
     with SessionLocal() as db_session:
         image_keys = get_text_images_by_text_ids(db=db_session, text_ids=text_ids)
 
-    image_urls = {
+    image_url_map: Dict[str, str] = {
         text_id: generate_presigned_access_url(
             bucket_name=get("AWS_BUCKET_NAME"), s3_key=s3_key
         )
@@ -60,11 +51,23 @@ async def get_list_of_recitations_service(search: Optional[str] = None, language
         RecitationDTO(
             title=recitation.title,
             text_id=recitation.text_id,
-            image_url=image_urls.get(str(recitation.text_id)),
+            image_url=image_url_map.get(str(recitation.text_id)),
         )
-        for recitation in serched_texts
+        for recitation in recitations
     ]
 
+    return recitations_with_images
+
+async def get_list_of_recitations_service(search: Optional[str] = None, language: str = "en") -> RecitationsResponse:
+    collection_id = await get_collection_id_by_slug(slug="Liturgy")
+    if collection_id is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.COLLECTION_NOT_FOUND)
+    
+    recitation_list_text_response: RecitationsResponse = await get_root_text_by_collection_id(collection_id=collection_id, language=language)
+
+    serched_texts=apply_search_recitation_title_filter(texts=recitation_list_text_response.recitations, search=search)
+    recitations_with_images = get_recitations_with_image_urls(recitations=serched_texts)
+    
     return RecitationsResponse(recitations=recitations_with_images)
 
 
