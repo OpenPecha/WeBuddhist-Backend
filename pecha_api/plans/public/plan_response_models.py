@@ -82,4 +82,7 @@ class PlansRepositoryResponse(BaseModel):
     plan_info: List[PlanWithAggregates]
     total: int
 
+class TagsResponse(BaseModel):
+    tags: List[str]
+    
 TaskDTO.model_rebuild()
