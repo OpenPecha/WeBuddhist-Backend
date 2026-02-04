@@ -116,14 +116,9 @@ def build_image_versions(original_image: Image.Image) -> list[tuple[str, io.Byte
     ]
 
 
-def upload_image_versions(
-    *,
-    image_path_full: str,
-    file_name: str,
-    image_versions: list[tuple[str, io.BytesIO]],
-) -> tuple[ImageUrlModel, list[str]]:
+def upload_image_versions(*, image_path_full: str, file_name: str, image_versions: list[tuple[str, io.BytesIO]]) -> tuple[ImageUrlModel, str]:
     image_urls = {}
-    upload_keys = []
+    original_key = ""
 
     for version_name, compressed_image in image_versions:
         s3_key = f"{image_path_full}/{version_name}/{file_name}.jpg"
@@ -133,7 +128,8 @@ def upload_image_versions(
             file=compressed_image,
             content_type="image/jpeg",
         )
-        upload_keys.append(upload_key)
+        if version_name == "original":
+            original_key = upload_key
 
         presigned_url = generate_presigned_access_url(
             bucket_name=get("AWS_BUCKET_NAME"),
@@ -147,7 +143,19 @@ def upload_image_versions(
         medium=image_urls["medium"],
         original=image_urls["original"],
     )
-    return image_url_model, upload_keys
+    return image_url_model, original_key
+
+
+def prepare_image_upload(*, file: UploadFile, image_path_full: str) -> tuple[ImageUrlModel, str]:
+        
+    original_image = read_image_from_upload(file)
+    file_name, _ = os.path.splitext(file.filename)
+    image_versions = build_image_versions(original_image)
+    return upload_image_versions(
+        image_path_full=image_path_full,
+        file_name=file_name,
+        image_versions=image_versions,
+    )
 
 
 def upload_plan_image(token: str, plan_id: Optional[str], file: UploadFile) -> PlanUploadResponse:
@@ -155,23 +163,18 @@ def upload_plan_image(token: str, plan_id: Optional[str], file: UploadFile) -> P
     validate_and_extract_author_details(token=token)
     validate_file(file)
     
-    original_image = read_image_from_upload(file)
-    
-    file_name, _ = os.path.splitext(file.filename)
     unique_id = str(uuid.uuid4())
     path = "images/plan_images"
     image_path_full = f"{path}/{plan_id}/{unique_id}" if plan_id is not None else f"{path}/{unique_id}"
-    
-    image_versions = build_image_versions(original_image)
-    image_url_model, upload_keys = upload_image_versions(
+
+    image_url_model, original_key = prepare_image_upload(
+        file=file,
         image_path_full=image_path_full,
-        file_name=file_name,
-        image_versions=image_versions,
     )
     
     return PlanUploadResponse(
         image=image_url_model,
-        key=upload_keys[2],  # Use original image key as primary key
+        key=original_key,
         path=image_path_full,
         message=IMAGE_UPLOAD_SUCCESS
     )
@@ -186,28 +189,22 @@ async def upload_text_image(token: str, text_id: str, file: UploadFile) -> TextI
     if not text_details:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
 
-    original_image = read_image_from_upload(file)
-
-    file_name, _ = os.path.splitext(file.filename)
     unique_id = str(uuid.uuid4())
     path = "images/text_images"
     image_path_full = f"{path}/{text_id}/{unique_id}"
-
-    image_versions = build_image_versions(original_image)
-    image_url_model, upload_keys = upload_image_versions(
+    image_url_model, original_key = prepare_image_upload(
+        file=file,
         image_path_full=image_path_full,
-        file_name=file_name,
-        image_versions=image_versions,
     )
 
     with SessionLocal() as db_session:
-        text_image = create_text_image(db=db_session, text_id=text_id, image_url=upload_keys[2])
+        text_image = create_text_image(db=db_session, text_id=text_id, image_url=original_key)
 
     return TextImageUploadResponse(
         id=str(text_image.id),
         text_id=text_id,
         image=image_url_model,
-        key=upload_keys[2],
+        key=original_key,
         path=image_path_full,
         message=IMAGE_UPLOAD_SUCCESS
     )
