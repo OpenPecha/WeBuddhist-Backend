@@ -23,7 +23,8 @@ from .texts_response_models import (
     TextDTO,
     TextVersionResponse,
     DetailTableOfContentResponse,
-    TextDetailsRequest
+    TextDetailsRequest,
+    TitleSearchResult
 )
 
 oauth2_scheme = HTTPBearer()
@@ -108,11 +109,11 @@ async def get_commentaries(
 
 @text_router.get("/title-search", status_code=status.HTTP_200_OK)
 async def search_titles(
-    title: Optional[str] = Query(default=None, description="Filter by title"),
-    author: Optional[str] = Query(default=None, description="Filter by author"),
-    limit: int = Query(default=20, ge=1, le=100),
-    offset: int = Query(default=0, ge=0)
-) -> List[dict]:
+    title: Optional[str] = Query(default=None),
+    author: Optional[str] = Query(default=None),
+    limit: int = Query(default=20),
+    offset: int = Query(default=0)
+) -> List[TitleSearchResult]:
     return await get_titles_and_ids_by_query(
         title=title,
         author=author,

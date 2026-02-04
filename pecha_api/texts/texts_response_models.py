@@ -52,6 +52,10 @@ class TextDTOResponse(BaseModel):
     limit: int
     total: int
 
+class TitleSearchResult(BaseModel):
+    id: str
+    title: str
+
 # Text TOC Response Models
 class Translation(BaseModel):
     text_id: str

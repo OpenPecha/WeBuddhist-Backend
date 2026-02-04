@@ -38,7 +38,8 @@ from .texts_response_models import (
     TextDetailsRequest,
     Section,
     DetailTableOfContentResponse,
-    TextsByPechaTextIdsRequest
+    TextsByPechaTextIdsRequest,
+    TitleSearchResult
 )
 
 from pecha_api.recitations.recitations_response_models import(
@@ -47,6 +48,10 @@ from pecha_api.recitations.recitations_response_models import(
 )
 
 from pecha_api.constants import Constants
+from pecha_api.plans.response_message import (
+    EXTERNAL_PECHA_API_URL_NOT_CONFIGURED,
+    TITLE_OR_AUTHOR_QUERY_REQUIRED,
+)
 
 from .groups.groups_service import (
     validate_group_exists
@@ -94,7 +99,7 @@ EXTERNAL_TITLE_SEARCH_API_URL = get("EXTERNAL_TITLE_SEARCH_API_URL")
 ACCEPT_JSON_HEADER = {"Accept": "application/json"}
 
 
-def _extract_title_for_language(title_payload: object, language: Optional[str]) -> Optional[str]:
+def extract_title_for_language(title_payload: object, language: Optional[str]) -> Optional[str]:
     if isinstance(title_payload, dict):
         if language and isinstance(title_payload.get(language), str):
             return title_payload.get(language)
@@ -159,17 +164,17 @@ async def get_titles_and_ids_by_query(
     title: Optional[str],
     author: Optional[str],
     limit: int,
-    offset: int,
-) -> List[Dict[str, str]]:
+    offset: int
+) -> List[TitleSearchResult]:
     if not title and not author:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="title or author query is required"
+            detail=TITLE_OR_AUTHOR_QUERY_REQUIRED
         )
     if not EXTERNAL_TITLE_SEARCH_API_URL:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="External Pecha API URL is not configured"
+            detail=EXTERNAL_PECHA_API_URL_NOT_CONFIGURED
         )
 
     params: Dict[str, object] = {"limit": limit, "offset": offset}
@@ -194,7 +199,7 @@ async def get_titles_and_ids_by_query(
         if not isinstance(item, dict):
             continue
         language = item.get("language")
-        title_value = _extract_title_for_language(item.get("title"), language)
+        title_value = extract_title_for_language(item.get("title"), language)
         if title_value:
             titles.append(title_value)
 
@@ -203,7 +208,7 @@ async def get_titles_and_ids_by_query(
         return []
 
     texts = await get_texts_by_titles(titles=unique_titles)
-    return [{"id": str(text.id), "title": text.title} for text in texts]
+    return [TitleSearchResult(id=str(text.id), title=text.title) for text in texts]
 
 
 async def get_sheet(published_by: Optional[str] = None, is_published: Optional[bool] = None, sort_by: Optional[SortBy] = None, sort_order: Optional[SortOrder] = None, skip: int = 0, limit: int = 10):
