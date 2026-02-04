@@ -1,4 +1,5 @@
 from unittest.mock import AsyncMock, patch, MagicMock, Mock
+import httpx
 from fastapi import HTTPException
 from uuid import uuid4
 
@@ -3729,3 +3730,307 @@ async def test_get_titles_and_ids_by_query_success():
     called_titles = mock_get_texts.call_args.kwargs["titles"]
     assert "A Title" in called_titles
     assert "མཚན" in called_titles
+
+
+def test_extract_title_for_language_variants():
+    """Test extract_title_for_language with dict, string, and other payloads"""
+    from pecha_api.texts.texts_service import extract_title_for_language
+
+    assert extract_title_for_language({"bo": "མཚན", "en": "Title"}, "bo") == "མཚན"
+    assert extract_title_for_language({"en": "  ", "zh": "Title"}, "fr") == "Title"
+    assert extract_title_for_language("  A Title  ", "bo") == "A Title"
+    assert extract_title_for_language(12345, "bo") is None
+
+
+@pytest.mark.asyncio
+async def test_get_text_by_text_id_or_collection_cache_hit():
+    """Test get_text_by_text_id_or_collection returns cached data"""
+    text_id = "text_id_1"
+    cached_text = TextDTO(
+        id=text_id,
+        title="Cached Title",
+        language="bo",
+        group_id="group_id_1",
+        type="root_text",
+        is_published=True,
+        created_date="2025-03-21 09:40:34.025024",
+        updated_date="2025-03-21 09:40:34.025035",
+        published_date="2025-03-21 09:40:34.025038",
+        published_by="pecha",
+        categories=[],
+        views=0
+    )
+
+    with patch("pecha_api.texts.texts_service.get_text_by_text_id_or_collection_cache", new_callable=AsyncMock, return_value=cached_text) as mock_get_cache, \
+        patch("pecha_api.texts.texts_service.set_text_by_text_id_or_collection_cache", new_callable=AsyncMock) as mock_set_cache, \
+        patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock) as mock_get_detail:
+        result = await get_text_by_text_id_or_collection(text_id=text_id, collection_id=None)
+
+    assert result == cached_text
+    mock_get_cache.assert_awaited_once()
+    mock_set_cache.assert_not_awaited()
+    mock_get_detail.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_titles_and_ids_by_query_requires_title_or_author():
+    """Test get_titles_and_ids_by_query requires title or author"""
+    with pytest.raises(HTTPException) as exc_info:
+        await get_titles_and_ids_by_query(title=None, author=None, limit=10, offset=0)
+
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_get_titles_and_ids_by_query_missing_external_url():
+    """Test get_titles_and_ids_by_query raises when API URL is missing"""
+    with patch("pecha_api.texts.texts_service.EXTERNAL_TITLE_SEARCH_API_URL", None):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_titles_and_ids_by_query(title="Test", author=None, limit=10, offset=0)
+
+    assert exc_info.value.status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_get_titles_and_ids_by_query_author_param_and_empty_titles():
+    """Test get_titles_and_ids_by_query with author-only and no valid titles"""
+    mock_response_data = [
+        {"title": {"en": "  "}},
+        "not-a-dict"
+    ]
+
+    mock_http_response = Mock()
+    mock_http_response.json.return_value = mock_response_data
+    mock_http_response.raise_for_status = Mock()
+
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=mock_http_response)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("pecha_api.texts.texts_service.EXTERNAL_TITLE_SEARCH_API_URL", "https://external.example"), \
+        patch("httpx.AsyncClient", return_value=mock_client), \
+        patch("pecha_api.texts.texts_service.get_texts_by_titles", new_callable=AsyncMock) as mock_get_texts:
+        result = await get_titles_and_ids_by_query(
+            title=None,
+            author="Author",
+            limit=20,
+            offset=0
+        )
+
+    assert result == []
+    call_args = mock_client.get.call_args
+    assert call_args.kwargs["params"]["author"] == "Author"
+    assert "title" not in call_args.kwargs["params"]
+    mock_get_texts.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_titles_and_ids_by_query_http_status_error():
+    """Test get_titles_and_ids_by_query handles HTTPStatusError"""
+    mock_request = httpx.Request("GET", "https://external.example/v2/texts")
+    mock_response = httpx.Response(500, request=mock_request)
+
+    mock_http_response = Mock()
+    mock_http_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "Server error",
+        request=mock_request,
+        response=mock_response
+    )
+
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=mock_http_response)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("pecha_api.texts.texts_service.EXTERNAL_TITLE_SEARCH_API_URL", "https://external.example"), \
+        patch("httpx.AsyncClient", return_value=mock_client), \
+        patch("pecha_api.texts.texts_service.handle_http_status_error", side_effect=HTTPException(status_code=502, detail="Bad Gateway")) as mock_handle:
+        with pytest.raises(HTTPException) as exc_info:
+            await get_titles_and_ids_by_query(title="Test", author=None, limit=10, offset=0)
+
+    assert exc_info.value.status_code == 502
+    mock_handle.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_titles_and_ids_by_query_request_error():
+    """Test get_titles_and_ids_by_query handles RequestError"""
+    mock_request = httpx.Request("GET", "https://external.example/v2/texts")
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(side_effect=httpx.RequestError("Network error", request=mock_request))
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("pecha_api.texts.texts_service.EXTERNAL_TITLE_SEARCH_API_URL", "https://external.example"), \
+        patch("httpx.AsyncClient", return_value=mock_client), \
+        patch("pecha_api.texts.texts_service.handle_request_error", side_effect=HTTPException(status_code=503, detail="Service unavailable")) as mock_handle:
+        with pytest.raises(HTTPException) as exc_info:
+            await get_titles_and_ids_by_query(title="Test", author=None, limit=10, offset=0)
+
+    assert exc_info.value.status_code == 503
+    mock_handle.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_get_texts_by_collection_id_skip_duplicate_and_limit():
+    """Test _get_texts_by_collection_id skip, duplicate, and limit handling"""
+    from pecha_api.texts.texts_service import _get_texts_by_collection_id
+
+    class MockText:
+        def __init__(self, text_id: str, group_id: str, language: str):
+            self.id = text_id
+            self.pecha_text_id = f"pecha_{text_id}"
+            self.title = f"title_{text_id}"
+            self.language = language
+            self.group_id = group_id
+            self.type = "root_text"
+            self.is_published = True
+            self.created_date = "2025-01-01T00:00:00"
+            self.updated_date = "2025-01-01T00:00:00"
+            self.published_date = "2025-01-01T00:00:00"
+            self.published_by = "user_1"
+
+    texts = [
+        MockText("1", "g1", "bo"),
+        MockText("2", "g1", "bo"),
+        MockText("3", "g2", "bo")
+    ]
+
+    with patch("pecha_api.texts.texts_service.get_all_texts_by_collection", new_callable=AsyncMock, return_value=texts), \
+        patch("pecha_api.texts.texts_service.TextUtils.get_language_priority", return_value=0):
+        result, total_unique_group_ids = await _get_texts_by_collection_id(
+            collection_id="collection_1",
+            language="bo",
+            skip=0,
+            limit=10
+        )
+
+    assert total_unique_group_ids == 2
+    assert len(result) == 2
+    assert result[0].group_id == "g1"
+    assert result[1].group_id == "g2"
+
+
+@pytest.mark.asyncio
+async def test_get_texts_by_collection_id_skip_first_group():
+    """Test _get_texts_by_collection_id skip branch"""
+    from pecha_api.texts.texts_service import _get_texts_by_collection_id
+
+    class MockText:
+        def __init__(self, text_id: str, group_id: str):
+            self.id = text_id
+            self.pecha_text_id = f"pecha_{text_id}"
+            self.title = f"title_{text_id}"
+            self.language = "bo"
+            self.group_id = group_id
+            self.type = "root_text"
+            self.is_published = True
+            self.created_date = "2025-01-01T00:00:00"
+            self.updated_date = "2025-01-01T00:00:00"
+            self.published_date = "2025-01-01T00:00:00"
+            self.published_by = "user_1"
+
+    texts = [
+        MockText("1", "g1"),
+        MockText("2", "g2")
+    ]
+
+    with patch("pecha_api.texts.texts_service.get_all_texts_by_collection", new_callable=AsyncMock, return_value=texts), \
+        patch("pecha_api.texts.texts_service.TextUtils.get_language_priority", return_value=0):
+        result, _ = await _get_texts_by_collection_id(
+            collection_id="collection_1",
+            language="bo",
+            skip=1,
+            limit=10
+        )
+
+    assert len(result) == 1
+    assert result[0].group_id == "g2"
+
+
+@pytest.mark.asyncio
+async def test_get_texts_by_collection_id_breaks_on_limit():
+    """Test _get_texts_by_collection_id stops at limit"""
+    from pecha_api.texts.texts_service import _get_texts_by_collection_id
+
+    class MockText:
+        def __init__(self, text_id: str, group_id: str):
+            self.id = text_id
+            self.pecha_text_id = f"pecha_{text_id}"
+            self.title = f"title_{text_id}"
+            self.language = "bo"
+            self.group_id = group_id
+            self.type = "root_text"
+            self.is_published = True
+            self.created_date = "2025-01-01T00:00:00"
+            self.updated_date = "2025-01-01T00:00:00"
+            self.published_date = "2025-01-01T00:00:00"
+            self.published_by = "user_1"
+
+    texts = [
+        MockText("1", "g1"),
+        MockText("2", "g2")
+    ]
+
+    with patch("pecha_api.texts.texts_service.get_all_texts_by_collection", new_callable=AsyncMock, return_value=texts), \
+        patch("pecha_api.texts.texts_service.TextUtils.get_language_priority", return_value=0):
+        result, _ = await _get_texts_by_collection_id(
+            collection_id="collection_1",
+            language="bo",
+            skip=0,
+            limit=1
+        )
+
+    assert len(result) == 1
+    assert result[0].group_id == "g1"
+
+
+def test_get_first_segment_and_table_of_content_nested_sections():
+    """Test _get_first_segment_and_table_of_content_ finds nested segment"""
+    from pecha_api.texts.texts_service import _get_first_segment_and_table_of_content_
+
+    table_of_contents = [
+        TableOfContent(
+            id="toc_1",
+            text_id="text_id",
+            type=TableOfContentType.TEXT,
+            sections=[
+                Section(
+                    id="section_1",
+                    title="Section 1",
+                    section_number=1,
+                    segments=[],
+                    sections=[
+                        Section(
+                            id="section_2",
+                            title="Section 2",
+                            section_number=2,
+                            segments=[TextSegment(segment_id="seg_2", segment_number=1)],
+                            sections=[]
+                        )
+                    ]
+                )
+            ]
+        )
+    ]
+
+    segment_id, table_of_content = _get_first_segment_and_table_of_content_(
+        table_of_contents=table_of_contents
+    )
+
+    assert segment_id == "seg_2"
+    assert table_of_content is not None
+
+
+@pytest.mark.asyncio
+async def test_get_commentaries_by_text_id_returns_not_found_when_false():
+    """Test get_commentaries_by_text_id raises 404 when text is invalid"""
+    text_id = "missing_text_id"
+
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=False):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_commentaries_by_text_id(text_id=text_id, skip=0, limit=10)
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
