@@ -2542,6 +2542,137 @@ def test_get_first_segment_and_table_of_content_no_segments():
     assert segment_id is None
     assert table_of_content is None
 
+@pytest.mark.asyncio
+async def test_receive_table_of_content_with_content_and_segment_id():
+    """Test _receive_table_of_content with content_id and segment_id"""
+    from pecha_api.texts.texts_service import _receive_table_of_content
+
+    text_details_request = TextDetailsRequest(content_id="content_1", segment_id="seg_1")
+    mock_table_of_content = TableOfContent(
+        id="toc_1",
+        text_id="text_id",
+        type=TableOfContentType.TEXT,
+        sections=[
+            Section(
+                id="section_1",
+                title="Section 1",
+                section_number=1,
+                segments=[
+                    TextSegment(segment_id="seg_1", segment_number=1)
+                ],
+                sections=[]
+            )
+        ]
+    )
+
+    with patch(
+        "pecha_api.texts.texts_service.get_table_of_content_by_content_id",
+        new_callable=AsyncMock,
+        return_value=mock_table_of_content
+    ) as mock_get_table_of_content_by_content_id, patch(
+        "pecha_api.texts.texts_service.get_contents_by_id",
+        new_callable=AsyncMock
+    ) as mock_get_contents_by_id:
+        result = await _receive_table_of_content(text_id="text_id", text_details_request=text_details_request)
+
+    assert result == mock_table_of_content
+    mock_get_table_of_content_by_content_id.assert_awaited_once_with(content_id="content_1")
+    mock_get_contents_by_id.assert_not_awaited()
+
+@pytest.mark.asyncio
+async def test_receive_table_of_content_with_segment_id_only():
+    """Test _receive_table_of_content with only segment_id"""
+    from pecha_api.texts.texts_service import _receive_table_of_content
+
+    text_details_request = TextDetailsRequest(segment_id="seg_2")
+    mock_table_of_contents = [
+        TableOfContent(
+            id="toc_1",
+            text_id="text_id",
+            type=TableOfContentType.TEXT,
+            sections=[]
+        )
+    ]
+    expected_table_of_content = TableOfContent(
+        id="toc_2",
+        text_id="text_id",
+        type=TableOfContentType.TEXT,
+        sections=[]
+    )
+
+    with patch(
+        "pecha_api.texts.texts_service.get_contents_by_id",
+        new_callable=AsyncMock,
+        return_value=mock_table_of_contents
+    ) as mock_get_contents_by_id, patch(
+        "pecha_api.texts.texts_service._search_table_of_content_where_segment_id_exists",
+        return_value=expected_table_of_content
+    ) as mock_search_table_of_content:
+        result = await _receive_table_of_content(text_id="text_id", text_details_request=text_details_request)
+
+    assert result == expected_table_of_content
+    mock_get_contents_by_id.assert_awaited_once_with(text_id="text_id")
+    mock_search_table_of_content.assert_called_once_with(
+        table_of_contents=mock_table_of_contents,
+        segment_id="seg_2"
+    )
+
+@pytest.mark.asyncio
+async def test_receive_table_of_content_without_segment_and_content_id():
+    """Test _receive_table_of_content when no content_id or segment_id is provided"""
+    from pecha_api.texts.texts_service import _receive_table_of_content
+
+    text_details_request = TextDetailsRequest()
+    mock_table_of_contents = [
+        TableOfContent(
+            id="toc_1",
+            text_id="text_id",
+            type=TableOfContentType.TEXT,
+            sections=[]
+        )
+    ]
+    expected_table_of_content = TableOfContent(
+        id="toc_1",
+        text_id="text_id",
+        type=TableOfContentType.TEXT,
+        sections=[]
+    )
+
+    with patch(
+        "pecha_api.texts.texts_service.get_contents_by_id",
+        new_callable=AsyncMock,
+        return_value=mock_table_of_contents
+    ) as mock_get_contents_by_id, patch(
+        "pecha_api.texts.texts_service._get_first_segment_and_table_of_content_",
+        return_value=("seg_1", expected_table_of_content)
+    ) as mock_get_first_segment_and_table_of_content:
+        result = await _receive_table_of_content(text_id="text_id", text_details_request=text_details_request)
+
+    assert result == expected_table_of_content
+    assert text_details_request.segment_id == "seg_1"
+    mock_get_contents_by_id.assert_awaited_once_with(text_id="text_id")
+    mock_get_first_segment_and_table_of_content.assert_called_once_with(
+        table_of_contents=mock_table_of_contents
+    )
+
+@pytest.mark.asyncio
+async def test_receive_table_of_content_not_found():
+    """Test _receive_table_of_content when table of content is not found"""
+    from pecha_api.texts.texts_service import _receive_table_of_content
+
+    text_details_request = TextDetailsRequest(content_id="content_1", segment_id="seg_1")
+
+    with patch(
+        "pecha_api.texts.texts_service.get_table_of_content_by_content_id",
+        new_callable=AsyncMock,
+        return_value=None
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await _receive_table_of_content(text_id="text_id", text_details_request=text_details_request)
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == ErrorConstants.TABLE_OF_CONTENT_NOT_FOUND_MESSAGE
+
 def test_get_paginated_sections():
     """Test _get_paginated_sections"""
     from pecha_api.texts.texts_service import _get_paginated_sections
