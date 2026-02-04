@@ -702,7 +702,6 @@ async def test_get_plan_days_plan_not_found():
 @pytest.mark.asyncio
 async def test_get_plan_day_details_success():
     """Test successful retrieval of plan day details with tasks and subtasks"""
-    token = "valid_token_123"
     plan_id = uuid4()
     day_number = 1
     
@@ -724,21 +723,14 @@ async def test_get_plan_day_details_success():
     mock_plan_item.day_number = day_number
     mock_plan_item.tasks = [mock_task]
     
-    mock_user = MagicMock()
-    mock_user.id = uuid4()
-    mock_user.email = "test@example.com"
-
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.public.plan_service.validate_and_extract_user_details") as mock_validate_user, \
          patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks") as mock_get_plan_day:
         
         db_session = _mock_session_local(mock_session_local)
-        mock_validate_user.return_value = mock_user
         mock_get_plan_day.return_value = mock_plan_item
 
-        response = await get_plan_day_details(token=token, plan_id=plan_id, day_number=day_number)
+        response = await get_plan_day_details(plan_id=plan_id, day_number=day_number)
 
-        mock_validate_user.assert_called_once_with(token=token)
         mock_get_plan_day.assert_called_once_with(db=db_session, plan_id=plan_id, day_number=day_number)
 
         assert isinstance(response, PlanDayDTO)
