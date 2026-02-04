@@ -472,7 +472,7 @@ async def knowledge_base_search(scope: str, query: str, offset: int, limit: int)
     # author should search only authors with a limit of 10
     
     results = {
-        "texts": [],
+        "titles": [],
         "content": None,
         "authors": []
     }
@@ -500,7 +500,7 @@ async def knowledge_base_search(scope: str, query: str, offset: int, limit: int)
                 offset=offset
             )
         )
-        results["texts"] = text_results[:3] if text_results else []
+        results["titles"] = text_results[:3] if text_results else []
         results["content"] = content_results if content_results.sources else None
         results["authors"] = author_results[:3] if author_results else []
         
@@ -514,18 +514,7 @@ async def knowledge_base_search(scope: str, query: str, offset: int, limit: int)
         )
         print(text_results)
         results["texts"] = text_results if text_results else []
-        
-    elif scope == "content":
-        # Search only content with limit of 10
-        content_results = await get_multilingual_search_results(
-            query=query,
-            search_type="hybrid",
-            text_id=None,
-            skip=offset,
-            limit=limit
-        )
-        results["content"] = content_results if content_results.sources else None
-        
+               
     elif scope == "author":
         # Search only authors with limit of 10
         author_results = await get_titles_and_ids_by_query(
