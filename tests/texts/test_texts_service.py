@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch, MagicMock, Mock
 from fastapi import HTTPException
 from uuid import uuid4
 
@@ -21,7 +21,8 @@ from pecha_api.texts.texts_service import (
     get_root_text_by_collection_id,
     get_commentaries_by_text_id,
     replace_pecha_segment_id_with_segment_id,
-    get_text_by_pecha_text_ids_service
+    get_text_by_pecha_text_ids_service,
+    get_titles_and_ids_by_query
 )
 from pecha_api.terms.terms_response_models import TermsModel
 from pecha_api.texts.texts_response_models import (
@@ -3542,3 +3543,58 @@ async def test_get_text_by_pecha_text_ids_service_multiple_texts_various_types()
         assert result[0].title == "Root Text"
         assert result[1].title == "Version Text"
         assert result[2].title == "Commentary Text"
+
+
+@pytest.mark.asyncio
+async def test_get_titles_and_ids_by_query_success():
+    """Test get_titles_and_ids_by_query returns title search results"""
+    mock_response_data = [
+        {"title": {"en": "A Title"}, "language": "en"},
+        {"title": {"bo": "མཚན"}, "language": "bo"},
+        {"title": {"en": "A Title"}, "language": "en"}
+    ]
+    
+    mock_http_response = Mock()
+    mock_http_response.json.return_value = mock_response_data
+    mock_http_response.raise_for_status = Mock()
+    
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=mock_http_response)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+    
+    class MockText:
+        def __init__(self, text_id: str, title: str):
+            self.id = text_id
+            self.title = title
+    
+    mock_texts = [
+        MockText(text_id="id_1", title="A Title"),
+        MockText(text_id="id_2", title="མཚན")
+    ]
+    
+    with patch("pecha_api.texts.texts_service.EXTERNAL_TITLE_SEARCH_API_URL", "https://external.example"), \
+            patch("httpx.AsyncClient", return_value=mock_client), \
+            patch("pecha_api.texts.texts_service.get_texts_by_titles", new_callable=AsyncMock, return_value=mock_texts) as mock_get_texts:
+        result = await get_titles_and_ids_by_query(
+            title="Test",
+            author=None,
+            limit=20,
+            offset=0
+        )
+    
+    assert len(result) == 2
+    assert result[0].id == "id_1"
+    assert result[0].title == "A Title"
+    assert result[1].id == "id_2"
+    assert result[1].title == "མཚན"
+    
+    call_args = mock_client.get.call_args
+    assert call_args.kwargs["params"]["title"] == "Test"
+    assert call_args.kwargs["params"]["limit"] == 20
+    assert call_args.kwargs["params"]["offset"] == 0
+    
+    mock_get_texts.assert_awaited_once()
+    called_titles = mock_get_texts.call_args.kwargs["titles"]
+    assert "A Title" in called_titles
+    assert "མཚན" in called_titles
