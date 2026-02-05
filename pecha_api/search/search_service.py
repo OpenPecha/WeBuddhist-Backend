@@ -463,7 +463,7 @@ async def get_url_link(pecha_segment_id: str) -> str:
         logger.error(f"Error generating URL for pecha_segment_id {pecha_segment_id}: {str(e)}", exc_info=True)
         return "" 
 
-async def knowledge_base_search(scope: str, query: str, offset: int, limit: int) -> Union[Dict, str]:
+async def knowledge_base_search(scope: str, query: str, offset: int, limit: int) -> Dict| str:
     
     # scope can be text, content, author , all
     # all should search all text author and content with a limit of 3
