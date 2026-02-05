@@ -75,7 +75,6 @@ DEFAULTS = dict(
     #pecha api configuration
     EXTERNAL_PECHA_API_URL="",
 
-    EXTERNAL_TITLE_SEARCH_API_URL="",
 
     SQS_TIMEOUT=1800,
 
