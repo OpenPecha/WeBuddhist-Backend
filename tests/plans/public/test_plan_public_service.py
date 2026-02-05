@@ -749,8 +749,7 @@ def test_get_plan_day_details_success():
         assert task.subtasks[0].content == "Subtask content 1"
         assert task.subtasks[0].display_order == 1
 
-@pytest.mark.asyncio
-async def test_get_tags_success(mock_db_session):
+def test_get_tags_success(mock_db_session):
     """Test successful retrieval of tags."""
     mock_tags = ["meditation", "sleep", "daily"]
 
@@ -761,7 +760,7 @@ async def test_get_tags_success(mock_db_session):
         return_value=mock_tags,
     ) as mock_repo:
 
-        result = await get_tags(language="en")
+        result = get_tags(language="en")
 
         assert isinstance(result, TagsResponse)
         assert result.tags == ["meditation", "sleep", "daily"]
@@ -770,8 +769,7 @@ async def test_get_tags_success(mock_db_session):
             db=mock_db_session.__enter__.return_value, language="EN"
         )
 
-@pytest.mark.asyncio
-async def test_get_tags_empty(mock_db_session):
+def test_get_tags_empty(mock_db_session):
     """Test retrieval when no tags exist."""
     with patch(
         "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
@@ -779,7 +777,7 @@ async def test_get_tags_empty(mock_db_session):
         "pecha_api.plans.public.plan_service.get_all_unique_tags", return_value=[]
     ) as mock_repo:
 
-        result = await get_tags(language="en")
+        result = get_tags(language="en")
 
         assert isinstance(result, TagsResponse)
         assert result.tags == []
