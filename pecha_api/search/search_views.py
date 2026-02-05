@@ -61,9 +61,9 @@ async def get_url_link(pecha_segment_id: str) -> str:
 
 @search_router.get("/knowledge-base", status_code=status.HTTP_200_OK)
 async def knowledge_base_search(
-    query: Annotated[str, Query(default=None, description="Search query")]=None,
-    scope: Annotated[str, Query(default="all", description="Scope of the search")]="all",
-    offset: Annotated[int, Query(default=0, description="Offset of the search")]=0,
-    limit: Annotated[int, Query(default=10, description="Limit of the search")]=10,
+    query: Annotated[str, Query(description="Search query")]=None,
+    scope: Annotated[str, Query(description="Scope of the search")]="all",
+    offset: Annotated[int, Query(description="Offset of the search")]=0,
+    limit: Annotated[int, Query(description="Limit of the search")]=10,
 ):
     return await knowledge_base_search_service(scope=scope, query=query, offset=offset, limit=limit)
