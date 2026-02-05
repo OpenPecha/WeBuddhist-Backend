@@ -165,7 +165,7 @@ def _get_task_subtasks_dto(subtasks: List[PlanSubTask]) -> List[SubTaskDTO]:
     
     return subtasks_dto
 
-async def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
+def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
     """Get specific day's content with tasks"""
 
     with SessionLocal() as db:

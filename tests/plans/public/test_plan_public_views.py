@@ -441,7 +441,6 @@ async def test_get_plan_day_content_success():
     with patch(
         "pecha_api.plans.public.plan_views.get_plan_day_details",
         return_value=expected_response,
-        new_callable=AsyncMock,
     ) as mock_service:
         response = await get_plan_day_content(
             plan_id=plan_id,
@@ -487,7 +486,6 @@ async def test_get_plan_day_content_no_tasks():
     with patch(
         "pecha_api.plans.public.plan_views.get_plan_day_details",
         return_value=expected_response,
-        new_callable=AsyncMock,
     ) as mock_service:
         response = await get_plan_day_content(
             plan_id=plan_id,

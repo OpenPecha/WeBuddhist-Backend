@@ -699,8 +699,7 @@ async def test_get_plan_days_plan_not_found():
         mock_validate_user.assert_called_once_with(token=token)
         mock_get_plan.assert_called_once_with(db=db_session, plan_id=plan_id)
 
-@pytest.mark.asyncio
-async def test_get_plan_day_details_success():
+def test_get_plan_day_details_success():
     """Test successful retrieval of plan day details with tasks and subtasks"""
     plan_id = uuid4()
     day_number = 1
@@ -729,7 +728,7 @@ async def test_get_plan_day_details_success():
         db_session = _mock_session_local(mock_session_local)
         mock_get_plan_day.return_value = mock_plan_item
 
-        response = await get_plan_day_details(plan_id=plan_id, day_number=day_number)
+        response = get_plan_day_details(plan_id=plan_id, day_number=day_number)
 
         mock_get_plan_day.assert_called_once_with(db=db_session, plan_id=plan_id, day_number=day_number)
 
