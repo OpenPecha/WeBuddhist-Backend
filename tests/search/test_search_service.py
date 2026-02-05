@@ -18,12 +18,14 @@ from pecha_api.search.search_response_models import (
     ExternalSearchResult,
     ExternalSegmentEntity
 )
+from pecha_api.texts.texts_response_models import TitleSearchResult
 from pecha_api.search.search_service import (
     get_search_results,
     get_multilingual_search_results,
     call_external_search_api,
     build_multilingual_sources,
-    apply_pagination_to_sources
+    apply_pagination_to_sources,
+    knowledge_base_search
 )
 
 @pytest.mark.asyncio
@@ -915,7 +917,7 @@ async def test_get_url_link_none_segment_id():
         result = await get_url_link("pecha_seg_123")
         
         assert result is not None
-        assert result == f"/chapter?text_id=text123&segment_id=None"
+        assert result == "/chapter?text_id=text123&segment_id=None"
 
 @pytest.mark.asyncio
 async def test_get_multilingual_search_external_limit_calculation():
@@ -1132,3 +1134,341 @@ def test_apply_pagination_to_sources_sorting():
     assert len(all_matches) == 2
     scores = sorted([m.relevance_score for m in all_matches])
     assert scores == [1.0, 2.0]
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_all():
+    """Test knowledge_base_search with scope='all' - searches all three types"""
+    mock_text_results = [
+        TitleSearchResult(id="text_1", title="Text 1"),
+        TitleSearchResult(id="text_2", title="Text 2"),
+        TitleSearchResult(id="text_3", title="Text 3"),
+        TitleSearchResult(id="text_4", title="Text 4")
+    ]
+    
+    mock_content_results = MultilingualSearchResponse(
+        query="test query",
+        search_type="hybrid",
+        sources=[
+            MultilingualSourceResult(
+                text=TextIndex(text_id="content_text_1", language="bo", title="Content Text 1", published_date="2024-01-01"),
+                segment_matches=[
+                    MultilingualSegmentMatch(segment_id="seg_1", content="Content 1", relevance_score=0.9, pecha_segment_id="pecha_1")
+                ]
+            )
+        ],
+        skip=0,
+        limit=3,
+        total=1
+    )
+    
+    mock_author_results = [
+        TitleSearchResult(id="author_1", title="Author 1"),
+        TitleSearchResult(id="author_2", title="Author 2"),
+        TitleSearchResult(id="author_3", title="Author 3")
+    ]
+    
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock) as mock_get_titles, \
+         patch("pecha_api.search.search_service.get_multilingual_search_results", new_callable=AsyncMock) as mock_get_content:
+        
+        mock_get_titles.side_effect = [mock_text_results, mock_author_results]
+        mock_get_content.return_value = mock_content_results
+        
+        result = await knowledge_base_search(scope="all", query="test query", offset=0, limit=10)
+        
+        assert result is not None
+        assert isinstance(result, dict)
+        assert "titles" in result
+        assert "content" in result
+        assert "authors" in result
+        assert len(result["titles"]) == 3  # Limited to 3
+        assert result["content"] == mock_content_results
+        assert len(result["authors"]) == 3  # Limited to 3
+        
+        # Verify parallel execution - both calls should have been made
+        assert mock_get_titles.call_count == 2
+        mock_get_content.assert_called_once_with(
+            query="test query",
+            search_type="hybrid",
+            text_id=None,
+            skip=0,
+            limit=3
+        )
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_all_empty_results():
+    """Test knowledge_base_search with scope='all' when some results are empty"""
+    mock_text_results = []
+    mock_content_results = MultilingualSearchResponse(
+        query="test query",
+        search_type="hybrid",
+        sources=[],
+        skip=0,
+        limit=3,
+        total=0
+    )
+    mock_author_results = []
+    
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock) as mock_get_titles, \
+         patch("pecha_api.search.search_service.get_multilingual_search_results", new_callable=AsyncMock) as mock_get_content:
+        
+        mock_get_titles.side_effect = [mock_text_results, mock_author_results]
+        mock_get_content.return_value = mock_content_results
+        
+        result = await knowledge_base_search(scope="all", query="test query", offset=0, limit=10)
+        
+        assert result is not None
+        assert result["titles"] == []
+        assert result["content"] is None  # Empty sources means None
+        assert result["authors"] == []
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_all_content_no_sources():
+    """Test knowledge_base_search with scope='all' when content has no sources"""
+    mock_text_results = [TitleSearchResult(id="text_1", title="Text 1")]
+    mock_content_results = MultilingualSearchResponse(
+        query="test query",
+        search_type="hybrid",
+        sources=[],
+        skip=0,
+        limit=3,
+        total=0
+    )
+    mock_author_results = [TitleSearchResult(id="author_1", title="Author 1")]
+    
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock) as mock_get_titles, \
+         patch("pecha_api.search.search_service.get_multilingual_search_results", new_callable=AsyncMock) as mock_get_content:
+        
+        mock_get_titles.side_effect = [mock_text_results, mock_author_results]
+        mock_get_content.return_value = mock_content_results
+        
+        result = await knowledge_base_search(scope="all", query="test query", offset=0, limit=10)
+        
+        assert result["content"] is None  # Empty sources means None
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_title():
+    """Test knowledge_base_search with scope='title' - searches only titles"""
+    mock_text_results = [
+        TitleSearchResult(id="text_1", title="Text 1"),
+        TitleSearchResult(id="text_2", title="Text 2"),
+        TitleSearchResult(id="text_3", title="Text 3")
+    ]
+    
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock, return_value=mock_text_results) as mock_get_titles:
+        
+        result = await knowledge_base_search(scope="title", query="test query", offset=0, limit=10)
+        
+        assert result is not None
+        assert isinstance(result, dict)
+        assert "titles" in result
+        assert len(result["titles"]) == 3
+        assert result["titles"] == mock_text_results
+        
+        mock_get_titles.assert_called_once_with(
+            title="test query",
+            author=None,
+            limit=10,
+            offset=0
+        )
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_title_empty_results():
+    """Test knowledge_base_search with scope='title' when no results found"""
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock, return_value=[]):
+        
+        result = await knowledge_base_search(scope="title", query="test query", offset=0, limit=10)
+        
+        assert result["titles"] == []
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_title_none_results():
+    """Test knowledge_base_search with scope='title' when None is returned"""
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock, return_value=None):
+        
+        result = await knowledge_base_search(scope="title", query="test query", offset=0, limit=10)
+        
+        assert result["titles"] == []
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_author():
+    """Test knowledge_base_search with scope='author' - searches only authors"""
+    mock_author_results = [
+        TitleSearchResult(id="author_1", title="Author 1"),
+        TitleSearchResult(id="author_2", title="Author 2"),
+        TitleSearchResult(id="author_3", title="Author 3")
+    ]
+    
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock, return_value=mock_author_results) as mock_get_titles:
+        
+        result = await knowledge_base_search(scope="author", query="test author", offset=0, limit=10)
+        
+        assert result is not None
+        assert isinstance(result, dict)
+        assert "authors" in result
+        assert len(result["authors"]) == 3
+        assert result["authors"] == mock_author_results
+        
+        mock_get_titles.assert_called_once_with(
+            title=None,
+            author="test author",
+            limit=10,
+            offset=0
+        )
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_author_empty_results():
+    """Test knowledge_base_search with scope='author' when no results found"""
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock, return_value=[]):
+        
+        result = await knowledge_base_search(scope="author", query="test author", offset=0, limit=10)
+        
+        assert result["authors"] == []
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_author_none_results():
+    """Test knowledge_base_search with scope='author' when None is returned"""
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock, return_value=None):
+        
+        result = await knowledge_base_search(scope="author", query="test author", offset=0, limit=10)
+        
+        assert result["authors"] == []
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_all_with_offset():
+    """Test knowledge_base_search with scope='all' and offset parameter"""
+    mock_text_results = [TitleSearchResult(id="text_1", title="Text 1")]
+    mock_content_results = MultilingualSearchResponse(
+        query="test query",
+        search_type="hybrid",
+        sources=[],
+        skip=5,
+        limit=3,
+        total=0
+    )
+    mock_author_results = [TitleSearchResult(id="author_1", title="Author 1")]
+    
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock) as mock_get_titles, \
+         patch("pecha_api.search.search_service.get_multilingual_search_results", new_callable=AsyncMock) as mock_get_content:
+        
+        mock_get_titles.side_effect = [mock_text_results, mock_author_results]
+        mock_get_content.return_value = mock_content_results
+        
+        result = await knowledge_base_search(scope="all", query="test query", offset=5, limit=10)
+        
+        assert result is not None
+        mock_get_titles.assert_any_call(title="test query", author=None, limit=3, offset=5)
+        mock_get_titles.assert_any_call(title=None, author="test query", limit=3, offset=5)
+        mock_get_content.assert_called_once_with(
+            query="test query",
+            search_type="hybrid",
+            text_id=None,
+            skip=5,
+            limit=3
+        )
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_all_text_results_more_than_limit():
+    """Test knowledge_base_search with scope='all' when text results exceed limit of 3"""
+    mock_text_results = [
+        TitleSearchResult(id="text_1", title="Text 1"),
+        TitleSearchResult(id="text_2", title="Text 2"),
+        TitleSearchResult(id="text_3", title="Text 3"),
+        TitleSearchResult(id="text_4", title="Text 4"),
+        TitleSearchResult(id="text_5", title="Text 5")
+    ]
+    
+    mock_content_results = MultilingualSearchResponse(
+        query="test query",
+        search_type="hybrid",
+        sources=[],
+        skip=0,
+        limit=3,
+        total=0
+    )
+    
+    mock_author_results = [
+        TitleSearchResult(id="author_1", title="Author 1"),
+        TitleSearchResult(id="author_2", title="Author 2"),
+        TitleSearchResult(id="author_3", title="Author 3"),
+        TitleSearchResult(id="author_4", title="Author 4")
+    ]
+    
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock) as mock_get_titles, \
+         patch("pecha_api.search.search_service.get_multilingual_search_results", new_callable=AsyncMock) as mock_get_content:
+        
+        mock_get_titles.side_effect = [mock_text_results, mock_author_results]
+        mock_get_content.return_value = mock_content_results
+        
+        result = await knowledge_base_search(scope="all", query="test query", offset=0, limit=10)
+        
+        # Should be limited to 3 items
+        assert len(result["titles"]) == 3
+        assert len(result["authors"]) == 3
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_content_not_implemented():
+    """Test knowledge_base_search with scope='content' - not implemented, returns empty dict"""
+    result = await knowledge_base_search(scope="content", query="test query", offset=0, limit=10)
+    
+    assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_unknown():
+    """Test knowledge_base_search with unknown scope - returns empty dict"""
+    result = await knowledge_base_search(scope="unknown", query="test query", offset=0, limit=10)
+    
+    assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_title_with_offset():
+    """Test knowledge_base_search with scope='title' and offset"""
+    mock_text_results = [
+        TitleSearchResult(id="text_1", title="Text 1"),
+        TitleSearchResult(id="text_2", title="Text 2")
+    ]
+    
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock, return_value=mock_text_results) as mock_get_titles:
+        
+        result = await knowledge_base_search(scope="title", query="test query", offset=5, limit=10)
+        
+        mock_get_titles.assert_called_once_with(
+            title="test query",
+            author=None,
+            limit=10,
+            offset=5
+        )
+        assert len(result["titles"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_knowledge_base_search_scope_author_with_offset():
+    """Test knowledge_base_search with scope='author' and offset"""
+    mock_author_results = [
+        TitleSearchResult(id="author_1", title="Author 1")
+    ]
+    
+    with patch("pecha_api.search.search_service.get_titles_and_ids_by_query", new_callable=AsyncMock, return_value=mock_author_results) as mock_get_titles:
+        
+        result = await knowledge_base_search(scope="author", query="test author", offset=3, limit=10)
+        
+        mock_get_titles.assert_called_once_with(
+            title=None,
+            author="test author",
+            limit=10,
+            offset=3
+        )
+        assert len(result["authors"]) == 1

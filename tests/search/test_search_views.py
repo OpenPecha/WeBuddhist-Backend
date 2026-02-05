@@ -672,10 +672,202 @@ def test_get_url_link_empty_pecha_segment_id():
 def test_get_url_link_with_long_pecha_segment_id():
     """Test get_url_link endpoint with very long pecha_segment_id"""
     long_segment_id = "a" * 500
-    mock_url = f"/chapter?text_id=text123&segment_id=seg456"
+    mock_url = "/chapter?text_id=text123&segment_id=seg456"
     
     with patch("pecha_api.search.search_views.get_url_link_service", new_callable=AsyncMock, return_value=mock_url):
         response = client.get(f"/search/chat/{long_segment_id}")
         
         assert response.status_code == status.HTTP_200_OK
         assert response.json() == mock_url
+
+
+def test_knowledge_base_search_scope_all():
+    """Test knowledge_base_search endpoint with scope='all'"""
+    mock_result = {
+        "titles": [
+            {"id": "text_1", "title": "Text 1"},
+            {"id": "text_2", "title": "Text 2"},
+            {"id": "text_3", "title": "Text 3"}
+        ],
+        "content": {
+            "query": "test query",
+            "search_type": "hybrid",
+            "sources": [
+                {
+                    "text": {
+                        "text_id": "content_text_1",
+                        "language": "bo",
+                        "title": "Content Text 1",
+                        "published_date": "2024-01-01"
+                    },
+                    "segment_matches": [
+                        {
+                            "segment_id": "seg_1",
+                            "content": "Content 1",
+                            "relevance_score": 0.9,
+                            "pecha_segment_id": "pecha_1"
+                        }
+                    ]
+                }
+            ],
+            "skip": 0,
+            "limit": 3,
+            "total": 1
+        },
+        "authors": [
+            {"id": "author_1", "title": "Author 1"},
+            {"id": "author_2", "title": "Author 2"},
+            {"id": "author_3", "title": "Author 3"}
+        ]
+    }
+    
+    with patch("pecha_api.search.search_views.knowledge_base_search_service", new_callable=AsyncMock, return_value=mock_result):
+        
+        response = client.get("/search/knowledge-base?query=test query&scope=all")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "titles" in data
+        assert "content" in data
+        assert "authors" in data
+        assert len(data["titles"]) == 3
+        assert len(data["authors"]) == 3
+        assert data["content"] is not None
+
+
+def test_knowledge_base_search_scope_title():
+    """Test knowledge_base_search endpoint with scope='title'"""
+    mock_result = {
+        "titles": [
+            {"id": "text_1", "title": "Text 1"},
+            {"id": "text_2", "title": "Text 2"}
+        ]
+    }
+    
+    with patch("pecha_api.search.search_views.knowledge_base_search_service", new_callable=AsyncMock, return_value=mock_result) as mock_service:
+        
+        response = client.get("/search/knowledge-base?query=test query&scope=title&limit=10&offset=0")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "titles" in data
+        assert len(data["titles"]) == 2
+        
+        mock_service.assert_called_once_with(
+            scope="title",
+            query="test query",
+            offset=0,
+            limit=10
+        )
+
+
+def test_knowledge_base_search_scope_author():
+    """Test knowledge_base_search endpoint with scope='author'"""
+    mock_result = {
+        "authors": [
+            {"id": "author_1", "title": "Author 1"},
+            {"id": "author_2", "title": "Author 2"}
+        ]
+    }
+    
+    with patch("pecha_api.search.search_views.knowledge_base_search_service", new_callable=AsyncMock, return_value=mock_result) as mock_service:
+        
+        response = client.get("/search/knowledge-base?query=test author&scope=author&limit=10&offset=0")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "authors" in data
+        assert len(data["authors"]) == 2
+        
+        mock_service.assert_called_once_with(
+            scope="author",
+            query="test author",
+            offset=0,
+            limit=10
+        )
+
+
+def test_knowledge_base_search_default_parameters():
+    """Test knowledge_base_search endpoint with default parameters"""
+    mock_result = {
+        "titles": [],
+        "content": None,
+        "authors": []
+    }
+    
+    with patch("pecha_api.search.search_views.knowledge_base_search_service", new_callable=AsyncMock, return_value=mock_result) as mock_service:
+        
+        response = client.get("/search/knowledge-base?query=test")
+        
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(
+            scope="all",
+            query="test",
+            offset=0,
+            limit=10
+        )
+
+
+def test_knowledge_base_search_with_custom_pagination():
+    """Test knowledge_base_search endpoint with custom pagination"""
+    mock_result = {
+        "titles": [{"id": "text_1", "title": "Text 1"}]
+    }
+    
+    with patch("pecha_api.search.search_views.knowledge_base_search_service", new_callable=AsyncMock, return_value=mock_result) as mock_service:
+        
+        response = client.get("/search/knowledge-base?query=test&scope=title&offset=5&limit=20")
+        
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(
+            scope="title",
+            query="test",
+            offset=5,
+            limit=20
+        )
+
+
+def test_knowledge_base_search_empty_results():
+    """Test knowledge_base_search endpoint with empty results"""
+    mock_result = {
+        "titles": []
+    }
+    
+    with patch("pecha_api.search.search_views.knowledge_base_search_service", new_callable=AsyncMock, return_value=mock_result):
+        
+        response = client.get("/search/knowledge-base?query=nonexistent&scope=title")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["titles"] == []
+
+
+def test_knowledge_base_search_scope_all_empty_content():
+    """Test knowledge_base_search endpoint with scope='all' when content is empty"""
+    mock_result = {
+        "titles": [{"id": "text_1", "title": "Text 1"}],
+        "content": None,
+        "authors": [{"id": "author_1", "title": "Author 1"}]
+    }
+    
+    with patch("pecha_api.search.search_views.knowledge_base_search_service", new_callable=AsyncMock, return_value=mock_result):
+        
+        response = client.get("/search/knowledge-base?query=test&scope=all")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["content"] is None
+        assert len(data["titles"]) == 1
+        assert len(data["authors"]) == 1
+
+
+def test_knowledge_base_search_service_error():
+    """Test knowledge_base_search endpoint when service raises an exception"""
+    test_client = TestClient(api, raise_server_exceptions=False)
+    
+    with patch("pecha_api.search.search_views.knowledge_base_search_service", 
+               new_callable=AsyncMock, side_effect=Exception("Service error")):
+        
+        response = test_client.get("/search/knowledge-base?query=test&scope=all")
+        
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
