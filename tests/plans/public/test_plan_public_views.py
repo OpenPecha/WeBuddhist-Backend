@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from starlette import status
 
 from pecha_api.app import api
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, AuthorDTO, PlanDayBasic, PlanDayDTO, TaskDTO, SubTaskDTO,PlanDaysResponse
+from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, AuthorDTO, PlanDayBasic, PlanDayDTO, TaskDTO, SubTaskDTO,PlanDaysResponse, TagsResponse
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel,ContentType
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.public.plan_views import get_plan_days_list, get_plan_day_content
@@ -87,6 +87,7 @@ async def test_get_plans_success(sample_plans_response):
         assert "image" in plan["author"]
         
         mock_service.assert_called_once_with(
+            tag=None,
             search=None,
             language="en",
             sort_by="title",
@@ -107,6 +108,7 @@ async def test_get_plans_with_search_filter(sample_plans_response):
         assert len(data["plans"]) == 1
         
         mock_service.assert_called_once_with(
+            tag=None,
             search="meditation",
             language="en",
             sort_by="title",
@@ -127,6 +129,7 @@ async def test_get_plans_with_language_filter(sample_plans_response):
         assert len(data["plans"]) == 1
         
         mock_service.assert_called_once_with(
+            tag=None,
             search=None,
             language="en",
             sort_by="title",
@@ -147,6 +150,7 @@ async def test_get_plans_with_sorting(sample_plans_response):
         assert len(data["plans"]) == 1
         
         mock_service.assert_called_once_with(
+            tag=None,
             search=None,
             language="en",
             sort_by="subscription_count",
@@ -166,6 +170,7 @@ async def test_get_plans_with_pagination(sample_plans_response):
         data = response.json()
         
         mock_service.assert_called_once_with(
+            tag=None,
             search=None,
             language="en",
             sort_by="title",
@@ -187,6 +192,7 @@ async def test_get_plans_with_all_filters(sample_plans_response):
         data = response.json()
         
         mock_service.assert_called_once_with(
+            tag=None,
             search="meditation",
             language="en",
             sort_by="total_days",
@@ -408,7 +414,6 @@ async def test_get_plan_days_list_empty_days():
 @pytest.mark.asyncio
 async def test_get_plan_day_content_success():
     """Test successful retrieval of plan day content"""
-    creds = _Creds(token="valid_token_123")
     plan_id = uuid4()
     day_number = 1
     
@@ -436,16 +441,13 @@ async def test_get_plan_day_content_success():
     with patch(
         "pecha_api.plans.public.plan_views.get_plan_day_details",
         return_value=expected_response,
-        new_callable=AsyncMock,
     ) as mock_service:
         response = await get_plan_day_content(
-            authentication_credential=creds,
             plan_id=plan_id,
             day_number=day_number
         )
 
         mock_service.assert_called_once_with(
-            token="valid_token_123",
             plan_id=plan_id,
             day_number=day_number
         )
@@ -472,7 +474,6 @@ async def test_get_plan_day_content_success():
 @pytest.mark.asyncio
 async def test_get_plan_day_content_no_tasks():
     """Test retrieval of plan day with no tasks"""
-    creds = _Creds(token="valid_token_456")
     plan_id = uuid4()
     day_number = 2
     
@@ -485,16 +486,13 @@ async def test_get_plan_day_content_no_tasks():
     with patch(
         "pecha_api.plans.public.plan_views.get_plan_day_details",
         return_value=expected_response,
-        new_callable=AsyncMock,
     ) as mock_service:
         response = await get_plan_day_content(
-            authentication_credential=creds,
             plan_id=plan_id,
             day_number=day_number
         )
 
         mock_service.assert_called_once_with(
-            token="valid_token_456",
             plan_id=plan_id,
             day_number=day_number
         )
@@ -503,3 +501,61 @@ async def test_get_plan_day_content_no_tasks():
         assert response.id == expected_response.id
         assert response.day_number == day_number
         assert len(response.tasks) == 0
+
+@pytest.mark.asyncio
+async def test_get_plan_tags_success():
+    """Test successful retrieval of plan tags with default language='en'."""
+    mock_tags_response = TagsResponse(tags=["meditation", "sleep", "daily"])
+
+    with patch(
+        "pecha_api.plans.public.plan_views.get_tags", return_value=mock_tags_response
+    ) as mock_service:
+        response = client.get("/api/v1/plans/tags")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert "tags" in data
+        assert isinstance(data["tags"], list)
+        assert data["tags"] == ["meditation", "sleep", "daily"]
+
+        mock_service.assert_called_once_with(language="en")
+
+
+@pytest.mark.asyncio
+async def test_get_plan_tags_with_language_param():
+    """Test retrieval of plan tags with specific language."""
+    mock_tags_response = TagsResponse(tags=["煙供", "教學"])
+
+    with patch(
+        "pecha_api.plans.public.plan_views.get_tags", return_value=mock_tags_response
+    ) as mock_service:
+        response = client.get("/api/v1/plans/tags?language=zh")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["tags"] == ["煙供", "教學"]
+
+        mock_service.assert_called_once_with(language="zh")
+
+@pytest.mark.asyncio
+async def test_get_plans_with_tag_filter(sample_plans_response):
+    """Test retrieval of plans with tag filter."""
+    with patch(
+        "pecha_api.plans.public.plan_views.get_published_plans",
+        return_value=sample_plans_response,
+    ) as mock_service:
+        response = client.get("/api/v1/plans?tag=meditation")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert len(data["plans"]) == 1
+
+        mock_service.assert_called_once_with(
+            tag="meditation",
+            search=None,
+            language="en",
+            sort_by="title",
+            sort_order="asc",
+            skip=0,
+            limit=20,
+        )

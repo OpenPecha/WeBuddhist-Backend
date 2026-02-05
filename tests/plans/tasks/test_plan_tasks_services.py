@@ -254,6 +254,8 @@ async def test_get_task_subtasks_service_image_content_uses_presigned_url():
         content=image_key,
         duration=None,
         display_order=1,
+        source_text_id=None,
+        pecha_segment_id=None,
     )
 
     mock_task = SimpleNamespace(
@@ -308,6 +310,8 @@ async def test_get_task_subtasks_service_image_content_uses_presigned_url():
                     duration=None,
                     image_url=image_key,
                     display_order=subtask_image.display_order,
+                    source_text_id=None,
+                    pecha_segment_id=None,
                 ),
             ],
         )
@@ -557,6 +561,8 @@ async def test_get_task_subtasks_service_success():
         content="Read page 1",
         display_order=1,
         duration=None,
+        source_text_id=None,
+        pecha_segment_id=None,
     )
     subtask2 = SimpleNamespace(
         id=uuid.uuid4(),
@@ -564,6 +570,8 @@ async def test_get_task_subtasks_service_success():
         content="Watch intro video",
         display_order=2,
         duration=None,
+        source_text_id=None,
+        pecha_segment_id=None,
     )
 
     mock_task = SimpleNamespace(
@@ -607,6 +615,8 @@ async def test_get_task_subtasks_service_success():
                     content=subtask1.content,
                     duration=subtask1.duration,
                     display_order=subtask1.display_order,
+                    source_text_id=None,
+                    pecha_segment_id=None,
                 ),
                 SubTaskDTO(
                     id=subtask2.id,
@@ -614,6 +624,8 @@ async def test_get_task_subtasks_service_success():
                     content=subtask2.content,
                     duration=subtask2.duration,
                     display_order=subtask2.display_order,
+                    source_text_id=None,
+                    pecha_segment_id=None,
                 ),
             ],
         )
