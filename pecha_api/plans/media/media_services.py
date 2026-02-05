@@ -97,87 +97,84 @@ def compress_image_original_size(image: Image.Image, quality: int = 90) -> io.By
     return output
 
 
-def upload_plan_image(token: str, plan_id: Optional[str], file: UploadFile) -> PlanUploadResponse:
-    """
-    Upload plan image in 3 versions:
-    - Thumbnail: 200px width (quality 80)
-    - Medium: 800px width (quality 85)
-    - Original: Same dimensions as uploaded, but compressed (quality 90)
-    
-    Args:
-        token: Authentication token
-        plan_id: Optional plan ID for organizing images
-        file: Uploaded image file
-    
-    Returns:
-        PlanUploadResponse with URLs for all three versions
-    """
-    validate_and_extract_author_details(token=token)
-    validate_file(file)
-    
-    # Read and validate the original image
+def read_image_from_upload(file: UploadFile) -> Image.Image:
     file.file.seek(0)
     try:
-        original_image = Image.open(file.file)
+        return Image.open(file.file)
     except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid image file"
-        )
-    
-    # Generate unique identifier and paths
-    file_name, _ = os.path.splitext(file.filename)
-    unique_id = str(uuid.uuid4())
-    path = "images/plan_images"
-    image_path_full = f"{path}/{plan_id}/{unique_id}" if plan_id is not None else f"{path}/{unique_id}"
-    
-    # Create compressed versions
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid image file")
+
+
+def build_image_versions(original_image: Image.Image) -> list[tuple[str, io.BytesIO]]:
     thumbnail_image = compress_image_to_size(original_image.copy(), 200, quality=80)
     medium_image = compress_image_to_size(original_image.copy(), 800, quality=85)
     original_compressed = compress_image_original_size(original_image.copy(), quality=90)
-    
-    # Define image versions to upload
-    image_versions = [
-        ('thumbnail', thumbnail_image),
-        ('medium', medium_image),
-        ('original', original_compressed)
+    return [
+        ("thumbnail", thumbnail_image),
+        ("medium", medium_image),
+        ("original", original_compressed),
     ]
-    
-    # Upload all versions and collect URLs
+
+
+def upload_image_versions(*, image_path_full: str, file_name: str, image_versions: list[tuple[str, io.BytesIO]]) -> tuple[ImageUrlModel, str]:
     image_urls = {}
-    upload_keys = []
-    
+    original_key = ""
+
     for version_name, compressed_image in image_versions:
-        # Generate S3 key with version as folder
         s3_key = f"{image_path_full}/{version_name}/{file_name}.jpg"
-        
-        # Upload to S3
         upload_key = upload_bytes(
             bucket_name=get("AWS_BUCKET_NAME"),
             s3_key=s3_key,
             file=compressed_image,
-            content_type='image/jpeg'
+            content_type="image/jpeg",
         )
-        upload_keys.append(upload_key)
-        
-        # Generate presigned URL
+        if version_name == "original":
+            original_key = upload_key
+
         presigned_url = generate_presigned_access_url(
             bucket_name=get("AWS_BUCKET_NAME"),
-            s3_key=upload_key
+            s3_key=upload_key,
         )
-        
+
         image_urls[version_name] = presigned_url
-    
-    # Create response with all image URLs
+
     image_url_model = ImageUrlModel(
-        thumbnail=image_urls['thumbnail'],
-        medium=image_urls['medium'],
-        original=image_urls['original']
+        thumbnail=image_urls["thumbnail"],
+        medium=image_urls["medium"],
+        original=image_urls["original"],
+    )
+    return image_url_model, original_key
+
+
+def prepare_image_upload(*, file: UploadFile, image_path_full: str) -> tuple[ImageUrlModel, str]:
+        
+    original_image = read_image_from_upload(file)
+    file_name, _ = os.path.splitext(file.filename)
+    image_versions = build_image_versions(original_image)
+    return upload_image_versions(
+        image_path_full=image_path_full,
+        file_name=file_name,
+        image_versions=image_versions,
+    )
+
+
+def upload_plan_image(token: str, plan_id: Optional[str], file: UploadFile) -> PlanUploadResponse:
+
+    validate_and_extract_author_details(token=token)
+    validate_file(file)
+    
+    unique_id = str(uuid.uuid4())
+    path = "images/plan_images"
+    image_path_full = f"{path}/{plan_id}/{unique_id}" if plan_id is not None else f"{path}/{unique_id}"
+
+    image_url_model, original_key = prepare_image_upload(
+        file=file,
+        image_path_full=image_path_full,
     )
     
     return PlanUploadResponse(
         image=image_url_model,
-        key=upload_keys[2],  # Use original image key as primary key
+        key=original_key,
         path=image_path_full,
         message=IMAGE_UPLOAD_SUCCESS
     )
@@ -192,62 +189,22 @@ async def upload_text_image(token: str, text_id: str, file: UploadFile) -> TextI
     if not text_details:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
 
-    file.file.seek(0)
-    try:
-        original_image = Image.open(file.file)
-    except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Invalid image file")
-
-    file_name, _ = os.path.splitext(file.filename)
     unique_id = str(uuid.uuid4())
     path = "images/text_images"
     image_path_full = f"{path}/{text_id}/{unique_id}"
-
-    thumbnail_image = compress_image_to_size(original_image.copy(), 200, quality=80)
-    medium_image = compress_image_to_size(original_image.copy(), 800, quality=85)
-    original_compressed = compress_image_original_size(original_image.copy(), quality=90)
-
-    image_versions = [
-        ('thumbnail', thumbnail_image),
-        ('medium', medium_image),
-        ('original', original_compressed)
-    ]
-
-    image_urls = {}
-    upload_keys = []
-
-    for version_name, compressed_image in image_versions:
-        s3_key = f"{image_path_full}/{version_name}/{file_name}.jpg"
-
-        upload_key = upload_bytes(
-            bucket_name=get("AWS_BUCKET_NAME"),
-            s3_key=s3_key,
-            file=compressed_image,
-            content_type='image/jpeg'
-        )
-        upload_keys.append(upload_key)
-
-        presigned_url = generate_presigned_access_url(
-            bucket_name=get("AWS_BUCKET_NAME"),
-            s3_key=upload_key
-        )
-
-        image_urls[version_name] = presigned_url
+    image_url_model, original_key = prepare_image_upload(
+        file=file,
+        image_path_full=image_path_full,
+    )
 
     with SessionLocal() as db_session:
-        text_image = create_text_image(db=db_session, text_id=text_id, image_url=upload_keys[2])
-
-    image_url_model = ImageUrlModel(
-        thumbnail=image_urls['thumbnail'],
-        medium=image_urls['medium'],
-        original=image_urls['original']
-    )
+        text_image = create_text_image(db=db_session, text_id=text_id, image_url=original_key)
 
     return TextImageUploadResponse(
         id=str(text_image.id),
         text_id=text_id,
         image=image_url_model,
-        key=upload_keys[2],
+        key=original_key,
         path=image_path_full,
         message=IMAGE_UPLOAD_SUCCESS
     )
