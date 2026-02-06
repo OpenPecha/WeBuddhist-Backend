@@ -14,6 +14,7 @@ DEFAULT_LANGUAGE = "EN"
 DEFAULT_SEARCH = None
 DEFAULT_SORT_BY = "title"
 DEFAULT_SORT_ORDER = "asc"
+DEFAULT_TAG = None
 
 def get_aggregate_counts():
     total_days_label = func.count(func.distinct(PlanItem.id)).label("total_days")
@@ -43,6 +44,10 @@ def apply_search_filter(query, search: Optional[str]):
         query = query.filter(Plan.title.ilike(f"%{search}%"))
     return query
 
+def apply_tag_filter(query, tag: Optional[str]):
+    if tag:
+        query = query.filter(Plan.tags.contains([tag]))
+    return query
 
 def apply_sorting(query, sort_by: str, sort_order: str, total_days_label, subscription_count_label):
     sort_column_map = {
@@ -72,18 +77,20 @@ def get_published_plans_from_db(db: Session,
     search: Optional[str] = DEFAULT_SEARCH, 
     language: str = DEFAULT_LANGUAGE,  
     sort_by: str = DEFAULT_SORT_BY,
-    sort_order: str = DEFAULT_SORT_ORDER
+    sort_order: str = DEFAULT_SORT_ORDER,
+    tag: Optional[str] = DEFAULT_TAG
 ):
     total_days_label, subscription_count_label = get_aggregate_counts()
     query = get_published_plans_query(db, total_days_label, subscription_count_label, language)
     query = apply_search_filter(query, search)
+    query = apply_tag_filter(query, tag)
     query = apply_sorting(query, sort_by, sort_order, total_days_label, subscription_count_label)
     rows = query.offset(skip).limit(limit).all()
     
     return convert_to_plan_aggregates(rows)
 
 
-def get_published_plans_count(db: Session, search: Optional[str] = DEFAULT_SEARCH, language: str = DEFAULT_LANGUAGE) -> int:
+def get_published_plans_count(db: Session, search: Optional[str] = DEFAULT_SEARCH, language: str = DEFAULT_LANGUAGE, tag: Optional[str] = DEFAULT_TAG) -> int:
     query = db.query(func.count(Plan.id)).filter(
         Plan.deleted_at.is_(None),
         Plan.status == PlanStatus.PUBLISHED,
@@ -91,6 +98,8 @@ def get_published_plans_count(db: Session, search: Optional[str] = DEFAULT_SEARC
     )
     if search:
         query = query.filter(Plan.title.ilike(f"%{search}%"))
+    if tag:
+        query = query.filter(Plan.tags.contains([tag]))
     return query.scalar()
 
 
@@ -129,3 +138,13 @@ def get_published_plans_by_author_id(db: Session, author_id: UUID, skip: int, li
     total = query.count()
     rows = query.offset(skip).limit(limit).all()
     return convert_to_plan_aggregates(rows), total
+
+
+def get_all_unique_tags(db: Session, language: str = "EN") -> List[str]:
+    query = db.query(func.jsonb_array_elements_text(Plan.tags).label("tag")).filter(
+        Plan.deleted_at.is_(None),
+        Plan.status == PlanStatus.PUBLISHED,
+        Plan.language == language,
+    )
+    results = query.distinct().all()
+    return [row.tag for row in results]

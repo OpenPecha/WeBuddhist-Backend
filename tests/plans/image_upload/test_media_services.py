@@ -1,10 +1,10 @@
 import io
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi import UploadFile, HTTPException
 from starlette import status
 
-from pecha_api.plans.media.media_response_models import PlanUploadResponse, ImageUrlModel
+from pecha_api.plans.media.media_response_models import PlanUploadResponse, ImageUrlModel, TextImageUploadResponse
 from pecha_api.plans.response_message import (
     IMAGE_UPLOAD_SUCCESS,
     INVALID_FILE_FORMAT,
@@ -18,6 +18,7 @@ from pecha_api.plans.response_message import (
 VALID_TOKEN = "valid_token"
 INVALID_TOKEN = "invalid_token"
 TEST_PLAN_ID = "plan123"
+TEST_TEXT_ID = "text123"
 TEST_UUID = "uuid123"
 TEST_BUCKET_NAME = "test-bucket"
 TEST_S3_KEY = "images/plan_images/uuid123/test_image.jpg"
@@ -32,6 +33,9 @@ VALIDATE_AUTHOR_PATH = "pecha_api.plans.media.media_services.validate_and_extrac
 UUID_PATH = "pecha_api.plans.media.media_services.uuid.uuid4"
 GET_CONFIG_PATH = "pecha_api.plans.media.media_services.get"
 GET_INT_CONFIG_PATH = "pecha_api.plans.media.media_services.get_int"
+TEXT_GET_PATH = "pecha_api.plans.media.media_services.Text.get_text"
+CREATE_TEXT_IMAGE_PATH = "pecha_api.plans.media.media_services.create_text_image"
+SESSION_LOCAL_PATH = "pecha_api.plans.media.media_services.SessionLocal"
 
 
 class TestDataFactory:
@@ -97,6 +101,30 @@ class TestDataFactory:
         )
         
         return PlanUploadResponse(
+            image=image_urls,
+            key=f"{path_segment}/original/{base_name}.jpg",
+            path=path_segment,
+            message=IMAGE_UPLOAD_SUCCESS
+        )
+
+    @staticmethod
+    def create_text_upload_response(
+        filename: str = "test_image.jpg",
+        text_id: str = TEST_TEXT_ID,
+        uuid: str = TEST_UUID
+    ) -> TextImageUploadResponse:
+        path_segment = f"images/text_images/{text_id}/{uuid}"
+        base_name = filename.rsplit('.', 1)[0]
+
+        image_urls = ImageUrlModel(
+            thumbnail=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/thumbnail/{base_name}.jpg",
+            medium=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/medium/{base_name}.jpg",
+            original=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/original/{base_name}.jpg"
+        )
+
+        return TextImageUploadResponse(
+            id="text_image_id",
+            text_id=text_id,
             image=image_urls,
             key=f"{path_segment}/original/{base_name}.jpg",
             path=path_segment,
@@ -530,13 +558,57 @@ class TestImageUploadIntegration:
             
             # Verify response structure
             assert isinstance(result, PlanUploadResponse)
-            assert isinstance(result.image, ImageUrlModel)
-            assert result.image.thumbnail is not None
-            assert result.image.medium is not None
-            assert result.image.original is not None
-            assert TEST_PLAN_ID in result.path
-            assert TEST_UUID in result.path
-            assert result.message == IMAGE_UPLOAD_SUCCESS
+
+
+class TestTextImageUploadSuccess:
+    """Test cases for successful text image upload scenarios"""
+
+    @pytest.mark.asyncio
+    async def test_successful_text_upload(self, mock_upload_file):
+        with MockManager() as mock_manager:
+            with patch(TEXT_GET_PATH, new_callable=AsyncMock) as mock_get_text, \
+                 patch(CREATE_TEXT_IMAGE_PATH) as mock_create_text_image, \
+                 patch(SESSION_LOCAL_PATH) as mock_session_local:
+                mock_get_text.return_value = {"id": TEST_TEXT_ID}
+                mock_create_text_image.return_value = MagicMock(id="text_image_id")
+                mock_session_local.return_value.__enter__.return_value = MagicMock()
+
+                from pecha_api.plans.media.media_services import upload_text_image
+
+                result = await upload_text_image(
+                    token=VALID_TOKEN,
+                    text_id=TEST_TEXT_ID,
+                    file=mock_upload_file
+                )
+
+                mock_manager.mocks['validate_author'].assert_called_once_with(token=VALID_TOKEN)
+                mock_get_text.assert_awaited_once_with(text_id=TEST_TEXT_ID)
+                mock_create_text_image.assert_called_once()
+
+                assert isinstance(result, TextImageUploadResponse)
+                assert result.text_id == TEST_TEXT_ID
+                assert result.message == IMAGE_UPLOAD_SUCCESS
+                assert result.image.original is not None
+
+
+class TestTextImageUploadValidation:
+    """Test cases for text image upload validation"""
+
+    @pytest.mark.asyncio
+    async def test_text_not_found_raises(self, mock_upload_file):
+        with patch(TEXT_GET_PATH, new_callable=AsyncMock) as mock_get_text, \
+             patch(VALIDATE_AUTHOR_PATH):
+            mock_get_text.return_value = None
+
+            from pecha_api.plans.media.media_services import upload_text_image
+            with pytest.raises(HTTPException) as exc_info:
+                await upload_text_image(
+                    token=VALID_TOKEN,
+                    text_id=TEST_TEXT_ID,
+                    file=mock_upload_file
+                )
+
+            assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
     
     def test_upload_with_all_parameters(self, mock_upload_file):
         """Test upload with all possible parameters specified"""

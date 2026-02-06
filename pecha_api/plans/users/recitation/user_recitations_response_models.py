@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from uuid import UUID
-from typing import List
+from typing import List, Optional
 
 class CreateUserRecitationRequest(BaseModel):
     text_id: UUID
@@ -8,6 +8,7 @@ class CreateUserRecitationRequest(BaseModel):
 class UserRecitationDTO(BaseModel):
     title: str
     text_id: UUID
+    image_url: Optional[str] = None
     language: str
     display_order: int
 

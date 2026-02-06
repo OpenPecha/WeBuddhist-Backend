@@ -136,6 +136,13 @@ async def get_texts_by_group_id(group_id: str, skip: int, limit: int) -> List[Te
         )
         for text in texts
     ]
+
+async def get_texts_by_titles(titles: List[str]) -> List[Text]:
+    if not titles:
+        return []
+    return await Text.find({"title": {"$in": titles}}).to_list()
+
+    
 async def get_all_texts_by_group_id(group_id: str) -> List[TextDTO]:
     texts = await Text.get_all_texts_by_group_id(group_id=group_id)
     return [

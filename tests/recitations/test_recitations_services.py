@@ -39,9 +39,11 @@ class TestGetListOfRecitationsService:
     @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
     @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
     @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
+    @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
     @pytest.mark.asyncio
     async def test_get_list_of_recitations_service_success(
         self,
+        mock_get_recitations_with_image_urls,
         mock_apply_search_filter,
         mock_get_root_text,
         mock_get_collection_id
@@ -57,6 +59,7 @@ class TestGetListOfRecitationsService:
         mock_recitations_response = RecitationsResponse(recitations=[recitation_dto])
         mock_get_root_text.return_value = mock_recitations_response
         mock_apply_search_filter.return_value = [recitation_dto]
+        mock_get_recitations_with_image_urls.return_value = [recitation_dto]
         
         # Execute
         result = await get_list_of_recitations_service(language="en")
@@ -125,9 +128,11 @@ class TestGetListOfRecitationsService:
     @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
     @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
     @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
+    @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
     @pytest.mark.asyncio
     async def test_get_list_of_recitations_service_with_search_match(
         self,
+        mock_get_recitations_with_image_urls,
         mock_apply_search_filter,
         mock_get_root_text,
         mock_get_collection_id
@@ -142,7 +147,7 @@ class TestGetListOfRecitationsService:
         mock_recitations_response = RecitationsResponse(recitations=[recitation_dto])
         mock_get_root_text.return_value = mock_recitations_response
         mock_apply_search_filter.return_value = [recitation_dto]
-        
+        mock_get_recitations_with_image_urls.return_value = [recitation_dto]
         result = await get_list_of_recitations_service(search="morning", language="en")
         
         assert isinstance(result, RecitationsResponse)
@@ -157,9 +162,11 @@ class TestGetListOfRecitationsService:
     @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
     @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
     @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
+    @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
     @pytest.mark.asyncio
     async def test_get_list_of_recitations_service_different_languages(
-        self,
+        self,   
+        mock_get_recitations_with_image_urls,
         mock_apply_search_filter,
         mock_get_root_text,
         mock_get_collection_id
@@ -174,7 +181,7 @@ class TestGetListOfRecitationsService:
         mock_recitations_response = RecitationsResponse(recitations=[recitation_dto])
         mock_get_root_text.return_value = mock_recitations_response
         mock_apply_search_filter.return_value = [recitation_dto]
-        
+        mock_get_recitations_with_image_urls.return_value = [recitation_dto]
         result = await get_list_of_recitations_service(language="bo")
         
         assert isinstance(result, RecitationsResponse)
