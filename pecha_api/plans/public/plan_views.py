@@ -38,13 +38,13 @@ async def get_plans(
 @public_plans_router.get(
     "/tags", status_code=status.HTTP_200_OK, response_model=TagsResponse
 )
-async def get_plan_tags(
+def get_plan_tags(
     language: str = Query(
         "en",
         description="Filter by language code (e.g., 'bo', 'en', 'zh'). Defaults to 'en'.",
     )
 ):
-    return await get_tags(language=language)
+    return get_tags(language=language)
 
 
 @public_plans_router.get("/{plan_id}", status_code=status.HTTP_200_OK, response_model=PublicPlanDTO)

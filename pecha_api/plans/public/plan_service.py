@@ -187,7 +187,7 @@ def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
         return plan_day_dto
 
 
-async def get_tags(language: str = "en") -> TagsResponse:
+def get_tags(language: str = "en") -> TagsResponse:
     try:
         with SessionLocal() as db:
             language_upper = language.upper()
