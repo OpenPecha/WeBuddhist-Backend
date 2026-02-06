@@ -159,6 +159,8 @@ def _get_task_subtasks_dto(subtasks: List[PlanSubTask]) -> List[SubTaskDTO]:
             content_type=subtask.content_type,
             content=subtask.content,
             display_order=subtask.display_order,
+            source_text_id=subtask.source_text_id,
+            pecha_segment_id=subtask.pecha_segment_id,
         )
         for subtask in subtasks
     ]
