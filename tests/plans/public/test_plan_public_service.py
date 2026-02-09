@@ -593,7 +593,6 @@ async def test_get_published_plan_zero_subscriptions(sample_plan, mock_db_sessio
 @pytest.mark.asyncio
 async def test_get_plan_days_success():
     """Test successful retrieval of plan days"""
-    token = "valid_token_123"
     plan_id = uuid4()
     
     mock_plan = MagicMock()
@@ -609,25 +608,17 @@ async def test_get_plan_days_success():
     mock_day_2.day_number = 2
     
     mock_plan_days = [mock_day_1, mock_day_2]
-    
-    mock_user = MagicMock()
-    mock_user.id = uuid4()
-    mock_user.email = "test@example.com"
 
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.public.plan_service.validate_and_extract_user_details") as mock_validate_user, \
          patch("pecha_api.plans.public.plan_service.get_plan_by_id") as mock_get_plan, \
          patch("pecha_api.plans.public.plan_service.get_days_by_plan_id") as mock_get_days:
         
         db_session = _mock_session_local(mock_session_local)
-        mock_validate_user.return_value = mock_user
         mock_get_plan.return_value = mock_plan
         mock_get_days.return_value = mock_plan_days
 
-        response = await get_plan_days(token=token, plan_id=plan_id)
+        response = await get_plan_days(plan_id=plan_id)
 
-        mock_validate_user.assert_called_once_with(token=token)
-        
         mock_get_plan.assert_called_once_with(db=db_session, plan_id=plan_id)
         mock_get_days.assert_called_once_with(db=db_session, plan_id=plan_id)
 
@@ -643,29 +634,22 @@ async def test_get_plan_days_success():
 @pytest.mark.asyncio
 async def test_get_plan_days_empty_days():
     """Test retrieval when plan has no days"""
-    token = "valid_token_456"
     plan_id = uuid4()
     
     mock_plan = MagicMock()
     mock_plan.id = plan_id
     mock_plan.title = "Empty Plan"
-    
-    mock_user = MagicMock()
-    mock_user.id = uuid4()
 
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.public.plan_service.validate_and_extract_user_details") as mock_validate_user, \
          patch("pecha_api.plans.public.plan_service.get_plan_by_id") as mock_get_plan, \
          patch("pecha_api.plans.public.plan_service.get_days_by_plan_id") as mock_get_days:
         
         db_session = _mock_session_local(mock_session_local)
-        mock_validate_user.return_value = mock_user
         mock_get_plan.return_value = mock_plan
         mock_get_days.return_value = []
 
-        response = await get_plan_days(token=token, plan_id=plan_id)
+        response = await get_plan_days(plan_id=plan_id)
 
-        mock_validate_user.assert_called_once_with(token=token)
         mock_get_plan.assert_called_once_with(db=db_session, plan_id=plan_id)
         mock_get_days.assert_called_once_with(db=db_session, plan_id=plan_id)
 
@@ -676,27 +660,20 @@ async def test_get_plan_days_empty_days():
 @pytest.mark.asyncio
 async def test_get_plan_days_plan_not_found():
     """Test when plan does not exist"""
-    token = "valid_token_789"
     plan_id = uuid4()
-    
-    mock_user = MagicMock()
-    mock_user.id = uuid4()
 
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.public.plan_service.validate_and_extract_user_details") as mock_validate_user, \
          patch("pecha_api.plans.public.plan_service.get_plan_by_id") as mock_get_plan:
         
         db_session = _mock_session_local(mock_session_local)
-        mock_validate_user.return_value = mock_user
         mock_get_plan.return_value = None 
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_plan_days(token=token, plan_id=plan_id)
+            await get_plan_days(plan_id=plan_id)
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert exc_info.value.detail == ErrorConstants.PLAN_NOT_FOUND
 
-        mock_validate_user.assert_called_once_with(token=token)
         mock_get_plan.assert_called_once_with(db=db_session, plan_id=plan_id)
 
 def test_get_plan_day_details_success():
@@ -709,6 +686,8 @@ def test_get_plan_day_details_success():
     mock_subtask_1.content_type = ContentType.TEXT
     mock_subtask_1.content = "Subtask content 1"
     mock_subtask_1.display_order = 1
+    mock_subtask_1.source_text_id = None
+    mock_subtask_1.pecha_segment_id = None
     
     mock_task = MagicMock()
     mock_task.id = uuid4()

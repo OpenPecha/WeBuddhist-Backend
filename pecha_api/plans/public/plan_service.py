@@ -11,7 +11,6 @@ from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get
 from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
-from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id, get_all_unique_tags)
@@ -131,10 +130,9 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
         )
 
 
-async def get_plan_days(token: str, plan_id: UUID) -> PlanDaysResponse:
+async def get_plan_days(plan_id: UUID) -> PlanDaysResponse:
     """Get all days for a specific plan"""
     
-    validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         plan_model = get_plan_by_id(db=db, plan_id=plan_id)
         if not plan_model:
@@ -159,6 +157,8 @@ def _get_task_subtasks_dto(subtasks: List[PlanSubTask]) -> List[SubTaskDTO]:
             content_type=subtask.content_type,
             content=subtask.content,
             display_order=subtask.display_order,
+            source_text_id=subtask.source_text_id,
+            pecha_segment_id=subtask.pecha_segment_id,
         )
         for subtask in subtasks
     ]

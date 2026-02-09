@@ -355,7 +355,6 @@ async def test_get_plan_details_service_error():
 @pytest.mark.asyncio
 async def test_get_plan_days_list_success():
     """Test successful retrieval of plan days list"""
-    creds = _Creds(token="valid_token_123")
     plan_id = uuid4()
     
     expected_days = [
@@ -370,12 +369,10 @@ async def test_get_plan_days_list_success():
         new_callable=AsyncMock,
     ) as mock_service:
         response = await get_plan_days_list(
-            authentication_credential=creds,
             plan_id=plan_id
         )
 
         mock_service.assert_called_once_with(
-            token="valid_token_123",
             plan_id=plan_id
         )
 
@@ -388,7 +385,6 @@ async def test_get_plan_days_list_success():
 @pytest.mark.asyncio
 async def test_get_plan_days_list_empty_days():
     """Test retrieval when plan has no days"""
-    creds = _Creds(token="valid_token_456")
     plan_id = uuid4()
     
     expected_response = PlanDaysResponse(days=[])
@@ -399,12 +395,10 @@ async def test_get_plan_days_list_empty_days():
         new_callable=AsyncMock,
     ) as mock_service:
         response = await get_plan_days_list(
-            authentication_credential=creds,
             plan_id=plan_id
         )
 
         mock_service.assert_called_once_with(
-            token="valid_token_456",
             plan_id=plan_id
         )
 
