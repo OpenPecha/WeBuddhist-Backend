@@ -112,6 +112,23 @@ async def get_text_details_by_text_id(text_id: str) -> TextDTO:
     return await TextUtils.get_text_detail_by_id(text_id=text_id)
 
 
+async def _filter_and_map_segments(
+    all_segments: List[SegmentDTO],
+    filter_type: str,
+    languages: List[str]
+) -> Dict[str, Segment]:
+    """Helper to filter segments by type and language."""
+    filtered = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
+        segments=all_segments,
+        type=TextType.VERSION.value
+    )
+    return filter_by_type_and_language(
+        type=filter_type,
+        segments=filtered,
+        languages=languages
+    )
+
+
 async def segments_mapping_by_toc(table_of_contents: List[TableOfContent], recitation_details_request: RecitationDetailsRequest) -> List[Segment]:
 
     needs_recitation = bool(recitation_details_request.recitation)
@@ -163,46 +180,30 @@ async def segments_mapping_by_toc(table_of_contents: List[TableOfContent], recit
                 all_segments_for_filter.extend(mapped_for_segment)
             
             if needs_recitation:
-                recitations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
-                    segments=all_segments_for_filter, 
-                    type=TextType.VERSION.value
-                )
-                recitation_segment.recitation = filter_by_type_and_language(
-                    type=RecitationListTextType.RECITATIONS.value, 
-                    segments=recitations, 
+                recitation_segment.recitation = await _filter_and_map_segments(
+                    all_segments=all_segments_for_filter,
+                    filter_type=RecitationListTextType.RECITATIONS.value,
                     languages=recitation_details_request.recitation
                 )
             
             if needs_translations:
-                translations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
-                    segments=all_segments_for_filter, 
-                    type=TextType.VERSION.value
-                )
-                recitation_segment.translations = filter_by_type_and_language(
-                    type=RecitationListTextType.TRANSLATIONS.value, 
-                    segments=translations, 
+                recitation_segment.translations = await _filter_and_map_segments(
+                    all_segments=all_segments_for_filter,
+                    filter_type=RecitationListTextType.TRANSLATIONS.value,
                     languages=recitation_details_request.translations
                 )
             
             if needs_transliterations:
-                transliterations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
-                    segments=all_segments_for_filter, 
-                    type=TextType.VERSION.value
-                )
-                recitation_segment.transliterations = filter_by_type_and_language(
-                    type=RecitationListTextType.TRANSLITERATIONS.value, 
-                    segments=transliterations, 
+                recitation_segment.transliterations = await _filter_and_map_segments(
+                    all_segments=all_segments_for_filter,
+                    filter_type=RecitationListTextType.TRANSLITERATIONS.value,
                     languages=recitation_details_request.transliterations
                 )
             
             if needs_adaptations:
-                adaptations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
-                    segments=all_segments_for_filter, 
-                    type=TextType.VERSION.value
-                )
-                recitation_segment.adaptations = filter_by_type_and_language(
-                    type=RecitationListTextType.ADAPTATIONS.value, 
-                    segments=adaptations, 
+                recitation_segment.adaptations = await _filter_and_map_segments(
+                    all_segments=all_segments_for_filter,
+                    filter_type=RecitationListTextType.ADAPTATIONS.value,
                     languages=recitation_details_request.adaptations
                 )
            
