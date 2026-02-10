@@ -46,11 +46,12 @@ class TestDataFactory:
         )
 
     @staticmethod
-    def create_user_recitation_dto(title="Test Text", text_id=None, language="bo", display_order=1) -> UserRecitationDTO:
+    def create_user_recitation_dto(title="Test Text", text_id=None, image_url=None, language="bo", display_order=1) -> UserRecitationDTO:
         """Create a UserRecitationDTO with specified attributes."""
         return UserRecitationDTO(
             title=title,
             text_id=text_id or uuid4(),
+            image_url=image_url,
             language=language,
             display_order=display_order
         )

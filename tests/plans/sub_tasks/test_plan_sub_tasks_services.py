@@ -38,10 +38,10 @@ async def test_create_new_sub_tasks_builds_and_saves_with_incremented_display_or
 
     saved_items = [
         SimpleNamespace(
-            id=uuid.uuid4(), content_type="TEXT", content="First", duration="10", display_order=6
+            id=uuid.uuid4(), content_type="TEXT", content="First", duration="10", display_order=6, source_text_id=None, pecha_segment_id=None,
         ),
         SimpleNamespace(
-            id=uuid.uuid4(), content_type="TEXT", content="Second", duration="10", display_order=7
+            id=uuid.uuid4(), content_type="TEXT", content="Second", duration="10", display_order=7, source_text_id=None, pecha_segment_id=None,
         ),
     ]
 
@@ -103,6 +103,8 @@ async def test_create_new_sub_tasks_builds_and_saves_with_incremented_display_or
             "content_type": "TEXT",
             "content": "First",
             "duration": "10",
+            "source_text_id": None,
+            "pecha_segment_id": None,
             "display_order": 6,
             "created_by": "author@example.com",
         }
@@ -111,6 +113,8 @@ async def test_create_new_sub_tasks_builds_and_saves_with_incremented_display_or
             "content_type": "TEXT",
             "content": "Second",
             "duration": "10",
+            "source_text_id": None,
+            "pecha_segment_id": None,
             "display_order": 7,
             "created_by": "author@example.com",
         }
@@ -361,6 +365,8 @@ async def test_update_sub_task_by_task_id_creates_new_sub_tasks_for_none_ids():
             "content_type": ContentType.TEXT,
             "content": "New A",
             "duration": "10",
+            "source_text_id": None,
+            "pecha_segment_id": None,
             "display_order": 2,
             "created_by": "author@example.com",
         }
@@ -369,6 +375,8 @@ async def test_update_sub_task_by_task_id_creates_new_sub_tasks_for_none_ids():
             "content_type": ContentType.TEXT,
             "content": "New B",
             "duration": "10",
+            "source_text_id": None,
+            "pecha_segment_id": None,
             "display_order": 3,
             "created_by": "author@example.com",
         }

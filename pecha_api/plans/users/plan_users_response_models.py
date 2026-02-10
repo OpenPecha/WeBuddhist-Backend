@@ -72,6 +72,8 @@ class UserSubTaskDTO(BaseModel):
     duration: Optional[str] = None
     content_type: ContentType
     content: str
+    source_text_id: Optional[UUID] = None
+    pecha_segment_id: Optional[str] = None
 
 class UserTaskDTO(BaseModel):
     id: UUID

@@ -4,8 +4,8 @@ from unittest.mock import patch, MagicMock, Mock
 from fastapi import HTTPException
 from starlette import status
 
-from pecha_api.plans.public.plan_service import get_published_plans, get_published_plan,get_plan_days, get_plan_day_details
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDaysResponse, PlanDayDTO
+from pecha_api.plans.public.plan_service import get_published_plans, get_published_plan,get_plan_days, get_plan_day_details, get_tags
+from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDaysResponse, PlanDayDTO, TagsResponse
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel, LanguageCode
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.plans_enums import ContentType
@@ -106,7 +106,8 @@ async def test_get_published_plans_success(sample_plan_aggregate, mock_db_sessio
             search=None,
             language="EN",  
             sort_by="title",
-            sort_order="asc"
+            sort_order="asc",
+            tag=None
         )
 
 
@@ -134,7 +135,8 @@ async def test_get_published_plans_with_search(sample_plan_aggregate, mock_db_se
             search="meditation",
             language="EN", 
             sort_by="title",
-            sort_order="asc"
+            sort_order="asc",
+            tag=None
         )
 
 
@@ -162,7 +164,8 @@ async def test_get_published_plans_with_language_filter(sample_plan_aggregate, m
             search=None,
             language="EN", 
             sort_by="title",
-            sort_order="asc"
+            sort_order="asc",
+            tag=None
         )
 
 
@@ -416,7 +419,8 @@ async def test_get_published_plans_with_pagination(sample_plan_aggregate, mock_d
             search=None,
             language="EN",  # Service converts to uppercase before calling repository
             sort_by="title",
-            sort_order="asc"
+            sort_order="asc",
+            tag=None
         )
 
 
@@ -589,7 +593,6 @@ async def test_get_published_plan_zero_subscriptions(sample_plan, mock_db_sessio
 @pytest.mark.asyncio
 async def test_get_plan_days_success():
     """Test successful retrieval of plan days"""
-    token = "valid_token_123"
     plan_id = uuid4()
     
     mock_plan = MagicMock()
@@ -605,25 +608,17 @@ async def test_get_plan_days_success():
     mock_day_2.day_number = 2
     
     mock_plan_days = [mock_day_1, mock_day_2]
-    
-    mock_user = MagicMock()
-    mock_user.id = uuid4()
-    mock_user.email = "test@example.com"
 
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.public.plan_service.validate_and_extract_user_details") as mock_validate_user, \
          patch("pecha_api.plans.public.plan_service.get_plan_by_id") as mock_get_plan, \
          patch("pecha_api.plans.public.plan_service.get_days_by_plan_id") as mock_get_days:
         
         db_session = _mock_session_local(mock_session_local)
-        mock_validate_user.return_value = mock_user
         mock_get_plan.return_value = mock_plan
         mock_get_days.return_value = mock_plan_days
 
-        response = await get_plan_days(token=token, plan_id=plan_id)
+        response = await get_plan_days(plan_id=plan_id)
 
-        mock_validate_user.assert_called_once_with(token=token)
-        
         mock_get_plan.assert_called_once_with(db=db_session, plan_id=plan_id)
         mock_get_days.assert_called_once_with(db=db_session, plan_id=plan_id)
 
@@ -639,29 +634,22 @@ async def test_get_plan_days_success():
 @pytest.mark.asyncio
 async def test_get_plan_days_empty_days():
     """Test retrieval when plan has no days"""
-    token = "valid_token_456"
     plan_id = uuid4()
     
     mock_plan = MagicMock()
     mock_plan.id = plan_id
     mock_plan.title = "Empty Plan"
-    
-    mock_user = MagicMock()
-    mock_user.id = uuid4()
 
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.public.plan_service.validate_and_extract_user_details") as mock_validate_user, \
          patch("pecha_api.plans.public.plan_service.get_plan_by_id") as mock_get_plan, \
          patch("pecha_api.plans.public.plan_service.get_days_by_plan_id") as mock_get_days:
         
         db_session = _mock_session_local(mock_session_local)
-        mock_validate_user.return_value = mock_user
         mock_get_plan.return_value = mock_plan
         mock_get_days.return_value = []
 
-        response = await get_plan_days(token=token, plan_id=plan_id)
+        response = await get_plan_days(plan_id=plan_id)
 
-        mock_validate_user.assert_called_once_with(token=token)
         mock_get_plan.assert_called_once_with(db=db_session, plan_id=plan_id)
         mock_get_days.assert_called_once_with(db=db_session, plan_id=plan_id)
 
@@ -672,33 +660,24 @@ async def test_get_plan_days_empty_days():
 @pytest.mark.asyncio
 async def test_get_plan_days_plan_not_found():
     """Test when plan does not exist"""
-    token = "valid_token_789"
     plan_id = uuid4()
-    
-    mock_user = MagicMock()
-    mock_user.id = uuid4()
 
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.public.plan_service.validate_and_extract_user_details") as mock_validate_user, \
          patch("pecha_api.plans.public.plan_service.get_plan_by_id") as mock_get_plan:
         
         db_session = _mock_session_local(mock_session_local)
-        mock_validate_user.return_value = mock_user
         mock_get_plan.return_value = None 
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_plan_days(token=token, plan_id=plan_id)
+            await get_plan_days(plan_id=plan_id)
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert exc_info.value.detail == ErrorConstants.PLAN_NOT_FOUND
 
-        mock_validate_user.assert_called_once_with(token=token)
         mock_get_plan.assert_called_once_with(db=db_session, plan_id=plan_id)
 
-@pytest.mark.asyncio
-async def test_get_plan_day_details_success():
+def test_get_plan_day_details_success():
     """Test successful retrieval of plan day details with tasks and subtasks"""
-    token = "valid_token_123"
     plan_id = uuid4()
     day_number = 1
     
@@ -707,6 +686,8 @@ async def test_get_plan_day_details_success():
     mock_subtask_1.content_type = ContentType.TEXT
     mock_subtask_1.content = "Subtask content 1"
     mock_subtask_1.display_order = 1
+    mock_subtask_1.source_text_id = None
+    mock_subtask_1.pecha_segment_id = None
     
     mock_task = MagicMock()
     mock_task.id = uuid4()
@@ -720,21 +701,14 @@ async def test_get_plan_day_details_success():
     mock_plan_item.day_number = day_number
     mock_plan_item.tasks = [mock_task]
     
-    mock_user = MagicMock()
-    mock_user.id = uuid4()
-    mock_user.email = "test@example.com"
-
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.public.plan_service.validate_and_extract_user_details") as mock_validate_user, \
          patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks") as mock_get_plan_day:
         
         db_session = _mock_session_local(mock_session_local)
-        mock_validate_user.return_value = mock_user
         mock_get_plan_day.return_value = mock_plan_item
 
-        response = await get_plan_day_details(token=token, plan_id=plan_id, day_number=day_number)
+        response = get_plan_day_details(plan_id=plan_id, day_number=day_number)
 
-        mock_validate_user.assert_called_once_with(token=token)
         mock_get_plan_day.assert_called_once_with(db=db_session, plan_id=plan_id, day_number=day_number)
 
         assert isinstance(response, PlanDayDTO)
@@ -753,3 +727,74 @@ async def test_get_plan_day_details_success():
         assert task.subtasks[0].content_type == ContentType.TEXT
         assert task.subtasks[0].content == "Subtask content 1"
         assert task.subtasks[0].display_order == 1
+
+def test_get_tags_success(mock_db_session):
+    """Test successful retrieval of tags."""
+    mock_tags = ["meditation", "sleep", "daily"]
+
+    with patch(
+        "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
+    ), patch(
+        "pecha_api.plans.public.plan_service.get_all_unique_tags",
+        return_value=mock_tags,
+    ) as mock_repo:
+
+        result = get_tags(language="en")
+
+        assert isinstance(result, TagsResponse)
+        assert result.tags == ["meditation", "sleep", "daily"]
+
+        mock_repo.assert_called_once_with(
+            db=mock_db_session.__enter__.return_value, language="EN"
+        )
+
+def test_get_tags_empty(mock_db_session):
+    """Test retrieval when no tags exist."""
+    with patch(
+        "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
+    ), patch(
+        "pecha_api.plans.public.plan_service.get_all_unique_tags", return_value=[]
+    ) as mock_repo:
+
+        result = get_tags(language="en")
+
+        assert isinstance(result, TagsResponse)
+        assert result.tags == []
+
+@pytest.mark.asyncio
+async def test_get_published_plans_with_tag_filter(
+    sample_plan_aggregate, mock_db_session
+):
+    with patch(
+        "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
+    ), patch(
+        "pecha_api.plans.public.plan_service.get_published_plans_from_db",
+        return_value=[sample_plan_aggregate],
+    ) as mock_repo, patch(
+        "pecha_api.plans.public.plan_service.get_published_plans_count", return_value=1
+    ), patch(
+        "pecha_api.plans.public.plan_service.generate_presigned_access_url",
+        return_value="https://bucket.s3.amazonaws.com/presigned-url",
+    ):
+
+        result = await get_published_plans(
+            tag="meditation",
+            search=None,
+            language="en",
+            sort_by="title",
+            sort_order="asc",
+            skip=0,
+            limit=20,
+        )
+
+        assert len(result.plans) == 1
+        mock_repo.assert_called_once_with(
+            db=mock_db_session.__enter__.return_value,
+            skip=0,
+            limit=20,
+            search=None,
+            language="EN",
+            sort_by="title",
+            sort_order="asc",
+            tag="meditation",
+        )

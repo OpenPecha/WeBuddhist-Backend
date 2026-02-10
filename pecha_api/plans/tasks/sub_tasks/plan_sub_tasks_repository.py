@@ -61,6 +61,8 @@ def update_sub_tasks_bulk(db: Session, sub_tasks: List[SubTaskDTO]) -> None:
                 PlanSubTask.content: sub_task.content,
                 PlanSubTask.content_type: sub_task.content_type,
                 PlanSubTask.duration: sub_task.duration,
+                PlanSubTask.source_text_id: sub_task.source_text_id,
+                PlanSubTask.pecha_segment_id: sub_task.pecha_segment_id,
                 PlanSubTask.display_order: sub_task.display_order,
             },
             synchronize_session=False,

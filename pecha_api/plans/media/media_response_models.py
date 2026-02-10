@@ -13,6 +13,15 @@ class PlanUploadResponse(BaseModel):
     message: str = IMAGE_UPLOAD_SUCCESS
 
 
+class TextImageUploadResponse(BaseModel):
+    id: str
+    text_id: str
+    image: ImageUrlModel
+    key: str
+    path: str
+    message: str = IMAGE_UPLOAD_SUCCESS
+
+
 class Error(BaseModel):
     error: str
     message: str

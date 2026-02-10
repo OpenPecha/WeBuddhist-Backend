@@ -365,7 +365,9 @@ def _get_user_sub_tasks_dto_bulk(sub_tasks: List[PlanSubTask], completed_subtask
             content=_get_presigned_url(content=sub_task.content) if sub_task.content_type == ContentType.IMAGE else sub_task.content,
             duration=sub_task.duration,
             display_order=sub_task.display_order,
-            is_completed=(sub_task.id in completed_subtask_ids)
+            is_completed=(sub_task.id in completed_subtask_ids),
+            source_text_id=sub_task.source_text_id,
+            pecha_segment_id=sub_task.pecha_segment_id
         ) for sub_task in sub_tasks
     ]
 

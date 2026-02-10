@@ -1,13 +1,13 @@
 import io
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
 from fastapi import FastAPI
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import UploadFile, HTTPException
 from starlette import status
 
-from pecha_api.plans.media.media_response_models import PlanUploadResponse, ImageUrlModel
+from pecha_api.plans.media.media_response_models import PlanUploadResponse, ImageUrlModel, TextImageUploadResponse
 from pecha_api.plans.response_message import (
     IMAGE_UPLOAD_SUCCESS,
     INVALID_FILE_FORMAT,
@@ -15,11 +15,11 @@ from pecha_api.plans.response_message import (
     UNEXPECTED_ERROR_UPLOAD,
     AUTHOR_NOT_FOUND
 )
-from pecha_api.plans.authors.plan_authors_model import Author
 
 
 # Test Data Constants
 TEST_PLAN_ID = "test_plan_123"
+TEST_TEXT_ID = "test_text_123"
 VALID_TOKEN = "valid_token"
 INVALID_TOKEN = "invalid_token"
 TEST_BUCKET_URL = "https://s3.amazonaws.com/bucket"
@@ -35,14 +35,14 @@ class TestDataFactory:
         last_name: str = "Author",
         email: str = "test@example.com",
         image_url: str = "https://example.com/image.jpg"
-    ) -> Author:
-        return Author(
-            id=author_id,
-            first_name=first_name,
-            last_name=last_name,
-            email=email,
-            image_url=image_url
-        )
+    ) -> MagicMock:
+        mock_author = MagicMock()
+        mock_author.id = author_id
+        mock_author.first_name = first_name
+        mock_author.last_name = last_name
+        mock_author.email = email
+        mock_author.image_url = image_url
+        return mock_author
     
     @staticmethod
     def create_mock_upload_response(
@@ -75,6 +75,31 @@ class TestDataFactory:
     ) -> tuple:
         return ("file", (filename, content, content_type))
 
+    @staticmethod
+    def create_mock_text_upload_response(
+        filename: str = "test_image.jpg",
+        text_id: str = TEST_TEXT_ID,
+        message: str = IMAGE_UPLOAD_SUCCESS
+    ) -> TextImageUploadResponse:
+        uuid_part = "uuid"
+        base_name = filename.rsplit(".", 1)[0]
+        path = f"images/text_images/{text_id}/{uuid_part}"
+
+        image_urls = ImageUrlModel(
+            thumbnail=f"{TEST_BUCKET_URL}/{path}/thumbnail/{base_name}.jpg",
+            medium=f"{TEST_BUCKET_URL}/{path}/medium/{base_name}.jpg",
+            original=f"{TEST_BUCKET_URL}/{path}/original/{base_name}.jpg",
+        )
+
+        return TextImageUploadResponse(
+            id="text_image_id",
+            text_id=text_id,
+            image=image_urls,
+            key=f"{path}/original/{base_name}.jpg",
+            path=path,
+            message=message,
+        )
+
 
 # Fixtures
 @pytest.fixture
@@ -102,6 +127,14 @@ def mock_upload_service(mock_success_response):
     """Mock the upload service with success response"""
     with patch("pecha_api.plans.media.media_views.upload_plan_image") as mock_func:
         mock_func.return_value = mock_success_response
+        yield mock_func
+
+
+@pytest.fixture
+def mock_text_upload_service():
+    """Mock the text upload service with success response"""
+    with patch("pecha_api.plans.media.media_views.upload_text_image", new_callable=AsyncMock) as mock_func:
+        mock_func.return_value = TestDataFactory.create_mock_text_upload_response()
         yield mock_func
 
 
@@ -202,6 +235,28 @@ class TestMediaUploadSuccess:
         response = authenticated_client.post("/cms/media/upload", files=files, headers=headers, params=params)
         
         assert response.status_code == status.HTTP_201_CREATED
+
+
+class TestTextMediaUploadSuccess:
+    """Test cases for successful text media upload scenarios"""
+
+    def test_upload_text_image_success(self, authenticated_client, mock_text_upload_service):
+        files = [TestDataFactory.create_test_file()]
+        headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+        data = {"text_id": TEST_TEXT_ID}
+
+        response = authenticated_client.post("/cms/media/upload/text", files=files, headers=headers, data=data)
+
+        assert response.status_code == status.HTTP_201_CREATED
+        response_data = response.json()
+        assert response_data["message"] == IMAGE_UPLOAD_SUCCESS
+        assert response_data["text_id"] == TEST_TEXT_ID
+        assert "image" in response_data
+        assert "thumbnail" in response_data["image"]
+        assert "medium" in response_data["image"]
+        assert "original" in response_data["image"]
+        assert "key" in response_data
+        assert "path" in response_data
 
 
 class TestMediaUploadAuthentication:
@@ -312,6 +367,22 @@ class TestMediaUploadValidation:
         
         # Empty files should still be processed successfully if they pass validation
         assert response.status_code == status.HTTP_201_CREATED
+
+    def test_upload_text_missing_text_id(self, authenticated_client):
+        files = [TestDataFactory.create_test_file()]
+        headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+
+        response = authenticated_client.post("/cms/media/upload/text", files=files, headers=headers)
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_upload_text_missing_file(self, authenticated_client):
+        headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+        data = {"text_id": TEST_TEXT_ID}
+
+        response = authenticated_client.post("/cms/media/upload/text", headers=headers, data=data)
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 class TestMediaUploadErrorHandling:

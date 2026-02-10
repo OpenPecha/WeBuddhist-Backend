@@ -17,6 +17,23 @@ from pecha_api.plans.users.recitation.user_recitations_response_models import (
     UserRecitationDTO,
     UpdateRecitationOrderRequest
 )
+from pecha_api.recitations.recitations_repository import get_text_images_by_text_ids
+from pecha_api.uploads.S3_utils import generate_presigned_access_url
+from pecha_api.config import get
+from typing import Dict
+
+def get_image_url_map_by_text_ids(db, text_ids: list) -> Dict[str, str]:
+    image_keys = get_text_images_by_text_ids(db=db, text_ids=text_ids)
+    
+    image_url_map = {
+        text_id: generate_presigned_access_url(
+            bucket_name=get("AWS_BUCKET_NAME"), 
+            s3_key=s3_key
+        )
+        for text_id, s3_key in image_keys.items()
+    }
+    
+    return image_url_map
 
 async def create_user_recitation_service(token: str, create_user_recitation_request: CreateUserRecitationRequest) -> None:
     current_user=validate_and_extract_user_details(token=token)
@@ -45,11 +62,12 @@ async def get_user_recitations_service(token: str) -> UserRecitationsResponse:
         
         text_ids = [str(recitation.text_id) for recitation in user_recitations]
         texts_dict = await get_texts_by_ids(text_ids=text_ids)
-        
+        image_url_map = get_image_url_map_by_text_ids(db=db, text_ids=text_ids)
         recitations_dto = [
             UserRecitationDTO(
                 title=texts_dict[str(recitation.text_id)].title, 
                 text_id=recitation.text_id,
+                image_url=image_url_map.get(str(recitation.text_id)),
                 language=texts_dict[str(recitation.text_id)].language,
                 display_order=recitation.display_order
             )

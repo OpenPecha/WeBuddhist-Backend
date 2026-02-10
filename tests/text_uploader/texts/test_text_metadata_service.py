@@ -41,6 +41,7 @@ async def test_create_textmetada_payload_version_sets_group_and_category_from_co
                     id="inst_1",
                     type="critical",
                     source="https://source.example",
+                    alt_incipit_titles=None,
                 )
             ]
         ),
@@ -93,6 +94,7 @@ async def test_create_textmetada_payload_commentary_sets_group_and_category_from
                     id="inst_c1",
                     type="critical",
                     source="s",
+                    alt_incipit_titles=None,
                 )
             ]
         ),
@@ -121,6 +123,7 @@ async def test_get_uploaded_texts_returns_uploaded_text_ids_and_instances_mappin
                     id=instance_id,
                     type="critical",
                     source="src",
+                    alt_incipit_titles=None,
                 )
             ]
         )
@@ -306,7 +309,8 @@ async def test_get_text_meta_data_service_creates_group_for_first_text():
             CriticalInstance(
                 id="inst_1",
                 type="critical",
-                source="https://source.example"
+                source="https://source.example",
+                alt_incipit_titles=None,
             )
         ]
     )
@@ -410,12 +414,14 @@ async def test_get_text_critical_instance_returns_critical_instances():
         CriticalInstance(
             id="inst_1",
             type="critical",
-            source="https://source1.example"
+            source="https://source1.example",
+            alt_incipit_titles=None,
         ),
         CriticalInstance(
             id="inst_2",
             type="critical",
-            source="https://source2.example"
+            source="https://source2.example",
+            alt_incipit_titles=None,
         )
     ]
     
