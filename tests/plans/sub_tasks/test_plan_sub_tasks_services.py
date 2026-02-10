@@ -365,6 +365,8 @@ async def test_update_sub_task_by_task_id_creates_new_sub_tasks_for_none_ids():
             "content_type": ContentType.TEXT,
             "content": "New A",
             "duration": "10",
+            "source_text_id": None,
+            "pecha_segment_id": None,
             "display_order": 2,
             "created_by": "author@example.com",
         }
@@ -373,6 +375,8 @@ async def test_update_sub_task_by_task_id_creates_new_sub_tasks_for_none_ids():
             "content_type": ContentType.TEXT,
             "content": "New B",
             "duration": "10",
+            "source_text_id": None,
+            "pecha_segment_id": None,
             "display_order": 3,
             "created_by": "author@example.com",
         }

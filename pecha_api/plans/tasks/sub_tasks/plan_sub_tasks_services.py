@@ -91,6 +91,8 @@ async def update_sub_task_by_task_id(token: str, update_sub_task_request: Update
                 content_type=subtask.content_type,
                 content=subtask.content,
                 duration=subtask.duration,
+                source_text_id=subtask.source_text_id,
+                pecha_segment_id=subtask.pecha_segment_id,
                 display_order=subtask.display_order,
                 created_by=current_author.email,
             )
