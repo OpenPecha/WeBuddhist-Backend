@@ -3,13 +3,15 @@ from pecha_api.plans.response_message import NO_SEGMENTATION_IDS_RETURNED, PECHA
 from .search_enums import SearchType
 from .search_client import search_client
 from pecha_api.config import get
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 from pecha_api.texts.segments.segments_models import Segment
 from pecha_api.texts.texts_models import Text
+from pecha_api.texts.texts_service import get_titles_and_ids_by_query
 
 from pecha_api.http_message_utils import handle_http_status_error, handle_request_error
 import httpx
 import logging
+import asyncio
 from .search_response_models import (
     SearchResponse,
     TextIndex,
@@ -402,7 +404,7 @@ async def call_external_search_api(
     language: Optional[str] = None
 ) -> ExternalSearchResponse:
 
-    external_api_url = "https://search.buddhistai.tools"
+    external_api_url = get("OPENPECHA_SEARCH_API_URL")
     endpoint = f"{external_api_url}/search"
     
     payload = build_search_payload(query, search_type, limit, title, language)
@@ -460,3 +462,64 @@ async def get_url_link(pecha_segment_id: str) -> str:
     except Exception as e:
         logger.error(f"Error generating URL for pecha_segment_id {pecha_segment_id}: {str(e)}", exc_info=True)
         return "" 
+
+async def knowledge_base_search(scope: str, query: str, offset: int, limit: int) -> Dict| str:
+    
+    # scope can be text, content, author , all
+    # all should search all text author and content with a limit of 3
+    # text should search only text with a limit of 10
+    # content should search only content with a limit of 10
+    # author should search only authors with a limit of 10
+    
+    results = {
+    }
+    
+    if scope == "all":
+        # Search all with limit of 3 each - run in parallel
+        text_results, content_results, author_results = await asyncio.gather(
+            get_titles_and_ids_by_query(
+                title=query,
+                author=None,
+                limit=3,
+                offset=offset
+            ),
+            get_multilingual_search_results(
+                query=query,
+                search_type="hybrid",
+                text_id=None,
+                skip=offset,
+                limit=3
+            ),
+            get_titles_and_ids_by_query(
+                title=None,
+                author=query,
+                limit=3,
+                offset=offset
+            )
+        )
+        results["titles"] = text_results[:3] if text_results else []
+        results["content"] = content_results if content_results.sources else None
+        results["authors"] = author_results[:3] if author_results else []
+        
+    elif scope == "title":
+        # Search only text with limit of 10
+        text_results = await get_titles_and_ids_by_query(
+            title=query,
+            author=None,
+            limit=limit,
+            offset=offset
+        )
+        print(text_results)
+        results["titles"] = text_results if text_results else []
+               
+    elif scope == "author":
+        # Search only authors with limit of 10
+        author_results = await get_titles_and_ids_by_query(
+            title=None,
+            author=query,
+            limit=limit,
+            offset=offset
+        )
+        results["authors"] = author_results if author_results else []
+    
+    return results

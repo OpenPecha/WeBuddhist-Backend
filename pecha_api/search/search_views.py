@@ -1,13 +1,13 @@
 from fastapi import APIRouter, Query
 from .search_enums import SearchType, MultilingualSearchType
 from starlette import status
-
-from typing import Optional
+from typing import Optional,Annotated
 
 from .search_service import (
     get_search_results,
     get_multilingual_search_results,
-    get_url_link as get_url_link_service
+    get_url_link as get_url_link_service,
+    knowledge_base_search as knowledge_base_search_service
 )
 
 from .search_response_models import (
@@ -57,3 +57,13 @@ async def multilingual_search(
 @search_router.get("/chat/{pecha_segment_id}", status_code=status.HTTP_200_OK)
 async def get_url_link(pecha_segment_id: str) -> str:
     return await get_url_link_service(pecha_segment_id)
+
+
+@search_router.get("/knowledge-base", status_code=status.HTTP_200_OK)
+async def knowledge_base_search(
+    query: Annotated[str, Query(description="Search query")]=None,
+    scope: Annotated[str, Query(description="Scope of the search")]="all",
+    offset: Annotated[int, Query(description="Offset of the search")]=0,
+    limit: Annotated[int, Query(description="Limit of the search")]=10,
+):
+    return await knowledge_base_search_service(scope=scope, query=query, offset=offset, limit=limit)

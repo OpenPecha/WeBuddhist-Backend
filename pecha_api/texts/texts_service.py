@@ -95,7 +95,7 @@ from .texts_enums import PaginationDirection, LANGUAGE_ORDERS, TextType, TextTyp
 import logging
 import httpx
 
-EXTERNAL_TITLE_SEARCH_API_URL = get("EXTERNAL_TITLE_SEARCH_API_URL")
+EXTERNAL_PECHA_API_URL = get("EXTERNAL_PECHA_API_URL")
 ACCEPT_JSON_HEADER = {"Accept": "application/json"}
 
 
@@ -171,7 +171,7 @@ async def get_titles_and_ids_by_query(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=TITLE_OR_AUTHOR_QUERY_REQUIRED
         )
-    if not EXTERNAL_TITLE_SEARCH_API_URL:
+    if not EXTERNAL_PECHA_API_URL:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=EXTERNAL_PECHA_API_URL_NOT_CONFIGURED
@@ -183,7 +183,7 @@ async def get_titles_and_ids_by_query(
     if author:
         params["author"] = author
 
-    endpoint = f"{EXTERNAL_TITLE_SEARCH_API_URL}/v2/texts"
+    endpoint = f"{EXTERNAL_PECHA_API_URL}/texts"
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
             response = await client.get(endpoint, headers=ACCEPT_JSON_HEADER, params=params)
