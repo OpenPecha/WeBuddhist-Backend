@@ -25,7 +25,7 @@ class CriticalInstance(BaseModel):
     source: str
     colophon: Optional[str] = None
     incipit_title: Optional[Any] = None
-    alt_incipit_titles: Optional[Any] = None
+    alt_incipit_titles: Optional[List[Any]] = None
     biblography_annotation: Optional[str] = None
 
 class CriticalInstanceResponse(BaseModel):
