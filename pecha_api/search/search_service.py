@@ -1,5 +1,5 @@
 from elastic_transport import ObjectApiResponse
-from pecha_api.plans.response_message import NO_SEGMENTATION_IDS_RETURNED, PECHA_SEGMENT_NOT_FOUND
+from pecha_api.plans.response_message import NO_SEGMENTATION_IDS_RETURNED
 from .search_enums import SearchType
 from .search_client import search_client
 from pecha_api.config import get
@@ -20,7 +20,8 @@ from .search_response_models import (
     ExternalSearchResponse,
     MultilingualSegmentMatch,
     MultilingualSourceResult,
-    MultilingualSearchResponse
+    MultilingualSearchResponse,
+    SegmentLinkResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -446,17 +447,18 @@ async def build_multilingual_sources(segments: List[Segment], results_map: Dict[
     
     return sources
 
-async def get_url_link(pecha_segment_id: str) -> str:
-
+async def get_url_link(pecha_segment_id: str) -> SegmentLinkResponse | None:
     try:
         segment = await Segment.get_segment_by_pecha_segment_id(pecha_segment_id=pecha_segment_id)
-        
+
         if not segment:
-            return PECHA_SEGMENT_NOT_FOUND
-        
-        url = f"/chapter?text_id={segment.text_id}&segment_id={str(segment.id)}"
-        return url
-        
+            return None
+
+        return SegmentLinkResponse(
+            text_id=segment.text_id,
+            segment_id=str(segment.id),
+        )
+
     except Exception as e:
         logger.error(f"Error generating URL for pecha_segment_id {pecha_segment_id}: {str(e)}", exc_info=True)
-        return "" 
+        raise 
