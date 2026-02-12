@@ -688,6 +688,7 @@ def test_get_plan_day_details_success():
     mock_subtask_1.display_order = 1
     mock_subtask_1.source_text_id = None
     mock_subtask_1.pecha_segment_id = None
+    mock_subtask_1.segment_id = None
     
     mock_task = MagicMock()
     mock_task.id = uuid4()

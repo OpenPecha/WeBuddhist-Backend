@@ -256,6 +256,7 @@ async def test_get_task_subtasks_service_image_content_uses_presigned_url():
         display_order=1,
         source_text_id=None,
         pecha_segment_id=None,
+        segment_id=None,
     )
 
     mock_task = SimpleNamespace(
@@ -563,6 +564,7 @@ async def test_get_task_subtasks_service_success():
         duration=None,
         source_text_id=None,
         pecha_segment_id=None,
+        segment_id=None,
     )
     subtask2 = SimpleNamespace(
         id=uuid.uuid4(),
@@ -572,6 +574,7 @@ async def test_get_task_subtasks_service_success():
         duration=None,
         source_text_id=None,
         pecha_segment_id=None,
+        segment_id=None,
     )
 
     mock_task = SimpleNamespace(
