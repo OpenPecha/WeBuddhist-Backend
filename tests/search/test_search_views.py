@@ -652,7 +652,11 @@ def test_get_url_link_with_special_characters():
 
 def test_get_url_link_service_error():
     """Test get_url_link endpoint when service raises an exception"""
-    with patch("pecha_api.search.search_views.get_url_link_service", new_callable=AsyncMock, side_effect=Exception("Service error")):
+    with patch(
+        "pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id",
+        new_callable=AsyncMock,
+        side_effect=Exception("Service error"),
+    ):
         response = client.get("/search/chat/error_segment_id")
 
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
