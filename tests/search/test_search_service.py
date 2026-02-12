@@ -760,144 +760,155 @@ async def test_build_multilingual_sources_sorting():
 async def test_get_url_link_success():
     """Test get_url_link service with valid pecha_segment_id"""
     from pecha_api.search.search_service import get_url_link
-    
+
     mock_segment = Mock()
     mock_segment.id = uuid4()
     mock_segment.text_id = "text123"
     mock_segment.pecha_segment_id = "pecha_seg_123"
-    
+
     with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=mock_segment):
         result = await get_url_link("pecha_seg_123")
-        
+
         assert result is not None
-        assert result == f"/chapter?text_id=text123&segment_id={str(mock_segment.id)}"
-        assert "text_id=" in result
-        assert "segment_id=" in result
+        assert result.text_id == "text123"
+        assert result.segment_id == str(mock_segment.id)
 
 
 @pytest.mark.asyncio
 async def test_get_url_link_segment_not_found():
     """Test get_url_link service when segment is not found"""
+    from fastapi import HTTPException
+    from starlette import status
+
     from pecha_api.search.search_service import get_url_link
-    from pecha_api.plans.response_message import PECHA_SEGMENT_NOT_FOUND
-    
+
     with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=None):
-        result = await get_url_link("nonexistent_segment_id")
-        
-        assert result == PECHA_SEGMENT_NOT_FOUND
-        assert result == "Pecha segment not found"
+        with pytest.raises(HTTPException) as exc_info:
+            await get_url_link("nonexistent_segment_id")
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        assert exc_info.value.detail == "Pecha segment not found"
 
 
 @pytest.mark.asyncio
 async def test_get_url_link_with_uuid_segment_id():
     """Test get_url_link service with UUID-formatted segment ID"""
     from pecha_api.search.search_service import get_url_link
-    
+
     segment_uuid = uuid4()
     text_uuid = uuid4()
-    
+
     mock_segment = Mock()
     mock_segment.id = segment_uuid
     mock_segment.text_id = str(text_uuid)
     mock_segment.pecha_segment_id = str(uuid4())
-    
+
     with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=mock_segment):
         result = await get_url_link(mock_segment.pecha_segment_id)
-        
+
         assert result is not None
-        assert result == f"/chapter?text_id={str(text_uuid)}&segment_id={str(segment_uuid)}"
-        assert str(text_uuid) in result
-        assert str(segment_uuid) in result
+        assert result.text_id == str(text_uuid)
+        assert result.segment_id == str(segment_uuid)
 
 
 @pytest.mark.asyncio
 async def test_get_url_link_with_special_characters():
     """Test get_url_link service with special characters in pecha_segment_id"""
     from pecha_api.search.search_service import get_url_link
-    
+
     mock_segment = Mock()
     mock_segment.id = uuid4()
     mock_segment.text_id = "text-abc-123"
     mock_segment.pecha_segment_id = "pecha-seg_123-xyz"
-    
+
     with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=mock_segment):
         result = await get_url_link("pecha-seg_123-xyz")
-        
+
         assert result is not None
-        assert result == f"/chapter?text_id=text-abc-123&segment_id={str(mock_segment.id)}"
+        assert result.text_id == "text-abc-123"
+        assert result.segment_id == str(mock_segment.id)
 
 
 @pytest.mark.asyncio
 async def test_get_url_link_database_exception():
     """Test get_url_link service when database raises an exception"""
+    from fastapi import HTTPException
+    from starlette import status
+
     from pecha_api.search.search_service import get_url_link
-    
+
     with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, side_effect=Exception("Database connection error")):
-        result = await get_url_link("error_segment_id")
-        
-        assert result == ""
+        with pytest.raises(HTTPException) as exc_info:
+            await get_url_link("error_segment_id")
+
+        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert exc_info.value.detail == "Failed to retrieve segment link"
 
 
 @pytest.mark.asyncio
 async def test_get_url_link_with_long_pecha_segment_id():
     """Test get_url_link service with very long pecha_segment_id"""
     from pecha_api.search.search_service import get_url_link
-    
+
     long_segment_id = "a" * 500
-    
+
     mock_segment = Mock()
     mock_segment.id = uuid4()
     mock_segment.text_id = "text123"
     mock_segment.pecha_segment_id = long_segment_id
-    
+
     with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=mock_segment):
         result = await get_url_link(long_segment_id)
-        
+
         assert result is not None
-        assert result == f"/chapter?text_id=text123&segment_id={str(mock_segment.id)}"
+        assert result.text_id == "text123"
+        assert result.segment_id == str(mock_segment.id)
 
 
 @pytest.mark.asyncio
 async def test_get_url_link_with_empty_text_id():
     """Test get_url_link service when segment has empty text_id"""
     from pecha_api.search.search_service import get_url_link
-    
+
     mock_segment = Mock()
     mock_segment.id = uuid4()
     mock_segment.text_id = ""
     mock_segment.pecha_segment_id = "pecha_seg_123"
-    
+
     with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=mock_segment):
         result = await get_url_link("pecha_seg_123")
-        
+
         assert result is not None
-        assert result == f"/chapter?text_id=&segment_id={str(mock_segment.id)}"
+        assert result.text_id == ""
+        assert result.segment_id == str(mock_segment.id)
 
 
 @pytest.mark.asyncio
 async def test_get_url_link_multiple_calls():
     """Test get_url_link service with multiple sequential calls"""
     from pecha_api.search.search_service import get_url_link
-    
+
     mock_segment1 = Mock()
     mock_segment1.id = uuid4()
     mock_segment1.text_id = "text1"
     mock_segment1.pecha_segment_id = "seg1"
-    
+
     mock_segment2 = Mock()
     mock_segment2.id = uuid4()
     mock_segment2.text_id = "text2"
     mock_segment2.pecha_segment_id = "seg2"
-    
+
     with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock) as mock_get:
         mock_get.return_value = mock_segment1
         result1 = await get_url_link("seg1")
-        assert result1 == f"/chapter?text_id=text1&segment_id={str(mock_segment1.id)}"
-        
+        assert result1.text_id == "text1"
+        assert result1.segment_id == str(mock_segment1.id)
+
         mock_get.return_value = mock_segment2
         result2 = await get_url_link("seg2")
-        assert result2 == f"/chapter?text_id=text2&segment_id={str(mock_segment2.id)}"
-        
+        assert result2.text_id == "text2"
+        assert result2.segment_id == str(mock_segment2.id)
+
         assert mock_get.call_count == 2
 
 
@@ -905,17 +916,18 @@ async def test_get_url_link_multiple_calls():
 async def test_get_url_link_none_segment_id():
     """Test get_url_link service when segment.id is None"""
     from pecha_api.search.search_service import get_url_link
-    
+
     mock_segment = Mock()
     mock_segment.id = None
     mock_segment.text_id = "text123"
     mock_segment.pecha_segment_id = "pecha_seg_123"
-    
+
     with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=mock_segment):
         result = await get_url_link("pecha_seg_123")
-        
+
         assert result is not None
-        assert result == f"/chapter?text_id=text123&segment_id=None"
+        assert result.text_id == "text123"
+        assert result.segment_id == "None"
 
 @pytest.mark.asyncio
 async def test_get_multilingual_search_external_limit_calculation():
