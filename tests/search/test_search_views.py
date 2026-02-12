@@ -624,7 +624,11 @@ def test_get_url_link_success():
 
 def test_get_url_link_segment_not_found():
     """Test get_url_link endpoint when segment is not found"""
-    with patch("pecha_api.search.search_views.get_url_link_service", new_callable=AsyncMock, return_value=None):
+    with patch(
+        "pecha_api.search.search_views.get_url_link_service",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pecha segment not found"),
+    ):
         response = client.get("/search/chat/nonexistent_segment_id")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND

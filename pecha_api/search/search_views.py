@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query
 from .search_enums import SearchType, MultilingualSearchType
 from starlette import status
 
@@ -57,10 +57,4 @@ async def multilingual_search(
 
 @search_router.get("/chat/{pecha_segment_id}", status_code=status.HTTP_200_OK)
 async def get_url_link(pecha_segment_id: str) -> SegmentLinkResponse:
-    result = await get_url_link_service(pecha_segment_id)
-    if result is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Pecha segment not found",
-        )
-    return result
+    return await get_url_link_service(pecha_segment_id)

@@ -777,12 +777,17 @@ async def test_get_url_link_success():
 @pytest.mark.asyncio
 async def test_get_url_link_segment_not_found():
     """Test get_url_link service when segment is not found"""
+    from fastapi import HTTPException
+    from starlette import status
+
     from pecha_api.search.search_service import get_url_link
 
     with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=None):
-        result = await get_url_link("nonexistent_segment_id")
+        with pytest.raises(HTTPException) as exc_info:
+            await get_url_link("nonexistent_segment_id")
 
-        assert result is None
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        assert exc_info.value.detail == "Pecha segment not found"
 
 
 @pytest.mark.asyncio
@@ -827,11 +832,17 @@ async def test_get_url_link_with_special_characters():
 @pytest.mark.asyncio
 async def test_get_url_link_database_exception():
     """Test get_url_link service when database raises an exception"""
+    from fastapi import HTTPException
+    from starlette import status
+
     from pecha_api.search.search_service import get_url_link
 
     with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, side_effect=Exception("Database connection error")):
-        with pytest.raises(Exception, match="Database connection error"):
+        with pytest.raises(HTTPException) as exc_info:
             await get_url_link("error_segment_id")
+
+        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert exc_info.value.detail == "Failed to retrieve segment link"
 
 
 @pytest.mark.asyncio
