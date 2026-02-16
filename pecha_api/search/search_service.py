@@ -464,6 +464,6 @@ async def get_url_link(pecha_segment_id: str) -> SegmentLinkResponse:
 
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Error generating URL for pecha_segment_id {pecha_segment_id}: {str(e)}", exc_info=True)
+    except Exception:
+        logger.error("Error generating URL for pecha segment", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to retrieve segment link")
