@@ -18,6 +18,7 @@ class PlanSubTask(Base):
     duration=Column(String(255), nullable=True)
     source_text_id = Column(UUID(as_uuid=True), nullable=True)
     pecha_segment_id = Column(String(255), nullable=True)
+    segment_id = Column(UUID(as_uuid=True), nullable=True)
 
     display_order = Column(Integer, nullable=False)
 
