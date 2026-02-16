@@ -206,6 +206,7 @@ async def segments_mapping_by_toc(table_of_contents: List[TableOfContent], recit
                     filter_type=RecitationListTextType.ADAPTATIONS.value,
                     languages=recitation_details_request.adaptations
                 )
+                
            
             filter_mapped_segments.append(recitation_segment)
     return filter_mapped_segments
