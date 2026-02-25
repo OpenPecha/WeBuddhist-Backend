@@ -185,6 +185,7 @@ async def test_get_plan_details_success():
         total_days=0,
         difficulty_level="BEGINNER",
         tags=[],
+        status=PlanStatus.DRAFT,
         days=[],
     )
 
