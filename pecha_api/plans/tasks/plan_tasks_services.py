@@ -169,8 +169,6 @@ def _reorder_sequentially(db: SessionLocal(), tasks: List[PlanTask]):
 
 def _get_author_task(db: SessionLocal(), task_id: UUID, current_author: Author, is_admin: bool) -> PlanTask:
     task = get_task_by_id(db=db, task_id=task_id)
-    if not task:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ResponseError(error=BAD_REQUEST, message=TASK_NOT_FOUND).model_dump())
     if not is_admin and task.created_by != current_author.email:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ResponseError(error=FORBIDDEN, message=UNAUTHORIZED_TASK_ACCESS).model_dump())
     return task
