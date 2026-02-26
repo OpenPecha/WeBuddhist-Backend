@@ -77,6 +77,7 @@ class PlanWithDays(BaseModel):
     total_days: int
     difficulty_level: str
     tags: List[str]
+    status: PlanStatus
     days: List[PlanDayDTO]
 
 class PlansResponse(BaseModel):
