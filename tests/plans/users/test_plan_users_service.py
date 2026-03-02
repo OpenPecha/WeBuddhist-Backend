@@ -230,6 +230,35 @@ def test_complete_sub_task_service_sub_task_not_found_raises_404():
         assert exc_info.value.detail["message"] == SUB_TASK_NOT_FOUND
 
 
+def test_complete_sub_task_service_already_completed_raises_409():
+    """Test that 409 is raised when subtask is already completed"""
+    user_id = uuid.uuid4()
+    sub_task_id = uuid.uuid4()
+    task_id = uuid.uuid4()
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_sub_task_by_subtask_id",
+        return_value=SimpleNamespace(id=sub_task_id, task_id=task_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_sub_task_by_user_id_and_sub_task_id",
+        return_value=SimpleNamespace(id=uuid.uuid4()),  # Existing completion
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            complete_sub_task_service(token="token123", id=sub_task_id)
+        
+        assert exc_info.value.status_code == 409
+        assert exc_info.value.detail["error"] == BAD_REQUEST
+        assert exc_info.value.detail["message"] == ALREADY_COMPLETED_SUB_TASK
+
+
 def test_complete_sub_task_service_marks_task_completion_when_all_subtasks_done():
     user_id = uuid.uuid4()
     sub_task_id = uuid.uuid4()
@@ -1431,6 +1460,74 @@ def test_get_user_plan_day_details_service_image_subtask_presigned():
         sub = result.tasks[0].sub_tasks[0]
         assert sub.id == sub_image_id
         assert sub.content == "https://signed.example.com/subtask-image.png"
+
+
+def test_get_user_plan_day_details_service_with_segment_fields():
+    """Test that source_text_id, pecha_segment_id, and segment_id fields are properly returned"""
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    day_id = uuid.uuid4()
+    task_id = uuid.uuid4()
+    sub_id = uuid.uuid4()
+    source_text_id = uuid.uuid4()
+    pecha_segment_id = "pecha-segment-456"  # String field
+    segment_id = uuid.uuid4()
+
+    plan_item = SimpleNamespace(
+        id=day_id,
+        day_number=1,
+        tasks=[
+            SimpleNamespace(
+                id=task_id,
+                title="Task with segment fields",
+                estimated_time=5,
+                display_order=1,
+                sub_tasks=[
+                    SimpleNamespace(
+                        id=sub_id,
+                        content_type=ContentType.TEXT,
+                        content="Some text content",
+                        duration=None,
+                        display_order=1,
+                        source_text_id=source_text_id,
+                        pecha_segment_id=pecha_segment_id,
+                        segment_id=segment_id,
+                    )
+                ],
+            )
+        ],
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_day_with_tasks_and_subtasks",
+        return_value=plan_item,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.is_day_completed",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_task_completions_by_user_id_and_task_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_subtask_completions_by_user_id_and_sub_task_ids",
+        return_value=[],
+    ):
+        result = get_user_plan_day_details_service(token="tok", plan_id=plan_id, day_number=1)
+
+        assert len(result.tasks) == 1
+        assert len(result.tasks[0].sub_tasks) == 1
+        sub = result.tasks[0].sub_tasks[0]
+        assert sub.id == sub_id
+        assert sub.source_text_id == source_text_id
+        assert sub.pecha_segment_id == pecha_segment_id
+        assert sub.segment_id == segment_id
 
 
 def test_unenroll_user_from_plan_success():
