@@ -24,6 +24,7 @@ from pecha_api.plans.response_message import (
     ALREADY_ENROLLED_IN_PLAN,
     SUB_TASK_NOT_FOUND,
     TASK_NOT_FOUND,
+    ALREADY_COMPLETED_SUB_TASK,
 )
 from pecha_api.plans.plans_response_models import PlanDTO
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus
@@ -159,6 +160,9 @@ def test_complete_sub_task_service_success():
         "pecha_api.plans.users.plan_users_service.get_sub_task_by_subtask_id",
         return_value=SimpleNamespace(id=sub_task_id, task_id=task_id),
     ) as mock_get_sub_task, patch(
+        "pecha_api.plans.users.plan_users_service.get_user_sub_task_by_user_id_and_sub_task_id",
+        return_value=None,
+    ), patch(
         "pecha_api.plans.users.plan_users_service.get_task_by_id",
         return_value=SimpleNamespace(id=task_id, plan_item_id=day_id),
     ) as mock_get_task, patch(
@@ -218,10 +222,12 @@ def test_complete_sub_task_service_sub_task_not_found_raises_404():
         "pecha_api.plans.users.plan_users_service.get_sub_task_by_subtask_id",
         return_value=None,
     ):
-        with pytest.raises(AttributeError) as exc_info:
+        with pytest.raises(HTTPException) as exc_info:
             complete_sub_task_service(token="token123", id=sub_task_id)
         
-        assert "'NoneType' object has no attribute 'task_id'" in str(exc_info.value)
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["error"] == BAD_REQUEST
+        assert exc_info.value.detail["message"] == SUB_TASK_NOT_FOUND
 
 
 def test_complete_sub_task_service_marks_task_completion_when_all_subtasks_done():
@@ -241,6 +247,9 @@ def test_complete_sub_task_service_marks_task_completion_when_all_subtasks_done(
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_sub_task_by_subtask_id",
         return_value=SimpleNamespace(id=sub_task_id, task_id=task_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_sub_task_by_user_id_and_sub_task_id",
+        return_value=None,
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_task_by_id",
         return_value=SimpleNamespace(id=task_id, plan_item_id=day_id),
@@ -307,6 +316,9 @@ def test_complete_sub_task_service_saves_day_completion_when_day_completed():
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_sub_task_by_subtask_id",
         return_value=SimpleNamespace(id=sub_task_id, task_id=task_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_sub_task_by_user_id_and_sub_task_id",
+        return_value=None,
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_task_by_id",
         return_value=SimpleNamespace(id=task_id, plan_item_id=day_id),
