@@ -31,7 +31,8 @@ from pecha_api.plans.users.plan_users_subtasks_repository import (
     save_user_sub_task_completions, 
     get_user_subtask_completions_by_user_id_and_sub_task_ids, 
     save_user_sub_task_completions_bulk, 
-    get_uncompleted_user_sub_task_ids
+    get_uncompleted_user_sub_task_ids,
+    get_user_sub_task_by_user_id_and_sub_task_id
 )
 
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
@@ -213,12 +214,22 @@ def complete_sub_task_service(token: str, id: UUID) -> None:
     current_user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         existing_sub_task = get_sub_task_by_subtask_id(db=db, id=id)
-        task = get_task_by_id(db=db, task_id=existing_sub_task.task_id)
         if not existing_sub_task:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=ResponseError(error=BAD_REQUEST, message=SUB_TASK_NOT_FOUND).model_dump()
-            )       
+            )
+
+        existing_completion = get_user_sub_task_by_user_id_and_sub_task_id(
+            db=db, user_id=current_user.id, sub_task_id=id
+        )
+        if existing_completion:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=ResponseError(error=BAD_REQUEST, message=ALREADY_COMPLETED_SUB_TASK).model_dump()
+            )
+        
+        task = get_task_by_id(db=db, task_id=existing_sub_task.task_id)
         new_sub_task_completion = UserSubTaskCompletion(
             user_id=current_user.id,
             sub_task_id=existing_sub_task.id,
