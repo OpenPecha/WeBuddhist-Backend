@@ -77,3 +77,8 @@ class MultilingualSearchResponse(BaseModel):
     skip: int
     limit: int
     total: int
+
+
+class SegmentLinkResponse(BaseModel):
+    text_id: str
+    segment_id: str

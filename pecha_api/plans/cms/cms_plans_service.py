@@ -243,6 +243,7 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
         total_days=len(items),
         difficulty_level=plan.difficulty_level,
         tags=plan.tags or [],
+        status=plan.status,
         days=day_dtos,
     )
     

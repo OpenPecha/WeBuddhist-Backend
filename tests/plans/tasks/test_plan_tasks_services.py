@@ -256,6 +256,7 @@ async def test_get_task_subtasks_service_image_content_uses_presigned_url():
         display_order=1,
         source_text_id=None,
         pecha_segment_id=None,
+        segment_id=None,
     )
 
     mock_task = SimpleNamespace(
@@ -563,6 +564,7 @@ async def test_get_task_subtasks_service_success():
         duration=None,
         source_text_id=None,
         pecha_segment_id=None,
+        segment_id=None,
     )
     subtask2 = SimpleNamespace(
         id=uuid.uuid4(),
@@ -572,6 +574,7 @@ async def test_get_task_subtasks_service_success():
         duration=None,
         source_text_id=None,
         pecha_segment_id=None,
+        segment_id=None,
     )
 
     mock_task = SimpleNamespace(
@@ -1110,7 +1113,10 @@ def test__get_author_task_not_found_raises_404():
 
     with patch(
         "pecha_api.plans.tasks.plan_tasks_services.get_task_by_id",
-        return_value=None,
+        side_effect=HTTPException(
+            status_code=404,
+            detail={"error": BAD_REQUEST, "message": TASK_NOT_FOUND},
+        ),
     ):
         with pytest.raises(HTTPException) as exc_info:
             _get_author_task(db=db, task_id=task_id, current_author=current_author, is_admin=False)

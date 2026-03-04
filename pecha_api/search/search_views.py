@@ -12,7 +12,8 @@ from .search_service import (
 
 from .search_response_models import (
     SearchResponse,
-    MultilingualSearchResponse
+    MultilingualSearchResponse,
+    SegmentLinkResponse,
 )
 
 search_router = APIRouter(
@@ -55,5 +56,5 @@ async def multilingual_search(
     )
 
 @search_router.get("/chat/{pecha_segment_id}", status_code=status.HTTP_200_OK)
-async def get_url_link(pecha_segment_id: str) -> str:
+async def get_url_link(pecha_segment_id: str) -> SegmentLinkResponse:
     return await get_url_link_service(pecha_segment_id)

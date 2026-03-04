@@ -131,6 +131,7 @@ async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskRespons
                     duration=sub_task.duration,
                     source_text_id=sub_task.source_text_id,
                     pecha_segment_id=sub_task.pecha_segment_id,
+                    segment_id=sub_task.segment_id,
                     image_url=content_and_image_url.image_url,
                     display_order=sub_task.display_order,
                 )
@@ -168,8 +169,6 @@ def _reorder_sequentially(db: SessionLocal(), tasks: List[PlanTask]):
 
 def _get_author_task(db: SessionLocal(), task_id: UUID, current_author: Author, is_admin: bool) -> PlanTask:
     task = get_task_by_id(db=db, task_id=task_id)
-    if not task:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ResponseError(error=BAD_REQUEST, message=TASK_NOT_FOUND).model_dump())
     if not is_admin and task.created_by != current_author.email:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ResponseError(error=FORBIDDEN, message=UNAUTHORIZED_TASK_ACCESS).model_dump())
     return task
