@@ -100,3 +100,7 @@ Open the coverage report:
         ```sh
         poetry run alembic current
         ```
+
+## API Specs
+- [Store Segments API](./spec/openapi_create_segments.yaml)
+- [Get Segments API](./spec/openapi_get_segments.yaml)
