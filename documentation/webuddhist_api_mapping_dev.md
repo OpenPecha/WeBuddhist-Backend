@@ -127,7 +127,8 @@ GET /v2/texts?language={language}&category_id={category_id}&limit=20&offset=0
 | `collection.id`                    | -`text[].category_id`               | Mapped with pecha_collection_id       |
 | `collection.pecha_collection_id`   | -                                   | Deprecated                            |
 | `collection.title`                 | -                                   | Deprecated                            | 
-| `texts[].id`                       | `texts[].id`                        | Maps to OpenPecha text ID             |
+|                                    | `v2/texts/{text_id}/editions`Response |Get text editions                    | 
+| `texts[].id`                       | `editions[].id`                     | Maps to OpenPecha text ID             |
 | `texts[].pecha_text_id`            | -                                   | Deprecated                            |
 | `texts[].title`                    | `texts[].title`                     | Direct mapping                        |
 | `texts[].language`                 | `texts[].language`                  | Direct mapping                        |
@@ -142,7 +143,7 @@ GET /v2/texts?language={language}&category_id={category_id}&limit=20&offset=0
 | `texts[].categories`               | `texts[].category_id`               | Direct mapping                        |
 | `texts[].views`                    | -                                   | Backend-only field                    |
 | `texts[].likes`                    | -                                   | Backend-only field                    |
-| `texts[].source_link`              | -                                   | To be removed                         |
+| `texts[].source_link`              |`editions[].source`                  |                                       |
 | `texts[].ranking`                  | -                                   | To be removed                         |
 | `texts[].license`                  | `texts[].license`                   | Direct mapping                        |
 | `total`                            | -                                   | Deprecated                            |
@@ -211,12 +212,15 @@ curl -X 'GET' \
 
 **Response Mapping:**
 
+**Response Mapping:**
+
 | Backend Response Field             | OpenPecha Response Field            | Notes                                 |
 |------------------------------------|-------------------------------------|---------------------------------------|
 | `collection.id`                    | -`text[].category_id`               | Mapped with pecha_collection_id       |
 | `collection.pecha_collection_id`   | -                                   | Deprecated                            |
 | `collection.title`                 | -                                   | Deprecated                            | 
-| `texts[].id`                       | `texts[].id`                        | Maps to OpenPecha text ID             |
+|                                    | `v2/texts/{text_id}/editions`Response |Get text editions                    | 
+| `texts[].id`                       | `editions[].id`                     | Maps to OpenPecha text ID             |
 | `texts[].pecha_text_id`            | -                                   | Deprecated                            |
 | `texts[].title`                    | `texts[].title`                     | Direct mapping                        |
 | `texts[].language`                 | `texts[].language`                  | Direct mapping                        |
@@ -231,7 +235,7 @@ curl -X 'GET' \
 | `texts[].categories`               | `texts[].category_id`               | Direct mapping                        |
 | `texts[].views`                    | -                                   | Backend-only field                    |
 | `texts[].likes`                    | -                                   | Backend-only field                    |
-| `texts[].source_link`              | -                                   | To be removed                         |
+| `texts[].source_link`              |`editions[].source`                  |                                       |
 | `texts[].ranking`                  | -                                   | To be removed                         |
 | `texts[].license`                  | `texts[].license`                   | Direct mapping                        |
 | `total`                            | -                                   | Deprecated                            |
@@ -245,6 +249,7 @@ curl -X 'GET' \
 | -                                  | `texts[].bdrc`                      | New field                             |
 
 ---
+
 
 
 ### 4. Text Commentaries
@@ -307,7 +312,8 @@ curl -X 'GET' \
 | `collection.id`                    | -`text[].category_id`               | Mapped with pecha_collection_id       |
 | `collection.pecha_collection_id`   | -                                   | Deprecated                            |
 | `collection.title`                 | -                                   | Deprecated                            | 
-| `texts[].id`                       | `texts[].id`                        | Maps to OpenPecha text ID             |
+|                                    | `v2/texts/{text_id}/editions`Response |Get text editions                    | 
+| `texts[].id`                       | `editions[].id`                     | Maps to OpenPecha text ID             |
 | `texts[].pecha_text_id`            | -                                   | Deprecated                            |
 | `texts[].title`                    | `texts[].title`                     | Direct mapping                        |
 | `texts[].language`                 | `texts[].language`                  | Direct mapping                        |
@@ -322,7 +328,7 @@ curl -X 'GET' \
 | `texts[].categories`               | `texts[].category_id`               | Direct mapping                        |
 | `texts[].views`                    | -                                   | Backend-only field                    |
 | `texts[].likes`                    | -                                   | Backend-only field                    |
-| `texts[].source_link`              | -                                   | To be removed                         |
+| `texts[].source_link`              |`editions[].source`                  |                                       |
 | `texts[].ranking`                  | -                                   | To be removed                         |
 | `texts[].license`                  | `texts[].license`                   | Direct mapping                        |
 | `total`                            | -                                   | Deprecated                            |
@@ -336,6 +342,7 @@ curl -X 'GET' \
 | -                                  | `texts[].bdrc`                      | New field                             |
 
 ---
+
 
 ### 5. Text Details
 
