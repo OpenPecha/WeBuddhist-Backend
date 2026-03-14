@@ -59,3 +59,4 @@ version = "^0.32.1"
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.6.8"
 pytest-cov = "^6.0.0"
+openapi-python-client = "^0.28.3"
