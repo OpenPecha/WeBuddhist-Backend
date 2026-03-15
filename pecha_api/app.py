@@ -34,7 +34,7 @@ from pecha_api.text_uploader import text_uploader_views
 from pecha_api.cataloger import cataloger_views
 from pecha_api.text_uploader.text_metadata import text_metadata_views
 from pecha_api.text_uploader.collections import uploader_collections_views
-from pecha_api.v2.app import api_v2
+from pecha_api.collections import collections_openpecha_views
 import uvicorn
 
 api = FastAPI(
@@ -73,8 +73,7 @@ api.include_router(text_uploader_views.text_uploader_router)
 api.include_router(cataloger_views.cataloger_router)
 api.include_router(text_metadata_views.text_metadata_router)
 api.include_router(uploader_collections_views.text_uploader_collections_router)
-
-api.mount("/api/v2", api_v2)
+api.include_router(collections_openpecha_views.collections_v2_router)
 
 api.add_middleware(
     CORSMiddleware,

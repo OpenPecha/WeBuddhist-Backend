@@ -4,7 +4,7 @@ from pecha_api.external_clients import get_open_pecha_client
 from pecha_api.external_clients.open_pecha_client.open_pecha_client.api.categories import get_v2_categories
 from pecha_api.external_clients.open_pecha_client.open_pecha_client.models.category_output import CategoryOutput
 from pecha_api.external_clients.open_pecha_client.open_pecha_client.types import UNSET
-from pecha_api.collections.collections_response_models import CollectionModel, CollectionsResponse, Pagination
+from .collections_response_models import CollectionModel, CollectionsResponse, Pagination
 from pecha_api.config import get
 
 X_APPLICATION = "webuddhist"

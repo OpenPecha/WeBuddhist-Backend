@@ -4,12 +4,12 @@ from fastapi import APIRouter, Query
 from starlette import status
 from typing import Optional
 
-from pecha_api.collections.collections_response_models import CollectionsResponse
-from pecha_api.v2.collections_service import get_collections_from_openpecha
+from .collections_response_models import CollectionsResponse
+from .collections_openpecha_service import get_collections_from_openpecha
 
 collections_v2_router = APIRouter(
-    prefix="/collections",
-    tags=["collections"]
+    prefix="/v2/collections",
+    tags=["collections-v2"]
 )
 
 
