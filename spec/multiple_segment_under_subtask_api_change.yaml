@@ -1,7 +1,42 @@
 openapi: 3.0.3
 info:
   title: Plan Tasks & Sub-Tasks API
-  description: API for managing tasks and sub-tasks with multiple segment support
+  description: |
+    API for managing tasks and sub-tasks with multiple segment support.
+
+    ## Database Schema
+
+    ### `sub_tasks` Table
+
+    | Column           | Type          | Nullable | Description                                      |
+    |------------------|---------------|----------|--------------------------------------------------|
+    | id               | UUID          | NO       | Primary key                                      |
+    | task_id          | UUID          | NO       | Foreign key to tasks table                       |
+    | content_type     | ENUM          | NO       | TEXT, AUDIO, VIDEO, IMAGE, SOURCE_REFERENCE      |
+    | content          | TEXT          | YES      | Content text or URL                              |
+    | duration         | VARCHAR(255)  | YES      | Duration string (e.g., "15 min")                 |
+    | source_text_id   | UUID          | YES      | Reference to source text                         |
+    | pecha_segment_id | VARCHAR(255)  | YES      | Pecha segment identifier                         |
+    | segment_ids      | UUID[]        | YES      | Array of segment UUIDs (multiple segments)       |
+    | display_order    | INTEGER       | NO       | Order within task                                |
+    | created_at       | TIMESTAMP     | NO       | Created timestamp                                |
+    | created_by       | VARCHAR(255)  | NO       | Creator email                                    |
+    | updated_at       | TIMESTAMP     | YES      | Updated timestamp                                |
+    | updated_by       | VARCHAR(255)  | YES      | Updater email                                    |
+    | deleted_at       | TIMESTAMP     | YES      | Soft delete timestamp                            |
+    | deleted_by       | VARCHAR(255)  | YES      | Deleter email                                    |
+
+    ### Example Row
+
+    ```
+    id:               6ba7b810-9dad-11d1-80b4-00c04fd430c8
+    task_id:          550e8400-e29b-41d4-a716-446655440000
+    content_type:     SOURCE_REFERENCE
+    content:          "Read and contemplate these verses"
+    segment_ids:      {f47ac10b-58cc-4372-a567-0e02b2c3d479, 7c9e6679-7425-40de-944b-e07fc1f90ae7}
+    display_order:    1
+    ```
+
   version: 1.0.0
 
 paths:
