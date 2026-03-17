@@ -6,9 +6,9 @@ from pecha_api.collections.collections_openpecha_service import (
     _extract_title,
     _extract_description,
     _category_to_collection_model,
-    X_APPLICATION
+    get_collection_by_id
 )
-from pecha_api.collections.collections_response_models import CollectionModel, CollectionsResponse, Pagination
+from pecha_api.collections.collections_response_models import CollectionModel, CollectionsResponse
 
 
 class MockCategoryOutputTitle:
@@ -96,7 +96,7 @@ class TestCategoryToCollectionModel:
 class TestGetCollectionsFromOpenpecha:
     @pytest.mark.asyncio
     @patch('pecha_api.collections.collections_openpecha_service.get_v2_categories')
-    @patch('pecha_api.collections.collections_openpecha_service.get_open_pecha_client')
+    @patch('pecha_api.collections.collections_openpecha_service.get_authenticated_open_pecha_client')
     async def test_get_collections_success(self, mock_get_client, mock_get_categories):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
@@ -123,7 +123,7 @@ class TestGetCollectionsFromOpenpecha:
 
     @pytest.mark.asyncio
     @patch('pecha_api.collections.collections_openpecha_service.get_v2_categories')
-    @patch('pecha_api.collections.collections_openpecha_service.get_open_pecha_client')
+    @patch('pecha_api.collections.collections_openpecha_service.get_authenticated_open_pecha_client')
     async def test_get_collections_with_pagination(self, mock_get_client, mock_get_categories):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
@@ -147,7 +147,7 @@ class TestGetCollectionsFromOpenpecha:
 
     @pytest.mark.asyncio
     @patch('pecha_api.collections.collections_openpecha_service.get_v2_categories')
-    @patch('pecha_api.collections.collections_openpecha_service.get_open_pecha_client')
+    @patch('pecha_api.collections.collections_openpecha_service.get_authenticated_open_pecha_client')
     async def test_get_collections_empty_response(self, mock_get_client, mock_get_categories):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
@@ -165,7 +165,7 @@ class TestGetCollectionsFromOpenpecha:
 
     @pytest.mark.asyncio
     @patch('pecha_api.collections.collections_openpecha_service.get_v2_categories')
-    @patch('pecha_api.collections.collections_openpecha_service.get_open_pecha_client')
+    @patch('pecha_api.collections.collections_openpecha_service.get_authenticated_open_pecha_client')
     async def test_get_collections_with_parent_id(self, mock_get_client, mock_get_categories):
         mock_client = MagicMock()
         mock_get_client.return_value = mock_client
@@ -193,7 +193,7 @@ class TestGetCollectionsFromOpenpecha:
         assert result.parent.id == "parent-1"
 
     @pytest.mark.asyncio
-    @patch('pecha_api.collections.collections_openpecha_service.get_open_pecha_client')
+    @patch('pecha_api.collections.collections_openpecha_service.get_authenticated_open_pecha_client')
     @patch('pecha_api.collections.collections_openpecha_service.get')
     async def test_default_language(self, mock_config_get, mock_get_client):
         mock_config_get.return_value = "bo"
@@ -213,6 +213,33 @@ class TestGetCollectionsFromOpenpecha:
             assert result.pagination.total == 0
 
 
-class TestXApplicationHeader:
-    def test_x_application_value(self):
-        assert X_APPLICATION == "webuddhist"
+class TestGetCollectionById:
+    @pytest.mark.asyncio
+    @patch('pecha_api.collections.collections_openpecha_service.get_v2_categories')
+    @patch('pecha_api.collections.collections_openpecha_service.get_authenticated_open_pecha_client')
+    async def test_get_collection_by_id_found(self, mock_get_client, mock_get_categories):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        
+        mock_categories = [
+            MockCategoryOutput(id="cat-1"),
+            MockCategoryOutput(id="cat-2"),
+        ]
+        mock_get_categories.asyncio = AsyncMock(return_value=mock_categories)
+        
+        result = await get_collection_by_id(collection_id="cat-1", language="en")
+        
+        assert result is not None
+        assert result.id == "cat-1"
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.collections.collections_openpecha_service.get_v2_categories')
+    @patch('pecha_api.collections.collections_openpecha_service.get_authenticated_open_pecha_client')
+    async def test_get_collection_by_id_not_found(self, mock_get_client, mock_get_categories):
+        mock_client = MagicMock()
+        mock_get_client.return_value = mock_client
+        mock_get_categories.asyncio = AsyncMock(return_value=[])
+        
+        result = await get_collection_by_id(collection_id="nonexistent", language="en")
+        
+        assert result is None

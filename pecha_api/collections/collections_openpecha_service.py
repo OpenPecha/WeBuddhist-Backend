@@ -1,13 +1,12 @@
 from typing import Optional, List
 
-from pecha_api.external_clients import get_open_pecha_client
+from pecha_api.external_clients import get_authenticated_open_pecha_client
 from pecha_api.external_clients.open_pecha_client.open_pecha_client.api.categories import get_v2_categories
 from pecha_api.external_clients.open_pecha_client.open_pecha_client.models.category_output import CategoryOutput
 from pecha_api.external_clients.open_pecha_client.open_pecha_client.types import UNSET
 from .collections_response_models import CollectionModel, CollectionsResponse, Pagination
 from pecha_api.config import get
 
-X_APPLICATION = "webuddhist"
 
 
 def _extract_title(category: CategoryOutput, language: str) -> str:
@@ -36,7 +35,7 @@ def _category_to_collection_model(category: CategoryOutput, language: str) -> Co
 
 
 async def get_collections_from_openpecha(
-    language: str,
+    language: Optional[str],
     parent_id: Optional[str],
     skip: int,
     limit: int
@@ -44,7 +43,7 @@ async def get_collections_from_openpecha(
     if language is None:
         language = get("DEFAULT_LANGUAGE") or "en"
 
-    client = get_open_pecha_client()
+    client = get_authenticated_open_pecha_client()
     
     parent_id_param = parent_id if parent_id else UNSET
     
@@ -52,13 +51,10 @@ async def get_collections_from_openpecha(
         client=client,
         parent_id=parent_id_param,
         language=language,
-        x_application=X_APPLICATION
+        x_application=get("APPLICATION")
     )
     
     if categories is None:
-        categories = []
-    
-    if not isinstance(categories, list):
         categories = []
     
     collection_list = [
@@ -69,19 +65,7 @@ async def get_collections_from_openpecha(
     total = len(collection_list)
     paginated_collections = collection_list[skip:skip + limit]
     
-    parent_collection = None
-    if parent_id:
-        parent_categories = await get_v2_categories.asyncio(
-            client=client,
-            parent_id=UNSET,
-            language=language,
-            x_application=X_APPLICATION
-        )
-        if parent_categories and isinstance(parent_categories, list):
-            for cat in parent_categories:
-                if cat.id == parent_id:
-                    parent_collection = _category_to_collection_model(cat, language)
-                    break
+    parent_collection = await get_collection_by_id(collection_id=parent_id, language=language) if parent_id else None
     
     pagination = Pagination(total=total, skip=skip, limit=limit)
     
@@ -90,3 +74,21 @@ async def get_collections_from_openpecha(
         pagination=pagination,
         collections=paginated_collections
     )
+
+async def get_collection_by_id(collection_id: str, language: str) -> CollectionModel:
+    client = get_authenticated_open_pecha_client()
+    selected_collection = None
+    if collection_id:
+        categories = await get_v2_categories.asyncio(
+            client=client,
+            parent_id=UNSET,
+            language=language,
+            x_application=get("APPLICATION")
+        )
+        if categories and isinstance(categories, list):
+            for cat in categories:
+                if cat.id == collection_id:
+                    selected_collection = _category_to_collection_model(cat, language)
+                    break
+    return selected_collection
+

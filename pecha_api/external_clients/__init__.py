@@ -40,5 +40,7 @@ def get_authenticated_open_pecha_client() -> AuthenticatedClient:
     return AuthenticatedClient(
         base_url=config.get("EXTERNAL_PECHA_API_URL"),
         token=api_key,
+        prefix="",
+        auth_header_name="X-API-Key",
         raise_on_unexpected_status=True,
     )
