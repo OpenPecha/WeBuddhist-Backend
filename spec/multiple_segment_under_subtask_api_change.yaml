@@ -89,6 +89,109 @@ paths:
                 message: "Task not found"
 
   /cms/sub-tasks:
+    post:
+      summary: Create Sub-Tasks
+      description: |
+        Creates new sub-tasks under a specific task.
+        Supports storing multiple segment IDs per sub-task for linking to multiple text segments.
+      operationId: create_sub_tasks
+      tags:
+        - Sub-Tasks
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubTaskRequest'
+            example:
+              task_id: "550e8400-e29b-41d4-a716-446655440000"
+              sub_tasks:
+                - content_type: "TEXT"
+                  content: "Read and contemplate these verses from the source text"
+                  duration: "15 min"
+                  source_text_id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+                  pecha_segment_id: "3YYxROUIWHdM08eK2DNzQ"
+                  segment_ids:
+                    - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                    - "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                    - "e4eaaaf2-d142-11e1-b3e4-080027620cdd"
+                - content_type: "VIDEO"
+                  content: "https://example.com/teaching-video.mp4"
+                  duration: "20 min"
+                  source_text_id: null
+                  pecha_segment_id: null
+                  segment_ids:
+                    - "550e8400-e29b-41d4-a716-446655440001"
+      responses:
+        '201':
+          description: Sub-tasks created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubTaskResponse'
+              example:
+                sub_tasks:
+                  - id: "8b5fc50f-61f7-4a98-9c30-020e945ca7ea"
+                    content_type: "TEXT"
+                    content: "Read and contemplate these verses from the source text"
+                    duration: "15 min"
+                    image_url: null
+                    source_text_id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+                    pecha_segment_id: "3YYxROUIWHdM08eK2DNzQ"
+                    segment_ids:
+                      - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                      - "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                      - "e4eaaaf2-d142-11e1-b3e4-080027620cdd"
+                    display_order: 1
+                  - id: "9c6gd61g-72g8-5b09-0d41-131f056db8fb"
+                    content_type: "VIDEO"
+                    content: "https://example.com/teaching-video.mp4"
+                    duration: "20 min"
+                    image_url: null
+                    source_text_id: null
+                    pecha_segment_id: null
+                    segment_ids:
+                      - "550e8400-e29b-41d4-a716-446655440001"
+                    display_order: 2
+        '400':
+          description: Bad Request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "BAD_REQUEST"
+                message: "Invalid sub-task data provided"
+        '401':
+          description: Unauthorized - Invalid or missing authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "UNAUTHORIZED"
+                message: "Invalid authentication credentials"
+        '403':
+          description: Forbidden - User does not have permission to add sub-tasks to this task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "FORBIDDEN"
+                message: "You do not have permission to modify this task"
+        '404':
+          description: Not Found - Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "NOT_FOUND"
+                message: "Task not found"
+
     put:
       summary: Update Sub-Tasks
       description: Update existing sub-tasks or create new ones for a specific task. Supports storing multiple segment IDs per sub-task.
@@ -206,6 +309,87 @@ components:
         subtasks:
           type: array
           description: List of sub-tasks belonging to this task
+          items:
+            $ref: '#/components/schemas/SubTaskDTO'
+
+    CreateSubTaskRequest:
+      type: object
+      description: Request to create new sub-tasks under a task
+      required:
+        - task_id
+        - sub_tasks
+      properties:
+        task_id:
+          type: string
+          format: uuid
+          description: UUID of the task to add sub-tasks to
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        sub_tasks:
+          type: array
+          description: List of sub-tasks to create
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SubTaskRequestFields'
+
+    SubTaskRequestFields:
+      type: object
+      description: Fields for creating a new sub-task (no id required)
+      required:
+        - content_type
+        - content
+      properties:
+        content_type:
+          type: string
+          enum:
+            - TEXT
+            - VIDEO
+            - AUDIO
+            - IMAGE
+          description: Type of content in this sub-task
+          example: "TEXT"
+        content:
+          type: string
+          description: The actual content (text, URL, etc.)
+          example: "Read and contemplate these verses from the source text"
+        duration:
+          type: string
+          nullable: true
+          description: Estimated duration for this sub-task
+          example: "15 min"
+        source_text_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Reference to the source text
+          example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+        pecha_segment_id:
+          type: string
+          nullable: true
+          description: Pecha segment identifier
+          example: "3YYxROUIWHdM08eK2DNzQ"
+        segment_ids:
+          type: array
+          nullable: true
+          description: |
+            List of segment UUIDs associated with this sub-task.
+            Allows linking multiple segments to a single sub-task.
+          items:
+            type: string
+            format: uuid
+          example:
+            - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            - "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+            - "e4eaaaf2-d142-11e1-b3e4-080027620cdd"
+
+    SubTaskResponse:
+      type: object
+      description: Response containing created sub-tasks
+      required:
+        - sub_tasks
+      properties:
+        sub_tasks:
+          type: array
+          description: List of created sub-tasks with their assigned IDs
           items:
             $ref: '#/components/schemas/SubTaskDTO'
 
