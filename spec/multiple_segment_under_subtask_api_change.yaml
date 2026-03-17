@@ -39,7 +39,7 @@ paths:
                 estimated_time: 30
                 subtasks:
                   - id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
-                    content_type: "TEXT"
+                    content_type: "SOURCE_REFERENCE"
                     content: "Read and contemplate these verses from the text"
                     duration: "15 min"
                     image_url: null
@@ -57,8 +57,7 @@ paths:
                     image_url: "https://example.com/thumbnail.jpg"
                     source_text_id: null
                     pecha_segment_id: null
-                    segment_ids:
-                      - "550e8400-e29b-41d4-a716-446655440001"
+                    segment_ids: null
                     display_order: 2
         '401':
           description: Unauthorized - Invalid or missing authentication token
@@ -108,7 +107,7 @@ paths:
             example:
               task_id: "550e8400-e29b-41d4-a716-446655440000"
               sub_tasks:
-                - content_type: "TEXT"
+                - content_type: "SOURCE_REFERENCE"
                   content: "Read and contemplate these verses from the source text"
                   duration: "15 min"
                   source_text_id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
@@ -122,8 +121,7 @@ paths:
                   duration: "20 min"
                   source_text_id: null
                   pecha_segment_id: null
-                  segment_ids:
-                    - "550e8400-e29b-41d4-a716-446655440001"
+                  segment_ids: null
       responses:
         '201':
           description: Sub-tasks created successfully
@@ -134,7 +132,7 @@ paths:
               example:
                 sub_tasks:
                   - id: "8b5fc50f-61f7-4a98-9c30-020e945ca7ea"
-                    content_type: "TEXT"
+                    content_type: "SOURCE_REFERENCE"
                     content: "Read and contemplate these verses from the source text"
                     duration: "15 min"
                     image_url: null
@@ -152,8 +150,7 @@ paths:
                     image_url: null
                     source_text_id: null
                     pecha_segment_id: null
-                    segment_ids:
-                      - "550e8400-e29b-41d4-a716-446655440001"
+                    segment_ids: null
                     display_order: 2
         '400':
           description: Bad Request - Invalid input data
@@ -210,7 +207,7 @@ paths:
               task_id: "550e8400-e29b-41d4-a716-446655440000"
               sub_tasks:
                 - id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
-                  content_type: "TEXT"
+                  content_type: "SOURCE_REFERENCE"
                   content: "Practice mindful breathing for 5 minutes"
                   duration: "5 min"
                   source_text_id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
@@ -226,8 +223,7 @@ paths:
                   duration: "10 min"
                   source_text_id: null
                   pecha_segment_id: null
-                  segment_ids:
-                    - "550e8400-e29b-41d4-a716-446655440001"
+                  segment_ids: null
                   display_order: 2
       responses:
         '204':
@@ -342,11 +338,12 @@ components:
           type: string
           enum:
             - TEXT
-            - VIDEO
             - AUDIO
+            - VIDEO
             - IMAGE
-          description: Type of content in this sub-task
-          example: "TEXT"
+            - SOURCE_REFERENCE
+          description: Type of content in this sub-task. Use SOURCE_REFERENCE when linking to segment_ids.
+          example: "SOURCE_REFERENCE"
         content:
           type: string
           description: The actual content (text, URL, etc.)
@@ -430,11 +427,12 @@ components:
           type: string
           enum:
             - TEXT
-            - VIDEO
             - AUDIO
+            - VIDEO
             - IMAGE
-          description: Type of content in this sub-task
-          example: "TEXT"
+            - SOURCE_REFERENCE
+          description: Type of content in this sub-task. Use SOURCE_REFERENCE when linking to segment_ids.
+          example: "SOURCE_REFERENCE"
         content:
           type: string
           description: The actual content (text, URL, etc.)
