@@ -25,6 +25,7 @@ info:
     - Sessions referencing deleted plans or removed texts are silently
       skipped in the GET response
     - Time block deletion is soft delete (sets deleted_at timestamp)
+    - The API is called each time a session is added to a time block
   version: 1.0.0
 
 servers:
@@ -325,14 +326,6 @@ paths:
                         language: "en"
                         image_url: "https://s3.amazonaws.com/plans/days-01-08-thumb.jpg"
                         display_order: 0
-                      - id: "ssss4444-2222-3333-4444-555555555555"
-                        session_type: "RECITATION"
-                        plan_id: null
-                        text_id: "e8d7c6b5-a432-10fe-dcba-987654321098"
-                        title: "The Sūtra of the Heart of Transcendent Wisdom"
-                        language: "en"
-                        image_url: null
-                        display_order: 1
                 skip: 0
                 limit: 20
                 total: 2
@@ -349,6 +342,7 @@ paths:
       summary: Create a time block
       description: |
         Creates a single time block with its sessions in the user's routine.
+        The API is called each time a session is added to the time block.
 
         Validation:
         - Must have at least one session
@@ -371,9 +365,6 @@ paths:
                 - session_type: "PLAN"
                   plan_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
                   display_order: 0
-                - session_type: "RECITATION"
-                  text_id: "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
-                  display_order: 1
       responses:
         '201':
           description: Time block created successfully.
@@ -381,6 +372,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TimeBlockDTO'
+              example:
+                id: "aaaa1111-bbbb-cccc-dddd-eeee11111111"
+                time: "12:00"
+                time_minutes: 720
+                notification_enabled: true
+                sessions:
+                  - id: "ssss1111-2222-3333-4444-555555555555"
+                    session_type: "PLAN"
+                    plan_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    text_id: null
+                    title: "AIY - Introduction"
+                    language: "en"
+                    image_url: "https://s3.amazonaws.com/plans/aiy-intro-thumb.jpg"
+                    display_order: 0
         '401':
           $ref: '#/components/responses/Unauthorized'
         '409':
@@ -401,6 +406,7 @@ paths:
       description: |
         Replaces a single time block and its sessions.
         All existing sessions in the time block are deleted and replaced.
+        Called each time a session is added or modified in the time block.
         Same validation rules as POST apply.
       operationId: updateTimeBlock
       parameters:
@@ -418,12 +424,12 @@ paths:
             schema:
               $ref: '#/components/schemas/UpdateTimeBlockRequest'
             example:
-              time: "08:00"
-              time_minutes: 480
-              notification_enabled: false
+              time: "12:00"
+              time_minutes: 720
+              notification_enabled: true
               sessions:
-                - session_type: "RECITATION"
-                  text_id: "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
+                - session_type: "PLAN"
+                  plan_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
                   display_order: 0
                 - session_type: "RECITATION"
                   text_id: "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
@@ -435,6 +441,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TimeBlockDTO'
+              example:
+                id: "aaaa1111-bbbb-cccc-dddd-eeee11111111"
+                time: "12:00"
+                time_minutes: 720
+                notification_enabled: true
+                sessions:
+                  - id: "ssss1111-2222-3333-4444-555555555555"
+                    session_type: "PLAN"
+                    plan_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    text_id: null
+                    title: "AIY - Introduction"
+                    language: "en"
+                    image_url: "https://s3.amazonaws.com/plans/aiy-intro-thumb.jpg"
+                    display_order: 0
+                  - id: "ssss2222-2222-3333-4444-555555555555"
+                    session_type: "RECITATION"
+                    plan_id: null
+                    text_id: "f9e8d7c6-b5a4-3210-fedc-ba9876543210"
+                    title: "Praise to Bhagavatī Tārā"
+                    language: "en"
+                    image_url: null
+                    display_order: 1
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
