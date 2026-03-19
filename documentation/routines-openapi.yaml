@@ -89,7 +89,7 @@ components:
         time_int:
           type: integer
           minimum: 0
-          maximum: 2400
+          maximum: 2359
           description: Time as integer in 24-hour format (e.g. 1:00 AM = 100, 12:00 PM = 1200, 11:59 PM = 2359).
           example: 1200
         notification_enabled:
@@ -116,7 +116,7 @@ components:
         time_int:
           type: integer
           minimum: 0
-          maximum: 2400
+          maximum: 2359
           description: Time as integer in 24-hour format (e.g. 1:00 AM = 100, 12:00 PM = 1200, 11:59 PM = 2359).
           example: 800
         notification_enabled:
@@ -304,6 +304,7 @@ paths:
             type: integer
             default: 20
             minimum: 1
+            maximum: 100
           description: Maximum number of time blocks to return.
       responses:
         '200':
@@ -452,7 +453,6 @@ paths:
       summary: Create a new time block for a routine
       description: |
         Creates a single time block with its sessions in an existing routine.
-        The API is called each time a session is added to the time block.
 
         Validates that the routine belongs to the authenticated user.
 
@@ -508,6 +508,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
           description: Time block with this time already exists.
           content:
@@ -597,6 +599,12 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: Time block with this time already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '422':
           $ref: '#/components/responses/ValidationError'
 
@@ -658,7 +666,7 @@ paths:
 # id                    UUID  PK  default uuid4()
 # routine_id            UUID  FK → routines.id  ON DELETE CASCADE
 # time                  String(5)  NOT NULL  (HH:MM 24-hour display format)
-# time_int              Integer  NOT NULL  (24-hour format as integer, 0–2400)
+# time_int              Integer  NOT NULL  (24-hour format as integer, 0–2359)
 # notification_enabled  Boolean  default true
 # created_at            DateTime(tz)  default now()
 # updated_at            DateTime(tz)  default now()
