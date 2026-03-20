@@ -1,0 +1,528 @@
+openapi: 3.0.3
+info:
+  title: Plan Tasks & Sub-Tasks API
+  description: |
+    API for managing tasks and sub-tasks with multiple segment support.
+
+    ## Database Schema
+
+    ### `sub_tasks` Table
+
+    | Column           | Type          | Nullable | Description                                      |
+    |------------------|---------------|----------|--------------------------------------------------|
+    | id               | UUID          | NO       | Primary key                                      |
+    | task_id          | UUID          | NO       | Foreign key to tasks table                       |
+    | content_type     | ENUM          | NO       | TEXT, AUDIO, VIDEO, IMAGE, SOURCE_REFERENCE      |
+    | content          | TEXT          | YES      | Content text or URL                              |
+    | duration         | VARCHAR(255)  | YES      | Duration string (e.g., "15 min")                 |
+    | source_text_id   | UUID          | YES      | Reference to source text                         |
+    | pecha_segment_id | VARCHAR(255)  | YES      | Pecha segment identifier                         |
+    | segment_ids      | UUID[]        | YES      | Array of segment UUIDs (multiple segments)       |
+    | display_order    | INTEGER       | NO       | Order within task                                |
+    | created_at       | TIMESTAMP     | NO       | Created timestamp                                |
+    | created_by       | VARCHAR(255)  | NO       | Creator email                                    |
+    | updated_at       | TIMESTAMP     | YES      | Updated timestamp                                |
+    | updated_by       | VARCHAR(255)  | YES      | Updater email                                    |
+    | deleted_at       | TIMESTAMP     | YES      | Soft delete timestamp                            |
+    | deleted_by       | VARCHAR(255)  | YES      | Deleter email                                    |
+
+    ### Example Row
+
+    ```
+    id:               6ba7b810-9dad-11d1-80b4-00c04fd430c8
+    task_id:          550e8400-e29b-41d4-a716-446655440000
+    content_type:     SOURCE_REFERENCE
+    content:          "Read and contemplate these verses"
+    segment_ids:      {f47ac10b-58cc-4372-a567-0e02b2c3d479, 7c9e6679-7425-40de-944b-e07fc1f90ae7}
+    display_order:    1
+    ```
+
+  version: 1.0.0
+
+paths:
+  /cms/tasks/{task_id}:
+    get:
+      summary: Get Task with Sub-Tasks
+      description: |
+        Retrieves a task by its ID along with all its sub-tasks.
+        Each sub-task can have multiple segment IDs associated with it.
+      operationId: get_task
+      tags:
+        - Tasks
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          description: UUID of the task to retrieve
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Task retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetTaskResponse'
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                title: "Morning Meditation Practice"
+                display_order: 1
+                estimated_time: 30
+                subtasks:
+                  - id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+                    content_type: "SOURCE_REFERENCE"
+                    content: "Read and contemplate these verses from the text"
+                    duration: "15 min"
+                    image_url: null
+                    source_text_id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+                    pecha_segment_id: "3YYxROUIWHdM08eK2DNzQ"
+                    segment_ids:
+                      - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                      - "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                      - "e4eaaaf2-d142-11e1-b3e4-080027620cdd"
+                    display_order: 1
+                  - id: "7cb8c921-0ebe-22e2-91c5-11d04fd541d9"
+                    content_type: "VIDEO"
+                    content: "https://example.com/guided-meditation.mp4"
+                    duration: "10 min"
+                    image_url: "https://example.com/thumbnail.jpg"
+                    source_text_id: null
+                    pecha_segment_id: null
+                    segment_ids: null
+                    display_order: 2
+        '401':
+          description: Unauthorized - Invalid or missing authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "UNAUTHORIZED"
+                message: "Invalid authentication credentials"
+        '403':
+          description: Forbidden - User does not have permission to access this task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "FORBIDDEN"
+                message: "You do not have permission to access this task"
+        '404':
+          description: Not Found - Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "NOT_FOUND"
+                message: "Task not found"
+
+  /cms/sub-tasks:
+    post:
+      summary: Create Sub-Tasks
+      description: |
+        Creates new sub-tasks under a specific task.
+        Supports storing multiple segment IDs per sub-task for linking to multiple text segments.
+      operationId: create_sub_tasks
+      tags:
+        - Sub-Tasks
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubTaskRequest'
+            example:
+              task_id: "550e8400-e29b-41d4-a716-446655440000"
+              sub_tasks:
+                - content_type: "SOURCE_REFERENCE"
+                  content: "Read and contemplate these verses from the source text"
+                  duration: "15 min"
+                  source_text_id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+                  pecha_segment_id: "3YYxROUIWHdM08eK2DNzQ"
+                  segment_ids:
+                    - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                    - "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                    - "e4eaaaf2-d142-11e1-b3e4-080027620cdd"
+                - content_type: "VIDEO"
+                  content: "https://example.com/teaching-video.mp4"
+                  duration: "20 min"
+                  source_text_id: null
+                  pecha_segment_id: null
+                  segment_ids: null
+      responses:
+        '201':
+          description: Sub-tasks created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubTaskResponse'
+              example:
+                sub_tasks:
+                  - id: "8b5fc50f-61f7-4a98-9c30-020e945ca7ea"
+                    content_type: "SOURCE_REFERENCE"
+                    content: "Read and contemplate these verses from the source text"
+                    duration: "15 min"
+                    image_url: null
+                    source_text_id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+                    pecha_segment_id: "3YYxROUIWHdM08eK2DNzQ"
+                    segment_ids:
+                      - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                      - "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                      - "e4eaaaf2-d142-11e1-b3e4-080027620cdd"
+                    display_order: 1
+                  - id: "9c6gd61g-72g8-5b09-0d41-131f056db8fb"
+                    content_type: "VIDEO"
+                    content: "https://example.com/teaching-video.mp4"
+                    duration: "20 min"
+                    image_url: null
+                    source_text_id: null
+                    pecha_segment_id: null
+                    segment_ids: null
+                    display_order: 2
+        '400':
+          description: Bad Request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "BAD_REQUEST"
+                message: "Invalid sub-task data provided"
+        '401':
+          description: Unauthorized - Invalid or missing authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "UNAUTHORIZED"
+                message: "Invalid authentication credentials"
+        '403':
+          description: Forbidden - User does not have permission to add sub-tasks to this task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "FORBIDDEN"
+                message: "You do not have permission to modify this task"
+        '404':
+          description: Not Found - Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "NOT_FOUND"
+                message: "Task not found"
+
+    put:
+      summary: Update Sub-Tasks
+      description: Update existing sub-tasks or create new ones for a specific task. Supports storing multiple segment IDs per sub-task.
+      operationId: update_sub_task
+      tags:
+        - Sub-Tasks
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubTaskRequest'
+            example:
+              task_id: "550e8400-e29b-41d4-a716-446655440000"
+              sub_tasks:
+                - id: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+                  content_type: "SOURCE_REFERENCE"
+                  content: "Practice mindful breathing for 5 minutes"
+                  duration: "5 min"
+                  source_text_id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+                  pecha_segment_id: "seg_001"
+                  segment_ids:
+                    - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                    - "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+                    - "e4eaaaf2-d142-11e1-b3e4-080027620cdd"
+                  display_order: 1
+                - id: null
+                  content_type: "VIDEO"
+                  content: "https://example.com/meditation-video.mp4"
+                  duration: "10 min"
+                  source_text_id: null
+                  pecha_segment_id: null
+                  segment_ids: null
+                  display_order: 2
+      responses:
+        '204':
+          description: Sub-tasks updated successfully. No content returned.
+        '400':
+          description: Bad Request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "BAD_REQUEST"
+                message: "Invalid sub-task data provided"
+        '401':
+          description: Unauthorized - Invalid or missing authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "UNAUTHORIZED"
+                message: "Invalid authentication credentials"
+        '403':
+          description: Forbidden - User does not have permission to update this task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "FORBIDDEN"
+                message: "You do not have permission to modify this task"
+        '404':
+          description: Not Found - Task not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "NOT_FOUND"
+                message: "Task not found"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for author authentication
+
+  schemas:
+    GetTaskResponse:
+      type: object
+      description: Task with all its sub-tasks
+      required:
+        - id
+        - title
+        - display_order
+        - subtasks
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: UUID of the task
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        title:
+          type: string
+          description: Title of the task
+          example: "Morning Meditation Practice"
+        display_order:
+          type: integer
+          description: Order in which this task should be displayed
+          minimum: 1
+          example: 1
+        estimated_time:
+          type: integer
+          nullable: true
+          description: Estimated time to complete the task (in minutes)
+          example: 30
+        subtasks:
+          type: array
+          description: List of sub-tasks belonging to this task
+          items:
+            $ref: '#/components/schemas/SubTaskDTO'
+
+    CreateSubTaskRequest:
+      type: object
+      description: Request to create new sub-tasks under a task
+      required:
+        - task_id
+        - sub_tasks
+      properties:
+        task_id:
+          type: string
+          format: uuid
+          description: UUID of the task to add sub-tasks to
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        sub_tasks:
+          type: array
+          description: List of sub-tasks to create
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SubTaskRequestFields'
+
+    SubTaskRequestFields:
+      type: object
+      description: Fields for creating a new sub-task (no id required)
+      required:
+        - content_type
+        - content
+      properties:
+        content_type:
+          type: string
+          enum:
+            - TEXT
+            - AUDIO
+            - VIDEO
+            - IMAGE
+            - SOURCE_REFERENCE
+          description: Type of content in this sub-task. Use SOURCE_REFERENCE when linking to segment_ids.
+          example: "SOURCE_REFERENCE"
+        content:
+          type: string
+          description: The actual content (text, URL, etc.)
+          example: "Read and contemplate these verses from the source text"
+        duration:
+          type: string
+          nullable: true
+          description: Estimated duration for this sub-task
+          example: "15 min"
+        source_text_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Reference to the source text
+          example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+        pecha_segment_id:
+          type: string
+          nullable: true
+          description: Pecha segment identifier
+          example: "3YYxROUIWHdM08eK2DNzQ"
+        segment_ids:
+          type: array
+          nullable: true
+          description: |
+            List of segment UUIDs associated with this sub-task.
+            Allows linking multiple segments to a single sub-task.
+          items:
+            type: string
+            format: uuid
+          example:
+            - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            - "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+            - "e4eaaaf2-d142-11e1-b3e4-080027620cdd"
+
+    SubTaskResponse:
+      type: object
+      description: Response containing created sub-tasks
+      required:
+        - sub_tasks
+      properties:
+        sub_tasks:
+          type: array
+          description: List of created sub-tasks with their assigned IDs
+          items:
+            $ref: '#/components/schemas/SubTaskDTO'
+
+    UpdateSubTaskRequest:
+      type: object
+      required:
+        - task_id
+        - sub_tasks
+      properties:
+        task_id:
+          type: string
+          format: uuid
+          description: The UUID of the parent task
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        sub_tasks:
+          type: array
+          description: List of sub-tasks to update or create
+          items:
+            $ref: '#/components/schemas/SubTaskDTO'
+
+    SubTaskDTO:
+      type: object
+      required:
+        - content_type
+        - content
+        - display_order
+      properties:
+        id:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            UUID of existing sub-task to update. 
+            - If provided: Updates the existing sub-task
+            - If null: Creates a new sub-task
+          example: "6ba7b810-9dad-11d1-80b4-00c04fd430c8"
+        content_type:
+          type: string
+          enum:
+            - TEXT
+            - AUDIO
+            - VIDEO
+            - IMAGE
+            - SOURCE_REFERENCE
+          description: Type of content in this sub-task. Use SOURCE_REFERENCE when linking to segment_ids.
+          example: "SOURCE_REFERENCE"
+        content:
+          type: string
+          description: The actual content (text, URL, etc.)
+          example: "Practice mindful breathing for 5 minutes"
+        duration:
+          type: string
+          nullable: true
+          description: Estimated duration for this sub-task
+          example: "5 min"
+        image_url:
+          type: string
+          nullable: true
+          description: Optional image URL for the sub-task
+          example: "https://example.com/image.jpg"
+        source_text_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Reference to the source text
+          example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+        pecha_segment_id:
+          type: string
+          nullable: true
+          description: Pecha segment identifier
+          example: "seg_001"
+        segment_ids:
+          type: array
+          nullable: true
+          description: |
+            List of segment UUIDs associated with this sub-task.
+            Allows linking multiple segments to a single sub-task.
+          items:
+            type: string
+            format: uuid
+          example:
+            - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+            - "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+            - "e4eaaaf2-d142-11e1-b3e4-080027620cdd"
+        display_order:
+          type: integer
+          description: Order in which this sub-task should be displayed
+          minimum: 1
+          example: 1
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: "BAD_REQUEST"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid input data"

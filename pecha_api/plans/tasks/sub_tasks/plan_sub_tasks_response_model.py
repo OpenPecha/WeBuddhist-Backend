@@ -11,7 +11,7 @@ class SubTaskRequestFields(BaseModel):
     duration: Optional[str] = None
     source_text_id: Optional[UUID] = None
     pecha_segment_id: Optional[str] = None
-    segment_id: Optional[UUID] = None
+    segment_ids: Optional[List[UUID]] = None
 
 
 class SubTaskRequest(BaseModel):
@@ -27,7 +27,7 @@ class SubTaskDTO(BaseModel):
     image_url: Optional[str] = None
     source_text_id: Optional[UUID] = None
     pecha_segment_id: Optional[str] = None
-    segment_id: Optional[UUID] = None
+    segment_ids: Optional[List[UUID]] = None
     display_order: int
 
 class SubTaskResponse(BaseModel):
