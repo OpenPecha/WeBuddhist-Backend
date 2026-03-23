@@ -69,8 +69,8 @@ async def create_routine_with_time_block(
             ).model_dump(),
         )
 
-    # Check routine doesn't already exist
     with SessionLocal() as db:
+        # Check routine doesn't already exist
         existing_routine = get_routine_by_user_id(db=db, user_id=current_user.id)
         if existing_routine:
             raise HTTPException(
@@ -105,48 +105,48 @@ async def create_routine_with_time_block(
         ]
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
-    # Resolve session details
-    resolved_sessions = await _resolve_sessions(saved_sessions)
+        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
 
-    # Build response
-    return RoutineWithTimeBlocksResponse(
-        id=saved_routine.id,
-        time_blocks=[
-            TimeBlockDTO(
-                id=saved_time_block.id,
-                time=saved_time_block.time,
-                time_int=saved_time_block.time_int,
-                notification_enabled=saved_time_block.notification_enabled,
-                sessions=resolved_sessions,
-            )
-        ],
-    )
+        return RoutineWithTimeBlocksResponse(
+            id=saved_routine.id,
+            time_blocks=[
+                TimeBlockDTO(
+                    id=saved_time_block.id,
+                    time=saved_time_block.time,
+                    time_int=saved_time_block.time_int,
+                    notification_enabled=saved_time_block.notification_enabled,
+                    sessions=resolved_sessions,
+                )
+            ],
+        )
 
 
-async def _resolve_sessions(sessions: List[RoutineSession]) -> List[SessionDTO]:
+async def _resolve_sessions(db, sessions: List[RoutineSession]) -> List[SessionDTO]:
     resolved = []
     plan_sessions = [s for s in sessions if s.session_type == SessionType.PLAN]
     recitation_sessions = [
         s for s in sessions if s.session_type == SessionType.RECITATION
     ]
 
-    if plan_sessions:
-        with SessionLocal() as db:
-            for s in plan_sessions:
-                plan = get_plan_by_id(db=db, plan_id=s.source_id)
-                if plan is None:
-                    continue
-                resolved.append(
-                    SessionDTO(
-                        id=s.id,
-                        session_type=s.session_type,
-                        source_id=s.source_id,
-                        title=plan.title,
-                        language=plan.language,
-                        image_url=plan.image_url,
-                        display_order=s.display_order,
-                    )
-                )
+    for s in plan_sessions:
+        plan = get_plan_by_id(db=db, plan_id=s.source_id)
+        if plan is None:
+            continue
+        resolved.append(
+            SessionDTO(
+                id=s.id,
+                session_type=s.session_type,
+                source_id=s.source_id,
+                title=plan.title,
+                language=(
+                    plan.language.value
+                    if hasattr(plan.language, "value")
+                    else str(plan.language)
+                ),
+                image_url=plan.image_url,
+                display_order=s.display_order,
+            )
+        )
 
     if recitation_sessions:
         text_ids = [str(s.source_id) for s in recitation_sessions]
@@ -163,7 +163,7 @@ async def _resolve_sessions(sessions: List[RoutineSession]) -> List[SessionDTO]:
                     session_type=s.session_type,
                     source_id=s.source_id,
                     title=text.title,
-                    language=text.language,
+                    language=text.language or "en",
                     image_url=None,
                     display_order=s.display_order,
                 )
