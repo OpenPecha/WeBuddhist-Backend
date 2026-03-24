@@ -1,0 +1,4 @@
+ROUTINE_ALREADY_EXISTS = "Routine already exists for this user"
+INVALID_TIME_FORMAT = "Time must be in HH:MM 24-hour format (00:00 to 23:59)"
+SESSIONS_REQUIRED = "At least one session is required"
+DUPLICATE_PLAN = "A plan can only appear once across the entire routine"

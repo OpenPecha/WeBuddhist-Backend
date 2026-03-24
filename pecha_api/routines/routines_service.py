@@ -1,22 +1,28 @@
-import re
 from fastapi import HTTPException
 from starlette import status
 from typing import List
 
+from pecha_api.config import TIME_FORMAT_PATTERN
 from pecha_api.db.database import SessionLocal
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
-from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.texts.texts_models import Text
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
 from .routines_repository import (
     get_routine_by_user_id,
+    get_plans_by_ids,
     save_routine,
     save_time_block,
     save_sessions,
+)
+from .response_message import (
+    DUPLICATE_PLAN,
+    INVALID_TIME_FORMAT,
+    ROUTINE_ALREADY_EXISTS,
+    SESSIONS_REQUIRED,
 )
 from .routines_response_models import (
     CreateTimeBlockRequest,
@@ -25,20 +31,8 @@ from .routines_response_models import (
     RoutineWithTimeBlocksResponse,
 )
 
-TIME_FORMAT_PATTERN = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
-ROUTINE_ALREADY_EXISTS = "Routine already exists for this user"
-INVALID_TIME_FORMAT = "Time must be in HH:MM 24-hour format (00:00 to 23:59)"
-SESSIONS_REQUIRED = "At least one session is required"
-DUPLICATE_PLAN = "A plan can only appear once across the entire routine"
-
-
-async def create_routine_with_time_block(
-    token: str, request: CreateTimeBlockRequest
-) -> RoutineWithTimeBlocksResponse:
-
-    current_user = validate_and_extract_user_details(token=token)
-
+def _validate_create_routine_request(request: CreateTimeBlockRequest) -> None:
     # At least one session required
     if not request.sessions:
         raise HTTPException(
@@ -59,7 +53,9 @@ async def create_routine_with_time_block(
 
     # Duplicate plan source_ids within the request
     plan_source_ids = [
-        s.source_id for s in request.sessions if s.session_type == SessionType.PLAN
+        session.source_id
+        for session in request.sessions
+        if session.session_type == SessionType.PLAN
     ]
     if len(plan_source_ids) != len(set(plan_source_ids)):
         raise HTTPException(
@@ -68,6 +64,96 @@ async def create_routine_with_time_block(
                 error=BAD_REQUEST, message=DUPLICATE_PLAN
             ).model_dump(),
         )
+
+
+def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession]) -> List[SessionDTO]:
+    if not plan_sessions:
+        return []
+
+    plan_ids = [session.source_id for session in plan_sessions]
+    plans = get_plans_by_ids(db=db, plan_ids=plan_ids)
+    plan_map = {plan.id: plan for plan in plans}
+
+    resolved = []
+    for session in plan_sessions:
+        plan = plan_map.get(session.source_id)
+        if plan is None:
+            continue
+        resolved.append(
+            SessionDTO(
+                id=session.id,
+                session_type=session.session_type,
+                source_id=session.source_id,
+                title=plan.title,
+                language=(
+                    plan.language.value
+                    if hasattr(plan.language, "value")
+                    else str(plan.language)
+                ),
+                image_url=plan.image_url,
+                display_order=session.display_order,
+            )
+        )
+    return resolved
+
+
+async def _resolve_recitation_sessions(
+    recitation_sessions: List[RoutineSession],
+) -> List[SessionDTO]:
+    if not recitation_sessions:
+        return []
+
+    text_ids = [str(session.source_id) for session in recitation_sessions]
+    texts = await Text.get_texts_by_ids(text_ids)
+    text_map = {str(text.id): text for text in texts}
+
+    resolved = []
+    for session in recitation_sessions:
+        text = text_map.get(str(session.source_id))
+        if text is None:
+            continue
+        resolved.append(
+            SessionDTO(
+                id=session.id,
+                session_type=session.session_type,
+                source_id=session.source_id,
+                title=text.title,
+                language=text.language or "en",
+                image_url=None,
+                display_order=session.display_order,
+            )
+        )
+    return resolved
+
+
+async def _resolve_sessions(db, sessions: List[RoutineSession]) -> List[SessionDTO]:
+    plan_sessions = [
+        session for session in sessions if session.session_type == SessionType.PLAN
+    ]
+    recitation_sessions = [
+        session
+        for session in sessions
+        if session.session_type == SessionType.RECITATION
+    ]
+
+    resolved_plans = _resolve_plan_sessions(db=db, plan_sessions=plan_sessions)
+    resolved_recitations = await _resolve_recitation_sessions(
+        recitation_sessions=recitation_sessions
+    )
+
+    resolved = resolved_plans + resolved_recitations
+    resolved.sort(key=lambda session: session.display_order)
+
+    return resolved
+
+
+async def create_routine_with_time_block(
+    token: str, request: CreateTimeBlockRequest
+) -> RoutineWithTimeBlocksResponse:
+
+    current_user = validate_and_extract_user_details(token=token)
+
+    _validate_create_routine_request(request)
 
     with SessionLocal() as db:
         # Check routine doesn't already exist
@@ -97,11 +183,11 @@ async def create_routine_with_time_block(
         session_models = [
             RoutineSession(
                 time_block_id=saved_time_block.id,
-                session_type=s.session_type,
-                source_id=s.source_id,
-                display_order=s.display_order,
+                session_type=session.session_type,
+                source_id=session.source_id,
+                display_order=session.display_order,
             )
-            for s in request.sessions
+            for session in request.sessions
         ]
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
@@ -119,56 +205,3 @@ async def create_routine_with_time_block(
                 )
             ],
         )
-
-
-async def _resolve_sessions(db, sessions: List[RoutineSession]) -> List[SessionDTO]:
-    resolved = []
-    plan_sessions = [s for s in sessions if s.session_type == SessionType.PLAN]
-    recitation_sessions = [
-        s for s in sessions if s.session_type == SessionType.RECITATION
-    ]
-
-    for s in plan_sessions:
-        plan = get_plan_by_id(db=db, plan_id=s.source_id)
-        if plan is None:
-            continue
-        resolved.append(
-            SessionDTO(
-                id=s.id,
-                session_type=s.session_type,
-                source_id=s.source_id,
-                title=plan.title,
-                language=(
-                    plan.language.value
-                    if hasattr(plan.language, "value")
-                    else str(plan.language)
-                ),
-                image_url=plan.image_url,
-                display_order=s.display_order,
-            )
-        )
-
-    if recitation_sessions:
-        text_ids = [str(s.source_id) for s in recitation_sessions]
-        texts = await Text.get_texts_by_ids(text_ids)
-        text_map = {str(t.id): t for t in texts}
-
-        for s in recitation_sessions:
-            text = text_map.get(str(s.source_id))
-            if text is None:
-                continue
-            resolved.append(
-                SessionDTO(
-                    id=s.id,
-                    session_type=s.session_type,
-                    source_id=s.source_id,
-                    title=text.title,
-                    language=text.language or "en",
-                    image_url=None,
-                    display_order=s.display_order,
-                )
-            )
-
-    resolved.sort(key=lambda s: s.display_order)
-
-    return resolved

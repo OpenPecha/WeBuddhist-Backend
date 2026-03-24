@@ -7,6 +7,7 @@ from typing import Optional, List
 
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
+from pecha_api.plans.plans_models import Plan
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 
 
@@ -16,6 +17,12 @@ def get_routine_by_user_id(db: Session, user_id: UUID) -> Optional[Routine]:
         .filter(Routine.user_id == user_id, Routine.deleted_at.is_(None))
         .first()
     )
+
+
+def get_plans_by_ids(db: Session, plan_ids: List[UUID]) -> List[Plan]:
+    if not plan_ids:
+        return []
+    return db.query(Plan).filter(Plan.id.in_(plan_ids)).all()
 
 
 def save_routine(db: Session, routine: Routine) -> Routine:
