@@ -1,7 +1,8 @@
 import re
 from fastapi import HTTPException
 from starlette import status
-from typing import List
+from typing import List, Dict
+from uuid import UUID
 
 from pecha_api.db.database import SessionLocal
 from pecha_api.users.users_service import validate_and_extract_user_details
@@ -17,12 +18,15 @@ from .routines_repository import (
     save_routine,
     save_time_block,
     save_sessions,
+    get_time_blocks_with_sessions,
+    get_sessions_by_time_block_ids,
 )
 from .routines_response_models import (
     CreateTimeBlockRequest,
     SessionDTO,
     TimeBlockDTO,
     RoutineWithTimeBlocksResponse,
+    RoutineResponse,
 )
 
 TIME_FORMAT_PATTERN = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
@@ -172,3 +176,69 @@ async def _resolve_sessions(db, sessions: List[RoutineSession]) -> List[SessionD
     resolved.sort(key=lambda s: s.display_order)
 
     return resolved
+
+
+async def get_user_routine(
+    token: str, skip: int = 0, limit: int = 20
+) -> RoutineResponse:
+
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        routine = get_routine_by_user_id(db=db, user_id=current_user.id)
+
+        if routine is None:
+            routine = Routine(user_id=current_user.id)
+            from .routines_repository import save_routine
+            routine = save_routine(db=db, routine=routine)
+            return RoutineResponse(
+                id=routine.id,
+                time_blocks=[],
+                skip=skip,
+                limit=limit,
+                total=0,
+            )
+
+        time_blocks, total = get_time_blocks_with_sessions(
+            db=db, routine_id=routine.id, skip=skip, limit=limit
+        )
+
+        if not time_blocks:
+            return RoutineResponse(
+                id=routine.id,
+                time_blocks=[],
+                skip=skip,
+                limit=limit,
+                total=total,
+            )
+
+        time_block_ids = [tb.id for tb in time_blocks]
+        all_sessions = get_sessions_by_time_block_ids(db=db, time_block_ids=time_block_ids)
+
+        sessions_by_block: Dict[UUID, List[RoutineSession]] = {}
+        for session in all_sessions:
+            if session.time_block_id not in sessions_by_block:
+                sessions_by_block[session.time_block_id] = []
+            sessions_by_block[session.time_block_id].append(session)
+
+        time_block_dtos = []
+        for tb in time_blocks:
+            block_sessions = sessions_by_block.get(tb.id, [])
+            resolved_sessions = await _resolve_sessions(db=db, sessions=block_sessions)
+            time_block_dtos.append(
+                TimeBlockDTO(
+                    id=tb.id,
+                    time=tb.time,
+                    time_int=tb.time_int,
+                    notification_enabled=tb.notification_enabled,
+                    sessions=resolved_sessions,
+                )
+            )
+
+        return RoutineResponse(
+            id=routine.id,
+            time_blocks=time_block_dtos,
+            skip=skip,
+            limit=limit,
+            total=total,
+        )

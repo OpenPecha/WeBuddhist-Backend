@@ -3,7 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from starlette import status
 from uuid import UUID
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
@@ -59,3 +59,34 @@ def save_sessions(db: Session, sessions: List[RoutineSession]) -> List[RoutineSe
             status_code=status.HTTP_409_CONFLICT,
             detail=ResponseError(error=BAD_REQUEST, message=str(e.orig)).model_dump(),
         )
+
+
+def get_time_blocks_with_sessions(
+    db: Session, routine_id: UUID, skip: int = 0, limit: int = 20
+) -> Tuple[List[RoutineTimeBlock], int]:
+    query = (
+        db.query(RoutineTimeBlock)
+        .filter(
+            RoutineTimeBlock.routine_id == routine_id,
+            RoutineTimeBlock.deleted_at.is_(None),
+        )
+        .order_by(RoutineTimeBlock.time_int)
+    )
+
+    total = query.count()
+    time_blocks = query.offset(skip).limit(limit).all()
+
+    return time_blocks, total
+
+
+def get_sessions_by_time_block_ids(
+    db: Session, time_block_ids: List[UUID]
+) -> List[RoutineSession]:
+    if not time_block_ids:
+        return []
+    return (
+        db.query(RoutineSession)
+        .filter(RoutineSession.time_block_id.in_(time_block_ids))
+        .order_by(RoutineSession.display_order)
+        .all()
+    )

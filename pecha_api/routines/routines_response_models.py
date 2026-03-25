@@ -39,3 +39,11 @@ class TimeBlockDTO(BaseModel):
 class RoutineWithTimeBlocksResponse(BaseModel):
     id: UUID
     time_blocks: List[TimeBlockDTO]
+
+
+class RoutineResponse(BaseModel):
+    id: UUID
+    time_blocks: List[TimeBlockDTO]
+    skip: int
+    limit: int
+    total: int
