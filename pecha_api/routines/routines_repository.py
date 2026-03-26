@@ -9,6 +9,7 @@ from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
 from pecha_api.plans.plans_models import Plan
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
+from .routines_enums import SessionType
 
 
 def get_routine_by_user_id(db: Session, user_id: UUID) -> Optional[Routine]:
@@ -23,6 +24,41 @@ def get_plans_by_ids(db: Session, plan_ids: List[UUID]) -> List[Plan]:
     if not plan_ids:
         return []
     return db.query(Plan).filter(Plan.id.in_(plan_ids)).all()
+
+
+def get_routine_by_id(db: Session, routine_id: UUID) -> Optional[Routine]:
+    return (
+        db.query(Routine)
+        .filter(Routine.id == routine_id, Routine.deleted_at.is_(None))
+        .first()
+    )
+
+
+def get_existing_plan_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
+    sessions = (
+        db.query(RoutineSession.source_id)
+        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            RoutineTimeBlock.routine_id == routine_id,
+            RoutineTimeBlock.deleted_at.is_(None),
+            RoutineSession.session_type == SessionType.PLAN,
+        )
+        .all()
+    )
+    return [s.source_id for s in sessions]
+
+
+def time_block_exists_for_routine(db: Session, routine_id: UUID, time: str) -> bool:
+    return (
+        db.query(RoutineTimeBlock)
+        .filter(
+            RoutineTimeBlock.routine_id == routine_id,
+            RoutineTimeBlock.time == time,
+            RoutineTimeBlock.deleted_at.is_(None),
+        )
+        .first()
+        is not None
+    )
 
 
 def save_routine(db: Session, routine: Routine) -> Routine:
