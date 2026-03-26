@@ -1,0 +1,308 @@
+openapi: "3.0.3"
+info:
+  title: Bookstore Inventory API
+  description: An API to manage a store's book inventory.
+  version: "1.0.0"
+servers:
+  - url: https://api.example.com/v1
+    description: Placeholder — replace with actual server URL
+
+paths:
+  /books:
+    get:
+      summary: Get all books
+      description: Returns a list of books with optional filtering by genre and pagination.
+      tags:
+        - Books
+      parameters:
+        - name: genre
+          in: query
+          schema:
+            type: string
+          description: Filter books by genre
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+          description: Number of items per page
+      responses:
+        "200":
+          description: List of books retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Books fetched successfully"
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Book"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+    post:
+      summary: Add a new book
+      description: Creates a new book with the provided details.
+      tags:
+        - Books
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookCreate"
+      responses:
+        "201":
+          description: Book created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Book created successfully"
+                  data:
+                    $ref: "#/components/schemas/Book"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /books/{id}:
+    get:
+      summary: Get a single book
+      description: Fetch a book by its unique ID.
+      tags:
+        - Books
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier of the book
+      responses:
+        "200":
+          description: Book retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Book fetched successfully"
+                  data:
+                    $ref: "#/components/schemas/Book"
+        "404":
+          description: Book not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      summary: Update a book's price
+      description: Partial update to change only the price of a book.
+      tags:
+        - Books
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier of the book
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookPriceUpdate"
+      responses:
+        "200":
+          description: Book price updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Book price updated successfully"
+                  data:
+                    $ref: "#/components/schemas/Book"
+        "404":
+          description: Book not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      summary: Delete a book
+      description: Removes a book by its ID.
+      tags:
+        - Books
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique identifier of the book
+      responses:
+        "204":
+          description: Book deleted successfully
+        "404":
+          description: Book not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  security:
+    - bearerAuth: []
+
+  schemas:
+    Book:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        title:
+          type: string
+          example: "The Great Gatsby"
+        author:
+          type: string
+          example: "F. Scott Fitzgerald"
+        published_year:
+          type: integer
+          example: 1925
+        genre:
+          type: string
+          example: "Fiction"
+        price:
+          type: number
+          format: float
+          example: 12.99
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-03-26T14:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-03-26T14:00:00Z"
+
+    BookCreate:
+      type: object
+      required:
+        - title
+        - author
+        - genre
+        - price
+      properties:
+        title:
+          type: string
+          example: "The Great Gatsby"
+        author:
+          type: string
+          example: "F. Scott Fitzgerald"
+        published_year:
+          type: integer
+          example: 1925
+        genre:
+          type: string
+          example: "Fiction"
+        price:
+          type: number
+          format: float
+          example: 12.99
+
+    BookPriceUpdate:
+      type: object
+      required:
+        - price
+      properties:
+        price:
+          type: number
+          format: float
+          example: 14.99
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        per_page:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 100
+        total_pages:
+          type: integer
+          example: 5
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Validation failed"
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+                example: "email"
+              message:
+                type: string
+                example: "Email is already taken"
+
+tags:
+  - name: Books
+    description: Operations for managing books
