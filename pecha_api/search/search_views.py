@@ -42,7 +42,6 @@ async def multilingual_search(
     query: str = Query(...),
     search_type: MultilingualSearchType = Query(default=MultilingualSearchType.HYBRID),
     text_id: Optional[str] = Query(default=None),
-    language: Optional[str] = Query(default=None),
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=10, ge=1, le=100)
 ) -> MultilingualSearchResponse:
@@ -51,8 +50,7 @@ async def multilingual_search(
         search_type=search_type.value,
         text_id=text_id,
         skip=skip,
-        limit=limit,
-        language=language
+        limit=limit
     )
 
 @search_router.get("/chat/{pecha_segment_id}", status_code=status.HTTP_200_OK)
