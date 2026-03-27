@@ -28,9 +28,7 @@ user_routine_router = APIRouter(
     response_model=RoutineWithTimeBlocksResponse,
 )
 async def create_routine(
-    authentication_credential: Annotated[
-        HTTPAuthorizationCredentials, Depends(oauth2_scheme)
-    ],
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     request: CreateTimeBlockRequest,
 ):
     return await create_routine_with_time_block(
@@ -39,15 +37,9 @@ async def create_routine(
     )
 
 
-@user_routine_router.get(
-    "/routine",
-    status_code=status.HTTP_200_OK,
-    response_model=RoutineResponse,
-)
+@user_routine_router.get("/routine", status_code=status.HTTP_200_OK, response_model=RoutineResponse)
 async def get_routine(
-    authentication_credential: Annotated[
-        HTTPAuthorizationCredentials, Depends(oauth2_scheme)
-    ],
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
 ):

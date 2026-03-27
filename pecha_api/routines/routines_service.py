@@ -18,7 +18,7 @@ from .routines_repository import (
     save_routine,
     save_time_block,
     save_sessions,
-    get_time_blocks_with_sessions,
+    get_time_blocks,
     get_sessions_by_time_block_ids,
 )
 from .response_message import (
@@ -151,6 +151,30 @@ async def _resolve_sessions(db, sessions: List[RoutineSession]) -> List[SessionD
     return resolved
 
 
+def group_sessions_by_block(
+    sessions: List[RoutineSession],
+) -> Dict[UUID, List[RoutineSession]]:
+    sessions_by_block: Dict[UUID, List[RoutineSession]] = {}
+    for session in sessions:
+        if session.time_block_id not in sessions_by_block:
+            sessions_by_block[session.time_block_id] = []
+        sessions_by_block[session.time_block_id].append(session)
+    return sessions_by_block
+
+
+async def build_time_block_dto(
+    db, time_block: RoutineTimeBlock, sessions: List[RoutineSession]
+) -> TimeBlockDTO:
+    resolved_sessions = await _resolve_sessions(db=db, sessions=sessions)
+    return TimeBlockDTO(
+        id=time_block.id,
+        time=time_block.time,
+        time_int=time_block.time_int,
+        notification_enabled=time_block.notification_enabled,
+        sessions=resolved_sessions,
+    )
+
+
 async def create_routine_with_time_block(
     token: str, request: CreateTimeBlockRequest
 ) -> RoutineWithTimeBlocksResponse:
@@ -160,8 +184,10 @@ async def create_routine_with_time_block(
     _validate_create_routine_request(request)
 
     with SessionLocal() as db:
-        # Check routine doesn't already exist
-        existing_routine = get_routine_by_user_id(db=db, user_id=current_user.id)
+        # Check routine doesn't already exist (business rule: exclude soft-deleted)
+        existing_routine = get_routine_by_user_id(
+            db=db, user_id=current_user.id, include_deleted=False
+        )
         if existing_routine:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -195,83 +221,55 @@ async def create_routine_with_time_block(
         ]
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
-        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
+        time_block_dto = await build_time_block_dto(
+            db=db, time_block=saved_time_block, sessions=saved_sessions
+        )
 
         return RoutineWithTimeBlocksResponse(
             id=saved_routine.id,
-            time_blocks=[
-                TimeBlockDTO(
-                    id=saved_time_block.id,
-                    time=saved_time_block.time,
-                    time_int=saved_time_block.time_int,
-                    notification_enabled=saved_time_block.notification_enabled,
-                    sessions=resolved_sessions,
-                )
-            ],
+            time_blocks=[time_block_dto],
         )
 
-async def get_user_routine(
-    token: str, skip: int = 0, limit: int = 20
-) -> RoutineResponse:
+async def get_user_routine(token: str, skip: int = 0, limit: int = 20) -> RoutineResponse:
 
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
-        routine = get_routine_by_user_id(db=db, user_id=current_user.id)
+        routine = get_routine_by_user_id(
+            db=db, user_id=current_user.id, include_deleted=False
+        )
 
         if routine is None:
             routine = Routine(user_id=current_user.id)
-            from .routines_repository import save_routine
             routine = save_routine(db=db, routine=routine)
-            return RoutineResponse(
-                id=routine.id,
-                time_blocks=[],
-                skip=skip,
-                limit=limit,
-                total=0,
-            )
+            return RoutineResponse(id=routine.id, time_blocks=[], skip=skip, limit=limit, total=0)
 
-        time_blocks, total = get_time_blocks_with_sessions(
-            db=db, routine_id=routine.id, skip=skip, limit=limit
+        time_blocks, total = get_time_blocks(
+            db=db,
+            routine_id=routine.id,
+            include_deleted=False,
+            order_by_field=RoutineTimeBlock.time_int,
+            order_desc=False,
+            skip=skip,
+            limit=limit,
         )
 
         if not time_blocks:
-            return RoutineResponse(
-                id=routine.id,
-                time_blocks=[],
-                skip=skip,
-                limit=limit,
-                total=total,
-            )
+            return RoutineResponse(id=routine.id, time_blocks=[], skip=skip, limit=limit, total=total)
 
         time_block_ids = [tb.id for tb in time_blocks]
-        all_sessions = get_sessions_by_time_block_ids(db=db, time_block_ids=time_block_ids)
-
-        sessions_by_block: Dict[UUID, List[RoutineSession]] = {}
-        for session in all_sessions:
-            if session.time_block_id not in sessions_by_block:
-                sessions_by_block[session.time_block_id] = []
-            sessions_by_block[session.time_block_id].append(session)
-
-        time_block_dtos = []
-        for tb in time_blocks:
-            block_sessions = sessions_by_block.get(tb.id, [])
-            resolved_sessions = await _resolve_sessions(db=db, sessions=block_sessions)
-            time_block_dtos.append(
-                TimeBlockDTO(
-                    id=tb.id,
-                    time=tb.time,
-                    time_int=tb.time_int,
-                    notification_enabled=tb.notification_enabled,
-                    sessions=resolved_sessions,
-                )
-            )
-
-        return RoutineResponse(
-            id=routine.id,
-            time_blocks=time_block_dtos,
-            skip=skip,
-            limit=limit,
-            total=total,
+        all_sessions = get_sessions_by_time_block_ids(
+            db=db,
+            time_block_ids=time_block_ids,
+            order_by_field=RoutineSession.display_order,
+            order_desc=False,
         )
+        sessions_by_block = group_sessions_by_block(all_sessions)
+
+        time_block_dtos = [
+            await build_time_block_dto(db=db, time_block=tb, sessions=sessions_by_block.get(tb.id, []))
+            for tb in time_blocks
+        ]
+
+        return RoutineResponse(id=routine.id, time_blocks=time_block_dtos, skip=skip, limit=limit, total=total)
 

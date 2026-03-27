@@ -11,12 +11,25 @@ from pecha_api.plans.plans_models import Plan
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 
 
-def get_routine_by_user_id(db: Session, user_id: UUID) -> Optional[Routine]:
-    return (
-        db.query(Routine)
-        .filter(Routine.user_id == user_id, Routine.deleted_at.is_(None))
-        .first()
-    )
+def get_routine_by_user_id(
+    db: Session, user_id: UUID, include_deleted: bool = False
+) -> Optional[Routine]:
+    """Fetch a routine by user ID.
+    
+    Args:
+        db: Database session
+        user_id: UUID of the user
+        include_deleted: Whether to include soft-deleted records
+    
+    Returns:
+        Routine if found, None otherwise
+    """
+    query = db.query(Routine).filter(Routine.user_id == user_id)
+    
+    if not include_deleted:
+        query = query.filter(Routine.deleted_at.is_(None))
+    
+    return query.first()
 
 
 def get_plans_by_ids(db: Session, plan_ids: List[UUID]) -> List[Plan]:
@@ -68,17 +81,15 @@ def save_sessions(db: Session, sessions: List[RoutineSession]) -> List[RoutineSe
         )
 
 
-def get_time_blocks_with_sessions(
-    db: Session, routine_id: UUID, skip: int = 0, limit: int = 20
-) -> Tuple[List[RoutineTimeBlock], int]:
-    query = (
-        db.query(RoutineTimeBlock)
-        .filter(
-            RoutineTimeBlock.routine_id == routine_id,
-            RoutineTimeBlock.deleted_at.is_(None),
-        )
-        .order_by(RoutineTimeBlock.time_int)
-    )
+def get_time_blocks(db: Session,routine_id: UUID,include_deleted: bool = False,order_by_field=None,order_desc: bool = False,skip: int = 0,limit: int = 20) -> Tuple[List[RoutineTimeBlock], int]:
+
+    query = db.query(RoutineTimeBlock).filter(RoutineTimeBlock.routine_id == routine_id)
+
+    if not include_deleted:
+        query = query.filter(RoutineTimeBlock.deleted_at.is_(None))
+
+    if order_by_field is not None:
+        query = query.order_by(order_by_field.desc() if order_desc else order_by_field)
 
     total = query.count()
     time_blocks = query.offset(skip).limit(limit).all()
@@ -86,14 +97,13 @@ def get_time_blocks_with_sessions(
     return time_blocks, total
 
 
-def get_sessions_by_time_block_ids(
-    db: Session, time_block_ids: List[UUID]
-) -> List[RoutineSession]:
+def get_sessions_by_time_block_ids(db: Session, time_block_ids: List[UUID], order_by_field=None, order_desc: bool = False) -> List[RoutineSession]:
     if not time_block_ids:
         return []
-    return (
-        db.query(RoutineSession)
-        .filter(RoutineSession.time_block_id.in_(time_block_ids))
-        .order_by(RoutineSession.display_order)
-        .all()
-    )
+    
+    query = db.query(RoutineSession).filter(RoutineSession.time_block_id.in_(time_block_ids))
+    
+    if order_by_field is not None:
+        query = query.order_by(order_by_field.desc() if order_desc else order_by_field)
+    
+    return query.all()
