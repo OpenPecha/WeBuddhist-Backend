@@ -14,16 +14,7 @@ from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 def get_routine_by_user_id(
     db: Session, user_id: UUID, include_deleted: bool = False
 ) -> Optional[Routine]:
-    """Fetch a routine by user ID.
-    
-    Args:
-        db: Database session
-        user_id: UUID of the user
-        include_deleted: Whether to include soft-deleted records
-    
-    Returns:
-        Routine if found, None otherwise
-    """
+
     query = db.query(Routine).filter(Routine.user_id == user_id)
     
     if not include_deleted:
