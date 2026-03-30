@@ -4,6 +4,8 @@ from fastapi import HTTPException
 from starlette import status
 from uuid import UUID
 from typing import Optional, List
+import _datetime
+from _datetime import datetime
 
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
@@ -102,3 +104,22 @@ def save_sessions(db: Session, sessions: List[RoutineSession]) -> List[RoutineSe
             status_code=status.HTTP_409_CONFLICT,
             detail=ResponseError(error=BAD_REQUEST, message=str(e.orig)).model_dump(),
         )
+
+
+def get_time_block_by_id(
+    db: Session, time_block_id: UUID, routine_id: UUID
+) -> Optional[RoutineTimeBlock]:
+    return (
+        db.query(RoutineTimeBlock)
+        .filter(
+            RoutineTimeBlock.id == time_block_id,
+            RoutineTimeBlock.routine_id == routine_id,
+            RoutineTimeBlock.deleted_at.is_(None),
+        )
+        .first()
+    )
+
+
+def soft_delete_time_block(db: Session, time_block: RoutineTimeBlock) -> None:
+    time_block.deleted_at = datetime.now(_datetime.timezone.utc)
+    db.commit()

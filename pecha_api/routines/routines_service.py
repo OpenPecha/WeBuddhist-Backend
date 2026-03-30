@@ -21,6 +21,8 @@ from .routines_repository import (
     save_routine,
     save_time_block,
     save_sessions,
+    get_time_block_by_id,
+    soft_delete_time_block,
 )
 from .response_message import (
     DUPLICATE_PLAN,
@@ -30,6 +32,7 @@ from .response_message import (
     ROUTINE_NOT_FOUND,
     SESSIONS_REQUIRED,
     TIME_ALREADY_EXISTS,
+    TIME_BLOCK_NOT_FOUND,
 )
 from .routines_response_models import (
     CreateTimeBlockRequest,
@@ -297,3 +300,43 @@ async def add_time_block_to_routine(
             notification_enabled=saved_time_block.notification_enabled,
             sessions=resolved_sessions,
         )
+
+
+def delete_time_block(token: str, routine_id: UUID, time_block_id: UUID) -> None:
+
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        # Check routine exists
+        routine = get_routine_by_id(db=db, routine_id=routine_id)
+        if not routine:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=ROUTINE_NOT_FOUND
+                ).model_dump(),
+            )
+
+        # Check ownership
+        if routine.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=ROUTINE_FORBIDDEN
+                ).model_dump(),
+            )
+
+        # Find the time block
+        time_block = get_time_block_by_id(
+            db=db, time_block_id=time_block_id, routine_id=routine_id
+        )
+        if not time_block:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND
+                ).model_dump(),
+            )
+
+        # Soft delete
+        soft_delete_time_block(db=db, time_block=time_block)

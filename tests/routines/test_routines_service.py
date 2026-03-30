@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from pecha_api.routines.routines_service import (
     create_routine_with_time_block,
     add_time_block_to_routine,
+    delete_time_block,
     _validate_time_block_request,
     _resolve_plan_sessions,
     _resolve_recitation_sessions,
@@ -25,6 +26,7 @@ from pecha_api.routines.response_message import (
     SESSIONS_REQUIRED,
     DUPLICATE_PLAN,
     TIME_ALREADY_EXISTS,
+    TIME_BLOCK_NOT_FOUND,
 )
 
 def _mock_session_with_db():
@@ -612,3 +614,112 @@ async def test_add_time_block_duplicate_time():
             )
         assert exc_info.value.status_code == 409
         assert exc_info.value.detail["message"] == TIME_ALREADY_EXISTS
+
+
+def test_delete_time_block_success():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_time_block_by_id",
+        return_value=SimpleNamespace(id=time_block_id, routine_id=routine_id),
+    ), patch(
+        "pecha_api.routines.routines_service.soft_delete_time_block",
+    ) as mock_soft_delete:
+        result = delete_time_block(
+            token="token123", routine_id=routine_id, time_block_id=time_block_id
+        )
+
+        assert result is None
+        mock_soft_delete.assert_called_once()
+
+
+def test_delete_time_block_routine_not_found():
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=uuid.uuid4()),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            delete_time_block(
+                token="token123",
+                routine_id=uuid.uuid4(),
+                time_block_id=uuid.uuid4(),
+            )
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["message"] == ROUTINE_NOT_FOUND
+
+
+def test_delete_time_block_forbidden():
+    user_id = uuid.uuid4()
+    other_user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id",
+        return_value=SimpleNamespace(id=routine_id, user_id=other_user_id),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            delete_time_block(
+                token="token123",
+                routine_id=routine_id,
+                time_block_id=uuid.uuid4(),
+            )
+        assert exc_info.value.status_code == 403
+        assert exc_info.value.detail["message"] == ROUTINE_FORBIDDEN
+
+
+def test_delete_time_block_not_found():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_time_block_by_id",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            delete_time_block(
+                token="token123",
+                routine_id=routine_id,
+                time_block_id=uuid.uuid4(),
+            )
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["message"] == TIME_BLOCK_NOT_FOUND
