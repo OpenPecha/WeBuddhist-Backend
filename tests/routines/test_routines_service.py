@@ -463,14 +463,11 @@ async def test_get_user_routine_success():
 
 
 @pytest.mark.asyncio
-async def test_get_user_routine_no_existing_routine_creates_new():
-    """Test that a new routine is created if user has no existing routine."""
+async def test_get_user_routine_no_existing_routine_raises_bad_request():
+    """Test that 400 Bad Request is raised if user has no existing routine."""
     user_id = uuid.uuid4()
-    routine_id = uuid.uuid4()
 
     _db_mock, session_cm = _mock_session_with_db()
-
-    new_routine = SimpleNamespace(id=routine_id, user_id=user_id)
 
     with patch(
         "pecha_api.routines.routines_service.validate_and_extract_user_details",
@@ -481,20 +478,12 @@ async def test_get_user_routine_no_existing_routine_creates_new():
     ), patch(
         "pecha_api.routines.routines_service.get_routine_by_user_id",
         return_value=None,
-    ), patch(
-        "pecha_api.routines.routines_service.Routine",
-        return_value=new_routine,
-    ), patch(
-        "pecha_api.routines.routines_service.save_routine",
-        return_value=new_routine,
     ):
-        result = await get_user_routine(token="token123", skip=0, limit=20)
+        with pytest.raises(HTTPException) as exc_info:
+            await get_user_routine(token="token123", skip=0, limit=20)
 
-        assert result.id == routine_id
-        assert result.time_blocks == []
-        assert result.total == 0
-        assert result.skip == 0
-        assert result.limit == 20
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail["message"] == "No routine created for this user"
 
 
 @pytest.mark.asyncio

@@ -26,6 +26,7 @@ from .response_message import (
     INVALID_TIME_FORMAT,
     ROUTINE_ALREADY_EXISTS,
     SESSIONS_REQUIRED,
+    NO_ROUTINE_CREATED_FOR_USER,
 )
 from .routines_response_models import (
     CreateTimeBlockRequest,
@@ -240,9 +241,12 @@ async def get_user_routine(token: str, skip: int = 0, limit: int = 20) -> Routin
         )
 
         if routine is None:
-            routine = Routine(user_id=current_user.id)
-            routine = save_routine(db=db, routine=routine)
-            return RoutineResponse(id=routine.id, time_blocks=[], skip=skip, limit=limit, total=0)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=NO_ROUTINE_CREATED_FOR_USER
+                ).model_dump(),
+            )
 
         time_blocks, total = get_time_blocks(
             db=db,
