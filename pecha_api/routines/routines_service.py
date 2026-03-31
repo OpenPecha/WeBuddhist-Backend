@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from starlette import status
 from typing import List
+from uuid import UUID
 
 from pecha_api.config import TIME_FORMAT_PATTERN
 from pecha_api.db.database import SessionLocal
@@ -13,6 +14,9 @@ from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
 from .routines_repository import (
     get_routine_by_user_id,
+    get_routine_by_id,
+    get_existing_plan_source_ids,
+    time_block_exists_for_routine,
     get_plans_by_ids,
     save_routine,
     save_time_block,
@@ -22,7 +26,10 @@ from .response_message import (
     DUPLICATE_PLAN,
     INVALID_TIME_FORMAT,
     ROUTINE_ALREADY_EXISTS,
+    ROUTINE_FORBIDDEN,
+    ROUTINE_NOT_FOUND,
     SESSIONS_REQUIRED,
+    TIME_ALREADY_EXISTS,
 )
 from .routines_response_models import (
     CreateTimeBlockRequest,
@@ -32,7 +39,7 @@ from .routines_response_models import (
 )
 
 
-def _validate_create_routine_request(request: CreateTimeBlockRequest) -> None:
+def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
     # At least one session required
     if not request.sessions:
         raise HTTPException(
@@ -153,7 +160,7 @@ async def create_routine_with_time_block(
 
     current_user = validate_and_extract_user_details(token=token)
 
-    _validate_create_routine_request(request)
+    _validate_time_block_request(request)
 
     with SessionLocal() as db:
         # Check routine doesn't already exist
@@ -204,4 +211,89 @@ async def create_routine_with_time_block(
                     sessions=resolved_sessions,
                 )
             ],
+        )
+
+
+async def add_time_block_to_routine(
+    token: str, routine_id: UUID, request: CreateTimeBlockRequest
+) -> TimeBlockDTO:
+
+    current_user = validate_and_extract_user_details(token=token)
+
+    _validate_time_block_request(request)
+
+    with SessionLocal() as db:
+        # Check routine exists
+        routine = get_routine_by_id(db=db, routine_id=routine_id)
+        if not routine:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=ROUTINE_NOT_FOUND
+                ).model_dump(),
+            )
+
+        # Check ownership
+        if routine.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=ROUTINE_FORBIDDEN
+                ).model_dump(),
+            )
+
+        # Check duplicate plans across entire routine
+        existing_plan_ids = get_existing_plan_source_ids(db=db, routine_id=routine_id)
+        new_plan_ids = [
+            s.source_id for s in request.sessions if s.session_type == SessionType.PLAN
+        ]
+        overlap = set(new_plan_ids) & set(existing_plan_ids)
+        if overlap:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=DUPLICATE_PLAN
+                ).model_dump(),
+            )
+
+        # Check duplicate time
+        if time_block_exists_for_routine(
+            db=db, routine_id=routine_id, time=request.time
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=TIME_ALREADY_EXISTS
+                ).model_dump(),
+            )
+
+        # Save time block
+        time_block = RoutineTimeBlock(
+            routine_id=routine_id,
+            time=request.time,
+            time_int=request.time_int,
+            notification_enabled=request.notification_enabled,
+        )
+        saved_time_block = save_time_block(db=db, time_block=time_block)
+
+        # Save sessions
+        session_models = [
+            RoutineSession(
+                time_block_id=saved_time_block.id,
+                session_type=session.session_type,
+                source_id=session.source_id,
+                display_order=session.display_order,
+            )
+            for session in request.sessions
+        ]
+        saved_sessions = save_sessions(db=db, sessions=session_models)
+
+        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
+
+        return TimeBlockDTO(
+            id=saved_time_block.id,
+            time=saved_time_block.time,
+            time_int=saved_time_block.time_int,
+            notification_enabled=saved_time_block.notification_enabled,
+            sessions=resolved_sessions,
         )
