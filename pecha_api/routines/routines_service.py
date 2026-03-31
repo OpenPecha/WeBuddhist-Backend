@@ -13,19 +13,30 @@ from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
 from .routines_repository import (
     get_routine_by_user_id,
+    get_routine_by_id,
+    get_time_block_by_id,
     get_plans_by_ids,
+    get_existing_plan_source_ids_in_routine,
+    check_duplicate_time_in_routine,
+    delete_sessions_by_time_block_id,
     save_routine,
     save_time_block,
     save_sessions,
+    update_time_block as update_time_block_repo,
 )
 from .response_message import (
     DUPLICATE_PLAN,
     INVALID_TIME_FORMAT,
     ROUTINE_ALREADY_EXISTS,
+    ROUTINE_NOT_FOUND,
+    ROUTINE_FORBIDDEN,
     SESSIONS_REQUIRED,
+    TIME_BLOCK_NOT_FOUND,
+    TIME_BLOCK_TIME_CONFLICT,
 )
 from .routines_response_models import (
     CreateTimeBlockRequest,
+    UpdateTimeBlockRequest,
     SessionDTO,
     TimeBlockDTO,
     RoutineWithTimeBlocksResponse,
@@ -204,4 +215,115 @@ async def create_routine_with_time_block(
                     sessions=resolved_sessions,
                 )
             ],
+        )
+
+
+async def update_time_block_service(token: str, routine_id: str, time_block_id: str, request: UpdateTimeBlockRequest) -> TimeBlockDTO:
+
+    from uuid import UUID
+    
+    current_user = validate_and_extract_user_details(token=token)
+    
+    _validate_create_routine_request(request)
+    
+    routine_uuid = UUID(routine_id)
+    time_block_uuid = UUID(time_block_id)
+    
+    with SessionLocal() as db:
+       
+        routine = get_routine_by_id(db=db, routine_id=routine_uuid)
+        if not routine:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=ROUTINE_NOT_FOUND
+                ).model_dump(),
+            )
+        
+        if routine.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=ROUTINE_FORBIDDEN
+                ).model_dump(),
+            )
+        
+        time_block = get_time_block_by_id(db=db, time_block_id=time_block_uuid)
+        if not time_block:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND
+                ).model_dump(),
+            )
+        
+        if time_block.routine_id != routine_uuid:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND
+                ).model_dump(),
+            )
+        
+        if check_duplicate_time_in_routine(
+            db=db,
+            routine_id=routine_uuid,
+            time=request.time,
+            exclude_time_block_id=time_block_uuid,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=TIME_BLOCK_TIME_CONFLICT
+                ).model_dump(),
+            )
+        
+        existing_plan_ids = get_existing_plan_source_ids_in_routine(
+            db=db,
+            routine_id=routine_uuid,
+            exclude_time_block_id=time_block_uuid,
+        )
+        new_plan_ids = [
+            session.source_id
+            for session in request.sessions
+            if session.session_type == SessionType.PLAN
+        ]
+        duplicate_plans = set(existing_plan_ids) & set(new_plan_ids)
+        if duplicate_plans:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=DUPLICATE_PLAN
+                ).model_dump(),
+            )
+        
+        delete_sessions_by_time_block_id(db=db, time_block_id=time_block_uuid)
+        
+        updated_time_block = update_time_block_repo(
+            db=db,
+            time_block=time_block,
+            time=request.time,
+            time_int=request.time_int,
+            notification_enabled=request.notification_enabled,
+        )
+        
+        session_models = [
+            RoutineSession(
+                time_block_id=updated_time_block.id,
+                session_type=session.session_type,
+                source_id=session.source_id,
+                display_order=session.display_order,
+            )
+            for session in request.sessions
+        ]
+        saved_sessions = save_sessions(db=db, sessions=session_models)
+        
+        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
+        
+        return TimeBlockDTO(
+            id=updated_time_block.id,
+            time=updated_time_block.time,
+            time_int=updated_time_block.time_int,
+            notification_enabled=updated_time_block.notification_enabled,
+            sessions=resolved_sessions,
         )
