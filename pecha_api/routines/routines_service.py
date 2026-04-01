@@ -343,7 +343,7 @@ def delete_time_block(token: str, routine_id: UUID, time_block_id: UUID) -> None
 async def update_time_block_service(token: str, routine_id: str, time_block_id: str, request: UpdateTimeBlockRequest) -> TimeBlockDTO:
     current_user = validate_and_extract_user_details(token=token)
     
-    _validate_create_routine_request(request)
+    _validate_time_block_request(request)
     
     routine_uuid = UUID(routine_id)
     time_block_uuid = UUID(time_block_id)

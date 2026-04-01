@@ -454,8 +454,14 @@ async def test_add_time_block_success():
         "pecha_api.routines.routines_service.time_block_exists_for_routine",
         return_value=False,
     ), patch(
+        "pecha_api.routines.routines_service.RoutineTimeBlock",
+        return_value=MagicMock(),
+    ), patch(
         "pecha_api.routines.routines_service.save_time_block",
         return_value=saved_time_block,
+    ), patch(
+        "pecha_api.routines.routines_service.RoutineSession",
+        return_value=MagicMock(),
     ), patch(
         "pecha_api.routines.routines_service.save_sessions",
         return_value=[saved_session],
