@@ -21,7 +21,6 @@ from pecha_api.routines.routines_enums import SessionType
 from pecha_api.routines.response_message import (
     ROUTINE_ALREADY_EXISTS,
     ROUTINE_NOT_FOUND,
-    ROUTINE_FORBIDDEN,
     INVALID_TIME_FORMAT,
     SESSIONS_REQUIRED,
     DUPLICATE_PLAN,
@@ -431,7 +430,7 @@ async def test_add_time_block_success():
         "pecha_api.routines.routines_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.routines.routines_service.get_routine_by_id",
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
         return_value=SimpleNamespace(id=routine_id, user_id=user_id),
     ), patch(
         "pecha_api.routines.routines_service.get_existing_plan_source_ids",
@@ -483,7 +482,7 @@ async def test_add_time_block_routine_not_found():
         "pecha_api.routines.routines_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.routines.routines_service.get_routine_by_id",
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
         return_value=None,
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -497,7 +496,6 @@ async def test_add_time_block_routine_not_found():
 @pytest.mark.asyncio
 async def test_add_time_block_forbidden():
     user_id = uuid.uuid4()
-    other_user_id = uuid.uuid4()
     routine_id = uuid.uuid4()
 
     request = CreateTimeBlockRequest(
@@ -521,15 +519,15 @@ async def test_add_time_block_forbidden():
         "pecha_api.routines.routines_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.routines.routines_service.get_routine_by_id",
-        return_value=SimpleNamespace(id=routine_id, user_id=other_user_id),
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=None,
     ):
         with pytest.raises(HTTPException) as exc_info:
             await add_time_block_to_routine(
                 token="token123", routine_id=routine_id, request=request
             )
-        assert exc_info.value.status_code == 403
-        assert exc_info.value.detail["message"] == ROUTINE_FORBIDDEN
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["message"] == ROUTINE_NOT_FOUND
 
 
 @pytest.mark.asyncio
@@ -559,7 +557,7 @@ async def test_add_time_block_duplicate_plan_across_routine():
         "pecha_api.routines.routines_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.routines.routines_service.get_routine_by_id",
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
         return_value=SimpleNamespace(id=routine_id, user_id=user_id),
     ), patch(
         "pecha_api.routines.routines_service.get_existing_plan_source_ids",
@@ -599,7 +597,7 @@ async def test_add_time_block_duplicate_time():
         "pecha_api.routines.routines_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.routines.routines_service.get_routine_by_id",
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
         return_value=SimpleNamespace(id=routine_id, user_id=user_id),
     ), patch(
         "pecha_api.routines.routines_service.get_existing_plan_source_ids",
@@ -630,7 +628,7 @@ def test_delete_time_block_success():
         "pecha_api.routines.routines_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.routines.routines_service.get_routine_by_id",
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
         return_value=SimpleNamespace(id=routine_id, user_id=user_id),
     ), patch(
         "pecha_api.routines.routines_service.get_time_block_by_id",
@@ -656,7 +654,7 @@ def test_delete_time_block_routine_not_found():
         "pecha_api.routines.routines_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.routines.routines_service.get_routine_by_id",
+       "pecha_api.routines.routines_service.get_routine_by_id_and_user",
         return_value=None,
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -671,7 +669,6 @@ def test_delete_time_block_routine_not_found():
 
 def test_delete_time_block_forbidden():
     user_id = uuid.uuid4()
-    other_user_id = uuid.uuid4()
     routine_id = uuid.uuid4()
 
     _, session_cm = _mock_session_with_db()
@@ -683,8 +680,8 @@ def test_delete_time_block_forbidden():
         "pecha_api.routines.routines_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.routines.routines_service.get_routine_by_id",
-        return_value=SimpleNamespace(id=routine_id, user_id=other_user_id),
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=None,
     ):
         with pytest.raises(HTTPException) as exc_info:
             delete_time_block(
@@ -692,8 +689,8 @@ def test_delete_time_block_forbidden():
                 routine_id=routine_id,
                 time_block_id=uuid.uuid4(),
             )
-        assert exc_info.value.status_code == 403
-        assert exc_info.value.detail["message"] == ROUTINE_FORBIDDEN
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["message"] == ROUTINE_NOT_FOUND
 
 
 def test_delete_time_block_not_found():
@@ -709,7 +706,7 @@ def test_delete_time_block_not_found():
         "pecha_api.routines.routines_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.routines.routines_service.get_routine_by_id",
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
         return_value=SimpleNamespace(id=routine_id, user_id=user_id),
     ), patch(
         "pecha_api.routines.routines_service.get_time_block_by_id",
