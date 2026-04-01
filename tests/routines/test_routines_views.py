@@ -273,6 +273,282 @@ def test_create_routine_duplicate_plan(authenticated_client):
         )
 
 
+def test_create_time_block_success(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+
+    mock_response = TimeBlockDTO(
+        id=time_block_id,
+        time="08:00",
+        time_int=800,
+        notification_enabled=True,
+        sessions=[
+            SessionDTO(
+                id=session_id,
+                session_type=SessionType.PLAN,
+                source_id=source_id,
+                title="Morning Plan",
+                language="EN",
+                image_url="https://example.com/morning.jpg",
+                display_order=0,
+            )
+        ],
+    )
+
+    with patch(
+        "pecha_api.routines.routines_views.add_time_block_to_routine",
+        new_callable=AsyncMock,
+        return_value=mock_response,
+    ) as mock_add:
+        response = authenticated_client.post(
+            f"/routines/{routine_id}/time-blocks",
+            json={
+                "time": "08:00",
+                "time_int": 800,
+                "notification_enabled": True,
+                "sessions": [
+                    {
+                        "session_type": "PLAN",
+                        "source_id": str(source_id),
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        body = response.json()
+        assert body["id"] == str(time_block_id)
+        assert body["time"] == "08:00"
+        assert body["time_int"] == 800
+        assert len(body["sessions"]) == 1
+        assert body["sessions"][0]["title"] == "Morning Plan"
+        mock_add.assert_called_once()
+
+
+def test_create_time_block_routine_not_found(authenticated_client):
+    with patch(
+        "pecha_api.routines.routines_views.add_time_block_to_routine",
+        new_callable=AsyncMock,
+    ) as mock_add:
+        mock_add.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "Bad request",
+                "message": "Routine not found",
+            },
+        )
+
+        response = authenticated_client.post(
+            f"/routines/{uuid.uuid4()}/time-blocks",
+            json={
+                "time": "08:00",
+                "time_int": 800,
+                "sessions": [
+                    {
+                        "session_type": "PLAN",
+                        "source_id": str(uuid.uuid4()),
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json()["detail"]["message"] == "Routine not found"
+
+
+def test_create_time_block_forbidden(authenticated_client):
+    with patch(
+        "pecha_api.routines.routines_views.add_time_block_to_routine",
+        new_callable=AsyncMock,
+    ) as mock_add:
+        mock_add.side_effect = HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "Bad request",
+                "message": "Routine does not belong to this user",
+            },
+        )
+
+        response = authenticated_client.post(
+            f"/routines/{uuid.uuid4()}/time-blocks",
+            json={
+                "time": "08:00",
+                "time_int": 800,
+                "sessions": [
+                    {
+                        "session_type": "PLAN",
+                        "source_id": str(uuid.uuid4()),
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_create_time_block_duplicate_time(authenticated_client):
+    with patch(
+        "pecha_api.routines.routines_views.add_time_block_to_routine",
+        new_callable=AsyncMock,
+    ) as mock_add:
+        mock_add.side_effect = HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "Bad request",
+                "message": "A time block with this time already exists in the routine",
+            },
+        )
+
+        response = authenticated_client.post(
+            f"/routines/{uuid.uuid4()}/time-blocks",
+            json={
+                "time": "12:00",
+                "time_int": 1200,
+                "sessions": [
+                    {
+                        "session_type": "PLAN",
+                        "source_id": str(uuid.uuid4()),
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert (
+            response.json()["detail"]["message"]
+            == "A time block with this time already exists in the routine"
+        )
+
+
+def test_create_time_block_duplicate_plan(authenticated_client):
+    with patch(
+        "pecha_api.routines.routines_views.add_time_block_to_routine",
+        new_callable=AsyncMock,
+    ) as mock_add:
+        mock_add.side_effect = HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error": "Bad request",
+                "message": "A plan can only appear once across the entire routine",
+            },
+        )
+
+        response = authenticated_client.post(
+            f"/routines/{uuid.uuid4()}/time-blocks",
+            json={
+                "time": "08:00",
+                "time_int": 800,
+                "sessions": [
+                    {
+                        "session_type": "PLAN",
+                        "source_id": str(uuid.uuid4()),
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_delete_time_block_success(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.routines.routines_views.delete_time_block",
+        return_value=None,
+    ) as mock_delete:
+        response = authenticated_client.delete(
+            f"/routines/{routine_id}/time-blocks/{time_block_id}",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert response.text == ""
+        mock_delete.assert_called_once()
+
+
+def test_delete_time_block_unauthorized(unauthenticated_client):
+    response = unauthenticated_client.delete(
+        f"/routines/{uuid.uuid4()}/time-blocks/{uuid.uuid4()}",
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_delete_time_block_routine_not_found(authenticated_client):
+    with patch(
+        "pecha_api.routines.routines_views.delete_time_block",
+    ) as mock_delete:
+        mock_delete.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "Bad request",
+                "message": "Routine not found",
+            },
+        )
+
+        response = authenticated_client.delete(
+            f"/routines/{uuid.uuid4()}/time-blocks/{uuid.uuid4()}",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json()["detail"]["message"] == "Routine not found"
+
+
+def test_delete_time_block_forbidden(authenticated_client):
+    with patch(
+        "pecha_api.routines.routines_views.delete_time_block",
+    ) as mock_delete:
+        mock_delete.side_effect = HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "Bad request",
+                "message": "Routine does not belong to this user",
+            },
+        )
+
+        response = authenticated_client.delete(
+            f"/routines/{uuid.uuid4()}/time-blocks/{uuid.uuid4()}",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_delete_time_block_time_block_not_found(authenticated_client):
+    with patch(
+        "pecha_api.routines.routines_views.delete_time_block",
+    ) as mock_delete:
+        mock_delete.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "Bad request",
+                "message": "Time block not found",
+            },
+        )
+
+        response = authenticated_client.delete(
+            f"/routines/{uuid.uuid4()}/time-blocks/{uuid.uuid4()}",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json()["detail"]["message"] == "Time block not found"
+
+
 # --- Update Time Block (PUT) Tests ---
 
 

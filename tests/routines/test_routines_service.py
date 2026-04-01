@@ -7,8 +7,10 @@ from fastapi import HTTPException
 
 from pecha_api.routines.routines_service import (
     create_routine_with_time_block,
+    add_time_block_to_routine,
+    delete_time_block,
     update_time_block_service,
-    _validate_create_routine_request,
+    _validate_time_block_request,
     _resolve_plan_sessions,
     _resolve_recitation_sessions,
 )
@@ -21,14 +23,16 @@ from pecha_api.routines.routines_enums import SessionType
 from pecha_api.routines.response_message import (
     ROUTINE_ALREADY_EXISTS,
     ROUTINE_NOT_FOUND,
+    ROUTINE_NOT_FOUND,
     ROUTINE_FORBIDDEN,
     TIME_BLOCK_NOT_FOUND,
     TIME_BLOCK_TIME_CONFLICT,
     INVALID_TIME_FORMAT,
     SESSIONS_REQUIRED,
     DUPLICATE_PLAN,
+    TIME_ALREADY_EXISTS,
+    TIME_BLOCK_NOT_FOUND,
 )
-
 
 def _mock_session_with_db():
     db_mock = MagicMock()
@@ -47,7 +51,7 @@ def test_validate_empty_sessions():
         sessions=[],
     )
     with pytest.raises(HTTPException) as exc_info:
-        _validate_create_routine_request(request)
+        _validate_time_block_request(request)
     assert exc_info.value.status_code == 422
     assert exc_info.value.detail["message"] == SESSIONS_REQUIRED
 
@@ -65,7 +69,7 @@ def test_validate_invalid_time_format():
         ],
     )
     with pytest.raises(HTTPException) as exc_info:
-        _validate_create_routine_request(request)
+        _validate_time_block_request(request)
     assert exc_info.value.status_code == 422
     assert exc_info.value.detail["message"] == INVALID_TIME_FORMAT
 
@@ -84,7 +88,7 @@ def test_validate_valid_time_formats():
                 )
             ],
         )
-        _validate_create_routine_request(request)
+        _validate_time_block_request(request)
 
 
 def test_validate_duplicate_plan_source_ids():
@@ -106,7 +110,7 @@ def test_validate_duplicate_plan_source_ids():
         ],
     )
     with pytest.raises(HTTPException) as exc_info:
-        _validate_create_routine_request(request)
+        _validate_time_block_request(request)
     assert exc_info.value.status_code == 422
     assert exc_info.value.detail["message"] == DUPLICATE_PLAN
 
@@ -129,7 +133,7 @@ def test_validate_duplicate_recitations_allowed():
             ),
         ],
     )
-    _validate_create_routine_request(request)
+    _validate_time_block_request(request)
 
 
 # --- Create routine tests ---
@@ -389,6 +393,347 @@ async def test_resolve_recitation_sessions_missing_text():
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
         assert len(result) == 0
+
+
+@pytest.mark.asyncio
+async def test_add_time_block_success():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+
+    request = CreateTimeBlockRequest(
+        time="08:00",
+        time_int=800,
+        notification_enabled=True,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.PLAN,
+                source_id=source_id,
+                display_order=0,
+            )
+        ],
+    )
+
+    _db_mock, session_cm = _mock_session_with_db()
+
+    saved_time_block = SimpleNamespace(
+        id=time_block_id,
+        time="08:00",
+        time_int=800,
+        notification_enabled=True,
+    )
+    saved_session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.PLAN,
+        source_id=source_id,
+        display_order=0,
+    )
+
+    mock_plan = SimpleNamespace(
+        id=source_id,
+        title="Morning Plan",
+        language=SimpleNamespace(value="EN"),
+        image_url="https://example.com/morning.jpg",
+    )
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_existing_plan_source_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.routines.routines_service.time_block_exists_for_routine",
+        return_value=False,
+    ), patch(
+        "pecha_api.routines.routines_service.save_time_block",
+        return_value=saved_time_block,
+    ), patch(
+        "pecha_api.routines.routines_service.save_sessions",
+        return_value=[saved_session],
+    ), patch(
+        "pecha_api.routines.routines_service.get_plans_by_ids",
+        return_value=[mock_plan],
+    ):
+        result = await add_time_block_to_routine(
+            token="token123", routine_id=routine_id, request=request
+        )
+
+        assert result.id == time_block_id
+        assert result.time == "08:00"
+        assert result.time_int == 800
+        assert len(result.sessions) == 1
+        assert result.sessions[0].title == "Morning Plan"
+
+
+@pytest.mark.asyncio
+async def test_add_time_block_routine_not_found():
+    request = CreateTimeBlockRequest(
+        time="08:00",
+        time_int=800,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.PLAN,
+                source_id=uuid.uuid4(),
+                display_order=0,
+            )
+        ],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=uuid.uuid4()),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await add_time_block_to_routine(
+                token="token123", routine_id=uuid.uuid4(), request=request
+            )
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["message"] == ROUTINE_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_add_time_block_forbidden():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+
+    request = CreateTimeBlockRequest(
+        time="08:00",
+        time_int=800,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.PLAN,
+                source_id=uuid.uuid4(),
+                display_order=0,
+            )
+        ],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await add_time_block_to_routine(
+                token="token123", routine_id=routine_id, request=request
+            )
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["message"] == ROUTINE_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_add_time_block_duplicate_plan_across_routine():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    existing_plan_id = uuid.uuid4()
+
+    request = CreateTimeBlockRequest(
+        time="08:00",
+        time_int=800,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.PLAN,
+                source_id=existing_plan_id,
+                display_order=0,
+            )
+        ],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_existing_plan_source_ids",
+        return_value=[existing_plan_id],
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await add_time_block_to_routine(
+                token="token123", routine_id=routine_id, request=request
+            )
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail["message"] == DUPLICATE_PLAN
+
+
+@pytest.mark.asyncio
+async def test_add_time_block_duplicate_time():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+
+    request = CreateTimeBlockRequest(
+        time="12:00",
+        time_int=1200,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.PLAN,
+                source_id=uuid.uuid4(),
+                display_order=0,
+            )
+        ],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_existing_plan_source_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.routines.routines_service.time_block_exists_for_routine",
+        return_value=True,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await add_time_block_to_routine(
+                token="token123", routine_id=routine_id, request=request
+            )
+        assert exc_info.value.status_code == 409
+        assert exc_info.value.detail["message"] == TIME_ALREADY_EXISTS
+
+
+def test_delete_time_block_success():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_time_block_by_id",
+        return_value=SimpleNamespace(id=time_block_id, routine_id=routine_id),
+    ), patch(
+        "pecha_api.routines.routines_service.soft_delete_time_block",
+    ) as mock_soft_delete:
+        delete_time_block(
+            token="token123", routine_id=routine_id, time_block_id=time_block_id
+        )
+
+        mock_soft_delete.assert_called_once()
+
+
+def test_delete_time_block_routine_not_found():
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=uuid.uuid4()),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+       "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            delete_time_block(
+                token="token123",
+                routine_id=uuid.uuid4(),
+                time_block_id=uuid.uuid4(),
+            )
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["message"] == ROUTINE_NOT_FOUND
+
+
+def test_delete_time_block_forbidden():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            delete_time_block(
+                token="token123",
+                routine_id=routine_id,
+                time_block_id=uuid.uuid4(),
+            )
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["message"] == ROUTINE_NOT_FOUND
+
+
+def test_delete_time_block_not_found():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_time_block_by_id",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            delete_time_block(
+                token="token123",
+                routine_id=routine_id,
+                time_block_id=uuid.uuid4(),
+            )
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["message"] == TIME_BLOCK_NOT_FOUND
 
 
 # --- Update Time Block Service Tests ---
