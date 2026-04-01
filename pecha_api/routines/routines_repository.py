@@ -36,6 +36,20 @@ def get_routine_by_id(db: Session, routine_id: UUID) -> Optional[Routine]:
     )
 
 
+def get_routine_by_id_and_user(
+    db: Session, routine_id: UUID, user_id: UUID
+) -> Optional[Routine]:
+    return (
+        db.query(Routine)
+        .filter(
+            Routine.id == routine_id,
+            Routine.user_id == user_id,
+            Routine.deleted_at.is_(None),
+        )
+        .first()
+    )
+
+
 def get_existing_plan_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
     sessions = (
         db.query(RoutineSession.source_id)
