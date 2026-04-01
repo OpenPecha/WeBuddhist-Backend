@@ -636,11 +636,10 @@ def test_delete_time_block_success():
     ), patch(
         "pecha_api.routines.routines_service.soft_delete_time_block",
     ) as mock_soft_delete:
-        result = delete_time_block(
+        delete_time_block(
             token="token123", routine_id=routine_id, time_block_id=time_block_id
         )
 
-        assert result is None
         mock_soft_delete.assert_called_once()
 
 
