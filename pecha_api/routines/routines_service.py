@@ -14,10 +14,15 @@ from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
 from .routines_repository import (
     get_routine_by_user_id,
+    get_routine_by_id_and_user,
+    get_existing_plan_source_ids,
+    time_block_exists_for_routine,
     get_plans_by_ids,
     save_routine,
     save_time_block,
     save_sessions,
+    get_time_block_by_id,
+    soft_delete_time_block,
     get_time_blocks,
     get_sessions_by_time_block_ids,
 )
@@ -25,7 +30,10 @@ from .response_message import (
     DUPLICATE_PLAN,
     INVALID_TIME_FORMAT,
     ROUTINE_ALREADY_EXISTS,
+    ROUTINE_NOT_FOUND,
     SESSIONS_REQUIRED,
+    TIME_ALREADY_EXISTS,
+    TIME_BLOCK_NOT_FOUND,
     NO_ROUTINE_CREATED_FOR_USER,
 )
 from .routines_response_models import (
@@ -37,7 +45,7 @@ from .routines_response_models import (
 )
 
 
-def _validate_create_routine_request(request: CreateTimeBlockRequest) -> None:
+def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
     # At least one session required
     if not request.sessions:
         raise HTTPException(
@@ -67,6 +75,29 @@ def _validate_create_routine_request(request: CreateTimeBlockRequest) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=ResponseError(
                 error=BAD_REQUEST, message=DUPLICATE_PLAN
+            ).model_dump(),
+        )
+
+
+def _check_duplicate_plans(db, routine_id: UUID, sessions: List) -> None:
+    existing_plan_ids = get_existing_plan_source_ids(db=db, routine_id=routine_id)
+    new_plan_ids = [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
+    overlap = set(new_plan_ids) & set(existing_plan_ids)
+    if overlap:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=DUPLICATE_PLAN
+            ).model_dump(),
+        )
+
+
+def _check_duplicate_time(db, routine_id: UUID, time: str) -> None:
+    if time_block_exists_for_routine(db=db, routine_id=routine_id, time=time):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=TIME_ALREADY_EXISTS
             ).model_dump(),
         )
 
@@ -182,7 +213,7 @@ async def create_routine_with_time_block(
 
     current_user = validate_and_extract_user_details(token=token)
 
-    _validate_create_routine_request(request)
+    _validate_time_block_request(request)
 
     with SessionLocal() as db:
         # Check routine doesn't already exist (business rule: exclude soft-deleted)
@@ -277,3 +308,91 @@ async def get_user_routine(token: str, skip: int = 0, limit: int = 20) -> Routin
 
         return RoutineResponse(id=routine.id, time_blocks=time_block_dtos, skip=skip, limit=limit, total=total)
 
+
+
+async def add_time_block_to_routine(
+    token: str, routine_id: UUID, request: CreateTimeBlockRequest
+) -> TimeBlockDTO:
+
+    current_user = validate_and_extract_user_details(token=token)
+
+    _validate_time_block_request(request)
+
+    with SessionLocal() as db:
+        # Check routine exists and belongs to user
+        routine = get_routine_by_id_and_user(
+            db=db, routine_id=routine_id, user_id=current_user.id
+        )
+        if not routine:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=ROUTINE_NOT_FOUND
+                ).model_dump(),
+            )
+
+        _check_duplicate_plans(db=db, routine_id=routine_id, sessions=request.sessions)
+        _check_duplicate_time(db=db, routine_id=routine_id, time=request.time)
+
+        # Save time block
+        time_block = RoutineTimeBlock(
+            routine_id=routine_id,
+            time=request.time,
+            time_int=request.time_int,
+            notification_enabled=request.notification_enabled,
+        )
+        saved_time_block = save_time_block(db=db, time_block=time_block)
+
+        # Save sessions
+        session_models = [
+            RoutineSession(
+                time_block_id=saved_time_block.id,
+                session_type=session.session_type,
+                source_id=session.source_id,
+                display_order=session.display_order,
+            )
+            for session in request.sessions
+        ]
+        saved_sessions = save_sessions(db=db, sessions=session_models)
+
+        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
+
+        return TimeBlockDTO(
+            id=saved_time_block.id,
+            time=saved_time_block.time,
+            time_int=saved_time_block.time_int,
+            notification_enabled=saved_time_block.notification_enabled,
+            sessions=resolved_sessions,
+        )
+
+
+def delete_time_block(token: str, routine_id: UUID, time_block_id: UUID) -> None:
+
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        routine = get_routine_by_id_and_user(
+            db=db, routine_id=routine_id, user_id=current_user.id
+        )
+        if not routine:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=ROUTINE_NOT_FOUND
+                ).model_dump(),
+            )
+
+        # Find the time block
+        time_block = get_time_block_by_id(
+            db=db, time_block_id=time_block_id, routine_id=routine_id
+        )
+        if not time_block:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND
+                ).model_dump(),
+            )
+
+        # Soft delete
+        soft_delete_time_block(db=db, time_block=time_block)
