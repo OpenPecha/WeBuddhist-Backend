@@ -460,3 +460,90 @@ def test_create_time_block_duplicate_plan(authenticated_client):
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_delete_time_block_success(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.routines.routines_views.delete_time_block",
+        return_value=None,
+    ) as mock_delete:
+        response = authenticated_client.delete(
+            f"/routines/{routine_id}/time-blocks/{time_block_id}",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert response.text == ""
+        mock_delete.assert_called_once()
+
+
+def test_delete_time_block_unauthorized(unauthenticated_client):
+    response = unauthenticated_client.delete(
+        f"/routines/{uuid.uuid4()}/time-blocks/{uuid.uuid4()}",
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_delete_time_block_routine_not_found(authenticated_client):
+    with patch(
+        "pecha_api.routines.routines_views.delete_time_block",
+    ) as mock_delete:
+        mock_delete.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "Bad request",
+                "message": "Routine not found",
+            },
+        )
+
+        response = authenticated_client.delete(
+            f"/routines/{uuid.uuid4()}/time-blocks/{uuid.uuid4()}",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json()["detail"]["message"] == "Routine not found"
+
+
+def test_delete_time_block_forbidden(authenticated_client):
+    with patch(
+        "pecha_api.routines.routines_views.delete_time_block",
+    ) as mock_delete:
+        mock_delete.side_effect = HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={
+                "error": "Bad request",
+                "message": "Routine does not belong to this user",
+            },
+        )
+
+        response = authenticated_client.delete(
+            f"/routines/{uuid.uuid4()}/time-blocks/{uuid.uuid4()}",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_delete_time_block_time_block_not_found(authenticated_client):
+    with patch(
+        "pecha_api.routines.routines_views.delete_time_block",
+    ) as mock_delete:
+        mock_delete.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "error": "Bad request",
+                "message": "Time block not found",
+            },
+        )
+
+        response = authenticated_client.delete(
+            f"/routines/{uuid.uuid4()}/time-blocks/{uuid.uuid4()}",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json()["detail"]["message"] == "Time block not found"

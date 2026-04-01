@@ -8,7 +8,7 @@ from .routines_response_models import (
     TimeBlockDTO,
     RoutineWithTimeBlocksResponse,
 )
-from .routines_service import create_routine_with_time_block, add_time_block_to_routine
+from .routines_service import create_routine_with_time_block, add_time_block_to_routine, delete_time_block
 
 oauth2_scheme = HTTPBearer()
 
@@ -51,4 +51,22 @@ async def create_time_block(
         token=authentication_credential.credentials,
         routine_id=routine_id,
         request=request,
+    )
+
+
+@routines_router.delete(
+    "/{routine_id}/time-blocks/{time_block_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_time_block_view(
+    routine_id: UUID,
+    time_block_id: UUID,
+    authentication_credential: Annotated[
+        HTTPAuthorizationCredentials, Depends(oauth2_scheme)
+    ],
+):
+    delete_time_block(
+        token=authentication_credential.credentials,
+        routine_id=routine_id,
+        time_block_id=time_block_id,
     )
