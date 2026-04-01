@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import HTTPException
 from starlette import status
 from typing import List
@@ -17,7 +19,7 @@ from .routines_repository import (
     get_time_block_by_id,
     get_plans_by_ids,
     get_existing_plan_source_ids_in_routine,
-    check_duplicate_time_in_routine,
+    get_time_block_by_routine_and_time,
     delete_sessions_by_time_block_id,
     save_routine,
     save_time_block,
@@ -219,9 +221,6 @@ async def create_routine_with_time_block(
 
 
 async def update_time_block_service(token: str, routine_id: str, time_block_id: str, request: UpdateTimeBlockRequest) -> TimeBlockDTO:
-
-    from uuid import UUID
-    
     current_user = validate_and_extract_user_details(token=token)
     
     _validate_create_routine_request(request)
@@ -233,50 +232,26 @@ async def update_time_block_service(token: str, routine_id: str, time_block_id: 
        
         routine = get_routine_by_id(db=db, routine_id=routine_uuid)
         if not routine:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=ROUTINE_NOT_FOUND
-                ).model_dump(),
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=ResponseError(error=BAD_REQUEST, message=ROUTINE_NOT_FOUND).model_dump())
         
         if routine.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=ROUTINE_FORBIDDEN
-                ).model_dump(),
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail=ResponseError(error=BAD_REQUEST, message=ROUTINE_FORBIDDEN).model_dump())
         
         time_block = get_time_block_by_id(db=db, time_block_id=time_block_uuid)
         if not time_block:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND
-                ).model_dump(),
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=ResponseError(error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND).model_dump())
         
         if time_block.routine_id != routine_uuid:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND
-                ).model_dump(),
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=ResponseError(error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND).model_dump())
         
-        if check_duplicate_time_in_routine(
+        existing_time_block = get_time_block_by_routine_and_time(
             db=db,
             routine_id=routine_uuid,
             time=request.time,
             exclude_time_block_id=time_block_uuid,
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=TIME_BLOCK_TIME_CONFLICT
-                ).model_dump(),
-            )
+        )
+        if existing_time_block:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail=ResponseError(error=BAD_REQUEST, message=TIME_BLOCK_TIME_CONFLICT).model_dump())
         
         existing_plan_ids = get_existing_plan_source_ids_in_routine(
             db=db,
@@ -290,12 +265,7 @@ async def update_time_block_service(token: str, routine_id: str, time_block_id: 
         ]
         duplicate_plans = set(existing_plan_ids) & set(new_plan_ids)
         if duplicate_plans:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=DUPLICATE_PLAN
-                ).model_dump(),
-            )
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,detail=ResponseError(error=BAD_REQUEST, message=DUPLICATE_PLAN).model_dump())
         
         delete_sessions_by_time_block_id(db=db, time_block_id=time_block_uuid)
         

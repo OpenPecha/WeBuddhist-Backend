@@ -76,9 +76,7 @@ def get_routine_by_id(db: Session, routine_id: UUID) -> Optional[Routine]:
     )
 
 
-def get_time_block_by_id(
-    db: Session, time_block_id: UUID
-) -> Optional[RoutineTimeBlock]:
+def get_time_block_by_id(db: Session, time_block_id: UUID) -> Optional[RoutineTimeBlock]:
     return (
         db.query(RoutineTimeBlock)
         .filter(
@@ -89,9 +87,7 @@ def get_time_block_by_id(
     )
 
 
-def get_existing_plan_source_ids_in_routine(
-    db: Session, routine_id: UUID, exclude_time_block_id: Optional[UUID] = None
-) -> List[UUID]:
+def get_existing_plan_source_ids_in_routine(db: Session, routine_id: UUID, exclude_time_block_id: Optional[UUID] = None) -> List[UUID]:
     query = (
         db.query(RoutineSession.source_id)
         .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
@@ -106,12 +102,7 @@ def get_existing_plan_source_ids_in_routine(
     return [row[0] for row in query.all()]
 
 
-def check_duplicate_time_in_routine(
-    db: Session,
-    routine_id: UUID,
-    time: str,
-    exclude_time_block_id: Optional[UUID] = None,
-) -> bool:
+def get_time_block_by_routine_and_time(db: Session, routine_id: UUID, time: str, exclude_time_block_id: Optional[UUID] = None) -> Optional[RoutineTimeBlock]:
     query = db.query(RoutineTimeBlock).filter(
         RoutineTimeBlock.routine_id == routine_id,
         RoutineTimeBlock.time == time,
@@ -119,7 +110,7 @@ def check_duplicate_time_in_routine(
     )
     if exclude_time_block_id:
         query = query.filter(RoutineTimeBlock.id != exclude_time_block_id)
-    return query.first() is not None
+    return query.first()
 
 
 def delete_sessions_by_time_block_id(db: Session, time_block_id: UUID) -> None:
@@ -129,13 +120,7 @@ def delete_sessions_by_time_block_id(db: Session, time_block_id: UUID) -> None:
     db.commit()
 
 
-def update_time_block(
-    db: Session,
-    time_block: RoutineTimeBlock,
-    time: str,
-    time_int: int,
-    notification_enabled: bool,
-) -> RoutineTimeBlock:
+def update_time_block(db: Session,time_block: RoutineTimeBlock,time: str,time_int: int,notification_enabled: bool) -> RoutineTimeBlock:
     try:
         time_block.time = time
         time_block.time_int = time_int
