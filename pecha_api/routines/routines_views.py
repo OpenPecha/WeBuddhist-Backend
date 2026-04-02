@@ -8,7 +8,6 @@ from .routines_response_models import (
     TimeBlockDTO,
     UpdateTimeBlockRequest,
     RoutineWithTimeBlocksResponse,
-    TimeBlockDTO,
 )
 from .routines_service import create_routine_with_time_block, add_time_block_to_routine, delete_time_block, update_time_block_service
 
@@ -77,8 +76,8 @@ async def delete_time_block_view(
 @routines_router.put("/{routine_id}/time-blocks/{time_block_id}", status_code=status.HTTP_201_CREATED, response_model=TimeBlockDTO)
 async def update_time_block(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    routine_id: str = Path(...),
-    time_block_id: str = Path(...),
+    routine_id: UUID = Path(...),
+    time_block_id: UUID = Path(...),
     request: UpdateTimeBlockRequest = ...,
 ):
     return await update_time_block_service(

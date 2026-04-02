@@ -120,7 +120,7 @@ def save_sessions(db: Session, sessions: List[RoutineSession]) -> List[RoutineSe
         )
 
 
-def get_time_block_by_id(
+def get_time_block_by_id_and_routine(
     db: Session, time_block_id: UUID, routine_id: UUID
 ) -> Optional[RoutineTimeBlock]:
     return (
@@ -137,14 +137,6 @@ def get_time_block_by_id(
 def soft_delete_time_block(db: Session, time_block: RoutineTimeBlock) -> None:
     time_block.deleted_at = datetime.now(_datetime.timezone.utc)
     db.commit()
-
-
-def get_routine_by_id(db: Session, routine_id: UUID) -> Optional[Routine]:
-    return (
-        db.query(Routine)
-        .filter(Routine.id == routine_id, Routine.deleted_at.is_(None))
-        .first()
-    )
 
 
 def get_time_block_by_id(db: Session, time_block_id: UUID) -> Optional[RoutineTimeBlock]:
