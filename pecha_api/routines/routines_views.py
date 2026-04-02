@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Path
+from fastapi import APIRouter, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from uuid import UUID
 from starlette import status
@@ -75,10 +75,10 @@ async def delete_time_block_view(
 
 @routines_router.put("/{routine_id}/time-blocks/{time_block_id}", status_code=status.HTTP_201_CREATED, response_model=TimeBlockDTO)
 async def update_time_block(
+    routine_id: UUID,
+    time_block_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    routine_id: UUID = Path(...),
-    time_block_id: UUID = Path(...),
-    request: UpdateTimeBlockRequest = ...,
+    request: UpdateTimeBlockRequest,
 ):
     return await update_time_block_service(
         token=authentication_credential.credentials,
