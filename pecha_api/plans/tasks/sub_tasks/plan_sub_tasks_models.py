@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, DateTime, Boolean, Text, ForeignKey, Index, UUID, String
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
 from uuid import uuid4
 from pecha_api.db.database import Base
@@ -18,7 +19,7 @@ class PlanSubTask(Base):
     duration=Column(String(255), nullable=True)
     source_text_id = Column(UUID(as_uuid=True), nullable=True)
     pecha_segment_id = Column(String(255), nullable=True)
-    segment_id = Column(UUID(as_uuid=True), nullable=True)
+    segment_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
 
     display_order = Column(Integer, nullable=False)
 
