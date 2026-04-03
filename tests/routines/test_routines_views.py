@@ -551,6 +551,279 @@ def test_delete_time_block_time_block_not_found(authenticated_client):
         assert response.json()["detail"]["message"] == "Time block not found"
 
 
+# --- Update Time Block (PUT) Tests ---
+
+
+def test_update_time_block_success(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+
+    mock_response = TimeBlockDTO(
+        id=time_block_id,
+        time="14:00",
+        time_int=1400,
+        notification_enabled=True,
+        sessions=[
+            SessionDTO(
+                id=session_id,
+                session_type=SessionType.PLAN,
+                source_id=source_id,
+                title="Updated Routine",
+                language="EN",
+                image_url="https://example.com/image.jpg",
+                display_order=0,
+            )
+        ],
+    )
+
+    with patch(
+        "pecha_api.routines.routines_views.update_time_block_service",
+        new_callable=AsyncMock,
+        return_value=mock_response,
+    ) as mock_update:
+        response = authenticated_client.put(
+            f"/routines/{routine_id}/time-blocks/{time_block_id}",
+            json={
+                "time": "14:00",
+                "time_int": 1400,
+                "notification_enabled": True,
+                "sessions": [
+                    {
+                        "session_type": "PLAN",
+                        "source_id": str(source_id),
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        body = response.json()
+        assert body["id"] == str(time_block_id)
+        assert body["time"] == "14:00"
+        assert body["time_int"] == 1400
+        assert body["notification_enabled"] is True
+        assert len(body["sessions"]) == 1
+        assert body["sessions"][0]["title"] == "Updated Routine"
+        mock_update.assert_called_once()
+
+
+def test_update_time_block_unauthorized(unauthenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+
+    response = unauthenticated_client.put(
+        f"/routines/{routine_id}/time-blocks/{time_block_id}",
+        json={
+            "time": "14:00",
+            "time_int": 1400,
+            "sessions": [
+                {
+                    "session_type": "PLAN",
+                    "source_id": str(uuid.uuid4()),
+                    "display_order": 0,
+                }
+            ],
+        },
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_update_time_block_routine_not_found(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.routines.routines_views.update_time_block_service",
+        new_callable=AsyncMock,
+    ) as mock_update:
+        mock_update.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Bad request", "message": "Routine not found"},
+        )
+
+        response = authenticated_client.put(
+            f"/routines/{routine_id}/time-blocks/{time_block_id}",
+            json={
+                "time": "14:00",
+                "time_int": 1400,
+                "sessions": [
+                    {
+                        "session_type": "PLAN",
+                        "source_id": str(uuid.uuid4()),
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json()["detail"]["message"] == "Routine not found"
+
+
+def test_update_time_block_forbidden(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.routines.routines_views.update_time_block_service",
+        new_callable=AsyncMock,
+    ) as mock_update:
+        mock_update.side_effect = HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "Bad request", "message": "Routine does not belong to the authenticated user"},
+        )
+
+        response = authenticated_client.put(
+            f"/routines/{routine_id}/time-blocks/{time_block_id}",
+            json={
+                "time": "14:00",
+                "time_int": 1400,
+                "sessions": [
+                    {
+                        "session_type": "PLAN",
+                        "source_id": str(uuid.uuid4()),
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.json()["detail"]["message"] == "Routine does not belong to the authenticated user"
+
+
+def test_update_time_block_not_found(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.routines.routines_views.update_time_block_service",
+        new_callable=AsyncMock,
+    ) as mock_update:
+        mock_update.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "Bad request", "message": "Time block not found"},
+        )
+
+        response = authenticated_client.put(
+            f"/routines/{routine_id}/time-blocks/{time_block_id}",
+            json={
+                "time": "14:00",
+                "time_int": 1400,
+                "sessions": [
+                    {
+                        "session_type": "PLAN",
+                        "source_id": str(uuid.uuid4()),
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json()["detail"]["message"] == "Time block not found"
+
+
+def test_update_time_block_time_conflict(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.routines.routines_views.update_time_block_service",
+        new_callable=AsyncMock,
+    ) as mock_update:
+        mock_update.side_effect = HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error": "Bad request", "message": "Time block with this time already exists"},
+        )
+
+        response = authenticated_client.put(
+            f"/routines/{routine_id}/time-blocks/{time_block_id}",
+            json={
+                "time": "14:00",
+                "time_int": 1400,
+                "sessions": [
+                    {
+                        "session_type": "PLAN",
+                        "source_id": str(uuid.uuid4()),
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.json()["detail"]["message"] == "Time block with this time already exists"
+
+
+def test_update_time_block_duplicate_plan(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.routines.routines_views.update_time_block_service",
+        new_callable=AsyncMock,
+    ) as mock_update:
+        mock_update.side_effect = HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": "Bad request", "message": "A plan can only appear once across the entire routine"},
+        )
+
+        response = authenticated_client.put(
+            f"/routines/{routine_id}/time-blocks/{time_block_id}",
+            json={
+                "time": "14:00",
+                "time_int": 1400,
+                "sessions": [
+                    {
+                        "session_type": "PLAN",
+                        "source_id": str(uuid.uuid4()),
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.json()["detail"]["message"] == "A plan can only appear once across the entire routine"
+
+
+def test_update_time_block_empty_sessions(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.routines.routines_views.update_time_block_service",
+        new_callable=AsyncMock,
+    ) as mock_update:
+        mock_update.side_effect = HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"error": "Bad request", "message": "At least one session is required"},
+        )
+
+        response = authenticated_client.put(
+            f"/routines/{routine_id}/time-blocks/{time_block_id}",
+            json={
+                "time": "14:00",
+                "time_int": 1400,
+                "sessions": [],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        assert response.json()["detail"]["message"] == "At least one session is required"
+
+
 # ============================================================================
 # GET /users/me/routine Tests
 # ============================================================================
