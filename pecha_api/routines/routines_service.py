@@ -338,7 +338,7 @@ async def update_time_block_service(
     _validate_time_block_request(request)
 
     with SessionLocal() as db:
-        routine = get_routine_by_id(db=db, routine_id=routine_id)
+        routine = get_routine_by_id_and_user(db=db, routine_id=routine_id, user_id=current_user.id)
         if not routine:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=ResponseError(error=BAD_REQUEST, message=ROUTINE_NOT_FOUND).model_dump())
 

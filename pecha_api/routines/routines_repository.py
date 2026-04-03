@@ -28,13 +28,6 @@ def get_plans_by_ids(db: Session, plan_ids: List[UUID]) -> List[Plan]:
     return db.query(Plan).filter(Plan.id.in_(plan_ids)).all()
 
 
-def get_routine_by_id(db: Session, routine_id: UUID) -> Optional[Routine]:
-    return (
-        db.query(Routine)
-        .filter(Routine.id == routine_id, Routine.deleted_at.is_(None))
-        .first()
-    )
-
 
 def get_routine_by_id_and_user(
     db: Session, routine_id: UUID, user_id: UUID
