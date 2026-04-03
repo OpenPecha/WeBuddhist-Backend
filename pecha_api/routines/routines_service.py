@@ -18,7 +18,6 @@ from .routines_repository import (
     get_routine_by_id_and_user,
     get_existing_plan_source_ids,
     time_block_exists_for_routine,
-    get_routine_by_id,
     get_time_block_by_id,
     get_time_block_by_id_and_routine,
     get_plans_by_ids,
