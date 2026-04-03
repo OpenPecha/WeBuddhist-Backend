@@ -341,9 +341,6 @@ async def update_time_block_service(
         if not routine:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=ResponseError(error=BAD_REQUEST, message=ROUTINE_NOT_FOUND).model_dump())
 
-        if routine.user_id != current_user.id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail=ResponseError(error=BAD_REQUEST, message=ROUTINE_FORBIDDEN).model_dump())
-
         time_block = get_time_block_by_id_and_routine(db=db, time_block_id=time_block_id, routine_id=routine_id
         )
         if not time_block:
