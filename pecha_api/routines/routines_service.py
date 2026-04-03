@@ -11,6 +11,11 @@ from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
 from pecha_api.texts.texts_models import Text
+from pecha_api.plans.users.plan_users_progress_repository import (
+    delete_user_plan_progress,
+)
+from pecha_api.plans.users.plan_users_models import UserPlanProgress
+from pecha_api.plans.plans_enums import UserPlanStatus
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
@@ -19,7 +24,6 @@ from .routines_repository import (
     get_routine_by_id_and_user,
     get_existing_plan_source_ids,
     time_block_exists_for_routine,
-    get_time_block_by_id,
     get_time_block_by_id_and_routine,
     get_plans_by_ids,
     get_time_block_by_routine_and_time,
@@ -31,13 +35,15 @@ from .routines_repository import (
     update_time_block as update_time_block_repo,
     get_time_blocks,
     get_sessions_by_time_block_ids,
+    get_plan_source_ids_by_time_block_id,
+    get_enrolled_plan_ids_for_user,
+    save_plan_progress_batch,
 )
 from .response_message import (
     DUPLICATE_PLAN,
     INVALID_TIME_FORMAT,
     ROUTINE_ALREADY_EXISTS,
     ROUTINE_NOT_FOUND,
-    ROUTINE_FORBIDDEN,
     SESSIONS_REQUIRED,
     TIME_ALREADY_EXISTS,
     TIME_BLOCK_NOT_FOUND,
@@ -108,6 +114,75 @@ def _check_duplicate_time(db, routine_id: UUID, time: str) -> None:
             detail=ResponseError(
                 error=BAD_REQUEST, message=TIME_ALREADY_EXISTS
             ).model_dump(),
+        )
+
+
+def _sync_plan_enrollments_on_add(db, user_id: UUID, sessions: List) -> None:
+    """Auto-enroll user in PLAN sessions they are not already enrolled in."""
+    plan_ids = [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
+    if not plan_ids:
+        return
+
+    already_enrolled = get_enrolled_plan_ids_for_user(
+        db=db, user_id=user_id, plan_ids=plan_ids
+    )
+    unenrolled_ids = set(plan_ids) - set(already_enrolled)
+
+    if not unenrolled_ids:
+        return
+
+    new_progress_list = [
+        UserPlanProgress(
+            user_id=user_id,
+            plan_id=plan_id,
+            streak_count=0,
+            longest_streak=0,
+            status=UserPlanStatus.NOT_STARTED,
+            is_completed=False,
+        )
+        for plan_id in unenrolled_ids
+    ]
+    save_plan_progress_batch(db=db, progress_list=new_progress_list)
+
+
+def _sync_plan_unenrollments_on_remove(
+    db, user_id: UUID, removed_plan_ids: List[UUID]
+) -> None:
+    """Auto-unenroll user from plans that were removed from the routine."""
+    if not removed_plan_ids:
+        return
+
+    actually_enrolled = get_enrolled_plan_ids_for_user(
+        db=db, user_id=user_id, plan_ids=removed_plan_ids
+    )
+
+    if not actually_enrolled:
+        return
+
+    for plan_id in actually_enrolled:
+        delete_user_plan_progress(db=db, user_id=user_id, plan_id=plan_id)
+
+
+def _sync_plan_enrollments_on_update(
+    db, user_id: UUID, time_block_id: UUID, new_sessions: List
+) -> None:
+    """Compare old vs new PLAN sessions, enroll added plans, unenroll removed plans."""
+    old_plan_ids = get_plan_source_ids_by_time_block_id(
+        db=db, time_block_id=time_block_id
+    )
+    new_plan_ids = [
+        s.source_id for s in new_sessions if s.session_type == SessionType.PLAN
+    ]
+
+    added_plan_ids = set(new_plan_ids) - set(old_plan_ids)
+    removed_plan_ids = set(old_plan_ids) - set(new_plan_ids)
+
+    if added_plan_ids:
+        added_sessions = [s for s in new_sessions if s.source_id in added_plan_ids]
+        _sync_plan_enrollments_on_add(db=db, user_id=user_id, sessions=added_sessions)
+    if removed_plan_ids:
+        _sync_plan_unenrollments_on_remove(
+            db=db, user_id=user_id, removed_plan_ids=list(removed_plan_ids)
         )
 
 
@@ -262,8 +337,14 @@ async def create_routine_with_time_block(
         )
         saved_time_block = save_time_block(db=db, time_block=time_block)
 
-        session_models = build_session_models(time_block_id=saved_time_block.id, sessions=request.sessions)
+        session_models = build_session_models(
+            time_block_id=saved_time_block.id, sessions=request.sessions
+        )
         saved_sessions = save_sessions(db=db, sessions=session_models)
+
+        _sync_plan_enrollments_on_add(
+            db=db, user_id=current_user.id, sessions=request.sessions
+        )
 
         time_block_dto = await build_time_block_dto(
             db=db, time_block=saved_time_block, sessions=saved_sessions
@@ -274,7 +355,10 @@ async def create_routine_with_time_block(
             time_blocks=[time_block_dto],
         )
 
-async def get_user_routine(token: str, skip: int = 0, limit: int = 20) -> RoutineResponse:
+
+async def get_user_routine(
+    token: str, skip: int = 0, limit: int = 20
+) -> RoutineResponse:
 
     current_user = validate_and_extract_user_details(token=token)
 
@@ -302,7 +386,9 @@ async def get_user_routine(token: str, skip: int = 0, limit: int = 20) -> Routin
         )
 
         if not time_blocks:
-            return RoutineResponse(id=routine.id, time_blocks=[], skip=skip, limit=limit, total=total)
+            return RoutineResponse(
+                id=routine.id, time_blocks=[], skip=skip, limit=limit, total=total
+            )
 
         time_block_ids = [tb.id for tb in time_blocks]
         all_sessions = get_sessions_by_time_block_ids(
@@ -314,12 +400,19 @@ async def get_user_routine(token: str, skip: int = 0, limit: int = 20) -> Routin
         sessions_by_block = group_sessions_by_block(all_sessions)
 
         time_block_dtos = [
-            await build_time_block_dto(db=db, time_block=tb, sessions=sessions_by_block.get(tb.id, []))
+            await build_time_block_dto(
+                db=db, time_block=tb, sessions=sessions_by_block.get(tb.id, [])
+            )
             for tb in time_blocks
         ]
 
-        return RoutineResponse(id=routine.id, time_blocks=time_block_dtos, skip=skip, limit=limit, total=total)
-
+        return RoutineResponse(
+            id=routine.id,
+            time_blocks=time_block_dtos,
+            skip=skip,
+            limit=limit,
+            total=total,
+        )
 
 
 async def add_time_block_to_routine(
@@ -355,8 +448,14 @@ async def add_time_block_to_routine(
         )
         saved_time_block = save_time_block(db=db, time_block=time_block)
 
-        session_models = build_session_models(time_block_id=saved_time_block.id, sessions=request.sessions)
+        session_models = build_session_models(
+            time_block_id=saved_time_block.id, sessions=request.sessions
+        )
         saved_sessions = save_sessions(db=db, sessions=session_models)
+
+        _sync_plan_enrollments_on_add(
+            db=db, user_id=current_user.id, sessions=request.sessions
+        )
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
 
@@ -397,36 +496,84 @@ def delete_time_block(token: str, routine_id: UUID, time_block_id: UUID) -> None
                 ).model_dump(),
             )
 
+        # Unenroll from plans in this time block before soft-deleting
+        plan_ids_in_block = get_plan_source_ids_by_time_block_id(
+            db=db, time_block_id=time_block_id
+        )
+        if plan_ids_in_block:
+            _sync_plan_unenrollments_on_remove(
+                db=db, user_id=current_user.id, removed_plan_ids=plan_ids_in_block
+            )
+
         # Soft delete
         soft_delete_time_block(db=db, time_block=time_block)
 
 
 async def update_time_block_service(
-    token: str, routine_id: UUID, time_block_id: UUID, request: UpdateTimeBlockRequest) -> TimeBlockDTO:
-    
-    current_user = validate_and_extract_user_details(token=token)
+    token: str, routine_id: UUID, time_block_id: UUID, request: UpdateTimeBlockRequest
+) -> TimeBlockDTO:
 
+    current_user = validate_and_extract_user_details(token=token)
     _validate_time_block_request(request)
 
     with SessionLocal() as db:
-        routine = get_routine_by_id_and_user(db=db, routine_id=routine_id, user_id=current_user.id)
+        routine = get_routine_by_id_and_user(
+            db=db, routine_id=routine_id, user_id=current_user.id
+        )
         if not routine:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=ResponseError(error=BAD_REQUEST, message=ROUTINE_NOT_FOUND).model_dump())
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=ROUTINE_NOT_FOUND
+                ).model_dump(),
+            )
 
-        time_block = get_time_block_by_id_and_routine(db=db, time_block_id=time_block_id, routine_id=routine_id
+        time_block = get_time_block_by_id_and_routine(
+            db=db, time_block_id=time_block_id, routine_id=routine_id
         )
         if not time_block:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=ResponseError(error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND).model_dump())
-        
-        existing_time_block = get_time_block_by_routine_and_time(db=db,routine_id=routine_id,time=request.time,exclude_time_block_id=time_block_id)
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND
+                ).model_dump(),
+            )
+
+        existing_time_block = get_time_block_by_routine_and_time(
+            db=db,
+            routine_id=routine_id,
+            time=request.time,
+            exclude_time_block_id=time_block_id,
+        )
         if existing_time_block:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail=ResponseError(error=BAD_REQUEST, message=TIME_BLOCK_TIME_CONFLICT).model_dump())
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=TIME_BLOCK_TIME_CONFLICT
+                ).model_dump(),
+            )
+
+        # Sync plan enrollments (must happen BEFORE delete_sessions)
+        _sync_plan_enrollments_on_update(
+            db=db,
+            user_id=current_user.id,
+            time_block_id=time_block_id,
+            new_sessions=request.sessions,
+        )
 
         delete_sessions_by_time_block_id(db=db, time_block_id=time_block_id)
 
-        updated_time_block = update_time_block_repo(db=db,time_block=time_block,time=request.time,time_int=request.time_int,notification_enabled=request.notification_enabled)
+        updated_time_block = update_time_block_repo(
+            db=db,
+            time_block=time_block,
+            time=request.time,
+            time_int=request.time_int,
+            notification_enabled=request.notification_enabled,
+        )
 
-        session_models = build_session_models(time_block_id=updated_time_block.id, sessions=request.sessions)
+        session_models = build_session_models(
+            time_block_id=updated_time_block.id, sessions=request.sessions
+        )
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
