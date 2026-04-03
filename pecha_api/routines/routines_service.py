@@ -357,32 +357,16 @@ async def update_time_block_service(
         if not time_block:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=ResponseError(error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND).model_dump())
         
-        existing_time_block = get_time_block_by_routine_and_time(
-            db=db,
-            routine_id=routine_id,
-            time=request.time,
-            exclude_time_block_id=time_block_id,
-        )
+        existing_time_block = get_time_block_by_routine_and_time(db=db,routine_id=routine_id,time=request.time,exclude_time_block_id=time_block_id)
         if existing_time_block:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail=ResponseError(error=BAD_REQUEST, message=TIME_BLOCK_TIME_CONFLICT).model_dump())
 
         delete_sessions_by_time_block_id(db=db, time_block_id=time_block_id)
 
-        updated_time_block = update_time_block_repo(
-            db=db,
-            time_block=time_block,
-            time=request.time,
-            time_int=request.time_int,
-            notification_enabled=request.notification_enabled,
-        )
+        updated_time_block = update_time_block_repo(db=db,time_block=time_block,time=request.time,time_int=request.time_int,notification_enabled=request.notification_enabled)
 
         session_models = [
-            RoutineSession(
-                time_block_id=updated_time_block.id,
-                session_type=session.session_type,
-                source_id=session.source_id,
-                display_order=session.display_order,
-            )
+            RoutineSession(time_block_id=updated_time_block.id,session_type=session.session_type,source_id=session.source_id,display_order=session.display_order)
             for session in request.sessions
         ]
         saved_sessions = save_sessions(db=db, sessions=session_models)
