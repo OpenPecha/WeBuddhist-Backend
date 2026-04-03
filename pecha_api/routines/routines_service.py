@@ -107,6 +107,18 @@ def _check_duplicate_time(db, routine_id: UUID, time: str) -> None:
         )
 
 
+def build_session_models(time_block_id: UUID, sessions: List) -> List[RoutineSession]:
+    return [
+        RoutineSession(
+            time_block_id=time_block_id,
+            session_type=session.session_type,
+            source_id=session.source_id,
+            display_order=session.display_order,
+        )
+        for session in sessions
+    ]
+
+
 def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession]) -> List[SessionDTO]:
     if not plan_sessions:
         return []
@@ -220,16 +232,7 @@ async def create_routine_with_time_block(
         )
         saved_time_block = save_time_block(db=db, time_block=time_block)
 
-        # Create sessions
-        session_models = [
-            RoutineSession(
-                time_block_id=saved_time_block.id,
-                session_type=session.session_type,
-                source_id=session.source_id,
-                display_order=session.display_order,
-            )
-            for session in request.sessions
-        ]
+        session_models = build_session_models(time_block_id=saved_time_block.id, sessions=request.sessions)
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
@@ -281,16 +284,7 @@ async def add_time_block_to_routine(
         )
         saved_time_block = save_time_block(db=db, time_block=time_block)
 
-        # Save sessions
-        session_models = [
-            RoutineSession(
-                time_block_id=saved_time_block.id,
-                session_type=session.session_type,
-                source_id=session.source_id,
-                display_order=session.display_order,
-            )
-            for session in request.sessions
-        ]
+        session_models = build_session_models(time_block_id=saved_time_block.id, sessions=request.sessions)
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
@@ -351,8 +345,7 @@ async def update_time_block_service(
         if routine.user_id != current_user.id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail=ResponseError(error=BAD_REQUEST, message=ROUTINE_FORBIDDEN).model_dump())
 
-        time_block = get_time_block_by_id_and_routine(
-            db=db, time_block_id=time_block_id, routine_id=routine_id
+        time_block = get_time_block_by_id_and_routine(db=db, time_block_id=time_block_id, routine_id=routine_id
         )
         if not time_block:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=ResponseError(error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND).model_dump())
@@ -365,10 +358,7 @@ async def update_time_block_service(
 
         updated_time_block = update_time_block_repo(db=db,time_block=time_block,time=request.time,time_int=request.time_int,notification_enabled=request.notification_enabled)
 
-        session_models = [
-            RoutineSession(time_block_id=updated_time_block.id,session_type=session.session_type,source_id=session.source_id,display_order=session.display_order)
-            for session in request.sessions
-        ]
+        session_models = build_session_models(time_block_id=updated_time_block.id, sessions=request.sessions)
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
