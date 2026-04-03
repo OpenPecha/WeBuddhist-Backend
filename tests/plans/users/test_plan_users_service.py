@@ -1254,7 +1254,7 @@ def test_get_user_plan_day_details_service_success():
                 estimated_time=10,
                 display_order=1,
                 sub_tasks=[
-                    SimpleNamespace(id=sub1_id, content_type=ContentType.TEXT, content="A", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_id=None),
+                    SimpleNamespace(id=sub1_id, content_type=ContentType.TEXT, content="A", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None),
                 ],
             ),
             SimpleNamespace(
@@ -1263,7 +1263,7 @@ def test_get_user_plan_day_details_service_success():
                 estimated_time=5,
                 display_order=2,
                 sub_tasks=[
-                    SimpleNamespace(id=sub2_id, content_type=ContentType.AUDIO, content="B", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_id=None),
+                    SimpleNamespace(id=sub2_id, content_type=ContentType.AUDIO, content="B", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None),
                 ],
             ),
         ],
@@ -1419,7 +1419,7 @@ def test_get_user_plan_day_details_service_image_subtask_presigned():
                         display_order=1,
                         source_text_id=None,
                         pecha_segment_id=None,
-                        segment_id=None,
+                        segment_ids=None,
                     )
                 ],
             )
@@ -1463,7 +1463,7 @@ def test_get_user_plan_day_details_service_image_subtask_presigned():
 
 
 def test_get_user_plan_day_details_service_with_segment_fields():
-    """Test that source_text_id, pecha_segment_id, and segment_id fields are properly returned"""
+    """Test that source_text_id, pecha_segment_id, and segment_ids fields are properly returned"""
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
     day_id = uuid.uuid4()
@@ -1471,7 +1471,7 @@ def test_get_user_plan_day_details_service_with_segment_fields():
     sub_id = uuid.uuid4()
     source_text_id = uuid.uuid4()
     pecha_segment_id = "pecha-segment-456"  # String field
-    segment_id = uuid.uuid4()
+    segment_ids = [uuid.uuid4(), uuid.uuid4()]  # List of UUIDs
 
     plan_item = SimpleNamespace(
         id=day_id,
@@ -1491,7 +1491,7 @@ def test_get_user_plan_day_details_service_with_segment_fields():
                         display_order=1,
                         source_text_id=source_text_id,
                         pecha_segment_id=pecha_segment_id,
-                        segment_id=segment_id,
+                        segment_ids=segment_ids,
                     )
                 ],
             )
@@ -1527,7 +1527,7 @@ def test_get_user_plan_day_details_service_with_segment_fields():
         assert sub.id == sub_id
         assert sub.source_text_id == source_text_id
         assert sub.pecha_segment_id == pecha_segment_id
-        assert sub.segment_id == segment_id
+        assert sub.segment_ids == segment_ids
 
 
 def test_unenroll_user_from_plan_success():
