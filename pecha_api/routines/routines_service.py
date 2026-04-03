@@ -22,7 +22,6 @@ from .routines_repository import (
     get_time_block_by_id,
     get_time_block_by_id_and_routine,
     get_plans_by_ids,
-    get_existing_plan_source_ids_in_routine,
     get_time_block_by_routine_and_time,
     delete_sessions_by_time_block_id,
     save_routine,
@@ -338,8 +337,8 @@ def delete_time_block(token: str, routine_id: UUID, time_block_id: UUID) -> None
 
 
 async def update_time_block_service(
-    token: str, routine_id: UUID, time_block_id: UUID, request: UpdateTimeBlockRequest
-) -> TimeBlockDTO:
+    token: str, routine_id: UUID, time_block_id: UUID, request: UpdateTimeBlockRequest) -> TimeBlockDTO:
+    
     current_user = validate_and_extract_user_details(token=token)
 
     _validate_time_block_request(request)
@@ -347,31 +346,16 @@ async def update_time_block_service(
     with SessionLocal() as db:
         routine = get_routine_by_id(db=db, routine_id=routine_id)
         if not routine:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=ROUTINE_NOT_FOUND
-                ).model_dump(),
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=ResponseError(error=BAD_REQUEST, message=ROUTINE_NOT_FOUND).model_dump())
 
         if routine.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=ROUTINE_FORBIDDEN
-                ).model_dump(),
-            )
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail=ResponseError(error=BAD_REQUEST, message=ROUTINE_FORBIDDEN).model_dump())
 
         time_block = get_time_block_by_id_and_routine(
             db=db, time_block_id=time_block_id, routine_id=routine_id
         )
         if not time_block:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND
-                ).model_dump(),
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,detail=ResponseError(error=BAD_REQUEST, message=TIME_BLOCK_NOT_FOUND).model_dump())
         
         existing_time_block = get_time_block_by_routine_and_time(
             db=db,
@@ -380,31 +364,7 @@ async def update_time_block_service(
             exclude_time_block_id=time_block_id,
         )
         if existing_time_block:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=TIME_BLOCK_TIME_CONFLICT
-                ).model_dump(),
-            )
-
-        existing_plan_ids = get_existing_plan_source_ids_in_routine(
-            db=db,
-            routine_id=routine_id,
-            exclude_time_block_id=time_block_id,
-        )
-        new_plan_ids = [
-            session.source_id
-            for session in request.sessions
-            if session.session_type == SessionType.PLAN
-        ]
-        duplicate_plans = set(existing_plan_ids) & set(new_plan_ids)
-        if duplicate_plans:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=DUPLICATE_PLAN
-                ).model_dump(),
-            )
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT,detail=ResponseError(error=BAD_REQUEST, message=TIME_BLOCK_TIME_CONFLICT).model_dump())
 
         delete_sessions_by_time_block_id(db=db, time_block_id=time_block_id)
 
