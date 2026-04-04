@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Query
 from starlette import status
-from typing import Optional
 
 from .collections_response_models import CollectionsResponse
 from .collections_openpecha_service import get_collections_from_openpecha
@@ -16,15 +17,14 @@ collections_v2_router = APIRouter(
 @collections_v2_router.get(
     "",
     status_code=status.HTTP_200_OK,
-    response_model=CollectionsResponse,
     summary="Get collections from OpenPecha",
     description="Retrieve collections/categories from OpenPecha API with optional filtering by parent_id and language."
 )
 async def read_collections_v2(
-    parent_id: Optional[str] = Query(None, description="Filter by parent category ID"),
-    language: Optional[str] = Query(None, description="Language code (e.g., 'en', 'bo', 'zh')"),
-    skip: int = Query(default=0, ge=0, description="Number of records to skip"),
-    limit: int = Query(default=10, ge=1, le=100, description="Number of records to return")
+    parent_id: Annotated[str | None, Query(description="Filter by parent category ID")] = None,
+    language: Annotated[str | None, Query(description="Language code (e.g., 'en', 'bo', 'zh')")] = None,
+    skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
+    limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10
 ) -> CollectionsResponse:
     return await get_collections_from_openpecha(
         parent_id=parent_id,
