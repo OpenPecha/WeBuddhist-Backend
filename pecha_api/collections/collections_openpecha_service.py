@@ -1,4 +1,8 @@
+import logging
 from typing import Optional, List
+
+from fastapi import HTTPException
+from starlette import status
 
 from pecha_api.external_clients import get_authenticated_open_pecha_client
 from pecha_api.external_clients.open_pecha_client.open_pecha_client.api.categories import get_v2_categories
@@ -6,6 +10,8 @@ from pecha_api.external_clients.open_pecha_client.open_pecha_client.models.categ
 from pecha_api.external_clients.open_pecha_client.open_pecha_client.types import UNSET
 from .collections_response_models import CollectionModel, CollectionsResponse, Pagination
 from pecha_api.config import get
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -47,12 +53,23 @@ async def get_collections_from_openpecha(
     
     parent_id_param = parent_id if parent_id else UNSET
     
-    categories: List[CategoryOutput] = await get_v2_categories.asyncio(
-        client=client,
-        parent_id=parent_id_param,
-        language=language,
-        x_application=get("APPLICATION")
-    )
+    try:
+        categories: List[CategoryOutput] = await get_v2_categories.asyncio(
+            client=client,
+            parent_id=parent_id_param,
+            language=language,
+            x_application=get("APPLICATION")
+        )
+    except Exception as e:
+        logger.error(
+            f"Failed to fetch categories from OpenPecha API: {e} | "
+            f"URL: {client._base_url}/v2/categories | "
+            f"Headers:{client._headers} | "
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch collections from upstream service"
+        )
     
     if categories is None:
         categories = []
@@ -75,16 +92,33 @@ async def get_collections_from_openpecha(
         collections=paginated_collections
     )
 
-async def get_collection_by_id(collection_id: str, language: str) -> CollectionModel:
+async def get_collection_by_id(collection_id: str, language: str) -> Optional[CollectionModel]:
     client = get_authenticated_open_pecha_client()
     selected_collection = None
     if collection_id:
-        categories = await get_v2_categories.asyncio(
-            client=client,
-            parent_id=UNSET,
-            language=language,
-            x_application=get("APPLICATION")
-        )
+        try:
+            logger.debug(
+                f"Calling OpenPecha API: {client.base_url}/v2/categories | "
+                f"Headers: X-API-Key=***, X-Application={get('APPLICATION')} | "
+                f"Params: parent_id=UNSET, language={language}"
+            )
+            categories = await get_v2_categories.asyncio(
+                client=client,
+                parent_id=UNSET,
+                language=language,
+                x_application=get("APPLICATION")
+            )
+        except Exception as e:
+            logger.error(
+                f"Failed to fetch collection by id from OpenPecha API: {e} | "
+                f"URL: {client.base_url}/v2/categories | "
+                f"Headers: X-API-Key=***, X-Application={get('APPLICATION')} | "
+                f"Params: parent_id=UNSET, language={language}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Failed to fetch collection from upstream service"
+            )
         if categories and isinstance(categories, list):
             for cat in categories:
                 if cat.id == collection_id:
