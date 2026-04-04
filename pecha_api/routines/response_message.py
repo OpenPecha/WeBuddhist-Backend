@@ -1,0 +1,8 @@
+ROUTINE_ALREADY_EXISTS = "Routine already exists for this user"
+INVALID_TIME_FORMAT = "Time must be in HH:MM 24-hour format (00:00 to 23:59)"
+SESSIONS_REQUIRED = "At least one session is required"
+DUPLICATE_PLAN = "A plan can only appear once across the entire routine"
+ROUTINE_NOT_FOUND = "Routine not found"
+ROUTINE_FORBIDDEN = "Routine does not belong to this user"
+TIME_ALREADY_EXISTS = "A time block with this time already exists in the routine"
+TIME_BLOCK_NOT_FOUND = "Time block not found"

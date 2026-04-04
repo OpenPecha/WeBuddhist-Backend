@@ -1,4 +1,5 @@
 import os
+import re
 
 DEFAULTS = dict(
     SITE_LANGUAGE="en",
@@ -81,6 +82,8 @@ DEFAULTS = dict(
 
 
 )
+
+TIME_FORMAT_PATTERN = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
 
 def get(key: str) -> str:
