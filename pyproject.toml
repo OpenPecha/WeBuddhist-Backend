@@ -47,7 +47,7 @@ rich = "^14.2.0"
 start = "uvicorn:main"
 
 [tool.coverage.run]
-omit = [ "*/*_repository.py", "*/*_models.py", "*/*_init__.py", "*/db/*", "*/external_clients/open_pecha_client/*",]
+omit = [ "*/*_repository.py", "*/*_models.py", "*/*_init__.py", "*/db/*", "*/external_clients/*",]
 
 [tool.coverage.report]
 exclude_lines = [ "pragma: no cover", "def __repr__", "if self.debug:", "raise NotImplementedError", "if __name__ == .__main__.:", "pass", "raise ImportError",]
