@@ -10,7 +10,6 @@ from _datetime import datetime
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
 from pecha_api.plans.plans_models import Plan
-from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
 
@@ -20,10 +19,10 @@ def get_routine_by_user_id(
 ) -> Optional[Routine]:
 
     query = db.query(Routine).filter(Routine.user_id == user_id)
-
+    
     if not include_deleted:
         query = query.filter(Routine.deleted_at.is_(None))
-
+    
     return query.first()
 
 
@@ -31,6 +30,7 @@ def get_plans_by_ids(db: Session, plan_ids: List[UUID]) -> List[Plan]:
     if not plan_ids:
         return []
     return db.query(Plan).filter(Plan.id.in_(plan_ids)).all()
+
 
 
 def get_routine_by_id_and_user(
@@ -136,9 +136,7 @@ def soft_delete_time_block(db: Session, time_block: RoutineTimeBlock) -> None:
     db.commit()
 
 
-def get_time_block_by_id(
-    db: Session, time_block_id: UUID
-) -> Optional[RoutineTimeBlock]:
+def get_time_block_by_id(db: Session, time_block_id: UUID) -> Optional[RoutineTimeBlock]:
     return (
         db.query(RoutineTimeBlock)
         .filter(
@@ -149,9 +147,7 @@ def get_time_block_by_id(
     )
 
 
-def get_existing_plan_source_ids_in_routine(
-    db: Session, routine_id: UUID, exclude_time_block_id: Optional[UUID] = None
-) -> List[UUID]:
+def get_existing_plan_source_ids_in_routine(db: Session, routine_id: UUID, exclude_time_block_id: Optional[UUID] = None) -> List[UUID]:
     query = (
         db.query(RoutineSession.source_id)
         .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
@@ -166,12 +162,7 @@ def get_existing_plan_source_ids_in_routine(
     return [row[0] for row in query.all()]
 
 
-def get_time_block_by_routine_and_time(
-    db: Session,
-    routine_id: UUID,
-    time: str,
-    exclude_time_block_id: Optional[UUID] = None,
-) -> Optional[RoutineTimeBlock]:
+def get_time_block_by_routine_and_time(db: Session, routine_id: UUID, time: str, exclude_time_block_id: Optional[UUID] = None) -> Optional[RoutineTimeBlock]:
     query = db.query(RoutineTimeBlock).filter(
         RoutineTimeBlock.routine_id == routine_id,
         RoutineTimeBlock.time == time,
@@ -189,13 +180,7 @@ def delete_sessions_by_time_block_id(db: Session, time_block_id: UUID) -> None:
     db.commit()
 
 
-def update_time_block(
-    db: Session,
-    time_block: RoutineTimeBlock,
-    time: str,
-    time_int: int,
-    notification_enabled: bool,
-) -> RoutineTimeBlock:
+def update_time_block(db: Session,time_block: RoutineTimeBlock,time: str,time_int: int,notification_enabled: bool) -> RoutineTimeBlock:
     try:
         time_block.time = time
         time_block.time_int = time_int
@@ -211,15 +196,7 @@ def update_time_block(
         )
 
 
-def get_time_blocks(
-    db: Session,
-    routine_id: UUID,
-    include_deleted: bool = False,
-    order_by_field=None,
-    order_desc: bool = False,
-    skip: int = 0,
-    limit: int = 20,
-) -> Tuple[List[RoutineTimeBlock], int]:
+def get_time_blocks(db: Session,routine_id: UUID,include_deleted: bool = False,order_by_field=None,order_desc: bool = False,skip: int = 0,limit: int = 20) -> Tuple[List[RoutineTimeBlock], int]:
 
     query = db.query(RoutineTimeBlock).filter(RoutineTimeBlock.routine_id == routine_id)
 
@@ -235,66 +212,13 @@ def get_time_blocks(
     return time_blocks, total
 
 
-def get_sessions_by_time_block_ids(
-    db: Session,
-    time_block_ids: List[UUID],
-    order_by_field=None,
-    order_desc: bool = False,
-) -> List[RoutineSession]:
+def get_sessions_by_time_block_ids(db: Session, time_block_ids: List[UUID], order_by_field=None, order_desc: bool = False) -> List[RoutineSession]:
     if not time_block_ids:
         return []
-
-    query = db.query(RoutineSession).filter(
-        RoutineSession.time_block_id.in_(time_block_ids)
-    )
-
+    
+    query = db.query(RoutineSession).filter(RoutineSession.time_block_id.in_(time_block_ids))
+    
     if order_by_field is not None:
         query = query.order_by(order_by_field.desc() if order_desc else order_by_field)
-
+    
     return query.all()
-
-
-def get_plan_source_ids_by_time_block_id(
-    db: Session, time_block_id: UUID
-) -> List[UUID]:
-    sessions = (
-        db.query(RoutineSession.source_id)
-        .filter(
-            RoutineSession.time_block_id == time_block_id,
-            RoutineSession.session_type == SessionType.PLAN,
-        )
-        .all()
-    )
-    return [s.source_id for s in sessions]
-
-
-def get_enrolled_plan_ids_for_user(
-    db: Session, user_id: UUID, plan_ids: List[UUID]
-) -> List[UUID]:
-    if not plan_ids:
-        return []
-    rows = (
-        db.query(UserPlanProgress.plan_id)
-        .filter(
-            UserPlanProgress.user_id == user_id,
-            UserPlanProgress.plan_id.in_(plan_ids),
-        )
-        .all()
-    )
-    return [row.plan_id for row in rows]
-
-
-def save_plan_progress_batch(
-    db: Session, progress_list: List[UserPlanProgress]
-) -> None:
-    if not progress_list:
-        return
-    try:
-        db.add_all(progress_list)
-        db.commit()
-    except IntegrityError as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=ResponseError(error=BAD_REQUEST, message=str(e.orig)).model_dump(),
-        )
