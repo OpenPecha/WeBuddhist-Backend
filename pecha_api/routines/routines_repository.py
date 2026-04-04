@@ -32,7 +32,6 @@ def get_plans_by_ids(db: Session, plan_ids: List[UUID]) -> List[Plan]:
     return db.query(Plan).filter(Plan.id.in_(plan_ids)).all()
 
 
-
 def get_routine_by_id_and_user(
     db: Session, routine_id: UUID, user_id: UUID
 ) -> Optional[Routine]:
@@ -131,6 +130,20 @@ def get_time_block_by_id_and_routine(
     )
 
 
+def get_plan_source_ids_by_time_block_id(
+    db: Session, time_block_id: UUID
+) -> List[UUID]:
+    sessions = (
+        db.query(RoutineSession.source_id)
+        .filter(
+            RoutineSession.time_block_id == time_block_id,
+            RoutineSession.session_type == SessionType.PLAN,
+        )
+        .all()
+    )
+    return [s.source_id for s in sessions]
+
+
 def soft_delete_time_block(db: Session, time_block: RoutineTimeBlock) -> None:
     time_block.deleted_at = datetime.now(_datetime.timezone.utc)
     db.commit()
@@ -154,7 +167,7 @@ def get_existing_plan_source_ids_in_routine(db: Session, routine_id: UUID, exclu
         .filter(
             RoutineTimeBlock.routine_id == routine_id,
             RoutineTimeBlock.deleted_at.is_(None),
-            RoutineSession.session_type == "PLAN",
+            RoutineSession.session_type == SessionType.PLAN,
         )
     )
     if exclude_time_block_id:
