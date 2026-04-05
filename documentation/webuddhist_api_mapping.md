@@ -18,14 +18,14 @@ The Pecha Backend acts as a middleware that:
 
 ## API Mapping Table
 
-| Backend Endpoint           | Method | OpenPecha API Used                        | Description                    |
-|----------------------------|--------|-------------------------------------------|--------------------------------|
-| `/collections`             | GET    | `/v2/categories`                                                         | Get collections/categories     |
-| `/texts`                   | GET    | `/v2/categories/{id}/texts`                                              | Get texts by collection        |
-| `/texts/{id}/versions`     | GET    | `/v2/texts/{id}/related-by-work`, `/v2/texts`                            | Get text versions              |
-| `/texts/{id}/commentaries` | GET    | `/v2/texts/{id}/related-by-work`, `/v2/texts`                            | Get text commentaries          |
+| Backend Endpoint           | Method | OpenPecha API Used                                                                                     | Description                    |
+|----------------------------|--------|--------------------------------------------------------------------------------------------------------|--------------------------------|
+| `/collections`             | GET    | `/v2/categories`                                                                                       | Get collections/categories     |
+| `/texts`                   | GET    | `/v2/categories/{id}/texts`                                                                            | Get texts by collection        |
+| `/texts/{id}/versions`     | GET    | `/v2/texts/{id}/related-by-work`, `/v2/texts`                                                          | Get text versions              |
+| `/texts/{id}/commentaries` | GET    | `/v2/texts/{id}/related-by-work`, `/v2/texts`                                                          | Get text commentaries          |
 | `/texts/{id}/details`      | POST   | `/v2/texts/{id}/instances`, `/v2/instances/{id}`, `/v2/annotations/{id}`, `/v2/instances/{id}/content` | Get text content details       |
-| `/segments/{id}/info`      | GET    | `/v2/segments/{id}/related`                                              | Get segment info               |
+| `/segments/{id}/info`      | GET    | `/v2/segments/{id}/related`                                                                            | Get segment info               |
 
 ---
 

@@ -18,14 +18,14 @@ The Pecha Backend acts as a middleware that:
 ---
 ## API Mapping Table
 
-| Backend Endpoint           | Method | OpenPecha API Used                        | Description                    |
-|----------------------------|--------|-------------------------------------------|--------------------------------|
-| `/collections`             | GET    | `/v2/categories`                                                         | Get collections/categories     |
-| `/texts`                   | GET    | `/v2/texts?limit=20&offset=0&category_id=text_category_id`                                                        | Get texts by collection        |
-| `/texts/{id}/versions`     | GET    | `/v2/texts/{text_id}`                            | Get text versions              |
-| `/texts/{id}/commentaries` | GET    | `/v2/texts/{text_id}`                            | Get text commentaries          |
+| Backend Endpoint           | Method | OpenPecha API Used                                                                                                                                                | Description                    |
+|----------------------------|--------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------------|
+| `/collections`             | GET    | `/v2/categories`                                                                                                                                                  | Get collections/categories     |
+| `/texts`                   | GET    | `/v2/texts?limit=20&offset=0&category_id=text_category_id`                                                                                                        | Get texts by collection        |
+| `/texts/{id}/versions`     | GET    | `/v2/texts/{text_id}`                                                                                                                                             | Get text versions              |
+| `/texts/{id}/commentaries` | GET    | `/v2/texts/{text_id}`                                                                                                                                             | Get text commentaries          |
 | `/texts/{id}/details`      | POST   | `/v2/texts/{text_id}/editions?edition_type=critical'`, `/v2/editions/{text_id}/annotations?type=segmentation&type=durchen'`, `/v2/editions/{edition_id}/content'` | Get text content details       |
-| `/segments/{id}/info`      | GET    | `/v2/segments/{segment_id}/related`,  `/v2/segments/{segment_id}/content`                                              | Get segment info               |
+| `/segments/{id}/info`      | GET    | `/v2/segments/{segment_id}/related`,  `/v2/segments/{segment_id}/content`                                                                                         | Get segment info               |
 
 ---
 
