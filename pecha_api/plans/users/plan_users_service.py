@@ -164,7 +164,7 @@ def unenroll_user_from_plan(token: str, plan_id: UUID) -> None:
         delete_user_plan_progress(db=db, user_id=current_user.id, plan_id=plan_id)
 
 
-async def get_user_plan_progress(token: str, plan_id: UUID) -> UserPlanProgressResponse:
+def get_user_plan_progress(token: str, plan_id: UUID) -> UserPlanProgressResponse:
     """Get user's progress for a specific plan"""
     current_user = validate_and_extract_user_details(token=token)
     

@@ -626,8 +626,7 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
         assert result.plans[0].id == plan_id_1
 
 
-@pytest.mark.asyncio
-async def test_get_user_plan_progress_success():
+def test_get_user_plan_progress_success():
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
     progress_id = uuid.uuid4()
@@ -672,7 +671,7 @@ async def test_get_user_plan_progress_success():
         "pecha_api.plans.users.plan_users_service.get_plan_by_id",
         return_value=plan_record,
     ):
-        result = await get_user_plan_progress(token="tok", plan_id=plan_id)
+        result = get_user_plan_progress(token="tok", plan_id=plan_id)
 
         assert result.user_id == user_id
         assert result.plan_id == plan_id
@@ -681,8 +680,7 @@ async def test_get_user_plan_progress_success():
         assert result.plan["title"] == "Plan X"
 
 
-@pytest.mark.asyncio
-async def test_get_user_plan_progress_not_enrolled_raises_404():
+def test_get_user_plan_progress_not_enrolled_raises_404():
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
 
@@ -699,7 +697,7 @@ async def test_get_user_plan_progress_not_enrolled_raises_404():
         return_value=None,
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await get_user_plan_progress(token="tok", plan_id=plan_id)
+            get_user_plan_progress(token="tok", plan_id=plan_id)
 
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail["message"] == "User not enrolled in this plan"
@@ -1188,8 +1186,7 @@ def test_delete_task_service_task_not_found_raises_404():
         assert exc_info.value.detail["message"] == TASK_NOT_FOUND
 
 
-@pytest.mark.asyncio
-async def test_get_user_plan_progress_plan_not_found():
+def test_get_user_plan_progress_plan_not_found():
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
 
@@ -1222,7 +1219,7 @@ async def test_get_user_plan_progress_plan_not_found():
         return_value=None,
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await get_user_plan_progress(token="tok", plan_id=plan_id)
+            get_user_plan_progress(token="tok", plan_id=plan_id)
 
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail["message"] == ErrorConstants.PLAN_NOT_FOUND
