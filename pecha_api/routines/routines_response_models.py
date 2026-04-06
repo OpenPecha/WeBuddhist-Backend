@@ -18,6 +18,13 @@ class CreateTimeBlockRequest(BaseModel):
     sessions: List[SessionRequest]
 
 
+class UpdateTimeBlockRequest(BaseModel):
+    time: str
+    time_int: int
+    notification_enabled: bool = True
+    sessions: List[SessionRequest]
+
+
 class SessionDTO(BaseModel):
     id: UUID
     session_type: SessionType
