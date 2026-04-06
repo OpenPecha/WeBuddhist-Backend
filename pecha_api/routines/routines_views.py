@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from uuid import UUID
 from starlette import status
@@ -8,13 +8,19 @@ from .routines_response_models import (
     TimeBlockDTO,
     UpdateTimeBlockRequest,
     RoutineWithTimeBlocksResponse,
+    RoutineResponse,
 )
-from .routines_service import create_routine_with_time_block, add_time_block_to_routine, delete_time_block, update_time_block_service
+from .routines_service import create_routine_with_time_block, add_time_block_to_routine, delete_time_block, update_time_block_service, get_user_routine
 
 oauth2_scheme = HTTPBearer()
 
 routines_router = APIRouter(
     prefix="/routines",
+    tags=["User Routines"],
+)
+
+user_routine_router = APIRouter(
+    prefix="/users/me",
     tags=["User Routines"],
 )
 
@@ -25,9 +31,7 @@ routines_router = APIRouter(
     response_model=RoutineWithTimeBlocksResponse,
 )
 async def create_routine(
-    authentication_credential: Annotated[
-        HTTPAuthorizationCredentials, Depends(oauth2_scheme)
-    ],
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     request: CreateTimeBlockRequest,
 ):
     return await create_routine_with_time_block(
@@ -85,4 +89,17 @@ async def update_time_block(
         routine_id=routine_id,
         time_block_id=time_block_id,
         request=request,
+    )
+
+
+@user_routine_router.get("/routine", status_code=status.HTTP_200_OK, response_model=RoutineResponse)
+async def get_routine(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+):
+    return await get_user_routine(
+        token=authentication_credential.credentials,
+        skip=skip,
+        limit=limit,
     )

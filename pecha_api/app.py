@@ -77,6 +77,7 @@ api.include_router(uploader_collections_views.text_uploader_collections_router)
 api.include_router(routines_views.routines_router)
 api.include_router(collections_openpecha_views.collections_v2_router)
 
+api.include_router(routines_views.user_routine_router)
 api.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
