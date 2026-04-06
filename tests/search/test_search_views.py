@@ -443,11 +443,11 @@ def test_multilingual_search_with_text_id():
         assert response.status_code == status.HTTP_200_OK
 
 
-def test_multilingual_search_with_language():
-    """Test multilingual search with language parameter"""
+def test_multilingual_search_with_search_type():
+    """Test multilingual search with search_type parameter"""
     mock_response = MultilingualSearchResponse(
-        query="query with language",
-        search_type="hybrid",
+        query="query with search type",
+        search_type="semantic",
         sources=[],
         skip=0,
         limit=10,
@@ -457,7 +457,7 @@ def test_multilingual_search_with_language():
     with patch("pecha_api.search.search_views.get_multilingual_search_results", 
                new_callable=AsyncMock, return_value=mock_response):
         
-        response = client.get("/search/multilingual?query=query with language&language=bo")
+        response = client.get("/search/multilingual?query=query with search type&search_type=semantic")
         
         assert response.status_code == status.HTTP_200_OK
 
@@ -500,7 +500,7 @@ def test_multilingual_search_with_all_parameters():
                new_callable=AsyncMock, return_value=mock_response):
         
         response = client.get(
-            "/search/multilingual?query=full query&search_type=semantic&text_id=text_456&language=en&skip=10&limit=25"
+            "/search/multilingual?query=full query&search_type=semantic&text_id=text_456&skip=10&limit=25"
         )
         
         assert response.status_code == status.HTTP_200_OK
