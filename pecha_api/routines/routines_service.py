@@ -4,7 +4,8 @@ from starlette import status
 from typing import List, Dict
 from uuid import UUID
 
-from pecha_api.config import TIME_FORMAT_PATTERN
+from pecha_api.config import TIME_FORMAT_PATTERN, get
+from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.db.database import SessionLocal
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.plans.auth.plan_auth_models import ResponseError
@@ -251,12 +252,23 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession]) -> List[Sess
     plan_ids = [session.source_id for session in plan_sessions]
     plans = get_plans_by_ids(db=db, plan_ids=plan_ids)
     plan_map = {plan.id: plan for plan in plans}
+    bucket_name = get("AWS_BUCKET_NAME")
 
     resolved = []
     for session in plan_sessions:
         plan = plan_map.get(session.source_id)
         if plan is None:
             continue
+
+        image_url = ""
+        if plan.image_url:
+            try:
+                image_url = generate_presigned_access_url(
+                    bucket_name=bucket_name, s3_key=plan.image_url
+                )
+            except Exception:
+                image_url = ""
+
         resolved.append(
             SessionDTO(
                 id=session.id,
@@ -268,7 +280,7 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession]) -> List[Sess
                     if hasattr(plan.language, "value")
                     else str(plan.language)
                 ),
-                image_url=plan.image_url,
+                image_url=image_url,
                 display_order=session.display_order,
             )
         )
