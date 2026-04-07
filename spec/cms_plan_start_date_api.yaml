@@ -1,0 +1,520 @@
+openapi: 3.0.3
+info:
+  title: CMS Plan Start Date API
+  description: |
+    API specification for adding `start_date` field to CMS Plan creation and update endpoints.
+
+    ## Overview
+    This specification documents the changes to support a `start_date` field in plans,
+    allowing content creators to set when a plan should begin for users who subscribe.
+
+    ## Database Schema Change
+
+    ### `plans` Table - New Column
+
+    | Column     | Type                     | Nullable | Description                                      |
+    |------------|--------------------------|----------|--------------------------------------------------|
+    | start_date | TIMESTAMP WITH TIMEZONE  | YES      | The date when the plan is scheduled to start     |
+
+    ## Use Cases
+    - **Fixed Start Date Plans**: Plans that begin on a specific date (e.g., "30-Day Meditation Challenge starting Jan 1")
+    - **Rolling Start Plans**: Plans where `start_date` is null, starting when user subscribes
+    - **Scheduled Content**: Content creators can prepare plans in advance with future start dates
+
+  version: 1.0.0
+
+servers:
+  - url: https://api.webuddhist.com/v1
+    description: Production server
+  - url: https://staging-api.webuddhist.com/v1
+    description: Staging server
+  - url: http://localhost:8000/v1
+    description: Development server
+
+security:
+  - BearerAuth: []
+
+paths:
+  /cms/plans:
+    post:
+      summary: Create a New Plan
+      description: |
+        Creates a new plan with optional start date.
+        
+        The `start_date` field allows content creators to specify when the plan should begin:
+        - If provided: Plan starts on the specified date for all subscribers
+        - If null/omitted: Plan starts immediately when a user subscribes (rolling start)
+      operationId: create_plan
+      tags:
+        - CMS Plans
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlanRequest'
+            examples:
+              with_start_date:
+                summary: Plan with fixed start date
+                description: A plan that starts on a specific date
+                value:
+                  title: "30-Day Meditation Challenge"
+                  description: "A comprehensive meditation program for beginners"
+                  difficulty_level: "BEGINNER"
+                  total_days: 30
+                  language: "EN"
+                  image_url: "images/plan_images/meditation-challenge.jpg"
+                  tags: ["meditation", "beginner", "challenge"]
+                  start_date: "2025-01-01T00:00:00Z"
+              without_start_date:
+                summary: Rolling start plan
+                description: A plan that starts when user subscribes
+                value:
+                  title: "Introduction to Buddhist Philosophy"
+                  description: "Learn the fundamentals of Buddhist thought"
+                  difficulty_level: "BEGINNER"
+                  total_days: 14
+                  language: "EN"
+                  tags: ["philosophy", "introduction"]
+      responses:
+        '201':
+          description: Plan created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanResponse'
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                title: "30-Day Meditation Challenge"
+                description: "A comprehensive meditation program for beginners"
+                language: "EN"
+                difficulty_level: "BEGINNER"
+                image_url: "https://s3.amazonaws.com/bucket/images/plan_images/meditation-challenge.jpg"
+                image_key: "images/plan_images/meditation-challenge.jpg"
+                total_days: 30
+                tags: ["meditation", "beginner", "challenge"]
+                status: "DRAFT"
+                featured: false
+                subscription_count: 0
+                start_date: "2025-01-01T00:00:00Z"
+        '400':
+          description: Bad Request - Invalid input data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_date:
+                  value:
+                    error: "BAD_REQUEST"
+                    message: "Invalid start_date format. Use ISO 8601 format (e.g., 2025-01-01T00:00:00Z)"
+                missing_required:
+                  value:
+                    error: "BAD_REQUEST"
+                    message: "Missing required field: title"
+        '401':
+          description: Unauthorized - Invalid or missing authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "UNAUTHORIZED"
+                message: "Invalid authentication credentials"
+        '403':
+          description: Forbidden - User does not have permission to create plans
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "FORBIDDEN"
+                message: "You do not have permission to create plans"
+
+  /cms/plans/{plan_id}:
+    put:
+      summary: Update Plan Details
+      description: |
+        Updates an existing plan's metadata including the start date.
+        
+        All fields are optional - only provided fields will be updated.
+        
+        **Start Date Update Rules:**
+        - Can be set to a future date
+        - Can be set to null to convert to rolling start
+        - Cannot be changed if plan is already PUBLISHED with active subscribers
+      operationId: update_plan
+      tags:
+        - CMS Plans
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          description: UUID of the plan to update
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePlanRequest'
+            examples:
+              update_start_date:
+                summary: Update start date only
+                description: Change the plan's start date
+                value:
+                  start_date: "2025-02-01T00:00:00Z"
+              remove_start_date:
+                summary: Convert to rolling start
+                description: Remove start date to make it a rolling start plan
+                value:
+                  start_date: null
+              full_update:
+                summary: Full plan update
+                description: Update multiple fields including start date
+                value:
+                  title: "Updated Meditation Challenge"
+                  description: "An updated comprehensive meditation program"
+                  difficulty_level: "INTERMEDIATE"
+                  image_url: "images/plan_images/updated-meditation.jpg"
+                  tags: ["meditation", "intermediate", "challenge", "updated"]
+                  language: "EN"
+                  start_date: "2025-03-01T00:00:00Z"
+      responses:
+        '200':
+          description: Plan updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanResponse'
+              example:
+                id: "550e8400-e29b-41d4-a716-446655440000"
+                title: "Updated Meditation Challenge"
+                description: "An updated comprehensive meditation program"
+                language: "EN"
+                difficulty_level: "INTERMEDIATE"
+                image_url: "https://s3.amazonaws.com/bucket/images/plan_images/updated-meditation.jpg"
+                image_key: "images/plan_images/updated-meditation.jpg"
+                total_days: 30
+                tags: ["meditation", "intermediate", "challenge", "updated"]
+                status: "DRAFT"
+                featured: false
+                subscription_count: 0
+                start_date: "2025-03-01T00:00:00Z"
+        '400':
+          description: Bad Request - Invalid input data or business rule violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_date:
+                  value:
+                    error: "BAD_REQUEST"
+                    message: "Invalid start_date format. Use ISO 8601 format"
+                cannot_update_published:
+                  value:
+                    error: "BAD_REQUEST"
+                    message: "Cannot update start_date for a published plan with active subscribers"
+        '401':
+          description: Unauthorized - Invalid or missing authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "UNAUTHORIZED"
+                message: "Invalid authentication credentials"
+        '403':
+          description: Forbidden - User does not have permission to update this plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "FORBIDDEN"
+                message: "You do not have permission to update this plan"
+        '404':
+          description: Not Found - Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "NOT_FOUND"
+                message: "Plan not found"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token for author authentication
+
+  schemas:
+    CreatePlanRequest:
+      type: object
+      description: Request body for creating a new plan
+      required:
+        - title
+        - description
+        - difficulty_level
+        - total_days
+        - language
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Title of the plan
+          example: "30-Day Meditation Challenge"
+        description:
+          type: string
+          description: Detailed description of the plan
+          example: "A comprehensive meditation program for beginners"
+        difficulty_level:
+          $ref: '#/components/schemas/DifficultyLevel'
+        total_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          description: Total number of days in the plan
+          example: 30
+        language:
+          type: string
+          minLength: 2
+          maxLength: 5
+          description: Language code (e.g., EN, BO, ZH)
+          example: "EN"
+        image_url:
+          type: string
+          nullable: true
+          description: S3 key path for the plan's cover image
+          example: "images/plan_images/meditation-challenge.jpg"
+        tags:
+          type: array
+          nullable: true
+          description: List of tags for categorization
+          items:
+            type: string
+          example: ["meditation", "beginner", "challenge"]
+        start_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            The scheduled start date for the plan in ISO 8601 format.
+            - If provided: All subscribers start on this date
+            - If null/omitted: Plan uses rolling start (begins when user subscribes)
+          example: "2025-01-01T00:00:00Z"
+
+    UpdatePlanRequest:
+      type: object
+      description: Request body for updating an existing plan. All fields are optional.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          nullable: true
+          description: Updated title of the plan
+          example: "Updated Meditation Challenge"
+        description:
+          type: string
+          nullable: true
+          description: Updated description of the plan
+          example: "An updated comprehensive meditation program"
+        difficulty_level:
+          allOf:
+            - $ref: '#/components/schemas/DifficultyLevel'
+          nullable: true
+        total_days:
+          type: integer
+          minimum: 1
+          maximum: 365
+          nullable: true
+          description: Updated total number of days (note - changing this may affect existing content)
+          example: 30
+        language:
+          type: string
+          minLength: 2
+          maxLength: 5
+          nullable: true
+          description: Updated language code
+          example: "EN"
+        image_url:
+          type: string
+          nullable: true
+          description: Updated S3 key path for the plan's cover image
+          example: "images/plan_images/updated-meditation.jpg"
+        tags:
+          type: array
+          nullable: true
+          description: Updated list of tags
+          items:
+            type: string
+          example: ["meditation", "intermediate", "updated"]
+        start_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            Updated start date for the plan.
+            - Set to a date: Plan starts on specified date
+            - Set to null: Converts to rolling start plan
+            - Note: Cannot be changed for published plans with active subscribers
+          example: "2025-02-01T00:00:00Z"
+
+    PlanResponse:
+      type: object
+      description: Response containing plan details
+      required:
+        - id
+        - title
+        - description
+        - language
+        - total_days
+        - status
+        - subscription_count
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the plan
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        title:
+          type: string
+          description: Title of the plan
+          example: "30-Day Meditation Challenge"
+        description:
+          type: string
+          description: Description of the plan
+          example: "A comprehensive meditation program for beginners"
+        language:
+          type: string
+          description: Language code of the plan
+          example: "EN"
+        difficulty_level:
+          allOf:
+            - $ref: '#/components/schemas/DifficultyLevel'
+          nullable: true
+          description: Difficulty level of the plan
+        image_url:
+          type: string
+          nullable: true
+          description: Presigned S3 URL for the plan's cover image (temporary, for display)
+          example: "https://s3.amazonaws.com/bucket/images/plan_images/meditation-challenge.jpg?X-Amz-..."
+        image_key:
+          type: string
+          nullable: true
+          description: S3 key path for the plan's cover image (permanent, for storage)
+          example: "images/plan_images/meditation-challenge.jpg"
+        total_days:
+          type: integer
+          description: Total number of days in the plan
+          example: 30
+        tags:
+          type: array
+          nullable: true
+          description: List of tags for categorization
+          items:
+            type: string
+          example: ["meditation", "beginner", "challenge"]
+        status:
+          $ref: '#/components/schemas/PlanStatus'
+        featured:
+          type: boolean
+          nullable: true
+          description: Whether the plan is featured
+          example: false
+        subscription_count:
+          type: integer
+          description: Number of users subscribed to this plan
+          example: 0
+        author:
+          allOf:
+            - $ref: '#/components/schemas/AuthorDTO'
+          nullable: true
+          description: Author information (included in list responses)
+        start_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            The scheduled start date for the plan.
+            - If present: Plan starts on this date for all subscribers
+            - If null: Plan uses rolling start (begins when user subscribes)
+          example: "2025-01-01T00:00:00Z"
+
+    DifficultyLevel:
+      type: string
+      enum:
+        - BEGINNER
+        - INTERMEDIATE
+        - ADVANCED
+      description: Difficulty level of the plan
+      example: "BEGINNER"
+
+    PlanStatus:
+      type: string
+      enum:
+        - DRAFT
+        - PUBLISHED
+        - UNPUBLISHED
+      description: Current status of the plan
+      example: "DRAFT"
+
+    AuthorDTO:
+      type: object
+      description: Author information
+      required:
+        - id
+        - firstname
+        - lastname
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the author
+          example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+        firstname:
+          type: string
+          description: Author's first name
+          example: "John"
+        lastname:
+          type: string
+          description: Author's last name
+          example: "Doe"
+        image_url:
+          type: string
+          nullable: true
+          description: Presigned URL for author's avatar
+          example: "https://s3.amazonaws.com/bucket/avatars/author.jpg"
+        image_key:
+          type: string
+          nullable: true
+          description: S3 key path for author's avatar
+          example: "avatars/author.jpg"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: "BAD_REQUEST"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "Invalid input data"
