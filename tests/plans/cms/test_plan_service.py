@@ -2,6 +2,7 @@ import uuid
 import pytest
 from unittest.mock import patch, MagicMock, ANY
 from fastapi import HTTPException
+from datetime import datetime, timezone
 
 import pecha_api.plans.cms.cms_plans_service as plans_service
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus, ContentType
@@ -436,6 +437,7 @@ async def test_update_plan_details_success():
     plan_id = uuid.uuid4()
     author_email = "author@example.com"
     author_id = uuid.uuid4()
+    start_date = datetime(2025, 2, 1, 0, 0, 0, tzinfo=timezone.utc)
     
     mock_plan = MagicMock(spec=Plan)
     mock_plan.id = plan_id
@@ -447,6 +449,7 @@ async def test_update_plan_details_success():
     mock_plan.tags = ["original"]
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
+    mock_plan.start_date = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=i) for i in range(1, 6)]
     
@@ -456,7 +459,8 @@ async def test_update_plan_details_success():
         difficulty_level=DifficultyLevel.INTERMEDIATE,
         image_url="images/plan_images/updated.jpg",
         tags=["updated", "test"],
-        total_days=5
+        total_days=5,
+        start_date=start_date,
     )
     
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
@@ -498,6 +502,7 @@ async def test_update_plan_details_success():
         assert mock_plan.image_url == update_request.image_url
         assert mock_plan.tags == update_request.tags
         assert mock_plan.updated_by == author_email
+        assert mock_plan.start_date == start_date
         
         assert response.id == plan_id
         assert response.title == update_request.title
@@ -506,6 +511,53 @@ async def test_update_plan_details_success():
         assert response.total_days == 5
         assert response.subscription_count == 10
         assert response.image_url == "https://s3.amazonaws.com/presigned-url"
+        assert response.start_date == start_date
+
+
+@pytest.mark.asyncio
+async def test_update_plan_details_cannot_update_start_date_for_published_with_subscribers():
+    plan_id = uuid.uuid4()
+    author_email = "author@example.com"
+    author_id = uuid.uuid4()
+    start_date = datetime(2025, 2, 1, 0, 0, 0, tzinfo=timezone.utc)
+
+    mock_plan = MagicMock(spec=Plan)
+    mock_plan.id = plan_id
+    mock_plan.author_id = author_id
+    mock_plan.title = "Original Title"
+    mock_plan.description = "Original Description"
+    mock_plan.difficulty_level = DifficultyLevel.BEGINNER
+    mock_plan.image_url = "images/plan_images/original.jpg"
+    mock_plan.tags = ["original"]
+    mock_plan.language = MagicMock(value="en")
+    mock_plan.status = PlanStatus.PUBLISHED
+    mock_plan.start_date = None
+
+    update_request = UpdatePlanRequest(start_date=start_date)
+
+    with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan:
+
+        db_session = _mock_session_local(mock_session_local)
+        db_session.query.return_value.filter.return_value.scalar.return_value = 1
+
+        mock_author = MagicMock()
+        mock_author.email = author_email
+        mock_author.id = author_id
+        mock_author.is_admin = False
+        mock_validate_author.return_value = mock_author
+
+        mock_get_plan.return_value = mock_plan
+
+        with pytest.raises(HTTPException) as exc:
+            await update_plan_details(
+                token="test-token",
+                plan_id=plan_id,
+                update_plan_request=update_request,
+            )
+
+        assert exc.value.status_code == 400
 
 
 @pytest.mark.asyncio
@@ -524,6 +576,7 @@ async def test_update_plan_details_partial_update():
     mock_plan.tags = ["original"]
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
+    mock_plan.start_date = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=i) for i in range(1, 6)]
     
@@ -610,6 +663,7 @@ async def test_update_plan_details_with_image_url_generation():
     mock_plan.tags = []
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
+    mock_plan.start_date = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=1)]
     
@@ -666,6 +720,7 @@ async def test_update_plan_details_image_url_generation_failure():
     mock_plan.tags = []
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
+    mock_plan.start_date = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=1)]
     
@@ -719,6 +774,7 @@ async def test_update_plan_details_no_image_url():
     mock_plan.tags = []
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
+    mock_plan.start_date = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=1)]
     

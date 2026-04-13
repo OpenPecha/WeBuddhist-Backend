@@ -24,7 +24,7 @@ from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from uuid import uuid4, UUID
 from fastapi import HTTPException
 from pecha_api.plans.auth.plan_auth_models import ResponseError
-from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, FORBIDDEN, UNAUTHORIZED_PLAN_DELETE, PLAN_AUTHOR_MISMATCH, PLAN_MUST_HAVE_AT_LEAST_ONE_DAY_WITH_CONTENT_TO_BE_PUBLISHED
+from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, FORBIDDEN, UNAUTHORIZED_PLAN_DELETE, PLAN_AUTHOR_MISMATCH, PLAN_MUST_HAVE_AT_LEAST_ONE_DAY_WITH_CONTENT_TO_BE_PUBLISHED, PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS
 from datetime import datetime, timezone
 from sqlalchemy import func
 
@@ -252,6 +252,22 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
     author_details = validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
         plan = _check_author_plan_availability(plan_id=plan_id, author_id=author_details.id, is_admin=author_details.is_admin)
+
+        if "start_date" in update_plan_request.model_fields_set:
+            subscription_count = db.query(func.count(func.distinct(UserPlanProgress.user_id))).filter(
+                UserPlanProgress.plan_id == plan_id
+            ).scalar() or 0
+
+            if plan.status == PlanStatus.PUBLISHED and subscription_count > 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=ResponseError(
+                        error=BAD_REQUEST,
+                        message=PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS,
+                    ).model_dump(),
+                )
+
+            plan.start_date = update_plan_request.start_date
         
         if update_plan_request.title is not None:
             plan.title = update_plan_request.title
@@ -272,11 +288,11 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
         plan = update_plan(db, plan)
         
         image_url = None
-        plan_image_url = plan.image_url
-        if plan_image_url:
+        plan_image_key = plan.image_url
+        if plan_image_key:
             try:
                 bucket_name = get("AWS_BUCKET_NAME")
-                image_url = generate_presigned_access_url(bucket_name, plan_image_url)
+                image_url = generate_presigned_access_url(bucket_name, plan_image_key)
             except Exception:
                 image_url = plan.image_url
         
@@ -294,11 +310,12 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
             language=plan.language.value if hasattr(plan.language, 'value') else str(plan.language),
             difficulty_level=plan.difficulty_level,
             image_url=image_url,
-            plan_image_url=plan_image_url,
+            image_key=plan_image_key,
             total_days=total_days,
             tags=plan.tags or [],
             status=plan.status,
-            subscription_count=subscription_count
+            subscription_count=subscription_count,
+            start_date=plan.start_date,
         )
 
 async def update_selected_plan_status(token:str,plan_id: UUID, plan_status_update: PlanStatusUpdate) -> PlanDTO:
