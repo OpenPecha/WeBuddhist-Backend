@@ -1,4 +1,3 @@
-
 from sqlalchemy import Column, DateTime, Boolean, Integer, Index, UniqueConstraint, UUID, ForeignKey
 from uuid import uuid4
 from _datetime import datetime
@@ -16,7 +15,11 @@ class UserPlanProgress(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     plan_id = Column(UUID(as_uuid=True), ForeignKey('plans.id', ondelete='CASCADE'), nullable=False)
 
-    started_at = Column(DateTime(timezone=True), nullable=False, default=datetime.now(_datetime.timezone.utc))
+    started_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(_datetime.timezone.utc),
+    )
 
     streak_count = Column(Integer, default=0)
     longest_streak = Column(Integer, default=0)
@@ -25,8 +28,15 @@ class UserPlanProgress(Base):
     is_completed = Column(Boolean, default=False)
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc),nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(_datetime.timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(_datetime.timezone.utc),
+    )
 
     user = relationship("Users", backref="plan_progress")
 
@@ -44,8 +54,16 @@ class UserTaskCompletion(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     task_id = Column(UUID(as_uuid=True), ForeignKey('tasks.id', ondelete='CASCADE'), nullable=False)
 
-    completed_at = Column(DateTime(timezone=True), nullable=False, default=datetime.now(_datetime.timezone.utc))
-    created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc),nullable=False)
+    completed_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(_datetime.timezone.utc),
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(_datetime.timezone.utc),
+        nullable=False,
+    )
 
     user = relationship("Users", backref="completed_tasks")
     task = relationship("PlanTask", back_populates="user_task_completions")
@@ -63,8 +81,16 @@ class UserDayCompletion(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     day_id = Column(UUID(as_uuid=True), ForeignKey('items.id', ondelete='CASCADE'), nullable=False)
-    completed_at = Column(DateTime(timezone=True), nullable=False, default=datetime.now(_datetime.timezone.utc))
-    created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc),nullable=False)
+    completed_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(_datetime.timezone.utc),
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(_datetime.timezone.utc),
+        nullable=False,
+    )
 
     user = relationship("Users", backref="day_completions")
     item = relationship("PlanItem", backref="user_day_completions")
@@ -81,8 +107,16 @@ class UserSubTaskCompletion(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
     sub_task_id = Column(UUID(as_uuid=True), ForeignKey('sub_tasks.id', ondelete='CASCADE'), nullable=False)
-    completed_at = Column(DateTime(timezone=True), nullable=False, default=datetime.now(_datetime.timezone.utc))
-    created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc),nullable=False)
+    completed_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(_datetime.timezone.utc),
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(_datetime.timezone.utc),
+        nullable=False,
+    )
 
     user = relationship("Users", backref="sub_task_completions")
     sub_task = relationship("PlanSubTask", backref="user_sub_task_completions")
