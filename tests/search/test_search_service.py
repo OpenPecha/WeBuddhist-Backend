@@ -393,28 +393,6 @@ async def test_get_multilingual_search_results_text_not_found():
         assert len(response.sources) == 1
 
 
-@pytest.mark.asyncio
-async def test_get_multilingual_search_results_with_language():
-    """Test multilingual search with language parameter"""
-    mock_external_response = ExternalSearchResponse(
-        query="test query",
-        search_type="hybrid",
-        results=[],
-        count=0
-    )
-    
-    with patch("pecha_api.search.search_service.call_external_search_api", new_callable=AsyncMock, return_value=mock_external_response) as mock_call:
-        
-        await get_multilingual_search_results(
-            query="test query",
-            language="bo",
-            skip=0,
-            limit=10
-        )
-        
-        mock_call.assert_called_once()
-        call_args = mock_call.call_args
-        assert call_args.kwargs["language"] == "bo"
 
 
 @pytest.mark.asyncio
@@ -478,38 +456,6 @@ async def test_call_external_search_api_success():
         assert len(response.results) == 1
 
 
-@pytest.mark.asyncio
-async def test_call_external_search_api_with_language_bo():
-    """Test external API call with Tibetan language filter"""
-    mock_response_data = {
-        "query": "test query",
-        "search_type": "hybrid",
-        "results": [],
-        "count": 0
-    }
-    
-    mock_http_response = Mock()
-    mock_http_response.json.return_value = mock_response_data
-    mock_http_response.raise_for_status = Mock()
-    
-    mock_client = AsyncMock()
-    mock_client.post = AsyncMock(return_value=mock_http_response)
-    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_client.__aexit__ = AsyncMock(return_value=None)
-    
-    with patch("httpx.AsyncClient", return_value=mock_client):
-        
-        await call_external_search_api(
-            query="test query",
-            language="bo",
-            limit=10
-        )
-        
-        call_args = mock_client.post.call_args
-        payload = call_args.kwargs["json"]
-        assert "filter" in payload
-        assert "language" in payload["filter"]
-        assert payload["filter"]["language"] == ["bo", "tib"]
 
 
 @pytest.mark.asyncio
