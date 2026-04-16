@@ -182,17 +182,8 @@ def _sheet_search(query: str, skip: int, limit: int) -> SearchResponse:
 
 
 
-def build_language_filter(language: str) -> List[str]:
-    if language == "bo":
-        return ["bo", "tib"]
-    return [language]
-
-
-def build_search_filter(title: Optional[str] = None, language: Optional[str] = None) -> Dict[str, List[str]]:
+def build_search_filter(title: Optional[str] = None) -> Dict[str, List[str]]:
     filter_obj = {}
-    
-    if language:
-        filter_obj["language"] = build_language_filter(language)
     
     if title:
         filter_obj["title"] = [title]
@@ -204,19 +195,17 @@ def build_search_payload(
     query: str,
     search_type: str,
     limit: int,
-    title: Optional[str] = None,
-    language: Optional[str] = None
+    title: Optional[str] = None
 ) -> Dict:
     payload = {
         "query": query,
         "search_type": search_type,
         "limit": limit,
         "return_text": False,
-        "hierarchical": True,
     }
     
-    if language or title:
-        payload["filter"] = build_search_filter(title, language)
+    if title:
+        payload["filter"] = build_search_filter(title)
     
     return payload
 
@@ -353,8 +342,7 @@ async def get_multilingual_search_results(
     search_type: str = "hybrid",
     text_id: Optional[str] = None,
     skip: int = 0,
-    limit: int = 10,
-    language: Optional[str] = None
+    limit: int = 10
 ) -> MultilingualSearchResponse:
     try:
         title = await get_text_title_by_id(text_id)
@@ -365,8 +353,7 @@ async def get_multilingual_search_results(
             query=query,
             search_type=search_type,
             limit=external_limit,
-            title=title,
-            language=language
+            title=title
         )
         
         segmentation_ids, results_map = build_results_map(external_results)
@@ -402,14 +389,13 @@ async def call_external_search_api(
     query: str,
     search_type: str = "hybrid",
     limit: int = 10,
-    title: Optional[str] = None,
-    language: Optional[str] = None
+    title: Optional[str] = None
 ) -> ExternalSearchResponse:
 
     external_api_url = "https://search.buddhistai.tools"
     endpoint = f"{external_api_url}/search"
     
-    payload = build_search_payload(query, search_type, limit, title, language)
+    payload = build_search_payload(query, search_type, limit, title)
     print(payload)
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
