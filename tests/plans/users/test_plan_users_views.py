@@ -484,7 +484,7 @@ def test_get_user_plan_progress_details_success(authenticated_client):
         "completed_at": None,
     }
 
-    with patch("pecha_api.plans.users.plan_users_views.get_user_plan_progress", new_callable=AsyncMock, return_value=payload) as mock_get:
+    with patch("pecha_api.plans.users.plan_users_views.get_user_plan_progress", return_value=payload) as mock_get:
         response = authenticated_client.get(
             f"/users/me/plans/{plan_id}", headers={"Authorization": f"Bearer {VALID_TOKEN}"}
         )
