@@ -190,6 +190,9 @@ async def test_create_routine_success():
     mock_session_model = MagicMock()
 
     with patch(
+        "pecha_api.routines.routines_service.generate_presigned_access_url",
+        side_effect=lambda bucket_name, s3_key: s3_key,
+    ), patch(
         "pecha_api.routines.routines_service.validate_and_extract_user_details",
         return_value=SimpleNamespace(id=user_id),
     ), patch(
@@ -298,6 +301,9 @@ def test_resolve_plan_sessions_success():
     )
 
     with patch(
+        "pecha_api.routines.routines_service.generate_presigned_access_url",
+        side_effect=lambda bucket_name, s3_key: s3_key,
+    ), patch(
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
     ):
