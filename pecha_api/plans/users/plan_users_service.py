@@ -21,7 +21,8 @@ from pecha_api.plans.users.plan_users_response_models import (
     UserTaskDTO, 
     UserSubTaskDTO,
     UserPlansResponse,
-    UserPlanDTO
+    UserPlanDTO,
+    UserPlanProgressResponse
 )
 
 
@@ -163,51 +164,69 @@ def unenroll_user_from_plan(token: str, plan_id: UUID) -> None:
         delete_user_plan_progress(db=db, user_id=current_user.id, plan_id=plan_id)
 
 
-async def get_user_plan_progress(token: str, plan_id: UUID) -> UserPlanProgress:
+def get_user_plan_progress(token: str, plan_id: UUID) -> UserPlanProgressResponse:
     """Get user's progress for a specific plan"""
     current_user = validate_and_extract_user_details(token=token)
-    # Find user's progress record
-    progress_record = next(
-        (p for p in MOCK_USER_PROGRESS 
-         if p["user_id"] == str(current_user.id) and p["plan_id"] == str(plan_id)),
-        None
-    )
     
-    if not progress_record:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not enrolled in this plan"
+    with SessionLocal() as db:
+        # Get user's progress record from database
+        progress_record = get_plan_progress_by_user_id_and_plan_id(
+            db=db, user_id=current_user.id, plan_id=plan_id
         )
-    
-    # Load plan details
-    plan_listing = load_plans_from_json()
-    plan_model = next(
-        (p for p in plan_listing.plans if p.id == str(plan_id)),
-        None
-    )
-    
-    if not plan_model:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorConstants.PLAN_NOT_FOUND
+        
+        if not progress_record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error="NOT_FOUND",
+                    message="User not enrolled in this plan"
+                ).model_dump()
+            )
+        
+        # Get plan details from database
+        plan = get_plan_by_id(db=db, plan_id=plan_id)
+        
+        if not plan:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error="NOT_FOUND",
+                    message=ErrorConstants.PLAN_NOT_FOUND
+                ).model_dump()
+            )
+        
+        # Generate presigned URL for plan image if exists
+        plan_image_url = None
+        if plan.image_url:
+            try:
+                plan_image_url = generate_presigned_access_url(plan.image_url)
+            except Exception:
+                plan_image_url = None
+        
+        # Build plan details dict
+        plan_details = {
+            "id": str(plan.id),
+            "title": plan.title,
+            "description": plan.description,
+            "language": plan.language.value if plan.language else None,
+            "difficulty_level": plan.difficulty_level.value if plan.difficulty_level else None,
+            "image_url": plan_image_url,
+            "tags": plan.tags or []
+        }
+        
+        return UserPlanProgressResponse(
+            id=progress_record.id,
+            user_id=progress_record.user_id,
+            plan_id=progress_record.plan_id,
+            plan=plan_details,
+            started_at=progress_record.started_at,
+            streak_count=progress_record.streak_count or 0,
+            longest_streak=progress_record.longest_streak or 0,
+            status=progress_record.status.value if hasattr(progress_record.status, 'value') else str(progress_record.status),
+            is_completed=progress_record.is_completed or False,
+            completed_at=progress_record.completed_at,
+            created_at=progress_record.created_at
         )
-    
-    # Convert to response model
-    plan_dto = convert_plan_model_to_dto(plan_model)
-    
-    return UserPlanProgress(
-        id=UUID(progress_record["id"]),
-        user_id=UUID(progress_record["user_id"]),
-        plan_id=UUID(progress_record["plan_id"]),
-        plan=plan_dto.model_dump(),
-        started_at=datetime.fromisoformat(progress_record["started_at"].replace("Z", "+00:00")),
-        streak_count=progress_record["streak_count"],
-        longest_streak=progress_record["longest_streak"],
-        status=progress_record["status"],
-        is_completed=progress_record["is_completed"],
-        completed_at=datetime.fromisoformat(progress_record["completed_at"].replace("Z", "+00:00")) if progress_record["completed_at"] else None,
-        created_at=datetime.fromisoformat(progress_record["created_at"].replace("Z", "+00:00"))
-    )
 
 def complete_sub_task_service(token: str, id: UUID) -> None:
 
