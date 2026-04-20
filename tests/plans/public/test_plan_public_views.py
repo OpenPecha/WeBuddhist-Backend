@@ -41,7 +41,8 @@ def sample_plan_dto(sample_author_dto):
         image=None,
         total_days=30,
         tags=["meditation", "mindfulness", "beginner"],
-        author=sample_author_dto
+        author=sample_author_dto,
+        start_date=None
     )
 
 
