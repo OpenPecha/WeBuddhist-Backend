@@ -1,0 +1,3636 @@
+openapi: 3.1.0
+info:
+    title: OpenPecha API v2
+    version: "2.1.0"
+
+security:
+    - ApiKeyAuth: []
+
+servers:
+    - url: http://127.0.0.1:5001/pecha-backend-test-3a4d0/us-central1/api
+      description: Local Development
+    - url: https://api-kwgjscy6gq-uc.a.run.app
+      description: Test
+    - url: https://api-l25bgmwqoa-uc.a.run.app
+      description: Development
+    - url: https://api-aq25662yyq-uc.a.run.app
+      description: Production
+
+paths:
+    /v2/editions/{edition_id}/metadata:
+        get:
+            summary: Retrieve edition metadata
+            description: Fetch metadata for a given edition ID
+            tags:
+                - Editions
+            parameters:
+                - name: edition_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the edition to retrieve metadata for
+            responses:
+                "200":
+                    description: Edition metadata retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ManifestationOutput"
+                            examples:
+                                success:
+                                    summary: Edition metadata
+                                    value:
+                                        id: "I12345678"
+                                        text_id: "E12345678"
+                                        type: "critical"
+                                        source: "source-name"
+                                        bdrc: null
+                                        wiki: "Q123456"
+                                        colophon: "colophon text"
+                                        incipit_title:
+                                            en: "English incipit title"
+                                            bo: "Tibetan incipit title"
+                                        alt_incipit_titles:
+                                            - en: "Alt title 1"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/editions/{edition_id}:
+        delete:
+            summary: Delete an edition
+            description: >-
+                Delete an edition (manifestation) and all its associated data including
+                annotations (segmentation, pagination, bibliography, durchen notes, alignments)
+                and stored content.
+            tags:
+                - Editions
+            parameters:
+                - name: edition_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the edition to delete
+            responses:
+                "204":
+                    description: Edition deleted successfully
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/editions/{edition_id}/segments/related:
+        get:
+            summary: Find related segments by span
+            description: >-
+                Find segments that overlap with a given character span in the edition,
+                then return all related (aligned) segments from other manifestations.
+            tags:
+                - Editions
+            parameters:
+                - name: edition_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the edition (manifestation) to search within
+                - name: span_start
+                  in: query
+                  required: true
+                  schema:
+                      type: integer
+                      minimum: 0
+                  description: Start character position (inclusive)
+                - name: span_end
+                  in: query
+                  required: true
+                  schema:
+                      type: integer
+                      minimum: 1
+                  description: End character position (exclusive)
+            responses:
+                "200":
+                    description: Related segments retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: "#/components/schemas/SegmentOutput"
+                            examples:
+                                success:
+                                    summary: List of related segments
+                                    value:
+                                        - id: "SEG001"
+                                          manifestation_id: "M12345678"
+                                          text_id: "E12345678"
+                                          lines:
+                                              - start: 0
+                                                end: 100
+                                        - id: "SEG002"
+                                          manifestation_id: "M87654321"
+                                          text_id: "E87654321"
+                                          lines:
+                                              - start: 50
+                                                end: 150
+                                empty:
+                                    summary: No related segments found
+                                    value: []
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/editions/{edition_id}/related:
+        get:
+            summary: Find related editions
+            description: >-
+                Find all manifestations that are related to the given edition through alignment relationships.
+            tags:
+                - Editions
+            parameters:
+                - name: edition_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the edition to find related editions for
+            responses:
+                "200":
+                    description: Related editions retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: "#/components/schemas/ManifestationOutput"
+                            examples:
+                                success:
+                                    summary: List of related manifestations
+                                    value:
+                                        - id: "I87654321"
+                                          text_id: "E12345678"
+                                          type: "critical"
+                                          source: "source-name"
+                                          bdrc: null
+                                          wiki: null
+                                          colophon: "colophon text"
+                                          incipit_title:
+                                              en: "English incipit"
+                                          alt_incipit_titles: null
+                                        - id: "I87654322"
+                                          text_id: "E12345679"
+                                          type: "diplomatic"
+                                          source: "another-source"
+                                          bdrc: "W123456"
+                                          wiki: null
+                                          colophon: null
+                                          incipit_title: null
+                                          alt_incipit_titles: null
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/editions/{edition_id}/content:
+        get:
+            summary: Retrieve edition content
+            description: Fetch base text content for a given edition ID. Optionally specify a span to retrieve a portion of the content.
+            tags:
+                - Editions
+            parameters:
+                - name: edition_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the edition to retrieve content for
+                - name: span_start
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 0
+                  description: Start character position (inclusive). Must be provided together with span_end.
+                - name: span_end
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 1
+                  description: End character position (exclusive). Must be provided together with span_start.
+            responses:
+                "200":
+                    description: Edition content retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: string
+                                description: The base text content (or portion if span specified)
+                            examples:
+                                full_content:
+                                    summary: Full content
+                                    value: "This is the complete base text content of the edition."
+                                span_content:
+                                    summary: Content span
+                                    value: "portion of the text"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+        patch:
+            summary: Modify edition content
+            description: >-
+                Apply a text operation (INSERT, DELETE, or REPLACE) to the edition's content.
+                This operation updates the base text in storage and adjusts all affected spans
+                on the same manifestation. Segmentation segments and annotations are adjusted
+                differently based on the operation type and overlap.
+            tags:
+                - Editions
+            parameters:
+                - name: edition_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the edition to modify
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/TextOperation"
+                        examples:
+                            insert:
+                                summary: Insert text
+                                value:
+                                    type: "insert"
+                                    position: 15
+                                    text: "new text"
+                            delete:
+                                summary: Delete text
+                                value:
+                                    type: "delete"
+                                    start: 10
+                                    end: 20
+                            replace:
+                                summary: Replace text
+                                value:
+                                    type: "replace"
+                                    start: 10
+                                    end: 20
+                                    text: "replacement text"
+            responses:
+                "200":
+                    description: Operation applied successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                            examples:
+                                success:
+                                    value:
+                                        message: "Operation applied successfully"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/texts:
+        get:
+            summary: Retrieve all texts
+            description: Fetch all texts with optional filtering and pagination
+            tags:
+                - Texts
+            parameters:
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 20
+                  description: Number of results per page
+                - name: offset
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 0
+                      default: 0
+                  description: Number of results to skip
+                - name: language
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                  description: Filter by language code
+                - name: title
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                  description: Filter by title (case-insensitive substring match, searches both primary title and alternative titles)
+                - name: category_id
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                  description: Filter by category ID
+                - name: author_id
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                  description: Filter by author ID (Person ID)
+                - name: tag_id
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                  description: Filter by tag ID
+                - name: bdrc
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                  description: Filter by BDRC identifier
+                - name: wiki
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                  description: Filter by Wikidata identifier
+            responses:
+                "200":
+                    description: Texts retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/TextsListResponse"
+                            examples:
+                                success:
+                                    summary: List of texts
+                                    value:
+                                        texts:
+                                            - id: "ABC12345678"
+                                              title:
+                                                  en: "Sample Expression"
+                                                  bo: "དཔེ་མཚོན་ཚིག་སྒྲུབ།"
+                                              language: "bo"
+                                              category_id: "CAT12345678"
+                                              contributions:
+                                                  - person_id: "P12345678"
+                                                    role: "author"
+                                              license: "public"
+                                              commentaries: []
+                                              translations: ["DEF87654321"]
+                                              editions: ["M12345678"]
+                                              audio_url: "https://d1234abcd.cloudfront.net/audio/ABC12345678.mp3"
+                                            - id: "DEF87654321"
+                                              title:
+                                                  en: "AI Generated Translation"
+                                              language: "en"
+                                              category_id: "CAT12345678"
+                                              translation_of: "ABC12345678"
+                                              contributions:
+                                                  - ai_id: "gpt-4"
+                                                    role: "translator"
+                                              license: "cc0"
+                                              commentaries: []
+                                              translations: []
+                                              editions: []
+                                        total: 2
+                                        limit: 20
+                                        offset: 0
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+        post:
+            summary: Create text
+            description: Create a new text record
+            tags:
+                - Texts
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/ExpressionInput"
+                        examples:
+                            root_text:
+                                summary: Root text creation
+                                value:
+                                    title:
+                                        en: "Sample Root Text"
+                                        bo: "རྩ་བའི་གཞུང་དཔེ།"
+                                    language: "bo"
+                                    category_id: "CAT12345678"
+                                    contributions:
+                                        - person_id: "P12345678"
+                                          role: "author"
+                                    bdrc: "W123456"
+                            translation_text:
+                                summary: Translation text creation
+                                value:
+                                    title:
+                                        en: "English Translation"
+                                    language: "en"
+                                    category_id: "CAT12345678"
+                                    translation_of: "ABC12345678"
+                                    contributions:
+                                        - person_bdrc_id: "P87654321"
+                                          role: "translator"
+                            commentary_text:
+                                summary: Commentary text creation
+                                value:
+                                    title:
+                                        bo: "འགྲེལ་པ།"
+                                    language: "bo"
+                                    category_id: "CAT12345678"
+                                    commentary_of: "ABC12345678"
+                                    contributions:
+                                        - person_id: "P12345678"
+                                          role: "author"
+                            ai_translation_text:
+                                summary: AI translation text creation
+                                value:
+                                    title:
+                                        en: "AI English Translation"
+                                    language: "en"
+                                    category_id: "CAT12345678"
+                                    translation_of: "ABC12345678"
+                                    contributions:
+                                        - ai_id: "gpt-4"
+                                          role: "translator"
+            responses:
+                "201":
+                    description: Text created successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                required:
+                                    - id
+                                properties:
+                                    id:
+                                        type: string
+                                        description: The ID of the newly created expression
+                            examples:
+                                created:
+                                    summary: Text created
+                                    value:
+                                        id: "T12345678"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/texts/{text_id}:
+        get:
+            summary: Retrieve text by ID
+            description: Fetch a specific text by its text ID.
+            tags:
+                - Texts
+            parameters:
+                - name: text_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the text to retrieve
+            responses:
+                "200":
+                    description: Text retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ExpressionOutput"
+                            examples:
+                                root_text:
+                                    summary: Root text
+                                    value:
+                                        id: "T12345678"
+                                        title:
+                                            en: "Sample Expression"
+                                            bo: "དཔེ་མཚོན་ཚིག་སྒྲུབ།"
+                                        language: "bo"
+                                        category_id: "CAT12345678"
+                                        contributions:
+                                            - person_id: "P12345678"
+                                              role: "author"
+                                        bdrc: "W123456"
+                                        license: "public"
+                                        commentaries: ["C12345678"]
+                                        translations: ["TR12345678"]
+                                        editions: ["M12345678"]
+                                        audio_url: "https://d1234abcd.cloudfront.net/audio/T12345678.mp3"
+                                translation_text:
+                                    summary: Translation text
+                                    value:
+                                        id: "TR12345678"
+                                        title:
+                                            en: "English Translation"
+                                        language: "en"
+                                        category_id: "CAT12345678"
+                                        translation_of: "T12345678"
+                                        contributions:
+                                            - person_id: "P87654321"
+                                              role: "translator"
+                                        license: "cc0"
+                                        commentaries: []
+                                        translations: []
+                                        editions: []
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+        patch:
+            summary: Update a text
+            description: Partially update a text record. Only provided fields will be updated; omitted fields retain their current values.
+            tags:
+                - Texts
+            parameters:
+                - name: text_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the text to update
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/ExpressionPatch"
+                        examples:
+                            update_bdrc:
+                                summary: Update BDRC ID only
+                                value:
+                                    bdrc: "W654321"
+                            update_title:
+                                summary: Update title only
+                                value:
+                                    title:
+                                        en: "Updated Title"
+                                        bo: "གསར་བསྒྱུར་མཚན་བྱང་།"
+                            update_multiple:
+                                summary: Update multiple fields
+                                value:
+                                    title:
+                                        en: "New Title"
+                                    bdrc: "W999999"
+                                    wiki: "Q999999"
+                                    license: "cc0"
+                                    alt_titles:
+                                        - en: "Alternative Title"
+                                          bo: "མཚན་བྱང་གཞན།"
+            responses:
+                "200":
+                    description: Text updated successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/ExpressionOutput"
+                            examples:
+                                success:
+                                    summary: Updated text
+                                    value:
+                                        id: "T12345678"
+                                        title:
+                                            en: "Updated Title"
+                                            bo: "གསར་བསྒྱུར་མཚན་བྱང་།"
+                                        language: "bo"
+                                        category_id: "CAT12345678"
+                                        contributions:
+                                            - person_id: "P12345678"
+                                              role: "author"
+                                        bdrc: "W654321"
+                                        wiki: "Q123456"
+                                        license: "cc0"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/texts/{text_id}/editions:
+        get:
+            summary: Get editions for text
+            description: Retrieve all editions associated with a text. Optionally filter by edition type (manifestation type).
+            tags:
+                - Texts
+            parameters:
+                - name: text_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the text
+                - name: edition_type
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                      enum: [diplomatic, critical, all]
+                      default: all
+                  description: Filter instances by type. Use 'diplomatic' for diplomatic editions, 'critical' for critical editions, or 'all' to retrieve all types (default).
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 20
+                  description: Number of results per page
+                - name: offset
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 0
+                      default: 0
+                  description: Number of results to skip
+            responses:
+                "200":
+                    description: Editions retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/EditionsListResponse"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+        post:
+            summary: Create a new edition for text
+            description: Create a new edition with metadata for a specific text
+            tags:
+                - Texts
+            parameters:
+                - name: text_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the text to create an edition for
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - metadata
+                                - content
+                            properties:
+                                metadata:
+                                    type: object
+                                    required:
+                                        - type
+                                    properties:
+                                        type:
+                                            type: string
+                                            enum: [diplomatic, critical]
+                                            description: Type of manifestation
+                                        source:
+                                            type: string
+                                            nullable: true
+                                            description: Source identifier for the manifestation
+                                        bdrc:
+                                            type: string
+                                            description: BDRC identifier (required for diplomatic type)
+                                        wiki:
+                                            type: string
+                                            description: Wiki identifier
+                                        colophon:
+                                            type: string
+                                            description: Colophon text
+                                        incipit_title:
+                                            type: object
+                                            additionalProperties:
+                                                type: string
+                                            description: Localized incipit title
+                                        alt_incipit_titles:
+                                            type: array
+                                            items:
+                                                type: object
+                                                additionalProperties:
+                                                    type: string
+                                            description: Alternative localized incipit titles
+                                annotation:
+                                    type: array
+                                    items:
+                                        oneOf:
+                                            - type: object
+                                              required: [span]
+                                              properties:
+                                                  span:
+                                                      type: object
+                                                      required: [start, end]
+                                                      properties:
+                                                          start:
+                                                              type: integer
+                                                              minimum: 0
+                                                              description: Start character position (inclusive)
+                                                          end:
+                                                              type: integer
+                                                              minimum: 1
+                                                              description: End character position (exclusive)
+                                              description: Segmentation annotation (for CRITICAL manifestations)
+                                            - type: object
+                                              required: [span, reference]
+                                              properties:
+                                                  span:
+                                                      type: object
+                                                      required: [start, end]
+                                                      properties:
+                                                          start:
+                                                              type: integer
+                                                              minimum: 0
+                                                              description: Start character position (inclusive)
+                                                          end:
+                                                              type: integer
+                                                              minimum: 1
+                                                              description: End character position (exclusive)
+                                                  reference:
+                                                      type: string
+                                                      description: Page/folio reference for the span
+                                              description: Pagination annotation (for DIPLOMATIC manifestations)
+                                            - type: object
+                                              required: [span, type]
+                                              properties:
+                                                  span:
+                                                      type: object
+                                                      required: [start, end]
+                                                      properties:
+                                                          start:
+                                                              type: integer
+                                                              minimum: 0
+                                                              description: Start character position (inclusive)
+                                                          end:
+                                                              type: integer
+                                                              minimum: 1
+                                                              description: End character position (exclusive)
+                                                  type:
+                                                      type: string
+                                                      enum:
+                                                          [
+                                                              colophon,
+                                                              title,
+                                                              incipit_title,
+                                                              author,
+                                                          ]
+                                                      description: Type of bibliography annotation
+                                              description: Bibliography annotation
+                                    description: Segmentation or pagination or bibliography annotation segments
+                                bibliography_annotation:
+                                    type: array
+                                    items:
+                                        type: object
+                                        required: [span, type]
+                                        properties:
+                                            span:
+                                                type: object
+                                                required: [start, end]
+                                                properties:
+                                                    start:
+                                                        type: integer
+                                                        minimum: 0
+                                                        description: Start character position (inclusive)
+                                                    end:
+                                                        type: integer
+                                                        minimum: 1
+                                                        description: End character position (exclusive)
+                                            type:
+                                                type: string
+                                                enum:
+                                                    [
+                                                        colophon,
+                                                        title,
+                                                        incipit_title,
+                                                        author,
+                                                    ]
+                                                description: Type of bibliography annotation
+                                    description: Bibliography annotation segments with bibliography type
+                                content:
+                                    type: string
+                                    description: The text content
+                        examples:
+                            valid_diplomatic_instance_with_annotation:
+                                summary: Valid diplomatic instance creation with annotation
+                                value:
+                                    metadata:
+                                        type: "diplomatic"
+                                        source: "source-name"
+                                        bdrc: "W123456"
+                                        colophon: "Sample colophon text"
+                                        incipit_title:
+                                            en: "Opening words"
+                                            bo: "དབུ་ཚིག"
+                                    annotation:
+                                        - span:
+                                              start: 0
+                                              end: 10
+                                          reference: "https://example.com/image1.png"
+                                        - span:
+                                              start: 11
+                                              end: 20
+                                          reference: "https://example.com/image2.png"
+                                    content: "This is the text content to be stored"
+                            valid_critical_instance_with_annotation:
+                                summary: Valid critical instance creation with annotation
+                                value:
+                                    metadata:
+                                        type: "critical"
+                                        source: "source-name"
+                                        colophon: "Sample colophon text"
+                                        incipit_title:
+                                            en: "Opening words"
+                                            bo: "དབུ་ཚིག"
+                                    annotation:
+                                        - span:
+                                              start: 0
+                                              end: 10
+                                        - span:
+                                              start: 10
+                                              end: 20
+                                    content: "This is the text content to be stored"
+                            valid_critical_instance_without_annotation:
+                                summary: Valid critical instance creation without annotation
+                                value:
+                                    metadata:
+                                        type: "critical"
+                                        source: "source-name"
+                                        colophon: "Sample colophon text"
+                                        incipit_title:
+                                            en: "Opening words"
+                                            bo: "དབུ་ཚིག"
+                                    content: "This is the text content to be stored"
+                            valid_diplomatic_instance_without_annotation:
+                                summary: Valid diplomatic instance creation without annotation
+                                value:
+                                    metadata:
+                                        type: "diplomatic"
+                                        source: "source-name"
+                                        bdrc: "W123456"
+                                        colophon: "Sample colophon text"
+                                        incipit_title:
+                                            en: "Opening words"
+                                            bo: "དབུ་ཚིག"
+                                    content: "This is the text content to be stored"
+                            valid_diplomatic_instance_with_bibliography_annotation:
+                                summary: Valid diplomatic instance creation with bibliography annotation
+                                value:
+                                    metadata:
+                                        type: "diplomatic"
+                                        source: "source-name"
+                                        bdrc: "W123456"
+                                        colophon: "Sample colophon text"
+                                        incipit_title:
+                                            en: "Opening words"
+                                            bo: "དབུ་ཚིག"
+                                    annotation:
+                                        - span:
+                                              start: 0
+                                              end: 10
+                                          reference: "ref-001"
+                                        - span:
+                                              start: 10
+                                              end: 20
+                                          reference: "ref-002"
+                                    bibliography_annotation:
+                                        - span:
+                                              start: 5
+                                              end: 15
+                                          type: "colophon"
+                                        - span:
+                                              start: 20
+                                              end: 30
+                                          type: "title"
+                                    content: "This is the text content to be stored"
+                            valid_critical_instance_with_bibliography_annotation:
+                                summary: Valid critical instance creation with bibliography annotation
+                                value:
+                                    metadata:
+                                        type: "critical"
+                                        source: "source-name"
+                                        colophon: "Sample colophon text"
+                                        incipit_title:
+                                            en: "Opening words"
+                                            bo: "དབུ་ཚིག"
+                                    annotation:
+                                        - span:
+                                              start: 0
+                                              end: 10
+                                        - span:
+                                              start: 10
+                                              end: 20
+                                    bibliography_annotation:
+                                        - span:
+                                              start: 5
+                                              end: 15
+                                          type: "colophon"
+                                        - span:
+                                              start: 20
+                                              end: 30
+                                          type: "title"
+                                    content: "This is the text content to be stored"
+            responses:
+                "201":
+                    description: Instance created successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        examples:
+                                            - "Instance created successfully"
+                                    id:
+                                        type: string
+                                        examples:
+                                            - "ABC12345678"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/persons:
+        get:
+            summary: Retrieve all persons
+            description: Fetch all persons from the database with optional pagination and filtering
+            tags:
+                - Persons
+            parameters:
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 20
+                  description: Number of results per page
+                - name: offset
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 0
+                      default: 0
+                  description: Number of results to skip
+                - name: name
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                  description: Filter by name (case-insensitive substring match, searches both primary name and alternative names)
+                - name: bdrc
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                  description: Filter by BDRC ID (exact match)
+                - name: wiki
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                  description: Filter by Wikidata ID (exact match)
+            responses:
+                "200":
+                    description: Persons retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: "#/components/schemas/PersonOutput"
+                            examples:
+                                success:
+                                    summary: List of persons
+                                    value:
+                                        - id: "P12345678"
+                                          name:
+                                              en: "John Doe"
+                                              bo: "ཇོན་དོ།"
+                                          alt_names:
+                                              - en: "J. Doe"
+                                                bo: "ཇོན།"
+                                          bdrc: "P123456"
+                                          wiki: "Q123456"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+        post:
+            summary: Create a person
+            description: Create a new person record
+            tags:
+                - Persons
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/PersonInput"
+                        examples:
+                            valid_person:
+                                summary: Valid person creation
+                                value:
+                                    name:
+                                        en: "John Doe"
+                                        bo: "ཇོན་དོ།"
+                                    alt_names:
+                                        - en: "J. Doe"
+                                          bo: "ཇོན།"
+                                    bdrc: "P123456"
+                                    wiki: "Q123456"
+            responses:
+                "201":
+                    description: Person created successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                required:
+                                    - id
+                                properties:
+                                    id:
+                                        type: string
+                                        description: The ID of the created person
+                            examples:
+                                success:
+                                    summary: Person created
+                                    value:
+                                        id: "P12345678"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/persons/{person_id}:
+        get:
+            summary: Retrieve person by ID
+            description: Fetch a specific person by their ID
+            tags:
+                - Persons
+            parameters:
+                - name: person_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the person to retrieve
+            responses:
+                "200":
+                    description: Person retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/PersonOutput"
+                            examples:
+                                success:
+                                    summary: Single person
+                                    value:
+                                        id: "P12345678"
+                                        name:
+                                            en: "John Doe"
+                                            bo: "ཇོན་དོ།"
+                                        alt_names:
+                                            - en: "J. Doe"
+                                              bo: "ཇོན།"
+                                        bdrc: "P123456"
+                                        wiki: "Q123456"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+        patch:
+            summary: Update a person
+            description: Partially update a person record. Only provided fields will be updated; omitted fields retain their current values.
+            tags:
+                - Persons
+            parameters:
+                - name: person_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the person to update
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/PersonPatch"
+                        examples:
+                            update_bdrc:
+                                summary: Update BDRC ID only
+                                value:
+                                    bdrc: "P654321"
+                            update_name:
+                                summary: Update name only
+                                value:
+                                    name:
+                                        en: "Updated Name"
+                                        bo: "གསར་བསྒྱུར་མིང་།"
+                            update_multiple:
+                                summary: Update multiple fields
+                                value:
+                                    name:
+                                        en: "New Name"
+                                    bdrc: "P999999"
+                                    wiki: "Q999999"
+                                    alt_names:
+                                        - en: "Alternative Name"
+                                          bo: "གཞན་མིང་།"
+            responses:
+                "200":
+                    description: Person updated successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/PersonOutput"
+                            examples:
+                                success:
+                                    summary: Updated person
+                                    value:
+                                        id: "P12345678"
+                                        name:
+                                            en: "Updated Name"
+                                            bo: "གསར་བསྒྱུར་མིང་།"
+                                        alt_names:
+                                            - en: "Alternative Name"
+                                              bo: "གཞན་མིང་།"
+                                        bdrc: "P654321"
+                                        wiki: "Q123456"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "409":
+                    $ref: "#/components/responses/ConflictError"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/annotations/segmentation/{segmentation_id}:
+        get:
+            summary: Retrieve segmentation annotation by ID
+            description: Fetch a specific segmentation annotation with all its segments
+            tags:
+                - Annotations
+            parameters:
+                - name: segmentation_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the segmentation annotation to retrieve
+            responses:
+                "200":
+                    description: Segmentation annotation retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/SegmentationOutput"
+                            examples:
+                                segmentation:
+                                    summary: Segmentation with multiple segments
+                                    value:
+                                        id: "seg_abc123"
+                                        segments:
+                                            - id: "segment_001"
+                                              manifestation_id: "M12345678"
+                                              text_id: "E12345678"
+                                              lines:
+                                                  - start: 0
+                                                    end: 50
+                                            - id: "segment_002"
+                                              manifestation_id: "M12345678"
+                                              text_id: "E12345678"
+                                              lines:
+                                                  - start: 50
+                                                    end: 100
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+        delete:
+            summary: Delete segmentation annotation
+            description: >-
+                Permanently delete a standalone segmentation annotation and all its segments.
+                If the segmentation is part of an alignment, this endpoint will return 400.
+                Use DELETE /v2/annotations/alignment/{alignment_id} instead.
+            tags:
+                - Annotations
+            parameters:
+                - name: segmentation_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the segmentation annotation to delete
+            responses:
+                "204":
+                    description: Segmentation deleted successfully
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/annotations/alignment/{alignment_id}:
+        get:
+            summary: Retrieve alignment annotation by ID
+            description: Fetch a specific alignment annotation with source and target segments
+            tags:
+                - Annotations
+            parameters:
+                - name: alignment_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the alignment annotation to retrieve
+            responses:
+                "200":
+                    description: Alignment annotation retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/AlignmentOutput"
+                            examples:
+                                alignment:
+                                    summary: Alignment between two manifestations
+                                    value:
+                                        id: "align_abc123"
+                                        target_id: "M87654321"
+                                        target_segments:
+                                            - id: "target_seg_001"
+                                              manifestation_id: "M87654321"
+                                              text_id: "E87654321"
+                                              lines:
+                                                  - start: 0
+                                                    end: 30
+                                            - id: "target_seg_002"
+                                              manifestation_id: "M87654321"
+                                              text_id: "E87654321"
+                                              lines:
+                                                  - start: 30
+                                                    end: 60
+                                        aligned_segments:
+                                            - lines:
+                                                  - start: 0
+                                                    end: 25
+                                              alignment_indices: [0]
+                                            - lines:
+                                                  - start: 25
+                                                    end: 50
+                                              alignment_indices: [0, 1]
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+        delete:
+            summary: Delete alignment annotation
+            description: >-
+                Permanently delete an alignment annotation and both its source and target
+                segmentations, including all their segments.
+            tags:
+                - Annotations
+            parameters:
+                - name: alignment_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the alignment annotation to delete
+            responses:
+                "204":
+                    description: Alignment deleted successfully
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/annotations/pagination/{pagination_id}:
+        get:
+            summary: Retrieve pagination annotation by ID
+            description: Fetch a specific pagination annotation with volume and page information
+            tags:
+                - Annotations
+            parameters:
+                - name: pagination_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the pagination annotation to retrieve
+            responses:
+                "200":
+                    description: Pagination annotation retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/PaginationOutput"
+                            examples:
+                                pagination:
+                                    summary: Pagination with volume and pages
+                                    value:
+                                        id: "pag_abc123"
+                                        volume:
+                                            index: 1
+                                            pages:
+                                                - reference: "folio_1a"
+                                                  lines:
+                                                      - start: 0
+                                                        end: 500
+                                                - reference: "folio_1b"
+                                                  lines:
+                                                      - start: 500
+                                                        end: 1000
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+        delete:
+            summary: Delete pagination annotation
+            description: Permanently delete a pagination annotation and all its pages
+            tags:
+                - Annotations
+            parameters:
+                - name: pagination_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the pagination annotation to delete
+            responses:
+                "204":
+                    description: Pagination deleted successfully
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/annotations/durchen/{note_id}:
+        get:
+            summary: Retrieve durchen note by ID
+            description: Fetch a specific durchen (critical apparatus) note
+            tags:
+                - Annotations
+            parameters:
+                - name: note_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the durchen note to retrieve
+            responses:
+                "200":
+                    description: Durchen note retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/NoteOutput"
+                            examples:
+                                durchen:
+                                    summary: Durchen note with span and text
+                                    value:
+                                        id: "note_abc123"
+                                        span:
+                                            start: 100
+                                            end: 150
+                                        text: "Variant reading found in manuscript B: འདི་ནི།"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+        delete:
+            summary: Delete durchen note
+            description: Permanently delete a durchen (critical apparatus) note
+            tags:
+                - Annotations
+            parameters:
+                - name: note_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the durchen note to delete
+            responses:
+                "204":
+                    description: Durchen note deleted successfully
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/annotations/bibliographic/{bibliographic_id}:
+        get:
+            summary: Retrieve bibliographic metadata by ID
+            description: Fetch a specific bibliographic metadata annotation (colophon, title, etc.)
+            tags:
+                - Annotations
+            parameters:
+                - name: bibliographic_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the bibliographic metadata to retrieve
+            responses:
+                "200":
+                    description: Bibliographic metadata retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/BibliographicMetadataOutput"
+                            examples:
+                                bibliographic:
+                                    summary: Bibliographic metadata for a colophon
+                                    value:
+                                        id: "bib_abc123"
+                                        span:
+                                            start: 5000
+                                            end: 5500
+                                        type: "colophon"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+        delete:
+            summary: Delete bibliographic metadata
+            description: Permanently delete a bibliographic metadata annotation
+            tags:
+                - Annotations
+            parameters:
+                - name: bibliographic_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the bibliographic metadata to delete
+            responses:
+                "204":
+                    description: Bibliographic metadata deleted successfully
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/editions/{edition_id}/annotations:
+        get:
+            summary: Get all annotations for an edition
+            description: >-
+                Retrieves all annotations for the specified edition (manifestation).
+                Use the `type` query parameter to filter by annotation type(s).
+                Multiple types can be specified by repeating the parameter.
+            tags:
+                - Editions
+            parameters:
+                - name: edition_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the edition (manifestation) to get annotations for
+                - name: type
+                  in: query
+                  required: false
+                  schema:
+                      type: array
+                      items:
+                          type: string
+                          enum:
+                              [
+                                  segmentation,
+                                  alignment,
+                                  pagination,
+                                  bibliography,
+                                  durchen,
+                              ]
+                  style: form
+                  explode: true
+                  description: Filter by annotation type(s). If not specified, returns all types.
+            responses:
+                "200":
+                    description: Annotations retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/AnnotationRequestOutput"
+                            examples:
+                                all_annotations:
+                                    summary: All annotation types
+                                    value:
+                                        segmentations:
+                                            - id: "seg_abc123"
+                                              segments:
+                                                  - id: "segment_001"
+                                                    manifestation_id: "M12345678"
+                                                    text_id: "E12345678"
+                                                    lines:
+                                                        - start: 0
+                                                          end: 50
+                                        pagination:
+                                            id: "pag_abc123"
+                                            volume:
+                                                index: 1
+                                                pages:
+                                                    - reference: "folio_1a"
+                                                      lines:
+                                                          - start: 0
+                                                            end: 500
+                                        bibliographic_metadata:
+                                            - id: "bib_abc123"
+                                              span:
+                                                  start: 5000
+                                                  end: 5500
+                                              type: "colophon"
+                                        durchen_notes:
+                                            - id: "note_abc123"
+                                              span:
+                                                  start: 100
+                                                  end: 150
+                                              text: "Variant reading in manuscript B"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+        post:
+            summary: Add annotation to an edition
+            description: >-
+                Adds an annotation to the specified edition (manifestation).
+                Exactly one annotation type must be provided per request.
+
+                Supported annotation types:
+                - **segmentation**: Text segmentation with segments containing lines (spans)
+                - **alignment**: Alignment between this edition and a target edition
+                - **pagination**: Page/folio references for diplomatic editions
+                - **bibliographic_metadata**: Colophon, title, author spans
+                - **durchen_notes**: Critical apparatus notes
+            tags:
+                - Editions
+            parameters:
+                - name: edition_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the edition (manifestation) to annotate
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/AnnotationRequestInput"
+                        examples:
+                            segmentation:
+                                summary: Add segmentation annotation
+                                value:
+                                    segmentation:
+                                        segments:
+                                            - lines:
+                                                  - start: 0
+                                                    end: 50
+                                            - lines:
+                                                  - start: 50
+                                                    end: 100
+                            alignment:
+                                summary: Add alignment annotation
+                                value:
+                                    alignment:
+                                        target_id: "M87654321"
+                                        target_segments:
+                                            - lines:
+                                                  - start: 0
+                                                    end: 30
+                                            - lines:
+                                                  - start: 30
+                                                    end: 60
+                                        aligned_segments:
+                                            - lines:
+                                                  - start: 0
+                                                    end: 25
+                                              alignment_indices: [0]
+                                            - lines:
+                                                  - start: 25
+                                                    end: 50
+                                              alignment_indices: [0, 1]
+                            pagination:
+                                summary: Add pagination annotation
+                                value:
+                                    pagination:
+                                        volume:
+                                            index: 1
+                                            pages:
+                                                - reference: "folio_1a"
+                                                  lines:
+                                                      - start: 0
+                                                        end: 500
+                                                - reference: "folio_1b"
+                                                  lines:
+                                                      - start: 500
+                                                        end: 1000
+                            bibliographic:
+                                summary: Add bibliographic metadata
+                                value:
+                                    bibliographic_metadata:
+                                        - span:
+                                              start: 5000
+                                              end: 5500
+                                          type: "colophon"
+                                        - span:
+                                              start: 0
+                                              end: 100
+                                          type: "title"
+                            durchen:
+                                summary: Add durchen notes
+                                value:
+                                    durchen_notes:
+                                        - span:
+                                              start: 100
+                                              end: 150
+                                          text: "Variant reading found in manuscript B: འདི་ནི།"
+            responses:
+                "201":
+                    description: Annotation added successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        example: "Annotation added successfully"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/segments/{segment_id}/related:
+        get:
+            summary: Find related segments
+            description: Find all segments that are aligned to a specific segment
+            tags:
+                - Segments
+            parameters:
+                - name: segment_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the segment to find related segments for
+            responses:
+                "200":
+                    description: Related segments retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: "#/components/schemas/SegmentOutput"
+                            examples:
+                                success:
+                                    summary: List of related segments
+                                    value:
+                                        - id: "SEG001"
+                                          manifestation_id: "M12345678"
+                                          text_id: "E12345678"
+                                          lines:
+                                              - start: 0
+                                                end: 100
+                                        - id: "SEG002"
+                                          manifestation_id: "M12345678"
+                                          text_id: "E12345678"
+                                          lines:
+                                              - start: 100
+                                                end: 200
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/segments/{segment_id}/content:
+        get:
+            summary: Get segment text content
+            description: Retrieve the base text content for a segment based on its character span
+            tags:
+                - Segments
+            parameters:
+                - name: segment_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the segment to retrieve text content for
+            responses:
+                "200":
+                    description: Segment content retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: string
+                                description: The text content of the segment
+                            examples:
+                                success:
+                                    summary: Segment text content
+                                    value: "This is the text content of the segment."
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/segments/search:
+        get:
+            summary: Search segments with segmentation mapping
+            description: >-
+                Search segments by forwarding request to external search API and enriching results
+                with overlapping segmentation annotation segment IDs. For each search result (which contains
+                a search_segmentation segment ID), finds overlapping segments from segmentation annotations
+                and adds them as segmentation_ids.
+            tags:
+                - Segments
+            parameters:
+                - name: query
+                  in: query
+                  required: true
+                  schema:
+                      type: string
+                      minLength: 1
+                  description: The search query text
+                  example: "བོད་ཀྱི་རིག་གནས།"
+                - name: search_type
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                      enum: [hybrid, bm25, semantic, exact]
+                      default: hybrid
+                  description: Type of search (hybrid, bm25, semantic, or exact)
+                  example: "hybrid"
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 10
+                  description: Maximum number of results to return
+                  example: 10
+                - name: title
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                  description: Filter results by title
+                  example: "Kangyur"
+                - name: return_text
+                  in: query
+                  required: false
+                  schema:
+                      type: boolean
+                      default: true
+                  description: Whether to include text content in search results
+                  example: true
+            responses:
+                "200":
+                    description: Search completed successfully with enriched results
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                required:
+                                    - query
+                                    - search_type
+                                    - results
+                                    - count
+                                properties:
+                                    query:
+                                        type: string
+                                        description: The search query that was used
+                                    search_type:
+                                        type: string
+                                        description: The search type that was used
+                                    results:
+                                        type: array
+                                        description: List of search results with segmentation IDs
+                                        items:
+                                            type: object
+                                            required:
+                                                - id
+                                                - distance
+                                                - entity
+                                                - segmentation_ids
+                                            properties:
+                                                id:
+                                                    type: string
+                                                    description: Search segmentation segment ID
+                                                distance:
+                                                    type: number
+                                                    description: Search distance/score
+                                                entity:
+                                                    type: object
+                                                    additionalProperties: true
+                                                    description: Additional entity data from search. Contains 'text' field when return_text=true
+                                                segmentation_ids:
+                                                    type: array
+                                                    items:
+                                                        type: string
+                                                    description: List of overlapping segmentation annotation segment IDs
+                                    count:
+                                        type: integer
+                                        description: Number of results returned
+                            examples:
+                                success:
+                                    summary: Search results with segmentation IDs
+                                    value:
+                                        query: "བོད་ཀྱི་རིག་གནས།"
+                                        search_type: "hybrid"
+                                        results:
+                                            - id: "SEG_SEARCH_001"
+                                              distance: 0.85
+                                              entity:
+                                                  text: "Sample text content"
+                                              segmentation_ids:
+                                                  - "SEG_001"
+                                                  - "SEG_002"
+                                                  - "SEG_003"
+                                            - id: "SEG_SEARCH_002"
+                                              distance: 0.78
+                                              entity:
+                                                  text: "Another text content"
+                                              segmentation_ids:
+                                                  - "SEG_004"
+                                                  - "SEG_005"
+                                        count: 2
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    # NOTE: /v2/segments/batch-overlapping endpoint has been REMOVED
+
+    /v2/relations/expressions/{expression_id}:
+        get:
+            summary: Get relations for an expression
+            description: Returns all relationships for a given expression, including direction and related expression IDs.
+            tags:
+                - Relations
+            parameters:
+                - name: expression_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the expression to retrieve relations for
+            responses:
+                "200":
+                    description: Relations retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                additionalProperties:
+                                    type: array
+                                    items:
+                                        type: object
+                                        required: [type, direction, otherId]
+                                        properties:
+                                            type:
+                                                type: string
+                                                enum:
+                                                    [
+                                                        TRANSLATION_OF,
+                                                        COMMENTARY_OF,
+                                                    ]
+                                                description: Relationship type
+                                            direction:
+                                                type: string
+                                                enum: [in, out]
+                                                description: Direction relative to the expression
+                                            otherId:
+                                                type: string
+                                                description: Related expression ID
+                                description: Object where keys are expression IDs and values are arrays of relations
+                            examples:
+                                success:
+                                    summary: Relations for an expression
+                                    value:
+                                        "13mxFPmsmIqktVTYVV8AL":
+                                            - type: "TRANSLATION_OF"
+                                              direction: "in"
+                                              otherId: "RQKWt16H22fyxodz1Hpu8"
+                                            - type: "TRANSLATION_OF"
+                                              direction: "in"
+                                              otherId: "zRsb99ocU5fM8wurAUfMQ"
+                                            - type: "TRANSLATION_OF"
+                                              direction: "in"
+                                              otherId: "t0CzlMC69QUySNEBzSL4e"
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/categories:
+        get:
+            summary: Retrieve categories
+            description: Get categories filtered by application (via X-Application header) and optional parent, with pagination support.
+            tags:
+                - Categories
+            parameters:
+                - name: X-Application
+                  in: header
+                  required: true
+                  schema:
+                      type: string
+                  description: Application context for categories
+                  example: "webuddhist"
+                - name: parent_id
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                      nullable: true
+                  description: Parent category ID (null or omitted means root categories)
+                - name: language
+                  in: query
+                  required: false
+                  schema:
+                      type: string
+                      default: "bo"
+                  description: Language code for filtering (default is 'bo')
+                - name: limit
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 20
+                  description: Number of results per page
+                - name: offset
+                  in: query
+                  required: false
+                  schema:
+                      type: integer
+                      minimum: 0
+                      default: 0
+                  description: Number of results to skip
+            responses:
+                "200":
+                    description: Categories retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/CategoriesListResponse"
+                            examples:
+                                root_categories:
+                                    summary: Root categories
+                                    value:
+                                        categories:
+                                            - id: "CAT12345678"
+                                              parent_id: null
+                                              title:
+                                                  en: "Literature"
+                                                  bo: "རྩོམ་རིག"
+                                              children: ["CAT87654321"]
+                                            - id: "CAT23456789"
+                                              parent_id: null
+                                              title:
+                                                  en: "History"
+                                                  bo: "ལོ་རྒྱུས"
+                                              children: []
+                                        total: 2
+                                        limit: 20
+                                        offset: 0
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+        post:
+            summary: Create a new category
+            description: Create a category with localized title and optional parent relationship. Application context is provided via X-Application header.
+            tags:
+                - Categories
+            parameters:
+                - name: X-Application
+                  in: header
+                  required: true
+                  schema:
+                      type: string
+                  description: Application context for the category
+                  example: "webuddhist"
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/CategoryInput"
+                        examples:
+                            root_category:
+                                summary: Root category without parent
+                                value:
+                                    title:
+                                        en: "Literature"
+                                        bo: "རྩོམ་རིག"
+                            child_category:
+                                summary: Child category with parent
+                                value:
+                                    title:
+                                        en: "Poetry"
+                                        bo: "སྙན་ངག"
+                                    parent_id: "CAT12345678"
+            responses:
+                "201":
+                    description: Category created successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                required:
+                                    - id
+                                properties:
+                                    id:
+                                        type: string
+                                        description: Generated category ID
+                            examples:
+                                created:
+                                    summary: Category created
+                                    value:
+                                        id: "CAT12345678"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/categories/{category_id}:
+        get:
+            summary: Retrieve category by ID
+            description: Fetch a specific category by its ID
+            tags:
+                - Categories
+            parameters:
+                - name: category_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: The ID of the category to retrieve
+            responses:
+                "200":
+                    description: Category retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: "#/components/schemas/CategoryOutput"
+                            examples:
+                                success:
+                                    summary: Single category
+                                    value:
+                                        id: "CAT12345678"
+                                        parent_id: null
+                                        title:
+                                            en: "Literature"
+                                            bo: "རྩོམ་རིག"
+                                        description:
+                                            en: "Literary works"
+                                        children: ["CAT87654321"]
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/tags:
+        get:
+            summary: Retrieve tags
+            description: Get all tags for an application (via X-Application header)
+            tags:
+                - Tags
+            parameters:
+                - name: X-Application
+                  in: header
+                  required: true
+                  schema:
+                      type: string
+                  description: Application context for tags
+                  example: "webuddhist"
+            responses:
+                "200":
+                    description: Tags retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: "#/components/schemas/TagOutput"
+                            examples:
+                                tags_list:
+                                    summary: List of tags
+                                    value:
+                                        - id: "TAG12345678"
+                                          title:
+                                              en: "Philosophy"
+                                              bo: "གྲུབ་མཐའ"
+                                        - id: "TAG23456789"
+                                          title:
+                                              en: "Meditation"
+                                              bo: "སྒོམ"
+                                          description:
+                                              en: "Texts related to meditation practice"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+        post:
+            summary: Create a new tag
+            description: Create a tag with localized title and optional description. Application context is provided via X-Application header. Tag titles must be unique per application.
+            tags:
+                - Tags
+            parameters:
+                - name: X-Application
+                  in: header
+                  required: true
+                  schema:
+                      type: string
+                  description: Application context for the tag
+                  example: "webuddhist"
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: "#/components/schemas/TagInput"
+                        examples:
+                            tag_with_description:
+                                summary: Tag with description
+                                value:
+                                    title:
+                                        en: "Philosophy"
+                                        bo: "གྲུབ་མཐའ"
+                                    description:
+                                        en: "Texts related to philosophical traditions"
+                            tag_minimal:
+                                summary: Minimal tag
+                                value:
+                                    title:
+                                        en: "Meditation"
+            responses:
+                "201":
+                    description: Tag created successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                required:
+                                    - id
+                                properties:
+                                    id:
+                                        type: string
+                                        description: Generated tag ID
+                            examples:
+                                created:
+                                    summary: Tag created
+                                    value:
+                                        id: "TAG12345678"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "409":
+                    $ref: "#/components/responses/ConflictError"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/tags/{tag_id}:
+        delete:
+            summary: Delete a tag
+            description: Delete a tag by ID. Removes the tag and its associated Nomen nodes.
+            tags:
+                - Tags
+            parameters:
+                - name: X-Application
+                  in: header
+                  required: true
+                  schema:
+                      type: string
+                  description: Application context
+                  example: "webuddhist"
+                - name: tag_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Tag ID to delete
+            responses:
+                "200":
+                    description: Tag deleted successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/texts/{expression_id}/tags/{tag_id}:
+        post:
+            summary: Add a tag to a text
+            description: Attach a tag to the work associated with the given expression/text.
+            tags:
+                - Tags
+                - Texts
+            parameters:
+                - name: expression_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Expression/text ID
+                - name: tag_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Tag ID to attach
+            responses:
+                "200":
+                    description: Tag added to text
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+        delete:
+            summary: Remove a tag from a text
+            description: Remove a tag from the work associated with the given expression/text.
+            tags:
+                - Tags
+                - Texts
+            parameters:
+                - name: expression_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Expression/text ID
+                - name: tag_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Tag ID to remove
+            responses:
+                "200":
+                    description: Tag removed from text
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/segments/{segment_id}/tags/{tag_id}:
+        post:
+            summary: Add a tag to a segment
+            description: Attach a tag to a segment.
+            tags:
+                - Tags
+                - Segments
+            parameters:
+                - name: segment_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Segment ID
+                - name: tag_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Tag ID to attach
+            responses:
+                "200":
+                    description: Tag added to segment
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+        delete:
+            summary: Remove a tag from a segment
+            description: Remove a tag from a segment.
+            tags:
+                - Tags
+                - Segments
+            parameters:
+                - name: segment_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Segment ID
+                - name: tag_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Tag ID to remove
+            responses:
+                "200":
+                    description: Tag removed from segment
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                "404":
+                    $ref: "#/components/responses/NotFound"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/applications:
+        post:
+            summary: Create a new application
+            description: Create a new application entry in the database. Input is normalized to lowercase for both id and name.
+            tags:
+                - Applications
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - name
+                            properties:
+                                name:
+                                    type: string
+                                    minLength: 1
+                                    description: Application name (lowercased and used as both id and name)
+                        examples:
+                            create_app:
+                                summary: Create application
+                                value:
+                                    name: "MyApp"
+            responses:
+                "201":
+                    description: Application created successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    id:
+                                        type: string
+                                    name:
+                                        type: string
+                            examples:
+                                created:
+                                    summary: Application created
+                                    value:
+                                        id: "myapp"
+                                        name: "myapp"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/languages:
+        get:
+            summary: Retrieve all languages
+            description: Fetch all available language codes from the database
+            tags:
+                - Languages
+            responses:
+                "200":
+                    description: Languages retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    type: object
+                                    properties:
+                                        code:
+                                            type: string
+                                            description: Language code (e.g., "bo", "en")
+                                        name:
+                                            type: string
+                                            description: Language name
+                            examples:
+                                success:
+                                    summary: List of languages
+                                    value:
+                                        - code: "bo"
+                                          name: "tibetan"
+                                        - code: "en"
+                                          name: "english"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+        post:
+            summary: Create a new language
+            description: Create a new language entry in the database
+            tags:
+                - Languages
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - code
+                                - name
+                            properties:
+                                code:
+                                    type: string
+                                    minLength: 1
+                                    description: Language code (e.g., "bo", "en")
+                                name:
+                                    type: string
+                                    minLength: 1
+                                    description: Language name
+                        examples:
+                            tibetan:
+                                summary: Create Tibetan language
+                                value:
+                                    code: "bo"
+                                    name: "tibetan"
+            responses:
+                "201":
+                    description: Language created successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    code:
+                                        type: string
+                                    name:
+                                        type: string
+                            examples:
+                                created:
+                                    summary: Language created
+                                    value:
+                                        code: "bo"
+                                        name: "tibetan"
+                "400":
+                    $ref: "#/components/responses/InvalidRequest"
+                "422":
+                    $ref: "#/components/responses/ValidationError"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /v2/schema/openapi:
+        get:
+            summary: Get OpenAPI specification
+            description: Returns the OpenAPI specification file for this API
+            tags:
+                - Schema
+            responses:
+                "200":
+                    description: OpenAPI specification retrieved successfully
+                    content:
+                        application/x-yaml:
+                            schema:
+                                type: string
+                                format: binary
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+    /api/version:
+        get:
+            summary: Get API version and Git SHA
+            description: Returns the current API version and the Git commit SHA of the deployed code.
+            operationId: getVersion
+            tags:
+                - API
+            responses:
+                "200":
+                    description: Successfully retrieved version information
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    version:
+                                        type: string
+                                        examples:
+                                            - "0.1.0"
+                                    git_sha:
+                                        type: string
+                                        examples:
+                                            - "b706d2b1a5d0176df374da25c970274b2e0f7770"
+                "500":
+                    $ref: "#/components/responses/ServerError"
+
+components:
+    securitySchemes:
+        ApiKeyAuth:
+            type: apiKey
+            in: header
+            name: X-API-Key
+            description: API key for authentication. Obtain from OpenPecha administrators.
+
+    schemas:
+        TextOperation:
+            type: object
+            required:
+                - type
+            properties:
+                type:
+                    type: string
+                    enum: [insert, delete, replace]
+                    description: The type of text operation
+                position:
+                    type: integer
+                    minimum: 0
+                    description: Position for INSERT operation (required for insert)
+                start:
+                    type: integer
+                    minimum: 0
+                    description: Start position for DELETE/REPLACE operations (required for delete/replace)
+                end:
+                    type: integer
+                    minimum: 1
+                    description: End position for DELETE/REPLACE operations (required for delete/replace)
+                text:
+                    type: string
+                    minLength: 1
+                    description: Text for INSERT/REPLACE operations (required for insert/replace)
+
+        CategoryInput:
+            type: object
+            required:
+                - title
+            properties:
+                title:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: Localized category titles (language code to text mapping)
+                description:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    nullable: true
+                    description: Localized category descriptions (language code to text mapping, optional)
+                parent_id:
+                    type: string
+                    nullable: true
+                    description: Parent category ID (optional, null for root categories)
+
+        CategoryOutput:
+            type: object
+            required:
+                - id
+                - title
+                - children
+            properties:
+                id:
+                    type: string
+                    description: Category ID
+                title:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: Localized category titles
+                description:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    nullable: true
+                    description: Localized category descriptions (language code to text mapping, optional)
+                parent_id:
+                    type: string
+                    nullable: true
+                    description: Parent category ID (null for root categories)
+                children:
+                    type: array
+                    items:
+                        type: string
+                    description: List of child category IDs
+
+        CategoriesListResponse:
+            type: object
+            required:
+                - categories
+                - total
+                - limit
+                - offset
+            properties:
+                categories:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/CategoryOutput"
+                    description: List of categories
+                total:
+                    type: integer
+                    description: Total number of categories matching the query
+                limit:
+                    type: integer
+                    description: Number of results per page
+                offset:
+                    type: integer
+                    description: Number of results skipped
+
+        TextsListResponse:
+            type: object
+            required:
+                - texts
+                - total
+                - limit
+                - offset
+            properties:
+                texts:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/ExpressionOutput"
+                    description: List of texts
+                total:
+                    type: integer
+                    description: Total number of texts matching the query
+                limit:
+                    type: integer
+                    description: Number of results per page
+                offset:
+                    type: integer
+                    description: Number of results skipped
+
+        EditionsListResponse:
+            type: object
+            required:
+                - editions
+                - total
+                - limit
+                - offset
+            properties:
+                editions:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/ManifestationOutput"
+                    description: List of editions for the text
+                total:
+                    type: integer
+                    description: Total number of editions for the text
+                limit:
+                    type: integer
+                    description: Number of results per page
+                offset:
+                    type: integer
+                    description: Number of results skipped
+
+        TagInput:
+            type: object
+            required:
+                - title
+            properties:
+                title:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: Localized tag titles (language code to text mapping)
+                description:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    nullable: true
+                    description: Localized tag descriptions (language code to text mapping, optional)
+
+        TagOutput:
+            type: object
+            required:
+                - id
+                - title
+            properties:
+                id:
+                    type: string
+                    description: Tag ID
+                title:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: Localized tag titles
+                description:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    nullable: true
+                    description: Localized tag descriptions (language code to text mapping, optional)
+
+        ContributionInput:
+            type: object
+            description: Human or AI contribution. Must provide either person_id OR person_bdrc_id for human contributions, or ai_id for AI contributions.
+            required:
+                - role
+            properties:
+                person_id:
+                    type: string
+                    description: Person ID (for human contributions)
+                person_bdrc_id:
+                    type: string
+                    description: Person BDRC ID (for human contributions)
+                ai_id:
+                    type: string
+                    description: AI model identifier (for AI contributions)
+                role:
+                    type: string
+                    enum: [author, translator, reviser, scholar]
+
+        ContributionOutput:
+            type: object
+            required:
+                - role
+            properties:
+                person_id:
+                    type: string
+                    nullable: true
+                person_bdrc_id:
+                    type: string
+                    nullable: true
+                person_name:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    nullable: true
+                    description: Localized person name (language code to name mapping)
+                ai_id:
+                    type: string
+                    nullable: true
+                role:
+                    type: string
+                    enum: [author, translator, reviser, scholar]
+
+        ExpressionInput:
+            type: object
+            required:
+                - title
+                - language
+                - category_id
+                - contributions
+            properties:
+                bdrc:
+                    type: string
+                    nullable: true
+                    description: BDRC identifier
+                wiki:
+                    type: string
+                    nullable: true
+                    description: Wikidata identifier
+                date:
+                    type: string
+                    nullable: true
+                    description: Date of composition
+                title:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: Localized title (language code to text mapping)
+                alt_titles:
+                    type: array
+                    nullable: true
+                    items:
+                        type: object
+                        additionalProperties:
+                            type: string
+                    description: Alternative localized titles
+                language:
+                    type: string
+                    description: Primary language code
+                commentary_of:
+                    type: string
+                    nullable: true
+                    description: ID of the text this is a commentary of
+                translation_of:
+                    type: string
+                    nullable: true
+                    description: ID of the text this is a translation of
+                category_id:
+                    type: string
+                    description: Category ID this text belongs to
+                license:
+                    $ref: "#/components/schemas/LicenseType"
+                contributions:
+                    type: array
+                    minItems: 1
+                    items:
+                        $ref: "#/components/schemas/ContributionInput"
+                tag_ids:
+                    type: array
+                    items:
+                        type: string
+                    description: Tag IDs to attach to this text's work (optional)
+
+        ExpressionPatch:
+            type: object
+            description: Partial update for a text. At least one field must be provided.
+            properties:
+                bdrc:
+                    type: string
+                    nullable: true
+                    description: BDRC identifier
+                wiki:
+                    type: string
+                    nullable: true
+                    description: Wikidata identifier
+                date:
+                    type: string
+                    nullable: true
+                    description: Date of composition
+                title:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: Localized title (language code to text mapping)
+                alt_titles:
+                    type: array
+                    nullable: true
+                    items:
+                        type: object
+                        additionalProperties:
+                            type: string
+                    description: Alternative localized titles
+                language:
+                    type: string
+                    nullable: true
+                    description: Language code (BCP47 format)
+                category_id:
+                    type: string
+                    nullable: true
+                    description: Category ID
+                license:
+                    $ref: "#/components/schemas/LicenseType"
+                tag_ids:
+                    type: array
+                    nullable: true
+                    items:
+                        type: string
+                    description: Replace all tags on this text's work
+
+        ExpressionOutput:
+            type: object
+            required:
+                - id
+                - title
+                - language
+                - category_id
+                - contributions
+                - license
+                - commentaries
+                - translations
+                - editions
+            properties:
+                id:
+                    type: string
+                    description: Expression ID
+                bdrc:
+                    type: string
+                    nullable: true
+                wiki:
+                    type: string
+                    nullable: true
+                date:
+                    type: string
+                    nullable: true
+                title:
+                    type: object
+                    additionalProperties:
+                        type: string
+                alt_titles:
+                    type: array
+                    nullable: true
+                    items:
+                        type: object
+                        additionalProperties:
+                            type: string
+                language:
+                    type: string
+                commentary_of:
+                    type: string
+                    nullable: true
+                    description: ID of the text this is a commentary of
+                translation_of:
+                    type: string
+                    nullable: true
+                    description: ID of the text this is a translation of
+                category_id:
+                    type: string
+                license:
+                    $ref: "#/components/schemas/LicenseType"
+                contributions:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/ContributionOutput"
+                commentaries:
+                    type: array
+                    items:
+                        type: string
+                    description: IDs of commentaries on this text
+                translations:
+                    type: array
+                    items:
+                        type: string
+                    description: IDs of translations of this text
+                editions:
+                    type: array
+                    items:
+                        type: string
+                    description: IDs of editions (manifestations) of this text
+                tag_ids:
+                    type: array
+                    items:
+                        type: string
+                    description: Tag IDs attached to this text's work
+                audio_url:
+                    type: string
+                    format: uri
+                    nullable: true
+                    description: CloudFront URL for the audio file (S3-backed)
+                    example: "https://d1234abcd.cloudfront.net/audio/text-12345.mp3"
+
+        LicenseType:
+            type: string
+            enum:
+                - cc0
+                - public
+                - cc-by
+                - cc-by-sa
+                - cc-by-nd
+                - cc-by-nc
+                - cc-by-nc-sa
+                - cc-by-nc-nd
+                - copyrighted
+                - unknown
+            description: License type for content
+
+        ManifestationType:
+            type: string
+            enum:
+                - diplomatic
+                - critical
+                - collated
+            description: Type of manifestation/edition
+
+        ManifestationInput:
+            type: object
+            required:
+                - type
+            properties:
+                bdrc:
+                    type: string
+                    nullable: true
+                    description: BDRC identifier (required for diplomatic, forbidden for critical)
+                wiki:
+                    type: string
+                    nullable: true
+                    description: Wikidata identifier
+                type:
+                    $ref: "#/components/schemas/ManifestationType"
+                source:
+                    type: string
+                    nullable: true
+                    description: Source of the manifestation
+                colophon:
+                    type: string
+                    nullable: true
+                    description: Colophon text
+                incipit_title:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    nullable: true
+                    description: Localized incipit title
+                alt_incipit_titles:
+                    type: array
+                    nullable: true
+                    items:
+                        type: object
+                        additionalProperties:
+                            type: string
+                    description: Alternative incipit titles
+
+        ManifestationOutput:
+            type: object
+            required:
+                - id
+                - text_id
+                - type
+            properties:
+                id:
+                    type: string
+                    description: Manifestation ID
+                text_id:
+                    type: string
+                    description: Associated text/expression ID
+                bdrc:
+                    type: string
+                    nullable: true
+                wiki:
+                    type: string
+                    nullable: true
+                type:
+                    $ref: "#/components/schemas/ManifestationType"
+                source:
+                    type: string
+                    nullable: true
+                colophon:
+                    type: string
+                    nullable: true
+                incipit_title:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    nullable: true
+                alt_incipit_titles:
+                    type: array
+                    nullable: true
+                    items:
+                        type: object
+                        additionalProperties:
+                            type: string
+
+        SpanModel:
+            type: object
+            required: [start, end]
+            properties:
+                start:
+                    type: integer
+                    minimum: 0
+                    description: Start character position (inclusive)
+                end:
+                    type: integer
+                    minimum: 1
+                    description: End character position (exclusive)
+
+        SegmentOutput:
+            type: object
+            required: [id, manifestation_id, text_id, lines]
+            properties:
+                id:
+                    type: string
+                    description: Unique segment identifier
+                manifestation_id:
+                    type: string
+                    description: ID of the manifestation this segment belongs to
+                text_id:
+                    type: string
+                    description: ID of the expression (text) this segment belongs to
+                lines:
+                    type: array
+                    minItems: 1
+                    items:
+                        $ref: "#/components/schemas/SpanModel"
+                    description: Character spans that make up this segment
+                tag_ids:
+                    type: array
+                    items:
+                        type: string
+                    description: Tag IDs attached to this segment
+
+        AlignedSegment:
+            type: object
+            required: [lines, alignment_indices]
+            properties:
+                lines:
+                    type: array
+                    minItems: 1
+                    items:
+                        $ref: "#/components/schemas/SpanModel"
+                    description: Character spans for this aligned segment
+                alignment_indices:
+                    type: array
+                    minItems: 1
+                    items:
+                        type: integer
+                    description: Indices of target segments this segment aligns to
+
+        SegmentationOutput:
+            type: object
+            required: [id, segments]
+            properties:
+                id:
+                    type: string
+                    description: Segmentation annotation ID
+                segments:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/SegmentOutput"
+                    description: List of segments in this segmentation
+                metadata:
+                    type: object
+                    nullable: true
+                    description: Optional annotation metadata
+
+        AlignmentOutput:
+            type: object
+            required: [id, target_id, target_segments, aligned_segments]
+            properties:
+                id:
+                    type: string
+                    description: Alignment annotation ID
+                target_id:
+                    type: string
+                    description: ID of the target manifestation
+                target_segments:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/SegmentOutput"
+                    description: Segments from the target manifestation
+                aligned_segments:
+                    type: array
+                    items:
+                        $ref: "#/components/schemas/AlignedSegment"
+                    description: Aligned segments with their alignment indices
+                metadata:
+                    type: object
+                    nullable: true
+                    description: Optional annotation metadata
+
+        PageModel:
+            type: object
+            required: [reference, lines]
+            properties:
+                reference:
+                    type: string
+                    description: Page/folio reference (e.g., "folio_1a")
+                lines:
+                    type: array
+                    minItems: 1
+                    items:
+                        $ref: "#/components/schemas/SpanModel"
+                    description: Character spans for this page
+
+        VolumeModel:
+            type: object
+            required: [pages]
+            properties:
+                index:
+                    type: integer
+                    nullable: true
+                    description: Volume index (optional)
+                pages:
+                    type: array
+                    minItems: 1
+                    items:
+                        $ref: "#/components/schemas/PageModel"
+                    description: Pages in this volume
+                metadata:
+                    type: object
+                    nullable: true
+                    description: Optional volume metadata
+
+        PaginationOutput:
+            type: object
+            required: [id, volume]
+            properties:
+                id:
+                    type: string
+                    description: Pagination annotation ID
+                volume:
+                    $ref: "#/components/schemas/VolumeModel"
+                metadata:
+                    type: object
+                    nullable: true
+                    description: Optional annotation metadata
+
+        NoteOutput:
+            type: object
+            required: [id, span, text]
+            properties:
+                id:
+                    type: string
+                    description: Note ID
+                span:
+                    $ref: "#/components/schemas/SpanModel"
+                text:
+                    type: string
+                    description: The note content
+                metadata:
+                    type: object
+                    nullable: true
+                    description: Optional annotation metadata
+
+        BibliographicMetadataOutput:
+            type: object
+            required: [id, span, type]
+            properties:
+                id:
+                    type: string
+                    description: Bibliographic metadata ID
+                span:
+                    $ref: "#/components/schemas/SpanModel"
+                type:
+                    type: string
+                    enum:
+                        [
+                            colophon,
+                            title,
+                            incipit,
+                            alt_incipit,
+                            alt_title,
+                            person,
+                            author,
+                        ]
+                    description: Type of bibliographic metadata
+                metadata:
+                    type: object
+                    nullable: true
+                    description: Optional annotation metadata
+
+        SegmentationInput:
+            type: object
+            required: [segments]
+            properties:
+                segments:
+                    type: array
+                    minItems: 1
+                    items:
+                        type: object
+                        required: [lines]
+                        properties:
+                            lines:
+                                type: array
+                                minItems: 1
+                                items:
+                                    $ref: "#/components/schemas/SpanModel"
+                metadata:
+                    type: object
+                    nullable: true
+
+        AlignmentInput:
+            type: object
+            required: [target_id, target_segments, aligned_segments]
+            properties:
+                target_id:
+                    type: string
+                    description: ID of the target manifestation
+                target_segments:
+                    type: array
+                    minItems: 1
+                    items:
+                        type: object
+                        required: [lines]
+                        properties:
+                            lines:
+                                type: array
+                                minItems: 1
+                                items:
+                                    $ref: "#/components/schemas/SpanModel"
+                aligned_segments:
+                    type: array
+                    minItems: 1
+                    items:
+                        $ref: "#/components/schemas/AlignedSegment"
+                metadata:
+                    type: object
+                    nullable: true
+
+        PaginationInput:
+            type: object
+            required: [volume]
+            properties:
+                volume:
+                    $ref: "#/components/schemas/VolumeModel"
+                metadata:
+                    type: object
+                    nullable: true
+
+        BibliographicMetadataInput:
+            type: object
+            required: [span, type]
+            properties:
+                span:
+                    $ref: "#/components/schemas/SpanModel"
+                type:
+                    type: string
+                    enum:
+                        [
+                            colophon,
+                            title,
+                            incipit,
+                            alt_incipit,
+                            alt_title,
+                            person,
+                            author,
+                        ]
+                metadata:
+                    type: object
+                    nullable: true
+
+        NoteInput:
+            type: object
+            required: [span, text]
+            properties:
+                span:
+                    $ref: "#/components/schemas/SpanModel"
+                text:
+                    type: string
+                metadata:
+                    type: object
+                    nullable: true
+
+        AnnotationRequestInput:
+            type: object
+            description: Request body for adding annotations. Exactly one annotation type must be provided.
+            properties:
+                segmentation:
+                    $ref: "#/components/schemas/SegmentationInput"
+                alignment:
+                    $ref: "#/components/schemas/AlignmentInput"
+                pagination:
+                    $ref: "#/components/schemas/PaginationInput"
+                bibliographic_metadata:
+                    type: array
+                    minItems: 1
+                    items:
+                        $ref: "#/components/schemas/BibliographicMetadataInput"
+                durchen_notes:
+                    type: array
+                    minItems: 1
+                    items:
+                        $ref: "#/components/schemas/NoteInput"
+
+        AnnotationRequestOutput:
+            type: object
+            description: Response containing annotations for an edition
+            properties:
+                segmentations:
+                    type: array
+                    nullable: true
+                    items:
+                        $ref: "#/components/schemas/SegmentationOutput"
+                alignments:
+                    type: array
+                    nullable: true
+                    items:
+                        $ref: "#/components/schemas/AlignmentOutput"
+                pagination:
+                    $ref: "#/components/schemas/PaginationOutput"
+                    nullable: true
+                bibliographic_metadata:
+                    type: array
+                    nullable: true
+                    items:
+                        $ref: "#/components/schemas/BibliographicMetadataOutput"
+                durchen_notes:
+                    type: array
+                    nullable: true
+                    items:
+                        $ref: "#/components/schemas/NoteOutput"
+
+        PersonInput:
+            type: object
+            required:
+                - name
+            properties:
+                bdrc:
+                    type: string
+                    nullable: true
+                    description: BDRC identifier
+                wiki:
+                    type: string
+                    nullable: true
+                    description: Wikidata identifier
+                name:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: Localized name (language code -> name)
+                alt_names:
+                    type: array
+                    nullable: true
+                    items:
+                        type: object
+                        additionalProperties:
+                            type: string
+                    description: Alternative localized names
+
+        PersonPatch:
+            type: object
+            description: Partial update for a person. At least one field must be provided.
+            properties:
+                bdrc:
+                    type: string
+                    nullable: true
+                    description: BDRC identifier
+                wiki:
+                    type: string
+                    nullable: true
+                    description: Wikidata identifier
+                name:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: Localized name (language code -> name)
+                alt_names:
+                    type: array
+                    nullable: true
+                    items:
+                        type: object
+                        additionalProperties:
+                            type: string
+                    description: Alternative localized names
+
+        PersonOutput:
+            type: object
+            required:
+                - id
+                - name
+            properties:
+                id:
+                    type: string
+                    description: Person ID
+                bdrc:
+                    type: string
+                    nullable: true
+                wiki:
+                    type: string
+                    nullable: true
+                name:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: Localized name (language code -> name)
+                alt_names:
+                    type: array
+                    nullable: true
+                    items:
+                        type: object
+                        additionalProperties:
+                            type: string
+                    description: Alternative localized names
+
+    responses:
+        InvalidRequest:
+            description: There was an error with the request
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            error:
+                                type: string
+                                description: Error message
+                                examples:
+                                    - "There was an error with the request"
+                        required:
+                            - error
+
+        NotFound:
+            description: Resource not found
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            error:
+                                type: string
+                                description: Error message
+                                examples:
+                                    - "Resource was not found"
+                        required:
+                            - error
+
+        ConflictError:
+            description: Conflict with existing resource
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            error:
+                                type: string
+                                description: Error message
+                                examples:
+                                    - "Person with BDRC ID 'P123456' already exists"
+                        required:
+                            - error
+
+        ValidationError:
+            description: Validation error
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            error:
+                                type: string
+                            details:
+                                type: array
+                                items:
+                                    type: object
+                                    properties:
+                                        loc:
+                                            type: array
+                                            items:
+                                                type: string
+                                        msg:
+                                            type: string
+                                        type:
+                                            type: string
+                        required:
+                            - error
+                            - details
+                    examples:
+                        fieldMissing:
+                            value:
+                                error: "Validation error"
+                                details:
+                                    [
+                                        {
+                                            "loc": ["body", "title"],
+                                            "msg": "field required",
+                                            "type": "value_error.missing",
+                                        },
+                                    ]
+
+        ServerError:
+            description: Internal server error
+            content:
+                application/json:
+                    schema:
+                        type: object
+                        properties:
+                            error:
+                                type: string
+                                description: Error message
+                                examples:
+                                    - "There was an error on the server"
+                        required:
+                            - error
