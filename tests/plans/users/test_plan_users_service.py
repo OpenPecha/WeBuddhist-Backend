@@ -1931,3 +1931,35 @@ async def test_get_user_plan_days_completion_status_service_all_completed():
         assert len(result.days) == 3
         assert all(day.is_completed is True for day in result.days)
         assert result.start_date is None
+
+
+@pytest.mark.asyncio
+async def test_get_user_plan_days_completion_status_service_plan_not_found():
+    """Test when plan does not exist"""
+    from pecha_api.plans.users.plan_users_service import get_user_plan_days_completion_status_service
+    from fastapi import HTTPException
+    
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    
+    mock_user = SimpleNamespace(id=user_id)
+    
+    db_mock, session_cm = _mock_session_with_db()
+    
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_user_plan_days_completion_status_service(
+                token="token123", plan_id=plan_id
+            )
+        
+        assert exc_info.value.status_code == 404
+        assert "Plan not found" in str(exc_info.value.detail)
