@@ -59,14 +59,14 @@ def get_plans_by_author_id(
         .group_by(Plan.id)
     )
 
-    # Sorting
-    order = asc if sort_order == "asc" else desc
+    order_func = asc if sort_order == "asc" else desc
     sort_fields = {
         "created_at": Plan.created_at,
         "status": Plan.status,
         "total_days": total_days_label,
     }
-    query = query.order_by(order(sort_fields.get(sort_by, Plan.created_at)))
+    primary_sort = sort_fields.get(sort_by, Plan.created_at)
+    query = query.order_by(order_func(primary_sort), desc(Plan.created_at), Plan.id)
 
     # Pagination
     rows = query.offset(skip).limit(limit).all()

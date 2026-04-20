@@ -46,7 +46,8 @@ async def multilingual_search(
     limit: int = Query(default=10, ge=1, le=100)
 ) -> MultilingualSearchResponse:
 
-    return await get_multilingual_search_results(query=query,
+    return await get_multilingual_search_results(
+        query=query,
         search_type=search_type.value,
         text_id=text_id,
         skip=skip,
