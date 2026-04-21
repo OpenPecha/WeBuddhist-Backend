@@ -202,7 +202,6 @@ def build_search_payload(
         "search_type": search_type,
         "limit": limit,
         "return_text": False,
-        "hierarchical": True,
     }
     
     if title:

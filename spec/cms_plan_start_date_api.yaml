@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: CMS Plan Start Date API
   description: |
-    API specification for adding `start_date` field to CMS Plan creation and update endpoints.
+    API specification for adding `start_date` field to Plan endpoints.
 
     ## Overview
     This specification documents the changes to support a `start_date` field in plans,
@@ -35,6 +35,9 @@ security:
   - BearerAuth: []
 
 paths:
+  # ============================================================================
+  # CMS Plan Endpoints (Author/Admin)
+  # ============================================================================
   /cms/plans:
     post:
       summary: Create a New Plan
@@ -251,15 +254,217 @@ paths:
                 error: "NOT_FOUND"
                 message: "Plan not found"
 
+  # ============================================================================
+  # Public Plan Endpoints (No Auth Required)
+  # ============================================================================
+  /plans/{plan_id}:
+    get:
+      summary: Get Published Plan Details
+      description: |
+        Retrieves details of a published plan by its ID.
+        
+        This is a public endpoint - no authentication required.
+        Only returns plans with status = PUBLISHED.
+        
+        The `start_date` field indicates when the plan is scheduled to begin:
+        - If present: Plan starts on the specified date for all subscribers
+        - If null: Plan uses rolling start (begins when user subscribes)
+      operationId: get_published_plan
+      tags:
+        - Public Plans
+      security: []
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          description: UUID of the plan to retrieve
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Plan details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicPlanDTO'
+              examples:
+                with_start_date:
+                  summary: Plan with fixed start date
+                  value:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    title: "30-Day Meditation Challenge"
+                    description: "A comprehensive meditation program for beginners"
+                    language: "EN"
+                    difficulty_level: "BEGINNER"
+                    image:
+                      thumbnail: "https://s3.amazonaws.com/bucket/images/plan_images/meditation-challenge_thumb.jpg"
+                      medium: "https://s3.amazonaws.com/bucket/images/plan_images/meditation-challenge_medium.jpg"
+                      original: "https://s3.amazonaws.com/bucket/images/plan_images/meditation-challenge.jpg"
+                    total_days: 30
+                    tags: ["meditation", "beginner", "challenge"]
+                    author:
+                      id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+                      firstname: "John"
+                      lastname: "Doe"
+                      image:
+                        thumbnail: "https://s3.amazonaws.com/bucket/avatars/john_thumb.jpg"
+                        medium: "https://s3.amazonaws.com/bucket/avatars/john_medium.jpg"
+                        original: "https://s3.amazonaws.com/bucket/avatars/john.jpg"
+                    start_date: "2025-01-01T00:00:00Z"
+                without_start_date:
+                  summary: Rolling start plan
+                  value:
+                    id: "660f9511-f30c-52e5-b827-557766551111"
+                    title: "Introduction to Buddhist Philosophy"
+                    description: "Learn the fundamentals of Buddhist thought"
+                    language: "EN"
+                    difficulty_level: "BEGINNER"
+                    image: null
+                    total_days: 14
+                    tags: ["philosophy", "introduction"]
+                    author:
+                      id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+                      firstname: "Jane"
+                      lastname: "Smith"
+                      image: null
+                    start_date: null
+        '404':
+          description: Not Found - Plan not found or not published
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "NOT_FOUND"
+                message: "Plan not found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "INTERNAL_SERVER_ERROR"
+                message: "Failed to fetch published plan details"
+
+  # ============================================================================
+  # User Plan Progress Endpoints (Auth Required)
+  # ============================================================================
+  /users/me/plans/{plan_id}/days/completion_status:
+    get:
+      summary: Get User's Plan Days Completion Status
+      description: |
+        Retrieves the completion status of all days in a plan for the authenticated user.
+        
+        Returns a list of all days in the plan with their completion status.
+        This endpoint is useful for displaying progress indicators in the UI.
+        
+        **Note:** The `start_date` field from the plan affects when the user can start
+        completing days. If the plan has a future start_date, days may not be completable yet.
+      operationId: get_user_plan_days_completion_status
+      tags:
+        - User Plan Progress
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          description: UUID of the plan to get completion status for
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Days completion status retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPlanDayCompletionStatusResponse'
+              examples:
+                partial_completion:
+                  summary: Partially completed plan with fixed start date
+                  description: User has completed some days
+                  value:
+                    days:
+                      - day_number: 1
+                        is_completed: true
+                      - day_number: 2
+                        is_completed: true
+                      - day_number: 3
+                        is_completed: false
+                      - day_number: 4
+                        is_completed: false
+                      - day_number: 5
+                        is_completed: false
+                    start_date: "2025-01-01T00:00:00Z"
+                all_completed:
+                  summary: Fully completed plan
+                  description: User has completed all days
+                  value:
+                    days:
+                      - day_number: 1
+                        is_completed: true
+                      - day_number: 2
+                        is_completed: true
+                      - day_number: 3
+                        is_completed: true
+                    start_date: "2025-01-01T00:00:00Z"
+                not_started_rolling:
+                  summary: Not started rolling plan
+                  description: User has not completed any days, plan has no fixed start date
+                  value:
+                    days:
+                      - day_number: 1
+                        is_completed: false
+                      - day_number: 2
+                        is_completed: false
+                      - day_number: 3
+                        is_completed: false
+                    start_date: null
+        '401':
+          description: Unauthorized - Invalid or missing authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "UNAUTHORIZED"
+                message: "Invalid authentication credentials"
+        '404':
+          description: Not Found - Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "NOT_FOUND"
+                message: "Plan not found"
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "INTERNAL_SERVER_ERROR"
+                message: "Failed to fetch completion status"
+
 components:
   securitySchemes:
     BearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-      description: JWT token for author authentication
+      description: JWT token for user/author authentication
 
   schemas:
+    # ==========================================================================
+    # Request Schemas
+    # ==========================================================================
     CreatePlanRequest:
       type: object
       description: Request body for creating a new plan
@@ -373,9 +578,12 @@ components:
             - Note: Cannot be changed for published plans with active subscribers
           example: "2025-02-01T00:00:00Z"
 
+    # ==========================================================================
+    # Response Schemas
+    # ==========================================================================
     PlanResponse:
       type: object
-      description: Response containing plan details
+      description: Response containing CMS plan details
       required:
         - id
         - title
@@ -454,27 +662,137 @@ components:
             - If null: Plan uses rolling start (begins when user subscribes)
           example: "2025-01-01T00:00:00Z"
 
-    DifficultyLevel:
-      type: string
-      enum:
-        - BEGINNER
-        - INTERMEDIATE
-        - ADVANCED
-      description: Difficulty level of the plan
-      example: "BEGINNER"
+    PublicPlanDTO:
+      type: object
+      description: Public plan details response
+      required:
+        - id
+        - title
+        - description
+        - language
+        - total_days
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the plan
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        title:
+          type: string
+          description: Title of the plan
+          example: "30-Day Meditation Challenge"
+        description:
+          type: string
+          description: Description of the plan
+          example: "A comprehensive meditation program for beginners"
+        language:
+          type: string
+          description: Language code of the plan
+          example: "EN"
+        difficulty_level:
+          allOf:
+            - $ref: '#/components/schemas/DifficultyLevel'
+          nullable: true
+          description: Difficulty level of the plan
+        image:
+          allOf:
+            - $ref: '#/components/schemas/ImageUrlModel'
+          nullable: true
+          description: Plan cover image URLs in different sizes
+        total_days:
+          type: integer
+          description: Total number of days in the plan
+          example: 30
+        tags:
+          type: array
+          nullable: true
+          description: List of tags for categorization
+          items:
+            type: string
+          example: ["meditation", "beginner", "challenge"]
+        author:
+          allOf:
+            - $ref: '#/components/schemas/PublicAuthorDTO'
+          nullable: true
+          description: Author information
+        start_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            The scheduled start date for the plan.
+            - If present: Plan starts on this date for all subscribers
+            - If null: Plan uses rolling start (begins when user subscribes)
+          example: "2025-01-01T00:00:00Z"
 
-    PlanStatus:
-      type: string
-      enum:
-        - DRAFT
-        - PUBLISHED
-        - UNPUBLISHED
-      description: Current status of the plan
-      example: "DRAFT"
+    UserPlanDayCompletionStatusResponse:
+      type: object
+      description: Response containing completion status for all days in a plan
+      required:
+        - days
+      properties:
+        days:
+          type: array
+          description: List of days with their completion status
+          items:
+            $ref: '#/components/schemas/UserPlanDayCompletionStatus'
+        start_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            The scheduled start date for the plan.
+            - If present: Plan starts on this date for all subscribers
+            - If null: Plan uses rolling start (begins when user subscribes)
+          example: "2025-01-01T00:00:00Z"
+
+    UserPlanDayCompletionStatus:
+      type: object
+      description: Completion status for a single day
+      required:
+        - day_number
+        - is_completed
+      properties:
+        day_number:
+          type: integer
+          minimum: 1
+          description: The day number within the plan
+          example: 1
+        is_completed:
+          type: boolean
+          description: Whether the user has completed this day
+          example: true
+
+    # ==========================================================================
+    # Shared Schemas
+    # ==========================================================================
+    ImageUrlModel:
+      type: object
+      description: Image URLs in different sizes
+      required:
+        - thumbnail
+        - medium
+        - original
+      properties:
+        thumbnail:
+          type: string
+          format: uri
+          description: Thumbnail size image URL
+          example: "https://s3.amazonaws.com/bucket/images/plan_images/meditation-challenge_thumb.jpg"
+        medium:
+          type: string
+          format: uri
+          description: Medium size image URL
+          example: "https://s3.amazonaws.com/bucket/images/plan_images/meditation-challenge_medium.jpg"
+        original:
+          type: string
+          format: uri
+          description: Original size image URL
+          example: "https://s3.amazonaws.com/bucket/images/plan_images/meditation-challenge.jpg"
 
     AuthorDTO:
       type: object
-      description: Author information
+      description: CMS Author information
       required:
         - id
         - firstname
@@ -504,6 +822,57 @@ components:
           description: S3 key path for author's avatar
           example: "avatars/author.jpg"
 
+    PublicAuthorDTO:
+      type: object
+      description: Public author information
+      required:
+        - id
+        - firstname
+        - lastname
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the author
+          example: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"
+        firstname:
+          type: string
+          description: Author's first name
+          example: "John"
+        lastname:
+          type: string
+          description: Author's last name
+          example: "Doe"
+        image:
+          allOf:
+            - $ref: '#/components/schemas/ImageUrlModel'
+          nullable: true
+          description: Author's avatar image URLs in different sizes
+
+    # ==========================================================================
+    # Enum Schemas
+    # ==========================================================================
+    DifficultyLevel:
+      type: string
+      enum:
+        - BEGINNER
+        - INTERMEDIATE
+        - ADVANCED
+      description: Difficulty level of the plan
+      example: "BEGINNER"
+
+    PlanStatus:
+      type: string
+      enum:
+        - DRAFT
+        - PUBLISHED
+        - UNPUBLISHED
+      description: Current status of the plan
+      example: "DRAFT"
+
+    # ==========================================================================
+    # Error Schema
+    # ==========================================================================
     ErrorResponse:
       type: object
       required:

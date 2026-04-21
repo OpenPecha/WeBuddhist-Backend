@@ -626,90 +626,81 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
         assert result.plans[0].id == plan_id_1
 
 
-@pytest.mark.asyncio
-async def test_get_user_plan_progress_success():
+def test_get_user_plan_progress_success():
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
+    progress_id = uuid.uuid4()
+    started_at = "2024-01-15T10:00:00Z"
+    created_at = "2024-01-15T10:00:00Z"
 
-    dto = PlanDTO(
+    db_mock, session_cm = _mock_session_with_db()
+
+    progress_record = SimpleNamespace(
+        id=progress_id,
+        user_id=user_id,
+        plan_id=plan_id,
+        started_at=started_at,
+        streak_count=2,
+        longest_streak=3,
+        status="active",
+        is_completed=False,
+        completed_at=None,
+        created_at=created_at,
+    )
+
+    plan_record = SimpleNamespace(
         id=plan_id,
         title="Plan X",
         description="desc",
-        language="en",
-        total_days=30,
-        status=PlanStatus.PUBLISHED,
-        subscription_count=0,
-        difficulty_level=DifficultyLevel.BEGINNER,
+        language=SimpleNamespace(value="en"),
+        difficulty_level=SimpleNamespace(value="beginner"),
+        image_url=None,
         tags=[],
     )
 
-    mock_progress = [
-        {
-            "id": str(uuid.uuid4()),
-            "user_id": str(user_id),
-            "plan_id": str(plan_id),
-            "started_at": "2024-01-15T10:00:00Z",
-            "streak_count": 2,
-            "longest_streak": 3,
-            "status": "active",
-            "is_completed": False,
-            "completed_at": None,
-            "created_at": "2024-01-15T10:00:00Z",
-        }
-    ]
-
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
         return_value=SimpleNamespace(id=user_id),
     ), patch(
-        "pecha_api.plans.users.plan_users_service.MOCK_USER_PROGRESS",
-        new=mock_progress, create=True,
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.load_plans_from_json",
-        return_value=SimpleNamespace(plans=[SimpleNamespace(id=str(plan_id))]),
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=progress_record,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.convert_plan_model_to_dto",
-        return_value=dto,
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.UserPlanProgress",
-    ) as MockUserPlanProgress:
-        constructed = SimpleNamespace(
-            id=uuid.uuid4(),
-            user_id=user_id,
-            plan_id=plan_id,
-            plan=dto.model_dump(),
-            status="active",
-        )
-        MockUserPlanProgress.return_value = constructed
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=plan_record,
+    ):
+        result = get_user_plan_progress(token="tok", plan_id=plan_id)
 
-        result = await get_user_plan_progress(token="tok", plan_id=plan_id)
-
-        ctor_kwargs = MockUserPlanProgress.call_args.kwargs
-        assert ctor_kwargs["user_id"] == user_id
-        assert ctor_kwargs["plan_id"] == plan_id
-        assert ctor_kwargs["plan"]["id"] == plan_id
-        assert ctor_kwargs["status"] == "active"
-
-        assert result is constructed
+        assert result.user_id == user_id
+        assert result.plan_id == plan_id
+        assert result.streak_count == 2
+        assert result.longest_streak == 3
+        assert result.plan["title"] == "Plan X"
 
 
-@pytest.mark.asyncio
-async def test_get_user_plan_progress_not_enrolled_raises_404():
+def test_get_user_plan_progress_not_enrolled_raises_404():
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
 
+    _, session_cm = _mock_session_with_db()
+
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
         return_value=SimpleNamespace(id=user_id),
     ), patch(
-        "pecha_api.plans.users.plan_users_service.MOCK_USER_PROGRESS",
-        new=[], create=True,
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=None,
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await get_user_plan_progress(token="tok", plan_id=plan_id)
+            get_user_plan_progress(token="tok", plan_id=plan_id)
 
         assert exc_info.value.status_code == 404
-        assert exc_info.value.detail == "User not enrolled in this plan"
+        assert exc_info.value.detail["message"] == "User not enrolled in this plan"
 
 
 def _mock_session_with_db_and_task_flow():
@@ -1195,43 +1186,43 @@ def test_delete_task_service_task_not_found_raises_404():
         assert exc_info.value.detail["message"] == TASK_NOT_FOUND
 
 
-@pytest.mark.asyncio
-async def test_get_user_plan_progress_plan_not_found():
+def test_get_user_plan_progress_plan_not_found():
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
 
-    mock_progress = [
-        {
-            "id": str(uuid.uuid4()),
-            "user_id": str(user_id),
-            "plan_id": str(plan_id),
-            "started_at": "2024-01-15T10:00:00Z",
-            "streak_count": 1,
-            "longest_streak": 1,
-            "status": "active",
-            "is_completed": False,
-            "completed_at": None,
-            "created_at": "2024-01-15T10:00:00Z",
-        }
-    ]
+    _, session_cm = _mock_session_with_db()
+
+    progress_record = SimpleNamespace(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        plan_id=plan_id,
+        started_at="2024-01-15T10:00:00Z",
+        streak_count=1,
+        longest_streak=1,
+        status="active",
+        is_completed=False,
+        completed_at=None,
+        created_at="2024-01-15T10:00:00Z",
+    )
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
         return_value=SimpleNamespace(id=user_id),
     ), patch(
-        "pecha_api.plans.users.plan_users_service.MOCK_USER_PROGRESS",
-        new=mock_progress, create=True,
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.load_plans_from_json",
-        return_value=SimpleNamespace(plans=[]),  # plan missing
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=progress_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=None,
     ):
-        from pecha_api.plans.users.plan_users_service import get_user_plan_progress
-
         with pytest.raises(HTTPException) as exc_info:
-            await get_user_plan_progress(token="tok", plan_id=plan_id)
+            get_user_plan_progress(token="tok", plan_id=plan_id)
 
         assert exc_info.value.status_code == 404
-        assert exc_info.value.detail == ErrorConstants.PLAN_NOT_FOUND
+        assert exc_info.value.detail["message"] == ErrorConstants.PLAN_NOT_FOUND
 
 
 def test_get_user_plan_day_details_service_success():
@@ -1836,6 +1827,7 @@ def test_delete_user_plan_progress_repository_with_no_completion_records():
 async def test_get_user_plan_days_completion_status_service_success():
     """Test successful retrieval of plan days completion status"""
     from pecha_api.plans.users.plan_users_service import get_user_plan_days_completion_status_service
+    from datetime import datetime, timezone
     
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
@@ -1844,6 +1836,8 @@ async def test_get_user_plan_days_completion_status_service_success():
     day3_id = uuid.uuid4()
     
     mock_user = SimpleNamespace(id=user_id)
+    
+    mock_plan = SimpleNamespace(id=plan_id, start_date=datetime(2025, 1, 1, tzinfo=timezone.utc))
     
     mock_days = [
         SimpleNamespace(id=day1_id, day_number=1),
@@ -1860,6 +1854,9 @@ async def test_get_user_plan_days_completion_status_service_success():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=mock_plan,
+    ) as mock_get_plan, patch(
         "pecha_api.plans.users.plan_users_service.get_days_by_plan_id",
         return_value=mock_days,
     ) as mock_get_days, patch(
@@ -1871,6 +1868,7 @@ async def test_get_user_plan_days_completion_status_service_success():
         )
         
         mock_validate.assert_called_once_with(token="token123")
+        mock_get_plan.assert_called_once_with(db=db_mock, plan_id=plan_id)
         mock_get_days.assert_called_once_with(db=db_mock, plan_id=plan_id)
         mock_get_completed_day_ids.assert_called_once_with(
             db=db_mock,
@@ -1885,6 +1883,7 @@ async def test_get_user_plan_days_completion_status_service_success():
         assert result.days[1].is_completed is False
         assert result.days[2].day_number == 3
         assert result.days[2].is_completed is False
+        assert result.start_date == datetime(2025, 1, 1, tzinfo=timezone.utc)
 
 
 @pytest.mark.asyncio
@@ -1898,6 +1897,8 @@ async def test_get_user_plan_days_completion_status_service_all_completed():
     day1_id = uuid.uuid4()
     day2_id = uuid.uuid4()
     day3_id = uuid.uuid4()
+    
+    mock_plan = SimpleNamespace(id=plan_id, start_date=None)
     
     mock_days = [
         SimpleNamespace(id=day1_id, day_number=1),
@@ -1914,6 +1915,9 @@ async def test_get_user_plan_days_completion_status_service_all_completed():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=mock_plan,
+    ), patch(
         "pecha_api.plans.users.plan_users_service.get_days_by_plan_id",
         return_value=mock_days,
     ), patch(
@@ -1926,3 +1930,36 @@ async def test_get_user_plan_days_completion_status_service_all_completed():
         
         assert len(result.days) == 3
         assert all(day.is_completed is True for day in result.days)
+        assert result.start_date is None
+
+
+@pytest.mark.asyncio
+async def test_get_user_plan_days_completion_status_service_plan_not_found():
+    """Test when plan does not exist"""
+    from pecha_api.plans.users.plan_users_service import get_user_plan_days_completion_status_service
+    from fastapi import HTTPException
+    
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    
+    mock_user = SimpleNamespace(id=user_id)
+    
+    db_mock, session_cm = _mock_session_with_db()
+    
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_user_plan_days_completion_status_service(
+                token="token123", plan_id=plan_id
+            )
+        
+        assert exc_info.value.status_code == 404
+        assert "Plan not found" in str(exc_info.value.detail)

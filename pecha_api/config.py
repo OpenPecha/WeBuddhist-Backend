@@ -30,7 +30,7 @@ DEFAULTS = dict(
     MONGO_CONNECTION_STRING="mongodb://admin:pechaAdmin@localhost:27017/pecha?authSource=admin",
 
     WEBUDDHIST_STUDIO_BASE_URL="https://studio.webuddhist.com",
-    MONGO_DATABASE_NAME="pecha",
+    MONGO_DATABASE_NAME="webuddhist",
     REFRESH_TOKEN_EXPIRE_DAYS=30,
     VERSION="0.0.1",
     # Cache Configuration
