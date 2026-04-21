@@ -74,7 +74,8 @@ DEFAULTS = dict(
     COLLECTION_LANGUAGES = ["bo", "en", "zh"],
 
     #pecha api configuration
-    EXTERNAL_PECHA_API_URL="",
+    EXTERNAL_PECHA_API_URL="https://api-l25bgmwqoa-uc.a.run.app",
+    EXTERNAL_PECHA_API_KEY="",
 
     EXTERNAL_TITLE_SEARCH_API_URL="",
 
