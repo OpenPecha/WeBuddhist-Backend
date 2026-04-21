@@ -1,6 +1,7 @@
 import uuid
 import pytest
 from unittest.mock import patch, AsyncMock
+from datetime import datetime, timezone
 
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus
 from pecha_api.plans.plans_response_models import CreatePlanRequest, PlanDTO, PlansResponse, PlanDayDTO
@@ -24,6 +25,7 @@ async def test_create_plan_success():
         language="en",
         image_url="https://example.com/image.jpg",
         tags=["mindfulness", "beginner"],
+        start_date=datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
     )
 
     plan_id = uuid.uuid4()
@@ -36,6 +38,7 @@ async def test_create_plan_success():
         total_days=0,
         status=PlanStatus.DRAFT,
         subscription_count=0,
+        start_date=request.start_date,
     )
 
     creds = _Creds(token="token123")
@@ -54,6 +57,7 @@ async def test_create_plan_success():
         assert response.total_days == 0
         assert response.status == PlanStatus.DRAFT
         assert response.subscription_count == 0
+        assert response.start_date == request.start_date
 
 
 

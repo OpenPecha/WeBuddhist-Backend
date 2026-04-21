@@ -153,6 +153,7 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
         title=create_plan_request.title,
         description=create_plan_request.description,
         image_url=create_plan_request.image_url,
+        start_date=create_plan_request.start_date,
         author_id=current_author.id,
         difficulty_level=create_plan_request.difficulty_level,
         tags=create_plan_request.tags or [],
@@ -188,11 +189,12 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
             language=saved_plan.language.value if hasattr(saved_plan.language, 'value') else saved_plan.language,
             difficulty_level=saved_plan.difficulty_level,
             image_url=saved_plan.image_url,
-            plan_image_url=saved_plan.image_url, 
+            image_key=saved_plan.image_url,
             total_days=total_days,
             tags=saved_plan.tags or [],
             status=saved_plan.status,
-            subscription_count=total_subscription_count
+            subscription_count=total_subscription_count,
+            start_date=saved_plan.start_date,
         )
 
 async def get_details_plan(token:str,plan_id: UUID) -> PlanWithDays:

@@ -2,6 +2,7 @@ import uuid
 import pytest
 from unittest.mock import patch, MagicMock, ANY
 from fastapi import HTTPException
+from datetime import datetime, timezone
 
 import pecha_api.plans.cms.cms_plans_service as plans_service
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus, ContentType
@@ -35,6 +36,7 @@ def test_create_new_plan_success():
         language="en",
         image_url="https://example.com/image.jpg",
         tags=["mindfulness", "beginner"],
+        start_date=datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
     )
 
     saved_plan = MagicMock()
@@ -46,6 +48,7 @@ def test_create_new_plan_success():
     saved_plan.tags = request.tags
     saved_plan.language = request.language
     saved_plan.status = PlanStatus.DRAFT
+    saved_plan.start_date = request.start_date
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.cms.cms_plans_service.save_plan") as mock_save_plan, \
@@ -76,6 +79,7 @@ def test_create_new_plan_success():
         assert created_plan_model.title == request.title
         assert created_plan_model.description == request.description
         assert created_plan_model.image_url == request.image_url
+        assert created_plan_model.start_date == request.start_date
         assert created_plan_model.author_id is not None and str(created_plan_model.author_id) != ""
 
         # verify repository interactions - plan items (bulk)
@@ -100,6 +104,7 @@ def test_create_new_plan_success():
         assert response.total_days == request.total_days
         assert response.status == PlanStatus.DRAFT
         assert response.subscription_count == 0
+        assert response.start_date == request.start_date
 
 
 

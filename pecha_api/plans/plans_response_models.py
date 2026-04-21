@@ -1,5 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
+from datetime import datetime
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus,ContentType
 from uuid import UUID
 from pecha_api.plans.plans_models import Plan
@@ -13,6 +14,7 @@ class CreatePlanRequest(BaseModel):
     language: str
     image_url: Optional[str] = None
     tags: Optional[List[str]] = []
+    start_date: Optional[datetime] = None
 
 class UpdatePlanRequest(BaseModel):
     title: Optional[str] = None
@@ -47,6 +49,7 @@ class PlanDTO(BaseModel):
     featured: Optional[bool] = False
     subscription_count: int
     author: Optional[AuthorDTO] = None
+    start_date: Optional[datetime] = None
 
 class SubTaskDTO(BaseModel):
     id: UUID
