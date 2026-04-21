@@ -247,61 +247,69 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
         days=day_dtos,
     )
     
-async def update_plan_details(token: str, plan_id: UUID, update_plan_request: UpdatePlanRequest) -> PlanDTO:
+def _get_subscription_count(db: Session, plan_id: UUID) -> int:
+    return db.query(func.count(func.distinct(UserPlanProgress.user_id))).filter(
+        UserPlanProgress.plan_id == plan_id
+    ).scalar() or 0
 
+
+def _validate_start_date_update(db: Session, plan: Plan, plan_id: UUID):
+    subscription_count = _get_subscription_count(db, plan_id)
+    if plan.status == PlanStatus.PUBLISHED and subscription_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ResponseError(
+                error=BAD_REQUEST,
+                message=PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS,
+            ).model_dump(),
+        )
+
+
+def _apply_plan_field_updates(plan: Plan, update_plan_request: UpdatePlanRequest):
+    field_mappings = [
+        ('title', 'title'),
+        ('description', 'description'),
+        ('difficulty_level', 'difficulty_level'),
+        ('image_url', 'image_url'),
+        ('tags', 'tags'),
+        ('language', 'language'),
+    ]
+    for request_field, plan_field in field_mappings:
+        value = getattr(update_plan_request, request_field, None)
+        if value is not None:
+            setattr(plan, plan_field, value)
+
+
+def _generate_plan_image_url(plan_image_key: Optional[str]) -> Optional[str]:
+    if not plan_image_key:
+        return None
+    try:
+        bucket_name = get("AWS_BUCKET_NAME")
+        return generate_presigned_access_url(bucket_name, plan_image_key)
+    except Exception:
+        return plan_image_key
+
+
+async def update_plan_details(token: str, plan_id: UUID, update_plan_request: UpdatePlanRequest) -> PlanDTO:
     author_details = validate_and_extract_author_details(token=token)
+    
     with SessionLocal() as db:
         plan = _check_author_plan_availability(plan_id=plan_id, author_id=author_details.id, is_admin=author_details.is_admin)
 
         if "start_date" in update_plan_request.model_fields_set:
-            subscription_count = db.query(func.count(func.distinct(UserPlanProgress.user_id))).filter(
-                UserPlanProgress.plan_id == plan_id
-            ).scalar() or 0
-
-            if plan.status == PlanStatus.PUBLISHED and subscription_count > 0:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=ResponseError(
-                        error=BAD_REQUEST,
-                        message=PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS,
-                    ).model_dump(),
-                )
-
+            _validate_start_date_update(db, plan, plan_id)
             plan.start_date = update_plan_request.start_date
         
-        if update_plan_request.title is not None:
-            plan.title = update_plan_request.title
-        if update_plan_request.description is not None:
-            plan.description = update_plan_request.description
-        if update_plan_request.difficulty_level is not None:
-            plan.difficulty_level = update_plan_request.difficulty_level
-        if update_plan_request.image_url is not None:
-            plan.image_url = update_plan_request.image_url
-        if update_plan_request.tags is not None:
-            plan.tags = update_plan_request.tags
-        if update_plan_request.language is not None:
-            plan.language = update_plan_request.language
+        _apply_plan_field_updates(plan, update_plan_request)
         
         plan.updated_at = datetime.now(timezone.utc)
         plan.updated_by = author_details.email
-        
         plan = update_plan(db, plan)
         
-        image_url = None
         plan_image_key = plan.image_url
-        if plan_image_key:
-            try:
-                bucket_name = get("AWS_BUCKET_NAME")
-                image_url = generate_presigned_access_url(bucket_name, plan_image_key)
-            except Exception:
-                image_url = plan.image_url
-        
-        updated_items = get_plan_items_by_plan_id(db, plan_id)
-        total_days = len(updated_items)
-        
-        subscription_count = db.query(func.count(func.distinct(UserPlanProgress.user_id))).filter(
-            UserPlanProgress.plan_id == plan_id
-        ).scalar() or 0
+        image_url = _generate_plan_image_url(plan_image_key)
+        total_days = len(get_plan_items_by_plan_id(db, plan_id))
+        subscription_count = _get_subscription_count(db, plan_id)
         
         return PlanDTO(
             id=plan.id,

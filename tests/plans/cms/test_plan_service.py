@@ -16,7 +16,8 @@ from pecha_api.plans.plans_response_models import (
 from pecha_api.plans.cms.cms_plans_service import (
     create_new_plan, get_filtered_plans, get_details_plan,
     update_plan_details, update_selected_plan_status, delete_selected_plan, get_plan_day_details,
-    DUMMY_PLANS, DUMMY_DAYS
+    DUMMY_PLANS, DUMMY_DAYS,
+    _get_subscription_count, _validate_start_date_update, _apply_plan_field_updates, _generate_plan_image_url
 )
 
 
@@ -26,6 +27,154 @@ def _mock_session_local(mock_session_local):
     mock_session_local.return_value.__exit__.return_value = False
     return mock_db_session
 
+
+# ============================================================================
+# Tests for helper functions (extracted to reduce cognitive complexity)
+# ============================================================================
+
+def test_get_subscription_count_returns_count():
+    """Test _get_subscription_count returns the correct count"""
+    plan_id = uuid.uuid4()
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.scalar.return_value = 15
+    
+    result = _get_subscription_count(mock_db, plan_id)
+    
+    assert result == 15
+    mock_db.query.assert_called_once()
+
+
+def test_get_subscription_count_returns_zero_when_none():
+    """Test _get_subscription_count returns 0 when scalar returns None"""
+    plan_id = uuid.uuid4()
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.scalar.return_value = None
+    
+    result = _get_subscription_count(mock_db, plan_id)
+    
+    assert result == 0
+
+
+def test_validate_start_date_update_raises_for_published_with_subscribers():
+    """Test _validate_start_date_update raises HTTPException for published plan with subscribers"""
+    plan_id = uuid.uuid4()
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.scalar.return_value = 5
+    
+    mock_plan = MagicMock()
+    mock_plan.status = PlanStatus.PUBLISHED
+    
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_start_date_update(mock_db, mock_plan, plan_id)
+    
+    assert exc_info.value.status_code == 400
+
+
+def test_validate_start_date_update_allows_draft_plan():
+    """Test _validate_start_date_update does not raise for draft plan"""
+    plan_id = uuid.uuid4()
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.scalar.return_value = 5
+    
+    mock_plan = MagicMock()
+    mock_plan.status = PlanStatus.DRAFT
+    
+    _validate_start_date_update(mock_db, mock_plan, plan_id)
+
+
+def test_validate_start_date_update_allows_published_with_no_subscribers():
+    """Test _validate_start_date_update does not raise for published plan with no subscribers"""
+    plan_id = uuid.uuid4()
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.scalar.return_value = 0
+    
+    mock_plan = MagicMock()
+    mock_plan.status = PlanStatus.PUBLISHED
+    
+    _validate_start_date_update(mock_db, mock_plan, plan_id)
+
+
+def test_apply_plan_field_updates_updates_all_fields():
+    """Test _apply_plan_field_updates updates all provided fields"""
+    mock_plan = MagicMock()
+    mock_plan.title = "Original"
+    mock_plan.description = "Original Desc"
+    mock_plan.difficulty_level = DifficultyLevel.BEGINNER
+    mock_plan.image_url = "original.jpg"
+    mock_plan.tags = ["old"]
+    mock_plan.language = "en"
+    
+    update_request = UpdatePlanRequest(
+        title="New Title",
+        description="New Description",
+        difficulty_level=DifficultyLevel.ADVANCED,
+        image_url="new.jpg",
+        tags=["new", "tags"],
+        language="bo"
+    )
+    
+    _apply_plan_field_updates(mock_plan, update_request)
+    
+    assert mock_plan.title == "New Title"
+    assert mock_plan.description == "New Description"
+    assert mock_plan.difficulty_level == DifficultyLevel.ADVANCED
+    assert mock_plan.image_url == "new.jpg"
+    assert mock_plan.tags == ["new", "tags"]
+    assert mock_plan.language == "bo"
+
+
+def test_apply_plan_field_updates_skips_none_fields():
+    """Test _apply_plan_field_updates does not update fields that are None"""
+    mock_plan = MagicMock()
+    mock_plan.title = "Original"
+    mock_plan.description = "Original Desc"
+    
+    update_request = UpdatePlanRequest(title="New Title")
+    
+    _apply_plan_field_updates(mock_plan, update_request)
+    
+    assert mock_plan.title == "New Title"
+    assert mock_plan.description == "Original Desc"
+
+
+def test_generate_plan_image_url_returns_presigned_url():
+    """Test _generate_plan_image_url returns presigned URL when successful"""
+    with patch("pecha_api.plans.cms.cms_plans_service.get") as mock_get, \
+         patch("pecha_api.plans.cms.cms_plans_service.generate_presigned_access_url") as mock_presign:
+        mock_get.return_value = "test-bucket"
+        mock_presign.return_value = "https://s3.amazonaws.com/presigned-url"
+        
+        result = _generate_plan_image_url("images/test.jpg")
+        
+        assert result == "https://s3.amazonaws.com/presigned-url"
+        mock_get.assert_called_once_with("AWS_BUCKET_NAME")
+        mock_presign.assert_called_once_with("test-bucket", "images/test.jpg")
+
+
+def test_generate_plan_image_url_returns_none_for_empty_key():
+    """Test _generate_plan_image_url returns None when image key is empty"""
+    result = _generate_plan_image_url(None)
+    assert result is None
+    
+    result = _generate_plan_image_url("")
+    assert result is None
+
+
+def test_generate_plan_image_url_returns_key_on_exception():
+    """Test _generate_plan_image_url returns original key when presign fails"""
+    with patch("pecha_api.plans.cms.cms_plans_service.get") as mock_get, \
+         patch("pecha_api.plans.cms.cms_plans_service.generate_presigned_access_url") as mock_presign:
+        mock_get.return_value = "test-bucket"
+        mock_presign.side_effect = Exception("S3 error")
+        
+        result = _generate_plan_image_url("images/test.jpg")
+        
+        assert result == "images/test.jpg"
+
+
+# ============================================================================
+# Tests for main service functions
+# ============================================================================
 
 def test_create_new_plan_success():
     request = CreatePlanRequest(
