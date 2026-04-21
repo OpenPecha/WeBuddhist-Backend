@@ -24,6 +24,7 @@ class UpdatePlanRequest(BaseModel):
     total_days: Optional[int] = None
     image_url: Optional[str] = None
     tags: Optional[List[str]] = None
+    start_date: Optional[datetime] = None
 
 class PlanStatusUpdate(BaseModel):
     status: PlanStatus
