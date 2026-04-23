@@ -151,6 +151,7 @@ def enroll_user_in_plan(token: str, enroll_request: UserPlanEnrollRequest) -> No
             streak_count=0,
             longest_streak=0,
             status= UserPlanStatus.NOT_STARTED,
+            started_at=datetime.now(timezone.utc),
             created_at=datetime.now(timezone.utc), 
             is_completed=False,
         )

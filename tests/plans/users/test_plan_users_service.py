@@ -82,6 +82,7 @@ def test_enroll_user_in_plan_success():
         assert ctor_kwargs["longest_streak"] == 0
         assert "status" in ctor_kwargs  
         assert ctor_kwargs["is_completed"] is False
+        assert "started_at" in ctor_kwargs
         assert "created_at" in ctor_kwargs
 
         mock_save.assert_called_once()
