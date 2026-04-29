@@ -378,6 +378,8 @@ async def test_get_filtered_plans_success():
 
 @pytest.mark.asyncio
 async def test_get_details_plan_success():
+    from datetime import datetime, timezone
+    
     plan = Plan(
         id=uuid.uuid4(),
         title="Test Plan",
@@ -390,6 +392,7 @@ async def test_get_details_plan_success():
     # Ensure required fields used by service/DTO are present
     plan.difficulty_level = "BEGINNER"
     plan.tags = ["mindfulness"]
+    plan.start_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
     item1 = PlanItem(id=uuid.uuid4(), plan_id=plan.id, day_number=1, created_by="tester@example.com")
     item2 = PlanItem(id=uuid.uuid4(), plan_id=plan.id, day_number=2, created_by="tester@example.com")
@@ -454,6 +457,9 @@ async def test_get_details_plan_success():
         assert len(day2.tasks) == 1
         assert day2.tasks[0].id == task2.id
         assert day2.tasks[0].estimated_time == task2.estimated_time
+        
+        # Verify start_date is returned
+        assert response.start_date == datetime(2025, 1, 1, tzinfo=timezone.utc)
 
 @pytest.mark.asyncio
 async def test_get_plan_day_details_success():

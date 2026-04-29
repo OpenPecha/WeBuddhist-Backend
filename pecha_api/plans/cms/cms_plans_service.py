@@ -247,6 +247,7 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
         tags=plan.tags or [],
         status=plan.status,
         days=day_dtos,
+        start_date=plan.start_date,
     )
     
 def _get_subscription_count(db: Session, plan_id: UUID) -> int:

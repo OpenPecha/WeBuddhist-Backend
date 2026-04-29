@@ -137,6 +137,100 @@ paths:
                 message: "You do not have permission to create plans"
 
   /cms/plans/{plan_id}:
+    get:
+      summary: Get Plan Details (CMS)
+      description: |
+        Retrieves detailed information about a specific plan including all days and tasks.
+        
+        This is a CMS endpoint - requires author/admin authentication.
+        Returns the plan with all its days, tasks, and the `start_date` field.
+      operationId: get_plan_details
+      tags:
+        - CMS Plans
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: plan_id
+          in: path
+          required: true
+          description: UUID of the plan to retrieve
+          schema:
+            type: string
+            format: uuid
+          example: "550e8400-e29b-41d4-a716-446655440000"
+      responses:
+        '200':
+          description: Plan details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanWithDaysResponse'
+              examples:
+                with_start_date:
+                  summary: Plan with fixed start date
+                  value:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    title: "30-Day Meditation Challenge"
+                    description: "A comprehensive meditation program for beginners"
+                    language: "EN"
+                    image_url: "https://s3.amazonaws.com/bucket/images/plan_images/meditation-challenge.jpg?X-Amz-..."
+                    plan_image_url: "images/plan_images/meditation-challenge.jpg"
+                    total_days: 30
+                    difficulty_level: "BEGINNER"
+                    tags: ["meditation", "beginner", "challenge"]
+                    status: "DRAFT"
+                    start_date: "2025-01-01T00:00:00Z"
+                    days:
+                      - id: "660f9511-f30c-52e5-b827-557766551111"
+                        day_number: 1
+                        tasks:
+                          - id: "770f9511-f30c-52e5-b827-557766552222"
+                            title: "Morning Meditation"
+                            estimated_time: 15
+                            display_order: 1
+                without_start_date:
+                  summary: Rolling start plan
+                  value:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    title: "Introduction to Buddhist Philosophy"
+                    description: "Learn the fundamentals"
+                    language: "EN"
+                    image_url: null
+                    plan_image_url: null
+                    total_days: 14
+                    difficulty_level: "BEGINNER"
+                    tags: ["philosophy"]
+                    status: "DRAFT"
+                    start_date: null
+                    days: []
+        '401':
+          description: Unauthorized - Invalid or missing authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "UNAUTHORIZED"
+                message: "Invalid authentication credentials"
+        '403':
+          description: Forbidden - User does not have permission to view this plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "FORBIDDEN"
+                message: "You do not have permission to view this plan"
+        '404':
+          description: Not Found - Plan not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "NOT_FOUND"
+                message: "Plan not found"
+
     put:
       summary: Update Plan Details
       description: |
@@ -661,6 +755,129 @@ components:
             - If present: Plan starts on this date for all subscribers
             - If null: Plan uses rolling start (begins when user subscribes)
           example: "2025-01-01T00:00:00Z"
+
+    PlanWithDaysResponse:
+      type: object
+      description: CMS plan details response with all days and tasks
+      required:
+        - id
+        - title
+        - description
+        - language
+        - total_days
+        - difficulty_level
+        - tags
+        - status
+        - days
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the plan
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        title:
+          type: string
+          description: Title of the plan
+          example: "30-Day Meditation Challenge"
+        description:
+          type: string
+          description: Description of the plan
+          example: "A comprehensive meditation program for beginners"
+        language:
+          type: string
+          description: Language code of the plan
+          example: "EN"
+        image_url:
+          type: string
+          nullable: true
+          description: Presigned S3 URL for the plan's cover image (temporary, for display)
+          example: "https://s3.amazonaws.com/bucket/images/plan_images/meditation-challenge.jpg?X-Amz-..."
+        plan_image_url:
+          type: string
+          nullable: true
+          description: S3 key path for the plan's cover image (permanent, for storage)
+          example: "images/plan_images/meditation-challenge.jpg"
+        total_days:
+          type: integer
+          description: Total number of days in the plan
+          example: 30
+        difficulty_level:
+          type: string
+          description: Difficulty level of the plan
+          example: "BEGINNER"
+        tags:
+          type: array
+          description: List of tags for categorization
+          items:
+            type: string
+          example: ["meditation", "beginner", "challenge"]
+        status:
+          $ref: '#/components/schemas/PlanStatus'
+        days:
+          type: array
+          description: List of days with their tasks
+          items:
+            $ref: '#/components/schemas/PlanDayWithTasks'
+        start_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            The scheduled start date for the plan.
+            - If present: Plan starts on this date for all subscribers
+            - If null: Plan uses rolling start (begins when user subscribes)
+          example: "2025-01-01T00:00:00Z"
+
+    PlanDayWithTasks:
+      type: object
+      description: A day in the plan with its tasks
+      required:
+        - id
+        - day_number
+        - tasks
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the day
+          example: "660f9511-f30c-52e5-b827-557766551111"
+        day_number:
+          type: integer
+          minimum: 1
+          description: The day number within the plan
+          example: 1
+        tasks:
+          type: array
+          description: List of tasks for this day
+          items:
+            $ref: '#/components/schemas/TaskSummary'
+
+    TaskSummary:
+      type: object
+      description: Summary of a task within a day
+      required:
+        - id
+        - title
+        - display_order
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the task
+          example: "770f9511-f30c-52e5-b827-557766552222"
+        title:
+          type: string
+          description: Title of the task
+          example: "Morning Meditation"
+        estimated_time:
+          type: integer
+          nullable: true
+          description: Estimated time in minutes
+          example: 15
+        display_order:
+          type: integer
+          description: Order of the task within the day
+          example: 1
 
     PublicPlanDTO:
       type: object
