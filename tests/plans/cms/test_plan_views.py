@@ -191,6 +191,7 @@ async def test_get_plan_details_success():
         tags=[],
         status=PlanStatus.DRAFT,
         days=[],
+        start_date=None,
     )
 
     with patch(

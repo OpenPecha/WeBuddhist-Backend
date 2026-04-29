@@ -83,6 +83,7 @@ class PlanWithDays(BaseModel):
     tags: List[str]
     status: PlanStatus
     days: List[PlanDayDTO]
+    start_date: Optional[datetime] = None
 
 class PlansResponse(BaseModel):
     plans: List[PlanDTO]
