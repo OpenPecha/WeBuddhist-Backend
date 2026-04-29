@@ -332,6 +332,10 @@ def delete_task_service(token: str, task_id: UUID) -> None:
 async def get_user_plan_days_completion_status_service(token: str, plan_id: UUID) ->  UserPlanDayCompletionStatusResponse:
     current_user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
+        plan = get_plan_by_id(db=db, plan_id=plan_id)
+        if not plan:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=PLAN_NOT_FOUND)
+        
         days = get_days_by_plan_id(db=db, plan_id=plan_id)
         day_ids = [day.id for day in days]
         completed_day_ids = get_completed_day_ids_by_user_id_and_day_ids(
@@ -348,7 +352,10 @@ async def get_user_plan_days_completion_status_service(token: str, plan_id: UUID
             for day in days
         ]
         
-        return UserPlanDayCompletionStatusResponse(days=days_completion_status)
+        return UserPlanDayCompletionStatusResponse(
+            days=days_completion_status,
+            start_date=plan.start_date
+        )
     
 def get_user_plan_day_details_service(token: str, plan_id: UUID, day_number: int) -> UserPlanDayDetailsResponse:
     current_user = validate_and_extract_user_details(token=token)

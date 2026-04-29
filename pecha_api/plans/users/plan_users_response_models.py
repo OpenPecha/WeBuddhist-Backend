@@ -20,6 +20,7 @@ class UserPlanDayCompletionStatus(BaseModel):
 
 class UserPlanDayCompletionStatusResponse(BaseModel):
     days: List[UserPlanDayCompletionStatus]
+    start_date: Optional[datetime] = None
 
 class UserPlanProgressResponse(BaseModel):
     id: UUID

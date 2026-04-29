@@ -1827,6 +1827,7 @@ def test_delete_user_plan_progress_repository_with_no_completion_records():
 async def test_get_user_plan_days_completion_status_service_success():
     """Test successful retrieval of plan days completion status"""
     from pecha_api.plans.users.plan_users_service import get_user_plan_days_completion_status_service
+    from datetime import datetime, timezone
     
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
@@ -1835,6 +1836,8 @@ async def test_get_user_plan_days_completion_status_service_success():
     day3_id = uuid.uuid4()
     
     mock_user = SimpleNamespace(id=user_id)
+    
+    mock_plan = SimpleNamespace(id=plan_id, start_date=datetime(2025, 1, 1, tzinfo=timezone.utc))
     
     mock_days = [
         SimpleNamespace(id=day1_id, day_number=1),
@@ -1851,6 +1854,9 @@ async def test_get_user_plan_days_completion_status_service_success():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=mock_plan,
+    ) as mock_get_plan, patch(
         "pecha_api.plans.users.plan_users_service.get_days_by_plan_id",
         return_value=mock_days,
     ) as mock_get_days, patch(
@@ -1862,6 +1868,7 @@ async def test_get_user_plan_days_completion_status_service_success():
         )
         
         mock_validate.assert_called_once_with(token="token123")
+        mock_get_plan.assert_called_once_with(db=db_mock, plan_id=plan_id)
         mock_get_days.assert_called_once_with(db=db_mock, plan_id=plan_id)
         mock_get_completed_day_ids.assert_called_once_with(
             db=db_mock,
@@ -1876,6 +1883,7 @@ async def test_get_user_plan_days_completion_status_service_success():
         assert result.days[1].is_completed is False
         assert result.days[2].day_number == 3
         assert result.days[2].is_completed is False
+        assert result.start_date == datetime(2025, 1, 1, tzinfo=timezone.utc)
 
 
 @pytest.mark.asyncio
@@ -1889,6 +1897,8 @@ async def test_get_user_plan_days_completion_status_service_all_completed():
     day1_id = uuid.uuid4()
     day2_id = uuid.uuid4()
     day3_id = uuid.uuid4()
+    
+    mock_plan = SimpleNamespace(id=plan_id, start_date=None)
     
     mock_days = [
         SimpleNamespace(id=day1_id, day_number=1),
@@ -1905,6 +1915,9 @@ async def test_get_user_plan_days_completion_status_service_all_completed():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=mock_plan,
+    ), patch(
         "pecha_api.plans.users.plan_users_service.get_days_by_plan_id",
         return_value=mock_days,
     ), patch(
@@ -1917,3 +1930,36 @@ async def test_get_user_plan_days_completion_status_service_all_completed():
         
         assert len(result.days) == 3
         assert all(day.is_completed is True for day in result.days)
+        assert result.start_date is None
+
+
+@pytest.mark.asyncio
+async def test_get_user_plan_days_completion_status_service_plan_not_found():
+    """Test when plan does not exist"""
+    from pecha_api.plans.users.plan_users_service import get_user_plan_days_completion_status_service
+    from fastapi import HTTPException
+    
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    
+    mock_user = SimpleNamespace(id=user_id)
+    
+    db_mock, session_cm = _mock_session_with_db()
+    
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_user_plan_days_completion_status_service(
+                token="token123", plan_id=plan_id
+            )
+        
+        assert exc_info.value.status_code == 404
+        assert "Plan not found" in str(exc_info.value.detail)

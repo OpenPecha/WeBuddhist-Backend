@@ -41,6 +41,7 @@ def sample_plan(sample_author):
     plan.tags = ["meditation", "mindfulness", "beginner"]
     plan.author = sample_author
     plan.deleted_at = None
+    plan.start_date = None
     return plan
 
 
