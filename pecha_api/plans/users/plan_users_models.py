@@ -119,7 +119,7 @@ class UserSubTaskCompletion(Base):
     )
 
     user = relationship("Users", backref="sub_task_completions")
-    sub_task = relationship("PlanSubTask", backref="user_sub_task_completions")
+    sub_task = relationship("PlanSubTask", back_populates="user_sub_task_completions")
 
     __table_args__ = (
         UniqueConstraint("user_id", "sub_task_id", name="uq_user_sub_task_completion"),
