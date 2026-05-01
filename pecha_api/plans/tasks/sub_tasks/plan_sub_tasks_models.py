@@ -33,6 +33,7 @@ class PlanSubTask(Base):
 
     # Relationships
     task = relationship("PlanTask", back_populates="sub_tasks")
+    user_sub_task_completions = relationship("UserSubTaskCompletion", back_populates="sub_task", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         Index("idx_sub_tasks_task_order", "task_id", "display_order"),
