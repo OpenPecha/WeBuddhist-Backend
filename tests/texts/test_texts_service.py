@@ -23,7 +23,8 @@ from pecha_api.texts.texts_service import (
     get_commentaries_by_text_id,
     replace_pecha_segment_id_with_segment_id,
     get_text_by_pecha_text_ids_service,
-    get_titles_and_ids_by_query
+    get_titles_and_ids_by_query,
+    get_text_languages
 )
 from pecha_api.terms.terms_response_models import TermsModel
 from pecha_api.texts.texts_response_models import (
@@ -45,7 +46,9 @@ from pecha_api.texts.texts_response_models import (
     TextDTOResponse,
     TextVersionResponse,
     TextsCategoryResponse,
-    TextsByPechaTextIdsRequest
+    TextsByPechaTextIdsRequest,
+    LanguageResponse,
+    AvailableLanguage
 )
 from pecha_api.recitations.recitations_response_models import RecitationDTO, RecitationsResponse
 
@@ -4034,3 +4037,145 @@ async def test_get_commentaries_by_text_id_returns_not_found_when_false():
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+
+
+# ============================================================================
+# get_text_languages Service Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_get_text_languages_success():
+    """Test get_text_languages returns available languages with version counts"""
+    text_id = "123e4567-e89b-12d3-a456-426614174000"
+    group_id = "group_id_1"
+    
+    mock_text_detail = TextDTO(
+        id=text_id,
+        title="Test Text",
+        language="bo",
+        group_id=group_id,
+        type="version",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="test_user",
+        categories=[],
+        views=0
+    )
+    
+    mock_texts = [
+        MagicMock(language="bo"),
+        MagicMock(language="bo"),
+        MagicMock(language="en"),
+        MagicMock(language="zh")
+    ]
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts):
+        
+        response = await get_text_languages(text_id=text_id)
+        
+        assert response is not None
+        assert isinstance(response, LanguageResponse)
+        assert response.text_id == text_id
+        assert response.title == "Test Text"
+        assert len(response.available_languages) == 3
+        
+        lang_dict = {lang.language: lang.version_count for lang in response.available_languages}
+        assert lang_dict["bo"] == 2
+        assert lang_dict["en"] == 1
+        assert lang_dict["zh"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_text_languages_text_not_found():
+    """Test get_text_languages raises 404 when text doesn't exist"""
+    text_id = "non-existent-id"
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=False):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_text_languages(text_id=text_id)
+        
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+
+
+@pytest.mark.asyncio
+async def test_get_text_languages_empty_languages():
+    """Test get_text_languages returns empty list when no texts have languages"""
+    text_id = "123e4567-e89b-12d3-a456-426614174000"
+    group_id = "group_id_1"
+    
+    mock_text_detail = TextDTO(
+        id=text_id,
+        title="Test Text",
+        language=None,
+        group_id=group_id,
+        type="version",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="test_user",
+        categories=[],
+        views=0
+    )
+    
+    mock_texts = [
+        MagicMock(language=None),
+        MagicMock(language=None)
+    ]
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts):
+        
+        response = await get_text_languages(text_id=text_id)
+        
+        assert response is not None
+        assert isinstance(response, LanguageResponse)
+        assert response.available_languages == []
+
+
+@pytest.mark.asyncio
+async def test_get_text_languages_single_language():
+    """Test get_text_languages with single language multiple versions"""
+    text_id = "123e4567-e89b-12d3-a456-426614174000"
+    group_id = "group_id_1"
+    
+    mock_text_detail = TextDTO(
+        id=text_id,
+        title="Tibetan Only Text",
+        language="bo",
+        group_id=group_id,
+        type="version",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="test_user",
+        categories=[],
+        views=0
+    )
+    
+    mock_texts = [
+        MagicMock(language="bo"),
+        MagicMock(language="bo"),
+        MagicMock(language="bo"),
+        MagicMock(language="bo"),
+        MagicMock(language="bo")
+    ]
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts):
+        
+        response = await get_text_languages(text_id=text_id)
+        
+        assert response is not None
+        assert len(response.available_languages) == 1
+        assert response.available_languages[0].language == "bo"
+        assert response.available_languages[0].language_code == "bo"
+        assert response.available_languages[0].version_count == 5
