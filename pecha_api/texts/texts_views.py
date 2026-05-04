@@ -79,11 +79,7 @@ async def get_versions(
 
 @text_router.get("/{text_id}/languages", status_code=status.HTTP_200_OK)
 async def get_languages(text_id: str) -> LanguageResponse:
-    """
-    Get available languages for a text.
-    
-    Returns the text_id, title, and list of available languages with version counts.
-    """
+
     return await get_text_languages(text_id=text_id)
 
 
