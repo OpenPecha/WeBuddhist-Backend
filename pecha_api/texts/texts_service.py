@@ -42,7 +42,9 @@ from .texts_response_models import (
     TextsByPechaTextIdsRequest,
     TitleSearchResult,
     LanguageResponse,
-    AvailableLanguage
+    AvailableLanguage,
+    VersionDetail,
+    VersionsResponse
 )
 
 from pecha_api.recitations.recitations_response_models import(
@@ -893,4 +895,51 @@ async def get_text_languages(text_id: str) -> LanguageResponse:
         text_id=text_id,
         title=text_detail.title,
         available_languages=available_languages
+    )
+
+
+async def get_language_versions(text_id: str, language: str) -> VersionsResponse:
+    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
+    if not is_valid_text:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+        )
+    
+    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
+    group_id: str = text_detail.group_id
+    
+    texts: List[TextDTO] = await get_all_texts_by_group_id(group_id=group_id)
+    
+    filtered_texts = [text for text in texts if text.language == language]
+    
+    versions_table_of_content_id_dict: Dict[str, List[str]] = await _get_table_of_content_by_version_text_id(versions=filtered_texts)
+    
+    available_versions = [
+        VersionDetail(
+            id=str(text.id),
+            title=text.title,
+            parent_id=None,
+            priority=None,
+            language=text.language,
+            type=text.type,
+            group_id=text.group_id,
+            table_of_contents=versions_table_of_content_id_dict.get(str(text.id), []),
+            is_published=text.is_published,
+            created_date=text.created_date,
+            updated_date=text.updated_date,
+            published_date=text.published_date,
+            published_by=text.published_by,
+            source_link=text.source_link,
+            ranking=text.ranking,
+            license=text.license,
+            is_selected=(str(text.id) == text_id)
+        )
+        for text in filtered_texts
+    ]
+    
+    return VersionsResponse(
+        text_id=text_id,
+        language=language,
+        available_versions=available_versions
     )
