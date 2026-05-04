@@ -1465,3 +1465,176 @@ async def test_get_language_versions_service_error(mocker):
     
     assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
     assert response.json()["detail"] == "Internal server error"
+
+
+# ============================================================================
+# GET /texts/versions/{version_id}/info Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_get_version_info_success(mocker):
+    """Test GET /texts/versions/{version_id}/info returns version details"""
+    mock_version = VersionDetail(
+        id="123e4567-e89b-12d3-a456-426614174000",
+        title="Test Version",
+        parent_id=None,
+        priority=None,
+        language="bo",
+        type="version",
+        group_id="group-1-uuid",
+        table_of_contents=["toc-1", "toc-2"],
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="test_user",
+        source_link="https://source.com",
+        ranking=1,
+        license="CC0",
+        is_selected=True
+    )
+    
+    mock_get_version_info = mocker.patch(
+        'pecha_api.texts.texts_views.get_version_info',
+        new_callable=AsyncMock,
+        return_value=mock_version
+    )
+    
+    test_version_id = "123e4567-e89b-12d3-a456-426614174000"
+    
+    async with AsyncClient(transport=ASGITransport(app=api), base_url="http://test") as ac:
+        response = await ac.get(f"/texts/versions/{test_version_id}/info")
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["id"] == test_version_id
+    assert data["title"] == "Test Version"
+    assert data["language"] == "bo"
+    assert data["type"] == "version"
+    assert data["group_id"] == "group-1-uuid"
+    assert data["table_of_contents"] == ["toc-1", "toc-2"]
+    assert data["is_published"] == True
+    assert data["is_selected"] == True
+    assert data["source_link"] == "https://source.com"
+    assert data["ranking"] == 1
+    assert data["license"] == "CC0"
+    
+    mock_get_version_info.assert_called_once_with(version_id=test_version_id)
+
+
+@pytest.mark.asyncio
+async def test_get_version_info_not_found(mocker):
+    """Test GET /texts/versions/{version_id}/info with non-existent version"""
+    mocker.patch(
+        'pecha_api.texts.texts_views.get_version_info',
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Text not found"
+        )
+    )
+    
+    async with AsyncClient(transport=ASGITransport(app=api), base_url="http://test") as ac:
+        response = await ac.get("/texts/versions/non-existent-id/info")
+    
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json()["detail"] == "Text not found"
+
+
+@pytest.mark.asyncio
+async def test_get_version_info_with_optional_fields_none(mocker):
+    """Test GET /texts/versions/{version_id}/info with optional fields as None"""
+    mock_version = VersionDetail(
+        id="123e4567-e89b-12d3-a456-426614174000",
+        title="Version with None fields",
+        parent_id=None,
+        priority=None,
+        language="bo",
+        type="version",
+        group_id="group-1-uuid",
+        table_of_contents=[],
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="test_user",
+        source_link=None,
+        ranking=None,
+        license=None,
+        is_selected=True
+    )
+    
+    mocker.patch(
+        'pecha_api.texts.texts_views.get_version_info',
+        new_callable=AsyncMock,
+        return_value=mock_version
+    )
+    
+    async with AsyncClient(transport=ASGITransport(app=api), base_url="http://test") as ac:
+        response = await ac.get("/texts/versions/123e4567-e89b-12d3-a456-426614174000/info")
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["parent_id"] is None
+    assert data["priority"] is None
+    assert data["source_link"] is None
+    assert data["ranking"] is None
+    assert data["license"] is None
+    assert data["table_of_contents"] == []
+
+
+@pytest.mark.asyncio
+async def test_get_version_info_with_multiple_toc(mocker):
+    """Test GET /texts/versions/{version_id}/info with multiple table of contents"""
+    mock_version = VersionDetail(
+        id="123e4567-e89b-12d3-a456-426614174000",
+        title="Version with multiple TOC",
+        parent_id=None,
+        priority=1,
+        language="en",
+        type="translation",
+        group_id="group-1-uuid",
+        table_of_contents=["toc-1", "toc-2", "toc-3"],
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="translator",
+        source_link="https://translation.com",
+        ranking=2,
+        license="CC BY",
+        is_selected=True
+    )
+    
+    mocker.patch(
+        'pecha_api.texts.texts_views.get_version_info',
+        new_callable=AsyncMock,
+        return_value=mock_version
+    )
+    
+    async with AsyncClient(transport=ASGITransport(app=api), base_url="http://test") as ac:
+        response = await ac.get("/texts/versions/123e4567-e89b-12d3-a456-426614174000/info")
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data["table_of_contents"]) == 3
+    assert data["table_of_contents"] == ["toc-1", "toc-2", "toc-3"]
+    assert data["type"] == "translation"
+    assert data["priority"] == 1
+
+
+@pytest.mark.asyncio
+async def test_get_version_info_service_error(mocker):
+    """Test GET /texts/versions/{version_id}/info when service raises error"""
+    mocker.patch(
+        'pecha_api.texts.texts_views.get_version_info',
+        side_effect=HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Internal server error"
+        )
+    )
+    
+    async with AsyncClient(transport=ASGITransport(app=api), base_url="http://test") as ac:
+        response = await ac.get("/texts/versions/123e4567-e89b-12d3-a456-426614174000/info")
+    
+    assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+    assert response.json()["detail"] == "Internal server error"

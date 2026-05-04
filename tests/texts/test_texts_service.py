@@ -25,7 +25,8 @@ from pecha_api.texts.texts_service import (
     get_text_by_pecha_text_ids_service,
     get_titles_and_ids_by_query,
     get_text_languages,
-    get_language_versions
+    get_language_versions,
+    get_version_info
 )
 from pecha_api.terms.terms_response_models import TermsModel
 from pecha_api.texts.texts_response_models import (
@@ -4423,3 +4424,187 @@ async def test_get_language_versions_with_table_of_contents():
         assert len(response.available_versions[0].table_of_contents) == 2
         assert "toc-1" in response.available_versions[0].table_of_contents
         assert "toc-2" in response.available_versions[0].table_of_contents
+
+
+# ============================================================================
+# get_version_info Service Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_get_version_info_success():
+    """Test get_version_info returns version details for a valid version_id"""
+    version_id = "123e4567-e89b-12d3-a456-426614174000"
+    group_id = "group_id_1"
+    
+    mock_text_detail = TextDTO(
+        id=version_id,
+        title="Test Version",
+        language="bo",
+        group_id=group_id,
+        type="version",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="pecha",
+        categories=[],
+        views=0,
+        source_link="https://source.com",
+        ranking=1,
+        license="CC0"
+    )
+    
+    mock_table_of_contents = [
+        TableOfContent(id="toc-1", text_id=version_id, type=TableOfContentType.TEXT, sections=[]),
+        TableOfContent(id="toc-2", text_id=version_id, type=TableOfContentType.TEXT, sections=[])
+    ]
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=mock_table_of_contents):
+        
+        response = await get_version_info(version_id=version_id)
+        
+        assert response is not None
+        assert isinstance(response, VersionDetail)
+        assert response.id == version_id
+        assert response.title == "Test Version"
+        assert response.language == "bo"
+        assert response.type == "version"
+        assert response.group_id == group_id
+        assert response.is_published == True
+        assert response.is_selected == True
+        assert len(response.table_of_contents) == 2
+        assert "toc-1" in response.table_of_contents
+        assert "toc-2" in response.table_of_contents
+        assert response.source_link == "https://source.com"
+        assert response.ranking == 1
+        assert response.license == "CC0"
+
+
+@pytest.mark.asyncio
+async def test_get_version_info_text_not_found():
+    """Test get_version_info raises 404 when version doesn't exist"""
+    version_id = "non-existent-id"
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=False):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_version_info(version_id=version_id)
+        
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+
+
+@pytest.mark.asyncio
+async def test_get_version_info_empty_table_of_contents():
+    """Test get_version_info returns empty table_of_contents when no TOC exists"""
+    version_id = "123e4567-e89b-12d3-a456-426614174000"
+    group_id = "group_id_1"
+    
+    mock_text_detail = TextDTO(
+        id=version_id,
+        title="Version without TOC",
+        language="bo",
+        group_id=group_id,
+        type="version",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="pecha",
+        categories=[],
+        views=0
+    )
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=[]):
+        
+        response = await get_version_info(version_id=version_id)
+        
+        assert response is not None
+        assert isinstance(response, VersionDetail)
+        assert response.id == version_id
+        assert response.table_of_contents == []
+
+
+@pytest.mark.asyncio
+async def test_get_version_info_with_optional_fields_none():
+    """Test get_version_info handles optional fields as None"""
+    version_id = "123e4567-e89b-12d3-a456-426614174000"
+    group_id = "group_id_1"
+    
+    mock_text_detail = TextDTO(
+        id=version_id,
+        title="Version with None fields",
+        language="bo",
+        group_id=group_id,
+        type="version",
+        is_published=False,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="pecha",
+        categories=[],
+        views=0,
+        source_link=None,
+        ranking=None,
+        license=None
+    )
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=[]):
+        
+        response = await get_version_info(version_id=version_id)
+        
+        assert response is not None
+        assert isinstance(response, VersionDetail)
+        assert response.source_link is None
+        assert response.ranking is None
+        assert response.license is None
+        assert response.parent_id is None
+        assert response.priority is None
+        assert response.is_published == False
+
+
+@pytest.mark.asyncio
+async def test_get_version_info_translation_type():
+    """Test get_version_info works with translation type versions"""
+    version_id = "123e4567-e89b-12d3-a456-426614174000"
+    group_id = "group_id_1"
+    
+    mock_text_detail = TextDTO(
+        id=version_id,
+        title="English Translation",
+        language="en",
+        group_id=group_id,
+        type="translation",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="translator",
+        categories=["category-1"],
+        views=100,
+        source_link="https://translation.com",
+        ranking=2,
+        license="CC BY"
+    )
+    
+    mock_table_of_contents = [
+        TableOfContent(id="toc-1", text_id=version_id, type=TableOfContentType.TEXT, sections=[])
+    ]
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=mock_table_of_contents):
+        
+        response = await get_version_info(version_id=version_id)
+        
+        assert response is not None
+        assert isinstance(response, VersionDetail)
+        assert response.type == "translation"
+        assert response.language == "en"
+        assert response.title == "English Translation"
+        assert len(response.table_of_contents) == 1
