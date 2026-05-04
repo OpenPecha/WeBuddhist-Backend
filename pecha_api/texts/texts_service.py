@@ -943,3 +943,38 @@ async def get_language_versions(text_id: str, language: str) -> VersionsResponse
         language=language,
         available_versions=available_versions
     )
+
+
+async def get_version_info(version_id: str) -> VersionDetail:
+
+    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=version_id)
+    if not is_valid_text:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+        )
+    
+    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=version_id)
+    
+    table_of_contents: List[TableOfContent] = await get_contents_by_id(text_id=version_id)
+    table_of_content_ids = [str(toc.id) for toc in table_of_contents]
+    
+    return VersionDetail(
+        id=str(text_detail.id),
+        title=text_detail.title,
+        parent_id=None,
+        priority=None,
+        language=text_detail.language,
+        type=text_detail.type,
+        group_id=text_detail.group_id,
+        table_of_contents=table_of_content_ids,
+        is_published=text_detail.is_published,
+        created_date=text_detail.created_date,
+        updated_date=text_detail.updated_date,
+        published_date=text_detail.published_date,
+        published_by=text_detail.published_by,
+        source_link=text_detail.source_link,
+        ranking=text_detail.ranking,
+        license=text_detail.license,
+        is_selected=True
+    )
