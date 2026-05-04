@@ -1,14 +1,16 @@
 from fastapi import APIRouter, Query
 from typing import Optional
 from uuid import UUID
+from datetime import date as DateType
 from starlette import status
 
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO,PlanDaysResponse , PlanDayDTO, TagsResponse
+from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO,PlanDaysResponse , PlanDayDTO, TagsResponse, DailyPlanResponse
 from pecha_api.plans.public.plan_service import (
     get_published_plans, 
     get_published_plan, 
     get_plan_days,
     get_plan_day_details,
+    get_plan_daily_content,
     get_tags
 )
 
@@ -48,6 +50,11 @@ def get_plan_tags(
 @public_plans_router.get("/{plan_id}", status_code=status.HTTP_200_OK, response_model=PublicPlanDTO)
 async def get_plan_details(plan_id: UUID):
     return await get_published_plan(plan_id=plan_id)
+
+
+@public_plans_router.get("/{plan_id}/{date}", status_code=status.HTTP_200_OK, response_model=DailyPlanResponse)
+def get_plan_daily(plan_id: UUID, date: DateType):
+    return get_plan_daily_content(plan_id=plan_id, requested_date=date)
 
 
 @public_plans_router.get("/{plan_id}/days", status_code=status.HTTP_200_OK, response_model=PlanDaysResponse)

@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus,ContentType
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, date as DateType
 from pecha_api.plans.plans_models import Plan
 
 class PlanDayBasic(BaseModel):
@@ -86,6 +86,18 @@ class PlanWithAggregates(BaseModel):
 class PlansRepositoryResponse(BaseModel):
     plan_info: List[PlanWithAggregates]
     total: int
+
+class DailyPlanResponse(BaseModel):
+    plan_id: UUID
+    plan_title: str
+    date: DateType
+    day_number: int
+    total_days: int
+    start_date: DateType
+    end_date: DateType
+    previous_date: Optional[DateType] = None
+    next_date: Optional[DateType] = None
+    tasks: List[TaskDTO]
 
 class TagsResponse(BaseModel):
     tags: List[str]
