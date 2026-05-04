@@ -24,7 +24,8 @@ from pecha_api.texts.texts_service import (
     replace_pecha_segment_id_with_segment_id,
     get_text_by_pecha_text_ids_service,
     get_titles_and_ids_by_query,
-    get_text_languages
+    get_text_languages,
+    get_language_versions
 )
 from pecha_api.terms.terms_response_models import TermsModel
 from pecha_api.texts.texts_response_models import (
@@ -48,7 +49,9 @@ from pecha_api.texts.texts_response_models import (
     TextsCategoryResponse,
     TextsByPechaTextIdsRequest,
     LanguageResponse,
-    AvailableLanguage
+    AvailableLanguage,
+    VersionDetail,
+    VersionsResponse
 )
 from pecha_api.recitations.recitations_response_models import RecitationDTO, RecitationsResponse
 
@@ -4179,3 +4182,244 @@ async def test_get_text_languages_single_language():
         assert response.available_languages[0].language == "bo"
         assert response.available_languages[0].language_code == "bo"
         assert response.available_languages[0].version_count == 5
+
+
+# ============================================================================
+# get_language_versions Service Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_get_language_versions_success():
+    """Test get_language_versions returns versions for a specific language"""
+    text_id = "123e4567-e89b-12d3-a456-426614174000"
+    language = "bo"
+    group_id = "group_id_1"
+    
+    mock_text_detail = TextDTO(
+        id=text_id,
+        title="Test Text",
+        language="bo",
+        group_id=group_id,
+        type="version",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="pecha",
+        categories=[],
+        views=0
+    )
+    
+    mock_texts = [
+        TextDTO(
+            id=text_id,
+            title="Version 1",
+            language="bo",
+            group_id=group_id,
+            type="version",
+            is_published=True,
+            created_date="2025-01-01T00:00:00",
+            updated_date="2025-01-01T00:00:00",
+            published_date="2025-01-01T00:00:00",
+            published_by="pecha",
+            categories=[],
+            views=0,
+            source_link="https://source-1.com",
+            ranking=1,
+            license="CC0"
+        ),
+        TextDTO(
+            id="text-2-uuid",
+            title="Version 2",
+            language="bo",
+            group_id=group_id,
+            type="version",
+            is_published=True,
+            created_date="2025-01-02T00:00:00",
+            updated_date="2025-01-02T00:00:00",
+            published_date="2025-01-02T00:00:00",
+            published_by="pecha",
+            categories=[],
+            views=0,
+            source_link="https://source-2.com",
+            ranking=2,
+            license="CC BY"
+        ),
+        TextDTO(
+            id="text-3-uuid",
+            title="English Version",
+            language="en",
+            group_id=group_id,
+            type="translation",
+            is_published=True,
+            created_date="2025-01-03T00:00:00",
+            updated_date="2025-01-03T00:00:00",
+            published_date="2025-01-03T00:00:00",
+            published_by="pecha",
+            categories=[],
+            views=0
+        )
+    ]
+    
+    mock_table_of_content = TableOfContent(
+        id="toc-1",
+        text_id=text_id,
+        type=TableOfContentType.TEXT,
+        sections=[]
+    )
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts), \
+         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=[mock_table_of_content]):
+        
+        response = await get_language_versions(text_id=text_id, language=language)
+        
+        assert response is not None
+        assert isinstance(response, VersionsResponse)
+        assert response.text_id == text_id
+        assert response.language == language
+        assert len(response.available_versions) == 2
+        assert all(v.language == "bo" for v in response.available_versions)
+        
+        selected_versions = [v for v in response.available_versions if v.is_selected]
+        assert len(selected_versions) == 1
+        assert selected_versions[0].id == text_id
+
+
+@pytest.mark.asyncio
+async def test_get_language_versions_text_not_found():
+    """Test get_language_versions raises 404 when text doesn't exist"""
+    text_id = "non-existent-id"
+    language = "bo"
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=False):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_language_versions(text_id=text_id, language=language)
+        
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+
+
+@pytest.mark.asyncio
+async def test_get_language_versions_empty_for_language():
+    """Test get_language_versions returns empty list when no versions for requested language"""
+    text_id = "123e4567-e89b-12d3-a456-426614174000"
+    language = "zh"
+    group_id = "group_id_1"
+    
+    mock_text_detail = TextDTO(
+        id=text_id,
+        title="Test Text",
+        language="bo",
+        group_id=group_id,
+        type="version",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="pecha",
+        categories=[],
+        views=0
+    )
+    
+    mock_texts = [
+        TextDTO(
+            id=text_id,
+            title="Tibetan Version",
+            language="bo",
+            group_id=group_id,
+            type="version",
+            is_published=True,
+            created_date="2025-01-01T00:00:00",
+            updated_date="2025-01-01T00:00:00",
+            published_date="2025-01-01T00:00:00",
+            published_by="pecha",
+            categories=[],
+            views=0
+        ),
+        TextDTO(
+            id="text-2-uuid",
+            title="English Version",
+            language="en",
+            group_id=group_id,
+            type="translation",
+            is_published=True,
+            created_date="2025-01-02T00:00:00",
+            updated_date="2025-01-02T00:00:00",
+            published_date="2025-01-02T00:00:00",
+            published_by="pecha",
+            categories=[],
+            views=0
+        )
+    ]
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts):
+        
+        response = await get_language_versions(text_id=text_id, language=language)
+        
+        assert response is not None
+        assert isinstance(response, VersionsResponse)
+        assert response.text_id == text_id
+        assert response.language == language
+        assert len(response.available_versions) == 0
+
+
+@pytest.mark.asyncio
+async def test_get_language_versions_with_table_of_contents():
+    """Test get_language_versions includes table_of_contents for each version"""
+    text_id = "123e4567-e89b-12d3-a456-426614174000"
+    language = "bo"
+    group_id = "group_id_1"
+    
+    mock_text_detail = TextDTO(
+        id=text_id,
+        title="Test Text",
+        language="bo",
+        group_id=group_id,
+        type="version",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="pecha",
+        categories=[],
+        views=0
+    )
+    
+    mock_texts = [
+        TextDTO(
+            id=text_id,
+            title="Version 1",
+            language="bo",
+            group_id=group_id,
+            type="version",
+            is_published=True,
+            created_date="2025-01-01T00:00:00",
+            updated_date="2025-01-01T00:00:00",
+            published_date="2025-01-01T00:00:00",
+            published_by="pecha",
+            categories=[],
+            views=0
+        )
+    ]
+    
+    mock_table_of_contents = [
+        TableOfContent(id="toc-1", text_id=text_id, type=TableOfContentType.TEXT, sections=[]),
+        TableOfContent(id="toc-2", text_id=text_id, type=TableOfContentType.TEXT, sections=[])
+    ]
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts), \
+         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=mock_table_of_contents):
+        
+        response = await get_language_versions(text_id=text_id, language=language)
+        
+        assert response is not None
+        assert len(response.available_versions) == 1
+        assert len(response.available_versions[0].table_of_contents) == 2
+        assert "toc-1" in response.available_versions[0].table_of_contents
+        assert "toc-2" in response.available_versions[0].table_of_contents
