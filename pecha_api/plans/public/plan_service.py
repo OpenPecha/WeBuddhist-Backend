@@ -210,9 +210,6 @@ def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = N
         else:
             start = today
 
-        if requested_date is None:
-            requested_date = today
-
         total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan_id).count()
         if total_days == 0:
             raise HTTPException(
@@ -221,6 +218,9 @@ def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = N
             )
 
         end = start + timedelta(days=total_days - 1)
+
+        if requested_date is None:
+            requested_date = start
         day_number = (requested_date - start).days + 1
 
         if day_number < 1 or day_number > total_days:
