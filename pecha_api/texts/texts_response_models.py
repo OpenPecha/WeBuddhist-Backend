@@ -184,3 +184,17 @@ class TextInfosResponse(BaseModel):
 
 class TextsByPechaTextIdsRequest(BaseModel):
     pecha_text_ids: List[str]
+
+
+# Language Response Models (for GET /texts/{text_id}/languages)
+class AvailableLanguage(BaseModel):
+    language: str
+    language_code: str
+    version_count: int
+
+
+class LanguageResponse(BaseModel):
+    text_id: str
+    title: str
+    available_languages: List[AvailableLanguage]
+

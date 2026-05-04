@@ -19,7 +19,8 @@ from .texts_repository import (
     get_all_texts_by_collection,
     get_all_recitation_texts_by_collection,
     get_texts_by_pecha_text_ids,
-    get_texts_by_titles
+    get_texts_by_titles,
+    get_all_texts_by_group_id
 
 )
 from .texts_response_models import (
@@ -39,7 +40,9 @@ from .texts_response_models import (
     Section,
     DetailTableOfContentResponse,
     TextsByPechaTextIdsRequest,
-    TitleSearchResult
+    TitleSearchResult,
+    LanguageResponse,
+    AvailableLanguage
 )
 
 from pecha_api.recitations.recitations_response_models import(
@@ -856,3 +859,38 @@ async def get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request: Te
         ranking=text.ranking,
         license=text.license
     ) for text in texts]
+
+
+async def get_text_languages(text_id: str) -> LanguageResponse:
+
+    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
+    if not is_valid_text:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+        )
+    
+    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
+    group_id: str = text_detail.group_id
+    
+    texts = await get_all_texts_by_group_id(group_id=group_id)
+    
+    language_counts: Dict[str, int] = {}
+    for text in texts:
+        if text.language:
+            language_counts[text.language] = language_counts.get(text.language, 0) + 1
+    
+    available_languages = [
+        AvailableLanguage(
+            language=lang,
+            language_code=lang,
+            version_count=count
+        )
+        for lang, count in language_counts.items()
+    ]
+    
+    return LanguageResponse(
+        text_id=text_id,
+        title=text_detail.title,
+        available_languages=available_languages
+    )

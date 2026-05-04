@@ -13,7 +13,8 @@ from .texts_service import (
     create_table_of_content,
     get_text_details_by_text_id,
     get_commentaries_by_text_id,
-    get_titles_and_ids_by_query
+    get_titles_and_ids_by_query,
+    get_text_languages
 )
 from .texts_response_models import (
     CreateTextRequest,
@@ -24,7 +25,8 @@ from .texts_response_models import (
     TextVersionResponse,
     DetailTableOfContentResponse,
     TextDetailsRequest,
-    TitleSearchResult
+    TitleSearchResult,
+    LanguageResponse
 )
 
 oauth2_scheme = HTTPBearer()
@@ -73,6 +75,16 @@ async def get_versions(
         text_id=text_id,
         language=language, skip=skip, limit=limit
     )
+
+
+@text_router.get("/{text_id}/languages", status_code=status.HTTP_200_OK)
+async def get_languages(text_id: str) -> LanguageResponse:
+    """
+    Get available languages for a text.
+    
+    Returns the text_id, title, and list of available languages with version counts.
+    """
+    return await get_text_languages(text_id=text_id)
 
 
 @text_router.get("/{text_id}/contents", status_code=status.HTTP_200_OK)
