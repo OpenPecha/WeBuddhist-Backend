@@ -194,7 +194,7 @@ def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
         )
 
 
-def get_plan_daily_content(plan_id: UUID, requested_date: DateType) -> DailyPlanResponse:
+def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = None) -> DailyPlanResponse:
     with SessionLocal() as db:
         plan = get_published_plan_by_id(db=db, plan_id=plan_id)
         if not plan:
@@ -203,10 +203,15 @@ def get_plan_daily_content(plan_id: UUID, requested_date: DateType) -> DailyPlan
                 detail=ErrorConstants.PLAN_NOT_FOUND
             )
 
+        today = dt.now(timezone.utc).date()
+
         if plan.start_date:
             start = plan.start_date.date() if isinstance(plan.start_date, dt) else plan.start_date
         else:
-            start = dt.now(timezone.utc).date()
+            start = today
+
+        if requested_date is None:
+            requested_date = today
 
         total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan_id).count()
         if total_days == 0:
