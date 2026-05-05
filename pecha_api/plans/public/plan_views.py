@@ -52,8 +52,11 @@ async def get_plan_details(plan_id: UUID):
     return await get_published_plan(plan_id=plan_id)
 
 
-@public_plans_router.get("/{plan_id}/{date}", status_code=status.HTTP_200_OK, response_model=DailyPlanResponse)
-def get_plan_daily(plan_id: UUID, date: DateType):
+@public_plans_router.get("/{plan_id}/daily", status_code=status.HTTP_200_OK, response_model=DailyPlanResponse)
+def get_plan_daily(
+    plan_id: UUID,
+    date: Optional[DateType] = Query(None, description="Date in YYYY-MM-DD format. Defaults to today if not provided.")
+):
     return get_plan_daily_content(plan_id=plan_id, requested_date=date)
 
 
