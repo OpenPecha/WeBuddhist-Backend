@@ -1,6 +1,6 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy import func, asc, desc
+from sqlalchemy import func, asc, desc, case
 from typing import Optional
 from uuid import UUID
 from datetime import datetime, timezone
@@ -11,6 +11,7 @@ from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from fastapi import HTTPException
 from starlette import status
 from pecha_api.plans.plans_response_models import PlansRepositoryResponse, PlanWithAggregates
+from pecha_api.plans.cms.cms_constants import STATUS_SORT_PRIORITY
 
 def save_plan(db: Session, plan: Plan):
     try:
@@ -60,17 +61,25 @@ def get_plans_by_author_id(
     )
 
     order_func = asc if sort_order == "asc" else desc
+    status_priority = case(
+        *[
+            (Plan.status == status_value, priority)
+            for status_value, priority in STATUS_SORT_PRIORITY.items()
+        ],
+        else_=99,
+    )
     sort_fields = {
         "created_at": Plan.created_at,
-        "status": Plan.status,
+        "status": status_priority,
         "total_days": total_days_label,
+        "subscription_count": subscription_count_label,
     }
     primary_sort = sort_fields.get(sort_by, Plan.created_at)
     query = query.order_by(order_func(primary_sort), desc(Plan.created_at), Plan.id)
 
     # Pagination
     rows = query.offset(skip).limit(limit).all()
-    
+
     # Transform tuples into PlanWithAggregates objects using list comprehension
     plan_aggregates = [
         PlanWithAggregates(
@@ -80,7 +89,7 @@ def get_plans_by_author_id(
         )
         for plan, total_days, subscription_count in rows
     ]
-    
+
     # Total count without pagination/joins
     total = db.query(func.count(Plan.id)).filter(*filters).scalar()
     return PlansRepositoryResponse(plan_info=plan_aggregates, total=total)
