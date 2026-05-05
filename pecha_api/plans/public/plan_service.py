@@ -220,7 +220,13 @@ def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = N
         end = start + timedelta(days=total_days - 1)
 
         if requested_date is None:
-            requested_date = start
+            if plan.start_date:
+                if start <= today <= end:
+                    requested_date = today
+                else:
+                    requested_date = start
+            else:
+                requested_date = today
         day_number = (requested_date - start).days + 1
 
         if day_number < 1 or day_number > total_days:
