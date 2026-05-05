@@ -17,7 +17,8 @@ RUN apt-get update && apt-get install -y \
 COPY pyproject.toml poetry.lock /app/
 
 # Install Poetry and Python dependencies
-RUN pip install poetry && \
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install poetry && \
     poetry config virtualenvs.create false && \
     poetry install --no-root
 
