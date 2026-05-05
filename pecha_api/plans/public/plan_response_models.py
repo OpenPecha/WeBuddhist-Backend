@@ -41,10 +41,12 @@ class SubTaskDTO(BaseModel):
     id: UUID
     content_type: ContentType
     content: Optional[str] = None
-    display_order: Optional[int] = None
+    duration: Optional[str] = None
+    image_url: Optional[str] = None
     source_text_id: Optional[UUID] = None
     pecha_segment_id: Optional[str] = None
     segment_ids: Optional[List[UUID]] = None
+    display_order: Optional[int] = None
 
 class TaskDTO(BaseModel):
     id: UUID
