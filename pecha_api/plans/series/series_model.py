@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Boolean, UUID, Index, text
+from sqlalchemy import Column, String, DateTime, Boolean, UUID, Index, text, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from pecha_api.db.database import Base
@@ -14,6 +14,7 @@ class Series(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     name = Column(JSONB, nullable=False)
     image = Column(String(1000), nullable=True)
+    author_id = Column(UUID(as_uuid=True), ForeignKey('authors.id', ondelete='RESTRICT'), nullable=False)
     featured = Column(Boolean, default=False, nullable=False)
     status = Column(PlanStatusEnum, nullable=False, default='DRAFT')
     
@@ -25,6 +26,7 @@ class Series(Base):
     deleted_at = Column(DateTime(timezone=True))
     deleted_by = Column(String(255))
 
+    author = relationship("Author", backref="series", passive_deletes=True)
     plans = relationship("Plan", back_populates="series")
 
     __table_args__ = (
