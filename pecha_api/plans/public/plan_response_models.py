@@ -92,6 +92,7 @@ class PlansRepositoryResponse(BaseModel):
 class DailyPlanResponse(BaseModel):
     plan_id: UUID
     plan_title: str
+    image: Optional[ImageUrlModel] = None
     date: DateType
     day_number: int
     total_days: int
