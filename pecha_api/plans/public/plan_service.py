@@ -9,12 +9,34 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_day_with_tasks_and_subtasks
 from datetime import date as DateType, timedelta, datetime as dt, timezone
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO
+from pecha_api.plans.public.plan_response_models import (
+    PublicPlansResponse, 
+    PublicPlanDTO, 
+    PlanDayDTO, 
+    AuthorDTO,
+    PlanDaysResponse, 
+    PlanDayBasic, 
+    SubTaskDTO, 
+    TaskDTO, 
+    ImageUrlModel, 
+    TagsResponse, 
+    DailyPlanResponse, 
+    SeriesDTO,
+    SeriesProgressResponse,
+    PlanProgressDTO
+)
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.plans_enums import ContentType
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id, get_all_unique_tags)
+from pecha_api.plans.public.plan_repository import (
+    get_published_plans_from_db, 
+    get_published_plans_count, 
+    get_published_plan_by_id, 
+    get_all_unique_tags,
+    get_published_plans_by_series_id,
+    get_series_by_id
+)
 
 logger = logging.getLogger(__name__)
 
@@ -281,4 +303,120 @@ def get_tags(language: str = "en") -> TagsResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch tags: {str(e)}",
+        )
+
+
+async def get_series_progress(series_id: UUID) -> SeriesProgressResponse:
+    try:
+        with SessionLocal() as db:
+            series = get_series_by_id(db=db, series_id=series_id)
+            if not series:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Series not found"
+                )
+            
+            plans_with_days = get_published_plans_by_series_id(db=db, series_id=series_id)
+            
+            if not plans_with_days:
+                series_image = await get_image_url(image_url=series.image)
+                return SeriesProgressResponse(
+                    series_id=series.id,
+                    series_name=series.name,
+                    series_image=series_image,
+                    total_plans=0,
+                    total_series_days=0,
+                    current_plan_index=None,
+                    current_plan_id=None,
+                    current_day_in_plan=None,
+                    days_completed_in_series=0,
+                    progress_percentage=0.0,
+                    series_start_date=None,
+                    series_end_date=None,
+                    is_before_series=False,
+                    is_after_series=False,
+                    plans=[]
+                )
+            
+            today = dt.now(timezone.utc).date()
+            plan_progress_list: list[PlanProgressDTO] = []
+            total_series_days = 0
+            current_start_date = None
+            
+            for idx, (plan, total_days) in enumerate(plans_with_days):
+                if plan.start_date:
+                    plan_start = plan.start_date.date() if isinstance(plan.start_date, dt) else plan.start_date
+                else:
+                    plan_start = current_start_date if current_start_date else today
+                
+                plan_end = plan_start + timedelta(days=total_days - 1) if total_days > 0 else plan_start
+                
+                plan_progress_list.append(PlanProgressDTO(
+                    plan_id=plan.id,
+                    plan_title=plan.title,
+                    plan_index=idx,
+                    total_days=total_days,
+                    start_date=plan_start,
+                    end_date=plan_end
+                ))
+                
+                total_series_days += total_days
+                current_start_date = plan_end + timedelta(days=1)
+            
+            series_start_date = plan_progress_list[0].start_date if plan_progress_list else None
+            series_end_date = plan_progress_list[-1].end_date if plan_progress_list else None
+            
+            current_plan_index = None
+            current_plan_id = None
+            current_day_in_plan = None
+            days_completed_in_series = 0
+            is_before_series = False
+            is_after_series = False
+            
+            if series_start_date and today < series_start_date:
+                is_before_series = True
+                days_completed_in_series = 0
+            elif series_end_date and today > series_end_date:
+                is_after_series = True
+                days_completed_in_series = total_series_days
+            else:
+                cumulative_days = 0
+                for plan_dto in plan_progress_list:
+                    if plan_dto.start_date <= today <= plan_dto.end_date:
+                        current_plan_index = plan_dto.plan_index
+                        current_plan_id = plan_dto.plan_id
+                        current_day_in_plan = (today - plan_dto.start_date).days + 1
+                        days_completed_in_series = cumulative_days + current_day_in_plan
+                        break
+                    cumulative_days += plan_dto.total_days
+            
+            progress_percentage = (days_completed_in_series / total_series_days * 100) if total_series_days > 0 else 0.0
+            
+            series_image = await get_image_url(image_url=series.image)
+            
+            return SeriesProgressResponse(
+                series_id=series.id,
+                series_name=series.name,
+                series_image=series_image,
+                total_plans=len(plan_progress_list),
+                total_series_days=total_series_days,
+                current_plan_index=current_plan_index,
+                current_plan_id=current_plan_id,
+                current_day_in_plan=current_day_in_plan,
+                days_completed_in_series=days_completed_in_series,
+                progress_percentage=round(progress_percentage, 2),
+                series_start_date=series_start_date,
+                series_end_date=series_end_date,
+                is_before_series=is_before_series,
+                is_after_series=is_after_series,
+                plans=plan_progress_list
+            )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching series progress: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch series progress: {str(e)}"
         )

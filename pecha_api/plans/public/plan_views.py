@@ -4,14 +4,23 @@ from uuid import UUID
 from datetime import date as DateType
 from starlette import status
 
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO,PlanDaysResponse , PlanDayDTO, TagsResponse, DailyPlanResponse
+from pecha_api.plans.public.plan_response_models import (
+    PublicPlansResponse, 
+    PublicPlanDTO,
+    PlanDaysResponse, 
+    PlanDayDTO, 
+    TagsResponse, 
+    DailyPlanResponse,
+    SeriesProgressResponse
+)
 from pecha_api.plans.public.plan_service import (
     get_published_plans, 
     get_published_plan, 
     get_plan_days,
     get_plan_day_details,
     get_plan_daily_content,
-    get_tags
+    get_tags,
+    get_series_progress
 )
 
 
@@ -45,6 +54,15 @@ def get_plan_tags(
     )
 ):
     return get_tags(language=language)
+
+
+@public_plans_router.get(
+    "/series/{series_id}/progress",
+    status_code=status.HTTP_200_OK,
+    response_model=SeriesProgressResponse
+)
+async def get_series_progress_endpoint(series_id: UUID):
+    return await get_series_progress(series_id=series_id)
 
 
 @public_plans_router.get("/{plan_id}", status_code=status.HTTP_200_OK, response_model=PublicPlanDTO)

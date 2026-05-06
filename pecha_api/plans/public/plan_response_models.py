@@ -111,5 +111,33 @@ class DailyPlanResponse(BaseModel):
 
 class TagsResponse(BaseModel):
     tags: List[str]
+
+
+class PlanProgressDTO(BaseModel):
+    plan_id: UUID
+    plan_title: str
+    plan_index: int
+    total_days: int
+    start_date: DateType
+    end_date: DateType
+
+
+class SeriesProgressResponse(BaseModel):
+    series_id: UUID
+    series_name: Optional[dict] = None
+    series_image: Optional[ImageUrlModel] = None
+    total_plans: int
+    total_series_days: int
+    current_plan_index: Optional[int] = None
+    current_plan_id: Optional[UUID] = None
+    current_day_in_plan: Optional[int] = None
+    days_completed_in_series: int
+    progress_percentage: float
+    series_start_date: Optional[DateType] = None
+    series_end_date: Optional[DateType] = None
+    is_before_series: bool = False
+    is_after_series: bool = False
+    plans: List[PlanProgressDTO]
+
     
 TaskDTO.model_rebuild()

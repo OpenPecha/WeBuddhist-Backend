@@ -148,3 +148,31 @@ def get_all_unique_tags(db: Session, language: str = "EN") -> List[str]:
     )
     results = query.distinct().all()
     return [row.tag for row in results]
+
+
+def get_published_plans_by_series_id(db: Session, series_id: UUID) -> List[Tuple[Plan, int]]:
+    total_days_label = func.count(func.distinct(PlanItem.id)).label("total_days")
+    
+    rows = (
+        db.query(Plan, total_days_label)
+        .outerjoin(PlanItem, PlanItem.plan_id == Plan.id)
+        .options(selectinload(Plan.series))
+        .filter(
+            Plan.series_id == series_id,
+            Plan.deleted_at.is_(None),
+            Plan.status == PlanStatus.PUBLISHED
+        )
+        .group_by(Plan.id)
+        .order_by(asc(Plan.start_date))
+        .all()
+    )
+    
+    return rows
+
+
+def get_series_by_id(db: Session, series_id: UUID):
+    from pecha_api.plans.series.series_model import Series
+    return db.query(Series).filter(
+        Series.id == series_id,
+        Series.deleted_at.is_(None)
+    ).first()
