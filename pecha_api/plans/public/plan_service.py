@@ -194,7 +194,7 @@ def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
         )
 
 
-def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = None) -> DailyPlanResponse:
+async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = None) -> DailyPlanResponse:
     with SessionLocal() as db:
         plan = get_published_plan_by_id(db=db, plan_id=plan_id)
         if not plan:
@@ -220,7 +220,13 @@ def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = N
         end = start + timedelta(days=total_days - 1)
 
         if requested_date is None:
-            requested_date = start
+            if plan.start_date:
+                if start <= today <= end:
+                    requested_date = today
+                else:
+                    requested_date = start
+            else:
+                requested_date = today
         day_number = (requested_date - start).days + 1
 
         if day_number < 1 or day_number > total_days:
@@ -233,12 +239,15 @@ def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = N
             db=db, plan_id=plan_id, day_number=day_number
         )
 
+        plan_image = await get_image_url(image_url=plan.image_url)
+
         previous_date = requested_date - timedelta(days=1) if day_number > 1 else None
         next_date = requested_date + timedelta(days=1) if day_number < total_days else None
 
         return DailyPlanResponse(
             plan_id=plan.id,
             plan_title=plan.title,
+            image=plan_image,
             date=requested_date,
             day_number=day_number,
             total_days=total_days,
