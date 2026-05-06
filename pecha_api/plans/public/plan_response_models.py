@@ -97,6 +97,7 @@ class SeriesDTO(BaseModel):
 class DailyPlanResponse(BaseModel):
     plan_id: UUID
     plan_title: str
+    plan_description: str
     image: Optional[ImageUrlModel] = None
     series: Optional[SeriesDTO] = None
     date: DateType

@@ -256,6 +256,7 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
         return DailyPlanResponse(
             plan_id=plan.id,
             plan_title=plan.title,
+            plan_description=plan.description,
             image=plan_image,
             series=series_dto,
             date=requested_date,
