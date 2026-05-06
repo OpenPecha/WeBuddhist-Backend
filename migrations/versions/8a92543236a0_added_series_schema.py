@@ -25,7 +25,7 @@ def upgrade() -> None:
     sa.Column('name', postgresql.JSONB(astext_type=sa.Text()), nullable=False),
     sa.Column('image', sa.String(length=1000), nullable=True),
     sa.Column('featured', sa.Boolean(), nullable=False),
-    sa.Column('status', sa.Enum('DRAFT', 'PUBLISHED', 'UNPUBLISHED', 'ARCHIVED', 'DELETED', name='planstatus'), nullable=False),
+    sa.Column('status', sa.Enum('DRAFT', 'PUBLISHED', 'UNPUBLISHED', 'ARCHIVED', 'DELETED', name='planstatus', create_type=False), nullable=False), 
     sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
     sa.Column('created_by', sa.String(length=255), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
