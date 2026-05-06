@@ -6,6 +6,7 @@ from _datetime import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from .plans_enums import LanguageCodeEnum, DifficultyLevelEnum, PlanStatusEnum
+from .series.series_model import Series  # noqa: F401
 
 
 class Plan(Base):
