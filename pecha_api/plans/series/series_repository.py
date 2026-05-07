@@ -1,4 +1,5 @@
 from typing import List, Optional, Tuple
+from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy import String, cast, desc
@@ -21,6 +22,14 @@ def save_series(db: Session, series: Series) -> Series:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"{exc.orig}",
         ) from exc
+
+
+def get_series_by_id(db: Session, series_id) -> Optional[Series]:
+    return (
+        db.query(Series)
+        .filter(Series.id == series_id, Series.deleted_at.is_(None))
+        .first()
+    )
 
 
 def get_series_paginated(
