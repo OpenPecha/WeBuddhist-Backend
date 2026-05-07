@@ -1,8 +1,9 @@
 from pydantic import BaseModel
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
+from datetime import datetime
 
-from pecha_api.plans.plans_enums import PlanStatus
+from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel
 
 
 class CreateSeriesRequest(BaseModel):
@@ -13,6 +14,21 @@ class CreateSeriesRequest(BaseModel):
     featured: Optional[bool] = False
 
 
+class SeriesPlanDTO(BaseModel):
+    id: UUID
+    title: str
+    description: Optional[str] = None
+    language: str
+    difficulty_level: Optional[DifficultyLevel] = None
+    image_url: Optional[str] = None
+    image_key: Optional[str] = None
+    tags: Optional[List[str]] = []
+    status: PlanStatus
+    featured: bool
+    display_order: Optional[int] = None
+    start_date: Optional[datetime] = None
+
+
 class SeriesDTO(BaseModel):
     id: UUID
     name: Dict[str, Any]
@@ -21,6 +37,7 @@ class SeriesDTO(BaseModel):
     author_id: UUID
     featured: bool
     status: PlanStatus
+    plans: List[SeriesPlanDTO] = []
 
 
 class SeriesListResponse(BaseModel):
