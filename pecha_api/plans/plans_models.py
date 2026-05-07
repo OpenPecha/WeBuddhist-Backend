@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Boolean, UUID, Text, Index, text, ForeignKey
+from sqlalchemy import Column, String, DateTime, Boolean, UUID, Text, Index, text, ForeignKey, Integer
 from ..db.database import Base
 from uuid import uuid4
 import _datetime
@@ -22,6 +22,7 @@ class Plan(Base):
 
     tags = Column(JSONB, server_default=text("'[]'::jsonb"), nullable=False)
     featured = Column(Boolean, default=False,nullable=False)
+    display_order = Column(Integer, nullable=True)
     status = Column(PlanStatusEnum, nullable=False, default='DRAFT')
     # Content metadata
     image_url = Column(String(1000), nullable=True)
