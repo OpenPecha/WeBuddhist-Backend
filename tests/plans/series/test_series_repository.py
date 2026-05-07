@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from pecha_api.plans.series.series_model import Series
-from pecha_api.plans.series.series_repository import get_series_paginated, save_series
+from pecha_api.plans.series.series_repository import get_series_by_id, get_series_paginated, save_series
 
 
 def _make_session_mock() -> Session:
@@ -85,3 +85,35 @@ def test_get_series_paginated_with_search_applies_filter_and_pagination():
     filtered_after_search.order_by.assert_called_once()
     ordered.offset.assert_called_once_with(5)
     ordered.offset.return_value.limit.assert_called_once_with(20)
+
+
+def test_get_series_by_id_returns_series_when_found():
+    db = _make_session_mock()
+    series_id = uuid.uuid4()
+    row = MagicMock(spec=Series)
+    filtered = MagicMock()
+    filtered.first.return_value = row
+    query_chain = MagicMock()
+    query_chain.options.return_value.filter.return_value = filtered
+    db.query.return_value = query_chain
+
+    result = get_series_by_id(db=db, series_id=series_id)
+
+    assert result is row
+    db.query.assert_called_once_with(Series)
+    query_chain.options.assert_called_once()
+    query_chain.options.return_value.filter.assert_called_once()
+
+
+def test_get_series_by_id_returns_none_when_missing():
+    db = _make_session_mock()
+    series_id = uuid.uuid4()
+    filtered = MagicMock()
+    filtered.first.return_value = None
+    query_chain = MagicMock()
+    query_chain.options.return_value.filter.return_value = filtered
+    db.query.return_value = query_chain
+
+    result = get_series_by_id(db=db, series_id=series_id)
+
+    assert result is None

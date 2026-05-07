@@ -39,6 +39,7 @@ class Plan(Base):
 
     author = relationship("Author", backref="plans", passive_deletes=True)
     series = relationship("Series", back_populates="plans")
+    items = relationship("PlanItem", backref="plan", lazy="select")
 
     __table_args__ = (
         # Indexes for plan discovery

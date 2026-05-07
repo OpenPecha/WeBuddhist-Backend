@@ -1,15 +1,23 @@
 from typing import List, Optional
+from uuid import UUID
 
+from fastapi import HTTPException
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
-from pecha_api.plans.plans_enums import PlanStatus
+from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus
 from pecha_api.plans.series.series_model import Series
-from pecha_api.plans.series.series_repository import get_series_paginated, save_series
-from pecha_api.plans.series.service_response_models import CreateSeriesRequest, SeriesDTO, SeriesListResponse
+from pecha_api.plans.series.series_repository import get_series_by_id, get_series_paginated, save_series
+from pecha_api.plans.series.service_response_models import (
+    CreateSeriesRequest,
+    SeriesDTO,
+    SeriesPlanDTO,
+    SeriesListResponse,
+)
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
+from starlette import status
 
 
-def _series_to_dto(row: Series) -> SeriesDTO:
+def _series_to_dto(row: Series, include_plans: bool = False) -> SeriesDTO:
     image_key = row.image
     image_url = None
     if image_key:
@@ -23,6 +31,50 @@ def _series_to_dto(row: Series) -> SeriesDTO:
         if hasattr(status_value, "value")
         else PlanStatus(status_value)
     )
+    
+    plans_dtos = []
+    series_total_days = 0
+    if include_plans and row.plans:
+        active_plans = [plan for plan in row.plans if plan.deleted_at is None]
+        sorted_plans = sorted(
+            active_plans,
+            key=lambda p: (p.display_order is None, p.display_order if p.display_order is not None else 0)
+        )
+        
+        for plan in sorted_plans:
+            plan_image_url = None
+            if plan.image_url:
+                plan_image_url = generate_presigned_access_url(
+                    bucket_name=get("AWS_BUCKET_NAME"),
+                    s3_key=plan.image_url,
+                )
+            
+            plan_status_value = plan.status
+            plan_status_enum = (
+                PlanStatus(plan_status_value.value)
+                if hasattr(plan_status_value, "value")
+                else PlanStatus(plan_status_value)
+            )
+            
+            plan_total_days = len(plan.items) if hasattr(plan, 'items') and plan.items else 0
+            series_total_days += plan_total_days
+            
+            plans_dtos.append(SeriesPlanDTO(
+                id=plan.id,
+                title=plan.title,
+                description=plan.description,
+                language=plan.language,
+                difficulty_level=plan.difficulty_level,
+                image_url=plan_image_url,
+                image_key=plan.image_url,
+                tags=plan.tags or [],
+                status=plan_status_enum,
+                featured=bool(plan.featured),
+                display_order=plan.display_order,
+                start_date=plan.start_date,
+                total_days=plan_total_days,
+            ))
+    
     return SeriesDTO(
         id=row.id,
         name=row.name or {},
@@ -31,6 +83,8 @@ def _series_to_dto(row: Series) -> SeriesDTO:
         author_id=row.author_id,
         featured=bool(row.featured),
         status=status_enum,
+        plans=plans_dtos,
+        total_days=series_total_days,
     )
 
 
@@ -54,6 +108,17 @@ async def get_filtered_series(
         limit=limit,
         total=total,
     )
+
+
+def get_series_detail(series_id: UUID) -> SeriesDTO:
+    with SessionLocal() as db_session:
+        row = get_series_by_id(db=db_session, series_id=series_id)
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Series with id '{series_id}' not found",
+        )
+    return _series_to_dto(row, include_plans=True)
 
 
 def create_new_series(create_series_request: CreateSeriesRequest) -> SeriesDTO:
