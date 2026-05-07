@@ -1,10 +1,17 @@
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
+from starlette import status
 
-from pecha_api.plans.plans_enums import PlanStatus
-from pecha_api.plans.series.series_service import create_new_series, get_filtered_series
+from pecha_api.plans.plans_enums import DifficultyLevel, LanguageCode, PlanStatus
+from pecha_api.plans.series.series_service import (
+    create_new_series,
+    get_filtered_series,
+    get_series_detail,
+)
 from pecha_api.plans.series.service_response_models import CreateSeriesRequest, SeriesListResponse
 
 
@@ -165,3 +172,115 @@ def test_create_new_series_featured_defaults_when_none():
 
     passed_series = mock_save.call_args.kwargs["series"]
     assert passed_series.featured is False
+
+
+def test_get_series_detail_raises_404_when_not_found():
+    series_id = uuid.uuid4()
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=None,
+    ):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            get_series_detail(series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert str(series_id) in exc.value.detail
+
+
+def test_get_series_detail_returns_dto_without_plans():
+    series_id = uuid.uuid4()
+    row = MagicMock()
+    row.id = series_id
+    row.name = {"en": "Only series"}
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.featured = False
+    row.status = PlanStatus.DRAFT
+    row.plans = []
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=row,
+    ):
+        _session_local_context(mock_session_local)
+
+        dto = get_series_detail(series_id=series_id)
+
+    assert dto.id == series_id
+    assert dto.plans == []
+
+
+def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    plan_b_id = uuid.uuid4()
+    plan_a_id = uuid.uuid4()
+
+    deleted_plan = MagicMock()
+    deleted_plan.deleted_at = datetime.now(timezone.utc)
+    deleted_plan.display_order = 0
+
+    plan_b = MagicMock()
+    plan_b.deleted_at = None
+    plan_b.display_order = 2
+    plan_b.id = plan_b_id
+    plan_b.title = "Second order"
+    plan_b.description = None
+    plan_b.language = LanguageCode.EN
+    plan_b.difficulty_level = DifficultyLevel.BEGINNER
+    plan_b.image_url = "plans/b.jpg"
+    plan_b.tags = ["x"]
+    plan_b.status = PlanStatus.DRAFT
+    plan_b.featured = False
+    plan_b.start_date = None
+
+    plan_a = MagicMock()
+    plan_a.deleted_at = None
+    plan_a.display_order = 1
+    plan_a.id = plan_a_id
+    plan_a.title = "First order"
+    plan_a.description = "Desc"
+    plan_a.language = LanguageCode.BO
+    plan_a.difficulty_level = None
+    plan_a.image_url = None
+    plan_a.tags = None
+    plan_a.status = MagicMock()
+    plan_a.status.value = PlanStatus.PUBLISHED.value
+    plan_a.featured = 1
+    plan_a.start_date = None
+
+    row = MagicMock()
+    row.id = series_id
+    row.name = {"en": "With plans"}
+    row.image = None
+    row.author_id = author_id
+    row.featured = True
+    row.status = PlanStatus.PUBLISHED
+    row.plans = [deleted_plan, plan_b, plan_a]
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=row,
+    ), patch("pecha_api.plans.series.series_service.get", return_value="bk"), patch(
+        "pecha_api.plans.series.series_service.generate_presigned_access_url",
+        return_value="https://signed/b.jpg",
+    ) as mock_presign:
+        _session_local_context(mock_session_local)
+
+        dto = get_series_detail(series_id=series_id)
+
+    assert len(dto.plans) == 2
+    assert dto.plans[0].id == plan_a_id
+    assert dto.plans[0].title == "First order"
+    assert dto.plans[0].image_url is None
+    assert dto.plans[0].image_key is None
+    assert dto.plans[0].tags == []
+    assert dto.plans[0].status == PlanStatus.PUBLISHED
+    assert dto.plans[0].featured is True
+
+    assert dto.plans[1].id == plan_b_id
+    assert dto.plans[1].image_url == "https://signed/b.jpg"
+    assert dto.plans[1].image_key == "plans/b.jpg"
+    mock_presign.assert_called_once_with(bucket_name="bk", s3_key="plans/b.jpg")

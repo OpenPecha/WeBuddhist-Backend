@@ -2,6 +2,7 @@ import uuid
 import pytest
 from unittest.mock import patch, AsyncMock
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from starlette import status
 
@@ -144,3 +145,36 @@ async def test_create_series_validation_error_missing_required_fields():
     response = client.post("/cms/series", json={"name": {}})
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_get_series_by_id_success(sample_series_dto):
+    series_id = sample_series_dto.id
+    with patch(
+        "pecha_api.plans.series.series_view.get_series_detail",
+        return_value=sample_series_dto,
+    ) as mock_detail:
+        response = client.get(f"/cms/series/{series_id}")
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_detail.assert_called_once_with(series_id=series_id)
+
+        data = response.json()
+        assert data["id"] == str(sample_series_dto.id)
+        assert data["name"] == sample_series_dto.name
+        assert data["status"] == sample_series_dto.status.value
+
+
+@pytest.mark.asyncio
+async def test_get_series_by_id_not_found():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.get_series_detail",
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Series with id '{series_id}' not found",
+        ),
+    ):
+        response = client.get(f"/cms/series/{series_id}")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
