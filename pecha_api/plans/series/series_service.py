@@ -6,13 +6,11 @@ from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus
 from pecha_api.plans.series.series_model import Series
-from pecha_api.plans.series.series_repository import get_series_by_id, get_series_paginated, get_series_plans, save_series
+from pecha_api.plans.series.series_repository import get_series_by_id, get_series_paginated, save_series
 from pecha_api.plans.series.service_response_models import (
     CreateSeriesRequest,
     SeriesDTO,
-    SeriesDetailResponse,
     SeriesListResponse,
-    SeriesPlanDTO,
 )
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from starlette import status
