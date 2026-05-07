@@ -41,27 +41,6 @@ paths:
             type: string
             default: en
           example: en
-        - name: sort_by
-          in: query
-          description: Field to sort results by
-          required: false
-          schema:
-            type: string
-            enum:
-              - title
-              - total_days
-              - subscription_count
-            default: title
-        - name: sort_order
-          in: query
-          description: Sort order
-          required: false
-          schema:
-            type: string
-            enum:
-              - asc
-              - desc
-            default: asc
         - name: skip
           in: query
           description: Number of records to skip for pagination
