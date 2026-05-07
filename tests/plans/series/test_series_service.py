@@ -284,3 +284,175 @@ def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     assert dto.plans[1].image_url == "https://signed/b.jpg"
     assert dto.plans[1].image_key == "plans/b.jpg"
     mock_presign.assert_called_once_with(bucket_name="bk", s3_key="plans/b.jpg")
+
+
+def test_get_series_detail_includes_total_days_for_each_plan():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    item_1 = MagicMock()
+    item_2 = MagicMock()
+    item_3 = MagicMock()
+
+    plan_a = MagicMock()
+    plan_a.deleted_at = None
+    plan_a.display_order = 1
+    plan_a.id = uuid.uuid4()
+    plan_a.title = "Plan A"
+    plan_a.description = "First plan"
+    plan_a.language = LanguageCode.EN
+    plan_a.difficulty_level = DifficultyLevel.BEGINNER
+    plan_a.image_url = None
+    plan_a.tags = []
+    plan_a.status = PlanStatus.DRAFT
+    plan_a.featured = False
+    plan_a.start_date = None
+    plan_a.items = [item_1, item_2, item_3]
+
+    item_4 = MagicMock()
+    item_5 = MagicMock()
+
+    plan_b = MagicMock()
+    plan_b.deleted_at = None
+    plan_b.display_order = 2
+    plan_b.id = uuid.uuid4()
+    plan_b.title = "Plan B"
+    plan_b.description = "Second plan"
+    plan_b.language = LanguageCode.EN
+    plan_b.difficulty_level = DifficultyLevel.INTERMEDIATE
+    plan_b.image_url = None
+    plan_b.tags = []
+    plan_b.status = PlanStatus.PUBLISHED
+    plan_b.featured = False
+    plan_b.start_date = None
+    plan_b.items = [item_4, item_5]
+
+    row = MagicMock()
+    row.id = series_id
+    row.name = {"en": "Series with day counts"}
+    row.image = None
+    row.author_id = author_id
+    row.featured = False
+    row.status = PlanStatus.DRAFT
+    row.plans = [plan_a, plan_b]
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=row,
+    ):
+        _session_local_context(mock_session_local)
+
+        dto = get_series_detail(series_id=series_id)
+
+    assert len(dto.plans) == 2
+    assert dto.plans[0].total_days == 3
+    assert dto.plans[1].total_days == 2
+    assert dto.total_days == 5
+
+
+def test_get_series_detail_total_days_zero_when_no_items():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    plan_empty = MagicMock()
+    plan_empty.deleted_at = None
+    plan_empty.display_order = 1
+    plan_empty.id = uuid.uuid4()
+    plan_empty.title = "Empty Plan"
+    plan_empty.description = None
+    plan_empty.language = LanguageCode.EN
+    plan_empty.difficulty_level = DifficultyLevel.BEGINNER
+    plan_empty.image_url = None
+    plan_empty.tags = []
+    plan_empty.status = PlanStatus.DRAFT
+    plan_empty.featured = False
+    plan_empty.start_date = None
+    plan_empty.items = []
+
+    row = MagicMock()
+    row.id = series_id
+    row.name = {"en": "Series with empty plan"}
+    row.image = None
+    row.author_id = author_id
+    row.featured = False
+    row.status = PlanStatus.DRAFT
+    row.plans = [plan_empty]
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=row,
+    ):
+        _session_local_context(mock_session_local)
+
+        dto = get_series_detail(series_id=series_id)
+
+    assert len(dto.plans) == 1
+    assert dto.plans[0].total_days == 0
+    assert dto.total_days == 0
+
+
+def test_get_series_detail_total_days_zero_when_no_plans():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    row = MagicMock()
+    row.id = series_id
+    row.name = {"en": "Series without plans"}
+    row.image = None
+    row.author_id = author_id
+    row.featured = False
+    row.status = PlanStatus.DRAFT
+    row.plans = []
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=row,
+    ):
+        _session_local_context(mock_session_local)
+
+        dto = get_series_detail(series_id=series_id)
+
+    assert dto.plans == []
+    assert dto.total_days == 0
+
+
+def test_get_series_detail_handles_plan_without_items_attribute():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    plan_no_items = MagicMock(spec=["deleted_at", "display_order", "id", "title", "description", 
+                                     "language", "difficulty_level", "image_url", "tags", 
+                                     "status", "featured", "start_date"])
+    plan_no_items.deleted_at = None
+    plan_no_items.display_order = 1
+    plan_no_items.id = uuid.uuid4()
+    plan_no_items.title = "Plan without items"
+    plan_no_items.description = None
+    plan_no_items.language = LanguageCode.EN
+    plan_no_items.difficulty_level = DifficultyLevel.BEGINNER
+    plan_no_items.image_url = None
+    plan_no_items.tags = []
+    plan_no_items.status = PlanStatus.DRAFT
+    plan_no_items.featured = False
+    plan_no_items.start_date = None
+
+    row = MagicMock()
+    row.id = series_id
+    row.name = {"en": "Series with plan without items"}
+    row.image = None
+    row.author_id = author_id
+    row.featured = False
+    row.status = PlanStatus.DRAFT
+    row.plans = [plan_no_items]
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=row,
+    ):
+        _session_local_context(mock_session_local)
+
+        dto = get_series_detail(series_id=series_id)
+
+    assert len(dto.plans) == 1
+    assert dto.plans[0].total_days == 0
+    assert dto.total_days == 0

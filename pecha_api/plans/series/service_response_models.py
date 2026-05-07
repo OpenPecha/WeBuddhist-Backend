@@ -27,6 +27,7 @@ class SeriesPlanDTO(BaseModel):
     featured: bool
     display_order: Optional[int] = None
     start_date: Optional[datetime] = None
+    total_days: int = 0
 
 
 class SeriesDTO(BaseModel):
@@ -38,6 +39,7 @@ class SeriesDTO(BaseModel):
     featured: bool
     status: PlanStatus
     plans: List[SeriesPlanDTO] = []
+    total_days: int = 0
 
 
 class SeriesListResponse(BaseModel):

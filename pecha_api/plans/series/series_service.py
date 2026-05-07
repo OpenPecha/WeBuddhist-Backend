@@ -33,6 +33,7 @@ def _series_to_dto(row: Series, include_plans: bool = False) -> SeriesDTO:
     )
     
     plans_dtos = []
+    series_total_days = 0
     if include_plans and row.plans:
         active_plans = [plan for plan in row.plans if plan.deleted_at is None]
         sorted_plans = sorted(
@@ -55,6 +56,9 @@ def _series_to_dto(row: Series, include_plans: bool = False) -> SeriesDTO:
                 else PlanStatus(plan_status_value)
             )
             
+            plan_total_days = len(plan.items) if hasattr(plan, 'items') and plan.items else 0
+            series_total_days += plan_total_days
+            
             plans_dtos.append(SeriesPlanDTO(
                 id=plan.id,
                 title=plan.title,
@@ -68,6 +72,7 @@ def _series_to_dto(row: Series, include_plans: bool = False) -> SeriesDTO:
                 featured=bool(plan.featured),
                 display_order=plan.display_order,
                 start_date=plan.start_date,
+                total_days=plan_total_days,
             ))
     
     return SeriesDTO(
@@ -79,6 +84,7 @@ def _series_to_dto(row: Series, include_plans: bool = False) -> SeriesDTO:
         featured=bool(row.featured),
         status=status_enum,
         plans=plans_dtos,
+        total_days=series_total_days,
     )
 
 

@@ -4,9 +4,10 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy import String, cast, desc
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from pecha_api.plans.series.series_model import Series
+from pecha_api.plans.plans_models import Plan
 from starlette import status
 
 
@@ -27,7 +28,9 @@ def save_series(db: Session, series: Series) -> Series:
 def get_series_by_id(db: Session, series_id) -> Optional[Series]:
     return (
         db.query(Series)
-        .options(joinedload(Series.plans))
+        .options(
+            selectinload(Series.plans).selectinload(Plan.items)
+        )
         .filter(Series.id == series_id, Series.deleted_at.is_(None))
         .first()
     )
