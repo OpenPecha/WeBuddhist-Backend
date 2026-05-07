@@ -71,7 +71,7 @@ async def get_user_plan_progress_details(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
 ):
     """Get user's progress for specific plan"""
-    return await get_user_plan_progress(
+    return get_user_plan_progress(
         token=authentication_credential.credentials,
         plan_id=plan_id
     )

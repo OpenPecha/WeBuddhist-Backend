@@ -9,6 +9,7 @@ from pecha_api.recitations.recitations_services import (
     get_recitation_details_service,
     segments_mapping_by_toc,
     filter_by_type_and_language,
+    _filter_and_map_segments,
 )
 from pecha_api.recitations.recitations_response_models import (
     RecitationDTO,
@@ -596,6 +597,155 @@ class TestFilterByTypeAndLanguage:
         assert result["en"].id == UUID(segment_id)
 
 
+class TestFilterAndMapSegments:
+    """Test cases for _filter_and_map_segments helper function."""
+
+    @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
+    @patch('pecha_api.recitations.recitations_services.filter_by_type_and_language')
+    @pytest.mark.asyncio
+    async def test_filter_and_map_segments_success(
+        self,
+        mock_filter_by_type_lang,
+        mock_filter_segments
+    ):
+        """Test _filter_and_map_segments successfully filters and maps segments."""
+        segment_id = str(uuid4())
+        segment_dto = SegmentDTO(
+            id=segment_id,
+            text_id=str(uuid4()),
+            content="Test content",
+            type=SegmentType.SOURCE
+        )
+        
+        # Mock filter_segment_mapping_by_type_or_text_id to return segments
+        mock_translation = SegmentTranslation(
+            segment_id=segment_id,
+            text_id=str(uuid4()),
+            title="Translation",
+            source="test",
+            language="en",
+            content="Translated content"
+        )
+        mock_filter_segments.return_value = [mock_translation]
+        
+        # Mock filter_by_type_and_language to return mapped result
+        expected_result = {
+            "en": Segment(id=UUID(segment_id), content="Translated content")
+        }
+        mock_filter_by_type_lang.return_value = expected_result
+        
+        # Execute
+        result = await _filter_and_map_segments(
+            all_segments=[segment_dto],
+            filter_type=RecitationListTextType.TRANSLATIONS.value,
+            languages=["en"]
+        )
+        
+        # Verify
+        assert result == expected_result
+        mock_filter_segments.assert_called_once_with(
+            segments=[segment_dto],
+            type=TextType.VERSION.value
+        )
+        mock_filter_by_type_lang.assert_called_once_with(
+            type=RecitationListTextType.TRANSLATIONS.value,
+            segments=[mock_translation],
+            languages=["en"]
+        )
+
+    @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
+    @patch('pecha_api.recitations.recitations_services.filter_by_type_and_language')
+    @pytest.mark.asyncio
+    async def test_filter_and_map_segments_empty_result(
+        self,
+        mock_filter_by_type_lang,
+        mock_filter_segments
+    ):
+        """Test _filter_and_map_segments with no matching segments."""
+        segment_dto = SegmentDTO(
+            id=str(uuid4()),
+            text_id=str(uuid4()),
+            content="Test content",
+            type=SegmentType.SOURCE
+        )
+        
+        mock_filter_segments.return_value = []
+        mock_filter_by_type_lang.return_value = {}
+        
+        # Execute
+        result = await _filter_and_map_segments(
+            all_segments=[segment_dto],
+            filter_type=RecitationListTextType.RECITATIONS.value,
+            languages=["en"]
+        )
+        
+        # Verify
+        assert result == {}
+        mock_filter_segments.assert_called_once()
+        mock_filter_by_type_lang.assert_called_once_with(
+            type=RecitationListTextType.RECITATIONS.value,
+            segments=[],
+            languages=["en"]
+        )
+
+    @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
+    @patch('pecha_api.recitations.recitations_services.filter_by_type_and_language')
+    @pytest.mark.asyncio
+    async def test_filter_and_map_segments_multiple_languages(
+        self,
+        mock_filter_by_type_lang,
+        mock_filter_segments
+    ):
+        """Test _filter_and_map_segments with multiple languages."""
+        segment_id = str(uuid4())
+        segment_dto = SegmentDTO(
+            id=segment_id,
+            text_id=str(uuid4()),
+            content="Test content",
+            type=SegmentType.SOURCE
+        )
+        
+        # Mock segments in different languages
+        mock_segments = [
+            SegmentTranslation(
+                segment_id=segment_id,
+                text_id=str(uuid4()),
+                title="English Translation",
+                source="test",
+                language="en",
+                content="English content"
+            ),
+            SegmentTranslation(
+                segment_id=segment_id,
+                text_id=str(uuid4()),
+                title="Tibetan Translation",
+                source="test",
+                language="bo",
+                content="Tibetan content"
+            )
+        ]
+        mock_filter_segments.return_value = mock_segments
+        
+        expected_result = {
+            "en": Segment(id=UUID(segment_id), content="English content"),
+            "bo": Segment(id=UUID(segment_id), content="Tibetan content")
+        }
+        mock_filter_by_type_lang.return_value = expected_result
+        
+        # Execute
+        result = await _filter_and_map_segments(
+            all_segments=[segment_dto],
+            filter_type=RecitationListTextType.TRANSLATIONS.value,
+            languages=["en", "bo"]
+        )
+        
+        # Verify
+        assert result == expected_result
+        assert len(result) == 2
+        assert "en" in result
+        assert "bo" in result
+
+
 class TestGetTextDetailsByTextId:
     """Test cases for get_text_details_by_text_id function."""
 
@@ -1039,3 +1189,80 @@ class TestSegmentsMappingByTocWithData:
         assert RecitationListTextType.TRANSLATIONS.value in call_types
         assert RecitationListTextType.TRANSLITERATIONS.value in call_types
         assert RecitationListTextType.ADAPTATIONS.value in call_types
+
+    @patch('pecha_api.recitations.recitations_services.get_segments_details_by_ids')
+    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments_batch')
+    @patch('pecha_api.recitations.recitations_services._filter_and_map_segments')
+    @pytest.mark.asyncio
+    async def test_segments_mapping_by_toc_uses_helper_function(
+        self,
+        mock_filter_and_map,
+        mock_get_related_segments_batch,
+        mock_get_segments_by_ids
+    ):
+        """Test that segments_mapping_by_toc correctly uses _filter_and_map_segments helper."""
+        segment_id = str(uuid4())
+        text_id = str(uuid4())
+        
+        toc = [
+            TableOfContent(
+                id=str(uuid4()),
+                type=TableOfContentType.TEXT,
+                text_id=text_id,
+                sections=[
+                    Section(
+                        id=str(uuid4()),
+                        title="Section 1",
+                        section_number=1,
+                        segments=[
+                            TextSegment(segment_id=segment_id, segment_number=1)
+                        ]
+                    )
+                ]
+            )
+        ]
+        
+        segment_dto = SegmentDTO(
+            id=segment_id,
+            text_id=text_id,
+            content="Test content",
+            type=SegmentType.SOURCE
+        )
+        mock_get_segments_by_ids.return_value = {segment_id: segment_dto}
+        mock_get_related_segments_batch.return_value = {segment_id: []}
+        
+        # Mock the helper function to return empty dicts
+        mock_filter_and_map.return_value = {}
+        
+        request = RecitationDetailsRequest(
+            language="en",
+            recitation=["en"],
+            translations=["bo"],
+            transliterations=["bo"],
+            adaptations=["en"]
+        )
+        
+        # Execute
+        result = await segments_mapping_by_toc(table_of_contents=toc, recitation_details_request=request)
+        
+        # Verify
+        assert len(result) == 1
+        assert isinstance(result[0], RecitationSegment)
+        
+        # Verify _filter_and_map_segments was called 4 times
+        assert mock_filter_and_map.call_count == 4
+        
+        # Verify it was called with correct filter types
+        call_filter_types = [call.kwargs['filter_type'] for call in mock_filter_and_map.call_args_list]
+        assert RecitationListTextType.RECITATIONS.value in call_filter_types
+        assert RecitationListTextType.TRANSLATIONS.value in call_filter_types
+        assert RecitationListTextType.TRANSLITERATIONS.value in call_filter_types
+        assert RecitationListTextType.ADAPTATIONS.value in call_filter_types
+        
+        # Verify it was called with correct languages
+        calls = mock_filter_and_map.call_args_list
+        recitation_call = [c for c in calls if c.kwargs['filter_type'] == RecitationListTextType.RECITATIONS.value][0]
+        assert recitation_call.kwargs['languages'] == ["en"]
+        
+        translation_call = [c for c in calls if c.kwargs['filter_type'] == RecitationListTextType.TRANSLATIONS.value][0]
+        assert translation_call.kwargs['languages'] == ["bo"]

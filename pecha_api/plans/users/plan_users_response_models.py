@@ -20,6 +20,7 @@ class UserPlanDayCompletionStatus(BaseModel):
 
 class UserPlanDayCompletionStatusResponse(BaseModel):
     days: List[UserPlanDayCompletionStatus]
+    start_date: Optional[datetime] = None
 
 class UserPlanProgressResponse(BaseModel):
     id: UUID
@@ -53,6 +54,7 @@ class UserPlanDTO(BaseModel):
     started_at: datetime
     total_days: int
     tags: List[str]
+    start_date: Optional[datetime] = None
 
 
 class UserPlansResponse(BaseModel):
@@ -74,7 +76,7 @@ class UserSubTaskDTO(BaseModel):
     content: str
     source_text_id: Optional[UUID] = None
     pecha_segment_id: Optional[str] = None
-    segment_id: Optional[UUID] = None
+    segment_ids: Optional[List[UUID]] = None
 
 class UserTaskDTO(BaseModel):
     id: UUID

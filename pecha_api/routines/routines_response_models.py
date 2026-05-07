@@ -18,6 +18,13 @@ class CreateTimeBlockRequest(BaseModel):
     sessions: List[SessionRequest]
 
 
+class UpdateTimeBlockRequest(BaseModel):
+    time: str
+    time_int: int
+    notification_enabled: bool = True
+    sessions: List[SessionRequest]
+
+
 class SessionDTO(BaseModel):
     id: UUID
     session_type: SessionType
@@ -39,3 +46,11 @@ class TimeBlockDTO(BaseModel):
 class RoutineWithTimeBlocksResponse(BaseModel):
     id: UUID
     time_blocks: List[TimeBlockDTO]
+
+
+class RoutineResponse(BaseModel):
+    id: UUID
+    time_blocks: List[TimeBlockDTO]
+    skip: int
+    limit: int
+    total: int

@@ -19,6 +19,7 @@ from pecha_api.share import share_views
 from pecha_api.search import search_views
 from pecha_api.plans.auth import plan_auth_views
 from pecha_api.plans.cms import cms_plans_views as cms_plans_views
+from pecha_api.plans.series import series_view as cms_series_views
 from pecha_api.plans.tasks import plan_tasks_views
 from pecha_api.plans.tasks.sub_tasks import plan_sub_tasks_views
 from pecha_api.plans.public import plan_views as public_plans_views
@@ -34,6 +35,7 @@ from pecha_api.text_uploader import text_uploader_views
 from pecha_api.cataloger import cataloger_views
 from pecha_api.text_uploader.text_metadata import text_metadata_views
 from pecha_api.text_uploader.collections import uploader_collections_views
+from pecha_api.collections import collections_openpecha_views
 from pecha_api.routines import routines_views
 import uvicorn
 
@@ -58,6 +60,7 @@ api.include_router(search_views.search_router)
 api.include_router(share_views.share_router)
 api.include_router(plan_auth_views.plan_auth_router)
 api.include_router(cms_plans_views.cms_plans_router)
+api.include_router(cms_series_views.cms_series_router)
 api.include_router(media_views.media_router)
 api.include_router(public_plans_views.public_plans_router)
 api.include_router(user_plans_views.user_progress_router)
@@ -74,6 +77,9 @@ api.include_router(cataloger_views.cataloger_router)
 api.include_router(text_metadata_views.text_metadata_router)
 api.include_router(uploader_collections_views.text_uploader_collections_router)
 api.include_router(routines_views.routines_router)
+api.include_router(collections_openpecha_views.collections_v2_router)
+
+api.include_router(routines_views.user_routine_router)
 api.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

@@ -2,6 +2,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus,ContentType
 from uuid import UUID
+from datetime import datetime, date as DateType
 from pecha_api.plans.plans_models import Plan
 
 class PlanDayBasic(BaseModel):
@@ -34,15 +35,18 @@ class PublicPlanDTO(BaseModel):
     total_days: int
     tags: Optional[List[str]] = [],
     author: Optional[AuthorDTO] = None
+    start_date: Optional[datetime] = None
 
 class SubTaskDTO(BaseModel):
     id: UUID
     content_type: ContentType
     content: Optional[str] = None
-    display_order: Optional[int] = None
+    duration: Optional[str] = None
+    image_url: Optional[str] = None
     source_text_id: Optional[UUID] = None
     pecha_segment_id: Optional[str] = None
-    segment_id: Optional[UUID] = None
+    segment_ids: Optional[List[UUID]] = None
+    display_order: Optional[int] = None
 
 class TaskDTO(BaseModel):
     id: UUID
@@ -84,6 +88,26 @@ class PlanWithAggregates(BaseModel):
 class PlansRepositoryResponse(BaseModel):
     plan_info: List[PlanWithAggregates]
     total: int
+
+class SeriesDTO(BaseModel):
+    id: UUID
+    name: Optional[dict] = None
+    image: Optional[ImageUrlModel] = None
+
+class DailyPlanResponse(BaseModel):
+    plan_id: UUID
+    plan_title: str
+    plan_description: str
+    image: Optional[ImageUrlModel] = None
+    series: Optional[SeriesDTO] = None
+    date: DateType
+    day_number: int
+    total_days: int
+    start_date: DateType
+    end_date: DateType
+    previous_date: Optional[DateType] = None
+    next_date: Optional[DateType] = None
+    tasks: List[TaskDTO]
 
 class TagsResponse(BaseModel):
     tags: List[str]
