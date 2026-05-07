@@ -415,6 +415,7 @@ async def test_get_user_enrolled_plans_success():
         difficulty_level=difficulty,
         image_url="images/plan_images/test.jpg",
         tags=["meditation", "mindfulness"],
+        start_date=datetime(2025, 1, 15, tzinfo=timezone.utc),
     )
 
     db_mock, session_cm = _mock_session_with_db()
@@ -455,6 +456,7 @@ async def test_get_user_enrolled_plans_success():
         assert plan_dto.total_days == 30
         assert plan_dto.tags == ["meditation", "mindfulness"]
         assert plan_dto.image_url.startswith("https://signed.")
+        assert plan_dto.start_date == datetime(2025, 1, 15, tzinfo=timezone.utc)
 
 
 
@@ -474,6 +476,7 @@ async def test_get_user_enrolled_plans_with_status_filter():
         difficulty_level=SimpleNamespace(value="BEGINNER"),
         image_url=None,
         tags=[],
+        start_date=None,
     )
 
     db_mock, session_cm = _mock_session_with_db()
@@ -520,6 +523,7 @@ async def test_get_user_enrolled_plans_with_pagination():
             difficulty_level=SimpleNamespace(value="BEGINNER"),
             image_url=None,
             tags=[],
+            start_date=None,
         )
         results.append((progress, plan, 10))
 
@@ -592,6 +596,7 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
         difficulty_level=SimpleNamespace(value="BEGINNER"),
         image_url=None,
         tags=[],
+        start_date=None,
     )
     plan2 = SimpleNamespace(
         id=plan_id_2,
@@ -601,6 +606,7 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
         difficulty_level=SimpleNamespace(value="BEGINNER"),
         image_url=None,
         tags=[],
+        start_date=None,
     )
 
     _, session_cm = _mock_session_with_db()
@@ -772,6 +778,7 @@ async def test_get_user_enrolled_plans_without_image():
         difficulty_level=SimpleNamespace(value="INTERMEDIATE"),
         image_url=None,
         tags=[],
+        start_date=None,
     )
 
     _, session_cm = _mock_session_with_db()
@@ -839,6 +846,7 @@ async def test_get_user_enrolled_plans_presigned_url_error():
         difficulty_level=SimpleNamespace(value="BEGINNER"),
         image_url="images/plan_images/test.jpg",
         tags=[],
+        start_date=None,
     )
 
     _, session_cm = _mock_session_with_db()
@@ -892,6 +900,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
         difficulty_level=SimpleNamespace(value="BEGINNER"),
         image_url="images/plan1.jpg",
         tags=["meditation"],
+        start_date=datetime(2025, 2, 1, tzinfo=timezone.utc),
     )
     plan_2 = SimpleNamespace(
         id=plan_id_2,
@@ -901,6 +910,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
         difficulty_level=SimpleNamespace(value="ADVANCED"),
         image_url="images/plan2.jpg",
         tags=["dharma", "philosophy"],
+        start_date=None,
     )
     plan_3 = SimpleNamespace(
         id=plan_id_3,
@@ -910,6 +920,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
         difficulty_level="BEGINNER",  # exercise string branch
         image_url=None,
         tags=["basics"],
+        start_date=None,
     )
 
     _, session_cm = _mock_session_with_db()
