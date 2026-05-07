@@ -9,7 +9,7 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_day_with_tasks_and_subtasks
 from datetime import date as DateType, timedelta, datetime as dt, timezone
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse
+from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.plans_enums import ContentType
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
@@ -241,13 +241,24 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
 
         plan_image = await get_image_url(image_url=plan.image_url)
 
+        series_dto = None
+        if plan.series:
+            series_image = await get_image_url(image_url=plan.series.image)
+            series_dto = SeriesDTO(
+                id=plan.series.id,
+                name=plan.series.name,
+                image=series_image,
+            )
+
         previous_date = requested_date - timedelta(days=1) if day_number > 1 else None
         next_date = requested_date + timedelta(days=1) if day_number < total_days else None
 
         return DailyPlanResponse(
             plan_id=plan.id,
             plan_title=plan.title,
+            plan_description=plan.description,
             image=plan_image,
+            series=series_dto,
             date=requested_date,
             day_number=day_number,
             total_days=total_days,

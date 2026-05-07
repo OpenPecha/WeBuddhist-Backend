@@ -6,6 +6,7 @@ from _datetime import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from .plans_enums import LanguageCodeEnum, DifficultyLevelEnum, PlanStatusEnum
+from .series.series_model import Series
 
 
 class Plan(Base):
@@ -15,6 +16,7 @@ class Plan(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     author_id = Column(UUID(as_uuid=True), ForeignKey('authors.id', ondelete='RESTRICT'), nullable=False)
+    series_id = Column(UUID(as_uuid=True), ForeignKey('series.id', ondelete='SET NULL'), nullable=True)
     language = Column(LanguageCodeEnum, nullable=False, default='EN')
     difficulty_level = Column(DifficultyLevelEnum, default='BEGINNER')
 
@@ -35,6 +37,7 @@ class Plan(Base):
 
 
     author = relationship("Author", backref="plans", passive_deletes=True)
+    series = relationship("Series", back_populates="plans")
 
     __table_args__ = (
         # Indexes for plan discovery

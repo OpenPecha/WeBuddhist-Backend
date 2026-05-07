@@ -89,10 +89,17 @@ class PlansRepositoryResponse(BaseModel):
     plan_info: List[PlanWithAggregates]
     total: int
 
+class SeriesDTO(BaseModel):
+    id: UUID
+    name: Optional[dict] = None
+    image: Optional[ImageUrlModel] = None
+
 class DailyPlanResponse(BaseModel):
     plan_id: UUID
     plan_title: str
+    plan_description: str
     image: Optional[ImageUrlModel] = None
+    series: Optional[SeriesDTO] = None
     date: DateType
     day_number: int
     total_days: int
