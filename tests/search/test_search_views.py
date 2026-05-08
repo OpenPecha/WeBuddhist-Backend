@@ -755,7 +755,7 @@ async def test_search_plans_success():
 
 @pytest.mark.asyncio
 async def test_search_plans_with_filters():
-    """Test search plans endpoint with tag, search, and language filters"""
+    """Test search plans endpoint with tag and search filters"""
     mock_plans_response = PlansResponse(
         plans=[],
         skip=0,
@@ -766,7 +766,7 @@ async def test_search_plans_with_filters():
     with patch("pecha_api.search.search_views.get_filtered_plans", 
                new_callable=AsyncMock, return_value=mock_plans_response) as mock_service:
         response = client.get(
-            "/search/plans?tag=meditation&search=mindfulness&language=bo",
+            "/search/plans?tag=meditation&search=mindfulness",
             headers={"Authorization": "Bearer test-token"}
         )
         
@@ -778,8 +778,7 @@ async def test_search_plans_with_filters():
             sort_order="desc",
             skip=0,
             limit=20,
-            tag="meditation",
-            language="bo"
+            tag="meditation"
         )
 
 

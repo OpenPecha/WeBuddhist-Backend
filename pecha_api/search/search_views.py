@@ -69,7 +69,6 @@ async def search_plans(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     tag: Optional[str] = Query(default=None),
     search: Optional[str] = Query(default=None),
-    language: str = Query(default="en"),
     skip: int = Query(default=0),
     limit: int = Query(default=20)
 ) -> PlansResponse:
@@ -81,6 +80,5 @@ async def search_plans(
         sort_order="desc",
         skip=skip,
         limit=limit,
-        tag=tag,
-        language=language
+        tag=tag
     )
