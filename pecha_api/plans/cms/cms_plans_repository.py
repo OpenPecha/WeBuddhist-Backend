@@ -33,6 +33,8 @@ def get_plans_by_author_id(
     sort_order: str,
     skip: int,
     limit: int,
+    tag: Optional[str] = None,
+    language: Optional[str] = None,
 ) -> PlansRepositoryResponse:
     # Filters
     filters = [Plan.deleted_at.is_(None)]
@@ -40,6 +42,10 @@ def get_plans_by_author_id(
         filters.append(Plan.author_id == author_id)
     if search:
         filters.append(Plan.title.ilike(f"%{search}%"))
+    if tag:
+        filters.append(Plan.tags.contains([tag]))
+    if language:
+        filters.append(Plan.language == language.upper())
 
     # Aggregates (matching provided SQL): SUM of item day_number and COUNT DISTINCT of subscribers
     total_days_label = func.count(func.distinct(PlanItem.id)).label("total_days")

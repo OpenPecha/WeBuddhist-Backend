@@ -1,20 +1,25 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from .search_enums import SearchType, MultilingualSearchType
 from starlette import status
 
-from typing import Optional
+from typing import Optional, Annotated
 
 from .search_service import (
     get_search_results,
     get_multilingual_search_results,
     get_url_link as get_url_link_service
 )
+from pecha_api.plans.cms.cms_plans_service import get_filtered_plans
 
 from .search_response_models import (
     SearchResponse,
     MultilingualSearchResponse,
     SegmentLinkResponse,
 )
+from pecha_api.plans.plans_response_models import PlansResponse
+
+oauth2_scheme = HTTPBearer()
 
 search_router = APIRouter(
     prefix="/search",
@@ -57,3 +62,25 @@ async def multilingual_search(
 @search_router.get("/chat/{pecha_segment_id}", status_code=status.HTTP_200_OK)
 async def get_url_link(pecha_segment_id: str) -> SegmentLinkResponse:
     return await get_url_link_service(pecha_segment_id)
+
+
+@search_router.get("/plans", status_code=status.HTTP_200_OK, response_model=PlansResponse)
+async def search_plans(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    tag: Optional[str] = Query(default=None),
+    search: Optional[str] = Query(default=None),
+    language: str = Query(default="en"),
+    skip: int = Query(default=0),
+    limit: int = Query(default=20)
+) -> PlansResponse:
+
+    return await get_filtered_plans(
+        token=authentication_credential.credentials,
+        search=search,
+        sort_by="created_at",
+        sort_order="desc",
+        skip=skip,
+        limit=limit,
+        tag=tag,
+        language=language
+    )
