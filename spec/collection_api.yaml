@@ -1,0 +1,235 @@
+openapi: 3.0.3
+info:
+  title: Plans Collection API
+  description: API for searching and retrieving learning plans
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+paths:
+  /plans:
+    get:
+      summary: Search and list published plans
+      description: |
+        Retrieves a paginated list of published plans with optional filtering by tag, 
+        search term, and language. Supports sorting and pagination.
+      operationId: getPlans
+      tags:
+        - Public Plans
+      parameters:
+        - name: tag
+          in: query
+          description: Filter plans by tag
+          required: false
+          schema:
+            type: string
+          example: meditation
+        - name: search
+          in: query
+          description: Search plans by title (case-insensitive partial match)
+          required: false
+          schema:
+            type: string
+          example: mindfulness
+        - name: language
+          in: query
+          description: Filter by language code
+          required: false
+          schema:
+            type: string
+            default: en
+          example: en
+        - name: skip
+          in: query
+          description: Number of records to skip for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of records to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Successfully retrieved plans
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicPlansResponse'
+              example:
+                plans:
+                  - id: "550e8400-e29b-41d4-a716-446655440000"
+                    title: "30-Day Meditation Journey"
+                    description: "A comprehensive meditation program for beginners"
+                    language: "en"
+                    difficulty_level: "BEGINNER"
+                    image:
+                      thumbnail: "https://bucket.s3.amazonaws.com/images/thumb/plan.jpg"
+                      medium: "https://bucket.s3.amazonaws.com/images/medium/plan.jpg"
+                      original: "https://bucket.s3.amazonaws.com/images/original/plan.jpg"
+                    total_days: 30
+                    tags:
+                      - meditation
+                      - mindfulness
+                    author:
+                      id: "660e8400-e29b-41d4-a716-446655440001"
+                      firstname: "John"
+                      lastname: "Doe"
+                      image:
+                        thumbnail: "https://bucket.s3.amazonaws.com/avatars/thumb/author.jpg"
+                        medium: "https://bucket.s3.amazonaws.com/avatars/medium/author.jpg"
+                        original: "https://bucket.s3.amazonaws.com/avatars/original/author.jpg"
+                    start_date: "2024-01-15T00:00:00Z"
+                skip: 0
+                limit: 20
+                total: 1
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+
+components:
+  schemas:
+    ImageUrlModel:
+      type: object
+      description: Image URLs in different sizes
+      properties:
+        thumbnail:
+          type: string
+          description: Thumbnail size image URL
+        medium:
+          type: string
+          description: Medium size image URL
+        original:
+          type: string
+          description: Original size image URL
+      required:
+        - thumbnail
+        - medium
+        - original
+
+    AuthorDTO:
+      type: object
+      description: Author information
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the author
+        firstname:
+          type: string
+          description: Author's first name
+        lastname:
+          type: string
+          description: Author's last name
+        image:
+          $ref: '#/components/schemas/ImageUrlModel'
+      required:
+        - id
+        - firstname
+        - lastname
+
+    PublicPlanDTO:
+      type: object
+      description: Public plan information
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier of the plan
+        title:
+          type: string
+          description: Plan title
+        description:
+          type: string
+          description: Plan description
+        language:
+          type: string
+          description: Language code of the plan
+        difficulty_level:
+          type: string
+          enum:
+            - BEGINNER
+            - INTERMEDIATE
+            - ADVANCED
+          description: Difficulty level of the plan
+        image:
+          $ref: '#/components/schemas/ImageUrlModel'
+        total_days:
+          type: integer
+          description: Total number of days in the plan
+        tags:
+          type: array
+          items:
+            type: string
+          description: Tags associated with the plan
+        author:
+          $ref: '#/components/schemas/AuthorDTO'
+        start_date:
+          type: string
+          format: date-time
+          description: Optional start date for the plan
+      required:
+        - id
+        - title
+        - description
+        - language
+        - total_days
+
+    PublicPlansResponse:
+      type: object
+      description: Paginated list of plans
+      properties:
+        plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicPlanDTO'
+          description: List of plans
+        skip:
+          type: integer
+          description: Number of records skipped
+        limit:
+          type: integer
+          description: Maximum records returned
+        total:
+          type: integer
+          description: Total number of matching plans
+      required:
+        - plans
+        - skip
+        - limit
+        - total
+
+    ValidationError:
+      type: object
+      description: Validation error response
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+                description: Location of the error
+              msg:
+                type: string
+                description: Error message
+              type:
+                type: string
+                description: Error type

@@ -336,6 +336,8 @@ async def test_get_filtered_plans_success():
             "sort_order": "desc",
             "skip": 5,
             "limit": 10,
+            "tag": None,
+            "language": None,
         }
 
         # verify response mapping
