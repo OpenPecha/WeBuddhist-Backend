@@ -14,7 +14,7 @@ from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.plans_enums import ContentType
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id, get_all_unique_tags)
+from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id, get_all_unique_tags, get_next_plan_in_series, get_previous_plan_in_series)
 
 logger = logging.getLogger(__name__)
 
@@ -253,6 +253,20 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
         previous_date = requested_date - timedelta(days=1) if day_number > 1 else None
         next_date = requested_date + timedelta(days=1) if day_number < total_days else None
 
+        previous_plan_id = None
+        next_plan_id = None
+
+        if plan.series_id and plan.display_order is not None:
+            if previous_date is None:
+                previous_plan = get_previous_plan_in_series(db=db, series_id=plan.series_id, current_display_order=plan.display_order)
+                if previous_plan:
+                    previous_plan_id = previous_plan.id
+
+            if next_date is None:
+                next_plan = get_next_plan_in_series(db=db, series_id=plan.series_id, current_display_order=plan.display_order)
+                if next_plan:
+                    next_plan_id = next_plan.id
+
         return DailyPlanResponse(
             plan_id=plan.id,
             plan_title=plan.title,
@@ -266,6 +280,8 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
             end_date=end,
             previous_date=previous_date,
             next_date=next_date,
+            previous_plan_id=previous_plan_id,
+            next_plan_id=next_plan_id,
             tasks=[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)]
         )
 

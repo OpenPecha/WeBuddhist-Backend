@@ -91,7 +91,7 @@ DUMMY_DAYS = [
 ]
 
 
-async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, sort_order: str, skip: int, limit: int) -> PlansResponse:
+async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, sort_order: str, skip: int, limit: int, tag: Optional[str] = None, language: Optional[str] = None) -> PlansResponse:
     # Validate token and author context (authorization can be extended later)
     current_author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db_session:
@@ -104,6 +104,8 @@ async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, so
             sort_order=sort_order,
             skip=skip,
             limit=limit,
+            tag=tag,
+            language=language,
         )
 
     plans: List[PlanDTO] = []
