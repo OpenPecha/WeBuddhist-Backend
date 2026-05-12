@@ -36,6 +36,7 @@ class PublicPlanDTO(BaseModel):
     tags: Optional[List[str]] = [],
     author: Optional[AuthorDTO] = None
     start_date: Optional[datetime] = None
+    display_order: Optional[int] = None
 
 class SubTaskDTO(BaseModel):
     id: UUID

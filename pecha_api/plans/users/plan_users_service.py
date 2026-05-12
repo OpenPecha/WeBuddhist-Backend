@@ -117,7 +117,8 @@ async def get_user_enrolled_plans(token: str,status_filter: Optional[str] = None
                 started_at=progress.started_at,
                 total_days=total_days,
                 tags=plan.tags if plan.tags else [],
-                start_date=plan.start_date
+                start_date=plan.start_date,
+                display_order=plan.display_order
             )
             enrolled_plans.append(user_plan)
         

@@ -55,6 +55,7 @@ class UserPlanDTO(BaseModel):
     total_days: int
     tags: List[str]
     start_date: Optional[datetime] = None
+    display_order: Optional[int] = None
 
 
 class UserPlansResponse(BaseModel):
