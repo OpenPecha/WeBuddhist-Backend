@@ -416,6 +416,7 @@ async def test_get_user_enrolled_plans_success():
         image_url="images/plan_images/test.jpg",
         tags=["meditation", "mindfulness"],
         start_date=datetime(2025, 1, 15, tzinfo=timezone.utc),
+        display_order=1,
     )
 
     db_mock, session_cm = _mock_session_with_db()
@@ -477,6 +478,7 @@ async def test_get_user_enrolled_plans_with_status_filter():
         image_url=None,
         tags=[],
         start_date=None,
+        display_order=None,
     )
 
     db_mock, session_cm = _mock_session_with_db()
@@ -524,6 +526,7 @@ async def test_get_user_enrolled_plans_with_pagination():
             image_url=None,
             tags=[],
             start_date=None,
+            display_order=None,
         )
         results.append((progress, plan, 10))
 
@@ -597,6 +600,7 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
         image_url=None,
         tags=[],
         start_date=None,
+        display_order=None,
     )
     plan2 = SimpleNamespace(
         id=plan_id_2,
@@ -607,6 +611,7 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
         image_url=None,
         tags=[],
         start_date=None,
+        display_order=None,
     )
 
     _, session_cm = _mock_session_with_db()
@@ -779,6 +784,7 @@ async def test_get_user_enrolled_plans_without_image():
         image_url=None,
         tags=[],
         start_date=None,
+        display_order=None,
     )
 
     _, session_cm = _mock_session_with_db()
@@ -847,6 +853,7 @@ async def test_get_user_enrolled_plans_presigned_url_error():
         image_url="images/plan_images/test.jpg",
         tags=[],
         start_date=None,
+        display_order=None,
     )
 
     _, session_cm = _mock_session_with_db()
@@ -901,6 +908,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
         image_url="images/plan1.jpg",
         tags=["meditation"],
         start_date=datetime(2025, 2, 1, tzinfo=timezone.utc),
+        display_order=1,
     )
     plan_2 = SimpleNamespace(
         id=plan_id_2,
@@ -911,6 +919,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
         image_url="images/plan2.jpg",
         tags=["dharma", "philosophy"],
         start_date=None,
+        display_order=2,
     )
     plan_3 = SimpleNamespace(
         id=plan_id_3,
@@ -921,6 +930,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
         image_url=None,
         tags=["basics"],
         start_date=None,
+        display_order=None,
     )
 
     _, session_cm = _mock_session_with_db()
