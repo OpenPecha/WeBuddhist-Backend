@@ -71,7 +71,9 @@ async def get_published_plans(
                     image=plan_image,
                     total_days=plan_aggregate.total_days,
                     tags=plan.tags if plan.tags else [],
-                    author=author_dto
+                    author=author_dto,
+                    start_date=plan.start_date,
+                    display_order=plan.display_order
                 )
                 plan_dtos.append(plan_dto)
             
@@ -121,7 +123,8 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
                 total_days=total_days,
                 tags=plan.tags if plan.tags else [],
                 author=author_dto,
-                start_date=plan.start_date
+                start_date=plan.start_date,
+                display_order=plan.display_order
             )
     
     except Exception as e:
