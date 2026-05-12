@@ -64,16 +64,17 @@ async def get_url_link(pecha_segment_id: str) -> SegmentLinkResponse:
     return await get_url_link_service(pecha_segment_id)
 
 
-@search_router.get("/plans", status_code=status.HTTP_200_OK, response_model=PlansResponse)
+@search_router.get("/plans", status_code=status.HTTP_200_OK)
 async def search_plans(
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    tag: Optional[str] = Query(default=None),
-    search: Optional[str] = Query(default=None),
-    language: Optional[str] = Query(default=None),
-    skip: int = Query(default=0),
-    limit: int = Query(default=20)
+    authentication_credential: Annotated[
+        HTTPAuthorizationCredentials, Depends(oauth2_scheme)
+    ],
+    tag: Annotated[Optional[str], Query()] = None,
+    search: Annotated[Optional[str], Query()] = None,
+    language: Annotated[Optional[str], Query()] = None,
+    skip: Annotated[int, Query()] = 0,
+    limit: Annotated[int, Query()] = 20,
 ) -> PlansResponse:
-
     return await get_filtered_plans(
         token=authentication_credential.credentials,
         search=search,
@@ -82,5 +83,5 @@ async def search_plans(
         skip=skip,
         limit=limit,
         tag=tag,
-        language=language
+        language=language,
     )
