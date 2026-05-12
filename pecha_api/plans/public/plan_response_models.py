@@ -107,6 +107,8 @@ class DailyPlanResponse(BaseModel):
     end_date: DateType
     previous_date: Optional[DateType] = None
     next_date: Optional[DateType] = None
+    previous_plan_id: Optional[UUID] = None
+    next_plan_id: Optional[UUID] = None
     tasks: List[TaskDTO]
 
 class TagsResponse(BaseModel):
