@@ -778,7 +778,8 @@ async def test_search_plans_with_filters():
             sort_order="desc",
             skip=0,
             limit=20,
-            tag="meditation"
+            tag="meditation",
+            language=None,
         )
 
 
@@ -836,15 +837,42 @@ async def test_search_plans_empty_results():
         limit=20,
         total=0
     )
-    
+
     with patch("pecha_api.search.search_views.get_filtered_plans", 
                new_callable=AsyncMock, return_value=mock_plans_response):
         response = client.get(
             "/search/plans",
             headers={"Authorization": "Bearer test-token"}
         )
-        
+
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         assert data["plans"] == []
         assert data["total"] == 0
+
+
+@pytest.mark.asyncio
+async def test_search_plans_with_language_filter():
+    """Test search plans endpoint with language filter"""
+    mock_plans_response = PlansResponse(plans=[], skip=0, limit=20, total=0)
+
+    with patch(
+        "pecha_api.search.search_views.get_filtered_plans",
+        new_callable=AsyncMock,
+        return_value=mock_plans_response,
+    ) as mock_service:
+        response = client.get(
+            "/search/plans?language=EN", headers={"Authorization": "Bearer test-token"}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(
+            token="test-token",
+            search=None,
+            sort_by="created_at",
+            sort_order="desc",
+            skip=0,
+            limit=20,
+            tag=None,
+            language="EN",
+        )
