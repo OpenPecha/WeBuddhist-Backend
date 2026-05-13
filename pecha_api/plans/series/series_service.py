@@ -2,6 +2,8 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
+
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus
@@ -17,72 +19,69 @@ from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from starlette import status
 
 
-def _series_to_dto(row: Series, include_plans: bool = False) -> SeriesDTO:
-    image_key = row.image
-    image_url = None
-    if image_key:
-        image_url = generate_presigned_access_url(
-            bucket_name=get("AWS_BUCKET_NAME"),
-            s3_key=image_key,
-        )
-    status_value = row.status
-    status_enum = (
-        PlanStatus(status_value.value)
-        if hasattr(status_value, "value")
-        else PlanStatus(status_value)
+def _generate_image_url(image_key: Optional[str]) -> Optional[str]:
+    if not image_key:
+        return None
+    return generate_presigned_access_url(
+        bucket_name=get("AWS_BUCKET_NAME"),
+        s3_key=image_key,
     )
-    
+
+
+def _to_plan_status(status_value) -> PlanStatus:
+    if hasattr(status_value, "value"):
+        return PlanStatus(status_value.value)
+    return PlanStatus(status_value)
+
+
+def _plan_to_dto(plan) -> SeriesPlanDTO:
+    total_days = len(plan.items) if hasattr(plan, 'items') and plan.items else 0
+    return SeriesPlanDTO(
+        id=plan.id,
+        title=plan.title,
+        description=plan.description,
+        language=plan.language,
+        difficulty_level=plan.difficulty_level,
+        image_url=_generate_image_url(plan.image_url),
+        image_key=plan.image_url,
+        tags=plan.tags or [],
+        status=_to_plan_status(plan.status),
+        featured=bool(plan.featured),
+        display_order=plan.display_order,
+        start_date=plan.start_date,
+        total_days=total_days,
+    )
+
+
+def _get_sorted_active_plans(plans) -> List:
+    if not plans:
+        return []
+    active_plans = [p for p in plans if p.deleted_at is None]
+    return sorted(
+        active_plans,
+        key=lambda p: (p.display_order is None, p.display_order or 0)
+    )
+
+
+def _series_to_dto(row: Series, include_plans: bool = False) -> SeriesDTO:
     plans_dtos = []
     series_total_days = 0
-    if include_plans and row.plans:
-        active_plans = [plan for plan in row.plans if plan.deleted_at is None]
-        sorted_plans = sorted(
-            active_plans,
-            key=lambda p: (p.display_order is None, p.display_order if p.display_order is not None else 0)
-        )
-        
+    
+    if include_plans:
+        sorted_plans = _get_sorted_active_plans(row.plans)
         for plan in sorted_plans:
-            plan_image_url = None
-            if plan.image_url:
-                plan_image_url = generate_presigned_access_url(
-                    bucket_name=get("AWS_BUCKET_NAME"),
-                    s3_key=plan.image_url,
-                )
-            
-            plan_status_value = plan.status
-            plan_status_enum = (
-                PlanStatus(plan_status_value.value)
-                if hasattr(plan_status_value, "value")
-                else PlanStatus(plan_status_value)
-            )
-            
-            plan_total_days = len(plan.items) if hasattr(plan, 'items') and plan.items else 0
-            series_total_days += plan_total_days
-            
-            plans_dtos.append(SeriesPlanDTO(
-                id=plan.id,
-                title=plan.title,
-                description=plan.description,
-                language=plan.language,
-                difficulty_level=plan.difficulty_level,
-                image_url=plan_image_url,
-                image_key=plan.image_url,
-                tags=plan.tags or [],
-                status=plan_status_enum,
-                featured=bool(plan.featured),
-                display_order=plan.display_order,
-                start_date=plan.start_date,
-                total_days=plan_total_days,
-            ))
+            plan_dto = _plan_to_dto(plan)
+            plans_dtos.append(plan_dto)
+            series_total_days += plan_dto.total_days
     
     return SeriesDTO(
         id=row.id,
         name=row.name or {},
-        image=image_url,
-        image_key=image_key,
+        image=_generate_image_url(row.image),
+        image_key=row.image,
         author_id=row.author_id,
         featured=bool(row.featured),
-        status=status_enum,
+        status=_to_plan_status(row.status),
         plans=plans_dtos,
         total_days=series_total_days,
     )
@@ -99,6 +98,9 @@ async def get_filtered_series(
             search=search,
             skip=skip,
             limit=limit,
+            include_deleted=False,
+            order_by_field=Series.created_at,
+            order_desc=True,
         )
 
     series_dtos: List[SeriesDTO] = [_series_to_dto(row) for row in rows]
@@ -130,6 +132,12 @@ def create_new_series(create_series_request: CreateSeriesRequest) -> SeriesDTO:
         status=PlanStatus.DRAFT,
         created_by=create_series_request.created_by,
     )
-    with SessionLocal() as db_session:
-        saved = save_series(db=db_session, series=new_series)
-    return _series_to_dto(saved)
+    try:
+        with SessionLocal() as db_session:
+            saved = save_series(db=db_session, series=new_series)
+        return _series_to_dto(saved)
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database integrity error: {exc.orig}",
+        ) from exc
