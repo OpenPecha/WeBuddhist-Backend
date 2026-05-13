@@ -198,6 +198,7 @@ def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
 
 
 async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = None) -> DailyPlanResponse:
+
     with SessionLocal() as db:
         plan = get_published_plan_by_id(db=db, plan_id=plan_id)
         if not plan:
@@ -230,6 +231,7 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
                     requested_date = start
             else:
                 requested_date = today
+
         day_number = (requested_date - start).days + 1
 
         if day_number < 1 or day_number > total_days:

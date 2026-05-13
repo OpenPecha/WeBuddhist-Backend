@@ -53,11 +53,13 @@ async def get_plan_details(plan_id: UUID):
 
 
 @public_plans_router.get("/{plan_id}/daily", status_code=status.HTTP_200_OK, response_model=DailyPlanResponse)
+
 async def get_plan_daily(
     plan_id: UUID,
     date: Optional[DateType] = Query(None, description="Date in YYYY-MM-DD format. Defaults to today if not provided.")
 ):
     return await get_plan_daily_content(plan_id=plan_id, requested_date=date)
+
 
 
 @public_plans_router.get("/{plan_id}/days", status_code=status.HTTP_200_OK, response_model=PlanDaysResponse)
