@@ -218,3 +218,12 @@ async def delete_text_by_id(text_id: str):
     except CollectionWasNotInitialized as e:
         logging.debug(e)
         return None
+
+
+async def get_all_texts_by_group_id(group_id: str) -> List[Text]:
+
+    try:
+        return await Text.get_all_texts_by_group_id(group_id=group_id)
+    except CollectionWasNotInitialized as e:
+        logging.debug(e)
+        return []
