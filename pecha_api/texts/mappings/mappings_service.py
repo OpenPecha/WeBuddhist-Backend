@@ -148,6 +148,21 @@ async def _get_text_and_segment_ids(text_mapping_request: TextMappingRequest) ->
     segments = await get_segments_by_pecha_segment_ids(pecha_segment_ids=segment_ids)
     text_id_dict = {text.pecha_text_id: str(text.id) for text in texts}
     segment_id_dict = {segment.pecha_segment_id: str(segment.id) for segment in segments}
+
+    missing_segments = set(segment_ids) - set(segment_id_dict.keys())
+    if missing_segments:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Segment IDs not found in database: {sorted(missing_segments)}"
+        )
+
+    missing_texts = set(text_ids) - set(text_id_dict.keys())
+    if missing_texts:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Text IDs not found in database: {sorted(missing_texts)}"
+        )
+
     return text_id_dict, segment_id_dict
 
 async def _construct_delete_segments(segments: List[Segment], delete_segment_dict: Dict[str, List[Mapping]]) -> List[
