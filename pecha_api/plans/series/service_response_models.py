@@ -8,8 +8,6 @@ from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel
 
 class CreateSeriesRequest(BaseModel):
     name: Dict[str, Any]
-    author_id: UUID
-    created_by: str
     image: Optional[str] = None
     featured: Optional[bool] = False
 

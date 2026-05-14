@@ -2,10 +2,8 @@ import uuid
 from unittest.mock import MagicMock
 
 import pytest
-from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from starlette import status
 
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_repository import get_series_by_id, get_series_paginated, save_series
@@ -27,30 +25,29 @@ def test_save_series_success_commits_and_returns_series():
     db.refresh.assert_called_once_with(series)
 
 
-def test_save_series_integrity_error_raises_404_and_rolls_back():
+def test_save_series_integrity_error_propagates():
     db = _make_session_mock()
     series = MagicMock(name="SeriesInstance")
     orig = Exception("foreign key violation")
     db.commit.side_effect = IntegrityError("statement", {}, orig)
 
-    with pytest.raises(HTTPException) as exc:
+    with pytest.raises(IntegrityError):
         save_series(db=db, series=series)
-
-    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
-    assert exc.value.detail == "foreign key violation"
-    db.rollback.assert_called_once()
 
 
 def test_get_series_paginated_no_search_returns_rows_and_total():
     db = _make_session_mock()
     row1 = MagicMock(spec=Series)
     row2 = MagicMock(spec=Series)
+    
+    query_mock = MagicMock()
     filtered = MagicMock()
     filtered.count.return_value = 2
     ordered = MagicMock()
     ordered.offset.return_value.limit.return_value.all.return_value = [row1, row2]
     filtered.order_by.return_value = ordered
-    db.query.return_value.filter.return_value = filtered
+    query_mock.filter.return_value = filtered
+    db.query.return_value = query_mock
 
     rows, total = get_series_paginated(db=db, search=None, skip=0, limit=10)
 
@@ -61,6 +58,54 @@ def test_get_series_paginated_no_search_returns_rows_and_total():
     filtered.order_by.assert_called_once()
     ordered.offset.assert_called_once_with(0)
     ordered.offset.return_value.limit.assert_called_once_with(10)
+
+
+def test_get_series_paginated_with_include_deleted():
+    db = _make_session_mock()
+    row = MagicMock(spec=Series)
+    
+    query_mock = MagicMock()
+    query_mock.count.return_value = 1
+    ordered = MagicMock()
+    ordered.offset.return_value.limit.return_value.all.return_value = [row]
+    query_mock.order_by.return_value = ordered
+    db.query.return_value = query_mock
+
+    rows, total = get_series_paginated(
+        db=db, search=None, skip=0, limit=10, include_deleted=True
+    )
+
+    assert total == 1
+    assert rows == [row]
+    # When include_deleted=True, no filter should be applied for deleted_at
+    query_mock.filter.assert_not_called()
+
+
+def test_get_series_paginated_with_custom_ordering():
+    db = _make_session_mock()
+    row = MagicMock(spec=Series)
+    
+    query_mock = MagicMock()
+    filtered = MagicMock()
+    filtered.count.return_value = 1
+    ordered = MagicMock()
+    ordered.offset.return_value.limit.return_value.all.return_value = [row]
+    filtered.order_by.return_value = ordered
+    query_mock.filter.return_value = filtered
+    db.query.return_value = query_mock
+
+    rows, total = get_series_paginated(
+        db=db,
+        search=None,
+        skip=0,
+        limit=10,
+        order_by_field=Series.name,
+        order_desc=False,
+    )
+
+    assert total == 1
+    assert rows == [row]
+    filtered.order_by.assert_called_once()
 
 
 def test_get_series_paginated_with_search_applies_filter_and_pagination():

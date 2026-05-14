@@ -19,7 +19,6 @@ class Series(Base):
     status = Column(PlanStatusEnum, nullable=False, default='DRAFT')
     
     created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False)
-    created_by = Column(String(255), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc))
     updated_by = Column(String(255))
     
