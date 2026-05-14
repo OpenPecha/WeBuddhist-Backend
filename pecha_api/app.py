@@ -19,6 +19,7 @@ from pecha_api.share import share_views
 from pecha_api.search import search_views
 from pecha_api.plans.auth import plan_auth_views
 from pecha_api.plans.cms import cms_plans_views as cms_plans_views
+from pecha_api.plans.series import series_view as cms_series_views
 from pecha_api.plans.tasks import plan_tasks_views
 from pecha_api.plans.tasks.sub_tasks import plan_sub_tasks_views
 from pecha_api.plans.public import plan_views as public_plans_views
@@ -59,6 +60,7 @@ api.include_router(search_views.search_router)
 api.include_router(share_views.share_router)
 api.include_router(plan_auth_views.plan_auth_router)
 api.include_router(cms_plans_views.cms_plans_router)
+api.include_router(cms_series_views.cms_series_router)
 api.include_router(media_views.media_router)
 api.include_router(public_plans_views.public_plans_router)
 api.include_router(user_plans_views.user_progress_router)

@@ -9,12 +9,12 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_day_with_tasks_and_subtasks
 from datetime import date as DateType, timedelta, datetime as dt, timezone
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse
+from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.plans_enums import ContentType
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id, get_all_unique_tags)
+from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id, get_all_unique_tags, get_next_plan_in_series, get_previous_plan_in_series)
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,9 @@ async def get_published_plans(
                     image=plan_image,
                     total_days=plan_aggregate.total_days,
                     tags=plan.tags if plan.tags else [],
-                    author=author_dto
+                    author=author_dto,
+                    start_date=plan.start_date,
+                    display_order=plan.display_order
                 )
                 plan_dtos.append(plan_dto)
             
@@ -121,7 +123,8 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
                 total_days=total_days,
                 tags=plan.tags if plan.tags else [],
                 author=author_dto,
-                start_date=plan.start_date
+                start_date=plan.start_date,
+                display_order=plan.display_order
             )
     
     except Exception as e:
@@ -194,7 +197,8 @@ def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
         )
 
 
-def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = None) -> DailyPlanResponse:
+async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = None) -> DailyPlanResponse:
+
     with SessionLocal() as db:
         plan = get_published_plan_by_id(db=db, plan_id=plan_id)
         if not plan:
@@ -220,7 +224,14 @@ def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = N
         end = start + timedelta(days=total_days - 1)
 
         if requested_date is None:
-            requested_date = start
+            if plan.start_date:
+                if start <= today <= end:
+                    requested_date = today
+                else:
+                    requested_date = start
+            else:
+                requested_date = today
+
         day_number = (requested_date - start).days + 1
 
         if day_number < 1 or day_number > total_days:
@@ -233,12 +244,40 @@ def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = N
             db=db, plan_id=plan_id, day_number=day_number
         )
 
+        plan_image = await get_image_url(image_url=plan.image_url)
+
+        series_dto = None
+        if plan.series:
+            series_image = await get_image_url(image_url=plan.series.image)
+            series_dto = SeriesDTO(
+                id=plan.series.id,
+                name=plan.series.name,
+                image=series_image,
+            )
+
         previous_date = requested_date - timedelta(days=1) if day_number > 1 else None
         next_date = requested_date + timedelta(days=1) if day_number < total_days else None
+
+        previous_plan_id = None
+        next_plan_id = None
+
+        if plan.series_id and plan.display_order is not None:
+            if previous_date is None:
+                previous_plan = get_previous_plan_in_series(db=db, series_id=plan.series_id, current_display_order=plan.display_order)
+                if previous_plan:
+                    previous_plan_id = previous_plan.id
+
+            if next_date is None:
+                next_plan = get_next_plan_in_series(db=db, series_id=plan.series_id, current_display_order=plan.display_order)
+                if next_plan:
+                    next_plan_id = next_plan.id
 
         return DailyPlanResponse(
             plan_id=plan.id,
             plan_title=plan.title,
+            plan_description=plan.description,
+            image=plan_image,
+            series=series_dto,
             date=requested_date,
             day_number=day_number,
             total_days=total_days,
@@ -246,6 +285,8 @@ def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = N
             end_date=end,
             previous_date=previous_date,
             next_date=next_date,
+            previous_plan_id=previous_plan_id,
+            next_plan_id=next_plan_id,
             tasks=[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)]
         )
 

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Boolean, UUID, Text, Index, text, ForeignKey
+from sqlalchemy import Column, String, DateTime, Boolean, UUID, Text, Index, text, ForeignKey, Integer
 from ..db.database import Base
 from uuid import uuid4
 import _datetime
@@ -6,6 +6,7 @@ from _datetime import datetime
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from .plans_enums import LanguageCodeEnum, DifficultyLevelEnum, PlanStatusEnum
+from .series.series_model import Series
 
 
 class Plan(Base):
@@ -15,11 +16,13 @@ class Plan(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     author_id = Column(UUID(as_uuid=True), ForeignKey('authors.id', ondelete='RESTRICT'), nullable=False)
+    series_id = Column(UUID(as_uuid=True), ForeignKey('series.id', ondelete='SET NULL'), nullable=True)
     language = Column(LanguageCodeEnum, nullable=False, default='EN')
     difficulty_level = Column(DifficultyLevelEnum, default='BEGINNER')
 
     tags = Column(JSONB, server_default=text("'[]'::jsonb"), nullable=False)
     featured = Column(Boolean, default=False,nullable=False)
+    display_order = Column(Integer, nullable=True)
     status = Column(PlanStatusEnum, nullable=False, default='DRAFT')
     # Content metadata
     image_url = Column(String(1000), nullable=True)
@@ -35,6 +38,8 @@ class Plan(Base):
 
 
     author = relationship("Author", backref="plans", passive_deletes=True)
+    series = relationship("Series", back_populates="plans")
+    items = relationship("PlanItem", backref="plan", lazy="select")
 
     __table_args__ = (
         # Indexes for plan discovery

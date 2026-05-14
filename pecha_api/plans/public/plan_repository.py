@@ -148,3 +148,27 @@ def get_all_unique_tags(db: Session, language: str = "EN") -> List[str]:
     )
     results = query.distinct().all()
     return [row.tag for row in results]
+
+
+def get_next_plan_in_series(db: Session, series_id: UUID, current_display_order: Optional[int]) -> Optional[Plan]:
+    if series_id is None or current_display_order is None:
+        return None
+    
+    return db.query(Plan).filter(
+        Plan.series_id == series_id,
+        Plan.display_order > current_display_order,
+        Plan.status == PlanStatus.PUBLISHED,
+        Plan.deleted_at.is_(None)
+    ).order_by(asc(Plan.display_order)).first()
+
+
+def get_previous_plan_in_series(db: Session, series_id: UUID, current_display_order: Optional[int]) -> Optional[Plan]:
+    if series_id is None or current_display_order is None:
+        return None
+    
+    return db.query(Plan).filter(
+        Plan.series_id == series_id,
+        Plan.display_order < current_display_order,
+        Plan.status == PlanStatus.PUBLISHED,
+        Plan.deleted_at.is_(None)
+    ).order_by(desc(Plan.display_order)).first()

@@ -116,7 +116,9 @@ async def get_user_enrolled_plans(token: str,status_filter: Optional[str] = None
                 image_url=image_url,
                 started_at=progress.started_at,
                 total_days=total_days,
-                tags=plan.tags if plan.tags else []
+                tags=plan.tags if plan.tags else [],
+                start_date=plan.start_date,
+                display_order=plan.display_order
             )
             enrolled_plans.append(user_plan)
         
@@ -151,6 +153,7 @@ def enroll_user_in_plan(token: str, enroll_request: UserPlanEnrollRequest) -> No
             streak_count=0,
             longest_streak=0,
             status= UserPlanStatus.NOT_STARTED,
+            started_at=datetime.now(timezone.utc),
             created_at=datetime.now(timezone.utc), 
             is_completed=False,
         )
