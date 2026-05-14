@@ -15,6 +15,7 @@ from pecha_api.plans.series.service_response_models import (
     SeriesPlanDTO,
     SeriesListResponse,
 )
+from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from starlette import status
 
@@ -123,14 +124,15 @@ def get_series_detail(series_id: UUID) -> SeriesDTO:
     return _series_to_dto(row, include_plans=True)
 
 
-def create_new_series(create_series_request: CreateSeriesRequest) -> SeriesDTO:
+def create_new_series(token: str, create_series_request: CreateSeriesRequest) -> SeriesDTO:
+    current_author = validate_and_extract_author_details(token=token)
+    
     new_series = Series(
         name=create_series_request.name,
         image=create_series_request.image,
-        author_id=create_series_request.author_id,
+        author_id=current_author.id,
         featured=create_series_request.featured if create_series_request.featured is not None else False,
         status=PlanStatus.DRAFT,
-        created_by=create_series_request.created_by,
     )
     try:
         with SessionLocal() as db_session:

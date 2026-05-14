@@ -113,8 +113,6 @@ def test_create_new_series_persists_and_returns_dto():
     author_id = uuid.uuid4()
     request = CreateSeriesRequest(
         name={"en": "New"},
-        author_id=author_id,
-        created_by="cms@example.com",
         image="img/key.png",
         featured=True,
     )
@@ -126,16 +124,22 @@ def test_create_new_series_persists_and_returns_dto():
     saved.featured = True
     saved.status = PlanStatus.DRAFT
 
+    mock_author = MagicMock()
+    mock_author.id = author_id
+
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.save_series",
         return_value=saved,
     ) as mock_save, patch("pecha_api.plans.series.series_service.get", return_value="b"), patch(
         "pecha_api.plans.series.series_service.generate_presigned_access_url",
         return_value="https://signed/img.png",
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_and_extract_author_details",
+        return_value=mock_author,
     ):
         _session_local_context(mock_session_local)
 
-        dto = create_new_series(create_series_request=request)
+        dto = create_new_series(token="dummy", create_series_request=request)
 
     mock_save.assert_called_once()
     passed_series = mock_save.call_args.kwargs["series"]
@@ -143,7 +147,6 @@ def test_create_new_series_persists_and_returns_dto():
     assert passed_series.image == request.image
     assert passed_series.author_id == author_id
     assert passed_series.featured is True
-    assert passed_series.created_by == request.created_by
 
     assert dto.id == saved.id
     assert dto.name == request.name
@@ -156,8 +159,6 @@ def test_create_new_series_featured_defaults_when_none():
     author_id = uuid.uuid4()
     request = CreateSeriesRequest(
         name={"bo": "བོད་"},
-        author_id=author_id,
-        created_by="user@test.com",
         featured=None,
     )
     saved = MagicMock()
@@ -168,13 +169,19 @@ def test_create_new_series_featured_defaults_when_none():
     saved.featured = False
     saved.status = PlanStatus.DRAFT
 
+    mock_author = MagicMock()
+    mock_author.id = author_id
+
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.save_series",
         return_value=saved,
-    ) as mock_save:
+    ) as mock_save, patch(
+        "pecha_api.plans.series.series_service.validate_and_extract_author_details",
+        return_value=mock_author,
+    ):
         _session_local_context(mock_session_local)
 
-        create_new_series(create_series_request=request)
+        create_new_series(token="dummy", create_series_request=request)
 
     passed_series = mock_save.call_args.kwargs["series"]
     assert passed_series.featured is False
@@ -184,19 +191,23 @@ def test_create_new_series_integrity_error_raises_400():
     author_id = uuid.uuid4()
     request = CreateSeriesRequest(
         name={"en": "Test"},
-        author_id=author_id,
-        created_by="user@test.com",
     )
     orig = Exception("foreign key violation")
+
+    mock_author = MagicMock()
+    mock_author.id = author_id
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.save_series",
         side_effect=IntegrityError("statement", {}, orig),
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_and_extract_author_details",
+        return_value=mock_author,
     ):
         _session_local_context(mock_session_local)
 
         with pytest.raises(HTTPException) as exc:
-            create_new_series(create_series_request=request)
+            create_new_series(token="dummy", create_series_request=request)
 
     assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
     assert "Database integrity error" in exc.value.detail
