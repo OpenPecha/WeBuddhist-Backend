@@ -243,3 +243,47 @@ class TestGetCollectionById:
         result = await get_collection_by_id(collection_id="nonexistent", language="en")
         
         assert result is None
+
+
+class TestServiceErrorHandling:
+    @pytest.mark.asyncio
+    @patch('pecha_api.collections.collections_openpecha_service.get_v2_categories')
+    @patch('pecha_api.collections.collections_openpecha_service.get_authenticated_open_pecha_client')
+    async def test_get_collections_api_error(self, mock_get_client, mock_get_categories):
+        """Test handling of external API errors raises HTTPException 502."""
+        from fastapi import HTTPException
+        
+        mock_client = MagicMock()
+        mock_client._base_url = "http://test.com"
+        mock_client._headers = {}
+        mock_get_client.return_value = mock_client
+        mock_get_categories.asyncio = AsyncMock(side_effect=Exception("Connection refused"))
+        
+        with pytest.raises(HTTPException) as exc_info:
+            await get_collections_from_openpecha(
+                language="en",
+                parent_id=None,
+                skip=0,
+                limit=10
+            )
+        
+        assert exc_info.value.status_code == 502
+        assert "upstream" in exc_info.value.detail.lower()
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.collections.collections_openpecha_service.get_v2_categories')
+    @patch('pecha_api.collections.collections_openpecha_service.get_authenticated_open_pecha_client')
+    async def test_get_collection_by_id_api_error(self, mock_get_client, mock_get_categories):
+        """Test handling of external API errors in get_collection_by_id."""
+        from fastapi import HTTPException
+        
+        mock_client = MagicMock()
+        mock_client.base_url = "http://test.com"
+        mock_get_client.return_value = mock_client
+        mock_get_categories.asyncio = AsyncMock(side_effect=Exception("Timeout"))
+        
+        with pytest.raises(HTTPException) as exc_info:
+            await get_collection_by_id(collection_id="cat-1", language="en")
+        
+        assert exc_info.value.status_code == 502
+        assert "upstream" in exc_info.value.detail.lower()
