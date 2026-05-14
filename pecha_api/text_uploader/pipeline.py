@@ -58,9 +58,13 @@ async def pipeline(text_upload_request: TextUploadRequest, token: str)-> TextUpl
    
 
     #mapping upload
-    if text_upload_request.destination_url != DestinationURL.LOCAL.name:
-        mapping = MappingService()
-        await mapping.trigger_mapping(text_ids=all_text, text_upload_request=text_upload_request)
+    # if text_upload_request.destination_url != DestinationURL.LOCAL.name:
+    #     mapping = MappingService()
+    #     await mapping.trigger_mapping(text_ids=all_text, text_upload_request=text_upload_request)
+    mapping = MappingService()
+    print("triggering mapping>>>>>>>>>>>>>>>>", all_text)
+    await mapping.trigger_mapping(text_ids=all_text, text_upload_request=text_upload_request)
+
 
 
     if new_uploaded_texts_count > 0:
