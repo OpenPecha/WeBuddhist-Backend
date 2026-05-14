@@ -27,4 +27,4 @@ async def get_series_list(
     "/{series_id}", status_code=status.HTTP_200_OK, response_model=SeriesDTO
 )
 async def get_series(series_id: UUID):
-    return await get_series_detail(series_id=series_id)
+    return get_series_detail(series_id=series_id)
