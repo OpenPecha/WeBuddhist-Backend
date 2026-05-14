@@ -29,6 +29,7 @@ def get_authenticated_open_pecha_client() -> AuthenticatedClient:
     Configure via config:
         - EXTERNAL_PECHA_API_URL: Base URL for the API
         - EXTERNAL_PECHA_API_KEY: API key for authentication (required)
+        - EXTERNAL_PECHA_APP_NAME: Application name header (default: webuddhist)
     
     Raises:
         ValueError: If EXTERNAL_PECHA_API_KEY is not set
@@ -37,10 +38,13 @@ def get_authenticated_open_pecha_client() -> AuthenticatedClient:
     if not api_key:
         raise ValueError("EXTERNAL_PECHA_API_KEY is required in config")
     
+    app_name = config.get("EXTERNAL_PECHA_APP_NAME")
+    
     return AuthenticatedClient(
         base_url=config.get("EXTERNAL_PECHA_API_URL"),
         token=api_key,
         prefix="",
         auth_header_name="X-API-Key",
         raise_on_unexpected_status=True,
+        headers={"X-Application": app_name},
     )

@@ -74,7 +74,9 @@ DEFAULTS = dict(
     COLLECTION_LANGUAGES = ["bo", "en", "zh"],
 
     #pecha api configuration
-    EXTERNAL_PECHA_API_URL="",
+    EXTERNAL_PECHA_API_URL="http://13.250.189.160",
+    EXTERNAL_PECHA_API_KEY="EBWpScbRP6iFLt1SVn8dMfmi3_ab-7sx",
+    EXTERNAL_PECHA_APP_NAME="webuddhist",
 
     EXTERNAL_TITLE_SEARCH_API_URL="",
 
