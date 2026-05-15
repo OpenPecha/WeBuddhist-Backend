@@ -31,7 +31,7 @@ CONFIG = {
         "black": (0, 0, 0),
     },
     "BG_COLOR": {
-        "DEFAULT": "#ac1c22",
+        "DEFAULT": "#deac2c",
         "black": "#000000"
     },
     # String Literals

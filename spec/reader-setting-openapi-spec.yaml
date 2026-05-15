@@ -1,0 +1,207 @@
+openapi: 3.0.3
+info:
+  title: Classical Text Reader API
+  description: API for managing and retrieving multilingual classical texts, scripts, versions, and reading content.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /texts/{text_id}/languages:
+    get:
+      summary: Get Available Languages for a Text
+      operationId: get_text_languages
+      parameters:
+        - name: text_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of available languages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LanguageResponse"
+
+  /texts/{text_id}/languages/{language}/scripts:
+    get:
+      summary: Get Scripts for a Language
+      operationId: get_language_scripts
+      parameters:
+        - name: text_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: language
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of available scripts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScriptResponse"
+
+  /texts/{text_id}/languages/{language}/versions:
+    get:
+      summary: Get Versions for a Language
+      operationId: get_language_versions
+      parameters:
+        - name: text_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: language
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of available versions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionsResponse"
+
+  /texts/versions/{version_id}/info:
+    get:
+      summary: Get Version Info (Detail View)
+      operationId: get_version_info
+      parameters:
+        - name: version_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Detailed information about a specific version
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionDetail"
+
+components:
+  schemas:
+    LanguageResponse:
+      type: object
+      properties:
+        text_id: { type: string }
+        title: { type: string }
+        available_languages:
+          type: array
+          items:
+            type: object
+            properties:
+              language: { type: string }
+              language_code: { type: string }
+              version_count: { type: integer }
+
+    ScriptResponse:
+      type: object
+      properties:
+        text_id: { type: string }
+        language: { type: string }
+        available_scripts:
+          type: array
+          items:
+            type: object
+            properties:
+              script: { type: string }
+              script_code: { type: string }
+              name: { type: string }
+
+    VersionDetail:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        parent_id: { type: string, nullable: true }
+        priority: { type: integer, nullable: true }
+        language: { type: string }
+        type: { type: string }
+        group_id: { type: string }
+        table_of_contents: { type: array, items: { type: string } }
+        is_published: { type: boolean }
+        created_date: { type: string }
+        updated_date: { type: string }
+        published_date: { type: string }
+        published_by: { type: string }
+        source_link: { type: string }
+        ranking: { type: integer, nullable: true }
+        license: { type: string }
+        is_selected: { type: boolean }
+
+    VersionsResponse:
+      type: object
+      properties:
+        text_id: { type: string }
+        language: { type: string }
+        available_versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/VersionDetail"
+
+    SettingDetail:
+      type: object
+      properties:
+        language: { type: string }
+        script: { type: string }
+        version: { type: string }
+
+    Section:
+      type: object
+      properties:
+        section_id: { type: string }
+        section_number: { type: integer }
+        title: { type: string }
+        segments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Segment"
+
+    Segment:
+      type: object
+      properties:
+        segment_id: { type: string }
+        segment_number: { type: integer }
+        content: { type: string }
+        content_script: { type: string }
+        word_count: { type: integer }
+        translations:
+          type: array
+          items:
+            type: object
+            properties:
+              translation_id: { type: string }
+              language: { type: string }
+              version: { type: string }
+              content: { type: string }
+        commentaries:
+          type: array
+          items:
+            type: object
+            properties:
+              commentary_id: { type: string }
+              title: { type: string }
+              language: { type: string }
+              version: { type: string }
+              content: { type: string }
+              expanded: { type: boolean }
+        footnotes:
+          type: array
+          items:
+            type: object
+            properties:
+              footnote_id: { type: string }
+              marker: { type: string }
+              content: { type: string }

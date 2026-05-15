@@ -19,7 +19,8 @@ from .texts_repository import (
     get_all_texts_by_collection,
     get_all_recitation_texts_by_collection,
     get_texts_by_pecha_text_ids,
-    get_texts_by_titles
+    get_texts_by_titles,
+    get_all_texts_by_group_id
 
 )
 from .texts_response_models import (
@@ -39,7 +40,11 @@ from .texts_response_models import (
     Section,
     DetailTableOfContentResponse,
     TextsByPechaTextIdsRequest,
-    TitleSearchResult
+    TitleSearchResult,
+    LanguageResponse,
+    AvailableLanguage,
+    VersionDetail,
+    VersionsResponse
 )
 
 from pecha_api.recitations.recitations_response_models import(
@@ -438,8 +443,6 @@ async def create_table_of_content(table_of_content_request: TableOfContent, toke
         return table_of_content
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorConstants.TOKEN_ERROR_MESSAGE)
-    
-
 
 
 # PRIVATE FUNCTIONS
@@ -451,7 +454,6 @@ async def get_table_of_content_by_type(table_of_content: TableOfContent):
         new_table_of_content = table_of_content
     
     return new_table_of_content
-    
 
 
 async def replace_pecha_segment_id_with_segment_id(table_of_content: TableOfContent) -> TableOfContent:
@@ -658,19 +660,19 @@ async def update_text_details(text_id: str, update_text_request: UpdateTextReque
     text_details.updated_date = Utils.get_utc_date_time()
     text_details.title = update_text_request.title
     text_details.is_published = update_text_request.is_published
-    
+
     # Update the text details in the database
     updated_text = await update_text_details_by_id(text_id=text_id, update_text_request=update_text_request)
-    
+
     # Update the cache with the new text details
     try:
         await update_text_details_cache(text_id=text_id, updated_text_data=updated_text)
     except Exception as e:
         # If cache update fails, log the error but don't fail the entire operation
         # Fallback to cache invalidation to ensure consistency
-        logging.error(f"Failed to update cache for text_id {text_id}: {str(e)}")
+        logging.exception(f"Failed to update cache for text_id {text_id}")
         await invalidate_text_cache_on_update(text_id=text_id)
-    
+
     return updated_text
 
 async def delete_text_by_text_id(text_id: str):
@@ -856,3 +858,120 @@ async def get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request: Te
         ranking=text.ranking,
         license=text.license
     ) for text in texts]
+
+
+async def get_text_languages(text_id: str) -> LanguageResponse:
+
+    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
+    if not is_valid_text:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+        )
+    
+    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
+    group_id: str = text_detail.group_id
+    
+    texts = await get_all_texts_by_group_id(group_id=group_id)
+    
+    language_counts: Dict[str, int] = {}
+    for text in texts:
+        if text.language:
+            language_counts[text.language] = language_counts.get(text.language, 0) + 1
+    
+    available_languages = [
+        AvailableLanguage(
+            language=lang,
+            language_code=lang,
+            version_count=count
+        )
+        for lang, count in language_counts.items()
+    ]
+    
+    return LanguageResponse(
+        text_id=text_id,
+        title=text_detail.title,
+        available_languages=available_languages
+    )
+
+
+async def get_language_versions(text_id: str, language: str) -> VersionsResponse:
+    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
+    if not is_valid_text:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+        )
+    
+    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
+    group_id: str = text_detail.group_id
+    
+    texts: List[TextDTO] = await get_all_texts_by_group_id(group_id=group_id)
+    
+    filtered_texts = [text for text in texts if text.language == language]
+    
+    versions_table_of_content_id_dict: Dict[str, List[str]] = await _get_table_of_content_by_version_text_id(versions=filtered_texts)
+    
+    available_versions = [
+        VersionDetail(
+            id=str(text.id),
+            title=text.title,
+            parent_id=None,
+            priority=None,
+            language=text.language,
+            type=text.type,
+            group_id=text.group_id,
+            table_of_contents=versions_table_of_content_id_dict.get(str(text.id), []),
+            is_published=text.is_published,
+            created_date=text.created_date,
+            updated_date=text.updated_date,
+            published_date=text.published_date,
+            published_by=text.published_by,
+            source_link=text.source_link,
+            ranking=text.ranking,
+            license=text.license,
+            is_selected=(str(text.id) == text_id)
+        )
+        for text in filtered_texts
+    ]
+    
+    return VersionsResponse(
+        text_id=text_id,
+        language=language,
+        available_versions=available_versions
+    )
+
+
+async def get_version_info(version_id: str) -> VersionDetail:
+
+    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=version_id)
+    if not is_valid_text:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+        )
+    
+    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=version_id)
+    
+    table_of_contents: List[TableOfContent] = await get_contents_by_id(text_id=version_id)
+    table_of_content_ids = [str(toc.id) for toc in table_of_contents]
+    
+    return VersionDetail(
+        id=str(text_detail.id),
+        title=text_detail.title,
+        parent_id=None,
+        priority=None,
+        language=text_detail.language,
+        type=text_detail.type,
+        group_id=text_detail.group_id,
+        table_of_contents=table_of_content_ids,
+        is_published=text_detail.is_published,
+        created_date=text_detail.created_date,
+        updated_date=text_detail.updated_date,
+        published_date=text_detail.published_date,
+        published_by=text_detail.published_by,
+        source_link=text_detail.source_link,
+        ranking=text_detail.ranking,
+        license=text_detail.license,
+        is_selected=True
+    )

@@ -36,6 +36,7 @@ class PublicPlanDTO(BaseModel):
     tags: Optional[List[str]] = [],
     author: Optional[AuthorDTO] = None
     start_date: Optional[datetime] = None
+    display_order: Optional[int] = None
 
 class SubTaskDTO(BaseModel):
     id: UUID
@@ -89,9 +90,17 @@ class PlansRepositoryResponse(BaseModel):
     plan_info: List[PlanWithAggregates]
     total: int
 
+class SeriesDTO(BaseModel):
+    id: UUID
+    name: Optional[dict] = None
+    image: Optional[ImageUrlModel] = None
+
 class DailyPlanResponse(BaseModel):
     plan_id: UUID
     plan_title: str
+    plan_description: str
+    image: Optional[ImageUrlModel] = None
+    series: Optional[SeriesDTO] = None
     date: DateType
     day_number: int
     total_days: int
@@ -99,6 +108,8 @@ class DailyPlanResponse(BaseModel):
     end_date: DateType
     previous_date: Optional[DateType] = None
     next_date: Optional[DateType] = None
+    previous_plan_id: Optional[UUID] = None
+    next_plan_id: Optional[UUID] = None
     tasks: List[TaskDTO]
 
 class TagsResponse(BaseModel):
