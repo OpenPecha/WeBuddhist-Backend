@@ -167,7 +167,6 @@ class TestCollectionsV2ErrorHandling:
             status_code=502,
             detail="Failed to fetch collections from upstream service"
         )
-        
         response = client.get("/collections")
         
         assert response.status_code == 502
@@ -181,7 +180,6 @@ class TestCollectionsV2ErrorHandling:
             status_code=500,
             detail="Internal server error"
         )
-        
         response = client.get("/collections")
         
         assert response.status_code == 500

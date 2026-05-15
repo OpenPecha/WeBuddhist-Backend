@@ -1,6 +1,6 @@
 import uuid
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -41,11 +41,11 @@ def sample_series_list_response(sample_series_dto):
 @pytest.mark.asyncio
 async def test_get_series_list_success(sample_series_list_response):
     with patch(
-        "pecha_api.plans.series.series_view.get_filtered_series",
+        "pecha_api.plans.series.public_series_view.get_filtered_series",
         return_value=sample_series_list_response,
         new_callable=AsyncMock,
     ) as mock_service:
-        response = client.get("/cms/series")
+        response = client.get("/series")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -71,11 +71,11 @@ async def test_get_series_list_success(sample_series_list_response):
 async def test_get_series_list_with_search_pagination(sample_series_dto):
     empty_list = SeriesListResponse(series=[], skip=2, limit=5, total=0)
     with patch(
-        "pecha_api.plans.series.series_view.get_filtered_series",
+        "pecha_api.plans.series.public_series_view.get_filtered_series",
         return_value=empty_list,
         new_callable=AsyncMock,
     ) as mock_service:
-        response = client.get("/cms/series", params={"search": "meditation", "skip": 2, "limit": 5})
+        response = client.get("/series", params={"search": "meditation", "skip": 2, "limit": 5})
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -93,26 +93,33 @@ async def test_create_series_success(sample_series_dto):
     author_id = uuid.uuid4()
     payload = {
         "name": {"en": "New Series"},
-        "author_id": str(author_id),
-        "created_by": "editor@example.com",
         "image": "series/uploads/key.jpg",
         "featured": False,
     }
 
+    mock_author = MagicMock()
+    mock_author.id = author_id
+
     with patch(
         "pecha_api.plans.series.series_view.create_new_series",
         return_value=sample_series_dto,
-    ) as mock_create:
-        response = client.post("/cms/series", json=payload)
+    ) as mock_create, patch(
+        "pecha_api.plans.series.series_service.validate_and_extract_author_details",
+        return_value=mock_author,
+    ):
+        response = client.post(
+            "/cms/series",
+            json=payload,
+            headers={"Authorization": "Bearer dummy"}
+        )
 
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
 
         mock_create.assert_called_once()
         call_kwargs = mock_create.call_args.kwargs
+        assert call_kwargs["token"] == "dummy"
         assert call_kwargs["create_series_request"].name == payload["name"]
-        assert call_kwargs["create_series_request"].author_id == author_id
-        assert call_kwargs["create_series_request"].created_by == payload["created_by"]
         assert call_kwargs["create_series_request"].image == payload["image"]
         assert call_kwargs["create_series_request"].featured is False
 
@@ -126,15 +133,23 @@ async def test_create_series_defaults_optional_featured(sample_series_dto):
     author_id = uuid.uuid4()
     payload = {
         "name": {"en": "Minimal"},
-        "author_id": str(author_id),
-        "created_by": "admin@example.com",
     }
+
+    mock_author = MagicMock()
+    mock_author.id = author_id
 
     with patch(
         "pecha_api.plans.series.series_view.create_new_series",
         return_value=sample_series_dto,
-    ) as mock_create:
-        response = client.post("/cms/series", json=payload)
+    ) as mock_create, patch(
+        "pecha_api.plans.series.series_service.validate_and_extract_author_details",
+        return_value=mock_author,
+    ):
+        response = client.post(
+            "/cms/series",
+            json=payload,
+            headers={"Authorization": "Bearer dummy"}
+        )
 
         assert response.status_code == status.HTTP_201_CREATED
         mock_create.assert_called_once()
@@ -143,7 +158,11 @@ async def test_create_series_defaults_optional_featured(sample_series_dto):
 
 @pytest.mark.asyncio
 async def test_create_series_validation_error_missing_required_fields():
-    response = client.post("/cms/series", json={"name": {}})
+    response = client.post(
+        "/cms/series",
+        json={},
+        headers={"Authorization": "Bearer dummy"}
+    )
 
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
@@ -152,10 +171,10 @@ async def test_create_series_validation_error_missing_required_fields():
 async def test_get_series_by_id_success(sample_series_dto):
     series_id = sample_series_dto.id
     with patch(
-        "pecha_api.plans.series.series_view.get_series_detail",
+        "pecha_api.plans.series.public_series_view.get_series_detail",
         return_value=sample_series_dto,
     ) as mock_detail:
-        response = client.get(f"/cms/series/{series_id}")
+        response = client.get(f"/series/{series_id}")
 
         assert response.status_code == status.HTTP_200_OK
         mock_detail.assert_called_once_with(series_id=series_id)
@@ -170,13 +189,13 @@ async def test_get_series_by_id_success(sample_series_dto):
 async def test_get_series_by_id_not_found():
     series_id = uuid.uuid4()
     with patch(
-        "pecha_api.plans.series.series_view.get_series_detail",
+        "pecha_api.plans.series.public_series_view.get_series_detail",
         side_effect=HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Series with id '{series_id}' not found",
         ),
     ):
-        response = client.get(f"/cms/series/{series_id}")
+        response = client.get(f"/series/{series_id}")
 
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -232,10 +251,10 @@ async def test_get_series_by_id_includes_total_days_in_response():
     )
 
     with patch(
-        "pecha_api.plans.series.series_view.get_series_detail",
+        "pecha_api.plans.series.public_series_view.get_series_detail",
         return_value=series_dto,
     ) as mock_detail:
-        response = client.get(f"/cms/series/{series_id}")
+        response = client.get(f"/series/{series_id}")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -273,11 +292,11 @@ async def test_get_series_list_includes_total_days_zero():
     )
 
     with patch(
-        "pecha_api.plans.series.series_view.get_filtered_series",
+        "pecha_api.plans.series.public_series_view.get_filtered_series",
         return_value=series_list_response,
         new_callable=AsyncMock,
     ):
-        response = client.get("/cms/series")
+        response = client.get("/series")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
