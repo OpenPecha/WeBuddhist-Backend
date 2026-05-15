@@ -191,7 +191,7 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
 
     new_series = Series(
         name=create_series_request.name,
-        image=create_series_request.image,
+        image=create_series_request.image_key,
         author_id=current_author.id,
         featured=create_series_request.featured if create_series_request.featured is not None else False,
         status=PlanStatus.DRAFT,

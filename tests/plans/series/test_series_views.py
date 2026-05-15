@@ -88,7 +88,7 @@ def test_create_series_success(sample_series_dto):
     author_id = uuid.uuid4()
     payload = {
         "name": {"en": "New Series"},
-        "image": "series/uploads/key.jpg",
+        "image_key": "series/uploads/key.jpg",
         "featured": False,
     }
 
@@ -115,10 +115,10 @@ def test_create_series_success(sample_series_dto):
         call_kwargs = mock_create.call_args.kwargs
         assert call_kwargs["token"] == "dummy"
         assert call_kwargs["create_series_request"].name == payload["name"]
-        assert call_kwargs["create_series_request"].image == payload["image"]
+        assert call_kwargs["create_series_request"].image_key == payload["image_key"]
         assert call_kwargs["create_series_request"].featured is False
 
-        assert data["id"] == str(sample_series_dto.id)
+        assert data["id"] == str(sample_series_dto.id)  
         assert data["name"] == sample_series_dto.name
         assert data["status"] == sample_series_dto.status.value
 

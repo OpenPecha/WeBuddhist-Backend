@@ -110,13 +110,13 @@ def test_create_new_series_persists_and_returns_dto():
     author_id = uuid.uuid4()
     request = CreateSeriesRequest(
         name={"en": "New"},
-        image="img/key.png",
+        image_key="img/key.png",
         featured=True,
     )
     saved = MagicMock()
     saved.id = uuid.uuid4()
-    saved.name = request.name
-    saved.image = request.image
+    saved.name = request.name   
+    saved.image = request.image_key
     saved.author_id = author_id
     saved.featured = True
     saved.status = PlanStatus.DRAFT
@@ -141,13 +141,13 @@ def test_create_new_series_persists_and_returns_dto():
     mock_save.assert_called_once()
     passed_series = mock_save.call_args.kwargs["series"]
     assert passed_series.name == request.name
-    assert passed_series.image == request.image
+    assert passed_series.image == request.image_key
     assert passed_series.author_id == author_id
     assert passed_series.featured is True
 
     assert dto.id == saved.id
     assert dto.name == request.name
-    assert dto.image_key == request.image
+    assert dto.image_key == request.image_key
     assert dto.featured is True
     assert dto.status == PlanStatus.DRAFT
 
