@@ -162,3 +162,32 @@ class TestCollectionsV2ValidationErrors:
     def test_invalid_limit_too_large(self):
         response = client.get("/v2/collections?limit=101")
         assert response.status_code == 422
+
+
+class TestCollectionsV2ErrorHandling:
+    @patch('pecha_api.collections.collections_openpecha_views.get_collections_from_openpecha')
+    def test_get_collections_upstream_error(self, mock_service):
+        """Test handling of upstream service errors (502 Bad Gateway)."""
+        from fastapi import HTTPException
+        mock_service.side_effect = HTTPException(
+            status_code=502,
+            detail="Failed to fetch collections from upstream service"
+        )
+        
+        response = client.get("/v2/collections")
+        
+        assert response.status_code == 502
+        assert "upstream" in response.json()["detail"].lower()
+
+    @patch('pecha_api.collections.collections_openpecha_views.get_collections_from_openpecha')
+    def test_get_collections_internal_error(self, mock_service):
+        """Test handling of unexpected internal errors."""
+        from fastapi import HTTPException
+        mock_service.side_effect = HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
+        
+        response = client.get("/v2/collections")
+        
+        assert response.status_code == 500
