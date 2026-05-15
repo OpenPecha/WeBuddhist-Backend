@@ -10,6 +10,7 @@ class CreateSeriesRequest(BaseModel):
     name: Dict[str, Any]
     image: Optional[str] = None
     featured: Optional[bool] = False
+    plans: Optional[Dict[str, List[UUID]]] = None
 
 
 class SeriesPlanDTO(BaseModel):

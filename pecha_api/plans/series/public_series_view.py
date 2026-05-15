@@ -20,7 +20,7 @@ async def get_series_list(
     skip: Annotated[int, Query()] = 0,
     limit: Annotated[int, Query()] = 10,
 ):
-    return await get_filtered_series(search=search, skip=skip, limit=limit)
+    return get_filtered_series(search=search, skip=skip, limit=limit)
 
 
 @public_series_router.get(

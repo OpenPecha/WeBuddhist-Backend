@@ -24,8 +24,7 @@ def _session_local_context(mock_session_local):
     return mock_db
 
 
-@pytest.mark.asyncio
-async def test_get_filtered_series_maps_rows_to_response():
+def test_get_filtered_series_maps_rows_to_response():
     author_id = uuid.uuid4()
     row = MagicMock()
     row.id = uuid.uuid4()
@@ -42,7 +41,7 @@ async def test_get_filtered_series_maps_rows_to_response():
     ) as mock_repo:
         _session_local_context(mock_session_local)
 
-        result = await get_filtered_series(search=None, skip=2, limit=5)
+        result = get_filtered_series(search=None, skip=2, limit=5)
 
     mock_repo.assert_called_once()
     call_kwargs = mock_repo.call_args.kwargs
@@ -68,8 +67,7 @@ async def test_get_filtered_series_maps_rows_to_response():
     assert dto.status == PlanStatus.DRAFT
 
 
-@pytest.mark.asyncio
-async def test_get_filtered_series_presigns_image_when_key_present():
+def test_get_filtered_series_presigns_image_when_key_present():
     row = MagicMock()
     row.id = uuid.uuid4()
     row.name = {"en": "With cover"}
@@ -88,22 +86,21 @@ async def test_get_filtered_series_presigns_image_when_key_present():
     ) as mock_presign:
         _session_local_context(mock_session_local)
 
-        result = await get_filtered_series(search=None, skip=0, limit=10)
+        result = get_filtered_series(search=None, skip=0, limit=10)
 
     assert result.series[0].image == "https://signed.example/x.jpg"
     assert result.series[0].image_key == "series/covers/x.jpg"
     mock_presign.assert_called_once_with(bucket_name="test-bucket", s3_key="series/covers/x.jpg")
 
 
-@pytest.mark.asyncio
-async def test_get_filtered_series_empty_repository():
+def test_get_filtered_series_empty_repository():
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
         return_value=([], 0),
     ):
         _session_local_context(mock_session_local)
 
-        result = await get_filtered_series(search="nomatch", skip=0, limit=10)
+        result = get_filtered_series(search="nomatch", skip=0, limit=10)
 
     assert result.series == []
     assert result.total == 0
@@ -128,7 +125,7 @@ def test_create_new_series_persists_and_returns_dto():
     mock_author.id = author_id
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
-        "pecha_api.plans.series.series_service.save_series",
+        "pecha_api.plans.series.series_service.save_series_with_plans",
         return_value=saved,
     ) as mock_save, patch("pecha_api.plans.series.series_service.get", return_value="b"), patch(
         "pecha_api.plans.series.series_service.generate_presigned_access_url",
@@ -173,7 +170,7 @@ def test_create_new_series_featured_defaults_when_none():
     mock_author.id = author_id
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
-        "pecha_api.plans.series.series_service.save_series",
+        "pecha_api.plans.series.series_service.save_series_with_plans",
         return_value=saved,
     ) as mock_save, patch(
         "pecha_api.plans.series.series_service.validate_and_extract_author_details",
@@ -198,7 +195,7 @@ def test_create_new_series_integrity_error_raises_400():
     mock_author.id = author_id
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
-        "pecha_api.plans.series.series_service.save_series",
+        "pecha_api.plans.series.series_service.save_series_with_plans",
         side_effect=IntegrityError("statement", {}, orig),
     ), patch(
         "pecha_api.plans.series.series_service.validate_and_extract_author_details",

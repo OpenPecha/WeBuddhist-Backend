@@ -9,13 +9,6 @@ from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.plans_models import Plan
 
 
-def save_series(db: Session, series: Series) -> Series:
-    db.add(series)
-    db.commit()
-    db.refresh(series)
-    return series
-
-
 def get_series_by_id(db: Session, series_id) -> Optional[Series]:
     return (
         db.query(Series)
@@ -25,6 +18,33 @@ def get_series_by_id(db: Session, series_id) -> Optional[Series]:
         .filter(Series.id == series_id, Series.deleted_at.is_(None))
         .first()
     )
+
+
+def get_plans_by_ids(db: Session, plan_ids: List[UUID]) -> List[Plan]:
+    """Fetch plans by IDs for validation. Returns all matches including soft-deleted
+    rows; the caller is responsible for checking deleted_at."""
+    if not plan_ids:
+        return []
+    return db.query(Plan).filter(Plan.id.in_(plan_ids)).all()
+
+
+def save_series_with_plans(
+    db: Session,
+    series: Series,
+    plan_ids: Optional[List[UUID]] = None,
+) -> Series:
+    """Insert series and optionally attach plans in a single atomic transaction.
+    Caller is responsible for validating plan_ids before calling this."""
+    db.add(series)
+    db.flush() 
+    if plan_ids:
+        db.query(Plan).filter(Plan.id.in_(plan_ids)).update(
+            {Plan.series_id: series.id},
+            synchronize_session=False,
+        )
+    db.commit()
+    db.refresh(series)
+    return series
 
 
 def get_series_paginated(
