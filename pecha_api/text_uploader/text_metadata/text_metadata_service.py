@@ -29,7 +29,6 @@ class TextMetadataService:
     async def upload_text_metadata_service(self, text_upload_request: TextUploadRequest, token: str):
         text_id = text_upload_request.text_id
         text = await get_text_metadata(text_id, text_upload_request.openpecha_api_url)
-
         related_text_ids = []
         commentary_text_ids = []
         work_translation_group = {}
@@ -102,7 +101,7 @@ class TextMetadataService:
             logging.info(f"Created new text {text_response['title']}")
 
         # get all instance ids
-        self.all_instance_ids = instances
+        self.all_instance_ids.update(instances)
         
         return new_texts
 
