@@ -47,6 +47,39 @@ def save_series_with_plans(
     return series
 
 
+def update_series_with_plans(
+    db: Session,
+    series: Series,
+    name,
+    image: Optional[str],
+    featured: bool,
+    updated_by: Optional[str],
+    plan_ids_to_attach: List[UUID],
+    plan_ids_to_detach: List[UUID],
+    updated_at,
+) -> Series:
+    series.name = name
+    series.image = image
+    series.featured = featured
+    series.updated_at = updated_at
+    series.updated_by = updated_by
+
+    if plan_ids_to_detach:
+        db.query(Plan).filter(Plan.id.in_(plan_ids_to_detach)).update(
+            {Plan.series_id: None},
+            synchronize_session=False,
+        )
+    if plan_ids_to_attach:
+        db.query(Plan).filter(Plan.id.in_(plan_ids_to_attach)).update(
+            {Plan.series_id: series.id},
+            synchronize_session=False,
+        )
+
+    db.commit()
+    db.refresh(series)
+    return series
+
+
 def get_series_paginated(
     db: Session,
     search: Optional[str],

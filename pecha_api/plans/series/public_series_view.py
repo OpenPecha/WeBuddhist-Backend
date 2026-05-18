@@ -3,7 +3,7 @@ from typing import Optional, Annotated
 from uuid import UUID
 from starlette import status
 
-from pecha_api.plans.series.service_response_models import SeriesDTO, SeriesListResponse
+from pecha_api.plans.series.series_response_models import SeriesDTO, SeriesListResponse
 from pecha_api.plans.series.series_service import get_filtered_series, get_series_detail
 
 

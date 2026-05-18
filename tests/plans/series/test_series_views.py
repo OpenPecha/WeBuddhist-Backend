@@ -8,10 +8,23 @@ from starlette import status
 
 from pecha_api.app import api
 from pecha_api.plans.plans_enums import PlanStatus, LanguageCode, DifficultyLevel
-from pecha_api.plans.series.service_response_models import SeriesDTO, SeriesListResponse, SeriesPlanDTO
+from pecha_api.plans.series.series_response_models import SeriesDTO, SeriesListResponse, SeriesPlanDTO
 
 
 client = TestClient(api)
+
+
+def sample_series_dto_factory() -> SeriesDTO:
+    return SeriesDTO(
+        id=uuid.uuid4(),
+        name={"en": "Foundations of Meditation"},
+        image=None,
+        image_key=None,
+        author_id=uuid.uuid4(),
+        featured=False,
+        status=PlanStatus.DRAFT,
+        total_days=0,
+    )
 
 
 @pytest.fixture
@@ -291,3 +304,41 @@ def test_get_series_list_includes_total_days_zero():
 
         assert len(data["series"]) == 1
         assert data["series"][0]["total_days"] == 0
+
+
+def test_update_series_accepts_empty_body():
+    series_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.plans.series.series_view.update_existing_series",
+        return_value=sample_series_dto_factory(),
+    ) as mock_update:
+        response = client.put(
+            f"/cms/series/{series_id}",
+            json={},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    mock_update.assert_called_once()
+
+
+def test_update_series_rejects_invalid_language_key_in_plans():
+    series_id = uuid.uuid4()
+    payload = {"plans": {"FOO": [str(uuid.uuid4())]}}
+    response = client.put(
+        f"/cms/series/{series_id}",
+        json=payload,
+        headers={"Authorization": "Bearer dummy"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_create_series_rejects_invalid_language_key_in_plans():
+    payload = {"name": {"en": "Test"}, "plans": {"BAD": [str(uuid.uuid4())]}}
+    response = client.post(
+        "/cms/series",
+        json=payload,
+        headers={"Authorization": "Bearer dummy"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY

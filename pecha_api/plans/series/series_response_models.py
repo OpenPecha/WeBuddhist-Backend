@@ -1,9 +1,23 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 from datetime import datetime
 
-from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel
+from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel, LanguageCode
+
+
+def _validate_plan_language_keys(v):
+    """Reject plans dict keys that are not valid LanguageCode enum values."""
+    if v is None:
+        return v
+    valid_codes = {code.value for code in LanguageCode}
+    invalid_keys = [k for k in v.keys() if k not in valid_codes]
+    if invalid_keys:
+        raise ValueError(
+            f"Invalid language code(s) in plans: {invalid_keys}. "
+            f"Allowed: {sorted(valid_codes)}"
+        )
+    return v
 
 
 class CreateSeriesRequest(BaseModel):
@@ -11,6 +25,23 @@ class CreateSeriesRequest(BaseModel):
     image_key: Optional[str] = None
     featured: Optional[bool] = False
     plans: Optional[Dict[str, List[UUID]]] = None
+
+    @field_validator("plans")
+    @classmethod
+    def _validate_plans(cls, v):
+        return _validate_plan_language_keys(v)
+
+
+class UpdateSeriesRequest(BaseModel):
+    name: Optional[Dict[str, Any]] = None
+    image_key: Optional[str] = None
+    featured: Optional[bool] = None
+    plans: Optional[Dict[str, List[UUID]]] = None
+
+    @field_validator("plans")
+    @classmethod
+    def _validate_plans(cls, v):
+        return _validate_plan_language_keys(v)
 
 
 class SeriesPlanDTO(BaseModel):
