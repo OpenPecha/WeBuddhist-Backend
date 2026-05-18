@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
 from starlette import status
@@ -49,7 +49,6 @@ async def test_list_dashboard_items_success():
 
     with patch(
         "pecha_api.plans.dashboard.dashboard_views.get_dashboard_items_list",
-        new_callable=AsyncMock,
         return_value=expected,
     ) as mock_service:
         response = await list_dashboard_items(

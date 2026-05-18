@@ -54,7 +54,7 @@ def _row_to_dto(row) -> DashboardItemDTO:
     )
 
 
-async def get_dashboard_items_list(
+def get_dashboard_items_list(
     token: str,
     tab: DashboardTab,
     page: int,

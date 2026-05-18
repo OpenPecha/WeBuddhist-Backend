@@ -28,16 +28,18 @@ async def list_dashboard_items(
     authentication_credential: Annotated[
         HTTPAuthorizationCredentials, Depends(oauth2_scheme)
     ],
-    tab: DashboardTab = Query(default="all"),
-    page: int = Query(default=1, ge=1),
-    page_size: int = Query(default=20, ge=1, le=100),
-    search: Optional[str] = Query(default=None),
-    status: Optional[PlanStatus] = Query(default=None),
-    language: Optional[str] = Query(default=None),
-    featured: Optional[bool] = Query(default=None),
-    sort: Optional[str] = Query(default=None, description="Reserved; default sort is applied"),
+    tab: Annotated[DashboardTab, Query()] = "all",
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+    search: Annotated[Optional[str], Query()] = None,
+    status: Annotated[Optional[PlanStatus], Query()] = None,
+    language: Annotated[Optional[str], Query()] = None,
+    featured: Annotated[Optional[bool], Query()] = None,
+    sort: Annotated[
+        Optional[str], Query(description="Reserved; default sort is applied")
+    ] = None,
 ):
-    return await get_dashboard_items_list(
+    return get_dashboard_items_list(
         token=authentication_credential.credentials,
         tab=tab,
         page=page,
