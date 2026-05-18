@@ -18,6 +18,7 @@ class TestCollectionsV2Endpoint:
             collections=[
                 CollectionModel(
                     id="cat-1",
+                    pecha_collection_id="cat-1",
                     title="Discourses",
                     description="Buddhist discourses",
                     has_child=True,
@@ -26,6 +27,7 @@ class TestCollectionsV2Endpoint:
                 ),
                 CollectionModel(
                     id="cat-2",
+                    pecha_collection_id="cat-2",
                     title="Vinaya",
                     description="Monastic discipline",
                     has_child=False,
@@ -36,7 +38,7 @@ class TestCollectionsV2Endpoint:
         )
         mock_service.return_value = mock_response
         
-        response = client.get("/collections?language=en")
+        response = client.get("/v2/collections?language=en")
         
         assert response.status_code == 200
         data = response.json()
@@ -49,6 +51,7 @@ class TestCollectionsV2Endpoint:
         mock_response = CollectionsResponse(
             parent=CollectionModel(
                 id="parent-1",
+                pecha_collection_id="parent-1",
                 title="Parent Category",
                 description="",
                 has_child=True,
@@ -59,6 +62,7 @@ class TestCollectionsV2Endpoint:
             collections=[
                 CollectionModel(
                     id="child-1",
+                    pecha_collection_id="child-1",
                     title="Child Category",
                     description="",
                     has_child=False,
@@ -69,7 +73,7 @@ class TestCollectionsV2Endpoint:
         )
         mock_service.return_value = mock_response
         
-        response = client.get("/collections?parent_id=parent-1&language=en")
+        response = client.get("/v2/collections?parent_id=parent-1&language=en")
         
         assert response.status_code == 200
         data = response.json()
@@ -84,6 +88,7 @@ class TestCollectionsV2Endpoint:
             collections=[
                 CollectionModel(
                     id=f"cat-{i}",
+                    pecha_collection_id=f"cat-{i}",
                     title=f"Category {i}",
                     description="",
                     has_child=False,
@@ -94,7 +99,7 @@ class TestCollectionsV2Endpoint:
         )
         mock_service.return_value = mock_response
         
-        response = client.get("/collections?skip=10&limit=5")
+        response = client.get("/v2/collections?skip=10&limit=5")
         
         assert response.status_code == 200
         data = response.json()
@@ -111,7 +116,7 @@ class TestCollectionsV2Endpoint:
         )
         mock_service.return_value = mock_response
         
-        response = client.get("/collections")
+        response = client.get("/v2/collections")
         
         assert response.status_code == 200
         data = response.json()
@@ -126,6 +131,7 @@ class TestCollectionsV2Endpoint:
             collections=[
                 CollectionModel(
                     id="cat-1",
+                    pecha_collection_id="cat-1",
                     title="མདོ།",
                     description="",
                     has_child=True,
@@ -136,7 +142,7 @@ class TestCollectionsV2Endpoint:
         )
         mock_service.return_value = mock_response
         
-        response = client.get("/collections?language=bo")
+        response = client.get("/v2/collections?language=bo")
         
         assert response.status_code == 200
         data = response.json()
@@ -146,15 +152,15 @@ class TestCollectionsV2Endpoint:
 
 class TestCollectionsV2ValidationErrors:
     def test_invalid_skip_negative(self):
-        response = client.get("/collections?skip=-1")
+        response = client.get("/v2/collections?skip=-1")
         assert response.status_code == 422
 
     def test_invalid_limit_zero(self):
-        response = client.get("/collections?limit=0")
+        response = client.get("/v2/collections?limit=0")
         assert response.status_code == 422
 
     def test_invalid_limit_too_large(self):
-        response = client.get("/collections?limit=101")
+        response = client.get("/v2/collections?limit=101")
         assert response.status_code == 422
 
 
@@ -167,7 +173,8 @@ class TestCollectionsV2ErrorHandling:
             status_code=502,
             detail="Failed to fetch collections from upstream service"
         )
-        response = client.get("/collections")
+        
+        response = client.get("/v2/collections")
         
         assert response.status_code == 502
         assert "upstream" in response.json()["detail"].lower()
@@ -180,6 +187,7 @@ class TestCollectionsV2ErrorHandling:
             status_code=500,
             detail="Internal server error"
         )
-        response = client.get("/collections")
+        
+        response = client.get("/v2/collections")
         
         assert response.status_code == 500

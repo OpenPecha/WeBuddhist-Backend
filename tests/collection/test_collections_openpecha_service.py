@@ -71,6 +71,7 @@ class TestCategoryToCollectionModel:
         
         assert isinstance(result, CollectionModel)
         assert result.id == "cat-456"
+        assert result.pecha_collection_id == "cat-456"
         assert result.title == "Test Title"
         assert result.description == "Test Description"
         assert result.has_child is True

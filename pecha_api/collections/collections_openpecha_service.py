@@ -31,6 +31,7 @@ def _category_to_collection_model(category: CategoryOutput, language: str) -> Co
     title = _extract_title(category, language)
     return CollectionModel(
         id=category.id,
+        pecha_collection_id=category.id,
         title=title,
         description=_extract_description(category, language),
         has_child=len(category.children) > 0 if category.children else False,
