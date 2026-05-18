@@ -21,8 +21,6 @@ def get_series_by_id(db: Session, series_id) -> Optional[Series]:
 
 
 def get_plans_by_ids(db: Session, plan_ids: List[UUID]) -> List[Plan]:
-    """Fetch plans by IDs for validation. Returns all matches including soft-deleted
-    rows; the caller is responsible for checking deleted_at."""
     if not plan_ids:
         return []
     return db.query(Plan).filter(Plan.id.in_(plan_ids)).all()
@@ -33,8 +31,6 @@ def save_series_with_plans(
     series: Series,
     plan_ids: Optional[List[UUID]] = None,
 ) -> Series:
-    """Insert series and optionally attach plans in a single atomic transaction.
-    Caller is responsible for validating plan_ids before calling this."""
     db.add(series)
     db.flush() 
     if plan_ids:
