@@ -59,8 +59,7 @@ async def test_list_dashboard_items_success():
             search="found",
             status=PlanStatus.DRAFT,
             language="en",
-            featured=True,
-            sort=None,
+            featured=True
         )
 
         mock_service.assert_called_once_with(
