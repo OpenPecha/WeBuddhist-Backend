@@ -119,6 +119,7 @@ async def test_get_collection_cache_hit():
     """Test get_collection when data is found in cache"""
     cached_collection = CollectionModel(
         id="cached_id",
+        pecha_collection_id="pecha_cached_id",
         title="Cached Collection",
         description="Cached Description", 
         language="en",
@@ -188,7 +189,8 @@ async def test_get_all_collections_cache_hit():
         collections=[
             CollectionModel(
                 id="cached_id",
-                        title="Cached Collection",
+                pecha_collection_id="pecha_cached_id",
+                title="Cached Collection",
                 description="Cached Description",
                 language="en", 
                 slug="cached-collection",
@@ -299,6 +301,7 @@ async def test_get_all_collections_cache_miss_with_parent():
     """Test get_all_collections cache miss scenario with parent_id provided"""
     parent_collection = CollectionModel(
         id="parent_id",
+        pecha_collection_id="pecha_parent_id",
         title="Parent Collection",
         description="Parent Description",
         language="en",

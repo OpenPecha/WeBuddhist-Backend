@@ -9,8 +9,8 @@ from .collections_response_models import CollectionsResponse
 from .collections_openpecha_service import get_collections_from_openpecha
 
 collections_v2_router = APIRouter(
-    prefix="/collections",
-    tags=["collections"]
+    prefix="/v2/collections",
+    tags=["collections-v2"]
 )
 
 
