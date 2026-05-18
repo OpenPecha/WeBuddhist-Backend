@@ -7,7 +7,6 @@ from pecha_api.auth.auth_service import retrieve_client_info
 from pecha_api.db.mongo_database import lifespan
 from pecha_api.auth import auth_views
 from pecha_api.sheets import sheets_views
-from pecha_api.collections import collections_views
 from pecha_api.terms import terms_views
 from pecha_api.texts import texts_views
 from pecha_api.topics import topics_views
@@ -20,6 +19,7 @@ from pecha_api.search import search_views
 from pecha_api.plans.auth import plan_auth_views
 from pecha_api.plans.cms import cms_plans_views as cms_plans_views
 from pecha_api.plans.series import series_view as cms_series_views
+from pecha_api.plans.series import public_series_view as public_series_views
 from pecha_api.plans.tasks import plan_tasks_views
 from pecha_api.plans.tasks.sub_tasks import plan_sub_tasks_views
 from pecha_api.plans.public import plan_views as public_plans_views
@@ -48,7 +48,6 @@ api = FastAPI(
 )
 api.include_router(auth_views.auth_router)
 api.include_router(sheets_views.sheets_router)
-api.include_router(collections_views.collections_router)
 api.include_router(terms_views.terms_router)
 api.include_router(texts_views.text_router)
 api.include_router(groups_views.group_router)
@@ -61,6 +60,7 @@ api.include_router(share_views.share_router)
 api.include_router(plan_auth_views.plan_auth_router)
 api.include_router(cms_plans_views.cms_plans_router)
 api.include_router(cms_series_views.cms_series_router)
+api.include_router(public_series_views.public_series_router)
 api.include_router(media_views.media_router)
 api.include_router(public_plans_views.public_plans_router)
 api.include_router(user_plans_views.user_progress_router)

@@ -16,7 +16,6 @@ class UpdateCollectionRequest(BaseModel):
 
 class CollectionModel(BaseModel):
     id: str
-    pecha_collection_id: Optional[str] = None
     title: str
     description: str
     language: str
