@@ -35,9 +35,7 @@ async def list_dashboard_items(
     status: Annotated[Optional[PlanStatus], Query()] = None,
     language: Annotated[Optional[str], Query()] = None,
     featured: Annotated[Optional[bool], Query()] = None,
-    sort: Annotated[
-        Optional[str], Query(description="Reserved; default sort is applied")
-    ] = None,
+   
 ):
     return get_dashboard_items_list(
         token=authentication_credential.credentials,
