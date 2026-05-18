@@ -75,6 +75,9 @@ DEFAULTS = dict(
 
     #pecha api configuration
     EXTERNAL_PECHA_API_URL="",
+    EXTERNAL_DEV_PECHA_API_URL="",
+    EXTERNAL_OPENPECHA_API_KEY="",
+    EXTERNAL_PECHA_APP_NAME="webuddhist",
 
     EXTERNAL_TITLE_SEARCH_API_URL="",
 

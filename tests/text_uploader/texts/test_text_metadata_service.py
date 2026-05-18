@@ -234,8 +234,11 @@ async def test_upload_text_metadata_service_success():
         
         assert isinstance(result, TextInstanceIds)
         assert len(result.new_text) > 0
-        # Verify the service was called for translations
+        # Verify the service was called for both translations and commentaries
         assert mock_get_texts.call_count == 2
+        # all_text reflects only what the real method accumulated;
+        # since get_text_meta_data_service is fully mocked here, all_instance_ids stays {}
+        assert result.all_text == {}
 
 
 @pytest.mark.asyncio
@@ -352,6 +355,7 @@ async def test_get_text_meta_data_service_creates_group_for_first_text():
         mock_post_group.assert_awaited_once()
         assert service.version_group_id == "new_group_id"
         assert "new_text_id" in result
+        assert service.all_instance_ids == {"text_1": "inst_1"}
 
 
 @pytest.mark.asyncio
@@ -403,6 +407,7 @@ async def test_get_text_meta_data_service_skips_uploaded_texts():
         assert result == {}
         # Version group should be set from uploaded text
         assert service.version_group_id == "existing_group_id"
+        assert service.all_instance_ids == {"text_1": "inst_1"}
 
 
 @pytest.mark.asyncio
@@ -496,6 +501,73 @@ async def test_get_text_meta_data_service_commentary_creates_separate_group():
         mock_post_group.assert_awaited_once_with('commentary', text_upload_request.destination_url, "test_token")
         assert service.commentary_group_id == "commentary_group_id"
         assert "commentary_text_id" in result
+        assert service.all_instance_ids == {"commentary_1": "inst_c1"}
 
+
+@pytest.mark.asyncio
+async def test_all_instance_ids_merges_translation_and_commentary_instances():
+    """all_instance_ids must accumulate across both translation and commentary calls.
+
+    The old bug used `=` (overwrite) instead of `.update()`, so only the last
+    batch's instances survived.  With the fix, both batches are merged.
+    """
+    service = TextMetadataService()
+    service.version_group_id = "version_group_123"
+
+    text_upload_request = TextUploadRequest(
+        destination_url="https://destination.example",
+        openpecha_api_url="https://openpecha.example",
+        text_id="text_1"
+    )
+
+    translation_instances = {"text_1": "inst_t1", "text_2": "inst_t2"}
+    commentary_instances = {"commentary_1": "inst_c1"}
+
+    translation_metadata = {"language": "en", "title": {"en": "T"}, "category_id": "cat_1"}
+    commentary_metadata = {"language": "bo", "title": {"bo": "C"}, "category_id": "cat_1"}
+
+    # ── First call: translations ──────────────────────────────────────────────
+    with patch.object(service, "get_uploaded_texts", new_callable=AsyncMock,
+                      return_value=([], [], translation_instances)), \
+         patch("pecha_api.text_uploader.text_metadata.text_metadata_service.get_text_metadata",
+               new_callable=AsyncMock, return_value=translation_metadata), \
+         patch("pecha_api.text_uploader.text_metadata.text_metadata_service.post_group",
+               new_callable=AsyncMock, return_value={"id": "grp_t"}), \
+         patch.object(service, "create_textmetada_payload",
+                      new_callable=AsyncMock, return_value=MagicMock()), \
+         patch("pecha_api.text_uploader.text_metadata.text_metadata_service.post_text",
+               new_callable=AsyncMock, return_value={"id": "t_id", "title": "T"}):
+        await service.get_text_meta_data_service(
+            text_ids=["text_1", "text_2"],
+            type="translation",
+            text_upload_request=text_upload_request,
+            token="test_token"
+        )
+
+    assert service.all_instance_ids == translation_instances
+
+    # ── Second call: commentaries ─────────────────────────────────────────────
+    with patch.object(service, "get_uploaded_texts", new_callable=AsyncMock,
+                      return_value=([], [], commentary_instances)), \
+         patch("pecha_api.text_uploader.text_metadata.text_metadata_service.get_text_metadata",
+               new_callable=AsyncMock, return_value=commentary_metadata), \
+         patch("pecha_api.text_uploader.text_metadata.text_metadata_service.post_group",
+               new_callable=AsyncMock, return_value={"id": "grp_c"}), \
+         patch.object(service, "create_textmetada_payload",
+                      new_callable=AsyncMock, return_value=MagicMock()), \
+         patch("pecha_api.text_uploader.text_metadata.text_metadata_service.post_text",
+               new_callable=AsyncMock, return_value={"id": "c_id", "title": "C"}):
+        await service.get_text_meta_data_service(
+            text_ids=["commentary_1"],
+            type="commentary",
+            text_upload_request=text_upload_request,
+            token="test_token"
+        )
+
+    # Both translation AND commentary instances must be present.
+    # The old `self.all_instance_ids = instances` (overwrite) would have left
+    # only {"commentary_1": "inst_c1"} here, missing the 2 translation entries.
+    expected = {**translation_instances, **commentary_instances}
+    assert service.all_instance_ids == expected
 
 
