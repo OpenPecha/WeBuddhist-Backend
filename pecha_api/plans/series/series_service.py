@@ -9,11 +9,18 @@ from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
-from pecha_api.plans.series.series_repository import get_series_by_id, get_series_paginated, get_plans_by_ids, save_series_with_plans, update_series_with_plans
+from pecha_api.plans.series.series_repository import (
+    get_series_by_id,
+    get_series_paginated,
+    get_plans_by_ids,
+    save_series_with_plans,
+    update_series_with_plans,
+)
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
     UpdateSeriesRequest,
     SeriesDTO,
+    SeriesMetadataDTO,
     SeriesPlanDTO,
     SeriesListResponse,
 )
@@ -35,6 +42,29 @@ def _to_plan_status(status_value) -> PlanStatus:
     if hasattr(status_value, "value"):
         return PlanStatus(status_value.value)
     return PlanStatus(status_value)
+
+
+def _language_value(language) -> str:
+    if hasattr(language, "value"):
+        return language.value
+    return str(language)
+
+
+def _metadata_to_dtos(entries) -> List[SeriesMetadataDTO]:
+    if not entries:
+        return []
+    return sorted(
+        [
+            SeriesMetadataDTO(
+                id=entry.id,
+                title=entry.title,
+                description=entry.description,
+                language=_language_value(entry.language),
+            )
+            for entry in entries
+        ],
+        key=lambda item: item.language,
+    )
 
 
 def _flatten_plans_by_language(plans_by_language: Optional[Dict[str, List[UUID]]]) -> List[UUID]:
@@ -82,17 +112,17 @@ def _get_sorted_active_plans(plans) -> List:
 def _series_to_dto(row: Series, include_plans: bool = False) -> SeriesDTO:
     plans_dtos = []
     series_total_days = 0
-    
+
     if include_plans:
         sorted_plans = _get_sorted_active_plans(row.plans)
         for plan in sorted_plans:
             plan_dto = _plan_to_dto(plan)
             plans_dtos.append(plan_dto)
             series_total_days += plan_dto.total_days
-    
+
     return SeriesDTO(
         id=row.id,
-        name=row.name or {},
+        metadata=_metadata_to_dtos(row.metadata_entries),
         image=_generate_image_url(row.image),
         image_key=row.image,
         author_id=row.author_id,
@@ -180,8 +210,6 @@ def _validate_plan_ids(
 
 
 def _apply_series_field_updates(series, update_series_request: UpdateSeriesRequest) -> None:
-    if update_series_request.name is not None:
-        series.name = update_series_request.name
     if update_series_request.image_key is not None:
         series.image = update_series_request.image_key
     if update_series_request.featured is not None:
@@ -234,13 +262,13 @@ def update_existing_series(
             update_series_with_plans(
                 db=db_session,
                 series=series,
-                name=series.name,
                 image=series.image,
                 featured=series.featured,
                 updated_by=current_author.email,
                 plan_ids_to_attach=to_attach,
                 plan_ids_to_detach=to_detach,
                 updated_at=datetime.now(timezone.utc),
+                metadata_entries=update_series_request.metadata,
             )
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
@@ -257,7 +285,6 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
     current_author = validate_and_extract_author_details(token=token)
 
     new_series = Series(
-        name=create_series_request.name,
         image=create_series_request.image_key,
         author_id=current_author.id,
         featured=create_series_request.featured if create_series_request.featured is not None else False,
@@ -279,11 +306,11 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
             saved = save_series_with_plans(
                 db=db_session,
                 series=new_series,
+                metadata_entries=create_series_request.metadata,
                 plan_ids=flat_plan_ids,
             )
 
-            if flat_plan_ids:
-                saved = get_series_by_id(db=db_session, series_id=saved.id)
+            saved = get_series_by_id(db=db_session, series_id=saved.id)
 
         return _series_to_dto(saved, include_plans=bool(flat_plan_ids))
     except IntegrityError as exc:

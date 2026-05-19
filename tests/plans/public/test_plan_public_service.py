@@ -714,7 +714,12 @@ def _daily_content_series_plan(plan_id, series_id, display_order: int):
     mock_plan.start_date = datetime(2026, 5, 1, tzinfo=timezone.utc)
     mock_series = MagicMock()
     mock_series.id = series_id
-    mock_series.name = {"en": "Series"}
+    metadata_entry = MagicMock()
+    metadata_entry.id = uuid4()
+    metadata_entry.title = "Series"
+    metadata_entry.description = None
+    metadata_entry.language = MagicMock(value="EN")
+    mock_series.metadata_entries = [metadata_entry]
     mock_series.image = None
     mock_plan.series = mock_series
     return mock_plan
