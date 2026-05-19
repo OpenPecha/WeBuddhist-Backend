@@ -8,8 +8,9 @@ from pecha_api.config import get
 from pecha_api.texts.texts_enums import LANGUAGE_ORDERS
 from pecha_api.texts.texts_utils import TextUtils
 from pecha_api.texts.texts_response_models import V2TextDTO, V2TextsCategoryResponse
-from pecha_api.collections.collections_response_models import CollectionModel
+from pecha_api.collections.collections_response_models import V2CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
+from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
 
 logger = logging.getLogger(__name__)
 
@@ -108,14 +109,18 @@ async def get_texts_by_collection_from_openpecha(
         limit=limit,
     )
 
-    collection = CollectionModel(
+    category_title = ""
+    try:
+        category_data = await fetch_category_by_id(collection_id)
+        if category_data:
+            category_title = _extract_title(category_data.get("title", {}), language)
+    except Exception as e:
+        logger.warning(f"Failed to fetch category title for {collection_id}: {e}")
+
+    collection = V2CollectionModel(
         id=collection_id,
-        pecha_collection_id=collection_id,
-        title="",
-        description="",
+        title=category_title,
         language=language,
-        slug=collection_id,
-        has_child=False,
     )
 
     return V2TextsCategoryResponse(

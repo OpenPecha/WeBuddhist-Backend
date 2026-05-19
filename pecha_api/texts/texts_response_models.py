@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Union
 from uuid import UUID
 from enum import Enum
 
-from pecha_api.collections.collections_response_models import CollectionModel
+from pecha_api.collections.collections_response_models import CollectionModel, V2CollectionModel
 
 from pydantic import BaseModel
 
@@ -173,7 +173,7 @@ class TextsCategoryResponse(BaseModel):
 
 
 class V2TextsCategoryResponse(BaseModel):
-    collection: Optional[CollectionModel]
+    collection: Optional[V2CollectionModel]
     texts: List[V2TextDTO]
     total: int
     skip: int

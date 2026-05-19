@@ -23,6 +23,11 @@ class CollectionModel(BaseModel):
     slug: str
     has_child: bool
 
+class V2CollectionModel(BaseModel):
+    id: str
+    title: str
+    language: str
+
 class Pagination(BaseModel):
     total: int
     skip: int
