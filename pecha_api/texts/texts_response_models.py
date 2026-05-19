@@ -173,7 +173,7 @@ class TextsCategoryResponse(BaseModel):
 
 
 class V2TextsCategoryResponse(BaseModel):
-    collection: Optional[V2CollectionModel]
+    collection: V2CollectionModel
     texts: List[V2TextDTO]
     total: int
     skip: int
