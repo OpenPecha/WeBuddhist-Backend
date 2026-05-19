@@ -121,15 +121,7 @@ def test_get_series_paginated_with_author_id_applies_filter():
     row = MagicMock(spec=Series)
     author_id = uuid.uuid4()
 
-    filtered = MagicMock()
-    filtered.count.return_value = 1
-    ordered = MagicMock()
-    ordered.offset.return_value.limit.return_value.all.return_value = [row]
-    filtered.order_by.return_value = ordered
-
-    base_query = MagicMock()
-    base_query.filter.return_value = filtered
-    db.query.return_value = base_query
+    db.query.return_value = _paginated_query_chain([row], 1)
 
     rows, total = get_series_paginated(
         db=db, search=None, skip=0, limit=10, author_id=author_id
@@ -137,8 +129,9 @@ def test_get_series_paginated_with_author_id_applies_filter():
 
     assert rows == [row]
     assert total == 1
-    assert base_query.filter.call_count == 1
-    filter_args = base_query.filter.call_args[0]
+    filtered = db.query.return_value.options.return_value.filter
+    assert filtered.call_count == 1
+    filter_args = filtered.call_args[0]
     assert len(filter_args) == 2
 
 
