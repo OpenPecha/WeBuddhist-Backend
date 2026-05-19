@@ -1,12 +1,12 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette import status
 
-from pecha_api.plans.series.series_response_models import CreateSeriesRequest, UpdateSeriesRequest, SeriesDTO
-from pecha_api.plans.series.series_service import create_new_series, update_existing_series
+from pecha_api.plans.series.series_response_models import CreateSeriesRequest, UpdateSeriesRequest, SeriesDTO, SeriesListResponse
+from pecha_api.plans.series.series_service import create_new_series, update_existing_series, get_cms_filtered_series, get_cms_series_detail
 
 oauth2_scheme = HTTPBearer()
 
@@ -40,4 +40,40 @@ async def update_series(
         token=authentication_credential.credentials,
         series_id=series_id,
         update_series_request=update_series_request,
+    )
+
+
+@cms_series_router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=SeriesListResponse,
+)
+async def get_cms_series_list(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    search: Annotated[
+        Optional[str], Query(description="Search within serialized name JSON")
+    ] = None,
+    skip: Annotated[int, Query()] = 0,
+    limit: Annotated[int, Query()] = 10,
+):
+    return get_cms_filtered_series(
+        token=authentication_credential.credentials,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@cms_series_router.get(
+    "/{series_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=SeriesDTO,
+)
+async def get_cms_series(
+    series_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return get_cms_series_detail(
+        token=authentication_credential.credentials,
+        series_id=series_id,
     )

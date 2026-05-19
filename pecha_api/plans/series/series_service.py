@@ -138,6 +138,54 @@ def get_series_detail(series_id: UUID) -> SeriesDTO:
         )
     return _series_to_dto(row, include_plans=True)
 
+def get_cms_filtered_series(
+    token: str,
+    search: Optional[str],
+    skip: int,
+    limit: int,
+) -> SeriesListResponse:
+    current_author = validate_and_extract_author_details(token=token)
+    author_id = None if current_author.is_admin else current_author.id
+
+    with SessionLocal() as db_session:
+        rows, total = get_series_paginated(
+            db=db_session,
+            search=search,
+            skip=skip,
+            limit=limit,
+            include_deleted=False,
+            order_by_field=Series.created_at,
+            order_desc=True,
+            author_id=author_id,
+        )
+
+    series_dtos: List[SeriesDTO] = [_series_to_dto(row) for row in rows]
+    return SeriesListResponse(
+        series=series_dtos,
+        skip=skip,
+        limit=limit,
+        total=total,
+    )
+
+
+def get_cms_series_detail(token: str, series_id: UUID) -> SeriesDTO:
+    current_author = validate_and_extract_author_details(token=token)
+
+    with SessionLocal() as db_session:
+        row = get_series_by_id(db=db_session, series_id=series_id)
+
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Series with id '{series_id}' not found",
+        )
+    if not current_author.is_admin and row.author_id != current_author.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this series",
+        )
+
+    return _series_to_dto(row, include_plans=True)
 
 def _validate_plan_ids(
     db,
