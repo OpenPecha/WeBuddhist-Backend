@@ -45,6 +45,13 @@ class TextDTO(BaseModel):
     source_link:Optional[str] = None
     ranking:Optional[int] = None
     license:Optional[str] = None
+
+
+class V2TextDTO(BaseModel):
+    id: str
+    title: str
+    language: Optional[str] = None
+    license: Optional[str] = None
     
 class TextDTOResponse(BaseModel):
     texts: List[TextDTO]
@@ -160,6 +167,14 @@ class TextVersionResponse(BaseModel):
 class TextsCategoryResponse(BaseModel):
     collection: Optional[CollectionModel]
     texts : List[TextDTO]
+    total: int
+    skip: int
+    limit: int
+
+
+class V2TextsCategoryResponse(BaseModel):
+    collection: Optional[CollectionModel]
+    texts: List[V2TextDTO]
     total: int
     skip: int
     limit: int

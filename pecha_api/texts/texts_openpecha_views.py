@@ -3,7 +3,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Query
 from starlette import status
 
-from .texts_response_models import TextDTO, TextsCategoryResponse
+from .texts_response_models import V2TextDTO, V2TextsCategoryResponse
 from .texts_openpecha_service import (
     get_texts_by_collection_from_openpecha,
     get_text_by_id_from_openpecha,
@@ -26,7 +26,7 @@ async def get_texts_by_collection(
     language: Annotated[Optional[str], Query(description="Language code (e.g., 'en', 'bo', 'zh')")] = None,
     skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10,
-) -> TextsCategoryResponse:
+) -> V2TextsCategoryResponse:
     return await get_texts_by_collection_from_openpecha(
         collection_id=collection_id,
         language=language,
@@ -41,5 +41,5 @@ async def get_texts_by_collection(
     summary="Get a single text by ID from OpenPecha",
     description="Retrieve a single text by its ID from the OpenPecha API.",
 )
-async def get_text_by_id(text_id: str) -> TextDTO:
+async def get_text_by_id(text_id: str) -> V2TextDTO:
     return await get_text_by_id_from_openpecha(text_id=text_id)

@@ -7,7 +7,7 @@ from starlette import status
 from pecha_api.config import get
 from pecha_api.texts.texts_enums import LANGUAGE_ORDERS
 from pecha_api.texts.texts_utils import TextUtils
-from pecha_api.texts.texts_response_models import TextDTO, TextsCategoryResponse
+from pecha_api.texts.texts_response_models import V2TextDTO, V2TextsCategoryResponse
 from pecha_api.collections.collections_response_models import CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
 
@@ -27,34 +27,19 @@ def _extract_title(title_payload: Any, language: Optional[str] = None) -> str:
     return ""
 
 
-def _map_external_text_to_dto(item: Dict[str, Any], language: Optional[str] = None) -> TextDTO:
+def _map_external_text_to_dto(item: Dict[str, Any], language: Optional[str] = None) -> V2TextDTO:
     title = _extract_title(item.get("title", {}), language)
-    date_value = item.get("date") or ""
 
-    return TextDTO(
+    return V2TextDTO(
         id=item.get("id", ""),
-        pecha_text_id=item.get("bdrc") or item.get("id", ""),
         title=title,
         language=item.get("language") or "",
-        group_id=item.get("category_id") or "",
-        type="root_text",
-        summary="",
-        is_published=True,
-        created_date=date_value,
-        updated_date=date_value,
-        published_date=date_value,
-        published_by="",
-        categories=[item.get("category_id")] if item.get("category_id") else [],
-        views=0,
-        likes=[],
-        source_link=None,
-        ranking=None,
         license=item.get("license"),
     )
 
 
-async def _fetch_all_texts_for_collection(collection_id: str) -> List[TextDTO]:
-    all_texts: List[TextDTO] = []
+async def _fetch_all_texts_for_collection(collection_id: str) -> List[V2TextDTO]:
+    all_texts: List[V2TextDTO] = []
     languages = list(LANGUAGE_ORDERS.get("en", {}).keys())
 
     for lang in languages:
@@ -84,7 +69,7 @@ async def _get_texts_by_collection_id(
     language: str,
     skip: int,
     limit: int,
-) -> Tuple[List[TextDTO], int]:
+) -> Tuple[List[V2TextDTO], int]:
     texts = await _fetch_all_texts_for_collection(collection_id)
 
     total = len(texts)
@@ -94,7 +79,7 @@ async def _get_texts_by_collection_id(
 
     track_skip = 0
     track_limit = 0
-    text_list: List[TextDTO] = []
+    text_list: List[V2TextDTO] = []
     for text in texts:
         if track_skip < skip:
             track_skip += 1
@@ -112,7 +97,7 @@ async def get_texts_by_collection_from_openpecha(
     language: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
-) -> TextsCategoryResponse:
+) -> V2TextsCategoryResponse:
     if not language:
         language = get("DEFAULT_LANGUAGE")
 
@@ -133,7 +118,7 @@ async def get_texts_by_collection_from_openpecha(
         has_child=False,
     )
 
-    return TextsCategoryResponse(
+    return V2TextsCategoryResponse(
         collection=collection,
         texts=texts,
         total=total,
@@ -142,7 +127,7 @@ async def get_texts_by_collection_from_openpecha(
     )
 
 
-async def get_text_by_id_from_openpecha(text_id: str) -> TextDTO:
+async def get_text_by_id_from_openpecha(text_id: str) -> V2TextDTO:
     try:
         data = await fetch_text_by_id(text_id)
     except Exception as e:
