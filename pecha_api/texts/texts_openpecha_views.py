@@ -3,10 +3,11 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Query
 from starlette import status
 
-from .texts_response_models import TextDTO, TextsCategoryResponse
+from .texts_response_models import TextDTO, TextsCategoryResponse, TextVersionResponse
 from .texts_openpecha_service import (
     get_texts_by_collection_from_openpecha,
     get_text_by_id_from_openpecha,
+    get_text_versions_from_openpecha,
 )
 
 texts_v2_router = APIRouter(
@@ -43,3 +44,18 @@ async def get_texts_by_collection(
 )
 async def get_text_by_id(text_id: str) -> TextDTO:
     return await get_text_by_id_from_openpecha(text_id=text_id)
+
+
+@texts_v2_router.get("/{text_id}/versions", status_code=status.HTTP_200_OK)
+async def get_text_versions(
+    text_id: str,
+    language: str = Query(default=None),
+    skip: int = Query(default=0),
+    limit: int = Query(default=10)
+) -> TextVersionResponse:
+    return await get_text_versions_from_openpecha(
+        text_id=text_id,
+        language=language,
+        skip=skip,
+        limit=limit
+    )

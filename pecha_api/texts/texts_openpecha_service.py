@@ -1,4 +1,5 @@
 import logging
+import httpx
 from typing import Optional, Dict, Any, List
 
 from fastapi import HTTPException
@@ -6,7 +7,7 @@ from starlette import status
 
 from pecha_api.config import get
 from pecha_api.texts.texts_enums import LANGUAGE_ORDERS
-from pecha_api.texts.texts_response_models import TextDTO, TextsCategoryResponse
+from pecha_api.texts.texts_response_models import TextDTO, TextsCategoryResponse, TextVersionResponse, TextVersion
 from pecha_api.collections.collections_response_models import CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
 
@@ -135,3 +136,131 @@ async def get_text_by_id_from_openpecha(text_id: str) -> TextDTO:
         )
 
     return _map_external_text_to_dto(data, data.get("language"))
+
+
+async def fetch_text_from_external_api(text_id: str) -> Dict[str, Any]:
+    """Fetch text data from external OpenPecha API."""
+    endpoint = f"{get('EXTERNAL_DEV_PECHA_API_URL')}/v2/texts/{text_id}"
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
+            response = await client.get(endpoint, headers={"Accept": "application/json"})
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error fetching text {text_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to fetch text from external API: {e.response.status_code}",
+        )
+    except httpx.RequestError as e:
+        logger.error(f"Request error fetching text {text_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to connect to external API",
+        )
+
+
+async def _fetch_translation_details(translation_ids: List[str]) -> List[Dict[str, Any]]:
+    """Fetch details for all translation IDs from external API."""
+    translation_details = []
+    for translation_id in translation_ids:
+        try:
+            data = await fetch_text_from_external_api(translation_id)
+            if data:
+                translation_details.append(data)
+        except HTTPException as e:
+            logger.warning(f"Failed to fetch translation {translation_id}: {e.detail}")
+            continue
+    return translation_details
+
+
+def _map_external_text_to_text_version(item: Dict[str, Any], language: Optional[str] = None) -> TextVersion:
+    """Map external API response to TextVersion model."""
+    title = _extract_title(item.get("title", {}), language)
+    date_value = item.get("date") or ""
+    
+    return TextVersion(
+        id=item.get("id", ""),
+        title=title,
+        parent_id=item.get("translation_of") or item.get("commentary_of"),
+        priority=None,
+        language=item.get("language") or "",
+        type="translation",
+        group_id=item.get("category_id") or "",
+        table_of_contents=[],
+        is_published=True,
+        created_date=date_value,
+        updated_date=date_value,
+        published_date=date_value,
+        published_by="",
+        source_link=None,
+        ranking=None,
+        license=item.get("license"),
+    )
+
+
+def _filter_versions_by_language(
+    versions: List[TextVersion], 
+    language: Optional[str]
+) -> List[TextVersion]:
+    """Filter versions by language if specified."""
+    if not language:
+        return versions
+    return [v for v in versions if v.language == language]
+
+
+def _paginate_versions(
+    versions: List[TextVersion], 
+    skip: int, 
+    limit: int
+) -> List[TextVersion]:
+    """Apply pagination to versions list."""
+    return versions[skip:skip + limit]
+
+
+async def get_text_versions_from_openpecha(
+    text_id: str,
+    language: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 10
+) -> TextVersionResponse:
+    """
+    Get text versions from external OpenPecha API.
+    
+    1. Fetch text data from external API
+    2. Loop through translations array and fetch each translation's details
+    3. Transform data to match TextVersionResponse format
+    """
+    text_data = await fetch_text_from_external_api(text_id)
+    
+    if not text_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Text with id '{text_id}' not found",
+        )
+    
+    root_text = _map_external_text_to_dto(text_data, text_data.get("language"))
+    
+    translation_ids = text_data.get("translations", [])
+    
+    if not translation_ids:
+        return TextVersionResponse(
+            text=root_text,
+            versions=[]
+        )
+    
+    translation_details = await _fetch_translation_details(translation_ids)
+    
+    versions = [
+        _map_external_text_to_text_version(item, item.get("language"))
+        for item in translation_details
+    ]
+    
+    filtered_versions = _filter_versions_by_language(versions, language)
+    
+    paginated_versions = _paginate_versions(filtered_versions, skip, limit)
+    
+    return TextVersionResponse(
+        text=root_text,
+        versions=paginated_versions
+    )
