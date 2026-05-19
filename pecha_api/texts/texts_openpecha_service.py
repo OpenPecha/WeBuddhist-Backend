@@ -1,25 +1,17 @@
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 
 from fastapi import HTTPException
 from starlette import status
 
 from pecha_api.config import get
 from pecha_api.texts.texts_enums import LANGUAGE_ORDERS
+from pecha_api.texts.texts_utils import TextUtils
 from pecha_api.texts.texts_response_models import TextDTO, TextsCategoryResponse
 from pecha_api.collections.collections_response_models import CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_LANGUAGE = get("DEFAULT_LANGUAGE") or "en"
-LANGUAGE_PRIORITY_LIST = ["en", "bo", "zh"]
-
-
-def _get_language_priority_order(selected_language: str) -> List[str]:
-    order_map = LANGUAGE_ORDERS.get(selected_language, LANGUAGE_ORDERS.get("en", {}))
-    sorted_langs = sorted(order_map.keys(), key=lambda lang: order_map[lang])
-    return sorted_langs
 
 
 def _extract_title(title_payload: Any, language: Optional[str] = None) -> str:
@@ -61,29 +53,17 @@ def _map_external_text_to_dto(item: Dict[str, Any], language: Optional[str] = No
     )
 
 
-async def get_texts_by_collection_from_openpecha(
-    collection_id: str,
-    language: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 10,
-) -> TextsCategoryResponse:
-    if not language:
-        language = DEFAULT_LANGUAGE
+async def _fetch_all_texts_for_collection(collection_id: str) -> List[TextDTO]:
+    all_texts: List[TextDTO] = []
+    languages = list(LANGUAGE_ORDERS.get("en", {}).keys())
 
-    priority_languages = _get_language_priority_order(language)
-    collected_texts: List[TextDTO] = []
-    remaining = limit
-
-    for lang in priority_languages:
-        if remaining <= 0:
-            break
-
+    for lang in languages:
         try:
             data = await fetch_texts_by_category(
                 category_id=collection_id,
                 language=lang,
-                limit=remaining,
-                offset=skip if lang == language else 0,
+                limit=100,
+                offset=0,
             )
         except Exception as e:
             logger.error(f"Failed to fetch texts for language={lang}, category={collection_id}: {e}")
@@ -94,10 +74,54 @@ async def get_texts_by_collection_from_openpecha(
 
         items = data.get("items", [])
         for item in items:
-            if remaining <= 0:
-                break
-            collected_texts.append(_map_external_text_to_dto(item, lang))
-            remaining -= 1
+            all_texts.append(_map_external_text_to_dto(item, lang))
+
+    return all_texts
+
+
+async def _get_texts_by_collection_id(
+    collection_id: str,
+    language: str,
+    skip: int,
+    limit: int,
+) -> Tuple[List[TextDTO], int]:
+    texts = await _fetch_all_texts_for_collection(collection_id)
+
+    total = len(texts)
+    texts.sort(
+        key=lambda text: TextUtils.get_language_priority(text.language, language)
+    )
+
+    track_skip = 0
+    track_limit = 0
+    text_list: List[TextDTO] = []
+    for text in texts:
+        if track_skip < skip:
+            track_skip += 1
+            continue
+        text_list.append(text)
+        track_limit += 1
+        if track_limit >= limit:
+            break
+
+    return text_list, total
+
+
+async def get_texts_by_collection_from_openpecha(
+    collection_id: str,
+    language: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 10,
+) -> TextsCategoryResponse:
+    if not language:
+        language = get("DEFAULT_LANGUAGE")
+
+    texts, total = await _get_texts_by_collection_id(
+        collection_id=collection_id,
+        language=language,
+        skip=skip,
+        limit=limit,
+    )
 
     collection = CollectionModel(
         id=collection_id,
@@ -111,8 +135,8 @@ async def get_texts_by_collection_from_openpecha(
 
     return TextsCategoryResponse(
         collection=collection,
-        texts=collected_texts,
-        total=len(collected_texts),
+        texts=texts,
+        total=total,
         skip=skip,
         limit=limit,
     )
