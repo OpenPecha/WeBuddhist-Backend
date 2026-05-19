@@ -36,7 +36,7 @@ def _extract_title(title_payload: Any, language: Optional[str] = None) -> str:
     return ""
 
 
-def _map_external_text_to_dto(item: Dict[str, Any], language: Optional[str] = None) -> TextDTO:
+def map_external_text_to_dto(item: Dict[str, Any], language: Optional[str] = None) -> TextDTO:
     title = _extract_title(item.get("title", {}), language)
     date_value = item.get("date") or ""
 
@@ -97,7 +97,7 @@ async def get_texts_by_collection_from_openpecha(
         for item in items:
             if remaining <= 0:
                 break
-            collected_texts.append(_map_external_text_to_dto(item, lang))
+            collected_texts.append(map_external_text_to_dto(item, lang))
             remaining -= 1
 
     collection = CollectionModel(
@@ -135,11 +135,10 @@ async def get_text_by_id_from_openpecha(text_id: str) -> TextDTO:
             detail=f"Text with id '{text_id}' not found",
         )
 
-    return _map_external_text_to_dto(data, data.get("language"))
+    return map_external_text_to_dto(data, data.get("language"))
 
 
 async def fetch_text_from_external_api(text_id: str) -> Dict[str, Any]:
-    """Fetch text data from external OpenPecha API."""
     endpoint = f"{get('EXTERNAL_DEV_PECHA_API_URL')}/v2/texts/{text_id}"
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
@@ -160,8 +159,7 @@ async def fetch_text_from_external_api(text_id: str) -> Dict[str, Any]:
         )
 
 
-async def _fetch_translation_details(translation_ids: List[str]) -> List[Dict[str, Any]]:
-    """Fetch details for all translation IDs from external API."""
+async def fetch_translation_details(translation_ids: List[str]) -> List[Dict[str, Any]]:
     translation_details = []
     for translation_id in translation_ids:
         try:
@@ -174,8 +172,7 @@ async def _fetch_translation_details(translation_ids: List[str]) -> List[Dict[st
     return translation_details
 
 
-def _map_external_text_to_text_version(item: Dict[str, Any], language: Optional[str] = None) -> TextVersion:
-    """Map external API response to TextVersion model."""
+def map_external_text_to_text_version(item: Dict[str, Any], language: Optional[str] = None) -> TextVersion:
     title = _extract_title(item.get("title", {}), language)
     date_value = item.get("date") or ""
     
@@ -199,7 +196,7 @@ def _map_external_text_to_text_version(item: Dict[str, Any], language: Optional[
     )
 
 
-def _filter_versions_by_language(
+def filter_versions_by_language(
     versions: List[TextVersion], 
     language: Optional[str]
 ) -> List[TextVersion]:
@@ -209,7 +206,7 @@ def _filter_versions_by_language(
     return [v for v in versions if v.language == language]
 
 
-def _paginate_versions(
+def paginate_versions(
     versions: List[TextVersion], 
     skip: int, 
     limit: int
@@ -224,13 +221,7 @@ async def get_text_versions_from_openpecha(
     skip: int = 0,
     limit: int = 10
 ) -> TextVersionResponse:
-    """
-    Get text versions from external OpenPecha API.
-    
-    1. Fetch text data from external API
-    2. Loop through translations array and fetch each translation's details
-    3. Transform data to match TextVersionResponse format
-    """
+
     text_data = await fetch_text_from_external_api(text_id)
     
     if not text_data:
@@ -239,7 +230,7 @@ async def get_text_versions_from_openpecha(
             detail=f"Text with id '{text_id}' not found",
         )
     
-    root_text = _map_external_text_to_dto(text_data, text_data.get("language"))
+    root_text = map_external_text_to_dto(text_data, text_data.get("language"))
     
     translation_ids = text_data.get("translations", [])
     
@@ -249,18 +240,62 @@ async def get_text_versions_from_openpecha(
             versions=[]
         )
     
-    translation_details = await _fetch_translation_details(translation_ids)
+    translation_details = await fetch_translation_details(translation_ids)
     
     versions = [
-        _map_external_text_to_text_version(item, item.get("language"))
+        map_external_text_to_text_version(item, item.get("language"))
         for item in translation_details
     ]
     
-    filtered_versions = _filter_versions_by_language(versions, language)
+    filtered_versions = filter_versions_by_language(versions, language)
     
-    paginated_versions = _paginate_versions(filtered_versions, skip, limit)
+    paginated_versions = paginate_versions(filtered_versions, skip, limit)
     
     return TextVersionResponse(
         text=root_text,
         versions=paginated_versions
     )
+
+
+async def fetch_commentary_details(commentary_ids: List[str]) -> List[Dict[str, Any]]:
+    commentary_details = []
+    for commentary_id in commentary_ids:
+        try:
+            data = await fetch_text_from_external_api(commentary_id)
+            if data:
+                commentary_details.append(data)
+        except HTTPException as e:
+            logger.warning(f"Failed to fetch commentary {commentary_id}: {e.detail}")
+            continue
+    return commentary_details
+
+
+async def get_text_commentaries_from_openpecha(
+    text_id: str,
+    skip: int = 0,
+    limit: int = 10
+) -> List[TextDTO]:
+
+    text_data = await fetch_text_from_external_api(text_id)
+    
+    if not text_data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Text with id '{text_id}' not found",
+        )
+    
+    commentary_ids = text_data.get("commentaries", [])
+    
+    if not commentary_ids:
+        return []
+    
+    commentary_details = await fetch_commentary_details(commentary_ids)
+    
+    commentaries = [
+        map_external_text_to_dto(item, item.get("language"))
+        for item in commentary_details
+    ]
+    
+    paginated_commentaries = commentaries[skip:skip + limit]
+    
+    return paginated_commentaries

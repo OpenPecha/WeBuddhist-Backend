@@ -1,4 +1,4 @@
-from typing import Annotated, Optional
+from typing import Annotated, Optional, List
 
 from fastapi import APIRouter, Query
 from starlette import status
@@ -8,6 +8,7 @@ from .texts_openpecha_service import (
     get_texts_by_collection_from_openpecha,
     get_text_by_id_from_openpecha,
     get_text_versions_from_openpecha,
+    get_text_commentaries_from_openpecha,
 )
 
 texts_v2_router = APIRouter(
@@ -56,6 +57,18 @@ async def get_text_versions(
     return await get_text_versions_from_openpecha(
         text_id=text_id,
         language=language,
+        skip=skip,
+        limit=limit
+    )
+
+@texts_v2_router.get("/{text_id}/commentaries", status_code=status.HTTP_200_OK)
+async def get_text_commentaries(
+    text_id: str,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, le=100)
+) -> List[TextDTO]:
+    return await get_text_commentaries_from_openpecha(
+        text_id=text_id,
         skip=skip,
         limit=limit
     )
