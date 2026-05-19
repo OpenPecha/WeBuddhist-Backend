@@ -84,6 +84,7 @@ def get_series_paginated(
     include_deleted: bool = False,
     order_by_field=None,
     order_desc: bool = True,
+    author_id: Optional[UUID] = None,
 ) -> Tuple[List[Series], int]:
 
     filters = []
@@ -91,6 +92,8 @@ def get_series_paginated(
         filters.append(Series.deleted_at.is_(None))
     if search:
         filters.append(cast(Series.name, String).ilike(f"%{search}%"))
+    if author_id is not None:
+        filters.append(Series.author_id == author_id)
 
     query = db.query(Series)
     if filters:

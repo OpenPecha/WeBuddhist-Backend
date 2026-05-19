@@ -342,3 +342,96 @@ def test_create_series_rejects_invalid_language_key_in_plans():
         headers={"Authorization": "Bearer dummy"},
     )
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_get_cms_series_list_success(sample_series_list_response):
+    with patch(
+        "pecha_api.plans.series.series_view.get_cms_filtered_series",
+        return_value=sample_series_list_response,
+    ) as mock_service:
+        response = client.get(
+            "/cms/series",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        mock_service.assert_called_once_with(
+            token="dummy", search=None, skip=0, limit=10
+        )
+
+        assert data["total"] == 1
+        assert len(data["series"]) == 1
+
+
+def test_get_cms_series_list_passes_query_params(sample_series_dto):
+    empty_list = SeriesListResponse(series=[], skip=2, limit=5, total=0)
+    with patch(
+        "pecha_api.plans.series.series_view.get_cms_filtered_series",
+        return_value=empty_list,
+    ) as mock_service:
+        response = client.get(
+            "/cms/series",
+            params={"search": "meditation", "skip": 2, "limit": 5},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(
+            token="dummy", search="meditation", skip=2, limit=5
+        )
+
+
+def test_get_cms_series_by_id_success(sample_series_dto):
+    series_id = sample_series_dto.id
+    with patch(
+        "pecha_api.plans.series.series_view.get_cms_series_detail",
+        return_value=sample_series_dto,
+    ) as mock_detail:
+        response = client.get(
+            f"/cms/series/{series_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_detail.assert_called_once_with(
+            token="dummy", series_id=series_id
+        )
+
+        data = response.json()
+        assert data["id"] == str(sample_series_dto.id)
+
+
+def test_get_cms_series_by_id_not_found():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.get_cms_series_detail",
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Series with id '{series_id}' not found",
+        ),
+    ):
+        response = client.get(
+            f"/cms/series/{series_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_get_cms_series_by_id_forbidden():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.get_cms_series_detail",
+        side_effect=HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this series",
+        ),
+    ):
+        response = client.get(
+            f"/cms/series/{series_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
