@@ -1,4 +1,3 @@
-import logging
 from typing import Optional, Dict, Any, List, Tuple
 
 from fastapi import HTTPException
@@ -11,8 +10,6 @@ from pecha_api.texts.texts_response_models import V2TextDTO, V2TextsCategoryResp
 from pecha_api.collections.collections_response_models import V2CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
 from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
-
-logger = logging.getLogger(__name__)
 
 
 def _extract_title(title_payload: Any, language: Optional[str] = None) -> str:
@@ -52,7 +49,6 @@ async def _fetch_all_texts_for_collection(collection_id: str) -> List[V2TextDTO]
                 offset=0,
             )
         except Exception as e:
-            logger.error(f"Failed to fetch texts for language={lang}, category={collection_id}: {e}")
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Failed to fetch texts from upstream service",
@@ -115,7 +111,10 @@ async def get_texts_by_collection_from_openpecha(
         if category_data:
             category_title = _extract_title(category_data.get("title", {}), language)
     except Exception as e:
-        logger.warning(f"Failed to fetch category title for {collection_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch category title from upstream service",
+        )
 
     collection = V2CollectionModel(
         id=collection_id,
@@ -136,7 +135,6 @@ async def get_text_by_id_from_openpecha(text_id: str) -> V2TextDTO:
     try:
         data = await fetch_text_by_id(text_id)
     except Exception as e:
-        logger.error(f"Failed to fetch text {text_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch text from upstream service",
