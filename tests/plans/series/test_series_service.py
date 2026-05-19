@@ -14,6 +14,8 @@ from pecha_api.plans.series.series_service import (
     get_filtered_series,
     get_series_detail,
     update_existing_series,
+    get_cms_filtered_series,
+    get_cms_series_detail,
 )
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
@@ -1250,3 +1252,181 @@ def test_validate_plan_ids_dedupes_before_fetching():
     mock_get_plans.assert_called_once()
     fetched_ids = mock_get_plans.call_args.kwargs["plan_ids"]
     assert fetched_ids.count(plan_id) == 1
+
+
+# ---------------------------------------------------------------------------
+# CMS GET endpoints — get_cms_filtered_series
+# ---------------------------------------------------------------------------
+
+def test_get_cms_filtered_series_scopes_to_current_author_when_not_admin():
+    author_id = uuid.uuid4()
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.name = {"en": "Mine"}
+    row.image = None
+    row.author_id = author_id
+    row.featured = False
+    row.status = PlanStatus.DRAFT
+    row.plans = None
+
+    mock_author = _make_mock_author(author_id, is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_paginated",
+               return_value=([row], 1)) as mock_repo:
+        _session_local_context(mock_session_local)
+
+        result = get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10)
+
+    call_kwargs = mock_repo.call_args.kwargs
+    assert call_kwargs["author_id"] == author_id
+    assert call_kwargs["search"] is None
+    assert call_kwargs["skip"] == 0
+    assert call_kwargs["limit"] == 10
+    assert call_kwargs["order_by_field"] == Series.created_at
+    assert call_kwargs["order_desc"] is True
+
+    assert isinstance(result, SeriesListResponse)
+    assert result.total == 1
+    assert len(result.series) == 1
+
+
+def test_get_cms_filtered_series_admin_sees_all_authors():
+    admin_id = uuid.uuid4()
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.name = {"en": "Someone else's"}
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.featured = False
+    row.status = PlanStatus.DRAFT
+    row.plans = None
+
+    mock_admin = _make_mock_author(admin_id, is_admin=True)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.get_series_paginated",
+               return_value=([row], 1)) as mock_repo:
+        _session_local_context(mock_session_local)
+
+        get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10)
+
+    call_kwargs = mock_repo.call_args.kwargs
+    assert call_kwargs["author_id"] is None
+
+
+def test_get_cms_filtered_series_passes_search_and_pagination():
+    author_id = uuid.uuid4()
+    mock_author = _make_mock_author(author_id, is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_paginated",
+               return_value=([], 0)) as mock_repo:
+        _session_local_context(mock_session_local)
+
+        get_cms_filtered_series(token="dummy", search="meditation", skip=5, limit=20)
+
+    call_kwargs = mock_repo.call_args.kwargs
+    assert call_kwargs["search"] == "meditation"
+    assert call_kwargs["skip"] == 5
+    assert call_kwargs["limit"] == 20
+    assert call_kwargs["author_id"] == author_id
+
+
+# ---------------------------------------------------------------------------
+# CMS GET endpoints — get_cms_series_detail
+# ---------------------------------------------------------------------------
+
+def test_get_cms_series_detail_returns_dto_when_owner():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    row = MagicMock()
+    row.id = series_id
+    row.name = {"en": "Mine"}
+    row.image = None
+    row.author_id = author_id
+    row.featured = False
+    row.status = PlanStatus.DRAFT
+    row.plans = []
+
+    mock_author = _make_mock_author(author_id, is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=row):
+        _session_local_context(mock_session_local)
+
+        dto = get_cms_series_detail(token="dummy", series_id=series_id)
+
+    assert dto.id == series_id
+    assert dto.author_id == author_id
+
+
+def test_get_cms_series_detail_raises_404_when_not_found():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    mock_author = _make_mock_author(author_id)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=None):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            get_cms_series_detail(token="dummy", series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert str(series_id) in exc.value.detail
+
+
+def test_get_cms_series_detail_raises_403_when_non_admin_other_author():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    other_author_id = uuid.uuid4()
+
+    row = MagicMock()
+    row.id = series_id
+    row.author_id = other_author_id
+
+    mock_author = _make_mock_author(author_id, is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=row):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            get_cms_series_detail(token="dummy", series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_cms_series_detail_admin_can_view_other_author_series():
+    series_id = uuid.uuid4()
+    admin_id = uuid.uuid4()
+    other_author_id = uuid.uuid4()
+
+    row = MagicMock()
+    row.id = series_id
+    row.name = {"en": "Someone else's"}
+    row.image = None
+    row.author_id = other_author_id
+    row.featured = False
+    row.status = PlanStatus.DRAFT
+    row.plans = []
+
+    mock_admin = _make_mock_author(admin_id, is_admin=True)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=row):
+        _session_local_context(mock_session_local)
+
+        dto = get_cms_series_detail(token="dummy", series_id=series_id)
+
+    assert dto.id == series_id
+    assert dto.author_id == other_author_id

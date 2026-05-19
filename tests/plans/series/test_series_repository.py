@@ -116,6 +116,32 @@ def test_get_series_paginated_with_search_applies_filter_and_pagination():
     filtered.return_value.order_by.return_value.offset.return_value.limit.assert_called_once_with(20)
 
 
+def test_get_series_paginated_with_author_id_applies_filter():
+    db = _make_session_mock()
+    row = MagicMock(spec=Series)
+    author_id = uuid.uuid4()
+
+    filtered = MagicMock()
+    filtered.count.return_value = 1
+    ordered = MagicMock()
+    ordered.offset.return_value.limit.return_value.all.return_value = [row]
+    filtered.order_by.return_value = ordered
+
+    base_query = MagicMock()
+    base_query.filter.return_value = filtered
+    db.query.return_value = base_query
+
+    rows, total = get_series_paginated(
+        db=db, search=None, skip=0, limit=10, author_id=author_id
+    )
+
+    assert rows == [row]
+    assert total == 1
+    assert base_query.filter.call_count == 1
+    filter_args = base_query.filter.call_args[0]
+    assert len(filter_args) == 2
+
+
 def test_get_series_by_id_returns_series_when_found():
     db = _make_session_mock()
     series_id = uuid.uuid4()
