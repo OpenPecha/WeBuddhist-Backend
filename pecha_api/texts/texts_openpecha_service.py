@@ -5,7 +5,6 @@ from starlette import status
 
 from pecha_api.config import get
 from pecha_api.texts.texts_enums import LANGUAGE_ORDERS
-from pecha_api.texts.texts_utils import TextUtils
 from pecha_api.texts.texts_response_models import V2TextDTO, V2TextsCategoryResponse
 from pecha_api.collections.collections_response_models import V2CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
@@ -36,29 +35,29 @@ def _map_external_text_to_dto(item: Dict[str, Any], language: Optional[str] = No
     )
 
 
-async def _fetch_all_texts_for_collection(collection_id: str) -> List[V2TextDTO]:
-    all_texts: List[V2TextDTO] = []
-    languages = list(LANGUAGE_ORDERS.get("en", {}).keys())
+def _languages_in_priority_order(language: str) -> List[str]:
+    priority_map = LANGUAGE_ORDERS.get(language) or LANGUAGE_ORDERS["en"]
+    return sorted(priority_map.keys(), key=lambda lang: priority_map[lang])
 
-    for lang in languages:
-        try:
-            data = await fetch_texts_by_category(
-                category_id=collection_id,
-                language=lang,
-                limit=100,
-                offset=0,
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Failed to fetch texts from upstream service",
-            )
 
-        items = data.get("items", [])
-        for item in items:
-            all_texts.append(_map_external_text_to_dto(item, lang))
-
-    return all_texts
+async def _fetch_language_page(
+    collection_id: str,
+    language: str,
+    offset: int,
+    limit: int,
+) -> Dict[str, Any]:
+    try:
+        return await fetch_texts_by_category(
+            category_id=collection_id,
+            language=language,
+            offset=offset,
+            limit=limit,
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch texts from upstream service",
+        )
 
 
 async def _get_texts_by_collection_id(
@@ -67,26 +66,45 @@ async def _get_texts_by_collection_id(
     skip: int,
     limit: int,
 ) -> Tuple[List[V2TextDTO], int]:
-    texts = await _fetch_all_texts_for_collection(collection_id)
+    languages = _languages_in_priority_order(language)
 
-    total = len(texts)
-    texts.sort(
-        key=lambda text: TextUtils.get_language_priority(text.language, language)
-    )
+    remaining_skip = skip
+    remaining_limit = limit
+    grand_total = 0
+    collected: List[V2TextDTO] = []
 
-    track_skip = 0
-    track_limit = 0
-    text_list: List[V2TextDTO] = []
-    for text in texts:
-        if track_skip < skip:
-            track_skip += 1
+    for lang in languages:
+        if remaining_limit > 0:
+            page = await _fetch_language_page(
+                collection_id=collection_id,
+                language=lang,
+                offset=remaining_skip,
+                limit=remaining_limit,
+            )
+        else:
+            page = await _fetch_language_page(
+                collection_id=collection_id,
+                language=lang,
+                offset=0,
+                limit=1,
+            )
+
+        lang_total = int(page.get("total", 0))
+        grand_total += lang_total
+
+        if remaining_limit == 0:
             continue
-        text_list.append(text)
-        track_limit += 1
-        if track_limit >= limit:
-            break
 
-    return text_list, total
+        if lang_total <= remaining_skip:
+            remaining_skip -= lang_total
+            continue
+
+        items = page.get("items", [])
+        collected.extend(_map_external_text_to_dto(item, lang) for item in items)
+        remaining_skip = 0
+        remaining_limit -= len(items)
+
+    return collected, grand_total
 
 
 async def get_texts_by_collection_from_openpecha(
