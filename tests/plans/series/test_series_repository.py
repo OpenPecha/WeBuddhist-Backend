@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from pecha_api.plans.series.series_model import Series
-from pecha_api.plans.series.series_repository import get_series_by_id, get_series_paginated, save_series
+from pecha_api.plans.series.series_repository import get_series_by_id, get_series_paginated, save_series_with_plans
 
 
 def _make_session_mock() -> Session:
@@ -17,7 +17,7 @@ def test_save_series_success_commits_and_returns_series():
     db = _make_session_mock()
     series = MagicMock(name="SeriesInstance")
 
-    result = save_series(db=db, series=series)
+    result = save_series_with_plans(db=db, series=series, plan_ids=None)
 
     assert result is series
     db.add.assert_called_once_with(series)
@@ -32,7 +32,7 @@ def test_save_series_integrity_error_propagates():
     db.commit.side_effect = IntegrityError("statement", {}, orig)
 
     with pytest.raises(IntegrityError):
-        save_series(db=db, series=series)
+        save_series_with_plans(db=db, series=series, plan_ids=None)
 
 
 def test_get_series_paginated_no_search_returns_rows_and_total():

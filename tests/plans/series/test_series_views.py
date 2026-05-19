@@ -1,6 +1,6 @@
 import uuid
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import patch, MagicMock
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -8,10 +8,23 @@ from starlette import status
 
 from pecha_api.app import api
 from pecha_api.plans.plans_enums import PlanStatus, LanguageCode, DifficultyLevel
-from pecha_api.plans.series.service_response_models import SeriesDTO, SeriesListResponse, SeriesPlanDTO
+from pecha_api.plans.series.series_response_models import SeriesDTO, SeriesListResponse, SeriesPlanDTO
 
 
 client = TestClient(api)
+
+
+def sample_series_dto_factory() -> SeriesDTO:
+    return SeriesDTO(
+        id=uuid.uuid4(),
+        name={"en": "Foundations of Meditation"},
+        image=None,
+        image_key=None,
+        author_id=uuid.uuid4(),
+        featured=False,
+        status=PlanStatus.DRAFT,
+        total_days=0,
+    )
 
 
 @pytest.fixture
@@ -38,19 +51,17 @@ def sample_series_list_response(sample_series_dto):
     )
 
 
-@pytest.mark.asyncio
-async def test_get_series_list_success(sample_series_list_response):
+def test_get_series_list_success(sample_series_list_response):
     with patch(
         "pecha_api.plans.series.public_series_view.get_filtered_series",
         return_value=sample_series_list_response,
-        new_callable=AsyncMock,
     ) as mock_service:
         response = client.get("/series")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_awaited_once_with(search=None, skip=0, limit=10)
+        mock_service.assert_called_once_with(search=None, skip=0, limit=10)
 
         assert "series" in data
         assert data["skip"] == 0
@@ -67,20 +78,18 @@ async def test_get_series_list_success(sample_series_list_response):
         assert item["image_key"] == sample_series_list_response.series[0].image_key
 
 
-@pytest.mark.asyncio
-async def test_get_series_list_with_search_pagination(sample_series_dto):
+def test_get_series_list_with_search_pagination(sample_series_dto):
     empty_list = SeriesListResponse(series=[], skip=2, limit=5, total=0)
     with patch(
         "pecha_api.plans.series.public_series_view.get_filtered_series",
         return_value=empty_list,
-        new_callable=AsyncMock,
     ) as mock_service:
         response = client.get("/series", params={"search": "meditation", "skip": 2, "limit": 5})
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_awaited_once_with(search="meditation", skip=2, limit=5)
+        mock_service.assert_called_once_with(search="meditation", skip=2, limit=5)
 
         assert data["series"] == []
         assert data["skip"] == 2
@@ -88,12 +97,11 @@ async def test_get_series_list_with_search_pagination(sample_series_dto):
         assert data["total"] == 0
 
 
-@pytest.mark.asyncio
-async def test_create_series_success(sample_series_dto):
+def test_create_series_success(sample_series_dto):
     author_id = uuid.uuid4()
     payload = {
         "name": {"en": "New Series"},
-        "image": "series/uploads/key.jpg",
+        "image_key": "series/uploads/key.jpg",
         "featured": False,
     }
 
@@ -120,16 +128,15 @@ async def test_create_series_success(sample_series_dto):
         call_kwargs = mock_create.call_args.kwargs
         assert call_kwargs["token"] == "dummy"
         assert call_kwargs["create_series_request"].name == payload["name"]
-        assert call_kwargs["create_series_request"].image == payload["image"]
+        assert call_kwargs["create_series_request"].image_key == payload["image_key"]
         assert call_kwargs["create_series_request"].featured is False
 
-        assert data["id"] == str(sample_series_dto.id)
+        assert data["id"] == str(sample_series_dto.id)  
         assert data["name"] == sample_series_dto.name
         assert data["status"] == sample_series_dto.status.value
 
 
-@pytest.mark.asyncio
-async def test_create_series_defaults_optional_featured(sample_series_dto):
+def test_create_series_defaults_optional_featured(sample_series_dto):
     author_id = uuid.uuid4()
     payload = {
         "name": {"en": "Minimal"},
@@ -156,8 +163,7 @@ async def test_create_series_defaults_optional_featured(sample_series_dto):
         assert mock_create.call_args.kwargs["create_series_request"].featured is False
 
 
-@pytest.mark.asyncio
-async def test_create_series_validation_error_missing_required_fields():
+def test_create_series_validation_error_missing_required_fields():
     response = client.post(
         "/cms/series",
         json={},
@@ -167,8 +173,7 @@ async def test_create_series_validation_error_missing_required_fields():
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
-@pytest.mark.asyncio
-async def test_get_series_by_id_success(sample_series_dto):
+def test_get_series_by_id_success(sample_series_dto):
     series_id = sample_series_dto.id
     with patch(
         "pecha_api.plans.series.public_series_view.get_series_detail",
@@ -185,8 +190,7 @@ async def test_get_series_by_id_success(sample_series_dto):
         assert data["status"] == sample_series_dto.status.value
 
 
-@pytest.mark.asyncio
-async def test_get_series_by_id_not_found():
+def test_get_series_by_id_not_found():
     series_id = uuid.uuid4()
     with patch(
         "pecha_api.plans.series.public_series_view.get_series_detail",
@@ -200,8 +204,7 @@ async def test_get_series_by_id_not_found():
     assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
-@pytest.mark.asyncio
-async def test_get_series_by_id_includes_total_days_in_response():
+def test_get_series_by_id_includes_total_days_in_response():
     series_id = uuid.uuid4()
     plan_1_id = uuid.uuid4()
     plan_2_id = uuid.uuid4()
@@ -269,8 +272,7 @@ async def test_get_series_by_id_includes_total_days_in_response():
         assert data["plans"][1]["total_days"] == 3
 
 
-@pytest.mark.asyncio
-async def test_get_series_list_includes_total_days_zero():
+def test_get_series_list_includes_total_days_zero():
     series_id = uuid.uuid4()
     series_dto = SeriesDTO(
         id=series_id,
@@ -294,7 +296,6 @@ async def test_get_series_list_includes_total_days_zero():
     with patch(
         "pecha_api.plans.series.public_series_view.get_filtered_series",
         return_value=series_list_response,
-        new_callable=AsyncMock,
     ):
         response = client.get("/series")
 
@@ -303,3 +304,41 @@ async def test_get_series_list_includes_total_days_zero():
 
         assert len(data["series"]) == 1
         assert data["series"][0]["total_days"] == 0
+
+
+def test_update_series_accepts_empty_body():
+    series_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.plans.series.series_view.update_existing_series",
+        return_value=sample_series_dto_factory(),
+    ) as mock_update:
+        response = client.put(
+            f"/cms/series/{series_id}",
+            json={},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    mock_update.assert_called_once()
+
+
+def test_update_series_rejects_invalid_language_key_in_plans():
+    series_id = uuid.uuid4()
+    payload = {"plans": {"FOO": [str(uuid.uuid4())]}}
+    response = client.put(
+        f"/cms/series/{series_id}",
+        json=payload,
+        headers={"Authorization": "Bearer dummy"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_create_series_rejects_invalid_language_key_in_plans():
+    payload = {"name": {"en": "Test"}, "plans": {"BAD": [str(uuid.uuid4())]}}
+    response = client.post(
+        "/cms/series",
+        json=payload,
+        headers={"Authorization": "Bearer dummy"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
