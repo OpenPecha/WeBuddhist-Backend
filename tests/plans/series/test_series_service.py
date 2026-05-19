@@ -10,6 +10,7 @@ from starlette import status
 from pecha_api.plans.plans_enums import DifficultyLevel, LanguageCode, PlanStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_service import (
+    _validate_plan_ids,
     create_new_series,
     get_filtered_series,
     get_series_detail,
@@ -1430,3 +1431,64 @@ def test_get_cms_series_detail_admin_can_view_other_author_series():
 
     assert dto.id == series_id
     assert dto.author_id == other_author_id
+
+
+def test_get_filtered_series_handles_plain_string_status_and_language():
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = []
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.featured = False
+    row.status = PlanStatus.DRAFT.value
+    row.plans = None
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_paginated",
+        return_value=([row], 1),
+    ):
+        _session_local_context(mock_session_local)
+
+        result = get_filtered_series(search=None, skip=0, limit=10)
+
+    assert result.total == 1
+    assert result.series[0].status == PlanStatus.DRAFT
+    assert result.series[0].metadata == []
+
+
+def test_get_filtered_series_metadata_uses_string_language():
+    entry = MagicMock()
+    entry.id = uuid.uuid4()
+    entry.title = "Title"
+    entry.description = None
+    entry.language = "EN"
+
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = [entry]
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.featured = False
+    row.status = PlanStatus.DRAFT
+    row.plans = None
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_paginated",
+        return_value=([row], 1),
+    ):
+        _session_local_context(mock_session_local)
+
+        result = get_filtered_series(search=None, skip=0, limit=10)
+
+    assert result.series[0].metadata[0].language == "EN"
+
+
+def test_validate_plan_ids_noop_when_empty():
+    with patch("pecha_api.plans.series.series_service.get_plans_by_ids") as mock_get_plans:
+        _validate_plan_ids(
+            db=MagicMock(),
+            plan_ids=[],
+            current_author_id=uuid.uuid4(),
+            is_admin=False,
+        )
+    mock_get_plans.assert_not_called()
