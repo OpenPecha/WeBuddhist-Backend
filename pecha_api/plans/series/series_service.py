@@ -139,61 +139,12 @@ def get_series_detail(series_id: UUID) -> SeriesDTO:
     return _series_to_dto(row, include_plans=True)
 
 
-def _validate_plan_ids_for_attach(
+def _validate_plan_ids(
     db,
     plan_ids: List[UUID],
     current_author_id: UUID,
     is_admin: bool,
-) -> None:
-    """Validate that every plan_id can be attached to a new series.
-    
-    Rules (fail on first violation):
-    1. Plan must exist.
-    2. Plan must not be soft-deleted.
-    3. Plan must not already be attached to another series.
-    4. If not admin: plan must belong to current author.
-    
-    Raises HTTPException(400) on any violation. Does no DB writes.
-    """
-    if not plan_ids:
-        return
-    
-    seen = set()
-    unique_ids = [pid for pid in plan_ids if not (pid in seen or seen.add(pid))]
-    
-    fetched = get_plans_by_ids(db=db, plan_ids=unique_ids)
-    fetched_by_id = {p.id: p for p in fetched}
-    
-    for pid in unique_ids:
-        plan = fetched_by_id.get(pid)
-        if plan is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Plan with id '{pid}' does not exist",
-            )
-        if plan.deleted_at is not None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Plan with id '{pid}' does not exist",
-            )
-        if plan.series_id is not None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Plan with id '{pid}' is already attached to another series",
-            )
-        if not is_admin and plan.author_id != current_author_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Plan with id '{pid}' belongs to another author",
-            )
-
-
-def _validate_plan_ids_for_replace(
-    db,
-    plan_ids: List[UUID],
-    current_series_id: UUID,
-    current_author_id: UUID,
-    is_admin: bool,
+    current_series_id: Optional[UUID] = None,
 ) -> None:
     if not plan_ids:
         return
@@ -263,12 +214,12 @@ def update_existing_series(
                 current_attached = {p.id for p in (series.plans or []) if p.deleted_at is None}
 
                 if new_plan_ids:
-                    _validate_plan_ids_for_replace(
+                    _validate_plan_ids(
                         db=db_session,
                         plan_ids=new_plan_ids,
-                        current_series_id=series_id,
                         current_author_id=current_author.id,
                         is_admin=bool(current_author.is_admin),
+                        current_series_id=series_id,
                     )
 
                 new_set = set(new_plan_ids)
@@ -318,7 +269,7 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
     try:
         with SessionLocal() as db_session:
             if flat_plan_ids:
-                _validate_plan_ids_for_attach(
+                _validate_plan_ids(
                     db=db_session,
                     plan_ids=flat_plan_ids,
                     current_author_id=current_author.id,
