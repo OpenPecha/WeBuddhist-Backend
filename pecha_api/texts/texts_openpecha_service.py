@@ -134,7 +134,7 @@ async def get_texts_by_collection_from_openpecha(
 async def get_text_by_id_from_openpecha(text_id: str) -> V2TextDTO:
     try:
         data = await fetch_text_by_id(text_id)
-    except Exception as e:
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch text from upstream service",
