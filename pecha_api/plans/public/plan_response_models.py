@@ -90,9 +90,16 @@ class PlansRepositoryResponse(BaseModel):
     plan_info: List[PlanWithAggregates]
     total: int
 
+class SeriesMetadataDTO(BaseModel):
+    id: UUID
+    title: str
+    description: Optional[str] = None
+    language: str
+
+
 class SeriesDTO(BaseModel):
     id: UUID
-    name: Optional[dict] = None
+    metadata: List[SeriesMetadataDTO] = []
     image: Optional[ImageUrlModel] = None
 
 class DailyPlanResponse(BaseModel):

@@ -2,9 +2,10 @@ from datetime import datetime
 from typing import List, Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_serializer
 
 from pecha_api.plans.plans_enums import PlanStatus
+from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
 
 DashboardTab = Literal["all", "series", "plans"]
 DashboardItemType = Literal["series", "plan"]
@@ -13,8 +14,11 @@ DashboardItemType = Literal["series", "plan"]
 class DashboardItemDTO(BaseModel):
     id: UUID
     type: DashboardItemType
-    title: str
+    title: Optional[str] = None
+    metadata: Optional[List[SeriesMetadataDTO]] = None
+    author_id: Optional[UUID] = None
     image_url: Optional[str] = None
+    image_key: Optional[str] = None
     status: PlanStatus
     featured: bool
     languages: List[str] = Field(default_factory=list)
@@ -22,6 +26,13 @@ class DashboardItemDTO(BaseModel):
     plans_count: Optional[int] = None
     updated_at: Optional[datetime] = None
     created_at: datetime
+
+    @model_serializer(mode="wrap")
+    def _omit_title_for_series(self, serializer):
+        data = serializer(self)
+        if self.type == "series":
+            data.pop("title", None)
+        return data
 
 
 class DashboardPaginationDTO(BaseModel):

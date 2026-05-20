@@ -9,7 +9,7 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_day_with_tasks_and_subtasks
 from datetime import date as DateType, timedelta, datetime as dt, timezone
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO
+from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO, SeriesMetadataDTO
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.plans_enums import ContentType
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
@@ -249,9 +249,26 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
         series_dto = None
         if plan.series:
             series_image = await get_image_url(image_url=plan.series.image)
+            metadata_entries = getattr(plan.series, "metadata_entries", None) or []
+            series_metadata = [
+                SeriesMetadataDTO(
+                    id=entry.id,
+                    title=entry.title,
+                    description=entry.description,
+                    language=entry.language.value
+                    if hasattr(entry.language, "value")
+                    else str(entry.language),
+                )
+                for entry in sorted(
+                    metadata_entries,
+                    key=lambda item: item.language.value
+                    if hasattr(item.language, "value")
+                    else str(item.language),
+                )
+            ]
             series_dto = SeriesDTO(
                 id=plan.series.id,
-                name=plan.series.name,
+                metadata=series_metadata,
                 image=series_image,
             )
 

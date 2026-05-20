@@ -10,6 +10,7 @@ from pecha_api.plans.dashboard.dashboard_response_models import (
     DashboardItemsResponse,
     DashboardPaginationDTO,
 )
+from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
 from pecha_api.plans.dashboard.dashboard_views import list_dashboard_items
 from pecha_api.plans.plans_enums import PlanStatus
 
@@ -27,8 +28,17 @@ async def test_list_dashboard_items_success():
             DashboardItemDTO(
                 id=item_id,
                 type="series",
-                title="Foundations",
+                metadata=[
+                    SeriesMetadataDTO(
+                        id=uuid.uuid4(),
+                        title="Foundations",
+                        description="Intro series",
+                        language="EN",
+                    )
+                ],
+                author_id=uuid.uuid4(),
                 image_url="https://example.com/image.jpg",
+                image_key="series/cover.jpg",
                 status=PlanStatus.DRAFT,
                 featured=True,
                 languages=["EN"],
