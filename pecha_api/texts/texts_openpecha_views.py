@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 from starlette import status
+from fastapi import Query
 
-from .texts_openpecha_services import TextDetailResponse, get_text_detail_by_id
+from .texts_openpecha_services import get_text_detail_by_id
+from .text_openpecha_response_models import TextDetailResponse, TextDetailRequest
 
 texts_v2_router = APIRouter(
     prefix="/v2/texts",
@@ -12,11 +14,11 @@ texts_v2_router = APIRouter(
 
 
 @texts_v2_router.get(
-    "/{text_id}",
+    "/detail",
     response_model=TextDetailResponse,
     status_code=status.HTTP_200_OK,
-    summary="Get a text",
-    description="Retrieve a text by its OpenPecha ID, including local edition details."
+    summary="Get a text with pagination",
+    description="Retrieve a text by its OpenPecha ID, including local edition details with pagination."
 )
-async def read_text_by_id(text_id: str) -> TextDetailResponse:
-    return await get_text_detail_by_id(text_id=text_id)
+async def read_text_by_id(text_id: str, offset: int = Query(default=0), limit: int = Query(default=30)) -> TextDetailResponse:
+    return await get_text_detail_by_id(text_id=text_id, offset=offset, limit=limit)

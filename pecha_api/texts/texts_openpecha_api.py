@@ -12,6 +12,9 @@ from pecha_api.texts.text_openpecha_response_models import (
     CriticalEditionModel,
     TextDetailResponse,
     SegmentationResponseModel,
+    SegmentLineModel,
+    segmentSpans,
+    SegmentationSegmentResponseModel,
 )
 
 logger = logging.getLogger(__name__)
@@ -160,3 +163,48 @@ async def fetch_editions_segmentation(edition_id: str) -> list[SegmentationRespo
                 text_id=segmentation["text_id"]
             ) for segmentation in data
         ]
+
+
+async def fetch_segmentation_segments(segmentation_id: str, limit: int, offset: int) -> SegmentationSegmentResponseModel:
+    client = get_authenticated_open_pecha_client()
+
+    try:
+        response = await client.get_async_httpx_client().get(
+            f"/v2/segmentations/{segmentation_id}/segments",
+            params={"limit": limit, "offset": offset},
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch segmentation segments from OpenPecha API: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch segmentation segments from upstream service",
+        )
+
+    if response.status_code == 404:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Segmentation with id '{segmentation_id}' not found",
+        )
+
+    if response.status_code != 200:
+        logger.error(
+            f"Unexpected status {response.status_code} fetching segments for segmentation '{segmentation_id}'"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unexpected response from upstream service",
+        )
+
+    data = response.json()
+    return SegmentationSegmentResponseModel(
+        items=[
+            segmentSpans(
+                id=segment["id"],
+                lines=[SegmentLineModel(start=line["start"], end=line["end"]) for line in segment.get("lines", [])],
+            )
+            for segment in data.get("items", [])
+        ],
+        has_more=data["has_more"],
+        offset=data["offset"],
+        limit=data["limit"],
+    )

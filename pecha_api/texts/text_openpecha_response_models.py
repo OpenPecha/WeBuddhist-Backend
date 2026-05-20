@@ -5,6 +5,10 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 
+class TextDetailRequest(BaseModel):
+    offset: int = 0
+    limit: int = 30 # default limit is 30
+
 class ContributionModel(BaseModel):
     role: str
     person_id: Optional[str] = None
@@ -48,3 +52,20 @@ class SegmentationResponseModel(BaseModel):
     id: str
     edition_id: str
     text_id: str
+
+
+class SegmentLineModel(BaseModel):
+    start: int
+    end: int
+
+
+class segmentSpans(BaseModel):
+    id: str
+    lines: list[SegmentLineModel]
+
+
+class SegmentationSegmentResponseModel(BaseModel):
+    items: list[segmentSpans]
+    has_more: bool
+    offset: int
+    limit: int
