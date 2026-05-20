@@ -13,6 +13,7 @@ from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 from pecha_api.plans.reviews.plan_reviews_models import PlanReview
 from pecha_api.plans.favorites.favorites_models import Favorite
 from pecha_api.plans.series.series_model import Series
+from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.users.plan_users_models import UserTaskCompletion
 from pecha_api.users.users_models import Users, SocialMediaAccount, PasswordReset

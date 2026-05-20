@@ -10,6 +10,7 @@ from starlette import status
 from pecha_api.plans.plans_enums import DifficultyLevel, LanguageCode, PlanStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_service import (
+    _validate_plan_ids,
     create_new_series,
     get_filtered_series,
     get_series_detail,
@@ -17,7 +18,25 @@ from pecha_api.plans.series.series_service import (
     get_cms_filtered_series,
     get_cms_series_detail,
 )
-from pecha_api.plans.series.series_response_models import CreateSeriesRequest, UpdateSeriesRequest, SeriesListResponse
+from pecha_api.plans.series.series_response_models import (
+    CreateSeriesRequest,
+    UpdateSeriesRequest,
+    SeriesListResponse,
+    SeriesMetadataInput,
+)
+
+
+def _metadata_entry(title="Series A", language=LanguageCode.EN, description=None):
+    entry = MagicMock()
+    entry.id = uuid.uuid4()
+    entry.title = title
+    entry.description = description
+    entry.language = language
+    return entry
+
+
+def _metadata_input(title="Series A", language=LanguageCode.EN, description=None):
+    return SeriesMetadataInput(title=title, description=description, language=language)
 
 
 def _session_local_context(mock_session_local):
@@ -31,7 +50,7 @@ def test_get_filtered_series_maps_rows_to_response():
     author_id = uuid.uuid4()
     row = MagicMock()
     row.id = uuid.uuid4()
-    row.name = {"en": "Series A"}
+    row.metadata_entries = [_metadata_entry(title="Series A")]
     row.image = None
     row.author_id = author_id
     row.featured = True
@@ -62,7 +81,9 @@ def test_get_filtered_series_maps_rows_to_response():
     assert len(result.series) == 1
     dto = result.series[0]
     assert dto.id == row.id
-    assert dto.name == {"en": "Series A"}
+    assert len(dto.metadata) == 1
+    assert dto.metadata[0].title == "Series A"
+    assert dto.metadata[0].language == "EN"
     assert dto.image is None
     assert dto.image_key is None
     assert dto.author_id == author_id
@@ -73,7 +94,7 @@ def test_get_filtered_series_maps_rows_to_response():
 def test_get_filtered_series_presigns_image_when_key_present():
     row = MagicMock()
     row.id = uuid.uuid4()
-    row.name = {"en": "With cover"}
+    row.metadata_entries = [_metadata_entry(title="With cover")]
     row.image = "series/covers/x.jpg"
     row.author_id = uuid.uuid4()
     row.featured = False
@@ -112,13 +133,13 @@ def test_get_filtered_series_empty_repository():
 def test_create_new_series_persists_and_returns_dto():
     author_id = uuid.uuid4()
     request = CreateSeriesRequest(
-        name={"en": "New"},
+        metadata=[_metadata_input(title="New")],
         image_key="img/key.png",
         featured=True,
     )
     saved = MagicMock()
     saved.id = uuid.uuid4()
-    saved.name = request.name   
+    saved.metadata_entries = [_metadata_entry(title="New")]
     saved.image = request.image_key
     saved.author_id = author_id
     saved.featured = True
@@ -130,7 +151,10 @@ def test_create_new_series_persists_and_returns_dto():
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.save_series_with_plans",
         return_value=saved,
-    ) as mock_save, patch("pecha_api.plans.series.series_service.get", return_value="b"), patch(
+    ) as mock_save, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=saved,
+    ), patch("pecha_api.plans.series.series_service.get", return_value="b"), patch(
         "pecha_api.plans.series.series_service.generate_presigned_access_url",
         return_value="https://signed/img.png",
     ), patch(
@@ -143,13 +167,13 @@ def test_create_new_series_persists_and_returns_dto():
 
     mock_save.assert_called_once()
     passed_series = mock_save.call_args.kwargs["series"]
-    assert passed_series.name == request.name
+    assert mock_save.call_args.kwargs["metadata_entries"] == request.metadata
     assert passed_series.image == request.image_key
     assert passed_series.author_id == author_id
     assert passed_series.featured is True
 
     assert dto.id == saved.id
-    assert dto.name == request.name
+    assert dto.metadata[0].title == "New"
     assert dto.image_key == request.image_key
     assert dto.featured is True
     assert dto.status == PlanStatus.DRAFT
@@ -158,12 +182,12 @@ def test_create_new_series_persists_and_returns_dto():
 def test_create_new_series_featured_defaults_when_none():
     author_id = uuid.uuid4()
     request = CreateSeriesRequest(
-        name={"bo": "བོད་"},
+        metadata=[_metadata_input(title="བོད་", language=LanguageCode.BO)],
         featured=None,
     )
     saved = MagicMock()
     saved.id = uuid.uuid4()
-    saved.name = request.name
+    saved.metadata_entries = [_metadata_entry(title="བོད་", language=LanguageCode.BO)]
     saved.image = None
     saved.author_id = author_id
     saved.featured = False
@@ -176,6 +200,9 @@ def test_create_new_series_featured_defaults_when_none():
         "pecha_api.plans.series.series_service.save_series_with_plans",
         return_value=saved,
     ) as mock_save, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=saved,
+    ), patch(
         "pecha_api.plans.series.series_service.validate_and_extract_author_details",
         return_value=mock_author,
     ):
@@ -190,7 +217,7 @@ def test_create_new_series_featured_defaults_when_none():
 def test_create_new_series_integrity_error_raises_400():
     author_id = uuid.uuid4()
     request = CreateSeriesRequest(
-        name={"en": "Test"},
+        metadata=[_metadata_input(title="Test")],
     )
     orig = Exception("foreign key violation")
 
@@ -232,7 +259,7 @@ def test_get_series_detail_returns_dto_without_plans():
     series_id = uuid.uuid4()
     row = MagicMock()
     row.id = series_id
-    row.name = {"en": "Only series"}
+    row.metadata_entries = [_metadata_entry(title="Only series")]
     row.image = None
     row.author_id = uuid.uuid4()
     row.featured = False
@@ -292,7 +319,7 @@ def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
 
     row = MagicMock()
     row.id = series_id
-    row.name = {"en": "With plans"}
+    row.metadata_entries = [_metadata_entry(title="With plans")]
     row.image = None
     row.author_id = author_id
     row.featured = True
@@ -368,7 +395,7 @@ def test_get_series_detail_includes_total_days_for_each_plan():
 
     row = MagicMock()
     row.id = series_id
-    row.name = {"en": "Series with day counts"}
+    row.metadata_entries = [_metadata_entry(title="Series with day counts")]
     row.image = None
     row.author_id = author_id
     row.featured = False
@@ -410,7 +437,7 @@ def test_get_series_detail_total_days_zero_when_no_items():
 
     row = MagicMock()
     row.id = series_id
-    row.name = {"en": "Series with empty plan"}
+    row.metadata_entries = [_metadata_entry(title="Series with empty plan")]
     row.image = None
     row.author_id = author_id
     row.featured = False
@@ -436,7 +463,7 @@ def test_get_series_detail_total_days_zero_when_no_plans():
 
     row = MagicMock()
     row.id = series_id
-    row.name = {"en": "Series without plans"}
+    row.metadata_entries = [_metadata_entry(title="Series without plans")]
     row.image = None
     row.author_id = author_id
     row.featured = False
@@ -477,7 +504,7 @@ def test_get_series_detail_handles_plan_without_items_attribute():
 
     row = MagicMock()
     row.id = series_id
-    row.name = {"en": "Series with plan without items"}
+    row.metadata_entries = [_metadata_entry(title="Series with plan without items")]
     row.image = None
     row.author_id = author_id
     row.featured = False
@@ -512,7 +539,7 @@ def _make_existing_series(series_id, author_id, plans=None):
 def _make_refreshed_series(series_id, author_id):
     refreshed = MagicMock()
     refreshed.id = series_id
-    refreshed.name = {"en": "Updated"}
+    refreshed.metadata_entries = [_metadata_entry(title="Updated")]
     refreshed.image = None
     refreshed.author_id = author_id
     refreshed.featured = False
@@ -657,7 +684,11 @@ def test_update_existing_series_updates_name_image_featured():
     refreshed = _make_refreshed_series(series_id, author_id)
     mock_author = _make_mock_author(author_id)
 
-    request = UpdateSeriesRequest(name={"en": "New Name"}, image_key="covers/new.jpg", featured=True)
+    request = UpdateSeriesRequest(
+        metadata=[_metadata_input(title="New Name")],
+        image_key="covers/new.jpg",
+        featured=True,
+    )
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
@@ -667,7 +698,7 @@ def test_update_existing_series_updates_name_image_featured():
         update_existing_series(token="dummy", series_id=series_id, update_series_request=request)
 
     call_kwargs = mock_update.call_args.kwargs
-    assert call_kwargs["name"] == {"en": "New Name"}
+    assert call_kwargs["metadata_entries"] == request.metadata
     assert call_kwargs["image"] == "covers/new.jpg"
     assert call_kwargs["featured"] is True
 
@@ -680,7 +711,7 @@ def test_update_existing_series_sets_updated_at_and_updated_by():
     refreshed = _make_refreshed_series(series_id, author_id)
     mock_author = _make_mock_author(author_id, email="user@pecha.org")
 
-    request = UpdateSeriesRequest(name={"en": "Updated"})
+    request = UpdateSeriesRequest(metadata=[_metadata_input(title="Updated")])
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
@@ -726,7 +757,7 @@ def test_update_existing_series_returns_404_when_series_not_found():
     author_id = uuid.uuid4()
     mock_author = _make_mock_author(author_id)
 
-    request = UpdateSeriesRequest(name={"en": "Updated"})
+    request = UpdateSeriesRequest(metadata=[_metadata_input(title="Updated")])
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
@@ -749,7 +780,7 @@ def test_update_existing_series_returns_403_when_non_admin_other_author():
     existing = _make_existing_series(series_id, other_author_id)
     mock_author = _make_mock_author(author_id, is_admin=False)
 
-    request = UpdateSeriesRequest(name={"en": "Updated"})
+    request = UpdateSeriesRequest(metadata=[_metadata_input(title="Updated")])
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
@@ -773,7 +804,7 @@ def test_update_existing_series_admin_can_edit_other_author_series():
     refreshed = _make_refreshed_series(series_id, other_author_id)
     mock_author = _make_mock_author(author_id, is_admin=True)
 
-    request = UpdateSeriesRequest(name={"en": "Admin edit"})
+    request = UpdateSeriesRequest(metadata=[_metadata_input(title="Admin edit")])
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
@@ -922,7 +953,7 @@ def test_update_existing_series_omitting_featured_keeps_existing_value():
     refreshed = _make_refreshed_series(series_id, author_id)
     mock_author = _make_mock_author(author_id)
 
-    request = UpdateSeriesRequest(name={"en": "Renamed only"})
+    request = UpdateSeriesRequest(metadata=[_metadata_input(title="Renamed only")])
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
@@ -960,10 +991,10 @@ def test_update_existing_series_omitting_all_fields_is_noop_on_scalars():
     series_id = uuid.uuid4()
     author_id = uuid.uuid4()
     existing = _make_existing_series(series_id, author_id)
-    existing.name = {"en": "Original"}
+    existing.metadata_entries = [_metadata_entry(title="Original")]
     existing.image = "series/covers/original.jpg"
     existing.featured = False
-    original_name = existing.name
+    original_metadata = list(existing.metadata_entries)
     original_image = existing.image
     original_featured = existing.featured
     refreshed = _make_refreshed_series(series_id, author_id)
@@ -978,7 +1009,7 @@ def test_update_existing_series_omitting_all_fields_is_noop_on_scalars():
         _session_local_context(mock_session_local)
         update_existing_series(token="dummy", series_id=series_id, update_series_request=request)
 
-    assert existing.name == original_name
+    assert existing.metadata_entries == original_metadata
     assert existing.image == original_image
     assert existing.featured == original_featured
     mock_update.assert_called_once()
@@ -996,7 +1027,7 @@ def test_update_existing_series_integrity_error_raises_400():
     existing = _make_existing_series(series_id, author_id)
     mock_author = _make_mock_author(author_id)
 
-    request = UpdateSeriesRequest(name={"en": "Updated"})
+    request = UpdateSeriesRequest(metadata=[_metadata_input(title="Updated")])
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
@@ -1018,7 +1049,7 @@ def test_create_new_series_with_plans_attaches_and_returns_dto():
     series_id = uuid.uuid4()
 
     request = CreateSeriesRequest(
-        name={"en": "Series with plan"},
+        metadata=[_metadata_input(title="Series with plan")],
         plans={"EN": [plan_id]},
     )
 
@@ -1043,7 +1074,7 @@ def test_create_new_series_with_plans_attaches_and_returns_dto():
 
     saved = MagicMock()
     saved.id = series_id
-    saved.name = request.name
+    saved.metadata_entries = [_metadata_entry(title="Series with plan")]
     saved.image = None
     saved.author_id = author_id
     saved.featured = False
@@ -1051,7 +1082,7 @@ def test_create_new_series_with_plans_attaches_and_returns_dto():
 
     refreshed = MagicMock()
     refreshed.id = series_id
-    refreshed.name = request.name
+    refreshed.metadata_entries = [_metadata_entry(title="Series with plan")]
     refreshed.image = None
     refreshed.author_id = author_id
     refreshed.featured = False
@@ -1076,7 +1107,7 @@ def test_create_new_series_rejects_soft_deleted_plan():
     plan_id = uuid.uuid4()
 
     request = CreateSeriesRequest(
-        name={"en": "Series"},
+        metadata=[_metadata_input(title="Series")],
         plans={"EN": [plan_id]},
     )
 
@@ -1108,7 +1139,7 @@ def test_create_new_series_rejects_plan_already_attached_to_another_series():
     other_series_id = uuid.uuid4()
 
     request = CreateSeriesRequest(
-        name={"en": "Series"},
+        metadata=[_metadata_input(title="Series")],
         plans={"EN": [plan_id]},
     )
 
@@ -1140,7 +1171,7 @@ def test_create_new_series_rejects_plan_belonging_to_other_author_non_admin():
     plan_id = uuid.uuid4()
 
     request = CreateSeriesRequest(
-        name={"en": "Series"},
+        metadata=[_metadata_input(title="Series")],
         plans={"EN": [plan_id]},
     )
 
@@ -1171,7 +1202,7 @@ def test_validate_plan_ids_dedupes_before_fetching():
     plan_id = uuid.uuid4()
 
     request = CreateSeriesRequest(
-        name={"en": "Series"},
+        metadata=[_metadata_input(title="Series")],
         plans={"EN": [plan_id], "BO": [plan_id]},
     )
 
@@ -1196,7 +1227,7 @@ def test_validate_plan_ids_dedupes_before_fetching():
 
     saved = MagicMock()
     saved.id = uuid.uuid4()
-    saved.name = request.name
+    saved.metadata_entries = [_metadata_entry(title="Series")]
     saved.image = None
     saved.author_id = author_id
     saved.featured = False
@@ -1204,7 +1235,7 @@ def test_validate_plan_ids_dedupes_before_fetching():
 
     refreshed = MagicMock()
     refreshed.id = saved.id
-    refreshed.name = request.name
+    refreshed.metadata_entries = [_metadata_entry(title="Series")]
     refreshed.image = None
     refreshed.author_id = author_id
     refreshed.featured = False
@@ -1400,3 +1431,64 @@ def test_get_cms_series_detail_admin_can_view_other_author_series():
 
     assert dto.id == series_id
     assert dto.author_id == other_author_id
+
+
+def test_get_filtered_series_handles_plain_string_status_and_language():
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = []
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.featured = False
+    row.status = PlanStatus.DRAFT.value
+    row.plans = None
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_paginated",
+        return_value=([row], 1),
+    ):
+        _session_local_context(mock_session_local)
+
+        result = get_filtered_series(search=None, skip=0, limit=10)
+
+    assert result.total == 1
+    assert result.series[0].status == PlanStatus.DRAFT
+    assert result.series[0].metadata == []
+
+
+def test_get_filtered_series_metadata_uses_string_language():
+    entry = MagicMock()
+    entry.id = uuid.uuid4()
+    entry.title = "Title"
+    entry.description = None
+    entry.language = "EN"
+
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = [entry]
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.featured = False
+    row.status = PlanStatus.DRAFT
+    row.plans = None
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_paginated",
+        return_value=([row], 1),
+    ):
+        _session_local_context(mock_session_local)
+
+        result = get_filtered_series(search=None, skip=0, limit=10)
+
+    assert result.series[0].metadata[0].language == "EN"
+
+
+def test_validate_plan_ids_noop_when_empty():
+    with patch("pecha_api.plans.series.series_service.get_plans_by_ids") as mock_get_plans:
+        _validate_plan_ids(
+            db=MagicMock(),
+            plan_ids=[],
+            current_author_id=uuid.uuid4(),
+            is_admin=False,
+        )
+    mock_get_plans.assert_not_called()

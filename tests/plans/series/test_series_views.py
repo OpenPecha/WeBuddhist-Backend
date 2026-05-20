@@ -8,16 +8,30 @@ from starlette import status
 
 from pecha_api.app import api
 from pecha_api.plans.plans_enums import PlanStatus, LanguageCode, DifficultyLevel
-from pecha_api.plans.series.series_response_models import SeriesDTO, SeriesListResponse, SeriesPlanDTO
+from pecha_api.plans.series.series_response_models import (
+    SeriesDTO,
+    SeriesListResponse,
+    SeriesPlanDTO,
+    SeriesMetadataDTO,
+)
 
 
 client = TestClient(api)
 
 
+def _metadata(title: str, language: str = "EN") -> SeriesMetadataDTO:
+    return SeriesMetadataDTO(
+        id=uuid.uuid4(),
+        title=title,
+        description=None,
+        language=language,
+    )
+
+
 def sample_series_dto_factory() -> SeriesDTO:
     return SeriesDTO(
         id=uuid.uuid4(),
-        name={"en": "Foundations of Meditation"},
+        metadata=[_metadata("Foundations of Meditation")],
         image=None,
         image_key=None,
         author_id=uuid.uuid4(),
@@ -31,7 +45,10 @@ def sample_series_dto_factory() -> SeriesDTO:
 def sample_series_dto():
     return SeriesDTO(
         id=uuid.uuid4(),
-        name={"en": "Foundations of Meditation", "bo": "སྒོམ་"},
+        metadata=[
+            _metadata("Foundations of Meditation", "EN"),
+            _metadata("སྒོམ་", "BO"),
+        ],
         image="https://example.com/presigned/series.jpg",
         image_key="series/cover.jpg",
         author_id=uuid.uuid4(),
@@ -70,7 +87,9 @@ def test_get_series_list_success(sample_series_list_response):
         assert len(data["series"]) == 1
 
         item = data["series"][0]
-        assert item["name"] == sample_series_list_response.series[0].name
+        assert item["metadata"] == [
+            entry.model_dump(mode="json") for entry in sample_series_list_response.series[0].metadata
+        ]
         assert item["author_id"] == str(sample_series_list_response.series[0].author_id)
         assert item["featured"] is True
         assert item["status"] == PlanStatus.DRAFT.value
@@ -100,7 +119,7 @@ def test_get_series_list_with_search_pagination(sample_series_dto):
 def test_create_series_success(sample_series_dto):
     author_id = uuid.uuid4()
     payload = {
-        "name": {"en": "New Series"},
+        "metadata": [{"title": "New Series", "language": "EN"}],
         "image_key": "series/uploads/key.jpg",
         "featured": False,
     }
@@ -127,19 +146,19 @@ def test_create_series_success(sample_series_dto):
         mock_create.assert_called_once()
         call_kwargs = mock_create.call_args.kwargs
         assert call_kwargs["token"] == "dummy"
-        assert call_kwargs["create_series_request"].name == payload["name"]
+        assert call_kwargs["create_series_request"].metadata[0].title == payload["metadata"][0]["title"]
         assert call_kwargs["create_series_request"].image_key == payload["image_key"]
         assert call_kwargs["create_series_request"].featured is False
 
-        assert data["id"] == str(sample_series_dto.id)  
-        assert data["name"] == sample_series_dto.name
+        assert data["id"] == str(sample_series_dto.id)
+        assert len(data["metadata"]) == len(sample_series_dto.metadata)
         assert data["status"] == sample_series_dto.status.value
 
 
 def test_create_series_defaults_optional_featured(sample_series_dto):
     author_id = uuid.uuid4()
     payload = {
-        "name": {"en": "Minimal"},
+        "metadata": [{"title": "Minimal", "language": "EN"}],
     }
 
     mock_author = MagicMock()
@@ -186,7 +205,7 @@ def test_get_series_by_id_success(sample_series_dto):
 
         data = response.json()
         assert data["id"] == str(sample_series_dto.id)
-        assert data["name"] == sample_series_dto.name
+        assert len(data["metadata"]) == len(sample_series_dto.metadata)
         assert data["status"] == sample_series_dto.status.value
 
 
@@ -243,7 +262,7 @@ def test_get_series_by_id_includes_total_days_in_response():
 
     series_dto = SeriesDTO(
         id=series_id,
-        name={"en": "Series with plans"},
+        metadata=[_metadata("Series with plans")],
         image=None,
         image_key=None,
         author_id=uuid.uuid4(),
@@ -276,7 +295,7 @@ def test_get_series_list_includes_total_days_zero():
     series_id = uuid.uuid4()
     series_dto = SeriesDTO(
         id=series_id,
-        name={"en": "Series without plans"},
+        metadata=[_metadata("Series without plans")],
         image=None,
         image_key=None,
         author_id=uuid.uuid4(),
@@ -335,7 +354,10 @@ def test_update_series_rejects_invalid_language_key_in_plans():
 
 
 def test_create_series_rejects_invalid_language_key_in_plans():
-    payload = {"name": {"en": "Test"}, "plans": {"BAD": [str(uuid.uuid4())]}}
+    payload = {
+        "metadata": [{"title": "Test", "language": "EN"}],
+        "plans": {"BAD": [str(uuid.uuid4())]},
+    }
     response = client.post(
         "/cms/series",
         json=payload,
