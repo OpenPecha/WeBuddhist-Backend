@@ -17,7 +17,6 @@ from pecha_api.plans.public.plan_service import (
 )
 from pecha_api.auth.auth_service import validate_and_extract_user_details
 
-# Optional authentication scheme - doesn't require auth but extracts user if present
 optional_oauth2_scheme = HTTPBearer(auto_error=False)
 
 
@@ -67,13 +66,11 @@ async def get_plan_daily(
     return await get_plan_daily_content(plan_id=plan_id, requested_date=date)
 
 
-
 @public_plans_router.get("/{plan_id}/days", status_code=status.HTTP_200_OK, response_model=PlanDaysResponse)
 async def get_plan_days_list(
     plan_id: UUID,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_oauth2_scheme)
 ):
-
     user_id = None
     if credentials:
         try:
@@ -82,8 +79,7 @@ async def get_plan_days_list(
         except Exception:
             pass
     
-    await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
-    
+    await auto_enroll_plan(plan_id=plan_id, user_id=user_id)   
     return await get_plan_days(plan_id=plan_id)
 
 
