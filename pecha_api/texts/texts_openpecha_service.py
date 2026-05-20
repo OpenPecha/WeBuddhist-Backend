@@ -1,6 +1,8 @@
 import logging
+import re
 import httpx
 from typing import Optional, Dict, Any, List
+from urllib.parse import quote
 
 from fastapi import HTTPException
 from starlette import status
@@ -12,6 +14,8 @@ from pecha_api.collections.collections_response_models import CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
 
 logger = logging.getLogger(__name__)
+
+TEXT_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
 
 DEFAULT_LANGUAGE = get("DEFAULT_LANGUAGE") or "en"
 LANGUAGE_PRIORITY_LIST = ["en", "bo", "zh"]
@@ -138,9 +142,19 @@ async def get_text_by_id_from_openpecha(text_id: str) -> TextDTO:
     return map_external_text_to_dto(data, data.get("language"))
 
 
+def _validate_text_id(text_id: str) -> str:
+    if not text_id or not TEXT_ID_PATTERN.match(text_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid text ID format",
+        )
+    return quote(text_id, safe='')
+
+
 async def fetch_text_from_external_api(text_id: str) -> Dict[str, Any]:
+    safe_text_id = _validate_text_id(text_id)
     base_url = get('EXTERNAL_DEV_PECHA_API_URL')
-    endpoint = f"{base_url}/v2/texts/{text_id}"
+    endpoint = f"{base_url}/v2/texts/{safe_text_id}"
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
             response = await client.get(endpoint, headers={"Accept": "application/json"})

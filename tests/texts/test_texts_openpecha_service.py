@@ -15,6 +15,7 @@ from pecha_api.texts.texts_openpecha_service import (
     fetch_translation_details,
     _extract_title,
     _get_language_priority_order,
+    _validate_text_id,
 )
 from pecha_api.texts.texts_response_models import (
     TextDTO,
@@ -98,6 +99,61 @@ class TestGetLanguagePriorityOrder:
         """Test fallback for unknown language."""
         result = _get_language_priority_order("unknown")
         assert isinstance(result, list)
+
+
+class TestValidateTextId:
+    """Tests for _validate_text_id helper function."""
+
+    def test_valid_alphanumeric_id(self):
+        """Test valid alphanumeric text ID."""
+        result = _validate_text_id("text123")
+        assert result == "text123"
+
+    def test_valid_id_with_hyphen(self):
+        """Test valid text ID with hyphen."""
+        result = _validate_text_id("text-123")
+        assert result == "text-123"
+
+    def test_valid_id_with_underscore(self):
+        """Test valid text ID with underscore."""
+        result = _validate_text_id("text_123")
+        assert result == "text_123"
+
+    def test_valid_mixed_case_id(self):
+        """Test valid mixed case text ID."""
+        result = _validate_text_id("Text-ABC_123")
+        assert result == "Text-ABC_123"
+
+    def test_invalid_empty_id(self):
+        """Test that empty text ID raises HTTPException."""
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_text_id("")
+        assert exc_info.value.status_code == 400
+        assert "Invalid text ID format" in exc_info.value.detail
+
+    def test_invalid_id_with_path_traversal(self):
+        """Test that path traversal attempt raises HTTPException."""
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_text_id("../../../etc/passwd")
+        assert exc_info.value.status_code == 400
+
+    def test_invalid_id_with_slash(self):
+        """Test that text ID with slash raises HTTPException."""
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_text_id("text/123")
+        assert exc_info.value.status_code == 400
+
+    def test_invalid_id_with_special_chars(self):
+        """Test that text ID with special characters raises HTTPException."""
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_text_id("text@123!")
+        assert exc_info.value.status_code == 400
+
+    def test_invalid_id_with_spaces(self):
+        """Test that text ID with spaces raises HTTPException."""
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_text_id("text 123")
+        assert exc_info.value.status_code == 400
 
 
 class TestMapExternalTextToDto:
