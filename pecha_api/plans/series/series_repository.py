@@ -47,16 +47,20 @@ def save_series_with_plans(
     db: Session,
     series: Series,
     metadata_entries: List,
-    plan_ids: Optional[List[UUID]] = None,
+    plans_to_attach: Optional[List[Tuple[UUID, int]]] = None,
 ) -> Series:
     db.add(series)
     db.flush()
     _persist_metadata_entries(db, series.id, metadata_entries)
-    if plan_ids:
-        db.query(Plan).filter(Plan.id.in_(plan_ids)).update(
-            {Plan.series_id: series.id},
-            synchronize_session=False,
-        )
+    if plans_to_attach:
+        for plan_id, display_order in plans_to_attach:
+            db.query(Plan).filter(Plan.id == plan_id).update(
+                {
+                    Plan.series_id: series.id,
+                    Plan.display_order: display_order,
+                },
+                synchronize_session=False,
+            )
     db.commit()
     db.refresh(series)
     return series
@@ -79,7 +83,7 @@ def update_series_with_plans(
     image: Optional[str],
     featured: bool,
     updated_by: Optional[str],
-    plan_ids_to_attach: List[UUID],
+    plans_to_attach: List[Tuple[UUID, int]],
     plan_ids_to_detach: List[UUID],
     updated_at,
     metadata_entries: Optional[List] = None,
@@ -94,14 +98,21 @@ def update_series_with_plans(
 
     if plan_ids_to_detach:
         db.query(Plan).filter(Plan.id.in_(plan_ids_to_detach)).update(
-            {Plan.series_id: None},
+            {
+                Plan.series_id: None,
+                Plan.display_order: None,
+            },
             synchronize_session=False,
         )
-    if plan_ids_to_attach:
-        db.query(Plan).filter(Plan.id.in_(plan_ids_to_attach)).update(
-            {Plan.series_id: series.id},
-            synchronize_session=False,
-        )
+    if plans_to_attach:
+        for plan_id, display_order in plans_to_attach:
+            db.query(Plan).filter(Plan.id == plan_id).update(
+                {
+                    Plan.series_id: series.id,
+                    Plan.display_order: display_order,
+                },
+                synchronize_session=False,
+            )
 
     db.commit()
     db.refresh(series)

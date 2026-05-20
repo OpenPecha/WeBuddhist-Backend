@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -67,17 +67,22 @@ def _metadata_to_dtos(entries) -> List[SeriesMetadataDTO]:
     )
 
 
-def _flatten_plans_by_language(plans_by_language: Optional[Dict[str, List[UUID]]]) -> List[UUID]:
+def _build_plan_order_pairs(
+    plans_by_language: Optional[Dict[str, List[UUID]]],
+) -> List[Tuple[UUID, int]]:
     if not plans_by_language:
         return []
     seen: set = set()
-    flat: List[UUID] = []
+    pairs: List[Tuple[UUID, int]] = []
     for ids in plans_by_language.values():
+        order = 0
         for pid in ids or []:
-            if pid not in seen:
-                seen.add(pid)
-                flat.append(pid)
-    return flat
+            if pid in seen:
+                continue
+            seen.add(pid)
+            pairs.append((pid, order))
+            order += 1
+    return pairs
 
 
 def _plan_to_dto(plan) -> SeriesPlanDTO:
@@ -286,7 +291,8 @@ def update_existing_series(
                 )
 
             if update_series_request.plans is not None:
-                new_plan_ids = _flatten_plans_by_language(update_series_request.plans)
+                plan_order_pairs = _build_plan_order_pairs(update_series_request.plans)
+                new_plan_ids = [pid for pid, _ in plan_order_pairs]
                 current_attached = {p.id for p in (series.plans or []) if p.deleted_at is None}
 
                 if new_plan_ids:
@@ -300,10 +306,12 @@ def update_existing_series(
 
                 new_set = set(new_plan_ids)
                 to_detach = list(current_attached - new_set)
-                to_attach = list(new_set - current_attached)
+                # Every plan in the request gets its display_order (re)written,
+                # including ones already attached, since order may have changed.
+                plans_to_attach = plan_order_pairs
             else:
                 to_detach = []
-                to_attach = []
+                plans_to_attach = []
 
             _apply_series_field_updates(series, update_series_request)
 
@@ -313,7 +321,7 @@ def update_existing_series(
                 image=series.image,
                 featured=series.featured,
                 updated_by=current_author.email,
-                plan_ids_to_attach=to_attach,
+                plans_to_attach=plans_to_attach,
                 plan_ids_to_detach=to_detach,
                 updated_at=datetime.now(timezone.utc),
                 metadata_entries=update_series_request.metadata,
@@ -339,14 +347,15 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
         status=PlanStatus.DRAFT,
     )
 
-    flat_plan_ids = _flatten_plans_by_language(create_series_request.plans)
+    plan_order_pairs = _build_plan_order_pairs(create_series_request.plans)
+    plan_ids = [pid for pid, _ in plan_order_pairs]
 
     try:
         with SessionLocal() as db_session:
-            if flat_plan_ids:
+            if plan_ids:
                 _validate_plan_ids(
                     db=db_session,
-                    plan_ids=flat_plan_ids,
+                    plan_ids=plan_ids,
                     current_author_id=current_author.id,
                     is_admin=bool(current_author.is_admin),
                 )
@@ -355,12 +364,12 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
                 db=db_session,
                 series=new_series,
                 metadata_entries=create_series_request.metadata,
-                plan_ids=flat_plan_ids,
+                plans_to_attach=plan_order_pairs,
             )
 
             saved = get_series_by_id(db=db_session, series_id=saved.id)
 
-        return _series_to_dto(saved, include_plans=bool(flat_plan_ids))
+        return _series_to_dto(saved, include_plans=bool(plan_ids))
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
