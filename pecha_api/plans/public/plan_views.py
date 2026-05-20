@@ -15,7 +15,7 @@ from pecha_api.plans.public.plan_service import (
     get_tags,
     auto_enroll_plan
 )
-from pecha_api.auth.auth_service import validate_and_extract_user_details
+from pecha_api.users.users_service import validate_and_extract_user_details
 
 optional_oauth2_scheme = HTTPBearer(auto_error=False)
 
