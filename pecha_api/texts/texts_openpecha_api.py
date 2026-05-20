@@ -11,6 +11,7 @@ from pecha_api.texts.text_openpecha_response_models import (
     ContributionModel,
     CriticalEditionModel,
     TextDetailResponse,
+    SegmentationResponseModel,
 )
 
 logger = logging.getLogger(__name__)
@@ -120,3 +121,36 @@ async def fetch_critical_editions(text_id: str) -> list[CriticalEditionModel]:
         )
         for edition in data
     ]
+
+
+
+
+async def fetch_editions_segmentation(edition_id: str) -> list[SegmentationResponseModel]:
+    client = get_authenticated_open_pecha_client()
+
+    try:
+        response = await client.get_async_httpx_client().get(
+            f"/v2/editions/{edition_id}/segmentations",
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch editions segmentation from OpenPecha API: {e}")
+        raise
+
+    if response.status_code == 404:
+        return []
+
+    if response.status_code != 200:
+        logger.error(f"Unexpected status {response.status_code} fetching editions segmentation for edition '{edition_id}'")
+        return []
+
+    data = response.json()
+    if not isinstance(data, list):
+        return []
+
+    return [
+            SegmentationResponseModel(
+                id=segmentation["id"],
+                edition_id=segmentation["edition_id"],
+                text_id=segmentation["text_id"]
+            ) for segmentation in data
+        ]

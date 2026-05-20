@@ -43,3 +43,8 @@ class TextDetailResponse(BaseModel):
     commentary_of: Optional[str] = None
     translation_of: Optional[str] = None
 
+
+class SegmentationResponseModel(BaseModel):
+    id: str
+    edition_id: str
+    text_id: str
