@@ -499,6 +499,41 @@ class TestGetTextCommentariesEndpoint:
         )
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
+    def test_get_text_commentaries_multiple(self, mock_service):
+        """Test retrieval of multiple commentaries."""
+        mock_commentaries = [
+            TextDTO(
+                id=f"commentary-{i}",
+                pecha_text_id=f"pecha-commentary-{i}",
+                title=f"Commentary {i}",
+                language="bo" if i % 2 == 0 else "en",
+                group_id="group-123",
+                type="commentary",
+                is_published=True,
+                created_date="2025-01-01T00:00:00",
+                updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00",
+                published_by=f"commentator-{i}",
+                categories=["cat-1"],
+                views=i * 10,
+                source_link=None,
+                ranking=i,
+                license="CC0"
+            )
+            for i in range(1, 4)
+        ]
+        mock_service.return_value = mock_commentaries
+
+        response = client.get("/v2/texts/text-123/commentaries")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 3
+        assert data[0]["id"] == "commentary-1"
+        assert data[1]["id"] == "commentary-2"
+        assert data[2]["id"] == "commentary-3"
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
     def test_get_text_commentaries_empty(self, mock_service):
         """Test retrieval when text has no commentaries."""
         mock_service.return_value = []
@@ -523,6 +558,34 @@ class TestGetTextCommentariesEndpoint:
             limit=20
         )
 
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
+    def test_get_text_commentaries_with_skip_only(self, mock_service):
+        """Test retrieval with only skip parameter."""
+        mock_service.return_value = []
+
+        response = client.get("/v2/texts/text-123/commentaries?skip=10")
+
+        assert response.status_code == 200
+        mock_service.assert_called_once_with(
+            text_id="text-123",
+            skip=10,
+            limit=10
+        )
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
+    def test_get_text_commentaries_with_limit_only(self, mock_service):
+        """Test retrieval with only limit parameter."""
+        mock_service.return_value = []
+
+        response = client.get("/v2/texts/text-123/commentaries?limit=50")
+
+        assert response.status_code == 200
+        mock_service.assert_called_once_with(
+            text_id="text-123",
+            skip=0,
+            limit=50
+        )
+
     def test_get_text_commentaries_invalid_skip(self):
         """Test validation error for negative skip."""
         response = client.get("/v2/texts/text-123/commentaries?skip=-1")
@@ -532,3 +595,125 @@ class TestGetTextCommentariesEndpoint:
         """Test validation error for limit exceeding maximum."""
         response = client.get("/v2/texts/text-123/commentaries?limit=101")
         assert response.status_code == 422
+
+
+class TestGetTextCommentariesErrorHandling:
+    """Tests for error handling in GET /v2/texts/{text_id}/commentaries endpoint."""
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
+    def test_get_text_commentaries_not_found(self, mock_service):
+        """Test 404 error when text is not found."""
+        mock_service.side_effect = HTTPException(
+            status_code=404,
+            detail="Text with id 'nonexistent' not found"
+        )
+
+        response = client.get("/v2/texts/nonexistent/commentaries")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
+    def test_get_text_commentaries_upstream_error(self, mock_service):
+        """Test 502 error when upstream service fails."""
+        mock_service.side_effect = HTTPException(
+            status_code=502,
+            detail="Failed to fetch commentaries from external API"
+        )
+
+        response = client.get("/v2/texts/text-123/commentaries")
+
+        assert response.status_code == 502
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
+    def test_get_text_commentaries_internal_error(self, mock_service):
+        """Test 500 error for unexpected internal errors."""
+        mock_service.side_effect = HTTPException(
+            status_code=500,
+            detail="Internal server error"
+        )
+
+        response = client.get("/v2/texts/text-123/commentaries")
+
+        assert response.status_code == 500
+
+
+class TestGetTextCommentariesResponseStructure:
+    """Tests for response structure validation of commentaries endpoint."""
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
+    def test_commentary_contains_all_required_fields(self, mock_service):
+        """Test that each commentary contains all expected fields."""
+        mock_commentary = TextDTO(
+            id="commentary-1",
+            pecha_text_id="pecha-commentary-1",
+            title="Commentary Title",
+            language="bo",
+            group_id="group-123",
+            type="commentary",
+            is_published=True,
+            created_date="2025-01-01T00:00:00",
+            updated_date="2025-01-01T00:00:00",
+            published_date="2025-01-01T00:00:00",
+            published_by="commentator",
+            categories=["cat-1"],
+            views=100,
+            source_link="https://example.com",
+            ranking=1,
+            license="CC BY"
+        )
+        mock_service.return_value = [mock_commentary]
+
+        response = client.get("/v2/texts/text-123/commentaries")
+
+        assert response.status_code == 200
+        data = response.json()[0]
+        assert "id" in data
+        assert "pecha_text_id" in data
+        assert "title" in data
+        assert "language" in data
+        assert "group_id" in data
+        assert "type" in data
+        assert "is_published" in data
+        assert "created_date" in data
+        assert "updated_date" in data
+        assert "published_date" in data
+        assert "published_by" in data
+        assert "categories" in data
+        assert "views" in data
+        assert "source_link" in data
+        assert "ranking" in data
+        assert "license" in data
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
+    def test_commentary_with_optional_fields_none(self, mock_service):
+        """Test response when optional fields are None."""
+        mock_commentary = TextDTO(
+            id="commentary-1",
+            pecha_text_id="pecha-commentary-1",
+            title="Commentary Title",
+            language="bo",
+            group_id="group-123",
+            type="commentary",
+            is_published=True,
+            created_date="2025-01-01T00:00:00",
+            updated_date="2025-01-01T00:00:00",
+            published_date="2025-01-01T00:00:00",
+            published_by="commentator",
+            categories=[],
+            views=0,
+            source_link=None,
+            ranking=None,
+            license=None
+        )
+        mock_service.return_value = [mock_commentary]
+
+        response = client.get("/v2/texts/text-123/commentaries")
+
+        assert response.status_code == 200
+        data = response.json()[0]
+        assert data["source_link"] is None
+        assert data["ranking"] is None
+        assert data["license"] is None
+        assert data["categories"] == []
+        assert data["views"] == 0

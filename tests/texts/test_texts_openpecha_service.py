@@ -579,6 +579,164 @@ class TestGetTextCommentariesFromOpenpecha:
 
         assert len(result) == 2
 
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
+    async def test_get_commentaries_skip_beyond_total(self, mock_fetch_commentaries, mock_fetch_text):
+        """Test pagination when skip exceeds total commentaries."""
+        mock_fetch_text.return_value = {
+            "id": "text-123",
+            "title": {"en": "Root Text"},
+            "language": "bo",
+            "commentaries": ["c1", "c2"]
+        }
+        mock_fetch_commentaries.return_value = [
+            {"id": "c1", "title": {"en": "Commentary 1"}, "language": "bo"},
+            {"id": "c2", "title": {"en": "Commentary 2"}, "language": "bo"}
+        ]
+
+        result = await get_text_commentaries_from_openpecha(
+            text_id="text-123",
+            skip=10,
+            limit=5
+        )
+
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
+    async def test_get_commentaries_verifies_dto_mapping(self, mock_fetch_commentaries, mock_fetch_text):
+        """Test that commentaries are correctly mapped to TextDTO."""
+        mock_fetch_text.return_value = {
+            "id": "text-123",
+            "title": {"en": "Root Text"},
+            "language": "bo",
+            "commentaries": ["comm-1"]
+        }
+        mock_fetch_commentaries.return_value = [
+            {
+                "id": "comm-1",
+                "bdrc": "bdrc-comm-1",
+                "title": {"en": "Commentary Title", "bo": "བསྟན་བཅོས།"},
+                "language": "bo",
+                "category_id": "cat-1",
+                "date": "2025-01-01",
+                "license": "CC BY"
+            }
+        ]
+
+        result = await get_text_commentaries_from_openpecha(
+            text_id="text-123",
+            skip=0,
+            limit=10
+        )
+
+        assert len(result) == 1
+        commentary = result[0]
+        assert commentary.id == "comm-1"
+        assert commentary.pecha_text_id == "bdrc-comm-1"
+        assert commentary.language == "bo"
+        assert commentary.license == "CC BY"
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    async def test_get_commentaries_missing_commentaries_key(self, mock_fetch_text):
+        """Test response when commentaries key is missing from text data."""
+        mock_fetch_text.return_value = {
+            "id": "text-123",
+            "title": {"en": "Root Text"},
+            "language": "bo"
+        }
+
+        result = await get_text_commentaries_from_openpecha(
+            text_id="text-123",
+            skip=0,
+            limit=10
+        )
+
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
+    async def test_get_commentaries_partial_fetch_failure(self, mock_fetch_commentaries, mock_fetch_text):
+        """Test that partial failures in fetching commentaries don't break the response."""
+        mock_fetch_text.return_value = {
+            "id": "text-123",
+            "title": {"en": "Root Text"},
+            "language": "bo",
+            "commentaries": ["c1", "c2", "c3"]
+        }
+        mock_fetch_commentaries.return_value = [
+            {"id": "c1", "title": {"en": "Commentary 1"}, "language": "bo"}
+        ]
+
+        result = await get_text_commentaries_from_openpecha(
+            text_id="text-123",
+            skip=0,
+            limit=10
+        )
+
+        assert len(result) == 1
+        assert result[0].id == "c1"
+
+
+class TestFetchCommentaryDetails:
+    """Tests for fetch_commentary_details function."""
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    async def test_fetch_commentary_details_success(self, mock_fetch):
+        """Test successful fetch of commentary details."""
+        mock_fetch.return_value = {
+            "id": "comm-1",
+            "title": {"en": "Commentary"},
+            "language": "bo"
+        }
+
+        from pecha_api.texts.texts_openpecha_service import fetch_commentary_details
+        result = await fetch_commentary_details(["comm-1"])
+
+        assert len(result) == 1
+        assert result[0]["id"] == "comm-1"
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    async def test_fetch_commentary_details_partial_failure(self, mock_fetch):
+        """Test that partial failures don't break the entire operation."""
+        mock_fetch.side_effect = [
+            {"id": "comm-1", "title": {"en": "Commentary 1"}, "language": "bo"},
+            HTTPException(status_code=404, detail="Not found"),
+            {"id": "comm-3", "title": {"en": "Commentary 3"}, "language": "bo"}
+        ]
+
+        from pecha_api.texts.texts_openpecha_service import fetch_commentary_details
+        result = await fetch_commentary_details(["comm-1", "comm-2", "comm-3"])
+
+        assert len(result) == 2
+        assert result[0]["id"] == "comm-1"
+        assert result[1]["id"] == "comm-3"
+
+    @pytest.mark.asyncio
+    async def test_fetch_commentary_details_empty_list(self):
+        """Test fetching with empty commentary list."""
+        from pecha_api.texts.texts_openpecha_service import fetch_commentary_details
+        result = await fetch_commentary_details([])
+
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    async def test_fetch_commentary_details_all_failures(self, mock_fetch):
+        """Test when all commentary fetches fail."""
+        mock_fetch.side_effect = HTTPException(status_code=502, detail="Upstream error")
+
+        from pecha_api.texts.texts_openpecha_service import fetch_commentary_details
+        result = await fetch_commentary_details(["comm-1", "comm-2"])
+
+        assert len(result) == 0
+
 
 # =============================================================================
 # External API Function Tests
