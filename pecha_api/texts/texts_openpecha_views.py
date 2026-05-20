@@ -50,9 +50,9 @@ async def get_text_by_id(text_id: str) -> TextDTO:
 @texts_v2_router.get("/{text_id}/versions", status_code=status.HTTP_200_OK)
 async def get_text_versions(
     text_id: str,
-    language: str = Query(default=None),
-    skip: int = Query(default=0),
-    limit: int = Query(default=10)
+    language: Annotated[Optional[str], Query(description="Language code filter")] = None,
+    skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
+    limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10
 ) -> TextVersionResponse:
     return await get_text_versions_from_openpecha(
         text_id=text_id,
@@ -64,8 +64,8 @@ async def get_text_versions(
 @texts_v2_router.get("/{text_id}/commentaries", status_code=status.HTTP_200_OK)
 async def get_text_commentaries(
     text_id: str,
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=10, le=100)
+    skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
+    limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10
 ) -> List[TextDTO]:
     return await get_text_commentaries_from_openpecha(
         text_id=text_id,

@@ -86,8 +86,8 @@ async def get_texts_by_collection_from_openpecha(
                 limit=remaining,
                 offset=skip if lang == language else 0,
             )
-        except Exception as e:
-            logger.error(f"Failed to fetch texts for language={lang}, category={collection_id}: {e}")
+        except Exception:
+            logger.exception("Failed to fetch texts from upstream service")
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Failed to fetch texts from upstream service",
@@ -122,8 +122,8 @@ async def get_texts_by_collection_from_openpecha(
 async def get_text_by_id_from_openpecha(text_id: str) -> TextDTO:
     try:
         data = await fetch_text_by_id(text_id)
-    except Exception as e:
-        logger.error(f"Failed to fetch text {text_id}: {e}")
+    except Exception:
+        logger.exception("Failed to fetch text from upstream service")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch text from upstream service",
@@ -139,20 +139,21 @@ async def get_text_by_id_from_openpecha(text_id: str) -> TextDTO:
 
 
 async def fetch_text_from_external_api(text_id: str) -> Dict[str, Any]:
-    endpoint = f"{get('EXTERNAL_DEV_PECHA_API_URL')}/v2/texts/{text_id}"
+    base_url = get('EXTERNAL_DEV_PECHA_API_URL')
+    endpoint = f"{base_url}/v2/texts/{text_id}"
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
             response = await client.get(endpoint, headers={"Accept": "application/json"})
             response.raise_for_status()
             return response.json()
     except httpx.HTTPStatusError as e:
-        logger.error(f"HTTP error fetching text {text_id}: {e}")
+        logger.exception("HTTP error fetching text from external API")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Failed to fetch text from external API: {e.response.status_code}",
         )
-    except httpx.RequestError as e:
-        logger.error(f"Request error fetching text {text_id}: {e}")
+    except httpx.RequestError:
+        logger.exception("Request error fetching text from external API")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to connect to external API",
