@@ -187,7 +187,7 @@ async def auto_enroll_plan(plan_id: UUID, user_id: Optional[UUID] = None) -> Non
                 return
             
             today = dt.now(timezone.utc).date()
-            plan_start = plan.start_date.date() if isinstance(plan.start_date, dt) else plan.start_date
+            plan_start = plan.start_date.date() if hasattr(plan.start_date, 'date') else plan.start_date
             
             # Get next plan to determine end of date range
             next_plan = get_next_plan_in_series(
@@ -201,7 +201,7 @@ async def auto_enroll_plan(plan_id: UUID, user_id: Optional[UUID] = None) -> Non
                 return
             
             if next_plan and next_plan.start_date:
-                next_plan_start = next_plan.start_date.date() if isinstance(next_plan.start_date, dt) else next_plan.start_date
+                next_plan_start = next_plan.start_date.date() if hasattr(next_plan.start_date, 'date') else next_plan.start_date
                 if today >= next_plan_start:
                     return
             
