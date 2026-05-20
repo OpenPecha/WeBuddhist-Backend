@@ -95,18 +95,21 @@ async def fetch_critical_editions(text_id: str) -> list[CriticalEditionModel]:
         raise
 
     if response.status_code == 404:
-        return []
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Text with id '{text_id}' not found",
+        )
 
     if response.status_code != 200:
         logger.error(
             f"Unexpected status {response.status_code} fetching critical editions for text '{text_id}'"
         )
-        return []
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unexpected response from upstream service",
+        )
 
     data = response.json()
-    if not isinstance(data, list):
-        return []
-
     return [
         CriticalEditionModel(
             id=edition["id"],
@@ -137,16 +140,19 @@ async def fetch_editions_segmentation(edition_id: str) -> list[SegmentationRespo
         raise
 
     if response.status_code == 404:
-        return []
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Edition with id '{edition_id}' not found",
+        )
 
     if response.status_code != 200:
         logger.error(f"Unexpected status {response.status_code} fetching editions segmentation for edition '{edition_id}'")
-        return []
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unexpected response from upstream service",
+        )
 
     data = response.json()
-    if not isinstance(data, list):
-        return []
-
     return [
             SegmentationResponseModel(
                 id=segmentation["id"],
