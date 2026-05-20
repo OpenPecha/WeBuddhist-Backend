@@ -16,7 +16,7 @@ texts_v2_router = APIRouter(
     response_model=TextDetailResponse,
     status_code=status.HTTP_200_OK,
     summary="Get a text",
-    description="Retrieve a specific text by its ID from OpenPecha."
+    description="Retrieve a text by its OpenPecha ID, including local edition details."
 )
 async def read_text_by_id(text_id: str) -> TextDetailResponse:
     return await get_text_detail_by_id(text_id=text_id)

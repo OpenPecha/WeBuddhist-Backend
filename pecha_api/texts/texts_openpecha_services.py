@@ -1,104 +1,97 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Any, List
 
 from fastapi import HTTPException
-from pydantic import BaseModel
 from starlette import status
 
-from pecha_api.config import get
 from pecha_api.external_clients import get_authenticated_open_pecha_client
-from pecha_api.external_clients.open_pecha_client.open_pecha_client.api.texts import get_v2_texts_text_id
-from pecha_api.external_clients.open_pecha_client.open_pecha_client.models.expression_output import ExpressionOutput
-from pecha_api.external_clients.open_pecha_client.open_pecha_client.models.get_v2_texts_text_id_response_404 import (
-    GetV2TextsTextIdResponse404,
-)
-from pecha_api.external_clients.open_pecha_client.open_pecha_client.types import UNSET
+from pecha_api.texts.text_openpecha_response_models import ContributionModel, TextDetailResponse, CriticalEditionModel
+from pecha_api.texts.texts_response_models import TextDTO
 
 logger = logging.getLogger(__name__)
 
 
-class ContributionModel(BaseModel):
-    role: str
-    person_id: Optional[str] = None
-    person_bdrc_id: Optional[str] = None
-    person_name: Optional[dict] = None
-    ai_id: Optional[str] = None
-
-
-class TextDetailResponse(BaseModel):
-    id: str
-    title: dict
-    language: str
-    category_id: str
-    license: str
-    contributions: list[ContributionModel]
-    commentaries: list[str]
-    translations: list[str]
-    editions: list[str]
-    bdrc: Optional[str] = None
-    wiki: Optional[str] = None
-    date: Optional[str] = None
-    alt_titles: Optional[list[dict]] = None
-    commentary_of: Optional[str] = None
-    translation_of: Optional[str] = None
-
-
-def _unset_to_none(value):
-    return None if isinstance(value, type(UNSET)) or value is UNSET else value
-
-
-def _expression_output_to_text_detail(expression: ExpressionOutput) -> TextDetailResponse:
-    title = expression.title.to_dict() if hasattr(expression.title, "to_dict") else {}
-
+def _parse_text_detail(data: dict[str, Any]) -> TextDetailResponse:
     contributions = [
         ContributionModel(
-            role=c.role.value if hasattr(c.role, "value") else str(c.role),
-            person_id=_unset_to_none(c.person_id),
-            person_bdrc_id=_unset_to_none(c.person_bdrc_id),
-            person_name=(
-                c.person_name.to_dict()
-                if hasattr(c, "person_name") and hasattr(c.person_name, "to_dict")
-                else _unset_to_none(c.person_name) if hasattr(c, "person_name") else None
-            ),
-            ai_id=_unset_to_none(c.ai_id) if hasattr(c, "ai_id") else None,
+            role=c.get("role", ""),
+            person_id=c.get("person_id"),
+            person_bdrc_id=c.get("person_bdrc_id"),
+            person_name=c.get("person_name"),
+            ai_id=c.get("ai_id"),
         )
-        for c in expression.contributions
+        for c in data.get("contributions", [])
     ]
 
-    alt_titles_raw = _unset_to_none(expression.alt_titles)
-    alt_titles = None
-    if alt_titles_raw is not None and isinstance(alt_titles_raw, list):
-        alt_titles = [item.to_dict() if hasattr(item, "to_dict") else item for item in alt_titles_raw]
+    alt_titles_raw = data.get("alt_titles")
+    alt_titles = alt_titles_raw if isinstance(alt_titles_raw, list) else None
 
     return TextDetailResponse(
-        id=expression.id,
-        title=title,
-        language=expression.language,
-        category_id=expression.category_id,
-        license=expression.license_.value if hasattr(expression.license_, "value") else str(expression.license_),
+        id=data["id"],
+        title=data.get("title") or {},
+        language=data["language"],
+        category_id=data["category_id"],
+        license=data.get("license", ""),
         contributions=contributions,
-        commentaries=expression.commentaries,
-        translations=expression.translations,
-        editions=expression.editions,
-        bdrc=_unset_to_none(expression.bdrc),
-        wiki=_unset_to_none(expression.wiki),
-        date=_unset_to_none(expression.date),
+        commentaries=data.get("commentaries", []),
+        translations=data.get("translations", []),
+        editions=data.get("editions", []),
+        bdrc=data.get("bdrc"),
+        wiki=data.get("wiki"),
+        date=data.get("date"),
         alt_titles=alt_titles,
-        commentary_of=_unset_to_none(expression.commentary_of),
-        translation_of=_unset_to_none(expression.translation_of),
+        commentary_of=data.get("commentary_of"),
+        translation_of=data.get("translation_of"),
     )
+
+
+async def _fetch_critical_edition(text_id: str) -> List[TextDTO]:
+    client = get_authenticated_open_pecha_client()
+
+    try:
+        response = await client.get_async_httpx_client().get(
+            f"/v2/texts/{text_id}/editions",
+            params={"edition_type": "critical"},
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch critical editions from OpenPecha API: {e}")
+        return []
+
+    if response.status_code == 404:
+        return []
+
+    if response.status_code != 200:
+        logger.error(
+            f"Unexpected status {response.status_code} fetching critical editions for text '{text_id}'"
+        )
+        return []
+
+    editions_data = response.json()
+
+
+    return [
+            CriticalEditionModel(
+                id=edition["id"],
+                text_id=edition["text_id"],
+                type=edition["type"],
+                source=edition["source"],
+                colophon=edition["colophon"],
+                incipit_title=edition["incipit_title"],
+                alt_incipit_titles=edition["alt_incipit_titles"],
+                bdrc=edition["bdrc"],
+                wiki=edition["wiki"],
+            )
+            for edition in editions_data
+    ]
 
 
 async def get_text_detail_by_id(text_id: str) -> TextDetailResponse:
     client = get_authenticated_open_pecha_client()
 
     try:
-        result = await get_v2_texts_text_id.asyncio(
-            text_id=text_id,
-            client=client,
-        )
+        response = await client.get_async_httpx_client().get(f"/v2/texts/{text_id}")
     except Exception as e:
         logger.error(
             f"Failed to fetch text detail from OpenPecha API: {e} | "
@@ -106,19 +99,24 @@ async def get_text_detail_by_id(text_id: str) -> TextDetailResponse:
         )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to fetch text detail from upstream service"
+            detail="Failed to fetch text detail from upstream service",
         )
 
-    if isinstance(result, GetV2TextsTextIdResponse404):
+    if response.status_code == 404:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Text with id '{text_id}' not found"
+            detail=f"Text with id '{text_id}' not found",
         )
 
-    if result is None or not isinstance(result, ExpressionOutput):
+    if response.status_code != 200:
+        logger.error(
+            f"Unexpected status {response.status_code} fetching text detail for '{text_id}'"
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unexpected response from upstream service"
+            detail="Unexpected response from upstream service",
         )
 
-    return _expression_output_to_text_detail(result)
+    text_detail = _parse_text_detail(response.json())
+    text_detail.edition_details = await _fetch_critical_edition(text_id=text_id)
+    return text_detail
