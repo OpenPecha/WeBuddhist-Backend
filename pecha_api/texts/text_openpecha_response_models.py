@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 from typing import List, Optional
 
 from pydantic import BaseModel
-
-from pecha_api.texts.texts_response_models import TextDTO
 
 
 class ContributionModel(BaseModel):
@@ -11,6 +11,18 @@ class ContributionModel(BaseModel):
     person_bdrc_id: Optional[str] = None
     person_name: Optional[dict] = None
     ai_id: Optional[str] = None
+
+
+class CriticalEditionModel(BaseModel):
+    id: str
+    text_id: str
+    type: str
+    source: Optional[str] = None
+    colophon: Optional[str] = None
+    incipit_title: Optional[str] = None
+    alt_incipit_titles: Optional[list[str]] = None
+    bdrc: Optional[str] = None
+    wiki: Optional[str] = None
 
 
 class TextDetailResponse(BaseModel):
@@ -23,24 +35,11 @@ class TextDetailResponse(BaseModel):
     commentaries: list[str]
     translations: list[str]
     editions: list[str]
-    edition_details: List[TextDTO] = []
+    edition_details: List[CriticalEditionModel] = []
     bdrc: Optional[str] = None
     wiki: Optional[str] = None
     date: Optional[str] = None
     alt_titles: Optional[list[dict]] = None
     commentary_of: Optional[str] = None
     translation_of: Optional[str] = None
-
-
-class CriticalEditionModel(BaseModel):
-    
-    bdrc: Optional[str] = None,
-    wiki: Optional[str] = None,
-    type: str
-    source: Optional[str] = None
-    colophon: Optional[str] = None
-    incipit_title: Optional[str] = None
-    alt_incipit_titles: Optional[list[str]] = None
-    id: str
-    text_id: str
 
