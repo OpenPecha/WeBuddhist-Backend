@@ -11,6 +11,7 @@ from pecha_api.plans.plans_enums import DifficultyLevel, LanguageCode, PlanStatu
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_service import (
     _validate_plan_ids,
+    _build_plan_order_pairs,
     create_new_series,
     get_filtered_series,
     get_series_detail,
@@ -588,7 +589,7 @@ def test_update_existing_series_plans_omitted_leaves_attachments_untouched():
 
     mock_validate.assert_not_called()
     call_kwargs = mock_update.call_args.kwargs
-    assert call_kwargs["plan_ids_to_attach"] == []
+    assert call_kwargs["plans_to_attach"] == []
     assert call_kwargs["plan_ids_to_detach"] == []
 
 
@@ -621,7 +622,7 @@ def test_update_existing_series_plans_empty_dict_detaches_all():
         update_existing_series(token="dummy", series_id=series_id, update_series_request=request)
 
     call_kwargs = mock_update.call_args.kwargs
-    assert call_kwargs["plan_ids_to_attach"] == []
+    assert call_kwargs["plans_to_attach"] == []
     assert set(call_kwargs["plan_ids_to_detach"]) == {plan_a_id, plan_b_id}
 
 
@@ -668,7 +669,8 @@ def test_update_existing_series_full_replacement_with_diff():
         update_existing_series(token="dummy", series_id=series_id, update_series_request=request)
 
     call_kwargs = mock_update.call_args.kwargs
-    assert set(call_kwargs["plan_ids_to_attach"]) == {plan_c_id}
+    plans_to_attach = call_kwargs["plans_to_attach"]
+    assert plans_to_attach == [(plan_a_id, 0), (plan_c_id, 1)]
     assert set(call_kwargs["plan_ids_to_detach"]) == {plan_b_id}
 
 
@@ -1098,7 +1100,7 @@ def test_create_new_series_with_plans_attaches_and_returns_dto():
         dto = create_new_series(token="dummy", create_series_request=request)
 
     mock_save.assert_called_once()
-    assert mock_save.call_args.kwargs["plan_ids"] == [plan_id]
+    assert mock_save.call_args.kwargs["plans_to_attach"] == [(plan_id, 0)]
     assert dto.id == series_id
 
 
@@ -1492,3 +1494,166 @@ def test_validate_plan_ids_noop_when_empty():
             is_admin=False,
         )
     mock_get_plans.assert_not_called()
+
+# ---------------------------------------------------------------------------
+# _build_plan_order_pairs: per-language display_order computation
+# ---------------------------------------------------------------------------
+
+def test_build_plan_order_pairs_none_returns_empty():
+    assert _build_plan_order_pairs(None) == []
+
+
+def test_build_plan_order_pairs_empty_dict_returns_empty():
+    assert _build_plan_order_pairs({}) == []
+
+
+def test_build_plan_order_pairs_single_language_indexes_from_zero():
+    a, b, c = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+
+    pairs = _build_plan_order_pairs({"EN": [a, b, c]})
+
+    assert pairs == [(a, 0), (b, 1), (c, 2)]
+
+
+def test_build_plan_order_pairs_each_language_numbered_independently():
+    a, b, x, y = uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+
+    pairs = _build_plan_order_pairs({"EN": [a, b], "BO": [x, y]})
+
+    assert pairs == [(a, 0), (b, 1), (x, 0), (y, 1)]
+
+
+def test_build_plan_order_pairs_preserves_request_order_not_sorted():
+    c, a, b = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+
+    pairs = _build_plan_order_pairs({"EN": [c, a, b]})
+
+    assert pairs == [(c, 0), (a, 1), (b, 2)]
+
+
+def test_build_plan_order_pairs_dedupes_keeping_first_occurrence():
+    a, b = uuid.uuid4(), uuid.uuid4()
+
+    pairs = _build_plan_order_pairs({"EN": [a, a, b]})
+
+    assert pairs == [(a, 0), (b, 1)]
+
+
+def test_build_plan_order_pairs_handles_more_than_ten_plans():
+    ids = [uuid.uuid4() for _ in range(15)]
+
+    pairs = _build_plan_order_pairs({"EN": ids})
+
+    # display_order is a plain counter; it scales past single digits.
+    assert pairs == [(pid, idx) for idx, pid in enumerate(ids)]
+    assert pairs[-1][1] == 14
+
+
+def test_build_plan_order_pairs_skips_empty_language_list():
+    a = uuid.uuid4()
+
+    pairs = _build_plan_order_pairs({"EN": [a], "BO": []})
+
+    assert pairs == [(a, 0)]
+
+
+# ---------------------------------------------------------------------------
+# PUT: pure reorder of already-attached plans (no add/remove)
+# ---------------------------------------------------------------------------
+
+def test_update_existing_series_pure_reorder_sends_all_plans_with_new_order():
+    """Reordering already-attached plans (no additions, no removals) must still
+    send every plan to the repository so their display_order is rewritten."""
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    plan_a_id = uuid.uuid4()
+    plan_b_id = uuid.uuid4()
+    plan_c_id = uuid.uuid4()
+
+    existing_a = MagicMock()
+    existing_a.id = plan_a_id
+    existing_a.deleted_at = None
+    existing_b = MagicMock()
+    existing_b.id = plan_b_id
+    existing_b.deleted_at = None
+    existing_c = MagicMock()
+    existing_c.id = plan_c_id
+    existing_c.deleted_at = None
+
+    existing = _make_existing_series(
+        series_id, author_id, plans=[existing_a, existing_b, existing_c]
+    )
+    refreshed = _make_refreshed_series(series_id, author_id)
+    mock_author = _make_mock_author(author_id)
+
+    fetched_a = MagicMock()
+    fetched_a.id = plan_a_id
+    fetched_a.deleted_at = None
+    fetched_a.series_id = series_id
+    fetched_a.author_id = author_id
+    fetched_b = MagicMock()
+    fetched_b.id = plan_b_id
+    fetched_b.deleted_at = None
+    fetched_b.series_id = series_id
+    fetched_b.author_id = author_id
+    fetched_c = MagicMock()
+    fetched_c.id = plan_c_id
+    fetched_c.deleted_at = None
+    fetched_c.series_id = series_id
+    fetched_c.author_id = author_id
+
+    # Same three plans, reordered to C, A, B.
+    request = UpdateSeriesRequest(plans={"EN": [plan_c_id, plan_a_id, plan_b_id]})
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
+         patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[fetched_a, fetched_b, fetched_c]), \
+         patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
+        _session_local_context(mock_session_local)
+        update_existing_series(token="dummy", series_id=series_id, update_series_request=request)
+
+    call_kwargs = mock_update.call_args.kwargs
+    assert call_kwargs["plans_to_attach"] == [
+        (plan_c_id, 0),
+        (plan_a_id, 1),
+        (plan_b_id, 2),
+    ]
+    assert call_kwargs["plan_ids_to_detach"] == []
+
+
+def test_update_existing_series_multi_language_independent_ordering():
+    """Each language list is numbered independently from zero."""
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    en_1, en_2 = uuid.uuid4(), uuid.uuid4()
+    bo_1, bo_2 = uuid.uuid4(), uuid.uuid4()
+
+    existing = _make_existing_series(series_id, author_id, plans=[])
+    refreshed = _make_refreshed_series(series_id, author_id)
+    mock_author = _make_mock_author(author_id)
+
+    def _fetched(pid):
+        m = MagicMock()
+        m.id = pid
+        m.deleted_at = None
+        m.series_id = None
+        m.author_id = author_id
+        return m
+
+    request = UpdateSeriesRequest(
+        plans={"EN": [en_1, en_2], "BO": [bo_1, bo_2]}
+    )
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
+         patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[_fetched(en_1), _fetched(en_2), _fetched(bo_1), _fetched(bo_2)]), \
+         patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
+        _session_local_context(mock_session_local)
+        update_existing_series(token="dummy", series_id=series_id, update_series_request=request)
+
+    plans_to_attach = mock_update.call_args.kwargs["plans_to_attach"]
+    assert plans_to_attach == [(en_1, 0), (en_2, 1), (bo_1, 0), (bo_2, 1)]
