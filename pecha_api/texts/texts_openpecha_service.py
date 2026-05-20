@@ -200,7 +200,6 @@ def filter_versions_by_language(
     versions: List[TextVersion], 
     language: Optional[str]
 ) -> List[TextVersion]:
-    """Filter versions by language if specified."""
     if not language:
         return versions
     return [v for v in versions if v.language == language]
@@ -211,7 +210,6 @@ def paginate_versions(
     skip: int, 
     limit: int
 ) -> List[TextVersion]:
-    """Apply pagination to versions list."""
     return versions[skip:skip + limit]
 
 
