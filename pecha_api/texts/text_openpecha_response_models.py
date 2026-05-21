@@ -46,6 +46,7 @@ class TextDetailResponse(BaseModel):
     alt_titles: Optional[list[dict]] = None
     commentary_of: Optional[str] = None
     translation_of: Optional[str] = None
+    segments: SegmentContentResponse = []
 
 
 class SegmentationResponseModel(BaseModel):
@@ -76,5 +77,13 @@ class EditionContentResponse(BaseModel):
 
 
 class SegmentContentModel(BaseModel):
+    segment_number: int
     id: str
     content: str
+
+class SegmentContentResponse(BaseModel):
+    contents: list[SegmentContentModel]
+    has_more: bool
+    offset: int
+    limit: int
+
