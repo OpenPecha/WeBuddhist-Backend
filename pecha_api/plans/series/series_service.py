@@ -15,11 +15,14 @@ from pecha_api.plans.series.series_repository import (
     get_plans_by_ids,
     save_series_with_plans,
     update_series_with_plans,
+    update_series_status,
+    update_series_featured,
     soft_delete_series_with_plan_detach,
 )
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
     UpdateSeriesRequest,
+    UpdateSeriesStatusRequest,
     SeriesDTO,
     SeriesListItemDTO,
     SeriesMetadataDTO,
@@ -30,6 +33,9 @@ from pecha_api.plans.authors.plan_authors_service import validate_and_extract_au
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from starlette import status
+
+
+_SERIES_UPDATE_PERMISSION_ERROR = "You do not have permission to update this series"
 
 
 def _generate_image_url(image_key: Optional[str]) -> Optional[str]:
@@ -328,7 +334,7 @@ def update_existing_series(
             if not current_author.is_admin and series.author_id != current_author.id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You do not have permission to update this series",
+                    detail=_SERIES_UPDATE_PERMISSION_ERROR,
                 )
 
             if update_series_request.plans is not None:
@@ -371,6 +377,80 @@ def update_existing_series(
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
 
         return _series_to_dto(refreshed, include_plans=True)
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database integrity error: {exc.orig}",
+        ) from exc
+
+
+def update_existing_series_status(
+    token: str,
+    series_id: UUID,
+    update_series_status_request: UpdateSeriesStatusRequest,
+) -> SeriesDTO:
+    current_author = validate_and_extract_author_details(token=token)
+
+    try:
+        with SessionLocal() as db_session:
+            series = get_series_by_id(db=db_session, series_id=series_id)
+            if not series:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Series with id '{series_id}' not found",
+                )
+            if not current_author.is_admin and series.author_id != current_author.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=_SERIES_UPDATE_PERMISSION_ERROR,
+                )
+
+            update_series_status(
+                db=db_session,
+                series=series,
+                status=update_series_status_request.status,
+                updated_by=current_author.email,
+                updated_at=datetime.now(timezone.utc),
+            )
+
+            refreshed = get_series_by_id(db=db_session, series_id=series_id)
+
+        return _series_to_dto(refreshed, include_plans=True)
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database integrity error: {exc.orig}",
+        ) from exc
+
+
+def update_existing_series_featured(
+    token: str,
+    series_id: UUID,
+) -> None:
+    current_author = validate_and_extract_author_details(token=token)
+
+    try:
+        with SessionLocal() as db_session:
+            series = get_series_by_id(db=db_session, series_id=series_id)
+            if not series:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Series with id '{series_id}' not found",
+                )
+            if not current_author.is_admin and series.author_id != current_author.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=_SERIES_UPDATE_PERMISSION_ERROR,
+                )
+
+            update_series_featured(
+                db=db_session,
+                series=series,
+                featured=not series.featured,
+                updated_by=current_author.email,
+                updated_at=datetime.now(timezone.utc),
+            )
+        return
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -131,6 +131,38 @@ def update_series_with_plans(
     return series
 
 
+def update_series_status(
+    db: Session,
+    series: Series,
+    status,
+    updated_by: Optional[str],
+    updated_at,
+) -> Series:
+    series.status = status
+    series.updated_at = updated_at
+    series.updated_by = updated_by
+
+    db.commit()
+    db.refresh(series)
+    return series
+
+
+def update_series_featured(
+    db: Session,
+    series: Series,
+    featured: bool,
+    updated_by: Optional[str],
+    updated_at,
+) -> Series:
+    series.featured = featured
+    series.updated_at = updated_at
+    series.updated_by = updated_by
+
+    db.commit()
+    db.refresh(series)
+    return series
+
+
 def soft_delete_series_with_plan_detach(
     db: Session,
     series: Series,

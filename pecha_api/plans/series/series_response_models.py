@@ -58,6 +58,10 @@ class UpdateSeriesRequest(BaseModel):
         return _validate_plan_language_keys(v)
 
 
+class UpdateSeriesStatusRequest(BaseModel):
+    status: PlanStatus
+
+
 class SeriesPlanDTO(BaseModel):
     id: UUID
     title: str
