@@ -16,6 +16,8 @@ from pecha_api.plans.series.series_service import (
     get_filtered_series,
     get_series_detail,
     update_existing_series,
+    update_existing_series_status,
+    update_existing_series_featured,
     get_cms_filtered_series,
     get_cms_series_detail,
     delete_existing_series,
@@ -23,6 +25,7 @@ from pecha_api.plans.series.series_service import (
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
     UpdateSeriesRequest,
+    UpdateSeriesStatusRequest,
     SeriesListResponse,
     SeriesMetadataInput,
 )
@@ -1763,6 +1766,263 @@ def test_delete_existing_series_integrity_error_raises_400():
 
         with pytest.raises(HTTPException) as exc:
             delete_existing_series(token="dummy", series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Database integrity error" in exc.value.detail
+
+# ===========================================================================
+# PATCH /status — update_existing_series_status
+# ===========================================================================
+
+def test_update_existing_series_status_updates_status_when_owner():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, author_id)
+    refreshed = _make_refreshed_series(series_id, author_id)
+    mock_author = _make_mock_author(author_id, email="owner@pecha.org")
+
+    request = UpdateSeriesStatusRequest(status=PlanStatus.PUBLISHED)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
+         patch("pecha_api.plans.series.series_service.update_series_status") as mock_update:
+        _session_local_context(mock_session_local)
+        dto = update_existing_series_status(
+            token="dummy", series_id=series_id, update_series_status_request=request
+        )
+
+    mock_update.assert_called_once()
+    call_kwargs = mock_update.call_args.kwargs
+    assert call_kwargs["series"] is existing
+    assert call_kwargs["status"] == PlanStatus.PUBLISHED
+    assert call_kwargs["updated_by"] == "owner@pecha.org"
+    assert isinstance(call_kwargs["updated_at"], datetime)
+    assert call_kwargs["updated_at"].tzinfo is not None
+    assert dto.id == series_id
+
+
+def test_update_existing_series_status_returns_404_when_not_found():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    mock_author = _make_mock_author(author_id)
+
+    request = UpdateSeriesStatusRequest(status=PlanStatus.PUBLISHED)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=None), \
+         patch("pecha_api.plans.series.series_service.update_series_status") as mock_update:
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            update_existing_series_status(
+                token="dummy", series_id=series_id, update_series_status_request=request
+            )
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert str(series_id) in exc.value.detail
+    mock_update.assert_not_called()
+
+
+def test_update_existing_series_status_returns_403_when_non_admin_other_author():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    other_author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, other_author_id)
+    mock_author = _make_mock_author(author_id, is_admin=False)
+
+    request = UpdateSeriesStatusRequest(status=PlanStatus.PUBLISHED)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.update_series_status") as mock_update:
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            update_existing_series_status(
+                token="dummy", series_id=series_id, update_series_status_request=request
+            )
+
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+    mock_update.assert_not_called()
+
+
+def test_update_existing_series_status_admin_can_update_other_author_series():
+    series_id = uuid.uuid4()
+    admin_id = uuid.uuid4()
+    other_author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, other_author_id)
+    refreshed = _make_refreshed_series(series_id, other_author_id)
+    mock_admin = _make_mock_author(admin_id, is_admin=True)
+
+    request = UpdateSeriesStatusRequest(status=PlanStatus.PUBLISHED)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
+         patch("pecha_api.plans.series.series_service.update_series_status") as mock_update:
+        _session_local_context(mock_session_local)
+        update_existing_series_status(
+            token="dummy", series_id=series_id, update_series_status_request=request
+        )
+
+    mock_update.assert_called_once()
+
+
+def test_update_existing_series_status_integrity_error_raises_400():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    orig = Exception("constraint violation")
+
+    existing = _make_existing_series(series_id, author_id)
+    mock_author = _make_mock_author(author_id)
+
+    request = UpdateSeriesStatusRequest(status=PlanStatus.PUBLISHED)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.update_series_status",
+               side_effect=IntegrityError("statement", {}, orig)):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            update_existing_series_status(
+                token="dummy", series_id=series_id, update_series_status_request=request
+            )
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Database integrity error" in exc.value.detail
+
+
+# ===========================================================================
+# PATCH /featured — update_existing_series_featured
+# ===========================================================================
+
+def test_update_existing_series_featured_toggles_false_to_true():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, author_id)
+    existing.featured = False
+    mock_author = _make_mock_author(author_id, email="owner@pecha.org")
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.update_series_featured") as mock_update:
+        _session_local_context(mock_session_local)
+        result = update_existing_series_featured(token="dummy", series_id=series_id)
+
+    assert result is None
+    mock_update.assert_called_once()
+    call_kwargs = mock_update.call_args.kwargs
+    assert call_kwargs["series"] is existing
+    assert call_kwargs["featured"] is True
+    assert call_kwargs["updated_by"] == "owner@pecha.org"
+    assert isinstance(call_kwargs["updated_at"], datetime)
+    assert call_kwargs["updated_at"].tzinfo is not None
+
+
+def test_update_existing_series_featured_toggles_true_to_false():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, author_id)
+    existing.featured = True
+    mock_author = _make_mock_author(author_id)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.update_series_featured") as mock_update:
+        _session_local_context(mock_session_local)
+        update_existing_series_featured(token="dummy", series_id=series_id)
+
+    assert mock_update.call_args.kwargs["featured"] is False
+
+
+def test_update_existing_series_featured_returns_404_when_not_found():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    mock_author = _make_mock_author(author_id)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=None), \
+         patch("pecha_api.plans.series.series_service.update_series_featured") as mock_update:
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            update_existing_series_featured(token="dummy", series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert str(series_id) in exc.value.detail
+    mock_update.assert_not_called()
+
+
+def test_update_existing_series_featured_returns_403_when_non_admin_other_author():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    other_author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, other_author_id)
+    mock_author = _make_mock_author(author_id, is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.update_series_featured") as mock_update:
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            update_existing_series_featured(token="dummy", series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+    mock_update.assert_not_called()
+
+
+def test_update_existing_series_featured_admin_can_update_other_author_series():
+    series_id = uuid.uuid4()
+    admin_id = uuid.uuid4()
+    other_author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, other_author_id)
+    existing.featured = False
+    mock_admin = _make_mock_author(admin_id, is_admin=True)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.update_series_featured") as mock_update:
+        _session_local_context(mock_session_local)
+        update_existing_series_featured(token="dummy", series_id=series_id)
+
+    mock_update.assert_called_once()
+
+
+def test_update_existing_series_featured_integrity_error_raises_400():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    orig = Exception("constraint violation")
+
+    existing = _make_existing_series(series_id, author_id)
+    mock_author = _make_mock_author(author_id)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.update_series_featured",
+               side_effect=IntegrityError("statement", {}, orig)):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            update_existing_series_featured(token="dummy", series_id=series_id)
 
     assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
     assert "Database integrity error" in exc.value.detail
