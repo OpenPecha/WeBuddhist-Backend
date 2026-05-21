@@ -12,6 +12,8 @@ from pecha_api.plans.series.series_repository import (
     get_series_paginated,
     save_series_with_plans,
     update_series_with_plans,
+    update_series_status,
+    update_series_featured,
     soft_delete_series_with_plan_detach,
 )
 
@@ -370,3 +372,105 @@ def test_soft_delete_series_returns_none():
     )
 
     assert result is None
+
+# ---------------------------------------------------------------------------
+# status update: update_series_status (PATCH /status path)
+# ---------------------------------------------------------------------------
+
+def test_update_series_status_sets_status_updated_fields_and_commits():
+    db = _make_session_mock()
+    series = MagicMock(name="SeriesInstance")
+    series.id = uuid.uuid4()
+    updated_at = MagicMock(name="UpdatedAt")
+
+    result = update_series_status(
+        db=db,
+        series=series,
+        status="PUBLISHED",
+        updated_by="tester@example.com",
+        updated_at=updated_at,
+    )
+
+    assert result is series
+    assert series.status == "PUBLISHED"
+    assert series.updated_at is updated_at
+    assert series.updated_by == "tester@example.com"
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(series)
+
+
+def test_update_series_status_integrity_error_propagates():
+    db = _make_session_mock()
+    series = MagicMock(name="SeriesInstance")
+    series.id = uuid.uuid4()
+    orig = Exception("constraint violation")
+    db.commit.side_effect = IntegrityError("statement", {}, orig)
+
+    with pytest.raises(IntegrityError):
+        update_series_status(
+            db=db,
+            series=series,
+            status="PUBLISHED",
+            updated_by="tester@example.com",
+            updated_at=MagicMock(),
+        )
+
+
+# ---------------------------------------------------------------------------
+# featured update: update_series_featured (PATCH /featured path)
+# ---------------------------------------------------------------------------
+
+def test_update_series_featured_sets_featured_updated_fields_and_commits():
+    db = _make_session_mock()
+    series = MagicMock(name="SeriesInstance")
+    series.id = uuid.uuid4()
+    updated_at = MagicMock(name="UpdatedAt")
+
+    result = update_series_featured(
+        db=db,
+        series=series,
+        featured=True,
+        updated_by="tester@example.com",
+        updated_at=updated_at,
+    )
+
+    assert result is series
+    assert series.featured is True
+    assert series.updated_at is updated_at
+    assert series.updated_by == "tester@example.com"
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(series)
+
+
+def test_update_series_featured_writes_false_value():
+    db = _make_session_mock()
+    series = MagicMock(name="SeriesInstance")
+    series.id = uuid.uuid4()
+
+    update_series_featured(
+        db=db,
+        series=series,
+        featured=False,
+        updated_by="tester@example.com",
+        updated_at=MagicMock(),
+    )
+
+    assert series.featured is False
+    db.commit.assert_called_once()
+
+
+def test_update_series_featured_integrity_error_propagates():
+    db = _make_session_mock()
+    series = MagicMock(name="SeriesInstance")
+    series.id = uuid.uuid4()
+    orig = Exception("constraint violation")
+    db.commit.side_effect = IntegrityError("statement", {}, orig)
+
+    with pytest.raises(IntegrityError):
+        update_series_featured(
+            db=db,
+            series=series,
+            featured=True,
+            updated_by="tester@example.com",
+            updated_at=MagicMock(),
+        )
