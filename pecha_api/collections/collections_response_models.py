@@ -26,7 +26,6 @@ class CollectionModel(BaseModel):
 class V2CollectionModel(BaseModel):
     id: str
     title: str
-    language: str
 
 class Pagination(BaseModel):
     total: int

@@ -14,7 +14,7 @@ class TestTextsV2Endpoint:
     @patch("pecha_api.texts.texts_openpecha_views.get_texts_by_collection_from_openpecha")
     def test_get_texts_by_collection_success(self, mock_service):
         mock_service.return_value = V2TextsCategoryResponse(
-            collection=V2CollectionModel(id="cat-1", title="Discourses", language="en"),
+            collection=V2CollectionModel(id="cat-1", title="Discourses"),
             texts=[
                 V2TextDTO(id="t1", title="Text 1", language="en"),
                 V2TextDTO(id="t2", title="Text 2", language="bo"),
@@ -23,7 +23,7 @@ class TestTextsV2Endpoint:
             limit=10,
         )
 
-        response = client.get("/v2/texts/collection/cat-1?language=en")
+        response = client.get("/v2/texts/collection/cat-1")
 
         assert response.status_code == 200
         data = response.json()

@@ -3,7 +3,6 @@ from typing import Optional, Dict, Any, List, Tuple
 from fastapi import HTTPException
 from starlette import status
 
-from pecha_api.config import get
 from pecha_api.texts.texts_response_models import V2TextDTO, V2TextsCategoryResponse
 from pecha_api.collections.collections_response_models import V2CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
@@ -36,7 +35,6 @@ def _map_external_text_to_dto(item: Dict[str, Any], language: Optional[str] = No
 
 async def _get_texts_by_collection_id(
     collection_id: str,
-    language: str,
     skip: int,
     limit: int,
 ) -> Tuple[List[V2TextDTO], bool]:
@@ -54,23 +52,18 @@ async def _get_texts_by_collection_id(
 
     items = page.get("items", [])
     has_more = bool(page.get("has_more", False))
-    texts = [_map_external_text_to_dto(item, language) for item in items]
+    texts = [_map_external_text_to_dto(item) for item in items]
 
     return texts, has_more
 
 
 async def get_texts_by_collection_from_openpecha(
     collection_id: str,
-    language: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
 ) -> V2TextsCategoryResponse:
-    if not language:
-        language = get("DEFAULT_LANGUAGE")
-
     texts, has_more = await _get_texts_by_collection_id(
         collection_id=collection_id,
-        language=language,
         skip=skip,
         limit=limit,
     )
@@ -79,8 +72,8 @@ async def get_texts_by_collection_from_openpecha(
     try:
         category_data = await fetch_category_by_id(collection_id)
         if category_data:
-            category_title = _extract_title(category_data.get("title", {}), language)
-    except Exception as e:
+            category_title = _extract_title(category_data.get("title", {}))
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch category title from upstream service",
@@ -89,7 +82,6 @@ async def get_texts_by_collection_from_openpecha(
     collection = V2CollectionModel(
         id=collection_id,
         title=category_title,
-        language=language,
     )
 
     return V2TextsCategoryResponse(

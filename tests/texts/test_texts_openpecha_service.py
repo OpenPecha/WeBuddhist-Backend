@@ -46,7 +46,6 @@ class TestGetTextsByCollectionId:
 
         texts, has_more = await _get_texts_by_collection_id(
             collection_id="cat-1",
-            language="en",
             skip=5,
             limit=3,
         )
@@ -68,7 +67,6 @@ class TestGetTextsByCollectionId:
 
         texts, has_more = await _get_texts_by_collection_id(
             collection_id="cat-1",
-            language="en",
             skip=0,
             limit=10,
         )
@@ -85,7 +83,6 @@ class TestGetTextsByCollectionId:
 
         texts, has_more = await _get_texts_by_collection_id(
             collection_id="cat-1",
-            language="en",
             skip=0,
             limit=10,
         )
@@ -101,7 +98,6 @@ class TestGetTextsByCollectionId:
         with pytest.raises(HTTPException) as exc_info:
             await _get_texts_by_collection_id(
                 collection_id="cat-1",
-                language="en",
                 skip=0,
                 limit=10,
             )
@@ -125,7 +121,6 @@ class TestGetTextsByCollectionFromOpenpecha:
 
         result = await get_texts_by_collection_from_openpecha(
             collection_id="cat-1",
-            language="en",
             skip=0,
             limit=10,
         )
@@ -133,7 +128,6 @@ class TestGetTextsByCollectionFromOpenpecha:
         assert isinstance(result, V2TextsCategoryResponse)
         assert result.collection.id == "cat-1"
         assert result.collection.title == "Collection"
-        assert result.collection.language == "en"
         assert len(result.texts) == 2
         assert result.texts[0].id == "t-en"
         assert result.texts[1].id == "t-bo"
@@ -159,7 +153,6 @@ class TestGetTextsByCollectionFromOpenpecha:
 
         result = await get_texts_by_collection_from_openpecha(
             collection_id="cat-1",
-            language="en",
             skip=1,
             limit=1,
         )
@@ -182,7 +175,7 @@ class TestGetTextsByCollectionFromOpenpecha:
         mock_fetch_texts.side_effect = Exception("connection refused")
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_texts_by_collection_from_openpecha(collection_id="cat-1", language="en")
+            await get_texts_by_collection_from_openpecha(collection_id="cat-1")
 
         assert exc_info.value.status_code == 502
 
@@ -194,7 +187,7 @@ class TestGetTextsByCollectionFromOpenpecha:
         mock_fetch_category.side_effect = Exception("connection refused")
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_texts_by_collection_from_openpecha(collection_id="cat-1", language="en")
+            await get_texts_by_collection_from_openpecha(collection_id="cat-1")
 
         assert exc_info.value.status_code == 502
         assert "category" in exc_info.value.detail.lower()
