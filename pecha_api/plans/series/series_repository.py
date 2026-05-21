@@ -1,12 +1,22 @@
 from typing import List, Optional, Tuple
 from uuid import UUID
 
-from sqlalchemy import String, cast, desc, asc, or_, exists, select
+from sqlalchemy import String, cast, desc, asc, or_, exists, select, func
 from sqlalchemy.orm import Session, selectinload
 
+from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.plans_models import Plan
+
+
+def _series_active_plans_count_subquery():
+    return (
+        select(func.count(Plan.id))
+        .where(Plan.series_id == Series.id, Plan.deleted_at.is_(None))
+        .correlate(Series)
+        .scalar_subquery()
+    )
 
 
 def get_series_by_id(db: Session, series_id) -> Optional[Series]:
@@ -129,7 +139,10 @@ def get_series_paginated(
     order_by_field=None,
     order_desc: bool = True,
     author_id: Optional[UUID] = None,
-) -> Tuple[List[Series], int]:
+    language: Optional[str] = None,
+    status: Optional[PlanStatus] = None,
+    featured: Optional[bool] = None,
+) -> Tuple[List[Tuple[Series, int]], int]:
 
     filters = []
     if not include_deleted:
@@ -148,8 +161,23 @@ def get_series_paginated(
         )
     if author_id is not None:
         filters.append(Series.author_id == author_id)
+    if status is not None:
+        filters.append(Series.status == status)
+    if featured is not None:
+        filters.append(Series.featured == featured)
+    if language:
+        language_upper = language.upper()
+        filters.append(
+            exists(
+                select(1).where(
+                    SeriesMetadata.series_id == Series.id,
+                    SeriesMetadata.language == language_upper,
+                )
+            )
+        )
 
-    query = db.query(Series).options(selectinload(Series.metadata_entries))
+    plan_count = _series_active_plans_count_subquery().label("plan_count")
+    query = db.query(Series, plan_count).options(selectinload(Series.metadata_entries))
     if filters:
         query = query.filter(*filters)
 
@@ -163,5 +191,8 @@ def get_series_paginated(
     else:
         query = query.order_by(asc(order_by_field), Series.id)
 
-    rows = query.offset(skip).limit(limit).all()
+    rows = [
+        (series, int(count or 0))
+        for series, count in query.offset(skip).limit(limit).all()
+    ]
     return rows, total
