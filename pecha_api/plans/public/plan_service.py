@@ -17,6 +17,11 @@ from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id, get_all_unique_tags, get_next_plan_in_series, get_previous_plan_in_series)
 from pecha_api.plans.users.plan_users_progress_repository import get_plan_progress_by_user_id_and_plan_id, save_plan_progress
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
+from pecha_api.routines.routines_repository import (
+    get_time_blocks_containing_plan,
+    get_max_display_order_in_time_block,
+    add_plan_session_to_time_block,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -219,8 +224,45 @@ async def auto_enroll_plan(plan_id: UUID, user_id: Optional[UUID] = None) -> Non
             save_plan_progress(db=db, plan_progress=new_progress)
             logger.info(f"Auto-enrolled user {user_id} in plan {plan_id}")
             
+            # Add new plan to routine time blocks where previous plan exists
+            add_plan_to_routine_time_blocks(
+                db=db,
+                user_id=user_id,
+                previous_plan_id=previous_plan.id,
+                new_plan_id=plan_id
+            )
+            
     except Exception as e:
         logger.error(f"Error during auto-enrollment for user {user_id} in plan {plan_id}: {str(e)}", exc_info=True)
+
+
+def add_plan_to_routine_time_blocks(
+    db,
+    user_id: UUID,
+    previous_plan_id: UUID,
+    new_plan_id: UUID
+) -> None:
+    """
+    Add the new plan to all routine time blocks where the previous plan exists.
+    The new plan is added after the previous plan in display_order.
+    """
+    try:
+        time_blocks = get_time_blocks_containing_plan(
+            db=db, user_id=user_id, plan_id=previous_plan_id
+        )
+        
+        for time_block in time_blocks:
+            max_order = get_max_display_order_in_time_block(db=db, time_block_id=time_block.id)
+            add_plan_session_to_time_block(
+                db=db,
+                time_block_id=time_block.id,
+                plan_id=new_plan_id,
+                display_order=max_order + 1
+            )
+            logger.info(f"Added plan {new_plan_id} to time block {time_block.id} for user {user_id}")
+            
+    except Exception as e:
+        logger.error(f"Error adding plan to routine time blocks: {str(e)}", exc_info=True)
 
 async def get_plan_days(plan_id: UUID) -> PlanDaysResponse:
     """Get all days for a specific plan"""
