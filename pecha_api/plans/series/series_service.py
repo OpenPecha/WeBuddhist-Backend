@@ -25,6 +25,7 @@ from pecha_api.plans.series.series_response_models import (
     SeriesListResponse,
 )
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
+from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from starlette import status
 
@@ -95,7 +96,7 @@ def _plan_to_dto(plan) -> SeriesPlanDTO:
         difficulty_level=plan.difficulty_level,
         image_url=_generate_image_url(plan.image_url),
         image_key=plan.image_url,
-        tags=plan.tags or [],
+        tags=tags_to_summary_dtos(plan.tag_list),
         status=_to_plan_status(plan.status),
         featured=bool(plan.featured),
         display_order=plan.display_order,
