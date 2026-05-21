@@ -34,7 +34,7 @@ class PublicPlanDTO(BaseModel):
     difficulty_level: Optional[DifficultyLevel] = None
     image: Optional[ImageUrlModel] = None
     total_days: int
-    tags: List[TagSummaryDTO] = [],
+    tags: list[TagSummaryDTO] = []
     author: Optional[AuthorDTO] = None
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
