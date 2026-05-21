@@ -20,7 +20,6 @@ async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDe
     segments = await fetch_segmentation_segments(segmentation_id=segmentations[0].id, limit=limit, offset=offset)  # noqa: F841
     segment_contents = trim_segment_content(edition_content=edition_content.content, segments=segments)
     text_detail.segments = segment_contents
-    print("segment_content", segment_contents)
     return text_detail
 
 

@@ -45,7 +45,6 @@ def _parse_text_detail(data: dict[str, Any]) -> TextDetailResponse:
         contributions=contributions,
         commentaries=data.get("commentaries", []),
         translations=data.get("translations", []),
-        editions=data.get("editions", []),
         bdrc=data.get("bdrc"),
         wiki=data.get("wiki"),
         date=data.get("date"),
@@ -117,14 +116,11 @@ async def fetch_critical_editions(text_id: str) -> list[CriticalEditionModel]:
     return [
         CriticalEditionModel(
             id=edition["id"],
-            text_id=edition["text_id"],
             type=edition["type"],
             source=edition.get("source"),
             colophon=edition.get("colophon"),
             incipit_title=edition.get("incipit_title"),
-            alt_incipit_titles=edition.get("alt_incipit_titles"),
-            bdrc=edition.get("bdrc"),
-            wiki=edition.get("wiki"),
+            alt_incipit_titles=edition.get("alt_incipit_titles")
         )
         for edition in data
     ]

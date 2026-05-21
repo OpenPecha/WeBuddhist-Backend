@@ -19,14 +19,11 @@ class ContributionModel(BaseModel):
 
 class CriticalEditionModel(BaseModel):
     id: str
-    text_id: str
     type: str
     source: Optional[str] = None
     colophon: Optional[str] = None
     incipit_title: Optional[str] = None
     alt_incipit_titles: Optional[list[str]] = None
-    bdrc: Optional[str] = None
-    wiki: Optional[str] = None
 
 
 class TextDetailResponse(BaseModel):
@@ -38,7 +35,6 @@ class TextDetailResponse(BaseModel):
     contributions: list[ContributionModel]
     commentaries: list[str]
     translations: list[str]
-    editions: list[str]
     edition_details: List[CriticalEditionModel] = []
     bdrc: Optional[str] = None
     wiki: Optional[str] = None
