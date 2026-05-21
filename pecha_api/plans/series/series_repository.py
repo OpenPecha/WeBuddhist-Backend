@@ -16,6 +16,7 @@ def get_series_by_id(db: Session, series_id) -> Optional[Series]:
         .options(
             selectinload(Series.metadata_entries),
             selectinload(Series.plans).selectinload(Plan.items),
+            selectinload(Series.plans).selectinload(Plan.tag_list),
         )
         .filter(Series.id == series_id, Series.deleted_at.is_(None))
         .first()

@@ -4,6 +4,7 @@ from uuid import UUID
 from datetime import datetime
 
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel, LanguageCode
+from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 
 def _validate_plan_language_keys(v):
@@ -65,7 +66,7 @@ class SeriesPlanDTO(BaseModel):
     difficulty_level: Optional[DifficultyLevel] = None
     image_url: Optional[str] = None
     image_key: Optional[str] = None
-    tags: Optional[List[str]] = []
+    tags: List[TagSummaryDTO] = []
     status: PlanStatus
     featured: bool
     display_order: Optional[int] = None

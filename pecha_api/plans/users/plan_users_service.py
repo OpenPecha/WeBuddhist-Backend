@@ -44,6 +44,7 @@ from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_repository import get_sub_ta
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
+from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 
 from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_day_with_tasks_and_subtasks
@@ -116,7 +117,7 @@ async def get_user_enrolled_plans(token: str,status_filter: Optional[str] = None
                 image_url=image_url,
                 started_at=progress.started_at,
                 total_days=total_days,
-                tags=plan.tags if plan.tags else [],
+                tags=tags_to_summary_dtos(plan.tag_list),
                 start_date=plan.start_date,
                 display_order=plan.display_order
             )
@@ -214,7 +215,7 @@ def get_user_plan_progress(token: str, plan_id: UUID) -> UserPlanProgressRespons
             "language": plan.language.value if plan.language else None,
             "difficulty_level": plan.difficulty_level.value if plan.difficulty_level else None,
             "image_url": plan_image_url,
-            "tags": plan.tags or []
+            "tags": [t.model_dump() for t in tags_to_summary_dtos(plan.tag_list)]
         }
         
         return UserPlanProgressResponse(

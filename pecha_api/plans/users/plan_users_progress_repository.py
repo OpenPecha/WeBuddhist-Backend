@@ -1,6 +1,6 @@
 from uuid import UUID
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, selectinload, joinedload
 from sqlalchemy import func
 from pecha_api.plans.users.plan_users_response_models import EnrolledUserPlan
 from .plan_users_models import UserPlanProgress, UserTaskCompletion, UserDayCompletion, UserSubTaskCompletion
@@ -88,7 +88,7 @@ def get_user_enrolled_plans_with_details(db: Session,user_id: UUID, status: Opti
         UserPlanProgress, 
         Plan, 
         func.coalesce(days_subquery.c.total_days, 0).label('total_days')
-    ).join(
+    ).options(selectinload(Plan.tag_list)).join(
         Plan, UserPlanProgress.plan_id == Plan.id
     ).outerjoin(
         days_subquery, Plan.id == days_subquery.c.plan_id
