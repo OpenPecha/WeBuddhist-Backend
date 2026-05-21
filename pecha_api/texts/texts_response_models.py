@@ -175,9 +175,9 @@ class TextsCategoryResponse(BaseModel):
 class V2TextsCategoryResponse(BaseModel):
     collection: V2CollectionModel
     texts: List[V2TextDTO]
-    total: int
     skip: int
     limit: int
+    has_more: bool = False
 
 # Texts Info Response Models
 class RelatedTexts(BaseModel):

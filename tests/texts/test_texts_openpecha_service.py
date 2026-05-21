@@ -5,7 +5,6 @@ from fastapi import HTTPException
 from pecha_api.texts.texts_openpecha_service import (
     _extract_title,
     _map_external_text_to_dto,
-    _languages_in_priority_order,
     _get_texts_by_collection_id,
     get_texts_by_collection_from_openpecha,
     get_text_by_id_from_openpecha,
@@ -32,67 +31,96 @@ class TestExtractTitle:
         assert _extract_title("  Plain title  ") == "Plain title"
 
 
-class TestLanguagesInPriorityOrder:
-    def test_english_priority(self):
-        assert _languages_in_priority_order("en") == ["en", "bo", "zh"]
-
-    def test_tibetan_priority(self):
-        assert _languages_in_priority_order("bo") == ["bo", "en", "zh"]
-
-    def test_unknown_language_falls_back_to_english_order(self):
-        assert _languages_in_priority_order("fr") == ["en", "bo", "zh"]
-
-
 class TestGetTextsByCollectionId:
     @pytest.mark.asyncio
     @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
-    async def test_skip_across_languages(self, mock_fetch_texts):
-        async def fake_fetch(category_id, language=None, limit=20, offset=0):
-            if language == "en":
-                return {"total": 5, "items": []}
-            if language == "bo":
-                return {
-                    "total": 20,
-                    "items": [_text_item(f"bo-{offset + i}", "bo") for i in range(limit)],
-                }
-            return {"total": 0, "items": []}
+    async def test_passes_skip_and_limit_to_upstream_without_language(self, mock_fetch_texts):
+        mock_fetch_texts.return_value = {
+            "items": [
+                _text_item("t-en", "en"),
+                _text_item("t-bo", "bo"),
+                _text_item("t-zh", "zh"),
+            ],
+            "has_more": True,
+        }
 
-        mock_fetch_texts.side_effect = fake_fetch
-
-        texts, total = await _get_texts_by_collection_id(
+        texts, has_more = await _get_texts_by_collection_id(
             collection_id="cat-1",
             language="en",
-            skip=12,
+            skip=5,
+            limit=3,
+        )
+
+        assert [t.id for t in texts] == ["t-en", "t-bo", "t-zh"]
+        assert [t.language for t in texts] == ["en", "bo", "zh"]
+        assert has_more is True
+
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id="cat-1",
+            offset=5,
+            limit=3,
+        )
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_returns_empty_list_when_no_items(self, mock_fetch_texts):
+        mock_fetch_texts.return_value = {"items": [], "has_more": False}
+
+        texts, has_more = await _get_texts_by_collection_id(
+            collection_id="cat-1",
+            language="en",
+            skip=0,
             limit=10,
         )
 
-        assert total == 25
-        assert len(texts) == 10
-        assert texts[0].id == "bo-7"
+        assert texts == []
+        assert has_more is False
 
-        mock_fetch_texts.assert_any_await(
-            category_id="cat-1", language="en", offset=12, limit=10
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_defaults_has_more_to_false_when_upstream_omits_it(self, mock_fetch_texts):
+        mock_fetch_texts.return_value = {
+            "items": [_text_item("t-en", "en")],
+        }
+
+        texts, has_more = await _get_texts_by_collection_id(
+            collection_id="cat-1",
+            language="en",
+            skip=0,
+            limit=10,
         )
-        mock_fetch_texts.assert_any_await(
-            category_id="cat-1", language="bo", offset=7, limit=10
-        )
+
+        assert len(texts) == 1
+        assert has_more is False
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_upstream_failure_maps_to_502(self, mock_fetch_texts):
+        mock_fetch_texts.side_effect = Exception("connection refused")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await _get_texts_by_collection_id(
+                collection_id="cat-1",
+                language="en",
+                skip=0,
+                limit=10,
+            )
+
+        assert exc_info.value.status_code == 502
+
 
 class TestGetTextsByCollectionFromOpenpecha:
     @pytest.mark.asyncio
     @patch("pecha_api.texts.texts_openpecha_service.fetch_category_by_id", new_callable=AsyncMock)
     @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
     async def test_get_texts_success(self, mock_fetch_texts, mock_fetch_category):
-        mock_fetch_texts.side_effect = [
-            {
-                "total": 1,
-                "items": [{"id": "t-en", "title": {"en": "EN Text"}, "language": "en"}],
-            },
-            {
-                "total": 1,
-                "items": [{"id": "t-bo", "title": {"bo": "BO Text"}, "language": "bo"}],
-            },
-            {"total": 0, "items": []},
-        ]
+        mock_fetch_texts.return_value = {
+            "items": [
+                {"id": "t-en", "title": {"en": "EN Text"}, "language": "en"},
+                {"id": "t-bo", "title": {"bo": "BO Text"}, "language": "bo"},
+            ],
+            "has_more": False,
+        }
         mock_fetch_category.return_value = {"title": {"en": "Collection"}}
 
         result = await get_texts_by_collection_from_openpecha(
@@ -105,28 +133,28 @@ class TestGetTextsByCollectionFromOpenpecha:
         assert isinstance(result, V2TextsCategoryResponse)
         assert result.collection.id == "cat-1"
         assert result.collection.title == "Collection"
-        assert result.total == 2
+        assert result.collection.language == "en"
         assert len(result.texts) == 2
         assert result.texts[0].id == "t-en"
         assert result.texts[1].id == "t-bo"
+        assert result.has_more is False
+
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id="cat-1",
+            offset=0,
+            limit=10,
+        )
 
     @pytest.mark.asyncio
     @patch("pecha_api.texts.texts_openpecha_service.fetch_category_by_id", new_callable=AsyncMock)
     @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
     async def test_get_texts_with_pagination(self, mock_fetch_texts, mock_fetch_category):
-        async def fake_fetch(category_id, language=None, limit=20, offset=0):
-            totals = {"en": 5, "bo": 10, "zh": 3}
-            if language == "en":
-                return {
-                    "total": totals["en"],
-                    "items": [
-                        {"id": f"t-{offset + i}", "title": {"en": f"Text {offset + i}"}, "language": "en"}
-                        for i in range(limit)
-                    ],
-                }
-            return {"total": totals.get(language, 0), "items": []}
-
-        mock_fetch_texts.side_effect = fake_fetch
+        mock_fetch_texts.return_value = {
+            "items": [
+                {"id": "t-1", "title": {"en": "Text 1"}, "language": "en"},
+            ],
+            "has_more": True,
+        }
         mock_fetch_category.return_value = None
 
         result = await get_texts_by_collection_from_openpecha(
@@ -136,15 +164,41 @@ class TestGetTextsByCollectionFromOpenpecha:
             limit=1,
         )
 
-        assert result.total == 18
         assert len(result.texts) == 1
         assert result.texts[0].id == "t-1"
         assert result.skip == 1
         assert result.limit == 1
+        assert result.has_more is True
 
-        mock_fetch_texts.assert_any_await(
-            category_id="cat-1", language="en", offset=1, limit=1
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id="cat-1",
+            offset=1,
+            limit=1,
         )
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_get_texts_upstream_error(self, mock_fetch_texts):
+        mock_fetch_texts.side_effect = Exception("connection refused")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_texts_by_collection_from_openpecha(collection_id="cat-1", language="en")
+
+        assert exc_info.value.status_code == 502
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_category_by_id", new_callable=AsyncMock)
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_get_texts_category_upstream_error(self, mock_fetch_texts, mock_fetch_category):
+        mock_fetch_texts.return_value = {"items": [], "has_more": False}
+        mock_fetch_category.side_effect = Exception("connection refused")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_texts_by_collection_from_openpecha(collection_id="cat-1", language="en")
+
+        assert exc_info.value.status_code == 502
+        assert "category" in exc_info.value.detail.lower()
+
 
 class TestGetTextByIdFromOpenpecha:
     @pytest.mark.asyncio

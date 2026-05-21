@@ -19,7 +19,6 @@ class TestTextsV2Endpoint:
                 V2TextDTO(id="t1", title="Text 1", language="en"),
                 V2TextDTO(id="t2", title="Text 2", language="bo"),
             ],
-            total=2,
             skip=0,
             limit=10,
         )
@@ -30,7 +29,6 @@ class TestTextsV2Endpoint:
         data = response.json()
         assert data["collection"]["title"] == "Discourses"
         assert len(data["texts"]) == 2
-        assert data["total"] == 2
 
     @patch("pecha_api.texts.texts_openpecha_views.get_text_by_id_from_openpecha")
     def test_get_text_by_id_success(self, mock_service):
