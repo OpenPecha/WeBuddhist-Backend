@@ -12,6 +12,7 @@ from pecha_api.plans.series.series_repository import (
     get_series_paginated,
     save_series_with_plans,
     update_series_with_plans,
+    soft_delete_series_with_plan_detach,
 )
 
 
@@ -317,3 +318,55 @@ def test_update_series_with_plans_attach_and_detach_together():
     detach_updates = [u for u in updates if u.get(Plan.series_id) is None]
     assert len(detach_updates) == 1
     assert detach_updates[0][Plan.display_order] is None
+
+
+# ---------------------------------------------------------------------------
+# soft delete: soft_delete_series_with_plan_detach (DELETE path)
+# ---------------------------------------------------------------------------
+
+def test_soft_delete_series_sets_deleted_fields_and_commits():
+    db = _make_session_mock()
+    series = MagicMock(name="SeriesInstance")
+    series.id = uuid.uuid4()
+
+    soft_delete_series_with_plan_detach(
+        db=db,
+        series=series,
+        deleted_by="tester@example.com",
+    )
+
+    assert series.deleted_at is not None
+    assert series.deleted_by == "tester@example.com"
+    db.commit.assert_called_once()
+
+
+def test_soft_delete_series_detaches_all_attached_plans():
+    db = _make_session_mock()
+    series = MagicMock(name="SeriesInstance")
+    series.id = uuid.uuid4()
+
+    soft_delete_series_with_plan_detach(
+        db=db,
+        series=series,
+        deleted_by="tester@example.com",
+    )
+
+    updates = _capture_plan_updates(db)
+    assert len(updates) == 1
+    detach_values = updates[0]
+    assert detach_values[Plan.series_id] is None
+    assert detach_values[Plan.display_order] is None
+
+
+def test_soft_delete_series_returns_none():
+    db = _make_session_mock()
+    series = MagicMock(name="SeriesInstance")
+    series.id = uuid.uuid4()
+
+    result = soft_delete_series_with_plan_detach(
+        db=db,
+        series=series,
+        deleted_by="tester@example.com",
+    )
+
+    assert result is None

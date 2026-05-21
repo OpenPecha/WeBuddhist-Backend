@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List, Optional, Tuple
 from uuid import UUID
 
@@ -117,6 +118,23 @@ def update_series_with_plans(
     db.commit()
     db.refresh(series)
     return series
+
+
+def soft_delete_series_with_plan_detach(
+    db: Session,
+    series: Series,
+    deleted_by: Optional[str],
+) -> None:
+    db.query(Plan).filter(Plan.series_id == series.id).update(
+        {
+            Plan.series_id: None,
+            Plan.display_order: None,
+        },
+        synchronize_session=False,
+    )
+    series.deleted_at = datetime.now(timezone.utc)
+    series.deleted_by = deleted_by
+    db.commit()
 
 
 def get_series_paginated(

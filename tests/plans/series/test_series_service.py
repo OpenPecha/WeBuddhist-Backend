@@ -18,6 +18,7 @@ from pecha_api.plans.series.series_service import (
     update_existing_series,
     get_cms_filtered_series,
     get_cms_series_detail,
+    delete_existing_series,
 )
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
@@ -487,8 +488,8 @@ def test_get_series_detail_handles_plan_without_items_attribute():
     series_id = uuid.uuid4()
     author_id = uuid.uuid4()
 
-    plan_no_items = MagicMock(spec=["deleted_at", "display_order", "id", "title", "description", 
-                                     "language", "difficulty_level", "image_url", "tags", 
+    plan_no_items = MagicMock(spec=["deleted_at", "display_order", "id", "title", "description",
+                                     "language", "difficulty_level", "image_url", "tags",
                                      "status", "featured", "start_date"])
     plan_no_items.deleted_at = None
     plan_no_items.display_order = 1
@@ -1657,3 +1658,111 @@ def test_update_existing_series_multi_language_independent_ordering():
 
     plans_to_attach = mock_update.call_args.kwargs["plans_to_attach"]
     assert plans_to_attach == [(en_1, 0), (en_2, 1), (bo_1, 0), (bo_2, 1)]
+
+
+# ---------------------------------------------------------------------------
+# DELETE: delete_existing_series
+# ---------------------------------------------------------------------------
+
+def test_delete_existing_series_soft_deletes_when_owner():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, author_id)
+    mock_author = _make_mock_author(author_id, email="owner@pecha.org", is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach") as mock_soft_delete:
+        _session_local_context(mock_session_local)
+
+        result = delete_existing_series(token="dummy", series_id=series_id)
+
+    assert result is None
+    mock_soft_delete.assert_called_once()
+    call_kwargs = mock_soft_delete.call_args.kwargs
+    assert call_kwargs["series"] is existing
+    assert call_kwargs["deleted_by"] == "owner@pecha.org"
+
+
+def test_delete_existing_series_returns_404_when_series_not_found():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    mock_author = _make_mock_author(author_id)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=None), \
+         patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach") as mock_soft_delete:
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            delete_existing_series(token="dummy", series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert str(series_id) in exc.value.detail
+    mock_soft_delete.assert_not_called()
+
+
+def test_delete_existing_series_returns_403_when_non_admin_other_author():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    other_author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, other_author_id)
+    mock_author = _make_mock_author(author_id, is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach") as mock_soft_delete:
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            delete_existing_series(token="dummy", series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+    mock_soft_delete.assert_not_called()
+
+
+def test_delete_existing_series_admin_can_delete_other_author_series():
+    series_id = uuid.uuid4()
+    admin_id = uuid.uuid4()
+    other_author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, other_author_id)
+    mock_admin = _make_mock_author(admin_id, is_admin=True)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach") as mock_soft_delete:
+        _session_local_context(mock_session_local)
+
+        result = delete_existing_series(token="dummy", series_id=series_id)
+
+    assert result is None
+    mock_soft_delete.assert_called_once()
+
+
+def test_delete_existing_series_integrity_error_raises_400():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    orig = Exception("foreign key violation")
+
+    existing = _make_existing_series(series_id, author_id)
+    mock_author = _make_mock_author(author_id)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach",
+               side_effect=IntegrityError("statement", {}, orig)):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            delete_existing_series(token="dummy", series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Database integrity error" in exc.value.detail

@@ -15,6 +15,7 @@ from pecha_api.plans.series.series_repository import (
     get_plans_by_ids,
     save_series_with_plans,
     update_series_with_plans,
+    soft_delete_series_with_plan_detach,
 )
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
@@ -370,6 +371,36 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
             saved = get_series_by_id(db=db_session, series_id=saved.id)
 
         return _series_to_dto(saved, include_plans=bool(plan_ids))
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database integrity error: {exc.orig}",
+        ) from exc
+
+
+def delete_existing_series(token: str, series_id: UUID) -> None:
+    current_author = validate_and_extract_author_details(token=token)
+
+    try:
+        with SessionLocal() as db_session:
+            series = get_series_by_id(db=db_session, series_id=series_id)
+            if not series:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Series with id '{series_id}' not found",
+                )
+            if not current_author.is_admin and series.author_id != current_author.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You do not have permission to delete this series",
+                )
+
+            soft_delete_series_with_plan_detach(
+                db=db_session,
+                series=series,
+                deleted_by=current_author.email,
+            )
+        return
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

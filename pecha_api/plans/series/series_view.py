@@ -6,7 +6,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette import status
 
 from pecha_api.plans.series.series_response_models import CreateSeriesRequest, UpdateSeriesRequest, SeriesDTO, SeriesListResponse
-from pecha_api.plans.series.series_service import create_new_series, update_existing_series, get_cms_filtered_series, get_cms_series_detail
+from pecha_api.plans.series.series_service import create_new_series, update_existing_series, get_cms_filtered_series, get_cms_series_detail, delete_existing_series
 
 oauth2_scheme = HTTPBearer()
 
@@ -40,6 +40,20 @@ async def update_series(
         token=authentication_credential.credentials,
         series_id=series_id,
         update_series_request=update_series_request,
+    )
+
+
+@cms_series_router.delete(
+    "/{series_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_series(
+    series_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return delete_existing_series(
+        token=authentication_credential.credentials,
+        series_id=series_id,
     )
 
 

@@ -484,3 +484,53 @@ def test_get_cms_series_by_id_forbidden():
         )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_delete_series_success():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.delete_existing_series",
+        return_value=None,
+    ) as mock_delete:
+        response = client.delete(
+            f"/cms/series/{series_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert response.content == b""
+    mock_delete.assert_called_once_with(token="dummy", series_id=series_id)
+
+
+def test_delete_series_not_found():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.delete_existing_series",
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Series with id '{series_id}' not found",
+        ),
+    ):
+        response = client.delete(
+            f"/cms/series/{series_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_delete_series_forbidden():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.delete_existing_series",
+        side_effect=HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete this series",
+        ),
+    ):
+        response = client.delete(
+            f"/cms/series/{series_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
