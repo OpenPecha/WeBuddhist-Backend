@@ -120,6 +120,7 @@ def test_complete_sub_task_unauthenticated(unauthenticated_client):
 def test_get_user_plans_success(authenticated_client):
     from pecha_api.plans.users.plan_users_response_models import UserPlansResponse, UserPlanDTO
     from datetime import datetime, timezone
+    from tests.plans.tag_test_helpers import make_tag_summaries
     
     plan_id = uuid.uuid4()
     mock_response = UserPlansResponse(
@@ -133,7 +134,7 @@ def test_get_user_plans_success(authenticated_client):
                 image_url="https://s3.amazonaws.com/presigned-url",
                 started_at=datetime.now(timezone.utc),
                 total_days=30,
-                tags=["meditation", "mindfulness"],
+                tags=make_tag_summaries(["meditation", "mindfulness"]),
             )
         ],
         skip=0,
@@ -168,7 +169,7 @@ def test_get_user_plans_success(authenticated_client):
         assert plan["difficulty_level"] == "BEGINNER"
         assert plan["image_url"] == "https://s3.amazonaws.com/presigned-url"
         assert plan["total_days"] == 30
-        assert plan["tags"] == ["meditation", "mindfulness"]
+        assert [t["name"] for t in plan["tags"]] == ["meditation", "mindfulness"]
         
         assert mock_get_plans.call_count == 1
         assert mock_get_plans.call_args.kwargs.get("token") == VALID_TOKEN
@@ -374,6 +375,7 @@ def test_get_user_plans_multiple_plans(authenticated_client):
     """Test retrieval of multiple enrolled plans"""
     from pecha_api.plans.users.plan_users_response_models import UserPlansResponse, UserPlanDTO
     from datetime import datetime, timezone
+    from tests.plans.tag_test_helpers import make_tag_summaries
     
     mock_plans = [
         UserPlanDTO(
@@ -385,7 +387,7 @@ def test_get_user_plans_multiple_plans(authenticated_client):
             image_url="https://s3.amazonaws.com/plan1.jpg",
             started_at=datetime.now(timezone.utc),
             total_days=21,
-            tags=["meditation", "mindfulness"],
+            tags=make_tag_summaries(["meditation", "mindfulness"]),
         ),
         UserPlanDTO(
             id=uuid.uuid4(),
@@ -396,7 +398,7 @@ def test_get_user_plans_multiple_plans(authenticated_client):
             image_url="https://s3.amazonaws.com/plan2.jpg",
             started_at=datetime.now(timezone.utc),
             total_days=90,
-            tags=["dharma", "philosophy"],
+            tags=make_tag_summaries(["dharma", "philosophy"]),
         ),
         UserPlanDTO(
             id=uuid.uuid4(),
@@ -407,7 +409,7 @@ def test_get_user_plans_multiple_plans(authenticated_client):
             image_url="",
             started_at=datetime.now(timezone.utc),
             total_days=7,
-            tags=["basics"],
+            tags=make_tag_summaries(["basics"]),
         )
     ]
     

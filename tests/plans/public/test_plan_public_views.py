@@ -7,6 +7,7 @@ from starlette import status
 
 from pecha_api.app import api
 from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, AuthorDTO, PlanDayBasic, PlanDayDTO, TaskDTO, SubTaskDTO,PlanDaysResponse, TagsResponse
+from tests.plans.tag_test_helpers import make_tag_summaries
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel,ContentType
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.public.plan_views import get_plan_days_list, get_plan_day_content
@@ -40,7 +41,7 @@ def sample_plan_dto(sample_author_dto):
         difficulty_level=DifficultyLevel.BEGINNER,
         image=None,
         total_days=30,
-        tags=["meditation", "mindfulness", "beginner"],
+        tags=make_tag_summaries(["meditation", "mindfulness", "beginner"]),
         author=sample_author_dto,
         start_date=None
     )
@@ -281,7 +282,8 @@ async def test_get_plan_details_success(sample_plan_dto):
         assert data["language"] == "en"
         assert data["difficulty_level"] == "BEGINNER"
         assert data["total_days"] == 30
-        assert data["tags"] == ["meditation", "mindfulness", "beginner"]
+        assert len(data["tags"]) == 3
+        assert [t["name"] for t in data["tags"]] == ["meditation", "mindfulness", "beginner"]
         
         assert "author" in data
         assert data["author"]["firstname"] == "John"
@@ -500,7 +502,7 @@ async def test_get_plan_day_content_no_tasks():
 @pytest.mark.asyncio
 async def test_get_plan_tags_success():
     """Test successful retrieval of plan tags with default language='en'."""
-    mock_tags_response = TagsResponse(tags=["meditation", "sleep", "daily"])
+    mock_tags_response = TagsResponse(tags=make_tag_summaries(["meditation", "sleep", "daily"]))
 
     with patch(
         "pecha_api.plans.public.plan_views.get_tags", return_value=mock_tags_response
@@ -511,7 +513,7 @@ async def test_get_plan_tags_success():
         data = response.json()
         assert "tags" in data
         assert isinstance(data["tags"], list)
-        assert data["tags"] == ["meditation", "sleep", "daily"]
+        assert [t["name"] for t in data["tags"]] == ["meditation", "sleep", "daily"]
 
         mock_service.assert_called_once_with(language="en")
 
@@ -519,7 +521,7 @@ async def test_get_plan_tags_success():
 @pytest.mark.asyncio
 async def test_get_plan_tags_with_language_param():
     """Test retrieval of plan tags with specific language."""
-    mock_tags_response = TagsResponse(tags=["煙供", "教學"])
+    mock_tags_response = TagsResponse(tags=make_tag_summaries(["煙供", "教學"]))
 
     with patch(
         "pecha_api.plans.public.plan_views.get_tags", return_value=mock_tags_response
@@ -528,7 +530,7 @@ async def test_get_plan_tags_with_language_param():
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["tags"] == ["煙供", "教學"]
+        assert [t["name"] for t in data["tags"]] == ["煙供", "教學"]
 
         mock_service.assert_called_once_with(language="zh")
 

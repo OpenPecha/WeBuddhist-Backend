@@ -11,12 +11,14 @@ from pecha_api.plans.plans_enums import DifficultyLevel, LanguageCode, PlanStatu
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_service import (
     _validate_plan_ids,
+    _build_plan_order_pairs,
     create_new_series,
     get_filtered_series,
     get_series_detail,
     update_existing_series,
     get_cms_filtered_series,
     get_cms_series_detail,
+    delete_existing_series,
 )
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
@@ -297,7 +299,7 @@ def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     plan_b.language = LanguageCode.EN
     plan_b.difficulty_level = DifficultyLevel.BEGINNER
     plan_b.image_url = "plans/b.jpg"
-    plan_b.tags = ["x"]
+    plan_b.tag_list = []
     plan_b.status = PlanStatus.DRAFT
     plan_b.featured = False
     plan_b.start_date = None
@@ -311,7 +313,7 @@ def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     plan_a.language = LanguageCode.BO
     plan_a.difficulty_level = None
     plan_a.image_url = None
-    plan_a.tags = None
+    plan_a.tag_list = None
     plan_a.status = MagicMock()
     plan_a.status.value = PlanStatus.PUBLISHED.value
     plan_a.featured = 1
@@ -369,7 +371,7 @@ def test_get_series_detail_includes_total_days_for_each_plan():
     plan_a.language = LanguageCode.EN
     plan_a.difficulty_level = DifficultyLevel.BEGINNER
     plan_a.image_url = None
-    plan_a.tags = []
+    plan_a.tag_list = []
     plan_a.status = PlanStatus.DRAFT
     plan_a.featured = False
     plan_a.start_date = None
@@ -387,7 +389,7 @@ def test_get_series_detail_includes_total_days_for_each_plan():
     plan_b.language = LanguageCode.EN
     plan_b.difficulty_level = DifficultyLevel.INTERMEDIATE
     plan_b.image_url = None
-    plan_b.tags = []
+    plan_b.tag_list = []
     plan_b.status = PlanStatus.PUBLISHED
     plan_b.featured = False
     plan_b.start_date = None
@@ -429,7 +431,7 @@ def test_get_series_detail_total_days_zero_when_no_items():
     plan_empty.language = LanguageCode.EN
     plan_empty.difficulty_level = DifficultyLevel.BEGINNER
     plan_empty.image_url = None
-    plan_empty.tags = []
+    plan_empty.tag_list = []
     plan_empty.status = PlanStatus.DRAFT
     plan_empty.featured = False
     plan_empty.start_date = None
@@ -487,7 +489,7 @@ def test_get_series_detail_handles_plan_without_items_attribute():
     author_id = uuid.uuid4()
 
     plan_no_items = MagicMock(spec=["deleted_at", "display_order", "id", "title", "description", 
-                                     "language", "difficulty_level", "image_url", "tags", 
+                                     "language", "difficulty_level", "image_url", "tag_list", 
                                      "status", "featured", "start_date"])
     plan_no_items.deleted_at = None
     plan_no_items.display_order = 1
@@ -497,7 +499,7 @@ def test_get_series_detail_handles_plan_without_items_attribute():
     plan_no_items.language = LanguageCode.EN
     plan_no_items.difficulty_level = DifficultyLevel.BEGINNER
     plan_no_items.image_url = None
-    plan_no_items.tags = []
+    plan_no_items.tag_list = []
     plan_no_items.status = PlanStatus.DRAFT
     plan_no_items.featured = False
     plan_no_items.start_date = None
@@ -588,7 +590,7 @@ def test_update_existing_series_plans_omitted_leaves_attachments_untouched():
 
     mock_validate.assert_not_called()
     call_kwargs = mock_update.call_args.kwargs
-    assert call_kwargs["plan_ids_to_attach"] == []
+    assert call_kwargs["plans_to_attach"] == []
     assert call_kwargs["plan_ids_to_detach"] == []
 
 
@@ -621,7 +623,7 @@ def test_update_existing_series_plans_empty_dict_detaches_all():
         update_existing_series(token="dummy", series_id=series_id, update_series_request=request)
 
     call_kwargs = mock_update.call_args.kwargs
-    assert call_kwargs["plan_ids_to_attach"] == []
+    assert call_kwargs["plans_to_attach"] == []
     assert set(call_kwargs["plan_ids_to_detach"]) == {plan_a_id, plan_b_id}
 
 
@@ -668,7 +670,8 @@ def test_update_existing_series_full_replacement_with_diff():
         update_existing_series(token="dummy", series_id=series_id, update_series_request=request)
 
     call_kwargs = mock_update.call_args.kwargs
-    assert set(call_kwargs["plan_ids_to_attach"]) == {plan_c_id}
+    plans_to_attach = call_kwargs["plans_to_attach"]
+    assert plans_to_attach == [(plan_a_id, 0), (plan_c_id, 1)]
     assert set(call_kwargs["plan_ids_to_detach"]) == {plan_b_id}
 
 
@@ -1066,7 +1069,7 @@ def test_create_new_series_with_plans_attaches_and_returns_dto():
     valid_plan.language = LanguageCode.EN
     valid_plan.difficulty_level = DifficultyLevel.BEGINNER
     valid_plan.image_url = None
-    valid_plan.tags = []
+    valid_plan.tag_list = []
     valid_plan.items = []
     valid_plan.featured = False
     valid_plan.display_order = None
@@ -1098,7 +1101,7 @@ def test_create_new_series_with_plans_attaches_and_returns_dto():
         dto = create_new_series(token="dummy", create_series_request=request)
 
     mock_save.assert_called_once()
-    assert mock_save.call_args.kwargs["plan_ids"] == [plan_id]
+    assert mock_save.call_args.kwargs["plans_to_attach"] == [(plan_id, 0)]
     assert dto.id == series_id
 
 
@@ -1219,7 +1222,7 @@ def test_validate_plan_ids_dedupes_before_fetching():
     valid_plan.language = LanguageCode.EN
     valid_plan.difficulty_level = DifficultyLevel.BEGINNER
     valid_plan.image_url = None
-    valid_plan.tags = []
+    valid_plan.tag_list = []
     valid_plan.items = []
     valid_plan.featured = False
     valid_plan.display_order = None
@@ -1492,3 +1495,274 @@ def test_validate_plan_ids_noop_when_empty():
             is_admin=False,
         )
     mock_get_plans.assert_not_called()
+
+# ---------------------------------------------------------------------------
+# _build_plan_order_pairs: per-language display_order computation
+# ---------------------------------------------------------------------------
+
+def test_build_plan_order_pairs_none_returns_empty():
+    assert _build_plan_order_pairs(None) == []
+
+
+def test_build_plan_order_pairs_empty_dict_returns_empty():
+    assert _build_plan_order_pairs({}) == []
+
+
+def test_build_plan_order_pairs_single_language_indexes_from_zero():
+    a, b, c = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+
+    pairs = _build_plan_order_pairs({"EN": [a, b, c]})
+
+    assert pairs == [(a, 0), (b, 1), (c, 2)]
+
+
+def test_build_plan_order_pairs_each_language_numbered_independently():
+    a, b, x, y = uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+
+    pairs = _build_plan_order_pairs({"EN": [a, b], "BO": [x, y]})
+
+    assert pairs == [(a, 0), (b, 1), (x, 0), (y, 1)]
+
+
+def test_build_plan_order_pairs_preserves_request_order_not_sorted():
+    c, a, b = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+
+    pairs = _build_plan_order_pairs({"EN": [c, a, b]})
+
+    assert pairs == [(c, 0), (a, 1), (b, 2)]
+
+
+def test_build_plan_order_pairs_dedupes_keeping_first_occurrence():
+    a, b = uuid.uuid4(), uuid.uuid4()
+
+    pairs = _build_plan_order_pairs({"EN": [a, a, b]})
+
+    assert pairs == [(a, 0), (b, 1)]
+
+
+def test_build_plan_order_pairs_handles_more_than_ten_plans():
+    ids = [uuid.uuid4() for _ in range(15)]
+
+    pairs = _build_plan_order_pairs({"EN": ids})
+
+    # display_order is a plain counter; it scales past single digits.
+    assert pairs == [(pid, idx) for idx, pid in enumerate(ids)]
+    assert pairs[-1][1] == 14
+
+
+def test_build_plan_order_pairs_skips_empty_language_list():
+    a = uuid.uuid4()
+
+    pairs = _build_plan_order_pairs({"EN": [a], "BO": []})
+
+    assert pairs == [(a, 0)]
+
+
+# ---------------------------------------------------------------------------
+# PUT: pure reorder of already-attached plans (no add/remove)
+# ---------------------------------------------------------------------------
+
+def test_update_existing_series_pure_reorder_sends_all_plans_with_new_order():
+    """Reordering already-attached plans (no additions, no removals) must still
+    send every plan to the repository so their display_order is rewritten."""
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    plan_a_id = uuid.uuid4()
+    plan_b_id = uuid.uuid4()
+    plan_c_id = uuid.uuid4()
+
+    existing_a = MagicMock()
+    existing_a.id = plan_a_id
+    existing_a.deleted_at = None
+    existing_b = MagicMock()
+    existing_b.id = plan_b_id
+    existing_b.deleted_at = None
+    existing_c = MagicMock()
+    existing_c.id = plan_c_id
+    existing_c.deleted_at = None
+
+    existing = _make_existing_series(
+        series_id, author_id, plans=[existing_a, existing_b, existing_c]
+    )
+    refreshed = _make_refreshed_series(series_id, author_id)
+    mock_author = _make_mock_author(author_id)
+
+    fetched_a = MagicMock()
+    fetched_a.id = plan_a_id
+    fetched_a.deleted_at = None
+    fetched_a.series_id = series_id
+    fetched_a.author_id = author_id
+    fetched_b = MagicMock()
+    fetched_b.id = plan_b_id
+    fetched_b.deleted_at = None
+    fetched_b.series_id = series_id
+    fetched_b.author_id = author_id
+    fetched_c = MagicMock()
+    fetched_c.id = plan_c_id
+    fetched_c.deleted_at = None
+    fetched_c.series_id = series_id
+    fetched_c.author_id = author_id
+
+    # Same three plans, reordered to C, A, B.
+    request = UpdateSeriesRequest(plans={"EN": [plan_c_id, plan_a_id, plan_b_id]})
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
+         patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[fetched_a, fetched_b, fetched_c]), \
+         patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
+        _session_local_context(mock_session_local)
+        update_existing_series(token="dummy", series_id=series_id, update_series_request=request)
+
+    call_kwargs = mock_update.call_args.kwargs
+    assert call_kwargs["plans_to_attach"] == [
+        (plan_c_id, 0),
+        (plan_a_id, 1),
+        (plan_b_id, 2),
+    ]
+    assert call_kwargs["plan_ids_to_detach"] == []
+
+
+def test_update_existing_series_multi_language_independent_ordering():
+    """Each language list is numbered independently from zero."""
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    en_1, en_2 = uuid.uuid4(), uuid.uuid4()
+    bo_1, bo_2 = uuid.uuid4(), uuid.uuid4()
+
+    existing = _make_existing_series(series_id, author_id, plans=[])
+    refreshed = _make_refreshed_series(series_id, author_id)
+    mock_author = _make_mock_author(author_id)
+
+    def _fetched(pid):
+        m = MagicMock()
+        m.id = pid
+        m.deleted_at = None
+        m.series_id = None
+        m.author_id = author_id
+        return m
+
+    request = UpdateSeriesRequest(
+        plans={"EN": [en_1, en_2], "BO": [bo_1, bo_2]}
+    )
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
+         patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[_fetched(en_1), _fetched(en_2), _fetched(bo_1), _fetched(bo_2)]), \
+         patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
+        _session_local_context(mock_session_local)
+        update_existing_series(token="dummy", series_id=series_id, update_series_request=request)
+
+    plans_to_attach = mock_update.call_args.kwargs["plans_to_attach"]
+    assert plans_to_attach == [(en_1, 0), (en_2, 1), (bo_1, 0), (bo_2, 1)]
+
+
+# ---------------------------------------------------------------------------
+# DELETE: delete_existing_series
+# ---------------------------------------------------------------------------
+
+def test_delete_existing_series_soft_deletes_when_owner():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, author_id)
+    mock_author = _make_mock_author(author_id, email="owner@pecha.org", is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach") as mock_soft_delete:
+        _session_local_context(mock_session_local)
+
+        result = delete_existing_series(token="dummy", series_id=series_id)
+
+    assert result is None
+    mock_soft_delete.assert_called_once()
+    call_kwargs = mock_soft_delete.call_args.kwargs
+    assert call_kwargs["series"] is existing
+    assert call_kwargs["deleted_by"] == "owner@pecha.org"
+
+
+def test_delete_existing_series_returns_404_when_series_not_found():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    mock_author = _make_mock_author(author_id)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=None), \
+         patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach") as mock_soft_delete:
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            delete_existing_series(token="dummy", series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert str(series_id) in exc.value.detail
+    mock_soft_delete.assert_not_called()
+
+
+def test_delete_existing_series_returns_403_when_non_admin_other_author():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    other_author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, other_author_id)
+    mock_author = _make_mock_author(author_id, is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach") as mock_soft_delete:
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            delete_existing_series(token="dummy", series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+    mock_soft_delete.assert_not_called()
+
+
+def test_delete_existing_series_admin_can_delete_other_author_series():
+    series_id = uuid.uuid4()
+    admin_id = uuid.uuid4()
+    other_author_id = uuid.uuid4()
+
+    existing = _make_existing_series(series_id, other_author_id)
+    mock_admin = _make_mock_author(admin_id, is_admin=True)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach") as mock_soft_delete:
+        _session_local_context(mock_session_local)
+
+        result = delete_existing_series(token="dummy", series_id=series_id)
+
+    assert result is None
+    mock_soft_delete.assert_called_once()
+
+
+def test_delete_existing_series_integrity_error_raises_400():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    orig = Exception("foreign key violation")
+
+    existing = _make_existing_series(series_id, author_id)
+    mock_author = _make_mock_author(author_id)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
+         patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach",
+               side_effect=IntegrityError("statement", {}, orig)):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            delete_existing_series(token="dummy", series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Database integrity error" in exc.value.detail
