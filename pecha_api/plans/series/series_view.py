@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette import status
 
+from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_response_models import CreateSeriesRequest, UpdateSeriesRequest, UpdateSeriesStatusRequest, SeriesDTO, SeriesListResponse
 from pecha_api.plans.series.series_service import create_new_series, update_existing_series, update_existing_series_status, update_existing_series_featured, get_cms_filtered_series, get_cms_series_detail, delete_existing_series
 
@@ -98,6 +99,16 @@ async def get_cms_series_list(
     search: Annotated[
         Optional[str], Query(description="Search within serialized name JSON")
     ] = None,
+    language: Annotated[
+        Optional[str],
+        Query(description="Filter by series metadata language (e.g. 'en', 'bo', 'zh')"),
+    ] = None,
+    status: Annotated[Optional[PlanStatus], Query()] = None,
+    featured: Annotated[Optional[bool], Query()] = None,
+    author_id: Annotated[
+        Optional[UUID],
+        Query(description="Filter by author ID (admins only; non-admins are scoped to their own series)"),
+    ] = None,
     skip: Annotated[int, Query()] = 0,
     limit: Annotated[int, Query()] = 10,
 ):
@@ -106,6 +117,10 @@ async def get_cms_series_list(
         search=search,
         skip=skip,
         limit=limit,
+        language=language,
+        plan_status=status,
+        featured=featured,
+        filter_author_id=author_id,
     )
 
 

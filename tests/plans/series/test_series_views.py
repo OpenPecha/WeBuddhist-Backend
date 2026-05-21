@@ -10,6 +10,7 @@ from pecha_api.app import api
 from pecha_api.plans.plans_enums import PlanStatus, LanguageCode, DifficultyLevel
 from pecha_api.plans.series.series_response_models import (
     SeriesDTO,
+    SeriesListItemDTO,
     SeriesListResponse,
     SeriesPlanDTO,
     SeriesMetadataDTO,
@@ -60,8 +61,19 @@ def sample_series_dto():
 
 @pytest.fixture
 def sample_series_list_response(sample_series_dto):
+    list_item = SeriesListItemDTO(
+        id=sample_series_dto.id,
+        metadata=sample_series_dto.metadata,
+        image=sample_series_dto.image,
+        image_key=sample_series_dto.image_key,
+        author_id=sample_series_dto.author_id,
+        featured=sample_series_dto.featured,
+        status=sample_series_dto.status,
+        plan_count=2,
+        total_days=0,
+    )
     return SeriesListResponse(
-        series=[sample_series_dto],
+        series=[list_item],
         skip=0,
         limit=10,
         total=1,
@@ -78,7 +90,7 @@ def test_get_series_list_success(sample_series_list_response):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(search=None, skip=0, limit=10)
+        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None)
 
         assert "series" in data
         assert data["skip"] == 0
@@ -108,7 +120,7 @@ def test_get_series_list_with_search_pagination(sample_series_dto):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(search="meditation", skip=2, limit=5)
+        mock_service.assert_called_once_with(search="meditation", skip=2, limit=5, language=None)
 
         assert data["series"] == []
         assert data["skip"] == 2
@@ -291,9 +303,9 @@ def test_get_series_by_id_includes_total_days_in_response():
         assert data["plans"][1]["total_days"] == 3
 
 
-def test_get_series_list_includes_total_days_zero():
+def test_get_series_list_returns_plan_count_not_plans():
     series_id = uuid.uuid4()
-    series_dto = SeriesDTO(
+    list_item = SeriesListItemDTO(
         id=series_id,
         metadata=[_metadata("Series without plans")],
         image=None,
@@ -301,12 +313,12 @@ def test_get_series_list_includes_total_days_zero():
         author_id=uuid.uuid4(),
         featured=False,
         status=PlanStatus.DRAFT,
-        plans=[],
+        plan_count=0,
         total_days=0,
     )
 
     series_list_response = SeriesListResponse(
-        series=[series_dto],
+        series=[list_item],
         skip=0,
         limit=10,
         total=1,
@@ -322,7 +334,9 @@ def test_get_series_list_includes_total_days_zero():
         data = response.json()
 
         assert len(data["series"]) == 1
+        assert data["series"][0]["plan_count"] == 0
         assert data["series"][0]["total_days"] == 0
+        assert "plans" not in data["series"][0]
 
 
 def test_update_series_accepts_empty_body():
@@ -407,7 +421,14 @@ def test_get_cms_series_list_success(sample_series_list_response):
         data = response.json()
 
         mock_service.assert_called_once_with(
-            token="dummy", search=None, skip=0, limit=10
+            token="dummy",
+            search=None,
+            skip=0,
+            limit=10,
+            language=None,
+            plan_status=None,
+            featured=None,
+            filter_author_id=None,
         )
 
         assert data["total"] == 1
@@ -428,7 +449,14 @@ def test_get_cms_series_list_passes_query_params(sample_series_dto):
 
         assert response.status_code == status.HTTP_200_OK
         mock_service.assert_called_once_with(
-            token="dummy", search="meditation", skip=2, limit=5
+            token="dummy",
+            search="meditation",
+            skip=2,
+            limit=5,
+            language=None,
+            plan_status=None,
+            featured=None,
+            filter_author_id=None,
         )
 
 

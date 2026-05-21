@@ -24,6 +24,7 @@ from pecha_api.plans.series.series_response_models import (
     UpdateSeriesRequest,
     UpdateSeriesStatusRequest,
     SeriesDTO,
+    SeriesListItemDTO,
     SeriesMetadataDTO,
     SeriesPlanDTO,
     SeriesListResponse,
@@ -122,6 +123,20 @@ def _get_sorted_active_plans(plans) -> List:
     )
 
 
+def _series_to_list_item_dto(row: Series, plan_count: int = 0) -> SeriesListItemDTO:
+    return SeriesListItemDTO(
+        id=row.id,
+        metadata=_metadata_to_dtos(row.metadata_entries),
+        image=_generate_image_url(row.image),
+        image_key=row.image,
+        author_id=row.author_id,
+        featured=bool(row.featured),
+        status=_to_plan_status(row.status),
+        plan_count=plan_count,
+        total_days=0,
+    )
+
+
 def _series_to_dto(row: Series, include_plans: bool = False) -> SeriesDTO:
     plans_dtos = []
     series_total_days = 0
@@ -150,6 +165,7 @@ def get_filtered_series(
     search: Optional[str],
     skip: int,
     limit: int,
+    language: Optional[str] = None,
 ) -> SeriesListResponse:
     with SessionLocal() as db_session:
         rows, total = get_series_paginated(
@@ -160,9 +176,14 @@ def get_filtered_series(
             include_deleted=False,
             order_by_field=Series.created_at,
             order_desc=True,
+            language=language,
+            status=PlanStatus.PUBLISHED,
         )
 
-    series_dtos: List[SeriesDTO] = [_series_to_dto(row) for row in rows]
+    series_dtos: List[SeriesListItemDTO] = [
+        _series_to_list_item_dto(row, plan_count=plan_count)
+        for row, plan_count in rows
+    ]
     return SeriesListResponse(
         series=series_dtos,
         skip=skip,
@@ -174,7 +195,7 @@ def get_filtered_series(
 def get_series_detail(series_id: UUID) -> SeriesDTO:
     with SessionLocal() as db_session:
         row = get_series_by_id(db=db_session, series_id=series_id)
-    if not row:
+    if not row or _to_plan_status(row.status) != PlanStatus.PUBLISHED:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Series with id '{series_id}' not found",
@@ -186,9 +207,21 @@ def get_cms_filtered_series(
     search: Optional[str],
     skip: int,
     limit: int,
+    language: Optional[str] = None,
+    plan_status: Optional[PlanStatus] = None,
+    featured: Optional[bool] = None,
+    filter_author_id: Optional[UUID] = None,
 ) -> SeriesListResponse:
     current_author = validate_and_extract_author_details(token=token)
-    author_id = None if current_author.is_admin else current_author.id
+    if current_author.is_admin:
+        author_id = filter_author_id
+    else:
+        if filter_author_id is not None and filter_author_id != current_author.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to filter by another author's series",
+            )
+        author_id = current_author.id
 
     with SessionLocal() as db_session:
         rows, total = get_series_paginated(
@@ -200,9 +233,15 @@ def get_cms_filtered_series(
             order_by_field=Series.created_at,
             order_desc=True,
             author_id=author_id,
+            language=language,
+            status=plan_status,
+            featured=featured,
         )
 
-    series_dtos: List[SeriesDTO] = [_series_to_dto(row) for row in rows]
+    series_dtos: List[SeriesListItemDTO] = [
+        _series_to_list_item_dto(row, plan_count=plan_count)
+        for row, plan_count in rows
+    ]
     return SeriesListResponse(
         series=series_dtos,
         skip=skip,
