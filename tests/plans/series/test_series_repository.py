@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_repository import (
@@ -20,13 +21,16 @@ def _make_session_mock() -> Session:
     return MagicMock(spec=Session)
 
 
-def _paginated_query_chain(rows, total, *, with_filter=True):
+def _paginated_query_chain(rows, total, *, with_filter=True, plan_counts=None):
+    if plan_counts is None:
+        plan_counts = [0] * len(rows)
+    query_rows = list(zip(rows, plan_counts))
     query_mock = MagicMock()
     options_mock = MagicMock()
     target = options_mock.filter.return_value if with_filter else options_mock
     target.count.return_value = total
     ordered = MagicMock()
-    ordered.offset.return_value.limit.return_value.all.return_value = rows
+    ordered.offset.return_value.limit.return_value.all.return_value = query_rows
     target.order_by.return_value = ordered
     query_mock.options.return_value = options_mock
     return query_mock
@@ -64,8 +68,9 @@ def test_get_series_paginated_no_search_returns_rows_and_total():
     rows, total = get_series_paginated(db=db, search=None, skip=0, limit=10)
 
     assert total == 2
-    assert rows == [row1, row2]
-    db.query.assert_called_once_with(Series)
+    assert rows == [(row1, 0), (row2, 0)]
+    db.query.assert_called_once()
+    assert db.query.call_args.args[0] is Series
     db.query.return_value.options.return_value.filter.return_value.count.assert_called_once()
     db.query.return_value.options.return_value.filter.return_value.order_by.assert_called_once()
 
@@ -81,7 +86,7 @@ def test_get_series_paginated_with_include_deleted():
     )
 
     assert total == 1
-    assert rows == [row]
+    assert rows == [(row, 0)]
     db.query.return_value.options.return_value.filter.assert_not_called()
 
 
@@ -101,7 +106,7 @@ def test_get_series_paginated_with_custom_ordering():
     )
 
     assert total == 1
-    assert rows == [row]
+    assert rows == [(row, 0)]
     db.query.return_value.options.return_value.filter.return_value.order_by.assert_called_once()
 
 
@@ -134,12 +139,61 @@ def test_get_series_paginated_with_author_id_applies_filter():
         db=db, search=None, skip=0, limit=10, author_id=author_id
     )
 
-    assert rows == [row]
+    assert rows == [(row, 0)]
     assert total == 1
     filtered = db.query.return_value.options.return_value.filter
     assert filtered.call_count == 1
     filter_args = filtered.call_args[0]
     assert len(filter_args) == 2
+
+
+def test_get_series_paginated_with_language_applies_metadata_filter():
+    db = _make_session_mock()
+
+    db.query.return_value = _paginated_query_chain([], 0)
+
+    rows, total = get_series_paginated(db=db, search=None, skip=0, limit=10, language="bo")
+
+    assert rows == []
+    assert total == 0
+    filtered = db.query.return_value.options.return_value.filter
+    assert filtered.call_count == 1
+    filter_args = filtered.call_args[0]
+    assert len(filter_args) == 2
+
+
+def test_get_series_paginated_returns_series_with_plan_count():
+    db = _make_session_mock()
+    row = MagicMock(spec=Series)
+
+    db.query.return_value = _paginated_query_chain([row], 1, plan_counts=[5])
+
+    rows, total = get_series_paginated(db=db, search=None, skip=0, limit=10)
+
+    assert total == 1
+    assert rows == [(row, 5)]
+
+
+def test_get_series_paginated_with_status_and_featured_applies_filters():
+    db = _make_session_mock()
+
+    db.query.return_value = _paginated_query_chain([], 0)
+
+    rows, total = get_series_paginated(
+        db=db,
+        search=None,
+        skip=0,
+        limit=10,
+        status=PlanStatus.PUBLISHED,
+        featured=True,
+    )
+
+    assert rows == []
+    assert total == 0
+    filtered = db.query.return_value.options.return_value.filter
+    assert filtered.call_count == 1
+    filter_args = filtered.call_args[0]
+    assert len(filter_args) == 3
 
 
 def test_get_series_by_id_returns_series_when_found():

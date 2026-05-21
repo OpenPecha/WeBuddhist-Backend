@@ -23,6 +23,7 @@ from pecha_api.plans.series.series_service import (
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
     UpdateSeriesRequest,
+    SeriesListItemDTO,
     SeriesListResponse,
     SeriesMetadataInput,
 )
@@ -61,7 +62,7 @@ def test_get_filtered_series_maps_rows_to_response():
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
-        return_value=([row], 1),
+        return_value=([(row, 3)], 1),
     ) as mock_repo:
         _session_local_context(mock_session_local)
 
@@ -75,6 +76,7 @@ def test_get_filtered_series_maps_rows_to_response():
     assert call_kwargs["include_deleted"] is False
     assert call_kwargs["order_by_field"] == Series.created_at
     assert call_kwargs["order_desc"] is True
+    assert call_kwargs["status"] == PlanStatus.PUBLISHED
 
     assert isinstance(result, SeriesListResponse)
     assert result.skip == 2
@@ -91,6 +93,9 @@ def test_get_filtered_series_maps_rows_to_response():
     assert dto.author_id == author_id
     assert dto.featured is True
     assert dto.status == PlanStatus.DRAFT
+    assert dto.plan_count == 3
+    assert isinstance(dto, SeriesListItemDTO)
+    assert "plans" not in SeriesListItemDTO.model_fields
 
 
 def test_get_filtered_series_presigns_image_when_key_present():
@@ -105,7 +110,7 @@ def test_get_filtered_series_presigns_image_when_key_present():
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
-        return_value=([row], 1),
+        return_value=([(row, 0)], 1),
     ), patch("pecha_api.plans.series.series_service.get", return_value="test-bucket"), patch(
         "pecha_api.plans.series.series_service.generate_presigned_access_url",
         return_value="https://signed.example/x.jpg",
@@ -257,6 +262,24 @@ def test_get_series_detail_raises_404_when_not_found():
     assert str(series_id) in exc.value.detail
 
 
+def test_get_series_detail_raises_404_when_not_published():
+    series_id = uuid.uuid4()
+    row = MagicMock()
+    row.id = series_id
+    row.status = PlanStatus.DRAFT
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=row,
+    ):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            get_series_detail(series_id=series_id)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
 def test_get_series_detail_returns_dto_without_plans():
     series_id = uuid.uuid4()
     row = MagicMock()
@@ -265,7 +288,7 @@ def test_get_series_detail_returns_dto_without_plans():
     row.image = None
     row.author_id = uuid.uuid4()
     row.featured = False
-    row.status = PlanStatus.DRAFT
+    row.status = PlanStatus.PUBLISHED
     row.plans = []
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
@@ -401,7 +424,7 @@ def test_get_series_detail_includes_total_days_for_each_plan():
     row.image = None
     row.author_id = author_id
     row.featured = False
-    row.status = PlanStatus.DRAFT
+    row.status = PlanStatus.PUBLISHED
     row.plans = [plan_a, plan_b]
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
@@ -443,7 +466,7 @@ def test_get_series_detail_total_days_zero_when_no_items():
     row.image = None
     row.author_id = author_id
     row.featured = False
-    row.status = PlanStatus.DRAFT
+    row.status = PlanStatus.PUBLISHED
     row.plans = [plan_empty]
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
@@ -469,7 +492,7 @@ def test_get_series_detail_total_days_zero_when_no_plans():
     row.image = None
     row.author_id = author_id
     row.featured = False
-    row.status = PlanStatus.DRAFT
+    row.status = PlanStatus.PUBLISHED
     row.plans = []
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
@@ -510,7 +533,7 @@ def test_get_series_detail_handles_plan_without_items_attribute():
     row.image = None
     row.author_id = author_id
     row.featured = False
-    row.status = PlanStatus.DRAFT
+    row.status = PlanStatus.PUBLISHED
     row.plans = [plan_no_items]
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
@@ -1278,7 +1301,7 @@ def test_get_cms_filtered_series_scopes_to_current_author_when_not_admin():
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
-               return_value=([row], 1)) as mock_repo:
+               return_value=([(row, 2)], 1)) as mock_repo:
         _session_local_context(mock_session_local)
 
         result = get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10)
@@ -1294,6 +1317,7 @@ def test_get_cms_filtered_series_scopes_to_current_author_when_not_admin():
     assert isinstance(result, SeriesListResponse)
     assert result.total == 1
     assert len(result.series) == 1
+    assert result.series[0].plan_count == 2
 
 
 def test_get_cms_filtered_series_admin_sees_all_authors():
@@ -1312,7 +1336,7 @@ def test_get_cms_filtered_series_admin_sees_all_authors():
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
-               return_value=([row], 1)) as mock_repo:
+               return_value=([(row, 0)], 1)) as mock_repo:
         _session_local_context(mock_session_local)
 
         get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10)
@@ -1338,6 +1362,79 @@ def test_get_cms_filtered_series_passes_search_and_pagination():
     assert call_kwargs["skip"] == 5
     assert call_kwargs["limit"] == 20
     assert call_kwargs["author_id"] == author_id
+
+
+def test_get_filtered_series_passes_language_to_repository():
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_series_paginated",
+               return_value=([], 0)) as mock_repo:
+        _session_local_context(mock_session_local)
+
+        get_filtered_series(search=None, skip=0, limit=10, language="zh")
+
+    call_kwargs = mock_repo.call_args.kwargs
+    assert call_kwargs["language"] == "zh"
+    assert call_kwargs["status"] == PlanStatus.PUBLISHED
+
+
+def test_get_cms_filtered_series_passes_language_to_repository():
+    author_id = uuid.uuid4()
+    mock_author = _make_mock_author(author_id, is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_paginated",
+               return_value=([], 0)) as mock_repo:
+        _session_local_context(mock_session_local)
+
+        get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10, language="en")
+
+    assert mock_repo.call_args.kwargs["language"] == "en"
+
+
+def test_get_cms_filtered_series_admin_passes_status_featured_and_author_filters():
+    admin_id = uuid.uuid4()
+    filter_author_id = uuid.uuid4()
+    mock_admin = _make_mock_author(admin_id, is_admin=True)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.get_series_paginated",
+               return_value=([], 0)) as mock_repo:
+        _session_local_context(mock_session_local)
+
+        get_cms_filtered_series(
+            token="dummy",
+            search=None,
+            skip=0,
+            limit=10,
+            plan_status=PlanStatus.DRAFT,
+            featured=False,
+            filter_author_id=filter_author_id,
+        )
+
+    call_kwargs = mock_repo.call_args.kwargs
+    assert call_kwargs["author_id"] == filter_author_id
+    assert call_kwargs["status"] == PlanStatus.DRAFT
+    assert call_kwargs["featured"] is False
+
+
+def test_get_cms_filtered_series_non_admin_cannot_filter_by_other_author():
+    author_id = uuid.uuid4()
+    other_author_id = uuid.uuid4()
+    mock_author = _make_mock_author(author_id, is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author):
+        with pytest.raises(HTTPException) as exc_info:
+            get_cms_filtered_series(
+                token="dummy",
+                search=None,
+                skip=0,
+                limit=10,
+                filter_author_id=other_author_id,
+            )
+
+    assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 # ---------------------------------------------------------------------------
@@ -1448,7 +1545,7 @@ def test_get_filtered_series_handles_plain_string_status_and_language():
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
-        return_value=([row], 1),
+        return_value=([(row, 0)], 1),
     ):
         _session_local_context(mock_session_local)
 
@@ -1477,7 +1574,7 @@ def test_get_filtered_series_metadata_uses_string_language():
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
-        return_value=([row], 1),
+        return_value=([(row, 0)], 1),
     ):
         _session_local_context(mock_session_local)
 

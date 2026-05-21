@@ -74,6 +74,18 @@ class SeriesPlanDTO(BaseModel):
     total_days: int = 0
 
 
+class SeriesListItemDTO(BaseModel):
+    id: UUID
+    metadata: List[SeriesMetadataDTO] = []
+    image: Optional[str] = None
+    image_key: Optional[str] = None
+    author_id: UUID
+    featured: bool
+    status: PlanStatus
+    plan_count: int = 0
+    total_days: int = 0
+
+
 class SeriesDTO(BaseModel):
     id: UUID
     metadata: List[SeriesMetadataDTO] = []
@@ -87,7 +99,7 @@ class SeriesDTO(BaseModel):
 
 
 class SeriesListResponse(BaseModel):
-    series: list[SeriesDTO]
+    series: list[SeriesListItemDTO]
     skip: int
     limit: int
     total: int

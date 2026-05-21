@@ -17,10 +17,14 @@ async def get_series_list(
     search: Annotated[
         Optional[str], Query(description="Search within serialized name JSON")
     ] = None,
+    language: Annotated[
+        Optional[str],
+        Query(description="Filter by series metadata language (e.g. 'en', 'bo', 'zh')"),
+    ] = None,
     skip: Annotated[int, Query()] = 0,
     limit: Annotated[int, Query()] = 10,
 ):
-    return get_filtered_series(search=search, skip=skip, limit=limit)
+    return get_filtered_series(search=search, skip=skip, limit=limit, language=language)
 
 
 @public_series_router.get(
