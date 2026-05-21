@@ -189,7 +189,7 @@ async def fetch_segmentation_segments(segmentation_id: str, limit: int, offset: 
         )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unexpected response from upstream service",
+            detail=f"Unexpected status {response.status_code} fetching segments for segmentation '{segmentation_id}'",
         )
 
     data = response.json()
