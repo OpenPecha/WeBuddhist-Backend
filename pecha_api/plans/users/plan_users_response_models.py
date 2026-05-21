@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
 from pecha_api.plans.plans_enums import ContentType
+from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 
 
@@ -53,7 +54,7 @@ class UserPlanDTO(BaseModel):
     image_url: str
     started_at: datetime
     total_days: int
-    tags: List[str]
+    tags: List[TagSummaryDTO] = []
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
 

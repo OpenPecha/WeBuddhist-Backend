@@ -298,7 +298,7 @@ def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     plan_b.language = LanguageCode.EN
     plan_b.difficulty_level = DifficultyLevel.BEGINNER
     plan_b.image_url = "plans/b.jpg"
-    plan_b.tags = ["x"]
+    plan_b.tag_list = []
     plan_b.status = PlanStatus.DRAFT
     plan_b.featured = False
     plan_b.start_date = None
@@ -312,7 +312,7 @@ def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     plan_a.language = LanguageCode.BO
     plan_a.difficulty_level = None
     plan_a.image_url = None
-    plan_a.tags = None
+    plan_a.tag_list = None
     plan_a.status = MagicMock()
     plan_a.status.value = PlanStatus.PUBLISHED.value
     plan_a.featured = 1
@@ -370,7 +370,7 @@ def test_get_series_detail_includes_total_days_for_each_plan():
     plan_a.language = LanguageCode.EN
     plan_a.difficulty_level = DifficultyLevel.BEGINNER
     plan_a.image_url = None
-    plan_a.tags = []
+    plan_a.tag_list = []
     plan_a.status = PlanStatus.DRAFT
     plan_a.featured = False
     plan_a.start_date = None
@@ -388,7 +388,7 @@ def test_get_series_detail_includes_total_days_for_each_plan():
     plan_b.language = LanguageCode.EN
     plan_b.difficulty_level = DifficultyLevel.INTERMEDIATE
     plan_b.image_url = None
-    plan_b.tags = []
+    plan_b.tag_list = []
     plan_b.status = PlanStatus.PUBLISHED
     plan_b.featured = False
     plan_b.start_date = None
@@ -430,7 +430,7 @@ def test_get_series_detail_total_days_zero_when_no_items():
     plan_empty.language = LanguageCode.EN
     plan_empty.difficulty_level = DifficultyLevel.BEGINNER
     plan_empty.image_url = None
-    plan_empty.tags = []
+    plan_empty.tag_list = []
     plan_empty.status = PlanStatus.DRAFT
     plan_empty.featured = False
     plan_empty.start_date = None
@@ -488,7 +488,7 @@ def test_get_series_detail_handles_plan_without_items_attribute():
     author_id = uuid.uuid4()
 
     plan_no_items = MagicMock(spec=["deleted_at", "display_order", "id", "title", "description", 
-                                     "language", "difficulty_level", "image_url", "tags", 
+                                     "language", "difficulty_level", "image_url", "tag_list", 
                                      "status", "featured", "start_date"])
     plan_no_items.deleted_at = None
     plan_no_items.display_order = 1
@@ -498,7 +498,7 @@ def test_get_series_detail_handles_plan_without_items_attribute():
     plan_no_items.language = LanguageCode.EN
     plan_no_items.difficulty_level = DifficultyLevel.BEGINNER
     plan_no_items.image_url = None
-    plan_no_items.tags = []
+    plan_no_items.tag_list = []
     plan_no_items.status = PlanStatus.DRAFT
     plan_no_items.featured = False
     plan_no_items.start_date = None
@@ -1068,7 +1068,7 @@ def test_create_new_series_with_plans_attaches_and_returns_dto():
     valid_plan.language = LanguageCode.EN
     valid_plan.difficulty_level = DifficultyLevel.BEGINNER
     valid_plan.image_url = None
-    valid_plan.tags = []
+    valid_plan.tag_list = []
     valid_plan.items = []
     valid_plan.featured = False
     valid_plan.display_order = None
@@ -1221,7 +1221,7 @@ def test_validate_plan_ids_dedupes_before_fetching():
     valid_plan.language = LanguageCode.EN
     valid_plan.difficulty_level = DifficultyLevel.BEGINNER
     valid_plan.image_url = None
-    valid_plan.tags = []
+    valid_plan.tag_list = []
     valid_plan.items = []
     valid_plan.featured = False
     valid_plan.display_order = None

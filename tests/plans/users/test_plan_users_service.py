@@ -27,6 +27,7 @@ from pecha_api.plans.response_message import (
     ALREADY_COMPLETED_SUB_TASK,
 )
 from pecha_api.plans.plans_response_models import PlanDTO
+from tests.plans.tag_test_helpers import mock_tag_entities
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.plans_enums import ContentType
@@ -415,7 +416,7 @@ async def test_get_user_enrolled_plans_success():
         language=language,
         difficulty_level=difficulty,
         image_url="images/plan_images/test.jpg",
-        tags=["meditation", "mindfulness"],
+        tag_list=mock_tag_entities(["meditation", "mindfulness"]),
         start_date=datetime(2025, 1, 15, tzinfo=timezone.utc),
         display_order=1,
     )
@@ -456,7 +457,7 @@ async def test_get_user_enrolled_plans_success():
         assert plan_dto.language == "EN"
         assert plan_dto.difficulty_level == "BEGINNER"
         assert plan_dto.total_days == 30
-        assert plan_dto.tags == ["meditation", "mindfulness"]
+        assert [t.name for t in plan_dto.tags] == ["meditation", "mindfulness"]
         assert plan_dto.image_url.startswith("https://signed.")
         assert plan_dto.start_date == datetime(2025, 1, 15, tzinfo=timezone.utc)
 
@@ -477,7 +478,7 @@ async def test_get_user_enrolled_plans_with_status_filter():
         language=SimpleNamespace(value="EN"),
         difficulty_level=SimpleNamespace(value="BEGINNER"),
         image_url=None,
-        tags=[],
+        tag_list=[],
         start_date=None,
         display_order=None,
     )
@@ -525,7 +526,7 @@ async def test_get_user_enrolled_plans_with_pagination():
             language=SimpleNamespace(value="EN"),
             difficulty_level=SimpleNamespace(value="BEGINNER"),
             image_url=None,
-            tags=[],
+            tag_list=[],
             start_date=None,
             display_order=None,
         )
@@ -599,7 +600,7 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
         language=SimpleNamespace(value="EN"),
         difficulty_level=SimpleNamespace(value="BEGINNER"),
         image_url=None,
-        tags=[],
+        tag_list=[],
         start_date=None,
         display_order=None,
     )
@@ -610,7 +611,7 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
         language=SimpleNamespace(value="EN"),
         difficulty_level=SimpleNamespace(value="BEGINNER"),
         image_url=None,
-        tags=[],
+        tag_list=[],
         start_date=None,
         display_order=None,
     )
@@ -667,7 +668,7 @@ def test_get_user_plan_progress_success():
         language=SimpleNamespace(value="en"),
         difficulty_level=SimpleNamespace(value="beginner"),
         image_url=None,
-        tags=[],
+        tag_list=[],
     )
 
     with patch(
@@ -783,7 +784,7 @@ async def test_get_user_enrolled_plans_without_image():
         language=SimpleNamespace(value="BO"),
         difficulty_level=SimpleNamespace(value="INTERMEDIATE"),
         image_url=None,
-        tags=[],
+        tag_list=[],
         start_date=None,
         display_order=None,
     )
@@ -852,7 +853,7 @@ async def test_get_user_enrolled_plans_presigned_url_error():
         language=SimpleNamespace(value="EN"),
         difficulty_level=SimpleNamespace(value="BEGINNER"),
         image_url="images/plan_images/test.jpg",
-        tags=[],
+        tag_list=[],
         start_date=None,
         display_order=None,
     )
@@ -907,7 +908,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
         language=SimpleNamespace(value="EN"),
         difficulty_level=SimpleNamespace(value="BEGINNER"),
         image_url="images/plan1.jpg",
-        tags=["meditation"],
+        tag_list=mock_tag_entities(["meditation"]),
         start_date=datetime(2025, 2, 1, tzinfo=timezone.utc),
         display_order=1,
     )
@@ -918,7 +919,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
         language=SimpleNamespace(value="BO"),
         difficulty_level=SimpleNamespace(value="ADVANCED"),
         image_url="images/plan2.jpg",
-        tags=["dharma", "philosophy"],
+        tag_list=mock_tag_entities(["dharma", "philosophy"]),
         start_date=None,
         display_order=2,
     )
@@ -929,7 +930,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
         language="EN",  # exercise string branch
         difficulty_level="BEGINNER",  # exercise string branch
         image_url=None,
-        tags=["basics"],
+        tag_list=mock_tag_entities(["basics"]),
         start_date=None,
         display_order=None,
     )

@@ -4,6 +4,7 @@ from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus,ContentType
 from uuid import UUID
 from datetime import datetime, date as DateType
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 class PlanDayBasic(BaseModel):
     id: str
@@ -33,7 +34,7 @@ class PublicPlanDTO(BaseModel):
     difficulty_level: Optional[DifficultyLevel] = None
     image: Optional[ImageUrlModel] = None
     total_days: int
-    tags: Optional[List[str]] = [],
+    tags: List[TagSummaryDTO] = [],
     author: Optional[AuthorDTO] = None
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
@@ -71,7 +72,7 @@ class PlanWithDays(BaseModel):
     plan_image: Optional[ImageUrlModel] = None
     total_days: int
     difficulty_level: str
-    tags: List[str]
+    tags: List[TagSummaryDTO] = []
     days: List[PlanDayDTO]
 
 class PublicPlansResponse(BaseModel):
@@ -120,6 +121,6 @@ class DailyPlanResponse(BaseModel):
     tasks: List[TaskDTO]
 
 class TagsResponse(BaseModel):
-    tags: List[str]
+    tags: List[TagSummaryDTO]
     
 TaskDTO.model_rebuild()

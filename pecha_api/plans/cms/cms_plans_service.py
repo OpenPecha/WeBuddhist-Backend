@@ -5,6 +5,9 @@ from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.cms.cms_plans_repository import save_plan, get_plan_by_id, get_plans_by_author_id, update_plan
+from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
+from pecha_api.plans.tags.tag_repository import set_plan_tags
+from pecha_api.plans.tags.tag_service import validate_tag_ids
 from pecha_api.plans.items.plan_items_repository import save_plan_items, get_plan_items_by_plan_id, get_plan_day_with_tasks_and_subtasks
 from pecha_api.plans.users.plan_users_progress_repository import get_plan_progress
 from pecha_api.plans.authors.plan_authors_model import Author
@@ -124,7 +127,7 @@ async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, so
                 image_url= generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=selected_plan.image_url),
                 plan_image_url=selected_plan.image_url,
                 total_days=int(plan_info.total_days or 0),
-                tags=selected_plan.tags or [],
+                tags=tags_to_summary_dtos(selected_plan.tag_list),
                 status=PlanStatus(selected_plan.status.value),
                 featured=selected_plan.featured,
                 subscription_count=int(plan_info.subscription_count or 0),
@@ -158,7 +161,6 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
         start_date=create_plan_request.start_date,
         author_id=current_author.id,
         difficulty_level=create_plan_request.difficulty_level,
-        tags=create_plan_request.tags or [],
         status=PlanStatus.DRAFT,
         featured=False,
         language=LanguageCode(language),
@@ -167,7 +169,12 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
 
     # Save to database
     with SessionLocal() as db_session:
+        if create_plan_request.tag_ids:
+            validate_tag_ids(db=db_session, tag_ids=create_plan_request.tag_ids)
         saved_plan = save_plan(db=db_session, plan=new_plan_model)
+        if create_plan_request.tag_ids:
+            set_plan_tags(db=db_session, plan=saved_plan, tag_ids=create_plan_request.tag_ids)
+            db_session.refresh(saved_plan)
 
         new_item_models = [
             PlanItem(
@@ -193,7 +200,7 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
             image_url=saved_plan.image_url,
             image_key=saved_plan.image_url,
             total_days=total_days,
-            tags=saved_plan.tags or [],
+            tags=tags_to_summary_dtos(saved_plan.tag_list),
             status=saved_plan.status,
             subscription_count=total_subscription_count,
             start_date=saved_plan.start_date,
@@ -246,7 +253,7 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
         plan_image_url=plan.image_url, 
         total_days=len(items),
         difficulty_level=plan.difficulty_level,
-        tags=plan.tags or [],
+        tags=tags_to_summary_dtos(plan.tag_list),
         status=plan.status,
         days=day_dtos,
         start_date=plan.start_date,
@@ -276,7 +283,6 @@ def _apply_plan_field_updates(plan: Plan, update_plan_request: UpdatePlanRequest
         ('description', 'description'),
         ('difficulty_level', 'difficulty_level'),
         ('image_url', 'image_url'),
-        ('tags', 'tags'),
         ('language', 'language'),
     ]
     for request_field, plan_field in field_mappings:
@@ -306,6 +312,10 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
             plan.start_date = update_plan_request.start_date
         
         _apply_plan_field_updates(plan, update_plan_request)
+
+        if update_plan_request.tag_ids is not None:
+            validate_tag_ids(db=db, tag_ids=update_plan_request.tag_ids)
+            set_plan_tags(db=db, plan=plan, tag_ids=update_plan_request.tag_ids)
         
         plan.updated_at = datetime.now(timezone.utc)
         plan.updated_by = author_details.email
@@ -325,7 +335,7 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
             image_url=image_url,
             image_key=plan_image_key,
             total_days=total_days,
-            tags=plan.tags or [],
+            tags=tags_to_summary_dtos(plan.tag_list),
             status=plan.status,
             subscription_count=subscription_count,
             start_date=plan.start_date,
@@ -351,7 +361,7 @@ async def update_selected_plan_status(token:str,plan_id: UUID, plan_status_updat
             image_url=plan.image_url,
             plan_image_url=plan.image_url,
             total_days=len(get_plan_items_by_plan_id(db=db, plan_id=plan_id)),
-            tags=plan.tags or [],
+            tags=tags_to_summary_dtos(plan.tag_list),
             status=plan.status,
             subscription_count=len(get_plan_progress(db=db, plan_id=plan.id))
         )
