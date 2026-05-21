@@ -34,6 +34,9 @@ from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from starlette import status
 
 
+_SERIES_UPDATE_PERMISSION_ERROR = "You do not have permission to update this series"
+
+
 def _generate_image_url(image_key: Optional[str]) -> Optional[str]:
     if not image_key:
         return None
@@ -292,7 +295,7 @@ def update_existing_series(
             if not current_author.is_admin and series.author_id != current_author.id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You do not have permission to update this series",
+                    detail=_SERIES_UPDATE_PERMISSION_ERROR,
                 )
 
             if update_series_request.plans is not None:
@@ -360,7 +363,7 @@ def update_existing_series_status(
             if not current_author.is_admin and series.author_id != current_author.id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You do not have permission to update this series",
+                    detail=_SERIES_UPDATE_PERMISSION_ERROR,
                 )
 
             update_series_status(
@@ -398,7 +401,7 @@ def update_existing_series_featured(
             if not current_author.is_admin and series.author_id != current_author.id:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You do not have permission to update this series",
+                    detail=_SERIES_UPDATE_PERMISSION_ERROR,
                 )
 
             update_series_featured(
