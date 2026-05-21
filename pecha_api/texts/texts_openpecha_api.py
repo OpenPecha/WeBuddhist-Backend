@@ -15,6 +15,7 @@ from pecha_api.texts.text_openpecha_response_models import (
     SegmentLineModel,
     segmentSpans,
     SegmentationSegmentResponseModel,
+    EditionContentResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -208,3 +209,36 @@ async def fetch_segmentation_segments(segmentation_id: str, limit: int, offset: 
         offset=data["offset"],
         limit=data["limit"],
     )
+
+
+async def fetch_edition_content(edition_id: str) -> EditionContentResponse:
+    client = get_authenticated_open_pecha_client()
+
+    try:
+        response = await client.get_async_httpx_client().get(
+            f"/v2/editions/{edition_id}/content",
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch edition content from OpenPecha API: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch edition content from upstream service",
+        )
+
+    if response.status_code == 404:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Edition with id '{edition_id}' not found",
+        )
+
+    if response.status_code != 200:
+        logger.error(
+            f"Unexpected status {response.status_code} fetching content for edition '{edition_id}'"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Unexpected response from upstream service",
+        )
+
+    return EditionContentResponse(content=response.json())
+

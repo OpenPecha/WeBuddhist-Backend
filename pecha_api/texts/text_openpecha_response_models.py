@@ -69,3 +69,12 @@ class SegmentationSegmentResponseModel(BaseModel):
     has_more: bool
     offset: int
     limit: int
+
+
+class EditionContentResponse(BaseModel):
+    content: str
+
+
+class SegmentContentModel(BaseModel):
+    id: str
+    content: str

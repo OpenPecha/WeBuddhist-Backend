@@ -1,8 +1,8 @@
 from fastapi import HTTPException
 from starlette import status
 from pecha_api.texts.text_openpecha_response_models import TextDetailResponse, TextDetailRequest
-from pecha_api.texts.texts_openpecha_api import fetch_critical_editions, fetch_text_detail, fetch_editions_segmentation, fetch_segmentation_segments
-
+from pecha_api.texts.texts_openpecha_api import fetch_critical_editions, fetch_text_detail, fetch_editions_segmentation, fetch_segmentation_segments, fetch_edition_content
+from pecha_api.texts.text_openpecha_response_models import SegmentationSegmentResponseModel, SegmentContentModel
 
 async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDetailResponse:
     # offset = text_detail_request.offset
@@ -16,8 +16,19 @@ async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDe
         )
     text_detail.edition_details = edition_details
     segmentations = await fetch_editions_segmentation(edition_id=edition_details[0].id)
-    print("pagination", limit, offset, segmentations[0].id)
-
+    edition_content = await fetch_edition_content(edition_id=edition_details[0].id)
     segments = await fetch_segmentation_segments(segmentation_id=segmentations[0].id, limit=limit, offset=offset)  # noqa: F841
-    print("data", segments)
+    segment_contents = trim_segment_content(edition_content=edition_content.content, segments=segments)
+    print("segment_content", segment_contents)
     return text_detail
+
+
+def trim_segment_content(edition_content: str, segments: SegmentationSegmentResponseModel) -> list[SegmentContentModel]:
+    result = []
+    for segment in segments.items:
+        content = "".join(edition_content[line.start:line.end] for line in segment.lines)
+        result.append(SegmentContentModel(id=segment.id, content=content))
+    return result
+
+
+
