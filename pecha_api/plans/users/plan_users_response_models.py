@@ -54,7 +54,7 @@ class UserPlanDTO(BaseModel):
     image_url: str
     started_at: datetime
     total_days: int
-    tags: List[TagSummaryDTO] = []
+    tags: list[TagSummaryDTO] = []
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
 
