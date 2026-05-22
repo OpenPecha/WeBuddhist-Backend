@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import HTTPException, status
 
-from pecha_api.texts.texts_openpecha_services import get_text_detail_by_id, trim_segment_content
+from pecha_api.texts.texts_openpecha_service import get_text_detail_by_id, trim_segment_content
 from pecha_api.texts.text_openpecha_response_models import (
     TextDetailResponse,
     CriticalEditionModel,
@@ -60,27 +60,27 @@ MOCK_SEGMENTS = SegmentationSegmentResponseModel(
 async def test_get_text_detail_by_id_success(mocker):
     """Test happy path: assembles text detail with edition, segmentation, and segments"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_text_detail",
+        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
         new_callable=AsyncMock,
         return_value=MOCK_TEXT_DETAIL.model_copy(),
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_critical_editions",
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
         new_callable=AsyncMock,
         return_value=MOCK_EDITIONS,
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_editions_segmentation",
+        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
         new_callable=AsyncMock,
         return_value=MOCK_SEGMENTATIONS,
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_edition_content",
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
         new_callable=AsyncMock,
         return_value=MOCK_EDITION_CONTENT,
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_segmentation_segments",
+        "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
         new_callable=AsyncMock,
         return_value=MOCK_SEGMENTS,
     )
@@ -99,27 +99,27 @@ async def test_get_text_detail_by_id_success(mocker):
 async def test_get_text_detail_by_id_passes_offset_and_limit_to_segments(mocker):
     """Test that offset and limit are forwarded to fetch_segmentation_segments"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_text_detail",
+        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
         new_callable=AsyncMock,
         return_value=MOCK_TEXT_DETAIL.model_copy(),
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_critical_editions",
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
         new_callable=AsyncMock,
         return_value=MOCK_EDITIONS,
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_editions_segmentation",
+        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
         new_callable=AsyncMock,
         return_value=MOCK_SEGMENTATIONS,
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_edition_content",
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
         new_callable=AsyncMock,
         return_value=MOCK_EDITION_CONTENT,
     )
     mock_fetch_segments = mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_segmentation_segments",
+        "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
         new_callable=AsyncMock,
         return_value=MOCK_SEGMENTS,
     )
@@ -139,27 +139,27 @@ async def test_get_text_detail_by_id_uses_first_edition_for_segmentation(mocker)
         CriticalEditionModel(id="ed-second", type="critical"),
     ]
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_text_detail",
+        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
         new_callable=AsyncMock,
         return_value=MOCK_TEXT_DETAIL.model_copy(),
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_critical_editions",
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
         new_callable=AsyncMock,
         return_value=editions,
     )
     mock_fetch_segmentation = mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_editions_segmentation",
+        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
         new_callable=AsyncMock,
         return_value=MOCK_SEGMENTATIONS,
     )
     mock_fetch_content = mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_edition_content",
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
         new_callable=AsyncMock,
         return_value=MOCK_EDITION_CONTENT,
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_segmentation_segments",
+        "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
         new_callable=AsyncMock,
         return_value=MOCK_SEGMENTS,
     )
@@ -174,12 +174,12 @@ async def test_get_text_detail_by_id_uses_first_edition_for_segmentation(mocker)
 async def test_get_text_detail_by_id_raises_404_when_no_editions(mocker):
     """Test 404 is raised when fetch_critical_editions returns an empty list"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_text_detail",
+        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
         new_callable=AsyncMock,
         return_value=MOCK_TEXT_DETAIL.model_copy(),
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_critical_editions",
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
         new_callable=AsyncMock,
         return_value=[],
     )
@@ -195,7 +195,7 @@ async def test_get_text_detail_by_id_raises_404_when_no_editions(mocker):
 async def test_get_text_detail_by_id_propagates_fetch_text_detail_error(mocker):
     """Test that an HTTPException from fetch_text_detail is propagated"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_text_detail",
+        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
         new_callable=AsyncMock,
         side_effect=HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
@@ -213,12 +213,12 @@ async def test_get_text_detail_by_id_propagates_fetch_text_detail_error(mocker):
 async def test_get_text_detail_by_id_propagates_fetch_editions_error(mocker):
     """Test that an HTTPException from fetch_critical_editions is propagated"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_text_detail",
+        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
         new_callable=AsyncMock,
         return_value=MOCK_TEXT_DETAIL.model_copy(),
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_services.fetch_critical_editions",
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
         new_callable=AsyncMock,
         side_effect=HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
