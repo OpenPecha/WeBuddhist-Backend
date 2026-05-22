@@ -1,18 +1,12 @@
 import pytest
 from unittest.mock import patch, AsyncMock
 
-from starlette import status
-
 from pecha_api.collections.collections_service import (
-    get_all_collections, 
-    create_new_collection, 
-    update_existing_collection, 
-    delete_existing_collection, 
+    get_all_collections,
     get_collection,
     get_collection_by_pecha_collection_id_service
 )
-from pecha_api.collections.collections_response_models import CollectionModel, CollectionsResponse, CreateCollectionRequest, UpdateCollectionRequest
-from fastapi import HTTPException
+from pecha_api.collections.collections_response_models import CollectionModel, CollectionsResponse
 
 
 @pytest.mark.asyncio
@@ -33,76 +27,6 @@ async def test_get_all_collections():
         assert response.collections[0].title == "Collection 1"
         assert response.collections[1].has_child == False
         mock_set_collections_cache.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_create_new_collection():
-    with patch("pecha_api.collections.collections_service.verify_admin_access", return_value=True), \
-            patch("pecha_api.collections.collections_service.create_collection", new_callable=AsyncMock) as mock_create_collection:
-        mock_create_collection.return_value = AsyncMock(pecha_collection_id="pecha_new_id", titles={"en": "New Collection"}, descriptions={"en": "New Description"}, slug="new-collection",parent_id=None,has_sub_child=False)
-        create_collection_request = CreateCollectionRequest(slug="new-collection", titles={"en": "New Collection"}, descriptions={"en": "New Description"},parent_id=None)
-        response = await create_new_collection(
-            create_collection_request=create_collection_request,
-            token="valid_token",
-            language="en"
-        )
-        assert isinstance(response, CollectionModel)
-        assert response.title == "New Collection"
-        assert response.slug == "new-collection"
-        assert response.description == "New Description"
-        assert response.has_child == False
-
-
-@pytest.mark.asyncio
-async def test_update_existing_collection():
-    with patch("pecha_api.collections.collections_service.verify_admin_access", return_value=True), \
-            patch("pecha_api.collections.collections_service.update_collection_titles",
-                  new_callable=AsyncMock) as mock_update_collection_titles:
-        mock_update_collection_titles.return_value = AsyncMock(pecha_collection_id="pecha_id_1", titles={"en": "Updated Collection"}, descriptions={"en": "Description 1"}, slug="updated-collection",parent_id=None)
-        update_collection_request = UpdateCollectionRequest(titles={"en": "Updated Collection"}, descriptions={"en": "New Description"})
-        response = await update_existing_collection(collection_id="1", update_collection_request=update_collection_request, token="valid_token",
-                                              language="en")
-        assert isinstance(response, CollectionModel)
-        assert response.title == "Updated Collection"
-
-
-@pytest.mark.asyncio
-async def test_delete_existing_collection():
-    with patch("pecha_api.collections.collections_service.verify_admin_access", return_value=True), \
-            patch("pecha_api.collections.collections_service.delete_collection", new_callable=AsyncMock) as mock_delete_collection:
-        mock_delete_collection.return_value = "id_1"
-        response = await delete_existing_collection(collection_id="id_1", token="valid_token")
-        assert response == "id_1"
-
-
-@pytest.mark.asyncio
-async def test_create_new_collection_unauthorized():
-    with patch("pecha_api.collections.collections_service.verify_admin_access", return_value=False):
-        create_collection_request = CreateCollectionRequest(slug="new-collection", titles={"en": "New Collection"},descriptions={"en": "New Description"},parent_id=None)
-        try:
-            await create_new_collection(create_collection_request=create_collection_request, token="invalid_token", language="en")
-        except HTTPException as e:
-            assert e.status_code == status.HTTP_403_FORBIDDEN
-
-
-@pytest.mark.asyncio
-@patch("pecha_api.collections.collections_service.verify_admin_access", return_value=False)
-async def test_update_existing_collection_unauthorized(mock_verify_admin_access):
-    update_collection_request = UpdateCollectionRequest(titles={"en": "Updated Collection"}, descriptions={"en": "Updated Descriptions"})
-    try:
-        await update_existing_collection(collection_id="1", update_collection_request=update_collection_request, token="invalid_token",
-                                   language=None)
-    except HTTPException as e:
-        assert e.status_code == status.HTTP_403_FORBIDDEN
-
-
-@pytest.mark.asyncio
-@patch("pecha_api.collections.collections_service.verify_admin_access", return_value=False)
-async def test_delete_existing_collection_unauthorized(mock_verify_admin_access):
-    try:
-        await delete_existing_collection(collection_id="1", token="invalid_token")
-    except HTTPException as e:
-        assert e.status_code == status.HTTP_403_FORBIDDEN
 
 
 # New test cases for uncovered scenarios
@@ -226,74 +150,6 @@ async def test_get_all_collections_with_default_language():
         
         mock_get_config.assert_called_with("DEFAULT_LANGUAGE")
         assert isinstance(response, CollectionsResponse)
-
-
-@pytest.mark.asyncio
-async def test_create_new_collection_with_default_language():
-    """Test create_new_collection when language is None - should use default language"""
-    with patch("pecha_api.collections.collections_service.verify_admin_access", return_value=True), \
-         patch("pecha_api.collections.collections_service.create_collection", new_callable=AsyncMock) as mock_create, \
-         patch("pecha_api.collections.collections_service.get", return_value="en") as mock_get_config, \
-         patch("pecha_api.collections.collections_service.Utils.get_value_from_dict", side_effect=["New Collection", "New Description"]):
-        
-        mock_create.return_value = AsyncMock(
-            id="new_id",
-            pecha_collection_id="pecha_new_id",
-            titles={"en": "New Collection"},
-            descriptions={"en": "New Description"},
-            slug="new-collection", 
-            has_sub_child=False
-        )
-        
-        create_request = CreateCollectionRequest(
-            slug="new-collection",
-            titles={"en": "New Collection"},
-            descriptions={"en": "New Description"},
-            parent_id=None
-        )
-        
-        response = await create_new_collection(
-            create_collection_request=create_request,
-            token="valid_token", 
-            language=None
-        )
-        
-        mock_get_config.assert_called_with("DEFAULT_LANGUAGE")
-        assert isinstance(response, CollectionModel)
-        assert response.language == "en"
-
-
-@pytest.mark.asyncio
-async def test_update_existing_collection_with_default_language():
-    """Test update_existing_collection when language is None - should use default language"""
-    with patch("pecha_api.collections.collections_service.verify_admin_access", return_value=True), \
-         patch("pecha_api.collections.collections_service.update_collection_titles", new_callable=AsyncMock) as mock_update, \
-         patch("pecha_api.collections.collections_service.get", return_value="en") as mock_get_config, \
-         patch("pecha_api.collections.collections_service.Utils.get_value_from_dict", side_effect=["Updated Collection", "Updated Description"]):
-        
-        mock_update.return_value = AsyncMock(
-            pecha_collection_id="pecha_test_id",
-            titles={"en": "Updated Collection"},
-            descriptions={"en": "Updated Description"}, 
-            slug="updated-collection",
-            has_sub_child=True
-        )
-        
-        update_request = UpdateCollectionRequest(
-            titles={"en": "Updated Collection"},
-            descriptions={"en": "Updated Description"}
-        )
-        
-        response = await update_existing_collection(
-            collection_id="test_id",
-            update_collection_request=update_request,
-            token="valid_token",
-            language=None
-        )
-        
-        mock_get_config.assert_called_with("DEFAULT_LANGUAGE") 
-        assert isinstance(response, CollectionModel)
-        assert response.language == "en"
 
 
 @pytest.mark.asyncio

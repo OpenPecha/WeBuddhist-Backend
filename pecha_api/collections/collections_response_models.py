@@ -10,10 +10,6 @@ class CreateCollectionRequest(BaseModel):
     descriptions: Dict[str, str]
     parent_id: Optional[str]
 
-class UpdateCollectionRequest(BaseModel):
-    titles: Dict[str, str]
-    descriptions: Dict[str, str]
-
 class CollectionModel(BaseModel):
     id: str
     pecha_collection_id: Optional[str] = None

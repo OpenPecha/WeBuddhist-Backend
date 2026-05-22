@@ -1,13 +1,11 @@
 from typing import Optional
 
-from starlette import status
 from beanie import PydanticObjectId
 
-from pecha_api.error_contants import ErrorConstants
 from pecha_api.utils import Utils
 from ..config import get
-from ..collections.collections_response_models import CollectionModel, CollectionsResponse, Pagination, CreateCollectionRequest, UpdateCollectionRequest
-from .collections_repository import get_child_count, get_collections_by_parent, create_collection, update_collection_titles, delete_collection, \
+from ..collections.collections_response_models import CollectionModel, CollectionsResponse, Pagination
+from .collections_repository import get_child_count, get_collections_by_parent, \
     get_collection_by_id, get_collection_id_by_pecha_collection_id
 from .collections_cache_service import (
     get_collections_cache,
@@ -17,8 +15,6 @@ from .collections_cache_service import (
     delete_collection_cache
 )
 from pecha_api.cache.cache_enums import CacheType
-from ..users.users_service import verify_admin_access
-from fastapi import HTTPException
 
 
 async def get_all_collections(language: str, parent_id: Optional[PydanticObjectId], skip: int, limit: int) -> CollectionsResponse:
@@ -74,25 +70,6 @@ async def get_all_collections(language: str, parent_id: Optional[PydanticObjectI
     return collection_response
 
 
-async def create_new_collection(create_collection_request: CreateCollectionRequest, token: str, language: Optional[str]) -> CollectionModel:
-    is_admin = verify_admin_access(token=token)
-    if is_admin:
-        new_collection = await create_collection(create_collection_request=create_collection_request)
-        if language is None:
-            language = get("DEFAULT_LANGUAGE")
-        return CollectionModel(
-            id=str(new_collection.id),
-            pecha_collection_id=str(new_collection.pecha_collection_id),
-            title=Utils.get_value_from_dict(values=new_collection.titles, language=language),
-            description=Utils.get_value_from_dict(values=new_collection.descriptions, language=language),
-            has_child=new_collection.has_sub_child,
-            language=language,
-            slug=new_collection.slug
-
-        )
-    
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ErrorConstants.ADMIN_ERROR_MESSAGE)
-
 async def get_collection(collection_id: str,language: str) -> Optional[CollectionModel]:
     if collection_id is None:
         return None
@@ -131,33 +108,6 @@ async def get_collection(collection_id: str,language: str) -> Optional[Collectio
         return collection_model
     return None
 
-async def update_existing_collection(collection_id: str, update_collection_request: UpdateCollectionRequest, token: str,
-                               language: Optional[str]) -> CollectionModel:
-    is_admin = verify_admin_access(token=token)
-    if is_admin:
-        updated_collection = await update_collection_titles(collection_id=collection_id, update_collection_request=update_collection_request)
-        if language is None:
-            language = get("DEFAULT_LANGUAGE")
-        return CollectionModel(
-            id=collection_id,
-            pecha_collection_id=str(updated_collection.pecha_collection_id),
-            title=Utils.get_value_from_dict(values=updated_collection.titles, language=language),
-            description=Utils.get_value_from_dict(values=updated_collection.descriptions, language=language),
-            has_child=updated_collection.has_sub_child,
-            language=language,
-            slug=updated_collection.slug
-        )
-    
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ErrorConstants.ADMIN_ERROR_MESSAGE)
-
-
-async def delete_existing_collection(collection_id: str, token: str):
-    is_admin = verify_admin_access(token=token)
-    if is_admin:
-        await delete_collection(collection_id=collection_id)
-        return collection_id
-    
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ErrorConstants.ADMIN_ERROR_MESSAGE)
 
 async def get_collection_by_pecha_collection_id_service(pecha_collection_id: str) -> Optional[str]:
     collection_id = await get_collection_id_by_pecha_collection_id(pecha_collection_id=pecha_collection_id)

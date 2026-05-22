@@ -7,7 +7,7 @@ from starlette import status
 
 from pecha_api.utils import Utils
 from ..collections.collections_models import Collection
-from ..collections.collections_response_models import CreateCollectionRequest, UpdateCollectionRequest
+from ..collections.collections_response_models import CreateCollectionRequest
 
 COLLECTION_NOT_FOUND = 'Collection not found'
 
@@ -72,26 +72,6 @@ async def update_collection_child_status(collection_id: str) -> Collection:
         await existing_collection.save()
     return existing_collection
 
-
-async def update_collection_titles(collection_id: str, update_collection_request: UpdateCollectionRequest) -> Collection:
-    existing_collection = await Collection.get(collection_id)
-    if not existing_collection:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=COLLECTION_NOT_FOUND)
-
-    existing_collection.titles = update_collection_request.titles
-    await existing_collection.save()
-    return existing_collection
-
-
-async def delete_collection(collection_id: str):
-    existing_collection = await Collection.get(collection_id)
-    if not existing_collection:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=COLLECTION_NOT_FOUND)
-    parent_id = existing_collection.parent_id
-    await existing_collection.delete()
-    if parent_id is not None:
-        await update_collection_child_status(collection_id=str(parent_id))
-    return existing_collection
 
 async def get_collection_id_by_slug(slug: str) -> Optional[str]:
     collection = await Collection.get_by_slug(slug=slug)
