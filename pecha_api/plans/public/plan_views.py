@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Optional
+from typing import Annotated, Optional
 from uuid import UUID
 from datetime import date as DateType
 from starlette import status
@@ -69,7 +69,7 @@ async def get_plan_daily(
 @public_plans_router.get("/{plan_id}/days", status_code=status.HTTP_200_OK, response_model=PlanDaysResponse)
 async def get_plan_days_list(
     plan_id: UUID,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_oauth2_scheme)
+    credentials: Annotated[Optional[HTTPAuthorizationCredentials], Depends(optional_oauth2_scheme)]
 ):
     user_id = None
     if credentials:
@@ -79,7 +79,7 @@ async def get_plan_days_list(
         except Exception:
             pass
     
-    await auto_enroll_plan(plan_id=plan_id, user_id=user_id)   
+    auto_enroll_plan(plan_id=plan_id, user_id=user_id)
     return await get_plan_days(plan_id=plan_id)
 
 
