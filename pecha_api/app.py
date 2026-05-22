@@ -41,7 +41,6 @@ from pecha_api.text_uploader.collections import uploader_collections_views
 from pecha_api.collections import collections_openpecha_views
 from pecha_api.texts import texts_openpecha_views
 from pecha_api.texts.segments import segments_openpecha_views
-
 from pecha_api.routines import routines_views
 import uvicorn
 
