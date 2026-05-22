@@ -237,7 +237,7 @@ def auto_enroll_plan(plan_id: UUID, user_id: Optional[UUID] = None) -> None:
             )
             
     except Exception as e:
-        logger.error(f"Error during auto-enrollment for user {user_id} in plan {plan_id}: {str(e)}", exc_info=True)
+        logger.exception(f"Error during auto-enrollment for user {user_id} in plan {plan_id}: {str(e)}")
 
 
 def add_plan_to_routine_time_blocks(
@@ -266,7 +266,7 @@ def add_plan_to_routine_time_blocks(
             logger.info(f"Added plan {new_plan_id} to time block {time_block.id} for user {user_id}")
             
     except Exception as e:
-        logger.error(f"Error adding plan to routine time blocks: {str(e)}", exc_info=True)
+        logger.exception(f"Error adding plan to routine time blocks: {str(e)}")
 
 async def get_plan_days(plan_id: UUID) -> PlanDaysResponse:
     """Get all days for a specific plan"""
