@@ -96,6 +96,7 @@ async def _get_texts_by_collection_id(
 
 async def get_texts_by_collection_from_openpecha(
     collection_id: str,
+    language: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
 ) -> V2TextsCategoryResponse:
@@ -107,9 +108,9 @@ async def get_texts_by_collection_from_openpecha(
 
     category_title = ""
     try:
-        category_data = await fetch_category_by_id(collection_id)
+        category_data = await fetch_category_by_id(collection_id, language=language)
         if category_data:
-            category_title = _extract_title(category_data.get("title", {}))
+            category_title = _extract_title(category_data.get("title", {}), language)
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
