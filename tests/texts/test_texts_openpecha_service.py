@@ -11,11 +11,10 @@ from pecha_api.texts.texts_openpecha_service import (
     map_external_text_to_text_version,
     filter_versions_by_language,
     paginate_versions,
-    fetch_text_from_external_api,
     fetch_translation_details,
+    fetch_commentary_details,
     _extract_title,
     _get_language_priority_order,
-    _validate_text_id,
 )
 from pecha_api.texts.texts_response_models import (
     TextDTO,
@@ -99,61 +98,6 @@ class TestGetLanguagePriorityOrder:
         """Test fallback for unknown language."""
         result = _get_language_priority_order("unknown")
         assert isinstance(result, list)
-
-
-class TestValidateTextId:
-    """Tests for _validate_text_id helper function."""
-
-    def test_valid_alphanumeric_id(self):
-        """Test valid alphanumeric text ID."""
-        result = _validate_text_id("text123")
-        assert result == "text123"
-
-    def test_valid_id_with_hyphen(self):
-        """Test valid text ID with hyphen."""
-        result = _validate_text_id("text-123")
-        assert result == "text-123"
-
-    def test_valid_id_with_underscore(self):
-        """Test valid text ID with underscore."""
-        result = _validate_text_id("text_123")
-        assert result == "text_123"
-
-    def test_valid_mixed_case_id(self):
-        """Test valid mixed case text ID."""
-        result = _validate_text_id("Text-ABC_123")
-        assert result == "Text-ABC_123"
-
-    def test_invalid_empty_id(self):
-        """Test that empty text ID raises HTTPException."""
-        with pytest.raises(HTTPException) as exc_info:
-            _validate_text_id("")
-        assert exc_info.value.status_code == 400
-        assert "Invalid text ID format" in exc_info.value.detail
-
-    def test_invalid_id_with_path_traversal(self):
-        """Test that path traversal attempt raises HTTPException."""
-        with pytest.raises(HTTPException) as exc_info:
-            _validate_text_id("../../../etc/passwd")
-        assert exc_info.value.status_code == 400
-
-    def test_invalid_id_with_slash(self):
-        """Test that text ID with slash raises HTTPException."""
-        with pytest.raises(HTTPException) as exc_info:
-            _validate_text_id("text/123")
-        assert exc_info.value.status_code == 400
-
-    def test_invalid_id_with_special_chars(self):
-        """Test that text ID with special characters raises HTTPException."""
-        with pytest.raises(HTTPException) as exc_info:
-            _validate_text_id("text@123!")
-        assert exc_info.value.status_code == 400
-
-    def test_invalid_id_with_spaces(self):
-        """Test that text ID with spaces raises HTTPException."""
-        with pytest.raises(HTTPException) as exc_info:
-            _validate_text_id("text 123")
-        assert exc_info.value.status_code == 400
 
 
 class TestMapExternalTextToDto:
@@ -338,7 +282,7 @@ class TestGetTextVersionsFromOpenpecha:
     """Tests for get_text_versions_from_openpecha service function."""
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     @patch('pecha_api.texts.texts_openpecha_service.fetch_translation_details')
     async def test_get_text_versions_success(self, mock_fetch_translations, mock_fetch_text):
         """Test successful retrieval of text versions."""
@@ -359,7 +303,7 @@ class TestGetTextVersionsFromOpenpecha:
         mock_fetch_text.assert_called_once_with("text-123")
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     async def test_get_text_versions_text_not_found(self, mock_fetch_text):
         """Test 404 error when text is not found."""
         mock_fetch_text.return_value = None
@@ -376,7 +320,23 @@ class TestGetTextVersionsFromOpenpecha:
         assert "not found" in exc_info.value.detail.lower()
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    async def test_get_text_versions_upstream_error(self, mock_fetch_text):
+        """Test 502 error when upstream service fails."""
+        mock_fetch_text.side_effect = Exception("Connection refused")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_text_versions_from_openpecha(
+                text_id="text-123",
+                language=None,
+                skip=0,
+                limit=10
+            )
+
+        assert exc_info.value.status_code == 502
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     async def test_get_text_versions_no_translations(self, mock_fetch_text):
         """Test response when text has no translations."""
         text_without_translations = {
@@ -398,7 +358,7 @@ class TestGetTextVersionsFromOpenpecha:
         assert len(result.versions) == 0
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     @patch('pecha_api.texts.texts_openpecha_service.fetch_translation_details')
     async def test_get_text_versions_with_language_filter(self, mock_fetch_translations, mock_fetch_text):
         """Test filtering versions by language."""
@@ -419,7 +379,7 @@ class TestGetTextVersionsFromOpenpecha:
         assert result.versions[0].language == "en"
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     @patch('pecha_api.texts.texts_openpecha_service.fetch_translation_details')
     async def test_get_text_versions_with_pagination(self, mock_fetch_translations, mock_fetch_text):
         """Test pagination of versions."""
@@ -553,7 +513,7 @@ class TestGetTextCommentariesFromOpenpecha:
     """Tests for get_text_commentaries_from_openpecha service function."""
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
     async def test_get_commentaries_success(self, mock_fetch_commentaries, mock_fetch_text):
         """Test successful retrieval of commentaries."""
@@ -578,7 +538,7 @@ class TestGetTextCommentariesFromOpenpecha:
         assert all(isinstance(c, TextDTO) for c in result)
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     async def test_get_commentaries_text_not_found(self, mock_fetch_text):
         """Test 404 error when text is not found."""
         mock_fetch_text.return_value = None
@@ -593,7 +553,7 @@ class TestGetTextCommentariesFromOpenpecha:
         assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     async def test_get_commentaries_no_commentaries(self, mock_fetch_text):
         """Test response when text has no commentaries."""
         mock_fetch_text.return_value = {
@@ -612,7 +572,7 @@ class TestGetTextCommentariesFromOpenpecha:
         assert len(result) == 0
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
     async def test_get_commentaries_with_pagination(self, mock_fetch_commentaries, mock_fetch_text):
         """Test pagination of commentaries."""
@@ -636,7 +596,7 @@ class TestGetTextCommentariesFromOpenpecha:
         assert len(result) == 2
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
     async def test_get_commentaries_skip_beyond_total(self, mock_fetch_commentaries, mock_fetch_text):
         """Test pagination when skip exceeds total commentaries."""
@@ -660,7 +620,7 @@ class TestGetTextCommentariesFromOpenpecha:
         assert len(result) == 0
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
     async def test_get_commentaries_verifies_dto_mapping(self, mock_fetch_commentaries, mock_fetch_text):
         """Test that commentaries are correctly mapped to TextDTO."""
@@ -696,7 +656,7 @@ class TestGetTextCommentariesFromOpenpecha:
         assert commentary.license == "CC BY"
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     async def test_get_commentaries_missing_commentaries_key(self, mock_fetch_text):
         """Test response when commentaries key is missing from text data."""
         mock_fetch_text.return_value = {
@@ -714,7 +674,7 @@ class TestGetTextCommentariesFromOpenpecha:
         assert len(result) == 0
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
     async def test_get_commentaries_partial_fetch_failure(self, mock_fetch_commentaries, mock_fetch_text):
         """Test that partial failures in fetching commentaries don't break the response."""
@@ -742,7 +702,7 @@ class TestFetchCommentaryDetails:
     """Tests for fetch_commentary_details function."""
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     async def test_fetch_commentary_details_success(self, mock_fetch):
         """Test successful fetch of commentary details."""
         mock_fetch.return_value = {
@@ -751,23 +711,21 @@ class TestFetchCommentaryDetails:
             "language": "bo"
         }
 
-        from pecha_api.texts.texts_openpecha_service import fetch_commentary_details
         result = await fetch_commentary_details(["comm-1"])
 
         assert len(result) == 1
         assert result[0]["id"] == "comm-1"
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     async def test_fetch_commentary_details_partial_failure(self, mock_fetch):
         """Test that partial failures don't break the entire operation."""
         mock_fetch.side_effect = [
             {"id": "comm-1", "title": {"en": "Commentary 1"}, "language": "bo"},
-            HTTPException(status_code=404, detail="Not found"),
+            Exception("Not found"),
             {"id": "comm-3", "title": {"en": "Commentary 3"}, "language": "bo"}
         ]
 
-        from pecha_api.texts.texts_openpecha_service import fetch_commentary_details
         result = await fetch_commentary_details(["comm-1", "comm-2", "comm-3"])
 
         assert len(result) == 2
@@ -777,82 +735,26 @@ class TestFetchCommentaryDetails:
     @pytest.mark.asyncio
     async def test_fetch_commentary_details_empty_list(self):
         """Test fetching with empty commentary list."""
-        from pecha_api.texts.texts_openpecha_service import fetch_commentary_details
         result = await fetch_commentary_details([])
 
         assert len(result) == 0
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     async def test_fetch_commentary_details_all_failures(self, mock_fetch):
         """Test when all commentary fetches fail."""
-        mock_fetch.side_effect = HTTPException(status_code=502, detail="Upstream error")
+        mock_fetch.side_effect = Exception("Upstream error")
 
-        from pecha_api.texts.texts_openpecha_service import fetch_commentary_details
         result = await fetch_commentary_details(["comm-1", "comm-2"])
 
         assert len(result) == 0
-
-
-# =============================================================================
-# External API Function Tests
-# =============================================================================
-
-class TestFetchTextFromExternalApi:
-    """Tests for fetch_text_from_external_api function."""
-
-    @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.httpx.AsyncClient')
-    @patch('pecha_api.texts.texts_openpecha_service.get')
-    async def test_fetch_text_success(self, mock_config_get, mock_client_class):
-        """Test successful fetch from external API."""
-        mock_config_get.return_value = "http://api.example.com"
-        
-        mock_response = MagicMock()
-        mock_response.json.return_value = MOCK_EXTERNAL_TEXT_DATA
-        mock_response.raise_for_status = MagicMock()
-        
-        mock_client = MagicMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
-        mock_client_class.return_value = mock_client
-
-        result = await fetch_text_from_external_api("text-123")
-
-        assert result == MOCK_EXTERNAL_TEXT_DATA
-
-    @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.httpx.AsyncClient')
-    @patch('pecha_api.texts.texts_openpecha_service.get')
-    async def test_fetch_text_http_error(self, mock_config_get, mock_client_class):
-        """Test handling of HTTP errors."""
-        import httpx
-        
-        mock_config_get.return_value = "http://api.example.com"
-        
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-        
-        mock_client = MagicMock()
-        mock_client.get = AsyncMock(
-            side_effect=httpx.HTTPStatusError("Not found", request=MagicMock(), response=mock_response)
-        )
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=None)
-        mock_client_class.return_value = mock_client
-
-        with pytest.raises(HTTPException) as exc_info:
-            await fetch_text_from_external_api("nonexistent")
-
-        assert exc_info.value.status_code == 502
 
 
 class TestFetchTranslationDetails:
     """Tests for fetch_translation_details function."""
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     async def test_fetch_translations_success(self, mock_fetch):
         """Test successful fetch of translation details."""
         mock_fetch.return_value = MOCK_TRANSLATION_DATA
@@ -863,12 +765,12 @@ class TestFetchTranslationDetails:
         assert result[0]["id"] == "trans-1"
 
     @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_from_external_api')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     async def test_fetch_translations_partial_failure(self, mock_fetch):
         """Test that partial failures don't break the entire operation."""
         mock_fetch.side_effect = [
             MOCK_TRANSLATION_DATA,
-            HTTPException(status_code=404, detail="Not found")
+            Exception("Not found")
         ]
 
         result = await fetch_translation_details(["trans-1", "trans-2"])
@@ -879,5 +781,15 @@ class TestFetchTranslationDetails:
     async def test_fetch_translations_empty_list(self):
         """Test fetching with empty translation list."""
         result = await fetch_translation_details([])
+
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    async def test_fetch_translations_all_failures(self, mock_fetch):
+        """Test when all translation fetches fail."""
+        mock_fetch.side_effect = Exception("Upstream error")
+
+        result = await fetch_translation_details(["trans-1", "trans-2"])
 
         assert len(result) == 0

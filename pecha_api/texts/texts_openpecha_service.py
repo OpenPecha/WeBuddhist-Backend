@@ -1,8 +1,5 @@
 import logging
-import re
-import httpx
 from typing import Optional, Dict, Any, List
-from urllib.parse import quote
 
 from fastapi import HTTPException
 from starlette import status
@@ -14,8 +11,6 @@ from pecha_api.collections.collections_response_models import CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
 
 logger = logging.getLogger(__name__)
-
-TEXT_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
 
 DEFAULT_LANGUAGE = get("DEFAULT_LANGUAGE") or "en"
 LANGUAGE_PRIORITY_LIST = ["en", "bo", "zh"]
@@ -142,47 +137,15 @@ async def get_text_by_id_from_openpecha(text_id: str) -> TextDTO:
     return map_external_text_to_dto(data, data.get("language"))
 
 
-def _validate_text_id(text_id: str) -> str:
-    if not text_id or not TEXT_ID_PATTERN.match(text_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid text ID format",
-        )
-    return quote(text_id, safe='')
-
-
-async def fetch_text_from_external_api(text_id: str) -> Dict[str, Any]:
-    safe_text_id = _validate_text_id(text_id)
-    base_url = get('EXTERNAL_DEV_PECHA_API_URL')
-    endpoint = f"{base_url}/v2/texts/{safe_text_id}"
-    try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
-            response = await client.get(endpoint, headers={"Accept": "application/json"})
-            response.raise_for_status()
-            return response.json()
-    except httpx.HTTPStatusError as e:
-        logger.exception("HTTP error fetching text from external API")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to fetch text from external API: {e.response.status_code}",
-        )
-    except httpx.RequestError:
-        logger.exception("Request error fetching text from external API")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to connect to external API",
-        )
-
-
 async def fetch_translation_details(translation_ids: List[str]) -> List[Dict[str, Any]]:
     translation_details = []
     for translation_id in translation_ids:
         try:
-            data = await fetch_text_from_external_api(translation_id)
+            data = await fetch_text_by_id(translation_id)
             if data:
                 translation_details.append(data)
-        except HTTPException as e:
-            logger.warning(f"Failed to fetch translation {translation_id}: {e.detail}")
+        except Exception as e:
+            logger.warning(f"Failed to fetch translation {translation_id}: {e}")
             continue
     return translation_details
 
@@ -235,7 +198,14 @@ async def get_text_versions_from_openpecha(
     limit: int = 10
 ) -> TextVersionResponse:
 
-    text_data = await fetch_text_from_external_api(text_id)
+    try:
+        text_data = await fetch_text_by_id(text_id)
+    except Exception:
+        logger.exception("Failed to fetch text from upstream service")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch text from upstream service",
+        )
     
     if not text_data:
         raise HTTPException(
@@ -274,11 +244,11 @@ async def fetch_commentary_details(commentary_ids: List[str]) -> List[Dict[str, 
     commentary_details = []
     for commentary_id in commentary_ids:
         try:
-            data = await fetch_text_from_external_api(commentary_id)
+            data = await fetch_text_by_id(commentary_id)
             if data:
                 commentary_details.append(data)
-        except HTTPException as e:
-            logger.warning(f"Failed to fetch commentary {commentary_id}: {e.detail}")
+        except Exception as e:
+            logger.warning(f"Failed to fetch commentary {commentary_id}: {e}")
             continue
     return commentary_details
 
@@ -289,7 +259,14 @@ async def get_text_commentaries_from_openpecha(
     limit: int = 10
 ) -> List[TextDTO]:
 
-    text_data = await fetch_text_from_external_api(text_id)
+    try:
+        text_data = await fetch_text_by_id(text_id)
+    except Exception:
+        logger.exception("Failed to fetch text from upstream service")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch text from upstream service",
+        )
     
     if not text_data:
         raise HTTPException(
