@@ -56,6 +56,7 @@ def _parse_text_detail(data: dict[str, Any]) -> TextDetailResponse:
 
 async def fetch_text_detail(text_id: str) -> TextDetailResponse:
     client = get_authenticated_open_pecha_client()
+    print(client._base_url)
 
     try:
         response = await client.get_async_httpx_client().get(f"/v2/texts/{text_id}")
