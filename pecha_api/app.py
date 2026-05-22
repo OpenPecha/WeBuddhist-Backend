@@ -39,6 +39,7 @@ from pecha_api.cataloger import cataloger_views
 from pecha_api.text_uploader.text_metadata import text_metadata_views
 from pecha_api.text_uploader.collections import uploader_collections_views
 from pecha_api.collections import collections_openpecha_views
+from pecha_api.texts import texts_openpecha_views
 from pecha_api.routines import routines_views
 import uvicorn
 
@@ -84,6 +85,7 @@ api.include_router(text_metadata_views.text_metadata_router)
 api.include_router(uploader_collections_views.text_uploader_collections_router)
 api.include_router(routines_views.routines_router)
 api.include_router(collections_openpecha_views.collections_v2_router)
+api.include_router(texts_openpecha_views.texts_v2_router)
 
 api.include_router(routines_views.user_routine_router)
 api.add_middleware(
