@@ -6,6 +6,7 @@ from uuid import UUID
 from datetime import datetime, timezone
 from pecha_api.plans.authors.plan_authors_model import Author
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.tags.tag_model import Tag, plan_tags
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from fastapi import HTTPException
@@ -43,7 +44,13 @@ def get_plans_by_author_id(
     if search:
         filters.append(Plan.title.ilike(f"%{search}%"))
     if tag:
-        filters.append(Plan.tags.contains([tag]))
+        filters.append(
+            Plan.id.in_(
+                db.query(plan_tags.c.plan_id)
+                .join(Tag, Tag.id == plan_tags.c.tag_id)
+                .filter(Tag.deleted_at.is_(None), func.lower(Tag.name) == tag.lower())
+            )
+        )
     if language:
         filters.append(Plan.language == language.upper())
 
@@ -60,7 +67,7 @@ def get_plans_by_author_id(
         )
         .outerjoin(PlanItem, PlanItem.plan_id == Plan.id)
         .outerjoin(UserPlanProgress, UserPlanProgress.plan_id == Plan.id)
-        .options(selectinload(Plan.author))
+        .options(selectinload(Plan.author), selectinload(Plan.tag_list))
         .filter(*filters)
         .group_by(Plan.id)
     )
@@ -93,7 +100,7 @@ def get_plans_by_author_id(
 
 def get_plan_by_id(db: Session, plan_id: UUID) -> Plan:
     try:   
-        return db.query(Plan).filter(Plan.id == plan_id).first()
+        return db.query(Plan).options(selectinload(Plan.tag_list)).filter(Plan.id == plan_id).first()
     except Exception as e:
         db.rollback()
         print(f"Error getting plan by id: {str(e)}")
@@ -107,7 +114,7 @@ def get_plan_by_id_and_created_by(db: Session, plan_id: UUID, created_by: str, i
         if not is_admin:
             return db.query(Plan).filter(Plan.id == plan_id, Plan.created_by == created_by).first()
         else:
-            return db.query(Plan).filter(Plan.id == plan_id).first()
+            return db.query(Plan).options(selectinload(Plan.tag_list)).filter(Plan.id == plan_id).first()
     except Exception as e:
         db.rollback()
         print(f"Error getting plan by id and created by: {str(e)}")

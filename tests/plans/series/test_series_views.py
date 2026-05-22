@@ -10,6 +10,7 @@ from pecha_api.app import api
 from pecha_api.plans.plans_enums import PlanStatus, LanguageCode, DifficultyLevel
 from pecha_api.plans.series.series_response_models import (
     SeriesDTO,
+    SeriesListItemDTO,
     SeriesListResponse,
     SeriesPlanDTO,
     SeriesMetadataDTO,
@@ -60,8 +61,19 @@ def sample_series_dto():
 
 @pytest.fixture
 def sample_series_list_response(sample_series_dto):
+    list_item = SeriesListItemDTO(
+        id=sample_series_dto.id,
+        metadata=sample_series_dto.metadata,
+        image=sample_series_dto.image,
+        image_key=sample_series_dto.image_key,
+        author_id=sample_series_dto.author_id,
+        featured=sample_series_dto.featured,
+        status=sample_series_dto.status,
+        plan_count=2,
+        total_days=0,
+    )
     return SeriesListResponse(
-        series=[sample_series_dto],
+        series=[list_item],
         skip=0,
         limit=10,
         total=1,
@@ -78,7 +90,7 @@ def test_get_series_list_success(sample_series_list_response):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(search=None, skip=0, limit=10)
+        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None)
 
         assert "series" in data
         assert data["skip"] == 0
@@ -108,7 +120,7 @@ def test_get_series_list_with_search_pagination(sample_series_dto):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(search="meditation", skip=2, limit=5)
+        mock_service.assert_called_once_with(search="meditation", skip=2, limit=5, language=None)
 
         assert data["series"] == []
         assert data["skip"] == 2
@@ -291,9 +303,9 @@ def test_get_series_by_id_includes_total_days_in_response():
         assert data["plans"][1]["total_days"] == 3
 
 
-def test_get_series_list_includes_total_days_zero():
+def test_get_series_list_returns_plan_count_not_plans():
     series_id = uuid.uuid4()
-    series_dto = SeriesDTO(
+    list_item = SeriesListItemDTO(
         id=series_id,
         metadata=[_metadata("Series without plans")],
         image=None,
@@ -301,12 +313,12 @@ def test_get_series_list_includes_total_days_zero():
         author_id=uuid.uuid4(),
         featured=False,
         status=PlanStatus.DRAFT,
-        plans=[],
+        plan_count=0,
         total_days=0,
     )
 
     series_list_response = SeriesListResponse(
-        series=[series_dto],
+        series=[list_item],
         skip=0,
         limit=10,
         total=1,
@@ -322,7 +334,9 @@ def test_get_series_list_includes_total_days_zero():
         data = response.json()
 
         assert len(data["series"]) == 1
+        assert data["series"][0]["plan_count"] == 0
         assert data["series"][0]["total_days"] == 0
+        assert "plans" not in data["series"][0]
 
 
 def test_update_series_accepts_empty_body():
@@ -407,7 +421,14 @@ def test_get_cms_series_list_success(sample_series_list_response):
         data = response.json()
 
         mock_service.assert_called_once_with(
-            token="dummy", search=None, skip=0, limit=10
+            token="dummy",
+            search=None,
+            skip=0,
+            limit=10,
+            language=None,
+            plan_status=None,
+            featured=None,
+            filter_author_id=None,
         )
 
         assert data["total"] == 1
@@ -428,7 +449,14 @@ def test_get_cms_series_list_passes_query_params(sample_series_dto):
 
         assert response.status_code == status.HTTP_200_OK
         mock_service.assert_called_once_with(
-            token="dummy", search="meditation", skip=2, limit=5
+            token="dummy",
+            search="meditation",
+            skip=2,
+            limit=5,
+            language=None,
+            plan_status=None,
+            featured=None,
+            filter_author_id=None,
         )
 
 
@@ -480,6 +508,195 @@ def test_get_cms_series_by_id_forbidden():
     ):
         response = client.get(
             f"/cms/series/{series_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_delete_series_success():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.delete_existing_series",
+        return_value=None,
+    ) as mock_delete:
+        response = client.delete(
+            f"/cms/series/{series_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert response.content == b""
+    mock_delete.assert_called_once_with(token="dummy", series_id=series_id)
+
+
+def test_delete_series_not_found():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.delete_existing_series",
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Series with id '{series_id}' not found",
+        ),
+    ):
+        response = client.delete(
+            f"/cms/series/{series_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_delete_series_forbidden():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.delete_existing_series",
+        side_effect=HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete this series",
+        ),
+    ):
+        response = client.delete(
+            f"/cms/series/{series_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+# ===========================================================================
+# PATCH /cms/series/{series_id}/status
+# ===========================================================================
+
+def test_update_series_status_success(sample_series_dto):
+    series_id = uuid.uuid4()
+    payload = {"status": "PUBLISHED"}
+
+    with patch(
+        "pecha_api.plans.series.series_view.update_existing_series_status",
+        return_value=sample_series_dto,
+    ) as mock_update:
+        response = client.patch(
+            f"/cms/series/{series_id}/status",
+            json=payload,
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    mock_update.assert_called_once()
+    call_kwargs = mock_update.call_args.kwargs
+    assert call_kwargs["token"] == "dummy"
+    assert call_kwargs["series_id"] == series_id
+    assert call_kwargs["update_series_status_request"].status == PlanStatus.PUBLISHED
+
+    data = response.json()
+    assert data["id"] == str(sample_series_dto.id)
+
+
+def test_update_series_status_rejects_invalid_status_value():
+    series_id = uuid.uuid4()
+    response = client.patch(
+        f"/cms/series/{series_id}/status",
+        json={"status": "NOT_A_REAL_STATUS"},
+        headers={"Authorization": "Bearer dummy"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_update_series_status_rejects_missing_status_field():
+    series_id = uuid.uuid4()
+    response = client.patch(
+        f"/cms/series/{series_id}/status",
+        json={},
+        headers={"Authorization": "Bearer dummy"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_update_series_status_not_found():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.update_existing_series_status",
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Series with id '{series_id}' not found",
+        ),
+    ):
+        response = client.patch(
+            f"/cms/series/{series_id}/status",
+            json={"status": "PUBLISHED"},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_update_series_status_forbidden():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.update_existing_series_status",
+        side_effect=HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to update this series",
+        ),
+    ):
+        response = client.patch(
+            f"/cms/series/{series_id}/status",
+            json={"status": "PUBLISHED"},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+# ===========================================================================
+# PATCH /cms/series/{series_id}/featured
+# ===========================================================================
+
+def test_update_series_featured_success():
+    series_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.plans.series.series_view.update_existing_series_featured",
+        return_value=None,
+    ) as mock_update:
+        response = client.patch(
+            f"/cms/series/{series_id}/featured",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert response.content == b""
+    mock_update.assert_called_once_with(token="dummy", series_id=series_id)
+
+
+def test_update_series_featured_not_found():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.update_existing_series_featured",
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Series with id '{series_id}' not found",
+        ),
+    ):
+        response = client.patch(
+            f"/cms/series/{series_id}/featured",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_update_series_featured_forbidden():
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.series_view.update_existing_series_featured",
+        side_effect=HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to update this series",
+        ),
+    ):
+        response = client.patch(
+            f"/cms/series/{series_id}/featured",
             headers={"Authorization": "Bearer dummy"},
         )
 
