@@ -143,7 +143,47 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
             detail=f"Failed to fetch published plan details: {str(e)}"
         )
 
-async def auto_enroll_plan(plan_id: UUID, user_id: Optional[UUID] = None) -> None:
+def is_user_enrolled_in_previous_plan(db, user_id: UUID, plan) -> Optional[UUID]:
+    """Check if user is enrolled in the previous plan of the series. Returns previous plan ID if enrolled."""
+    if not plan.series_id or plan.display_order is None:
+        return None
+    
+    previous_plan = get_previous_plan_in_series(
+        db=db, series_id=plan.series_id, current_display_order=plan.display_order
+    )
+    if not previous_plan:
+        return None
+    
+    previous_enrollment = get_plan_progress_by_user_id_and_plan_id(
+        db=db, user_id=user_id, plan_id=previous_plan.id
+    )
+    return previous_plan.id if previous_enrollment else None
+
+
+def is_within_plan_date_range(db, plan) -> bool:
+    """Check if current date is within the plan's valid date range."""
+    if not plan.start_date:
+        return False
+    
+    today = dt.now(timezone.utc).date()
+    plan_start = plan.start_date.date() if hasattr(plan.start_date, 'date') else plan.start_date
+    
+    if today < plan_start:
+        return False
+    
+    next_plan = get_next_plan_in_series(
+        db=db, series_id=plan.series_id, current_display_order=plan.display_order
+    )
+    
+    if next_plan and next_plan.start_date:
+        next_plan_start = next_plan.start_date.date() if hasattr(next_plan.start_date, 'date') else next_plan.start_date
+        if today >= next_plan_start:
+            return False
+    
+    return True
+
+
+def auto_enroll_plan(plan_id: UUID, user_id: Optional[UUID] = None) -> None:
     """
     Auto enroll user in a plan if all conditions are met:
     1. User is not already enrolled in this plan
@@ -163,56 +203,19 @@ async def auto_enroll_plan(plan_id: UUID, user_id: Optional[UUID] = None) -> Non
             if not plan:
                 return
             
-            # Check 1: User is not already enrolled in this plan
             existing_enrollment = get_plan_progress_by_user_id_and_plan_id(
                 db=db, user_id=user_id, plan_id=plan_id
             )
             if existing_enrollment:
                 return
             
-            # Plan must be in a series to have a previous plan
-            if not plan.series_id or plan.display_order is None:
+            previous_plan_id = is_user_enrolled_in_previous_plan(db, user_id, plan)
+            if not previous_plan_id:
                 return
             
-            # Check 2: Get previous plan and verify user is enrolled in it
-            previous_plan = get_previous_plan_in_series(
-                db=db, 
-                series_id=plan.series_id, 
-                current_display_order=plan.display_order
-            )
-            if not previous_plan:
+            if not is_within_plan_date_range(db, plan):
                 return
             
-            previous_enrollment = get_plan_progress_by_user_id_and_plan_id(
-                db=db, user_id=user_id, plan_id=previous_plan.id
-            )
-            if not previous_enrollment:
-                return
-            
-            # Check 3: Current date is within plan's date range
-            if not plan.start_date:
-                return
-            
-            today = dt.now(timezone.utc).date()
-            plan_start = plan.start_date.date() if hasattr(plan.start_date, 'date') else plan.start_date
-            
-            # Get next plan to determine end of date range
-            next_plan = get_next_plan_in_series(
-                db=db,
-                series_id=plan.series_id,
-                current_display_order=plan.display_order
-            )
-            
-            # Check if today is within the valid date range
-            if today < plan_start:
-                return
-            
-            if next_plan and next_plan.start_date:
-                next_plan_start = next_plan.start_date.date() if hasattr(next_plan.start_date, 'date') else next_plan.start_date
-                if today >= next_plan_start:
-                    return
-            
-            # All conditions met - enroll the user
             new_progress = UserPlanProgress(
                 user_id=user_id,
                 plan_id=plan_id,
@@ -226,11 +229,10 @@ async def auto_enroll_plan(plan_id: UUID, user_id: Optional[UUID] = None) -> Non
             save_plan_progress(db=db, plan_progress=new_progress)
             logger.info(f"Auto-enrolled user {user_id} in plan {plan_id}")
             
-            # Add new plan to routine time blocks where previous plan exists
             add_plan_to_routine_time_blocks(
                 db=db,
                 user_id=user_id,
-                previous_plan_id=previous_plan.id,
+                previous_plan_id=previous_plan_id,
                 new_plan_id=plan_id
             )
             
