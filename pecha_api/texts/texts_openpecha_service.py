@@ -1,25 +1,21 @@
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 
 from fastapi import HTTPException
 from starlette import status
 
-from pecha_api.config import get
-from pecha_api.texts.texts_enums import LANGUAGE_ORDERS
-from pecha_api.texts.texts_response_models import TextDTO, TextsCategoryResponse, TextVersionResponse, TextVersion
-from pecha_api.collections.collections_response_models import CollectionModel
+from pecha_api.texts.texts_response_models import (
+    TextDTO,
+    TextVersion,
+    TextVersionResponse,
+    V2TextDTO,
+    V2TextsCategoryResponse,
+)
+from pecha_api.collections.collections_response_models import V2CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
+from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_LANGUAGE = get("DEFAULT_LANGUAGE") or "en"
-LANGUAGE_PRIORITY_LIST = ["en", "bo", "zh"]
-
-
-def _get_language_priority_order(selected_language: str) -> List[str]:
-    order_map = LANGUAGE_ORDERS.get(selected_language, LANGUAGE_ORDERS.get("en", {}))
-    sorted_langs = sorted(order_map.keys(), key=lambda lang: order_map[lang])
-    return sorted_langs
 
 
 def _extract_title(title_payload: Any, language: Optional[str] = None) -> str:
@@ -33,6 +29,17 @@ def _extract_title(title_payload: Any, language: Optional[str] = None) -> str:
     if isinstance(title_payload, str):
         return title_payload.strip()
     return ""
+
+
+def _map_external_text_to_dto(item: Dict[str, Any], language: Optional[str] = None) -> V2TextDTO:
+    title = _extract_title(item.get("title", {}), language)
+
+    return V2TextDTO(
+        id=item.get("id", ""),
+        title=title,
+        language=item.get("language") or "",
+        license=item.get("license"),
+    )
 
 
 def map_external_text_to_dto(item: Dict[str, Any], language: Optional[str] = None) -> TextDTO:
@@ -61,68 +68,70 @@ def map_external_text_to_dto(item: Dict[str, Any], language: Optional[str] = Non
     )
 
 
+async def _get_texts_by_collection_id(
+    collection_id: str,
+    skip: int,
+    limit: int,
+) -> Tuple[List[V2TextDTO], bool]:
+    try:
+        page = await fetch_texts_by_category(
+            category_id=collection_id,
+            offset=skip,
+            limit=limit,
+        )
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch texts from upstream service",
+        )
+
+    items = page.get("items", [])
+    has_more = bool(page.get("has_more", False))
+    texts = [_map_external_text_to_dto(item) for item in items]
+
+    return texts, has_more
+
+
 async def get_texts_by_collection_from_openpecha(
     collection_id: str,
-    language: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
-) -> TextsCategoryResponse:
-    if not language:
-        language = DEFAULT_LANGUAGE
-
-    priority_languages = _get_language_priority_order(language)
-    collected_texts: List[TextDTO] = []
-    remaining = limit
-
-    for lang in priority_languages:
-        if remaining <= 0:
-            break
-
-        try:
-            data = await fetch_texts_by_category(
-                category_id=collection_id,
-                language=lang,
-                limit=remaining,
-                offset=skip if lang == language else 0,
-            )
-        except Exception:
-            logger.exception("Failed to fetch texts from upstream service")
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Failed to fetch texts from upstream service",
-            )
-
-        items = data.get("items", [])
-        for item in items:
-            if remaining <= 0:
-                break
-            collected_texts.append(map_external_text_to_dto(item, lang))
-            remaining -= 1
-
-    collection = CollectionModel(
-        id=collection_id,
-        pecha_collection_id=collection_id,
-        title="",
-        description="",
-        language=language,
-        slug=collection_id,
-        has_child=False,
-    )
-
-    return TextsCategoryResponse(
-        collection=collection,
-        texts=collected_texts,
-        total=len(collected_texts),
+) -> V2TextsCategoryResponse:
+    texts, has_more = await _get_texts_by_collection_id(
+        collection_id=collection_id,
         skip=skip,
         limit=limit,
     )
 
+    category_title = ""
+    try:
+        category_data = await fetch_category_by_id(collection_id)
+        if category_data:
+            category_title = _extract_title(category_data.get("title", {}))
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch category title from upstream service",
+        )
 
-async def get_text_by_id_from_openpecha(text_id: str) -> TextDTO:
+    collection = V2CollectionModel(
+        id=collection_id,
+        title=category_title,
+    )
+
+    return V2TextsCategoryResponse(
+        collection=collection,
+        texts=texts,
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
+
+
+async def get_text_by_id_from_openpecha(text_id: str) -> V2TextDTO:
     try:
         data = await fetch_text_by_id(text_id)
     except Exception:
-        logger.exception("Failed to fetch text from upstream service")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch text from upstream service",
@@ -134,7 +143,7 @@ async def get_text_by_id_from_openpecha(text_id: str) -> TextDTO:
             detail=f"Text with id '{text_id}' not found",
         )
 
-    return map_external_text_to_dto(data, data.get("language"))
+    return _map_external_text_to_dto(data, data.get("language"))
 
 
 async def fetch_translation_details(translation_ids: List[str]) -> List[Dict[str, Any]]:
@@ -153,7 +162,7 @@ async def fetch_translation_details(translation_ids: List[str]) -> List[Dict[str
 def map_external_text_to_text_version(item: Dict[str, Any], language: Optional[str] = None) -> TextVersion:
     title = _extract_title(item.get("title", {}), language)
     date_value = item.get("date") or ""
-    
+
     return TextVersion(
         id=item.get("id", ""),
         title=title,
@@ -175,7 +184,7 @@ def map_external_text_to_text_version(item: Dict[str, Any], language: Optional[s
 
 
 def filter_versions_by_language(
-    versions: List[TextVersion], 
+    versions: List[TextVersion],
     language: Optional[str]
 ) -> List[TextVersion]:
     if not language:
@@ -184,8 +193,8 @@ def filter_versions_by_language(
 
 
 def paginate_versions(
-    versions: List[TextVersion], 
-    skip: int, 
+    versions: List[TextVersion],
+    skip: int,
     limit: int
 ) -> List[TextVersion]:
     return versions[skip:skip + limit]
@@ -206,34 +215,34 @@ async def get_text_versions_from_openpecha(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch text from upstream service",
         )
-    
+
     if not text_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Text with id '{text_id}' not found",
         )
-    
+
     root_text = map_external_text_to_dto(text_data, text_data.get("language"))
-    
+
     translation_ids = text_data.get("translations", [])
-    
+
     if not translation_ids:
         return TextVersionResponse(
             text=root_text,
             versions=[]
         )
-    
+
     translation_details = await fetch_translation_details(translation_ids)
-    
+
     versions = [
         map_external_text_to_text_version(item, item.get("language"))
         for item in translation_details
     ]
-    
+
     filtered_versions = filter_versions_by_language(versions, language)
-    
+
     paginated_versions = paginate_versions(filtered_versions, skip, limit)
-    
+
     return TextVersionResponse(
         text=root_text,
         versions=paginated_versions
@@ -267,25 +276,25 @@ async def get_text_commentaries_from_openpecha(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch text from upstream service",
         )
-    
+
     if not text_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Text with id '{text_id}' not found",
         )
-    
+
     commentary_ids = text_data.get("commentaries", [])
-    
+
     if not commentary_ids:
         return []
-    
+
     commentary_details = await fetch_commentary_details(commentary_ids)
-    
+
     commentaries = [
         map_external_text_to_dto(item, item.get("language"))
         for item in commentary_details
     ]
-    
+
     paginated_commentaries = commentaries[skip:skip + limit]
-    
+
     return paginated_commentaries

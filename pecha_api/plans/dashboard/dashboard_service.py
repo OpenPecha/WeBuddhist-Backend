@@ -1,3 +1,4 @@
+import json
 from typing import List, Optional
 
 from pecha_api.config import get
@@ -11,6 +12,7 @@ from pecha_api.plans.dashboard.dashboard_response_models import (
     DashboardTab,
 )
 from pecha_api.plans.plans_enums import PlanStatus
+from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 
@@ -37,13 +39,23 @@ def _image_url(image_key: Optional[str]) -> Optional[str]:
     )
 
 
+def _parse_metadata(raw) -> List[SeriesMetadataDTO]:
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        raw = json.loads(raw)
+    if not raw:
+        return []
+    return [SeriesMetadataDTO(**item) for item in raw]
+
+
 def _row_to_dto(row) -> DashboardItemDTO:
     item_type = row.item_type
-    return DashboardItemDTO(
+    common = dict(
         id=row.id,
         type=item_type,
-        title=row.title or "",
         image_url=_image_url(row.image_key),
+        image_key=row.image_key,
         status=_to_plan_status(row.status),
         featured=bool(row.featured),
         languages=_parse_languages(item_type, row.languages_raw),
@@ -51,6 +63,16 @@ def _row_to_dto(row) -> DashboardItemDTO:
         plans_count=int(row.plans_count) if row.plans_count is not None else None,
         updated_at=row.updated_at,
         created_at=row.created_at,
+    )
+    if item_type == "series":
+        return DashboardItemDTO(
+            **common,
+            metadata=_parse_metadata(row.metadata_json),
+            author_id=row.author_id,
+        )
+    return DashboardItemDTO(
+        **common,
+        title=row.title or "",
     )
 
 

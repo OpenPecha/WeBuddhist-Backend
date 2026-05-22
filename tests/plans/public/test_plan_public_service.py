@@ -53,7 +53,7 @@ def sample_plan(sample_author):
     plan.difficulty_level = DifficultyLevel.BEGINNER
     plan.image_url = "images/plan_images/plan-id/uuid/image.jpg"
     plan.status = PlanStatus.PUBLISHED
-    plan.tags = ["meditation", "mindfulness", "beginner"]
+    plan.tag_list = []
     plan.author = sample_author
     plan.deleted_at = None
     plan.start_date = None
@@ -195,7 +195,7 @@ async def test_get_published_plans_sort_by_title_asc(sample_plan_aggregate, mock
     plan1.difficulty_level = DifficultyLevel.BEGINNER
     plan1.image_url = None
     plan1.status = PlanStatus.PUBLISHED
-    plan1.tags = []
+    plan1.tag_list = []
     plan1.author = None
     
     plan2 = MagicMock()
@@ -206,7 +206,7 @@ async def test_get_published_plans_sort_by_title_asc(sample_plan_aggregate, mock
     plan2.difficulty_level = DifficultyLevel.BEGINNER
     plan2.image_url = None
     plan2.status = PlanStatus.PUBLISHED
-    plan2.tags = []
+    plan2.tag_list = []
     plan2.author = None
     
     agg1 = MagicMock()
@@ -242,7 +242,7 @@ async def test_get_published_plans_sort_by_title_desc(sample_plan_aggregate, moc
     plan1.difficulty_level = DifficultyLevel.BEGINNER
     plan1.image_url = None
     plan1.status = PlanStatus.PUBLISHED
-    plan1.tags = []
+    plan1.tag_list = []
     plan1.author = None
     
     plan2 = MagicMock()
@@ -253,7 +253,7 @@ async def test_get_published_plans_sort_by_title_desc(sample_plan_aggregate, moc
     plan2.difficulty_level = DifficultyLevel.BEGINNER
     plan2.image_url = None
     plan2.status = PlanStatus.PUBLISHED
-    plan2.tags = []
+    plan2.tag_list = []
     plan2.author = None
     
     agg1 = MagicMock()
@@ -290,7 +290,7 @@ async def test_get_published_plans_sort_by_total_days(sample_plan_aggregate, moc
     plan1.difficulty_level = DifficultyLevel.BEGINNER
     plan1.image_url = None
     plan1.status = PlanStatus.PUBLISHED
-    plan1.tags = []
+    plan1.tag_list = []
     plan1.author = None
     
     plan2 = MagicMock()
@@ -301,7 +301,7 @@ async def test_get_published_plans_sort_by_total_days(sample_plan_aggregate, moc
     plan2.difficulty_level = DifficultyLevel.BEGINNER
     plan2.image_url = None
     plan2.status = PlanStatus.PUBLISHED
-    plan2.tags = []
+    plan2.tag_list = []
     plan2.author = None
     
     agg1 = MagicMock()
@@ -337,7 +337,7 @@ async def test_get_published_plans_sort_by_subscription_count(sample_plan_aggreg
     plan1.difficulty_level = DifficultyLevel.BEGINNER
     plan1.image_url = None
     plan1.status = PlanStatus.PUBLISHED
-    plan1.tags = []
+    plan1.tag_list = []
     plan1.author = None
     
     plan2 = MagicMock()
@@ -348,7 +348,7 @@ async def test_get_published_plans_sort_by_subscription_count(sample_plan_aggreg
     plan2.difficulty_level = DifficultyLevel.BEGINNER
     plan2.image_url = None
     plan2.status = PlanStatus.PUBLISHED
-    plan2.tags = []
+    plan2.tag_list = []
     plan2.author = None
     
     agg1 = MagicMock()
@@ -398,7 +398,7 @@ async def test_get_published_plans_without_author(mock_db_session):
     plan_no_author.difficulty_level = DifficultyLevel.BEGINNER
     plan_no_author.image_url = None
     plan_no_author.status = PlanStatus.PUBLISHED
-    plan_no_author.tags = []
+    plan_no_author.tag_list = []
     plan_no_author.author = None
     
     aggregate = MagicMock()
@@ -522,7 +522,7 @@ async def test_get_published_plan_without_author(mock_db_session):
     plan_no_author.difficulty_level = DifficultyLevel.BEGINNER
     plan_no_author.image_url = None
     plan_no_author.status = PlanStatus.PUBLISHED
-    plan_no_author.tags = []
+    plan_no_author.tag_list = []
     plan_no_author.author = None
     
     mock_query = MagicMock()
@@ -574,7 +574,7 @@ async def test_get_published_plan_database_error(mock_db_session):
 
 @pytest.mark.asyncio
 async def test_get_published_plan_with_empty_tags(sample_plan, mock_db_session):
-    sample_plan.tags = None
+    sample_plan.tag_list = None
     
     mock_query = MagicMock()
     mock_db_session.__enter__.return_value.query.return_value = mock_query
@@ -714,7 +714,12 @@ def _daily_content_series_plan(plan_id, series_id, display_order: int):
     mock_plan.start_date = datetime(2026, 5, 1, tzinfo=timezone.utc)
     mock_series = MagicMock()
     mock_series.id = series_id
-    mock_series.name = {"en": "Series"}
+    metadata_entry = MagicMock()
+    metadata_entry.id = uuid4()
+    metadata_entry.title = "Series"
+    metadata_entry.description = None
+    metadata_entry.language = MagicMock(value="EN")
+    mock_series.metadata_entries = [metadata_entry]
     mock_series.image = None
     mock_plan.series = mock_series
     return mock_plan
@@ -853,19 +858,32 @@ def test_get_plan_day_details_success():
 
 def test_get_tags_success(mock_db_session):
     """Test successful retrieval of tags."""
-    mock_tags = ["meditation", "sleep", "daily"]
+    tag_one = MagicMock()
+    tag_one.id = uuid4()
+    tag_one.name = "meditation"
+    tag_one.image_key = None
+    tag_one.description = None
+    tag_one.deleted_at = None
+    tag_two = MagicMock()
+    tag_two.id = uuid4()
+    tag_two.name = "sleep"
+    tag_two.image_key = None
+    tag_two.description = None
+    tag_two.deleted_at = None
 
     with patch(
         "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
     ), patch(
-        "pecha_api.plans.public.plan_service.get_all_unique_tags",
-        return_value=mock_tags,
+        "pecha_api.plans.public.plan_service.get_published_tags_for_language",
+        return_value=[tag_one, tag_two],
     ) as mock_repo:
 
         result = get_tags(language="en")
 
         assert isinstance(result, TagsResponse)
-        assert result.tags == ["meditation", "sleep", "daily"]
+        assert len(result.tags) == 2
+        assert result.tags[0].name == "meditation"
+        assert result.tags[1].name == "sleep"
 
         mock_repo.assert_called_once_with(
             db=mock_db_session.__enter__.return_value, language="EN"
@@ -876,7 +894,7 @@ def test_get_tags_empty(mock_db_session):
     with patch(
         "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
     ), patch(
-        "pecha_api.plans.public.plan_service.get_all_unique_tags", return_value=[]
+        "pecha_api.plans.public.plan_service.get_published_tags_for_language", return_value=[]
     ) as mock_repo:
 
         result = get_tags(language="en")

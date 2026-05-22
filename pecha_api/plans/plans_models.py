@@ -4,9 +4,10 @@ from uuid import uuid4
 import _datetime
 from _datetime import datetime
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import JSONB
 from .plans_enums import LanguageCodeEnum, DifficultyLevelEnum, PlanStatusEnum
 from .series.series_model import Series
+from .series.series_metadata_model import SeriesMetadata  # noqa: F401
+from .tags.tag_model import Tag  # noqa: F401
 
 
 class Plan(Base):
@@ -20,7 +21,6 @@ class Plan(Base):
     language = Column(LanguageCodeEnum, nullable=False, default='EN')
     difficulty_level = Column(DifficultyLevelEnum, default='BEGINNER')
 
-    tags = Column(JSONB, server_default=text("'[]'::jsonb"), nullable=False)
     featured = Column(Boolean, default=False,nullable=False)
     display_order = Column(Integer, nullable=True)
     status = Column(PlanStatusEnum, nullable=False, default='DRAFT')
@@ -40,12 +40,11 @@ class Plan(Base):
     author = relationship("Author", backref="plans", passive_deletes=True)
     series = relationship("Series", back_populates="plans")
     items = relationship("PlanItem", backref="plan", lazy="select")
+    tag_list = relationship("Tag", secondary="plan_tags", back_populates="plans")
 
     __table_args__ = (
-        # Indexes for plan discovery
-        Index("idx_plans_discovery", "tags", "status"),
+        Index("idx_plans_discovery", "status"),
         Index("idx_plans_featured", "featured", postgresql_where=text("featured = TRUE")),
         Index("idx_plans_search", text("to_tsvector('english', title || ' ' || COALESCE(description, ''))"),
               postgresql_using="gin"),
-        Index("idx_plans_tags", "tags", postgresql_using="gin"),
     )

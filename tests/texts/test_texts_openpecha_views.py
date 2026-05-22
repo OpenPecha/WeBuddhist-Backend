@@ -1,16 +1,17 @@
-import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
+
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from pecha_api.app import api
+from pecha_api.collections.collections_response_models import V2CollectionModel
 from pecha_api.texts.texts_response_models import (
     TextDTO,
     TextVersion,
     TextVersionResponse,
-    TextsCategoryResponse,
+    V2TextDTO,
+    V2TextsCategoryResponse,
 )
-from pecha_api.collections.collections_response_models import CollectionModel
 
 
 client = TestClient(api)
@@ -73,12 +74,91 @@ MOCK_TEXT_VERSION_2 = TextVersion(
 )
 
 
+# =============================================================================
+# GET /v2/texts/collection/{collection_id} - View Layer Tests
+# =============================================================================
+
+class TestTextsV2Endpoint:
+    @patch("pecha_api.texts.texts_openpecha_views.get_texts_by_collection_from_openpecha")
+    def test_get_texts_by_collection_success(self, mock_service):
+        mock_service.return_value = V2TextsCategoryResponse(
+            collection=V2CollectionModel(id="cat-1", title="Discourses"),
+            texts=[
+                V2TextDTO(id="t1", title="Text 1", language="en"),
+                V2TextDTO(id="t2", title="Text 2", language="bo"),
+            ],
+            skip=0,
+            limit=10,
+        )
+
+        response = client.get("/v2/texts/collection/cat-1")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["collection"]["title"] == "Discourses"
+        assert len(data["texts"]) == 2
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_text_by_id_from_openpecha")
+    def test_get_text_by_id_success(self, mock_service):
+        mock_service.return_value = V2TextDTO(
+            id="t1",
+            title="Test Text",
+            language="en",
+            license="CC0",
+        )
+
+        response = client.get("/v2/texts/t1")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["id"] == "t1"
+        assert data["title"] == "Test Text"
+
+
+class TestTextsV2ValidationErrors:
+    def test_invalid_skip_negative(self):
+        response = client.get("/v2/texts/collection/cat-1?skip=-1")
+        assert response.status_code == 422
+
+    def test_invalid_limit_zero(self):
+        response = client.get("/v2/texts/collection/cat-1?limit=0")
+        assert response.status_code == 422
+
+
+class TestTextsV2ErrorHandling:
+    @patch("pecha_api.texts.texts_openpecha_views.get_texts_by_collection_from_openpecha")
+    def test_get_texts_upstream_error(self, mock_service):
+        mock_service.side_effect = HTTPException(
+            status_code=502,
+            detail="Failed to fetch texts from upstream service",
+        )
+
+        response = client.get("/v2/texts/collection/cat-1")
+
+        assert response.status_code == 502
+        assert "upstream" in response.json()["detail"].lower()
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_text_by_id_from_openpecha")
+    def test_get_text_by_id_not_found(self, mock_service):
+        mock_service.side_effect = HTTPException(
+            status_code=404,
+            detail="Text with id 'missing' not found",
+        )
+
+        response = client.get("/v2/texts/missing")
+
+        assert response.status_code == 404
+
+
+# =============================================================================
+# GET /v2/texts/{text_id}/versions - View Layer Tests
+# =============================================================================
+
 class TestGetTextVersionsEndpoint:
     """Tests for GET /v2/texts/{text_id}/versions endpoint."""
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
     def test_get_text_versions_success(self, mock_service):
-        """Test successful retrieval of text versions."""
         mock_response = TextVersionResponse(
             text=MOCK_TEXT_DTO,
             versions=[MOCK_TEXT_VERSION_1, MOCK_TEXT_VERSION_2]
@@ -105,7 +185,6 @@ class TestGetTextVersionsEndpoint:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
     def test_get_text_versions_with_language_filter(self, mock_service):
-        """Test retrieval of text versions filtered by language."""
         mock_response = TextVersionResponse(
             text=MOCK_TEXT_DTO,
             versions=[MOCK_TEXT_VERSION_1]
@@ -127,7 +206,6 @@ class TestGetTextVersionsEndpoint:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
     def test_get_text_versions_with_pagination(self, mock_service):
-        """Test retrieval of text versions with pagination parameters."""
         mock_response = TextVersionResponse(
             text=MOCK_TEXT_DTO,
             versions=[MOCK_TEXT_VERSION_2]
@@ -148,7 +226,6 @@ class TestGetTextVersionsEndpoint:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
     def test_get_text_versions_empty_versions(self, mock_service):
-        """Test retrieval when text has no versions."""
         mock_response = TextVersionResponse(
             text=MOCK_TEXT_DTO,
             versions=[]
@@ -164,7 +241,6 @@ class TestGetTextVersionsEndpoint:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
     def test_get_text_versions_with_all_parameters(self, mock_service):
-        """Test retrieval with all query parameters."""
         mock_response = TextVersionResponse(
             text=MOCK_TEXT_DTO,
             versions=[MOCK_TEXT_VERSION_1]
@@ -187,7 +263,6 @@ class TestGetTextVersionsErrorHandling:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
     def test_get_text_versions_not_found(self, mock_service):
-        """Test 404 error when text is not found."""
         mock_service.side_effect = HTTPException(
             status_code=404,
             detail="Text with id 'nonexistent' not found"
@@ -200,7 +275,6 @@ class TestGetTextVersionsErrorHandling:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
     def test_get_text_versions_upstream_error(self, mock_service):
-        """Test 502 error when upstream service fails."""
         mock_service.side_effect = HTTPException(
             status_code=502,
             detail="Failed to fetch text from external API"
@@ -213,7 +287,6 @@ class TestGetTextVersionsErrorHandling:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
     def test_get_text_versions_internal_error(self, mock_service):
-        """Test 500 error for unexpected internal errors."""
         mock_service.side_effect = HTTPException(
             status_code=500,
             detail="Internal server error"
@@ -229,7 +302,6 @@ class TestGetTextVersionsResponseStructure:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
     def test_response_contains_all_text_fields(self, mock_service):
-        """Test that response contains all expected text fields."""
         mock_response = TextVersionResponse(
             text=MOCK_TEXT_DTO,
             versions=[MOCK_TEXT_VERSION_1]
@@ -250,7 +322,6 @@ class TestGetTextVersionsResponseStructure:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
     def test_response_contains_all_version_fields(self, mock_service):
-        """Test that response contains all expected version fields."""
         mock_response = TextVersionResponse(
             text=MOCK_TEXT_DTO,
             versions=[MOCK_TEXT_VERSION_1]
@@ -270,7 +341,6 @@ class TestGetTextVersionsResponseStructure:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
     def test_response_with_optional_fields_none(self, mock_service):
-        """Test response when optional fields are None."""
         version_with_none = TextVersion(
             id="version-none",
             title="Version with None fields",
@@ -307,155 +377,6 @@ class TestGetTextVersionsResponseStructure:
 
 
 # =============================================================================
-# GET /v2/texts/{text_id} - View Layer Tests
-# =============================================================================
-
-class TestGetTextByIdEndpoint:
-    """Tests for GET /v2/texts/{text_id} endpoint."""
-
-    @patch('pecha_api.texts.texts_openpecha_views.get_text_by_id_from_openpecha')
-    def test_get_text_by_id_success(self, mock_service):
-        """Test successful retrieval of a single text."""
-        mock_service.return_value = MOCK_TEXT_DTO
-
-        response = client.get("/v2/texts/text-123")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["id"] == "text-123"
-        assert data["title"] == "Heart Sutra"
-        assert data["language"] == "bo"
-        mock_service.assert_called_once_with(text_id="text-123")
-
-    @patch('pecha_api.texts.texts_openpecha_views.get_text_by_id_from_openpecha')
-    def test_get_text_by_id_not_found(self, mock_service):
-        """Test 404 error when text is not found."""
-        mock_service.side_effect = HTTPException(
-            status_code=404,
-            detail="Text with id 'nonexistent' not found"
-        )
-
-        response = client.get("/v2/texts/nonexistent")
-
-        assert response.status_code == 404
-        assert "not found" in response.json()["detail"].lower()
-
-    @patch('pecha_api.texts.texts_openpecha_views.get_text_by_id_from_openpecha')
-    def test_get_text_by_id_upstream_error(self, mock_service):
-        """Test 502 error when upstream service fails."""
-        mock_service.side_effect = HTTPException(
-            status_code=502,
-            detail="Failed to fetch text from upstream service"
-        )
-
-        response = client.get("/v2/texts/text-123")
-
-        assert response.status_code == 502
-
-
-# =============================================================================
-# GET /v2/texts/collection/{collection_id} - View Layer Tests
-# =============================================================================
-
-class TestGetTextsByCollectionEndpoint:
-    """Tests for GET /v2/texts/collection/{collection_id} endpoint."""
-
-    @patch('pecha_api.texts.texts_openpecha_views.get_texts_by_collection_from_openpecha')
-    def test_get_texts_by_collection_success(self, mock_service):
-        """Test successful retrieval of texts by collection."""
-        mock_collection = CollectionModel(
-            id="collection-1",
-            pecha_collection_id="collection-1",
-            title="Sutras",
-            description="Buddhist sutras",
-            language="en",
-            slug="sutras",
-            has_child=False
-        )
-        mock_response = TextsCategoryResponse(
-            collection=mock_collection,
-            texts=[MOCK_TEXT_DTO],
-            total=1,
-            skip=0,
-            limit=10
-        )
-        mock_service.return_value = mock_response
-
-        response = client.get("/v2/texts/collection/collection-1")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["collection"]["id"] == "collection-1"
-        assert len(data["texts"]) == 1
-        assert data["total"] == 1
-        mock_service.assert_called_once_with(
-            collection_id="collection-1",
-            language=None,
-            skip=0,
-            limit=10
-        )
-
-    @patch('pecha_api.texts.texts_openpecha_views.get_texts_by_collection_from_openpecha')
-    def test_get_texts_by_collection_with_language(self, mock_service):
-        """Test retrieval with language filter."""
-        mock_collection = CollectionModel(
-            id="collection-1",
-            pecha_collection_id="collection-1",
-            title="མདོ།",
-            description="",
-            language="bo",
-            slug="sutras",
-            has_child=False
-        )
-        mock_response = TextsCategoryResponse(
-            collection=mock_collection,
-            texts=[MOCK_TEXT_DTO],
-            total=1,
-            skip=0,
-            limit=10
-        )
-        mock_service.return_value = mock_response
-
-        response = client.get("/v2/texts/collection/collection-1?language=bo")
-
-        assert response.status_code == 200
-        mock_service.assert_called_once_with(
-            collection_id="collection-1",
-            language="bo",
-            skip=0,
-            limit=10
-        )
-
-    @patch('pecha_api.texts.texts_openpecha_views.get_texts_by_collection_from_openpecha')
-    def test_get_texts_by_collection_empty(self, mock_service):
-        """Test retrieval when collection has no texts."""
-        mock_collection = CollectionModel(
-            id="collection-empty",
-            pecha_collection_id="collection-empty",
-            title="Empty Collection",
-            description="",
-            language="en",
-            slug="empty",
-            has_child=False
-        )
-        mock_response = TextsCategoryResponse(
-            collection=mock_collection,
-            texts=[],
-            total=0,
-            skip=0,
-            limit=10
-        )
-        mock_service.return_value = mock_response
-
-        response = client.get("/v2/texts/collection/collection-empty")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["texts"]) == 0
-        assert data["total"] == 0
-
-
-# =============================================================================
 # GET /v2/texts/{text_id}/commentaries - View Layer Tests
 # =============================================================================
 
@@ -464,7 +385,6 @@ class TestGetTextCommentariesEndpoint:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
     def test_get_text_commentaries_success(self, mock_service):
-        """Test successful retrieval of text commentaries."""
         mock_commentary = TextDTO(
             id="commentary-1",
             pecha_text_id="pecha-commentary-1",
@@ -500,7 +420,6 @@ class TestGetTextCommentariesEndpoint:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
     def test_get_text_commentaries_multiple(self, mock_service):
-        """Test retrieval of multiple commentaries."""
         mock_commentaries = [
             TextDTO(
                 id=f"commentary-{i}",
@@ -535,7 +454,6 @@ class TestGetTextCommentariesEndpoint:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
     def test_get_text_commentaries_empty(self, mock_service):
-        """Test retrieval when text has no commentaries."""
         mock_service.return_value = []
 
         response = client.get("/v2/texts/text-123/commentaries")
@@ -546,7 +464,6 @@ class TestGetTextCommentariesEndpoint:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
     def test_get_text_commentaries_with_pagination(self, mock_service):
-        """Test retrieval with pagination parameters."""
         mock_service.return_value = []
 
         response = client.get("/v2/texts/text-123/commentaries?skip=5&limit=20")
@@ -560,7 +477,6 @@ class TestGetTextCommentariesEndpoint:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
     def test_get_text_commentaries_with_skip_only(self, mock_service):
-        """Test retrieval with only skip parameter."""
         mock_service.return_value = []
 
         response = client.get("/v2/texts/text-123/commentaries?skip=10")
@@ -574,7 +490,6 @@ class TestGetTextCommentariesEndpoint:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
     def test_get_text_commentaries_with_limit_only(self, mock_service):
-        """Test retrieval with only limit parameter."""
         mock_service.return_value = []
 
         response = client.get("/v2/texts/text-123/commentaries?limit=50")
@@ -587,12 +502,10 @@ class TestGetTextCommentariesEndpoint:
         )
 
     def test_get_text_commentaries_invalid_skip(self):
-        """Test validation error for negative skip."""
         response = client.get("/v2/texts/text-123/commentaries?skip=-1")
         assert response.status_code == 422
 
     def test_get_text_commentaries_invalid_limit(self):
-        """Test validation error for limit exceeding maximum."""
         response = client.get("/v2/texts/text-123/commentaries?limit=101")
         assert response.status_code == 422
 
@@ -602,7 +515,6 @@ class TestGetTextCommentariesErrorHandling:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
     def test_get_text_commentaries_not_found(self, mock_service):
-        """Test 404 error when text is not found."""
         mock_service.side_effect = HTTPException(
             status_code=404,
             detail="Text with id 'nonexistent' not found"
@@ -615,7 +527,6 @@ class TestGetTextCommentariesErrorHandling:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
     def test_get_text_commentaries_upstream_error(self, mock_service):
-        """Test 502 error when upstream service fails."""
         mock_service.side_effect = HTTPException(
             status_code=502,
             detail="Failed to fetch commentaries from external API"
@@ -627,7 +538,6 @@ class TestGetTextCommentariesErrorHandling:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
     def test_get_text_commentaries_internal_error(self, mock_service):
-        """Test 500 error for unexpected internal errors."""
         mock_service.side_effect = HTTPException(
             status_code=500,
             detail="Internal server error"
@@ -643,7 +553,6 @@ class TestGetTextCommentariesResponseStructure:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
     def test_commentary_contains_all_required_fields(self, mock_service):
-        """Test that each commentary contains all expected fields."""
         mock_commentary = TextDTO(
             id="commentary-1",
             pecha_text_id="pecha-commentary-1",
@@ -687,7 +596,6 @@ class TestGetTextCommentariesResponseStructure:
 
     @patch('pecha_api.texts.texts_openpecha_views.get_text_commentaries_from_openpecha')
     def test_commentary_with_optional_fields_none(self, mock_service):
-        """Test response when optional fields are None."""
         mock_commentary = TextDTO(
             id="commentary-1",
             pecha_text_id="pecha-commentary-1",

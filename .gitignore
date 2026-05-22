@@ -12,6 +12,7 @@ env/
 .venv/
 env.bak/
 venv.bak/
+sync_database
 
 # FastAPI
 *.log
