@@ -326,7 +326,7 @@ def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     plan_b.difficulty_level = DifficultyLevel.BEGINNER
     plan_b.image_url = "plans/b.jpg"
     plan_b.tag_list = []
-    plan_b.status = PlanStatus.DRAFT
+    plan_b.status = PlanStatus.PUBLISHED
     plan_b.featured = False
     plan_b.start_date = None
 
@@ -398,7 +398,7 @@ def test_get_series_detail_includes_total_days_for_each_plan():
     plan_a.difficulty_level = DifficultyLevel.BEGINNER
     plan_a.image_url = None
     plan_a.tag_list = []
-    plan_a.status = PlanStatus.DRAFT
+    plan_a.status = PlanStatus.PUBLISHED
     plan_a.featured = False
     plan_a.start_date = None
     plan_a.items = [item_1, item_2, item_3]
@@ -458,7 +458,7 @@ def test_get_series_detail_total_days_zero_when_no_items():
     plan_empty.difficulty_level = DifficultyLevel.BEGINNER
     plan_empty.image_url = None
     plan_empty.tag_list = []
-    plan_empty.status = PlanStatus.DRAFT
+    plan_empty.status = PlanStatus.PUBLISHED
     plan_empty.featured = False
     plan_empty.start_date = None
     plan_empty.items = []
@@ -526,7 +526,7 @@ def test_get_series_detail_handles_plan_without_items_attribute():
     plan_no_items.difficulty_level = DifficultyLevel.BEGINNER
     plan_no_items.image_url = None
     plan_no_items.tag_list = []
-    plan_no_items.status = PlanStatus.DRAFT
+    plan_no_items.status = PlanStatus.PUBLISHED
     plan_no_items.featured = False
     plan_no_items.start_date = None
 
@@ -550,6 +550,59 @@ def test_get_series_detail_handles_plan_without_items_attribute():
     assert len(dto.plans) == 1
     assert dto.plans[0].total_days == 0
     assert dto.total_days == 0
+
+
+def test_get_series_detail_excludes_non_published_plans():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    published_plan = MagicMock()
+    published_plan.deleted_at = None
+    published_plan.display_order = 1
+    published_plan.id = uuid.uuid4()
+    published_plan.title = "Published"
+    published_plan.description = None
+    published_plan.language = LanguageCode.EN
+    published_plan.difficulty_level = DifficultyLevel.BEGINNER
+    published_plan.image_url = None
+    published_plan.tag_list = []
+    published_plan.status = PlanStatus.PUBLISHED
+    published_plan.featured = False
+    published_plan.start_date = None
+    published_plan.items = []
+
+    draft_plan = MagicMock()
+    draft_plan.deleted_at = None
+    draft_plan.display_order = 2
+    draft_plan.id = uuid.uuid4()
+    draft_plan.status = PlanStatus.DRAFT
+
+    archived_plan = MagicMock()
+    archived_plan.deleted_at = None
+    archived_plan.display_order = 3
+    archived_plan.id = uuid.uuid4()
+    archived_plan.status = PlanStatus.ARCHIVED
+
+    row = MagicMock()
+    row.id = series_id
+    row.metadata_entries = [_metadata_entry(title="Mixed statuses")]
+    row.image = None
+    row.author_id = author_id
+    row.featured = False
+    row.status = PlanStatus.PUBLISHED
+    row.plans = [published_plan, draft_plan, archived_plan]
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=row,
+    ):
+        _session_local_context(mock_session_local)
+
+        dto = get_series_detail(series_id=series_id)
+
+    assert len(dto.plans) == 1
+    assert dto.plans[0].id == published_plan.id
+    assert dto.plans[0].status == PlanStatus.PUBLISHED
 
 
 # ---------------------------------------------------------------------------

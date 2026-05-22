@@ -72,7 +72,7 @@ def _metadata_to_dtos(entries) -> List[SeriesMetadataDTO]:
             )
             for entry in entries
         ],
-        key=lambda item: item.language,
+        key=lambda metadata_dto: metadata_dto.language,
     )
 
 
@@ -81,16 +81,16 @@ def _build_plan_order_pairs(
 ) -> List[Tuple[UUID, int]]:
     if not plans_by_language:
         return []
-    seen: set = set()
+    seen_plan_ids: set = set()
     pairs: List[Tuple[UUID, int]] = []
-    for ids in plans_by_language.values():
-        order = 0
-        for pid in ids or []:
-            if pid in seen:
+    for plan_ids in plans_by_language.values():
+        display_order = 0
+        for plan_id in plan_ids or []:
+            if plan_id in seen_plan_ids:
                 continue
-            seen.add(pid)
-            pairs.append((pid, order))
-            order += 1
+            seen_plan_ids.add(plan_id)
+            pairs.append((plan_id, display_order))
+            display_order += 1
     return pairs
 
 
@@ -113,13 +113,18 @@ def _plan_to_dto(plan) -> SeriesPlanDTO:
     )
 
 
-def _get_sorted_active_plans(plans) -> List:
+def _get_sorted_active_plans(plans, published_only: bool = False) -> List:
     if not plans:
         return []
-    active_plans = [p for p in plans if p.deleted_at is None]
+    active_plans = [plan for plan in plans if plan.deleted_at is None]
+    if published_only:
+        active_plans = [
+            plan for plan in active_plans
+            if _to_plan_status(plan.status) == PlanStatus.PUBLISHED
+        ]
     return sorted(
         active_plans,
-        key=lambda p: (p.display_order is None, p.display_order or 0)
+        key=lambda plan: (plan.display_order is None, plan.display_order or 0)
     )
 
 
@@ -137,12 +142,12 @@ def _series_to_list_item_dto(row: Series, plan_count: int = 0) -> SeriesListItem
     )
 
 
-def _series_to_dto(row: Series, include_plans: bool = False) -> SeriesDTO:
+def _series_to_dto(row: Series, include_plans: bool = False, published_only: bool = False) -> SeriesDTO:
     plans_dtos = []
     series_total_days = 0
 
     if include_plans:
-        sorted_plans = _get_sorted_active_plans(row.plans)
+        sorted_plans = _get_sorted_active_plans(row.plans, published_only=published_only)
         for plan in sorted_plans:
             plan_dto = _plan_to_dto(plan)
             plans_dtos.append(plan_dto)
@@ -200,7 +205,7 @@ def get_series_detail(series_id: UUID) -> SeriesDTO:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Series with id '{series_id}' not found",
         )
-    return _series_to_dto(row, include_plans=True)
+    return _series_to_dto(row, include_plans=True, published_only=True)
 
 def get_cms_filtered_series(
     token: str,
@@ -279,33 +284,36 @@ def _validate_plan_ids(
     if not plan_ids:
         return
 
-    seen = set()
-    unique_ids = [pid for pid in plan_ids if not (pid in seen or seen.add(pid))]
+    seen_plan_ids = set()
+    unique_plan_ids = [
+        plan_id for plan_id in plan_ids
+        if not (plan_id in seen_plan_ids or seen_plan_ids.add(plan_id))
+    ]
 
-    fetched = get_plans_by_ids(db=db, plan_ids=unique_ids)
-    fetched_by_id = {p.id: p for p in fetched}
+    fetched_plans = get_plans_by_ids(db=db, plan_ids=unique_plan_ids)
+    fetched_plans_by_id = {plan.id: plan for plan in fetched_plans}
 
-    for pid in unique_ids:
-        plan = fetched_by_id.get(pid)
+    for plan_id in unique_plan_ids:
+        plan = fetched_plans_by_id.get(plan_id)
         if plan is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Plan with id '{pid}' does not exist",
+                detail=f"Plan with id '{plan_id}' does not exist",
             )
         if plan.deleted_at is not None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Plan with id '{pid}' does not exist",
+                detail=f"Plan with id '{plan_id}' does not exist",
             )
         if plan.series_id is not None and plan.series_id != current_series_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Plan with id '{pid}' is already attached to another series",
+                detail=f"Plan with id '{plan_id}' is already attached to another series",
             )
         if not is_admin and plan.author_id != current_author_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Plan with id '{pid}' belongs to another author",
+                detail=f"Plan with id '{plan_id}' belongs to another author",
             )
 
 
@@ -339,8 +347,10 @@ def update_existing_series(
 
             if update_series_request.plans is not None:
                 plan_order_pairs = _build_plan_order_pairs(update_series_request.plans)
-                new_plan_ids = [pid for pid, _ in plan_order_pairs]
-                current_attached = {p.id for p in (series.plans or []) if p.deleted_at is None}
+                new_plan_ids = [plan_id for plan_id, _ in plan_order_pairs]
+                current_attached = {
+                    plan.id for plan in (series.plans or []) if plan.deleted_at is None
+                }
 
                 if new_plan_ids:
                     _validate_plan_ids(
@@ -469,7 +479,7 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
     )
 
     plan_order_pairs = _build_plan_order_pairs(create_series_request.plans)
-    plan_ids = [pid for pid, _ in plan_order_pairs]
+    plan_ids = [plan_id for plan_id, _ in plan_order_pairs]
 
     try:
         with SessionLocal() as db_session:
