@@ -1,9 +1,10 @@
 from pydantic import BaseModel, field_validator
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 from datetime import datetime
 
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel, LanguageCode
+from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 
 def _validate_plan_language_keys(v):
@@ -20,8 +21,21 @@ def _validate_plan_language_keys(v):
     return v
 
 
+class SeriesMetadataDTO(BaseModel):
+    id: UUID
+    title: str
+    description: Optional[str] = None
+    language: str
+
+
+class SeriesMetadataInput(BaseModel):
+    title: str
+    description: Optional[str] = None
+    language: LanguageCode
+
+
 class CreateSeriesRequest(BaseModel):
-    name: Dict[str, Any]
+    metadata: List[SeriesMetadataInput]
     image_key: Optional[str] = None
     featured: Optional[bool] = False
     plans: Optional[Dict[str, List[UUID]]] = None
@@ -33,7 +47,7 @@ class CreateSeriesRequest(BaseModel):
 
 
 class UpdateSeriesRequest(BaseModel):
-    name: Optional[Dict[str, Any]] = None
+    metadata: Optional[List[SeriesMetadataInput]] = None
     image_key: Optional[str] = None
     featured: Optional[bool] = None
     plans: Optional[Dict[str, List[UUID]]] = None
@@ -44,6 +58,10 @@ class UpdateSeriesRequest(BaseModel):
         return _validate_plan_language_keys(v)
 
 
+class UpdateSeriesStatusRequest(BaseModel):
+    status: PlanStatus
+
+
 class SeriesPlanDTO(BaseModel):
     id: UUID
     title: str
@@ -52,7 +70,7 @@ class SeriesPlanDTO(BaseModel):
     difficulty_level: Optional[DifficultyLevel] = None
     image_url: Optional[str] = None
     image_key: Optional[str] = None
-    tags: Optional[List[str]] = []
+    tags: List[TagSummaryDTO] = []
     status: PlanStatus
     featured: bool
     display_order: Optional[int] = None
@@ -60,9 +78,21 @@ class SeriesPlanDTO(BaseModel):
     total_days: int = 0
 
 
+class SeriesListItemDTO(BaseModel):
+    id: UUID
+    metadata: List[SeriesMetadataDTO] = []
+    image: Optional[str] = None
+    image_key: Optional[str] = None
+    author_id: UUID
+    featured: bool
+    status: PlanStatus
+    plan_count: int = 0
+    total_days: int = 0
+
+
 class SeriesDTO(BaseModel):
     id: UUID
-    name: Dict[str, Any]
+    metadata: List[SeriesMetadataDTO] = []
     image: Optional[str] = None
     image_key: Optional[str] = None
     author_id: UUID
@@ -73,7 +103,7 @@ class SeriesDTO(BaseModel):
 
 
 class SeriesListResponse(BaseModel):
-    series: list[SeriesDTO]
+    series: list[SeriesListItemDTO]
     skip: int
     limit: int
     total: int
