@@ -101,7 +101,6 @@ def test_apply_plan_field_updates_updates_all_fields():
     mock_plan.description = "Original Desc"
     mock_plan.difficulty_level = DifficultyLevel.BEGINNER
     mock_plan.image_url = "original.jpg"
-    mock_plan.tags = ["old"]
     mock_plan.language = "en"
     
     update_request = UpdatePlanRequest(
@@ -109,7 +108,6 @@ def test_apply_plan_field_updates_updates_all_fields():
         description="New Description",
         difficulty_level=DifficultyLevel.ADVANCED,
         image_url="new.jpg",
-        tags=["new", "tags"],
         language="bo"
     )
     
@@ -119,7 +117,6 @@ def test_apply_plan_field_updates_updates_all_fields():
     assert mock_plan.description == "New Description"
     assert mock_plan.difficulty_level == DifficultyLevel.ADVANCED
     assert mock_plan.image_url == "new.jpg"
-    assert mock_plan.tags == ["new", "tags"]
     assert mock_plan.language == "bo"
 
 
@@ -184,7 +181,7 @@ def test_create_new_plan_success():
         total_days=7,
         language="en",
         image_url="https://example.com/image.jpg",
-        tags=["mindfulness", "beginner"],
+        tag_ids=[],
         start_date=datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
     )
 
@@ -194,7 +191,7 @@ def test_create_new_plan_success():
     saved_plan.description = request.description
     saved_plan.difficulty_level = request.difficulty_level
     saved_plan.image_url = request.image_url
-    saved_plan.tags = request.tags
+    saved_plan.tag_list = []
     saved_plan.language = request.language
     saved_plan.status = PlanStatus.DRAFT
     saved_plan.start_date = request.start_date
@@ -279,6 +276,8 @@ async def test_get_filtered_plans_success():
         author_id=uuid.uuid4(),
         created_by="tester@example.com",
     )
+    plan1.tag_list = []
+    plan2.tag_list = []
 
     # Repository now returns PlansRepositoryResponse with PlanWithAggregates items
     repo_response = PlansRepositoryResponse(
@@ -393,7 +392,7 @@ async def test_get_details_plan_success():
     )
     # Ensure required fields used by service/DTO are present
     plan.difficulty_level = "BEGINNER"
-    plan.tags = ["mindfulness"]
+    plan.tag_list = []
     plan.start_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
     item1 = PlanItem(id=uuid.uuid4(), plan_id=plan.id, day_number=1, created_by="tester@example.com")
@@ -607,7 +606,7 @@ async def test_update_plan_details_success():
     mock_plan.description = "Original Description"
     mock_plan.difficulty_level = DifficultyLevel.BEGINNER
     mock_plan.image_url = "images/plan_images/original.jpg"
-    mock_plan.tags = ["original"]
+    mock_plan.tag_list = []
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
@@ -619,7 +618,7 @@ async def test_update_plan_details_success():
         description="Updated Description",
         difficulty_level=DifficultyLevel.INTERMEDIATE,
         image_url="images/plan_images/updated.jpg",
-        tags=["updated", "test"],
+        tag_ids=[],
         total_days=5,
         start_date=start_date,
     )
@@ -661,7 +660,7 @@ async def test_update_plan_details_success():
         assert mock_plan.description == update_request.description
         assert mock_plan.difficulty_level == update_request.difficulty_level
         assert mock_plan.image_url == update_request.image_url
-        assert mock_plan.tags == update_request.tags
+        assert mock_plan.tag_list == []
         assert mock_plan.updated_by == author_email
         assert mock_plan.start_date == start_date
         
@@ -689,7 +688,7 @@ async def test_update_plan_details_cannot_update_start_date_for_published_with_s
     mock_plan.description = "Original Description"
     mock_plan.difficulty_level = DifficultyLevel.BEGINNER
     mock_plan.image_url = "images/plan_images/original.jpg"
-    mock_plan.tags = ["original"]
+    mock_plan.tag_list = []
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.PUBLISHED
     mock_plan.start_date = None
@@ -734,7 +733,7 @@ async def test_update_plan_details_partial_update():
     mock_plan.description = "Original Description"
     mock_plan.difficulty_level = DifficultyLevel.BEGINNER
     mock_plan.image_url = "images/original.jpg"
-    mock_plan.tags = ["original"]
+    mock_plan.tag_list = []
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
@@ -775,7 +774,7 @@ async def test_update_plan_details_partial_update():
         assert mock_plan.description == "New Description"
         assert mock_plan.difficulty_level == DifficultyLevel.BEGINNER
         assert mock_plan.image_url == "images/original.jpg"
-        assert mock_plan.tags == ["original"]
+        assert mock_plan.tag_list == []
 
         assert response.total_days == 5
 
@@ -821,7 +820,7 @@ async def test_update_plan_details_with_image_url_generation():
     mock_plan.description = "Test Description"
     mock_plan.difficulty_level = DifficultyLevel.BEGINNER
     mock_plan.image_url = "images/plan_images/test.jpg"
-    mock_plan.tags = []
+    mock_plan.tag_list = []
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
@@ -878,7 +877,7 @@ async def test_update_plan_details_image_url_generation_failure():
     mock_plan.description = "Test Description"
     mock_plan.difficulty_level = DifficultyLevel.BEGINNER
     mock_plan.image_url = "images/plan_images/test.jpg"
-    mock_plan.tags = []
+    mock_plan.tag_list = []
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
@@ -932,7 +931,7 @@ async def test_update_plan_details_no_image_url():
     mock_plan.description = "Test Description"
     mock_plan.difficulty_level = DifficultyLevel.BEGINNER
     mock_plan.image_url = None
-    mock_plan.tags = []
+    mock_plan.tag_list = []
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
@@ -981,7 +980,7 @@ async def test_update_selected_plan_status_success_db_backed():
     mock_plan.language = "EN"
     mock_plan.difficulty_level = DifficultyLevel.BEGINNER
     mock_plan.image_url = "images/plan.jpg"
-    mock_plan.tags = ["t"]
+    mock_plan.tag_list = []
     mock_plan.status = PlanStatus.DRAFT
 
     items = [MagicMock(spec=PlanItem), MagicMock(spec=PlanItem)]

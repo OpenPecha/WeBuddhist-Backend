@@ -4,6 +4,7 @@ from datetime import datetime
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus,ContentType
 from uuid import UUID
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 
 class CreatePlanRequest(BaseModel):
@@ -13,7 +14,7 @@ class CreatePlanRequest(BaseModel):
     total_days: int
     language: str
     image_url: Optional[str] = None
-    tags: Optional[List[str]] = []
+    tag_ids: Optional[List[UUID]] = []
     start_date: Optional[datetime] = None
 
 class UpdatePlanRequest(BaseModel):
@@ -23,7 +24,7 @@ class UpdatePlanRequest(BaseModel):
     difficulty_level: Optional[DifficultyLevel] = None
     total_days: Optional[int] = None
     image_url: Optional[str] = None
-    tags: Optional[List[str]] = None
+    tag_ids: Optional[List[UUID]] = None
     start_date: Optional[datetime] = None
 
 class PlanStatusUpdate(BaseModel):
@@ -45,7 +46,7 @@ class PlanDTO(BaseModel):
     image_url: Optional[str] = None
     image_key: Optional[str] = None
     total_days: int
-    tags: Optional[List[str]] = []
+    tags: List[TagSummaryDTO] = []
     status: PlanStatus
     featured: Optional[bool] = False
     subscription_count: int
@@ -80,7 +81,7 @@ class PlanWithDays(BaseModel):
     plan_image_url: Optional[str] = None
     total_days: int
     difficulty_level: str
-    tags: List[str]
+    tags: List[TagSummaryDTO] = []
     status: PlanStatus
     days: List[PlanDayDTO]
     start_date: Optional[datetime] = None

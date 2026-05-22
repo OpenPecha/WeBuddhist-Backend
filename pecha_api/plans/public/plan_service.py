@@ -22,6 +22,8 @@ from pecha_api.routines.routines_repository import (
     get_max_display_order_in_time_block,
     add_plan_session_to_time_block,
 )
+from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
+from pecha_api.plans.tags.tag_repository import get_published_tags_for_language
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +79,7 @@ async def get_published_plans(
                     difficulty_level=plan.difficulty_level,
                     image=plan_image,
                     total_days=plan_aggregate.total_days,
-                    tags=plan.tags if plan.tags else [],
+                    tags=tags_to_summary_dtos(plan.tag_list),
                     author=author_dto,
                     start_date=plan.start_date,
                     display_order=plan.display_order
@@ -128,7 +130,7 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
                 difficulty_level=plan.difficulty_level,
                 image=plan_image,  
                 total_days=total_days,
-                tags=plan.tags if plan.tags else [],
+                tags=tags_to_summary_dtos(plan.tag_list),
                 author=author_dto,
                 start_date=plan.start_date,
                 display_order=plan.display_order
@@ -441,8 +443,8 @@ def get_tags(language: str = "en") -> TagsResponse:
     try:
         with SessionLocal() as db:
             language_upper = language.upper()
-            tags = get_all_unique_tags(db=db, language=language_upper)
-            return TagsResponse(tags=tags)
+            tag_rows = get_published_tags_for_language(db=db, language=language_upper)
+            return TagsResponse(tags=tags_to_summary_dtos(tag_rows))
     except Exception as e:
         logger.error(f"Error fetching tags: {str(e)}", exc_info=True)
         raise HTTPException(

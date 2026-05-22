@@ -3,6 +3,7 @@ from sqlalchemy import func, desc, asc
 from typing import Optional, Tuple, List
 from uuid import UUID
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.tags.tag_model import Tag, plan_tags
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.plans_enums import PlanStatus
@@ -27,7 +28,7 @@ def get_published_plans_query(db: Session, total_days_label, subscription_count_
         db.query(Plan, total_days_label, subscription_count_label)
         .outerjoin(PlanItem, PlanItem.plan_id == Plan.id)
         .outerjoin(UserPlanProgress, UserPlanProgress.plan_id == Plan.id)
-        .options(selectinload(Plan.author))
+        .options(selectinload(Plan.author), selectinload(Plan.tag_list))
         .filter(
             Plan.language == language,
             Plan.deleted_at.is_(None),
@@ -46,7 +47,11 @@ def apply_search_filter(query, search: Optional[str]):
 
 def apply_tag_filter(query, tag: Optional[str]):
     if tag:
-        query = query.filter(Plan.tags.contains([tag]))
+        query = (
+            query.join(plan_tags, plan_tags.c.plan_id == Plan.id)
+            .join(Tag, Tag.id == plan_tags.c.tag_id)
+            .filter(Tag.deleted_at.is_(None), func.lower(Tag.name) == tag.lower())
+        )
     return query
 
 def apply_sorting(query, sort_by: str, sort_order: str, total_days_label, subscription_count_label):
@@ -99,12 +104,16 @@ def get_published_plans_count(db: Session, search: Optional[str] = DEFAULT_SEARC
     if search:
         query = query.filter(Plan.title.ilike(f"%{search}%"))
     if tag:
-        query = query.filter(Plan.tags.contains([tag]))
+        query = (
+            query.join(plan_tags, plan_tags.c.plan_id == Plan.id)
+            .join(Tag, Tag.id == plan_tags.c.tag_id)
+            .filter(Tag.deleted_at.is_(None), func.lower(Tag.name) == tag.lower())
+        )
     return query.scalar()
 
 
 def get_published_plan_by_id(db: Session, plan_id: UUID) -> Optional[Plan]:
-    return db.query(Plan).options(selectinload(Plan.author)).filter(
+    return db.query(Plan).options(selectinload(Plan.author), selectinload(Plan.tag_list)).filter(
             Plan.id == plan_id,
             Plan.status == PlanStatus.PUBLISHED,
             Plan.deleted_at.is_(None)
@@ -138,16 +147,6 @@ def get_published_plans_by_author_id(db: Session, author_id: UUID, skip: int, li
     total = query.count()
     rows = query.offset(skip).limit(limit).all()
     return convert_to_plan_aggregates(rows), total
-
-
-def get_all_unique_tags(db: Session, language: str = "EN") -> List[str]:
-    query = db.query(func.jsonb_array_elements_text(Plan.tags).label("tag")).filter(
-        Plan.deleted_at.is_(None),
-        Plan.status == PlanStatus.PUBLISHED,
-        Plan.language == language,
-    )
-    results = query.distinct().all()
-    return [row.tag for row in results]
 
 
 def get_next_plan_in_series(db: Session, series_id: UUID, current_display_order: Optional[int]) -> Optional[Plan]:
