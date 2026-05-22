@@ -89,7 +89,6 @@ api.include_router(collections_openpecha_views.collections_v2_router)
 api.include_router(texts_openpecha_views.texts_v2_router)
 api.include_router(segments_openpecha_views.segments_v2_router)
 
-
 api.include_router(routines_views.user_routine_router)
 api.add_middleware(
     CORSMiddleware,

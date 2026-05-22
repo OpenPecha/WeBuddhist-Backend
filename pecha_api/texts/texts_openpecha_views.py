@@ -12,15 +12,16 @@ from .texts_response_models import (
 from .texts_openpecha_service import (
     get_texts_by_collection_from_openpecha,
     get_text_by_id_from_openpecha,
+    get_text_detail_by_id,
     get_text_versions_from_openpecha,
     get_text_commentaries_from_openpecha,
 )
+from pecha_api.texts.text_openpecha_response_models import TextDetailResponse
 
 texts_v2_router = APIRouter(
     prefix="/v2/texts",
     tags=["texts-v2"],
 )
-
 
 @texts_v2_router.get(
     "/collection/{collection_id}",
@@ -38,6 +39,16 @@ async def get_texts_by_collection(
         skip=skip,
         limit=limit,
     )
+
+@texts_v2_router.get(
+    "/detail",
+    response_model=TextDetailResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get a text with pagination",
+    description="Retrieve a text by its OpenPecha ID, including local edition details with pagination."
+)
+async def read_text_by_id(text_id: str, offset: int = Query(default=0), limit: int = Query(default=30)) -> TextDetailResponse:
+    return await get_text_detail_by_id(text_id=text_id, offset=offset, limit=limit)
 
 
 @texts_v2_router.get(

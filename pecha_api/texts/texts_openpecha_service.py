@@ -14,6 +14,8 @@ from pecha_api.texts.texts_response_models import (
 from pecha_api.collections.collections_response_models import V2CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
 from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
+from pecha_api.texts.texts_openpecha_api import fetch_critical_editions, fetch_text_detail, fetch_editions_segmentation, fetch_segmentation_segments, fetch_edition_content
+from pecha_api.texts.text_openpecha_response_models import SegmentationSegmentResponseModel, SegmentContentModel, SegmentContentResponse, TextDetailResponse
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +148,29 @@ async def get_text_by_id_from_openpecha(text_id: str) -> V2TextDTO:
     return _map_external_text_to_dto(data, data.get("language"))
 
 
+async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDetailResponse:
+    text_detail = await fetch_text_detail(text_id=text_id)
+    edition_details = await fetch_critical_editions(text_id=text_id)
+    if not edition_details:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail=f"No critical editions found for text with id '{text_id}'",
+        )
+    text_detail.edition_details = edition_details
+    segmentations = await fetch_editions_segmentation(edition_id=edition_details[0].id)
+    edition_content = await fetch_edition_content(edition_id=edition_details[0].id)
+    segments = await fetch_segmentation_segments(segmentation_id=segmentations[0].id, limit=limit, offset=offset)  # noqa: F841
+    segment_contents = trim_segment_content(edition_content=edition_content.content, segments=segments)
+    text_detail.segments = segment_contents
+    return text_detail
+
+
+def trim_segment_content(edition_content: str, segments: SegmentationSegmentResponseModel) -> SegmentContentResponse:
+    result = []
+    for i, segment in enumerate(segments.items):
+        content = "".join(edition_content[line.start:line.end] for line in segment.lines)
+        result.append(SegmentContentModel(id=segment.id, content=content, segment_number=i+1))
+    return SegmentContentResponse(contents=result, has_more=segments.has_more, offset=segments.offset, limit=segments.limit)
 async def fetch_translation_details(translation_ids: List[str]) -> List[Dict[str, Any]]:
     translation_details = []
     for translation_id in translation_ids:
