@@ -13,6 +13,8 @@ from pecha_api.plans.public.plan_service import (
     get_plan_daily_content,
     get_tags,
     auto_enroll_plan,
+    is_user_enrolled_in_previous_plan,
+    is_within_plan_date_range,
 )
 from pecha_api.plans.public.plan_response_models import (
     PublicPlansResponse,
@@ -979,8 +981,7 @@ def mock_next_plan():
     return plan
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_success(mock_plan_for_enrollment, mock_previous_plan, mock_next_plan):
+def test_auto_enroll_plan_success(mock_plan_for_enrollment, mock_previous_plan, mock_next_plan):
     """Test successful auto-enrollment when all conditions are met"""
     user_id = uuid4()
     plan_id = mock_plan_for_enrollment.id
@@ -995,20 +996,20 @@ async def test_auto_enroll_plan_success(mock_plan_for_enrollment, mock_previous_
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan_for_enrollment), \
          patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id") as mock_get_progress, \
-         patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=mock_previous_plan), \
-         patch("pecha_api.plans.public.plan_service.get_next_plan_in_series", return_value=mock_next_plan), \
+         patch("pecha_api.plans.public.plan_service.is_user_enrolled_in_previous_plan", return_value=mock_previous_plan.id), \
+         patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=True), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save, \
          patch("pecha_api.plans.public.plan_service.UserPlanProgress", return_value=mock_new_progress) as mock_progress_class, \
          patch("pecha_api.plans.public.plan_service.dt") as mock_dt:
         
         db_session = _mock_session_local(mock_session_local)
         
-        mock_get_progress.side_effect = [None, mock_previous_enrollment]
+        mock_get_progress.return_value = None
         
         mock_dt.now.return_value.date.return_value = DateType(2026, 5, 15)
         mock_dt.now.return_value = datetime(2026, 5, 15, tzinfo=timezone.utc)
         
-        await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_id, user_id=user_id)
         
         mock_save.assert_called_once()
         mock_progress_class.assert_called_once()
@@ -1017,19 +1018,17 @@ async def test_auto_enroll_plan_success(mock_plan_for_enrollment, mock_previous_
         assert call_kwargs["plan_id"] == plan_id
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_no_user_id():
+def test_auto_enroll_plan_no_user_id():
     """Test that auto-enrollment does nothing when user_id is None"""
     plan_id = uuid4()
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local:
-        await auto_enroll_plan(plan_id=plan_id, user_id=None)
+        auto_enroll_plan(plan_id=plan_id, user_id=None)
         
         mock_session_local.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_already_enrolled(mock_plan_for_enrollment):
+def test_auto_enroll_plan_already_enrolled(mock_plan_for_enrollment):
     """Test that auto-enrollment skips when user is already enrolled"""
     user_id = uuid4()
     plan_id = mock_plan_for_enrollment.id
@@ -1044,13 +1043,12 @@ async def test_auto_enroll_plan_already_enrolled(mock_plan_for_enrollment):
         
         _mock_session_local(mock_session_local)
         
-        await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_id, user_id=user_id)
         
         mock_save.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_not_in_series():
+def test_auto_enroll_plan_not_in_series():
     """Test that auto-enrollment skips when plan is not in a series"""
     user_id = uuid4()
     
@@ -1062,17 +1060,17 @@ async def test_auto_enroll_plan_not_in_series():
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=plan_no_series), \
          patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.is_user_enrolled_in_previous_plan", return_value=None), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save:
         
         _mock_session_local(mock_session_local)
         
-        await auto_enroll_plan(plan_id=plan_no_series.id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_no_series.id, user_id=user_id)
         
         mock_save.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_no_previous_plan(mock_plan_for_enrollment):
+def test_auto_enroll_plan_no_previous_plan(mock_plan_for_enrollment):
     """Test that auto-enrollment skips when there's no previous plan in series"""
     user_id = uuid4()
     plan_id = mock_plan_for_enrollment.id
@@ -1080,18 +1078,17 @@ async def test_auto_enroll_plan_no_previous_plan(mock_plan_for_enrollment):
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan_for_enrollment), \
          patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id", return_value=None), \
-         patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.is_user_enrolled_in_previous_plan", return_value=None), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save:
         
         _mock_session_local(mock_session_local)
         
-        await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_id, user_id=user_id)
         
         mock_save.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_not_enrolled_in_previous(mock_plan_for_enrollment, mock_previous_plan):
+def test_auto_enroll_plan_not_enrolled_in_previous(mock_plan_for_enrollment, mock_previous_plan):
     """Test that auto-enrollment skips when user is not enrolled in previous plan"""
     user_id = uuid4()
     plan_id = mock_plan_for_enrollment.id
@@ -1099,69 +1096,55 @@ async def test_auto_enroll_plan_not_enrolled_in_previous(mock_plan_for_enrollmen
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan_for_enrollment), \
          patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id", return_value=None), \
-         patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=mock_previous_plan), \
+         patch("pecha_api.plans.public.plan_service.is_user_enrolled_in_previous_plan", return_value=None), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save:
         
         _mock_session_local(mock_session_local)
         
-        await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_id, user_id=user_id)
         
         mock_save.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_before_start_date(mock_plan_for_enrollment, mock_previous_plan):
+def test_auto_enroll_plan_before_start_date(mock_plan_for_enrollment, mock_previous_plan):
     """Test that auto-enrollment skips when current date is before plan start date"""
     user_id = uuid4()
     plan_id = mock_plan_for_enrollment.id
     
-    mock_previous_enrollment = MagicMock()
-    
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan_for_enrollment), \
-         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id") as mock_get_progress, \
-         patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=mock_previous_plan), \
-         patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save, \
-         patch("pecha_api.plans.public.plan_service.dt") as mock_dt:
+         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.is_user_enrolled_in_previous_plan", return_value=mock_previous_plan.id), \
+         patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=False), \
+         patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save:
         
         _mock_session_local(mock_session_local)
-        mock_get_progress.side_effect = [None, mock_previous_enrollment]
         
-        mock_dt.now.return_value.date.return_value = DateType(2026, 5, 5)
-        
-        await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_id, user_id=user_id)
         
         mock_save.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_after_next_plan_start(mock_plan_for_enrollment, mock_previous_plan, mock_next_plan):
+def test_auto_enroll_plan_after_next_plan_start(mock_plan_for_enrollment, mock_previous_plan, mock_next_plan):
     """Test that auto-enrollment skips when current date is after next plan's start date"""
     user_id = uuid4()
     plan_id = mock_plan_for_enrollment.id
     
-    mock_previous_enrollment = MagicMock()
-    
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan_for_enrollment), \
-         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id") as mock_get_progress, \
-         patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=mock_previous_plan), \
-         patch("pecha_api.plans.public.plan_service.get_next_plan_in_series", return_value=mock_next_plan), \
-         patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save, \
-         patch("pecha_api.plans.public.plan_service.dt") as mock_dt:
+         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.is_user_enrolled_in_previous_plan", return_value=mock_previous_plan.id), \
+         patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=False), \
+         patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save:
         
         _mock_session_local(mock_session_local)
-        mock_get_progress.side_effect = [None, mock_previous_enrollment]
         
-        mock_dt.now.return_value.date.return_value = DateType(2026, 5, 25)
-        
-        await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_id, user_id=user_id)
         
         mock_save.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_no_start_date(mock_previous_plan):
+def test_auto_enroll_plan_no_start_date(mock_previous_plan):
     """Test that auto-enrollment skips when plan has no start date"""
     user_id = uuid4()
     
@@ -1171,53 +1154,47 @@ async def test_auto_enroll_plan_no_start_date(mock_previous_plan):
     plan_no_start.display_order = 2
     plan_no_start.start_date = None
     
-    mock_previous_enrollment = MagicMock()
-    
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=plan_no_start), \
-         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id") as mock_get_progress, \
-         patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=mock_previous_plan), \
+         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.is_user_enrolled_in_previous_plan", return_value=mock_previous_plan.id), \
+         patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=False), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save:
         
         _mock_session_local(mock_session_local)
-        mock_get_progress.side_effect = [None, mock_previous_enrollment]
         
-        await auto_enroll_plan(plan_id=plan_no_start.id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_no_start.id, user_id=user_id)
         
         mock_save.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_no_next_plan(mock_plan_for_enrollment, mock_previous_plan):
+def test_auto_enroll_plan_no_next_plan(mock_plan_for_enrollment, mock_previous_plan):
     """Test successful auto-enrollment when there's no next plan (last plan in series)"""
     user_id = uuid4()
     plan_id = mock_plan_for_enrollment.id
     
-    mock_previous_enrollment = MagicMock()
     mock_new_progress = MagicMock()
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan_for_enrollment), \
-         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id") as mock_get_progress, \
-         patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=mock_previous_plan), \
-         patch("pecha_api.plans.public.plan_service.get_next_plan_in_series", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.is_user_enrolled_in_previous_plan", return_value=mock_previous_plan.id), \
+         patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=True), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save, \
          patch("pecha_api.plans.public.plan_service.UserPlanProgress", return_value=mock_new_progress), \
          patch("pecha_api.plans.public.plan_service.dt") as mock_dt:
         
         _mock_session_local(mock_session_local)
-        mock_get_progress.side_effect = [None, mock_previous_enrollment]
         
         mock_dt.now.return_value.date.return_value = DateType(2026, 5, 15)
         mock_dt.now.return_value = datetime(2026, 5, 15, tzinfo=timezone.utc)
         
-        await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_id, user_id=user_id)
         
         mock_save.assert_called_once()
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_plan_not_found():
+def test_auto_enroll_plan_plan_not_found():
     """Test that auto-enrollment handles plan not found gracefully"""
     user_id = uuid4()
     plan_id = uuid4()
@@ -1228,13 +1205,12 @@ async def test_auto_enroll_plan_plan_not_found():
         
         _mock_session_local(mock_session_local)
         
-        await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_id, user_id=user_id)
         
         mock_save.assert_not_called()
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_database_error():
+def test_auto_enroll_plan_database_error():
     """Test that auto-enrollment handles database errors gracefully without raising"""
     user_id = uuid4()
     plan_id = uuid4()
@@ -1244,16 +1220,14 @@ async def test_auto_enroll_plan_database_error():
         
         _mock_session_local(mock_session_local)
         
-        await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_id, user_id=user_id)
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_adds_to_routine_time_blocks(mock_plan_for_enrollment, mock_previous_plan, mock_next_plan):
+def test_auto_enroll_plan_adds_to_routine_time_blocks(mock_plan_for_enrollment, mock_previous_plan, mock_next_plan):
     """Test that auto-enrollment adds the new plan to routine time blocks where previous plan exists"""
     user_id = uuid4()
     plan_id = mock_plan_for_enrollment.id
     
-    mock_previous_enrollment = MagicMock()
     mock_new_progress = MagicMock()
     
     mock_time_block = MagicMock()
@@ -1261,9 +1235,9 @@ async def test_auto_enroll_plan_adds_to_routine_time_blocks(mock_plan_for_enroll
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan_for_enrollment), \
-         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id") as mock_get_progress, \
-         patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=mock_previous_plan), \
-         patch("pecha_api.plans.public.plan_service.get_next_plan_in_series", return_value=mock_next_plan), \
+         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.is_user_enrolled_in_previous_plan", return_value=mock_previous_plan.id), \
+         patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=True), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save, \
          patch("pecha_api.plans.public.plan_service.UserPlanProgress", return_value=mock_new_progress), \
          patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_plan", return_value=[mock_time_block]) as mock_get_blocks, \
@@ -1272,12 +1246,11 @@ async def test_auto_enroll_plan_adds_to_routine_time_blocks(mock_plan_for_enroll
          patch("pecha_api.plans.public.plan_service.dt") as mock_dt:
         
         _mock_session_local(mock_session_local)
-        mock_get_progress.side_effect = [None, mock_previous_enrollment]
         
         mock_dt.now.return_value.date.return_value = DateType(2026, 5, 15)
         mock_dt.now.return_value = datetime(2026, 5, 15, tzinfo=timezone.utc)
         
-        await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_id, user_id=user_id)
         
         mock_save.assert_called_once()
         mock_get_blocks.assert_called_once()
@@ -1290,13 +1263,11 @@ async def test_auto_enroll_plan_adds_to_routine_time_blocks(mock_plan_for_enroll
         )
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_adds_to_multiple_time_blocks(mock_plan_for_enrollment, mock_previous_plan, mock_next_plan):
+def test_auto_enroll_plan_adds_to_multiple_time_blocks(mock_plan_for_enrollment, mock_previous_plan, mock_next_plan):
     """Test that auto-enrollment adds the new plan to all time blocks where previous plan exists"""
     user_id = uuid4()
     plan_id = mock_plan_for_enrollment.id
     
-    mock_previous_enrollment = MagicMock()
     mock_new_progress = MagicMock()
     
     mock_time_block_1 = MagicMock()
@@ -1306,9 +1277,9 @@ async def test_auto_enroll_plan_adds_to_multiple_time_blocks(mock_plan_for_enrol
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan_for_enrollment), \
-         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id") as mock_get_progress, \
-         patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=mock_previous_plan), \
-         patch("pecha_api.plans.public.plan_service.get_next_plan_in_series", return_value=mock_next_plan), \
+         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.is_user_enrolled_in_previous_plan", return_value=mock_previous_plan.id), \
+         patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=True), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress"), \
          patch("pecha_api.plans.public.plan_service.UserPlanProgress", return_value=mock_new_progress), \
          patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_plan", return_value=[mock_time_block_1, mock_time_block_2]), \
@@ -1317,30 +1288,27 @@ async def test_auto_enroll_plan_adds_to_multiple_time_blocks(mock_plan_for_enrol
          patch("pecha_api.plans.public.plan_service.dt") as mock_dt:
         
         _mock_session_local(mock_session_local)
-        mock_get_progress.side_effect = [None, mock_previous_enrollment]
         
         mock_dt.now.return_value.date.return_value = DateType(2026, 5, 15)
         mock_dt.now.return_value = datetime(2026, 5, 15, tzinfo=timezone.utc)
         
-        await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_id, user_id=user_id)
         
         assert mock_add_session.call_count == 2
 
 
-@pytest.mark.asyncio
-async def test_auto_enroll_plan_no_time_blocks_with_previous_plan(mock_plan_for_enrollment, mock_previous_plan, mock_next_plan):
+def test_auto_enroll_plan_no_time_blocks_with_previous_plan(mock_plan_for_enrollment, mock_previous_plan, mock_next_plan):
     """Test that auto-enrollment handles case when previous plan is not in any time block"""
     user_id = uuid4()
     plan_id = mock_plan_for_enrollment.id
     
-    mock_previous_enrollment = MagicMock()
     mock_new_progress = MagicMock()
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan_for_enrollment), \
-         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id") as mock_get_progress, \
-         patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=mock_previous_plan), \
-         patch("pecha_api.plans.public.plan_service.get_next_plan_in_series", return_value=mock_next_plan), \
+         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.is_user_enrolled_in_previous_plan", return_value=mock_previous_plan.id), \
+         patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=True), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save, \
          patch("pecha_api.plans.public.plan_service.UserPlanProgress", return_value=mock_new_progress), \
          patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_plan", return_value=[]), \
@@ -1348,12 +1316,136 @@ async def test_auto_enroll_plan_no_time_blocks_with_previous_plan(mock_plan_for_
          patch("pecha_api.plans.public.plan_service.dt") as mock_dt:
         
         _mock_session_local(mock_session_local)
-        mock_get_progress.side_effect = [None, mock_previous_enrollment]
         
         mock_dt.now.return_value.date.return_value = DateType(2026, 5, 15)
         mock_dt.now.return_value = datetime(2026, 5, 15, tzinfo=timezone.utc)
         
-        await auto_enroll_plan(plan_id=plan_id, user_id=user_id)
+        auto_enroll_plan(plan_id=plan_id, user_id=user_id)
         
         mock_save.assert_called_once()
         mock_add_session.assert_not_called()
+
+
+# ============================================================================
+# HELPER FUNCTION TESTS
+# ============================================================================
+
+def test_is_user_enrolled_in_previous_plan_success(mock_plan_for_enrollment, mock_previous_plan):
+    """Test that helper returns previous plan ID when user is enrolled"""
+    user_id = uuid4()
+    mock_db = MagicMock()
+    
+    mock_previous_enrollment = MagicMock()
+    mock_previous_enrollment.id = uuid4()
+    
+    with patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=mock_previous_plan), \
+         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id", return_value=mock_previous_enrollment):
+        
+        result = is_user_enrolled_in_previous_plan(mock_db, user_id, mock_plan_for_enrollment)
+        
+        assert result == mock_previous_plan.id
+
+
+def test_is_user_enrolled_in_previous_plan_not_in_series():
+    """Test that helper returns None when plan is not in a series"""
+    user_id = uuid4()
+    mock_db = MagicMock()
+    
+    plan_no_series = MagicMock()
+    plan_no_series.series_id = None
+    plan_no_series.display_order = None
+    
+    result = is_user_enrolled_in_previous_plan(mock_db, user_id, plan_no_series)
+    
+    assert result is None
+
+
+def test_is_user_enrolled_in_previous_plan_no_previous_plan(mock_plan_for_enrollment):
+    """Test that helper returns None when there's no previous plan"""
+    user_id = uuid4()
+    mock_db = MagicMock()
+    
+    with patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=None):
+        
+        result = is_user_enrolled_in_previous_plan(mock_db, user_id, mock_plan_for_enrollment)
+        
+        assert result is None
+
+
+def test_is_user_enrolled_in_previous_plan_not_enrolled(mock_plan_for_enrollment, mock_previous_plan):
+    """Test that helper returns None when user is not enrolled in previous plan"""
+    user_id = uuid4()
+    mock_db = MagicMock()
+    
+    with patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=mock_previous_plan), \
+         patch("pecha_api.plans.public.plan_service.get_plan_progress_by_user_id_and_plan_id", return_value=None):
+        
+        result = is_user_enrolled_in_previous_plan(mock_db, user_id, mock_plan_for_enrollment)
+        
+        assert result is None
+
+
+def test_is_within_plan_date_range_success(mock_plan_for_enrollment):
+    """Test that helper returns True when current date is within plan date range"""
+    mock_db = MagicMock()
+    
+    with patch("pecha_api.plans.public.plan_service.dt") as mock_dt, \
+         patch("pecha_api.plans.public.plan_service.get_next_plan_in_series", return_value=None):
+        
+        mock_dt.now.return_value.date.return_value = DateType(2026, 5, 15)
+        
+        result = is_within_plan_date_range(mock_db, mock_plan_for_enrollment)
+        
+        assert result is True
+
+
+def test_is_within_plan_date_range_no_start_date():
+    """Test that helper returns False when plan has no start date"""
+    mock_db = MagicMock()
+    
+    plan_no_start = MagicMock()
+    plan_no_start.start_date = None
+    
+    result = is_within_plan_date_range(mock_db, plan_no_start)
+    
+    assert result is False
+
+
+def test_is_within_plan_date_range_before_start(mock_plan_for_enrollment):
+    """Test that helper returns False when current date is before plan start"""
+    mock_db = MagicMock()
+    
+    with patch("pecha_api.plans.public.plan_service.dt") as mock_dt:
+        mock_dt.now.return_value.date.return_value = DateType(2026, 5, 5)
+        
+        result = is_within_plan_date_range(mock_db, mock_plan_for_enrollment)
+        
+        assert result is False
+
+
+def test_is_within_plan_date_range_after_next_plan_start(mock_plan_for_enrollment, mock_next_plan):
+    """Test that helper returns False when current date is after next plan's start"""
+    mock_db = MagicMock()
+    
+    with patch("pecha_api.plans.public.plan_service.dt") as mock_dt, \
+         patch("pecha_api.plans.public.plan_service.get_next_plan_in_series", return_value=mock_next_plan):
+        
+        mock_dt.now.return_value.date.return_value = DateType(2026, 5, 25)
+        
+        result = is_within_plan_date_range(mock_db, mock_plan_for_enrollment)
+        
+        assert result is False
+
+
+def test_is_within_plan_date_range_no_next_plan(mock_plan_for_enrollment):
+    """Test that helper returns True when there's no next plan and date is after start"""
+    mock_db = MagicMock()
+    
+    with patch("pecha_api.plans.public.plan_service.dt") as mock_dt, \
+         patch("pecha_api.plans.public.plan_service.get_next_plan_in_series", return_value=None):
+        
+        mock_dt.now.return_value.date.return_value = DateType(2026, 6, 15)
+        
+        result = is_within_plan_date_range(mock_db, mock_plan_for_enrollment)
+        
+        assert result is True
