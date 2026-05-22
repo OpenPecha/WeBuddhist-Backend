@@ -2176,3 +2176,79 @@ def test_update_existing_series_featured_integrity_error_raises_400():
 
     assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
     assert "Database integrity error" in exc.value.detail
+
+
+# ---------------------------------------------------------------------------
+# plan_count published_only: get_filtered_series vs get_cms_filtered_series
+# ---------------------------------------------------------------------------
+
+def test_get_filtered_series_passes_published_only_true_to_repository():
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_paginated",
+        return_value=([], 0),
+    ) as mock_repo:
+        _session_local_context(mock_session_local)
+
+        get_filtered_series(search=None, skip=0, limit=10)
+
+    assert mock_repo.call_args.kwargs["published_only"] is True
+
+
+def test_get_filtered_series_published_count_maps_to_plan_count():
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = [_metadata_entry(title="Published count")]
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.featured = False
+    row.status = PlanStatus.PUBLISHED
+    row.plans = None
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_paginated",
+        return_value=([(row, 4)], 1),
+    ):
+        _session_local_context(mock_session_local)
+
+        result = get_filtered_series(search=None, skip=0, limit=10)
+
+    assert result.series[0].plan_count == 4
+
+
+def test_get_cms_filtered_series_does_not_pass_published_only():
+    author_id = uuid.uuid4()
+    mock_author = _make_mock_author(author_id, is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_paginated",
+               return_value=([], 0)) as mock_repo:
+        _session_local_context(mock_session_local)
+
+        get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10)
+
+    assert mock_repo.call_args.kwargs.get("published_only", False) is False
+
+
+def test_get_cms_filtered_series_count_maps_to_plan_count():
+    author_id = uuid.uuid4()
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = [_metadata_entry(title="All-status count")]
+    row.image = None
+    row.author_id = author_id
+    row.featured = False
+    row.status = PlanStatus.DRAFT
+    row.plans = None
+
+    mock_author = _make_mock_author(author_id, is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_paginated",
+               return_value=([(row, 9)], 1)):
+        _session_local_context(mock_session_local)
+
+        result = get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10)
+
+    assert result.series[0].plan_count == 9

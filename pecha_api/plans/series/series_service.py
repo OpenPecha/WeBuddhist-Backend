@@ -183,6 +183,7 @@ def get_filtered_series(
             order_desc=True,
             language=language,
             status=PlanStatus.PUBLISHED,
+            published_only=True,
         )
 
     series_dtos: List[SeriesListItemDTO] = [
