@@ -149,8 +149,6 @@ async def get_text_by_id_from_openpecha(text_id: str) -> V2TextDTO:
 
 
 async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDetailResponse:
-    # offset = text_detail_request.offset
-    # limit = text_detail_request.limit
     text_detail = await fetch_text_detail(text_id=text_id)
     edition_details = await fetch_critical_editions(text_id=text_id)
     if not edition_details:

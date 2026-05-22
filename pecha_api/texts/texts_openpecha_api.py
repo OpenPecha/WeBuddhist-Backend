@@ -13,12 +13,14 @@ from pecha_api.texts.text_openpecha_response_models import (
     TextDetailResponse,
     SegmentationResponseModel,
     SegmentLineModel,
-    segmentSpans,
+    SegmentSpans,
     SegmentationSegmentResponseModel,
     EditionContentResponse,
 )
 
 logger = logging.getLogger(__name__)
+
+_UNEXPECTED_UPSTREAM_RESPONSE = "Unexpected response from upstream service"
 
 
 def _parse_text_detail(data: dict[str, Any]) -> TextDetailResponse:
@@ -56,15 +58,11 @@ def _parse_text_detail(data: dict[str, Any]) -> TextDetailResponse:
 
 async def fetch_text_detail(text_id: str) -> TextDetailResponse:
     client = get_authenticated_open_pecha_client()
-    print(client._base_url)
 
     try:
         response = await client.get_async_httpx_client().get(f"/v2/texts/{text_id}")
-    except Exception as e:
-        logger.error(
-            f"Failed to fetch text detail from OpenPecha API: {e} | "
-            f"URL: {client._base_url}/v2/texts/{text_id}"
-        )
+    except Exception:
+        logger.exception("Failed to fetch text detail from OpenPecha API")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch text detail from upstream service",
@@ -77,10 +75,10 @@ async def fetch_text_detail(text_id: str) -> TextDetailResponse:
         )
 
     if response.status_code != 200:
-        logger.error(f"Unexpected status {response.status_code} fetching text detail for '{text_id}'")
+        logger.error("Unexpected status %d fetching text detail", response.status_code)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unexpected response from upstream service",
+            detail=_UNEXPECTED_UPSTREAM_RESPONSE,
         )
 
     return _parse_text_detail(response.json())
@@ -94,8 +92,8 @@ async def fetch_critical_editions(text_id: str) -> list[CriticalEditionModel]:
             f"/v2/texts/{text_id}/editions",
             params={"edition_type": "critical"},
         )
-    except Exception as e:
-        logger.error(f"Failed to fetch critical editions from OpenPecha API: {e}")
+    except Exception:
+        logger.exception("Failed to fetch critical editions from OpenPecha API")
         raise
 
     if response.status_code == 404:
@@ -105,12 +103,10 @@ async def fetch_critical_editions(text_id: str) -> list[CriticalEditionModel]:
         )
 
     if response.status_code != 200:
-        logger.error(
-            f"Unexpected status {response.status_code} fetching critical editions for text '{text_id}'"
-        )
+        logger.error("Unexpected status %d fetching critical editions", response.status_code)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unexpected response from upstream service",
+            detail=_UNEXPECTED_UPSTREAM_RESPONSE,
         )
 
     data = response.json()
@@ -127,8 +123,6 @@ async def fetch_critical_editions(text_id: str) -> list[CriticalEditionModel]:
     ]
 
 
-
-
 async def fetch_editions_segmentation(edition_id: str) -> list[SegmentationResponseModel]:
     client = get_authenticated_open_pecha_client()
 
@@ -136,8 +130,8 @@ async def fetch_editions_segmentation(edition_id: str) -> list[SegmentationRespo
         response = await client.get_async_httpx_client().get(
             f"/v2/editions/{edition_id}/segmentations",
         )
-    except Exception as e:
-        logger.error(f"Failed to fetch editions segmentation from OpenPecha API: {e}")
+    except Exception:
+        logger.exception("Failed to fetch editions segmentation from OpenPecha API")
         raise
 
     if response.status_code == 404:
@@ -147,20 +141,20 @@ async def fetch_editions_segmentation(edition_id: str) -> list[SegmentationRespo
         )
 
     if response.status_code != 200:
-        logger.error(f"Unexpected status {response.status_code} fetching editions segmentation for edition '{edition_id}'")
+        logger.error("Unexpected status %d fetching editions segmentation", response.status_code)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unexpected response from upstream service",
+            detail=_UNEXPECTED_UPSTREAM_RESPONSE,
         )
 
     data = response.json()
     return [
-            SegmentationResponseModel(
-                id=segmentation["id"],
-                edition_id=segmentation["edition_id"],
-                text_id=segmentation["text_id"]
-            ) for segmentation in data
-        ]
+        SegmentationResponseModel(
+            id=segmentation["id"],
+            edition_id=segmentation["edition_id"],
+            text_id=segmentation["text_id"]
+        ) for segmentation in data
+    ]
 
 
 async def fetch_segmentation_segments(segmentation_id: str, limit: int, offset: int) -> SegmentationSegmentResponseModel:
@@ -171,8 +165,8 @@ async def fetch_segmentation_segments(segmentation_id: str, limit: int, offset: 
             f"/v2/segmentations/{segmentation_id}/segments",
             params={"limit": limit, "offset": offset},
         )
-    except Exception as e:
-        logger.error(f"Failed to fetch segmentation segments from OpenPecha API: {e}")
+    except Exception:
+        logger.exception("Failed to fetch segmentation segments from OpenPecha API")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch segmentation segments from upstream service",
@@ -185,18 +179,16 @@ async def fetch_segmentation_segments(segmentation_id: str, limit: int, offset: 
         )
 
     if response.status_code != 200:
-        logger.error(
-            f"Unexpected status {response.status_code} fetching segments for segmentation '{segmentation_id}'"
-        )
+        logger.error("Unexpected status %d fetching segmentation segments", response.status_code)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Unexpected status {response.status_code} fetching segments for segmentation '{segmentation_id}'",
+            detail=_UNEXPECTED_UPSTREAM_RESPONSE,
         )
 
     data = response.json()
     return SegmentationSegmentResponseModel(
         items=[
-            segmentSpans(
+            SegmentSpans(
                 id=segment["id"],
                 lines=[SegmentLineModel(start=line["start"], end=line["end"]) for line in segment.get("lines", [])],
             )
@@ -215,8 +207,8 @@ async def fetch_edition_content(edition_id: str) -> EditionContentResponse:
         response = await client.get_async_httpx_client().get(
             f"/v2/editions/{edition_id}/content",
         )
-    except Exception as e:
-        logger.error(f"Failed to fetch edition content from OpenPecha API: {e}")
+    except Exception:
+        logger.exception("Failed to fetch edition content from OpenPecha API")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to fetch edition content from upstream service",
@@ -229,13 +221,10 @@ async def fetch_edition_content(edition_id: str) -> EditionContentResponse:
         )
 
     if response.status_code != 200:
-        logger.error(
-            f"Unexpected status {response.status_code} fetching content for edition '{edition_id}'"
-        )
+        logger.error("Unexpected status %d fetching edition content", response.status_code)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unexpected response from upstream service",
+            detail=_UNEXPECTED_UPSTREAM_RESPONSE,
         )
 
     return EditionContentResponse(content=response.json())
-

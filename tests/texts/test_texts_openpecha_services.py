@@ -12,7 +12,7 @@ from pecha_api.texts.text_openpecha_response_models import (
     SegmentationSegmentResponseModel,
     EditionContentResponse,
     SegmentContentResponse,
-    segmentSpans,
+    SegmentSpans,
     SegmentLineModel,
 )
 
@@ -43,8 +43,8 @@ MOCK_EDITION_CONTENT = EditionContentResponse(content="Hello World Foo Bar")
 
 MOCK_SEGMENTS = SegmentationSegmentResponseModel(
     items=[
-        segmentSpans(id="span-1", lines=[SegmentLineModel(start=0, end=5)]),
-        segmentSpans(id="span-2", lines=[SegmentLineModel(start=6, end=11)]),
+        SegmentSpans(id="span-1", lines=[SegmentLineModel(start=0, end=5)]),
+        SegmentSpans(id="span-2", lines=[SegmentLineModel(start=6, end=11)]),
     ],
     has_more=False,
     offset=0,
@@ -241,8 +241,8 @@ def test_trim_segment_content_extracts_correct_slices():
     content = "Hello World"
     segments = SegmentationSegmentResponseModel(
         items=[
-            segmentSpans(id="s1", lines=[SegmentLineModel(start=0, end=5)]),
-            segmentSpans(id="s2", lines=[SegmentLineModel(start=6, end=11)]),
+            SegmentSpans(id="s1", lines=[SegmentLineModel(start=0, end=5)]),
+            SegmentSpans(id="s2", lines=[SegmentLineModel(start=6, end=11)]),
         ],
         has_more=False,
         offset=0,
@@ -265,7 +265,7 @@ def test_trim_segment_content_multiple_lines_per_segment():
     content = "abcdefghij"
     segments = SegmentationSegmentResponseModel(
         items=[
-            segmentSpans(
+            SegmentSpans(
                 id="s1",
                 lines=[
                     SegmentLineModel(start=0, end=3),
@@ -302,7 +302,7 @@ def test_trim_segment_content_empty_segments():
 def test_trim_segment_content_preserves_pagination_metadata():
     """Test that has_more, offset, and limit are passed through unchanged"""
     segments = SegmentationSegmentResponseModel(
-        items=[segmentSpans(id="s1", lines=[SegmentLineModel(start=0, end=3)])],
+        items=[SegmentSpans(id="s1", lines=[SegmentLineModel(start=0, end=3)])],
         has_more=True,
         offset=10,
         limit=5,
@@ -320,9 +320,9 @@ def test_trim_segment_content_segment_numbers_are_sequential():
     content = "aabbcc"
     segments = SegmentationSegmentResponseModel(
         items=[
-            segmentSpans(id="s1", lines=[SegmentLineModel(start=0, end=2)]),
-            segmentSpans(id="s2", lines=[SegmentLineModel(start=2, end=4)]),
-            segmentSpans(id="s3", lines=[SegmentLineModel(start=4, end=6)]),
+            SegmentSpans(id="s1", lines=[SegmentLineModel(start=0, end=2)]),
+            SegmentSpans(id="s2", lines=[SegmentLineModel(start=2, end=4)]),
+            SegmentSpans(id="s3", lines=[SegmentLineModel(start=4, end=6)]),
         ],
         has_more=False,
         offset=0,

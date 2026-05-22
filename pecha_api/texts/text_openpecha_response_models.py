@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
@@ -42,7 +42,7 @@ class TextDetailResponse(BaseModel):
     alt_titles: Optional[list[dict]] = None
     commentary_of: Optional[str] = None
     translation_of: Optional[str] = None
-    segments: SegmentContentResponse = []
+    segments: Optional[SegmentContentResponse] = None
 
 
 class SegmentationResponseModel(BaseModel):
@@ -56,13 +56,13 @@ class SegmentLineModel(BaseModel):
     end: int
 
 
-class segmentSpans(BaseModel):
+class SegmentSpans(BaseModel):
     id: str
     lines: list[SegmentLineModel]
 
 
 class SegmentationSegmentResponseModel(BaseModel):
-    items: list[segmentSpans]
+    items: list[SegmentSpans]
     has_more: bool
     offset: int
     limit: int
