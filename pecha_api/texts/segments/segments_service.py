@@ -4,7 +4,6 @@ from .segments_repository import (
     get_segment_by_id, 
     get_segments_by_ids,
     get_related_mapped_segments,
-    get_related_mapped_segments_batch,
     get_segments_by_text_id,
     delete_segments_by_text_id,
     update_segment_by_id
@@ -43,16 +42,10 @@ from .segments_response_models import (
 from .segments_cache_service import (
     set_segment_info_by_id_cache,
     get_segment_info_by_id_cache,
-    get_segment_root_mapping_by_id_cache,
-    set_segment_root_mapping_by_id_cache,
     get_segments_details_by_ids_cache,
     set_segments_details_by_ids_cache,
-    delete_segments_details_by_ids_cache
 )
 
-from pecha_api.uploads.S3_utils import generate_presigned_access_url
-
-from .segments_enum import SegmentType
 from ..texts_service import TextUtils
 from ..texts_repository import get_text_by_pecha_text_id
 from ...users.users_service import validate_user_exists
