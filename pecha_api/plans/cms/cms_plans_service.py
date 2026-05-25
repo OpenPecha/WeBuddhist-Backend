@@ -5,6 +5,7 @@ from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.cms.cms_plans_repository import save_plan, get_plan_by_id, get_plans_by_author_id, update_plan
+from pecha_api.plans.series.series_repository import get_series_by_id
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.tags.tag_repository import set_plan_tags
 from pecha_api.plans.tags.tag_service import validate_tag_ids
@@ -148,6 +149,79 @@ async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, so
     return PlansResponse(plans=plans, skip=skip, limit=limit, total=plan_repository_response.total)
 
 
+def _get_next_display_order_in_series(db: Session, series_id: UUID) -> int:
+    result = db.query(func.max(Plan.display_order)).filter(
+        Plan.series_id == series_id,
+        Plan.deleted_at.is_(None),
+    ).scalar()
+    return 0 if result is None else result + 1
+
+
+def _validate_series_for_plan_attachment(
+    db: Session,
+    series_id: UUID,
+    author_id: UUID,
+    is_admin: bool,
+) -> None:
+    series = get_series_by_id(db=db, series_id=series_id)
+    if not series:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Series with id '{series_id}' not found",
+        )
+    if not is_admin and series.author_id != author_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to attach plans to this series",
+        )
+
+
+def _apply_series_attachment_to_plan(
+    db: Session,
+    plan: Plan,
+    series_id: UUID,
+    author_id: UUID,
+    is_admin: bool,
+    display_order: Optional[int] = None,
+) -> None:
+    if plan.series_id is not None and plan.series_id != series_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Plan is already attached to another series",
+        )
+    _validate_series_for_plan_attachment(db, series_id, author_id, is_admin)
+    plan.series_id = series_id
+    plan.display_order = (
+        display_order
+        if display_order is not None
+        else _get_next_display_order_in_series(db, series_id)
+    )
+
+
+def _detach_plan_from_series(plan: Plan) -> None:
+    plan.series_id = None
+    plan.display_order = None
+
+
+def _apply_create_plan_series_fields(
+    db: Session,
+    plan: Plan,
+    create_plan_request: CreatePlanRequest,
+    author_id: UUID,
+    is_admin: bool,
+) -> None:
+    if not create_plan_request.series_id:
+        return
+    _apply_series_attachment_to_plan(
+        db=db,
+        plan=plan,
+        series_id=create_plan_request.series_id,
+        author_id=author_id,
+        is_admin=is_admin,
+        display_order=create_plan_request.display_order,
+    )
+
+
 def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanDTO:
 
     current_author = validate_and_extract_author_details(token=token)
@@ -171,6 +245,13 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
     with SessionLocal() as db_session:
         if create_plan_request.tag_ids:
             validate_tag_ids(db=db_session, tag_ids=create_plan_request.tag_ids)
+        _apply_create_plan_series_fields(
+            db=db_session,
+            plan=new_plan_model,
+            create_plan_request=create_plan_request,
+            author_id=current_author.id,
+            is_admin=bool(current_author.is_admin),
+        )
         saved_plan = save_plan(db=db_session, plan=new_plan_model)
         if create_plan_request.tag_ids:
             set_plan_tags(db=db_session, plan=saved_plan, tag_ids=create_plan_request.tag_ids)
@@ -337,6 +418,25 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
         if update_plan_request.tag_ids is not None:
             validate_tag_ids(db=db, tag_ids=update_plan_request.tag_ids)
             set_plan_tags(db=db, plan=plan, tag_ids=update_plan_request.tag_ids)
+
+        if "series_id" in update_plan_request.model_fields_set:
+            if update_plan_request.series_id is None:
+                _detach_plan_from_series(plan)
+            else:
+                _apply_series_attachment_to_plan(
+                    db=db,
+                    plan=plan,
+                    series_id=update_plan_request.series_id,
+                    author_id=author_details.id,
+                    is_admin=bool(author_details.is_admin),
+                    display_order=update_plan_request.display_order,
+                )
+        elif (
+            "display_order" in update_plan_request.model_fields_set
+            and update_plan_request.display_order is not None
+            and plan.series_id is not None
+        ):
+            plan.display_order = update_plan_request.display_order
         
         plan.updated_at = datetime.now(timezone.utc)
         plan.updated_by = author_details.email
