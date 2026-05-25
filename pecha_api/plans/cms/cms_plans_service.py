@@ -226,23 +226,44 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
     for task in tasks:
         tasks_by_item.setdefault(task.plan_item_id, []).append(task)
 
-    # Map to DTOs
-    day_dtos: List[PlanDayDTO] = [
-        PlanDayDTO(
-            id=item.id,
-            day_number=item.day_number,
-            tasks=[
-                TaskDTO(
-                    id=task.id,
-                    title=task.title,
-                    estimated_time=task.estimated_time,
-                    display_order=task.display_order,
-                )
-                for task in tasks_by_item.get(item.id, [])
-            ],
+    from pecha_api.plans.audio.plan_item_audio_repository import get_plan_item_audio_by_plan_item_ids
+
+    audio_by_item = {
+        row.plan_item_id: row
+        for row in get_plan_item_audio_by_plan_item_ids(db=db, plan_item_ids=plan_item_ids)
+    }
+
+    day_dtos: List[PlanDayDTO] = []
+    for item in items:
+        audio_row = audio_by_item.get(item.id)
+        audio_url = None
+        audio_duration_ms = None
+        has_audio = False
+        if audio_row:
+            has_audio = True
+            audio_url = generate_presigned_access_url(
+                bucket_name=get("AWS_BUCKET_NAME"),
+                s3_key=audio_row.audio_key,
+            )
+            audio_duration_ms = audio_row.duration_ms
+        day_dtos.append(
+            PlanDayDTO(
+                id=item.id,
+                day_number=item.day_number,
+                audio_url=audio_url,
+                audio_duration_ms=audio_duration_ms,
+                has_audio=has_audio,
+                tasks=[
+                    TaskDTO(
+                        id=task.id,
+                        title=task.title,
+                        estimated_time=task.estimated_time,
+                        display_order=task.display_order,
+                    )
+                    for task in tasks_by_item.get(item.id, [])
+                ],
+            )
         )
-        for item in items
-    ]
 
     return PlanWithDays(
         id=plan.id,
@@ -374,25 +395,37 @@ async def delete_selected_plan(token:str,plan_id: UUID):
         return
 
 def _get_task_subtasks_dto(subtasks: List[PlanSubTask]) -> List[SubTaskDTO]:
+    from pecha_api.plans.audio.dto_helpers import build_subtask_timestamp_fields
 
-    subtasks_dto = [SubTaskDTO(
-        id=subtask.id,
-            content_type=subtask.content_type,
-            content=subtask.content,
-            display_order=subtask.display_order,
+    subtasks_dto = []
+    for subtask in subtasks:
+        start_ms, end_ms = build_subtask_timestamp_fields(subtask)
+        subtasks_dto.append(
+            SubTaskDTO(
+                id=subtask.id,
+                content_type=subtask.content_type,
+                content=subtask.content,
+                display_order=subtask.display_order,
+                start_ms=start_ms,
+                end_ms=end_ms,
+            )
         )
-        for subtask in subtasks
-    ]
-    
     return subtasks_dto
 
 async def get_plan_day_details(token:str,plan_id: UUID, day_number: int) -> PlanDayDTO:
     validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
         plan_item: PlanItem = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
+        from pecha_api.plans.audio.dto_helpers import build_plan_day_audio_fields
+
+        audio_url, audio_duration_ms, audio_key, has_audio = build_plan_day_audio_fields(plan_item)
         plan_day_dto: PlanDayDTO = PlanDayDTO(
             id=plan_item.id,
             day_number=plan_item.day_number,
+            audio_url=audio_url,
+            audio_duration_ms=audio_duration_ms,
+            audio_key=audio_key,
+            has_audio=has_audio,
             tasks=[
                 TaskDTO(
                     id=task.id,
@@ -403,7 +436,7 @@ async def get_plan_day_details(token:str,plan_id: UUID, day_number: int) -> Plan
                 )
                 for task in plan_item.tasks
             ]
-        )   
+        )
         return plan_day_dto
 
 def _soft_delete_plan_by_id(db: Session, plan_id: UUID, author: Author):

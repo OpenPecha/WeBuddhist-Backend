@@ -117,12 +117,15 @@ async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskRespons
     with SessionLocal() as db:
         task = _get_author_task(db=db, task_id=task_id, current_author=current_user,is_admin=current_user.is_admin)
 
+        from pecha_api.plans.audio.dto_helpers import build_subtask_timestamp_fields
+
         subtasks_dto = []
         for sub_task in task.sub_tasks:
             content_and_image_url = _generate_image_url_content_type(
                 content_type=sub_task.content_type,
                 content=sub_task.content,
             )
+            start_ms, end_ms = build_subtask_timestamp_fields(sub_task)
             subtasks_dto.append(
                 SubTaskDTO(
                     id=sub_task.id,
@@ -134,6 +137,8 @@ async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskRespons
                     segment_ids=sub_task.segment_ids,
                     image_url=content_and_image_url.image_url,
                     display_order=sub_task.display_order,
+                    start_ms=start_ms,
+                    end_ms=end_ms,
                 )
             )
 

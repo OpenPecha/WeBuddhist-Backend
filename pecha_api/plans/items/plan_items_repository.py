@@ -3,6 +3,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from .plan_items_models import PlanItem
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
+from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 from fastapi import HTTPException
 from starlette import status
 from sqlalchemy import func, asc, update, bindparam
@@ -92,7 +93,8 @@ def get_plan_day_with_tasks_and_subtasks(db: Session, plan_id: UUID, day_number:
     plan_item = (
         db.query(PlanItem)
         .options(
-            joinedload(PlanItem.tasks).joinedload(PlanTask.sub_tasks)
+            joinedload(PlanItem.audio),
+            joinedload(PlanItem.tasks).joinedload(PlanTask.sub_tasks).joinedload(PlanSubTask.timestamp),
         )
         .filter(PlanItem.plan_id == plan_id, PlanItem.day_number == day_number)
         .first()

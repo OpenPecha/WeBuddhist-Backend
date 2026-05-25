@@ -419,6 +419,7 @@ async def test_get_details_plan_success():
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan_by_id, \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_plan_items_by_plan_id, \
         patch("pecha_api.plans.cms.cms_plans_service.get_tasks_by_item_ids") as mock_get_tasks_by_item_ids, \
+        patch("pecha_api.plans.audio.plan_item_audio_repository.get_plan_item_audio_by_plan_item_ids", return_value=[]) as mock_get_audio, \
         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
         patch("pecha_api.plans.cms.cms_plans_service.generate_presigned_access_url") as mock_presign, \
         patch("pecha_api.plans.cms.cms_plans_service.get") as mock_get_config:
@@ -472,12 +473,14 @@ async def test_get_plan_day_details_success():
     subtask1.content_type = ContentType.TEXT
     subtask1.content = "Practice for 10 minutes"
     subtask1.display_order = 1
+    subtask1.timestamp = None
 
     subtask2 = MagicMock()
     subtask2.id = uuid.uuid4()
     subtask2.content_type = ContentType.AUDIO
     subtask2.content = "https://example.com/audio.mp3"
     subtask2.display_order = 2
+    subtask2.timestamp = None
 
     task = MagicMock()
     task.id = uuid.uuid4()
@@ -490,6 +493,7 @@ async def test_get_plan_day_details_success():
     plan_item.id = uuid.uuid4()
     plan_item.day_number = day_number
     plan_item.tasks = [task]
+    plan_item.audio = None
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_day_with_tasks_and_subtasks") as mock_get_day, \
@@ -553,6 +557,7 @@ async def test_get_plan_day_details_no_subtasks():
     plan_item.id = uuid.uuid4()
     plan_item.day_number = day_number
     plan_item.tasks = [task]
+    plan_item.audio = None
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_day_with_tasks_and_subtasks") as mock_get_day, \

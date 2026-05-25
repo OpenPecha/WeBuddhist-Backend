@@ -1,7 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, status, Depends, Query, Form
+from uuid import UUID
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from .media_services import upload_plan_image, upload_text_image
-from .media_response_models import PlanUploadResponse, TextImageUploadResponse
+from .media_response_models import PlanUploadResponse, TextImageUploadResponse, PlanDayAudioUploadResponse
+from pecha_api.plans.audio.plan_day_audio_service import upload_plan_day_audio
 from typing import Annotated, Optional
 
 oauth2_scheme = HTTPBearer()
@@ -20,3 +22,18 @@ async def upload_media_image(authentication_credential: Annotated[HTTPAuthorizat
 @media_router.post("/upload/text", status_code=status.HTTP_201_CREATED)
 async def upload_text_media_image(authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)], text_id: str = Form(...), file: UploadFile = File(...)) -> TextImageUploadResponse:
     return await upload_text_image(token=authentication_credential.credentials, text_id=text_id, file=file)
+
+
+@media_router.post("/upload/day-audio", status_code=status.HTTP_201_CREATED)
+async def upload_day_audio(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    day_id: UUID = Query(...),
+    duration_ms: Optional[int] = Form(None),
+    file: UploadFile = File(...),
+) -> PlanDayAudioUploadResponse:
+    return upload_plan_day_audio(
+        token=authentication_credential.credentials,
+        day_id=day_id,
+        file=file,
+        duration_ms=duration_ms,
+    )
