@@ -1,20 +1,18 @@
 from pecha_api.error_contants import ErrorConstants
 from .segments_repository import (
     create_segment,
-    get_segment_by_id, 
+    get_segment_by_id,
     get_segments_by_ids,
-    get_related_mapped_segments,
     get_segments_by_text_id,
     delete_segments_by_text_id,
-    update_segment_by_id
+    update_segment_by_id,
 )
 from ...users.users_service import verify_admin_access
 from .segments_response_models import (
     CreateSegmentRequest, 
     SegmentResponse, 
     MappingResponse, 
-    SegmentDTO, 
-    SegmentInfoResponse,
+    SegmentDTO,
     SegmentUpdateRequest,
 )
 
@@ -23,25 +21,15 @@ from pecha_api.cache.cache_enums import CacheType
 from fastapi import HTTPException
 from starlette import status
 
-from .segments_utils import SegmentUtils
 from ..texts_utils import TextUtils
 
 from typing import List, Dict
 
-from .segments_response_models import (
-    RelatedText,
-    Resources,
-    SegmentInfo,
-)
-
 from .segments_cache_service import (
-    set_segment_info_by_id_cache,
-    get_segment_info_by_id_cache,
     get_segments_details_by_ids_cache,
     set_segments_details_by_ids_cache,
 )
 
-from ..texts_service import TextUtils
 from ..texts_repository import get_text_by_pecha_text_id
 from ...users.users_service import validate_user_exists
 
@@ -98,42 +86,6 @@ async def create_new_segment(create_segment_request: CreateSegmentRequest, token
         return SegmentResponse(segments=segments)
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorConstants.TOKEN_ERROR_MESSAGE)
-
-
-async def get_info_by_segment_id(segment_id: str) -> SegmentInfoResponse:
-    
-    is_valid_segment = await SegmentUtils.validate_segment_exists(segment_id=segment_id)
-    if not is_valid_segment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE)
-    
-    cache_data = await get_segment_info_by_id_cache(segment_id=segment_id, cache_type=CacheType.SEGMENT_INFO)
-    if cache_data:
-        return cache_data
-    segment = await get_segment_by_id(segment_id=segment_id)
-    text_detail=await TextUtils.get_text_details_by_id(text_id=segment.text_id)
-    mapped_segments = await get_related_mapped_segments(parent_segment_id=segment_id)
-    counts = await SegmentUtils.get_count_of_each_commentary_and_version(mapped_segments,parent_text=text_detail)
-    segment_root_mapping_count = await SegmentUtils.get_root_mapping_count(segment_id=segment_id)
-    response = SegmentInfoResponse(
-        segment_info= SegmentInfo(
-            segment_id=segment_id,
-            text_id=text_detail.id,
-            translations=counts["version"],
-            related_text=RelatedText(
-                commentaries=counts["commentary"],
-                root_text=segment_root_mapping_count
-            ),
-            resources=Resources(
-                sheets=0
-            )
-        )
-    ) 
-    await set_segment_info_by_id_cache(
-        segment_id = segment_id,
-        cache_type = CacheType.SEGMENT_INFO,
-        data = response
-    )
-    return response
 
 
 async def fetch_segments_by_text_id(text_id: str) -> List[SegmentDTO]:

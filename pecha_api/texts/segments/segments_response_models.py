@@ -101,30 +101,6 @@ class SegmentCommentariesResponse(BaseModel):
     parent_segment: ParentSegment
     commentaries: List[SegmentCommentry]
 
-# segment info models
-
-class SegmentInfosRequest(BaseModel):
-    text_id: str
-
-class RelatedText(BaseModel):
-    commentaries: Optional[int] = 0
-    root_text: Optional[int] = 0
-
-class Resources(BaseModel):
-    sheets: int
-
-class SegmentInfo(BaseModel):
-    segment_id: str
-    text_id: str
-    translations: Optional[int] = 0
-    related_text: RelatedText
-    resources: Resources
-
-class SegmentInfoResponse(BaseModel):
-    segment_info: SegmentInfo
-
-# segment's root mapping models
-
 class MappedSegmentResponseDTO(BaseModel):
     segment_id: str
     content: str

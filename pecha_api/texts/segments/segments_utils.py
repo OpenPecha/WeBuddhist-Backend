@@ -20,9 +20,6 @@ from ..texts_repository import get_contents_by_id
 from pecha_api.constants import Constants
 
 
-from ..groups.groups_service import (
-    get_group_details
-)
 from ..texts_utils import TextUtils
 from ..texts_response_models import (
     DetailTableOfContent,
@@ -95,31 +92,6 @@ class SegmentUtils:
                 detail=f"{ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE} {segment_ids}",
             )
         return all_exists
-    
-        
-    @staticmethod
-    async def get_count_of_each_commentary_and_version(
-        segments: List[SegmentDTO],
-        parent_text: TextDTO
-    ) -> Dict[str, int]:
-        """
-        Count the number of commentary and version segments in the provided list.
-        """
-        count = {"commentary": 0, "version": 0}
-        unique_text_ids = set()
-        text_ids = [segment.text_id for segment in segments]
-        text_details_dict = await TextUtils.get_text_details_by_ids(text_ids=text_ids)
-        for segment in segments:
-            text_id = segment.text_id
-            if text_id in unique_text_ids:
-                continue
-            unique_text_ids.add(text_id)
-            text_detail = text_details_dict.get(text_id)
-            if text_detail and text_detail.type == "commentary":
-                count["commentary"] += 1
-            elif text_detail and text_detail.type == "version" and text_detail.type == parent_text.type:
-                count["version"] += 1
-        return count
 
     @staticmethod
     async def filter_segment_mapping_by_type_or_text_id(
@@ -186,23 +158,6 @@ class SegmentUtils:
                 appended_commentary_text_ids.append(segment.text_id)
                 
         return filtered_segments
-    
-    @staticmethod
-    async def get_root_mapping_count(segment_id: str) -> int:
-        segment = await get_segment_by_id(segment_id=segment_id)
-        text_id = segment.text_id
-        text_detail = await TextUtils.get_text_details_by_id(text_id=text_id)
-        group_id = text_detail.group_id
-        group_detail = await get_group_details(group_id=group_id)
-        if group_detail.type == "text":
-            return 0
-        root_mapping_count = 0
-        for mapping in segment.mapping:
-            text_detail = await TextUtils.get_text_details_by_id(text_id=mapping.text_id)
-            if text_detail.type == "commentary":
-                continue
-            root_mapping_count += 1
-        return root_mapping_count
 
     @staticmethod
     async def get_mapped_segment_content_for_table_of_content(

@@ -6,7 +6,6 @@ import pytest
 from pecha_api.texts.segments.segments_service import (
     create_new_segment,
     get_segment_details_by_id,
-    get_info_by_segment_id,
     remove_segments_by_text_id,
     fetch_segments_by_text_id,
     get_segments_details_by_ids,
@@ -19,10 +18,6 @@ from pecha_api.texts.segments.segments_response_models import (
     CreateSegment,
     SegmentDTO,
     MappingResponse,
-    SegmentInfoResponse,
-    SegmentInfo,
-    RelatedText,
-    Resources,
     SegmentUpdateRequest,
     SegmentUpdate
 )
@@ -33,7 +28,6 @@ from pecha_api.texts.segments.segments_enum import SegmentType
 from pecha_api.texts.texts_response_models import TextDTO
 
 from pecha_api.error_contants import ErrorConstants
-from pecha_api.cache.cache_enums import CacheType
 
 @pytest.mark.asyncio
 async def test_create_new_segment():
@@ -234,82 +228,6 @@ async def test_get_segment_details_by_id_with_text_details_success():
 
 
 @pytest.mark.asyncio
-async def test_get_infos_by_segment_id_success():
-    segment_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
-    text_id = "text_id_1"
-    mock_segment = type('Segment', (), {
-        'id': segment_id,
-        'text_id': text_id,
-        'content': "test content",
-        'mapping': [],
-        'type': SegmentType.SOURCE
-    })()
-    mock_text_detail = TextDTO(
-        id=text_id,
-        title="title",
-        language="en",
-        type="text",
-        group_id="group_id",
-        is_published=True,
-        created_date="2021-01-01",
-        updated_date="2021-01-01",
-        published_date="2021-01-01",
-        published_by="admin",
-        categories=["category1"],
-        views=0
-    )
-    related_mapped_segments = [
-        SegmentDTO(
-            id=f"id_{i}",
-            text_id=f"text_id_{i}",
-            content=f"content_{i}",
-            mapping=[],
-            type=SegmentType.SOURCE
-        )
-        for i in range(1,6)
-    ]
-    
-    mock_segment_with_text = SegmentDTO(
-        id=segment_id,
-        text_id=text_id,
-        content="segment_content",
-        mapping=[],
-        type=SegmentType.SOURCE,
-        text=mock_text_detail
-    )
-    
-    with patch("pecha_api.texts.segments.segments_service.SegmentUtils.validate_segment_exists", new_callable=AsyncMock, return_value=True), \
-        patch("pecha_api.texts.segments.segments_service.get_segment_info_by_id_cache", new_callable=AsyncMock, return_value=None), \
-        patch("pecha_api.texts.segments.segments_service.get_segment_by_id", new_callable=AsyncMock, return_value=mock_segment), \
-        patch("pecha_api.texts.segments.segments_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-        patch("pecha_api.texts.segments.segments_service.get_related_mapped_segments", new_callable=AsyncMock) as mock_get_related_mapped_segment, \
-        patch("pecha_api.texts.segments.segments_service.SegmentUtils.get_count_of_each_commentary_and_version", new_callable=AsyncMock, return_value={"version": 1, "commentary": 2}), \
-        patch("pecha_api.texts.segments.segments_service.SegmentUtils.get_root_mapping_count", new_callable=AsyncMock, return_value=3), \
-        patch("pecha_api.texts.segments.segments_service.set_segment_info_by_id_cache", new_callable=AsyncMock):
-        mock_get_related_mapped_segment.return_value = related_mapped_segments
-        
-        response = await get_info_by_segment_id(segment_id=segment_id)
-        assert isinstance(response, SegmentInfoResponse)
-        assert isinstance(response.segment_info, SegmentInfo)
-        assert isinstance(response.segment_info.related_text, RelatedText)
-        assert isinstance(response.segment_info.resources, Resources)
-        assert response.segment_info.segment_id == segment_id
-        assert response.segment_info.translations == 1
-        assert response.segment_info.related_text.commentaries == 2
-        assert response.segment_info.related_text.root_text == 3
-
-
-@pytest.mark.asyncio
-async def test_get_infos_by_segment_id_invalid_segment_id():
-    segment_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
-    with patch("pecha_api.texts.segments.segments_service.SegmentUtils.validate_segment_exists", new_callable=AsyncMock, return_value=False):
-        with pytest.raises(HTTPException) as exc_info:
-            await get_info_by_segment_id(segment_id=segment_id)
-        assert exc_info.value.status_code == 404
-        assert exc_info.value.detail == ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE
-
-
-@pytest.mark.asyncio
 async def test_remove_segments_by_text_id_success():
     text_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
     with patch("pecha_api.texts.segments.segments_service.delete_segments_by_text_id", new_callable=AsyncMock, return_value=True),\
@@ -409,146 +327,6 @@ async def test_get_segments_details_by_ids_cache_miss_sets_cache():
         assert mock_set.await_count == 1
         called_kwargs = mock_set.await_args.kwargs
         assert called_kwargs["segment_ids"] == segment_ids
-
-
-@pytest.mark.asyncio
-async def test_get_info_by_segment_id_cache_hit():
-    segment_id = "seg_1"
-    cached_response = SegmentInfoResponse(
-        segment_info=SegmentInfo(
-            segment_id=segment_id,
-            text_id="text_id_1",
-            translations=0,
-            related_text=RelatedText(commentaries=0, root_text=0),
-            resources=Resources(sheets=0),
-        )
-    )
-    
-    mock_text_detail = TextDTO(
-        id="text_id_1",
-        title="title",
-        language="en",
-        type="commentary",
-        group_id="group_id_1",
-        is_published=True,
-        created_date="created_date",
-        updated_date="updated_date",
-        published_date="published_date",
-        published_by="published_by",
-        categories=["categories"],
-        views=0
-    )
-    
-    mock_segment = type('Segment', (), {
-        'id': segment_id,
-        'text_id': "text_id_1",
-        'content': "content",
-        'mapping': [],
-        'type': SegmentType.SOURCE
-    })()
-
-    with patch(
-        "pecha_api.texts.segments.segments_service.SegmentUtils.validate_segment_exists",
-        new_callable=AsyncMock,
-        return_value=True,
-    ), patch(
-        "pecha_api.texts.segments.segments_service.get_segment_info_by_id_cache",
-        new_callable=AsyncMock,
-        return_value=None,  # Changed to None to test actual flow
-    ), patch(
-        "pecha_api.texts.segments.segments_service.get_segment_by_id",
-        new_callable=AsyncMock,
-        return_value=mock_segment,
-    ), patch(
-        "pecha_api.texts.segments.segments_service.TextUtils.get_text_details_by_id",
-        new_callable=AsyncMock,
-        return_value=mock_text_detail,
-    ), patch(
-        "pecha_api.texts.segments.segments_service.get_related_mapped_segments",
-        new_callable=AsyncMock,
-        return_value=[],
-    ), patch(
-        "pecha_api.texts.segments.segments_service.SegmentUtils.get_count_of_each_commentary_and_version",
-        new_callable=AsyncMock,
-    ) as mock_count, patch(
-        "pecha_api.texts.segments.segments_service.SegmentUtils.get_root_mapping_count",
-        new_callable=AsyncMock,
-    ) as mock_root_count, patch(
-        "pecha_api.texts.segments.segments_service.set_segment_info_by_id_cache",
-        new_callable=AsyncMock,
-    ):
-        mock_count.return_value = {"version": 0, "commentary": 0}
-        mock_root_count.return_value = 0
-        result = await get_info_by_segment_id(segment_id)
-        assert isinstance(result, SegmentInfoResponse)
-        assert result.segment_info.segment_id == segment_id
-
-
-@pytest.mark.asyncio
-async def test_get_info_by_segment_id_sets_cache_on_miss():
-    segment_id = "seg_1"
-    text_id = "text_id_1"
-    mock_segment = type('Segment', (), {
-        'id': segment_id,
-        'text_id': text_id,
-        'content': "test content",
-        'mapping': [],
-        'type': SegmentType.SOURCE
-    })()
-    mock_text_detail = TextDTO(
-        id=text_id,
-        title="title",
-        language="en",
-        type="text",
-        group_id="group_id",
-        is_published=True,
-        created_date="2021-01-01",
-        updated_date="2021-01-01",
-        published_date="2021-01-01",
-        published_by="admin",
-        categories=["category1"],
-        views=0
-    )
-
-    with patch(
-        "pecha_api.texts.segments.segments_service.SegmentUtils.validate_segment_exists",
-        new_callable=AsyncMock,
-        return_value=True,
-    ), patch(
-        "pecha_api.texts.segments.segments_service.get_segment_info_by_id_cache",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch(
-        "pecha_api.texts.segments.segments_service.get_segment_by_id",
-        new_callable=AsyncMock,
-        return_value=mock_segment,
-    ), patch(
-        "pecha_api.texts.segments.segments_service.TextUtils.get_text_details_by_id",
-        new_callable=AsyncMock,
-        return_value=mock_text_detail,
-    ), patch(
-        "pecha_api.texts.segments.segments_service.get_related_mapped_segments",
-        new_callable=AsyncMock,
-        return_value=[],
-    ), patch(
-        "pecha_api.texts.segments.segments_service.SegmentUtils.get_count_of_each_commentary_and_version",
-        new_callable=AsyncMock,
-    ) as mock_count, patch(
-        "pecha_api.texts.segments.segments_service.SegmentUtils.get_root_mapping_count",
-        new_callable=AsyncMock,
-    ) as mock_root_count, patch(
-        "pecha_api.texts.segments.segments_service.set_segment_info_by_id_cache",
-        new_callable=AsyncMock,
-    ) as mock_set:
-        mock_count.return_value = {"version": 0, "commentary": 0}
-        mock_root_count.return_value = 0
-        result = await get_info_by_segment_id(segment_id)
-        assert isinstance(result, SegmentInfoResponse)
-        # ensure cache set was called with the built response
-        assert mock_set.await_count == 1
-        called_kwargs = mock_set.await_args.kwargs
-        assert called_kwargs["segment_id"] == segment_id
-        assert called_kwargs["cache_type"] == CacheType.SEGMENT_INFO
 
 
 @pytest.mark.asyncio
