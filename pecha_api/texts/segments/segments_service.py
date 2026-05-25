@@ -60,11 +60,6 @@ async def create_new_segment(create_segment_request: CreateSegmentRequest, token
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorConstants.TOKEN_ERROR_MESSAGE)
 
-
-async def fetch_segments_by_text_id(text_id: str) -> List[SegmentDTO]:
-    segments = await get_segments_by_text_id(text_id=text_id)
-    return segments
-
 async def remove_segments_by_text_id(text_id: str):
     is_valid_text = await TextUtils.validate_text_exists(text_id=text_id)
     if not is_valid_text:

@@ -17,7 +17,7 @@ from .segments_response_models import (
 )
 
 segments_v2_router = APIRouter(
-    prefix="/v2/segments", #lets remove the v2 once migration is done
+    prefix="/segments",
     tags=["Segments"],
 )
 

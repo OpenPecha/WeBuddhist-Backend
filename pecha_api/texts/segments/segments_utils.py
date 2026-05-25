@@ -237,42 +237,6 @@ class SegmentUtils:
         return detail_table_of_content
     
     @staticmethod
-    async def get_segment_root_mapping_details(segments: List[SegmentDTO], parent_segment_text: TextDTO) -> List[SegmentRootMapping]:
-        list_of_text_ids = [
-            segment.text_id
-            for segment in segments
-        ]
-        texts_dict = await TextUtils.get_text_details_by_ids(text_ids=list_of_text_ids)
-        grouped_segments = await SegmentUtils._group_segment_content_by_text_id(segments=segments)
-        list_of_segment_root_mapping = []
-        appended_text_ids = []
-        
-        for segment in segments:
-            text_detail = texts_dict.get(segment.text_id)
-            if text_detail:
-                if segment.text_id in appended_text_ids:
-                    continue
-                mapped_segments = []
-                for segment_item in grouped_segments.get(segment.text_id, []):
-                    mapped_segments.append(MappedSegmentResponseDTO(
-                        segment_id=str(segment_item.id),
-                        content=segment_item.content,
-                        language=text_detail.language
-                    ))
-                if text_detail.type == parent_segment_text.type:
-                    continue
-                list_of_segment_root_mapping.append(
-                    SegmentRootMapping(
-                        text_id=segment.text_id,
-                        title=text_detail.title,
-                        language=text_detail.language,
-                        segments=mapped_segments
-                    )
-                )
-                appended_text_ids.append(segment.text_id)
-        return list_of_segment_root_mapping
-
-    @staticmethod
     async def _group_segment_content_by_text_id(segments: List[SegmentDTO]) -> Dict[str, List[SegmentDTO]]:
         grouped_segments = {}
         for segment in segments:
@@ -296,19 +260,3 @@ class SegmentUtils:
         
         return grouped_segments
     
-    @staticmethod
-    def apply_bophono(segmentContent:str)->str:
-        options = {
-            'aspirateLowTones': True
-        }
-        tokenizer = WordTokenizer()
-        tokens = tokenizer.tokenize(segmentContent)
-        token_text =  []
-        for token in tokens:
-            token_text.append(token.text)
-        kvpconverter = bophono.UnicodeToApi(schema="KVP", options = options)
-        kvp_ipa_list = []
-        for segment in token_text:
-            kvp_ipa = kvpconverter.get_api(segment)
-            kvp_ipa_list.append(kvp_ipa)
-        return " ".join(kvp_ipa_list)
