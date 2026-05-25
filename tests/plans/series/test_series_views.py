@@ -473,7 +473,7 @@ def test_get_cms_series_by_id_success(sample_series_dto):
 
         assert response.status_code == status.HTTP_200_OK
         mock_detail.assert_called_once_with(
-            token="dummy", series_id=series_id
+            token="dummy", series_id=series_id, language=None
         )
 
         data = response.json()
@@ -512,6 +512,24 @@ def test_get_cms_series_by_id_forbidden():
         )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_cms_series_by_id_passes_language_param(sample_series_dto):
+    series_id = sample_series_dto.id
+    with patch(
+        "pecha_api.plans.series.series_view.get_cms_series_detail",
+        return_value=sample_series_dto,
+    ) as mock_detail:
+        response = client.get(
+            f"/cms/series/{series_id}",
+            params={"language": "bo"},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_detail.assert_called_once_with(
+            token="dummy", series_id=series_id, language="bo"
+        )
 
 
 def test_delete_series_success():
