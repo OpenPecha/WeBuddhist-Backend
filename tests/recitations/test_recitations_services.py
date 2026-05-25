@@ -379,15 +379,15 @@ class TestSegmentsMappingByToc:
             content=content
         )
 
-    @patch('pecha_api.recitations.recitations_services.get_segment_details_by_id')
-    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments')
+    @patch('pecha_api.recitations.recitations_services.get_segments_details_by_ids')
+    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments_batch')
     @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
     @pytest.mark.asyncio
     async def test_segments_mapping_by_toc_empty_table_of_contents(
         self,
         mock_filter_segments,
         mock_get_related_segments,
-        mock_get_segment_details
+        mock_get_segments_details,
     ):
         """Test mapping with empty table of contents."""
         request = RecitationDetailsRequest(
@@ -406,7 +406,7 @@ class TestSegmentsMappingByToc:
         assert result == []
         
         # Verify no mock calls were made
-        mock_get_segment_details.assert_not_called()
+        mock_get_segments_details.assert_not_called()
         mock_get_related_segments.assert_not_called()
         mock_filter_segments.assert_not_called()
 

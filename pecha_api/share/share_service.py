@@ -1,11 +1,10 @@
 from fastapi import HTTPException
 import io
 from pecha_api.error_contants import ErrorConstants
-from pecha_api.texts.segments.segments_utils import SegmentUtils
 from starlette.responses import StreamingResponse
 from pecha_api.texts.texts_utils import TextUtils
 from .pecha_text_image_generator import generate_segment_image
-from pecha_api.texts.segments.segments_service import get_segment_details_by_id
+from pecha_api.texts.segments.segments_openpecha_service import get_openpecha_segment_details_by_id
 from pecha_api.config import get
 import anyio
 
@@ -65,16 +64,16 @@ async def _generate_segment_content_image_(share_request: ShareRequest):
     main_content_text = get("SITE_NAME")
     reference_text = get("SITE_NAME")
     language = share_request.language
-    # If segment_id is provided, get the segment details
     if share_request.segment_id is not None:
-        await SegmentUtils.validate_segment_exists(segment_id=share_request.segment_id)
-        segment = await get_segment_details_by_id(segment_id=share_request.segment_id)
+        segment = await get_openpecha_segment_details_by_id(
+            segment_id=share_request.segment_id,
+            text_id=share_request.text_id,
+        )
         main_content_text = segment.content
 
-        text_id = segment.text_id
-        text_detail = await TextUtils.get_text_detail_by_id(text_id=text_id)
-        reference_text = text_detail.title
-        language = text_detail.language
+        if segment.text:
+            reference_text = segment.text.title
+            language = segment.text.language or share_request.language
     elif share_request.text_id is not None:
         text_detail = await TextUtils.get_text_detail_by_id(text_id=share_request.text_id)
         main_content_text = text_detail.title

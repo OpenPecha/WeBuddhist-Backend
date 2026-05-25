@@ -1,7 +1,6 @@
 from pecha_api.error_contants import ErrorConstants
 from .segments_repository import (
     create_segment,
-    get_segment_by_id,
     get_segments_by_ids,
     get_segments_by_text_id,
     delete_segments_by_text_id,
@@ -44,24 +43,6 @@ async def get_segments_details_by_ids(segment_ids: List[str]) -> Dict[str, Segme
     
     return segments
 
-async def get_segment_details_by_id(segment_id: str) -> SegmentDTO:
-    segment = await get_segment_by_id(segment_id=segment_id)
-    if not segment:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE,
-        )
-    mapping_responses: List[MappingResponse] = [
-        MappingResponse(**mapping.model_dump()) for mapping in segment.mapping
-    ]
-    return SegmentDTO(
-        id=str(segment.id),
-        pecha_segment_id=str(segment.pecha_segment_id),
-        text_id=segment.text_id,
-        content=segment.content,
-        mapping=mapping_responses,
-        type=segment.type,
-    )
 
 async def create_new_segment(create_segment_request: CreateSegmentRequest, token: str) -> SegmentResponse:
     is_valid_user = validate_user_exists(token=token)

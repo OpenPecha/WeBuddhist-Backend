@@ -5,7 +5,6 @@ import uuid
 import pytest
 from pecha_api.texts.segments.segments_service import (
     create_new_segment,
-    get_segment_details_by_id,
     remove_segments_by_text_id,
     fetch_segments_by_text_id,
     get_segments_details_by_ids,
@@ -148,46 +147,6 @@ async def test_validate_segments_exists_not_found():
         # The error message includes the segment IDs in the format: "Segment not found {segment_ids}"
         assert ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE in exc_info.value.detail
         assert str(segment_ids) in exc_info.value.detail
-
-@pytest.mark.asyncio
-async def test_get_segment_details_by_id_without_text_details_success():
-    segment_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
-    mock_segment = type('Segment', (), {
-        'id': segment_id,
-        'pecha_segment_id': f"pecha_{segment_id}",
-        'text_id': "text123",
-        'content': "test content",
-        'mapping': [],
-        'type': SegmentType.SOURCE,
-        'model_dump': lambda self: {
-            'id': self.id,
-            'pecha_segment_id': self.pecha_segment_id,
-            'text_id': self.text_id,
-            'content': self.content,
-            'mapping': self.mapping,
-            'type': self.type
-        }
-    })()
-    
-    with patch('pecha_api.texts.segments.segments_service.get_segment_by_id', new_callable=AsyncMock) as mock_get:
-        mock_get.return_value = mock_segment
-        response = await get_segment_details_by_id(segment_id)
-        assert isinstance(response, SegmentDTO)
-        assert str(response.id) == segment_id
-        assert response.text_id == "text123"
-        assert response.content == "test content"
-        assert response.mapping == []
-        assert response.type == SegmentType.SOURCE
-
-@pytest.mark.asyncio
-async def test_get_segment_details_by_id_not_found():
-    segment_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
-    with patch('pecha_api.texts.segments.segments_service.get_segment_by_id', new_callable=AsyncMock) as mock_get:
-        mock_get.return_value = None
-        with pytest.raises(HTTPException) as exc_info:
-            await get_segment_details_by_id(segment_id)
-        assert exc_info.value.status_code == 404
-        assert exc_info.value.detail == ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE
 
 
 @pytest.mark.asyncio
