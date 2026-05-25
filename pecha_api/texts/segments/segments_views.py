@@ -8,7 +8,6 @@ from .segments_service import (
     create_new_segment,
     get_segment_details_by_id,
     get_info_by_segment_id,
-    get_root_text_mapping_by_segment_id,
     update_segments_service,
 )
 from .segments_response_models import (
@@ -47,12 +46,6 @@ async def get_info_for_segment(
     segment_id: str
 ) -> SegmentInfoResponse:
     return await get_info_by_segment_id(segment_id=segment_id)
-
-@segment_router.get("/{segment_id}/root_text", status_code=status.HTTP_200_OK)
-async def get_root_text_for_segment(
-    segment_id: str
-):
-    return await get_root_text_mapping_by_segment_id(segment_id=segment_id)
 
 
 @segment_router.put("", status_code=status.HTTP_200_OK)

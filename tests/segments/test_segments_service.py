@@ -7,7 +7,6 @@ from pecha_api.texts.segments.segments_service import (
     create_new_segment,
     get_segment_details_by_id,
     get_info_by_segment_id,
-    get_root_text_mapping_by_segment_id,
     remove_segments_by_text_id,
     fetch_segments_by_text_id,
     get_segments_details_by_ids,
@@ -18,16 +17,12 @@ from pecha_api.texts.segments.segments_response_models import (
     CreateSegmentRequest,
     SegmentResponse,
     CreateSegment,
-    ParentSegment,
     SegmentDTO,
     MappingResponse,
     SegmentInfoResponse,
     SegmentInfo,
     RelatedText,
     Resources,
-    SegmentRootMappingResponse,
-    SegmentRootMapping,
-    MappedSegmentDTO,
     SegmentUpdateRequest,
     SegmentUpdate
 )
@@ -313,16 +308,6 @@ async def test_get_infos_by_segment_id_invalid_segment_id():
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE
 
-
-@pytest.mark.asyncio
-async def test_get_root_text_mapping_by_segment_id_invalid_segment_id():
-    segment_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
-    with patch("pecha_api.texts.segments.segments_service.SegmentUtils.validate_segment_exists", new_callable=AsyncMock, return_value=False):
-        with pytest.raises(HTTPException) as exc_info:
-            await get_root_text_mapping_by_segment_id(segment_id=segment_id)
-        assert exc_info.value.status_code == 404
-        assert exc_info.value.detail == ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE
-        
 
 @pytest.mark.asyncio
 async def test_remove_segments_by_text_id_success():

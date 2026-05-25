@@ -8,7 +8,6 @@ from pecha_api import config
 from .segments_response_models import (
     SegmentDTO,
     SegmentInfoResponse,
-    SegmentRootMappingResponse,
 )
 from typing import Dict, List
 from pecha_api.cache.cache_enums import CacheType
@@ -37,20 +36,6 @@ async def get_segment_info_by_id_cache(segment_id: str = None, cache_type: Cache
     return cache_data
 
 async def set_segment_info_by_id_cache(segment_id: str = None, cache_type: CacheType = None, data: SegmentInfoResponse = None):
-    payload = [segment_id, cache_type]
-    hashed_key: str = Utils.generate_hash_key(payload = payload)
-    cache_time_out = config.get_int("CACHE_TEXT_TIMEOUT")
-    await set_cache(hash_key=hashed_key, value=data, cache_time_out=cache_time_out)
-
-async def get_segment_root_mapping_by_id_cache(segment_id: str = None) -> SegmentRootMappingResponse:
-    payload = [segment_id]
-    hashed_key: str = Utils.generate_hash_key(payload = payload)
-    cache_data: SegmentRootMappingResponse = await get_cache_data(hash_key = hashed_key)
-    if cache_data and isinstance(cache_data, dict):
-        cache_data = SegmentRootMappingResponse(**cache_data)
-    return cache_data
-
-async def set_segment_root_mapping_by_id_cache(segment_id: str = None, cache_type: CacheType = None, data: SegmentRootMappingResponse = None):
     payload = [segment_id, cache_type]
     hashed_key: str = Utils.generate_hash_key(payload = payload)
     cache_time_out = config.get_int("CACHE_TEXT_TIMEOUT")
