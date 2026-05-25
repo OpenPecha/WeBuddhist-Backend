@@ -44,28 +44,24 @@ async def get_segments_details_by_ids(segment_ids: List[str]) -> Dict[str, Segme
     
     return segments
 
-async def get_segment_details_by_id(segment_id: str, text_details: bool = False) -> SegmentDTO:
-    
+async def get_segment_details_by_id(segment_id: str) -> SegmentDTO:
     segment = await get_segment_by_id(segment_id=segment_id)
     if not segment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE,
+        )
     mapping_responses: List[MappingResponse] = [
         MappingResponse(**mapping.model_dump()) for mapping in segment.mapping
     ]
-    text = None
-    if text_details:
-        text = await TextUtils.get_text_details_by_id(text_id=segment.text_id)
-    
-    response = SegmentDTO(
+    return SegmentDTO(
         id=str(segment.id),
         pecha_segment_id=str(segment.pecha_segment_id),
         text_id=segment.text_id,
         content=segment.content,
         mapping=mapping_responses,
         type=segment.type,
-        text=text
     )
-    return response
 
 async def create_new_segment(create_segment_request: CreateSegmentRequest, token: str) -> SegmentResponse:
     is_valid_user = validate_user_exists(token=token)

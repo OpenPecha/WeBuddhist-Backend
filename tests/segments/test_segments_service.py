@@ -189,43 +189,6 @@ async def test_get_segment_details_by_id_not_found():
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE
 
-@pytest.mark.asyncio
-async def test_get_segment_details_by_id_with_text_details_success():
-    segment_id = str(uuid.uuid4())
-    text_id = str(uuid.uuid4())
-    group_id = str(uuid.uuid4())
-    mock_text_details = TextDTO(
-        id=text_id,
-        title="title",
-        language="en",
-        type="text",
-        group_id=group_id,
-        is_published=True,
-        created_date="2021-01-01",
-        updated_date="2021-01-01",
-        published_date="2021-01-01",
-        published_by="admin",
-        categories=["category1", "category2"],
-        views=0
-    )
-    mock_segment = SegmentDTO(
-        id=segment_id,
-        text_id=text_id,
-        content="test content",
-        mapping=[],
-        type=SegmentType.SOURCE,
-        text=mock_text_details
-    )
-    with patch("pecha_api.texts.segments.segments_service.get_segment_by_id", new_callable=AsyncMock, return_value=mock_segment), \
-        patch("pecha_api.texts.segments.segments_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_details):
-
-        response = await get_segment_details_by_id(segment_id=segment_id, text_details=True)
-    
-        assert response is not None
-        assert response.text_id == text_id
-        assert response.id == segment_id
-        assert response.text is not None
-
 
 @pytest.mark.asyncio
 async def test_remove_segments_by_text_id_success():

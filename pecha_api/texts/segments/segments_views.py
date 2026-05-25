@@ -6,12 +6,10 @@ from typing import Annotated
 
 from .segments_service import (
     create_new_segment,
-    get_segment_details_by_id,
     update_segments_service,
 )
 from .segments_response_models import (
     CreateSegmentRequest,
-    SegmentDTO,
     SegmentResponse,
     SegmentUpdateRequest,
 )
@@ -22,8 +20,6 @@ segment_router = APIRouter(
     tags=["Segments"]
 )
 
-from fastapi import Query
-
 
 @segment_router.post("", status_code=status.HTTP_201_CREATED)
 async def create_segment(
@@ -31,13 +27,6 @@ async def create_segment(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ) -> SegmentResponse:
     return await create_new_segment(create_segment_request=create_segment_request, token=authentication_credential.credentials)
-
-@segment_router.get("/{segment_id}", status_code=status.HTTP_200_OK)
-async def get_segment(
-    segment_id: str,
-    text_details: bool = Query(default=False)
-) -> SegmentDTO:
-    return await get_segment_details_by_id(segment_id=segment_id, text_details=text_details)
 
 
 @segment_router.put("", status_code=status.HTTP_200_OK)

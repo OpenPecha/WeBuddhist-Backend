@@ -165,7 +165,7 @@ class SegmentUtils:
     ) -> DetailTableOfContent:
         """
         Convert a TableOfContent model to a DetailTableOfContent model by enriching
-        each segment with detailed information fetched from get_segment_details_by_id.
+        each segment with content loaded from the segment repository.
         
         Args:
             table_of_content: The TableOfContent model to be converted
