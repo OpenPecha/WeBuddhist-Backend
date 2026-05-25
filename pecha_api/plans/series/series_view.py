@@ -132,8 +132,13 @@ async def get_cms_series_list(
 async def get_cms_series(
     series_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    language: Annotated[
+        Optional[str],
+        Query(description="Filter plans by language (e.g. 'en', 'bo', 'zh')"),
+    ] = None,
 ):
     return get_cms_series_detail(
         token=authentication_credential.credentials,
         series_id=series_id,
+        language=language,
     )
