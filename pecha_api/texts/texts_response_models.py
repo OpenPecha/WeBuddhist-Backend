@@ -2,7 +2,7 @@ from typing import List, Optional, Dict, Union
 from uuid import UUID
 from enum import Enum
 
-from pecha_api.collections.collections_response_models import CollectionModel
+from pecha_api.collections.collections_response_models import CollectionModel, V2CollectionModel
 
 from pydantic import BaseModel
 
@@ -45,6 +45,13 @@ class TextDTO(BaseModel):
     source_link:Optional[str] = None
     ranking:Optional[int] = None
     license:Optional[str] = None
+
+
+class V2TextDTO(BaseModel):
+    id: str
+    title: str
+    language: Optional[str] = None
+    license: Optional[str] = None
     
 class TextDTOResponse(BaseModel):
     texts: List[TextDTO]
@@ -163,6 +170,14 @@ class TextsCategoryResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+
+class V2TextsCategoryResponse(BaseModel):
+    collection: V2CollectionModel
+    texts: List[V2TextDTO]
+    skip: int
+    limit: int
+    has_more: bool = False
 
 # Texts Info Response Models
 class RelatedTexts(BaseModel):

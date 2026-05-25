@@ -528,3 +528,56 @@ def test_update_series_featured_integrity_error_propagates():
             updated_by="tester@example.com",
             updated_at=MagicMock(),
         )
+
+
+# ---------------------------------------------------------------------------
+# plan_count published_only filter: get_series_paginated
+# ---------------------------------------------------------------------------
+
+def test_get_series_paginated_defaults_published_only_false():
+    db = _make_session_mock()
+    row = MagicMock(spec=Series)
+
+    db.query.return_value = _paginated_query_chain([row], 1, plan_counts=[7])
+
+    rows, total = get_series_paginated(db=db, search=None, skip=0, limit=10)
+
+    assert total == 1
+    assert rows == [(row, 7)]
+
+
+def test_get_series_paginated_accepts_published_only_true():
+    db = _make_session_mock()
+    row = MagicMock(spec=Series)
+
+    db.query.return_value = _paginated_query_chain([row], 1, plan_counts=[3])
+
+    rows, total = get_series_paginated(
+        db=db, search=None, skip=0, limit=10, published_only=True
+    )
+
+    assert total == 1
+    assert rows == [(row, 3)]
+
+
+def test_get_series_paginated_published_only_does_not_add_series_filter():
+    db = _make_session_mock()
+
+    db.query.return_value = _paginated_query_chain([], 0)
+
+    rows, total = get_series_paginated(
+        db=db,
+        search=None,
+        skip=0,
+        limit=10,
+        status=PlanStatus.PUBLISHED,
+        featured=True,
+        published_only=True,
+    )
+
+    assert rows == []
+    assert total == 0
+    filtered = db.query.return_value.options.return_value.filter
+    assert filtered.call_count == 1
+    filter_args = filtered.call_args[0]
+    assert len(filter_args) == 3
