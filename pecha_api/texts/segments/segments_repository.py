@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pecha_api.constants import Constants
 from .segments_models import Segment
-from .segments_response_models import CreateSegmentRequest, SegmentDTO, MappingResponse, SegmentUpdateRequest
+from .segments_response_models import CreateSegmentRequest, SegmentDTO, MappingResponse
 import logging
 from beanie.exceptions import CollectionWasNotInitialized
 from typing import List, Dict, Optional
@@ -129,18 +129,3 @@ async def delete_segments_by_text_id(text_id: str):
     except CollectionWasNotInitialized as e:
         logging.debug(e)
         return False
-
-
-async def update_segment_by_id(segment_update_request: SegmentUpdateRequest) -> SegmentDTO | None:
-    try:
-        for segment_update in segment_update_request.segments:
-            segment = await Segment.get_segment_by_pecha_segment_id(pecha_segment_id=segment_update.pecha_segment_id)
-            if not segment:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE)
-            segment.content = segment_update.content
-            await segment.save()
-        
-        return segment
-    except CollectionWasNotInitialized as e:
-        logging.debug(e)
-        return None

@@ -4,15 +4,12 @@ from .segments_repository import (
     get_segments_by_ids,
     get_segments_by_text_id,
     delete_segments_by_text_id,
-    update_segment_by_id,
 )
-from ...users.users_service import verify_admin_access
 from .segments_response_models import (
-    CreateSegmentRequest, 
-    SegmentResponse, 
-    MappingResponse, 
+    CreateSegmentRequest,
+    SegmentResponse,
+    MappingResponse,
     SegmentDTO,
-    SegmentUpdateRequest,
 )
 
 from pecha_api.cache.cache_enums import CacheType
@@ -29,7 +26,6 @@ from .segments_cache_service import (
     set_segments_details_by_ids_cache,
 )
 
-from ..texts_repository import get_text_by_pecha_text_id
 from ...users.users_service import validate_user_exists
 
 async def get_segments_details_by_ids(segment_ids: List[str]) -> Dict[str, SegmentDTO]:
@@ -74,16 +70,3 @@ async def remove_segments_by_text_id(text_id: str):
     if not is_valid_text:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
     return await delete_segments_by_text_id(text_id=text_id)
-
-
-async def update_segments_service(token: str, segment_update_request: SegmentUpdateRequest):
-    is_admin = verify_admin_access(token=token)
-    if is_admin:    
-        text = await get_text_by_pecha_text_id(pecha_text_id=segment_update_request.pecha_text_id)
-        if not text:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
-        
-        return await update_segment_by_id(segment_update_request=segment_update_request) 
-
-
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ErrorConstants.ADMIN_ERROR_MESSAGE)
