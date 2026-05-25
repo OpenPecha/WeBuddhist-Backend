@@ -11,10 +11,13 @@ from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.plans_models import Plan
 
 
-def _series_active_plans_count_subquery():
+def _series_active_plans_count_subquery(published_only: bool = False):
+    conditions = [Plan.series_id == Series.id, Plan.deleted_at.is_(None)]
+    if published_only:
+        conditions.append(Plan.status == PlanStatus.PUBLISHED)
     return (
         select(func.count(Plan.id))
-        .where(Plan.series_id == Series.id, Plan.deleted_at.is_(None))
+        .where(*conditions)
         .correlate(Series)
         .scalar_subquery()
     )
@@ -192,6 +195,7 @@ def get_series_paginated(
     language: Optional[str] = None,
     status: Optional[PlanStatus] = None,
     featured: Optional[bool] = None,
+    published_only: bool = False,
 ) -> Tuple[List[Tuple[Series, int]], int]:
 
     filters = []
@@ -226,7 +230,7 @@ def get_series_paginated(
             )
         )
 
-    plan_count = _series_active_plans_count_subquery().label("plan_count")
+    plan_count = _series_active_plans_count_subquery(published_only=published_only).label("plan_count")
     query = db.query(Series, plan_count).options(selectinload(Series.metadata_entries))
     if filters:
         query = query.filter(*filters)
