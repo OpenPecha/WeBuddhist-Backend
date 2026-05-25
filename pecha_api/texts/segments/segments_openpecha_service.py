@@ -15,7 +15,9 @@ from .segments_response_models import (
     ParentSegment,
     V2RelatedSegmentItem,
     V2SegmentCommentariesResponse,
+    V2SegmentResponse,
     V2SegmentRootTextResponse,
+    V2SegmentTextDetail,
     V2SegmentTextGroup,
     V2SegmentTranslationsResponse,
 )
@@ -228,6 +230,34 @@ async def get_root_text_by_segment_id_from_openpecha(
         limit=limit,
         has_more=has_more,
     )
+
+async def get_openpecha_segment_details_by_id(
+    segment_id: str,
+    text_id: Optional[str] = None,
+) -> V2SegmentResponse:
+    content = await _fetch_segment_content_safe(segment_id)
+    if content is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Segment with id '{segment_id}' not found",
+        )
+
+    text_detail = None
+    if text_id:
+        text_payload = await _fetch_text_safe(text_id)
+        if text_payload:
+            text_detail = V2SegmentTextDetail(
+                text_id=text_id,
+                title=_extract_title(text_payload.get("title", {})),
+                language=text_payload.get("language"),
+            )
+
+    return V2SegmentResponse(
+        segment_id=segment_id,
+        content=content,
+        text=text_detail,
+    )
+
 
 async def get_translations_by_segment_id_from_openpecha(
     segment_id: str,

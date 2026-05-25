@@ -148,3 +148,15 @@ class V2SegmentCommentariesResponse(BaseModel):
     skip: int
     limit: int
     has_more: bool = False
+
+
+class V2SegmentTextDetail(BaseModel):
+    text_id: str
+    title: str
+    language: Optional[str] = None
+
+
+class V2SegmentResponse(BaseModel):
+    segment_id: str
+    content: str
+    text: Optional[V2SegmentTextDetail] = None

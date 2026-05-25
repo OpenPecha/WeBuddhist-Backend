@@ -1,15 +1,17 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Query
 from starlette import status
 
 from .segments_openpecha_service import (
     get_commentaries_by_segment_id_from_openpecha,
+    get_openpecha_segment_details_by_id,
     get_root_text_by_segment_id_from_openpecha,
     get_translations_by_segment_id_from_openpecha,
 )
 from .segments_response_models import (
     V2SegmentCommentariesResponse,
+    V2SegmentResponse,
     V2SegmentTranslationsResponse,
     V2SegmentRootTextResponse,
 )
@@ -18,6 +20,16 @@ segments_v2_router = APIRouter(
     prefix="/v2/segments", #lets remove the v2 once migration is done
     tags=["Segments"],
 )
+
+@segments_v2_router.get("/{segment_id}", status_code=status.HTTP_200_OK)
+async def get_segment_v2(
+    segment_id: str,
+    text_id: Annotated[Optional[str], Query()] = None,
+) -> V2SegmentResponse:
+    return await get_openpecha_segment_details_by_id(
+        segment_id=segment_id,
+        text_id=text_id,
+    )
 
 @segments_v2_router.get(
     "/{segment_id}/root_text",

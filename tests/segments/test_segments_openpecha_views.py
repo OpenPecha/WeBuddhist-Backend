@@ -8,11 +8,64 @@ from pecha_api.texts.segments.segments_response_models import (
     ParentSegment,
     V2RelatedSegmentItem,
     V2SegmentCommentariesResponse,
+    V2SegmentResponse,
+    V2SegmentTextDetail,
     V2SegmentTextGroup,
     V2SegmentTranslationsResponse,
 )
 
 client = TestClient(api)
+
+
+class TestSegmentsV2GetSegmentEndpoint:
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_views.get_openpecha_segment_details_by_id"
+    )
+    def test_get_segment_without_text_id(self, mock_service):
+        mock_service.return_value = V2SegmentResponse(
+            segment_id="seg-1",
+            content="Segment content",
+        )
+
+        response = client.get("/v2/segments/seg-1")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["segment_id"] == "seg-1"
+        assert data["content"] == "Segment content"
+        assert data["text"] is None
+
+        mock_service.assert_awaited_once_with(
+            segment_id="seg-1",
+            text_id=None,
+        )
+
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_views.get_openpecha_segment_details_by_id"
+    )
+    def test_get_segment_with_text_id(self, mock_service):
+        mock_service.return_value = V2SegmentResponse(
+            segment_id="seg-1",
+            content="Segment content",
+            text=V2SegmentTextDetail(
+                text_id="text-1",
+                title="Root Text Title",
+                language="bo",
+            ),
+        )
+
+        response = client.get("/v2/segments/seg-1?text_id=text-1")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["text"]["text_id"] == "text-1"
+        assert data["text"]["title"] == "Root Text Title"
+        assert data["text"]["language"] == "bo"
+
+        mock_service.assert_awaited_once_with(
+            segment_id="seg-1",
+            text_id="text-1",
+        )
 
 
 class TestSegmentsV2TranslationsEndpoint:

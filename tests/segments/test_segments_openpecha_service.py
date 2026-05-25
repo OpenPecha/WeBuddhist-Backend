@@ -5,11 +5,13 @@ from fastapi import HTTPException
 from pecha_api.texts.segments.segments_openpecha_service import (
     _classify_text,
     get_commentaries_by_segment_id_from_openpecha,
+    get_openpecha_segment_details_by_id,
     get_root_text_by_segment_id_from_openpecha,
     get_translations_by_segment_id_from_openpecha,
 )
 from pecha_api.texts.segments.segments_response_models import (
     V2SegmentCommentariesResponse,
+    V2SegmentResponse,
     V2SegmentRootTextResponse,
     V2SegmentTranslationsResponse,
 )
@@ -83,6 +85,64 @@ class TestClassifyText:
     def test_returns_none_for_empty_payload(self):
         assert _classify_text({}) is None
         assert _classify_text(None) is None
+
+
+class TestGetOpenpechaSegmentDetailsById:
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_content",
+        new_callable=AsyncMock,
+    )
+    async def test_returns_segment_content_without_text_details(self, mock_fetch_content):
+        mock_fetch_content.return_value = "Segment content"
+
+        result = await get_openpecha_segment_details_by_id(segment_id="seg-1")
+
+        assert isinstance(result, V2SegmentResponse)
+        assert result.segment_id == "seg-1"
+        assert result.content == "Segment content"
+        assert result.text is None
+        mock_fetch_content.assert_awaited_once_with("seg-1")
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_content",
+        new_callable=AsyncMock,
+    )
+    async def test_returns_text_details_when_text_id_provided(
+        self,
+        mock_fetch_content,
+        mock_fetch_text,
+    ):
+        mock_fetch_content.return_value = "Segment content"
+        mock_fetch_text.return_value = _root_text(ROOT_TEXT_ID)
+
+        result = await get_openpecha_segment_details_by_id(
+            segment_id="seg-1",
+            text_id=ROOT_TEXT_ID,
+        )
+
+        assert result.text is not None
+        assert result.text.text_id == ROOT_TEXT_ID
+        assert result.text.title == f"Root text {ROOT_TEXT_ID}"
+        assert result.text.language == "bo"
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_content",
+        new_callable=AsyncMock,
+    )
+    async def test_raises_not_found_when_content_missing(self, mock_fetch_content):
+        mock_fetch_content.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_openpecha_segment_details_by_id(segment_id="missing-seg")
+
+        assert exc_info.value.status_code == 404
 
 
 class TestGetTranslationsBySegmentIdFromOpenpecha:
