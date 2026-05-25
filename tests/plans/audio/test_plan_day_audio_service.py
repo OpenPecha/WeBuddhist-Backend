@@ -23,7 +23,7 @@ def test_validate_audio_file_rejects_invalid_extension():
 @patch("pecha_api.plans.audio.plan_day_audio_service.upsert_plan_item_audio")
 @patch("pecha_api.plans.audio.plan_day_audio_service.get_plan_item_audio_by_plan_item_id", return_value=None)
 @patch("pecha_api.plans.audio.plan_day_audio_service.upload_file", return_value="audio/key.mp3")
-@patch("pecha_api.plans.audio.plan_day_audio_service._get_author_plan_item")
+@patch("pecha_api.plans.audio.plan_day_audio_service._get_author_plan_item_by_day_id")
 @patch("pecha_api.plans.audio.plan_day_audio_service.validate_and_extract_author_details")
 @patch("pecha_api.plans.audio.plan_day_audio_service.SessionLocal")
 def test_upload_plan_day_audio_success(
@@ -37,7 +37,7 @@ def test_upload_plan_day_audio_success(
 ):
     plan_id = uuid4()
     day_id = uuid4()
-    plan_item_id = uuid4()
+    plan_item_id = day_id
 
     author = MagicMock()
     author.email = "author@test.com"
@@ -46,6 +46,7 @@ def test_upload_plan_day_audio_success(
 
     plan_item = MagicMock()
     plan_item.id = plan_item_id
+    plan_item.plan_id = plan_id
     mock_get_item.return_value = plan_item
 
     audio_row = MagicMock()
@@ -64,7 +65,6 @@ def test_upload_plan_day_audio_success(
 
     response = upload_plan_day_audio(
         token="token",
-        plan_id=plan_id,
         day_id=day_id,
         file=file,
         duration_ms=120000,

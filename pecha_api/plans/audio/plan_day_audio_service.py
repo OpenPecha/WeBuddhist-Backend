@@ -18,13 +18,14 @@ from pecha_api.plans.audio.plan_item_audio_repository import (
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
-from pecha_api.plans.items.plan_items_repository import get_plan_item
+from pecha_api.plans.items.plan_items_repository import get_plan_item_by_id
 from pecha_api.plans.media.media_response_models import PlanDayAudioUploadResponse
 from pecha_api.plans.response_message import (
     AUDIO_FILE_TOO_LARGE,
     AUDIO_UPLOAD_SUCCESS,
     BAD_REQUEST,
     INVALID_AUDIO_FILE_FORMAT,
+    PLAN_DAY_NOT_FOUND,
     PLAN_NOT_FOUND,
 )
 from pecha_api.uploads.S3_utils import delete_file, generate_presigned_access_url, upload_file
@@ -45,9 +46,15 @@ def _validate_audio_file(file: UploadFile) -> None:
         )
 
 
-def _get_author_plan_item(db, plan_id: UUID, day_id: UUID, token: str):
+def _get_author_plan_item_by_day_id(db, day_id: UUID, token: str):
     current_author = validate_and_extract_author_details(token=token)
-    plan = get_plan_by_id(db=db, plan_id=plan_id)
+    plan_item = get_plan_item_by_id(db=db, day_id=day_id)
+    if not plan_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ResponseError(error=BAD_REQUEST, message=PLAN_DAY_NOT_FOUND).model_dump(),
+        )
+    plan = get_plan_by_id(db=db, plan_id=plan_item.plan_id)
     if not plan:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -58,12 +65,11 @@ def _get_author_plan_item(db, plan_id: UUID, day_id: UUID, token: str):
             status_code=status.HTTP_403_FORBIDDEN,
             detail=ResponseError(error=BAD_REQUEST, message=PLAN_NOT_FOUND).model_dump(),
         )
-    return get_plan_item(db=db, plan_id=plan_id, day_id=day_id)
+    return plan_item
 
 
 def upload_plan_day_audio(
     token: str,
-    plan_id: UUID,
     day_id: UUID,
     file: UploadFile,
     duration_ms: Optional[int] = None,
@@ -74,10 +80,10 @@ def upload_plan_day_audio(
 
     with SessionLocal() as db:
         current_author = validate_and_extract_author_details(token=token)
-        plan_item = _get_author_plan_item(db=db, plan_id=plan_id, day_id=day_id, token=token)
+        plan_item = _get_author_plan_item_by_day_id(db=db, day_id=day_id, token=token)
 
         unique_id = str(uuid.uuid4())
-        s3_key = f"audio/plan_days/{plan_id}/{day_id}/{unique_id}{file_extension}"
+        s3_key = f"audio/plan_days/{plan_item.plan_id}/{day_id}/{unique_id}{file_extension}"
 
         file.file.seek(0)
         upload_file(
@@ -120,9 +126,9 @@ def upload_plan_day_audio(
     )
 
 
-def delete_plan_day_audio(token: str, plan_id: UUID, day_id: UUID) -> None:
+def delete_plan_day_audio(token: str, day_id: UUID) -> None:
     with SessionLocal() as db:
-        plan_item = _get_author_plan_item(db=db, plan_id=plan_id, day_id=day_id, token=token)
+        plan_item = _get_author_plan_item_by_day_id(db=db, day_id=day_id, token=token)
         existing = get_plan_item_audio_by_plan_item_id(db=db, plan_item_id=plan_item.id)
         if existing and existing.audio_key:
             delete_file(existing.audio_key)

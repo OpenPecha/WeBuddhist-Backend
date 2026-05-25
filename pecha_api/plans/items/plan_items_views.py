@@ -34,15 +34,13 @@ async def delete_item(authentication_credential: Annotated[HTTPAuthorizationCred
     )
 
 
-@items_router.delete("/{plan_id}/days/{day_id}/audio", status_code=status.HTTP_204_NO_CONTENT)
+@items_router.delete("/days/{day_id}/audio", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_day_audio(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    plan_id: UUID,
     day_id: UUID,
 ):
     return delete_plan_day_audio(
         token=authentication_credential.credentials,
-        plan_id=plan_id,
         day_id=day_id,
     )
 

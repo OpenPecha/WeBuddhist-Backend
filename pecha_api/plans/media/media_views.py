@@ -27,14 +27,12 @@ async def upload_text_media_image(authentication_credential: Annotated[HTTPAutho
 @media_router.post("/upload/day-audio", status_code=status.HTTP_201_CREATED)
 async def upload_day_audio(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    plan_id: UUID = Query(...),
     day_id: UUID = Query(...),
     duration_ms: Optional[int] = Form(None),
     file: UploadFile = File(...),
 ) -> PlanDayAudioUploadResponse:
     return upload_plan_day_audio(
         token=authentication_credential.credentials,
-        plan_id=plan_id,
         day_id=day_id,
         file=file,
         duration_ms=duration_ms,
