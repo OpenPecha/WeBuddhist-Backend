@@ -30,13 +30,11 @@ from ..texts_utils import TextUtils
 from typing import List, Dict
 
 from .segments_response_models import (
-    SegmentTranslationsResponse, 
-    ParentSegment, 
-    SegmentCommentariesResponse,
-    RelatedText, 
-    Resources, 
-    SegmentInfo, 
-    SegmentRootMappingResponse
+    ParentSegment,
+    RelatedText,
+    Resources,
+    SegmentInfo,
+    SegmentRootMappingResponse,
 )
 
 from .segments_cache_service import (
@@ -104,46 +102,6 @@ async def create_new_segment(create_segment_request: CreateSegmentRequest, token
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorConstants.TOKEN_ERROR_MESSAGE)
 
-async def get_translations_by_segment_id(segment_id: str) -> SegmentTranslationsResponse:
-    """
-    Get translations for a given segment ID.
-    """
-    
-    is_valid_segment = await SegmentUtils.validate_segment_exists(segment_id=segment_id)
-    if not is_valid_segment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE)
-    parent_segment = await get_segment_by_id(segment_id=segment_id)
-    mapped_segments = await get_related_mapped_segments(parent_segment_id=segment_id)
-    translations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(segments=mapped_segments, type="version")
-    response = SegmentTranslationsResponse(
-        parent_segment=ParentSegment(
-            segment_id=str(parent_segment.id),
-            content=parent_segment.content
-        ),
-        translations=translations
-    )
-    
-    return response
-
-async def get_commentaries_by_segment_id(
-        segment_id: str
-) -> SegmentCommentariesResponse:
-    
-    is_valid_segment = await SegmentUtils.validate_segment_exists(segment_id=segment_id)
-    if not is_valid_segment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE)
-    parent_segment = await get_segment_by_id(segment_id=segment_id)
-    mapped_segments = await get_related_mapped_segments(parent_segment_id=segment_id)
-    commentaries = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(segments=mapped_segments, type="commentary")
-    response = SegmentCommentariesResponse(
-        parent_segment=ParentSegment(
-            segment_id=segment_id,
-            content=parent_segment.content
-        ),
-        commentaries=commentaries
-    )
-    
-    return response
 
 async def get_info_by_segment_id(segment_id: str) -> SegmentInfoResponse:
     
