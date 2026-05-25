@@ -1,6 +1,6 @@
 import pytest
 from uuid import uuid4
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from starlette import status
@@ -11,6 +11,7 @@ from tests.plans.tag_test_helpers import make_tag_summaries
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel,ContentType
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.public.plan_views import get_plan_days_list, get_plan_day_content
+from pecha_api.plans.public.plan_service import auto_enroll_plan
 
 
 client = TestClient(api)
@@ -357,7 +358,7 @@ async def test_get_plan_details_service_error():
 
 @pytest.mark.asyncio
 async def test_get_plan_days_list_success():
-    """Test successful retrieval of plan days list"""
+    """Test successful retrieval of plan days list without authentication"""
     plan_id = uuid4()
     
     expected_days = [
@@ -370,19 +371,96 @@ async def test_get_plan_days_list_success():
         "pecha_api.plans.public.plan_views.get_plan_days",
         return_value=expected_response,
         new_callable=AsyncMock,
-    ) as mock_service:
+    ) as mock_service, \
+    patch(
+        "pecha_api.plans.public.plan_views.auto_enroll_plan"
+    ) as mock_auto_enroll:
         response = await get_plan_days_list(
-            plan_id=plan_id
+            plan_id=plan_id,
+            credentials=None
         )
 
-        mock_service.assert_called_once_with(
-            plan_id=plan_id
-        )
+        mock_auto_enroll.assert_called_once_with(plan_id=plan_id, user_id=None)
+        mock_service.assert_called_once_with(plan_id=plan_id)
 
         assert response == expected_response
         assert len(response.days) == 2
         assert response.days[0].day_number == 1
         assert response.days[1].day_number == 2
+
+
+@pytest.mark.asyncio
+async def test_get_plan_days_list_with_authenticated_user():
+    """Test retrieval of plan days list with authenticated user triggers auto-enrollment"""
+    plan_id = uuid4()
+    user_id = uuid4()
+    
+    expected_days = [
+        PlanDayBasic(id=str(uuid4()), day_number=1),
+    ]
+    expected_response = PlanDaysResponse(days=expected_days)
+    
+    mock_user = MagicMock()
+    mock_user.id = user_id
+
+    with patch(
+        "pecha_api.plans.public.plan_views.get_plan_days",
+        return_value=expected_response,
+        new_callable=AsyncMock,
+    ) as mock_service, \
+    patch(
+        "pecha_api.plans.public.plan_views.auto_enroll_plan"
+    ) as mock_auto_enroll, \
+    patch(
+        "pecha_api.plans.public.plan_views.validate_and_extract_user_details",
+        return_value=mock_user
+    ) as mock_validate:
+        credentials = _Creds("valid_token")
+        response = await get_plan_days_list(
+            plan_id=plan_id,
+            credentials=credentials
+        )
+
+        mock_validate.assert_called_once_with(token="valid_token")
+        mock_auto_enroll.assert_called_once_with(plan_id=plan_id, user_id=user_id)
+        mock_service.assert_called_once_with(plan_id=plan_id)
+
+        assert response == expected_response
+
+
+@pytest.mark.asyncio
+async def test_get_plan_days_list_with_invalid_token():
+    """Test retrieval of plan days list with invalid token still works but without auto-enrollment"""
+    plan_id = uuid4()
+    
+    expected_days = [
+        PlanDayBasic(id=str(uuid4()), day_number=1),
+    ]
+    expected_response = PlanDaysResponse(days=expected_days)
+
+    with patch(
+        "pecha_api.plans.public.plan_views.get_plan_days",
+        return_value=expected_response,
+        new_callable=AsyncMock,
+    ) as mock_service, \
+    patch(
+        "pecha_api.plans.public.plan_views.auto_enroll_plan"
+    ) as mock_auto_enroll, \
+    patch(
+        "pecha_api.plans.public.plan_views.validate_and_extract_user_details",
+        side_effect=Exception("Invalid token")
+    ):
+        credentials = _Creds("invalid_token")
+        response = await get_plan_days_list(
+            plan_id=plan_id,
+            credentials=credentials
+        )
+
+        # auto_enroll should be called with user_id=None since token validation failed
+        mock_auto_enroll.assert_called_once_with(plan_id=plan_id, user_id=None)
+        mock_service.assert_called_once_with(plan_id=plan_id)
+
+        assert response == expected_response
 
 
 @pytest.mark.asyncio
@@ -396,14 +474,17 @@ async def test_get_plan_days_list_empty_days():
         "pecha_api.plans.public.plan_views.get_plan_days",
         return_value=expected_response,
         new_callable=AsyncMock,
-    ) as mock_service:
+    ) as mock_service, \
+    patch(
+        "pecha_api.plans.public.plan_views.auto_enroll_plan"
+    ) as mock_auto_enroll:
         response = await get_plan_days_list(
-            plan_id=plan_id
+            plan_id=plan_id,
+            credentials=None
         )
 
-        mock_service.assert_called_once_with(
-            plan_id=plan_id
-        )
+        mock_auto_enroll.assert_called_once_with(plan_id=plan_id, user_id=None)
+        mock_service.assert_called_once_with(plan_id=plan_id)
 
         assert response == expected_response
         assert len(response.days) == 0
