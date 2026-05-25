@@ -103,15 +103,19 @@ def upload_plan_day_audio(
             ),
         )
 
+        plan_item_id_str = str(plan_item.id)
+        audio_key = audio_row.audio_key
+        audio_duration_ms = audio_row.duration_ms
+
     audio_url = generate_presigned_access_url(
         bucket_name=get("AWS_BUCKET_NAME"),
-        s3_key=audio_row.audio_key,
+        s3_key=audio_key,
     )
     return PlanDayAudioUploadResponse(
-        plan_item_id=str(plan_item.id),
-        audio_key=audio_row.audio_key,
+        plan_item_id=plan_item_id_str,
+        audio_key=audio_key,
         audio_url=audio_url,
-        duration_ms=audio_row.duration_ms,
+        duration_ms=audio_duration_ms,
         message=AUDIO_UPLOAD_SUCCESS,
     )
 
