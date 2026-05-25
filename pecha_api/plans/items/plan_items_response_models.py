@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from typing import Optional
 from uuid import UUID
 from typing import List
 
@@ -11,6 +12,7 @@ class ItemDTO(BaseModel):
     id: UUID
     plan_id: UUID
     day_number: int
+    audio_url: Optional[str] = None
 
 class UpdateDayRequest(BaseModel):
     day_number: int

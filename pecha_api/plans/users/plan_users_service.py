@@ -377,10 +377,15 @@ def get_user_plan_day_details_service(token: str, plan_id: UUID, day_number: int
             user_subtask_completions = get_user_subtask_completions_by_user_id_and_sub_task_ids(db=db, user_id=current_user.id, sub_task_ids=sub_task_ids)
             completed_subtask_ids = [completion.sub_task_id for completion in user_subtask_completions]
 
+        from pecha_api.plans.audio.dto_helpers import build_plan_day_audio_fields
+
+        audio_url, audio_duration_ms, _, _ = build_plan_day_audio_fields(plan_item)
         user_day_details = UserPlanDayDetailsResponse(
             id=plan_item.id,
             day_number=plan_item.day_number,
             is_completed=is_day_completed(db=db, user_id=current_user.id, day_id=plan_item.id),
+            audio_url=audio_url,
+            audio_duration_ms=audio_duration_ms,
             tasks=[
                 UserTaskDTO(
                     id=task.id,
@@ -399,19 +404,27 @@ def is_day_completed(db: SessionLocal(), user_id: UUID, day_id: UUID) -> bool:
     return user_day_completion is not None
 
 def _get_user_sub_tasks_dto_bulk(sub_tasks: List[PlanSubTask], completed_subtask_ids: Set[UUID]) -> List[UserSubTaskDTO]:
-    return [
-        UserSubTaskDTO(
-            id=sub_task.id,
-            content_type=sub_task.content_type,
-            content=_get_presigned_url(content=sub_task.content) if sub_task.content_type == ContentType.IMAGE else sub_task.content,
-            duration=sub_task.duration,
-            display_order=sub_task.display_order,
-            is_completed=(sub_task.id in completed_subtask_ids),
-            source_text_id=sub_task.source_text_id,
-            pecha_segment_id=sub_task.pecha_segment_id,
-            segment_ids=sub_task.segment_ids
-        ) for sub_task in sub_tasks
-    ]
+    from pecha_api.plans.audio.dto_helpers import build_subtask_timestamp_fields
+
+    result = []
+    for sub_task in sub_tasks:
+        start_ms, end_ms = build_subtask_timestamp_fields(sub_task)
+        result.append(
+            UserSubTaskDTO(
+                id=sub_task.id,
+                content_type=sub_task.content_type,
+                content=_get_presigned_url(content=sub_task.content) if sub_task.content_type == ContentType.IMAGE else sub_task.content,
+                duration=sub_task.duration,
+                display_order=sub_task.display_order,
+                is_completed=(sub_task.id in completed_subtask_ids),
+                source_text_id=sub_task.source_text_id,
+                pecha_segment_id=sub_task.pecha_segment_id,
+                segment_ids=sub_task.segment_ids,
+                start_ms=start_ms,
+                end_ms=end_ms,
+            )
+        )
+    return result
 
 def _get_presigned_url(content: str) -> str:
     return generate_presigned_access_url(

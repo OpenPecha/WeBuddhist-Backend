@@ -288,27 +288,32 @@ async def get_plan_days(plan_id: UUID) -> PlanDaysResponse:
             days_basic.append(day_basic)
         return PlanDaysResponse(days=days_basic)
 
-def generate_subtask_content_url(content_type: ContentType, content: str) -> str:
-    if content_type == ContentType.IMAGE:
-        return generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=content)
-    return content
+from pecha_api.plans.audio.dto_helpers import (
+    build_plan_day_audio_fields,
+    build_subtask_timestamp_fields,
+    generate_subtask_content_url,
+)
 
 
 def build_task_dto(task) -> TaskDTO:
-    subtasks = [
-        SubTaskDTO(
-            id=subtask.id,
-            content_type=subtask.content_type,
-            duration=subtask.duration,
-            content=generate_subtask_content_url(subtask.content_type, subtask.content),
-            image_url=subtask.content if subtask.content_type == ContentType.IMAGE else None,
-            source_text_id=subtask.source_text_id,
-            pecha_segment_id=subtask.pecha_segment_id,
-            segment_ids=subtask.segment_ids,
-            display_order=subtask.display_order,
+    subtasks = []
+    for subtask in sorted(task.sub_tasks, key=lambda st: st.display_order):
+        start_ms, end_ms = build_subtask_timestamp_fields(subtask)
+        subtasks.append(
+            SubTaskDTO(
+                id=subtask.id,
+                content_type=subtask.content_type,
+                duration=subtask.duration,
+                content=generate_subtask_content_url(subtask.content_type, subtask.content or ""),
+                image_url=subtask.content if subtask.content_type == ContentType.IMAGE else None,
+                source_text_id=subtask.source_text_id,
+                pecha_segment_id=subtask.pecha_segment_id,
+                segment_ids=subtask.segment_ids,
+                display_order=subtask.display_order,
+                start_ms=start_ms,
+                end_ms=end_ms,
+            )
         )
-        for subtask in sorted(task.sub_tasks, key=lambda st: st.display_order)
-    ]
 
     return TaskDTO(
         id=task.id,
@@ -318,16 +323,23 @@ def build_task_dto(task) -> TaskDTO:
         subtasks=subtasks,
     )
 
+
+def _build_plan_day_dto(plan_item) -> PlanDayDTO:
+    audio_url, audio_duration_ms, _, _ = build_plan_day_audio_fields(plan_item)
+    return PlanDayDTO(
+        id=plan_item.id,
+        day_number=plan_item.day_number,
+        tasks=[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)],
+        audio_url=audio_url,
+        audio_duration_ms=audio_duration_ms,
+    )
+
 def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
     """Get specific day's content with tasks"""
 
     with SessionLocal() as db:
         plan_item = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
-        return PlanDayDTO(
-            id=plan_item.id,
-            day_number=plan_item.day_number,
-            tasks=[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)]
-        )
+        return _build_plan_day_dto(plan_item)
 
 
 async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = None) -> DailyPlanResponse:
@@ -422,6 +434,7 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
                 if next_plan:
                     next_plan_id = next_plan.id
 
+        audio_url, audio_duration_ms, _, _ = build_plan_day_audio_fields(plan_item)
         return DailyPlanResponse(
             plan_id=plan.id,
             plan_title=plan.title,
@@ -437,6 +450,8 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
             next_date=next_date,
             previous_plan_id=previous_plan_id,
             next_plan_id=next_plan_id,
+            audio_url=audio_url,
+            audio_duration_ms=audio_duration_ms,
             tasks=[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)]
         )
 

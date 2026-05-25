@@ -49,6 +49,8 @@ class SubTaskDTO(BaseModel):
     pecha_segment_id: Optional[str] = None
     segment_ids: Optional[List[UUID]] = None
     display_order: Optional[int] = None
+    start_ms: Optional[int] = None
+    end_ms: Optional[int] = None
 
 class TaskDTO(BaseModel):
     id: UUID
@@ -61,6 +63,8 @@ class PlanDayDTO(BaseModel):
     id: UUID
     day_number: int
     tasks: List[TaskDTO]
+    audio_url: Optional[str] = None
+    audio_duration_ms: Optional[int] = None
 
 
 class PlanWithDays(BaseModel):
@@ -118,6 +122,8 @@ class DailyPlanResponse(BaseModel):
     next_date: Optional[DateType] = None
     previous_plan_id: Optional[UUID] = None
     next_plan_id: Optional[UUID] = None
+    audio_url: Optional[str] = None
+    audio_duration_ms: Optional[int] = None
     tasks: List[TaskDTO]
 
 class TagsResponse(BaseModel):

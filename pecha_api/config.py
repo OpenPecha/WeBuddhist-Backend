@@ -26,7 +26,9 @@ DEFAULTS = dict(
     JWT_SECRET_KEY="",
     MAX_FILE_SIZE_MB=1,
     MAX_FILE_SIZE = 5 * 1024 * 1024,
+    MAX_AUDIO_FILE_SIZE = 50 * 1024 * 1024,
     ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'},
+    ALLOWED_AUDIO_EXTENSIONS = {'.mp3', '.m4a', '.wav', '.aac', '.ogg'},
     MONGO_CONNECTION_STRING="mongodb://admin:pechaAdmin@localhost:27017/pecha?authSource=admin",
 
     WEBUDDHIST_STUDIO_BASE_URL="https://studio.webuddhist.com",

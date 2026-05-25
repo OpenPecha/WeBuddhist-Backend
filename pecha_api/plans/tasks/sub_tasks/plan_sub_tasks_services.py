@@ -33,6 +33,7 @@ from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_response_model import (
 )
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.response_message import SUBTASK_ORDER_FAILED
+from pecha_api.plans.audio.timestamp_service import apply_sub_task_timestamp
 
 async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) -> SubTaskResponse:
     current_author = validate_and_extract_author_details(token=token)
@@ -60,19 +61,30 @@ async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) 
             )
 
         saved_sub_tasks = save_sub_tasks_bulk(db=db, sub_tasks=new_sub_tasks)
-        created_sub_tasks=[
+        created_sub_tasks = []
+        for item, sub_request in zip(saved_sub_tasks, create_task_request.sub_tasks):
+            start_ms, end_ms = apply_sub_task_timestamp(
+                db=db,
+                sub_task_id=item.id,
+                task_id=create_task_request.task_id,
+                start_ms=sub_request.start_ms,
+                end_ms=sub_request.end_ms,
+                author_email=current_author.email,
+            )
+            created_sub_tasks.append(
                 SubTaskDTO(
                     id=item.id,
                     content_type=item.content_type,
                     content=item.content,
                     duration=item.duration,
-                    source_text_id=item.source_text_id,          
+                    source_text_id=item.source_text_id,
                     pecha_segment_id=item.pecha_segment_id,
                     segment_ids=item.segment_ids,
                     display_order=item.display_order,
+                    start_ms=start_ms,
+                    end_ms=end_ms,
                 )
-                for item in saved_sub_tasks
-            ]
+            )
         return SubTaskResponse(
             sub_tasks=created_sub_tasks,
         )
@@ -112,8 +124,32 @@ async def update_sub_task_by_task_id(token: str, update_sub_task_request: Update
 
         update_sub_tasks_bulk(db=db, sub_tasks=existing_sub_tasks_to_update)
 
+        for subtask in existing_sub_tasks_to_update:
+            apply_sub_task_timestamp(
+                db=db,
+                sub_task_id=subtask.id,
+                task_id=update_sub_task_request.task_id,
+                start_ms=subtask.start_ms,
+                end_ms=subtask.end_ms,
+                author_email=current_author.email,
+            )
+
         if new_sub_tasks_to_create:
-            save_sub_tasks_bulk(db=db, sub_tasks=new_sub_tasks_to_create)
+            saved_new = save_sub_tasks_bulk(db=db, sub_tasks=new_sub_tasks_to_create)
+            new_requests = [
+                subtask
+                for subtask in update_sub_task_request.sub_tasks
+                if subtask.id is None
+            ]
+            for saved_item, sub_request in zip(saved_new, new_requests):
+                apply_sub_task_timestamp(
+                    db=db,
+                    sub_task_id=saved_item.id,
+                    task_id=update_sub_task_request.task_id,
+                    start_ms=sub_request.start_ms,
+                    end_ms=sub_request.end_ms,
+                    author_email=current_author.email,
+                )
 
 
 async def change_subtask_order_service(token: str, task_id: UUID, update_subtask_order: SubTaskOrderRequest) -> None:

@@ -78,15 +78,16 @@ def test_get_task_by_id_queries_by_id():
     db.query.return_value.options.return_value.filter.return_value.first.return_value = expected
 
     task_id = uuid.uuid4()
-    # Ensure repository PlanTask has the 'sub_tasks' attribute for joinedload and patch joinedload
     from pecha_api.plans.tasks.plan_tasks_repository import PlanTask as _RepoPlanTask
     setattr(_RepoPlanTask, "sub_tasks", object())
+    setattr(PlanSubTask, "timestamp", object())
     with patch("pecha_api.plans.tasks.plan_tasks_repository.joinedload") as mock_joined:
-        mock_joined.return_value = object()
+        mock_chain = MagicMock()
+        mock_joined.return_value = mock_chain
+        mock_chain.joinedload.return_value = MagicMock()
         result = get_task_by_id(db=db, task_id=task_id)
 
     assert result is expected
-    # verify filter used with correct condition object (we can't evaluate equality easily)
     assert db.query.call_count == 1
 
 
@@ -112,11 +113,13 @@ def test_get_task_by_id_not_found_raises_http_404_with_payload():
 
     from fastapi import HTTPException
 
-    # Ensure repository PlanTask has the 'sub_tasks' attribute for joinedload and patch joinedload
     from pecha_api.plans.tasks.plan_tasks_repository import PlanTask as _RepoPlanTask
     setattr(_RepoPlanTask, "sub_tasks", object())
+    setattr(PlanSubTask, "timestamp", object())
     with patch("pecha_api.plans.tasks.plan_tasks_repository.joinedload") as mock_joined:
-        mock_joined.return_value = object()
+        mock_chain = MagicMock()
+        mock_joined.return_value = mock_chain
+        mock_chain.joinedload.return_value = MagicMock()
         with pytest.raises(HTTPException) as exc:
             get_task_by_id(db=db, task_id=uuid.uuid4())
 
