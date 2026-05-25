@@ -11,10 +11,17 @@ from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get
 from datetime import date as DateType, timedelta, datetime as dt, timezone
 from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO, SeriesMetadataDTO
 from pecha_api.plans.items.plan_items_models import PlanItem
-from pecha_api.plans.plans_enums import ContentType
+from pecha_api.plans.plans_enums import ContentType, UserPlanStatus
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id, get_next_plan_in_series, get_previous_plan_in_series)
+from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id, get_all_unique_tags, get_next_plan_in_series, get_previous_plan_in_series)
+from pecha_api.plans.users.plan_users_progress_repository import get_plan_progress_by_user_id_and_plan_id, save_plan_progress
+from pecha_api.plans.users.plan_users_models import UserPlanProgress
+from pecha_api.routines.routines_repository import (
+    get_time_blocks_containing_plan,
+    get_max_display_order_in_time_block,
+    add_plan_session_to_time_block,
+)
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.tags.tag_repository import get_published_tags_for_language
 
@@ -136,6 +143,130 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
             detail=f"Failed to fetch published plan details: {str(e)}"
         )
 
+def is_user_enrolled_in_previous_plan(db, user_id: UUID, plan) -> Optional[UUID]:
+    """Check if user is enrolled in the previous plan of the series. Returns previous plan ID if enrolled."""
+    if not plan.series_id or plan.display_order is None:
+        return None
+    
+    previous_plan = get_previous_plan_in_series(
+        db=db, series_id=plan.series_id, current_display_order=plan.display_order
+    )
+    if not previous_plan:
+        return None
+    
+    previous_enrollment = get_plan_progress_by_user_id_and_plan_id(
+        db=db, user_id=user_id, plan_id=previous_plan.id
+    )
+    return previous_plan.id if previous_enrollment else None
+
+
+def is_within_plan_date_range(db, plan) -> bool:
+    """Check if current date is within the plan's valid date range."""
+    if not plan.start_date:
+        return False
+    
+    today = dt.now(timezone.utc).date()
+    plan_start = plan.start_date.date() if hasattr(plan.start_date, 'date') else plan.start_date
+    
+    if today < plan_start:
+        return False
+    
+    next_plan = get_next_plan_in_series(
+        db=db, series_id=plan.series_id, current_display_order=plan.display_order
+    )
+    
+    if next_plan and next_plan.start_date:
+        next_plan_start = next_plan.start_date.date() if hasattr(next_plan.start_date, 'date') else next_plan.start_date
+        if today >= next_plan_start:
+            return False
+    
+    return True
+
+
+def auto_enroll_plan(plan_id: UUID, user_id: Optional[UUID] = None) -> None:
+    """
+    Auto enroll user in a plan if all conditions are met:
+    1. User is not already enrolled in this plan
+    2. User is enrolled in the previous plan (within the same series)
+    3. Current date is within the plan's date range (start_date <= today < next_plan.start_date)
+    
+    Args:
+        plan_id: The plan to potentially auto-enroll the user in
+        user_id: The user's ID (None if not authenticated)
+    """
+    if user_id is None:
+        return
+    
+    try:
+        with SessionLocal() as db:
+            plan = get_published_plan_by_id(db=db, plan_id=plan_id)
+            if not plan:
+                return
+            
+            existing_enrollment = get_plan_progress_by_user_id_and_plan_id(
+                db=db, user_id=user_id, plan_id=plan_id
+            )
+            if existing_enrollment:
+                return
+            
+            previous_plan_id = is_user_enrolled_in_previous_plan(db, user_id, plan)
+            if not previous_plan_id:
+                return
+            
+            if not is_within_plan_date_range(db, plan):
+                return
+            
+            new_progress = UserPlanProgress(
+                user_id=user_id,
+                plan_id=plan_id,
+                streak_count=0,
+                longest_streak=0,
+                status=UserPlanStatus.NOT_STARTED,
+                started_at=dt.now(timezone.utc),
+                created_at=dt.now(timezone.utc),
+                is_completed=False,
+            )
+            save_plan_progress(db=db, plan_progress=new_progress)
+            logger.info(f"Auto-enrolled user {user_id} in plan {plan_id}")
+            
+            add_plan_to_routine_time_blocks(
+                db=db,
+                user_id=user_id,
+                previous_plan_id=previous_plan_id,
+                new_plan_id=plan_id
+            )
+            
+    except Exception as e:
+        logger.exception(f"Error during auto-enrollment for user {user_id} in plan {plan_id}: {str(e)}")
+
+
+def add_plan_to_routine_time_blocks(
+    db,
+    user_id: UUID,
+    previous_plan_id: UUID,
+    new_plan_id: UUID
+) -> None:
+    """
+    Add the new plan to all routine time blocks where the previous plan exists.
+    The new plan is added after the previous plan in display_order.
+    """
+    try:
+        time_blocks = get_time_blocks_containing_plan(
+            db=db, user_id=user_id, plan_id=previous_plan_id
+        )
+        
+        for time_block in time_blocks:
+            max_order = get_max_display_order_in_time_block(db=db, time_block_id=time_block.id)
+            add_plan_session_to_time_block(
+                db=db,
+                time_block_id=time_block.id,
+                plan_id=new_plan_id,
+                display_order=max_order + 1
+            )
+            logger.info(f"Added plan {new_plan_id} to time block {time_block.id} for user {user_id}")
+            
+    except Exception as e:
+        logger.exception(f"Error adding plan to routine time blocks: {str(e)}")
 
 async def get_plan_days(plan_id: UUID) -> PlanDaysResponse:
     """Get all days for a specific plan"""

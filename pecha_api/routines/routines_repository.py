@@ -235,3 +235,46 @@ def get_sessions_by_time_block_ids(db: Session, time_block_ids: List[UUID], orde
         query = query.order_by(order_by_field.desc() if order_desc else order_by_field)
     
     return query.all()
+
+
+def get_time_blocks_containing_plan(db: Session, user_id: UUID, plan_id: UUID) -> List[RoutineTimeBlock]:
+
+    return (
+        db.query(RoutineTimeBlock)
+        .join(Routine, RoutineTimeBlock.routine_id == Routine.id)
+        .join(RoutineSession, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            Routine.user_id == user_id,
+            Routine.deleted_at.is_(None),
+            RoutineTimeBlock.deleted_at.is_(None),
+            RoutineSession.session_type == SessionType.PLAN,
+            RoutineSession.source_id == plan_id,
+        )
+        .all()
+    )
+
+
+def get_max_display_order_in_time_block(db: Session, time_block_id: UUID) -> int:
+    """
+    Get the maximum display_order value for sessions in a time block.
+    Returns 0 if no sessions exist.
+    """
+    from sqlalchemy import func
+    result = db.query(func.max(RoutineSession.display_order)).filter(
+        RoutineSession.time_block_id == time_block_id
+    ).scalar()
+    return result if result is not None else 0
+
+
+def add_plan_session_to_time_block(db: Session, time_block_id: UUID, plan_id: UUID, display_order: int) -> RoutineSession:
+
+    session = RoutineSession(
+        time_block_id=time_block_id,
+        session_type=SessionType.PLAN,
+        source_id=plan_id,
+        display_order=display_order,
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
