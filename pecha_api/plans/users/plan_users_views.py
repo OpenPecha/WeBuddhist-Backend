@@ -154,9 +154,9 @@ def enroll_in_series(
 @user_progress_router.get("/series", status_code=status.HTTP_200_OK, response_model=UserSeriesEnrollmentsResponse)
 async def get_user_series_enrollments_endpoint(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    status_filter: Optional[str] = Query(None, description="Filter by series enrollment status"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=50)
+    status_filter: Annotated[Optional[str], Query(description="Filter by series enrollment status")] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
 ):
     """Get user's series enrollments"""
     return get_user_series_enrollments(

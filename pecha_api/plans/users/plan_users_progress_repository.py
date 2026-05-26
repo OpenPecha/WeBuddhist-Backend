@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from starlette import status
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 
@@ -29,6 +29,18 @@ def get_plan_progress(db: Session, plan_id: UUID) -> List[UserPlanProgress]:
 
 def get_plan_progress_by_user_id_and_plan_id(db: Session, user_id: UUID, plan_id: UUID) -> UserPlanProgress:
     return db.query(UserPlanProgress).filter(UserPlanProgress.user_id == user_id, UserPlanProgress.plan_id == plan_id).first()
+
+
+def get_plan_progress_by_user_id_and_plan_ids(
+    db: Session, user_id: UUID, plan_ids: List[UUID]
+) -> Dict[UUID, UserPlanProgress]:
+    if not plan_ids:
+        return {}
+    rows = db.query(UserPlanProgress).filter(
+        UserPlanProgress.user_id == user_id,
+        UserPlanProgress.plan_id.in_(plan_ids),
+    ).all()
+    return {row.plan_id: row for row in rows}
 
 
 def delete_user_plan_progress(db: Session, user_id: UUID, plan_id: UUID) -> None:

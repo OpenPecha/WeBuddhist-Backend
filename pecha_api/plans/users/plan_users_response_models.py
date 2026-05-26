@@ -2,7 +2,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
-from pecha_api.plans.plans_enums import ContentType
+from pecha_api.plans.plans_enums import ContentType, SeriesStatus
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 
@@ -149,4 +149,4 @@ class UserSeriesProgressResponse(BaseModel):
 
 class UpdateSeriesEnrollmentRequest(BaseModel):
     auto_enroll_next: Optional[bool] = None
-    status: Optional[str] = None  # ACTIVE, PAUSED, CANCELLED
+    status: Optional[SeriesStatus] = None

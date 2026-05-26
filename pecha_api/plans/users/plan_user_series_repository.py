@@ -1,4 +1,5 @@
-from typing import List, Optional, Tuple
+from collections import defaultdict
+from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc, asc
@@ -108,16 +109,27 @@ def update_current_plan_in_series(
 
 def get_plans_by_series_id(db: Session, series_id: UUID) -> List[Plan]:
     """Get all plans in a series ordered by display_order on the plan."""
-    return (
+    return get_plans_by_series_ids(db, [series_id]).get(series_id, [])
+
+
+def get_plans_by_series_ids(db: Session, series_ids: List[UUID]) -> Dict[UUID, List[Plan]]:
+    """Get all plans for multiple series, grouped by series_id and ordered by display_order."""
+    if not series_ids:
+        return {}
+    plans = (
         db.query(Plan)
         .filter(
-            Plan.series_id == series_id,
+            Plan.series_id.in_(series_ids),
             Plan.display_order.isnot(None),
             Plan.deleted_at.is_(None),
         )
-        .order_by(asc(Plan.display_order))
+        .order_by(Plan.series_id, asc(Plan.display_order))
         .all()
     )
+    plans_by_series: Dict[UUID, List[Plan]] = defaultdict(list)
+    for plan in plans:
+        plans_by_series[plan.series_id].append(plan)
+    return dict(plans_by_series)
 
 
 def get_first_plan_in_series(db: Session, series_id: UUID) -> Optional[Plan]:

@@ -71,7 +71,8 @@ from pecha_api.plans.users.plan_users_subtasks_repository import (
 )
 
 from pecha_api.plans.users.plan_users_progress_repository import (
-    get_plan_progress_by_user_id_and_plan_id, 
+    get_plan_progress_by_user_id_and_plan_id,
+    get_plan_progress_by_user_id_and_plan_ids,
     save_plan_progress,
     get_user_enrolled_plans_with_details,
     delete_user_plan_progress
@@ -87,8 +88,10 @@ from pecha_api.plans.users.plan_user_series_repository import (
     delete_user_series_enrollment,
     update_user_series_enrollment,
     get_first_plan_in_series,
-    get_plans_by_series_id
+    get_plans_by_series_id,
+    get_plans_by_series_ids,
 )
+from pecha_api.plans.series.series_repository import get_series_by_ids, get_plans_by_ids
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.config import get
 import logging
@@ -149,7 +152,10 @@ def handle_plan_completion_and_series_progression(db: SessionLocal, user_id: UUI
     plan_progress = get_plan_progress_by_user_id_and_plan_id(db, user_id, completed_plan_id)
     if not plan_progress:
         return
-    
+
+    if plan_progress.is_completed:
+        return
+
     # Mark plan progress as completed
     plan_progress.is_completed = True
     plan_progress.completed_at = datetime.now(timezone.utc)
@@ -585,6 +591,87 @@ def _get_presigned_url(content: str) -> str:
 
 # Series Enrollment Service Functions
 
+def _generate_presigned_image_url(bucket_name: str, s3_key: Optional[str], resource_id: UUID, resource_type: str) -> str:
+    if not s3_key:
+        return ""
+    try:
+        return generate_presigned_access_url(bucket_name=bucket_name, s3_key=s3_key)
+    except Exception:
+        logger.exception(f"Failed to generate presigned URL for {resource_type} {resource_id}")
+        return ""
+
+
+def _compute_series_plan_progress(all_plans: list, progress_by_plan_id: dict) -> tuple[int, int, float]:
+    total_plans = len(all_plans)
+    if total_plans == 0:
+        return 0, 0, 0.0
+    completed_plans = sum(
+        1
+        for plan in all_plans
+        if (progress := progress_by_plan_id.get(plan.id)) and progress.is_completed
+    )
+    return total_plans, completed_plans, completed_plans / total_plans * 100
+
+
+def _build_user_series_enrollment_dto(
+    enrollment: UserSeriesEnrollment,
+    series: Series,
+    current_plan_title_by_id: dict,
+    plans_by_series_id: dict,
+    progress_by_plan_id: dict,
+    bucket_name: str,
+) -> UserSeriesEnrollmentDTO:
+    series_metadata = series.metadata_entries[0] if series.metadata_entries else None
+    image_url = _generate_presigned_image_url(bucket_name, series.image, series.id, "series")
+    current_plan_title = (
+        current_plan_title_by_id.get(enrollment.current_plan_id)
+        if enrollment.current_plan_id
+        else None
+    )
+    all_plans = plans_by_series_id.get(enrollment.series_id, [])
+    total_plans, completed_plans, progress_percentage = _compute_series_plan_progress(
+        all_plans, progress_by_plan_id
+    )
+    return UserSeriesEnrollmentDTO(
+        id=enrollment.id,
+        user_id=enrollment.user_id,
+        series_id=enrollment.series_id,
+        series_title=series_metadata.title if series_metadata else "Untitled Series",
+        series_description=series_metadata.description if series_metadata else None,
+        series_image_url=image_url,
+        enrolled_at=enrollment.enrolled_at,
+        status=enrollment.status.value if hasattr(enrollment.status, 'value') else str(enrollment.status),
+        auto_enroll_next=enrollment.auto_enroll_next,
+        current_plan_id=enrollment.current_plan_id,
+        current_plan_title=current_plan_title,
+        is_completed=enrollment.is_completed,
+        completed_at=enrollment.completed_at,
+        total_plans=total_plans,
+        completed_plans=completed_plans,
+        progress_percentage=progress_percentage,
+    )
+
+
+def _build_series_plan_dto_for_progress(db, plan, user_id: UUID, bucket_name: str) -> UserPlanDTO:
+    total_days = len(get_days_by_plan_id(db, plan.id))
+    image_url = _generate_presigned_image_url(bucket_name, plan.image_url, plan.id, "plan")
+    progress = get_plan_progress_by_user_id_and_plan_id(db, user_id, plan.id)
+    started_at = progress.started_at if progress else None
+    return UserPlanDTO(
+        id=plan.id,
+        title=plan.title,
+        description=plan.description or "",
+        language=plan.language.value if hasattr(plan.language, 'value') else str(plan.language),
+        difficulty_level=plan.difficulty_level.value if hasattr(plan.difficulty_level, 'value') else str(plan.difficulty_level),
+        image_url=image_url,
+        started_at=started_at,
+        total_days=total_days,
+        tags=tags_to_summary_dtos(plan.tag_list),
+        start_date=plan.start_date,
+        display_order=plan.display_order,
+    )
+
+
 def enroll_user_in_series(token: str, enroll_request: UserSeriesEnrollRequest) -> None:
     """Enroll user in a series"""
     current_user = validate_and_extract_user_details(token=token)
@@ -643,67 +730,51 @@ def get_user_series_enrollments(
         enrollments, total = get_user_series_enrollments_by_user_id(
             db, current_user.id, status_filter, skip, limit
         )
-        
-        enrollment_dtos = []
-        bucket_name = get("AWS_BUCKET_NAME")
-        
-        for enrollment in enrollments:
-            # Get series details
-            series = db.query(Series).filter(Series.id == enrollment.series_id).first()
-            if not series:
-                continue
-                
-            # Get series metadata for title/description
-            series_metadata = series.metadata_entries[0] if series.metadata_entries else None
-            
-            # Generate image URL
-            image_url = ""
-            if series.image:
-                try:
-                    image_url = generate_presigned_access_url(
-                        bucket_name=bucket_name,
-                        s3_key=series.image
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to generate presigned URL for series {series.id}: {e}")
-            
-            # Get current plan title
-            current_plan_title = None
-            if enrollment.current_plan_id:
-                current_plan = get_plan_by_id(db, enrollment.current_plan_id)
-                current_plan_title = current_plan.title if current_plan else None
-            
-            # Calculate progress
-            all_plans = get_plans_by_series_id(db, enrollment.series_id)
-            total_plans = len(all_plans)
-            completed_plans = 0
-            
-            for plan in all_plans:
-                progress = get_plan_progress_by_user_id_and_plan_id(db, current_user.id, plan.id)
-                if progress and progress.is_completed:
-                    completed_plans += 1
-            
-            progress_percentage = (completed_plans / total_plans * 100) if total_plans > 0 else 0
-            
-            enrollment_dto = UserSeriesEnrollmentDTO(
-                id=enrollment.id,
-                user_id=enrollment.user_id,
-                series_id=enrollment.series_id,
-                series_title=series_metadata.title if series_metadata else "Untitled Series",
-                series_description=series_metadata.description if series_metadata else None,
-                series_image_url=image_url,
-                enrolled_at=enrollment.enrolled_at,
-                status=enrollment.status.value if hasattr(enrollment.status, 'value') else str(enrollment.status),
-                auto_enroll_next=enrollment.auto_enroll_next,
-                current_plan_id=enrollment.current_plan_id,
-                current_plan_title=current_plan_title,
-                is_completed=enrollment.is_completed,
-                completed_at=enrollment.completed_at,
-                total_plans=total_plans,
-                completed_plans=completed_plans,
-                progress_percentage=progress_percentage
+
+        if not enrollments:
+            return UserSeriesEnrollmentsResponse(
+                enrollments=[],
+                skip=skip,
+                limit=limit,
+                total=total,
             )
-            enrollment_dtos.append(enrollment_dto)
+
+        series_ids = [enrollment.series_id for enrollment in enrollments]
+        current_plan_ids = [
+            enrollment.current_plan_id
+            for enrollment in enrollments
+            if enrollment.current_plan_id
+        ]
+
+        series_by_id = {series.id: series for series in get_series_by_ids(db, series_ids)}
+        plans_by_series_id = get_plans_by_series_ids(db, series_ids)
+
+        all_plan_ids = [
+            plan.id
+            for plans in plans_by_series_id.values()
+            for plan in plans
+        ]
+        progress_by_plan_id = get_plan_progress_by_user_id_and_plan_ids(
+            db, current_user.id, all_plan_ids
+        )
+        current_plan_title_by_id = {
+            plan.id: plan.title
+            for plan in get_plans_by_ids(db, current_plan_ids)
+        }
+
+        bucket_name = get("AWS_BUCKET_NAME")
+        enrollment_dtos = [
+            _build_user_series_enrollment_dto(
+                enrollment,
+                series,
+                current_plan_title_by_id,
+                plans_by_series_id,
+                progress_by_plan_id,
+                bucket_name,
+            )
+            for enrollment in enrollments
+            if (series := series_by_id.get(enrollment.series_id))
+        ]
         
         return UserSeriesEnrollmentsResponse(
             enrollments=enrollment_dtos,
@@ -735,47 +806,13 @@ def get_user_series_progress(token: str, series_id: UUID) -> UserSeriesProgressR
             )
         
         series_metadata = series.metadata_entries[0] if series.metadata_entries else None
-        
-        # Get all plans in series with user progress
-        all_plans = get_plans_by_series_id(db, series_id)
-        plan_dtos = []
         bucket_name = get("AWS_BUCKET_NAME")
-        
-        for plan in all_plans:
-            # Get total days for this plan
-            days = get_days_by_plan_id(db, plan.id)
-            total_days = len(days)
-            
-            # Generate image URL
-            image_url = ""
-            if plan.image_url:
-                try:
-                    image_url = generate_presigned_access_url(
-                        bucket_name=bucket_name,
-                        s3_key=plan.image_url
-                    )
-                except Exception:
-                    pass
-            
-            # Check if user has progress on this plan
-            progress = get_plan_progress_by_user_id_and_plan_id(db, current_user.id, plan.id)
-            started_at = progress.started_at if progress else None
-            
-            plan_dto = UserPlanDTO(
-                id=plan.id,
-                title=plan.title,
-                description=plan.description or "",
-                language=plan.language.value if hasattr(plan.language, 'value') else str(plan.language),
-                difficulty_level=plan.difficulty_level.value if hasattr(plan.difficulty_level, 'value') else str(plan.difficulty_level),
-                image_url=image_url,
-                started_at=started_at,
-                total_days=total_days,
-                tags=tags_to_summary_dtos(plan.tag_list),
-                start_date=plan.start_date,
-                display_order=plan.display_order
-            )
-            plan_dtos.append(plan_dto)
-        
+        all_plans = get_plans_by_series_id(db, series_id)
+        plan_dtos = [
+            _build_series_plan_dto_for_progress(db, plan, current_user.id, bucket_name)
+            for plan in all_plans
+        ]
+
         return UserSeriesProgressResponse(
             id=enrollment.id,
             series_id=series_id,
@@ -812,7 +849,7 @@ def update_user_series_enrollment_service(
             enrollment.auto_enroll_next = update_request.auto_enroll_next
         
         if update_request.status is not None:
-            enrollment.status = SeriesStatus(update_request.status)
+            enrollment.status = update_request.status
         
         update_user_series_enrollment(db, enrollment)
 
