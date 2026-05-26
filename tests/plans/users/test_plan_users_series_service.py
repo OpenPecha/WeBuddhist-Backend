@@ -1,0 +1,706 @@
+import uuid
+from datetime import datetime, timezone
+from types import SimpleNamespace
+from unittest.mock import patch, MagicMock
+
+import pytest
+from fastapi import HTTPException
+
+from pecha_api.plans.plans_enums import SeriesStatus
+from pecha_api.plans.response_message import BAD_REQUEST
+from pecha_api.plans.users.plan_users_response_models import (
+    UserSeriesEnrollRequest,
+    UpdateSeriesEnrollmentRequest,
+)
+from pecha_api.plans.users.plan_users_service import (
+    _generate_presigned_image_url,
+    _compute_series_plan_progress,
+    _build_user_series_enrollment_dto,
+    _build_series_plan_dto_for_progress,
+    enroll_user_in_series,
+    get_user_series_enrollments,
+    get_user_series_progress,
+    update_user_series_enrollment_service,
+    unenroll_user_from_series,
+)
+
+
+def _mock_session_with_db():
+    db_mock = MagicMock()
+    session_cm = MagicMock()
+    session_cm.__enter__.return_value = db_mock
+    return db_mock, session_cm
+
+
+def _mock_series_query(db_mock, series):
+    mock_query = MagicMock()
+    mock_query.filter.return_value.first.return_value = series
+    db_mock.query.return_value = mock_query
+
+
+def test_generate_presigned_image_url_returns_empty_when_no_key():
+    result = _generate_presigned_image_url("bucket", None, uuid.uuid4(), "series")
+    assert result == ""
+
+
+def test_generate_presigned_image_url_success():
+    resource_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
+        return_value="https://signed.example.com/img.jpg",
+    ) as mock_presign:
+        result = _generate_presigned_image_url(
+            "bucket", "images/series.jpg", resource_id, "series"
+        )
+
+    assert result == "https://signed.example.com/img.jpg"
+    mock_presign.assert_called_once_with(bucket_name="bucket", s3_key="images/series.jpg")
+
+
+def test_generate_presigned_image_url_returns_empty_on_error():
+    resource_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
+        side_effect=Exception("S3 error"),
+    ):
+        result = _generate_presigned_image_url(
+            "bucket", "images/series.jpg", resource_id, "series"
+        )
+
+    assert result == ""
+
+
+def test_compute_series_plan_progress_empty_plans():
+    total, completed, percentage = _compute_series_plan_progress([], {})
+    assert total == 0
+    assert completed == 0
+    assert percentage == 0.0
+
+
+def test_compute_series_plan_progress_partial_completion():
+    plan_a_id, plan_b_id = uuid.uuid4(), uuid.uuid4()
+    all_plans = [SimpleNamespace(id=plan_a_id), SimpleNamespace(id=plan_b_id)]
+    progress_by_plan_id = {
+        plan_a_id: SimpleNamespace(is_completed=True),
+        plan_b_id: SimpleNamespace(is_completed=False),
+    }
+
+    total, completed, percentage = _compute_series_plan_progress(all_plans, progress_by_plan_id)
+
+    assert total == 2
+    assert completed == 1
+    assert percentage == 50.0
+
+
+def test_build_user_series_enrollment_dto_with_metadata_and_progress():
+    enrollment_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    current_plan_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+
+    enrollment = SimpleNamespace(
+        id=enrollment_id,
+        user_id=user_id,
+        series_id=series_id,
+        current_plan_id=current_plan_id,
+        enrolled_at=datetime.now(timezone.utc),
+        status=SeriesStatus.ACTIVE,
+        auto_enroll_next=True,
+        is_completed=False,
+        completed_at=None,
+    )
+    series = SimpleNamespace(
+        id=series_id,
+        image="images/series.jpg",
+        metadata_entries=[SimpleNamespace(title="Series Title", description="Series Desc")],
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service._generate_presigned_image_url",
+        return_value="https://signed.example.com/series.jpg",
+    ):
+        dto = _build_user_series_enrollment_dto(
+            enrollment,
+            series,
+            {current_plan_id: "Current Plan"},
+            {series_id: [SimpleNamespace(id=plan_id)]},
+            {plan_id: SimpleNamespace(is_completed=True)},
+            "bucket",
+        )
+
+    assert dto.id == enrollment_id
+    assert dto.series_title == "Series Title"
+    assert dto.series_description == "Series Desc"
+    assert dto.series_image_url == "https://signed.example.com/series.jpg"
+    assert dto.current_plan_title == "Current Plan"
+    assert dto.total_plans == 1
+    assert dto.completed_plans == 1
+    assert dto.progress_percentage == 100.0
+
+
+def test_build_user_series_enrollment_dto_without_metadata():
+    series_id = uuid.uuid4()
+    enrollment = SimpleNamespace(
+        id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        series_id=series_id,
+        current_plan_id=None,
+        enrolled_at=datetime.now(timezone.utc),
+        status="ACTIVE",
+        auto_enroll_next=False,
+        is_completed=False,
+        completed_at=None,
+    )
+    series = SimpleNamespace(id=series_id, image=None, metadata_entries=[])
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service._generate_presigned_image_url",
+        return_value="",
+    ):
+        dto = _build_user_series_enrollment_dto(
+            enrollment, series, {}, {series_id: []}, {}, "bucket"
+        )
+
+    assert dto.series_title == "Untitled Series"
+    assert dto.series_description is None
+    assert dto.current_plan_title is None
+    assert dto.progress_percentage == 0.0
+
+
+def test_build_series_plan_dto_for_progress():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    started_at = datetime.now(timezone.utc)
+    plan = SimpleNamespace(
+        id=plan_id,
+        title="Plan A",
+        description="Desc",
+        language=SimpleNamespace(value="EN"),
+        difficulty_level=SimpleNamespace(value="BEGINNER"),
+        image_url="images/plan.jpg",
+        tag_list=[],
+        start_date=None,
+        display_order=1,
+    )
+    db_mock = MagicMock()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_days_by_plan_id",
+        return_value=[SimpleNamespace(), SimpleNamespace()],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service._generate_presigned_image_url",
+        return_value="https://signed.example.com/plan.jpg",
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=SimpleNamespace(started_at=started_at),
+    ):
+        dto = _build_series_plan_dto_for_progress(db_mock, plan, user_id, "bucket")
+
+    assert dto.id == plan_id
+    assert dto.title == "Plan A"
+    assert dto.total_days == 2
+    assert dto.image_url == "https://signed.example.com/plan.jpg"
+    assert dto.started_at == started_at
+
+
+def test_enroll_user_in_series_success():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    enroll_request = UserSeriesEnrollRequest(series_id=series_id)
+
+    db_mock, session_cm = _mock_session_with_db()
+    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.UserSeriesEnrollment",
+    ) as MockEnrollment, patch(
+        "pecha_api.plans.users.plan_users_service.save_user_series_enrollment",
+    ) as mock_save:
+        constructed = SimpleNamespace(id=uuid.uuid4())
+        MockEnrollment.return_value = constructed
+
+        result = enroll_user_in_series(token="tok", enroll_request=enroll_request)
+
+        assert result is None
+        mock_save.assert_called_once_with(db_mock, constructed)
+
+
+def test_enroll_user_in_series_start_immediately_auto_enrolls_first_plan():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    enrollment_id = uuid.uuid4()
+    enroll_request = UserSeriesEnrollRequest(
+        series_id=series_id, start_immediately=True, auto_enroll_next=True
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+    first_plan = SimpleNamespace(id=plan_id)
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_first_plan_in_series",
+        return_value=first_plan,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.UserSeriesEnrollment",
+    ) as MockEnrollment, patch(
+        "pecha_api.plans.users.plan_users_service.save_user_series_enrollment",
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.auto_enroll_in_next_plan",
+    ) as mock_auto_enroll:
+        constructed = SimpleNamespace(id=enrollment_id)
+        MockEnrollment.return_value = constructed
+
+        enroll_user_in_series(token="tok", enroll_request=enroll_request)
+
+        mock_auto_enroll.assert_called_once_with(db_mock, user_id, plan_id, enrollment_id)
+
+
+def test_enroll_user_in_series_not_found_raises_404():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    enroll_request = UserSeriesEnrollRequest(series_id=series_id)
+
+    db_mock, session_cm = _mock_session_with_db()
+    _mock_series_query(db_mock, None)
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            enroll_user_in_series(token="tok", enroll_request=enroll_request)
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["message"] == "Series not found"
+
+
+def test_enroll_user_in_series_already_enrolled_raises_409():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    enroll_request = UserSeriesEnrollRequest(series_id=series_id)
+
+    db_mock, session_cm = _mock_session_with_db()
+    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=SimpleNamespace(id=uuid.uuid4()),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            enroll_user_in_series(token="tok", enroll_request=enroll_request)
+
+        assert exc_info.value.status_code == 409
+        assert exc_info.value.detail["error"] == BAD_REQUEST
+        assert exc_info.value.detail["message"] == "Already enrolled in series"
+
+
+def test_get_user_series_enrollments_empty():
+    user_id = uuid.uuid4()
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollments_by_user_id",
+        return_value=([], 0),
+    ):
+        result = get_user_series_enrollments(token="tok", skip=0, limit=20)
+
+    assert result.enrollments == []
+    assert result.total == 0
+
+
+def test_get_user_series_enrollments_success():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    enrollment_id = uuid.uuid4()
+    current_plan_id = uuid.uuid4()
+    plan_id = current_plan_id
+
+    enrollment = SimpleNamespace(
+        id=enrollment_id,
+        user_id=user_id,
+        series_id=series_id,
+        current_plan_id=current_plan_id,
+        enrolled_at=datetime.now(timezone.utc),
+        status=SeriesStatus.ACTIVE,
+        auto_enroll_next=True,
+        is_completed=False,
+        completed_at=None,
+    )
+    series = SimpleNamespace(
+        id=series_id,
+        image="images/series.jpg",
+        metadata_entries=[SimpleNamespace(title="My Series", description="Desc")],
+    )
+    plan = SimpleNamespace(id=plan_id, title="Plan 1")
+
+    db_mock, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollments_by_user_id",
+        return_value=([enrollment], 1),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_series_by_ids",
+        return_value=[series],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_series_ids",
+        return_value={series_id: [plan]},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={plan_id: SimpleNamespace(is_completed=True)},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_ids",
+        return_value=[plan],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get",
+        return_value="bucket",
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
+        return_value="https://signed.example.com/series.jpg",
+    ):
+        result = get_user_series_enrollments(
+            token="tok", status_filter="active", skip=0, limit=20
+        )
+
+    assert result.total == 1
+    assert len(result.enrollments) == 1
+    dto = result.enrollments[0]
+    assert dto.series_title == "My Series"
+    assert dto.current_plan_title == "Plan 1"
+    assert dto.completed_plans == 1
+    assert dto.progress_percentage == 100.0
+    assert dto.series_image_url == "https://signed.example.com/series.jpg"
+
+
+def test_get_user_series_enrollments_skips_missing_series():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    enrollment = SimpleNamespace(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        series_id=series_id,
+        current_plan_id=None,
+        enrolled_at=datetime.now(timezone.utc),
+        status=SeriesStatus.ACTIVE,
+        auto_enroll_next=True,
+        is_completed=False,
+        completed_at=None,
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollments_by_user_id",
+        return_value=([enrollment], 1),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_series_by_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_series_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_ids",
+        return_value=[],
+    ):
+        result = get_user_series_enrollments(token="tok")
+
+    assert result.enrollments == []
+
+
+def test_get_user_series_enrollments_presigned_url_error():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    enrollment = SimpleNamespace(
+        id=uuid.uuid4(),
+        user_id=user_id,
+        series_id=series_id,
+        current_plan_id=None,
+        enrolled_at=datetime.now(timezone.utc),
+        status=SeriesStatus.ACTIVE,
+        auto_enroll_next=True,
+        is_completed=False,
+        completed_at=None,
+    )
+    series = SimpleNamespace(
+        id=series_id,
+        image="images/series.jpg",
+        metadata_entries=[],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollments_by_user_id",
+        return_value=([enrollment], 1),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_series_by_ids",
+        return_value=[series],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_series_ids",
+        return_value={series_id: []},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get",
+        return_value="bucket",
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
+        side_effect=Exception("S3 error"),
+    ):
+        result = get_user_series_enrollments(token="tok")
+
+    assert len(result.enrollments) == 1
+    assert result.enrollments[0].series_image_url == ""
+
+
+def test_get_user_series_progress_success():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    enrollment_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+
+    enrollment = SimpleNamespace(
+        id=enrollment_id,
+        enrolled_at=datetime.now(timezone.utc),
+        status=SeriesStatus.ACTIVE,
+        auto_enroll_next=True,
+        current_plan_id=plan_id,
+        is_completed=False,
+        completed_at=None,
+    )
+    series = SimpleNamespace(
+        id=series_id,
+        metadata_entries=[SimpleNamespace(title="Series", description="Desc")],
+    )
+    plan = SimpleNamespace(
+        id=plan_id,
+        title="Plan 1",
+        description="Plan desc",
+        language=SimpleNamespace(value="EN"),
+        difficulty_level=SimpleNamespace(value="BEGINNER"),
+        image_url=None,
+        tag_list=[],
+        start_date=None,
+        display_order=1,
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+    _mock_series_query(db_mock, series)
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=enrollment,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_series_id",
+        return_value=[plan],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get",
+        return_value="bucket",
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_days_by_plan_id",
+        return_value=[SimpleNamespace()],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=SimpleNamespace(started_at=datetime.now(timezone.utc)),
+    ):
+        result = get_user_series_progress(token="tok", series_id=series_id)
+
+    assert result.id == enrollment_id
+    assert result.series_title == "Series"
+    assert len(result.plans) == 1
+    assert result.plans[0].title == "Plan 1"
+    assert result.plans[0].image_url == ""
+
+
+def test_get_user_series_progress_not_enrolled_raises_404():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            get_user_series_progress(token="tok", series_id=series_id)
+
+        assert exc_info.value.status_code == 404
+        assert "Not enrolled" in exc_info.value.detail["message"]
+
+
+def test_get_user_series_progress_series_not_found_raises_404():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+
+    db_mock, session_cm = _mock_session_with_db()
+    _mock_series_query(db_mock, None)
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=SimpleNamespace(id=uuid.uuid4()),
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            get_user_series_progress(token="tok", series_id=series_id)
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["message"] == "Series not found"
+
+
+def test_update_user_series_enrollment_service_success():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    enrollment = SimpleNamespace(
+        auto_enroll_next=True,
+        status=SeriesStatus.ACTIVE,
+    )
+    update_request = UpdateSeriesEnrollmentRequest(
+        auto_enroll_next=False, status=SeriesStatus.PAUSED
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=enrollment,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.update_user_series_enrollment",
+    ) as mock_update:
+        update_user_series_enrollment_service(
+            token="tok", series_id=series_id, update_request=update_request
+        )
+
+        assert enrollment.auto_enroll_next is False
+        assert enrollment.status == SeriesStatus.PAUSED
+        mock_update.assert_called_once_with(db_mock, enrollment)
+
+
+def test_update_user_series_enrollment_service_not_enrolled_raises_404():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            update_user_series_enrollment_service(
+                token="tok",
+                series_id=series_id,
+                update_request=UpdateSeriesEnrollmentRequest(),
+            )
+
+        assert exc_info.value.status_code == 404
+
+
+def test_unenroll_user_from_series_success():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+
+    db_mock, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.delete_user_series_enrollment",
+    ) as mock_delete:
+        result = unenroll_user_from_series(token="tok", series_id=series_id)
+
+        assert result is None
+        mock_delete.assert_called_once_with(db_mock, user_id, series_id)
