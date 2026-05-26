@@ -90,11 +90,26 @@ class TestClassifyText:
 class TestGetOpenpechaSegmentDetailsById:
     @pytest.mark.asyncio
     @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
+        new_callable=AsyncMock,
+    )
+    @patch(
         "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_content",
         new_callable=AsyncMock,
     )
-    async def test_returns_segment_content_without_text_details(self, mock_fetch_content):
+    async def test_returns_segment_content_without_text_details(
+        self,
+        mock_fetch_content,
+        mock_fetch_details,
+        mock_fetch_text,
+    ):
         mock_fetch_content.return_value = "Segment content"
+        mock_fetch_details.return_value = {"text_id": "unused-text-ref"}
+        mock_fetch_text.return_value = None
 
         result = await get_openpecha_segment_details_by_id(segment_id="seg-1")
 
@@ -110,21 +125,24 @@ class TestGetOpenpechaSegmentDetailsById:
         new_callable=AsyncMock,
     )
     @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
+        new_callable=AsyncMock,
+    )
+    @patch(
         "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_content",
         new_callable=AsyncMock,
     )
-    async def test_returns_text_details_when_text_id_provided(
+    async def test_returns_text_details_when_segment_details_include_text_id(
         self,
         mock_fetch_content,
+        mock_fetch_details,
         mock_fetch_text,
     ):
         mock_fetch_content.return_value = "Segment content"
+        mock_fetch_details.return_value = {"text_id": ROOT_TEXT_ID}
         mock_fetch_text.return_value = _root_text(ROOT_TEXT_ID)
 
-        result = await get_openpecha_segment_details_by_id(
-            segment_id="seg-1",
-            text_id=ROOT_TEXT_ID,
-        )
+        result = await get_openpecha_segment_details_by_id(segment_id="seg-1")
 
         assert result.text is not None
         assert result.text.text_id == ROOT_TEXT_ID
@@ -499,7 +517,7 @@ class TestGetRootTextBySegmentIdFromOpenpecha:
                 _related_item("root-seg-2", ROOT_TEXT_ID),
                 _related_item("seg-trans-1", TRANSLATION_TEXT_ID),
             ],
-            has_more=True,
+            has_more=False,
         )
 
         async def content_side_effect(segment_id: str):

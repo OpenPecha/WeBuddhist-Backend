@@ -207,7 +207,6 @@ async def test_generate_segment_content_image_with_segment():
         
         mock_get_segment.assert_awaited_once_with(
             segment_id="em5HPUEMRke2e0Qs2519J",
-            text_id="text_1",
         )
         mock_generate_image.assert_called_once_with(
             text="Test segment content",
