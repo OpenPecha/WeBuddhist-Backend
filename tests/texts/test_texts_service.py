@@ -15,8 +15,6 @@ from pecha_api.texts.texts_service import (
     update_text_details,
     remove_table_of_content_by_text_id,
     delete_text_by_text_id,
-    get_sheet,
-    get_table_of_content_by_sheet_id,
     get_table_of_content_by_type,
     _validate_text_detail_request,
     get_root_text_by_collection_id,
@@ -57,7 +55,6 @@ from pecha_api.texts.texts_response_models import (
 from pecha_api.recitations.recitations_response_models import RecitationDTO, RecitationsResponse
 
 from pecha_api.texts.texts_enums import TextType, PaginationDirection, LANGUAGE_ORDERS
-from pecha_api.sheets.sheets_enum import SortBy, SortOrder
 
 from pecha_api.error_contants import ErrorConstants
 from typing import List
@@ -871,35 +868,6 @@ async def test_delete_text_by_text_id_invalid_text_id():
         assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
 
 @pytest.mark.asyncio
-async def test_get_sheet_success_user_viewing_own_sheets():
-    email = "test_user@gmail.com"
-    mock_sheets = [
-            type("Text", (), {
-                "id": f"sheet_id_{i}",
-                "title": "Test Sheet",
-                "language": "en",
-                "group_id": "group_id",
-                "type": "sheet",
-                "is_published": True if i % 2 == 0 else False,
-                "created_date": "2021-01-01",
-                "updated_date": "2021-01-01",
-                "published_date": "2021-01-01",
-                "published_by": email,
-                "categories": [],
-                "views": 10
-            })()
-            for i in range(1,11)
-        ]
-    with patch("pecha_api.texts.texts_service.fetch_sheets_from_db", new_callable=AsyncMock, return_value=mock_sheets):
-
-        response = await get_sheet(published_by=email, is_published=None, sort_by=None, sort_order=None, skip=0, limit=10)
-
-        assert response is not None
-        assert len(response) == 10
-        for sheet in response:
-            assert sheet.published_by == email
-
-@pytest.mark.asyncio
 async def test_get_text_details_by_text_id_with_text_id_content_id_segment_id_success():
     text_id = "text_id_1"
     content_id = "content_id_1"
@@ -1356,56 +1324,6 @@ async def test_get_text_details_by_text_id_with_content_id_only_success():
         assert len(section.segments) + len(section.sections[0].segments) == 2
         assert section.segments[0].segment_id == "segment_id_1"
         assert response.pagination_direction == PaginationDirection.NEXT
-    
-
-@pytest.mark.asyncio
-async def test_get_table_of_content_by_sheet_id_success():
-    sheet_id = "sheet_id_1"
-    mock_table_of_contents = [
-        TableOfContent(
-            id="content_id_1",
-            text_id=sheet_id,
-            type=TableOfContentType.SHEET,
-            sections=[
-                Section(
-                    id="section_id_1",
-                    title="section_title",
-                    section_number=1,
-                    parent_id="parent_id_1",
-                    segments=[
-                        TextSegment(
-                            segment_id="segment_id_1",
-                            segment_number=1
-                        )
-                    ],
-                    sections=[],
-                    created_date="created_date",
-                    updated_date="updated_date",
-                    published_date="published_date"
-                )
-            ]
-        )
-    ]
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-        patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=mock_table_of_contents), \
-        patch("pecha_api.texts.texts_service.set_table_of_content_by_sheet_id_cache", new_callable=AsyncMock, return_value=None):
-    
-        response = await get_table_of_content_by_sheet_id(sheet_id=sheet_id)
-
-        assert response is not None
-        assert isinstance(response, TableOfContent)
-        assert response.id == "content_id_1"
-
-@pytest.mark.asyncio
-async def test_get_table_of_content_by_sheet_id_invalid_sheet_id():
-    sheet_id = "invalid_sheet_id"
-
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=False):
-        with pytest.raises(HTTPException) as exc_info:
-            await get_table_of_content_by_sheet_id(sheet_id=sheet_id)
-
-        assert exc_info.value.status_code == 404
-        assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
     
 
 @pytest.mark.asyncio
@@ -2789,55 +2707,6 @@ async def test_update_text_details_cache_update_fails():
         # Verify that invalidate was called as fallback
         mock_invalidate.assert_called_once_with(text_id="text_id_1")
 
-@pytest.mark.asyncio  
-async def test_get_table_of_content_by_sheet_id_with_cache():
-    """Test get_table_of_content_by_sheet_id when data is in cache"""
-    sheet_id = "sheet_id_1"
-    cached_toc = TableOfContent(
-        id="content_id_1",
-        text_id=sheet_id,
-        type=TableOfContentType.SHEET,
-        sections=[
-            Section(
-                id="section_id_1",
-                title="section_title",
-                section_number=1,
-                parent_id="parent_id_1",
-                segments=[
-                    TextSegment(
-                        segment_id="segment_id_1",
-                        segment_number=1
-                    )
-                ],
-                sections=[],
-                created_date="created_date",
-                updated_date="updated_date",
-                published_date="published_date"
-            )
-        ]
-    )
-    
-    with patch("pecha_api.texts.texts_service.get_table_of_content_by_sheet_id_cache", new_callable=AsyncMock, return_value=cached_toc):
-        response = await get_table_of_content_by_sheet_id(sheet_id=sheet_id)
-        
-        assert response is not None
-        assert isinstance(response, TableOfContent)
-        assert response.id == "content_id_1"
-
-@pytest.mark.asyncio
-async def test_get_table_of_content_by_sheet_id_no_content():
-    """Test get_table_of_content_by_sheet_id when no content exists"""
-    sheet_id = "sheet_id_1"
-    
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-        patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=[]), \
-        patch("pecha_api.texts.texts_service.get_table_of_content_by_sheet_id_cache", new_callable=AsyncMock, return_value=None):
-        
-        response = await get_table_of_content_by_sheet_id(sheet_id=sheet_id)
-        
-        assert response is None
-
-
 @pytest.mark.asyncio
 async def test_get_text_by_text_id_or_collection_with_cache():
     """Test get_text_by_text_id_or_collection fetches text (cache is currently disabled in code)"""
@@ -2866,42 +2735,6 @@ async def test_get_text_by_text_id_or_collection_with_cache():
         assert isinstance(response, TextDTO)
         assert response.id == text_id
         assert response.title == "Test Text"
-
-
-@pytest.mark.asyncio
-async def test_get_sheet_with_filters():
-    """Test get_sheet with various filter parameters"""
-    mock_sheets = [
-        TextDTO(
-            id="sheet_id_1",
-            title="Sheet 1",
-            language="bo",
-            group_id="group_id_1",
-            type="sheet",
-            is_published=True,
-            created_date="2025-03-21 09:40:34.025024",
-            updated_date="2025-03-21 09:40:34.025035",
-            published_date="2025-03-21 09:40:34.025038",
-            published_by="user_1",
-            categories=[],
-            views=10
-        )
-    ]
-    
-    with patch("pecha_api.texts.texts_service.fetch_sheets_from_db", new_callable=AsyncMock, return_value=mock_sheets):
-        result = await get_sheet(
-            published_by="user_1",
-            is_published=True,
-            sort_by=SortBy.CREATED_DATE,
-            sort_order=SortOrder.DESC,
-            skip=0,
-            limit=10
-        )
-        
-        assert result is not None
-        assert isinstance(result, list)
-        assert len(result) == 1
-        assert result[0].id == "sheet_id_1"
 
 
 @pytest.mark.asyncio
@@ -2950,25 +2783,6 @@ async def test_remove_table_of_content_by_text_id_success():
         await remove_table_of_content_by_text_id(text_id=text_id)
         
         mock_delete.assert_called_once_with(text_id=text_id)
-
-
-@pytest.mark.asyncio
-async def test_get_table_of_content_by_sheet_id_with_cache():
-    """Test get_table_of_content_by_sheet_id returns cached data"""
-    sheet_id = "sheet_id_1"
-    cached_toc = TableOfContent(
-        id="toc_id_1",
-        text_id=sheet_id,
-        type=TableOfContentType.SHEET,
-        sections=[]
-    )
-    
-    with patch("pecha_api.texts.texts_service.get_table_of_content_by_sheet_id_cache", new_callable=AsyncMock, return_value=cached_toc):
-        result = await get_table_of_content_by_sheet_id(sheet_id=sheet_id)
-        
-        assert result is not None
-        assert isinstance(result, TableOfContent)
-        assert result.id == "toc_id_1"
 
 
 @pytest.mark.asyncio

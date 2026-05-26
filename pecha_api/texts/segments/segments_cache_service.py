@@ -2,7 +2,6 @@ from pecha_api.utils import Utils
 from pecha_api.cache.cache_repository import (
     get_cache_data,
     set_cache,
-    clear_cache
 )
 from pecha_api import config
 from .segments_response_models import (
@@ -24,8 +23,3 @@ async def set_segments_details_by_ids_cache(segment_ids: List[str] = None, cache
     hashed_key: str = Utils.generate_hash_key(payload = payload)
     cache_time_out = config.get_int("CACHE_TEXT_TIMEOUT")
     await set_cache(hash_key=hashed_key, value=data, cache_time_out=cache_time_out)
-
-async def delete_segments_details_by_ids_cache(segment_ids: List[str] = None, cache_type: CacheType = None):
-    payload = list(segment_ids) + [cache_type]
-    hashed_key: str = Utils.generate_hash_key(payload = payload)
-    await clear_cache(hash_key = hashed_key)

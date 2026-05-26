@@ -15,7 +15,6 @@ from .texts_repository import (
     delete_table_of_content_by_text_id,
     update_text_details_by_id,
     delete_text_by_id,
-    fetch_sheets_from_db,
     get_all_texts_by_collection,
     get_all_recitation_texts_by_collection,
     get_texts_by_pecha_text_ids,
@@ -71,17 +70,10 @@ from pecha_api.texts.texts_cache_service import (
     set_table_of_contents_by_text_id_cache,
     get_text_versions_by_group_id_cache,
     set_text_versions_by_group_id_cache,
-    get_table_of_content_by_sheet_id_cache,
-    set_table_of_content_by_sheet_id_cache,
-    delete_table_of_content_by_sheet_id_cache,
     update_text_details_cache,
     invalidate_text_cache_on_update
 )
 from .segments.segments_repository import get_segments_by_text_id
-from pecha_api.sheets.sheets_enum import (
-    SortBy,
-    SortOrder
-)
 from pecha_api.cache.cache_enums import CacheType
 
 from .texts_utils import TextUtils
@@ -215,37 +207,6 @@ async def get_titles_and_ids_by_query(
     texts = await get_texts_by_titles(titles=unique_titles)
     return [TitleSearchResult(id=str(text.id), title=text.title) for text in texts]
 
-
-async def get_sheet(published_by: Optional[str] = None, is_published: Optional[bool] = None, sort_by: Optional[SortBy] = None, sort_order: Optional[SortOrder] = None, skip: int = 0, limit: int = 10):
-    
-    sheets = await fetch_sheets_from_db(
-        published_by=published_by,
-        is_published=is_published,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        skip=skip,
-        limit=limit
-    )
-    return sheets
-
-async def get_table_of_content_by_sheet_id(sheet_id: str) -> Optional[TableOfContent]:
-    cached_data: TableOfContent = await get_table_of_content_by_sheet_id_cache(sheet_id=sheet_id, cache_type=CacheType.SHEET_TABLE_OF_CONTENT)
-    if cached_data is not None:
-        return cached_data
-    
-    table_of_content = None
-    is_valid_sheet: bool = await TextUtils.validate_text_exists(text_id=sheet_id)
-    if not is_valid_sheet:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
-    
-    table_of_contents: List[TableOfContent] = await get_contents_by_id(text_id=sheet_id)
-    if len(table_of_contents) > 0 and table_of_contents[0] is not None:
-        table_of_content: TableOfContent = table_of_contents[0]
-    
-    if table_of_content is not None:
-        await set_table_of_content_by_sheet_id_cache(sheet_id=sheet_id, cache_type=CacheType.SHEET_TABLE_OF_CONTENT, data=table_of_content)
-    
-    return table_of_content
 
 async def get_table_of_contents_by_text_id(text_id: str, language: str = None, skip: int = 0, limit: int = 10) -> TableOfContentResponse:
     

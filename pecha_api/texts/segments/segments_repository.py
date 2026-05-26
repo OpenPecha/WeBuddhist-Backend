@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pecha_api.constants import Constants
 from .segments_models import Segment
-from .segments_response_models import CreateSegmentRequest, SegmentDTO, MappingResponse
+from .segments_response_models import SegmentDTO, MappingResponse
 import logging
 from beanie.exceptions import CollectionWasNotInitialized
 from typing import List, Dict, Optional
@@ -71,22 +71,6 @@ async def get_segments_by_ids(segment_ids: List[str]) -> Dict[str, SegmentDTO]:
         return {}
 
 
-async def create_segment(create_segment_request: CreateSegmentRequest) -> List[Segment]:
-    new_segment_list = [
-        Segment(
-            pecha_segment_id=segment.pecha_segment_id,
-            text_id=create_segment_request.text_id,
-            content=segment.content,
-            mapping=segment.mapping,
-            type=segment.type
-        )
-        for segment in create_segment_request.segments
-    ]
-    # Store the insert result but don't return it directly
-    await Segment.insert_many(new_segment_list)
-
-    return new_segment_list
-
 async def get_related_mapped_segments(parent_segment_id: str) -> List[SegmentDTO]:
     try:
         segments = await Segment.get_related_mapped_segments(parent_segment_id=parent_segment_id)
@@ -122,10 +106,3 @@ async def get_related_mapped_segments_batch(
     except CollectionWasNotInitialized as e:
         logging.debug(e)
         return {}
-
-async def delete_segments_by_text_id(text_id: str):
-    try:
-        await Segment.delete_segment_by_text_id(text_id=text_id)
-    except CollectionWasNotInitialized as e:
-        logging.debug(e)
-        return False

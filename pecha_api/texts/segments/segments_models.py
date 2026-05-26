@@ -110,10 +110,6 @@ class Segment(Document):
         return await cls.find(query).to_list()
 
     @classmethod
-    async def delete_segment_by_text_id(cls, text_id: str):
-        return await cls.find(cls.text_id == text_id).delete()
-
-    @classmethod
     async def get_related_mapped_segments_batch(
         cls, 
         parent_segment_ids: List[str],

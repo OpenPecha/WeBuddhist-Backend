@@ -17,10 +17,6 @@ class CacheType(Enum):
 
     GROUP_DETAIL = "group_detail"
 
-    SHEETS = "sheets"
-    SHEET_DETAIL = "sheet_detail"
-    SHEET_TABLE_OF_CONTENT = "sheet_table_of_content"
-
     USER_INFO = "user_info"
 
     TOPICS = "topics"
