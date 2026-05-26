@@ -11,7 +11,6 @@ from pecha_api.terms import terms_views
 from pecha_api.texts import texts_views
 from pecha_api.topics import topics_views
 from pecha_api.users import users_views
-from pecha_api.texts.mappings import mappings_views
 from pecha_api.texts.groups import groups_views
 from pecha_api.share import share_views
 from pecha_api.search import search_views
@@ -53,7 +52,6 @@ api.include_router(texts_views.text_router)
 api.include_router(groups_views.group_router)
 api.include_router(topics_views.topics_router)
 api.include_router(users_views.user_router)
-api.include_router(mappings_views.mapping_router)
 api.include_router(search_views.search_router)
 api.include_router(share_views.share_router)
 api.include_router(plan_auth_views.plan_auth_router)

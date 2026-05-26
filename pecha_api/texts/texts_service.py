@@ -5,13 +5,11 @@ from pecha_api.error_contants import ErrorConstants
 from pecha_api.http_message_utils import handle_http_status_error, handle_request_error
 from .texts_repository import (
     get_all_texts_by_collection,
-    get_texts_by_collection,
     get_texts_by_group_id,
     create_text,
     create_table_of_content_detail,
     get_contents_by_id,
     get_table_of_content_by_content_id,
-    get_sections_count_of_table_of_content,
     delete_table_of_content_by_text_id,
     update_text_details_by_id,
     delete_text_by_id,
@@ -62,13 +60,8 @@ from .groups.groups_service import (
 )
 from .segments.segments_models import Segment
 from pecha_api.texts.texts_cache_service import (
-    set_text_details_cache,
-    get_text_details_cache,
     get_text_by_text_id_or_collection_cache,
     set_text_by_text_id_or_collection_cache,
-    get_table_of_contents_by_text_id_cache,
-    set_table_of_contents_by_text_id_cache,
-    get_text_versions_by_group_id_cache,
     set_text_versions_by_group_id_cache,
     update_text_details_cache,
     invalidate_text_cache_on_update
@@ -87,7 +80,7 @@ from .segments.segments_utils import SegmentUtils
 from typing import List, Dict, Optional, Tuple, Set
 from pecha_api.config import get
 from pecha_api.utils import Utils
-from .texts_enums import PaginationDirection, LANGUAGE_ORDERS, TextType, TextTypes
+from .texts_enums import PaginationDirection, TextType, TextTypes
 
 import logging
 import httpx

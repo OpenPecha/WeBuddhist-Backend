@@ -24,9 +24,6 @@ class MappedSegmentDTO(BaseModel):
     segment_id: str
     content: str
 
-class SegmentResponse(BaseModel):
-    segments: List[SegmentDTO]
-
 class ParentSegment(BaseModel):
     segment_id: str
     content: str
@@ -64,9 +61,6 @@ class SegmentAdaptation(BaseModel):
     language: str
     content: str
 
-class SegmentTranslationsResponse(BaseModel):
-    parent_segment: ParentSegment
-    translations: List[SegmentTranslation]
 
 # segment commentary models
 class SegmentCommentry(BaseModel):
@@ -76,9 +70,6 @@ class SegmentCommentry(BaseModel):
     language: str
     count: int
 
-class SegmentCommentariesResponse(BaseModel):
-    parent_segment: ParentSegment
-    commentaries: List[SegmentCommentry]
 
 class MappedSegmentResponseDTO(BaseModel):
     segment_id: str
@@ -89,11 +80,6 @@ class SegmentRootMapping(BaseModel):
     title: str
     language: str
     segments: List[MappedSegmentResponseDTO]
-
-class SegmentRootMappingResponse(BaseModel):
-    parent_segment: ParentSegment
-    segment_root_mapping: List[SegmentRootMapping]
-
 
 class V2RelatedSegmentItem(BaseModel):
     id: str

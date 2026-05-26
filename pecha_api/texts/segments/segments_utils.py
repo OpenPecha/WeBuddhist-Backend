@@ -2,20 +2,17 @@ from typing import Dict, List, Optional, Union
 from uuid import UUID
 from fastapi import HTTPException
 from starlette import status
-import bophono
-from botok.tokenizers.wordtokenizer import WordTokenizer
 
 
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.texts.texts_enums import TextType
-from .segments_response_models import MappedSegmentDTO, MappedSegmentResponseDTO, SegmentDTO, SegmentCommentry, SegmentTranslation, SegmentTransliteration, SegmentAdaptation, SegmentRootMapping, SegmentRecitation
+from .segments_response_models import MappedSegmentDTO, SegmentDTO, SegmentCommentry, SegmentTranslation, SegmentAdaptation
 from .segments_repository import (
     check_segment_exists,
     check_all_segment_exists,
     get_segment_by_id,
     get_related_mapped_segments,
 )
-from ..texts_response_models import TextDTO
 from ..texts_repository import get_contents_by_id
 from pecha_api.constants import Constants
 
@@ -33,8 +30,6 @@ from .segments_response_models import (
     SegmentTranslation,
     SegmentTransliteration,
     SegmentAdaptation,
-    SegmentRootMapping,
-    SegmentRecitation
 )
 
 def _extract_segment_order(section, segment_order_map: Dict[str, int]):

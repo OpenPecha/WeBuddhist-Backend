@@ -12,13 +12,6 @@ from fastapi import HTTPException
 from starlette import status
 from pecha_api.error_contants import ErrorConstants
 
-async def get_segments_by_pecha_segment_ids(pecha_segment_ids: List[str]) -> List[SegmentDTO]:
-    try:
-        return await Segment.get_segments_by_pecha_segment_ids(pecha_segment_ids=pecha_segment_ids)
-    except CollectionWasNotInitialized as e:
-        logging.debug(e)
-        return []
-
 async def get_segment_by_id(segment_id: str) -> SegmentDTO | None:
     try:
         segment = await Segment.get_segment_by_id(segment_id=segment_id)
