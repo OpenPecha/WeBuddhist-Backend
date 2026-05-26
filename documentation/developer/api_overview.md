@@ -16,7 +16,7 @@ Routers are included in `pecha_api/app.py`:
 - Plans: public, users, CMS, items, tasks, featured
 - Share: `pecha_api/share/share_views.py`
 - Uploading: text uploader, cataloger, metadata
-- Recitations: recitations APIs
+- User recitations: saved recitation texts per user (under plans)
 
 ### Utility Endpoints
 

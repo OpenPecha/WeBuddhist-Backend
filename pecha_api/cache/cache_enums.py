@@ -1,7 +1,6 @@
 from enum import Enum
 
 class CacheType(Enum):
-    RECITATION_DETAILS = "recitation_details"
     TEXT_DETAIL = "text_detail"
     TEXT_VERSIONS = "text_versions"
     TEXTS_BY_ID_OR_COLLECTION = "texts_by_id_or_collection"

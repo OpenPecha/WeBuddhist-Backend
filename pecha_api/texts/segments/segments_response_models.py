@@ -1,85 +1,9 @@
 from pydantic import BaseModel
 from typing import List, Optional
 
-from .segments_models import Mapping
-
-from .segments_enum import SegmentType
-from pecha_api.texts.texts_response_models import TextDTO
-
-
-class MappingResponse(BaseModel):
-    text_id: str
-    segments: List[str]
-
-class SegmentDTO(BaseModel):
-    id: str
-    pecha_segment_id: Optional[str] = None
-    text_id: str
-    content: str
-    type: SegmentType
-    mapping: Optional[List[MappingResponse]] = None
-    text: Optional[TextDTO] = None
-
-class MappedSegmentDTO(BaseModel):
-    segment_id: str
-    content: str
-
 class ParentSegment(BaseModel):
     segment_id: str
     content: str
-
-# segment translation models
-class SegmentTranslation(BaseModel):
-    segment_id: str
-    text_id: str
-    title: str
-    source: str
-    language: str
-    content: str
-
-class SegmentRecitation(BaseModel):
-    segment_id: str
-    text_id: str
-    title: str
-    source: str
-    language: str
-    content: str
-
-class SegmentTransliteration(BaseModel):
-    segment_id: str
-    text_id: str
-    title: str
-    source: str
-    language: str
-    content: str
-
-class SegmentAdaptation(BaseModel):
-    segment_id: str
-    text_id: str
-    title: str
-    source: str
-    language: str
-    content: str
-
-
-# segment commentary models
-class SegmentCommentry(BaseModel):
-    text_id: str
-    title: str
-    segments: List[MappedSegmentDTO]
-    language: str
-    count: int
-
-
-class MappedSegmentResponseDTO(BaseModel):
-    segment_id: str
-    content: str
-
-class SegmentRootMapping(BaseModel):
-    text_id: str
-    title: str
-    language: str
-    segments: List[MappedSegmentResponseDTO]
 
 class V2RelatedSegmentItem(BaseModel):
     id: str

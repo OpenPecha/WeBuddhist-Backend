@@ -28,7 +28,6 @@ from pecha_api.plans.items import plan_items_views
 from pecha_api.plans.authors import plan_authors_views as plan_authors_views
 from pecha_api.plans.featured import featured_day_views
 from pecha_api.plans.dashboard import dashboard_views as cms_dashboard_views
-from pecha_api.recitations import recitations_view
 from pecha_api.user_follows import user_follow_views
 from pecha_api.plans.users.recitation import user_recitations_views
 from pecha_api.cataloger import cataloger_views
@@ -68,7 +67,6 @@ api.include_router(plan_tasks_views.plans_router)
 api.include_router(plan_sub_tasks_views.sub_tasks_router)
 api.include_router(plan_authors_views.author_router)
 api.include_router(featured_day_views.user_follow_router)
-api.include_router(recitations_view.recitation_router)
 api.include_router(user_follow_views.user_follow_router)
 api.include_router(user_recitations_views.user_recitation_router)
 api.include_router(cataloger_views.cataloger_router)

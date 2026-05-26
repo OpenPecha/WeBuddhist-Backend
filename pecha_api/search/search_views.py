@@ -59,9 +59,9 @@ async def multilingual_search(
         limit=limit
     )
 
-@search_router.get("/chat/{pecha_segment_id}", status_code=status.HTTP_200_OK)
-async def get_url_link(pecha_segment_id: str) -> SegmentLinkResponse:
-    return await get_url_link_service(pecha_segment_id)
+@search_router.get("/chat/{segment_id}", status_code=status.HTTP_200_OK)
+async def get_url_link(segment_id: str) -> SegmentLinkResponse:
+    return await get_url_link_service(segment_id)
 
 
 @search_router.get("/plans", status_code=status.HTTP_200_OK)

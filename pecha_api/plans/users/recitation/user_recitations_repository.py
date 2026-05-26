@@ -8,6 +8,15 @@ from uuid import UUID
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST, NOT_FOUND
 from pecha_api.plans.users.recitation.user_recitations_models import UserRecitations
+from pecha_api.texts.text_images_models import TextImage
+
+def get_text_images_by_text_ids(db: Session, text_ids: List[str]) -> Dict[str, str]:
+    if not text_ids:
+        return {}
+
+    text_images = db.query(TextImage).filter(TextImage.text_id.in_(text_ids)).all()
+    return {img.text_id: img.image_url for img in text_images}
+
 
 def save_user_recitation(db: Session, user_recitations: UserRecitations) -> None:
     try:

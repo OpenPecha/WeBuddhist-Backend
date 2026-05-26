@@ -163,17 +163,6 @@ class Text(Document):
         ).to_list()
 
     @classmethod
-    async def get_all_recitation_texts_by_collection_id(cls, collection_id: str, language: str):
-        
-        query = {
-            "categories": collection_id,
-            "language": language
-        }
-        return await cls.find(
-            query
-        ).to_list()
-
-    @classmethod
     async def get_texts_by_group_id(cls, group_id: str, skip: int, limit: int) -> List["Text"]:
         query = {
             "group_id": group_id

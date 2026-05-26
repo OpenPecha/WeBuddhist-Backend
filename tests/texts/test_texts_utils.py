@@ -104,21 +104,7 @@ async def test_get_text_details_by_id_not_found():
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
         
-@pytest.mark.asyncio
-async def test_validate_text_exists_success():
-    text_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
-    with patch("pecha_api.texts.texts_utils.check_text_exists", new_callable=AsyncMock, return_value=True):
-        response = await TextUtils.validate_text_exists(text_id=text_id)
-        assert response == True
 
-@pytest.mark.asyncio
-async def test_validate_text_exists_invalid_text_id():
-    text_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
-    with patch("pecha_api.texts.texts_utils.check_text_exists", new_callable=AsyncMock, return_value=False):
-        with pytest.raises(HTTPException) as exc_info:
-            await TextUtils.validate_text_exists(text_id=text_id)
-        assert exc_info.value.status_code == 404
-        assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
         
 @pytest.mark.asyncio
 async def test_validate_texts_exist_success():

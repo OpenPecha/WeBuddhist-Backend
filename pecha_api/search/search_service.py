@@ -1,5 +1,6 @@
 from elastic_transport import ObjectApiResponse
 from fastapi import HTTPException
+from openpecha_api.segments.openpecha_segment_service import fetch_segment_details
 from starlette import status
 
 from pecha_api.plans.response_message import NO_SEGMENTATION_IDS_RETURNED
@@ -7,7 +8,6 @@ from .search_enums import SearchType
 from .search_client import search_client
 from pecha_api.config import get
 from typing import List, Dict, Optional
-from pecha_api.texts.segments.segments_models import Segment
 from pecha_api.texts.texts_models import Text
 
 from pecha_api.http_message_utils import handle_http_status_error, handle_request_error
@@ -19,7 +19,6 @@ from .search_response_models import (
     SegmentMatch,
     SourceResultItem,
     Search,
-    SheetResultItem,
     ExternalSearchResponse,
     MultilingualSegmentMatch,
     MultilingualSourceResult,
@@ -210,8 +209,8 @@ def build_search_payload(
     return payload
 
 
-def group_segments_by_text(segments: List[Segment]) -> Dict[str, List[Segment]]:
-    text_segments_map: Dict[str, List[Segment]] = {}
+def group_segments_by_text(segments):
+    text_segments_map = {}
     for segment in segments:
         if segment.text_id not in text_segments_map:
             text_segments_map[segment.text_id] = []
@@ -233,7 +232,7 @@ async def fetch_text_info(text_ids: List[str]) -> Dict[str, TextIndex]:
     return text_info_map
 
 
-def build_segment_matches(segments: List[Segment], results_map: Dict[str, Dict]) -> List[MultilingualSegmentMatch]:
+def build_segment_matches(segments, results_map: Dict[str, Dict]) -> List[MultilingualSegmentMatch]:
     segment_matches = []
     for segment in segments:
         pecha_id = segment.pecha_segment_id
@@ -322,21 +321,6 @@ def apply_pagination_to_sources(
     return paginated_sources
 
 
-async def fetch_segments_by_ids(
-    segmentation_ids: List[str],
-    text_id: Optional[str]
-) -> List[Segment]:
-    segments = await Segment.get_segments_by_pecha_ids(
-        pecha_segment_ids=segmentation_ids,
-        text_id=text_id
-    )
-    
-    if not segments:
-        logger.warning(f"No internal segments found for {len(segmentation_ids)} segmentation IDs")
-    
-    return segments
-
-
 async def get_multilingual_search_results(
     query: str,
     search_type: str = "hybrid",
@@ -362,7 +346,7 @@ async def get_multilingual_search_results(
             logger.info(NO_SEGMENTATION_IDS_RETURNED)
             return create_empty_search_response(query, search_type, skip, limit)
         
-        segments = await fetch_segments_by_ids(segmentation_ids, text_id)
+        segments = [] # to be fix later using new approach.
         
         if not segments:
             return create_empty_search_response(query, search_type, skip, limit)
@@ -416,7 +400,7 @@ async def call_external_search_api(
 
 
 
-async def build_multilingual_sources(segments: List[Segment], results_map: Dict[str, Dict]) -> List[MultilingualSourceResult]:
+async def build_multilingual_sources(segments, results_map: Dict[str, Dict]) -> List[MultilingualSourceResult]:
     text_segments_map = group_segments_by_text(segments)
     text_info_map = await fetch_text_info(list(text_segments_map.keys()))
     
@@ -436,12 +420,9 @@ async def build_multilingual_sources(segments: List[Segment], results_map: Dict[
     
     return sources
 
-async def get_url_link(pecha_segment_id: str) -> SegmentLinkResponse:
+async def get_url_link(segment_id: str) -> SegmentLinkResponse:
     try:
-        segment = await Segment.get_segment_by_pecha_segment_id(pecha_segment_id=pecha_segment_id)
-
-        if not segment:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pecha segment not found")
+        segment = await fetch_segment_details(segment_id)
 
         return SegmentLinkResponse(
             text_id=segment.text_id,
