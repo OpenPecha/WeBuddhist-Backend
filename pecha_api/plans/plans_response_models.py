@@ -16,6 +16,8 @@ class CreatePlanRequest(BaseModel):
     image_url: Optional[str] = None
     tag_ids: Optional[List[UUID]] = []
     start_date: Optional[datetime] = None
+    series_id: Optional[UUID] = None
+    display_order: Optional[int] = None
 
 class UpdatePlanRequest(BaseModel):
     title: Optional[str] = None
@@ -26,6 +28,8 @@ class UpdatePlanRequest(BaseModel):
     image_url: Optional[str] = None
     tag_ids: Optional[List[UUID]] = None
     start_date: Optional[datetime] = None
+    series_id: Optional[UUID] = None
+    display_order: Optional[int] = None
 
 class PlanStatusUpdate(BaseModel):
     status: PlanStatus
