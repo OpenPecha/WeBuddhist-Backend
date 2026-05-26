@@ -10,9 +10,10 @@ from pecha_api.config import get
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 
 from pecha_api.error_contants import ErrorConstants
-from pecha_api.plans.plans_enums import UserPlanStatus
+from pecha_api.plans.plans_enums import UserPlanStatus, EnrollmentSource, SeriesStatus
 from pecha_api.plans.shared.utils import load_plans_from_json, convert_plan_model_to_dto
-from pecha_api.plans.users.plan_users_models import UserPlanProgress, UserSubTaskCompletion, UserTaskCompletion, UserDayCompletion
+from pecha_api.plans.users.plan_users_models import UserPlanProgress, UserSubTaskCompletion, UserTaskCompletion, UserDayCompletion, UserSeriesEnrollment
+from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.users.plan_users_response_models import (
     UserPlanDayCompletionStatus,
     UserPlanDayCompletionStatusResponse,
@@ -22,7 +23,12 @@ from pecha_api.plans.users.plan_users_response_models import (
     UserSubTaskDTO,
     UserPlansResponse,
     UserPlanDTO,
-    UserPlanProgressResponse
+    UserPlanProgressResponse,
+    UserSeriesEnrollRequest,
+    UserSeriesEnrollmentDTO,
+    UserSeriesEnrollmentsResponse,
+    UserSeriesProgressResponse,
+    UpdateSeriesEnrollmentRequest
 )
 
 
@@ -47,7 +53,7 @@ from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 
-from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_day_with_tasks_and_subtasks
+from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_day_with_tasks_and_subtasks, get_plan_item_by_id
 from pecha_api.plans.response_message import (
     ALREADY_COMPLETED_SUB_TASK, 
     BAD_REQUEST, PLAN_NOT_FOUND, 
@@ -70,11 +76,129 @@ from pecha_api.plans.users.plan_users_progress_repository import (
     get_user_enrolled_plans_with_details,
     delete_user_plan_progress
 )
+from pecha_api.plans.users.plan_user_series_repository import (
+    get_user_series_enrollment_by_user_and_series,
+    get_next_plan_in_series,
+    update_current_plan_in_series,
+    mark_series_enrollment_completed,
+    is_series_completed_for_user,
+    save_user_series_enrollment,
+    get_user_series_enrollments_by_user_id,
+    delete_user_series_enrollment,
+    update_user_series_enrollment,
+    get_first_plan_in_series,
+    get_plans_by_series_id
+)
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.config import get
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Helper functions for enrollment checking
+
+def is_user_enrolled_in_plan(db: SessionLocal, user_id: UUID, plan_id: UUID) -> bool:
+    """Check if user is enrolled in a plan (either directly or through series enrollment)"""
+    # Check direct enrollment
+    direct_enrollment = get_plan_progress_by_user_id_and_plan_id(db, user_id, plan_id)
+    if direct_enrollment:
+        return True
+    
+    # Check virtual enrollment through series
+    plan = get_plan_by_id(db, plan_id)
+    if plan and plan.series_id:
+        series_enrollment = get_user_series_enrollment_by_user_and_series(db, user_id, plan.series_id)
+        return series_enrollment is not None
+    
+    return False
+
+
+def get_or_create_plan_progress(db: SessionLocal, user_id: UUID, plan_id: UUID) -> Optional[UserPlanProgress]:
+    """Get existing plan progress or create virtual one for series-enrolled users"""
+    # Check for existing direct enrollment
+    existing_progress = get_plan_progress_by_user_id_and_plan_id(db, user_id, plan_id)
+    if existing_progress:
+        return existing_progress
+    
+    # Check for series enrollment and create virtual progress if needed
+    plan = get_plan_by_id(db, plan_id)
+    if plan and plan.series_id:
+        series_enrollment = get_user_series_enrollment_by_user_and_series(db, user_id, plan.series_id)
+        if series_enrollment:
+            # Create progress record for series-enrolled user
+            new_progress = UserPlanProgress(
+                user_id=user_id,
+                plan_id=plan_id,
+                enrollment_source=EnrollmentSource.SERIES,
+                series_enrollment_id=series_enrollment.id,
+                auto_enrolled=True,
+                auto_enrolled_at=datetime.now(timezone.utc),
+                status=UserPlanStatus.NOT_STARTED,
+                started_at=datetime.now(timezone.utc),
+                created_at=datetime.now(timezone.utc),
+                is_completed=False,
+            )
+            return save_plan_progress(db, new_progress)
+    
+    return None
+
+
+def handle_plan_completion_and_series_progression(db: SessionLocal, user_id: UUID, completed_plan_id: UUID):
+    """Handle plan completion and check for series auto-progression"""
+    # Mark plan as completed (this should be called from existing completion logic)
+    plan_progress = get_plan_progress_by_user_id_and_plan_id(db, user_id, completed_plan_id)
+    if not plan_progress:
+        return
+    
+    # Mark plan progress as completed
+    plan_progress.is_completed = True
+    plan_progress.completed_at = datetime.now(timezone.utc)
+    plan_progress.status = UserPlanStatus.COMPLETED
+    save_plan_progress(db, plan_progress)
+    
+    # Check if this was part of a series enrollment
+    if plan_progress.series_enrollment_id:
+        series_enrollment = db.query(UserSeriesEnrollment).filter(
+            UserSeriesEnrollment.id == plan_progress.series_enrollment_id
+        ).first()
+        
+        if series_enrollment and series_enrollment.auto_enroll_next:
+            # Find next plan in series
+            next_plan = get_next_plan_in_series(db, series_enrollment.series_id, completed_plan_id)
+            
+            if next_plan:
+                # Auto-enroll in next plan
+                auto_enroll_in_next_plan(db, user_id, next_plan.id, series_enrollment.id)
+                # Update current plan in series enrollment
+                update_current_plan_in_series(db, user_id, series_enrollment.series_id, next_plan.id)
+            else:
+                # No more plans - mark series as completed
+                if is_series_completed_for_user(db, user_id, series_enrollment.series_id):
+                    mark_series_enrollment_completed(db, user_id, series_enrollment.series_id)
+
+
+def auto_enroll_in_next_plan(db: SessionLocal, user_id: UUID, plan_id: UUID, series_enrollment_id: UUID):
+    """Auto-enrolls user in next plan of a series"""
+    # Check if already has progress record (avoid duplicates)
+    existing_progress = get_plan_progress_by_user_id_and_plan_id(db, user_id, plan_id)
+    if existing_progress:
+        return existing_progress
+    
+    # Create progress record for next plan
+    new_progress = UserPlanProgress(
+        user_id=user_id,
+        plan_id=plan_id,
+        enrollment_source=EnrollmentSource.SERIES,
+        series_enrollment_id=series_enrollment_id,
+        auto_enrolled=True,
+        auto_enrolled_at=datetime.now(timezone.utc),
+        status=UserPlanStatus.NOT_STARTED,
+        started_at=datetime.now(timezone.utc),
+        created_at=datetime.now(timezone.utc),
+        is_completed=False,
+    )
+    return save_plan_progress(db, new_progress)
+
 
 async def get_user_enrolled_plans(token: str,status_filter: Optional[str] = None,skip: int = 0,limit: int = 20) -> UserPlansResponse:
 
@@ -132,7 +256,7 @@ async def get_user_enrolled_plans(token: str,status_filter: Optional[str] = None
 
 
 def enroll_user_in_plan(token: str, enroll_request: UserPlanEnrollRequest) -> None:
-    """Enroll user in a plan"""
+    """Enroll user in a plan (direct enrollment)"""
     current_user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         plan_model = get_plan_by_id(db=db, plan_id=enroll_request.plan_id)
@@ -141,8 +265,9 @@ def enroll_user_in_plan(token: str, enroll_request: UserPlanEnrollRequest) -> No
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=ResponseError(error=BAD_REQUEST, message=PLAN_NOT_FOUND).model_dump()
             )
-        existing_enrollment = get_plan_progress_by_user_id_and_plan_id(db=db, user_id=current_user.id, plan_id=enroll_request.plan_id)
-        if existing_enrollment:
+        
+        # Check if user is already enrolled (either directly or through series)
+        if is_user_enrolled_in_plan(db, current_user.id, enroll_request.plan_id):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=ResponseError(error=BAD_REQUEST, message=ALREADY_ENROLLED_IN_PLAN).model_dump()
@@ -151,9 +276,12 @@ def enroll_user_in_plan(token: str, enroll_request: UserPlanEnrollRequest) -> No
         new_progress = UserPlanProgress(
             user_id=current_user.id,
             plan_id=plan_model.id,
+            enrollment_source=EnrollmentSource.DIRECT,  # Mark as direct enrollment
+            series_enrollment_id=None,
+            auto_enrolled=False,
             streak_count=0,
             longest_streak=0,
-            status= UserPlanStatus.NOT_STARTED,
+            status=UserPlanStatus.NOT_STARTED,
             started_at=datetime.now(timezone.utc),
             created_at=datetime.now(timezone.utc), 
             is_completed=False,
@@ -203,7 +331,10 @@ def get_user_plan_progress(token: str, plan_id: UUID) -> UserPlanProgressRespons
         plan_image_url = None
         if plan.image_url:
             try:
-                plan_image_url = generate_presigned_access_url(plan.image_url)
+                plan_image_url = generate_presigned_access_url(
+                    bucket_name=get("AWS_BUCKET_NAME"),
+                    s3_key=plan.image_url
+                )
             except Exception:
                 plan_image_url = None
         
@@ -265,13 +396,7 @@ def complete_sub_task_service(token: str, id: UUID) -> None:
                 task_id=existing_sub_task.task_id
             )   
             save_user_task_completion(db=db, user_task_completion=new_task_completion)
-        is_day_completed = check_day_completion(db=db, user_id=current_user.id, day_id=task.plan_item_id)
-        if is_day_completed:
-            new_day_completion = UserDayCompletion(
-                user_id=current_user.id,
-                day_id=task.plan_item_id
-            )
-            save_user_day_completion(db=db, user_day_completion=new_day_completion)
+        check_day_completion(db=db, user_id=current_user.id, day_id=task.plan_item_id)
 
 
 def _check_all_subtasks_completed(user_id: UUID, task_id: UUID) -> bool:
@@ -307,15 +432,40 @@ def complete_all_subtasks_completions(db:SessionLocal(), user_id: UUID, task_id:
     save_user_sub_task_completions_bulk(db=db, user_sub_task_completions=new_subtask_to_create)
 
 def check_day_completion(db:SessionLocal(), user_id: UUID, day_id: UUID) -> None:
-
     tasks = get_tasks_by_plan_item_id(db=db, plan_item_id=day_id)
     task_ids = [task.id for task in tasks]
     uncompleted_task_ids = get_uncompleted_user_task_ids(db=db, user_id=user_id, task_ids=task_ids)
     
     if len(uncompleted_task_ids) == 0:
         save_user_day_completion(db=db, user_day_completion=UserDayCompletion(user_id=user_id, day_id=day_id))
+        
+        # Check if plan is now completed
+        check_plan_completion(db, user_id, day_id)
     else:
         return
+
+
+def check_plan_completion(db: SessionLocal, user_id: UUID, day_id: UUID) -> None:
+    """Check if plan is completed after a day completion and trigger series progression if needed"""
+    from pecha_api.plans.items.plan_items_repository import get_plan_item_by_id
+    
+    # Get the plan ID from the day
+    day_item = get_plan_item_by_id(db, day_id)
+    if not day_item:
+        return
+    
+    plan_id = day_item.plan_id
+    
+    # Get all days in the plan
+    days = get_days_by_plan_id(db, plan_id)
+    day_ids = [day.id for day in days]
+    
+    # Check if all days are completed
+    completed_day_ids = get_completed_day_ids_by_user_id_and_day_ids(db, user_id, day_ids)
+    
+    if len(completed_day_ids) == len(day_ids):  # All days completed
+        # Mark plan as completed and trigger series progression
+        handle_plan_completion_and_series_progression(db, user_id, plan_id)
 
 def delete_task_service(token: str, task_id: UUID) -> None:
     current_user = validate_and_extract_user_details(token=token)
@@ -431,3 +581,244 @@ def _get_presigned_url(content: str) -> str:
         bucket_name=get("AWS_BUCKET_NAME"),
         s3_key=content
     )
+
+
+# Series Enrollment Service Functions
+
+def enroll_user_in_series(token: str, enroll_request: UserSeriesEnrollRequest) -> None:
+    """Enroll user in a series"""
+    current_user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        # Check if series exists
+        series = db.query(Series).filter(Series.id == enroll_request.series_id).first()
+        if not series:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(error=BAD_REQUEST, message="Series not found").model_dump()
+            )
+        
+        # Check if already enrolled
+        existing_enrollment = get_user_series_enrollment_by_user_and_series(
+            db, current_user.id, enroll_request.series_id
+        )
+        if existing_enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=ResponseError(error=BAD_REQUEST, message="Already enrolled in series").model_dump()
+            )
+        
+        # Get first plan in series if starting immediately
+        first_plan = None
+        if enroll_request.start_immediately:
+            first_plan = get_first_plan_in_series(db, enroll_request.series_id)
+        
+        # Create series enrollment
+        new_enrollment = UserSeriesEnrollment(
+            user_id=current_user.id,
+            series_id=enroll_request.series_id,
+            status=SeriesStatus.ACTIVE,
+            auto_enroll_next=enroll_request.auto_enroll_next,
+            current_plan_id=first_plan.id if first_plan else None,
+            enrolled_at=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
+            is_completed=False,
+        )
+        save_user_series_enrollment(db, new_enrollment)
+        
+        # Auto-enroll in first plan if requested
+        if enroll_request.start_immediately and first_plan:
+            auto_enroll_in_next_plan(db, current_user.id, first_plan.id, new_enrollment.id)
+
+
+def get_user_series_enrollments(
+    token: str, 
+    status_filter: Optional[str] = None, 
+    skip: int = 0, 
+    limit: int = 20
+) -> UserSeriesEnrollmentsResponse:
+    """Get user's series enrollments"""
+    current_user = validate_and_extract_user_details(token=token)
+    
+    with SessionLocal() as db:
+        enrollments, total = get_user_series_enrollments_by_user_id(
+            db, current_user.id, status_filter, skip, limit
+        )
+        
+        enrollment_dtos = []
+        bucket_name = get("AWS_BUCKET_NAME")
+        
+        for enrollment in enrollments:
+            # Get series details
+            series = db.query(Series).filter(Series.id == enrollment.series_id).first()
+            if not series:
+                continue
+                
+            # Get series metadata for title/description
+            series_metadata = series.metadata_entries[0] if series.metadata_entries else None
+            
+            # Generate image URL
+            image_url = ""
+            if series.image:
+                try:
+                    image_url = generate_presigned_access_url(
+                        bucket_name=bucket_name,
+                        s3_key=series.image
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to generate presigned URL for series {series.id}: {e}")
+            
+            # Get current plan title
+            current_plan_title = None
+            if enrollment.current_plan_id:
+                current_plan = get_plan_by_id(db, enrollment.current_plan_id)
+                current_plan_title = current_plan.title if current_plan else None
+            
+            # Calculate progress
+            all_plans = get_plans_by_series_id(db, enrollment.series_id)
+            total_plans = len(all_plans)
+            completed_plans = 0
+            
+            for plan in all_plans:
+                progress = get_plan_progress_by_user_id_and_plan_id(db, current_user.id, plan.id)
+                if progress and progress.is_completed:
+                    completed_plans += 1
+            
+            progress_percentage = (completed_plans / total_plans * 100) if total_plans > 0 else 0
+            
+            enrollment_dto = UserSeriesEnrollmentDTO(
+                id=enrollment.id,
+                user_id=enrollment.user_id,
+                series_id=enrollment.series_id,
+                series_title=series_metadata.title if series_metadata else "Untitled Series",
+                series_description=series_metadata.description if series_metadata else None,
+                series_image_url=image_url,
+                enrolled_at=enrollment.enrolled_at,
+                status=enrollment.status.value if hasattr(enrollment.status, 'value') else str(enrollment.status),
+                auto_enroll_next=enrollment.auto_enroll_next,
+                current_plan_id=enrollment.current_plan_id,
+                current_plan_title=current_plan_title,
+                is_completed=enrollment.is_completed,
+                completed_at=enrollment.completed_at,
+                total_plans=total_plans,
+                completed_plans=completed_plans,
+                progress_percentage=progress_percentage
+            )
+            enrollment_dtos.append(enrollment_dto)
+        
+        return UserSeriesEnrollmentsResponse(
+            enrollments=enrollment_dtos,
+            skip=skip,
+            limit=limit,
+            total=total
+        )
+
+
+def get_user_series_progress(token: str, series_id: UUID) -> UserSeriesProgressResponse:
+    """Get detailed progress for a specific series"""
+    current_user = validate_and_extract_user_details(token=token)
+    
+    with SessionLocal() as db:
+        # Get enrollment
+        enrollment = get_user_series_enrollment_by_user_and_series(db, current_user.id, series_id)
+        if not enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(error="NOT_FOUND", message="Not enrolled in this series").model_dump()
+            )
+        
+        # Get series details
+        series = db.query(Series).filter(Series.id == series_id).first()
+        if not series:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(error="NOT_FOUND", message="Series not found").model_dump()
+            )
+        
+        series_metadata = series.metadata_entries[0] if series.metadata_entries else None
+        
+        # Get all plans in series with user progress
+        all_plans = get_plans_by_series_id(db, series_id)
+        plan_dtos = []
+        bucket_name = get("AWS_BUCKET_NAME")
+        
+        for plan in all_plans:
+            # Get total days for this plan
+            days = get_days_by_plan_id(db, plan.id)
+            total_days = len(days)
+            
+            # Generate image URL
+            image_url = ""
+            if plan.image_url:
+                try:
+                    image_url = generate_presigned_access_url(
+                        bucket_name=bucket_name,
+                        s3_key=plan.image_url
+                    )
+                except Exception:
+                    pass
+            
+            # Check if user has progress on this plan
+            progress = get_plan_progress_by_user_id_and_plan_id(db, current_user.id, plan.id)
+            started_at = progress.started_at if progress else None
+            
+            plan_dto = UserPlanDTO(
+                id=plan.id,
+                title=plan.title,
+                description=plan.description or "",
+                language=plan.language.value if hasattr(plan.language, 'value') else str(plan.language),
+                difficulty_level=plan.difficulty_level.value if hasattr(plan.difficulty_level, 'value') else str(plan.difficulty_level),
+                image_url=image_url,
+                started_at=started_at,
+                total_days=total_days,
+                tags=tags_to_summary_dtos(plan.tag_list),
+                start_date=plan.start_date,
+                display_order=plan.display_order
+            )
+            plan_dtos.append(plan_dto)
+        
+        return UserSeriesProgressResponse(
+            id=enrollment.id,
+            series_id=series_id,
+            series_title=series_metadata.title if series_metadata else "Untitled Series",
+            series_description=series_metadata.description if series_metadata else None,
+            enrolled_at=enrollment.enrolled_at,
+            status=enrollment.status.value if hasattr(enrollment.status, 'value') else str(enrollment.status),
+            auto_enroll_next=enrollment.auto_enroll_next,
+            current_plan_id=enrollment.current_plan_id,
+            is_completed=enrollment.is_completed,
+            completed_at=enrollment.completed_at,
+            plans=plan_dtos
+        )
+
+
+def update_user_series_enrollment_service(
+    token: str, 
+    series_id: UUID, 
+    update_request: UpdateSeriesEnrollmentRequest
+) -> None:
+    """Update series enrollment settings"""
+    current_user = validate_and_extract_user_details(token=token)
+    
+    with SessionLocal() as db:
+        enrollment = get_user_series_enrollment_by_user_and_series(db, current_user.id, series_id)
+        if not enrollment:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(error="NOT_FOUND", message="Not enrolled in this series").model_dump()
+            )
+        
+        # Update fields
+        if update_request.auto_enroll_next is not None:
+            enrollment.auto_enroll_next = update_request.auto_enroll_next
+        
+        if update_request.status is not None:
+            enrollment.status = SeriesStatus(update_request.status)
+        
+        update_user_series_enrollment(db, enrollment)
+
+
+def unenroll_user_from_series(token: str, series_id: UUID) -> None:
+    """Unenroll user from series"""
+    current_user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        delete_user_series_enrollment(db, current_user.id, series_id)

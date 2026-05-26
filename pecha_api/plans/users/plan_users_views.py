@@ -11,7 +11,11 @@ from pecha_api.plans.users.plan_users_response_models import (
     UserPlanProgressResponse, 
     UserPlanDayDetailsResponse,
     UserPlansResponse,
-    UserPlanDayCompletionStatusResponse
+    UserPlanDayCompletionStatusResponse,
+    UserSeriesEnrollRequest,
+    UserSeriesEnrollmentsResponse,
+    UserSeriesProgressResponse,
+    UpdateSeriesEnrollmentRequest
 )
 
 from pecha_api.plans.users.plan_users_service import (
@@ -23,7 +27,12 @@ from pecha_api.plans.users.plan_users_service import (
     complete_task_service,
     complete_sub_task_service,
     delete_task_service,
-    get_user_plan_day_details_service
+    get_user_plan_day_details_service,
+    enroll_user_in_series,
+    get_user_series_enrollments,
+    get_user_series_progress,
+    update_user_series_enrollment_service,
+    unenroll_user_from_series
 )
 
 
@@ -125,4 +134,72 @@ async def get_user_plan_day_details(
         token=authentication_credential.credentials,
         plan_id=plan_id,
         day_number=day_number
+    )
+
+
+# Series Enrollment Endpoints
+
+@user_progress_router.post("/series", status_code=status.HTTP_204_NO_CONTENT)
+def enroll_in_series(
+    enroll_request: UserSeriesEnrollRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+    """Enroll user in a series"""
+    enroll_user_in_series(
+        token=authentication_credential.credentials,
+        enroll_request=enroll_request
+    )
+
+
+@user_progress_router.get("/series", status_code=status.HTTP_200_OK, response_model=UserSeriesEnrollmentsResponse)
+async def get_user_series_enrollments_endpoint(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    status_filter: Optional[str] = Query(None, description="Filter by series enrollment status"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=50)
+):
+    """Get user's series enrollments"""
+    return get_user_series_enrollments(
+        token=authentication_credential.credentials,
+        status_filter=status_filter,
+        skip=skip,
+        limit=limit
+    )
+
+
+@user_progress_router.get("/series/{series_id}", status_code=status.HTTP_200_OK, response_model=UserSeriesProgressResponse)
+async def get_user_series_progress_endpoint(
+    series_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+    """Get detailed progress for a specific series"""
+    return get_user_series_progress(
+        token=authentication_credential.credentials,
+        series_id=series_id
+    )
+
+
+@user_progress_router.patch("/series/{series_id}", status_code=status.HTTP_204_NO_CONTENT)
+def update_series_enrollment(
+    series_id: UUID,
+    update_request: UpdateSeriesEnrollmentRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+    """Update series enrollment settings"""
+    update_user_series_enrollment_service(
+        token=authentication_credential.credentials,
+        series_id=series_id,
+        update_request=update_request
+    )
+
+
+@user_progress_router.delete("/series/{series_id}", status_code=status.HTTP_204_NO_CONTENT)
+def unenroll_from_series(
+    series_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+    """Unenroll user from series"""
+    unenroll_user_from_series(
+        token=authentication_credential.credentials,
+        series_id=series_id
     )
