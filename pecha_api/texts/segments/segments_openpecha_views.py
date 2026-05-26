@@ -24,11 +24,9 @@ segments_v2_router = APIRouter(
 @segments_v2_router.get("/{segment_id}", status_code=status.HTTP_200_OK)
 async def get_segment_v2(
     segment_id: str,
-    text_id: Annotated[Optional[str], Query()] = None,
 ) -> V2SegmentResponse:
     return await get_openpecha_segment_details_by_id(
         segment_id=segment_id,
-        text_id=text_id,
     )
 
 @segments_v2_router.get(

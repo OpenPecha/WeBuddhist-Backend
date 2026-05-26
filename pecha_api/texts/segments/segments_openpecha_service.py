@@ -8,6 +8,7 @@ from starlette import status
 from openpecha_api.segments.openpecha_segment_service import (
     fetch_related_segments,
     fetch_segment_content,
+    fetch_segment_details,
 )
 from openpecha_api.text.openpecha_text_service import fetch_text_by_id
 
@@ -233,7 +234,6 @@ async def get_root_text_by_segment_id_from_openpecha(
 
 async def get_openpecha_segment_details_by_id(
     segment_id: str,
-    text_id: Optional[str] = None,
 ) -> V2SegmentResponse:
     content = await _fetch_segment_content_safe(segment_id)
     if content is None:
@@ -242,15 +242,16 @@ async def get_openpecha_segment_details_by_id(
             detail=f"Segment with id '{segment_id}' not found",
         )
 
-    text_detail = None
-    if text_id:
-        text_payload = await _fetch_text_safe(text_id)
-        if text_payload:
-            text_detail = V2SegmentTextDetail(
-                text_id=text_id,
-                title=_extract_title(text_payload.get("title", {})),
-                language=text_payload.get("language"),
-            )
+    segment_details=await fetch_segment_details(segment_id)
+    text_payload = await _fetch_text_safe(segment_details.get("text_id"))
+    if text_payload:
+        text_detail = V2SegmentTextDetail(
+            text_id=segment_details.get("text_id"),
+            title=_extract_title(text_payload.get("title", {})),
+            language=text_payload.get("language"),
+        )
+    else:
+        text_detail = None
 
     return V2SegmentResponse(
         segment_id=segment_id,

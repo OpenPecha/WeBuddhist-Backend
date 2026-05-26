@@ -65,15 +65,12 @@ async def _generate_segment_content_image_(share_request: ShareRequest):
     reference_text = get("SITE_NAME")
     language = share_request.language
     if share_request.segment_id is not None:
-        segment = await get_openpecha_segment_details_by_id(
+        segment_details = await get_openpecha_segment_details_by_id(
             segment_id=share_request.segment_id,
-            text_id=share_request.text_id,
         )
-        main_content_text = segment.content
-
-        if segment.text:
-            reference_text = segment.text.title
-            language = segment.text.language or share_request.language
+        main_content_text = segment_details.content
+        reference_text = segment_details.text.title
+        language = segment_details.text.language
     elif share_request.text_id is not None:
         text_detail = await TextUtils.get_text_detail_by_id(text_id=share_request.text_id)
         main_content_text = text_detail.title
