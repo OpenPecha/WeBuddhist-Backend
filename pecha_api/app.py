@@ -32,10 +32,7 @@ from pecha_api.plans.dashboard import dashboard_views as cms_dashboard_views
 from pecha_api.recitations import recitations_view
 from pecha_api.user_follows import user_follow_views
 from pecha_api.plans.users.recitation import user_recitations_views
-from pecha_api.text_uploader import text_uploader_views
 from pecha_api.cataloger import cataloger_views
-from pecha_api.text_uploader.text_metadata import text_metadata_views
-from pecha_api.text_uploader.collections import uploader_collections_views
 from pecha_api.collections import collections_openpecha_views
 from pecha_api.texts import texts_openpecha_views
 from pecha_api.texts.segments import segments_openpecha_views
@@ -76,10 +73,7 @@ api.include_router(featured_day_views.user_follow_router)
 api.include_router(recitations_view.recitation_router)
 api.include_router(user_follow_views.user_follow_router)
 api.include_router(user_recitations_views.user_recitation_router)
-api.include_router(text_uploader_views.text_uploader_router)
 api.include_router(cataloger_views.cataloger_router)
-api.include_router(text_metadata_views.text_metadata_router)
-api.include_router(uploader_collections_views.text_uploader_collections_router)
 api.include_router(routines_views.routines_router)
 api.include_router(collections_openpecha_views.collections_v2_router)
 api.include_router(texts_openpecha_views.texts_v2_router)
