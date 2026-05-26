@@ -609,6 +609,103 @@ def test_multilingual_search_invalid_pagination():
     response = client.get("/search/multilingual?query=test&limit=0")
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
+
+def test_get_url_link_success():
+    """Test get_url_link endpoint with valid pecha_segment_id"""
+    from pecha_api.search.search_response_models import SegmentLinkResponse
+
+    mock_response = SegmentLinkResponse(text_id="text123", segment_id="segment456")
+
+    with patch("pecha_api.search.search_views.get_url_link_service", new_callable=AsyncMock, return_value=mock_response):
+        response = client.get("/search/chat/pecha_seg_123")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["text_id"] == "text123"
+        assert data["segment_id"] == "segment456"
+
+
+def test_get_url_link_segment_not_found():
+    """Test get_url_link endpoint when segment is not found"""
+    with patch(
+        "pecha_api.search.search_views.get_url_link_service",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pecha segment not found"),
+    ):
+        response = client.get("/search/chat/nonexistent_segment_id")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json()["detail"] == "Pecha segment not found"
+
+
+def test_get_url_link_with_special_characters():
+    """Test get_url_link endpoint with special characters in pecha_segment_id"""
+    from pecha_api.search.search_response_models import SegmentLinkResponse
+
+    mock_response = SegmentLinkResponse(text_id="text-abc-123", segment_id="seg_456_xyz")
+
+    with patch("pecha_api.search.search_views.get_url_link_service", new_callable=AsyncMock, return_value=mock_response):
+        response = client.get("/search/chat/pecha-seg_123-xyz")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["text_id"] == "text-abc-123"
+        assert data["segment_id"] == "seg_456_xyz"
+
+
+def test_get_url_link_service_error():
+    """Test get_url_link endpoint when service raises an exception"""
+    with patch(
+        "pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id",
+        new_callable=AsyncMock,
+        side_effect=Exception("Service error"),
+    ):
+        response = client.get("/search/chat/error_segment_id")
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
+def test_get_url_link_with_uuid_format():
+    """Test get_url_link endpoint with UUID-like pecha_segment_id"""
+    from pecha_api.search.search_response_models import SegmentLinkResponse
+
+    mock_response = SegmentLinkResponse(
+        text_id="550e8400-e29b-41d4-a716-446655440000",
+        segment_id="660e8400-e29b-41d4-a716-446655440001",
+    )
+
+    with patch("pecha_api.search.search_views.get_url_link_service", new_callable=AsyncMock, return_value=mock_response):
+        response = client.get("/search/chat/550e8400-e29b-41d4-a716-446655440000")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["text_id"] == "550e8400-e29b-41d4-a716-446655440000"
+        assert data["segment_id"] == "660e8400-e29b-41d4-a716-446655440001"
+
+
+def test_get_url_link_empty_pecha_segment_id():
+    """Test get_url_link endpoint with empty pecha_segment_id"""
+    response = client.get("/search/chat/")
+    
+    assert response.status_code in [status.HTTP_404_NOT_FOUND, status.HTTP_307_TEMPORARY_REDIRECT]
+
+
+def test_get_url_link_with_long_pecha_segment_id():
+    """Test get_url_link endpoint with very long pecha_segment_id"""
+    from pecha_api.search.search_response_models import SegmentLinkResponse
+
+    long_segment_id = "a" * 500
+    mock_response = SegmentLinkResponse(text_id="text123", segment_id="seg456")
+
+    with patch("pecha_api.search.search_views.get_url_link_service", new_callable=AsyncMock, return_value=mock_response):
+        response = client.get(f"/search/chat/{long_segment_id}")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["text_id"] == "text123"
+        assert data["segment_id"] == "seg456"
+
+
 # ============================================================================
 # Tests for GET /search/plans endpoint
 # ============================================================================

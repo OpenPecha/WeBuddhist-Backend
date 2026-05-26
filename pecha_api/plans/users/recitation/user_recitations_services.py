@@ -5,12 +5,11 @@ from pecha_api.texts.texts_repository import get_texts_by_ids
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.plans.users.recitation.user_recitations_models import UserRecitations
 from pecha_api.plans.users.recitation.user_recitations_repository import (
-    delete_user_recitation,
-    get_max_display_order_for_user,
-    get_text_images_by_text_ids,
+    save_user_recitation, 
     get_user_recitations_by_user_id,
-    save_user_recitation,
+    get_max_display_order_for_user,
     update_recitation_order_in_bulk,
+    delete_user_recitation
 )
 from pecha_api.plans.users.recitation.user_recitations_response_models import (
     CreateUserRecitationRequest, 
@@ -18,6 +17,7 @@ from pecha_api.plans.users.recitation.user_recitations_response_models import (
     UserRecitationDTO,
     UpdateRecitationOrderRequest
 )
+from pecha_api.recitations.recitations_repository import get_text_images_by_text_ids
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.config import get
 from typing import Dict
@@ -38,6 +38,7 @@ def get_image_url_map_by_text_ids(db, text_ids: list) -> Dict[str, str]:
 async def create_user_recitation_service(token: str, create_user_recitation_request: CreateUserRecitationRequest) -> None:
     current_user=validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
+        await TextUtils.validate_text_exists(text_id=str(create_user_recitation_request.text_id))
         
         max_order = get_max_display_order_for_user(db=db, user_id=current_user.id)
         next_order = (max_order or 0) + 1

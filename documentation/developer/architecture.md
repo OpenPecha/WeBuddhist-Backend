@@ -35,6 +35,7 @@ Routers included in `pecha_api/app.py`:
 - `plans (authors)`: `pecha_api/plans/authors/plan_authors_views.py`
 - `plans (media)`: `pecha_api/plans/media/media_views.py`
 - `plans (featured)`: `pecha_api/plans/featured/featured_day_views.py`
+- `recitations`: `pecha_api/recitations/recitations_view.py`
 - `user follows`: `pecha_api/user_follows/user_follow_views.py`
 - `user recitations`: `pecha_api/plans/users/recitation/user_recitations_views.py`
 - `cataloger`: `pecha_api/cataloger/cataloger_views.py`

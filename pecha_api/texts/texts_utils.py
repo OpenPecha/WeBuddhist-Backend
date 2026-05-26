@@ -53,6 +53,9 @@ class TextUtils:
         if cached_data is not None:
             return cached_data
         
+        is_valid_text = await TextUtils.validate_text_exists(text_id=text_id)
+        if not is_valid_text:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
         text_detail = await get_texts_by_id(text_id=text_id)
         response = TextDTO(
             id=str(text_detail.id),
@@ -75,6 +78,16 @@ class TextUtils:
         await set_text_details_by_id_cache(text_id=text_id, cache_type=CacheType.TEXT_DETAIL, data=response)
         return response
     
+    @staticmethod
+    async def validate_text_exists(text_id: str):
+        uuid_text_id = UUID(text_id)
+        is_exists = await check_text_exists(text_id=uuid_text_id)
+        if not is_exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, 
+                detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+            )
+        return is_exists
 
     @staticmethod
     async def validate_texts_exist(text_ids: List[str]):
