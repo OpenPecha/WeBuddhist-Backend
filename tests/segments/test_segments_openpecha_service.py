@@ -4,6 +4,7 @@ from fastapi import HTTPException
 
 from pecha_api.texts.segments.segments_openpecha_service import (
     _classify_text,
+    _fetch_segment_content_safe,
     get_translations_by_segment_id_from_openpecha,
     get_commentaries_by_segment_id_from_openpecha,
 )
@@ -55,6 +56,28 @@ def _related_page(items: list, has_more: bool = False, offset: int = 0, limit: i
         "offset": offset,
         "limit": limit,
     }
+
+
+class TestFetchSegmentContentSafe:
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_content",
+        new_callable=AsyncMock,
+    )
+    async def test_returns_content_on_success(self, mock_fetch_content):
+        mock_fetch_content.return_value = "segment text"
+        result = await _fetch_segment_content_safe("seg-1")
+        assert result == "segment text"
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_content",
+        new_callable=AsyncMock,
+    )
+    async def test_returns_none_when_upstream_fails(self, mock_fetch_content):
+        mock_fetch_content.side_effect = Exception("upstream failure")
+        result = await _fetch_segment_content_safe("seg-1")
+        assert result is None
 
 
 class TestClassifyText:
@@ -398,3 +421,54 @@ class TestGetCommentariesBySegmentIdFromOpenpecha:
         assert len(result.translations) == 1
         assert result.translations[0].text_id == TRANSLATION_TEXT_ID
         assert len(result.translations[0].segments) == 1
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_content",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_related_segments",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service._classify_text",
+        return_value="translation",
+    )
+    async def test_skips_related_items_without_text_id(
+        self,
+        _mock_classify,
+        mock_fetch_related,
+        mock_fetch_content,
+        mock_fetch_text,
+    ):
+        item_without_text_id = _related_item("seg-trans-1", TRANSLATION_TEXT_ID)
+        del item_without_text_id["text_id"]
+
+        mock_fetch_related.return_value = _related_page(
+            [
+                item_without_text_id,
+                _related_item("seg-trans-2", TRANSLATION_TEXT_ID),
+            ]
+        )
+
+        async def content_side_effect(segment_id: str):
+            return {
+                PARENT_SEGMENT_ID: "Parent content",
+                "seg-trans-2": "Translation segment 2",
+            }.get(segment_id)
+
+        mock_fetch_content.side_effect = content_side_effect
+        mock_fetch_text.return_value = _translation_text(TRANSLATION_TEXT_ID)
+
+        result = await get_translations_by_segment_id_from_openpecha(
+            segment_id=PARENT_SEGMENT_ID,
+        )
+
+        assert len(result.translations) == 1
+        assert len(result.translations[0].segments) == 1
+        assert result.translations[0].segments[0].id == "seg-trans-2"

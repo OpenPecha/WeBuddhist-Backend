@@ -719,6 +719,112 @@ def test_get_user_plan_progress_not_enrolled_raises_404():
         assert exc_info.value.detail["message"] == "User not enrolled in this plan"
 
 
+def test_get_user_plan_progress_presigned_image_url_success():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    progress_id = uuid.uuid4()
+
+    db_mock, session_cm = _mock_session_with_db()
+
+    progress_record = SimpleNamespace(
+        id=progress_id,
+        user_id=user_id,
+        plan_id=plan_id,
+        started_at="2024-01-15T10:00:00Z",
+        streak_count=0,
+        longest_streak=0,
+        status="active",
+        is_completed=False,
+        completed_at=None,
+        created_at="2024-01-15T10:00:00Z",
+    )
+    plan_record = SimpleNamespace(
+        id=plan_id,
+        title="Plan X",
+        description="desc",
+        language=SimpleNamespace(value="en"),
+        difficulty_level=SimpleNamespace(value="beginner"),
+        image_url="plans/plan.jpg",
+        tag_list=[],
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=progress_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=plan_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get",
+        return_value="test-bucket",
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
+        return_value="https://signed.example.com/plan.jpg",
+    ):
+        result = get_user_plan_progress(token="tok", plan_id=plan_id)
+
+    assert result.plan["image_url"] == "https://signed.example.com/plan.jpg"
+
+
+def test_get_user_plan_progress_presigned_image_url_error_returns_none():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    progress_id = uuid.uuid4()
+
+    db_mock, session_cm = _mock_session_with_db()
+
+    progress_record = SimpleNamespace(
+        id=progress_id,
+        user_id=user_id,
+        plan_id=plan_id,
+        started_at="2024-01-15T10:00:00Z",
+        streak_count=0,
+        longest_streak=0,
+        status="active",
+        is_completed=False,
+        completed_at=None,
+        created_at="2024-01-15T10:00:00Z",
+    )
+    plan_record = SimpleNamespace(
+        id=plan_id,
+        title="Plan X",
+        description="desc",
+        language=SimpleNamespace(value="en"),
+        difficulty_level=SimpleNamespace(value="beginner"),
+        image_url="plans/plan.jpg",
+        tag_list=[],
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=progress_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=plan_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get",
+        return_value="test-bucket",
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
+        side_effect=Exception("S3 error"),
+    ):
+        result = get_user_plan_progress(token="tok", plan_id=plan_id)
+
+    assert result.plan["image_url"] is None
+
+
 def _mock_session_with_db_and_task_flow():
     db_mock, session_cm = _mock_session_with_db()
     return db_mock, session_cm

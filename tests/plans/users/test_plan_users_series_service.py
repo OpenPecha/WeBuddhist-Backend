@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from pecha_api.plans.plans_enums import SeriesStatus
+from pecha_api.plans.plans_enums import EnrollmentSource, SeriesStatus, UserPlanStatus
 from pecha_api.plans.response_message import BAD_REQUEST
 from pecha_api.plans.users.plan_users_response_models import (
     UserSeriesEnrollRequest,
@@ -22,6 +22,11 @@ from pecha_api.plans.users.plan_users_service import (
     get_user_series_progress,
     update_user_series_enrollment_service,
     unenroll_user_from_series,
+    is_user_enrolled_in_plan,
+    get_or_create_plan_progress,
+    handle_plan_completion_and_series_progression,
+    auto_enroll_in_next_plan,
+    check_plan_completion,
 )
 
 
@@ -704,3 +709,325 @@ def test_unenroll_user_from_series_success():
 
         assert result is None
         mock_delete.assert_called_once_with(db_mock, user_id, series_id)
+
+
+def test_is_user_enrolled_in_plan_direct_enrollment():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    db_mock = MagicMock()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=SimpleNamespace(id=uuid.uuid4()),
+    ):
+        assert is_user_enrolled_in_plan(db_mock, user_id, plan_id) is True
+
+
+def test_is_user_enrolled_in_plan_via_series_enrollment():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    db_mock = MagicMock()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=SimpleNamespace(series_id=series_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=SimpleNamespace(id=uuid.uuid4()),
+    ):
+        assert is_user_enrolled_in_plan(db_mock, user_id, plan_id) is True
+
+
+def test_is_user_enrolled_in_plan_returns_false_when_not_enrolled():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    db_mock = MagicMock()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=SimpleNamespace(series_id=None),
+    ):
+        assert is_user_enrolled_in_plan(db_mock, user_id, plan_id) is False
+
+
+def test_get_or_create_plan_progress_returns_existing():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    db_mock = MagicMock()
+    existing = SimpleNamespace(id=uuid.uuid4())
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=existing,
+    ):
+        result = get_or_create_plan_progress(db_mock, user_id, plan_id)
+
+    assert result is existing
+
+
+def test_get_or_create_plan_progress_creates_for_series_enrollment():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    series_enrollment_id = uuid.uuid4()
+    db_mock = MagicMock()
+    created = SimpleNamespace(id=uuid.uuid4())
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=SimpleNamespace(series_id=series_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=SimpleNamespace(id=series_enrollment_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.UserPlanProgress",
+    ) as mock_progress_cls, patch(
+        "pecha_api.plans.users.plan_users_service.save_plan_progress",
+        return_value=created,
+    ) as mock_save:
+        mock_progress_cls.return_value = created
+        result = get_or_create_plan_progress(db_mock, user_id, plan_id)
+
+    assert result is created
+    mock_save.assert_called_once_with(db_mock, created)
+    progress_kwargs = mock_progress_cls.call_args.kwargs
+    assert progress_kwargs["enrollment_source"] == EnrollmentSource.SERIES
+    assert progress_kwargs["series_enrollment_id"] == series_enrollment_id
+    assert progress_kwargs["auto_enrolled"] is True
+
+
+def test_get_or_create_plan_progress_returns_none_without_series_enrollment():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    db_mock = MagicMock()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=SimpleNamespace(series_id=uuid.uuid4()),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=None,
+    ):
+        assert get_or_create_plan_progress(db_mock, user_id, plan_id) is None
+
+
+def test_handle_plan_completion_returns_when_no_progress():
+    db_mock = MagicMock()
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=None,
+    ):
+        handle_plan_completion_and_series_progression(db_mock, uuid.uuid4(), uuid.uuid4())
+
+
+def test_handle_plan_completion_skips_when_already_completed():
+    db_mock = MagicMock()
+    progress = SimpleNamespace(is_completed=True)
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=progress,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.save_plan_progress",
+    ) as mock_save:
+        handle_plan_completion_and_series_progression(db_mock, uuid.uuid4(), uuid.uuid4())
+
+    mock_save.assert_not_called()
+
+
+def test_handle_plan_completion_marks_plan_completed_without_series():
+    db_mock = MagicMock()
+    progress = SimpleNamespace(
+        is_completed=False,
+        series_enrollment_id=None,
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=progress,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.save_plan_progress",
+    ) as mock_save:
+        handle_plan_completion_and_series_progression(
+            db_mock, uuid.uuid4(), uuid.uuid4()
+        )
+
+    assert progress.is_completed is True
+    assert progress.status == UserPlanStatus.COMPLETED
+    assert progress.completed_at is not None
+    mock_save.assert_called_once_with(db_mock, progress)
+
+
+def test_handle_plan_completion_auto_enrolls_next_plan_in_series():
+    user_id = uuid.uuid4()
+    completed_plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    next_plan_id = uuid.uuid4()
+    series_enrollment_id = uuid.uuid4()
+    db_mock = MagicMock()
+
+    progress = SimpleNamespace(
+        is_completed=False,
+        series_enrollment_id=series_enrollment_id,
+    )
+    series_enrollment = SimpleNamespace(
+        id=series_enrollment_id,
+        series_id=series_id,
+        auto_enroll_next=True,
+    )
+    db_mock.query.return_value.filter.return_value.first.return_value = series_enrollment
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=progress,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.save_plan_progress",
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_next_plan_in_series",
+        return_value=SimpleNamespace(id=next_plan_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.auto_enroll_in_next_plan",
+    ) as mock_auto_enroll, patch(
+        "pecha_api.plans.users.plan_users_service.update_current_plan_in_series",
+    ) as mock_update_current:
+        handle_plan_completion_and_series_progression(
+            db_mock, user_id, completed_plan_id
+        )
+
+    mock_auto_enroll.assert_called_once_with(
+        db_mock, user_id, next_plan_id, series_enrollment_id
+    )
+    mock_update_current.assert_called_once_with(
+        db_mock, user_id, series_id, next_plan_id
+    )
+
+
+def test_handle_plan_completion_marks_series_completed_when_no_next_plan():
+    user_id = uuid.uuid4()
+    completed_plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    series_enrollment_id = uuid.uuid4()
+    db_mock = MagicMock()
+
+    progress = SimpleNamespace(
+        is_completed=False,
+        series_enrollment_id=series_enrollment_id,
+    )
+    series_enrollment = SimpleNamespace(
+        id=series_enrollment_id,
+        series_id=series_id,
+        auto_enroll_next=True,
+    )
+    db_mock.query.return_value.filter.return_value.first.return_value = series_enrollment
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=progress,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.save_plan_progress",
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_next_plan_in_series",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.is_series_completed_for_user",
+        return_value=True,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.mark_series_enrollment_completed",
+    ) as mock_mark_completed:
+        handle_plan_completion_and_series_progression(
+            db_mock, user_id, completed_plan_id
+        )
+
+    mock_mark_completed.assert_called_once_with(db_mock, user_id, series_id)
+
+
+def test_auto_enroll_in_next_plan_returns_existing_progress():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    db_mock = MagicMock()
+    existing = SimpleNamespace(id=uuid.uuid4())
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=existing,
+    ):
+        result = auto_enroll_in_next_plan(
+            db_mock, user_id, plan_id, uuid.uuid4()
+        )
+
+    assert result is existing
+
+
+def test_auto_enroll_in_next_plan_creates_progress_record():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    series_enrollment_id = uuid.uuid4()
+    db_mock = MagicMock()
+    created = SimpleNamespace(id=uuid.uuid4())
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.UserPlanProgress",
+    ) as mock_progress_cls, patch(
+        "pecha_api.plans.users.plan_users_service.save_plan_progress",
+        return_value=created,
+    ) as mock_save:
+        mock_progress_cls.return_value = created
+        result = auto_enroll_in_next_plan(
+            db_mock, user_id, plan_id, series_enrollment_id
+        )
+
+    assert result is created
+    mock_save.assert_called_once_with(db_mock, created)
+    progress_kwargs = mock_progress_cls.call_args.kwargs
+    assert progress_kwargs["enrollment_source"] == EnrollmentSource.SERIES
+    assert progress_kwargs["series_enrollment_id"] == series_enrollment_id
+
+
+def test_check_plan_completion_returns_when_day_not_found():
+    db_mock = MagicMock()
+
+    with patch(
+        "pecha_api.plans.items.plan_items_repository.get_plan_item_by_id",
+        return_value=None,
+    ):
+        check_plan_completion(db_mock, uuid.uuid4(), uuid.uuid4())
+
+
+def test_check_plan_completion_triggers_series_progression_when_all_days_done():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    day_id = uuid.uuid4()
+    day_a_id, day_b_id = uuid.uuid4(), uuid.uuid4()
+    db_mock = MagicMock()
+
+    with patch(
+        "pecha_api.plans.items.plan_items_repository.get_plan_item_by_id",
+        return_value=SimpleNamespace(plan_id=plan_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_days_by_plan_id",
+        return_value=[SimpleNamespace(id=day_a_id), SimpleNamespace(id=day_b_id)],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_completed_day_ids_by_user_id_and_day_ids",
+        return_value=[day_a_id, day_b_id],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.handle_plan_completion_and_series_progression",
+    ) as mock_handle:
+        check_plan_completion(db_mock, user_id, day_id)
+
+    mock_handle.assert_called_once_with(db_mock, user_id, plan_id)

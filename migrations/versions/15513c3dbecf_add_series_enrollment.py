@@ -21,24 +21,34 @@ depends_on: Union[str, Sequence[str], None] = None
 SERIES_ENROLLMENT_FK = 'fk_user_plan_progress_series_enrollment_id'
 
 
+def _ensure_enum_type(type_name: str, labels: str) -> None:
+    """Create a PostgreSQL ENUM if it does not already exist (safe for migration retries)."""
+    op.execute(
+        sa.text(
+            f"""
+            DO $$ BEGIN
+                CREATE TYPE {type_name} AS ENUM ({labels});
+            EXCEPTION
+                WHEN duplicate_object THEN NULL;
+                WHEN unique_violation THEN NULL;
+            END $$;
+            """
+        )
+    )
+
+
 def upgrade() -> None:
-    from sqlalchemy.exc import ProgrammingError
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
 
-    connection = op.get_bind()
-
-    try:
-        connection.execute(sa.text(
-            "CREATE TYPE seriesstatus AS ENUM ('ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED')"
-        ))
-    except ProgrammingError:
-        pass
-
-    try:
-        connection.execute(sa.text(
-            "CREATE TYPE enrollmentsource AS ENUM ('DIRECT', 'SERIES')"
-        ))
-    except ProgrammingError:
-        pass
+    _ensure_enum_type(
+        'seriesstatus',
+        "'ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED'",
+    )
+    _ensure_enum_type(
+        'enrollmentsource',
+        "'DIRECT', 'SERIES'",
+    )
 
     seriesstatus_enum = postgresql.ENUM(
         'ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED',
@@ -51,88 +61,131 @@ def upgrade() -> None:
         create_type=False,
     )
 
-    op.create_table(
-        'user_series_enrollment',
-        sa.Column('id', sa.UUID(), nullable=False),
-        sa.Column('user_id', sa.UUID(), nullable=False),
-        sa.Column('series_id', sa.UUID(), nullable=False),
-        sa.Column('enrolled_at', sa.DateTime(timezone=True), nullable=False),
-        sa.Column('status', seriesstatus_enum, nullable=False),
-        sa.Column('auto_enroll_next', sa.Boolean(), nullable=False),
-        sa.Column('current_plan_id', sa.UUID(), nullable=True),
-        sa.Column('is_completed', sa.Boolean(), nullable=False),
-        sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
-        sa.ForeignKeyConstraint(['current_plan_id'], ['plans.id'], ondelete='SET NULL'),
-        sa.ForeignKeyConstraint(['series_id'], ['series.id'], ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('user_id', 'series_id', name='uq_user_series_enrollment'),
-    )
-    op.create_index(
-        'idx_user_series_enrollment_current_plan',
-        'user_series_enrollment',
-        ['current_plan_id'],
-        unique=False,
-    )
-    op.create_index(
-        'idx_user_series_enrollment_series',
-        'user_series_enrollment',
-        ['series_id'],
-        unique=False,
-    )
-    op.create_index(
-        'idx_user_series_enrollment_user_status',
-        'user_series_enrollment',
-        ['user_id', 'status'],
-        unique=False,
-    )
+    if 'user_series_enrollment' not in inspector.get_table_names():
+        op.create_table(
+            'user_series_enrollment',
+            sa.Column('id', sa.UUID(), nullable=False),
+            sa.Column('user_id', sa.UUID(), nullable=False),
+            sa.Column('series_id', sa.UUID(), nullable=False),
+            sa.Column('enrolled_at', sa.DateTime(timezone=True), nullable=False),
+            sa.Column('status', seriesstatus_enum, nullable=False),
+            sa.Column('auto_enroll_next', sa.Boolean(), nullable=False),
+            sa.Column('current_plan_id', sa.UUID(), nullable=True),
+            sa.Column('is_completed', sa.Boolean(), nullable=False),
+            sa.Column('completed_at', sa.DateTime(timezone=True), nullable=True),
+            sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+            sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
+            sa.ForeignKeyConstraint(['current_plan_id'], ['plans.id'], ondelete='SET NULL'),
+            sa.ForeignKeyConstraint(['series_id'], ['series.id'], ondelete='CASCADE'),
+            sa.ForeignKeyConstraint(['user_id'], ['users.id'], ondelete='CASCADE'),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('user_id', 'series_id', name='uq_user_series_enrollment'),
+        )
+        op.create_index(
+            'idx_user_series_enrollment_current_plan',
+            'user_series_enrollment',
+            ['current_plan_id'],
+            unique=False,
+        )
+        op.create_index(
+            'idx_user_series_enrollment_series',
+            'user_series_enrollment',
+            ['series_id'],
+            unique=False,
+        )
+        op.create_index(
+            'idx_user_series_enrollment_user_status',
+            'user_series_enrollment',
+            ['user_id', 'status'],
+            unique=False,
+        )
+    else:
+        existing_indexes = {index['name'] for index in inspector.get_indexes('user_series_enrollment')}
+        if 'idx_user_series_enrollment_current_plan' not in existing_indexes:
+            op.create_index(
+                'idx_user_series_enrollment_current_plan',
+                'user_series_enrollment',
+                ['current_plan_id'],
+                unique=False,
+            )
+        if 'idx_user_series_enrollment_series' not in existing_indexes:
+            op.create_index(
+                'idx_user_series_enrollment_series',
+                'user_series_enrollment',
+                ['series_id'],
+                unique=False,
+            )
+        if 'idx_user_series_enrollment_user_status' not in existing_indexes:
+            op.create_index(
+                'idx_user_series_enrollment_user_status',
+                'user_series_enrollment',
+                ['user_id', 'status'],
+                unique=False,
+            )
 
-    op.add_column(
-        'user_plan_progress',
-        sa.Column(
-            'enrollment_source',
-            enrollmentsource_enum,
-            nullable=False,
-            server_default='DIRECT',
-        ),
-    )
-    op.add_column(
-        'user_plan_progress',
-        sa.Column('series_enrollment_id', sa.UUID(), nullable=True),
-    )
-    op.add_column(
-        'user_plan_progress',
-        sa.Column('auto_enrolled', sa.Boolean(), nullable=False, server_default='false'),
-    )
-    op.add_column(
-        'user_plan_progress',
-        sa.Column('auto_enrolled_at', sa.DateTime(timezone=True), nullable=True),
-    )
-    op.alter_column('user_plan_progress', 'enrollment_source', server_default=None)
-    op.alter_column('user_plan_progress', 'auto_enrolled', server_default=None)
+    progress_columns = {
+        column['name']
+        for column in inspector.get_columns('user_plan_progress')
+    }
 
-    op.create_index(
-        'idx_user_progress_enrollment_source',
-        'user_plan_progress',
-        ['enrollment_source'],
-        unique=False,
-    )
-    op.create_index(
-        'idx_user_progress_series_enrollment',
-        'user_plan_progress',
-        ['series_enrollment_id'],
-        unique=False,
-    )
-    op.create_foreign_key(
-        SERIES_ENROLLMENT_FK,
-        'user_plan_progress',
-        'user_series_enrollment',
-        ['series_enrollment_id'],
-        ['id'],
-        ondelete='CASCADE',
-    )
+    if 'enrollment_source' not in progress_columns:
+        op.add_column(
+            'user_plan_progress',
+            sa.Column(
+                'enrollment_source',
+                enrollmentsource_enum,
+                nullable=False,
+                server_default='DIRECT',
+            ),
+        )
+        op.alter_column('user_plan_progress', 'enrollment_source', server_default=None)
+    if 'series_enrollment_id' not in progress_columns:
+        op.add_column(
+            'user_plan_progress',
+            sa.Column('series_enrollment_id', sa.UUID(), nullable=True),
+        )
+    if 'auto_enrolled' not in progress_columns:
+        op.add_column(
+            'user_plan_progress',
+            sa.Column('auto_enrolled', sa.Boolean(), nullable=False, server_default='false'),
+        )
+        op.alter_column('user_plan_progress', 'auto_enrolled', server_default=None)
+    if 'auto_enrolled_at' not in progress_columns:
+        op.add_column(
+            'user_plan_progress',
+            sa.Column('auto_enrolled_at', sa.DateTime(timezone=True), nullable=True),
+        )
+
+    progress_indexes = {
+        index['name'] for index in inspector.get_indexes('user_plan_progress')
+    }
+    if 'idx_user_progress_enrollment_source' not in progress_indexes:
+        op.create_index(
+            'idx_user_progress_enrollment_source',
+            'user_plan_progress',
+            ['enrollment_source'],
+            unique=False,
+        )
+    if 'idx_user_progress_series_enrollment' not in progress_indexes:
+        op.create_index(
+            'idx_user_progress_series_enrollment',
+            'user_plan_progress',
+            ['series_enrollment_id'],
+            unique=False,
+        )
+
+    progress_fks = {
+        fk['name'] for fk in inspector.get_foreign_keys('user_plan_progress')
+    }
+    if SERIES_ENROLLMENT_FK not in progress_fks and 'user_plan_progress_series_enrollment_id_fkey' not in progress_fks:
+        op.create_foreign_key(
+            SERIES_ENROLLMENT_FK,
+            'user_plan_progress',
+            'user_series_enrollment',
+            ['series_enrollment_id'],
+            ['id'],
+            ondelete='CASCADE',
+        )
 
     _drop_legacy_series_plan_order()
 
