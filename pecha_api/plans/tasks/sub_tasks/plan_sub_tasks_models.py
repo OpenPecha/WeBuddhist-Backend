@@ -34,8 +34,17 @@ class PlanSubTask(Base):
     # Relationships
     task = relationship("PlanTask", back_populates="sub_tasks")
     user_sub_task_completions = relationship("UserSubTaskCompletion", back_populates="sub_task", cascade="all, delete-orphan", passive_deletes=True)
+    timestamp = relationship(
+        "SubTaskTimestamp",
+        back_populates="sub_task",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index("idx_sub_tasks_task_order", "task_id", "display_order"),
         Index("idx_sub_tasks_content_type", "content_type"),
     )
+
+
+from pecha_api.plans.audio.sub_task_timestamps_models import SubTaskTimestamp  # noqa: F401, E402

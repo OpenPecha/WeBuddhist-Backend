@@ -113,7 +113,11 @@ def _plan_to_dto(plan) -> SeriesPlanDTO:
     )
 
 
-def _get_sorted_active_plans(plans, published_only: bool = False) -> List:
+def _get_sorted_active_plans(
+    plans,
+    published_only: bool = False,
+    language: Optional[str] = None,
+) -> List:
     if not plans:
         return []
     active_plans = [plan for plan in plans if plan.deleted_at is None]
@@ -121,6 +125,12 @@ def _get_sorted_active_plans(plans, published_only: bool = False) -> List:
         active_plans = [
             plan for plan in active_plans
             if _to_plan_status(plan.status) == PlanStatus.PUBLISHED
+        ]
+    if language:
+        language_upper = language.upper()
+        active_plans = [
+            plan for plan in active_plans
+            if _language_value(plan.language).upper() == language_upper
         ]
     return sorted(
         active_plans,
@@ -142,12 +152,21 @@ def _series_to_list_item_dto(row: Series, plan_count: int = 0) -> SeriesListItem
     )
 
 
-def _series_to_dto(row: Series, include_plans: bool = False, published_only: bool = False) -> SeriesDTO:
+def _series_to_dto(
+    row: Series,
+    include_plans: bool = False,
+    published_only: bool = False,
+    plan_language: Optional[str] = None,
+) -> SeriesDTO:
     plans_dtos = []
     series_total_days = 0
 
     if include_plans:
-        sorted_plans = _get_sorted_active_plans(row.plans, published_only=published_only)
+        sorted_plans = _get_sorted_active_plans(
+            row.plans,
+            published_only=published_only,
+            language=plan_language,
+        )
         for plan in sorted_plans:
             plan_dto = _plan_to_dto(plan)
             plans_dtos.append(plan_dto)
@@ -256,7 +275,11 @@ def get_cms_filtered_series(
     )
 
 
-def get_cms_series_detail(token: str, series_id: UUID) -> SeriesDTO:
+def get_cms_series_detail(
+    token: str,
+    series_id: UUID,
+    language: Optional[str] = None,
+) -> SeriesDTO:
     current_author = validate_and_extract_author_details(token=token)
 
     with SessionLocal() as db_session:
@@ -273,7 +296,7 @@ def get_cms_series_detail(token: str, series_id: UUID) -> SeriesDTO:
             detail="You do not have permission to view this series",
         )
 
-    return _series_to_dto(row, include_plans=True)
+    return _series_to_dto(row, include_plans=True, plan_language=language)
 
 def _validate_plan_ids(
     db,

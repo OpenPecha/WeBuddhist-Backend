@@ -253,6 +253,138 @@ def test_create_new_plan_success():
         assert response.start_date == request.start_date
 
 
+def test_create_new_plan_with_series_id():
+    series_id = uuid.uuid4()
+    request = CreatePlanRequest(
+        title="Series Plan",
+        description="Attached to a series on create.",
+        difficulty_level=DifficultyLevel.BEGINNER,
+        total_days=3,
+        language="en",
+        series_id=series_id,
+        display_order=2,
+    )
+
+    saved_plan = MagicMock()
+    saved_plan.id = uuid.uuid4()
+    saved_plan.title = request.title
+    saved_plan.description = request.description
+    saved_plan.difficulty_level = request.difficulty_level
+    saved_plan.image_url = None
+    saved_plan.tag_list = []
+    saved_plan.language = request.language
+    saved_plan.status = PlanStatus.DRAFT
+    saved_plan.start_date = None
+
+    mock_series = MagicMock()
+    mock_series.author_id = uuid.uuid4()
+
+    with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+        patch("pecha_api.plans.cms.cms_plans_service.save_plan") as mock_save_plan, \
+        patch("pecha_api.plans.cms.cms_plans_service.save_plan_items") as mock_save_plan_items, \
+        patch("pecha_api.plans.cms.cms_plans_service.get_plan_progress") as mock_get_plan_progress, \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+        patch("pecha_api.plans.cms.cms_plans_service.get_series_by_id") as mock_get_series:
+        db_session = _mock_session_local(mock_session_local)
+        mock_save_plan.return_value = saved_plan
+        mock_save_plan_items.return_value = [MagicMock() for _ in range(request.total_days)]
+        mock_get_plan_progress.return_value = []
+        mock_get_series.return_value = mock_series
+
+        author = MagicMock()
+        author.id = mock_series.author_id
+        author.email = "author@example.com"
+        author.is_admin = False
+        mock_validate_author.return_value = author
+
+        create_new_plan(token="dummy", create_plan_request=request)
+
+        created_plan_model = mock_save_plan.call_args.kwargs["plan"]
+        assert created_plan_model.series_id == series_id
+        assert created_plan_model.display_order == 2
+        mock_get_series.assert_called_once_with(db=db_session, series_id=series_id)
+
+
+def test_create_new_plan_with_series_id_auto_display_order():
+    series_id = uuid.uuid4()
+    request = CreatePlanRequest(
+        title="Series Plan",
+        description="Auto display order.",
+        difficulty_level=DifficultyLevel.BEGINNER,
+        total_days=1,
+        language="en",
+        series_id=series_id,
+    )
+
+    saved_plan = MagicMock()
+    saved_plan.id = uuid.uuid4()
+    saved_plan.title = request.title
+    saved_plan.description = request.description
+    saved_plan.difficulty_level = request.difficulty_level
+    saved_plan.image_url = None
+    saved_plan.tag_list = []
+    saved_plan.language = request.language
+    saved_plan.status = PlanStatus.DRAFT
+    saved_plan.start_date = None
+
+    mock_series = MagicMock()
+    mock_series.author_id = uuid.uuid4()
+
+    with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+        patch("pecha_api.plans.cms.cms_plans_service.save_plan") as mock_save_plan, \
+        patch("pecha_api.plans.cms.cms_plans_service.save_plan_items") as mock_save_plan_items, \
+        patch("pecha_api.plans.cms.cms_plans_service.get_plan_progress") as mock_get_plan_progress, \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+        patch("pecha_api.plans.cms.cms_plans_service.get_series_by_id") as mock_get_series:
+        db_session = _mock_session_local(mock_session_local)
+        db_session.query.return_value.filter.return_value.scalar.return_value = 4
+        mock_save_plan.return_value = saved_plan
+        mock_save_plan_items.return_value = [MagicMock()]
+        mock_get_plan_progress.return_value = []
+        mock_get_series.return_value = mock_series
+
+        author = MagicMock()
+        author.id = mock_series.author_id
+        author.email = "author@example.com"
+        author.is_admin = False
+        mock_validate_author.return_value = author
+
+        create_new_plan(token="dummy", create_plan_request=request)
+
+        created_plan_model = mock_save_plan.call_args.kwargs["plan"]
+        assert created_plan_model.series_id == series_id
+        assert created_plan_model.display_order == 5
+
+
+def test_create_new_plan_series_not_found():
+    series_id = uuid.uuid4()
+    request = CreatePlanRequest(
+        title="Series Plan",
+        description="Missing series.",
+        difficulty_level=DifficultyLevel.BEGINNER,
+        total_days=1,
+        language="en",
+        series_id=series_id,
+    )
+
+    with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+        patch("pecha_api.plans.cms.cms_plans_service.get_series_by_id") as mock_get_series:
+        _mock_session_local(mock_session_local)
+        mock_get_series.return_value = None
+
+        author = MagicMock()
+        author.id = uuid.uuid4()
+        author.email = "author@example.com"
+        author.is_admin = False
+        mock_validate_author.return_value = author
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_new_plan(token="dummy", create_plan_request=request)
+
+        assert exc_info.value.status_code == 404
+        assert str(series_id) in exc_info.value.detail
+
 
 @pytest.mark.asyncio
 async def test_get_filtered_plans_success():
@@ -419,6 +551,7 @@ async def test_get_details_plan_success():
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan_by_id, \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_plan_items_by_plan_id, \
         patch("pecha_api.plans.cms.cms_plans_service.get_tasks_by_item_ids") as mock_get_tasks_by_item_ids, \
+        patch("pecha_api.plans.audio.plan_item_audio_repository.get_plan_item_audio_by_plan_item_ids", return_value=[]) as mock_get_audio, \
         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
         patch("pecha_api.plans.cms.cms_plans_service.generate_presigned_access_url") as mock_presign, \
         patch("pecha_api.plans.cms.cms_plans_service.get") as mock_get_config:
@@ -472,12 +605,14 @@ async def test_get_plan_day_details_success():
     subtask1.content_type = ContentType.TEXT
     subtask1.content = "Practice for 10 minutes"
     subtask1.display_order = 1
+    subtask1.timestamp = None
 
     subtask2 = MagicMock()
     subtask2.id = uuid.uuid4()
     subtask2.content_type = ContentType.AUDIO
     subtask2.content = "https://example.com/audio.mp3"
     subtask2.display_order = 2
+    subtask2.timestamp = None
 
     task = MagicMock()
     task.id = uuid.uuid4()
@@ -490,6 +625,7 @@ async def test_get_plan_day_details_success():
     plan_item.id = uuid.uuid4()
     plan_item.day_number = day_number
     plan_item.tasks = [task]
+    plan_item.audio = None
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_day_with_tasks_and_subtasks") as mock_get_day, \
@@ -553,6 +689,7 @@ async def test_get_plan_day_details_no_subtasks():
     plan_item.id = uuid.uuid4()
     plan_item.day_number = day_number
     plan_item.tasks = [task]
+    plan_item.audio = None
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_day_with_tasks_and_subtasks") as mock_get_day, \
@@ -965,6 +1102,114 @@ async def test_update_plan_details_no_image_url():
         )
         
         assert response.image_url is None
+
+
+@pytest.mark.asyncio
+async def test_update_plan_details_with_series_id():
+    plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    mock_plan = MagicMock(spec=Plan)
+    mock_plan.id = plan_id
+    mock_plan.author_id = author_id
+    mock_plan.title = "Test Plan"
+    mock_plan.description = "Test Description"
+    mock_plan.difficulty_level = DifficultyLevel.BEGINNER
+    mock_plan.image_url = None
+    mock_plan.tag_list = []
+    mock_plan.language = MagicMock(value="en")
+    mock_plan.status = PlanStatus.DRAFT
+    mock_plan.start_date = None
+    mock_plan.series_id = None
+    mock_plan.display_order = None
+
+    mock_series = MagicMock()
+    mock_series.author_id = author_id
+
+    existing_items = [MagicMock(spec=PlanItem, day_number=1)]
+    update_request = UpdatePlanRequest(series_id=series_id, display_order=1)
+
+    with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan, \
+         patch("pecha_api.plans.cms.cms_plans_service.update_plan") as mock_update_plan, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_items, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_series_by_id") as mock_get_series:
+        db_session = _mock_session_local(mock_session_local)
+        db_session.query.return_value.filter.return_value.scalar.return_value = 0
+
+        mock_author = MagicMock()
+        mock_author.id = author_id
+        mock_author.email = "author@example.com"
+        mock_author.is_admin = False
+        mock_validate_author.return_value = mock_author
+
+        mock_get_plan.return_value = mock_plan
+        mock_update_plan.return_value = mock_plan
+        mock_get_items.return_value = existing_items
+        mock_get_series.return_value = mock_series
+
+        await update_plan_details(
+            token="test-token",
+            plan_id=plan_id,
+            update_plan_request=update_request,
+        )
+
+        assert mock_plan.series_id == series_id
+        assert mock_plan.display_order == 1
+        mock_get_series.assert_called_once_with(db=db_session, series_id=series_id)
+
+
+@pytest.mark.asyncio
+async def test_update_plan_details_detach_series():
+    plan_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    existing_series_id = uuid.uuid4()
+
+    mock_plan = MagicMock(spec=Plan)
+    mock_plan.id = plan_id
+    mock_plan.author_id = author_id
+    mock_plan.title = "Test Plan"
+    mock_plan.description = "Test Description"
+    mock_plan.difficulty_level = DifficultyLevel.BEGINNER
+    mock_plan.image_url = None
+    mock_plan.tag_list = []
+    mock_plan.language = MagicMock(value="en")
+    mock_plan.status = PlanStatus.DRAFT
+    mock_plan.start_date = None
+    mock_plan.series_id = existing_series_id
+    mock_plan.display_order = 2
+
+    existing_items = [MagicMock(spec=PlanItem, day_number=1)]
+    update_request = UpdatePlanRequest.model_validate({"series_id": None})
+
+    with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan, \
+         patch("pecha_api.plans.cms.cms_plans_service.update_plan") as mock_update_plan, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_items:
+        db_session = _mock_session_local(mock_session_local)
+        db_session.query.return_value.filter.return_value.scalar.return_value = 0
+
+        mock_author = MagicMock()
+        mock_author.id = author_id
+        mock_author.email = "author@example.com"
+        mock_author.is_admin = False
+        mock_validate_author.return_value = mock_author
+
+        mock_get_plan.return_value = mock_plan
+        mock_update_plan.return_value = mock_plan
+        mock_get_items.return_value = existing_items
+
+        await update_plan_details(
+            token="test-token",
+            plan_id=plan_id,
+            update_plan_request=update_request,
+        )
+
+        assert mock_plan.series_id is None
+        assert mock_plan.display_order is None
 
 
 @pytest.mark.asyncio

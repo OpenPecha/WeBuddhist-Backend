@@ -16,6 +16,8 @@ class CreatePlanRequest(BaseModel):
     image_url: Optional[str] = None
     tag_ids: Optional[List[UUID]] = []
     start_date: Optional[datetime] = None
+    series_id: Optional[UUID] = None
+    display_order: Optional[int] = None
 
 class UpdatePlanRequest(BaseModel):
     title: Optional[str] = None
@@ -26,6 +28,8 @@ class UpdatePlanRequest(BaseModel):
     image_url: Optional[str] = None
     tag_ids: Optional[List[UUID]] = None
     start_date: Optional[datetime] = None
+    series_id: Optional[UUID] = None
+    display_order: Optional[int] = None
 
 class PlanStatusUpdate(BaseModel):
     status: PlanStatus
@@ -58,6 +62,8 @@ class SubTaskDTO(BaseModel):
     content_type: ContentType
     content: Optional[str] = None
     display_order: Optional[int] = None
+    start_ms: Optional[int] = None
+    end_ms: Optional[int] = None
 
 class TaskDTO(BaseModel):
     id: UUID
@@ -70,6 +76,10 @@ class PlanDayDTO(BaseModel):
     id: UUID
     day_number: int
     tasks: List[TaskDTO]
+    audio_url: Optional[str] = None
+    audio_duration_ms: Optional[int] = None
+    audio_key: Optional[str] = None
+    has_audio: Optional[bool] = None
 
 
 class PlanWithDays(BaseModel):

@@ -12,6 +12,8 @@ class SubTaskRequestFields(BaseModel):
     source_text_id: Optional[UUID] = None
     pecha_segment_id: Optional[str] = None
     segment_ids: Optional[List[UUID]] = None
+    start_ms: Optional[int] = None
+    end_ms: Optional[int] = None
 
 
 class SubTaskRequest(BaseModel):
@@ -29,6 +31,8 @@ class SubTaskDTO(BaseModel):
     pecha_segment_id: Optional[str] = None
     segment_ids: Optional[List[UUID]] = None
     display_order: int
+    start_ms: Optional[int] = None
+    end_ms: Optional[int] = None
 
 class SubTaskResponse(BaseModel):
     sub_tasks: List[SubTaskDTO]

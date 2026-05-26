@@ -41,9 +41,11 @@ def get_tasks_by_item_ids(db: Session, plan_item_ids: List[UUID]) -> List[PlanTa
     return tasks
 
 def get_task_by_id(db: Session, task_id: UUID) -> PlanTask:
+    from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
+
     task = (
         db.query(PlanTask)
-        .options(joinedload(PlanTask.sub_tasks))
+        .options(joinedload(PlanTask.sub_tasks).joinedload(PlanSubTask.timestamp))
         .filter(PlanTask.id == task_id)
         .first()
     )
