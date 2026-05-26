@@ -65,6 +65,27 @@ async def get_texts_by_titles(titles: List[str]) -> List[Text]:
         return []
     return await Text.find({"title": {"$in": titles}}).to_list()
 
+    
+async def get_all_texts_by_group_id(group_id: str) -> List[TextDTO]:
+    texts = await Text.get_all_texts_by_group_id(group_id=group_id)
+    return [
+        TextDTO(
+            id=str(text.id),
+            title=text.title,
+            language=text.language,
+            group_id=text.group_id,
+            type=text.type,
+            is_published=text.is_published,
+            created_date=text.created_date,
+            updated_date=text.updated_date,
+            published_date=text.published_date,
+            published_by=text.published_by,
+            categories=text.categories,
+            views=text.views
+        )
+        for text in texts
+    ]
+
 async def get_contents_by_id(text_id: str) -> List[TableOfContent]:
     return await TableOfContent.get_table_of_contents_by_text_id(text_id=text_id)
     

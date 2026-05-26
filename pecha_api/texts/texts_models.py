@@ -163,6 +163,30 @@ class Text(Document):
         ).to_list()
 
     @classmethod
+    async def get_texts_by_group_id(cls, group_id: str, skip: int, limit: int) -> List["Text"]:
+        query = {
+            "group_id": group_id
+        }
+        texts = (
+            await cls.find(query)
+            .skip(skip)
+            .limit(limit)
+            .to_list()
+        )
+        return texts
+    
+    @classmethod
+    async def get_all_texts_by_group_id(cls, group_id: str) -> List["Text"]:
+        query = {
+            "group_id": group_id
+        }
+        texts = (
+            await cls.find(query)
+            .to_list()
+        )
+        return texts
+
+    @classmethod
     async def update_text_details_by_id(cls, text_id: UUID, text_details: TextDTO):
         return await cls.update_all(cls.id == text_id, {"$set": text_details.model_dump()})
     

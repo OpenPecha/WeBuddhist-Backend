@@ -9,6 +9,8 @@ class CacheType(Enum):
 
     SEGMENTS_DETAILS = "segments_details"
 
+    GROUP_DETAIL = "group_detail"
+
     USER_INFO = "user_info"
 
     TOPICS = "topics"

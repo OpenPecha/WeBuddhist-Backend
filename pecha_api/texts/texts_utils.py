@@ -19,6 +19,10 @@ from .texts_response_models import (
 )
 from pecha_api.texts.texts_enums import LANGUAGE_ORDERS
 
+from .groups.groups_service import (
+    get_groups_by_list_of_ids
+)
+from .groups.groups_response_models import GroupDTO
 from .texts_repository import get_contents_by_id, get_texts_by_id
 from .texts_models import Text
 from .texts_cache_service import (
@@ -232,7 +236,81 @@ class TextUtils:
 
 
         return filtered_text
+    
+    @staticmethod
+    async def filter_text_base_on_group_id_type(texts: List[TextDTO], language: str) -> Dict[str, Union[TextDTO, List[TextDTO]]]:
+        filtere_text = {
+            TextType.ROOT_TEXT.value: None,
+            TextType.COMMENTARY.value: []
+        }
+        if texts:
+            group_ids = [text.group_id for text in texts]
+            group_ids_type_dict: Dict[str, GroupDTO] = await get_groups_by_list_of_ids(group_ids=group_ids)
 
+            commentary = []
+            for text in texts:
+                # remove duplicate text
+                if str(text.id) in Constants.excluded_text_ids:
+                    continue
+                if (group_ids_type_dict.get(text.group_id).type == "text") and (text.language == language) and filtere_text[TextType.ROOT_TEXT.value] is None:
+                    filtere_text[TextType.ROOT_TEXT.value] = text
+                elif (group_ids_type_dict.get(text.group_id).type == TextType.COMMENTARY.value and text.language == language):
+                    commentary.append(text)
+            filtere_text[TextType.COMMENTARY.value] = commentary
+        return filtere_text
+
+    @staticmethod
+    async def filter_text_base_on_group_id_type_and_language_preference(texts: List[TextDTO], language: str) -> Dict[str, Union[TextDTO, List[TextDTO]]]:
+        filtere_text = {
+            TextType.ROOT_TEXT.value: None,
+            TextType.COMMENTARY.value: []
+        }
+        if texts:
+            group_ids = [text.group_id for text in texts]
+            group_ids_type_dict: Dict[str, GroupDTO] = await get_groups_by_list_of_ids(group_ids=group_ids)
+    
+            commentary = []
+            for text in texts:
+                # remove duplicate text
+                if str(text.id) in Constants.excluded_text_ids:
+                    continue
+                
+                # Since texts are already sorted by language preference,
+                # just pick the first one that matches the type
+                if (group_ids_type_dict.get(text.group_id).type == "text") and filtere_text[TextType.ROOT_TEXT.value] is None:
+                    filtere_text[TextType.ROOT_TEXT.value] = text
+                elif (group_ids_type_dict.get(text.group_id).type == TextType.COMMENTARY.value and text.language == language):
+                    commentary.append(text)
+            filtere_text[TextType.COMMENTARY.value] = commentary
+        return filtere_text
+
+    @staticmethod
+    async def get_commentaries_by_text_type(text_type: str, language: str, skip: int, limit: int) -> List[TextDTO]:
+        texts = await Text.find({"type": "commentary"}).to_list()
+    
+        return [
+            TextDTO(
+                id=str(text.id),
+                pecha_text_id=str(text.pecha_text_id) if text.pecha_text_id else None,
+                title=text.title,
+                language=text.language,
+                group_id=text.group_id,
+                type=text.type,
+                is_published=text.is_published,
+                created_date=text.created_date,
+                updated_date=text.updated_date,
+                published_date=text.published_date,
+                published_by=text.published_by,
+                categories=text.categories,
+                views=text.views,
+                source_link=text.source_link,
+                ranking=text.ranking,
+                license=text.license
+            )
+            for text in texts
+        ]
+        
+    
 
 def _find_section_with_segment(sections, segment_id: str):
     """

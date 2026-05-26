@@ -20,7 +20,8 @@ Routers included in `pecha_api/app.py`:
 - `collections`: `pecha_api/collections/collections_views.py`
 - `terms`: `pecha_api/terms/terms_views.py`
 - `texts`: `pecha_api/texts/texts_views.py`
-- `segments`: `pecha_api/texts/segments/segments_openpecha_views.py`
+- `groups`: `pecha_api/texts/groups/groups_views.py`
+- `segments`: `pecha_api/texts/segments/segments_views.py`
 - `topics`: `pecha_api/topics/topics_views.py`
 - `users`: `pecha_api/users/users_views.py`
 - `share`: `pecha_api/share/share_views.py`
