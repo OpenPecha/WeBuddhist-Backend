@@ -2,27 +2,21 @@ from typing import Dict, List, Optional, Union
 from uuid import UUID
 from fastapi import HTTPException
 from starlette import status
-import bophono
-from botok.tokenizers.wordtokenizer import WordTokenizer
 
 
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.texts.texts_enums import TextType
-from .segments_response_models import MappedSegmentDTO, MappedSegmentResponseDTO, SegmentDTO, SegmentCommentry, SegmentTranslation, SegmentTransliteration, SegmentAdaptation, SegmentRootMapping, SegmentRecitation
+from .segments_response_models import MappedSegmentDTO, SegmentDTO, SegmentCommentry, SegmentTranslation, SegmentAdaptation
 from .segments_repository import (
     check_segment_exists,
     check_all_segment_exists,
     get_segment_by_id,
     get_related_mapped_segments,
 )
-from ..texts_response_models import TextDTO
 from ..texts_repository import get_contents_by_id
 from pecha_api.constants import Constants
 
 
-from ..groups.groups_service import (
-    get_group_details
-)
 from ..texts_utils import TextUtils
 from ..texts_response_models import (
     DetailTableOfContent,
@@ -36,8 +30,6 @@ from .segments_response_models import (
     SegmentTranslation,
     SegmentTransliteration,
     SegmentAdaptation,
-    SegmentRootMapping,
-    SegmentRecitation
 )
 
 def _extract_segment_order(section, segment_order_map: Dict[str, int]):
@@ -95,31 +87,6 @@ class SegmentUtils:
                 detail=f"{ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE} {segment_ids}",
             )
         return all_exists
-    
-        
-    @staticmethod
-    async def get_count_of_each_commentary_and_version(
-        segments: List[SegmentDTO],
-        parent_text: TextDTO
-    ) -> Dict[str, int]:
-        """
-        Count the number of commentary and version segments in the provided list.
-        """
-        count = {"commentary": 0, "version": 0}
-        unique_text_ids = set()
-        text_ids = [segment.text_id for segment in segments]
-        text_details_dict = await TextUtils.get_text_details_by_ids(text_ids=text_ids)
-        for segment in segments:
-            text_id = segment.text_id
-            if text_id in unique_text_ids:
-                continue
-            unique_text_ids.add(text_id)
-            text_detail = text_details_dict.get(text_id)
-            if text_detail and text_detail.type == "commentary":
-                count["commentary"] += 1
-            elif text_detail and text_detail.type == "version" and text_detail.type == parent_text.type:
-                count["version"] += 1
-        return count
 
     @staticmethod
     async def filter_segment_mapping_by_type_or_text_id(
@@ -186,23 +153,6 @@ class SegmentUtils:
                 appended_commentary_text_ids.append(segment.text_id)
                 
         return filtered_segments
-    
-    @staticmethod
-    async def get_root_mapping_count(segment_id: str) -> int:
-        segment = await get_segment_by_id(segment_id=segment_id)
-        text_id = segment.text_id
-        text_detail = await TextUtils.get_text_details_by_id(text_id=text_id)
-        group_id = text_detail.group_id
-        group_detail = await get_group_details(group_id=group_id)
-        if group_detail.type == "text":
-            return 0
-        root_mapping_count = 0
-        for mapping in segment.mapping:
-            text_detail = await TextUtils.get_text_details_by_id(text_id=mapping.text_id)
-            if text_detail.type == "commentary":
-                continue
-            root_mapping_count += 1
-        return root_mapping_count
 
     @staticmethod
     async def get_mapped_segment_content_for_table_of_content(
@@ -210,7 +160,7 @@ class SegmentUtils:
     ) -> DetailTableOfContent:
         """
         Convert a TableOfContent model to a DetailTableOfContent model by enriching
-        each segment with detailed information fetched from get_segment_details_by_id.
+        each segment with content loaded from the segment repository.
         
         Args:
             table_of_content: The TableOfContent model to be converted
@@ -282,42 +232,6 @@ class SegmentUtils:
         return detail_table_of_content
     
     @staticmethod
-    async def get_segment_root_mapping_details(segments: List[SegmentDTO], parent_segment_text: TextDTO) -> List[SegmentRootMapping]:
-        list_of_text_ids = [
-            segment.text_id
-            for segment in segments
-        ]
-        texts_dict = await TextUtils.get_text_details_by_ids(text_ids=list_of_text_ids)
-        grouped_segments = await SegmentUtils._group_segment_content_by_text_id(segments=segments)
-        list_of_segment_root_mapping = []
-        appended_text_ids = []
-        
-        for segment in segments:
-            text_detail = texts_dict.get(segment.text_id)
-            if text_detail:
-                if segment.text_id in appended_text_ids:
-                    continue
-                mapped_segments = []
-                for segment_item in grouped_segments.get(segment.text_id, []):
-                    mapped_segments.append(MappedSegmentResponseDTO(
-                        segment_id=str(segment_item.id),
-                        content=segment_item.content,
-                        language=text_detail.language
-                    ))
-                if text_detail.type == parent_segment_text.type:
-                    continue
-                list_of_segment_root_mapping.append(
-                    SegmentRootMapping(
-                        text_id=segment.text_id,
-                        title=text_detail.title,
-                        language=text_detail.language,
-                        segments=mapped_segments
-                    )
-                )
-                appended_text_ids.append(segment.text_id)
-        return list_of_segment_root_mapping
-
-    @staticmethod
     async def _group_segment_content_by_text_id(segments: List[SegmentDTO]) -> Dict[str, List[SegmentDTO]]:
         grouped_segments = {}
         for segment in segments:
@@ -341,19 +255,3 @@ class SegmentUtils:
         
         return grouped_segments
     
-    @staticmethod
-    def apply_bophono(segmentContent:str)->str:
-        options = {
-            'aspirateLowTones': True
-        }
-        tokenizer = WordTokenizer()
-        tokens = tokenizer.tokenize(segmentContent)
-        token_text =  []
-        for token in tokens:
-            token_text.append(token.text)
-        kvpconverter = bophono.UnicodeToApi(schema="KVP", options = options)
-        kvp_ipa_list = []
-        for segment in token_text:
-            kvp_ipa = kvpconverter.get_api(segment)
-            kvp_ipa_list.append(kvp_ipa)
-        return " ".join(kvp_ipa_list)

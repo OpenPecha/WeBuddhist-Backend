@@ -72,8 +72,6 @@ DEFAULTS = dict(
 
     ### text uploader script configuration
     APPLICATION = "webuddhist",
-    ACCESS_TOKEN="",
-    COLLECTION_LANGUAGES = ["bo", "en", "zh"],
 
     #pecha api configuration
     EXTERNAL_PECHA_API_URL="",
@@ -82,8 +80,6 @@ DEFAULTS = dict(
     EXTERNAL_PECHA_APP_NAME="webuddhist",
 
     EXTERNAL_TITLE_SEARCH_API_URL="",
-
-    SQS_TIMEOUT=1800,
 
 
 )
