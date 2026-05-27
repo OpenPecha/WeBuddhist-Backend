@@ -142,7 +142,9 @@ async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, so
                             s3_key=selected_plan.author.image_url
                         )
                     )
-                )
+                ),
+                series_id=selected_plan.series_id,
+                display_order=selected_plan.display_order,
             )
         )
 
@@ -285,6 +287,8 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
             status=saved_plan.status,
             subscription_count=total_subscription_count,
             start_date=saved_plan.start_date,
+            series_id=saved_plan.series_id,
+            display_order=saved_plan.display_order,
         )
 
 async def get_details_plan(token:str,plan_id: UUID) -> PlanWithDays:
@@ -359,6 +363,8 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
         status=plan.status,
         days=day_dtos,
         start_date=plan.start_date,
+        series_id=plan.series_id,
+        display_order=plan.display_order,
     )
     
 def _get_subscription_count(db: Session, plan_id: UUID) -> int:
@@ -460,6 +466,8 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
             status=plan.status,
             subscription_count=subscription_count,
             start_date=plan.start_date,
+            series_id=plan.series_id,
+            display_order=plan.display_order,
         )
 
 async def update_selected_plan_status(token:str,plan_id: UUID, plan_status_update: PlanStatusUpdate) -> PlanDTO:
@@ -484,7 +492,9 @@ async def update_selected_plan_status(token:str,plan_id: UUID, plan_status_updat
             total_days=len(get_plan_items_by_plan_id(db=db, plan_id=plan_id)),
             tags=tags_to_summary_dtos(plan.tag_list),
             status=plan.status,
-            subscription_count=len(get_plan_progress(db=db, plan_id=plan.id))
+            subscription_count=len(get_plan_progress(db=db, plan_id=plan.id)),
+            series_id=plan.series_id,
+            display_order=plan.display_order,
         )
 
 async def delete_selected_plan(token:str,plan_id: UUID):

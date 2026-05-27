@@ -195,6 +195,8 @@ def test_create_new_plan_success():
     saved_plan.language = request.language
     saved_plan.status = PlanStatus.DRAFT
     saved_plan.start_date = request.start_date
+    saved_plan.series_id = None
+    saved_plan.display_order = None
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.cms.cms_plans_service.save_plan") as mock_save_plan, \
@@ -275,6 +277,8 @@ def test_create_new_plan_with_series_id():
     saved_plan.language = request.language
     saved_plan.status = PlanStatus.DRAFT
     saved_plan.start_date = None
+    saved_plan.series_id = None
+    saved_plan.display_order = None
 
     mock_series = MagicMock()
     mock_series.author_id = uuid.uuid4()
@@ -326,6 +330,8 @@ def test_create_new_plan_with_series_id_auto_display_order():
     saved_plan.language = request.language
     saved_plan.status = PlanStatus.DRAFT
     saved_plan.start_date = None
+    saved_plan.series_id = None
+    saved_plan.display_order = None
 
     mock_series = MagicMock()
     mock_series.author_id = uuid.uuid4()
@@ -747,6 +753,8 @@ async def test_update_plan_details_success():
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
+    mock_plan.series_id = None
+    mock_plan.display_order = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=i) for i in range(1, 6)]
     
@@ -874,6 +882,8 @@ async def test_update_plan_details_partial_update():
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
+    mock_plan.series_id = None
+    mock_plan.display_order = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=i) for i in range(1, 6)]
     
@@ -961,6 +971,8 @@ async def test_update_plan_details_with_image_url_generation():
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
+    mock_plan.series_id = None
+    mock_plan.display_order = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=1)]
     
@@ -1018,6 +1030,8 @@ async def test_update_plan_details_image_url_generation_failure():
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
+    mock_plan.series_id = None
+    mock_plan.display_order = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=1)]
     
@@ -1072,6 +1086,8 @@ async def test_update_plan_details_no_image_url():
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
+    mock_plan.series_id = None
+    mock_plan.display_order = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=1)]
     
@@ -1227,6 +1243,8 @@ async def test_update_selected_plan_status_success_db_backed():
     mock_plan.image_url = "images/plan.jpg"
     mock_plan.tag_list = []
     mock_plan.status = PlanStatus.DRAFT
+    mock_plan.series_id = None
+    mock_plan.display_order = None
 
     items = [MagicMock(spec=PlanItem), MagicMock(spec=PlanItem)]
     user_progress = [MagicMock(), MagicMock(), MagicMock()]
