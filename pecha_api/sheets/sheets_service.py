@@ -36,15 +36,16 @@ from pecha_api.texts.groups.groups_response_models import (
 from pecha_api.texts.groups.groups_enums import GroupType
 from pecha_api.texts.groups.groups_service import (
     create_new_group,
-    delete_group_by_group_id
+    delete_group_by_group_id,
+    validate_group_exists
 )
+from pecha_api.texts.texts_repository import create_text
 
 from pecha_api.texts.texts_response_models import (
     CreateTextRequest,
     UpdateTextRequest
 )
 from pecha_api.texts.texts_service import (
-    create_new_text,
     create_table_of_content,
     remove_table_of_content_by_text_id,
     update_text_details,
@@ -600,6 +601,9 @@ async def _create_sheet_text_(title: str, token: str, group_id: str) -> str:
     user_details = validate_and_extract_user_details(token=token)
     if title is None or title == "":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ErrorConstants.SHEET_TITLE_REQUIRED_MESSAGE)
+    valid_group = await validate_group_exists(group_id=group_id)
+    if not valid_group:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.GROUP_NOT_FOUND_MESSAGE)
     create_text_request = CreateTextRequest(
         title=title,
         group_id=group_id,
@@ -607,8 +611,8 @@ async def _create_sheet_text_(title: str, token: str, group_id: str) -> str:
         published_by=user_details.email,
         type=TextType.SHEET
     )
-    new_text: TextDTO = await create_new_text(create_text_request=create_text_request, token=token)
-    return new_text.id
+    new_text = await create_text(create_text_request=create_text_request)
+    return str(new_text.id)
 
 
 async def _create_sheet_group_(token: str) -> str:
