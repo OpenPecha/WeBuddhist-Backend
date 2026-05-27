@@ -7,7 +7,6 @@ from typing import Optional, Annotated, List
 from .texts_service import (
     get_table_of_contents_by_text_id,
     get_text_versions_by_group_id,
-    create_new_text,
     get_text_details_by_text_id,
     create_table_of_content,
     get_text_details_by_text_id,
@@ -18,7 +17,6 @@ from .texts_service import (
     get_version_info
 )
 from .texts_response_models import (
-    CreateTextRequest,
     TableOfContentResponse,
     TextDetailsRequest,
     TableOfContent,
@@ -37,23 +35,6 @@ text_router = APIRouter(
     prefix="/texts",
     tags=["Texts"]
 )
-
-
-@text_router.post(
-    "",
-    status_code=status.HTTP_201_CREATED,
-    deprecated=True,
-    summary="Create text (DEPRECATED)",
-    description="**DEPRECATED**: This endpoint will be removed on June 1, 2026. Please migrate to /api/v2/texts.",
-)
-async def create_text(
-    create_text_request: CreateTextRequest,
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-) -> TextDTO:
-    return await create_new_text(
-        create_text_request=create_text_request,
-        token=authentication_credential.credentials
-    )
 
 
 @text_router.get("/{text_id}/versions", status_code=status.HTTP_200_OK)

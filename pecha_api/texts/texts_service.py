@@ -6,7 +6,6 @@ from pecha_api.http_message_utils import handle_http_status_error, handle_reques
 from .texts_repository import (
     get_texts_by_collection,
     get_texts_by_group_id,
-    create_text,
     create_table_of_content_detail,
     get_contents_by_id,
     get_table_of_content_by_content_id,
@@ -30,7 +29,6 @@ from .texts_response_models import (
     TextVersionResponse,
     TextVersion,
     TextsCategoryResponse,
-    CreateTextRequest,
     TextDetailsRequest,
     UpdateTextRequest,
     TextDetailsRequest,
@@ -55,9 +53,6 @@ from pecha_api.plans.response_message import (
     TITLE_OR_AUTHOR_QUERY_REQUIRED,
 )
 
-from .groups.groups_service import (
-    validate_group_exists
-)
 from .segments.segments_models import Segment
 from pecha_api.texts.texts_cache_service import (
     set_text_details_cache,
@@ -343,38 +338,6 @@ async def get_text_versions_by_group_id(text_id: str, language: str, skip: int, 
     )
 
     return response
-
-
-async def create_new_text(
-        create_text_request: CreateTextRequest,
-        token: str
-) -> TextDTO:
-    is_valid_user = validate_user_exists(token=token)
-    if is_valid_user:
-        valid_group = await validate_group_exists(group_id=create_text_request.group_id)
-        if not valid_group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.GROUP_NOT_FOUND_MESSAGE)
-        new_text = await create_text(create_text_request=create_text_request)
-        return TextDTO(
-            id=str(new_text.id),
-            pecha_text_id=str(new_text.pecha_text_id),
-            title=new_text.title,
-            language=new_text.language,
-            group_id=new_text.group_id,
-            type=new_text.type,
-            is_published=new_text.is_published,
-            created_date=new_text.created_date,
-            updated_date=new_text.updated_date,
-            published_date=new_text.published_date,
-            published_by=new_text.published_by,
-            categories=new_text.categories,
-            views=new_text.views,
-            source_link=new_text.source_link,
-            ranking=new_text.ranking,
-            license=new_text.license
-        )
-    else:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorConstants.TOKEN_ERROR_MESSAGE)
 
 
 async def create_table_of_content(table_of_content_request: TableOfContent, token: str):
