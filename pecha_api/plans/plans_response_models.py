@@ -56,6 +56,8 @@ class PlanDTO(BaseModel):
     subscription_count: int
     author: Optional[AuthorDTO] = None
     start_date: Optional[datetime] = None
+    series_id: Optional[UUID] = None
+    display_order: Optional[int] = None
 
 class SubTaskDTO(BaseModel):
     id: UUID
@@ -95,6 +97,8 @@ class PlanWithDays(BaseModel):
     status: PlanStatus
     days: List[PlanDayDTO]
     start_date: Optional[datetime] = None
+    series_id: Optional[UUID] = None
+    display_order: Optional[int] = None
 
 class PlansResponse(BaseModel):
     plans: List[PlanDTO]
