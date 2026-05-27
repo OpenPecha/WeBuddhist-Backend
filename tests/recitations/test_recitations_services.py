@@ -37,8 +37,6 @@ from pecha_api.cache.cache_enums import CacheType
 class TestGetListOfRecitationsService:
     """Test cases for get_list_of_recitations_service function."""
 
-    @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
-    @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
     @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
     @pytest.mark.asyncio
@@ -79,7 +77,6 @@ class TestGetListOfRecitationsService:
         mock_get_root_text.assert_called_once_with(collection_id=liturgy_collection_id, language="en")
         mock_apply_search_filter.assert_called_once_with(texts=[recitation_dto], search=None)
 
-    @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
     @pytest.mark.asyncio
     async def test_get_list_of_recitations_service_collection_not_found(
         self,
@@ -95,8 +92,6 @@ class TestGetListOfRecitationsService:
         assert exc_info.value.detail == ErrorConstants.COLLECTION_NOT_FOUND
         mock_get_collection_id.assert_called_once_with(slug="Liturgy")
 
-    @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
-    @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
     @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
     @pytest.mark.asyncio
     async def test_get_list_of_recitations_service_search_filter_no_match(
@@ -126,8 +121,6 @@ class TestGetListOfRecitationsService:
         mock_get_root_text.assert_called_once_with(collection_id=liturgy_collection_id, language="en")
         mock_apply_search_filter.assert_called_once_with(texts=[recitation_dto], search="nonexistent")
 
-    @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
-    @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
     @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
     @pytest.mark.asyncio
@@ -160,8 +153,6 @@ class TestGetListOfRecitationsService:
         mock_get_root_text.assert_called_once_with(collection_id=liturgy_collection_id, language="en")
         mock_apply_search_filter.assert_called_once_with(texts=[recitation_dto], search="morning")
 
-    @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
-    @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
     @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
     @pytest.mark.asyncio

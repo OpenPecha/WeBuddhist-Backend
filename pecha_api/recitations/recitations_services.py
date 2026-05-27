@@ -1,10 +1,10 @@
 from pecha_api.recitations.recitations_enum import RecitationListTextType
 from pecha_api.texts.texts_enums import TextType
 from typing import List, Dict, Union,Optional
-from pecha_api.collections.collections_repository import get_collection_id_by_slug
+from openpecha_api.collection.openpecha_collection_service import fetch_categories
+from openpecha_api.text.openpecha_text_service import fetch_texts_by_category
 from pecha_api.recitations.recitations_repository import apply_search_recitation_title_filter, get_text_images_by_text_ids
 from pecha_api.recitations.recitations_response_models import RecitationDTO, RecitationsResponse
-from pecha_api.texts.texts_service import get_root_text_by_collection_id
 from fastapi import HTTPException
 from starlette import status
 from uuid import UUID
@@ -58,14 +58,27 @@ def get_recitations_with_image_urls(recitations: List[RecitationDTO]) -> List[Re
     return recitations_with_images
 
 async def get_list_of_recitations_service(search: Optional[str] = None, language: str = "en") -> RecitationsResponse:
-    collection_id = await get_collection_id_by_slug(slug="Liturgy")
-    if collection_id is None:
+    category_id = await _get_category_id_by_title(title="Liturgy", language="en")
+    if category_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.COLLECTION_NOT_FOUND)
     
-    recitation_list_text_response: RecitationsResponse = await get_root_text_by_collection_id(collection_id=collection_id, language=language)
+    texts_response = await fetch_texts_by_category(
+        category_id=category_id, 
+        language=language,
+        limit=100,
+        offset=0
+    )
+    
+    recitations = [
+        RecitationDTO(
+            title=text["title"].get(language, text["title"].get("en")),
+            text_id=UUID(text["id"])
+        )
+        for text in texts_response.get("items", [])
+    ]
 
-    serched_texts=apply_search_recitation_title_filter(texts=recitation_list_text_response.recitations, search=search)
-    recitations_with_images = get_recitations_with_image_urls(recitations=serched_texts)
+    searched_texts = apply_search_recitation_title_filter(texts=recitations, search=search)
+    recitations_with_images = get_recitations_with_image_urls(recitations=searched_texts)
     
     return RecitationsResponse(recitations=recitations_with_images)
 
@@ -220,3 +233,14 @@ def filter_by_type_and_language(type:str,segments: List[Union[SegmentRecitation,
         if segment.language in languages
     }
     return filtered_segments
+
+async def _get_category_id_by_title(title: str, language: str = "en") -> Optional[str]:
+
+    categories = await fetch_categories()
+    
+    for category in categories:
+        category_title = category.get("title", {})
+        if category_title.get(language) == title:
+            return category["id"]
+    
+    return None

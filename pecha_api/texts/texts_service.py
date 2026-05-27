@@ -486,37 +486,6 @@ async def _validate_text_detail_request(text_id: str, text_details_request: Text
 
     await TextUtils.validate_text_exists(text_id=text_id)
 
-async def get_root_text_by_collection_id(collection_id: str, language: str) -> Optional[tuple[str, str]]:
-
-    texts = await get_all_recitation_texts_by_collection(collection_id=collection_id, language=language)
-    grouped_texts = _group_texts_by_group_id(texts=texts, language=language)
-    recitation_text_list = []
-    for group_texts in grouped_texts.values():
-        filter_text_base_on_group_id_type = await TextUtils.filter_text_base_on_group_id_type_and_language_preference(texts=group_texts, language=language)
-        root_text = filter_text_base_on_group_id_type[TextType.ROOT_TEXT.value]
-        if root_text is None:
-            continue
-        recitation_text_list.append(RecitationDTO(text_id=root_text.id, title=root_text.title))
-    return RecitationsResponse(recitations=recitation_text_list)
-
-
-def _group_texts_by_group_id(texts: List[TextDTO], language: str|None = None) -> Dict[str, List[TextDTO]]:
-    texts_by_group_id = {}
-    for text in texts:
-        group_id = str(text.group_id)
-        if group_id not in texts_by_group_id:
-            texts_by_group_id[group_id] = []
-        texts_by_group_id[group_id].append(text)
-    
-    # Sort texts within each group by language preference
-    for group_id in texts_by_group_id:
-        texts_by_group_id[group_id].sort(
-            key=lambda text: TextUtils.get_language_priority(text.language, language)
-        )
-
-    return texts_by_group_id
-
-
 async def _get_texts_by_collection_id(collection_id: str, language: str, skip: int, limit: int) -> Tuple[List[TextDTO], int]:
     texts = await get_all_texts_by_collection(collection_id=collection_id)
     group_id_set = set()
