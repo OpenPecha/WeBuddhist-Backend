@@ -818,3 +818,215 @@ def test_get_user_plan_days_completion_status_all_completed(authenticated_client
         assert mock_service.call_count == 1
         assert mock_service.call_args.kwargs.get("token") == VALID_TOKEN
         assert mock_service.call_args.kwargs.get("plan_id") == plan_id
+
+
+# Series enrollment endpoints
+
+def test_enroll_in_series_success(authenticated_client):
+    series_id = uuid.uuid4()
+    payload = {
+        "series_id": str(series_id),
+        "auto_enroll_next": True,
+        "start_immediately": False,
+    }
+
+    with patch(
+        "pecha_api.plans.users.plan_users_views.enroll_user_in_series",
+        return_value=None,
+    ) as mock_enroll:
+        response = authenticated_client.post(
+            "/users/me/series",
+            json=payload,
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert mock_enroll.call_count == 1
+        assert mock_enroll.call_args.kwargs.get("token") == VALID_TOKEN
+        assert mock_enroll.call_args.kwargs.get("enroll_request").series_id == series_id
+
+
+def test_enroll_in_series_service_error(authenticated_client):
+    series_id = uuid.uuid4()
+    payload = {"series_id": str(series_id)}
+
+    with patch("pecha_api.plans.users.plan_users_views.enroll_user_in_series") as mock_enroll:
+        mock_enroll.side_effect = HTTPException(
+            status_code=409,
+            detail={"error": "Bad request", "message": "Already enrolled in series"},
+        )
+
+        response = authenticated_client.post(
+            "/users/me/series",
+            json=payload,
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_409_CONFLICT
+
+
+def test_get_user_series_enrollments_success(authenticated_client):
+    from pecha_api.plans.users.plan_users_response_models import (
+        UserSeriesEnrollmentsResponse,
+        UserSeriesEnrollmentDTO,
+    )
+    from datetime import timezone
+
+    series_id = uuid.uuid4()
+    mock_response = UserSeriesEnrollmentsResponse(
+        enrollments=[
+            UserSeriesEnrollmentDTO(
+                id=uuid.uuid4(),
+                user_id=uuid.uuid4(),
+                series_id=series_id,
+                series_title="Test Series",
+                series_description="Description",
+                series_image_url="https://signed.example.com/series.jpg",
+                enrolled_at=datetime.now(timezone.utc),
+                status="ACTIVE",
+                auto_enroll_next=True,
+                current_plan_id=None,
+                current_plan_title=None,
+                is_completed=False,
+                completed_at=None,
+                total_plans=2,
+                completed_plans=1,
+                progress_percentage=50.0,
+            )
+        ],
+        skip=0,
+        limit=20,
+        total=1,
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_views.get_user_series_enrollments",
+        return_value=mock_response,
+    ) as mock_get:
+        response = authenticated_client.get(
+            "/users/me/series",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total"] == 1
+        assert len(data["enrollments"]) == 1
+        assert data["enrollments"][0]["series_title"] == "Test Series"
+        assert mock_get.call_args.kwargs.get("token") == VALID_TOKEN
+        assert mock_get.call_args.kwargs.get("status_filter") is None
+
+
+def test_get_user_series_enrollments_with_filters(authenticated_client):
+    from pecha_api.plans.users.plan_users_response_models import UserSeriesEnrollmentsResponse
+
+    mock_response = UserSeriesEnrollmentsResponse(
+        enrollments=[], skip=5, limit=10, total=0
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_views.get_user_series_enrollments",
+        return_value=mock_response,
+    ) as mock_get:
+        response = authenticated_client.get(
+            "/users/me/series?status_filter=active&skip=5&limit=10",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert mock_get.call_args.kwargs.get("status_filter") == "active"
+        assert mock_get.call_args.kwargs.get("skip") == 5
+        assert mock_get.call_args.kwargs.get("limit") == 10
+
+
+def test_get_user_series_enrollments_unauthenticated(unauthenticated_client):
+    response = unauthenticated_client.get("/users/me/series")
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_user_series_progress_success(authenticated_client):
+    from pecha_api.plans.users.plan_users_response_models import (
+        UserSeriesProgressResponse,
+        UserPlanDTO,
+    )
+    from datetime import timezone
+
+    series_id = uuid.uuid4()
+    started_at = datetime.now(timezone.utc)
+    mock_response = UserSeriesProgressResponse(
+        id=uuid.uuid4(),
+        series_id=series_id,
+        series_title="Test Series",
+        series_description="Desc",
+        enrolled_at=datetime.now(timezone.utc),
+        status="ACTIVE",
+        auto_enroll_next=True,
+        current_plan_id=uuid.uuid4(),
+        is_completed=False,
+        completed_at=None,
+        plans=[
+            UserPlanDTO(
+                id=uuid.uuid4(),
+                title="Plan 1",
+                description="Desc",
+                language="EN",
+                difficulty_level="BEGINNER",
+                image_url="",
+                started_at=started_at,
+                total_days=7,
+                tags=[],
+            )
+        ],
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_views.get_user_series_progress",
+        return_value=mock_response,
+    ) as mock_get:
+        response = authenticated_client.get(
+            f"/users/me/series/{series_id}",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["series_title"] == "Test Series"
+        assert len(data["plans"]) == 1
+        assert mock_get.call_args.kwargs.get("token") == VALID_TOKEN
+        assert mock_get.call_args.kwargs.get("series_id") == series_id
+
+
+def test_update_series_enrollment_success(authenticated_client):
+    series_id = uuid.uuid4()
+    payload = {"auto_enroll_next": False, "status": "PAUSED"}
+
+    with patch(
+        "pecha_api.plans.users.plan_users_views.update_user_series_enrollment_service",
+        return_value=None,
+    ) as mock_update:
+        response = authenticated_client.patch(
+            f"/users/me/series/{series_id}",
+            json=payload,
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert mock_update.call_args.kwargs.get("token") == VALID_TOKEN
+        assert mock_update.call_args.kwargs.get("series_id") == series_id
+
+
+def test_unenroll_from_series_success(authenticated_client):
+    series_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_views.unenroll_user_from_series",
+        return_value=None,
+    ) as mock_unenroll:
+        response = authenticated_client.delete(
+            f"/users/me/series/{series_id}",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        assert mock_unenroll.call_args.kwargs.get("token") == VALID_TOKEN
+        assert mock_unenroll.call_args.kwargs.get("series_id") == series_id

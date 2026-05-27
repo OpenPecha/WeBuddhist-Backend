@@ -56,8 +56,11 @@ def test_enroll_user_in_plan_success():
         return_value=session_cm,
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_plan_by_id",
-        return_value=SimpleNamespace(id=plan_id),
+        return_value=SimpleNamespace(id=plan_id, series_id=None),
     ) as mock_get_plan, patch(
+        "pecha_api.plans.users.plan_users_service.is_user_enrolled_in_plan",
+        return_value=False,
+    ), patch(
         "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
         return_value=None,
     ) as mock_get_progress, patch(
@@ -74,13 +77,14 @@ def test_enroll_user_in_plan_success():
 
         mock_validate.assert_called_once_with(token="token123")
         mock_get_plan.assert_called_once_with(db=db_mock, plan_id=plan_id)
-        mock_get_progress.assert_called_once_with(db=db_mock, user_id=user_id, plan_id=plan_id)
 
         ctor_kwargs = MockUserPlanProgress.call_args.kwargs
         assert ctor_kwargs["user_id"] == user_id
         assert ctor_kwargs["plan_id"] == plan_id
         assert ctor_kwargs["streak_count"] == 0
         assert ctor_kwargs["longest_streak"] == 0
+        assert ctor_kwargs["auto_enrolled"] is False
+        assert ctor_kwargs["series_enrollment_id"] is None
         assert "status" in ctor_kwargs  
         assert ctor_kwargs["is_completed"] is False
         assert "started_at" in ctor_kwargs
@@ -131,10 +135,10 @@ def test_enroll_user_in_plan_already_enrolled_raises_409():
         return_value=session_cm,
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_plan_by_id",
-        return_value=SimpleNamespace(id=plan_id),
+        return_value=SimpleNamespace(id=plan_id, series_id=None),
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
-        return_value=SimpleNamespace(id=uuid.uuid4()),
+        "pecha_api.plans.users.plan_users_service.is_user_enrolled_in_plan",
+        return_value=True,
     ):
         with pytest.raises(HTTPException) as exc_info:
             enroll_user_in_plan(token="tkn", enroll_request=enroll_request)
@@ -365,30 +369,29 @@ def test_complete_sub_task_service_saves_day_completion_when_day_completed():
     ) as MockUserTaskCompletion, patch(
         "pecha_api.plans.users.plan_users_service.save_user_task_completion",
     ), patch(
-        "pecha_api.plans.users.plan_users_service.check_day_completion",
-        return_value=True,
-    ) as mock_check_day, patch(
+        "pecha_api.plans.users.plan_users_service.get_tasks_by_plan_item_id",
+        return_value=[SimpleNamespace(id=task_id)],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_uncompleted_user_task_ids",
+        return_value=[],
+    ), patch(
         "pecha_api.plans.users.plan_users_service.UserDayCompletion",
-    ) as MockUserDayCompletion, patch(
+        side_effect=lambda user_id, day_id: SimpleNamespace(user_id=user_id, day_id=day_id),
+    ), patch(
         "pecha_api.plans.users.plan_users_service.save_user_day_completion",
-    ) as mock_save_day:
+    ) as mock_save_day, patch(
+        "pecha_api.plans.users.plan_users_service.check_plan_completion",
+    ):
         constructed_sub = SimpleNamespace(user_id=user_id, sub_task_id=sub_task_id)
         MockUserSubTaskCompletion.return_value = constructed_sub
 
         constructed_task = SimpleNamespace(user_id=user_id, task_id=task_id)
         MockUserTaskCompletion.return_value = constructed_task
 
-        constructed_day = SimpleNamespace(user_id=user_id, day_id=day_id)
-        MockUserDayCompletion.return_value = constructed_day
-
         result = complete_sub_task_service(token="token123", id=sub_task_id)
 
         assert result is None
-        
-        # check_day_completion should be called
-        mock_check_day.assert_called_once_with(db=db_mock, user_id=user_id, day_id=day_id)
-        
-        # Day completion SHOULD be saved since check_day_completion returned True
+
         mock_save_day.assert_called_once()
         assert mock_save_day.call_args.kwargs["db"] is db_mock
         saved_day = mock_save_day.call_args.kwargs["user_day_completion"]
@@ -714,6 +717,112 @@ def test_get_user_plan_progress_not_enrolled_raises_404():
 
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail["message"] == "User not enrolled in this plan"
+
+
+def test_get_user_plan_progress_presigned_image_url_success():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    progress_id = uuid.uuid4()
+
+    db_mock, session_cm = _mock_session_with_db()
+
+    progress_record = SimpleNamespace(
+        id=progress_id,
+        user_id=user_id,
+        plan_id=plan_id,
+        started_at="2024-01-15T10:00:00Z",
+        streak_count=0,
+        longest_streak=0,
+        status="active",
+        is_completed=False,
+        completed_at=None,
+        created_at="2024-01-15T10:00:00Z",
+    )
+    plan_record = SimpleNamespace(
+        id=plan_id,
+        title="Plan X",
+        description="desc",
+        language=SimpleNamespace(value="en"),
+        difficulty_level=SimpleNamespace(value="beginner"),
+        image_url="plans/plan.jpg",
+        tag_list=[],
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=progress_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=plan_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get",
+        return_value="test-bucket",
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
+        return_value="https://signed.example.com/plan.jpg",
+    ):
+        result = get_user_plan_progress(token="tok", plan_id=plan_id)
+
+    assert result.plan["image_url"] == "https://signed.example.com/plan.jpg"
+
+
+def test_get_user_plan_progress_presigned_image_url_error_returns_none():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    progress_id = uuid.uuid4()
+
+    db_mock, session_cm = _mock_session_with_db()
+
+    progress_record = SimpleNamespace(
+        id=progress_id,
+        user_id=user_id,
+        plan_id=plan_id,
+        started_at="2024-01-15T10:00:00Z",
+        streak_count=0,
+        longest_streak=0,
+        status="active",
+        is_completed=False,
+        completed_at=None,
+        created_at="2024-01-15T10:00:00Z",
+    )
+    plan_record = SimpleNamespace(
+        id=plan_id,
+        title="Plan X",
+        description="desc",
+        language=SimpleNamespace(value="en"),
+        difficulty_level=SimpleNamespace(value="beginner"),
+        image_url="plans/plan.jpg",
+        tag_list=[],
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=progress_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=plan_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get",
+        return_value="test-bucket",
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
+        side_effect=Exception("S3 error"),
+    ):
+        result = get_user_plan_progress(token="tok", plan_id=plan_id)
+
+    assert result.plan["image_url"] is None
 
 
 def _mock_session_with_db_and_task_flow():

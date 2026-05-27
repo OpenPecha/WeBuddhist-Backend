@@ -2,7 +2,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from uuid import UUID
 from datetime import datetime
-from pecha_api.plans.plans_enums import ContentType
+from pecha_api.plans.plans_enums import ContentType, SeriesStatus
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 
@@ -97,3 +97,56 @@ class UserPlanDayDetailsResponse(BaseModel):
     is_completed: bool
     audio_url: Optional[str] = None
     audio_duration_ms: Optional[int] = None
+
+
+# Series Enrollment Models
+
+class UserSeriesEnrollRequest(BaseModel):
+    series_id: UUID
+    auto_enroll_next: Optional[bool] = True
+    start_immediately: Optional[bool] = False
+
+
+class UserSeriesEnrollmentDTO(BaseModel):
+    id: UUID
+    user_id: UUID
+    series_id: UUID
+    series_title: str
+    series_description: Optional[str] = None
+    series_image_url: Optional[str] = None
+    enrolled_at: datetime
+    status: str  # ACTIVE, PAUSED, COMPLETED, CANCELLED
+    auto_enroll_next: bool
+    current_plan_id: Optional[UUID] = None
+    current_plan_title: Optional[str] = None
+    is_completed: bool
+    completed_at: Optional[datetime] = None
+    total_plans: int
+    completed_plans: int
+    progress_percentage: float
+
+
+class UserSeriesEnrollmentsResponse(BaseModel):
+    enrollments: List[UserSeriesEnrollmentDTO]
+    skip: int
+    limit: int
+    total: int
+
+
+class UserSeriesProgressResponse(BaseModel):
+    id: UUID
+    series_id: UUID
+    series_title: str
+    series_description: Optional[str] = None
+    enrolled_at: datetime
+    status: str
+    auto_enroll_next: bool
+    current_plan_id: Optional[UUID] = None
+    is_completed: bool
+    completed_at: Optional[datetime] = None
+    plans: List[UserPlanDTO]  # All plans in series with completion status
+
+
+class UpdateSeriesEnrollmentRequest(BaseModel):
+    auto_enroll_next: Optional[bool] = None
+    status: Optional[SeriesStatus] = None
