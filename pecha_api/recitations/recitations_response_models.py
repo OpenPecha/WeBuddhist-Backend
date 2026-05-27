@@ -4,7 +4,7 @@ from uuid import UUID
 
 class RecitationDTO(BaseModel):
     title: str
-    text_id: UUID
+    text_id: str
     image_url: Optional[str] = None  
 
 class RecitationsResponse(BaseModel):
@@ -18,7 +18,7 @@ class RecitationDetailsRequest(BaseModel):
     adaptations: List[str] = []
 
 class Segment(BaseModel):
-    id: UUID
+    id: str
     content: str
 
 class RecitationSegment(BaseModel):
@@ -28,7 +28,7 @@ class RecitationSegment(BaseModel):
     adaptations: Dict[str, Segment] = Field(default_factory=dict)
 
 class RecitationDetailsResponse(BaseModel):
-    text_id: UUID
+    text_id: str
     title: str
     segments: List[RecitationSegment]
 

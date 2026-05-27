@@ -72,7 +72,7 @@ async def get_list_of_recitations_service(search: Optional[str] = None, language
     recitations = [
         RecitationDTO(
             title=text["title"].get(language, text["title"].get("en")),
-            text_id=UUID(text["id"])
+            text_id=text["id"]
         )
         for text in texts_response.get("items", [])
     ]
@@ -105,7 +105,7 @@ async def get_recitation_details_service(text_id: str, recitation_details_reques
     segments = await segments_mapping_by_toc(table_of_contents=table_of_contents, recitation_details_request=recitation_details_request)
 
     recitation_details_response = RecitationDetailsResponse(
-        text_id=UUID(text_detail.id),
+        text_id=text_detail.id,
         title=text_detail.title,
         segments=segments   
     )
