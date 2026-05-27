@@ -4,7 +4,6 @@ from starlette import status
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.http_message_utils import handle_http_status_error, handle_request_error
 from .texts_repository import (
-    get_all_texts_by_collection,
     get_texts_by_collection,
     get_texts_by_group_id,
     create_text,
@@ -16,12 +15,10 @@ from .texts_repository import (
     update_text_details_by_id,
     delete_text_by_id,
     fetch_sheets_from_db,
-    get_all_texts_by_collection,
     get_all_recitation_texts_by_collection,
     get_texts_by_pecha_text_ids,
     get_texts_by_titles,
     get_all_texts_by_group_id
-
 )
 from .texts_response_models import (
     TableOfContent,
@@ -65,8 +62,6 @@ from .segments.segments_models import Segment
 from pecha_api.texts.texts_cache_service import (
     set_text_details_cache,
     get_text_details_cache,
-    get_text_by_text_id_or_collection_cache,
-    set_text_by_text_id_or_collection_cache,
     get_table_of_contents_by_text_id_cache,
     set_table_of_contents_by_text_id_cache,
     get_text_versions_by_group_id_cache,
@@ -86,7 +81,6 @@ from pecha_api.cache.cache_enums import CacheType
 
 from .texts_utils import TextUtils
 from pecha_api.users.users_service import validate_user_exists
-from pecha_api.collections.collections_service import get_collection
 from pecha_api.users.users_service import (
     validate_user_exists
 )
@@ -115,54 +109,6 @@ def extract_title_for_language(title_payload: object, language: Optional[str]) -
     if isinstance(title_payload, str):
         return title_payload.strip() or None
     return None
-
-
-async def get_text_by_text_id_or_collection(
-        text_id: str,
-        collection_id: Optional[str] = None,
-        language: Optional[str] = None,
-        skip: int = 0,
-        limit: int = 10
-) -> TextsCategoryResponse | TextDTO:
-    if language is None:
-        language = get("DEFAULT_LANGUAGE")
-
-    cached_data: TextsCategoryResponse | TextDTO = await get_text_by_text_id_or_collection_cache(
-        text_id = text_id,
-        collection_id = collection_id,
-        language = language,
-        skip = skip,
-        limit = limit,
-        cache_type = CacheType.TEXTS_BY_ID_OR_COLLECTION
-    )
-
-    if cached_data is not None:
-        return cached_data
-
-    if collection_id is not None:
-        collection = await get_collection(collection_id=collection_id, language=language)
-        texts, total_unique_group_ids = await _get_texts_by_collection_id(collection_id=collection_id, language=language, skip=skip, limit=limit)
-    
-        response = TextsCategoryResponse(
-            collection=collection,
-            texts=texts,
-            total=total_unique_group_ids,
-            skip=skip,
-            limit=limit
-        )
-    else:
-        response = await TextUtils.get_text_detail_by_id(text_id=text_id)
-    
-    await set_text_by_text_id_or_collection_cache(
-        text_id = text_id,
-        collection_id = collection_id,
-        language = language,
-        skip = skip,
-        limit = limit,
-        cache_type = CacheType.TEXTS_BY_ID_OR_COLLECTION,
-        data = response
-    )
-    return response
 
 
 async def get_titles_and_ids_by_query(
@@ -561,46 +507,6 @@ def _group_texts_by_group_id(texts: List[TextDTO], language: str|None = None) ->
         )
 
     return texts_by_group_id
-
-
-async def _get_texts_by_collection_id(collection_id: str, language: str, skip: int, limit: int) -> Tuple[List[TextDTO], int]:
-    texts = await get_all_texts_by_collection(collection_id=collection_id)
-    group_id_set = set()
-    for text in texts:
-        group_id_set.add(text.group_id) 
-    total_unique_group_ids = len(group_id_set)
-    texts.sort(
-                key=lambda text: TextUtils.get_language_priority(text.language, language)
-            )
-    track_skip = 0
-    track_limit = 0
-    text_list = []
-    visited_group_ids = set()
-    for text in texts:
-        if text.group_id in visited_group_ids:
-            continue
-        elif track_skip < skip:
-            track_skip += 1
-            continue
-        if text is not None:
-            text_list.append(TextDTO(
-                id=str(text.id),
-                pecha_text_id=str(text.pecha_text_id),
-                title=text.title,
-                language=text.language,
-                group_id=text.group_id,
-                type="root_text",
-                is_published=text.is_published,
-                created_date=text.created_date,
-                updated_date=text.updated_date,
-                published_date=text.published_date,
-                published_by=text.published_by,
-            ))
-        track_limit += 1
-        if track_limit >= limit:
-            break;
-        visited_group_ids.add(text.group_id)
-    return text_list, total_unique_group_ids
 
 
 async def _get_table_of_content_by_version_text_id(versions: List[TextDTO]) -> Dict[str, List[str]]:

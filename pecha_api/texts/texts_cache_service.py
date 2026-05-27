@@ -40,23 +40,6 @@ async def get_text_details_cache(text_id: str = None, content_id: str = None, ve
     return cache_data
 
 
-async def get_text_by_text_id_or_collection_cache(text_id: str = None, collection_id: str = None, language: str = None, skip: int = None, limit: int = None, cache_type: CacheType = None) -> TextsCategoryResponse | TextDTO:
-    """Get text by text id or collection cache asynchronously."""
-    payload = [text_id, collection_id, language, skip, limit, cache_type]
-    hashed_key: str = Utils.generate_hash_key(payload = payload)
-    cache_data: TextsCategoryResponse | TextDTO = await get_cache_data(hash_key = hashed_key)
-    if cache_data and isinstance(cache_data, dict):
-        cache_data = TextsCategoryResponse(**cache_data)
-    return cache_data
-
-
-async def set_text_by_text_id_or_collection_cache(text_id: str = None, collection_id: str = None, language: str = None, skip: int = None, limit: int = None, cache_type: CacheType = None, data: TextsCategoryResponse = None):
-    """Set text by text_id or collection cache asynchronously."""
-    payload = [text_id, collection_id, language, skip, limit, cache_type]
-    hashed_key: str = Utils.generate_hash_key(payload = payload)
-    cache_time_out = config.get_int("CACHE_TEXT_TIMEOUT")
-    await set_cache(hash_key=hashed_key, value=data, cache_time_out=cache_time_out)
-
 async def get_table_of_contents_by_text_id_cache(text_id: str = None, language: str = None, skip: int = None, limit: int = None, cache_type: CacheType = None) -> TableOfContentResponse:
     """Get table of contents by text id cache asynchronously."""
     payload = [text_id, language, skip, limit, cache_type]
