@@ -44,9 +44,12 @@ from pecha_api.plans.groups.groups_service import (
 
 oauth2_scheme = HTTPBearer()
 
-cms_groups_router = APIRouter(prefix="/cms/groups", tags=["CMS Groups"])
-public_groups_router = APIRouter(prefix="/groups", tags=["Author Groups"])
-user_groups_router = APIRouter(prefix="/users/me/following/groups", tags=["Author Groups"])
+cms_groups_router = APIRouter(prefix="/cms/author/groups", tags=["CMS Author Groups"])
+public_groups_router = APIRouter(prefix="/author/groups", tags=["Author Groups"])
+user_groups_router = APIRouter(
+    prefix="/users/me/following/author/groups",
+    tags=["Author Groups"],
+)
 
 
 @cms_groups_router.post("", status_code=status.HTTP_201_CREATED, response_model=AuthorGroupDetailDTO)

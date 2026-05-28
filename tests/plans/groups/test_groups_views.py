@@ -58,7 +58,7 @@ def test_create_cms_group_success():
         return_value=group_detail,
     ) as mock_service:
         response = client.post(
-            "/cms/groups",
+            "/cms/author/groups",
             json=payload,
             headers={"Authorization": "Bearer dummy"},
         )
@@ -83,7 +83,7 @@ def test_get_public_groups_success():
         "pecha_api.plans.groups.groups_views.list_public_groups",
         return_value=response_model,
     ) as mock_service:
-        response = client.get("/groups")
+        response = client.get("/author/groups")
 
     assert response.status_code == status.HTTP_200_OK
     mock_service.assert_called_once_with(search=None, language=None, tag_id=None, skip=0, limit=20)
@@ -111,7 +111,7 @@ def test_create_group_invite_success():
         return_value=invite_response,
     ) as mock_service:
         response = client.post(
-            f"/cms/groups/{group_id}/members/invites",
+            f"/cms/author/groups/{group_id}/members/invites",
             json=payload,
             headers={"Authorization": "Bearer dummy"},
         )
@@ -128,7 +128,7 @@ def test_accept_group_invite_email_mismatch_returns_code():
         side_effect=InviteEmailMismatchError("This invite was sent to a different email address."),
     ):
         response = client.post(
-            "/cms/groups/invites/accept",
+            "/cms/author/groups/invites/accept",
             json=payload,
             headers={"Authorization": "Bearer dummy"},
         )
@@ -148,7 +148,7 @@ def test_patch_cms_group_delegates_to_service():
         return_value=detail,
     ) as mock_service:
         response = client.patch(
-            f"/cms/groups/{group_id}",
+            f"/cms/author/groups/{group_id}",
             json={"slug": "updated-slug"},
             headers={"Authorization": "Bearer dummy"},
         )
@@ -163,7 +163,7 @@ def test_get_cms_group_by_id():
         return_value=_group_detail(),
     ) as mock_service:
         response = client.get(
-            f"/cms/groups/{group_id}",
+            f"/cms/author/groups/{group_id}",
             headers={"Authorization": "Bearer dummy"},
         )
     assert response.status_code == status.HTTP_200_OK
@@ -187,7 +187,7 @@ def test_get_cms_groups_with_filters():
         return_value=listing,
     ) as mock_service:
         response = client.get(
-            f"/cms/groups?search=foo&language=EN&skip=5&limit=10&tag_id={tag_id}",
+            f"/cms/author/groups?search=foo&language=EN&skip=5&limit=10&tag_id={tag_id}",
             headers={"Authorization": "Bearer dummy"},
         )
     assert response.status_code == status.HTTP_200_OK
@@ -210,7 +210,7 @@ def test_put_cms_group_relations():
     headers = {"Authorization": "Bearer dummy"}
 
     with patch("pecha_api.plans.groups.groups_views.replace_group_tags", return_value=detail) as mock_tags:
-        assert client.put(f"/cms/groups/{group_id}/tags", json={"tag_ids": [str(tag_id)]}, headers=headers).status_code == 200
+        assert client.put(f"/cms/author/groups/{group_id}/tags", json={"tag_ids": [str(tag_id)]}, headers=headers).status_code == 200
         mock_tags.assert_called_once()
 
     with patch(
@@ -219,7 +219,7 @@ def test_put_cms_group_relations():
     ) as mock_links:
         assert (
             client.put(
-                f"/cms/groups/{group_id}/social-links",
+                f"/cms/author/groups/{group_id}/social-links",
                 json={"social_links": [{"platform": "x", "url": "https://x.com/g"}]},
                 headers=headers,
             ).status_code
@@ -228,11 +228,11 @@ def test_put_cms_group_relations():
         mock_links.assert_called_once()
 
     with patch("pecha_api.plans.groups.groups_views.replace_group_series_by_id", return_value=detail) as mock_series:
-        assert client.put(f"/cms/groups/{group_id}/series", json={"series_ids": [str(series_id)]}, headers=headers).status_code == 200
+        assert client.put(f"/cms/author/groups/{group_id}/series", json={"series_ids": [str(series_id)]}, headers=headers).status_code == 200
         mock_series.assert_called_once()
 
     with patch("pecha_api.plans.groups.groups_views.replace_group_plans_by_id", return_value=detail) as mock_plans:
-        assert client.put(f"/cms/groups/{group_id}/plans", json={"plan_ids": [str(plan_id)]}, headers=headers).status_code == 200
+        assert client.put(f"/cms/author/groups/{group_id}/plans", json={"plan_ids": [str(plan_id)]}, headers=headers).status_code == 200
         mock_plans.assert_called_once()
 
 
@@ -243,13 +243,13 @@ def test_revoke_invite_and_member_endpoints():
     headers = {"Authorization": "Bearer dummy"}
 
     with patch("pecha_api.plans.groups.groups_views.revoke_group_invite") as mock_revoke:
-        response = client.post(f"/cms/groups/{group_id}/members/invites/{invite_id}/revoke", headers=headers)
+        response = client.post(f"/cms/author/groups/{group_id}/members/invites/{invite_id}/revoke", headers=headers)
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_revoke.assert_called_once()
 
     with patch("pecha_api.plans.groups.groups_views.update_group_member_role", return_value=_group_detail()) as mock_role:
         response = client.patch(
-            f"/cms/groups/{group_id}/members/{author_id}/role",
+            f"/cms/author/groups/{group_id}/members/{author_id}/role",
             json={"role": "ADMIN"},
             headers=headers,
         )
@@ -257,22 +257,20 @@ def test_revoke_invite_and_member_endpoints():
         mock_role.assert_called_once()
 
     with patch("pecha_api.plans.groups.groups_views.delete_group_member") as mock_delete:
-        response = client.delete(f"/cms/groups/{group_id}/members/{author_id}", headers=headers)
+        response = client.delete(f"/cms/author/groups/{group_id}/members/{author_id}", headers=headers)
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_delete.assert_called_once()
 
 
 def test_get_public_group_by_id():
-    """Call the view directly; legacy texts router also registers GET /groups/{group_id}."""
-    from pecha_api.plans.groups.groups_views import get_public_group
-
     group_id = uuid4()
     with patch(
         "pecha_api.plans.groups.groups_views.get_author_group_detail",
         return_value=_group_detail(),
     ) as mock_service:
-        result = get_public_group(group_id=group_id)
-    assert result.slug == "bodhichitta-authors"
+        response = client.get(f"/author/groups/{group_id}")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["slug"] == "bodhichitta-authors"
     mock_service.assert_called_once_with(group_id=group_id, require_public=True)
 
 
@@ -280,10 +278,10 @@ def test_follow_and_unfollow_group():
     group_id = uuid4()
     headers = {"Authorization": "Bearer dummy"}
     with patch("pecha_api.plans.groups.groups_views.follow_group") as mock_follow:
-        assert client.post(f"/groups/{group_id}/follow", headers=headers).status_code == status.HTTP_204_NO_CONTENT
+        assert client.post(f"/author/groups/{group_id}/follow", headers=headers).status_code == status.HTTP_204_NO_CONTENT
         mock_follow.assert_called_once()
     with patch("pecha_api.plans.groups.groups_views.unfollow_group") as mock_unfollow:
-        assert client.delete(f"/groups/{group_id}/follow", headers=headers).status_code == status.HTTP_204_NO_CONTENT
+        assert client.delete(f"/author/groups/{group_id}/follow", headers=headers).status_code == status.HTTP_204_NO_CONTENT
         mock_unfollow.assert_called_once()
 
 
@@ -294,7 +292,7 @@ def test_get_my_followed_groups():
         return_value=listing,
     ) as mock_service:
         response = client.get(
-            "/users/me/following/groups?skip=0&limit=20",
+            "/users/me/following/author/groups?skip=0&limit=20",
             headers={"Authorization": "Bearer dummy"},
         )
     assert response.status_code == status.HTTP_200_OK
