@@ -1,0 +1,281 @@
+from typing import Annotated, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Query
+from fastapi.responses import JSONResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from starlette import status
+
+from pecha_api.plans.groups.groups_response_models import (
+    AcceptGroupInviteRequest,
+    AuthorGroupDetailDTO,
+    AuthorGroupListResponse,
+    CreateAuthorGroupRequest,
+    CreateGroupInviteRequest,
+    GroupInviteCreatedResponse,
+    ReplaceGroupPlansRequest,
+    ReplaceGroupSeriesRequest,
+    ReplaceGroupSocialLinksRequest,
+    ReplaceGroupTagsRequest,
+    UpdateAuthorGroupRequest,
+    UpdateGroupMemberRoleRequest,
+)
+from pecha_api.plans.groups.groups_service import (
+    InviteEmailMismatchError,
+    accept_group_invite,
+    create_author_group,
+    create_group_member_invite,
+    delete_group_member,
+    follow_group,
+    get_author_group_detail,
+    get_cms_group_detail,
+    list_cms_groups,
+    list_followed_groups,
+    list_public_groups,
+    replace_group_plans_by_id,
+    replace_group_series_by_id,
+    replace_group_social_links_by_id,
+    replace_group_tags,
+    revoke_group_invite,
+    unfollow_group,
+    update_author_group,
+    update_group_member_role,
+)
+
+oauth2_scheme = HTTPBearer()
+
+cms_groups_router = APIRouter(prefix="/cms/groups", tags=["CMS Groups"])
+public_groups_router = APIRouter(prefix="/groups", tags=["Author Groups"])
+user_groups_router = APIRouter(prefix="/users/me/following/groups", tags=["Author Groups"])
+
+
+@cms_groups_router.post("", status_code=status.HTTP_201_CREATED, response_model=AuthorGroupDetailDTO)
+def post_cms_group(
+    create_group_request: CreateAuthorGroupRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return create_author_group(
+        token=authentication_credential.credentials,
+        request=create_group_request,
+    )
+
+
+@cms_groups_router.patch("/{group_id}", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
+def patch_cms_group(
+    group_id: UUID,
+    update_group_request: UpdateAuthorGroupRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return update_author_group(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        request=update_group_request,
+    )
+
+
+@cms_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
+def get_cms_group(
+    group_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return get_cms_group_detail(token=authentication_credential.credentials, group_id=group_id)
+
+
+@cms_groups_router.get("", status_code=status.HTTP_200_OK, response_model=AuthorGroupListResponse)
+def get_cms_groups(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    search: Optional[str] = Query(default=None),
+    language: Optional[str] = Query(default=None),
+    tag_id: Optional[UUID] = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    return list_cms_groups(
+        token=authentication_credential.credentials,
+        search=search,
+        language=language,
+        tag_id=tag_id,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@cms_groups_router.put("/{group_id}/tags", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
+def put_cms_group_tags(
+    group_id: UUID,
+    request: ReplaceGroupTagsRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return replace_group_tags(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        request=request,
+    )
+
+
+@cms_groups_router.put("/{group_id}/social-links", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
+def put_cms_group_social_links(
+    group_id: UUID,
+    request: ReplaceGroupSocialLinksRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return replace_group_social_links_by_id(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        request=request,
+    )
+
+
+@cms_groups_router.put("/{group_id}/series", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
+def put_cms_group_series(
+    group_id: UUID,
+    request: ReplaceGroupSeriesRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return replace_group_series_by_id(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        request=request,
+    )
+
+
+@cms_groups_router.put("/{group_id}/plans", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
+def put_cms_group_plans(
+    group_id: UUID,
+    request: ReplaceGroupPlansRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return replace_group_plans_by_id(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        request=request,
+    )
+
+
+@cms_groups_router.post("/{group_id}/members/invites", status_code=status.HTTP_201_CREATED, response_model=GroupInviteCreatedResponse)
+def post_cms_group_invite(
+    group_id: UUID,
+    request: CreateGroupInviteRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return create_group_member_invite(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        request=request,
+    )
+
+
+@cms_groups_router.post("/invites/accept", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
+def post_accept_group_invite(
+    request: AcceptGroupInviteRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    try:
+        return accept_group_invite(
+            token=authentication_credential.credentials,
+            request=request,
+        )
+    except InviteEmailMismatchError as exc:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "detail": str(exc),
+                "code": "INVITE_EMAIL_MISMATCH",
+            },
+        )
+
+
+@cms_groups_router.post("/{group_id}/members/invites/{invite_id}/revoke", status_code=status.HTTP_204_NO_CONTENT)
+def post_revoke_group_invite(
+    group_id: UUID,
+    invite_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    revoke_group_invite(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        invite_id=invite_id,
+    )
+    return None
+
+
+@cms_groups_router.patch("/{group_id}/members/{author_id}/role", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
+def patch_group_member_role(
+    group_id: UUID,
+    author_id: UUID,
+    request: UpdateGroupMemberRoleRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return update_group_member_role(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        author_id=author_id,
+        request=request,
+    )
+
+
+@cms_groups_router.delete("/{group_id}/members/{author_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_group_member_by_id(
+    group_id: UUID,
+    author_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    delete_group_member(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        author_id=author_id,
+    )
+    return None
+
+
+@public_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
+def get_public_group(group_id: UUID):
+    return get_author_group_detail(group_id=group_id, require_public=True)
+
+
+@public_groups_router.get("", status_code=status.HTTP_200_OK, response_model=AuthorGroupListResponse)
+def get_public_groups(
+    search: Optional[str] = Query(default=None),
+    language: Optional[str] = Query(default=None),
+    tag_id: Optional[UUID] = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    return list_public_groups(
+        search=search,
+        language=language,
+        tag_id=tag_id,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@public_groups_router.post("/{group_id}/follow", status_code=status.HTTP_204_NO_CONTENT)
+def post_follow_group(
+    group_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    follow_group(token=authentication_credential.credentials, group_id=group_id)
+    return None
+
+
+@public_groups_router.delete("/{group_id}/follow", status_code=status.HTTP_204_NO_CONTENT)
+def delete_follow_group(
+    group_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    unfollow_group(token=authentication_credential.credentials, group_id=group_id)
+    return None
+
+
+@user_groups_router.get("", status_code=status.HTTP_200_OK, response_model=AuthorGroupListResponse)
+def get_my_followed_groups(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=100),
+):
+    return list_followed_groups(
+        token=authentication_credential.credentials,
+        skip=skip,
+        limit=limit,
+    )

@@ -30,6 +30,7 @@ public_plans_router = APIRouter(
 @public_plans_router.get("", status_code=status.HTTP_200_OK, response_model=PublicPlansResponse)
 async def get_plans(
     tag: Optional[str] = Query(None, description="Filter by tag"),
+    group_id: Optional[UUID] = Query(None, description="Filter by author group"),
     search: Optional[str] = Query(None, description="Search by plan title"),
     language: str = Query("en", description="Filter by language code (e.g., 'bo', 'en', 'zh'). Defaults to 'en'."),
     sort_by: str = Query("title", enum=["title", "total_days", "subscription_count"]),
@@ -37,7 +38,16 @@ async def get_plans(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50)
 ):
-    return await get_published_plans(tag=tag, search=search, language=language, sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit)
+    return await get_published_plans(
+        tag=tag,
+        group_id=group_id,
+        search=search,
+        language=language,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @public_plans_router.get(
