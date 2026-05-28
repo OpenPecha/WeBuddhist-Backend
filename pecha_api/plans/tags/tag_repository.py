@@ -106,3 +106,38 @@ def get_published_tags_for_language(db: Session, language: str) -> List[Tag]:
         .order_by(Tag.name.asc())
         .all()
     )
+
+
+def get_public_tags_paginated(
+    db: Session,
+    language: str,
+    featured: Optional[bool],
+    search: Optional[str],
+    skip: int,
+    limit: int,
+) -> Tuple[List[Tag], int]:
+    query = (
+        db.query(Tag)
+        .join(plan_tags, plan_tags.c.tag_id == Tag.id)
+        .join(Plan, Plan.id == plan_tags.c.plan_id)
+        .filter(
+            Tag.deleted_at.is_(None),
+            Plan.deleted_at.is_(None),
+            Plan.status == PlanStatus.PUBLISHED,
+            Plan.language == language,
+        )
+    )
+    if featured is not None:
+        query = query.filter(Tag.featured == featured)
+    if search:
+        query = query.filter(Tag.name.ilike(f"%{search}%"))
+
+    total = query.distinct().count()
+    rows = (
+        query.distinct()
+        .order_by(Tag.name.asc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return rows, total

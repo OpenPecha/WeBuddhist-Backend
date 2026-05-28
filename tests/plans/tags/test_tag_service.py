@@ -36,6 +36,7 @@ def _make_tag(
     name="Meditation",
     image_key=None,
     description=None,
+    featured=False,
     plans=None,
 ):
     tag = MagicMock()
@@ -43,6 +44,7 @@ def _make_tag(
     tag.name = name
     tag.image_key = image_key
     tag.description = description
+    tag.featured = featured
     tag.plans = plans or []
     return tag
 
@@ -125,6 +127,32 @@ def test_create_new_tag_with_plan_ids():
 
     mock_set_plans.assert_called_once_with(db=db, tag=saved, plan_ids=[plan_id])
     assert dto.plan_ids == [plan_id]
+
+
+def test_create_new_tag_sets_featured_value():
+    author = _make_author()
+    request = CreateTagRequest(name="Featured Tag", featured=True)
+    saved = _make_tag(name="Featured Tag", featured=True)
+
+    with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.tags.tag_service.get_tag_by_name",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.tags.tag_service.save_tag",
+        return_value=saved,
+    ) as mock_save, patch(
+        "pecha_api.plans.tags.tag_service.get_tag_by_id",
+        return_value=saved,
+    ):
+        _session_local_context(mock_session)
+        dto = create_new_tag(token="tok", create_tag_request=request)
+
+    passed_tag = mock_save.call_args.kwargs["tag"]
+    assert passed_tag.featured is True
+    assert dto.featured is True
 
 
 def test_create_new_tag_duplicate_name_raises_400():
@@ -282,6 +310,29 @@ def test_update_existing_tag_success():
     assert existing.description == "Updated"
     assert existing.updated_by == author.email
     assert dto.name == "New Name"
+
+
+def test_update_existing_tag_updates_featured():
+    tag_id = uuid.uuid4()
+    existing = _make_tag(featured=False)
+    refreshed = _make_tag(featured=True)
+    request = UpdateTagRequest(featured=True)
+
+    with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
+        return_value=_make_author(),
+    ), patch(
+        "pecha_api.plans.tags.tag_service.get_tag_by_id",
+        side_effect=[existing, refreshed],
+    ), patch(
+        "pecha_api.plans.tags.tag_service.update_tag_row",
+        return_value=existing,
+    ):
+        _session_local_context(mock_session)
+        dto = update_existing_tag(token="tok", tag_id=tag_id, update_tag_request=request)
+
+    assert existing.featured is True
+    assert dto.featured is True
 
 
 def test_update_existing_tag_not_found():

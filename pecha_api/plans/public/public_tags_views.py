@@ -1,0 +1,38 @@
+from typing import Annotated, Optional
+
+from fastapi import APIRouter, Query
+from starlette import status
+
+from pecha_api.plans.public.plan_service import get_public_tags
+from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
+
+public_tags_router = APIRouter(prefix="/public/tags", tags=["Public Tags"])
+
+
+@public_tags_router.get("", status_code=status.HTTP_200_OK, response_model=PublicTagsListResponse)
+def get_tags(
+    featured: Annotated[
+        Optional[bool],
+        Query(default=None, description="Filter by featured flag. Omit for all tags."),
+    ] = None,
+    search: Annotated[
+        Optional[str],
+        Query(default=None, description="Search by tag name."),
+    ] = None,
+    skip: Annotated[int, Query(default=0, ge=0)] = 0,
+    limit: Annotated[int, Query(default=20, ge=1, le=100)] = 20,
+    language: Annotated[
+        str,
+        Query(
+            default="en",
+            description="Filter by language code (e.g., 'bo', 'en', 'zh'). Defaults to 'en'.",
+        ),
+    ] = "en",
+):
+    return get_public_tags(
+        language=language,
+        featured=featured,
+        search=search,
+        skip=skip,
+        limit=limit,
+    )
