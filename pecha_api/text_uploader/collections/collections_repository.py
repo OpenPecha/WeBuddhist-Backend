@@ -7,7 +7,6 @@ from typing import Optional
 
 from pecha_api.text_uploader.constants import APPLICATION, DestinationURL, ACCESS_TOKEN
 from pecha_api.text_uploader.collections.collection_model import CollectionPayload
-from pecha_api.collections.collections_repository import create_collection
 
 
 async def get_collections(
@@ -93,9 +92,3 @@ async def post_collections(destination_url: str, language: str, collection_model
         )
 
     return response.json()
-
-
-
-async def upload_collection(CollectionPayload) -> dict[str, Any]:
-    return await create_collection(create_collection_request=CollectionPayload)
-        
