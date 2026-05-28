@@ -71,7 +71,6 @@ async def get_plan_details(plan_id: UUID):
 
 
 @public_plans_router.get("/{plan_id}/daily", status_code=status.HTTP_200_OK, response_model=DailyPlanResponse)
-
 async def get_plan_daily(
     plan_id: UUID,
     date: Annotated[

@@ -15,20 +15,25 @@ def generate_tag_image_url(image_key: Optional[str]) -> Optional[str]:
     )
 
 
-def tags_to_summary_dtos(tags: Optional[List[Tag]]) -> List[TagSummaryDTO]:
+def tags_to_summary_dtos(
+    tags: Optional[List[Tag]],
+    *,
+    preserve_order: bool = False,
+) -> List[TagSummaryDTO]:
     if not tags:
         return []
     active = [t for t in tags if t.deleted_at is None]
-    return sorted(
-        [
-            TagSummaryDTO(
-                id=tag.id,
-                name=tag.name,
-                image=generate_tag_image_url(tag.image_key),
-                image_key=tag.image_key,
-                description=tag.description,
-            )
-            for tag in active
-        ],
-        key=lambda item: item.name.lower(),
-    )
+    dtos = [
+        TagSummaryDTO(
+            id=tag.id,
+            name=tag.name,
+            image=generate_tag_image_url(tag.image_key),
+            image_key=tag.image_key,
+            description=tag.description,
+            featured=tag.featured,
+        )
+        for tag in active
+    ]
+    if preserve_order:
+        return dtos
+    return sorted(dtos, key=lambda item: item.name.lower())

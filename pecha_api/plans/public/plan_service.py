@@ -23,7 +23,8 @@ from pecha_api.routines.routines_repository import (
     add_plan_session_to_time_block,
 )
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
-from pecha_api.plans.tags.tag_repository import get_published_tags_for_language
+from pecha_api.plans.tags.tag_repository import get_published_tags_for_language, get_all_tags_paginated
+from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
 
 logger = logging.getLogger(__name__)
 
@@ -484,4 +485,33 @@ def get_tags(language: str = "en") -> TagsResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch tags: {str(e)}",
+        )
+
+
+def get_public_tags(
+    featured: Optional[bool] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+) -> PublicTagsListResponse:
+    try:
+        with SessionLocal() as db:
+            tag_rows, total = get_all_tags_paginated(
+                db=db,
+                featured=featured,
+                search=search,
+                skip=skip,
+                limit=limit,
+            )
+            return PublicTagsListResponse(
+                tags=tags_to_summary_dtos(tag_rows, preserve_order=True),
+                skip=skip,
+                limit=limit,
+                total=total,
+            )
+    except Exception as e:
+        logger.error(f"Error fetching public tags: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch public tags: {str(e)}",
         )
