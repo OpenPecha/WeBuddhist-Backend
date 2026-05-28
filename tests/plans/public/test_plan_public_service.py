@@ -128,7 +128,8 @@ async def test_get_published_plans_success(sample_plan_aggregate, mock_db_sessio
             language="EN",  
             sort_by="title",
             sort_order="asc",
-            tag=None
+            tag=None,
+            group_id=None,
         )
 
 
@@ -157,7 +158,8 @@ async def test_get_published_plans_with_search(sample_plan_aggregate, mock_db_se
             language="EN", 
             sort_by="title",
             sort_order="asc",
-            tag=None
+            tag=None,
+            group_id=None,
         )
 
 
@@ -186,7 +188,8 @@ async def test_get_published_plans_with_language_filter(sample_plan_aggregate, m
             language="EN", 
             sort_by="title",
             sort_order="asc",
-            tag=None
+            tag=None,
+            group_id=None,
         )
 
 
@@ -441,7 +444,8 @@ async def test_get_published_plans_with_pagination(sample_plan_aggregate, mock_d
             language="EN",  # Service converts to uppercase before calling repository
             sort_by="title",
             sort_order="asc",
-            tag=None
+            tag=None,
+            group_id=None,
         )
 
 
@@ -925,11 +929,10 @@ def test_get_public_tags_success(mock_db_session):
     with patch(
         "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
     ), patch(
-        "pecha_api.plans.public.plan_service.get_public_tags_paginated",
+        "pecha_api.plans.public.plan_service.get_all_tags_paginated",
         return_value=([tag_one, tag_two], 2),
     ) as mock_repo:
         result = get_public_tags(
-            language="en",
             featured=True,
             search="med",
             skip=0,
@@ -943,7 +946,6 @@ def test_get_public_tags_success(mock_db_session):
     assert result.limit == 10
     mock_repo.assert_called_once_with(
         db=mock_db_session.__enter__.return_value,
-        language="EN",
         featured=True,
         search="med",
         skip=0,
@@ -974,6 +976,7 @@ async def test_get_published_plans_with_tag_filter(
             sort_order="asc",
             skip=0,
             limit=20,
+            group_id=None,
         )
 
         assert len(result.plans) == 1
@@ -986,6 +989,7 @@ async def test_get_published_plans_with_tag_filter(
             sort_by="title",
             sort_order="asc",
             tag="meditation",
+            group_id=None,
         )
 
 

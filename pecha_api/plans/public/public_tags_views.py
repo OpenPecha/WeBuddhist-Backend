@@ -13,24 +13,16 @@ public_tags_router = APIRouter(prefix="/public/tags", tags=["Public Tags"])
 def get_tags(
     featured: Annotated[
         Optional[bool],
-        Query(default=None, description="Filter by featured flag. Omit for all tags."),
+        Query(description="Filter by featured flag. Omit for all tags."),
     ] = None,
     search: Annotated[
         Optional[str],
-        Query(default=None, description="Search by tag name."),
+        Query(description="Search by tag name."),
     ] = None,
-    skip: Annotated[int, Query(default=0, ge=0)] = 0,
-    limit: Annotated[int, Query(default=20, ge=1, le=100)] = 20,
-    language: Annotated[
-        str,
-        Query(
-            default="en",
-            description="Filter by language code (e.g., 'bo', 'en', 'zh'). Defaults to 'en'.",
-        ),
-    ] = "en",
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     return get_public_tags(
-        language=language,
         featured=featured,
         search=search,
         skip=skip,

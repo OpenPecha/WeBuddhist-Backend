@@ -90,7 +90,7 @@ def test_get_series_list_success(sample_series_list_response):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None)
+        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=None)
 
         assert "series" in data
         assert data["skip"] == 0
@@ -120,7 +120,7 @@ def test_get_series_list_with_search_pagination(sample_series_dto):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(search="meditation", skip=2, limit=5, language=None)
+        mock_service.assert_called_once_with(search="meditation", skip=2, limit=5, language=None, group_id=None)
 
         assert data["series"] == []
         assert data["skip"] == 2
@@ -327,16 +327,30 @@ def test_get_series_list_returns_plan_count_not_plans():
     with patch(
         "pecha_api.plans.series.public_series_view.get_filtered_series",
         return_value=series_list_response,
-    ):
+    ) as mock_service:
         response = client.get("/series")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
+        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=None)
 
         assert len(data["series"]) == 1
         assert data["series"][0]["plan_count"] == 0
         assert data["series"][0]["total_days"] == 0
         assert "plans" not in data["series"][0]
+
+
+def test_get_series_list_with_group_filter():
+    series_list_response = SeriesListResponse(series=[], skip=0, limit=10, total=0)
+    group_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.series.public_series_view.get_filtered_series",
+        return_value=series_list_response,
+    ) as mock_service:
+        response = client.get("/series", params={"group_id": str(group_id)})
+
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=group_id)
 
 
 def test_update_series_accepts_empty_body():

@@ -21,10 +21,14 @@ async def get_series_list(
         Optional[str],
         Query(description="Filter by series metadata language (e.g. 'en', 'bo', 'zh')"),
     ] = None,
+    group_id: Annotated[
+        Optional[UUID],
+        Query(description="Filter by author group id"),
+    ] = None,
     skip: Annotated[int, Query()] = 0,
     limit: Annotated[int, Query()] = 10,
 ):
-    return get_filtered_series(search=search, skip=skip, limit=limit, language=language)
+    return get_filtered_series(search=search, skip=skip, limit=limit, language=language, group_id=group_id)
 
 
 @public_series_router.get(
