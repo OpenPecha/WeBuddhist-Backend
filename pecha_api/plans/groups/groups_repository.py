@@ -21,32 +21,53 @@ from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.tags.tag_model import Tag
 
 
-def get_group_ids_by_plan_ids(db: Session, plan_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
-    if not plan_ids:
+def _map_entity_ids_to_first_group_id(
+    db: Session,
+    entity_ids: Sequence[UUID],
+    entity_id_column,
+    group_id_column,
+) -> Dict[UUID, UUID]:
+    if not entity_ids:
         return {}
     rows = (
         db.execute(
-            select(
-                author_group_plans.c.plan_id,
-                author_group_plans.c.group_id,
-            )
-            .where(author_group_plans.c.plan_id.in_(plan_ids))
-            .order_by(
-                author_group_plans.c.plan_id,
-                author_group_plans.c.group_id,
-            )
+            select(entity_id_column, group_id_column)
+            .where(entity_id_column.in_(entity_ids))
+            .order_by(entity_id_column, group_id_column)
         )
         .all()
     )
-    group_id_by_plan_id: Dict[UUID, UUID] = {}
-    for plan_id, group_id in rows:
-        if plan_id not in group_id_by_plan_id:
-            group_id_by_plan_id[plan_id] = group_id
-    return group_id_by_plan_id
+    group_id_by_entity_id: Dict[UUID, UUID] = {}
+    for entity_id, group_id in rows:
+        if entity_id not in group_id_by_entity_id:
+            group_id_by_entity_id[entity_id] = group_id
+    return group_id_by_entity_id
+
+
+def get_group_ids_by_plan_ids(db: Session, plan_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
+    return _map_entity_ids_to_first_group_id(
+        db=db,
+        entity_ids=plan_ids,
+        entity_id_column=author_group_plans.c.plan_id,
+        group_id_column=author_group_plans.c.group_id,
+    )
 
 
 def get_group_id_for_plan(db: Session, plan_id: UUID) -> Optional[UUID]:
     return get_group_ids_by_plan_ids(db=db, plan_ids=[plan_id]).get(plan_id)
+
+
+def get_group_ids_by_series_ids(db: Session, series_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
+    return _map_entity_ids_to_first_group_id(
+        db=db,
+        entity_ids=series_ids,
+        entity_id_column=author_group_series.c.series_id,
+        group_id_column=author_group_series.c.group_id,
+    )
+
+
+def get_group_id_for_series(db: Session, series_id: UUID) -> Optional[UUID]:
+    return get_group_ids_by_series_ids(db=db, series_ids=[series_id]).get(series_id)
 
 
 def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:

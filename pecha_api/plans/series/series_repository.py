@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy import String, cast, desc, asc, or_, exists, select, func
@@ -22,34 +22,6 @@ def _series_active_plans_count_subquery(published_only: bool = False):
         .correlate(Series)
         .scalar_subquery()
     )
-
-
-def get_group_ids_by_series_ids(db: Session, series_ids: List[UUID]) -> Dict[UUID, UUID]:
-    if not series_ids:
-        return {}
-    rows = (
-        db.execute(
-            select(
-                author_group_series.c.series_id,
-                author_group_series.c.group_id,
-            )
-            .where(author_group_series.c.series_id.in_(series_ids))
-            .order_by(
-                author_group_series.c.series_id,
-                author_group_series.c.group_id,
-            )
-        )
-        .all()
-    )
-    group_id_by_series_id: Dict[UUID, UUID] = {}
-    for series_id, group_id in rows:
-        if series_id not in group_id_by_series_id:
-            group_id_by_series_id[series_id] = group_id
-    return group_id_by_series_id
-
-
-def get_group_id_for_series(db: Session, series_id: UUID) -> Optional[UUID]:
-    return get_group_ids_by_series_ids(db=db, series_ids=[series_id]).get(series_id)
 
 
 def get_series_by_id(db: Session, series_id) -> Optional[Series]:

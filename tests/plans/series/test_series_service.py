@@ -299,11 +299,8 @@ def test_get_series_detail_returns_dto_without_plans():
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=row,
     ), patch(
-        "pecha_api.plans.series.series_service.get_group_id_for_series",
-        return_value=group_id,
-    ), patch(
-        "pecha_api.plans.series.series_service.get_group_ids_by_plan_ids",
-        return_value={},
+        "pecha_api.plans.series.series_service._series_group_context",
+        return_value=(group_id, {}),
     ):
         _session_local_context(mock_session_local)
 

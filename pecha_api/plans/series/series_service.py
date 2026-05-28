@@ -4,13 +4,17 @@ from uuid import UUID
 
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
-from pecha_api.plans.series.series_repository import (
+from pecha_api.plans.groups.groups_repository import (
     get_group_id_for_series,
+    get_group_ids_by_plan_ids,
+)
+from pecha_api.plans.series.series_repository import (
     get_series_by_id,
     get_series_paginated,
     get_plans_by_ids,
@@ -31,7 +35,6 @@ from pecha_api.plans.series.series_response_models import (
     SeriesListResponse,
 )
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
-from pecha_api.plans.groups.groups_repository import get_group_ids_by_plan_ids
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from starlette import status
@@ -141,6 +144,22 @@ def _get_sorted_active_plans(
     )
 
 
+def _active_plan_ids(series: Series) -> List[UUID]:
+    return [plan.id for plan in (series.plans or []) if plan.deleted_at is None]
+
+
+def _series_group_context(db: Session, series: Series) -> Tuple[Optional[UUID], Dict[UUID, UUID]]:
+    return (
+        get_group_id_for_series(db=db, series_id=series.id),
+        get_group_ids_by_plan_ids(db=db, plan_ids=_active_plan_ids(series)),
+    )
+
+
+def _series_detail_dto(db: Session, series: Series, **kwargs) -> SeriesDTO:
+    group_id, plan_group_ids = _series_group_context(db=db, series=series)
+    return _series_to_dto(series, group_id=group_id, plan_group_ids=plan_group_ids, **kwargs)
+
+
 def _series_to_list_item_dto(row: Series, plan_count: int = 0) -> SeriesListItemDTO:
     return SeriesListItemDTO(
         id=row.id,
@@ -234,20 +253,12 @@ def get_series_detail(series_id: UUID) -> SeriesDTO:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Series with id '{series_id}' not found",
             )
-        group_id = get_group_id_for_series(db=db_session, series_id=series_id)
-        active_plan_ids = [
-            plan.id
-            for plan in (row.plans or [])
-            if plan.deleted_at is None
-        ]
-        plan_group_ids = get_group_ids_by_plan_ids(db=db_session, plan_ids=active_plan_ids)
-    return _series_to_dto(
-        row,
-        include_plans=True,
-        published_only=True,
-        group_id=group_id,
-        plan_group_ids=plan_group_ids,
-    )
+        return _series_detail_dto(
+            db_session,
+            row,
+            include_plans=True,
+            published_only=True,
+        )
 
 def get_cms_filtered_series(
     token: str,
@@ -316,21 +327,12 @@ def get_cms_series_detail(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You do not have permission to view this series",
             )
-        group_id = get_group_id_for_series(db=db_session, series_id=series_id)
-        active_plan_ids = [
-            plan.id
-            for plan in (row.plans or [])
-            if plan.deleted_at is None
-        ]
-        plan_group_ids = get_group_ids_by_plan_ids(db=db_session, plan_ids=active_plan_ids)
-
-    return _series_to_dto(
-        row,
-        include_plans=True,
-        plan_language=language,
-        group_id=group_id,
-        plan_group_ids=plan_group_ids,
-    )
+        return _series_detail_dto(
+            db_session,
+            row,
+            include_plans=True,
+            plan_language=language,
+        )
 
 def _validate_plan_ids(
     db,
@@ -443,18 +445,8 @@ def update_existing_series(
             )
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
-            group_id = get_group_id_for_series(db=db_session, series_id=series_id)
-            plan_group_ids = get_group_ids_by_plan_ids(
-                db=db_session,
-                plan_ids=[plan.id for plan in (refreshed.plans or []) if plan.deleted_at is None],
-            )
 
-        return _series_to_dto(
-            refreshed,
-            include_plans=True,
-            group_id=group_id,
-            plan_group_ids=plan_group_ids,
-        )
+        return _series_detail_dto(db_session, refreshed, include_plans=True)
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -492,18 +484,8 @@ def update_existing_series_status(
             )
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
-            group_id = get_group_id_for_series(db=db_session, series_id=series_id)
-            plan_group_ids = get_group_ids_by_plan_ids(
-                db=db_session,
-                plan_ids=[plan.id for plan in (refreshed.plans or []) if plan.deleted_at is None],
-            )
 
-        return _series_to_dto(
-            refreshed,
-            include_plans=True,
-            group_id=group_id,
-            plan_group_ids=plan_group_ids,
-        )
+        return _series_detail_dto(db_session, refreshed, include_plans=True)
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -577,18 +559,8 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
             )
 
             saved = get_series_by_id(db=db_session, series_id=saved.id)
-            group_id = get_group_id_for_series(db=db_session, series_id=saved.id)
-            plan_group_ids = get_group_ids_by_plan_ids(
-                db=db_session,
-                plan_ids=[plan.id for plan in (saved.plans or []) if plan.deleted_at is None],
-            )
 
-        return _series_to_dto(
-            saved,
-            include_plans=bool(plan_ids),
-            group_id=group_id,
-            plan_group_ids=plan_group_ids,
-        )
+        return _series_detail_dto(db_session, saved, include_plans=bool(plan_ids))
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
