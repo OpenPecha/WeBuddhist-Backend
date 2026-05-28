@@ -53,12 +53,14 @@ async def create_plan(authentication_credential: Annotated[HTTPAuthorizationCred
 async def list_plan_audio(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     search: Annotated[Optional[str], Query(description="Search by audio file name or S3 key")] = None,
+    plan_id: Annotated[Optional[UUID], Query(description="Filter audio by plan id")] = None,
     skip: Annotated[int, Query()] = 0,
     limit: Annotated[int, Query()] = 10,
 ):
     return get_cms_plan_audio_list(
         token=authentication_credential.credentials,
         search=search,
+        plan_id=plan_id,
         skip=skip,
         limit=limit,
     )

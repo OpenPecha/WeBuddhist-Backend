@@ -12,6 +12,7 @@ def get_plan_item_audio_paginated(
     db: Session,
     *,
     search: Optional[str],
+    plan_id: Optional[UUID],
     author_id: UUID,
     is_admin: bool,
     skip: int,
@@ -25,6 +26,8 @@ def get_plan_item_audio_paginated(
     )
     if not is_admin:
         query = query.filter(Plan.author_id == author_id)
+    if plan_id is not None:
+        query = query.filter(Plan.id == plan_id)
     if search:
         query = query.filter(PlanItemAudio.audio_key.ilike(f"%{search}%"))
     total = query.count()

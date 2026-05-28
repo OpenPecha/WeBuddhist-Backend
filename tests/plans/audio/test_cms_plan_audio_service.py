@@ -39,11 +39,15 @@ def test_get_cms_plan_audio_list_maps_rows_and_pagination():
     audio_row = _make_audio_row(audio_key)
     plan_item = _make_plan_item(plan_id=plan_id, day_number=3)
     plan = MagicMock()
+    plan.author_id = author.id
 
     with patch(
         "pecha_api.plans.audio.cms_plan_audio_service.validate_and_extract_author_details",
         return_value=author,
     ), patch("pecha_api.plans.audio.cms_plan_audio_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.audio.cms_plan_audio_service.get_plan_by_id",
+        return_value=plan,
+    ), patch(
         "pecha_api.plans.audio.cms_plan_audio_service.get_plan_item_audio_paginated",
         return_value=([(audio_row, plan_item, plan)], 1),
     ) as mock_repo, patch(
@@ -57,6 +61,7 @@ def test_get_cms_plan_audio_list_maps_rows_and_pagination():
         response = get_cms_plan_audio_list(
             token="token",
             search="recording",
+            plan_id=plan_id,
             skip=0,
             limit=10,
         )
@@ -64,6 +69,7 @@ def test_get_cms_plan_audio_list_maps_rows_and_pagination():
     mock_repo.assert_called_once_with(
         db=mock_db,
         search="recording",
+        plan_id=plan_id,
         author_id=author.id,
         is_admin=False,
         skip=0,
@@ -97,10 +103,40 @@ def test_get_cms_plan_audio_list_admin_passes_is_admin():
         mock_session.return_value.__enter__.return_value = MagicMock()
         mock_session.return_value.__exit__.return_value = False
 
-        response = get_cms_plan_audio_list(token="token", search=None, skip=5, limit=20)
+        response = get_cms_plan_audio_list(
+            token="token", search=None, plan_id=None, skip=5, limit=20
+        )
 
     mock_repo.assert_called_once()
     assert mock_repo.call_args.kwargs["is_admin"] is True
     assert response.total == 0
     assert response.skip == 5
     assert response.limit == 20
+
+
+def test_get_cms_plan_audio_list_validates_plan_access_when_plan_id_set():
+    author = _make_author()
+    plan_id = uuid.uuid4()
+    plan = MagicMock()
+    plan.author_id = author.id
+
+    with patch(
+        "pecha_api.plans.audio.cms_plan_audio_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch("pecha_api.plans.audio.cms_plan_audio_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.audio.cms_plan_audio_service.get_plan_by_id",
+        return_value=plan,
+    ), patch(
+        "pecha_api.plans.audio.cms_plan_audio_service.get_plan_item_audio_paginated",
+        return_value=([], 0),
+    ):
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_session.return_value.__exit__.return_value = False
+
+        get_cms_plan_audio_list(
+            token="token",
+            search=None,
+            plan_id=plan_id,
+            skip=0,
+            limit=10,
+        )
