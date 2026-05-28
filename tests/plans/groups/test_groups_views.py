@@ -140,6 +140,22 @@ def test_accept_group_invite_email_mismatch_returns_code():
     }
 
 
+def test_put_cms_group_delegates_to_service():
+    group_id = uuid4()
+    detail = _group_detail()
+    with patch(
+        "pecha_api.plans.groups.groups_views.update_author_group",
+        return_value=detail,
+    ) as mock_service:
+        response = client.put(
+            f"/cms/author/groups/{group_id}",
+            json={"slug": "updated-slug", "is_public": False},
+            headers={"Authorization": "Bearer dummy"},
+        )
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once()
+
+
 def test_patch_cms_group_delegates_to_service():
     group_id = uuid4()
     detail = _group_detail()

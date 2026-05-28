@@ -242,18 +242,21 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN, AuthorGroupMemberRole.EDITOR])
 
-        if request.slug is not None and request.slug != group.slug:
-            existing = get_group_by_slug(db=db, slug=request.slug)
-            if existing and existing.id != group.id:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group slug already exists")
+        fields_set = request.model_fields_set
+
+        if "slug" in fields_set:
+            if request.slug != group.slug:
+                existing = get_group_by_slug(db=db, slug=request.slug)
+                if existing and existing.id != group.id:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group slug already exists")
             group.slug = request.slug
-        if request.is_public is not None:
+        if "is_public" in fields_set:
             group.is_public = request.is_public
-        if request.avatar_key is not None:
+        if "avatar_key" in fields_set:
             group.avatar_key = request.avatar_key
-        if request.banner_key is not None:
+        if "banner_key" in fields_set:
             group.banner_key = request.banner_key
-        if request.metadata is not None:
+        if "metadata" in fields_set:
             _assert_metadata_valid(request.metadata)
             metadata_entries = [
                 AuthorGroupMetadata(
