@@ -29,14 +29,17 @@ public_plans_router = APIRouter(
 
 @public_plans_router.get("", status_code=status.HTTP_200_OK, response_model=PublicPlansResponse)
 async def get_plans(
-    tag: Optional[str] = Query(None, description="Filter by tag"),
-    group_id: Optional[UUID] = Query(None, description="Filter by author group"),
-    search: Optional[str] = Query(None, description="Search by plan title"),
-    language: str = Query("en", description="Filter by language code (e.g., 'bo', 'en', 'zh'). Defaults to 'en'."),
-    sort_by: str = Query("title", enum=["title", "total_days", "subscription_count"]),
-    sort_order: str = Query("asc", enum=["asc", "desc"]),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=50)
+    tag: Annotated[Optional[str], Query(description="Filter by tag")] = None,
+    group_id: Annotated[Optional[UUID], Query(description="Filter by author group")] = None,
+    search: Annotated[Optional[str], Query(description="Search by plan title")] = None,
+    language: Annotated[
+        str,
+        Query(description="Filter by language code (e.g., 'bo', 'en', 'zh'). Defaults to 'en'."),
+    ] = "en",
+    sort_by: Annotated[str, Query(enum=["title", "total_days", "subscription_count"])] = "title",
+    sort_order: Annotated[str, Query(enum=["asc", "desc"])] = "asc",
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
 ):
     return await get_published_plans(
         tag=tag,
@@ -54,10 +57,10 @@ async def get_plans(
     "/tags", status_code=status.HTTP_200_OK, response_model=TagsResponse
 )
 def get_plan_tags(
-    language: str = Query(
-        "en",
-        description="Filter by language code (e.g., 'bo', 'en', 'zh'). Defaults to 'en'.",
-    )
+    language: Annotated[
+        str,
+        Query(description="Filter by language code (e.g., 'bo', 'en', 'zh'). Defaults to 'en'."),
+    ] = "en",
 ):
     return get_tags(language=language)
 
@@ -71,7 +74,10 @@ async def get_plan_details(plan_id: UUID):
 
 async def get_plan_daily(
     plan_id: UUID,
-    date: Optional[DateType] = Query(None, description="Date in YYYY-MM-DD format. Defaults to today if not provided.")
+    date: Annotated[
+        Optional[DateType],
+        Query(description="Date in YYYY-MM-DD format. Defaults to today if not provided."),
+    ] = None,
 ):
     return await get_plan_daily_content(plan_id=plan_id, requested_date=date)
 

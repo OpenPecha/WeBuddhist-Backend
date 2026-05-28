@@ -84,11 +84,11 @@ def get_cms_group(
 @cms_groups_router.get("", status_code=status.HTTP_200_OK, response_model=AuthorGroupListResponse)
 def get_cms_groups(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    search: Optional[str] = Query(default=None),
-    language: Optional[str] = Query(default=None),
-    tag_id: Optional[UUID] = Query(default=None),
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, ge=1, le=100),
+    search: Annotated[Optional[str], Query()] = None,
+    language: Annotated[Optional[str], Query()] = None,
+    tag_id: Annotated[Optional[UUID], Query()] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     return list_cms_groups(
         token=authentication_credential.credentials,
@@ -235,11 +235,11 @@ def get_public_group(group_id: UUID):
 
 @public_groups_router.get("", status_code=status.HTTP_200_OK, response_model=AuthorGroupListResponse)
 def get_public_groups(
-    search: Optional[str] = Query(default=None),
-    language: Optional[str] = Query(default=None),
-    tag_id: Optional[UUID] = Query(default=None),
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, ge=1, le=100),
+    search: Annotated[Optional[str], Query()] = None,
+    language: Annotated[Optional[str], Query()] = None,
+    tag_id: Annotated[Optional[UUID], Query()] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     return list_public_groups(
         search=search,
@@ -271,8 +271,8 @@ def delete_follow_group(
 @user_groups_router.get("", status_code=status.HTTP_200_OK, response_model=AuthorGroupListResponse)
 def get_my_followed_groups(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=20, ge=1, le=100),
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     return list_followed_groups(
         token=authentication_credential.credentials,

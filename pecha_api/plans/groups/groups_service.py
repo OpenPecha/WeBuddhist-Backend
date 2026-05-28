@@ -70,6 +70,8 @@ from pecha_api.plans.groups.groups_models import (
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
 
+GROUP_NOT_FOUND = "Group not found"
+
 
 class InviteEmailMismatchError(Exception):
     pass
@@ -235,7 +237,7 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN, AuthorGroupMemberRole.EDITOR])
@@ -275,9 +277,9 @@ def get_author_group_detail(group_id: UUID, require_public: bool = True) -> Auth
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if require_public and not group.is_public:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         return _group_to_detail(group=group, follower_count=follower_count)
 
@@ -287,7 +289,7 @@ def get_cms_group_detail(token: str, group_id: UUID) -> AuthorGroupDetailDTO:
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
@@ -360,7 +362,7 @@ def replace_group_tags(token: str, group_id: UUID, request: ReplaceGroupTagsRequ
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN, AuthorGroupMemberRole.EDITOR])
@@ -381,7 +383,7 @@ def replace_group_social_links_by_id(
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN, AuthorGroupMemberRole.EDITOR])
@@ -398,7 +400,7 @@ def replace_group_series_by_id(token: str, group_id: UUID, request: ReplaceGroup
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN, AuthorGroupMemberRole.EDITOR])
@@ -415,7 +417,7 @@ def replace_group_plans_by_id(token: str, group_id: UUID, request: ReplaceGroupP
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN, AuthorGroupMemberRole.EDITOR])
@@ -432,7 +434,7 @@ def follow_group(token: str, group_id: UUID) -> None:
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group or not group.is_public:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         upsert_group_follow(db=db, group_id=group_id, user_id=user.id)
 
 
@@ -471,7 +473,7 @@ def create_group_member_invite(
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN])
@@ -521,7 +523,7 @@ def accept_group_invite(token: str, request: AcceptGroupInviteRequest) -> Author
 
         group = get_group_by_id(db=db, group_id=invite.group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
 
         existing_member = get_group_member(db=db, group_id=group.id, author_id=author.id)
         if existing_member is None:
@@ -545,7 +547,7 @@ def revoke_group_invite(token: str, group_id: UUID, invite_id: UUID) -> None:
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN])
@@ -566,7 +568,7 @@ def update_group_member_role(
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not current_author.is_admin:
             current_member = _get_member_or_403(db=db, group_id=group_id, author_id=current_author.id)
             _assert_role_allowed(current_member, [AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN])
@@ -593,7 +595,7 @@ def delete_group_member(token: str, group_id: UUID, author_id: UUID) -> None:
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not current_author.is_admin:
             current_member = _get_member_or_403(db=db, group_id=group_id, author_id=current_author.id)
             _assert_role_allowed(current_member, [AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN])

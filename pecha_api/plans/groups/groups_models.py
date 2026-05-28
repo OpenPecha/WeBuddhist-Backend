@@ -22,6 +22,9 @@ from pecha_api.db.database import Base
 
 from .groups_enums import AuthorGroupMemberRoleEnum
 
+FK_AUTHOR_GROUPS_ID = "author_groups.id"
+CASCADE_DELETE_ORPHAN = "all, delete-orphan"
+
 
 author_group_followers = Table(
     "author_group_followers",
@@ -29,7 +32,7 @@ author_group_followers = Table(
     Column(
         "group_id",
         UUID(as_uuid=True),
-        ForeignKey("author_groups.id", ondelete="CASCADE"),
+        ForeignKey(FK_AUTHOR_GROUPS_ID, ondelete="CASCADE"),
         primary_key=True,
     ),
     Column(
@@ -54,7 +57,7 @@ author_group_tags = Table(
     Column(
         "group_id",
         UUID(as_uuid=True),
-        ForeignKey("author_groups.id", ondelete="CASCADE"),
+        ForeignKey(FK_AUTHOR_GROUPS_ID, ondelete="CASCADE"),
         primary_key=True,
     ),
     Column(
@@ -73,7 +76,7 @@ author_group_series = Table(
     Column(
         "group_id",
         UUID(as_uuid=True),
-        ForeignKey("author_groups.id", ondelete="CASCADE"),
+        ForeignKey(FK_AUTHOR_GROUPS_ID, ondelete="CASCADE"),
         primary_key=True,
     ),
     Column(
@@ -92,7 +95,7 @@ author_group_plans = Table(
     Column(
         "group_id",
         UUID(as_uuid=True),
-        ForeignKey("author_groups.id", ondelete="CASCADE"),
+        ForeignKey(FK_AUTHOR_GROUPS_ID, ondelete="CASCADE"),
         primary_key=True,
     ),
     Column(
@@ -126,17 +129,17 @@ class AuthorGroup(Base):
     metadata_entries = relationship(
         "AuthorGroupMetadata",
         back_populates="group",
-        cascade="all, delete-orphan",
+        cascade=CASCADE_DELETE_ORPHAN,
     )
     members = relationship(
         "AuthorGroupMember",
         back_populates="group",
-        cascade="all, delete-orphan",
+        cascade=CASCADE_DELETE_ORPHAN,
     )
     social_links = relationship(
         "AuthorGroupSocialLink",
         back_populates="group",
-        cascade="all, delete-orphan",
+        cascade=CASCADE_DELETE_ORPHAN,
     )
     tags = relationship("Tag", secondary=author_group_tags, lazy="select")
     plans = relationship("Plan", secondary=author_group_plans, lazy="select")
@@ -159,7 +162,7 @@ class AuthorGroupMetadata(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     group_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("author_groups.id", ondelete="CASCADE"),
+        ForeignKey(FK_AUTHOR_GROUPS_ID, ondelete="CASCADE"),
         nullable=False,
     )
     language = Column(String(10), nullable=False)
@@ -180,7 +183,7 @@ class AuthorGroupMember(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     group_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("author_groups.id", ondelete="CASCADE"),
+        ForeignKey(FK_AUTHOR_GROUPS_ID, ondelete="CASCADE"),
         nullable=False,
     )
     author_id = Column(
@@ -211,7 +214,7 @@ class AuthorGroupSocialLink(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     group_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("author_groups.id", ondelete="CASCADE"),
+        ForeignKey(FK_AUTHOR_GROUPS_ID, ondelete="CASCADE"),
         nullable=False,
     )
     platform = Column(String(50), nullable=False)
@@ -230,7 +233,7 @@ class AuthorGroupInvite(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     group_id = Column(
         UUID(as_uuid=True),
-        ForeignKey("author_groups.id", ondelete="CASCADE"),
+        ForeignKey(FK_AUTHOR_GROUPS_ID, ondelete="CASCADE"),
         nullable=False,
     )
     target_email = Column(String(255), nullable=False)
