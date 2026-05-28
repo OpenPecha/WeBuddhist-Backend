@@ -213,6 +213,7 @@ def replace_group_metadata(
     for entry in metadata_entries:
         entry.group_id = group_id
         db.add(entry)
+    db.flush()
 
 
 def replace_group_social_links(
@@ -224,6 +225,7 @@ def replace_group_social_links(
     for link in social_links:
         link.group_id = group_id
         db.add(link)
+    db.flush()
 
 
 def replace_group_relation_ids(
@@ -384,7 +386,8 @@ def get_series_by_ids(db: Session, series_ids: List[UUID]) -> List[Series]:
 
 
 def update_group(db: Session, group: AuthorGroup) -> AuthorGroup:
-    db.add(group)
+    # Group is already persistent; db.add() would re-sync relationships and can fail
+    # after bulk deletes (e.g. replace_group_metadata) left stale entries in memory.
     db.commit()
     db.refresh(group)
     return group

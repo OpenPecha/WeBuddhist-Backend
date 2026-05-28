@@ -8,6 +8,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_group_id_for_series,
     get_group_ids_by_plan_ids,
     get_group_ids_by_series_ids,
+    update_group,
 )
 
 
@@ -51,3 +52,15 @@ def test_get_group_ids_by_series_ids_empty_input():
 
     assert get_group_ids_by_series_ids(db=db, series_ids=[]) == {}
     db.execute.assert_not_called()
+
+
+def test_update_group_commits_without_re_adding_instance():
+    db = _make_session_mock()
+    group = MagicMock()
+
+    result = update_group(db=db, group=group)
+
+    db.add.assert_not_called()
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(group)
+    assert result is group

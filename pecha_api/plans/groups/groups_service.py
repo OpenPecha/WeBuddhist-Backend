@@ -267,6 +267,7 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
                 for item in request.metadata
             ]
             replace_group_metadata(db=db, group_id=group_id, metadata_entries=metadata_entries)
+            db.expire(group, ["metadata_entries"])
 
         group.updated_by = author.email
         group.updated_at = datetime.now(timezone.utc)
