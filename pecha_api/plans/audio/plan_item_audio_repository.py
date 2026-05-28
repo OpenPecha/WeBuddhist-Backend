@@ -40,6 +40,27 @@ def get_plan_item_audio_paginated(
     return rows, total
 
 
+def get_accessible_plan_item_audio_by_key(
+    db: Session,
+    audio_key: str,
+    author_id: UUID,
+    is_admin: bool,
+) -> Optional[PlanItemAudio]:
+    query = (
+        db.query(PlanItemAudio)
+        .join(PlanItem, PlanItem.id == PlanItemAudio.plan_item_id)
+        .join(Plan, Plan.id == PlanItem.plan_id)
+        .filter(Plan.deleted_at.is_(None), PlanItemAudio.audio_key == audio_key)
+    )
+    if not is_admin:
+        query = query.filter(Plan.author_id == author_id)
+    return query.first()
+
+
+def count_plan_item_audio_by_audio_key(db: Session, audio_key: str) -> int:
+    return db.query(PlanItemAudio).filter(PlanItemAudio.audio_key == audio_key).count()
+
+
 def get_plan_item_audio_by_plan_item_id(db: Session, plan_item_id: UUID) -> Optional[PlanItemAudio]:
     return (
         db.query(PlanItemAudio)

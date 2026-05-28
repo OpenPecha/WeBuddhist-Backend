@@ -24,3 +24,8 @@ class PlanAudioListResponse(BaseModel):
     skip: int
     limit: int
     total: int
+
+
+class AssignPlanDayAudioRequest(BaseModel):
+    audio_key: str
+    duration_ms: Optional[int] = None
