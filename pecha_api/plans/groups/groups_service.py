@@ -7,7 +7,9 @@ from uuid import UUID
 from fastapi import HTTPException
 from starlette import status
 
+from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
+from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
 from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
 from pecha_api.plans.groups.groups_models import (
@@ -81,6 +83,15 @@ def _to_role_value(role: AuthorGroupMemberRole | str) -> str:
     if hasattr(role, "value"):
         return role.value
     return str(role)
+
+
+def _generate_group_asset_url(asset_key: Optional[str]) -> Optional[str]:
+    if not asset_key:
+        return None
+    return generate_presigned_access_url(
+        bucket_name=get("AWS_BUCKET_NAME"),
+        s3_key=asset_key,
+    )
 
 
 def _metadata_to_dtos(metadata_entries) -> List[GroupMetadataDTO]:
@@ -187,6 +198,8 @@ def _group_to_detail(group: AuthorGroup, follower_count: int = 0) -> AuthorGroup
         is_public=group.is_public,
         avatar_key=group.avatar_key,
         banner_key=group.banner_key,
+        avatar_url=_generate_group_asset_url(group.avatar_key),
+        banner_url=_generate_group_asset_url(group.banner_key),
         metadata=_metadata_to_dtos(group.metadata_entries),
         members=_members_to_dtos(group.members),
         tags=tags_to_summary_dtos(group.tags),
