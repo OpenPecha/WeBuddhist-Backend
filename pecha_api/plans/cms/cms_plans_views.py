@@ -10,6 +10,8 @@ from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, Create
 from pecha_api.plans.cms.cms_plans_service import get_filtered_plans, create_new_plan, get_details_plan, update_plan_details, \
     delete_selected_plan, update_plan_featured_service, update_selected_plan_status, get_plan_day_details
 from pecha_api.plans.plans_enums import SortBy, SortOrder
+from pecha_api.plans.audio.cms_plan_audio_service import get_cms_plan_audio_list
+from pecha_api.plans.audio.plan_audio_response_models import PlanAudioListResponse
 
 oauth2_scheme = HTTPBearer()
 # Create router for CMS plan endpoints
@@ -44,6 +46,21 @@ async def create_plan(authentication_credential: Annotated[HTTPAuthorizationCred
     return create_new_plan(
         token=authentication_credential.credentials,
         create_plan_request=create_plan_request
+    )
+
+
+@cms_plans_router.get("/audio", status_code=status.HTTP_200_OK, response_model=PlanAudioListResponse)
+async def list_plan_audio(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    search: Annotated[Optional[str], Query(description="Search by audio file name or S3 key")] = None,
+    skip: Annotated[int, Query()] = 0,
+    limit: Annotated[int, Query()] = 10,
+):
+    return get_cms_plan_audio_list(
+        token=authentication_credential.credentials,
+        search=search,
+        skip=skip,
+        limit=limit,
     )
 
 
