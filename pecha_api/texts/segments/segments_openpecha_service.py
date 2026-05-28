@@ -8,6 +8,7 @@ from starlette import status
 from openpecha_api.segments.openpecha_segment_service import (
     fetch_related_segments,
     fetch_segment_content,
+    fetch_segment_details,
 )
 from openpecha_api.text.openpecha_text_service import fetch_text_by_id
 
@@ -15,6 +16,9 @@ from .segments_response_models import (
     ParentSegment,
     V2RelatedSegmentItem,
     V2SegmentCommentariesResponse,
+    V2SegmentResponse,
+    V2SegmentRootTextResponse,
+    V2SegmentTextDetail,
     V2SegmentTextGroup,
     V2SegmentTranslationsResponse,
 )
@@ -24,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 TRANSLATION = "translation"
 COMMENTARY = "commentary"
+RELATED_SEGMENTS_MAX_PAGE_SIZE = 100
 
 
 def _classify_text(text_payload: Dict[str, Any]) -> Optional[str]:
@@ -138,6 +143,121 @@ async def _get_related_segments_grouped_by_type(
         )
 
     return parent_segment, [grouped[text_id] for text_id in group_order], has_more
+
+
+async def _fetch_matching_related_segments_by_text_id(
+    segment_id: str,
+    text_id: str,
+    skip: int,
+    limit: int,
+) -> Tuple[List[Dict[str, Any]], bool]:
+    matching_items: List[Dict[str, Any]] = []
+    upstream_offset = 0
+    upstream_has_more = True
+    target_count = skip + limit + 1
+
+    while upstream_has_more and len(matching_items) < target_count:
+        related_page = await fetch_related_segments(
+            segment_id=segment_id,
+            limit=RELATED_SEGMENTS_MAX_PAGE_SIZE,
+            offset=upstream_offset,
+        )
+        items: List[Dict[str, Any]] = related_page.get("items", []) or []
+        matching_items.extend(
+            item for item in items if item.get("text_id") == text_id
+        )
+        upstream_has_more = bool(related_page.get("has_more", False))
+        if not items:
+            break
+        upstream_offset += len(items)
+
+    paginated_items = matching_items[skip : skip + limit]
+    has_more = len(matching_items) > skip + limit
+    return paginated_items, has_more
+
+
+async def get_root_text_by_segment_id_from_openpecha(
+    text_id: str,
+    segment_id: str,
+    skip: int = 0,
+    limit: int = 10,
+) -> V2SegmentRootTextResponse:
+    try:
+        parent_segment, (filtered_items, has_more) = await asyncio.gather(
+            _fetch_parent_segment(segment_id),
+            _fetch_matching_related_segments_by_text_id(
+                segment_id=segment_id,
+                text_id=text_id,
+                skip=skip,
+                limit=limit,
+            ),
+        )
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch related segments from upstream service",
+        )
+
+    if not filtered_items:
+        return V2SegmentRootTextResponse(
+            parent_segment=parent_segment,
+            root_text=[],
+            skip=skip,
+            limit=limit,
+            has_more=has_more,
+        )
+
+    text_payload, *segment_contents = await asyncio.gather(
+        _fetch_text_safe(text_id),
+        *[_fetch_segment_content_safe(item["id"]) for item in filtered_items],
+    )
+
+    root_text_group = V2SegmentTextGroup(
+        text_id=text_id,
+        title=_extract_title(text_payload.get("title", {})) if text_payload else "",
+        language=text_payload.get("language") if text_payload else None,
+        segments=[
+            V2RelatedSegmentItem(id=item["id"], content=content)
+            for item, content in zip(filtered_items, segment_contents)
+        ],
+    )
+
+    return V2SegmentRootTextResponse(
+        parent_segment=parent_segment,
+        root_text=[root_text_group],
+        skip=skip,
+        limit=limit,
+        has_more=has_more,
+    )
+
+async def get_openpecha_segment_details_by_id(
+    segment_id: str,
+) -> V2SegmentResponse:
+    content = await _fetch_segment_content_safe(segment_id)
+    if content is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Segment with id '{segment_id}' not found",
+        )
+
+    segment_details=await fetch_segment_details(segment_id)
+    text_payload = await _fetch_text_safe(segment_details.get("text_id"))
+    if text_payload:
+        text_detail = V2SegmentTextDetail(
+            text_id=segment_details.get("text_id"),
+            title=_extract_title(text_payload.get("title", {})),
+            language=text_payload.get("language"),
+        )
+    else:
+        text_detail = None
+
+    return V2SegmentResponse(
+        segment_id=segment_id,
+        content=content,
+        text=text_detail,
+    )
 
 
 async def get_translations_by_segment_id_from_openpecha(

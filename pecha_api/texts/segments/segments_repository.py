@@ -4,20 +4,13 @@ from uuid import UUID
 
 from pecha_api.constants import Constants
 from .segments_models import Segment
-from .segments_response_models import CreateSegmentRequest, SegmentDTO, MappingResponse, SegmentUpdateRequest
+from .segments_response_models import SegmentDTO, MappingResponse
 import logging
 from beanie.exceptions import CollectionWasNotInitialized
 from typing import List, Dict, Optional
 from fastapi import HTTPException
 from starlette import status
 from pecha_api.error_contants import ErrorConstants
-
-async def get_segments_by_pecha_segment_ids(pecha_segment_ids: List[str]) -> List[SegmentDTO]:
-    try:
-        return await Segment.get_segments_by_pecha_segment_ids(pecha_segment_ids=pecha_segment_ids)
-    except CollectionWasNotInitialized as e:
-        logging.debug(e)
-        return []
 
 async def get_segment_by_id(segment_id: str) -> SegmentDTO | None:
     try:
@@ -35,9 +28,6 @@ async def get_segments_by_text_id(text_id: str) -> List[SegmentDTO]:
         logging.debug(e)
         return []
 
-
-async def get_segment_details_by_id(segment_id: str):
-    return await Segment.get_segment_details(segment_id=segment_id)
 
 async def check_segment_exists(segment_id: UUID) -> bool:
     try:
@@ -74,22 +64,6 @@ async def get_segments_by_ids(segment_ids: List[str]) -> Dict[str, SegmentDTO]:
         return {}
 
 
-async def create_segment(create_segment_request: CreateSegmentRequest) -> List[Segment]:
-    new_segment_list = [
-        Segment(
-            pecha_segment_id=segment.pecha_segment_id,
-            text_id=create_segment_request.text_id,
-            content=segment.content,
-            mapping=segment.mapping,
-            type=segment.type
-        )
-        for segment in create_segment_request.segments
-    ]
-    # Store the insert result but don't return it directly
-    await Segment.insert_many(new_segment_list)
-
-    return new_segment_list
-
 async def get_related_mapped_segments(parent_segment_id: str) -> List[SegmentDTO]:
     try:
         segments = await Segment.get_related_mapped_segments(parent_segment_id=parent_segment_id)
@@ -125,25 +99,3 @@ async def get_related_mapped_segments_batch(
     except CollectionWasNotInitialized as e:
         logging.debug(e)
         return {}
-
-async def delete_segments_by_text_id(text_id: str):
-    try:
-        await Segment.delete_segment_by_text_id(text_id=text_id)
-    except CollectionWasNotInitialized as e:
-        logging.debug(e)
-        return False
-
-
-async def update_segment_by_id(segment_update_request: SegmentUpdateRequest) -> SegmentDTO | None:
-    try:
-        for segment_update in segment_update_request.segments:
-            segment = await Segment.get_segment_by_pecha_segment_id(pecha_segment_id=segment_update.pecha_segment_id)
-            if not segment:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE)
-            segment.content = segment_update.content
-            await segment.save()
-        
-        return segment
-    except CollectionWasNotInitialized as e:
-        logging.debug(e)
-        return None

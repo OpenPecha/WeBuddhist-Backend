@@ -22,7 +22,6 @@ Routers included in `pecha_api/app.py`:
 - `texts`: `pecha_api/texts/texts_views.py`
 - `groups`: `pecha_api/texts/groups/groups_views.py`
 - `segments`: `pecha_api/texts/segments/segments_views.py`
-- `mappings`: `pecha_api/texts/mappings/mappings_views.py`
 - `topics`: `pecha_api/topics/topics_views.py`
 - `users`: `pecha_api/users/users_views.py`
 - `share`: `pecha_api/share/share_views.py`
@@ -39,9 +38,6 @@ Routers included in `pecha_api/app.py`:
 - `recitations`: `pecha_api/recitations/recitations_view.py`
 - `user follows`: `pecha_api/user_follows/user_follow_views.py`
 - `user recitations`: `pecha_api/plans/users/recitation/user_recitations_views.py`
-- `text uploader`: `pecha_api/text_uploader/text_uploader_views.py`
-- `text metadata`: `pecha_api/text_uploader/text_metadata/text_metadata_views.py`
-- `uploader collections`: `pecha_api/text_uploader/collections/uploader_collections_views.py`
 - `cataloger`: `pecha_api/cataloger/cataloger_views.py`
 
 ### Dependencies

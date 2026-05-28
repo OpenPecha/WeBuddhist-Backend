@@ -5,17 +5,14 @@ from pecha_api.error_contants import ErrorConstants
 from pecha_api.http_message_utils import handle_http_status_error, handle_request_error
 from .texts_repository import (
     get_all_texts_by_collection,
-    get_texts_by_collection,
     get_texts_by_group_id,
     create_text,
     create_table_of_content_detail,
     get_contents_by_id,
     get_table_of_content_by_content_id,
-    get_sections_count_of_table_of_content,
     delete_table_of_content_by_text_id,
     update_text_details_by_id,
     delete_text_by_id,
-    fetch_sheets_from_db,
     get_all_texts_by_collection,
     get_all_recitation_texts_by_collection,
     get_texts_by_pecha_text_ids,
@@ -63,25 +60,13 @@ from .groups.groups_service import (
 )
 from .segments.segments_models import Segment
 from pecha_api.texts.texts_cache_service import (
-    set_text_details_cache,
-    get_text_details_cache,
     get_text_by_text_id_or_collection_cache,
     set_text_by_text_id_or_collection_cache,
-    get_table_of_contents_by_text_id_cache,
-    set_table_of_contents_by_text_id_cache,
-    get_text_versions_by_group_id_cache,
     set_text_versions_by_group_id_cache,
-    get_table_of_content_by_sheet_id_cache,
-    set_table_of_content_by_sheet_id_cache,
-    delete_table_of_content_by_sheet_id_cache,
     update_text_details_cache,
     invalidate_text_cache_on_update
 )
 from .segments.segments_repository import get_segments_by_text_id
-from pecha_api.sheets.sheets_enum import (
-    SortBy,
-    SortOrder
-)
 from pecha_api.cache.cache_enums import CacheType
 
 from .texts_utils import TextUtils
@@ -95,7 +80,7 @@ from .segments.segments_utils import SegmentUtils
 from typing import List, Dict, Optional, Tuple, Set
 from pecha_api.config import get
 from pecha_api.utils import Utils
-from .texts_enums import PaginationDirection, LANGUAGE_ORDERS, TextType, TextTypes
+from .texts_enums import PaginationDirection, TextType, TextTypes
 
 import logging
 import httpx
@@ -215,37 +200,6 @@ async def get_titles_and_ids_by_query(
     texts = await get_texts_by_titles(titles=unique_titles)
     return [TitleSearchResult(id=str(text.id), title=text.title) for text in texts]
 
-
-async def get_sheet(published_by: Optional[str] = None, is_published: Optional[bool] = None, sort_by: Optional[SortBy] = None, sort_order: Optional[SortOrder] = None, skip: int = 0, limit: int = 10):
-    
-    sheets = await fetch_sheets_from_db(
-        published_by=published_by,
-        is_published=is_published,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        skip=skip,
-        limit=limit
-    )
-    return sheets
-
-async def get_table_of_content_by_sheet_id(sheet_id: str) -> Optional[TableOfContent]:
-    cached_data: TableOfContent = await get_table_of_content_by_sheet_id_cache(sheet_id=sheet_id, cache_type=CacheType.SHEET_TABLE_OF_CONTENT)
-    if cached_data is not None:
-        return cached_data
-    
-    table_of_content = None
-    is_valid_sheet: bool = await TextUtils.validate_text_exists(text_id=sheet_id)
-    if not is_valid_sheet:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
-    
-    table_of_contents: List[TableOfContent] = await get_contents_by_id(text_id=sheet_id)
-    if len(table_of_contents) > 0 and table_of_contents[0] is not None:
-        table_of_content: TableOfContent = table_of_contents[0]
-    
-    if table_of_content is not None:
-        await set_table_of_content_by_sheet_id_cache(sheet_id=sheet_id, cache_type=CacheType.SHEET_TABLE_OF_CONTENT, data=table_of_content)
-    
-    return table_of_content
 
 async def get_table_of_contents_by_text_id(text_id: str, language: str = None, skip: int = 0, limit: int = 10) -> TableOfContentResponse:
     

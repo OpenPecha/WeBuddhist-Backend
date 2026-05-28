@@ -36,3 +36,10 @@ async def fetch_segment_content(segment_id: str) -> Optional[str]:
             if isinstance(value, str):
                 return value
     return None
+
+async def fetch_segment_details(segment_id:str) :
+    client=get_authenticated_open_pecha_client()
+    http_client=client.get_async_httpx_client()
+    response=await http_client.get(f"/v2/segments/{segment_id}")
+    response.raise_for_status()
+    return response.json()

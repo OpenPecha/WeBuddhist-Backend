@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -8,16 +8,72 @@ from pecha_api.texts.segments.segments_response_models import (
     ParentSegment,
     V2RelatedSegmentItem,
     V2SegmentCommentariesResponse,
+    V2SegmentResponse,
+    V2SegmentTextDetail,
     V2SegmentTextGroup,
     V2SegmentTranslationsResponse,
 )
 
 client = TestClient(api)
 
+SEGMENTS_ROOT = "/segments"
+
+
+class TestSegmentsV2GetSegmentEndpoint:
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_views.get_openpecha_segment_details_by_id",
+        new_callable=AsyncMock,
+    )
+    def test_get_segment_without_text_id(self, mock_service):
+        mock_service.return_value = V2SegmentResponse(
+            segment_id="seg-1",
+            content="Segment content",
+        )
+
+        response = client.get(f"{SEGMENTS_ROOT}/seg-1")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["segment_id"] == "seg-1"
+        assert data["content"] == "Segment content"
+        assert data["text"] is None
+
+        mock_service.assert_awaited_once_with(
+            segment_id="seg-1",
+        )
+
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_views.get_openpecha_segment_details_by_id",
+        new_callable=AsyncMock,
+    )
+    def test_get_segment_returns_text_when_service_includes_detail(self, mock_service):
+        mock_service.return_value = V2SegmentResponse(
+            segment_id="seg-1",
+            content="Segment content",
+            text=V2SegmentTextDetail(
+                text_id="text-1",
+                title="Root Text Title",
+                language="bo",
+            ),
+        )
+
+        response = client.get(f"{SEGMENTS_ROOT}/seg-1")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["text"]["text_id"] == "text-1"
+        assert data["text"]["title"] == "Root Text Title"
+        assert data["text"]["language"] == "bo"
+
+        mock_service.assert_awaited_once_with(
+            segment_id="seg-1",
+        )
+
 
 class TestSegmentsV2TranslationsEndpoint:
     @patch(
-        "pecha_api.texts.segments.segments_openpecha_views.get_translations_by_segment_id_from_openpecha"
+        "pecha_api.texts.segments.segments_openpecha_views.get_translations_by_segment_id_from_openpecha",
+        new_callable=AsyncMock,
     )
     def test_get_translations_success(self, mock_service):
         mock_service.return_value = V2SegmentTranslationsResponse(
@@ -47,7 +103,7 @@ class TestSegmentsV2TranslationsEndpoint:
             has_more=True,
         )
 
-        response = client.get("/v2/segments/parent-seg-1/translations")
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/translations")
 
         assert response.status_code == 200
         data = response.json()
@@ -66,7 +122,8 @@ class TestSegmentsV2TranslationsEndpoint:
         )
 
     @patch(
-        "pecha_api.texts.segments.segments_openpecha_views.get_translations_by_segment_id_from_openpecha"
+        "pecha_api.texts.segments.segments_openpecha_views.get_translations_by_segment_id_from_openpecha",
+        new_callable=AsyncMock,
     )
     def test_get_translations_with_pagination(self, mock_service):
         mock_service.return_value = V2SegmentTranslationsResponse(
@@ -80,7 +137,7 @@ class TestSegmentsV2TranslationsEndpoint:
             has_more=False,
         )
 
-        response = client.get("/v2/segments/parent-seg-1/translations?skip=5&limit=3")
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/translations?skip=5&limit=3")
 
         assert response.status_code == 200
         data = response.json()
@@ -97,7 +154,8 @@ class TestSegmentsV2TranslationsEndpoint:
 
 class TestSegmentsV2CommentariesEndpoint:
     @patch(
-        "pecha_api.texts.segments.segments_openpecha_views.get_commentaries_by_segment_id_from_openpecha"
+        "pecha_api.texts.segments.segments_openpecha_views.get_commentaries_by_segment_id_from_openpecha",
+        new_callable=AsyncMock,
     )
     def test_get_commentaries_success(self, mock_service):
         mock_service.return_value = V2SegmentCommentariesResponse(
@@ -123,7 +181,7 @@ class TestSegmentsV2CommentariesEndpoint:
             has_more=False,
         )
 
-        response = client.get("/v2/segments/parent-seg-1/commentaries")
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/commentaries")
 
         assert response.status_code == 200
         data = response.json()
@@ -135,29 +193,30 @@ class TestSegmentsV2CommentariesEndpoint:
 
 class TestSegmentsV2ValidationErrors:
     def test_invalid_skip_negative_for_translations(self):
-        response = client.get("/v2/segments/parent-seg-1/translations?skip=-1")
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/translations?skip=-1")
         assert response.status_code == 422
 
     def test_invalid_limit_zero_for_translations(self):
-        response = client.get("/v2/segments/parent-seg-1/translations?limit=0")
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/translations?limit=0")
         assert response.status_code == 422
 
     def test_invalid_limit_too_large_for_translations(self):
-        response = client.get("/v2/segments/parent-seg-1/translations?limit=101")
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/translations?limit=101")
         assert response.status_code == 422
 
     def test_invalid_skip_negative_for_commentaries(self):
-        response = client.get("/v2/segments/parent-seg-1/commentaries?skip=-1")
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/commentaries?skip=-1")
         assert response.status_code == 422
 
     def test_invalid_limit_zero_for_commentaries(self):
-        response = client.get("/v2/segments/parent-seg-1/commentaries?limit=0")
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/commentaries?limit=0")
         assert response.status_code == 422
 
 
 class TestSegmentsV2ErrorHandling:
     @patch(
-        "pecha_api.texts.segments.segments_openpecha_views.get_translations_by_segment_id_from_openpecha"
+        "pecha_api.texts.segments.segments_openpecha_views.get_translations_by_segment_id_from_openpecha",
+        new_callable=AsyncMock,
     )
     def test_get_translations_not_found(self, mock_service):
         mock_service.side_effect = HTTPException(
@@ -165,13 +224,14 @@ class TestSegmentsV2ErrorHandling:
             detail="Segment with id 'missing-segment' not found",
         )
 
-        response = client.get("/v2/segments/missing-segment/translations")
+        response = client.get(f"{SEGMENTS_ROOT}/missing-segment/translations")
 
         assert response.status_code == 404
         assert "missing-segment" in response.json()["detail"]
 
     @patch(
-        "pecha_api.texts.segments.segments_openpecha_views.get_translations_by_segment_id_from_openpecha"
+        "pecha_api.texts.segments.segments_openpecha_views.get_translations_by_segment_id_from_openpecha",
+        new_callable=AsyncMock,
     )
     def test_get_translations_upstream_error(self, mock_service):
         mock_service.side_effect = HTTPException(
@@ -179,13 +239,14 @@ class TestSegmentsV2ErrorHandling:
             detail="Failed to fetch related segments from upstream service",
         )
 
-        response = client.get("/v2/segments/parent-seg-1/translations")
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/translations")
 
         assert response.status_code == 502
         assert "upstream" in response.json()["detail"].lower()
 
     @patch(
-        "pecha_api.texts.segments.segments_openpecha_views.get_commentaries_by_segment_id_from_openpecha"
+        "pecha_api.texts.segments.segments_openpecha_views.get_commentaries_by_segment_id_from_openpecha",
+        new_callable=AsyncMock,
     )
     def test_get_commentaries_upstream_error(self, mock_service):
         mock_service.side_effect = HTTPException(
@@ -193,7 +254,7 @@ class TestSegmentsV2ErrorHandling:
             detail="Failed to fetch related segments from upstream service",
         )
 
-        response = client.get("/v2/segments/parent-seg-1/commentaries")
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/commentaries")
 
         assert response.status_code == 502
         assert "upstream" in response.json()["detail"].lower()
