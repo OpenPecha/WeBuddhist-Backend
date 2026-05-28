@@ -190,6 +190,7 @@ def get_filtered_series(
     skip: int,
     limit: int,
     language: Optional[str] = None,
+    group_id: Optional[UUID] = None,
 ) -> SeriesListResponse:
     with SessionLocal() as db_session:
         rows, total = get_series_paginated(
@@ -203,6 +204,7 @@ def get_filtered_series(
             language=language,
             status=PlanStatus.PUBLISHED,
             published_only=True,
+            group_id=group_id,
         )
 
     series_dtos: List[SeriesListItemDTO] = [

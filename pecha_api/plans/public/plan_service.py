@@ -42,6 +42,7 @@ async def get_image_url(image_url: Optional[str]) -> Optional[ImageUrlModel]:
 
 async def get_published_plans(
     tag: Optional[str] = None,
+    group_id: Optional[UUID] = None,
     search: Optional[str] = None, 
     language: str = "en", 
     sort_by: str = "title", 
@@ -53,7 +54,17 @@ async def get_published_plans(
     try:
         with SessionLocal() as db:
             language_upper = language.upper()
-            plan_aggregates = get_published_plans_from_db(db=db, skip=skip, limit=limit, search=search, language=language_upper, sort_by=sort_by, sort_order=sort_order, tag=tag)
+            plan_aggregates = get_published_plans_from_db(
+                db=db,
+                skip=skip,
+                limit=limit,
+                search=search,
+                language=language_upper,
+                sort_by=sort_by,
+                sort_order=sort_order,
+                tag=tag,
+                group_id=group_id,
+            )
             
             plan_dtos = []
             for plan_aggregate in plan_aggregates:
@@ -86,7 +97,13 @@ async def get_published_plans(
                 )
                 plan_dtos.append(plan_dto)
             
-            total = get_published_plans_count(db=db, search=search, language=language_upper, tag=tag)
+            total = get_published_plans_count(
+                db=db,
+                search=search,
+                language=language_upper,
+                tag=tag,
+                group_id=group_id,
+            )
             
             return PublicPlansResponse(plans=plan_dtos, skip=skip, limit=limit, total=total)
     
