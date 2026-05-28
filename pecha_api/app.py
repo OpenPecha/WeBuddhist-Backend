@@ -21,12 +21,14 @@ from pecha_api.plans.series import public_series_view as public_series_views
 from pecha_api.plans.tasks import plan_tasks_views
 from pecha_api.plans.tasks.sub_tasks import plan_sub_tasks_views
 from pecha_api.plans.public import plan_views as public_plans_views
+from pecha_api.plans.public import public_tags_views
 from pecha_api.plans.users import plan_users_views as user_plans_views
 from pecha_api.plans.media import media_views
 from pecha_api.plans.items import plan_items_views
 from pecha_api.plans.authors import plan_authors_views as plan_authors_views
 from pecha_api.plans.featured import featured_day_views
 from pecha_api.plans.dashboard import dashboard_views as cms_dashboard_views
+from pecha_api.plans.groups import groups_views as author_groups_views
 from pecha_api.recitations import recitations_view
 from pecha_api.user_follows import user_follow_views
 from pecha_api.plans.users.recitation import user_recitations_views
@@ -57,9 +59,13 @@ api.include_router(cms_plans_views.cms_plans_router)
 api.include_router(cms_series_views.cms_series_router)
 api.include_router(cms_tags_views.cms_tags_router)
 api.include_router(cms_dashboard_views.dashboard_router)
+api.include_router(author_groups_views.cms_groups_router)
 api.include_router(public_series_views.public_series_router)
 api.include_router(media_views.media_router)
 api.include_router(public_plans_views.public_plans_router)
+api.include_router(public_tags_views.public_tags_router)
+api.include_router(author_groups_views.public_groups_router)
+api.include_router(author_groups_views.user_groups_router)
 api.include_router(user_plans_views.user_progress_router)
 api.include_router(plan_items_views.items_router)
 api.include_router(plan_tasks_views.plans_router)

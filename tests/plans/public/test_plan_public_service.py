@@ -12,6 +12,7 @@ from pecha_api.plans.public.plan_service import (
     get_plan_day_details,
     get_plan_daily_content,
     get_tags,
+    get_public_tags,
     auto_enroll_plan,
     is_user_enrolled_in_previous_plan,
     is_within_plan_date_range,
@@ -24,6 +25,7 @@ from pecha_api.plans.public.plan_response_models import (
     TagsResponse,
     DailyPlanResponse,
 )
+from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel, LanguageCode
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.plans_enums import ContentType
@@ -126,7 +128,8 @@ async def test_get_published_plans_success(sample_plan_aggregate, mock_db_sessio
             language="EN",  
             sort_by="title",
             sort_order="asc",
-            tag=None
+            tag=None,
+            group_id=None,
         )
 
 
@@ -155,7 +158,8 @@ async def test_get_published_plans_with_search(sample_plan_aggregate, mock_db_se
             language="EN", 
             sort_by="title",
             sort_order="asc",
-            tag=None
+            tag=None,
+            group_id=None,
         )
 
 
@@ -184,7 +188,8 @@ async def test_get_published_plans_with_language_filter(sample_plan_aggregate, m
             language="EN", 
             sort_by="title",
             sort_order="asc",
-            tag=None
+            tag=None,
+            group_id=None,
         )
 
 
@@ -439,7 +444,8 @@ async def test_get_published_plans_with_pagination(sample_plan_aggregate, mock_d
             language="EN",  # Service converts to uppercase before calling repository
             sort_by="title",
             sort_order="asc",
-            tag=None
+            tag=None,
+            group_id=None,
         )
 
 
@@ -905,6 +911,47 @@ def test_get_tags_empty(mock_db_session):
         assert isinstance(result, TagsResponse)
         assert result.tags == []
 
+
+def test_get_public_tags_success(mock_db_session):
+    tag_one = MagicMock()
+    tag_one.id = uuid4()
+    tag_one.name = "meditation"
+    tag_one.image_key = None
+    tag_one.description = None
+    tag_one.deleted_at = None
+    tag_two = MagicMock()
+    tag_two.id = uuid4()
+    tag_two.name = "sleep"
+    tag_two.image_key = None
+    tag_two.description = None
+    tag_two.deleted_at = None
+
+    with patch(
+        "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
+    ), patch(
+        "pecha_api.plans.public.plan_service.get_all_tags_paginated",
+        return_value=([tag_one, tag_two], 2),
+    ) as mock_repo:
+        result = get_public_tags(
+            featured=True,
+            search="med",
+            skip=0,
+            limit=10,
+        )
+
+    assert isinstance(result, PublicTagsListResponse)
+    assert len(result.tags) == 2
+    assert result.total == 2
+    assert result.skip == 0
+    assert result.limit == 10
+    mock_repo.assert_called_once_with(
+        db=mock_db_session.__enter__.return_value,
+        featured=True,
+        search="med",
+        skip=0,
+        limit=10,
+    )
+
 @pytest.mark.asyncio
 async def test_get_published_plans_with_tag_filter(
     sample_plan_aggregate, mock_db_session
@@ -929,6 +976,7 @@ async def test_get_published_plans_with_tag_filter(
             sort_order="asc",
             skip=0,
             limit=20,
+            group_id=None,
         )
 
         assert len(result.plans) == 1
@@ -941,6 +989,7 @@ async def test_get_published_plans_with_tag_filter(
             sort_by="title",
             sort_order="asc",
             tag="meditation",
+            group_id=None,
         )
 
 

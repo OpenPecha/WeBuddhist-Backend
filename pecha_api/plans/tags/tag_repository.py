@@ -106,3 +106,26 @@ def get_published_tags_for_language(db: Session, language: str) -> List[Tag]:
         .order_by(Tag.name.asc())
         .all()
     )
+
+
+def get_all_tags_paginated(
+    db: Session,
+    featured: Optional[bool],
+    search: Optional[str],
+    skip: int,
+    limit: int,
+) -> Tuple[List[Tag], int]:
+    query = db.query(Tag).filter(Tag.deleted_at.is_(None))
+    if featured is not None:
+        query = query.filter(Tag.featured == featured)
+    if search:
+        query = query.filter(Tag.name.ilike(f"%{search}%"))
+
+    total = query.count()
+    rows = (
+        query.order_by(Tag.featured.desc(), Tag.name.asc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return rows, total
