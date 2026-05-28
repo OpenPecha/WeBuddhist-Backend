@@ -9,6 +9,8 @@ from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_repository import (
+    get_group_id_for_series,
+    get_group_ids_by_series_ids,
     get_series_by_id,
     get_series_paginated,
     save_series_with_plans,
@@ -36,6 +38,25 @@ def _paginated_query_chain(rows, total, *, with_filter=True, plan_counts=None):
     target.order_by.return_value = ordered
     query_mock.options.return_value = options_mock
     return query_mock
+
+
+def test_get_group_ids_by_series_ids_returns_first_group_per_series():
+    db = _make_session_mock()
+    series_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+    db.execute.return_value.all.return_value = [(series_id, group_id)]
+
+    result = get_group_ids_by_series_ids(db=db, series_ids=[series_id])
+
+    assert result == {series_id: group_id}
+    assert get_group_id_for_series(db=db, series_id=series_id) == group_id
+
+
+def test_get_group_ids_by_series_ids_empty_input():
+    db = _make_session_mock()
+
+    assert get_group_ids_by_series_ids(db=db, series_ids=[]) == {}
+    db.execute.assert_not_called()
 
 
 def test_save_series_success_commits_and_returns_series():

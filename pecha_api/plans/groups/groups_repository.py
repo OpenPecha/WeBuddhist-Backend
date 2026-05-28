@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
 from sqlalchemy import and_, delete, exists, func, or_, select
@@ -19,6 +19,34 @@ from pecha_api.plans.groups.groups_models import (
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.tags.tag_model import Tag
+
+
+def get_group_ids_by_plan_ids(db: Session, plan_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
+    if not plan_ids:
+        return {}
+    rows = (
+        db.execute(
+            select(
+                author_group_plans.c.plan_id,
+                author_group_plans.c.group_id,
+            )
+            .where(author_group_plans.c.plan_id.in_(plan_ids))
+            .order_by(
+                author_group_plans.c.plan_id,
+                author_group_plans.c.group_id,
+            )
+        )
+        .all()
+    )
+    group_id_by_plan_id: Dict[UUID, UUID] = {}
+    for plan_id, group_id in rows:
+        if plan_id not in group_id_by_plan_id:
+            group_id_by_plan_id[plan_id] = group_id
+    return group_id_by_plan_id
+
+
+def get_group_id_for_plan(db: Session, plan_id: UUID) -> Optional[UUID]:
+    return get_group_ids_by_plan_ids(db=db, plan_ids=[plan_id]).get(plan_id)
 
 
 def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:

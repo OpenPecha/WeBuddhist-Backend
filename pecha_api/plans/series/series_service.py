@@ -10,6 +10,7 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_repository import (
+    get_group_id_for_series,
     get_series_by_id,
     get_series_paginated,
     get_plans_by_ids,
@@ -30,6 +31,7 @@ from pecha_api.plans.series.series_response_models import (
     SeriesListResponse,
 )
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
+from pecha_api.plans.groups.groups_repository import get_group_ids_by_plan_ids
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from starlette import status
@@ -94,7 +96,7 @@ def _build_plan_order_pairs(
     return pairs
 
 
-def _plan_to_dto(plan) -> SeriesPlanDTO:
+def _plan_to_dto(plan, group_id: Optional[UUID] = None) -> SeriesPlanDTO:
     total_days = len(plan.items) if hasattr(plan, 'items') and plan.items else 0
     return SeriesPlanDTO(
         id=plan.id,
@@ -110,6 +112,7 @@ def _plan_to_dto(plan) -> SeriesPlanDTO:
         display_order=plan.display_order,
         start_date=plan.start_date,
         total_days=total_days,
+        group_id=group_id,
     )
 
 
@@ -157,6 +160,8 @@ def _series_to_dto(
     include_plans: bool = False,
     published_only: bool = False,
     plan_language: Optional[str] = None,
+    group_id: Optional[UUID] = None,
+    plan_group_ids: Optional[Dict[UUID, UUID]] = None,
 ) -> SeriesDTO:
     plans_dtos = []
     series_total_days = 0
@@ -168,7 +173,8 @@ def _series_to_dto(
             language=plan_language,
         )
         for plan in sorted_plans:
-            plan_dto = _plan_to_dto(plan)
+            plan_group_id = plan_group_ids.get(plan.id) if plan_group_ids else None
+            plan_dto = _plan_to_dto(plan, group_id=plan_group_id)
             plans_dtos.append(plan_dto)
             series_total_days += plan_dto.total_days
 
@@ -182,6 +188,7 @@ def _series_to_dto(
         status=_to_plan_status(row.status),
         plans=plans_dtos,
         total_days=series_total_days,
+        group_id=group_id,
     )
 
 
@@ -222,12 +229,25 @@ def get_filtered_series(
 def get_series_detail(series_id: UUID) -> SeriesDTO:
     with SessionLocal() as db_session:
         row = get_series_by_id(db=db_session, series_id=series_id)
-    if not row or _to_plan_status(row.status) != PlanStatus.PUBLISHED:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Series with id '{series_id}' not found",
-        )
-    return _series_to_dto(row, include_plans=True, published_only=True)
+        if not row or _to_plan_status(row.status) != PlanStatus.PUBLISHED:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Series with id '{series_id}' not found",
+            )
+        group_id = get_group_id_for_series(db=db_session, series_id=series_id)
+        active_plan_ids = [
+            plan.id
+            for plan in (row.plans or [])
+            if plan.deleted_at is None
+        ]
+        plan_group_ids = get_group_ids_by_plan_ids(db=db_session, plan_ids=active_plan_ids)
+    return _series_to_dto(
+        row,
+        include_plans=True,
+        published_only=True,
+        group_id=group_id,
+        plan_group_ids=plan_group_ids,
+    )
 
 def get_cms_filtered_series(
     token: str,
@@ -286,19 +306,31 @@ def get_cms_series_detail(
 
     with SessionLocal() as db_session:
         row = get_series_by_id(db=db_session, series_id=series_id)
+        if not row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Series with id '{series_id}' not found",
+            )
+        if not current_author.is_admin and row.author_id != current_author.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view this series",
+            )
+        group_id = get_group_id_for_series(db=db_session, series_id=series_id)
+        active_plan_ids = [
+            plan.id
+            for plan in (row.plans or [])
+            if plan.deleted_at is None
+        ]
+        plan_group_ids = get_group_ids_by_plan_ids(db=db_session, plan_ids=active_plan_ids)
 
-    if not row:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Series with id '{series_id}' not found",
-        )
-    if not current_author.is_admin and row.author_id != current_author.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to view this series",
-        )
-
-    return _series_to_dto(row, include_plans=True, plan_language=language)
+    return _series_to_dto(
+        row,
+        include_plans=True,
+        plan_language=language,
+        group_id=group_id,
+        plan_group_ids=plan_group_ids,
+    )
 
 def _validate_plan_ids(
     db,
@@ -411,8 +443,18 @@ def update_existing_series(
             )
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
+            group_id = get_group_id_for_series(db=db_session, series_id=series_id)
+            plan_group_ids = get_group_ids_by_plan_ids(
+                db=db_session,
+                plan_ids=[plan.id for plan in (refreshed.plans or []) if plan.deleted_at is None],
+            )
 
-        return _series_to_dto(refreshed, include_plans=True)
+        return _series_to_dto(
+            refreshed,
+            include_plans=True,
+            group_id=group_id,
+            plan_group_ids=plan_group_ids,
+        )
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -450,8 +492,18 @@ def update_existing_series_status(
             )
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
+            group_id = get_group_id_for_series(db=db_session, series_id=series_id)
+            plan_group_ids = get_group_ids_by_plan_ids(
+                db=db_session,
+                plan_ids=[plan.id for plan in (refreshed.plans or []) if plan.deleted_at is None],
+            )
 
-        return _series_to_dto(refreshed, include_plans=True)
+        return _series_to_dto(
+            refreshed,
+            include_plans=True,
+            group_id=group_id,
+            plan_group_ids=plan_group_ids,
+        )
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -525,8 +577,18 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
             )
 
             saved = get_series_by_id(db=db_session, series_id=saved.id)
+            group_id = get_group_id_for_series(db=db_session, series_id=saved.id)
+            plan_group_ids = get_group_ids_by_plan_ids(
+                db=db_session,
+                plan_ids=[plan.id for plan in (saved.plans or []) if plan.deleted_at is None],
+            )
 
-        return _series_to_dto(saved, include_plans=bool(plan_ids))
+        return _series_to_dto(
+            saved,
+            include_plans=bool(plan_ids),
+            group_id=group_id,
+            plan_group_ids=plan_group_ids,
+        )
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
