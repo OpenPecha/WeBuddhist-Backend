@@ -25,7 +25,9 @@ from pecha_api.plans.groups.groups_service import (
     GROUP_NOT_FOUND,
     InviteEmailMismatchError,
     _assert_metadata_valid,
+    _generate_group_asset_url,
     _get_member_or_403,
+    _group_to_detail,
     _to_role_value,
     accept_group_invite,
     create_author_group,
@@ -82,6 +84,26 @@ def _make_group(is_public=True, slug="test-group"):
 
 def _metadata_input(title="Title", language=LanguageCode.EN):
     return GroupMetadataInput(title=title, description="Desc", language=language)
+
+
+def test_generate_group_asset_url_returns_none_for_empty_key():
+    assert _generate_group_asset_url(None) is None
+    assert _generate_group_asset_url("") is None
+
+
+def test_group_to_detail_includes_presigned_avatar_and_banner_urls():
+    group = _make_group()
+    group.avatar_key = "images/avatar.jpg"
+    group.banner_key = "images/banner.jpg"
+    with patch(
+        "pecha_api.plans.groups.groups_service.generate_presigned_access_url",
+        side_effect=lambda bucket_name, s3_key: f"https://signed.example/{s3_key}",
+    ):
+        detail = _group_to_detail(group)
+    assert detail.avatar_key == "images/avatar.jpg"
+    assert detail.banner_key == "images/banner.jpg"
+    assert detail.avatar_url == "https://signed.example/images/avatar.jpg"
+    assert detail.banner_url == "https://signed.example/images/banner.jpg"
 
 
 def test_assert_metadata_valid_rejects_empty():

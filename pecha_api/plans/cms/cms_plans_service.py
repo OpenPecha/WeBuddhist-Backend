@@ -5,6 +5,7 @@ from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.cms.cms_plans_repository import save_plan, get_plan_by_id, get_plans_by_author_id, update_plan
+from pecha_api.plans.groups.groups_repository import get_group_id_for_plan, get_group_ids_by_plan_ids
 from pecha_api.plans.series.series_repository import get_series_by_id
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.tags.tag_repository import set_plan_tags
@@ -112,43 +113,46 @@ async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, so
             language=language,
         )
 
-    plans: List[PlanDTO] = []
+        plans: List[PlanDTO] = []
+        plan_ids = [plan_info.plan.id for plan_info in plan_repository_response.plan_info]
+        group_id_by_plan_id = get_group_ids_by_plan_ids(db=db_session, plan_ids=plan_ids)
 
-    for plan_info in plan_repository_response.plan_info:
-        plan_info: PlanWithAggregates
-        selected_plan = plan_info.plan
+        for plan_info in plan_repository_response.plan_info:
+            plan_info: PlanWithAggregates
+            selected_plan = plan_info.plan
 
-        plans.append(
-            PlanDTO(
-                id=selected_plan.id,
-                title=selected_plan.title,
-                description=selected_plan.description,
-                language=selected_plan.language.value if selected_plan.language and hasattr(selected_plan.language, 'value') else (selected_plan.language or 'EN'),
-                difficulty_level=selected_plan.difficulty_level,
-                image_url= generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=selected_plan.image_url),
-                plan_image_url=selected_plan.image_url,
-                total_days=int(plan_info.total_days or 0),
-                tags=tags_to_summary_dtos(selected_plan.tag_list),
-                status=PlanStatus(selected_plan.status.value),
-                featured=selected_plan.featured,
-                subscription_count=int(plan_info.subscription_count or 0),
-                author=AuthorDTO(
-                    id=selected_plan.author_id,
-                    firstname=selected_plan.author.first_name,
-                    lastname=selected_plan.author.last_name,
-                    image_url=(
-                        generate_presigned_access_url(
-                            bucket_name=get("AWS_BUCKET_NAME"),
-                            s3_key=selected_plan.author.image_url
+            plans.append(
+                PlanDTO(
+                    id=selected_plan.id,
+                    title=selected_plan.title,
+                    description=selected_plan.description,
+                    language=selected_plan.language.value if selected_plan.language and hasattr(selected_plan.language, 'value') else (selected_plan.language or 'EN'),
+                    difficulty_level=selected_plan.difficulty_level,
+                    image_url= generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=selected_plan.image_url),
+                    plan_image_url=selected_plan.image_url,
+                    total_days=int(plan_info.total_days or 0),
+                    tags=tags_to_summary_dtos(selected_plan.tag_list),
+                    status=PlanStatus(selected_plan.status.value),
+                    featured=selected_plan.featured,
+                    subscription_count=int(plan_info.subscription_count or 0),
+                    author=AuthorDTO(
+                        id=selected_plan.author_id,
+                        firstname=selected_plan.author.first_name,
+                        lastname=selected_plan.author.last_name,
+                        image_url=(
+                            generate_presigned_access_url(
+                                bucket_name=get("AWS_BUCKET_NAME"),
+                                s3_key=selected_plan.author.image_url
+                            )
                         )
-                    )
-                ),
-                series_id=selected_plan.series_id,
-                display_order=selected_plan.display_order,
+                    ),
+                    series_id=selected_plan.series_id,
+                    display_order=selected_plan.display_order,
+                    group_id=group_id_by_plan_id.get(selected_plan.id),
+                )
             )
-        )
 
-    return PlansResponse(plans=plans, skip=skip, limit=limit, total=plan_repository_response.total)
+        return PlansResponse(plans=plans, skip=skip, limit=limit, total=plan_repository_response.total)
 
 
 def _get_next_display_order_in_series(db: Session, series_id: UUID) -> int:
@@ -274,6 +278,8 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
         total_subscription_count = len(plan_progress)
         total_days = len(saved_items)
 
+        group_id = get_group_id_for_plan(db=db_session, plan_id=saved_plan.id)
+
         return PlanDTO(
             id=saved_plan.id,
             title=saved_plan.title,
@@ -289,6 +295,7 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
             start_date=saved_plan.start_date,
             series_id=saved_plan.series_id,
             display_order=saved_plan.display_order,
+            group_id=group_id,
         )
 
 async def get_details_plan(token:str,plan_id: UUID) -> PlanWithDays:
@@ -350,6 +357,8 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
             )
         )
 
+    group_id = get_group_id_for_plan(db=db, plan_id=plan.id)
+
     return PlanWithDays(
         id=plan.id,
         title=plan.title,
@@ -365,6 +374,7 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
         start_date=plan.start_date,
         series_id=plan.series_id,
         display_order=plan.display_order,
+        group_id=group_id,
     )
     
 def _get_subscription_count(db: Session, plan_id: UUID) -> int:
@@ -468,6 +478,7 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
             start_date=plan.start_date,
             series_id=plan.series_id,
             display_order=plan.display_order,
+            group_id=get_group_id_for_plan(db=db, plan_id=plan.id),
         )
 
 async def update_selected_plan_status(token:str,plan_id: UUID, plan_status_update: PlanStatusUpdate) -> PlanDTO:
@@ -495,6 +506,7 @@ async def update_selected_plan_status(token:str,plan_id: UUID, plan_status_updat
             subscription_count=len(get_plan_progress(db=db, plan_id=plan.id)),
             series_id=plan.series_id,
             display_order=plan.display_order,
+            group_id=get_group_id_for_plan(db=db, plan_id=plan.id),
         )
 
 async def delete_selected_plan(token:str,plan_id: UUID):

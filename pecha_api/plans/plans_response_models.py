@@ -58,6 +58,7 @@ class PlanDTO(BaseModel):
     start_date: Optional[datetime] = None
     series_id: Optional[UUID] = None
     display_order: Optional[int] = None
+    group_id: Optional[UUID] = None
 
 class SubTaskDTO(BaseModel):
     id: UUID
@@ -99,6 +100,7 @@ class PlanWithDays(BaseModel):
     start_date: Optional[datetime] = None
     series_id: Optional[UUID] = None
     display_order: Optional[int] = None
+    group_id: Optional[UUID] = None
 
 class PlansResponse(BaseModel):
     plans: List[PlanDTO]
