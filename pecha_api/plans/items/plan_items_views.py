@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-from .plan_items_response_models import ItemDTO, ReorderDaysRequest
-from .plan_items_services import create_plan_item, delete_plan_day_by_id, update_plans_day_number
+from .plan_items_response_models import CreateDaysRequest, DeleteDaysRequest, ItemDTO, ReorderDaysRequest
+from .plan_items_services import create_plan_item, delete_plan_days, update_plans_day_number
 from pecha_api.plans.audio.plan_day_audio_service import delete_plan_day_audio,assign_plan_day_audio
 from pecha_api.plans.audio.plan_audio_response_models import AssignPlanDayAudioRequest
 from pecha_api.plans.media.media_response_models import PlanDayAudioUploadResponse
