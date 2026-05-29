@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
 from pecha_api.plans.auth.plan_auth_models import ResponseError
-from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, DUPLICATE_DAY_NUMBERS, PLAN_DAY_NOT_FOUND
+from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, DUPLICATE_DAY_NUMBERS, PLAN_DAY_NOT_FOUND, PLAN_AUTHOR_MISMATCH
 from .plan_items_repository import (
     save_plan_item,
     save_plan_items,
@@ -15,7 +15,7 @@ from .plan_items_repository import (
     update_days_in_bulk_by_plan_id,
     get_plan_day_by_id_with_tasks_and_subtasks,
 )
-from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id_and_created_by
+from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from .plan_items_models import PlanItem
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.authors.plan_authors_model import Author
@@ -109,11 +109,16 @@ def _reorder_day_display_order(db: Session, plan_id: UUID) -> None:
 
 
 def _get_author_plan(db: Session, plan_id: UUID, current_author: Author, is_admin: bool) -> Plan:
-    plan = get_plan_by_id_and_created_by(db=db, plan_id=plan_id, created_by=current_author.email, is_admin=is_admin)
-    if not is_admin and plan is None:
+    plan = get_plan_by_id(db=db, plan_id=plan_id)
+    if not plan:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ResponseError(error=BAD_REQUEST, message=PLAN_NOT_FOUND).model_dump(),
+        )
+    if not is_admin and plan.author_id != current_author.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=ResponseError(error=BAD_REQUEST, message=PLAN_AUTHOR_MISMATCH).model_dump(),
         )
     return plan
 

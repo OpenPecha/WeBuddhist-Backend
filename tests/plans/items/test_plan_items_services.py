@@ -29,12 +29,14 @@ def test_create_plan_item_success():
     plan.id = plan_id
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
     author.is_admin = False
+    plan.author_id = author.id
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
          patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_get_last_day_number, \
          patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save_plan_items:
         db_session = _mock_session_local(mock_session_local)
@@ -56,9 +58,7 @@ def test_create_plan_item_success():
         )
 
         assert mock_validate_author.call_count == 1
-        mock_get_plan_by_id.assert_called_once_with(
-            db=db_session, plan_id=plan_id, created_by=author.email, is_admin=author.is_admin
-        )
+        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id)
         mock_get_last_day_number.assert_called_once_with(db=db_session, plan_id=plan_id)
 
         mock_save_plan_items.assert_called_once()
@@ -86,12 +86,14 @@ def test_create_plan_item_propagates_repository_error():
     plan.id = plan_id
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
     author.is_admin = False
+    plan.author_id = author.id
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
          patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_get_last_day_number, \
          patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save_plan_items:
         _ = _mock_session_local(mock_session_local)
@@ -131,12 +133,14 @@ def test_delete_plan_days_success_reorders():
     ]
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
     author.is_admin = False
+    plan.author_id = author.id
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
          patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id_and_day_ids") as mock_get_days_by_ids, \
          patch("pecha_api.plans.items.plan_items_services.delete_days_by_ids") as mock_delete, \
          patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id") as mock_get_days, \
@@ -155,9 +159,7 @@ def test_delete_plan_days_success_reorders():
         )
 
         assert mock_validate_author.call_count == 1
-        mock_get_plan_by_id.assert_called_once_with(
-            db=db_session, plan_id=plan_id, created_by=author.email, is_admin=author.is_admin
-        )
+        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id)
         mock_get_days_by_ids.assert_called_once_with(db=db_session, plan_id=plan_id, day_ids=[day_id])
         mock_delete.assert_called_once_with(db=db_session, plan_id=plan_id, day_ids=[day_id])
 
@@ -178,12 +180,14 @@ def test_delete_plan_days_not_found():
     plan.id = plan_id
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
     author.is_admin = False
+    plan.author_id = author.id
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
          patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id_and_day_ids") as mock_get_days_by_ids:
         _ = _mock_session_local(mock_session_local)
 
@@ -230,12 +234,14 @@ def test_delete_plan_days_repository_error():
     item_to_delete.id = day_id
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
     author.is_admin = False
+    plan.author_id = author.id
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
          patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id_and_day_ids") as mock_get_days_by_ids, \
          patch("pecha_api.plans.items.plan_items_services.delete_days_by_ids") as mock_delete:
         _ = _mock_session_local(mock_session_local)
@@ -265,8 +271,10 @@ def test_update_plans_day_number_success_calls_bulk_update():
     plan.id = plan_id
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
     author.is_admin = False
+    plan.author_id = author.id
 
     payload = ReorderDaysRequest(
         days=[
@@ -278,7 +286,7 @@ def test_update_plans_day_number_success_calls_bulk_update():
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
          patch("pecha_api.plans.items.plan_items_services.update_days_in_bulk_by_plan_id") as mock_bulk_update:
         db_session = _mock_session_local(mock_session_local)
 
@@ -288,9 +296,7 @@ def test_update_plans_day_number_success_calls_bulk_update():
         update_plans_day_number(token="dummy-token", plan_id=plan_id, reorder_days_request=payload)
 
         assert mock_validate_author.call_count == 1
-        mock_get_plan_by_id.assert_called_once_with(
-            db=db_session, plan_id=plan_id, created_by=author.email, is_admin=author.is_admin
-        )
+        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id)
         mock_bulk_update.assert_called_once()
         called_kwargs = mock_bulk_update.call_args.kwargs
         assert called_kwargs["db"] is db_session
@@ -306,14 +312,16 @@ def test_create_plan_item_with_source_day_copies_tasks():
     plan.id = plan_id
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
     author.is_admin = False
+    plan.author_id = author.id
 
     source_day = MagicMock()
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan, \
          patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_last_day, \
          patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save, \
          patch("pecha_api.plans.items.plan_items_services.get_plan_day_by_id_with_tasks_and_subtasks") as mock_get_source, \
@@ -365,7 +373,7 @@ def test_get_author_plan_raises_404_when_not_admin_and_plan_missing():
 
     db = MagicMock()
 
-    with patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan:
+    with patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan:
         mock_get_plan.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
@@ -518,13 +526,16 @@ def test_update_plans_day_number_duplicate_payload_raises_400():
 
     plan = MagicMock()
     plan.id = plan_id
+    author_id = uuid.uuid4()
+    plan.author_id = author_id
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id:
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id:
         _ = _mock_session_local(mock_session_local)
 
-        mock_validate_author.return_value = MagicMock(email="author@example.com")
+        author = MagicMock(email="author@example.com", id=author_id)
+        mock_validate_author.return_value = author
         mock_get_plan_by_id.return_value = plan
 
         with pytest.raises(HTTPException) as exc_info:
