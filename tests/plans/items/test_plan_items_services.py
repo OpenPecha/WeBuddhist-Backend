@@ -1,11 +1,17 @@
 import uuid
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 from fastapi import HTTPException
 
 from pecha_api.plans.items.plan_items_services import create_plan_item, delete_plan_days, update_plans_day_number
 from pecha_api.plans.items.plan_items_models import PlanItem
-from pecha_api.plans.items.plan_items_response_models import ItemDTO, ReorderDaysRequest, ItemDayNumberDTO, CreateDaysRequest, DeleteDaysRequest
+from pecha_api.plans.items.plan_items_response_models import (
+    ItemDTO,
+    ReorderDaysRequest,
+    ItemDayNumberDTO,
+    CreateDaysRequest,
+    DeleteDaysRequest,
+)
 
 
 def _mock_session_local(mock_session_local):
@@ -35,7 +41,7 @@ def test_create_plan_item_success():
 
         mock_validate_author.return_value = author
         mock_get_plan_by_id.return_value = plan
-        mock_get_last_day_number.return_value = 3  # last existing day => expect new day = 4
+        mock_get_last_day_number.return_value = 3
 
         saved_item = MagicMock()
         saved_item.id = saved_item_id
@@ -50,7 +56,9 @@ def test_create_plan_item_success():
         )
 
         assert mock_validate_author.call_count == 1
-        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id, created_by=author.email, is_admin=author.is_admin)
+        mock_get_plan_by_id.assert_called_once_with(
+            db=db_session, plan_id=plan_id, created_by=author.email, is_admin=author.is_admin
+        )
         mock_get_last_day_number.assert_called_once_with(db=db_session, plan_id=plan_id)
 
         mock_save_plan_items.assert_called_once()
@@ -85,15 +93,14 @@ def test_create_plan_item_propagates_repository_error():
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
          patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
          patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_get_last_day_number, \
-         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save_plan_items, \
-         patch("pecha_api.plans.items.plan_items_services.PlanItem") as mock_plan_item:
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save_plan_items:
         _ = _mock_session_local(mock_session_local)
 
         mock_validate_author.return_value = author
         mock_get_plan_by_id.return_value = plan
-        mock_get_last_day_number.return_value = 0  # new day should be 1
+        mock_get_last_day_number.return_value = 0
 
-        error = HTTPException(status_code=404, detail={"error": "Bad request", "message": "duplicate"})
+        error = HTTPException(status_code=400, detail={"error": "Bad request", "message": "duplicate"})
         mock_save_plan_items.side_effect = error
 
         with pytest.raises(HTTPException) as exc_info:
@@ -103,7 +110,7 @@ def test_create_plan_item_propagates_repository_error():
                 create_days_request=CreateDaysRequest(number_of_days=1),
             )
 
-        assert exc_info.value.status_code == 404
+        assert exc_info.value.status_code == 400
         assert exc_info.value.detail == {"error": "Bad request", "message": "duplicate"}
 
 
@@ -133,7 +140,7 @@ def test_delete_plan_days_success_reorders():
          patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id_and_day_ids") as mock_get_days_by_ids, \
          patch("pecha_api.plans.items.plan_items_services.delete_days_by_ids") as mock_delete, \
          patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id") as mock_get_days, \
-         patch("pecha_api.plans.items.plan_items_services.update_day_by_id") as mock_update_day:
+         patch("pecha_api.plans.items.plan_items_services.update_days_in_bulk_by_plan_id") as mock_bulk_update:
         db_session = _mock_session_local(mock_session_local)
 
         mock_validate_author.return_value = author
@@ -148,18 +155,19 @@ def test_delete_plan_days_success_reorders():
         )
 
         assert mock_validate_author.call_count == 1
-        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id, created_by=author.email, is_admin=author.is_admin)
+        mock_get_plan_by_id.assert_called_once_with(
+            db=db_session, plan_id=plan_id, created_by=author.email, is_admin=author.is_admin
+        )
         mock_get_days_by_ids.assert_called_once_with(db=db_session, plan_id=plan_id, day_ids=[day_id])
         mock_delete.assert_called_once_with(db=db_session, plan_id=plan_id, day_ids=[day_id])
 
-        assert mock_update_day.call_count == 3
-        expected_new_numbers = [1, 2, 3]
-        for call, new_num in zip(mock_update_day.call_args_list, expected_new_numbers):
-            kwargs = call.kwargs
-            assert kwargs["db"] is db_session
-            assert kwargs["plan_id"] == plan_id
-            assert "day_id" in kwargs and kwargs["day_id"] is not None
-            assert kwargs["day_number"] == new_num
+        mock_bulk_update.assert_called_once()
+        bulk_kwargs = mock_bulk_update.call_args.kwargs
+        assert bulk_kwargs["db"] is db_session
+        assert bulk_kwargs["plan_id"] == plan_id
+        reordered_days = bulk_kwargs["days"]
+        assert len(reordered_days) == 3
+        assert [d.day_number for d in reordered_days] == [1, 2, 3]
 
 
 def test_delete_plan_days_not_found():
@@ -235,7 +243,9 @@ def test_delete_plan_days_repository_error():
         mock_validate_author.return_value = author
         mock_get_plan_by_id.return_value = plan
         mock_get_days_by_ids.return_value = [item_to_delete]
-        mock_delete.side_effect = HTTPException(status_code=400, detail={"error": "Bad request", "message": "cannot delete"})
+        mock_delete.side_effect = HTTPException(
+            status_code=400, detail={"error": "Bad request", "message": "cannot delete"}
+        )
 
         with pytest.raises(HTTPException) as exc_info:
             delete_plan_days(
@@ -277,9 +287,10 @@ def test_update_plans_day_number_success_calls_bulk_update():
 
         update_plans_day_number(token="dummy-token", plan_id=plan_id, reorder_days_request=payload)
 
-        # validate called once in the service
         assert mock_validate_author.call_count == 1
-        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id, created_by=author.email, is_admin=author.is_admin)
+        mock_get_plan_by_id.assert_called_once_with(
+            db=db_session, plan_id=plan_id, created_by=author.email, is_admin=author.is_admin
+        )
         mock_bulk_update.assert_called_once()
         called_kwargs = mock_bulk_update.call_args.kwargs
         assert called_kwargs["db"] is db_session
@@ -292,7 +303,7 @@ def test_update_plans_day_number_duplicate_payload_raises_400():
     payload = ReorderDaysRequest(
         days=[
             ItemDayNumberDTO(id=uuid.uuid4(), day_number=1),
-            ItemDayNumberDTO(id=uuid.uuid4(), day_number=1),  # duplicate
+            ItemDayNumberDTO(id=uuid.uuid4(), day_number=1),
         ]
     )
 

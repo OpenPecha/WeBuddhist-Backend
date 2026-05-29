@@ -1,6 +1,7 @@
 from uuid import UUID
 from typing import List
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 from starlette import status
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, DUPLICATE_DAY_NUMBERS, PLAN_DAY_NOT_FOUND
@@ -11,26 +12,26 @@ from .plan_items_repository import (
     delete_days_by_ids,
     get_days_by_plan_id,
     get_days_by_plan_id_and_day_ids,
-    update_day_by_id,
     update_days_in_bulk_by_plan_id,
     get_plan_day_by_id_with_tasks_and_subtasks,
 )
-from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id, get_plan_by_id_and_created_by
+from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id_and_created_by
 from .plan_items_models import PlanItem
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.authors.plan_authors_model import Author
-from .plan_items_response_models import ItemDTO, ReorderDaysRequest, CreateDaysRequest, DeleteDaysRequest
+from .plan_items_response_models import ItemDTO, ReorderDaysRequest, CreateDaysRequest, DeleteDaysRequest, ItemDayNumberDTO
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 from pecha_api.plans.audio.sub_task_timestamps_models import SubTaskTimestamp
 from pecha_api.db.database import SessionLocal
 
+
 def create_plan_item(token: str, plan_id: UUID, create_days_request: CreateDaysRequest) -> List[ItemDTO]:
     current_author = validate_and_extract_author_details(token=token)
 
     with SessionLocal() as db_session:
-        plan = _get_author_plan(plan_id=plan_id, current_author=current_author, is_admin=current_author.is_admin)
+        plan = _get_author_plan(db=db_session, plan_id=plan_id, current_author=current_author, is_admin=current_author.is_admin)
         last_day_number = get_last_day_number(db=db_session, plan_id=plan.id)
 
         new_plan_items = [
@@ -66,6 +67,7 @@ def create_plan_item(token: str, plan_id: UUID, create_days_request: CreateDaysR
 
     return created_days
 
+
 def delete_plan_days(token: str, plan_id: UUID, delete_days_request: DeleteDaysRequest) -> None:
     if not delete_days_request.day_ids:
         return
@@ -73,7 +75,7 @@ def delete_plan_days(token: str, plan_id: UUID, delete_days_request: DeleteDaysR
     current_author = validate_and_extract_author_details(token=token)
 
     with SessionLocal() as db_session:
-        plan = _get_author_plan(plan_id=plan_id, current_author=current_author, is_admin=current_author.is_admin)
+        plan = _get_author_plan(db=db_session, plan_id=plan_id, current_author=current_author, is_admin=current_author.is_admin)
 
         unique_day_ids = list(dict.fromkeys(delete_days_request.day_ids))
         days = get_days_by_plan_id_and_day_ids(db=db_session, plan_id=plan.id, day_ids=unique_day_ids)
@@ -86,39 +88,47 @@ def delete_plan_days(token: str, plan_id: UUID, delete_days_request: DeleteDaysR
         delete_days_by_ids(db=db_session, plan_id=plan.id, day_ids=unique_day_ids)
         _reorder_day_display_order(db=db_session, plan_id=plan.id)
 
+
 def update_plans_day_number(token: str, plan_id: UUID, reorder_days_request: ReorderDaysRequest) -> None:
     current_author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db_session:
-        plan = _get_author_plan(plan_id=plan_id, current_author=current_author,is_admin=current_author.is_admin)
+        plan = _get_author_plan(db=db_session, plan_id=plan_id, current_author=current_author, is_admin=current_author.is_admin)
         _check_duplicate_day_number_payload(payload=reorder_days_request)
         update_days_in_bulk_by_plan_id(db=db_session, plan_id=plan.id, days=reorder_days_request.days)
 
-def _reorder_day_display_order(db: SessionLocal(), plan_id: UUID) -> None:
 
+def _reorder_day_display_order(db: Session, plan_id: UUID) -> None:
     items = get_days_by_plan_id(db=db, plan_id=plan_id)
     sorted_items = sorted(items, key=lambda x: x.day_number)
-    
-    for index, item in enumerate(sorted_items, start=1):
-        update_day_by_id(db=db, plan_id=plan_id, day_id=item.id, day_number=index)
+    reordered = [
+        ItemDayNumberDTO(id=item.id, day_number=index)
+        for index, item in enumerate(sorted_items, start=1)
+    ]
+    if reordered:
+        update_days_in_bulk_by_plan_id(db=db, plan_id=plan_id, days=reordered)
 
 
-def _get_author_plan(plan_id: UUID, current_author: Author, is_admin: bool) -> Plan:
-    with SessionLocal() as db_session:
-        plan = get_plan_by_id_and_created_by(db=db_session, plan_id=plan_id, created_by=current_author.email, is_admin=is_admin)
-        if not is_admin and plan is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ResponseError(error=BAD_REQUEST, message=PLAN_NOT_FOUND).model_dump())
-        return plan
+def _get_author_plan(db: Session, plan_id: UUID, current_author: Author, is_admin: bool) -> Plan:
+    plan = get_plan_by_id_and_created_by(db=db, plan_id=plan_id, created_by=current_author.email, is_admin=is_admin)
+    if not is_admin and plan is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ResponseError(error=BAD_REQUEST, message=PLAN_NOT_FOUND).model_dump(),
+        )
+    return plan
+
 
 def _check_duplicate_day_number_payload(payload: ReorderDaysRequest) -> None:
-
-    #store the day numbers which is unique using set function...
-    day_numbers = set([day.day_number for day in payload.days])
+    day_numbers = {day.day_number for day in payload.days}
     if len(day_numbers) != len(payload.days):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ResponseError(error=BAD_REQUEST, message=DUPLICATE_DAY_NUMBERS).model_dump())
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ResponseError(error=BAD_REQUEST, message=DUPLICATE_DAY_NUMBERS).model_dump(),
+        )
 
 
 def _copy_tasks_and_subtasks_to_days(
-    db: SessionLocal(),
+    db: Session,
     source_day: PlanItem,
     target_days: List[PlanItem],
     created_by: str,
