@@ -1,7 +1,9 @@
 from fastapi import APIRouter
 from .plan_items_response_models import ItemDTO, ReorderDaysRequest
 from .plan_items_services import create_plan_item, delete_plan_day_by_id, update_plans_day_number
-from pecha_api.plans.audio.plan_day_audio_service import delete_plan_day_audio
+from pecha_api.plans.audio.plan_day_audio_service import assign_plan_day_audio, delete_plan_day_audio
+from pecha_api.plans.audio.plan_audio_response_models import AssignPlanDayAudioRequest
+from pecha_api.plans.media.media_response_models import PlanDayAudioUploadResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import Depends
 from starlette import status
@@ -31,6 +33,19 @@ async def delete_item(authentication_credential: Annotated[HTTPAuthorizationCred
         token=authentication_credential.credentials,
         plan_id=plan_id,
         day_id=day_id
+    )
+
+
+@items_router.patch("/days/{day_id}/audio", status_code=status.HTTP_200_OK, response_model=PlanDayAudioUploadResponse)
+async def assign_day_audio(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    day_id: UUID,
+    assign_audio_request: AssignPlanDayAudioRequest,
+):
+    return assign_plan_day_audio(
+        token=authentication_credential.credentials,
+        day_id=day_id,
+        request=assign_audio_request,
     )
 
 

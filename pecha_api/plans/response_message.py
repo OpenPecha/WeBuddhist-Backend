@@ -20,6 +20,8 @@ EMAIL_VERIFICATION_PENDING_STATUS = "EMAIL VERIFICATION PENDING"
 
 IMAGE_UPLOAD_SUCCESS = "Image uploaded successfully"
 AUDIO_UPLOAD_SUCCESS = "Day audio uploaded successfully"
+AUDIO_ASSIGN_SUCCESS = "Day audio assigned successfully"
+AUDIO_KEY_NOT_FOUND = "Audio not found or you do not have access to this audio key"
 INVALID_AUDIO_FILE_FORMAT = "Invalid audio format. Allowed: MP3, M4A, WAV, AAC, OGG"
 AUDIO_FILE_TOO_LARGE = "Audio file size exceeds limit"
 UNEXPECTED_ERROR_UPLOAD = "An unexpected error occurred during upload"
