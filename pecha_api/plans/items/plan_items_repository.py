@@ -106,6 +106,25 @@ def get_plan_day_with_tasks_and_subtasks(db: Session, plan_id: UUID, day_number:
     return plan_item
 
 
+def get_plan_day_by_id_with_tasks_and_subtasks(db: Session, plan_id: UUID, day_id: UUID) -> PlanItem:
+    plan_item = (
+        db.query(PlanItem)
+        .options(
+            joinedload(PlanItem.tasks).joinedload(PlanTask.sub_tasks).joinedload(PlanSubTask.timestamp),
+        )
+        .filter(PlanItem.plan_id == plan_id, PlanItem.id == day_id)
+        .first()
+    )
+
+    if not plan_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ResponseError(error=BAD_REQUEST, message=PLAN_DAY_NOT_FOUND).model_dump(),
+        )
+
+    return plan_item
+
+
 def get_day_by_plan_day_id(db: Session, plan_id: UUID, day_id: UUID) -> PlanItem:
     return db.query(PlanItem).filter(PlanItem.id == day_id, PlanItem.plan_id == plan_id).first()
 
@@ -113,6 +132,30 @@ def get_day_by_plan_day_id(db: Session, plan_id: UUID, day_id: UUID) -> PlanItem
 def delete_day_by_id(db: Session, plan_id: UUID, day_id: UUID) -> None:
     try:
         db.query(PlanItem).filter(PlanItem.id == day_id, PlanItem.plan_id == plan_id).delete()
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=ResponseError(error=BAD_REQUEST, message=str(e)).model_dump())
+
+
+def get_days_by_plan_id_and_day_ids(db: Session, plan_id: UUID, day_ids: List[UUID]) -> List[PlanItem]:
+    if not day_ids:
+        return []
+    return (
+        db.query(PlanItem)
+        .filter(PlanItem.plan_id == plan_id, PlanItem.id.in_(day_ids))
+        .all()
+    )
+
+
+def delete_days_by_ids(db: Session, plan_id: UUID, day_ids: List[UUID]) -> None:
+    if not day_ids:
+        return
+    try:
+        db.query(PlanItem).filter(
+            PlanItem.id.in_(day_ids),
+            PlanItem.plan_id == plan_id,
+        ).delete(synchronize_session=False)
         db.commit()
     except Exception as e:
         db.rollback()
