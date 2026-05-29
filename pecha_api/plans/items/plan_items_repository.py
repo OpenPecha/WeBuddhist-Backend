@@ -116,6 +116,23 @@ def get_plan_day_by_id_with_tasks_and_subtasks(db: Session, plan_id: UUID, day_i
     return plan_item
 
 
+def get_plan_day_by_id_any_plan(db: Session, day_id: UUID) -> PlanItem:
+    plan_item = (
+        db.query(PlanItem)
+        .options(
+            joinedload(PlanItem.tasks).joinedload(PlanTask.sub_tasks).joinedload(PlanSubTask.timestamp),
+        )
+        .filter(PlanItem.id == day_id)
+        .first()
+    )
+    if not plan_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ResponseError(error=BAD_REQUEST, message=PLAN_DAY_NOT_FOUND).model_dump(),
+        )
+    return plan_item
+
+
 def get_day_by_plan_day_id(db: Session, plan_id: UUID, day_id: UUID) -> PlanItem:
     return db.query(PlanItem).filter(PlanItem.id == day_id, PlanItem.plan_id == plan_id).first()
 

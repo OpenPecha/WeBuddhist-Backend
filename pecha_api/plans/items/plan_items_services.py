@@ -14,6 +14,7 @@ from .plan_items_repository import (
     get_days_by_plan_id_and_day_ids,
     update_days_in_bulk_by_plan_id,
     get_plan_day_by_id_with_tasks_and_subtasks,
+    get_plan_day_by_id_any_plan,
 )
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from .plan_items_models import PlanItem
@@ -53,11 +54,23 @@ def create_plan_item(token: str, plan_id: UUID, create_days_request: CreateDaysR
         ]
 
         if create_days_request.source_day_id:
-            source_day = get_plan_day_by_id_with_tasks_and_subtasks(
+            source_day = get_plan_day_by_id_any_plan(
                 db=db_session,
-                plan_id=plan.id,
                 day_id=create_days_request.source_day_id,
             )
+            # Verify author can access the source plan
+            source_plan = get_plan_by_id(db=db_session, plan_id=source_day.plan_id)
+            if not source_plan:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=ResponseError(error=BAD_REQUEST, message="Source plan not found").model_dump(),
+                )
+            if not current_author.is_admin and source_plan.author_id != current_author.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=ResponseError(error=BAD_REQUEST, message="Cannot access source plan").model_dump(),
+                )
+            
             _copy_tasks_and_subtasks_to_days(
                 db=db_session,
                 source_day=source_day,
