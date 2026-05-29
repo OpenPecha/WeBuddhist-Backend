@@ -188,10 +188,10 @@ def update_days_in_bulk_by_plan_id(db: Session, plan_id: UUID, days: List[ItemDa
     try:
         db.execute(
             update(PlanItem)
-            .where(PlanItem.plan_id == plan_id, PlanItem.id == bindparam("id"))
-            .values(day_number=bindparam("day_number"))
+            .where(PlanItem.plan_id == plan_id, PlanItem.id == bindparam("b_id"))
+            .values(day_number=bindparam("b_day_number"))
             .execution_options(synchronize_session=False),
-            [{"id": str(day.id), "day_number": day.day_number} for day in days],
+            [{"b_id": day.id, "b_day_number": day.day_number} for day in days],
         )
         db.commit()
     except Exception as e:
