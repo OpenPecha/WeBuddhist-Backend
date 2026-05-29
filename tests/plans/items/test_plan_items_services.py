@@ -297,6 +297,215 @@ def test_update_plans_day_number_success_calls_bulk_update():
         assert called_kwargs["days"] == payload.days
 
 
+def test_create_plan_item_with_source_day_copies_tasks():
+    plan_id = uuid.uuid4()
+    source_day_id = uuid.uuid4()
+    saved_item_id = uuid.uuid4()
+
+    plan = MagicMock()
+    plan.id = plan_id
+
+    author = MagicMock()
+    author.email = "author@example.com"
+    author.is_admin = False
+
+    source_day = MagicMock()
+
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan, \
+         patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_last_day, \
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_day_by_id_with_tasks_and_subtasks") as mock_get_source, \
+         patch("pecha_api.plans.items.plan_items_services._copy_tasks_and_subtasks_to_days") as mock_copy:
+        db_session = _mock_session_local(mock_session_local)
+
+        mock_validate_author.return_value = author
+        mock_get_plan.return_value = plan
+        mock_last_day.return_value = 0
+
+        saved_item = MagicMock()
+        saved_item.id = saved_item_id
+        saved_item.plan_id = plan_id
+        saved_item.day_number = 1
+        mock_save.return_value = [saved_item]
+        mock_get_source.return_value = source_day
+
+        create_plan_item(
+            token="dummy-token",
+            plan_id=plan_id,
+            create_days_request=CreateDaysRequest(number_of_days=1, source_day_id=source_day_id),
+        )
+
+        mock_get_source.assert_called_once_with(db=db_session, plan_id=plan_id, day_id=source_day_id)
+        mock_copy.assert_called_once_with(
+            db=db_session,
+            source_day=source_day,
+            target_days=[saved_item],
+            created_by=author.email,
+        )
+
+
+def test_delete_plan_days_empty_day_ids_returns_early():
+    with patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author:
+        delete_plan_days(
+            token="dummy-token",
+            plan_id=uuid.uuid4(),
+            delete_days_request=DeleteDaysRequest(day_ids=[]),
+        )
+        mock_validate_author.assert_not_called()
+
+
+def test_get_author_plan_raises_404_when_not_admin_and_plan_missing():
+    from pecha_api.plans.items.plan_items_services import _get_author_plan
+
+    author = MagicMock()
+    author.email = "author@example.com"
+    author.is_admin = False
+
+    db = MagicMock()
+
+    with patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan:
+        mock_get_plan.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            _get_author_plan(db=db, plan_id=uuid.uuid4(), current_author=author, is_admin=False)
+
+        assert exc_info.value.status_code == 404
+
+
+def test_copy_tasks_and_subtasks_no_tasks_returns_early():
+    from pecha_api.plans.items.plan_items_services import _copy_tasks_and_subtasks_to_days
+
+    source_day = MagicMock()
+    source_day.tasks = []
+    db = MagicMock()
+
+    _copy_tasks_and_subtasks_to_days(
+        db=db,
+        source_day=source_day,
+        target_days=[MagicMock()],
+        created_by="author@example.com",
+    )
+
+    db.add.assert_not_called()
+    db.commit.assert_not_called()
+
+
+def test_copy_tasks_and_subtasks_copies_correctly():
+    from pecha_api.plans.items.plan_items_services import _copy_tasks_and_subtasks_to_days
+
+    sub_task = MagicMock()
+    sub_task.content_type = "text"
+    sub_task.content = "content"
+    sub_task.duration = 10
+    sub_task.source_text_id = None
+    sub_task.pecha_segment_id = None
+    sub_task.segment_ids = []
+    sub_task.display_order = 1
+    sub_task.timestamp = None
+
+    source_task = MagicMock()
+    source_task.title = "Task 1"
+    source_task.display_order = 1
+    source_task.estimated_time = 5
+    source_task.is_required = True
+    source_task.sub_tasks = [sub_task]
+
+    source_day = MagicMock()
+    source_day.tasks = [source_task]
+
+    target_day = MagicMock()
+    target_day.id = uuid.uuid4()
+
+    db = MagicMock()
+
+    _copy_tasks_and_subtasks_to_days(
+        db=db,
+        source_day=source_day,
+        target_days=[target_day],
+        created_by="author@example.com",
+    )
+
+    assert db.add.call_count == 2
+    assert db.flush.call_count == 2
+    db.commit.assert_called_once()
+
+
+def test_copy_tasks_and_subtasks_with_timestamp():
+    from pecha_api.plans.items.plan_items_services import _copy_tasks_and_subtasks_to_days
+
+    timestamp = MagicMock()
+    timestamp.start_ms = 0
+    timestamp.end_ms = 5000
+
+    sub_task = MagicMock()
+    sub_task.content_type = "audio"
+    sub_task.content = None
+    sub_task.duration = 5
+    sub_task.source_text_id = None
+    sub_task.pecha_segment_id = None
+    sub_task.segment_ids = []
+    sub_task.display_order = 1
+    sub_task.timestamp = timestamp
+
+    source_task = MagicMock()
+    source_task.title = "Task"
+    source_task.display_order = 1
+    source_task.estimated_time = 5
+    source_task.is_required = True
+    source_task.sub_tasks = [sub_task]
+
+    source_day = MagicMock()
+    source_day.tasks = [source_task]
+
+    target_day = MagicMock()
+    target_day.id = uuid.uuid4()
+
+    db = MagicMock()
+
+    _copy_tasks_and_subtasks_to_days(
+        db=db,
+        source_day=source_day,
+        target_days=[target_day],
+        created_by="author@example.com",
+    )
+
+    assert db.add.call_count == 3
+    db.commit.assert_called_once()
+
+
+def test_copy_tasks_and_subtasks_db_error_raises_400():
+    from pecha_api.plans.items.plan_items_services import _copy_tasks_and_subtasks_to_days
+
+    source_task = MagicMock()
+    source_task.title = "Task"
+    source_task.display_order = 1
+    source_task.estimated_time = 5
+    source_task.is_required = True
+    source_task.sub_tasks = []
+
+    source_day = MagicMock()
+    source_day.tasks = [source_task]
+
+    target_day = MagicMock()
+    target_day.id = uuid.uuid4()
+
+    db = MagicMock()
+    db.flush.side_effect = Exception("db error")
+
+    with pytest.raises(HTTPException) as exc_info:
+        _copy_tasks_and_subtasks_to_days(
+            db=db,
+            source_day=source_day,
+            target_days=[target_day],
+            created_by="author@example.com",
+        )
+
+    assert exc_info.value.status_code == 400
+    db.rollback.assert_called_once()
+
+
 def test_update_plans_day_number_duplicate_payload_raises_400():
     plan_id = uuid.uuid4()
 

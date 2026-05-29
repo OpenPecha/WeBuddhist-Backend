@@ -109,6 +109,51 @@ def test_delete_day_unauthorized(unauthenticated_client):
     assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
+def test_reorder_days_success(authenticated_client):
+    plan_id = uuid.uuid4()
+    day_id = uuid.uuid4()
+    payload = {"days": [{"id": str(day_id), "day_number": 1}]}
+
+    with patch("pecha_api.plans.items.plan_items_views.update_plans_day_number", return_value=None) as mock_reorder:
+        response = authenticated_client.put(
+            f"/cms/plans/{plan_id}/reorder-days",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+            json=payload,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_reorder.assert_called_once()
+
+
+def test_reorder_days_unauthorized(unauthenticated_client):
+    plan_id = uuid.uuid4()
+    day_id = uuid.uuid4()
+    response = unauthenticated_client.put(
+        f"/cms/plans/{plan_id}/reorder-days",
+        json={"days": [{"id": str(day_id), "day_number": 1}]},
+    )
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_delete_day_audio_success(authenticated_client):
+    day_id = uuid.uuid4()
+
+    with patch("pecha_api.plans.items.plan_items_views.delete_plan_day_audio", return_value=None) as mock_delete_audio:
+        response = authenticated_client.delete(
+            f"/cms/plans/days/{day_id}/audio",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_delete_audio.assert_called_once()
+
+
+def test_delete_day_audio_unauthorized(unauthenticated_client):
+    day_id = uuid.uuid4()
+    response = unauthenticated_client.delete(f"/cms/plans/days/{day_id}/audio")
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
 def test_delete_day_not_found(authenticated_client):
     plan_id = uuid.uuid4()
     day_id = uuid.uuid4()
