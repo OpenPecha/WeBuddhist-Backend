@@ -44,9 +44,12 @@ from pecha_api.plans.groups.groups_service import (
 
 oauth2_scheme = HTTPBearer()
 
-cms_groups_router = APIRouter(prefix="/cms/groups", tags=["CMS Groups"])
-public_groups_router = APIRouter(prefix="/groups", tags=["Author Groups"])
-user_groups_router = APIRouter(prefix="/users/me/following/groups", tags=["Author Groups"])
+cms_groups_router = APIRouter(prefix="/cms/author/groups", tags=["CMS Author Groups"])
+public_groups_router = APIRouter(prefix="/author/groups", tags=["Author Groups"])
+user_groups_router = APIRouter(
+    prefix="/users/me/following/author/groups",
+    tags=["Author Groups"],
+)
 
 
 @cms_groups_router.post("", status_code=status.HTTP_201_CREATED, response_model=AuthorGroupDetailDTO)
@@ -60,16 +63,41 @@ def post_cms_group(
     )
 
 
+def _update_cms_group(
+    group_id: UUID,
+    update_group_request: UpdateAuthorGroupRequest,
+    token: str,
+) -> AuthorGroupDetailDTO:
+    return update_author_group(
+        token=token,
+        group_id=group_id,
+        request=update_group_request,
+    )
+
+
+@cms_groups_router.put("/{group_id}", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
+def put_cms_group(
+    group_id: UUID,
+    update_group_request: UpdateAuthorGroupRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return _update_cms_group(
+        group_id=group_id,
+        update_group_request=update_group_request,
+        token=authentication_credential.credentials,
+    )
+
+
 @cms_groups_router.patch("/{group_id}", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
 def patch_cms_group(
     group_id: UUID,
     update_group_request: UpdateAuthorGroupRequest,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
-    return update_author_group(
-        token=authentication_credential.credentials,
+    return _update_cms_group(
         group_id=group_id,
-        request=update_group_request,
+        update_group_request=update_group_request,
+        token=authentication_credential.credentials,
     )
 
 

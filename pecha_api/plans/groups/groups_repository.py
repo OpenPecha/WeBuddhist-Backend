@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
 from sqlalchemy import and_, delete, exists, func, or_, select
@@ -19,6 +19,55 @@ from pecha_api.plans.groups.groups_models import (
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.tags.tag_model import Tag
+
+
+def _map_entity_ids_to_first_group_id(
+    db: Session,
+    entity_ids: Sequence[UUID],
+    entity_id_column,
+    group_id_column,
+) -> Dict[UUID, UUID]:
+    if not entity_ids:
+        return {}
+    rows = (
+        db.execute(
+            select(entity_id_column, group_id_column)
+            .where(entity_id_column.in_(entity_ids))
+            .order_by(entity_id_column, group_id_column)
+        )
+        .all()
+    )
+    group_id_by_entity_id: Dict[UUID, UUID] = {}
+    for entity_id, group_id in rows:
+        if entity_id not in group_id_by_entity_id:
+            group_id_by_entity_id[entity_id] = group_id
+    return group_id_by_entity_id
+
+
+def get_group_ids_by_plan_ids(db: Session, plan_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
+    return _map_entity_ids_to_first_group_id(
+        db=db,
+        entity_ids=plan_ids,
+        entity_id_column=author_group_plans.c.plan_id,
+        group_id_column=author_group_plans.c.group_id,
+    )
+
+
+def get_group_id_for_plan(db: Session, plan_id: UUID) -> Optional[UUID]:
+    return get_group_ids_by_plan_ids(db=db, plan_ids=[plan_id]).get(plan_id)
+
+
+def get_group_ids_by_series_ids(db: Session, series_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
+    return _map_entity_ids_to_first_group_id(
+        db=db,
+        entity_ids=series_ids,
+        entity_id_column=author_group_series.c.series_id,
+        group_id_column=author_group_series.c.group_id,
+    )
+
+
+def get_group_id_for_series(db: Session, series_id: UUID) -> Optional[UUID]:
+    return get_group_ids_by_series_ids(db=db, series_ids=[series_id]).get(series_id)
 
 
 def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
@@ -164,6 +213,7 @@ def replace_group_metadata(
     for entry in metadata_entries:
         entry.group_id = group_id
         db.add(entry)
+    db.flush()
 
 
 def replace_group_social_links(
@@ -175,6 +225,7 @@ def replace_group_social_links(
     for link in social_links:
         link.group_id = group_id
         db.add(link)
+    db.flush()
 
 
 def replace_group_relation_ids(
@@ -335,7 +386,8 @@ def get_series_by_ids(db: Session, series_ids: List[UUID]) -> List[Series]:
 
 
 def update_group(db: Session, group: AuthorGroup) -> AuthorGroup:
-    db.add(group)
+    # Group is already persistent; db.add() would re-sync relationships and can fail
+    # after bulk deletes (e.g. replace_group_metadata) left stale entries in memory.
     db.commit()
     db.refresh(group)
     return group

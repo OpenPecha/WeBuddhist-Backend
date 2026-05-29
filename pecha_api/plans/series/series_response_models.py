@@ -76,6 +76,7 @@ class SeriesPlanDTO(BaseModel):
     display_order: Optional[int] = None
     start_date: Optional[datetime] = None
     total_days: int = 0
+    group_id: Optional[UUID] = None
 
 
 class SeriesListItemDTO(BaseModel):
@@ -100,6 +101,7 @@ class SeriesDTO(BaseModel):
     status: PlanStatus
     plans: List[SeriesPlanDTO] = []
     total_days: int = 0
+    group_id: Optional[UUID] = None
 
 
 class SeriesListResponse(BaseModel):

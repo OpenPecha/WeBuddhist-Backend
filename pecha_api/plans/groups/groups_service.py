@@ -7,7 +7,9 @@ from uuid import UUID
 from fastapi import HTTPException
 from starlette import status
 
+from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
+from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
 from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
 from pecha_api.plans.groups.groups_models import (
@@ -81,6 +83,15 @@ def _to_role_value(role: AuthorGroupMemberRole | str) -> str:
     if hasattr(role, "value"):
         return role.value
     return str(role)
+
+
+def _generate_group_asset_url(asset_key: Optional[str]) -> Optional[str]:
+    if not asset_key:
+        return None
+    return generate_presigned_access_url(
+        bucket_name=get("AWS_BUCKET_NAME"),
+        s3_key=asset_key,
+    )
 
 
 def _metadata_to_dtos(metadata_entries) -> List[GroupMetadataDTO]:
@@ -187,6 +198,8 @@ def _group_to_detail(group: AuthorGroup, follower_count: int = 0) -> AuthorGroup
         is_public=group.is_public,
         avatar_key=group.avatar_key,
         banner_key=group.banner_key,
+        avatar_url=_generate_group_asset_url(group.avatar_key),
+        banner_url=_generate_group_asset_url(group.banner_key),
         metadata=_metadata_to_dtos(group.metadata_entries),
         members=_members_to_dtos(group.members),
         tags=tags_to_summary_dtos(group.tags),
@@ -242,18 +255,21 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN, AuthorGroupMemberRole.EDITOR])
 
-        if request.slug is not None and request.slug != group.slug:
-            existing = get_group_by_slug(db=db, slug=request.slug)
-            if existing and existing.id != group.id:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group slug already exists")
+        fields_set = request.model_fields_set
+
+        if "slug" in fields_set:
+            if request.slug != group.slug:
+                existing = get_group_by_slug(db=db, slug=request.slug)
+                if existing and existing.id != group.id:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group slug already exists")
             group.slug = request.slug
-        if request.is_public is not None:
+        if "is_public" in fields_set:
             group.is_public = request.is_public
-        if request.avatar_key is not None:
+        if "avatar_key" in fields_set:
             group.avatar_key = request.avatar_key
-        if request.banner_key is not None:
+        if "banner_key" in fields_set:
             group.banner_key = request.banner_key
-        if request.metadata is not None:
+        if "metadata" in fields_set:
             _assert_metadata_valid(request.metadata)
             metadata_entries = [
                 AuthorGroupMetadata(
@@ -264,6 +280,7 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
                 for item in request.metadata
             ]
             replace_group_metadata(db=db, group_id=group_id, metadata_entries=metadata_entries)
+            db.expire(group, ["metadata_entries"])
 
         group.updated_by = author.email
         group.updated_at = datetime.now(timezone.utc)
