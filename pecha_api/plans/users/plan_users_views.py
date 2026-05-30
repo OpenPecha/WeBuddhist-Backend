@@ -47,11 +47,12 @@ user_progress_router = APIRouter(
 @user_progress_router.get("/plans", status_code=status.HTTP_200_OK, response_model=UserPlansResponse)
 async def get_user_plans(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    status_filter: Optional[str] = Query(None, description="Filter by plan status"),
+    status_filter: Optional[str] = Query(None, description="Filter by series enrollment status (ACTIVE, PAUSED, COMPLETED, CANCELLED)"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50)
 ):
-    return await get_user_enrolled_plans(token=authentication_credential.credentials,status_filter=status_filter,skip=skip,limit=limit)
+
+    return await get_user_enrolled_plans(token=authentication_credential.credentials, status_filter=status_filter, skip=skip, limit=limit)
 
 
 @user_progress_router.post("/plans", status_code=status.HTTP_204_NO_CONTENT)

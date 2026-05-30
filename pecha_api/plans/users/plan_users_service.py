@@ -90,6 +90,8 @@ from pecha_api.plans.users.plan_user_series_repository import (
     get_first_plan_in_series,
     get_plans_by_series_id,
     get_plans_by_series_ids,
+    get_user_series_enrollments_for_plans,
+    get_plans_by_series_ids_with_tags,
 )
 from pecha_api.plans.series.series_repository import get_series_by_ids, get_plans_by_ids
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
@@ -206,27 +208,71 @@ def auto_enroll_in_next_plan(db: SessionLocal, user_id: UUID, plan_id: UUID, ser
     return save_plan_progress(db, new_progress)
 
 
-async def get_user_enrolled_plans(token: str,status_filter: Optional[str] = None,skip: int = 0,limit: int = 20) -> UserPlansResponse:
+async def get_user_enrolled_plans(token: str, status_filter: Optional[str] = None, skip: int = 0, limit: int = 20) -> UserPlansResponse:
 
+    from sqlalchemy import func
+    from pecha_api.plans.items.plan_items_models import PlanItem
+    
     current_user = validate_and_extract_user_details(token=token)
     
     normalized_status = status_filter.upper() if status_filter else None
     
     with SessionLocal() as db:
-        results, total = get_user_enrolled_plans_with_details(
+        enrollments = get_user_series_enrollments_for_plans(
             db=db,
             user_id=current_user.id,
-            status=normalized_status,
-            skip=skip,
-            limit=limit,
-            order_by_field=UserPlanProgress.started_at,
-            order_desc=True
+            status_filter=normalized_status
         )
+        
+        if not enrollments:
+            return UserPlansResponse(
+                plans=[],
+                skip=skip,
+                limit=limit,
+                total=0
+            )
+        
+        series_ids = [enrollment.series_id for enrollment in enrollments]
+        
+        all_plans = get_plans_by_series_ids_with_tags(db=db, series_ids=series_ids)
+        
+        if not all_plans:
+            return UserPlansResponse(
+                plans=[],
+                skip=skip,
+                limit=limit,
+                total=0
+            )
+        
+        series_order = {e.series_id: idx for idx, e in enumerate(enrollments)}
+        
+        sorted_plans = sorted(
+            all_plans,
+            key=lambda p: (
+                series_order.get(p.series_id, 999),
+                p.display_order if p.display_order is not None else 999
+            )
+        )
+        
+        total = len(sorted_plans)
+        paginated_plans = sorted_plans[skip:skip + limit]
+        
+        plan_ids = [plan.id for plan in paginated_plans]
+        
+        days_count_query = (
+            db.query(PlanItem.plan_id, func.count(PlanItem.id).label('total_days'))
+            .filter(PlanItem.plan_id.in_(plan_ids))
+            .group_by(PlanItem.plan_id)
+            .all()
+        )
+        days_count_map = {row.plan_id: row.total_days for row in days_count_query}
+        
+        progress_map = get_plan_progress_by_user_id_and_plan_ids(db, current_user.id, plan_ids)
         
         enrolled_plans = []
         bucket_name = get("AWS_BUCKET_NAME")
         
-        for progress, plan, total_days in results:
+        for plan in paginated_plans:
             image_url = ""
             if plan.image_url:
                 try:
@@ -238,6 +284,9 @@ async def get_user_enrolled_plans(token: str,status_filter: Optional[str] = None
                     logger.error(f"Failed to generate presigned URL for plan {plan.id}: {e}", exc_info=True)
                     image_url = ""
             
+            progress = progress_map.get(plan.id)
+            started_at = progress.started_at if progress else plan.created_at
+            
             user_plan = UserPlanDTO(
                 id=plan.id,
                 title=plan.title,
@@ -245,8 +294,8 @@ async def get_user_enrolled_plans(token: str,status_filter: Optional[str] = None
                 language=plan.language.value if hasattr(plan.language, 'value') else str(plan.language),
                 difficulty_level=plan.difficulty_level.value if hasattr(plan.difficulty_level, 'value') else str(plan.difficulty_level),
                 image_url=image_url,
-                started_at=progress.started_at,
-                total_days=total_days,
+                started_at=started_at,
+                total_days=days_count_map.get(plan.id, 0),
                 tags=tags_to_summary_dtos(plan.tag_list),
                 start_date=plan.start_date,
                 display_order=plan.display_order

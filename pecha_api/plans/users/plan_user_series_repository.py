@@ -169,3 +169,38 @@ def is_series_completed_for_user(db: Session, user_id: UUID, series_id: UUID) ->
             return False
 
     return True
+
+
+def get_user_series_enrollments_for_plans(
+    db: Session,
+    user_id: UUID,
+    status_filter: Optional[str] = None,
+) -> List[UserSeriesEnrollment]:
+    query = db.query(UserSeriesEnrollment).filter(
+        UserSeriesEnrollment.user_id == user_id
+    )
+    
+    if status_filter:
+        query = query.filter(UserSeriesEnrollment.status == status_filter)
+    
+    return query.order_by(desc(UserSeriesEnrollment.enrolled_at)).all()
+
+
+def get_plans_by_series_ids_with_tags(
+    db: Session,
+    series_ids: List[UUID]
+) -> List[Plan]:
+    from sqlalchemy.orm import selectinload
+    
+    if not series_ids:
+        return []
+    
+    return (
+        db.query(Plan)
+        .options(selectinload(Plan.tag_list))
+        .filter(
+            Plan.series_id.in_(series_ids),
+            Plan.deleted_at.is_(None),
+        )
+        .all()
+    )
