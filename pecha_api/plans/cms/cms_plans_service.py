@@ -26,6 +26,7 @@ from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, Create
 from pecha_api.plans.tasks.plan_tasks_repository import get_tasks_by_item_ids
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
+from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_repository import get_sub_task_by_subtask_id
 from sqlalchemy.orm import Session
 
 from pecha_api.db.database import SessionLocal
@@ -106,9 +107,12 @@ def _generate_audio_segments(
     wav_header_size = 44
     audio_segments: List[bytes] = []
     subtask_refs = []
+    allowed_types = {ContentType.TEXT, ContentType.SOURCE_REFERENCE}
     for task in tasks:
         subtask = task.sub_tasks[0] if task.sub_tasks else None
         if not subtask:
+            continue
+        if subtask.content_type not in allowed_types:
             continue
         wav_bytes = generate_tts_audio(subtask.content, audio_type)
         raw_pcm = wav_bytes[wav_header_size:]
@@ -188,11 +192,18 @@ def _upload_and_persist_audio(
     )
 
 
-async def generate_plan_audio_service(day_id: UUID, audio_type: PlanAudioType, language: str):
+async def generate_plan_audio_service(
+    audio_type: PlanAudioType,
+    language: str,
+    day_id: Optional[UUID] = None,
+    sub_task_id: Optional[UUID] = None,
+):
+    if sub_task_id:
+        return await _generate_subtask_audio(sub_task_id=sub_task_id, audio_type=audio_type)
 
     SAMPLE_RATE = 24000
     BYTES_PER_SAMPLE = 2
-    
+
     with SessionLocal() as db:
         plan_item: PlanItem = get_plan_day_by_id_any_plan(db=db, day_id=day_id)
 
@@ -227,6 +238,69 @@ async def generate_plan_audio_service(day_id: UUID, audio_type: PlanAudioType, l
         "audio_url": audio_url,
         "audio_duration_ms": audio_row.duration_ms,
         "s3_key": audio_row.audio_key,
+    }
+
+
+async def _generate_subtask_audio(sub_task_id: UUID, audio_type: PlanAudioType):
+    SAMPLE_RATE = 24000
+    BYTES_PER_SAMPLE = 2
+    WAV_HEADER_SIZE = 44
+
+    with SessionLocal() as db:
+        subtask: PlanSubTask = get_sub_task_by_subtask_id(db=db, id=sub_task_id)
+        if not subtask:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(error=BAD_REQUEST, message="Sub task not found").model_dump(),
+            )
+
+        allowed_types = {ContentType.TEXT, ContentType.SOURCE_REFERENCE}
+        if subtask.content_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ResponseError(
+                    error=BAD_REQUEST,
+                    message="Sub task content type must be TEXT or SOURCE_REFERENCE for audio generation",
+                ).model_dump(),
+            )
+
+        wav_bytes = generate_tts_audio(subtask.content, audio_type)
+        raw_pcm = wav_bytes[WAV_HEADER_SIZE:]
+
+        segment_samples = len(raw_pcm) // BYTES_PER_SAMPLE
+        duration_ms = int((segment_samples / SAMPLE_RATE) * 1000)
+
+        combined_wav, _ = _build_combined_wav([raw_pcm])
+
+        s3_key = f"audio/plan_subtasks/{subtask.task_id}/{sub_task_id}/{uuid4()}.wav"
+        upload_bytes(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=s3_key,
+            file=BytesIO(combined_wav),
+            content_type="audio/wav",
+        )
+
+        subtask.audio_url = s3_key
+        subtask.duration = str(duration_ms)
+        db.commit()
+
+        upsert_sub_task_timestamp(
+            db=db,
+            sub_task_id=sub_task_id,
+            start_ms=0,
+            end_ms=duration_ms,
+            created_by="system",
+        )
+
+    audio_url = generate_presigned_access_url(
+        bucket_name=get("AWS_BUCKET_NAME"),
+        s3_key=s3_key,
+    )
+
+    return {
+        "audio_url": audio_url,
+        "audio_duration_ms": duration_ms,
+        "s3_key": s3_key,
     }
 
 async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, sort_order: str, skip: int, limit: int, tag: Optional[str] = None, language: Optional[str] = None) -> PlansResponse:
@@ -655,6 +729,10 @@ def _get_task_subtasks_dto(subtasks: List[PlanSubTask]) -> List[SubTaskDTO]:
     subtasks_dto = []
     for subtask in subtasks:
         start_ms, end_ms = build_subtask_timestamp_fields(subtask)
+        audio_url = (
+            generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=subtask.audio_url)
+            if subtask.audio_url else None
+        )
         subtasks_dto.append(
             SubTaskDTO(
                 id=subtask.id,
@@ -663,6 +741,7 @@ def _get_task_subtasks_dto(subtasks: List[PlanSubTask]) -> List[SubTaskDTO]:
                 display_order=subtask.display_order,
                 start_ms=start_ms,
                 end_ms=end_ms,
+                audio_url=audio_url,
             )
         )
     return subtasks_dto

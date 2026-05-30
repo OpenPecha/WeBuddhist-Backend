@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from typing import Optional, List
 from datetime import datetime
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus, ContentType, PlanAudioType
@@ -32,9 +32,18 @@ class UpdatePlanRequest(BaseModel):
     display_order: Optional[int] = None
 
 class GeneratePlanAudioRequest(BaseModel):
-    day_id: UUID
-    language:str
+    day_id: Optional[UUID] = None
+    sub_task_id: Optional[UUID] = None
+    language: str
     type: PlanAudioType = PlanAudioType.INSTRUCTION
+
+    @model_validator(mode="after")
+    def validate_either_day_or_subtask(self):
+        if not self.day_id and not self.sub_task_id:
+            raise ValueError("Either day_id or sub_task_id must be provided")
+        if self.day_id and self.sub_task_id:
+            raise ValueError("Provide either day_id or sub_task_id, not both")
+        return self
 
 class PlanStatusUpdate(BaseModel):
     status: PlanStatus
@@ -72,6 +81,7 @@ class SubTaskDTO(BaseModel):
     display_order: Optional[int] = None
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None
+    audio_url: Optional[str] = None
 
 class TaskDTO(BaseModel):
     id: UUID
