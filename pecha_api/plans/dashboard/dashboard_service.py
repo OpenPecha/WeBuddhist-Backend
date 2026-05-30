@@ -115,3 +115,43 @@ def get_dashboard_items_list(
             total_pages=total_pages(total, page_size),
         ),
     )
+
+
+def _row_to_public_dto(row) -> DashboardItemDTO:
+    return _row_to_dto(row).model_copy(update={"author_id": None})
+
+
+def get_practice_items_list(
+    tab: DashboardTab,
+    page: int,
+    page_size: int,
+    search: Optional[str] = None,
+    language: Optional[str] = None,
+    featured: Optional[bool] = None,
+) -> DashboardItemsResponse:
+    page = max(page, 1)
+    page_size = max(page_size, 1)
+
+    with SessionLocal() as db_session:
+        rows, total = get_dashboard_items(
+            db_session,
+            tab=tab,
+            page=page,
+            page_size=page_size,
+            search=search,
+            status=PlanStatus.PUBLISHED,
+            language=language,
+            featured=featured,
+            author_id=None,
+        )
+
+    items = [_row_to_public_dto(row) for row in rows]
+    return DashboardItemsResponse(
+        items=items,
+        pagination=DashboardPaginationDTO(
+            page=page,
+            page_size=page_size,
+            total=total,
+            total_pages=total_pages(total, page_size),
+        ),
+    )
