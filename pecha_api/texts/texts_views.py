@@ -60,9 +60,8 @@ async def get_text(
 @text_router.post(
     "",
     status_code=status.HTTP_201_CREATED,
-    deprecated=True,
-    summary="Create text (DEPRECATED)",
-    description="**DEPRECATED**: This endpoint will be removed on June 1, 2026. Please migrate to /api/v2/texts.",
+    summary="Create text",
+    description="Create a new text resource.",
 )
 async def create_text(
     create_text_request: CreateTextRequest,
