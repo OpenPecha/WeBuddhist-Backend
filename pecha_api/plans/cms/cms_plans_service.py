@@ -383,16 +383,18 @@ def _get_subscription_count(db: Session, plan_id: UUID) -> int:
     ).scalar() or 0
 
 
-def _validate_start_date_update(db: Session, plan: Plan, plan_id: UUID):
+def _validate_start_date_update(db: Session, plan: Plan, plan_id: UUID, new_start_date):
     subscription_count = _get_subscription_count(db, plan_id)
     if plan.status == PlanStatus.PUBLISHED and subscription_count > 0:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ResponseError(
-                error=BAD_REQUEST,
-                message=PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS,
-            ).model_dump(),
-        )
+        # Allow update if the start date is not actually changing
+        if plan.start_date != new_start_date:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ResponseError(
+                    error=BAD_REQUEST,
+                    message=PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS,
+                ).model_dump(),
+            )
 
 
 def _apply_plan_field_updates(plan: Plan, update_plan_request: UpdatePlanRequest):
@@ -426,7 +428,7 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
         plan = _check_author_plan_availability(plan_id=plan_id, author_id=author_details.id, is_admin=author_details.is_admin)
 
         if "start_date" in update_plan_request.model_fields_set:
-            _validate_start_date_update(db, plan, plan_id)
+            _validate_start_date_update(db, plan, plan_id, update_plan_request.start_date)
             plan.start_date = update_plan_request.start_date
         
         _apply_plan_field_updates(plan, update_plan_request)
