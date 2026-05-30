@@ -207,7 +207,7 @@ def auto_enroll_in_next_plan(db: SessionLocal, user_id: UUID, plan_id: UUID, ser
     return save_plan_progress(db, new_progress)
 
 
-async def get_user_enrolled_plans(token: str, status_filter: Optional[str] = None, skip: int = 0, limit: int = 20) -> UserPlansResponse:
+async def get_user_enrolled_plans(token: str, status_filter: Optional[str] = None, series_id: Optional[UUID] = None, skip: int = 0, limit: int = 20) -> UserPlansResponse:
 
     from sqlalchemy import func
     from pecha_api.plans.items.plan_items_models import PlanItem
@@ -221,6 +221,7 @@ async def get_user_enrolled_plans(token: str, status_filter: Optional[str] = Non
             db=db,
             user_id=current_user.id,
             status_filter=normalized_status,
+            series_id=series_id,
             skip=skip,
             limit=limit
         )
