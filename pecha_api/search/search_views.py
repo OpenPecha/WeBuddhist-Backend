@@ -1,19 +1,17 @@
 from fastapi import APIRouter, Query, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from .search_enums import SearchType, MultilingualSearchType
+from .search_enums import MultilingualSearchType
 from starlette import status
 
 from typing import Optional, Annotated
 
 from .search_service import (
-    get_search_results,
     get_multilingual_search_results,
     get_url_link as get_url_link_service
 )
 from pecha_api.plans.cms.cms_plans_service import get_filtered_plans
 
 from .search_response_models import (
-    SearchResponse,
     MultilingualSearchResponse,
     SegmentLinkResponse,
 )
@@ -25,22 +23,6 @@ search_router = APIRouter(
     prefix="/search",
     tags=["Search"]
 )
-
-@search_router.get("", status_code=status.HTTP_200_OK)
-async def search(
-    query: str = Query(default=None, description="Search query"),
-    search_type: SearchType = Query(default=None, description="Search type (SOURCE / SHEET)"),
-    text_id: Optional[str] = Query(default=None, description="Text ID where the search is to be performed"),
-    skip: int = Query(default=0),
-    limit: int = Query(default=10)
-) -> SearchResponse:
-    return await get_search_results(
-        query=query,
-        search_type=search_type,
-        text_id=text_id,
-        skip=skip,
-        limit=limit
-    )
 
 @search_router.get("/multilingual", status_code=status.HTTP_200_OK)
 async def multilingual_search(
