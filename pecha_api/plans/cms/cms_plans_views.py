@@ -72,8 +72,7 @@ async def generate_plan_audio(
     request: GeneratePlanAudioRequest,
 ):
     return await generate_plan_audio_service(
-        plan_id=request.plan_id,
-        day=request.day,
+        day_id=request.day_id,
         language=request.language,
         audio_type=request.type,
     )

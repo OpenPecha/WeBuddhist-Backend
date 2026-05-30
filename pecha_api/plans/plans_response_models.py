@@ -32,8 +32,7 @@ class UpdatePlanRequest(BaseModel):
     display_order: Optional[int] = None
 
 class GeneratePlanAudioRequest(BaseModel):
-    plan_id: UUID
-    day: int
+    day_id: UUID
     language:str
     type: PlanAudioType = PlanAudioType.INSTRUCTION
 

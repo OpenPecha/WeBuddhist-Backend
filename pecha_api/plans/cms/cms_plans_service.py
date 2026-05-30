@@ -15,7 +15,7 @@ from pecha_api.plans.series.series_repository import get_series_by_id
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.tags.tag_repository import set_plan_tags
 from pecha_api.plans.tags.tag_service import validate_tag_ids
-from pecha_api.plans.items.plan_items_repository import save_plan_items, get_plan_items_by_plan_id, get_plan_day_with_tasks_and_subtasks
+from pecha_api.plans.items.plan_items_repository import save_plan_items, get_plan_items_by_plan_id, get_plan_day_with_tasks_and_subtasks, get_plan_day_by_id_any_plan
 from pecha_api.plans.users.plan_users_progress_repository import get_plan_progress
 from pecha_api.plans.authors.plan_authors_model import Author
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
@@ -188,13 +188,13 @@ def _upload_and_persist_audio(
     )
 
 
-async def generate_plan_audio_service(plan_id: UUID, day: int, audio_type: PlanAudioType, language: str):
+async def generate_plan_audio_service(day_id: UUID, audio_type: PlanAudioType, language: str):
 
     SAMPLE_RATE = 24000
     BYTES_PER_SAMPLE = 2
-
+    
     with SessionLocal() as db:
-        plan_item: PlanItem = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day)
+        plan_item: PlanItem = get_plan_day_by_id_any_plan(db=db, day_id=day_id)
 
         audio_segments, subtask_refs = _generate_audio_segments(plan_item.tasks, audio_type)
         if not audio_segments:
@@ -214,7 +214,7 @@ async def generate_plan_audio_service(plan_id: UUID, day: int, audio_type: PlanA
             db=db,
             combined_wav=combined_wav,
             duration_ms=duration_ms,
-            plan_id=plan_id,
+            plan_id=plan_item.plan_id,
             plan_item_id=plan_item.id,
         )
 
