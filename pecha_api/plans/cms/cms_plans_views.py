@@ -25,6 +25,7 @@ cms_plans_router = APIRouter(
 async def get_plans(
         authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
         search: Optional[str] = Query(default=None, description="Search by plan title"),
+        language: Optional[str] = Query(default=None, description="Filter by language code (e.g., 'bo', 'en', 'zh')"),
         sort_by: str = Query(default=SortBy.TOTAL_DAYS),
         sort_order: str = Query(default=SortOrder.ASC),
         skip: int = Query(default=0),
@@ -36,7 +37,8 @@ async def get_plans(
         sort_by=sort_by,
         sort_order=sort_order,
         skip=skip,
-        limit=limit
+        limit=limit,
+        language=language
     )
 
 

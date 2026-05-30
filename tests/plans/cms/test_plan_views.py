@@ -91,6 +91,7 @@ async def test_get_plans_success_with_params():
         resp = await get_plans(
             authentication_credential=creds,
             search="plan",
+            language="en",
             sort_by="status",
             sort_order="asc",
             skip=1,
@@ -106,6 +107,7 @@ async def test_get_plans_success_with_params():
             "sort_order": "asc",
             "skip": 1,
             "limit": 5,
+            "language": "en",
         }
 
         assert resp == expected
@@ -121,6 +123,7 @@ async def test_get_plans_defaults():
         resp = await get_plans(
             authentication_credential=creds,
             search=None,
+            language=None,
             sort_by="total_days",
             sort_order="asc",
             skip=0,
@@ -136,6 +139,7 @@ async def test_get_plans_defaults():
             "sort_order": "asc",
             "skip": 0,
             "limit": 10,
+            "language": None,
         }
         assert resp == expected
 
