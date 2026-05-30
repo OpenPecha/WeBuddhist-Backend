@@ -236,27 +236,81 @@ def get_paginated_plans_from_enrolled_series(
     
     enrollment_subquery = enrollment_query.subquery()
     
-    base_query = (
+    # Get all plans from enrolled series
+    all_plans_query = (
         db.query(Plan)
         .join(enrollment_subquery, Plan.series_id == enrollment_subquery.c.series_id)
         .filter(Plan.deleted_at.is_(None))
-    )
-    
-    total = base_query.count()
-    
-    if total == 0:
-        return [], 0
-    
-    plans = (
-        base_query
         .options(selectinload(Plan.tag_list))
         .order_by(
-            desc(enrollment_subquery.c.enrolled_at),
+            enrollment_subquery.c.series_id,
             asc(func.coalesce(Plan.display_order, 999))
         )
-        .offset(skip)
-        .limit(limit)
         .all()
     )
     
-    return plans, total
+    if not all_plans_query:
+        return [], 0
+    
+    # Filter plans based on date availability - only prior and current active plans
+    filtered_plans = _filter_plans_by_date_availability(all_plans_query)
+    
+    # Apply pagination to filtered results
+    total = len(filtered_plans)
+    start_index = skip
+    end_index = skip + limit
+    paginated_plans = filtered_plans[start_index:end_index]
+    
+    return paginated_plans, total
+
+
+def _filter_plans_by_date_availability(plans: List[Plan]) -> List[Plan]:
+    """
+    Filter plans to only include:
+    1. Prior plans: Plans that have started and either completed or should have been completed (next plan started)
+    2. Current active plans: Plans that are currently active (started but next plan hasn't started)
+    """
+    from datetime import datetime, timezone
+    
+    today = datetime.now(timezone.utc).date()
+    available_plans = []
+    
+    # Group plans by series for better processing
+    series_plans = {}
+    for plan in plans:
+        if plan.series_id not in series_plans:
+            series_plans[plan.series_id] = []
+        series_plans[plan.series_id].append(plan)
+    
+    # Process each series separately
+    for series_plan_list in series_plans.values():
+        # Sort by display order to process in sequence
+        sorted_plans = sorted(series_plan_list, key=lambda p: p.display_order or 999)
+        
+        for i, plan in enumerate(sorted_plans):
+            if not plan.start_date:
+                # Plans without start date are not date-restricted, skip them
+                continue
+            
+            plan_start_date = plan.start_date.date() if hasattr(plan.start_date, 'date') else plan.start_date
+            
+            # Skip plans that haven't started yet
+            if today < plan_start_date:
+                continue
+            
+            # Look for the next plan in sequence to determine if current plan is still active
+            # If next plan has started, current plan becomes a "prior" plan
+            # If next plan hasn't started, current plan is still "active"
+            if i + 1 < len(sorted_plans):
+                next_plan = sorted_plans[i + 1]
+                if next_plan.start_date:
+                    next_plan_start_date = next_plan.start_date.date() if hasattr(next_plan.start_date, 'date') else next_plan.start_date
+                    # Whether next plan has started or not, we include current plan
+                    # as it's either prior (completed/should be completed) or currently active
+            
+            # Include the plan if it's either:
+            # 1. A prior plan (has started, and next plan has also started)
+            # 2. A current active plan (has started, but next plan hasn't started yet)
+            available_plans.append(plan)
+    
+    return available_plans
