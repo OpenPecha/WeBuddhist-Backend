@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from typing import Optional, List
 from datetime import datetime
-from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus,ContentType
+from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus, ContentType, PlanAudioType
 from uuid import UUID
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
@@ -30,6 +30,12 @@ class UpdatePlanRequest(BaseModel):
     start_date: Optional[datetime] = None
     series_id: Optional[UUID] = None
     display_order: Optional[int] = None
+
+class GeneratePlanAudioRequest(BaseModel):
+    plan_id: UUID
+    day: int
+    language:str
+    type: PlanAudioType = PlanAudioType.INSTRUCTION
 
 class PlanStatusUpdate(BaseModel):
     status: PlanStatus

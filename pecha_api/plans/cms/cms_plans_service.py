@@ -1,6 +1,11 @@
-import py_compile
+import struct
+from io import BytesIO
 from typing import Optional, List, Dict
 from starlette import status
+from pecha_api.plans.audio.tts_service import generate_tts_audio
+from pecha_api.plans.audio.plan_item_audio_models import PlanItemAudio
+from pecha_api.plans.audio.plan_item_audio_repository import upsert_plan_item_audio
+from pecha_api.plans.audio.sub_task_timestamps_repository import upsert_sub_task_timestamp
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
@@ -14,7 +19,7 @@ from pecha_api.plans.items.plan_items_repository import save_plan_items, get_pla
 from pecha_api.plans.users.plan_users_progress_repository import get_plan_progress
 from pecha_api.plans.authors.plan_authors_model import Author
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
-from pecha_api.plans.plans_enums import LanguageCode, PlanStatus, ContentType
+from pecha_api.plans.plans_enums import LanguageCode, PlanStatus, ContentType, PlanAudioType
 from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, CreatePlanRequest, TaskDTO, PlanDayDTO, \
     PlanWithDays, UpdatePlanRequest, PlanStatusUpdate, PlansRepositoryResponse, PlanWithAggregates, AuthorDTO, SubTaskDTO
     
@@ -25,7 +30,7 @@ from sqlalchemy.orm import Session
 
 from pecha_api.db.database import SessionLocal
 from pecha_api.config import get
-from pecha_api.uploads.S3_utils import generate_presigned_access_url
+from pecha_api.uploads.S3_utils import generate_presigned_access_url, upload_bytes
 from uuid import uuid4, UUID
 from fastapi import HTTPException
 from pecha_api.plans.auth.plan_auth_models import ResponseError
@@ -95,9 +100,134 @@ DUMMY_DAYS = [
     )
 ]
 
-async def generate_plan_audio_service(token: str, plan_id: UUID) :
-    current_author = validate_and_extract_author_details(token=token)
-    return []
+def _generate_audio_segments(
+    tasks, audio_type: PlanAudioType
+) -> tuple[List[bytes], list]:
+    wav_header_size = 44
+    audio_segments: List[bytes] = []
+    subtask_refs = []
+    for task in tasks:
+        subtask = task.sub_tasks[0] if task.sub_tasks else None
+        if not subtask:
+            continue
+        wav_bytes = generate_tts_audio(subtask.content, audio_type)
+        raw_pcm = wav_bytes[wav_header_size:]
+        audio_segments.append(raw_pcm)
+        subtask_refs.append(subtask)
+    return audio_segments, subtask_refs
+
+
+def _update_subtask_timestamps(
+    db: Session,
+    audio_segments: List[bytes],
+    subtask_refs: list,
+    sample_rate: int,
+    bytes_per_sample: int,
+) -> int:
+    current_offset_ms = 0
+    for i, raw_pcm in enumerate(audio_segments):
+        segment_samples = len(raw_pcm) // bytes_per_sample
+        segment_duration_ms = int((segment_samples / sample_rate) * 1000)
+        upsert_sub_task_timestamp(
+            db=db,
+            sub_task_id=subtask_refs[i].id,
+            start_ms=current_offset_ms,
+            end_ms=current_offset_ms + segment_duration_ms,
+            created_by="system",
+        )
+        current_offset_ms += segment_duration_ms
+    return current_offset_ms
+
+
+def _build_combined_wav(audio_segments: List[bytes]) -> tuple[bytes, int]:
+    sample_rate = 24000
+    bits_per_sample = 16
+    num_channels = 1
+    bytes_per_sample = bits_per_sample // 8
+
+    combined_pcm = b"".join(audio_segments)
+    block_align = num_channels * bytes_per_sample
+    byte_rate = sample_rate * block_align
+    data_size = len(combined_pcm)
+    chunk_size = 36 + data_size
+
+    wav_header = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF", chunk_size, b"WAVE",
+        b"fmt ", 16, 1, num_channels,
+        sample_rate, byte_rate, block_align, bits_per_sample,
+        b"data", data_size,
+    )
+    return wav_header + combined_pcm, data_size
+
+
+def _upload_and_persist_audio(
+    db: Session,
+    combined_wav: bytes,
+    duration_ms: int,
+    plan_id: UUID,
+    plan_item_id: UUID,
+) -> PlanItemAudio:
+    s3_key = f"audio/plan_days/{plan_id}/{plan_item_id}/{uuid4()}.wav"
+    upload_bytes(
+        bucket_name=get("AWS_BUCKET_NAME"),
+        s3_key=s3_key,
+        file=BytesIO(combined_wav),
+        content_type="audio/wav",
+    )
+    return upsert_plan_item_audio(
+        db=db,
+        plan_item_audio=PlanItemAudio(
+            plan_item_id=plan_item_id,
+            audio_key=s3_key,
+            duration_ms=duration_ms,
+            mime_type="audio/wav",
+            file_size_bytes=len(combined_wav),
+            created_by="system",
+        ),
+    )
+
+
+async def generate_plan_audio_service(plan_id: UUID, day: int, audio_type: PlanAudioType, language: str):
+
+    SAMPLE_RATE = 24000
+    BYTES_PER_SAMPLE = 2
+
+    with SessionLocal() as db:
+        plan_item: PlanItem = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day)
+
+        audio_segments, subtask_refs = _generate_audio_segments(plan_item.tasks, audio_type)
+        if not audio_segments:
+            return []
+
+        duration_ms = _update_subtask_timestamps(
+            db=db,
+            audio_segments=audio_segments,
+            subtask_refs=subtask_refs,
+            sample_rate=SAMPLE_RATE,
+            bytes_per_sample=BYTES_PER_SAMPLE,
+        )
+
+        combined_wav, _ = _build_combined_wav(audio_segments)
+
+        audio_row = _upload_and_persist_audio(
+            db=db,
+            combined_wav=combined_wav,
+            duration_ms=duration_ms,
+            plan_id=plan_id,
+            plan_item_id=plan_item.id,
+        )
+
+    audio_url = generate_presigned_access_url(
+        bucket_name=get("AWS_BUCKET_NAME"),
+        s3_key=audio_row.audio_key,
+    )
+
+    return {
+        "audio_url": audio_url,
+        "audio_duration_ms": audio_row.duration_ms,
+        "s3_key": audio_row.audio_key,
+    }
 
 async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, sort_order: str, skip: int, limit: int, tag: Optional[str] = None, language: Optional[str] = None) -> PlansResponse:
     # Validate token and author context (authorization can be extended later)

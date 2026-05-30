@@ -51,6 +51,11 @@ class SeriesStatus(enum.Enum):
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
 
+class PlanAudioType(enum.Enum):
+    RECITATION = "RECITATION"
+    INSTRUCTION = "INSTRUCTION"
+    TEXT_READING = "TEXT_READING"
+
 
 # SQLAlchemy enum types
 DifficultyLevelEnum = Enum(DifficultyLevel)
@@ -60,5 +65,6 @@ PlanStatusEnum = Enum(PlanStatus)
 LanguageCodeEnum = Enum(LanguageCode)
 EnrollmentSourceEnum = Enum(EnrollmentSource)
 SeriesStatusEnum = Enum(SeriesStatus)
+PlanAudioTypeEnum = Enum(PlanAudioType)
 
 
