@@ -31,7 +31,7 @@ from sqlalchemy.orm import Session
 
 from pecha_api.db.database import SessionLocal
 from pecha_api.config import get
-from pecha_api.uploads.S3_utils import generate_presigned_access_url, upload_bytes
+from pecha_api.uploads.S3_utils import generate_presigned_access_url, upload_bytes, download_bytes
 from uuid import uuid4, UUID
 from fastapi import HTTPException
 from pecha_api.plans.auth.plan_auth_models import ResponseError
@@ -114,8 +114,17 @@ def _generate_audio_segments(
             continue
         if subtask.content_type not in allowed_types:
             continue
-        wav_bytes = generate_tts_audio(subtask.content, audio_type)
-        raw_pcm = wav_bytes[wav_header_size:]
+
+        if subtask.audio_url:
+            existing_wav = download_bytes(
+                bucket_name=get("AWS_BUCKET_NAME"),
+                s3_key=subtask.audio_url,
+            )
+            raw_pcm = existing_wav[wav_header_size:]
+        else:
+            wav_bytes = generate_tts_audio(subtask.content, audio_type)
+            raw_pcm = wav_bytes[wav_header_size:]
+
         audio_segments.append(raw_pcm)
         subtask_refs.append(subtask)
     return audio_segments, subtask_refs

@@ -4,15 +4,17 @@ DEFAULT_VOICE_NAME = "Algenib"
 DEFAULT_ACCENT = "Neutral"
 
 RECITATION_SCENE = """## Scene:
- The Corporate Studio."""
+"""
 
 RECITATION_SAMPLE_CONTEXT = """## Sample Context:
-InstructionAal E-learning. Measured pacAing with clear pauses for clarity. Tone is authoritative, accessible, and articulate."""
+"""
 
 INSTRUCTION_SCENE = """## Scene:
+ The Corporate Studio.
 """
 
 INSTRUCTION_SAMPLE_CONTEXT = """## Sample Context:
+InstructionAal E-learning. Measured pacAing with clear pauses for clarity. Tone is authoritative, accessible, and articulate.
 ."""
 
 TEXT_READING_SCENE = """## Scene:
