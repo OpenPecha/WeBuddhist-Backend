@@ -1,6 +1,6 @@
 from pecha_api.plans.plans_enums import PlanAudioType
 
-DEFAULT_VOICE_NAME = "Achernar"
+DEFAULT_VOICE_NAME = "Algenib"
 DEFAULT_ACCENT = "Neutral"
 
 RECITATION_SCENE = """## Scene:
@@ -16,9 +16,11 @@ INSTRUCTION_SAMPLE_CONTEXT = """## Sample Context:
 ."""
 
 TEXT_READING_SCENE = """## Scene:
+It is dawn inside a vast, silent meditation hall nestled deep within a quiet forest monastery. A senior monk sits perfectly upright, speaking to a small circle of practitioners. The room possesses a subtle, warm, and spacious acoustic resonance. The atmosphere demands an organic, deeply grounded, and entirely unhurried delivery, where every word is heavy with presence.
 """
 
 TEXT_READING_SAMPLE_CONTEXT = """## Sample Context:
+This voice profile is the definitive standard for serene scriptural readings, timeless philosophical translations, and monastic audiobooks where the listener requires immense breathing room to contemplate profound truths
 """
 
 AUDIO_TYPE_CONFIGS = {
@@ -35,7 +37,7 @@ AUDIO_TYPE_CONFIGS = {
         "sample_context": INSTRUCTION_SAMPLE_CONTEXT,
     },
     PlanAudioType.TEXT_READING: {
-        "style": "Clear, warm, natural tone with appropriate intonation",
+        "style": "Warm, understanding, soft tone with gentle inflections. Pace: Natural conversational pace.",
         "pace": "Natural comfortable reading pace",
         "scene": TEXT_READING_SCENE,
         "sample_context": TEXT_READING_SAMPLE_CONTEXT,
