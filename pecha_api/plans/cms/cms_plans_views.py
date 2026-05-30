@@ -8,7 +8,7 @@ from typing import Annotated
 from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, CreatePlanRequest, PlanWithDays, UpdatePlanRequest, \
     PlanStatusUpdate, PlanDayDTO
 from pecha_api.plans.cms.cms_plans_service import get_filtered_plans, create_new_plan, get_details_plan, update_plan_details, \
-    delete_selected_plan, update_plan_featured_service, update_selected_plan_status, get_plan_day_details
+    delete_selected_plan, update_plan_featured_service, update_selected_plan_status, get_plan_day_details, generate_plan_audio_service
 from pecha_api.plans.plans_enums import SortBy, SortOrder
 from pecha_api.plans.audio.cms_plan_audio_service import get_cms_plan_audio_list
 from pecha_api.plans.audio.plan_audio_response_models import PlanAudioListResponse
@@ -65,6 +65,15 @@ async def list_plan_audio(
         limit=limit,
     )
 
+@cms_plans_router.post("/audio/generate", status_code=status.HTTP_200_OK, response_model=PlanAudioListResponse)
+async def generate_plan_audio(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    plan_id: UUID,
+):
+    return generate_plan_audio_service(
+        token=authentication_credential.credentials,
+        plan_id=plan_id,
+    )
 
 @cms_plans_router.get("/{plan_id}", status_code=status.HTTP_200_OK, response_model=PlanWithDays)
 async def get_plan_details(authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],

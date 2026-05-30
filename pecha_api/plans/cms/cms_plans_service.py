@@ -95,6 +95,9 @@ DUMMY_DAYS = [
     )
 ]
 
+async def generate_plan_audio_service(token: str, plan_id: UUID) :
+    current_author = validate_and_extract_author_details(token=token)
+    return []
 
 async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, sort_order: str, skip: int, limit: int, tag: Optional[str] = None, language: Optional[str] = None) -> PlansResponse:
     # Validate token and author context (authorization can be extended later)
