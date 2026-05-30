@@ -3,7 +3,10 @@ import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-from pecha_api.plans.dashboard.dashboard_service import get_dashboard_items_list
+from pecha_api.plans.dashboard.dashboard_service import (
+    get_dashboard_items_list,
+    get_practice_items_list,
+)
 from pecha_api.plans.plans_enums import PlanStatus
 
 
@@ -304,3 +307,62 @@ def test_get_dashboard_items_list_empty_metadata_and_default_plan_title():
     assert result.items[1].title == ""
     assert result.pagination.total == 25
     assert result.pagination.total_pages == 3
+
+
+def test_get_practice_items_list_forces_published_and_public_scope():
+    series_row = _make_series_row()
+
+    with patch(
+        "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
+    ) as mock_session_local, patch(
+        "pecha_api.plans.dashboard.dashboard_service.get_dashboard_items",
+        return_value=([series_row], 1),
+    ) as mock_repo, patch(
+        "pecha_api.plans.dashboard.dashboard_service.get",
+        return_value="test-bucket",
+    ), patch(
+        "pecha_api.plans.dashboard.dashboard_service.generate_presigned_access_url",
+        return_value="https://signed.example/cover.jpg",
+    ):
+        _session_local_context(mock_session_local)
+        result = get_practice_items_list(
+            tab="series",
+            page=1,
+            page_size=20,
+            search="found",
+            language="en",
+            featured=True,
+        )
+
+    kwargs = mock_repo.call_args.kwargs
+    assert kwargs["status"] == PlanStatus.PUBLISHED
+    assert kwargs["author_id"] is None
+    assert kwargs["tab"] == "series"
+    assert kwargs["search"] == "found"
+    assert kwargs["language"] == "en"
+    assert kwargs["featured"] is True
+    assert result.items[0].author_id is None
+    assert result.items[0].image_url == "https://signed.example/cover.jpg"
+    assert result.pagination.total == 1
+    assert result.pagination.total_pages == 1
+
+
+def test_get_practice_items_list_clamps_page_and_page_size():
+    with patch(
+        "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
+    ) as mock_session_local, patch(
+        "pecha_api.plans.dashboard.dashboard_service.get_dashboard_items",
+        return_value=([], 0),
+    ) as mock_repo:
+        _session_local_context(mock_session_local)
+        result = get_practice_items_list(
+            tab="all",
+            page=0,
+            page_size=-5,
+        )
+
+    assert mock_repo.call_args.kwargs["page"] == 1
+    assert mock_repo.call_args.kwargs["page_size"] == 1
+    assert result.pagination.page == 1
+    assert result.pagination.page_size == 1
+    assert result.pagination.total_pages == 0
