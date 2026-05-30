@@ -1,5 +1,6 @@
 import json
 from typing import List, Optional
+from uuid import UUID
 
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
@@ -12,7 +13,9 @@ from pecha_api.plans.dashboard.dashboard_response_models import (
     DashboardTab,
 )
 from pecha_api.plans.plans_enums import PlanStatus
+from pecha_api.plans.series.series_repository import get_series_with_plans_by_ids
 from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
+from pecha_api.plans.series.series_service import _get_sorted_active_plans, _plan_to_dto
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 
@@ -121,6 +124,16 @@ def _row_to_public_dto(row) -> DashboardItemDTO:
     return _row_to_dto(row).model_copy(update={"author_id": None})
 
 
+def _published_plans_by_series(db_session, series_ids: List[UUID]) -> dict:
+    return {
+        series.id: [
+            _plan_to_dto(plan)
+            for plan in _get_sorted_active_plans(series.plans, published_only=True)
+        ]
+        for series in get_series_with_plans_by_ids(db_session, series_ids)
+    }
+
+
 def get_practice_items_list(
     tab: DashboardTab,
     page: int,
@@ -145,7 +158,14 @@ def get_practice_items_list(
             author_id=None,
         )
 
-    items = [_row_to_public_dto(row) for row in rows]
+        items = [_row_to_public_dto(row) for row in rows]
+        series_ids = [item.id for item in items if item.type == "series"]
+        plans_by_series = _published_plans_by_series(db_session, series_ids)
+
+    for item in items:
+        if item.type == "series":
+            item.plans = plans_by_series.get(item.id, [])
+
     return DashboardItemsResponse(
         items=items,
         pagination=DashboardPaginationDTO(
