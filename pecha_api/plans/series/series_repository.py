@@ -48,6 +48,20 @@ def get_series_by_ids(db: Session, series_ids: List[UUID]) -> List[Series]:
     )
 
 
+def get_series_with_plans_by_ids(db: Session, series_ids: List[UUID]) -> List[Series]:
+    if not series_ids:
+        return []
+    return (
+        db.query(Series)
+        .options(
+            selectinload(Series.plans).selectinload(Plan.items),
+            selectinload(Series.plans).selectinload(Plan.tag_list),
+        )
+        .filter(Series.id.in_(series_ids), Series.deleted_at.is_(None))
+        .all()
+    )
+
+
 def get_plans_by_ids(db: Session, plan_ids: List[UUID]) -> List[Plan]:
     if not plan_ids:
         return []

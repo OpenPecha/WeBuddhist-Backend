@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, model_serializer
 
 from pecha_api.plans.plans_enums import PlanStatus
-from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
+from pecha_api.plans.series.series_response_models import SeriesMetadataDTO, SeriesPlanDTO
 
 DashboardTab = Literal["all", "series", "plans"]
 DashboardItemType = Literal["series", "plan"]
@@ -16,6 +16,7 @@ class DashboardItemDTO(BaseModel):
     type: DashboardItemType
     title: Optional[str] = None
     metadata: Optional[List[SeriesMetadataDTO]] = None
+    plans: Optional[List[SeriesPlanDTO]] = None
     author_id: Optional[UUID] = None
     image_url: Optional[str] = None
     image_key: Optional[str] = None
@@ -32,6 +33,8 @@ class DashboardItemDTO(BaseModel):
         data = serializer(self)
         if self.type == "series":
             data.pop("title", None)
+        if self.plans is None:
+            data.pop("plans", None)
         return data
 
 
