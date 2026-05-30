@@ -13,7 +13,7 @@ class PlanSubTask(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     task_id = Column(UUID(as_uuid=True), ForeignKey('tasks.id', ondelete='CASCADE'), nullable=False)
-
+    audio_url = Column(String(255), nullable=True)
     content_type = Column(ContentTypeEnum, nullable=False)
     content = Column(Text, nullable=True)
     duration=Column(String(255), nullable=True)

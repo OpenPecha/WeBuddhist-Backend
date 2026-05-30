@@ -590,6 +590,10 @@ def _get_user_sub_tasks_dto_bulk(sub_tasks: List[PlanSubTask], completed_subtask
     result = []
     for sub_task in sub_tasks:
         start_ms, end_ms = build_subtask_timestamp_fields(sub_task)
+        audio_url = (
+            _get_presigned_url(content=sub_task.audio_url)
+            if sub_task.audio_url else None
+        )
         result.append(
             UserSubTaskDTO(
                 id=sub_task.id,
@@ -598,6 +602,7 @@ def _get_user_sub_tasks_dto_bulk(sub_tasks: List[PlanSubTask], completed_subtask
                 duration=sub_task.duration,
                 display_order=sub_task.display_order,
                 is_completed=(sub_task.id in completed_subtask_ids),
+                audio_url=audio_url,
                 source_text_id=sub_task.source_text_id,
                 pecha_segment_id=sub_task.pecha_segment_id,
                 segment_ids=sub_task.segment_ids,
