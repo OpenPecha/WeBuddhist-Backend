@@ -98,10 +98,7 @@ def _apply_series_filters(
             exists(
                 select(literal(1)).where(
                     SeriesMetadata.series_id == Series.id,
-                    or_(
-                        SeriesMetadata.title.ilike(f"%{search}%"),
-                        SeriesMetadata.description.ilike(f"%{search}%"),
-                    ),
+                    SeriesMetadata.title.ilike(f"%{search}%"),
                 )
             )
         )
@@ -147,12 +144,7 @@ def _apply_plan_filters(
     if author_id is not None:
         query = query.filter(Plan.author_id == author_id)
     if search:
-        query = query.filter(
-            or_(
-                Plan.title.ilike(f"%{search}%"),
-                Plan.description.ilike(f"%{search}%"),
-            )
-        )
+        query = query.filter(Plan.title.ilike(f"%{search}%"))
     if status is not None:
         query = query.filter(Plan.status == status)
     if featured is not None:
