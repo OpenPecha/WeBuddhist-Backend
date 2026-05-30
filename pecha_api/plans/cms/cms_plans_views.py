@@ -24,12 +24,12 @@ cms_plans_router = APIRouter(
 @cms_plans_router.get("", status_code=status.HTTP_200_OK, response_model=PlansResponse)
 async def get_plans(
         authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-        search: Optional[str] = Query(default=None, description="Search by plan title"),
-        language: Optional[str] = Query(default=None, description="Filter by language code (e.g., 'bo', 'en', 'zh')"),
-        sort_by: str = Query(default=SortBy.TOTAL_DAYS),
-        sort_order: str = Query(default=SortOrder.ASC),
-        skip: int = Query(default=0),
-        limit: int = Query(default=10)
+        search: Annotated[Optional[str], Query(description="Search by plan title")] = None,
+        language: Annotated[Optional[str], Query(description="Filter by language code (e.g., 'bo', 'en', 'zh')")] = None,
+        sort_by: Annotated[str, Query()] = SortBy.TOTAL_DAYS,
+        sort_order: Annotated[str, Query()] = SortOrder.ASC,
+        skip: Annotated[int, Query()] = 0,
+        limit: Annotated[int, Query()] = 10,
 ):
     return await get_filtered_plans(
         token=authentication_credential.credentials,
