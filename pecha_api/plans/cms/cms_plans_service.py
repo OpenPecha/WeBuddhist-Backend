@@ -101,6 +101,9 @@ DUMMY_DAYS = [
     )
 ]
 
+WAV_CONTENT_TYPE = "audio/wav"
+
+
 def _generate_audio_segments(
     tasks, audio_type: PlanAudioType
 ) -> tuple[List[bytes], list]:
@@ -186,7 +189,7 @@ def _upload_and_persist_audio(
         bucket_name=get("AWS_BUCKET_NAME"),
         s3_key=s3_key,
         file=BytesIO(combined_wav),
-        content_type="audio/wav",
+        content_type=WAV_CONTENT_TYPE,
     )
     return upsert_plan_item_audio(
         db=db,
@@ -194,7 +197,7 @@ def _upload_and_persist_audio(
             plan_item_id=plan_item_id,
             audio_key=s3_key,
             duration_ms=duration_ms,
-            mime_type="audio/wav",
+            mime_type=WAV_CONTENT_TYPE,
             file_size_bytes=len(combined_wav),
             created_by="system",
         ),
@@ -286,7 +289,7 @@ async def _generate_subtask_audio(sub_task_id: UUID, audio_type: PlanAudioType):
             bucket_name=get("AWS_BUCKET_NAME"),
             s3_key=s3_key,
             file=BytesIO(combined_wav),
-            content_type="audio/wav",
+            content_type=WAV_CONTENT_TYPE,
         )
 
         subtask.audio_url = s3_key
