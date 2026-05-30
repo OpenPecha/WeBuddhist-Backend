@@ -193,10 +193,10 @@ def _upload_and_persist_audio(
 
 
 async def generate_plan_audio_service(
-    audio_type: PlanAudioType,
     language: str,
     day_id: Optional[UUID] = None,
     sub_task_id: Optional[UUID] = None,
+    audio_type: PlanAudioType = PlanAudioType.TEXT_READING,
 ):
     if sub_task_id:
         return await _generate_subtask_audio(sub_task_id=sub_task_id, audio_type=audio_type)

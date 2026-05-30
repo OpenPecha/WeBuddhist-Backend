@@ -35,7 +35,7 @@ class GeneratePlanAudioRequest(BaseModel):
     day_id: Optional[UUID] = None
     sub_task_id: Optional[UUID] = None
     language: str
-    type: PlanAudioType = PlanAudioType.INSTRUCTION
+    type: Optional[PlanAudioType] = PlanAudioType.TEXT_READING
 
     @model_validator(mode="after")
     def validate_either_day_or_subtask(self):
