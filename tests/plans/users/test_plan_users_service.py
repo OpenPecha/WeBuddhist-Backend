@@ -410,7 +410,6 @@ async def test_get_user_enrolled_plans_success():
 
     mock_user = SimpleNamespace(id=user_id)
     progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
-    enrollment = SimpleNamespace(series_id=series_id)
     language = SimpleNamespace(value="EN")
     difficulty = SimpleNamespace(value="BEGINNER")
     plan = SimpleNamespace(
@@ -439,11 +438,8 @@ async def test_get_user_enrolled_plans_success():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_series_enrollments_for_plans",
-        return_value=[enrollment],
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.get_plans_by_series_ids_with_tags",
-        return_value=[plan],
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=([plan], 1),
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
         return_value={plan_id: progress},
@@ -488,7 +484,6 @@ async def test_get_user_enrolled_plans_with_status_filter():
     series_id = uuid.uuid4()
     mock_user = SimpleNamespace(id=user_id)
     progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
-    enrollment = SimpleNamespace(series_id=series_id)
     plan = SimpleNamespace(
         id=plan_id,
         series_id=series_id,
@@ -515,15 +510,12 @@ async def test_get_user_enrolled_plans_with_status_filter():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_series_enrollments_for_plans",
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
     ) as mock_repo, patch(
-        "pecha_api.plans.users.plan_users_service.get_plans_by_series_ids_with_tags",
-        return_value=[plan],
-    ), patch(
         "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
         return_value={plan_id: progress},
     ):
-        mock_repo.return_value = [enrollment]
+        mock_repo.return_value = ([plan], 1)
 
         result = await get_user_enrolled_plans(
             token="token123", status_filter="active", skip=0, limit=20
@@ -541,32 +533,29 @@ async def test_get_user_enrolled_plans_with_pagination():
     user_id = uuid.uuid4()
     series_id = uuid.uuid4()
     mock_user = SimpleNamespace(id=user_id)
-    enrollment = SimpleNamespace(series_id=series_id)
 
-    all_plans = []
-    plan_ids = []
+    paginated_plans = []
     days_count_results = []
-    for i in range(50):
+    for i in range(10):
         pid = uuid.uuid4()
-        plan_ids.append(pid)
         plan = SimpleNamespace(
             id=pid,
             series_id=series_id,
-            title=f"Plan {i}",
+            title=f"Plan {i + 10}",
             description="Test",
             language=SimpleNamespace(value="EN"),
             difficulty_level=SimpleNamespace(value="BEGINNER"),
             image_url=None,
             tag_list=[],
             start_date=None,
-            display_order=i,
+            display_order=i + 10,
             created_at=datetime.now(timezone.utc),
         )
-        all_plans.append(plan)
+        paginated_plans.append(plan)
         days_count_results.append(SimpleNamespace(plan_id=pid, total_days=10))
 
     db_mock, session_cm = _mock_session_with_db()
-    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = days_count_results[10:20]
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = days_count_results
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
@@ -575,11 +564,8 @@ async def test_get_user_enrolled_plans_with_pagination():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_series_enrollments_for_plans",
-        return_value=[enrollment],
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.get_plans_by_series_ids_with_tags",
-        return_value=all_plans,
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=(paginated_plans, 50),
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
         return_value={},
@@ -610,8 +596,8 @@ async def test_get_user_enrolled_plans_empty_result():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_series_enrollments_for_plans",
-        return_value=[],
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=([], 0),
     ):
         result = await get_user_enrolled_plans(
             token="tok", status_filter=None, skip=0, limit=20
@@ -631,10 +617,8 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
     user_id = uuid.uuid4()
     series_id = uuid.uuid4()
     plan_id_1 = uuid.uuid4()
-    plan_id_2 = uuid.uuid4()
 
     progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
-    enrollment = SimpleNamespace(series_id=series_id)
     plan1 = SimpleNamespace(
         id=plan_id_1,
         series_id=series_id,
@@ -646,19 +630,6 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
         tag_list=[],
         start_date=None,
         display_order=1,
-        created_at=datetime.now(timezone.utc),
-    )
-    plan2 = SimpleNamespace(
-        id=plan_id_2,
-        series_id=series_id,
-        title="Plan 2",
-        description="Desc",
-        language=SimpleNamespace(value="EN"),
-        difficulty_level=SimpleNamespace(value="BEGINNER"),
-        image_url=None,
-        tag_list=[],
-        start_date=None,
-        display_order=2,
         created_at=datetime.now(timezone.utc),
     )
 
@@ -674,11 +645,8 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_series_enrollments_for_plans",
-        return_value=[enrollment],
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.get_plans_by_series_ids_with_tags",
-        return_value=[plan1, plan2],
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=([plan1], 2),
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
         return_value={plan_id_1: progress},

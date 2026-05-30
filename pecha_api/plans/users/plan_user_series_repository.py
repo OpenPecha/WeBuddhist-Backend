@@ -204,3 +204,53 @@ def get_plans_by_series_ids_with_tags(
         )
         .all()
     )
+
+
+def get_paginated_plans_from_enrolled_series(
+    db: Session,
+    user_id: UUID,
+    status_filter: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20
+) -> Tuple[List[Plan], int]:
+    from sqlalchemy.orm import selectinload
+    from sqlalchemy import func, case, literal
+    
+    enrollment_query = db.query(
+        UserSeriesEnrollment.series_id,
+        UserSeriesEnrollment.enrolled_at
+    ).filter(
+        UserSeriesEnrollment.user_id == user_id
+    )
+    
+    if status_filter:
+        enrollment_query = enrollment_query.filter(
+            UserSeriesEnrollment.status == status_filter
+        )
+    
+    enrollment_subquery = enrollment_query.subquery()
+    
+    base_query = (
+        db.query(Plan)
+        .join(enrollment_subquery, Plan.series_id == enrollment_subquery.c.series_id)
+        .filter(Plan.deleted_at.is_(None))
+    )
+    
+    total = base_query.count()
+    
+    if total == 0:
+        return [], 0
+    
+    plans = (
+        base_query
+        .options(selectinload(Plan.tag_list))
+        .order_by(
+            desc(enrollment_subquery.c.enrolled_at),
+            asc(func.coalesce(Plan.display_order, 999))
+        )
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    
+    return plans, total

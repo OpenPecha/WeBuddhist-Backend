@@ -90,8 +90,7 @@ from pecha_api.plans.users.plan_user_series_repository import (
     get_first_plan_in_series,
     get_plans_by_series_id,
     get_plans_by_series_ids,
-    get_user_series_enrollments_for_plans,
-    get_plans_by_series_ids_with_tags,
+    get_paginated_plans_from_enrolled_series,
 )
 from pecha_api.plans.series.series_repository import get_series_by_ids, get_plans_by_ids
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
@@ -218,46 +217,23 @@ async def get_user_enrolled_plans(token: str, status_filter: Optional[str] = Non
     normalized_status = status_filter.upper() if status_filter else None
     
     with SessionLocal() as db:
-        enrollments = get_user_series_enrollments_for_plans(
+        plans, total = get_paginated_plans_from_enrolled_series(
             db=db,
             user_id=current_user.id,
-            status_filter=normalized_status
+            status_filter=normalized_status,
+            skip=skip,
+            limit=limit
         )
         
-        if not enrollments:
+        if not plans:
             return UserPlansResponse(
                 plans=[],
                 skip=skip,
                 limit=limit,
-                total=0
+                total=total
             )
         
-        series_ids = [enrollment.series_id for enrollment in enrollments]
-        
-        all_plans = get_plans_by_series_ids_with_tags(db=db, series_ids=series_ids)
-        
-        if not all_plans:
-            return UserPlansResponse(
-                plans=[],
-                skip=skip,
-                limit=limit,
-                total=0
-            )
-        
-        series_order = {e.series_id: idx for idx, e in enumerate(enrollments)}
-        
-        sorted_plans = sorted(
-            all_plans,
-            key=lambda p: (
-                series_order.get(p.series_id, 999),
-                p.display_order if p.display_order is not None else 999
-            )
-        )
-        
-        total = len(sorted_plans)
-        paginated_plans = sorted_plans[skip:skip + limit]
-        
-        plan_ids = [plan.id for plan in paginated_plans]
+        plan_ids = [plan.id for plan in plans]
         
         days_count_query = (
             db.query(PlanItem.plan_id, func.count(PlanItem.id).label('total_days'))
@@ -272,7 +248,7 @@ async def get_user_enrolled_plans(token: str, status_filter: Optional[str] = Non
         enrolled_plans = []
         bucket_name = get("AWS_BUCKET_NAME")
         
-        for plan in paginated_plans:
+        for plan in plans:
             image_url = ""
             if plan.image_url:
                 try:
