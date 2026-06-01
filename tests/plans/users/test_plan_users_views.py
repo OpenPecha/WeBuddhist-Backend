@@ -1,7 +1,7 @@
 import uuid
 import pytest
 from unittest.mock import patch, AsyncMock
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
 from fastapi.security import HTTPAuthorizationCredentials

@@ -48,13 +48,40 @@ services:
       - dragonflydata:/data
 
       
+  # Add your API service with memory limits
+  pecha-api:
+    build: ../
+    container_name: pecha-api
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://admin:pechaAdmin@db-local:5432/pecha
+      - MONGO_CONNECTION_STRING=mongodb://admin:pechaAdmin@mongo-local:27017/pecha?authSource=admin
+      - CACHE_CONNECTION_STRING=redis://dragonfly:6379
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db-local
+      - mongo-local
+      - dragonfly
+      - elasticsearch
+    networks:
+      - pecha-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G        # Limit to 1GB RAM
+          cpus: '1.0'       # Limit to 1 CPU
+        reservations:
+          memory: 512M      # Reserve 512MB RAM
+          cpus: '0.5'       # Reserve 0.5 CPU
+
   elasticsearch:
       image: docker.elastic.co/elasticsearch/elasticsearch:9.0.2
       container_name: pecha-elasticsearch
       environment:
         - discovery.type=single-node
         - xpack.security.enabled=false
-        - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+        - "ES_JAVA_OPTS=-Xms256m -Xmx512m"  # Reduced memory allocation
       ports:
         - "9200:9200"
         - "9300:9300"
@@ -62,6 +89,12 @@ services:
         - elasticsearch-data:/usr/share/elasticsearch/data
       networks:
         - pecha-network
+      deploy:
+        resources:
+          limits:
+            memory: 1G
+          reservations:
+            memory: 512M
       ulimits:
         memlock:
           soft: -1

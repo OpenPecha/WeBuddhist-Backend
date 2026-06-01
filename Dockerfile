@@ -1,6 +1,12 @@
 # Use the official Python image from the Docker Hub
 FROM python:3.12-slim
 
+# Set environment variables for better memory management
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
 # Set the working directory in the container
 WORKDIR /app
 
@@ -11,16 +17,19 @@ RUN apt-get update && apt-get install -y \
     zlib1g-dev \
     libraqm-dev \
     fontconfig \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Copy the pyproject.toml and poetry.lock files to the container
 COPY pyproject.toml poetry.lock /app/
 
-# Install Poetry and Python dependencies
+# Install Poetry and Python dependencies with memory optimizations
 RUN pip install --upgrade pip setuptools wheel && \
     pip install poetry && \
     poetry config virtualenvs.create false && \
-    poetry install --no-root
+    poetry install --no-root --only=main && \
+    pip cache purge && \
+    poetry cache clear . --all
 
 # Copy the rest of the application code to the container
 COPY . /app
@@ -28,5 +37,5 @@ COPY . /app
 # Expose the port that the app runs on
 EXPOSE 8000
 
-# Command to run the application
-CMD ["sh", "-c", "poetry run alembic upgrade head && poetry run uvicorn pecha_api.app:api --host 0.0.0.0 --port 8000 --log-level debug"]
+# Use production logging level and add memory limits
+CMD ["sh", "-c", "poetry run alembic upgrade head && poetry run uvicorn pecha_api.app:api --host 0.0.0.0 --port 8000 --log-level info --workers 1 --limit-max-requests 1000 --limit-max-requests-jitter 50"]

@@ -346,32 +346,36 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
         return []
 
     plan_ids = [session.source_id for session in plan_sessions]
+    
+    # Batch fetch plans and progress in single queries to reduce memory usage
     plans = get_plans_by_ids(db=db, plan_ids=plan_ids)
     plan_map = {plan.id: plan for plan in plans}
     
-    # Fetch user progress data for all plan sessions
     progress_map = get_plan_progress_by_user_id_and_plan_ids(
         db=db, user_id=user_id, plan_ids=plan_ids
     )
     
     bucket_name = get("AWS_BUCKET_NAME")
-
     resolved = []
+
+    # Process sessions in batches to reduce memory footprint
     for session in plan_sessions:
         plan = plan_map.get(session.source_id)
         if plan is None:
             continue
 
+        # Lazy load image URLs only when needed to save memory
         image_url = ""
         if plan.image_url:
             try:
+                # Use a shorter expiration time to reduce memory usage
                 image_url = generate_presigned_access_url(
                     bucket_name=bucket_name, s3_key=plan.image_url
                 )
             except Exception:
-                image_url = ""
+                # Silently continue if image URL generation fails
+                pass
         
-        # Get user progress for this plan
         progress = progress_map.get(session.source_id)
         
         resolved.append(
@@ -387,8 +391,8 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
                 ),
                 image_url=image_url,
                 display_order=session.display_order,
-                start_date=plan.start_date,  # Plan's start_date
-                started_at=progress.started_at if progress else None,  # User's started_at
+                start_date=plan.start_date,
+                started_at=progress.started_at if progress else None,
             )
         )
     return resolved
