@@ -40,8 +40,8 @@ def _group_detail() -> AuthorGroupDetailDTO:
         members=[],
         tags=[],
         social_links=[],
-        series_ids=[],
-        plan_ids=[],
+        series=[],
+        plans=[],
         follower_count=0,
     )
 

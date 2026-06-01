@@ -5,6 +5,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 from starlette import status
 
 from pecha_api.config import get
@@ -19,6 +20,11 @@ from pecha_api.plans.groups.groups_models import (
     AuthorGroupMetadata,
     AuthorGroupSocialLink,
 )
+from pecha_api.plans.plans_enums import PlanStatus
+from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.cms.cms_plans_repository import get_plans_with_aggregates_by_ids
+from pecha_api.plans.plans_response_models import AuthorDTO, PlanDTO, PlanWithAggregates
+from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.groups.groups_repository import (
     add_group_member,
     create_group,
@@ -46,6 +52,9 @@ from pecha_api.plans.groups.groups_repository import (
     update_group,
     upsert_group_follow,
 )
+from pecha_api.plans.series.series_repository import get_active_plan_count_map_by_series_ids
+from pecha_api.plans.series.series_response_models import SeriesListItemDTO
+from pecha_api.plans.series.series_service import _series_to_list_item_dto
 from pecha_api.plans.groups.groups_response_models import (
     AcceptGroupInviteRequest,
     AuthorGroupDetailDTO,
@@ -179,6 +188,72 @@ def _validate_group_links(db, tag_ids: Optional[List[UUID]], series_ids: Optiona
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="One or more plans do not exist")
 
 
+def _series_to_dtos(db: Session, series_list: List[Series]) -> List[SeriesListItemDTO]:
+    if not series_list:
+        return []
+    series_ids = [series.id for series in series_list]
+    plan_count_map = get_active_plan_count_map_by_series_ids(db=db, series_ids=series_ids)
+    return [
+        _series_to_list_item_dto(series, plan_count=plan_count_map.get(series.id, 0))
+        for series in series_list
+    ]
+
+
+def _language_value(language) -> str:
+    if language is None:
+        return "EN"
+    if hasattr(language, "value"):
+        return language.value
+    return str(language)
+
+
+def _plan_aggregate_to_dto(plan_info: PlanWithAggregates, group_id: UUID) -> PlanDTO:
+    plan = plan_info.plan
+    author_dto = None
+    if plan.author:
+        author_dto = AuthorDTO(
+            id=plan.author_id,
+            firstname=plan.author.first_name,
+            lastname=plan.author.last_name,
+            image_url=_generate_group_asset_url(plan.author.image_url),
+            image_key=plan.author.image_url,
+        )
+    return PlanDTO(
+        id=plan.id,
+        title=plan.title,
+        description=plan.description,
+        language=_language_value(plan.language),
+        difficulty_level=plan.difficulty_level,
+        image_url=_generate_group_asset_url(plan.image_url),
+        image_key=plan.image_url,
+        total_days=int(plan_info.total_days or 0),
+        tags=tags_to_summary_dtos(plan.tag_list),
+        status=PlanStatus(plan.status.value),
+        featured=bool(plan.featured),
+        subscription_count=int(plan_info.subscription_count or 0),
+        author=author_dto,
+        start_date=plan.start_date,
+        series_id=plan.series_id,
+        display_order=plan.display_order,
+        group_id=group_id,
+    )
+
+
+def _plans_to_dtos(db: Session, plan_list: List[Plan], group_id: UUID) -> List[PlanDTO]:
+    if not plan_list:
+        return []
+    plan_ids = [plan.id for plan in plan_list]
+    aggregate_by_id = {
+        item.plan.id: item
+        for item in get_plans_with_aggregates_by_ids(db=db, plan_ids=plan_ids)
+    }
+    return [
+        _plan_aggregate_to_dto(aggregate_by_id[plan.id], group_id=group_id)
+        for plan in plan_list
+        if plan.id in aggregate_by_id
+    ]
+
+
 def _group_to_summary(group: AuthorGroup, follower_count: int = 0) -> AuthorGroupSummaryDTO:
     return AuthorGroupSummaryDTO(
         id=group.id,
@@ -191,7 +266,18 @@ def _group_to_summary(group: AuthorGroup, follower_count: int = 0) -> AuthorGrou
     )
 
 
-def _group_to_detail(group: AuthorGroup, follower_count: int = 0) -> AuthorGroupDetailDTO:
+def _group_to_detail(
+    group: AuthorGroup,
+    follower_count: int = 0,
+    db: Optional[Session] = None,
+) -> AuthorGroupDetailDTO:
+    if db is not None:
+        series_dtos = _series_to_dtos(db=db, series_list=list(group.series))
+        plans_dtos = _plans_to_dtos(db=db, plan_list=list(group.plans), group_id=group.id)
+    else:
+        series_dtos = [_series_to_list_item_dto(series) for series in group.series]
+        plans_dtos = []
+
     return AuthorGroupDetailDTO(
         id=group.id,
         slug=group.slug,
@@ -204,8 +290,8 @@ def _group_to_detail(group: AuthorGroup, follower_count: int = 0) -> AuthorGroup
         members=_members_to_dtos(group.members),
         tags=tags_to_summary_dtos(group.tags),
         social_links=_social_links_to_dtos(group.social_links),
-        series_ids=[series.id for series in group.series],
-        plan_ids=[plan.id for plan in group.plans],
+        series=series_dtos,
+        plans=plans_dtos,
         follower_count=follower_count,
     )
 
@@ -242,7 +328,7 @@ def create_author_group(token: str, request: CreateAuthorGroupRequest) -> Author
         )
         created = create_group(db=db, group=group, metadata_entries=metadata_entries, owner_member=owner_member)
         loaded = get_group_by_id(db=db, group_id=created.id)
-        return _group_to_detail(loaded, follower_count=0)
+        return _group_to_detail(loaded, follower_count=0, db=db)
 
 
 def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRequest) -> AuthorGroupDetailDTO:
@@ -287,7 +373,7 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
         update_group(db=db, group=group)
         loaded = get_group_by_id(db=db, group_id=group_id)
         followers_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(group=loaded, follower_count=followers_count)
+        return _group_to_detail(group=loaded, follower_count=followers_count, db=db)
 
 
 def get_author_group_detail(group_id: UUID, require_public: bool = True) -> AuthorGroupDetailDTO:
@@ -298,7 +384,7 @@ def get_author_group_detail(group_id: UUID, require_public: bool = True) -> Auth
         if require_public and not group.is_public:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(group=group, follower_count=follower_count)
+        return _group_to_detail(group=group, follower_count=follower_count, db=db)
 
 
 def get_cms_group_detail(token: str, group_id: UUID) -> AuthorGroupDetailDTO:
@@ -310,7 +396,7 @@ def get_cms_group_detail(token: str, group_id: UUID) -> AuthorGroupDetailDTO:
         if not author.is_admin:
             _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(group=group, follower_count=follower_count)
+        return _group_to_detail(group=group, follower_count=follower_count, db=db)
 
 
 def list_public_groups(
@@ -388,7 +474,7 @@ def replace_group_tags(token: str, group_id: UUID, request: ReplaceGroupTagsRequ
         db.commit()
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count)
+        return _group_to_detail(loaded, follower_count=follower_count, db=db)
 
 
 def replace_group_social_links_by_id(
@@ -409,7 +495,7 @@ def replace_group_social_links_by_id(
         db.commit()
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count)
+        return _group_to_detail(loaded, follower_count=follower_count, db=db)
 
 
 def replace_group_series_by_id(token: str, group_id: UUID, request: ReplaceGroupSeriesRequest) -> AuthorGroupDetailDTO:
@@ -426,7 +512,7 @@ def replace_group_series_by_id(token: str, group_id: UUID, request: ReplaceGroup
         db.commit()
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count)
+        return _group_to_detail(loaded, follower_count=follower_count, db=db)
 
 
 def replace_group_plans_by_id(token: str, group_id: UUID, request: ReplaceGroupPlansRequest) -> AuthorGroupDetailDTO:
@@ -443,7 +529,7 @@ def replace_group_plans_by_id(token: str, group_id: UUID, request: ReplaceGroupP
         db.commit()
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count)
+        return _group_to_detail(loaded, follower_count=follower_count, db=db)
 
 
 def follow_group(token: str, group_id: UUID) -> None:
@@ -556,7 +642,7 @@ def accept_group_invite(token: str, request: AcceptGroupInviteRequest) -> Author
         increase_invite_use_count(db=db, invite=invite)
         loaded = get_group_by_id(db=db, group_id=group.id)
         follower_count = get_followers_count_map(db=db, group_ids=[group.id]).get(group.id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count)
+        return _group_to_detail(loaded, follower_count=follower_count, db=db)
 
 
 def revoke_group_invite(token: str, group_id: UUID, invite_id: UUID) -> None:
@@ -604,7 +690,7 @@ def update_group_member_role(
         set_group_member_role(db=db, member=target_member, role=request.role.value, updated_by=current_author.email)
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count)
+        return _group_to_detail(loaded, follower_count=follower_count, db=db)
 
 
 def delete_group_member(token: str, group_id: UUID, author_id: UUID) -> None:

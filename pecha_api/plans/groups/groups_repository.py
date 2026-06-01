@@ -78,8 +78,9 @@ def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
             selectinload(AuthorGroup.members).selectinload(AuthorGroupMember.author),
             selectinload(AuthorGroup.social_links),
             selectinload(AuthorGroup.tags),
-            selectinload(AuthorGroup.plans),
-            selectinload(AuthorGroup.series),
+            selectinload(AuthorGroup.plans).selectinload(Plan.tag_list),
+            selectinload(AuthorGroup.plans).selectinload(Plan.author),
+            selectinload(AuthorGroup.series).selectinload(Series.metadata_entries),
         )
         .filter(AuthorGroup.id == group_id, AuthorGroup.deleted_at.is_(None))
         .first()

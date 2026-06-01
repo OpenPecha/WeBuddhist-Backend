@@ -6,6 +6,8 @@ from pydantic import BaseModel, field_validator
 
 from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
 from pecha_api.plans.plans_enums import LanguageCode
+from pecha_api.plans.plans_response_models import PlanDTO
+from pecha_api.plans.series.series_response_models import SeriesListItemDTO
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 
@@ -63,8 +65,8 @@ class AuthorGroupDetailDTO(BaseModel):
     members: List[AuthorGroupMemberDTO] = []
     tags: List[TagSummaryDTO] = []
     social_links: List[GroupSocialLinkDTO] = []
-    series_ids: List[UUID] = []
-    plan_ids: List[UUID] = []
+    series: List[SeriesListItemDTO] = []
+    plans: List[PlanDTO] = []
     follower_count: int = 0
 
 
