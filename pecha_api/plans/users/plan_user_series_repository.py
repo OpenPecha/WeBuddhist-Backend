@@ -210,6 +210,7 @@ def get_paginated_plans_from_enrolled_series(
     db: Session,
     user_id: UUID,
     status_filter: Optional[str] = None,
+    series_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 20
 ) -> Tuple[List[Plan], int]:
@@ -226,6 +227,11 @@ def get_paginated_plans_from_enrolled_series(
     if status_filter:
         enrollment_query = enrollment_query.filter(
             UserSeriesEnrollment.status == status_filter
+        )
+    
+    if series_id:
+        enrollment_query = enrollment_query.filter(
+            UserSeriesEnrollment.series_id == series_id
         )
     
     enrollment_subquery = enrollment_query.subquery()
