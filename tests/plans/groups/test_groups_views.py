@@ -124,6 +124,49 @@ def test_create_group_invite_success():
     mock_service.assert_called_once()
 
 
+def test_get_my_pending_group_invites_delegates_to_service():
+    from pecha_api.plans.groups.groups_response_models import GroupInviteListResponse
+
+    with patch(
+        "pecha_api.plans.groups.groups_views.list_my_pending_group_invites",
+        return_value=GroupInviteListResponse(invites=[], total=0),
+    ) as mock_service:
+        response = client.get(
+            "/cms/author/groups/invites/me",
+            headers={"Authorization": "Bearer dummy"},
+        )
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(token="dummy")
+
+
+def test_reject_group_invite_by_id_delegates_to_service():
+    from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus
+    from pecha_api.plans.groups.groups_response_models import GroupInviteDTO
+
+    invite_id = uuid4()
+    invite_dto = GroupInviteDTO(
+        id=invite_id,
+        group_id=uuid4(),
+        group_name="Test Group",
+        target_email="invitee@example.org",
+        role=AuthorGroupMemberRole.AUTHOR,
+        status=AuthorGroupInviteStatus.REJECTED,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        created_at=datetime.now(timezone.utc),
+        created_by="owner@example.org",
+    )
+    with patch(
+        "pecha_api.plans.groups.groups_views.reject_group_invite_by_id",
+        return_value=invite_dto,
+    ) as mock_service:
+        response = client.post(
+            f"/cms/author/groups/invites/{invite_id}/reject",
+            headers={"Authorization": "Bearer dummy"},
+        )
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(token="dummy", invite_id=invite_id)
+
+
 def test_accept_group_invite_by_id_delegates_to_service():
     invite_id = uuid4()
     with patch(
