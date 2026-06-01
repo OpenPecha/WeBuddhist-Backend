@@ -1,6 +1,4 @@
-import hashlib
-import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -8,11 +6,15 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
 
-from pecha_api.config import get
+from pecha_api.config import get, get_int
 from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
+from pecha_api.plans.authors.plan_authors_repository import get_author_by_email
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
-from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
+from pecha_api.notification.notification_repository import mark_notifications_read_by_reference
+from pecha_api.notification.notification_service import create_notification_record
+from pecha_api.plans.groups.group_invite_email import send_group_invitation_email
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole
 from pecha_api.plans.groups.groups_models import (
     AuthorGroup,
     AuthorGroupInvite,
@@ -36,12 +38,14 @@ from pecha_api.plans.groups.groups_repository import (
     get_group_member,
     get_groups_paginated,
     get_invite_by_id,
-    get_invite_by_token_hash,
     get_owner_count,
     get_plans_by_ids,
+    has_pending_invite,
+    list_invites_by_group,
+    list_pending_invites_by_email,
     get_series_by_ids,
     get_tags_by_ids,
-    increase_invite_use_count,
+    save_invite,
     remove_group_follow,
     remove_group_member,
     replace_group_metadata,
@@ -56,7 +60,6 @@ from pecha_api.plans.series.series_repository import get_active_plan_count_map_b
 from pecha_api.plans.series.series_response_models import SeriesListItemDTO
 from pecha_api.plans.series.series_service import _series_to_list_item_dto
 from pecha_api.plans.groups.groups_response_models import (
-    AcceptGroupInviteRequest,
     AuthorGroupDetailDTO,
     AuthorGroupListResponse,
     AuthorGroupMemberDTO,
@@ -64,6 +67,8 @@ from pecha_api.plans.groups.groups_response_models import (
     CreateAuthorGroupRequest,
     CreateGroupInviteRequest,
     GroupInviteCreatedResponse,
+    GroupInviteDTO,
+    GroupInviteListResponse,
     GroupMetadataDTO,
     GroupSocialLinkDTO,
     ReplaceGroupPlansRequest,
@@ -82,10 +87,8 @@ from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
 
 GROUP_NOT_FOUND = "Group not found"
-
-
-class InviteEmailMismatchError(Exception):
-    pass
+GROUP_INVITE_REFERENCE_TYPE = "group_invite"
+NOTIFICATION_CATEGORY_GROUP_INVITE = "group_invite"
 
 
 def _to_role_value(role: AuthorGroupMemberRole | str) -> str:
@@ -170,6 +173,66 @@ def _assert_role_allowed(member: AuthorGroupMember, allowed_roles: List[AuthorGr
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission for this action",
+        )
+
+
+_GROUP_SETTINGS_ROLES = [AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN]
+_MEMBER_MANAGEMENT_ROLES = [AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN]
+_OWNER_ONLY_INVITE_ROLES = frozenset({"OWNER", "ADMIN"})
+
+
+def _resolve_actor_group_role(
+    db,
+    *,
+    group_id: UUID,
+    author,
+) -> str:
+    if author.is_admin:
+        return AuthorGroupMemberRole.OWNER.value
+    member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
+    return _to_role_value(member.role)
+
+
+def _assert_invite_role_allowed(*, actor_role: str, invite_role: str) -> None:
+    if invite_role in _OWNER_ONLY_INVITE_ROLES and actor_role != AuthorGroupMemberRole.OWNER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the group owner can invite with OWNER or ADMIN role",
+        )
+
+
+def _assert_can_revoke_invite(*, actor_role: str, invite: AuthorGroupInvite) -> None:
+    if _to_role_value(invite.role) == AuthorGroupMemberRole.ADMIN.value and actor_role != AuthorGroupMemberRole.OWNER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the group owner can revoke an ADMIN invitation",
+        )
+
+
+def _assert_role_change_allowed(
+    *,
+    actor_role: str,
+    actor_author_id: UUID,
+    target_author_id: UUID,
+    target_role: str,
+    requested_role: str,
+) -> None:
+    if actor_role == AuthorGroupMemberRole.OWNER.value:
+        return
+    if requested_role == AuthorGroupMemberRole.OWNER.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the group owner can assign the OWNER role",
+        )
+    if target_role == AuthorGroupMemberRole.ADMIN.value and target_author_id != actor_author_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the group owner can change an ADMIN member's role",
+        )
+    if requested_role == AuthorGroupMemberRole.ADMIN.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the group owner can assign the ADMIN role",
         )
 
 
@@ -339,7 +402,7 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
-            _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN, AuthorGroupMemberRole.EDITOR])
+            _assert_role_allowed(member=member, allowed_roles=_GROUP_SETTINGS_ROLES)
 
         fields_set = request.model_fields_set
 
@@ -468,7 +531,7 @@ def replace_group_tags(token: str, group_id: UUID, request: ReplaceGroupTagsRequ
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
-            _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN, AuthorGroupMemberRole.EDITOR])
+            _assert_role_allowed(member=member, allowed_roles=_GROUP_SETTINGS_ROLES)
         _validate_group_links(db=db, tag_ids=request.tag_ids, series_ids=None, plan_ids=None)
         replace_group_relation_ids(db=db, table=author_group_tags, group_id=group_id, column_name="tag_id", ids=request.tag_ids)
         db.commit()
@@ -489,7 +552,7 @@ def replace_group_social_links_by_id(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
-            _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN, AuthorGroupMemberRole.EDITOR])
+            _assert_role_allowed(member=member, allowed_roles=_GROUP_SETTINGS_ROLES)
         social_links = [AuthorGroupSocialLink(platform=item.platform, url=item.url) for item in request.social_links]
         replace_group_social_links(db=db, group_id=group_id, social_links=social_links)
         db.commit()
@@ -506,7 +569,7 @@ def replace_group_series_by_id(token: str, group_id: UUID, request: ReplaceGroup
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
-            _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN, AuthorGroupMemberRole.EDITOR])
+            _assert_role_allowed(member=member, allowed_roles=_GROUP_SETTINGS_ROLES)
         _validate_group_links(db=db, tag_ids=None, series_ids=request.series_ids, plan_ids=None)
         replace_group_relation_ids(db=db, table=author_group_series, group_id=group_id, column_name="series_id", ids=request.series_ids)
         db.commit()
@@ -523,7 +586,7 @@ def replace_group_plans_by_id(token: str, group_id: UUID, request: ReplaceGroupP
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
-            _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN, AuthorGroupMemberRole.EDITOR])
+            _assert_role_allowed(member=member, allowed_roles=_GROUP_SETTINGS_ROLES)
         _validate_group_links(db=db, tag_ids=None, series_ids=None, plan_ids=request.plan_ids)
         replace_group_relation_ids(db=db, table=author_group_plans, group_id=group_id, column_name="plan_id", ids=request.plan_ids)
         db.commit()
@@ -567,11 +630,179 @@ def list_followed_groups(token: str, skip: int, limit: int) -> AuthorGroupListRe
         )
 
 
+def _to_invite_status(status_value) -> AuthorGroupInviteStatus:
+    if hasattr(status_value, "value"):
+        return AuthorGroupInviteStatus(status_value.value)
+    return AuthorGroupInviteStatus(status_value)
+
+
+def _group_name_from_invite(invite: AuthorGroupInvite) -> str:
+    group = getattr(invite, "group", None)
+    if group is not None and group.metadata_entries:
+        return _group_title_from_metadata(group.metadata_entries)
+    return "Group"
+
+
+def _invite_to_dto(invite: AuthorGroupInvite, *, group_name: Optional[str] = None) -> GroupInviteDTO:
+    resolved_group_name = group_name if group_name is not None else _group_name_from_invite(invite)
+    return GroupInviteDTO(
+        id=invite.id,
+        group_id=invite.group_id,
+        group_name=resolved_group_name,
+        target_email=invite.target_email,
+        role=AuthorGroupMemberRole(_to_role_value(invite.role)),
+        status=_to_invite_status(invite.status),
+        expires_at=invite.expires_at,
+        accepted_at=invite.accepted_at,
+        rejected_at=invite.rejected_at,
+        revoked_at=invite.revoked_at,
+        created_at=invite.created_at,
+        created_by=invite.created_by,
+    )
+
+
+def _inviter_display_name(author) -> str:
+    parts = [getattr(author, "first_name", None), getattr(author, "last_name", None)]
+    name = " ".join(part for part in parts if isinstance(part, str) and part.strip()).strip()
+    return name or author.email
+
+
+def _group_title_from_metadata(metadata_entries) -> str:
+    if not metadata_entries:
+        return "Group"
+    for entry in metadata_entries:
+        language = entry.language
+        lang_value = language.value if hasattr(language, "value") else str(language)
+        if lang_value.upper() == "EN":
+            return entry.title
+    return metadata_entries[0].title
+
+
+def _invite_expires_at() -> datetime:
+    """Invite TTL is minutes only (default 30), not days — see GROUP_INVITE_EXPIRY_MINUTES."""
+    minutes = get_int("GROUP_INVITE_EXPIRY_MINUTES")
+    minutes = max(1, min(minutes, 24 * 60))
+    return datetime.now(timezone.utc) + timedelta(minutes=minutes)
+
+
+def _assert_invite_pending_for_recipient(invite: AuthorGroupInvite, author_email: str) -> None:
+    if invite.target_email.lower() != author_email.lower():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This invitation was sent to a different email address",
+        )
+    invite_status = _to_invite_status(invite.status)
+    if invite_status != AuthorGroupInviteStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invite is not pending (status: {invite_status.value})",
+        )
+    if invite.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has expired")
+
+
+def _mark_invite_notification_read(db, *, recipient_author_id: UUID, invite_id: UUID) -> None:
+    mark_notifications_read_by_reference(
+        db=db,
+        recipient_author_id=recipient_author_id,
+        reference_type=GROUP_INVITE_REFERENCE_TYPE,
+        reference_id=invite_id,
+    )
+
+
 def create_group_member_invite(
     token: str,
     group_id: UUID,
     request: CreateGroupInviteRequest,
 ) -> GroupInviteCreatedResponse:
+    author = validate_and_extract_author_details(token=token)
+    target_email = request.target_email.strip().lower()
+    if not target_email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="target_email is required")
+
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        actor_role = _resolve_actor_group_role(db, group_id=group_id, author=author)
+        if not author.is_admin:
+            member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
+            _assert_role_allowed(member=member, allowed_roles=_MEMBER_MANAGEMENT_ROLES)
+
+        _assert_invite_role_allowed(
+            actor_role=actor_role,
+            invite_role=_to_role_value(request.role),
+        )
+
+        target_author = get_author_by_email(db=db, email=target_email)
+        if not target_author:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No registered author exists with this email address",
+            )
+        if get_group_member(db=db, group_id=group_id, author_id=target_author.id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This author is already a member of this group",
+            )
+        if has_pending_invite(db=db, group_id=group_id, target_email=target_email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A pending invitation already exists for this email",
+            )
+
+        invite = AuthorGroupInvite(
+            group_id=group_id,
+            target_email=target_email,
+            role=request.role,
+            status=AuthorGroupInviteStatus.PENDING.value,
+            expires_at=_invite_expires_at(),
+            created_by=author.email,
+        )
+        created = create_group_invite(db=db, invite=invite)
+        loaded_group = get_group_by_id(db=db, group_id=group_id)
+        group_title = _group_title_from_metadata(loaded_group.metadata_entries)
+        inviter_name = _inviter_display_name(author)
+        target_author_id = target_author.id
+        created_invite_id = created.id
+        invite_dto = _invite_to_dto(created, group_name=group_title)
+        accept_path = f"/cms/author/groups/invites/{created_invite_id}/accept"
+        reject_path = f"/cms/author/groups/invites/{created_invite_id}/reject"
+
+    notification = create_notification_record(
+        recipient_author_id=target_author_id,
+        title=f"Invitation to join {group_title}",
+        description=f"{inviter_name} invited you to join {group_title}.",
+        category=NOTIFICATION_CATEGORY_GROUP_INVITE,
+        reference_type=GROUP_INVITE_REFERENCE_TYPE,
+        reference_id=created_invite_id,
+        action_1_label="Accept",
+        action_1_method="POST",
+        action_1_path=accept_path,
+        action_2_label="Reject",
+        action_2_method="POST",
+        action_2_path=reject_path,
+    )
+
+    send_group_invitation_email(
+        target_email=target_email,
+        inviter_name=inviter_name,
+        inviter_email=author.email,
+        group_title=group_title,
+        invite_role=_to_role_value(request.role),
+    )
+
+    return GroupInviteCreatedResponse(
+        invite=invite_dto,
+        notification_id=notification.id,
+    )
+
+
+def list_group_invites(
+    token: str,
+    group_id: UUID,
+    status_filter: Optional[AuthorGroupInviteStatus] = None,
+) -> GroupInviteListResponse:
     author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
@@ -581,48 +812,30 @@ def create_group_member_invite(
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN])
 
-        raw_token = secrets.token_urlsafe(48)
-        token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
-        invite = AuthorGroupInvite(
-            group_id=group_id,
-            target_email=request.target_email.lower(),
-            role=request.role,
-            token_hash=token_hash,
-            expires_at=request.expires_at,
-            max_uses=request.max_uses,
-            created_by=author.email,
-        )
-        created = create_group_invite(db=db, invite=invite)
-        return GroupInviteCreatedResponse(
-            invite_id=created.id,
-            token=raw_token,
-            target_email=created.target_email,
-            role=AuthorGroupMemberRole(_to_role_value(created.role)),
-            expires_at=created.expires_at,
-            max_uses=created.max_uses,
-        )
+        rows = list_invites_by_group(db=db, group_id=group_id, status=status_filter)
+    return GroupInviteListResponse(
+        invites=[_invite_to_dto(row) for row in rows],
+        total=len(rows),
+    )
 
 
-def _validate_invite_acceptance(invite: AuthorGroupInvite) -> None:
-    now = datetime.now(timezone.utc)
-    if invite.revoked_at is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has been revoked")
-    if invite.expires_at < now:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite has expired")
-    if invite.uses_count >= invite.max_uses:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invite usage limit exceeded")
-
-
-def accept_group_invite(token: str, request: AcceptGroupInviteRequest) -> AuthorGroupDetailDTO:
+def list_my_pending_group_invites(token: str) -> GroupInviteListResponse:
     author = validate_and_extract_author_details(token=token)
-    token_hash = hashlib.sha256(request.token.encode("utf-8")).hexdigest()
     with SessionLocal() as db:
-        invite = get_invite_by_token_hash(db=db, token_hash=token_hash)
+        rows = list_pending_invites_by_email(db=db, target_email=author.email)
+    return GroupInviteListResponse(
+        invites=[_invite_to_dto(row) for row in rows],
+        total=len(rows),
+    )
+
+
+def accept_group_invite_by_id(token: str, invite_id: UUID) -> AuthorGroupDetailDTO:
+    author = validate_and_extract_author_details(token=token)
+    with SessionLocal() as db:
+        invite = get_invite_by_id(db=db, invite_id=invite_id, load_group=True)
         if not invite:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
-        _validate_invite_acceptance(invite=invite)
-        if author.email.lower() != invite.target_email.lower():
-            raise InviteEmailMismatchError("This invite was sent to a different email address.")
+        _assert_invite_pending_for_recipient(invite=invite, author_email=author.email)
 
         group = get_group_by_id(db=db, group_id=invite.group_id)
         if not group:
@@ -639,10 +852,31 @@ def accept_group_invite(token: str, request: AcceptGroupInviteRequest) -> Author
                     created_by=author.email,
                 ),
             )
-        increase_invite_use_count(db=db, invite=invite)
+
+        now = datetime.now(timezone.utc)
+        invite.status = AuthorGroupInviteStatus.ACCEPTED.value
+        invite.accepted_at = now
+        save_invite(db=db, invite=invite)
+        _mark_invite_notification_read(db=db, recipient_author_id=author.id, invite_id=invite.id)
+
         loaded = get_group_by_id(db=db, group_id=group.id)
         follower_count = get_followers_count_map(db=db, group_ids=[group.id]).get(group.id, 0)
         return _group_to_detail(loaded, follower_count=follower_count, db=db)
+
+
+def reject_group_invite_by_id(token: str, invite_id: UUID) -> GroupInviteDTO:
+    author = validate_and_extract_author_details(token=token)
+    with SessionLocal() as db:
+        invite = get_invite_by_id(db=db, invite_id=invite_id)
+        if not invite:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+        _assert_invite_pending_for_recipient(invite=invite, author_email=author.email)
+
+        invite.status = AuthorGroupInviteStatus.REJECTED.value
+        invite.rejected_at = datetime.now(timezone.utc)
+        save_invite(db=db, invite=invite)
+        _mark_invite_notification_read(db=db, recipient_author_id=author.id, invite_id=invite.id)
+        return _invite_to_dto(invite)
 
 
 def revoke_group_invite(token: str, group_id: UUID, invite_id: UUID) -> None:
@@ -651,14 +885,28 @@ def revoke_group_invite(token: str, group_id: UUID, invite_id: UUID) -> None:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        actor_role = _resolve_actor_group_role(db, group_id=group_id, author=author)
         if not author.is_admin:
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
-            _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN])
+            _assert_role_allowed(member=member, allowed_roles=_MEMBER_MANAGEMENT_ROLES)
 
         invite = get_invite_by_id(db=db, invite_id=invite_id)
         if not invite or invite.group_id != group_id:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+        _assert_can_revoke_invite(actor_role=actor_role, invite=invite)
+        if _to_invite_status(invite.status) != AuthorGroupInviteStatus.PENDING:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Only pending invites can be revoked",
+            )
         revoke_invite(db=db, invite=invite, revoked_by=author.email)
+        target_author = get_author_by_email(db=db, email=invite.target_email)
+        if target_author:
+            _mark_invite_notification_read(
+                db=db,
+                recipient_author_id=target_author.id,
+                invite_id=invite.id,
+            )
 
 
 def update_group_member_role(
@@ -682,6 +930,20 @@ def update_group_member_role(
 
         target_role = _to_role_value(target_member.role)
         requested_role = _to_role_value(request.role)
+        actor_role = _resolve_actor_group_role(db, group_id=group_id, author=current_author)
+        if target_role == AuthorGroupMemberRole.OWNER.value and actor_role != AuthorGroupMemberRole.OWNER.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cannot change the role of a group owner",
+            )
+        _assert_role_change_allowed(
+            actor_role=actor_role,
+            actor_author_id=current_author.id,
+            target_author_id=author_id,
+            target_role=target_role,
+            requested_role=requested_role,
+        )
+
         if target_role == "OWNER" and requested_role != "OWNER":
             owner_count = get_owner_count(db=db, group_id=group_id)
             if owner_count <= 1:
@@ -693,21 +955,62 @@ def update_group_member_role(
         return _group_to_detail(loaded, follower_count=follower_count, db=db)
 
 
+def _assert_not_last_owner_removal(db, *, group_id: UUID, member: AuthorGroupMember) -> None:
+    if _to_role_value(member.role) != "OWNER":
+        return
+    owner_count = get_owner_count(db=db, group_id=group_id)
+    if owner_count <= 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one OWNER must remain. Transfer ownership or delete the group.",
+        )
+
+
+def _assert_admin_can_remove_target(
+    current_member: AuthorGroupMember,
+    target_member: AuthorGroupMember,
+) -> None:
+    current_role = _to_role_value(current_member.role)
+    target_role = _to_role_value(target_member.role)
+    if current_role == AuthorGroupMemberRole.ADMIN.value and target_role in (
+        AuthorGroupMemberRole.OWNER.value,
+        AuthorGroupMemberRole.ADMIN.value,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the group owner can remove a member with role OWNER or ADMIN",
+        )
+    if current_role == "OWNER" and target_role == "OWNER":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Transfer ownership before removing another OWNER",
+        )
+
+
 def delete_group_member(token: str, group_id: UUID, author_id: UUID) -> None:
     current_author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        if not current_author.is_admin:
-            current_member = _get_member_or_403(db=db, group_id=group_id, author_id=current_author.id)
-            _assert_role_allowed(current_member, [AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN])
 
+        is_self_remove = author_id == current_author.id
         member = get_group_member(db=db, group_id=group_id, author_id=author_id)
         if not member:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group member not found")
-        if _to_role_value(member.role) == "OWNER":
-            owner_count = get_owner_count(db=db, group_id=group_id)
-            if owner_count <= 1:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OWNER cannot be removed if they are the last owner")
+
+        if is_self_remove:
+            if not current_author.is_admin:
+                _get_member_or_403(db=db, group_id=group_id, author_id=current_author.id)
+            _assert_not_last_owner_removal(db, group_id=group_id, member=member)
+        else:
+            if not current_author.is_admin:
+                current_member = _get_member_or_403(db=db, group_id=group_id, author_id=current_author.id)
+                _assert_role_allowed(
+                    current_member,
+                    [AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN],
+                )
+                _assert_admin_can_remove_target(current_member, member)
+            _assert_not_last_owner_removal(db, group_id=group_id, member=member)
+
         remove_group_member(db=db, member=member)

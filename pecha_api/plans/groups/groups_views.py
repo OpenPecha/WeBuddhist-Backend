@@ -2,17 +2,18 @@ from typing import Annotated, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import JSONResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus
 from pecha_api.plans.groups.groups_response_models import (
-    AcceptGroupInviteRequest,
     AuthorGroupDetailDTO,
     AuthorGroupListResponse,
     CreateAuthorGroupRequest,
     CreateGroupInviteRequest,
     GroupInviteCreatedResponse,
+    GroupInviteDTO,
+    GroupInviteListResponse,
     ReplaceGroupPlansRequest,
     ReplaceGroupSeriesRequest,
     ReplaceGroupSocialLinksRequest,
@@ -21,8 +22,7 @@ from pecha_api.plans.groups.groups_response_models import (
     UpdateGroupMemberRoleRequest,
 )
 from pecha_api.plans.groups.groups_service import (
-    InviteEmailMismatchError,
-    accept_group_invite,
+    accept_group_invite_by_id,
     create_author_group,
     create_group_member_invite,
     delete_group_member,
@@ -31,7 +31,10 @@ from pecha_api.plans.groups.groups_service import (
     get_cms_group_detail,
     list_cms_groups,
     list_followed_groups,
+    list_group_invites,
+    list_my_pending_group_invites,
     list_public_groups,
+    reject_group_invite_by_id,
     replace_group_plans_by_id,
     replace_group_series_by_id,
     replace_group_social_links_by_id,
@@ -193,24 +196,62 @@ def post_cms_group_invite(
     )
 
 
-@cms_groups_router.post("/invites/accept", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
-def post_accept_group_invite(
-    request: AcceptGroupInviteRequest,
+@cms_groups_router.get(
+    "/{group_id}/members/invites",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupInviteListResponse,
+)
+def get_cms_group_invites(
+    group_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    status_filter: Annotated[Optional[AuthorGroupInviteStatus], Query(alias="status")] = None,
+):
+    return list_group_invites(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        status_filter=status_filter,
+    )
+
+
+@cms_groups_router.get(
+    "/invites/me",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupInviteListResponse,
+)
+def get_my_pending_group_invites(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
-    try:
-        return accept_group_invite(
-            token=authentication_credential.credentials,
-            request=request,
-        )
-    except InviteEmailMismatchError as exc:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "detail": str(exc),
-                "code": "INVITE_EMAIL_MISMATCH",
-            },
-        )
+    return list_my_pending_group_invites(token=authentication_credential.credentials)
+
+
+@cms_groups_router.post(
+    "/invites/{invite_id}/accept",
+    status_code=status.HTTP_200_OK,
+    response_model=AuthorGroupDetailDTO,
+)
+def post_accept_group_invite_by_id(
+    invite_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return accept_group_invite_by_id(
+        token=authentication_credential.credentials,
+        invite_id=invite_id,
+    )
+
+
+@cms_groups_router.post(
+    "/invites/{invite_id}/reject",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupInviteDTO,
+)
+def post_reject_group_invite_by_id(
+    invite_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return reject_group_invite_by_id(
+        token=authentication_credential.credentials,
+        invite_id=invite_id,
+    )
 
 
 @cms_groups_router.post("/{group_id}/members/invites/{invite_id}/revoke", status_code=status.HTTP_204_NO_CONTENT)

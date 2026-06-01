@@ -1,0 +1,126 @@
+import logging
+
+from pecha_api.config import get, get_int
+from pecha_api.notification.email_provider import send_email
+
+BRAND_PRIMARY = "#A51C21"
+BRAND_PRIMARY_HOVER = "#8a171c"
+SHELL_LIGHT = "#F5F5F5"
+TEXT_MUTED = "#666666"
+
+
+def _invite_expiry_label() -> str:
+    minutes = get_int("GROUP_INVITE_EXPIRY_MINUTES")
+    minutes = max(1, min(minutes, 24 * 60))
+    if minutes == 1:
+        return "1 minute"
+    return f"{minutes} minutes"
+
+
+def _build_invitation_html(
+    *,
+    inviter_name: str,
+    inviter_email: str,
+    group_title: str,
+    invite_role: str,
+    invitations_url: str,
+    logo_url: str,
+) -> str:
+    expiry_label = _invite_expiry_label()
+    role_label = invite_role.replace("_", " ").title()
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Group invitation</title>
+</head>
+<body style="margin:0;padding:0;background-color:{SHELL_LIGHT};font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:{SHELL_LIGHT};padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+          <tr>
+            <td style="background-color:#181818;padding:28px 32px;text-align:center;">
+              <img src="{logo_url}" alt="WeBuddhist" width="56" height="56" style="display:block;margin:0 auto 12px;border-radius:8px;" />
+              <p style="margin:0;font-size:18px;font-weight:600;color:#ffffff;letter-spacing:0.02em;">WeBuddhist Studio</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <h1 style="margin:0 0 16px;font-size:22px;font-weight:700;color:#1a1a1a;">You&rsquo;re invited to join a group</h1>
+              <p style="margin:0 0 20px;font-size:16px;line-height:1.6;color:#333333;">
+                <strong>{inviter_name}</strong>
+                (<a href="mailto:{inviter_email}" style="color:{BRAND_PRIMARY};text-decoration:none;">{inviter_email}</a>)
+                invited you to join <strong>{group_title}</strong> on WeBuddhist.
+              </p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px;background-color:#fdf2f2;border-radius:8px;border:1px solid rgba(165,28,33,0.2);">
+                <tr>
+                  <td style="padding:16px 20px;">
+                    <p style="margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:0.06em;color:{TEXT_MUTED};">Invitation details</p>
+                    <p style="margin:0 0 4px;font-size:15px;"><strong>Group:</strong> {group_title}</p>
+                    <p style="margin:0 0 4px;font-size:15px;"><strong>Role:</strong> {role_label}</p>
+                    <p style="margin:0;font-size:15px;"><strong>Expires in:</strong> {expiry_label}</p>
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto 24px;">
+                <tr>
+                  <td style="border-radius:8px;background-color:{BRAND_PRIMARY};">
+                    <a href="{invitations_url}" target="_blank" rel="noopener noreferrer"
+                       style="display:inline-block;padding:14px 32px;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;">
+                      View invitation
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 8px;font-size:14px;line-height:1.5;color:{TEXT_MUTED};">
+                If the button does not work, copy and paste this link into your browser:
+              </p>
+              <p style="margin:0 0 24px;font-size:14px;word-break:break-all;">
+                <a href="{invitations_url}" style="color:{BRAND_PRIMARY};">{invitations_url}</a>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px;background-color:#fafafa;border-top:1px solid #eeeeee;">
+              <p style="margin:0;font-size:12px;line-height:1.5;color:{TEXT_MUTED};text-align:center;">
+                This invitation expires in {expiry_label}. If you did not expect this email, you can safely ignore it.
+              </p>
+              <p style="margin:8px 0 0;font-size:12px;color:{TEXT_MUTED};text-align:center;">
+                &copy; WeBuddhist Studio
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+
+def send_group_invitation_email(
+    *,
+    target_email: str,
+    inviter_name: str,
+    inviter_email: str,
+    group_title: str,
+    invite_role: str,
+) -> None:
+    base_url = get("WEBUDDHIST_STUDIO_BASE_URL").rstrip("/")
+    invitations_url = f"{base_url}/groups"
+    logo_url = get("WEBUDDHIST_EMAIL_LOGO_URL")
+    subject = f"You have been invited to join {group_title}"
+    html = _build_invitation_html(
+        inviter_name=inviter_name,
+        inviter_email=inviter_email,
+        group_title=group_title,
+        invite_role=invite_role,
+        invitations_url=invitations_url,
+        logo_url=logo_url,
+    )
+    try:
+        send_email(to_email=target_email, subject=subject, message=html)
+    except Exception as exc:
+        logging.error("Failed to send group invitation email to %s: %s", target_email, exc)
