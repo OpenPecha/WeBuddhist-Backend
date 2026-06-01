@@ -1,11 +1,17 @@
 import uuid
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, call
 from fastapi import HTTPException
 
-from pecha_api.plans.items.plan_items_services import create_plan_item, delete_plan_day_by_id, update_plans_day_number
+from pecha_api.plans.items.plan_items_services import create_plan_item, delete_plan_days, update_plans_day_number
 from pecha_api.plans.items.plan_items_models import PlanItem
-from pecha_api.plans.items.plan_items_response_models import ItemDTO, ReorderDaysRequest, ItemDayNumberDTO
+from pecha_api.plans.items.plan_items_response_models import (
+    ItemDTO,
+    ReorderDaysRequest,
+    ItemDayNumberDTO,
+    CreateDaysRequest,
+    DeleteDaysRequest,
+)
 
 
 def _mock_session_local(mock_session_local):
@@ -23,47 +29,54 @@ def test_create_plan_item_success():
     plan.id = plan_id
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
     author.is_admin = False
+    plan.author_id = author.id
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
          patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_get_last_day_number, \
-         patch("pecha_api.plans.items.plan_items_services.save_plan_item") as mock_save_plan_item:
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save_plan_items:
         db_session = _mock_session_local(mock_session_local)
 
         mock_validate_author.return_value = author
         mock_get_plan_by_id.return_value = plan
-        mock_get_last_day_number.return_value = 3  # last existing day => expect new day = 4
+        mock_get_last_day_number.return_value = 3
 
         saved_item = MagicMock()
         saved_item.id = saved_item_id
         saved_item.plan_id = plan_id
         saved_item.day_number = 4
-        mock_save_plan_item.return_value = saved_item
+        mock_save_plan_items.return_value = [saved_item]
 
-        resp = create_plan_item(token="dummy-token", plan_id=plan_id)
+        resp = create_plan_item(
+            token="dummy-token",
+            plan_id=plan_id,
+            create_days_request=CreateDaysRequest(number_of_days=1),
+        )
 
         assert mock_validate_author.call_count == 1
-        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id, created_by=author.email, is_admin=author.is_admin)
+        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id)
         mock_get_last_day_number.assert_called_once_with(db=db_session, plan_id=plan_id)
 
-        # Verify PlanItem created with correct fields and passed to repository
-        mock_save_plan_item.assert_called_once()
-        called_kwargs = mock_save_plan_item.call_args.kwargs
+        mock_save_plan_items.assert_called_once()
+        called_kwargs = mock_save_plan_items.call_args.kwargs
         assert called_kwargs["db"] is db_session
-        created_item_arg = called_kwargs["plan_item"]
-        assert isinstance(created_item_arg, PlanItem)
-        assert created_item_arg.plan_id == plan_id
-        assert created_item_arg.day_number == 4
-        assert created_item_arg.created_by == author.email
+        created_items = called_kwargs["plan_items"]
+        assert len(created_items) == 1
+        assert isinstance(created_items[0], PlanItem)
+        assert created_items[0].plan_id == plan_id
+        assert created_items[0].day_number == 4
+        assert created_items[0].created_by == author.email
 
-        # Verify response mapping
-        assert isinstance(resp, ItemDTO)
-        assert resp.id == saved_item_id
-        assert resp.plan_id == plan_id
-        assert resp.day_number == 4
+        assert isinstance(resp, list)
+        assert len(resp) == 1
+        assert isinstance(resp[0], ItemDTO)
+        assert resp[0].id == saved_item_id
+        assert resp[0].plan_id == plan_id
+        assert resp[0].day_number == 4
 
 
 def test_create_plan_item_propagates_repository_error():
@@ -73,32 +86,37 @@ def test_create_plan_item_propagates_repository_error():
     plan.id = plan_id
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
     author.is_admin = False
+    plan.author_id = author.id
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
          patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_get_last_day_number, \
-         patch("pecha_api.plans.items.plan_items_services.save_plan_item") as mock_save_plan_item, \
-         patch("pecha_api.plans.items.plan_items_services.PlanItem") as mock_plan_item:
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save_plan_items:
         _ = _mock_session_local(mock_session_local)
 
         mock_validate_author.return_value = author
         mock_get_plan_by_id.return_value = plan
-        mock_get_last_day_number.return_value = 0  # new day should be 1
+        mock_get_last_day_number.return_value = 0
 
-        error = HTTPException(status_code=404, detail={"error": "Bad request", "message": "duplicate"})
-        mock_save_plan_item.side_effect = error
+        error = HTTPException(status_code=400, detail={"error": "Bad request", "message": "duplicate"})
+        mock_save_plan_items.side_effect = error
 
         with pytest.raises(HTTPException) as exc_info:
-            create_plan_item(token="dummy-token", plan_id=plan_id)
+            create_plan_item(
+                token="dummy-token",
+                plan_id=plan_id,
+                create_days_request=CreateDaysRequest(number_of_days=1),
+            )
 
-        assert exc_info.value.status_code == 404
+        assert exc_info.value.status_code == 400
         assert exc_info.value.detail == {"error": "Bad request", "message": "duplicate"}
 
 
-def test_delete_plan_day_success_reorders():
+def test_delete_plan_days_success_reorders():
     plan_id = uuid.uuid4()
     day_id = uuid.uuid4()
 
@@ -108,7 +126,6 @@ def test_delete_plan_day_success_reorders():
     item_to_delete = MagicMock()
     item_to_delete.id = day_id
 
-    # Create three items with day numbers 1, 3, 5 which should be reordered to 1,2,3 after delete
     remaining_items = [
         MagicMock(id=uuid.uuid4(), day_number=1),
         MagicMock(id=uuid.uuid4(), day_number=3),
@@ -116,43 +133,46 @@ def test_delete_plan_day_success_reorders():
     ]
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
     author.is_admin = False
+    plan.author_id = author.id
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
-         patch("pecha_api.plans.items.plan_items_services.get_day_by_plan_day_id") as mock_get_day, \
-         patch("pecha_api.plans.items.plan_items_services.delete_day_by_id") as mock_delete, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id_and_day_ids") as mock_get_days_by_ids, \
+         patch("pecha_api.plans.items.plan_items_services.delete_days_by_ids") as mock_delete, \
          patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id") as mock_get_days, \
-         patch("pecha_api.plans.items.plan_items_services.update_day_by_id") as mock_update_day:
+         patch("pecha_api.plans.items.plan_items_services.update_days_in_bulk_by_plan_id") as mock_bulk_update:
         db_session = _mock_session_local(mock_session_local)
 
         mock_validate_author.return_value = author
         mock_get_plan_by_id.return_value = plan
-        mock_get_day.return_value = item_to_delete
+        mock_get_days_by_ids.return_value = [item_to_delete]
         mock_get_days.return_value = remaining_items
 
-        delete_plan_day_by_id(token="dummy-token", plan_id=plan_id, day_id=day_id)
+        delete_plan_days(
+            token="dummy-token",
+            plan_id=plan_id,
+            delete_days_request=DeleteDaysRequest(day_ids=[day_id]),
+        )
 
         assert mock_validate_author.call_count == 1
-        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id, created_by=author.email, is_admin=author.is_admin)
-        mock_get_day.assert_called_once_with(db=db_session, plan_id=plan_id, day_id=day_id)
-        mock_delete.assert_called_once_with(db=db_session, plan_id=plan_id, day_id=item_to_delete.id)
+        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id)
+        mock_get_days_by_ids.assert_called_once_with(db=db_session, plan_id=plan_id, day_ids=[day_id])
+        mock_delete.assert_called_once_with(db=db_session, plan_id=plan_id, day_ids=[day_id])
 
-        # Verify reordering calls: items sorted by original day_number -> indices 1..n
-        assert mock_update_day.call_count == 3
-        # First call should set first item's day_number to 1, etc.
-        expected_new_numbers = [1, 2, 3]
-        for call, new_num in zip(mock_update_day.call_args_list, expected_new_numbers):
-            kwargs = call.kwargs
-            assert kwargs["db"] is db_session
-            assert kwargs["plan_id"] == plan_id
-            assert "day_id" in kwargs and kwargs["day_id"] is not None
-            assert kwargs["day_number"] == new_num
+        mock_bulk_update.assert_called_once()
+        bulk_kwargs = mock_bulk_update.call_args.kwargs
+        assert bulk_kwargs["db"] is db_session
+        assert bulk_kwargs["plan_id"] == plan_id
+        reordered_days = bulk_kwargs["days"]
+        assert len(reordered_days) == 3
+        assert [d.day_number for d in reordered_days] == [1, 2, 3]
 
 
-def test_delete_plan_day_not_found():
+def test_delete_plan_days_not_found():
     plan_id = uuid.uuid4()
     day_id = uuid.uuid4()
 
@@ -160,26 +180,32 @@ def test_delete_plan_day_not_found():
     plan.id = plan_id
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
+    author.is_admin = False
+    plan.author_id = author.id
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
-         patch("pecha_api.plans.items.plan_items_services.get_day_by_plan_day_id") as mock_get_day:
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id_and_day_ids") as mock_get_days_by_ids:
         _ = _mock_session_local(mock_session_local)
 
         mock_validate_author.return_value = author
         mock_get_plan_by_id.return_value = plan
-        mock_get_day.side_effect = HTTPException(status_code=404, detail={"error": "Not Found", "message": "day not found"})
+        mock_get_days_by_ids.return_value = []
 
         with pytest.raises(HTTPException) as exc_info:
-            delete_plan_day_by_id(token="dummy-token", plan_id=plan_id, day_id=day_id)
+            delete_plan_days(
+                token="dummy-token",
+                plan_id=plan_id,
+                delete_days_request=DeleteDaysRequest(day_ids=[day_id]),
+            )
 
         assert exc_info.value.status_code == 404
-        assert exc_info.value.detail == {"error": "Not Found", "message": "day not found"}
 
 
-def test_delete_plan_day_auth_error():
+def test_delete_plan_days_auth_error():
     plan_id = uuid.uuid4()
     day_id = uuid.uuid4()
 
@@ -187,13 +213,17 @@ def test_delete_plan_day_auth_error():
         mock_validate_author.side_effect = HTTPException(status_code=401, detail="Unauthorized")
 
         with pytest.raises(HTTPException) as exc_info:
-            delete_plan_day_by_id(token="bad-token", plan_id=plan_id, day_id=day_id)
+            delete_plan_days(
+                token="bad-token",
+                plan_id=plan_id,
+                delete_days_request=DeleteDaysRequest(day_ids=[day_id]),
+            )
 
         assert exc_info.value.status_code == 401
         assert exc_info.value.detail == "Unauthorized"
 
 
-def test_delete_plan_day_repository_error():
+def test_delete_plan_days_repository_error():
     plan_id = uuid.uuid4()
     day_id = uuid.uuid4()
 
@@ -204,22 +234,31 @@ def test_delete_plan_day_repository_error():
     item_to_delete.id = day_id
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
+    author.is_admin = False
+    plan.author_id = author.id
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
-         patch("pecha_api.plans.items.plan_items_services.get_day_by_plan_day_id") as mock_get_day, \
-         patch("pecha_api.plans.items.plan_items_services.delete_day_by_id") as mock_delete:
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id_and_day_ids") as mock_get_days_by_ids, \
+         patch("pecha_api.plans.items.plan_items_services.delete_days_by_ids") as mock_delete:
         _ = _mock_session_local(mock_session_local)
 
         mock_validate_author.return_value = author
         mock_get_plan_by_id.return_value = plan
-        mock_get_day.return_value = item_to_delete
-        mock_delete.side_effect = HTTPException(status_code=400, detail={"error": "Bad request", "message": "cannot delete"})
+        mock_get_days_by_ids.return_value = [item_to_delete]
+        mock_delete.side_effect = HTTPException(
+            status_code=400, detail={"error": "Bad request", "message": "cannot delete"}
+        )
 
         with pytest.raises(HTTPException) as exc_info:
-            delete_plan_day_by_id(token="dummy-token", plan_id=plan_id, day_id=day_id)
+            delete_plan_days(
+                token="dummy-token",
+                plan_id=plan_id,
+                delete_days_request=DeleteDaysRequest(day_ids=[day_id]),
+            )
 
         assert exc_info.value.status_code == 400
         assert exc_info.value.detail == {"error": "Bad request", "message": "cannot delete"}
@@ -232,8 +271,10 @@ def test_update_plans_day_number_success_calls_bulk_update():
     plan.id = plan_id
 
     author = MagicMock()
+    author.id = uuid.uuid4()
     author.email = "author@example.com"
     author.is_admin = False
+    plan.author_id = author.id
 
     payload = ReorderDaysRequest(
         days=[
@@ -245,7 +286,7 @@ def test_update_plans_day_number_success_calls_bulk_update():
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
          patch("pecha_api.plans.items.plan_items_services.update_days_in_bulk_by_plan_id") as mock_bulk_update:
         db_session = _mock_session_local(mock_session_local)
 
@@ -254,13 +295,229 @@ def test_update_plans_day_number_success_calls_bulk_update():
 
         update_plans_day_number(token="dummy-token", plan_id=plan_id, reorder_days_request=payload)
 
-        # validate called once in the service
         assert mock_validate_author.call_count == 1
-        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id, created_by=author.email, is_admin=author.is_admin)
+        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id)
         mock_bulk_update.assert_called_once()
         called_kwargs = mock_bulk_update.call_args.kwargs
         assert called_kwargs["db"] is db_session
         assert called_kwargs["days"] == payload.days
+
+
+def test_create_plan_item_with_source_day_copies_tasks():
+    plan_id = uuid.uuid4()
+    source_day_id = uuid.uuid4()
+    saved_item_id = uuid.uuid4()
+
+    plan = MagicMock()
+    plan.id = plan_id
+
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.is_admin = False
+    plan.author_id = author.id
+
+    source_day = MagicMock()
+
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan, \
+         patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_last_day, \
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_day_by_id_any_plan") as mock_get_source, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_source_plan, \
+         patch("pecha_api.plans.items.plan_items_services._copy_tasks_and_subtasks_to_days") as mock_copy:
+        db_session = _mock_session_local(mock_session_local)
+
+        mock_validate_author.return_value = author
+        mock_get_plan.return_value = plan
+        mock_last_day.return_value = 0
+
+        saved_item = MagicMock()
+        saved_item.id = saved_item_id
+        saved_item.plan_id = plan_id
+        saved_item.day_number = 1
+        mock_save.return_value = [saved_item]
+        
+        # Source day from same plan
+        source_day.plan_id = plan_id
+        mock_get_source.return_value = source_day
+        mock_get_source_plan.return_value = plan
+
+        create_plan_item(
+            token="dummy-token",
+            plan_id=plan_id,
+            create_days_request=CreateDaysRequest(number_of_days=1, source_day_id=source_day_id),
+        )
+
+        mock_get_source.assert_called_once_with(db=db_session, day_id=source_day_id)
+        mock_get_source_plan.assert_called_with(db=db_session, plan_id=plan_id)
+        mock_copy.assert_called_once_with(
+            db=db_session,
+            source_day=source_day,
+            target_days=[saved_item],
+            created_by=author.email,
+        )
+
+
+def test_delete_plan_days_empty_day_ids_returns_early():
+    with patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author:
+        delete_plan_days(
+            token="dummy-token",
+            plan_id=uuid.uuid4(),
+            delete_days_request=DeleteDaysRequest(day_ids=[]),
+        )
+        mock_validate_author.assert_not_called()
+
+
+def test_get_author_plan_raises_404_when_not_admin_and_plan_missing():
+    from pecha_api.plans.items.plan_items_services import _get_author_plan
+
+    author = MagicMock()
+    author.email = "author@example.com"
+    author.is_admin = False
+
+    db = MagicMock()
+
+    with patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan:
+        mock_get_plan.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            _get_author_plan(db=db, plan_id=uuid.uuid4(), current_author=author, is_admin=False)
+
+        assert exc_info.value.status_code == 404
+
+
+def test_copy_tasks_and_subtasks_no_tasks_returns_early():
+    from pecha_api.plans.items.plan_items_services import _copy_tasks_and_subtasks_to_days
+
+    source_day = MagicMock()
+    source_day.tasks = []
+    db = MagicMock()
+
+    _copy_tasks_and_subtasks_to_days(
+        db=db,
+        source_day=source_day,
+        target_days=[MagicMock()],
+        created_by="author@example.com",
+    )
+
+    db.add.assert_not_called()
+    db.commit.assert_not_called()
+
+
+def test_copy_tasks_and_subtasks_copies_correctly():
+    from pecha_api.plans.items.plan_items_services import _copy_tasks_and_subtasks_to_days
+
+    sub_task = MagicMock()
+    sub_task.content_type = "text"
+    sub_task.content = "content"
+    sub_task.duration = 10
+    sub_task.source_text_id = None
+    sub_task.pecha_segment_id = None
+    sub_task.segment_ids = []
+    sub_task.display_order = 1
+    sub_task.timestamp = None
+
+    source_task = MagicMock()
+    source_task.title = "Task 1"
+    source_task.display_order = 1
+    source_task.estimated_time = 5
+    source_task.is_required = True
+    source_task.sub_tasks = [sub_task]
+
+    source_day = MagicMock()
+    source_day.tasks = [source_task]
+
+    target_day = MagicMock()
+    target_day.id = uuid.uuid4()
+
+    db = MagicMock()
+
+    _copy_tasks_and_subtasks_to_days(
+        db=db,
+        source_day=source_day,
+        target_days=[target_day],
+        created_by="author@example.com",
+    )
+
+    assert db.add.call_count == 2
+    assert db.flush.call_count == 2
+    db.commit.assert_called_once()
+
+
+def test_copy_tasks_and_subtasks_with_timestamp():
+    from pecha_api.plans.items.plan_items_services import _copy_tasks_and_subtasks_to_days
+
+    timestamp = MagicMock()
+    timestamp.start_ms = 0
+    timestamp.end_ms = 5000
+
+    sub_task = MagicMock()
+    sub_task.content_type = "audio"
+    sub_task.content = None
+    sub_task.duration = 5
+    sub_task.source_text_id = None
+    sub_task.pecha_segment_id = None
+    sub_task.segment_ids = []
+    sub_task.display_order = 1
+    sub_task.timestamp = timestamp
+
+    source_task = MagicMock()
+    source_task.title = "Task"
+    source_task.display_order = 1
+    source_task.estimated_time = 5
+    source_task.is_required = True
+    source_task.sub_tasks = [sub_task]
+
+    source_day = MagicMock()
+    source_day.tasks = [source_task]
+
+    target_day = MagicMock()
+    target_day.id = uuid.uuid4()
+
+    db = MagicMock()
+
+    _copy_tasks_and_subtasks_to_days(
+        db=db,
+        source_day=source_day,
+        target_days=[target_day],
+        created_by="author@example.com",
+    )
+
+    assert db.add.call_count == 3
+    db.commit.assert_called_once()
+
+
+def test_copy_tasks_and_subtasks_db_error_raises_400():
+    from pecha_api.plans.items.plan_items_services import _copy_tasks_and_subtasks_to_days
+
+    source_task = MagicMock()
+    source_task.title = "Task"
+    source_task.display_order = 1
+    source_task.estimated_time = 5
+    source_task.is_required = True
+    source_task.sub_tasks = []
+
+    source_day = MagicMock()
+    source_day.tasks = [source_task]
+
+    target_day = MagicMock()
+    target_day.id = uuid.uuid4()
+
+    db = MagicMock()
+    db.flush.side_effect = Exception("db error")
+
+    with pytest.raises(HTTPException) as exc_info:
+        _copy_tasks_and_subtasks_to_days(
+            db=db,
+            source_day=source_day,
+            target_days=[target_day],
+            created_by="author@example.com",
+        )
+
+    assert exc_info.value.status_code == 400
+    db.rollback.assert_called_once()
 
 
 def test_update_plans_day_number_duplicate_payload_raises_400():
@@ -269,19 +526,22 @@ def test_update_plans_day_number_duplicate_payload_raises_400():
     payload = ReorderDaysRequest(
         days=[
             ItemDayNumberDTO(id=uuid.uuid4(), day_number=1),
-            ItemDayNumberDTO(id=uuid.uuid4(), day_number=1),  # duplicate
+            ItemDayNumberDTO(id=uuid.uuid4(), day_number=1),
         ]
     )
 
     plan = MagicMock()
     plan.id = plan_id
+    author_id = uuid.uuid4()
+    plan.author_id = author_id
 
     with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
-         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id_and_created_by") as mock_get_plan_by_id:
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id:
         _ = _mock_session_local(mock_session_local)
 
-        mock_validate_author.return_value = MagicMock(email="author@example.com")
+        author = MagicMock(email="author@example.com", id=author_id)
+        mock_validate_author.return_value = author
         mock_get_plan_by_id.return_value = plan
 
         with pytest.raises(HTTPException) as exc_info:
@@ -289,3 +549,179 @@ def test_update_plans_day_number_duplicate_payload_raises_400():
 
         assert exc_info.value.status_code == 400
         assert exc_info.value.detail == {"error": "Bad request", "message": "Duplicate day numbers"}
+
+
+def test_create_plan_item_cross_plan_copy_success():
+    """Test copying tasks from a different plan that the author owns"""
+    target_plan_id = uuid.uuid4()
+    source_plan_id = uuid.uuid4()
+    source_day_id = uuid.uuid4()
+    
+    target_plan = MagicMock()
+    target_plan.id = target_plan_id
+    
+    source_plan = MagicMock()
+    source_plan.id = source_plan_id
+    
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.is_admin = False
+    
+    target_plan.author_id = author.id
+    source_plan.author_id = author.id  # Same author owns both plans
+    
+    source_day = MagicMock()
+    source_day.plan_id = source_plan_id
+    
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan, \
+         patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_last_day, \
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_day_by_id_any_plan") as mock_get_source, \
+         patch("pecha_api.plans.items.plan_items_services._copy_tasks_and_subtasks_to_days") as mock_copy:
+        
+        db_session = _mock_session_local(mock_session_local)
+        
+        mock_validate_author.return_value = author
+        mock_get_plan.side_effect = lambda db, plan_id: target_plan if plan_id == target_plan_id else source_plan
+        mock_last_day.return_value = 0
+        
+        saved_item = MagicMock()
+        saved_item.id = uuid.uuid4()
+        saved_item.plan_id = target_plan_id
+        saved_item.day_number = 1
+        mock_save.return_value = [saved_item]
+        mock_get_source.return_value = source_day
+        
+        create_plan_item(
+            token="dummy-token",
+            plan_id=target_plan_id,
+            create_days_request=CreateDaysRequest(number_of_days=1, source_day_id=source_day_id),
+        )
+        
+        mock_get_source.assert_called_once_with(db=db_session, day_id=source_day_id)
+        # Should check both target plan and source plan
+        assert mock_get_plan.call_count == 2
+        mock_copy.assert_called_once_with(
+            db=db_session,
+            source_day=source_day,
+            target_days=[saved_item],
+            created_by=author.email,
+        )
+
+
+def test_create_plan_item_cross_plan_copy_forbidden():
+    """Test copying from a plan the author doesn't own"""
+    target_plan_id = uuid.uuid4()
+    source_plan_id = uuid.uuid4()
+    source_day_id = uuid.uuid4()
+    
+    target_plan = MagicMock()
+    target_plan.id = target_plan_id
+    
+    source_plan = MagicMock()
+    source_plan.id = source_plan_id
+    
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.is_admin = False
+    
+    other_author_id = uuid.uuid4()
+    target_plan.author_id = author.id
+    source_plan.author_id = other_author_id  # Different author owns source plan
+    
+    source_day = MagicMock()
+    source_day.plan_id = source_plan_id
+    
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan, \
+         patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_last_day, \
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_day_by_id_any_plan") as mock_get_source:
+        
+        db_session = _mock_session_local(mock_session_local)
+        
+        mock_validate_author.return_value = author
+        mock_get_plan.side_effect = lambda db, plan_id: target_plan if plan_id == target_plan_id else source_plan
+        mock_last_day.return_value = 0
+        
+        saved_item = MagicMock()
+        saved_item.id = uuid.uuid4()
+        saved_item.plan_id = target_plan_id
+        saved_item.day_number = 1
+        mock_save.return_value = [saved_item]
+        mock_get_source.return_value = source_day
+        
+        with pytest.raises(HTTPException) as exc_info:
+            create_plan_item(
+                token="dummy-token",
+                plan_id=target_plan_id,
+                create_days_request=CreateDaysRequest(number_of_days=1, source_day_id=source_day_id),
+            )
+        
+        assert exc_info.value.status_code == 403
+        assert "Cannot access source plan" in str(exc_info.value.detail)
+
+
+def test_create_plan_item_cross_plan_copy_admin_success():
+    """Test admin can copy from any plan"""
+    target_plan_id = uuid.uuid4()
+    source_plan_id = uuid.uuid4()
+    source_day_id = uuid.uuid4()
+    
+    target_plan = MagicMock()
+    target_plan.id = target_plan_id
+    
+    source_plan = MagicMock()
+    source_plan.id = source_plan_id
+    
+    admin = MagicMock()
+    admin.id = uuid.uuid4()
+    admin.email = "admin@example.com"
+    admin.is_admin = True
+    
+    other_author_id = uuid.uuid4()
+    target_plan.author_id = admin.id
+    source_plan.author_id = other_author_id  # Different author owns source plan
+    
+    source_day = MagicMock()
+    source_day.plan_id = source_plan_id
+    
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan, \
+         patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_last_day, \
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_day_by_id_any_plan") as mock_get_source, \
+         patch("pecha_api.plans.items.plan_items_services._copy_tasks_and_subtasks_to_days") as mock_copy:
+        
+        db_session = _mock_session_local(mock_session_local)
+        
+        mock_validate_author.return_value = admin
+        mock_get_plan.side_effect = lambda db, plan_id: target_plan if plan_id == target_plan_id else source_plan
+        mock_last_day.return_value = 0
+        
+        saved_item = MagicMock()
+        saved_item.id = uuid.uuid4()
+        saved_item.plan_id = target_plan_id
+        saved_item.day_number = 1
+        mock_save.return_value = [saved_item]
+        mock_get_source.return_value = source_day
+        
+        create_plan_item(
+            token="admin-token",
+            plan_id=target_plan_id,
+            create_days_request=CreateDaysRequest(number_of_days=1, source_day_id=source_day_id),
+        )
+        
+        # Admin can access any plan, so no 403 error
+        mock_copy.assert_called_once_with(
+            db=db_session,
+            source_day=source_day,
+            target_days=[saved_item],
+            created_by=admin.email,
+        )

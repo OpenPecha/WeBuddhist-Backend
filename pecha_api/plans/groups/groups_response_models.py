@@ -57,6 +57,8 @@ class AuthorGroupDetailDTO(BaseModel):
     is_public: bool
     avatar_key: Optional[str] = None
     banner_key: Optional[str] = None
+    avatar_url: Optional[str] = None
+    banner_url: Optional[str] = None
     metadata: List[GroupMetadataDTO]
     members: List[AuthorGroupMemberDTO] = []
     tags: List[TagSummaryDTO] = []

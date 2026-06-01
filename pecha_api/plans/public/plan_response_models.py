@@ -38,6 +38,7 @@ class PublicPlanDTO(BaseModel):
     author: Optional[AuthorDTO] = None
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
+    group_id: Optional[UUID] = None
 
 class SubTaskDTO(BaseModel):
     id: UUID
@@ -45,6 +46,7 @@ class SubTaskDTO(BaseModel):
     content: Optional[str] = None
     duration: Optional[str] = None
     image_url: Optional[str] = None
+    audio_url: Optional[str] = None
     source_text_id: Optional[UUID] = None
     pecha_segment_id: Optional[str] = None
     segment_ids: Optional[List[UUID]] = None

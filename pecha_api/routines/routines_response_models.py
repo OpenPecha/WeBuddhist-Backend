@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from uuid import UUID
+from datetime import datetime
 
 from .routines_enums import SessionType
 
@@ -33,6 +34,8 @@ class SessionDTO(BaseModel):
     language: str
     image_url: Optional[str] = None
     display_order: int
+    start_date: Optional[datetime] = None  # Plan's start_date
+    started_at: Optional[datetime] = None  # User's started_at from progress
 
 
 class TimeBlockDTO(BaseModel):

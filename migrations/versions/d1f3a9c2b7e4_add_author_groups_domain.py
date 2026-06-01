@@ -31,10 +31,32 @@ author_group_member_role_enum = postgresql.ENUM(
 )
 
 
-def upgrade() -> None:
-    author_group_member_role_enum.create(op.get_bind(), checkfirst=True)
+def _index_names(inspector: sa.Inspector, table_name: str) -> set[str]:
+    if table_name not in inspector.get_table_names():
+        return set()
+    return {index["name"] for index in inspector.get_indexes(table_name)}
 
-    op.create_table(
+
+def _create_index_if_missing(
+    inspector: sa.Inspector,
+    index_name: str,
+    table_name: str,
+    columns: list[str],
+    **kwargs,
+) -> None:
+    if index_name not in _index_names(inspector, table_name):
+        op.create_index(index_name, table_name, columns, **kwargs)
+
+
+def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    tables = set(inspector.get_table_names())
+
+    author_group_member_role_enum.create(bind, checkfirst=True)
+
+    if "author_groups" not in tables:
+        op.create_table(
         "author_groups",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("slug", sa.String(length=255), nullable=False),
@@ -48,8 +70,9 @@ def upgrade() -> None:
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("deleted_by", sa.String(length=255), nullable=True),
         sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(
+        )
+    _create_index_if_missing(
+        inspector,
         "idx_author_groups_slug",
         "author_groups",
         ["slug"],
@@ -57,7 +80,8 @@ def upgrade() -> None:
         postgresql_where=sa.text("deleted_at IS NULL"),
     )
 
-    op.create_table(
+    if "author_group_metadata" not in tables:
+        op.create_table(
         "author_group_metadata",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("group_id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -67,15 +91,17 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["group_id"], ["author_groups.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("group_id", "language", name="uq_author_group_metadata_group_language"),
-    )
-    op.create_index(
+        )
+    _create_index_if_missing(
+        inspector,
         "idx_author_group_metadata_group_language",
         "author_group_metadata",
         ["group_id", "language"],
         unique=False,
     )
 
-    op.create_table(
+    if "author_group_members" not in tables:
+        op.create_table(
         "author_group_members",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("group_id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -89,15 +115,17 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["group_id"], ["author_groups.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("group_id", "author_id", name="uq_author_group_members_group_author"),
-    )
-    op.create_index(
+        )
+    _create_index_if_missing(
+        inspector,
         "idx_author_group_members_group_author",
         "author_group_members",
         ["group_id", "author_id"],
         unique=False,
     )
 
-    op.create_table(
+    if "author_group_followers" not in tables:
+        op.create_table(
         "author_group_followers",
         sa.Column("group_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("user_id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -106,15 +134,17 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("group_id", "user_id"),
         sa.UniqueConstraint("group_id", "user_id", name="uq_author_group_followers_group_user"),
-    )
-    op.create_index(
+        )
+    _create_index_if_missing(
+        inspector,
         "idx_author_group_followers_group_user",
         "author_group_followers",
         ["group_id", "user_id"],
         unique=False,
     )
 
-    op.create_table(
+    if "author_group_tags" not in tables:
+        op.create_table(
         "author_group_tags",
         sa.Column("group_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("tag_id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -122,10 +152,17 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["tag_id"], ["tags.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("group_id", "tag_id"),
         sa.UniqueConstraint("group_id", "tag_id", name="uq_author_group_tags_group_tag"),
+        )
+    _create_index_if_missing(
+        inspector,
+        "idx_author_group_tags_group_tag",
+        "author_group_tags",
+        ["group_id", "tag_id"],
+        unique=False,
     )
-    op.create_index("idx_author_group_tags_group_tag", "author_group_tags", ["group_id", "tag_id"], unique=False)
 
-    op.create_table(
+    if "author_group_social_links" not in tables:
+        op.create_table(
         "author_group_social_links",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("group_id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -135,9 +172,10 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
         sa.ForeignKeyConstraint(["group_id"], ["author_groups.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-    )
+        )
 
-    op.create_table(
+    if "author_group_series" not in tables:
+        op.create_table(
         "author_group_series",
         sa.Column("group_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("series_id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -145,15 +183,17 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["series_id"], ["series.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("group_id", "series_id"),
         sa.UniqueConstraint("group_id", "series_id", name="uq_author_group_series_group_series"),
-    )
-    op.create_index(
+        )
+    _create_index_if_missing(
+        inspector,
         "idx_author_group_series_group_series",
         "author_group_series",
         ["group_id", "series_id"],
         unique=False,
     )
 
-    op.create_table(
+    if "author_group_plans" not in tables:
+        op.create_table(
         "author_group_plans",
         sa.Column("group_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("plan_id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -161,15 +201,17 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["plan_id"], ["plans.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("group_id", "plan_id"),
         sa.UniqueConstraint("group_id", "plan_id", name="uq_author_group_plans_group_plan"),
-    )
-    op.create_index(
+        )
+    _create_index_if_missing(
+        inspector,
         "idx_author_group_plans_group_plan",
         "author_group_plans",
         ["group_id", "plan_id"],
         unique=False,
     )
 
-    op.create_table(
+    if "author_group_invites" not in tables:
+        op.create_table(
         "author_group_invites",
         sa.Column("id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column("group_id", postgresql.UUID(as_uuid=True), nullable=False),
@@ -186,9 +228,21 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["group_id"], ["author_groups.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("token_hash"),
+        )
+    _create_index_if_missing(
+        inspector,
+        "idx_author_group_invites_token_hash",
+        "author_group_invites",
+        ["token_hash"],
+        unique=False,
     )
-    op.create_index("idx_author_group_invites_token_hash", "author_group_invites", ["token_hash"], unique=False)
-    op.create_index("idx_author_group_invites_target_email", "author_group_invites", ["target_email"], unique=False)
+    _create_index_if_missing(
+        inspector,
+        "idx_author_group_invites_target_email",
+        "author_group_invites",
+        ["target_email"],
+        unique=False,
+    )
 
 
 def downgrade() -> None:

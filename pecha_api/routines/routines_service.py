@@ -15,6 +15,7 @@ from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.plans_enums import UserPlanStatus
 from pecha_api.plans.users.plan_users_progress_repository import (
     delete_user_plan_progress,
+    get_plan_progress_by_user_id_and_plan_ids,
 )
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
@@ -245,13 +246,19 @@ def build_session_models(time_block_id: UUID, sessions: List) -> List[RoutineSes
     ]
 
 
-def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession]) -> List[SessionDTO]:
+def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUID) -> List[SessionDTO]:
     if not plan_sessions:
         return []
 
     plan_ids = [session.source_id for session in plan_sessions]
     plans = get_plans_by_ids(db=db, plan_ids=plan_ids)
     plan_map = {plan.id: plan for plan in plans}
+    
+    # Fetch user progress data for all plan sessions
+    progress_map = get_plan_progress_by_user_id_and_plan_ids(
+        db=db, user_id=user_id, plan_ids=plan_ids
+    )
+    
     bucket_name = get("AWS_BUCKET_NAME")
 
     resolved = []
@@ -268,7 +275,10 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession]) -> List[Sess
                 )
             except Exception:
                 image_url = ""
-
+        
+        # Get user progress for this plan
+        progress = progress_map.get(session.source_id)
+        
         resolved.append(
             SessionDTO(
                 id=session.id,
@@ -282,6 +292,8 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession]) -> List[Sess
                 ),
                 image_url=image_url,
                 display_order=session.display_order,
+                start_date=plan.start_date,  # Plan's start_date
+                started_at=progress.started_at if progress else None,  # User's started_at
             )
         )
     return resolved
@@ -316,7 +328,7 @@ async def _resolve_recitation_sessions(
     return resolved
 
 
-async def _resolve_sessions(db, sessions: List[RoutineSession]) -> List[SessionDTO]:
+async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -> List[SessionDTO]:
     plan_sessions = [
         session for session in sessions if session.session_type == SessionType.PLAN
     ]
@@ -326,7 +338,7 @@ async def _resolve_sessions(db, sessions: List[RoutineSession]) -> List[SessionD
         if session.session_type == SessionType.RECITATION
     ]
 
-    resolved_plans = _resolve_plan_sessions(db=db, plan_sessions=plan_sessions)
+    resolved_plans = _resolve_plan_sessions(db=db, plan_sessions=plan_sessions, user_id=user_id)
     resolved_recitations = await _resolve_recitation_sessions(
         recitation_sessions=recitation_sessions
     )
@@ -349,9 +361,9 @@ def group_sessions_by_block(
 
 
 async def build_time_block_dto(
-    db, time_block: RoutineTimeBlock, sessions: List[RoutineSession]
+    db, time_block: RoutineTimeBlock, sessions: List[RoutineSession], user_id: UUID
 ) -> TimeBlockDTO:
-    resolved_sessions = await _resolve_sessions(db=db, sessions=sessions)
+    resolved_sessions = await _resolve_sessions(db=db, sessions=sessions, user_id=user_id)
     return TimeBlockDTO(
         id=time_block.id,
         time=time_block.time,
@@ -406,7 +418,7 @@ async def create_routine_with_time_block(
         )
 
         time_block_dto = await build_time_block_dto(
-            db=db, time_block=saved_time_block, sessions=saved_sessions
+            db=db, time_block=saved_time_block, sessions=saved_sessions, user_id=current_user.id
         )
 
         return RoutineWithTimeBlocksResponse(
@@ -460,7 +472,7 @@ async def get_user_routine(
 
         time_block_dtos = [
             await build_time_block_dto(
-                db=db, time_block=tb, sessions=sessions_by_block.get(tb.id, [])
+                db=db, time_block=tb, sessions=sessions_by_block.get(tb.id, []), user_id=current_user.id
             )
             for tb in time_blocks
         ]
@@ -517,7 +529,7 @@ async def add_time_block_to_routine(
             db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(request.sessions)
         )
 
-        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
+        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions, user_id=current_user.id)
 
         return TimeBlockDTO(
             id=saved_time_block.id,
@@ -620,7 +632,7 @@ async def update_time_block_service(
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
-        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
+        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions, user_id=current_user.id)
 
         return TimeBlockDTO(
             id=updated_time_block.id,

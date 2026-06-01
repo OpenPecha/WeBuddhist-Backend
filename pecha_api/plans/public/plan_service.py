@@ -22,6 +22,7 @@ from pecha_api.routines.routines_repository import (
     get_max_display_order_in_time_block,
     add_plan_session_to_time_block,
 )
+from pecha_api.plans.groups.groups_repository import get_group_id_for_plan, get_group_ids_by_plan_ids
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.tags.tag_repository import get_published_tags_for_language, get_all_tags_paginated
 from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
@@ -67,6 +68,9 @@ async def get_published_plans(
                 group_id=group_id,
             )
             
+            plan_ids = [plan_aggregate.plan.id for plan_aggregate in plan_aggregates]
+            group_id_by_plan_id = get_group_ids_by_plan_ids(db=db, plan_ids=plan_ids)
+
             plan_dtos = []
             for plan_aggregate in plan_aggregates:
                 plan = plan_aggregate.plan
@@ -94,7 +98,8 @@ async def get_published_plans(
                     tags=tags_to_summary_dtos(plan.tag_list),
                     author=author_dto,
                     start_date=plan.start_date,
-                    display_order=plan.display_order
+                    display_order=plan.display_order,
+                    group_id=group_id_by_plan_id.get(plan.id),
                 )
                 plan_dtos.append(plan_dto)
             
@@ -138,7 +143,8 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
                 )
             
             
-            total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan_id).count()  
+            total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan_id).count()
+            group_id = get_group_id_for_plan(db=db, plan_id=plan.id)
 
             return PublicPlanDTO(
                 id=plan.id,
@@ -151,7 +157,8 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
                 tags=tags_to_summary_dtos(plan.tag_list),
                 author=author_dto,
                 start_date=plan.start_date,
-                display_order=plan.display_order
+                display_order=plan.display_order,
+                group_id=group_id,
             )
     
     except Exception as e:
@@ -317,6 +324,10 @@ def build_task_dto(task) -> TaskDTO:
     subtasks = []
     for subtask in sorted(task.sub_tasks, key=lambda st: st.display_order):
         start_ms, end_ms = build_subtask_timestamp_fields(subtask)
+        audio_url = (
+            generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=subtask.audio_url)
+            if subtask.audio_url else None
+        )
         subtasks.append(
             SubTaskDTO(
                 id=subtask.id,
@@ -324,6 +335,7 @@ def build_task_dto(task) -> TaskDTO:
                 duration=subtask.duration,
                 content=generate_subtask_content_url(subtask.content_type, subtask.content or ""),
                 image_url=subtask.content if subtask.content_type == ContentType.IMAGE else None,
+                audio_url=audio_url,
                 source_text_id=subtask.source_text_id,
                 pecha_segment_id=subtask.pecha_segment_id,
                 segment_ids=subtask.segment_ids,

@@ -126,6 +126,10 @@ async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskRespons
                 content=sub_task.content,
             )
             start_ms, end_ms = build_subtask_timestamp_fields(sub_task)
+            audio_url = (
+                generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=sub_task.audio_url)
+                if sub_task.audio_url else None
+            )
             subtasks_dto.append(
                 SubTaskDTO(
                     id=sub_task.id,
@@ -136,6 +140,7 @@ async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskRespons
                     pecha_segment_id=sub_task.pecha_segment_id,
                     segment_ids=sub_task.segment_ids,
                     image_url=content_and_image_url.image_url,
+                    audio_url=audio_url,
                     display_order=sub_task.display_order,
                     start_ms=start_ms,
                     end_ms=end_ms,

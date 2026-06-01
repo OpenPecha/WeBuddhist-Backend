@@ -63,9 +63,12 @@ def test_validate_start_date_update_raises_for_published_with_subscribers():
     
     mock_plan = MagicMock()
     mock_plan.status = PlanStatus.PUBLISHED
+    mock_plan.start_date = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    
+    new_start_date = datetime(2025, 2, 1, 0, 0, 0, tzinfo=timezone.utc)
     
     with pytest.raises(HTTPException) as exc_info:
-        _validate_start_date_update(mock_db, mock_plan, plan_id)
+        _validate_start_date_update(mock_db, mock_plan, plan_id, new_start_date)
     
     assert exc_info.value.status_code == 400
 
@@ -79,7 +82,9 @@ def test_validate_start_date_update_allows_draft_plan():
     mock_plan = MagicMock()
     mock_plan.status = PlanStatus.DRAFT
     
-    _validate_start_date_update(mock_db, mock_plan, plan_id)
+    new_start_date = datetime(2025, 2, 1, 0, 0, 0, tzinfo=timezone.utc)
+    
+    _validate_start_date_update(mock_db, mock_plan, plan_id, new_start_date)
 
 
 def test_validate_start_date_update_allows_published_with_no_subscribers():
@@ -91,7 +96,25 @@ def test_validate_start_date_update_allows_published_with_no_subscribers():
     mock_plan = MagicMock()
     mock_plan.status = PlanStatus.PUBLISHED
     
-    _validate_start_date_update(mock_db, mock_plan, plan_id)
+    new_start_date = datetime(2025, 2, 1, 0, 0, 0, tzinfo=timezone.utc)
+    
+    _validate_start_date_update(mock_db, mock_plan, plan_id, new_start_date)
+
+
+def test_validate_start_date_update_allows_same_date_for_published_with_subscribers():
+    """Test _validate_start_date_update does not raise when start date is not changing for published plan with subscribers"""
+    plan_id = uuid.uuid4()
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.scalar.return_value = 5
+    
+    same_start_date = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    
+    mock_plan = MagicMock()
+    mock_plan.status = PlanStatus.PUBLISHED
+    mock_plan.start_date = same_start_date
+    
+    # This should not raise because the date is not actually changing
+    _validate_start_date_update(mock_db, mock_plan, plan_id, same_start_date)
 
 
 def test_apply_plan_field_updates_updates_all_fields():
