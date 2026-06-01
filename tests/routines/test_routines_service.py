@@ -184,6 +184,7 @@ async def test_create_routine_success():
         title="Daily Routine",
         language=SimpleNamespace(value="EN"),
         image_url="https://example.com/image.jpg",
+        start_date=None,
     )
 
     mock_time_block_model = MagicMock()
@@ -298,6 +299,7 @@ def test_resolve_plan_sessions_success():
         title="Test Plan",
         language=SimpleNamespace(value="EN"),
         image_url="https://example.com/plan.jpg",
+        start_date=None,
     )
 
     with patch(
@@ -306,8 +308,11 @@ def test_resolve_plan_sessions_success():
     ), patch(
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
+    ), patch(
+        "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={},
     ):
-        result = _resolve_plan_sessions(db=MagicMock(), plan_sessions=[session])
+        result = _resolve_plan_sessions(db=MagicMock(), plan_sessions=[session], user_id=uuid.uuid4())
 
         assert len(result) == 1
         assert result[0].title == "Test Plan"
@@ -326,15 +331,69 @@ def test_resolve_plan_sessions_missing_plan():
     with patch(
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[],
+    ), patch(
+        "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={},
     ):
-        result = _resolve_plan_sessions(db=MagicMock(), plan_sessions=[session])
+        result = _resolve_plan_sessions(db=MagicMock(), plan_sessions=[session], user_id=uuid.uuid4())
 
         assert len(result) == 0
 
 
 def test_resolve_plan_sessions_empty_list():
-    result = _resolve_plan_sessions(db=MagicMock(), plan_sessions=[])
+    result = _resolve_plan_sessions(db=MagicMock(), plan_sessions=[], user_id=uuid.uuid4())
     assert result == []
+
+
+def test_resolve_plan_sessions_with_user_progress():
+    """Test that plan sessions include start_date and started_at when user has progress."""
+    from datetime import datetime, timezone
+    
+    session_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    
+    session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.PLAN,
+        source_id=source_id,
+        display_order=0,
+    )
+
+    # Mock plan with start_date
+    plan_start_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    mock_plan = SimpleNamespace(
+        id=source_id,
+        title="Test Plan",
+        language=SimpleNamespace(value="EN"),
+        image_url="https://example.com/plan.jpg",
+        start_date=plan_start_date,
+    )
+    
+    # Mock user progress with started_at
+    user_started_at = datetime(2025, 1, 15, tzinfo=timezone.utc)
+    mock_progress = SimpleNamespace(
+        plan_id=source_id,
+        started_at=user_started_at,
+    )
+
+    with patch(
+        "pecha_api.routines.routines_service.generate_presigned_access_url",
+        side_effect=lambda bucket_name, s3_key: s3_key,
+    ), patch(
+        "pecha_api.routines.routines_service.get_plans_by_ids",
+        return_value=[mock_plan],
+    ), patch(
+        "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={source_id: mock_progress},
+    ):
+        result = _resolve_plan_sessions(db=MagicMock(), plan_sessions=[session], user_id=user_id)
+
+        assert len(result) == 1
+        assert result[0].title == "Test Plan"
+        assert result[0].language == "EN"
+        assert result[0].start_date == plan_start_date
+        assert result[0].started_at == user_started_at
 
 
 @pytest.mark.asyncio
@@ -454,6 +513,7 @@ async def test_add_time_block_success():
         title="Morning Plan",
         language=SimpleNamespace(value="EN"),
         image_url="https://example.com/morning.jpg",
+        start_date=None,
     )
 
     with patch(
@@ -811,6 +871,7 @@ async def test_update_time_block_service_success():
         title="Updated Plan",
         language=SimpleNamespace(value="EN"),
         image_url="https://example.com/image.jpg",
+        start_date=None,
     )
 
     with patch(
@@ -1041,6 +1102,7 @@ async def test_get_user_routine_success():
         title="Morning Meditation",
         language=SimpleNamespace(value="EN"),
         image_url="https://example.com/image.jpg",
+        start_date=None,
     )
 
     with patch(
@@ -1221,6 +1283,7 @@ async def test_get_user_routine_with_multiple_time_blocks():
         title="Morning Practice",
         language=SimpleNamespace(value="EN"),
         image_url="https://example.com/morning.jpg",
+        start_date=None,
     )
     mock_text = SimpleNamespace(
         id=source_id_2,
@@ -1344,14 +1407,18 @@ async def test_build_time_block_dto():
         title="Test Plan",
         language=SimpleNamespace(value="EN"),
         image_url="https://example.com/image.jpg",
+        start_date=None,
     )
 
     with patch(
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
+    ), patch(
+        "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={},
     ):
         result = await build_time_block_dto(
-            db=MagicMock(), time_block=time_block, sessions=[session]
+            db=MagicMock(), time_block=time_block, sessions=[session], user_id=uuid.uuid4()
         )
 
         assert result.id == time_block_id
@@ -1390,6 +1457,7 @@ async def test_resolve_sessions_mixed_types():
         title="Plan Title",
         language=SimpleNamespace(value="EN"),
         image_url="https://example.com/plan.jpg",
+        start_date=None,
     )
     mock_text = SimpleNamespace(
         id=recitation_source_id,
@@ -1404,8 +1472,11 @@ async def test_resolve_sessions_mixed_types():
         "pecha_api.routines.routines_service.Text.get_texts_by_ids",
         new_callable=AsyncMock,
         return_value=[mock_text],
+    ), patch(
+        "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={},
     ):
-        result = await _resolve_sessions(db=MagicMock(), sessions=sessions)
+        result = await _resolve_sessions(db=MagicMock(), sessions=sessions, user_id=uuid.uuid4())
 
         # Results should be sorted by display_order
         assert len(result) == 2
@@ -1418,5 +1489,5 @@ async def test_resolve_sessions_mixed_types():
 @pytest.mark.asyncio
 async def test_resolve_sessions_empty_list():
     """Test resolving empty session list."""
-    result = await _resolve_sessions(db=MagicMock(), sessions=[])
+    result = await _resolve_sessions(db=MagicMock(), sessions=[], user_id=uuid.uuid4())
     assert result == []

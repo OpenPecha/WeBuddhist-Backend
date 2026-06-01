@@ -6,13 +6,9 @@ from pecha_api.auth.auth_service import retrieve_client_info
 
 from pecha_api.db.mongo_database import lifespan
 from pecha_api.auth import auth_views
-from pecha_api.sheets import sheets_views
-from pecha_api.collections import collections_views
 from pecha_api.terms import terms_views
 from pecha_api.topics import topics_views
 from pecha_api.users import users_views
-from pecha_api.texts.mappings import mappings_views
-from pecha_api.texts.segments import segments_views
 from pecha_api.texts.groups import groups_views
 from pecha_api.share import share_views
 from pecha_api.search import search_views
@@ -24,19 +20,18 @@ from pecha_api.plans.series import public_series_view as public_series_views
 from pecha_api.plans.tasks import plan_tasks_views
 from pecha_api.plans.tasks.sub_tasks import plan_sub_tasks_views
 from pecha_api.plans.public import plan_views as public_plans_views
+from pecha_api.plans.public import public_tags_views
 from pecha_api.plans.users import plan_users_views as user_plans_views
 from pecha_api.plans.media import media_views
 from pecha_api.plans.items import plan_items_views
 from pecha_api.plans.authors import plan_authors_views as plan_authors_views
 from pecha_api.plans.featured import featured_day_views
 from pecha_api.plans.dashboard import dashboard_views as cms_dashboard_views
+from pecha_api.plans.groups import groups_views as author_groups_views
 from pecha_api.recitations import recitations_view
 from pecha_api.user_follows import user_follow_views
 from pecha_api.plans.users.recitation import user_recitations_views
-from pecha_api.text_uploader import text_uploader_views
 from pecha_api.cataloger import cataloger_views
-from pecha_api.text_uploader.text_metadata import text_metadata_views
-from pecha_api.text_uploader.collections import uploader_collections_views
 from pecha_api.collections import collections_openpecha_views
 from pecha_api.texts import texts_openpecha_views
 from pecha_api.texts.segments import segments_openpecha_views
@@ -51,14 +46,10 @@ api = FastAPI(
     lifespan=lifespan
 )
 api.include_router(auth_views.auth_router)
-api.include_router(sheets_views.sheets_router)
-api.include_router(collections_views.collections_router)
 api.include_router(terms_views.terms_router)
 api.include_router(groups_views.group_router)
-api.include_router(segments_views.segment_router)
 api.include_router(topics_views.topics_router)
 api.include_router(users_views.user_router)
-api.include_router(mappings_views.mapping_router)
 api.include_router(search_views.search_router)
 api.include_router(share_views.share_router)
 api.include_router(plan_auth_views.plan_auth_router)
@@ -66,9 +57,14 @@ api.include_router(cms_plans_views.cms_plans_router)
 api.include_router(cms_series_views.cms_series_router)
 api.include_router(cms_tags_views.cms_tags_router)
 api.include_router(cms_dashboard_views.dashboard_router)
+api.include_router(cms_dashboard_views.practice_router)
+api.include_router(author_groups_views.cms_groups_router)
 api.include_router(public_series_views.public_series_router)
 api.include_router(media_views.media_router)
 api.include_router(public_plans_views.public_plans_router)
+api.include_router(public_tags_views.public_tags_router)
+api.include_router(author_groups_views.public_groups_router)
+api.include_router(author_groups_views.user_groups_router)
 api.include_router(user_plans_views.user_progress_router)
 api.include_router(plan_items_views.items_router)
 api.include_router(plan_tasks_views.plans_router)
@@ -78,10 +74,7 @@ api.include_router(featured_day_views.user_follow_router)
 api.include_router(recitations_view.recitation_router)
 api.include_router(user_follow_views.user_follow_router)
 api.include_router(user_recitations_views.user_recitation_router)
-api.include_router(text_uploader_views.text_uploader_router)
 api.include_router(cataloger_views.cataloger_router)
-api.include_router(text_metadata_views.text_metadata_router)
-api.include_router(uploader_collections_views.text_uploader_collections_router)
 api.include_router(routines_views.routines_router)
 api.include_router(collections_openpecha_views.collections_v2_router)
 api.include_router(texts_openpecha_views.texts_v2_router)

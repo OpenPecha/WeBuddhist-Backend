@@ -9,6 +9,7 @@ from pecha_api.plans.tags.tag_repository import (
     get_tag_by_name,
     get_tags_by_ids,
     get_tags_paginated,
+    get_all_tags_paginated,
     get_published_tags_for_language,
     save_tag,
     set_plan_tags,
@@ -178,3 +179,22 @@ def test_get_published_tags_for_language():
     result = get_published_tags_for_language(db=db, language="EN")
 
     assert result == [tag]
+
+
+def test_get_all_tags_paginated_with_featured_and_search():
+    db = MagicMock()
+    tag = MagicMock(spec=Tag)
+    chain = _mock_query_chain([tag])
+    chain.count.return_value = 1
+    db.query.return_value = chain
+
+    rows, total = get_all_tags_paginated(
+        db=db,
+        featured=True,
+        search="med",
+        skip=0,
+        limit=10,
+    )
+
+    assert rows == [tag]
+    assert total == 1

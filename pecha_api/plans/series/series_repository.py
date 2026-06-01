@@ -9,6 +9,7 @@ from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.groups.groups_models import author_group_series
 
 
 def _series_active_plans_count_subquery(published_only: bool = False):
@@ -42,6 +43,20 @@ def get_series_by_ids(db: Session, series_ids: List[UUID]) -> List[Series]:
     return (
         db.query(Series)
         .options(selectinload(Series.metadata_entries))
+        .filter(Series.id.in_(series_ids), Series.deleted_at.is_(None))
+        .all()
+    )
+
+
+def get_series_with_plans_by_ids(db: Session, series_ids: List[UUID]) -> List[Series]:
+    if not series_ids:
+        return []
+    return (
+        db.query(Series)
+        .options(
+            selectinload(Series.plans).selectinload(Plan.items),
+            selectinload(Series.plans).selectinload(Plan.tag_list),
+        )
         .filter(Series.id.in_(series_ids), Series.deleted_at.is_(None))
         .all()
     )
@@ -207,6 +222,7 @@ def get_series_paginated(
     status: Optional[PlanStatus] = None,
     featured: Optional[bool] = None,
     published_only: bool = False,
+    group_id: Optional[UUID] = None,
 ) -> Tuple[List[Tuple[Series, int]], int]:
 
     filters = []
@@ -237,6 +253,15 @@ def get_series_paginated(
                 select(1).where(
                     SeriesMetadata.series_id == Series.id,
                     SeriesMetadata.language == language_upper,
+                )
+            )
+        )
+    if group_id:
+        filters.append(
+            exists(
+                select(1).where(
+                    author_group_series.c.group_id == group_id,
+                    author_group_series.c.series_id == Series.id,
                 )
             )
         )

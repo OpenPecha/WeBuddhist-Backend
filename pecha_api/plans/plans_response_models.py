@@ -1,7 +1,7 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from typing import Optional, List
 from datetime import datetime
-from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus,ContentType
+from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus, ContentType, PlanAudioType
 from uuid import UUID
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
@@ -31,6 +31,20 @@ class UpdatePlanRequest(BaseModel):
     series_id: Optional[UUID] = None
     display_order: Optional[int] = None
 
+class GeneratePlanAudioRequest(BaseModel):
+    day_id: Optional[UUID] = None
+    sub_task_id: Optional[UUID] = None
+    language: str
+    type: Optional[PlanAudioType] = PlanAudioType.TEXT_READING
+
+    @model_validator(mode="after")
+    def validate_either_day_or_subtask(self):
+        if not self.day_id and not self.sub_task_id:
+            raise ValueError("Either day_id or sub_task_id must be provided")
+        if self.day_id and self.sub_task_id:
+            raise ValueError("Provide either day_id or sub_task_id, not both")
+        return self
+
 class PlanStatusUpdate(BaseModel):
     status: PlanStatus
 
@@ -56,6 +70,9 @@ class PlanDTO(BaseModel):
     subscription_count: int
     author: Optional[AuthorDTO] = None
     start_date: Optional[datetime] = None
+    series_id: Optional[UUID] = None
+    display_order: Optional[int] = None
+    group_id: Optional[UUID] = None
 
 class SubTaskDTO(BaseModel):
     id: UUID
@@ -64,6 +81,7 @@ class SubTaskDTO(BaseModel):
     display_order: Optional[int] = None
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None
+    audio_url: Optional[str] = None
 
 class TaskDTO(BaseModel):
     id: UUID
@@ -95,6 +113,9 @@ class PlanWithDays(BaseModel):
     status: PlanStatus
     days: List[PlanDayDTO]
     start_date: Optional[datetime] = None
+    series_id: Optional[UUID] = None
+    display_order: Optional[int] = None
+    group_id: Optional[UUID] = None
 
 class PlansResponse(BaseModel):
     plans: List[PlanDTO]

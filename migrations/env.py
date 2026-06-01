@@ -23,6 +23,7 @@ from pecha_api.users.users_models import Users, SocialMediaAccount, PasswordRese
 from pecha_api.plans.users.recitation.user_recitations_models import UserRecitations
 from pecha_api.texts.text_images_models import TextImage
 from pecha_api.routines.routines_models import Routine, RoutineTimeBlock, RoutineSession
+from pecha_api.plans.groups.groups_models import AuthorGroup, AuthorGroupMetadata, AuthorGroupMember, AuthorGroupSocialLink, AuthorGroupInvite
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

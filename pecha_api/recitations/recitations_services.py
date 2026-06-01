@@ -1,11 +1,9 @@
-from pecha_api.recitations.recitations_enum import LanguageCode,RecitationListTextType
+from pecha_api.recitations.recitations_enum import RecitationListTextType
 from pecha_api.texts.texts_enums import TextType
 from typing import List, Dict, Union,Optional
-from pecha_api.collections.collections_repository import get_all_collections_by_parent, get_collection_id_by_slug
-from pecha_api.collections.collections_service import get_collection
+from pecha_api.collections.collections_repository import get_collection_id_by_slug
 from pecha_api.recitations.recitations_repository import apply_search_recitation_title_filter, get_text_images_by_text_ids
 from pecha_api.recitations.recitations_response_models import RecitationDTO, RecitationsResponse
-from pecha_api.texts.texts_repository import get_all_texts_by_collection
 from pecha_api.texts.texts_service import get_root_text_by_collection_id
 from fastapi import HTTPException
 from starlette import status
@@ -15,7 +13,8 @@ from pecha_api.error_contants import ErrorConstants
 from pecha_api.texts.texts_utils import TextUtils
 from pecha_api.texts.texts_response_models import TextDTO, TableOfContent
 from pecha_api.texts.texts_repository import get_contents_by_id, get_all_texts_by_group_id
-from pecha_api.texts.segments.segments_service import get_segment_by_id, get_related_mapped_segments, get_segment_details_by_id, get_related_mapped_segments_batch, get_segments_details_by_ids
+from pecha_api.texts.segments.segments_service import get_segments_details_by_ids
+from pecha_api.texts.segments.segments_repository import get_related_mapped_segments_batch
 from pecha_api.texts.segments.segments_utils import SegmentUtils
 from pecha_api.texts.segments.segments_response_models import SegmentTranslation, SegmentTransliteration, SegmentAdaptation, SegmentRecitation
 from pecha_api.texts.segments.segments_response_models import SegmentDTO

@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from starlette import status
 
+from pecha_api.config import get
 from pecha_api.error_contants import ErrorConstants
 from .texts_repository import (
     create_table_of_content_detail,
@@ -8,7 +9,6 @@ from .texts_repository import (
     delete_table_of_content_by_text_id,
     update_text_details_by_id,
     delete_text_by_id,
-    fetch_sheets_from_db,
     get_all_recitation_texts_by_collection,
     get_texts_by_pecha_text_ids,
 )
@@ -28,16 +28,10 @@ from pecha_api.recitations.recitations_response_models import (
 )
 
 from pecha_api.texts.texts_cache_service import (
-    get_table_of_content_by_sheet_id_cache,
-    set_table_of_content_by_sheet_id_cache,
     update_text_details_cache,
     invalidate_text_cache_on_update
 )
 from .segments.segments_repository import get_segments_by_text_id
-from pecha_api.sheets.sheets_enum import (
-    SortBy,
-    SortOrder
-)
 from pecha_api.cache.cache_enums import CacheType
 
 from .texts_utils import TextUtils
@@ -50,55 +44,60 @@ from .texts_enums import TextType
 
 import logging
 
-
-async def get_sheet(
-    published_by: Optional[str] = None,
-    is_published: Optional[bool] = None,
-    sort_by: Optional[SortBy] = None,
-    sort_order: Optional[SortOrder] = None,
-    skip: int = 0,
-    limit: int = 10
-):
-    return await fetch_sheets_from_db(
-        published_by=published_by,
-        is_published=is_published,
-        sort_by=sort_by,
-        sort_order=sort_order,
-        skip=skip,
-        limit=limit
-    )
-
-
-async def get_table_of_content_by_sheet_id(sheet_id: str) -> Optional[TableOfContent]:
-    cached_data: TableOfContent = await get_table_of_content_by_sheet_id_cache(
-        sheet_id=sheet_id, cache_type=CacheType.SHEET_TABLE_OF_CONTENT
-    )
-    if cached_data is not None:
-        return cached_data
-
-    table_of_content = None
-    is_valid_sheet: bool = await TextUtils.validate_text_exists(text_id=sheet_id)
-    if not is_valid_sheet:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
-
-    table_of_contents: List[TableOfContent] = await get_contents_by_id(text_id=sheet_id)
-    if len(table_of_contents) > 0 and table_of_contents[0] is not None:
-        table_of_content: TableOfContent = table_of_contents[0]
-
-    if table_of_content is not None:
-        await set_table_of_content_by_sheet_id_cache(
-            sheet_id=sheet_id, cache_type=CacheType.SHEET_TABLE_OF_CONTENT, data=table_of_content
-        )
-
-    return table_of_content
-
-
-async def remove_table_of_content_by_text_id(text_id: str):
-    is_valid_text = await TextUtils.validate_text_exists(text_id=text_id)
+async def get_table_of_contents_by_text_id(text_id: str, language: str = None, skip: int = 0, limit: int = 10) -> TableOfContentResponse:
+    
+    if language is None:
+        language = get("DEFAULT_LANGUAGE")
+    
+    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
     if not is_valid_text:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
-    return await delete_table_of_content_by_text_id(text_id=text_id)
+    
+    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
+    group_id: str = text_detail.group_id
+    texts: List[TextDTO] = await get_texts_by_group_id(group_id=group_id, skip=skip, limit=limit)
+    filtered_text_on_root_and_version = TextUtils.filter_text_on_root_and_version(texts=texts, language=language)
+    root_text: TextDTO = filtered_text_on_root_and_version[TextType.ROOT_TEXT.value]
+    if root_text is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
+    table_of_contents: List[TableOfContent] = await get_contents_by_id(text_id=root_text.id)
 
+    response = TableOfContentResponse(
+        text_detail=root_text,
+        contents=[
+            TableOfContent(
+                id=str(content.id),
+                text_id=content.text_id,
+                type=content.type if content.type else TableOfContentType.TEXT,
+                sections=_get_paginated_sections(sections=content.sections, skip=skip, limit=limit)
+            )
+            for content in table_of_contents
+        ]
+    )
+    
+    return response
+
+def _get_paginated_sections(sections: List[Section], skip: int, limit: int) -> List[Section]:
+    filtered_sections = [] 
+    skip_index = skip
+    limit_index = skip + limit
+    for section in sections:
+        first_segment = section.segments[0]
+        if section.segments:
+            new_section = Section(
+                id=section.id,
+                title=section.title,
+                section_number=section.section_number,
+                parent_id=section.parent_id,
+                segments=[first_segment],
+                sections=section.sections if section.sections else None,
+                created_date=section.created_date,
+                updated_date=section.updated_date,
+                published_date=section.published_date
+            )
+            filtered_sections.append(new_section)
+
+    return filtered_sections[skip_index:limit_index]
 
 async def create_table_of_content(table_of_content_request: TableOfContent, token: str):
     is_valid_user = validate_user_exists(token=token)
@@ -147,39 +146,7 @@ async def update_text_details(text_id: str, update_text_request: UpdateTextReque
 
     return updated_text
 
-
-async def delete_text_by_text_id(text_id: str):
-    is_valid_text = await TextUtils.validate_text_exists(text_id=text_id)
-    if not is_valid_text:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
-    await delete_text_by_id(text_id=text_id)
-
-
-async def get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request: TextsByPechaTextIdsRequest) -> Optional[List[TextDTO]]:
-    pecha_text_ids = texts_by_pecha_text_ids_request.pecha_text_ids
-    texts = await get_texts_by_pecha_text_ids(pecha_text_ids=pecha_text_ids)
-    return [TextDTO(
-        id=str(text.id),
-        pecha_text_id=str(text.pecha_text_id),
-        title=text.title,
-        language=text.language,
-        group_id=text.group_id,
-        type=text.type,
-        is_published=text.is_published,
-        created_date=text.created_date,
-        updated_date=text.updated_date,
-        published_date=text.published_date,
-        published_by=text.published_by,
-        categories=text.categories,
-        views=text.views,
-        source_link=text.source_link,
-        ranking=text.ranking,
-        license=text.license
-    ) for text in texts]
-
-
 # PRIVATE FUNCTIONS
-
 async def get_table_of_content_by_type(table_of_content: TableOfContent):
     if table_of_content.type == TableOfContentType.TEXT:
         return await replace_pecha_segment_id_with_segment_id(table_of_content=table_of_content)
