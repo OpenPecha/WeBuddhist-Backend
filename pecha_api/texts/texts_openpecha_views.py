@@ -20,7 +20,7 @@ from pecha_api.texts.text_openpecha_response_models import TextDetailResponse
 
 texts_v2_router = APIRouter(
     prefix="/texts",
-    tags=["texts"],
+    tags=["texts-v2"],
 )
 
 @texts_v2_router.get(
