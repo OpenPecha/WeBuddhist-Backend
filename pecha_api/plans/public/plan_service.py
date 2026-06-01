@@ -324,6 +324,10 @@ def build_task_dto(task) -> TaskDTO:
     subtasks = []
     for subtask in sorted(task.sub_tasks, key=lambda st: st.display_order):
         start_ms, end_ms = build_subtask_timestamp_fields(subtask)
+        audio_url = (
+            generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=subtask.audio_url)
+            if subtask.audio_url else None
+        )
         subtasks.append(
             SubTaskDTO(
                 id=subtask.id,
@@ -331,6 +335,7 @@ def build_task_dto(task) -> TaskDTO:
                 duration=subtask.duration,
                 content=generate_subtask_content_url(subtask.content_type, subtask.content or ""),
                 image_url=subtask.content if subtask.content_type == ContentType.IMAGE else None,
+                audio_url=audio_url,
                 source_text_id=subtask.source_text_id,
                 pecha_segment_id=subtask.pecha_segment_id,
                 segment_ids=subtask.segment_ids,
