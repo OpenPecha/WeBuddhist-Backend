@@ -38,6 +38,7 @@ from .routines_repository import (
     update_time_block as update_time_block_repo,
     get_time_blocks,
     get_sessions_by_time_block_ids,
+    get_time_blocks_containing_plan,
 )
 from .response_message import (
     DUPLICATE_PLAN,
@@ -94,34 +95,36 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
         )
 
 
-def _check_duplicate_plans(db, routine_id: UUID, sessions: List) -> None:
-    existing_plan_ids = get_existing_plan_source_ids(db=db, routine_id=routine_id)
-    new_plan_ids = [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
-    overlap = set(new_plan_ids) & set(existing_plan_ids)
-    if overlap:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=DUPLICATE_PLAN
-            ).model_dump(),
-        )
+# Note: Duplicate plan validation removed to allow plans in multiple time blocks
+# def _check_duplicate_plans(db, routine_id: UUID, sessions: List) -> None:
+#     existing_plan_ids = get_existing_plan_source_ids(db=db, routine_id=routine_id)
+#     new_plan_ids = [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
+#     overlap = set(new_plan_ids) & set(existing_plan_ids)
+#     if overlap:
+#         raise HTTPException(
+#             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+#             detail=ResponseError(
+#                 error=BAD_REQUEST, message=DUPLICATE_PLAN
+#             ).model_dump(),
+#         )
 
 
-def _check_duplicate_plans_on_update(
-    db, routine_id: UUID, time_block_id: UUID, sessions: List
-) -> None:
-    existing_plan_ids = get_existing_plan_source_ids_in_routine(
-        db=db, routine_id=routine_id, exclude_time_block_id=time_block_id
-    )
-    new_plan_ids = [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
-    overlap = set(new_plan_ids) & set(existing_plan_ids)
-    if overlap:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=DUPLICATE_PLAN
-            ).model_dump(),
-        )
+# Note: Duplicate plan validation removed to allow plans in multiple time blocks  
+# def _check_duplicate_plans_on_update(
+#     db, routine_id: UUID, time_block_id: UUID, sessions: List
+# ) -> None:
+#     existing_plan_ids = get_existing_plan_source_ids_in_routine(
+#         db=db, routine_id=routine_id, exclude_time_block_id=time_block_id
+#     )
+#     new_plan_ids = [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
+#     overlap = set(new_plan_ids) & set(existing_plan_ids)
+#     if overlap:
+#         raise HTTPException(
+#             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+#             detail=ResponseError(
+#                 error=BAD_REQUEST, message=DUPLICATE_PLAN
+#             ).model_dump(),
+#         )
 
 
 def _check_duplicate_time(db, routine_id: UUID, time: str) -> None:
@@ -183,6 +186,102 @@ def _unenroll_plans(db, user_id: UUID, plan_ids: List[UUID]) -> None:
             raise
 
 
+def _enroll_plans_if_needed(db, user_id: UUID, plan_ids: List[UUID]) -> None:
+    """Only enroll if not already enrolled - prevents duplicates"""
+    if not plan_ids:
+        return
+
+    already_enrolled = {
+        row.plan_id
+        for row in db.query(UserPlanProgress.plan_id)
+        .filter(
+            UserPlanProgress.user_id == user_id,
+            UserPlanProgress.plan_id.in_(plan_ids),
+        )
+        .all()
+    }
+
+    unenrolled_plans = [plan_id for plan_id in plan_ids if plan_id not in already_enrolled]
+    
+    if unenrolled_plans:
+        _enroll_plans(db=db, user_id=user_id, plan_ids=unenrolled_plans)
+
+
+def _plan_exists_in_user_routine(db, user_id: UUID, plan_id: UUID) -> bool:
+    """Check if a plan exists anywhere in user's routine"""
+    time_blocks = get_time_blocks_containing_plan(db=db, user_id=user_id, plan_id=plan_id)
+    return len(time_blocks) > 0
+
+
+def _remove_plan_from_all_user_routines(db, user_id: UUID, plan_id: UUID) -> None:
+    """Remove plan from all time blocks in user's routines"""
+    # Get user's routine first
+    routine = get_routine_by_user_id(db=db, user_id=user_id, include_deleted=False)
+    if not routine:
+        return
+    
+    # Find all sessions with this plan in user's routine
+    from .routines_models import RoutineSession, RoutineTimeBlock
+    
+    plan_sessions = (
+        db.query(RoutineSession)
+        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            RoutineTimeBlock.routine_id == routine.id,
+            RoutineTimeBlock.deleted_at.is_(None),
+            RoutineSession.session_type == SessionType.PLAN,
+            RoutineSession.source_id == plan_id,
+        )
+        .all()
+    )
+    
+    # Delete all sessions with this plan
+    for session in plan_sessions:
+        db.delete(session)
+    
+    db.commit()
+
+
+def _cleanup_all_enrollments_for_plan(db, plan_id: UUID) -> None:
+    """Clean up all user enrollments and progress for a deleted plan"""
+    # Get all users enrolled in this plan
+    enrolled_users = (
+        db.query(UserPlanProgress.user_id)
+        .filter(UserPlanProgress.plan_id == plan_id)
+        .all()
+    )
+    
+    # Unenroll each user
+    for user in enrolled_users:
+        try:
+            delete_user_plan_progress(db=db, user_id=user.user_id, plan_id=plan_id)
+        except HTTPException as e:
+            if e.status_code == status.HTTP_404_NOT_FOUND:
+                continue
+            raise
+
+
+def _remove_plan_from_all_routines(db, plan_id: UUID) -> None:
+    """Remove plan from all routine time blocks across all users"""
+    from .routines_models import RoutineSession
+    
+    # Find all sessions with this plan across all routines
+    plan_sessions = (
+        db.query(RoutineSession)
+        .filter(
+            RoutineSession.session_type == SessionType.PLAN,
+            RoutineSession.source_id == plan_id,
+        )
+        .all()
+    )
+    
+    # Delete all sessions with this plan
+    for session in plan_sessions:
+        db.delete(session)
+    
+    db.commit()
+
+
 def _sync_plan_enrollments_on_update(
     db, user_id: UUID, time_block_id: UUID, new_sessions: List
 ) -> None:
@@ -192,10 +291,11 @@ def _sync_plan_enrollments_on_update(
     new_plan_ids = set(_extract_plan_ids(new_sessions))
 
     added_plans = list(new_plan_ids - old_plan_ids)
-    removed_plans = list(old_plan_ids - new_plan_ids)
+    # Note: removed_plans are NOT auto-unenrolled per new requirements
+    # removed_plans = list(old_plan_ids - new_plan_ids)
 
-    _enroll_plans(db=db, user_id=user_id, plan_ids=added_plans)
-    _unenroll_plans(db=db, user_id=user_id, plan_ids=removed_plans)
+    # Only enroll new plans, don't unenroll removed ones
+    _enroll_plans_if_needed(db=db, user_id=user_id, plan_ids=added_plans)
 
 
 def _validate_and_sync_update(
@@ -219,12 +319,7 @@ def _validate_and_sync_update(
             ).model_dump(),
         )
 
-    _check_duplicate_plans_on_update(
-        db=db,
-        routine_id=routine_id,
-        time_block_id=time_block_id,
-        sessions=request.sessions,
-    )
+    # Note: Duplicate plan check removed - plans can now exist in multiple time blocks
 
     _sync_plan_enrollments_on_update(
         db=db,
@@ -412,8 +507,8 @@ async def create_routine_with_time_block(
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
-        # Auto-enroll plans
-        _enroll_plans(
+        # Auto-enroll plans (only if not already enrolled)
+        _enroll_plans_if_needed(
             db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(request.sessions)
         )
 
@@ -507,7 +602,7 @@ async def add_time_block_to_routine(
                 ).model_dump(),
             )
 
-        _check_duplicate_plans(db=db, routine_id=routine_id, sessions=request.sessions)
+        # Note: Duplicate plan check removed - plans can now exist in multiple time blocks
         _check_duplicate_time(db=db, routine_id=routine_id, time=request.time)
 
         # Save time block
@@ -524,8 +619,8 @@ async def add_time_block_to_routine(
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
-        # Auto-enroll plans
-        _enroll_plans(
+        # Auto-enroll plans (only if not already enrolled)
+        _enroll_plans_if_needed(
             db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(request.sessions)
         )
 
@@ -568,12 +663,9 @@ def delete_time_block(token: str, routine_id: UUID, time_block_id: UUID) -> None
                 ).model_dump(),
             )
 
-        # Auto-unenroll plans before soft delete
-        plan_ids = get_plan_source_ids_by_time_block_id(
-            db=db, time_block_id=time_block_id
-        )
-        _unenroll_plans(db=db, user_id=current_user.id, plan_ids=plan_ids)
-
+        # Note: No longer auto-unenrolling plans when deleting time blocks
+        # per new enrollment/routine separation requirements
+        
         # Soft delete
         soft_delete_time_block(db=db, time_block=time_block)
 

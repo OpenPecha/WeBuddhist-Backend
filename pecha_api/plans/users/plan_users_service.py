@@ -99,6 +99,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Import routine cleanup function
+from pecha_api.routines.routines_service import _remove_plan_from_all_user_routines
+
 # Helper functions for enrollment checking
 
 def is_user_enrolled_in_plan(db: SessionLocal, user_id: UUID, plan_id: UUID) -> bool:
@@ -325,6 +328,9 @@ def unenroll_user_from_plan(token: str, plan_id: UUID) -> None:
 
     current_user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
+        # First remove plan from all routine time blocks
+        _remove_plan_from_all_user_routines(db=db, user_id=current_user.id, plan_id=plan_id)
+        # Then delete enrollment and progress
         delete_user_plan_progress(db=db, user_id=current_user.id, plan_id=plan_id)
 
 

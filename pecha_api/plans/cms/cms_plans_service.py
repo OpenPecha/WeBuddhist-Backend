@@ -33,6 +33,9 @@ from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, FORBID
 from datetime import datetime, timezone
 from sqlalchemy import func
 
+# Import cleanup functions for plan deletion
+from pecha_api.routines.routines_service import _remove_plan_from_all_routines, _cleanup_all_enrollments_for_plan
+
 DUMMY_PLANS = [
     PlanDTO(
         id=uuid4(),
@@ -563,10 +566,22 @@ async def get_plan_day_details(token:str,plan_id: UUID, day_number: int) -> Plan
         )
         return plan_day_dto
 
+def _cleanup_deleted_plan(db: Session, plan_id: UUID) -> None:
+    """Clean up routine sessions and enrollments for a deleted plan"""
+    # 1. Remove from all user routines
+    _remove_plan_from_all_routines(db=db, plan_id=plan_id)
+    # 2. Clean up all user enrollments and progress
+    _cleanup_all_enrollments_for_plan(db=db, plan_id=plan_id)
+
+
 def _soft_delete_plan_by_id(db: Session, plan_id: UUID, author: Author):
     plan = get_plan_by_id(db=db, plan_id=plan_id)
     if not plan:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ResponseError(error=BAD_REQUEST, message=PLAN_NOT_FOUND).model_dump())
+    
+    # Clean up routine sessions and enrollments before soft delete
+    _cleanup_deleted_plan(db=db, plan_id=plan_id)
+    
     plan.deleted_at = datetime.now(timezone.utc)
     plan.deleted_by = author.email
     plan = update_plan(db=db, plan=plan)

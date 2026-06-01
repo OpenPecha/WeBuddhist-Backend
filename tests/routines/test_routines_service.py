@@ -630,9 +630,11 @@ async def test_add_time_block_forbidden():
 
 
 @pytest.mark.asyncio
-async def test_add_time_block_duplicate_plan_across_routine():
+async def test_add_time_block_duplicate_plan_across_routine_now_allowed():
+    """Test that duplicate plans across time blocks are now allowed"""
     user_id = uuid.uuid4()
     routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
     existing_plan_id = uuid.uuid4()
 
     request = CreateTimeBlockRequest(
@@ -647,7 +649,11 @@ async def test_add_time_block_duplicate_plan_across_routine():
         ],
     )
 
-    _, session_cm = _mock_session_with_db()
+    db_mock, session_cm = _mock_session_with_db()
+
+    # Mock time block and session objects
+    time_block_mock = SimpleNamespace(id=time_block_id)
+    session_mock = SimpleNamespace(id=uuid.uuid4())
 
     with patch(
         "pecha_api.routines.routines_service.validate_and_extract_user_details",
@@ -660,13 +666,28 @@ async def test_add_time_block_duplicate_plan_across_routine():
         return_value=SimpleNamespace(id=routine_id, user_id=user_id),
     ), patch(
         "pecha_api.routines.routines_service.get_existing_plan_source_ids",
-        return_value=[existing_plan_id],
+        return_value=[existing_plan_id],  # Plan already exists in routine
+    ), patch(
+        "pecha_api.routines.routines_service.time_block_exists_for_routine",
+        return_value=False,
+    ), patch(
+        "pecha_api.routines.routines_service.save_time_block",
+        return_value=time_block_mock,
+    ), patch(
+        "pecha_api.routines.routines_service.save_sessions",
+        return_value=[session_mock],
+    ), patch(
+        "pecha_api.routines.routines_service._enroll_plans_if_needed"
+    ), patch(
+        "pecha_api.routines.routines_service._resolve_sessions",
+        return_value=[],
     ):
-        with pytest.raises(HTTPException) as exc_info:
-            await add_time_block_to_routine(
-                token="token123", routine_id=routine_id, request=request
-            )
-        assert exc_info.value.status_code == 422
+        # Should NOT raise an exception now - duplicate plans across time blocks are allowed
+        result = await add_time_block_to_routine(
+            token="token123", routine_id=routine_id, request=request
+        )
+        # Verify the time block was created successfully
+        assert result.id == time_block_id
         assert exc_info.value.detail["message"] == DUPLICATE_PLAN
 
 
