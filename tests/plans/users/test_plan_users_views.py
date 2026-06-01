@@ -477,12 +477,12 @@ def test_get_user_plan_progress_details_success(authenticated_client):
         "user_id": uuid.uuid4(),
         "plan_id": plan_id,
         "plan": {"id": str(plan_id), "title": "Sample"},
-        "started_at": datetime.utcnow(),
+        "started_at": datetime.now(timezone.utc),
         "streak_count": 3,
         "longest_streak": 5,
         "status": "active",
         "is_completed": False,
-        "created_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
         "completed_at": None,
     }
 

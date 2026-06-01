@@ -651,8 +651,13 @@ async def test_add_time_block_duplicate_plan_across_routine_now_allowed():
 
     db_mock, session_cm = _mock_session_with_db()
 
-    # Mock time block and session objects
-    time_block_mock = SimpleNamespace(id=time_block_id)
+    # Mock time block and session objects with all required attributes
+    time_block_mock = SimpleNamespace(
+        id=time_block_id,
+        time="08:00",
+        time_int=800,
+        notification_enabled=False
+    )
     session_mock = SimpleNamespace(id=uuid.uuid4())
 
     with patch(
@@ -688,7 +693,8 @@ async def test_add_time_block_duplicate_plan_across_routine_now_allowed():
         )
         # Verify the time block was created successfully
         assert result.id == time_block_id
-        assert exc_info.value.detail["message"] == DUPLICATE_PLAN
+        assert result.time == "08:00"
+        assert result.time_int == 800
 
 
 @pytest.mark.asyncio
