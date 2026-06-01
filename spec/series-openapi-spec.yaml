@@ -1,0 +1,880 @@
+openapi: 3.0.3
+info:
+  title: WeBuddhist Series API
+  description: |
+    OpenAPI spec for the Series feature.
+
+    Covers CMS Series management (authenticated) and public Series browsing
+    (unauthenticated). A Series is a curated grouping of Plans, with
+    per-language metadata, an optional cover image, a featured flag, and a
+    publication status.
+
+    Notes for implementers:
+    - `metadata` is a LIST of per-language objects, not a single multilingual
+      object. Each entry carries title/description for one LanguageCode.
+    - `plans` on write requests is a map of language code -> ordered list of
+      plan UUIDs.
+    - Series rows are soft-deleted (`deleted_at` / `deleted_by`); deleted rows
+      are excluded from all read endpoints.
+    - Errors are returned by FastAPI `HTTPException` and use the `{detail}`
+      shape. This differs from the Routine API's `{error, message}` shape.
+  version: 1.0.0
+
+servers:
+  - url: /api/v1
+    description: WeBuddhist API v1
+
+tags:
+  - name: CMS Series
+    description: Authenticated CRUD and management operations for Series.
+  - name: Public Series
+    description: Unauthenticated read-only browsing of published Series.
+
+security:
+  - BearerAuth: []
+
+paths:
+  /cms/series:
+    post:
+      tags: [CMS Series]
+      summary: Create a Series
+      operationId: createSeries
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSeriesRequest'
+            example:
+              metadata:
+                - title: "Foundations of Practice"
+                  description: "An introductory series."
+                  language: "EN"
+                - title: "ཉམས་ལེན་གྱི་གཞི་རྩ།"
+                  language: "BO"
+              image_key: "series/cover-abc123.jpg"
+              featured: false
+              plans:
+                EN:
+                  - "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+      responses:
+        '201':
+          description: Series created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    get:
+      tags: [CMS Series]
+      summary: List Series (CMS)
+      operationId: listCmsSeries
+      description: |
+        Non-admin callers are scoped to their own Series. Admins may use
+        `author_id` to view another author's Series.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >-
+            Case-insensitive substring match (ILIKE) against the `title` and
+            `description` columns of `series_metadata`. A Series matches when
+            any of its per-language metadata rows match.
+        - name: language
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >-
+            Filter to Series that have a metadata row in the given language.
+            Matched case-insensitively against the LanguageCode enum (the
+            value is uppercased server-side), so `EN`, `en`, `BO`, `bo`,
+            `ZH`, and `zh` are all accepted.
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/PlanStatus'
+        - name: featured
+          in: query
+          required: false
+          schema:
+            type: boolean
+        - name: author_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Filter by author ID. Admins only; non-admins are scoped to their own Series.
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: >-
+            Pagination offset. The implementation applies no lower bound;
+            negative values are passed through to the query as-is.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+          description: >-
+            Page size. The implementation applies no upper bound; large
+            values are accepted as-is.
+      responses:
+        '200':
+          description: A paginated list of Series.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /cms/series/{series_id}:
+    parameters:
+      - $ref: '#/components/parameters/SeriesId'
+    put:
+      tags: [CMS Series]
+      summary: Update a Series
+      operationId: updateSeries
+      description: |
+        Partial update. All fields are optional; only fields present in the
+        request body are modified, and omitted fields are left untouched.
+        Despite the PUT method, this is partial-update (PATCH-like) behavior,
+        not a full replacement.
+
+        Caution on `plans`: omitting `plans` leaves attached plans untouched,
+        but sending an empty value (`{}` or a map whose lists are all empty)
+        DETACHES all currently attached plans. `metadata`, `image_key`, and
+        `featured` have no equivalent "clear" value — they are simply skipped
+        when omitted.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSeriesRequest'
+            example:
+              metadata:
+                - title: "Foundations of Practice (Revised)"
+                  description: "An updated introductory series."
+                  language: "EN"
+              featured: true
+      responses:
+        '200':
+          description: Series updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    get:
+      tags: [CMS Series]
+      summary: Get a Series by ID (CMS)
+      operationId: getCmsSeries
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: The requested Series.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesDTO'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags: [CMS Series]
+      summary: Delete a Series
+      operationId: deleteSeries
+      description: |
+        Soft delete. Sets `deleted_at` / `deleted_by`; the row is excluded
+        from all reads afterward. Attached plans are NOT deleted — they are
+        detached (their `series_id` and `display_order` are cleared).
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Series deleted successfully. No content.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /cms/series/{series_id}/status:
+    parameters:
+      - $ref: '#/components/parameters/SeriesId'
+    patch:
+      tags: [CMS Series]
+      summary: Update Series status
+      operationId: updateSeriesStatus
+      description: |
+        Sets the Series status. Accepts any valid PlanStatus value — there
+        are no transition rules enforced, and `DELETED` is accepted as an
+        input value (it is not equivalent to the DELETE endpoint's soft
+        delete and will not detach plans).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSeriesStatusRequest'
+            example:
+              status: "PUBLISHED"
+      responses:
+        '200':
+          description: Series status updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesDTO'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /cms/series/{series_id}/featured:
+    parameters:
+      - $ref: '#/components/parameters/SeriesId'
+    patch:
+      tags: [CMS Series]
+      summary: Toggle Series featured flag
+      operationId: toggleSeriesFeatured
+      description: Toggles the `featured` flag on the Series. No request body; no response body.
+      security:
+        - BearerAuth: []
+      responses:
+        '204':
+          description: Featured flag toggled successfully. No content.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /series:
+    get:
+      tags: [Public Series]
+      summary: List Series (public)
+      operationId: listPublicSeries
+      description: |
+        Public, unauthenticated listing of Series.
+
+        Only Series with status PUBLISHED are returned — this scoping is
+        applied server-side and cannot be overridden. Soft-deleted Series
+        are excluded. `plan_count` counts only published, active plans.
+
+        Unlike the CMS list, this endpoint supports only `search`,
+        `language`, `skip`, and `limit` — there are no `status`, `featured`,
+        or `author_id` filters.
+      security: []
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >-
+            Case-insensitive substring match (ILIKE) against the `title` and
+            `description` columns of `series_metadata`. A Series matches when
+            any of its per-language metadata rows match.
+        - name: language
+          in: query
+          required: false
+          schema:
+            type: string
+          description: >-
+            Filter to Series that have a metadata row in the given language.
+            Matched case-insensitively against the LanguageCode enum (the
+            value is uppercased server-side), so `EN`, `en`, `BO`, `bo`,
+            `ZH`, and `zh` are all accepted.
+        - name: skip
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 0
+          description: >-
+            Pagination offset. The implementation applies no lower bound.
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+          description: >-
+            Page size. The implementation applies no upper bound.
+      responses:
+        '200':
+          description: A paginated list of published Series.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesListResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /series/{series_id}:
+    parameters:
+      - $ref: '#/components/parameters/SeriesId'
+    get:
+      tags: [Public Series]
+      summary: Get a Series by ID (public)
+      operationId: getPublicSeries
+      description: |
+        Public, unauthenticated retrieval of a single Series. Only attached
+        plans that are published and active are included in the response.
+
+        Returns 404 if the Series does not exist, is soft-deleted, OR exists
+        but does not have status PUBLISHED. A non-published Series is
+        deliberately indistinguishable from a missing one on this endpoint.
+      security: []
+      responses:
+        '200':
+          description: The requested Series.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeriesDTO'
+        '404':
+          description: >-
+            Series not found, soft-deleted, or not published.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    SeriesId:
+      name: series_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Unique identifier of the Series.
+
+  schemas:
+    PlanStatus:
+      type: string
+      enum:
+        - DRAFT
+        - PUBLISHED
+        - UNPUBLISHED
+        - ARCHIVED
+        - DELETED
+
+    DifficultyLevel:
+      type: string
+      enum:
+        - BEGINNER
+        - INTERMEDIATE
+        - ADVANCED
+
+    LanguageCode:
+      type: string
+      enum:
+        - EN
+        - BO
+        - ZH
+
+    TagSummaryDTO:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        image:
+          type: string
+          nullable: true
+        image_key:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+
+    SeriesMetadataInput:
+      type: object
+      required:
+        - title
+        - language
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        language:
+          $ref: '#/components/schemas/LanguageCode'
+
+    SeriesMetadataDTO:
+      type: object
+      required:
+        - id
+        - title
+        - language
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        language:
+          type: string
+          description: >-
+            Language code of the metadata row. In practice the server emits a
+            LanguageCode enum value (`EN`, `BO`, `ZH`), but the response model
+            is typed as a plain string and is not enum-validated.
+
+    CreateSeriesRequest:
+      type: object
+      required:
+        - metadata
+      properties:
+        metadata:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeriesMetadataInput'
+          description: Per-language metadata entries for the Series.
+        image_key:
+          type: string
+          nullable: true
+        featured:
+          type: boolean
+          default: false
+        plans:
+          type: object
+          nullable: true
+          description: >-
+            Map of language code (EN/BO/ZH) to an ordered list of plan UUIDs.
+            Keys are validated against LanguageCode.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+              format: uuid
+
+    UpdateSeriesRequest:
+      type: object
+      description: All fields optional; only provided fields are updated.
+      properties:
+        metadata:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SeriesMetadataInput'
+        image_key:
+          type: string
+          nullable: true
+        featured:
+          type: boolean
+          nullable: true
+        plans:
+          type: object
+          nullable: true
+          description: >-
+            Map of language code (EN/BO/ZH) to an ordered list of plan UUIDs.
+            Keys are validated against LanguageCode.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+              format: uuid
+
+    UpdateSeriesStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/PlanStatus'
+
+    SeriesPlanDTO:
+      type: object
+      required:
+        - id
+        - title
+        - language
+        - status
+        - featured
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        language:
+          type: string
+          description: >-
+            Language code of the plan. In practice the server emits a
+            LanguageCode enum value (`EN`, `BO`, `ZH`), but the response model
+            is typed as a plain string and is not enum-validated.
+        difficulty_level:
+          allOf:
+            - $ref: '#/components/schemas/DifficultyLevel'
+          nullable: true
+        image_url:
+          type: string
+          nullable: true
+        image_key:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/TagSummaryDTO'
+          default: []
+        status:
+          $ref: '#/components/schemas/PlanStatus'
+        featured:
+          type: boolean
+        display_order:
+          type: integer
+          nullable: true
+        start_date:
+          type: string
+          format: date-time
+          nullable: true
+        total_days:
+          type: integer
+          default: 0
+
+    SeriesListItemDTO:
+      type: object
+      required:
+        - id
+        - author_id
+        - featured
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        metadata:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeriesMetadataDTO'
+          default: []
+        image:
+          type: string
+          nullable: true
+        image_key:
+          type: string
+          nullable: true
+        author_id:
+          type: string
+          format: uuid
+        featured:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/PlanStatus'
+        plan_count:
+          type: integer
+          default: 0
+        total_days:
+          type: integer
+          default: 0
+          description: >-
+            Always 0 on list items — the current implementation does not
+            compute aggregate days for the list view. Use the single-Series
+            endpoints (GET /cms/series/{id} or GET /series/{id}) for a
+            meaningful total_days value.
+
+    SeriesDTO:
+      type: object
+      required:
+        - id
+        - author_id
+        - featured
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+        metadata:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeriesMetadataDTO'
+          default: []
+        image:
+          type: string
+          nullable: true
+        image_key:
+          type: string
+          nullable: true
+        author_id:
+          type: string
+          format: uuid
+        featured:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/PlanStatus'
+        plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeriesPlanDTO'
+          default: []
+        total_days:
+          type: integer
+          default: 0
+
+    SeriesListResponse:
+      type: object
+      required:
+        - series
+        - skip
+        - limit
+        - total
+      properties:
+        series:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeriesListItemDTO'
+        skip:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message returned by FastAPI HTTPException.
+
+    ValidationErrorItem:
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      properties:
+        loc:
+          type: array
+          description: Path to the offending field (e.g. ["body", "metadata", 0, "language"]).
+          items:
+            oneOf:
+              - type: string
+              - type: integer
+        msg:
+          type: string
+          description: Human-readable error message.
+        type:
+          type: string
+          description: Error type identifier (e.g. "value_error", "missing").
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - detail
+      description: >-
+        Response shape emitted by FastAPI's RequestValidationError handler
+        (used for 422 responses, including Pydantic field-validator failures
+        such as invalid language codes in `plans`). This differs from
+        `ErrorResponse`, which models the `{detail: string}` shape produced
+        by `HTTPException`.
+      properties:
+        detail:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationErrorItem'
+
+  responses:
+    BadRequest:
+      description: Malformed request or invalid operation.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Invalid or missing JWT token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Caller is not permitted to access or modify this Series.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Series not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Request validation error (FastAPI 422).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationErrorResponse'
+
+# ──────────────────────────────────────────────
+# Routers (pecha_api/app.py)
+# ──────────────────────────────────────────────
+#
+# cms_series_router     prefix /cms/series   tag "CMS Series"     Bearer auth
+# public_series_router  prefix /series       tag "Public Series"  no auth
+#
+# ──────────────────────────────────────────────
+# Database Tables (via Alembic migration)
+# ──────────────────────────────────────────────
+#
+# Table: series
+# ─────────────────────────────────────────────
+# id            UUID  PK  default uuid4()
+# image         String(1000)  nullable  (S3 object key; presigned URL built at read time)
+# author_id     UUID  FK → authors.id  ON DELETE RESTRICT  NOT NULL
+# featured      Boolean  NOT NULL  default false
+# status        Enum(PlanStatus)  NOT NULL  default 'DRAFT'
+# created_at    DateTime(tz)  NOT NULL  default now()
+# updated_at    DateTime(tz)  default now()  (no ORM onupdate hook)
+# updated_by    String(255)  nullable
+# deleted_at    DateTime(tz)  nullable
+# deleted_by    String(255)  nullable
+#
+# Index: idx_series_featured on featured  WHERE featured = TRUE  (partial)
+# Index: idx_series_status   on status
+# Query filter: deleted_at IS NULL (exclude soft-deleted series)
+# Migration: 8a92543236a0 (table); author_id added by 2cf7ea29ebbb;
+#            created_by column added then dropped by 3a8f2b9c1d4e
+#
+# Table: series_metadata
+# ─────────────────────────────────────────────
+# id            UUID  PK  default uuid4()
+# title         String(255)  NOT NULL
+# description   Text  nullable
+# language      Enum(LanguageCode)  NOT NULL
+# series_id     UUID  FK → series.id  ON DELETE CASCADE  NOT NULL
+#
+# No index or unique constraint on (series_id, language) — duplicate
+# metadata rows for the same language are not prevented at the DB level.
+# Migration: b8955f921c95 (replaced an earlier series.name column)
+#
+# ──────────────────────────────────────────────
+# Modified Table: plans (columns added by Series feature)
+# ──────────────────────────────────────────────
+# The plans table pre-exists the Series feature. Series only adds two
+# columns to it; it does not own the table.
+#
+# series_id      UUID  FK → series.id  ON DELETE SET NULL  nullable
+# display_order  Integer  nullable  (plan position within its series)
+#
+# No index or unique constraint on series_id or display_order.
+# Migration: series_id added by 8a92543236a0; display_order by f64f4649bf6f
+#
+# ──────────────────────────────────────────────
+# Relationships
+# ──────────────────────────────────────────────
+#   Author (1) ──── (many) Series
+#   Series (1) ──── (many) SeriesMetadata
+#   Series (1) ──── (many) Plan        (a plan belongs to at most one series)
+#
+# Cascade:    Delete Series → SeriesMetadata (cascade, delete-orphan)
+# On delete:  series.author_id is RESTRICT — an author with series cannot
+#             be deleted. plans.series_id is SET NULL — deleting a series
+#             row at the DB level nulls its plans' series_id.
+# Soft delete: series carries deleted_at / deleted_by; repositories add
+#             `series.deleted_at IS NULL` to every read. series_metadata is
+#             not soft-deleted (it is hard-deleted via the cascade, and
+#             replaced wholesale on metadata updates).
+#
+# ──────────────────────────────────────────────
+# Behavior notes
+# ──────────────────────────────────────────────
+# - The DELETE endpoint performs an application-level soft delete AND
+#   detaches plans (sets plans.series_id / display_order to NULL). This is
+#   distinct from a raw DB row delete, which would rely on the SET NULL FK.
+# - Pagination uses skip / limit / total. The handlers apply no ge/le
+#   bounds on skip or limit — see the per-parameter descriptions above.
+# - CMS list and dashboard filters are single-value query params, not
+#   multi-select arrays.
+# - metadata is a LIST of per-language objects, not a single multilingual
+#   map. This differs from OpenPecha v2, which returns {bo, en, zh} objects.
+# - Errors use FastAPI HTTPException -> {detail}. The Routine API uses
+#   {error, message}; if errors are normalized app-wide later, update this
+#   spec's ErrorResponse schema accordingly.
