@@ -19,8 +19,8 @@ from .texts_openpecha_service import (
 from pecha_api.texts.text_openpecha_response_models import TextDetailResponse
 
 texts_v2_router = APIRouter(
-    prefix="/v2/texts",
-    tags=["texts-v2"],
+    prefix="/texts",
+    tags=["texts"],
 )
 
 @texts_v2_router.get(
