@@ -495,7 +495,11 @@ components:
           type: string
           nullable: true
         language:
-          $ref: '#/components/schemas/LanguageCode'
+          type: string
+          description: >-
+            Language code of the metadata row. In practice the server emits a
+            LanguageCode enum value (`EN`, `BO`, `ZH`), but the response model
+            is typed as a plain string and is not enum-validated.
 
     CreateSeriesRequest:
       type: object
@@ -578,7 +582,11 @@ components:
           type: string
           nullable: true
         language:
-          $ref: '#/components/schemas/LanguageCode'
+          type: string
+          description: >-
+            Language code of the plan. In practice the server emits a
+            LanguageCode enum value (`EN`, `BO`, `ZH`), but the response model
+            is typed as a plain string and is not enum-validated.
         difficulty_level:
           allOf:
             - $ref: '#/components/schemas/DifficultyLevel'
@@ -716,6 +724,43 @@ components:
           type: string
           description: Human-readable error message returned by FastAPI HTTPException.
 
+    ValidationErrorItem:
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      properties:
+        loc:
+          type: array
+          description: Path to the offending field (e.g. ["body", "metadata", 0, "language"]).
+          items:
+            oneOf:
+              - type: string
+              - type: integer
+        msg:
+          type: string
+          description: Human-readable error message.
+        type:
+          type: string
+          description: Error type identifier (e.g. "value_error", "missing").
+
+    ValidationErrorResponse:
+      type: object
+      required:
+        - detail
+      description: >-
+        Response shape emitted by FastAPI's RequestValidationError handler
+        (used for 422 responses, including Pydantic field-validator failures
+        such as invalid language codes in `plans`). This differs from
+        `ErrorResponse`, which models the `{detail: string}` shape produced
+        by `HTTPException`.
+      properties:
+        detail:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidationErrorItem'
+
   responses:
     BadRequest:
       description: Malformed request or invalid operation.
@@ -746,7 +791,7 @@ components:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
+            $ref: '#/components/schemas/ValidationErrorResponse'
 
 # ──────────────────────────────────────────────
 # Routers (pecha_api/app.py)
