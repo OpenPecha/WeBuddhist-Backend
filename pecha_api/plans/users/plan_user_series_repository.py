@@ -229,11 +229,34 @@ def get_paginated_plans_from_enrolled_series(
         )
     
     enrollment_subquery = enrollment_query.subquery()
-    
+    first_plan_subquery = (
+        db.query(
+            Plan.series_id,
+            func.min(Plan.display_order).label('min_display_order')
+        )
+        .filter(
+            Plan.series_id.in_(
+                db.query(enrollment_subquery.c.series_id)
+            ),
+            Plan.deleted_at.is_(None),
+            Plan.display_order.isnot(None)
+        )
+        .group_by(Plan.series_id)
+        .subquery()
+    )
     base_query = (
         db.query(Plan)
         .join(enrollment_subquery, Plan.series_id == enrollment_subquery.c.series_id)
-        .filter(Plan.deleted_at.is_(None))
+        .outerjoin(
+            first_plan_subquery,
+            (Plan.series_id == first_plan_subquery.c.series_id) &
+            (Plan.display_order == first_plan_subquery.c.min_display_order)
+        )
+        .filter(
+            Plan.deleted_at.is_(None),
+            # Exclude plans that are the first in their series
+            first_plan_subquery.c.min_display_order.is_(None)
+        )
     )
     
     total = base_query.count()
