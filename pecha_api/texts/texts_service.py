@@ -14,6 +14,7 @@ from .texts_repository import (
 )
 from .texts_response_models import (
     TableOfContent,
+    TableOfContentResponse,
     TableOfContentType,
     TextDTO,
     TextSegment,
