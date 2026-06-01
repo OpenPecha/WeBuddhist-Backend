@@ -20,10 +20,18 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        "plans",
-        sa.Column("start_date", sa.DateTime(timezone=True), nullable=True),
-    )
+    from sqlalchemy import inspect
+    
+    bind = op.get_bind()
+    inspector = inspect(bind)
+    
+    # Add start_date column only if it doesn't exist
+    plans_columns = {col['name'] for col in inspector.get_columns('plans')}
+    if 'start_date' not in plans_columns:
+        op.add_column(
+            "plans",
+            sa.Column("start_date", sa.DateTime(timezone=True), nullable=True),
+        )
 
 
 def downgrade() -> None:
