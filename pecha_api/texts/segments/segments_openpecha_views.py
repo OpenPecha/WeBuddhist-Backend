@@ -18,7 +18,7 @@ from .segments_response_models import (
 
 segments_v2_router = APIRouter(
     prefix="/segments",
-    tags=["Segments"],
+    tags=["Segments-v2"],
 )
 
 @segments_v2_router.get("/{segment_id}", status_code=status.HTTP_200_OK)
