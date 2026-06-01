@@ -235,36 +235,30 @@ def get_paginated_plans_from_enrolled_series(
         )
     
     enrollment_subquery = enrollment_query.subquery()
-    first_plan_subquery = (
-        db.query(
-            Plan.series_id,
-            func.min(Plan.display_order).label('min_display_order')
-        )
-        .filter(
-            Plan.series_id.in_(
-                db.query(enrollment_subquery.c.series_id)
-            ),
-            Plan.deleted_at.is_(None),
-            Plan.display_order.isnot(None)
-        )
-        .group_by(Plan.series_id)
-        .subquery()
-    )
+    
+    # Simple and efficient: use ROW_NUMBER window function to identify first plans
+    from sqlalchemy import text
+    
     base_query = (
         db.query(Plan)
         .join(enrollment_subquery, Plan.series_id == enrollment_subquery.c.series_id)
-        .outerjoin(
-            first_plan_subquery,
-            (Plan.series_id == first_plan_subquery.c.series_id) &
-            (Plan.display_order == first_plan_subquery.c.min_display_order)
-        )
         .filter(
             Plan.deleted_at.is_(None),
-            # Exclude plans that are the first in their series
-            first_plan_subquery.c.min_display_order.is_(None),
+            Plan.display_order.isnot(None),
             # Only include plans with start_date <= current_date (current and past plans)
-            # If start_date is None, include the plan (assuming it's available)
-            func.coalesce(func.date(Plan.start_date), func.current_date()) <= func.current_date()
+            func.coalesce(func.date(Plan.start_date), func.current_date()) <= func.current_date(),
+            # Exclude first plans using a simple NOT IN subquery
+            ~Plan.id.in_(
+                db.query(Plan.id)
+                .filter(
+                    Plan.series_id.in_(db.query(enrollment_subquery.c.series_id)),
+                    Plan.deleted_at.is_(None),
+                    Plan.display_order.isnot(None)
+                )
+                .filter(
+                    text("display_order = (SELECT MIN(display_order) FROM plans p2 WHERE p2.series_id = plans.series_id AND p2.deleted_at IS NULL AND p2.display_order IS NOT NULL)")
+                )
+            )
         )
     )
     
