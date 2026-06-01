@@ -90,13 +90,20 @@ paths:
           required: false
           schema:
             type: string
-          description: Search within serialized metadata JSON.
+          description: >-
+            Case-insensitive substring match (ILIKE) against the `title` and
+            `description` columns of `series_metadata`. A Series matches when
+            any of its per-language metadata rows match.
         - name: language
           in: query
           required: false
           schema:
             type: string
-          description: Filter by series metadata language (e.g. 'en', 'bo', 'zh').
+          description: >-
+            Filter to Series that have a metadata row in the given language.
+            Matched case-insensitively against the LanguageCode enum (the
+            value is uppercased server-side), so `EN`, `en`, `BO`, `bo`,
+            `ZH`, and `zh` are all accepted.
         - name: status
           in: query
           required: false
@@ -324,13 +331,20 @@ paths:
           required: false
           schema:
             type: string
-          description: Search within serialized metadata JSON.
+          description: >-
+            Case-insensitive substring match (ILIKE) against the `title` and
+            `description` columns of `series_metadata`. A Series matches when
+            any of its per-language metadata rows match.
         - name: language
           in: query
           required: false
           schema:
             type: string
-          description: Filter by series metadata language (e.g. 'en', 'bo', 'zh').
+          description: >-
+            Filter to Series that have a metadata row in the given language.
+            Matched case-insensitively against the LanguageCode enum (the
+            value is uppercased server-side), so `EN`, `en`, `BO`, `bo`,
+            `ZH`, and `zh` are all accepted.
         - name: skip
           in: query
           required: false
@@ -481,7 +495,7 @@ components:
           type: string
           nullable: true
         language:
-          type: string
+          $ref: '#/components/schemas/LanguageCode'
 
     CreateSeriesRequest:
       type: object
@@ -564,7 +578,7 @@ components:
           type: string
           nullable: true
         language:
-          type: string
+          $ref: '#/components/schemas/LanguageCode'
         difficulty_level:
           allOf:
             - $ref: '#/components/schemas/DifficultyLevel'
