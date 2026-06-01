@@ -255,7 +255,10 @@ def get_paginated_plans_from_enrolled_series(
         .filter(
             Plan.deleted_at.is_(None),
             # Exclude plans that are the first in their series
-            first_plan_subquery.c.min_display_order.is_(None)
+            first_plan_subquery.c.min_display_order.is_(None),
+            # Only include plans with start_date <= current_date (current and past plans)
+            # If start_date is None, include the plan (assuming it's available)
+            func.coalesce(func.date(Plan.start_date), func.current_date()) <= func.current_date()
         )
     )
     
