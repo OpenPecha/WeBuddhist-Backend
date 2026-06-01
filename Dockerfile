@@ -4,7 +4,6 @@ FROM python:3.12-slim
 # Set environment variables for better memory management
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # Set the working directory in the container
@@ -28,8 +27,9 @@ RUN pip install --upgrade pip setuptools wheel && \
     pip install poetry && \
     poetry config virtualenvs.create false && \
     poetry install --no-root --only=main && \
-    pip cache purge && \
-    poetry cache clear . --all
+    pip cache purge || true && \
+    poetry cache clear . --all || true && \
+    rm -rf /root/.cache/pip /root/.cache/pypoetry
 
 # Copy the rest of the application code to the container
 COPY . /app
