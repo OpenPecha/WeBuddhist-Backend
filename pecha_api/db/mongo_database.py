@@ -44,7 +44,7 @@ async def lifespan(api: FastAPI):
     try:
         await invite_expiry_task
     except asyncio.CancelledError:
-        pass
-
-    if mongodb_client:
-        mongodb_client.close()
+        raise
+    finally:
+        if mongodb_client:
+            mongodb_client.close()

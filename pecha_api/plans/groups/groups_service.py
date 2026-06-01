@@ -87,6 +87,7 @@ from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
 
 GROUP_NOT_FOUND = "Group not found"
+INVITE_NOT_FOUND = "Invite not found"
 GROUP_INVITE_REFERENCE_TYPE = "group_invite"
 NOTIFICATION_CATEGORY_GROUP_INVITE = "group_invite"
 
@@ -834,7 +835,7 @@ def accept_group_invite_by_id(token: str, invite_id: UUID) -> AuthorGroupDetailD
     with SessionLocal() as db:
         invite = get_invite_by_id(db=db, invite_id=invite_id, load_group=True)
         if not invite:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=INVITE_NOT_FOUND)
         _assert_invite_pending_for_recipient(invite=invite, author_email=author.email)
 
         group = get_group_by_id(db=db, group_id=invite.group_id)
@@ -869,7 +870,7 @@ def reject_group_invite_by_id(token: str, invite_id: UUID) -> GroupInviteDTO:
     with SessionLocal() as db:
         invite = get_invite_by_id(db=db, invite_id=invite_id)
         if not invite:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=INVITE_NOT_FOUND)
         _assert_invite_pending_for_recipient(invite=invite, author_email=author.email)
 
         invite.status = AuthorGroupInviteStatus.REJECTED.value
@@ -892,7 +893,7 @@ def revoke_group_invite(token: str, group_id: UUID, invite_id: UUID) -> None:
 
         invite = get_invite_by_id(db=db, invite_id=invite_id)
         if not invite or invite.group_id != group_id:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=INVITE_NOT_FOUND)
         _assert_can_revoke_invite(actor_role=actor_role, invite=invite)
         if _to_invite_status(invite.status) != AuthorGroupInviteStatus.PENDING:
             raise HTTPException(

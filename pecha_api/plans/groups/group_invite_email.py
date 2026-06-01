@@ -122,5 +122,5 @@ def send_group_invitation_email(
     )
     try:
         send_email(to_email=target_email, subject=subject, message=html)
-    except Exception as exc:
-        logging.error("Failed to send group invitation email to %s: %s", target_email, exc)
+    except Exception:
+        logging.exception("Failed to send group invitation email to %s", target_email)
