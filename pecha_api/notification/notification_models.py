@@ -19,16 +19,9 @@ class Notification(Base):
     title = Column(String(500), nullable=False)
     description = Column(Text, nullable=True)
     category = Column(String(100), nullable=False)
-    reference_type = Column(String(100), nullable=True)
     reference_id = Column(UUID(as_uuid=True), nullable=True)
     is_read = Column(Boolean, nullable=False, default=False)
     read_at = Column(DateTime(timezone=True), nullable=True)
-    action_1_label = Column(String(100), nullable=True)
-    action_1_method = Column(String(10), nullable=True)
-    action_1_path = Column(String(500), nullable=True)
-    action_2_label = Column(String(100), nullable=True)
-    action_2_method = Column(String(10), nullable=True)
-    action_2_path = Column(String(500), nullable=True)
     created_at = Column(
         DateTime(timezone=True),
         default=datetime.now(_datetime.timezone.utc),
@@ -37,5 +30,5 @@ class Notification(Base):
 
     __table_args__ = (
         Index("idx_notifications_recipient_read", "recipient_author_id", "is_read"),
-        Index("idx_notifications_reference", "reference_type", "reference_id"),
+        Index("idx_notifications_category_reference", "category", "reference_id"),
     )

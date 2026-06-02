@@ -62,14 +62,14 @@ def mark_notifications_read_by_reference(
     db: Session,
     *,
     recipient_author_id: UUID,
-    reference_type: str,
+    category: str,
     reference_id: UUID,
 ) -> None:
     rows = (
         db.query(Notification)
         .filter(
             Notification.recipient_author_id == recipient_author_id,
-            Notification.reference_type == reference_type,
+            Notification.category == category,
             Notification.reference_id == reference_id,
             Notification.is_read.is_(False),
         )

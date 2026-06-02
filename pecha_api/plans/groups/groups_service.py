@@ -88,7 +88,6 @@ from pecha_api.users.users_service import validate_and_extract_user_details
 
 GROUP_NOT_FOUND = "Group not found"
 INVITE_NOT_FOUND = "Invite not found"
-GROUP_INVITE_REFERENCE_TYPE = "group_invite"
 NOTIFICATION_CATEGORY_GROUP_INVITE = "group_invite"
 
 
@@ -706,7 +705,7 @@ def _mark_invite_notification_read(db, *, recipient_author_id: UUID, invite_id: 
     mark_notifications_read_by_reference(
         db=db,
         recipient_author_id=recipient_author_id,
-        reference_type=GROUP_INVITE_REFERENCE_TYPE,
+        category=NOTIFICATION_CATEGORY_GROUP_INVITE,
         reference_id=invite_id,
     )
 
@@ -767,22 +766,13 @@ def create_group_member_invite(
         target_author_id = target_author.id
         created_invite_id = created.id
         invite_dto = _invite_to_dto(created, group_name=group_title)
-        accept_path = f"/cms/author/groups/invites/{created_invite_id}/accept"
-        reject_path = f"/cms/author/groups/invites/{created_invite_id}/reject"
 
     notification = create_notification_record(
         recipient_author_id=target_author_id,
         title=f"Invitation to join {group_title}",
         description=f"{inviter_name} invited you to join {group_title}.",
         category=NOTIFICATION_CATEGORY_GROUP_INVITE,
-        reference_type=GROUP_INVITE_REFERENCE_TYPE,
         reference_id=created_invite_id,
-        action_1_label="Accept",
-        action_1_method="POST",
-        action_1_path=accept_path,
-        action_2_label="Reject",
-        action_2_method="POST",
-        action_2_path=reject_path,
     )
 
     send_group_invitation_email(
