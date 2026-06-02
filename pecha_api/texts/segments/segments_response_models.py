@@ -150,6 +150,8 @@ class V2SegmentTextGroup(BaseModel):
     text_id: str
     title: str
     language: Optional[str] = None
+    source_link: Optional[str] = None
+    license: Optional[str] = None
     segments: List[V2RelatedSegmentItem]
 
 
