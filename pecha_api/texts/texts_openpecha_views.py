@@ -42,7 +42,7 @@ async def get_texts_by_collection(
         limit=limit,
     )
 
-@texts_v2_router.post(
+@texts_v2_router.get(
     "/{text_id}/details",
     response_model=TextDetailWithContentResponse,
     status_code=status.HTTP_200_OK,
