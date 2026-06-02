@@ -656,8 +656,19 @@ def _group_name_from_invite(invite: AuthorGroupInvite) -> str:
     return "Group"
 
 
-def _invite_to_dto(invite: AuthorGroupInvite, *, group_name: Optional[str] = None) -> GroupInviteDTO:
+def _invite_to_dto(
+    invite: AuthorGroupInvite,
+    *,
+    group_name: Optional[str] = None,
+    db: Optional[Session] = None,
+) -> GroupInviteDTO:
     resolved_group_name = group_name if group_name is not None else _group_name_from_invite(invite)
+    inviter_email = invite.created_by
+    inviter_name = inviter_email
+    if db is not None:
+        inviter = get_author_by_email(db=db, email=inviter_email)
+        if inviter:
+            inviter_name = _inviter_display_name(inviter)
     return GroupInviteDTO(
         id=invite.id,
         group_id=invite.group_id,
@@ -671,6 +682,8 @@ def _invite_to_dto(invite: AuthorGroupInvite, *, group_name: Optional[str] = Non
         revoked_at=invite.revoked_at,
         created_at=invite.created_at,
         created_by=invite.created_by,
+        inviter_name=inviter_name,
+        inviter_email=inviter_email,
     )
 
 
@@ -778,7 +791,7 @@ def create_group_member_invite(
         inviter_name = _inviter_display_name(author)
         target_author_id = target_author.id
         created_invite_id = created.id
-        invite_dto = _invite_to_dto(created, group_name=group_title)
+        invite_dto = _invite_to_dto(created, group_name=group_title, db=db)
 
     notification = create_notification_record(
         recipient_author_id=target_author_id,
@@ -817,9 +830,10 @@ def list_group_invites(
             _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN])
 
         rows = list_invites_by_group(db=db, group_id=group_id, status=status_filter)
+        invite_dtos = [_invite_to_dto(row, db=db) for row in rows]
     return GroupInviteListResponse(
-        invites=[_invite_to_dto(row) for row in rows],
-        total=len(rows),
+        invites=invite_dtos,
+        total=len(invite_dtos),
     )
 
 
@@ -827,9 +841,10 @@ def list_my_pending_group_invites(token: str) -> GroupInviteListResponse:
     author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
         rows = list_pending_invites_by_email(db=db, target_email=author.email)
+        invite_dtos = [_invite_to_dto(row, db=db) for row in rows]
     return GroupInviteListResponse(
-        invites=[_invite_to_dto(row) for row in rows],
-        total=len(rows),
+        invites=invite_dtos,
+        total=len(invite_dtos),
     )
 
 
@@ -888,7 +903,7 @@ def reject_group_invite_by_id(token: str, invite_id: UUID) -> GroupInviteDTO:
         invite.rejected_at = datetime.now(timezone.utc)
         save_invite(db=db, invite=invite)
         _mark_invite_notification_read(db=db, recipient_author_id=author.id, invite_id=invite.id)
-        return _invite_to_dto(invite)
+        return _invite_to_dto(invite, db=db)
 
 
 def revoke_group_invite(token: str, group_id: UUID, invite_id: UUID) -> None:

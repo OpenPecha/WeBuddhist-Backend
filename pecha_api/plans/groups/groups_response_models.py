@@ -134,6 +134,8 @@ class GroupInviteDTO(BaseModel):
     revoked_at: Optional[datetime] = None
     created_at: datetime
     created_by: str
+    inviter_name: str
+    inviter_email: str
 
 
 class GroupInviteListResponse(BaseModel):
