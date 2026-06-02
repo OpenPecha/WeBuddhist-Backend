@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, UploadFile, File
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette import status
 
-from .user_response_models import UserInfoRequest, UserInfoResponse
+from .user_response_models import UserInfoRequest, UserInfoResponse, UpdateUsernameRequest, UpdateUsernameResponse
 from ..db import database
 from typing import Annotated
-from .users_service import get_user_info, update_user_info, upload_user_image, get_user_info_by_username
+from .users_service import get_user_info, update_user_info, upload_user_image, get_user_info_by_username, update_username
 
 oauth2_scheme = HTTPBearer()
 user_router = APIRouter(
@@ -41,3 +41,11 @@ def update_user_information(authentication_credential: Annotated[HTTPAuthorizati
 def upload_user_avatar_image(authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
                              file: UploadFile = File(...)):
     return upload_user_image(token=authentication_credential.credentials, file=file)
+
+
+@user_router.patch("/username", status_code=status.HTTP_200_OK, response_model=UpdateUsernameResponse)
+def patch_username(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    request: UpdateUsernameRequest,
+) -> UpdateUsernameResponse:
+    return update_username(token=authentication_credential.credentials, request=request)

@@ -5,15 +5,11 @@ from uuid import UUID
 from datetime import datetime, date as DateType
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
+from pecha_api.plans.shared.models import ImageUrlModel
 
 class PlanDayBasic(BaseModel):
     id: str
     day_number: int
-
-class ImageUrlModel(BaseModel):
-    thumbnail: str
-    medium: str
-    original: str       
 
 class PlanDaysResponse(BaseModel):
     days: List[PlanDayBasic]

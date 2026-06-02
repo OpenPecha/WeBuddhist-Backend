@@ -2,6 +2,12 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 
+class ImageUrlModel(BaseModel):
+    thumbnail: str
+    medium: str
+    original: str
+
+
 class AuthorModel(BaseModel):
     id: str
     firstname: str

@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pecha_api.app import api
-from pecha_api.users.user_response_models import UserInfoResponse
+from pecha_api.users.user_response_models import UserInfoResponse, UpdateUsernameResponse
 from fastapi import HTTPException
 client = TestClient(api)
 
@@ -163,4 +163,96 @@ def test_get_user_detail_by_username_with_special_characters():
         response_data = response.json()
         assert response_data["username"] == "test.user-123"
         mock_get_user_info.assert_called_once_with("test.user-123")
+
+
+# ---------------------------------------------------------------------------
+# PATCH /users/username
+# ---------------------------------------------------------------------------
+
+def test_patch_username_success():
+    expected = UpdateUsernameResponse(
+        message="Username updated successfully",
+        username="brandnew"
+    )
+    with patch("pecha_api.users.users_views.update_username", return_value=expected):
+        response = client.patch(
+            "/users/username",
+            json={"username": "brandnew"},
+            headers={"Authorization": "Bearer testtoken"}
+        )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["message"] == "Username updated successfully"
+    assert data["username"] == "brandnew"
+
+
+def test_patch_username_conflict_409():
+    with patch("pecha_api.users.users_views.update_username",
+               side_effect=HTTPException(
+                   status_code=409,
+                   detail={
+                       "message": "Username already exists",
+                       "suggestions": ["taken1234", "taken5678", "taken9012"]
+                   }
+               )):
+        response = client.patch(
+            "/users/username",
+            json={"username": "taken"},
+            headers={"Authorization": "Bearer testtoken"}
+        )
+    assert response.status_code == 409
+    detail = response.json()["detail"]
+    assert detail["message"] == "Username already exists"
+    assert len(detail["suggestions"]) == 3
+
+
+def test_patch_username_unauthorized_401():
+    with patch("pecha_api.users.users_views.update_username",
+               side_effect=HTTPException(status_code=401, detail="Invalid or no token found")):
+        response = client.patch(
+            "/users/username",
+            json={"username": "anyuser"},
+            headers={"Authorization": "Bearer badtoken"}
+        )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid or no token found"
+
+
+def test_patch_username_missing_auth_header():
+    response = client.patch("/users/username", json={"username": "anyuser"})
+    assert response.status_code == 403
+
+
+def test_patch_username_validation_too_short():
+    with patch("pecha_api.users.users_views.update_username") as mock_fn:
+        response = client.patch(
+            "/users/username",
+            json={"username": "ab"},
+            headers={"Authorization": "Bearer testtoken"}
+        )
+    assert response.status_code == 422
+    mock_fn.assert_not_called()
+
+
+def test_patch_username_validation_empty():
+    with patch("pecha_api.users.users_views.update_username") as mock_fn:
+        response = client.patch(
+            "/users/username",
+            json={"username": "   "},
+            headers={"Authorization": "Bearer testtoken"}
+        )
+    assert response.status_code == 422
+    mock_fn.assert_not_called()
+
+
+def test_patch_username_server_error_500():
+    with patch("pecha_api.users.users_views.update_username",
+               side_effect=HTTPException(status_code=500, detail="Internal Server Error")):
+        response = client.patch(
+            "/users/username",
+            json={"username": "validuser"},
+            headers={"Authorization": "Bearer testtoken"}
+        )
+    assert response.status_code == 500
+    assert response.json()["detail"] == "Internal Server Error"
 

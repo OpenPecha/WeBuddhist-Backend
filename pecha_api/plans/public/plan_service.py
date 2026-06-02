@@ -26,21 +26,9 @@ from pecha_api.plans.groups.groups_repository import get_group_id_for_plan, get_
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.tags.tag_repository import get_published_tags_for_language, get_all_tags_paginated
 from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
+from pecha_api.plans.shared.utils import get_image_url
 
 logger = logging.getLogger(__name__)
-
-async def get_image_url(image_url: Optional[str]) -> Optional[ImageUrlModel]:
-    if not image_url:
-        return None
-        
-    thumbnail_url = image_url.replace("original", "thumbnail")
-    medium_url = image_url.replace("original", "medium")
-    original_url = image_url
-    return ImageUrlModel(
-        thumbnail=generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=thumbnail_url),
-        medium=generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=medium_url),
-        original=generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=original_url)
-    )
 
 async def get_published_plans(
     tag: Optional[str] = None,
@@ -75,11 +63,11 @@ async def get_published_plans(
             for plan_aggregate in plan_aggregates:
                 plan = plan_aggregate.plan
                 
-                plan_image = await get_image_url(image_url=plan.image_url)
+                plan_image = get_image_url(image_url=plan.image_url)
                 
                 author_dto = None
                 if plan.author:
-                    author_image = await get_image_url(image_url=plan.author.image_url)
+                    author_image = get_image_url(image_url=plan.author.image_url)
                     author_dto = AuthorDTO(
                         id=plan.author.id, 
                         firstname=plan.author.first_name, 
@@ -130,11 +118,11 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
             if not plan:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.PLAN_NOT_FOUND)
             
-            plan_image= await get_image_url(image_url=plan.image_url)
+            plan_image= get_image_url(image_url=plan.image_url)
             
             author_dto = None
             if plan.author:
-                author_image = await get_image_url(image_url=plan.author.image_url)
+                author_image = get_image_url(image_url=plan.author.image_url)
                 author_dto = AuthorDTO(
                     id=plan.author.id, 
                     firstname=plan.author.first_name, 
@@ -419,11 +407,11 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
             db=db, plan_id=plan_id, day_number=day_number
         )
 
-        plan_image = await get_image_url(image_url=plan.image_url)
+        plan_image = get_image_url(image_url=plan.image_url)
 
         series_dto = None
         if plan.series:
-            series_image = await get_image_url(image_url=plan.series.image)
+            series_image = get_image_url(image_url=plan.series.image)
             metadata_entries = getattr(plan.series, "metadata_entries", None) or []
             series_metadata = [
                 SeriesMetadataDTO(

@@ -1,12 +1,27 @@
 import json
 import os
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from pecha_api.plans.plans_enums import PlanStatus, ContentType
 from pecha_api.plans.plans_response_models import PlanDTO, PlanDayDTO, TaskDTO, AuthorDTO
-from pecha_api.plans.shared.models import PlanListingModel, PlanModel, DayModel
+from pecha_api.plans.shared.models import PlanListingModel, PlanModel, DayModel, ImageUrlModel
 from pecha_api.plans.plans_response_models import SubTaskDTO
 from pecha_api.plans.shared.models import TaskModel, SubTaskModel
+from pecha_api.config import get
+from pecha_api.uploads.S3_utils import generate_presigned_access_url
+
+
+def get_image_url(image_url: Optional[str]) -> Optional[ImageUrlModel]:
+    if not image_url:
+        return None
+
+    thumbnail_url = image_url.replace("original", "thumbnail")
+    medium_url = image_url.replace("original", "medium")
+    return ImageUrlModel(
+        thumbnail=generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=thumbnail_url),
+        medium=generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=medium_url),
+        original=generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=image_url)
+    )
 
 
 def load_plans_from_json() -> PlanListingModel:

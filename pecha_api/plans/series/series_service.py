@@ -18,6 +18,7 @@ from pecha_api.plans.series.series_repository import (
     get_series_by_id,
     get_series_paginated,
     get_plans_by_ids,
+    get_plan_item_counts_by_plan_ids,
     save_series_with_plans,
     update_series_with_plans,
     update_series_status,
@@ -99,8 +100,7 @@ def _build_plan_order_pairs(
     return pairs
 
 
-def _plan_to_dto(plan, group_id: Optional[UUID] = None) -> SeriesPlanDTO:
-    total_days = len(plan.items) if hasattr(plan, 'items') and plan.items else 0
+def _plan_to_dto(plan, group_id: Optional[UUID] = None, total_days: int = 0) -> SeriesPlanDTO:
     return SeriesPlanDTO(
         id=plan.id,
         title=plan.title,
@@ -157,7 +157,18 @@ def _series_group_context(db: Session, series: Series) -> Tuple[Optional[UUID], 
 
 def _series_detail_dto(db: Session, series: Series, **kwargs) -> SeriesDTO:
     group_id, plan_group_ids = _series_group_context(db=db, series=series)
-    return _series_to_dto(series, group_id=group_id, plan_group_ids=plan_group_ids, **kwargs)
+    plan_item_counts: Dict[UUID, int] = {}
+    if kwargs.get("include_plans"):
+        active_plan_ids = _active_plan_ids(series)
+        if active_plan_ids:
+            plan_item_counts = get_plan_item_counts_by_plan_ids(db=db, plan_ids=active_plan_ids)
+    return _series_to_dto(
+        series,
+        group_id=group_id,
+        plan_group_ids=plan_group_ids,
+        plan_item_counts=plan_item_counts,
+        **kwargs,
+    )
 
 
 def _series_to_list_item_dto(row: Series, plan_count: int = 0) -> SeriesListItemDTO:
@@ -181,6 +192,7 @@ def _series_to_dto(
     plan_language: Optional[str] = None,
     group_id: Optional[UUID] = None,
     plan_group_ids: Optional[Dict[UUID, UUID]] = None,
+    plan_item_counts: Optional[Dict[UUID, int]] = None,
 ) -> SeriesDTO:
     plans_dtos = []
     series_total_days = 0
@@ -193,7 +205,8 @@ def _series_to_dto(
         )
         for plan in sorted_plans:
             plan_group_id = plan_group_ids.get(plan.id) if plan_group_ids else None
-            plan_dto = _plan_to_dto(plan, group_id=plan_group_id)
+            total_days = (plan_item_counts or {}).get(plan.id, 0)
+            plan_dto = _plan_to_dto(plan, group_id=plan_group_id, total_days=total_days)
             plans_dtos.append(plan_dto)
             series_total_days += plan_dto.total_days
 

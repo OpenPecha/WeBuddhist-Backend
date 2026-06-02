@@ -22,10 +22,9 @@ from pecha_api.plans.authors.plan_authors_response_models import AuthorInfoRespo
     ImageUrlModel, AuthorInfoPublicResponse
 from pecha_api.plans.plans_response_models import PlansResponse
 
-from pecha_api.plans.shared.utils import load_plans_from_json
+from pecha_api.plans.shared.utils import load_plans_from_json, convert_plan_model_to_dto, get_image_url
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.users.users_service import get_social_profile
-from pecha_api.plans.shared.utils import convert_plan_model_to_dto
 from pecha_api.utils import Utils
 
 from pecha_api.plans.public.plan_repository import get_published_plans_by_author_id
@@ -106,19 +105,6 @@ async def update_author_info(token: str, author_info_request: AuthorInfoRequest)
             db_session.rollback()
             logging.error(f"Failed to update user info: {e}")
             raise HTTPException(status_code=500, detail="Internal Server Error")
-
-def get_image_url(image_url: Optional[str]) -> Optional[ImageUrlModel]:
-    if not image_url:
-        return None
-        
-    thumbnail_url = image_url.replace("original", "thumbnail")
-    medium_url = image_url.replace("original", "medium")
-    original_url = image_url
-    return ImageUrlModel(
-        thumbnail=generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=thumbnail_url),
-        medium=generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=medium_url),
-        original=generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=original_url)
-    )
 
 async def get_selected_author_details(author_id: UUID) -> AuthorInfoPublicResponse:
     author = await _get_author_details_by_id(author_id=author_id)

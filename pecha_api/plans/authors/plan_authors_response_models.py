@@ -3,16 +3,12 @@ from typing import Optional, List
 from pydantic import BaseModel
 from uuid import UUID
 from pecha_api.users.users_enums import SocialProfile
+from pecha_api.plans.shared.models import ImageUrlModel
 
 
 class SocialMediaProfile(BaseModel):
     account: SocialProfile
     url: str
-
-class ImageUrlModel(BaseModel):
-    thumbnail: str
-    medium: str
-    original: str 
 
 class AuthorUpdateResponse(BaseModel):
     id: UUID

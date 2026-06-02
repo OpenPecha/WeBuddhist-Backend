@@ -13,7 +13,10 @@ from pecha_api.plans.dashboard.dashboard_response_models import (
     DashboardTab,
 )
 from pecha_api.plans.plans_enums import PlanStatus
-from pecha_api.plans.series.series_repository import get_series_with_plans_by_ids
+from pecha_api.plans.series.series_repository import (
+    get_series_with_plans_by_ids,
+    get_plan_item_counts_by_plan_ids,
+)
 from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
 from pecha_api.plans.series.series_service import _get_sorted_active_plans, _plan_to_dto
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
@@ -125,12 +128,21 @@ def _row_to_public_dto(row) -> DashboardItemDTO:
 
 
 def _published_plans_by_series(db_session, series_ids: List[UUID]) -> dict:
+    series_list = get_series_with_plans_by_ids(db_session, series_ids)
+
+    all_plan_ids = [
+        plan.id
+        for series in series_list
+        for plan in _get_sorted_active_plans(series.plans, published_only=True)
+    ]
+    plan_item_counts = get_plan_item_counts_by_plan_ids(db_session, all_plan_ids) if all_plan_ids else {}
+
     return {
         series.id: [
-            _plan_to_dto(plan)
+            _plan_to_dto(plan, total_days=plan_item_counts.get(plan.id, 0))
             for plan in _get_sorted_active_plans(series.plans, published_only=True)
         ]
-        for series in get_series_with_plans_by_ids(db_session, series_ids)
+        for series in series_list
     }
 
 

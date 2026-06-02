@@ -7,12 +7,13 @@ from pecha_api.image_utils import ImageUtils
 from pecha_api.utils import Utils
 from pecha_api.users.users_service import get_user_info, update_user_info, \
     validate_and_extract_user_details, verify_admin_access, get_social_profile, update_social_profiles, \
-    get_publisher_info_by_username, fetch_user_by_email, validate_user_exists, get_user_info_by_username
+    get_publisher_info_by_username, fetch_user_by_email, validate_user_exists, get_user_info_by_username, \
+    update_username, _generate_username_suggestions
 from pecha_api.users.user_response_models import UserInfoRequest, SocialMediaProfile, PublisherInfoResponse, \
-    UserInfoResponse
+    UserInfoResponse, UpdateUsernameRequest, UpdateUsernameResponse
 from pecha_api.users.users_models import Users, SocialMediaAccount
 from pecha_api.users.users_enums import SocialProfile
-from unittest.mock import patch, MagicMock, AsyncMock
+from unittest.mock import patch, MagicMock, AsyncMock, call
 from fastapi import HTTPException, UploadFile
 from pecha_api.users.users_service import upload_user_image
 import io
@@ -765,3 +766,181 @@ async def test_get_user_info_by_username_database_error():
             await get_user_info_by_username(username)
         
         mock_get_user.assert_called_once_with(db=mock_db_session, username=username)
+
+
+# ---------------------------------------------------------------------------
+# update_username
+# ---------------------------------------------------------------------------
+
+def _mock_session_ctx(mock_session_cls):
+    """Helper: make a SessionLocal() context manager return a fresh MagicMock db."""
+    mock_db = MagicMock()
+    mock_session_cls.return_value.__enter__.return_value = mock_db
+    mock_session_cls.return_value.__exit__.return_value = None
+    return mock_db
+
+
+def test_update_username_success():
+    token = "valid_token"
+    request = UpdateUsernameRequest(username="newuser")
+    current_user = Users(
+        id="user-id-123",
+        firstname="John",
+        lastname="Doe",
+        username="olduser",
+        email="john@example.com",
+        social_media_accounts=[]
+    )
+    updated_user = Users(
+        id="user-id-123",
+        firstname="John",
+        lastname="Doe",
+        username="newuser",
+        email="john@example.com",
+        social_media_accounts=[]
+    )
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details", return_value=current_user), \
+         patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.find_user_by_username", return_value=None), \
+         patch("pecha_api.users.users_service.update_user", return_value=updated_user):
+
+        _mock_session_ctx(mock_session)
+        result = update_username(token=token, request=request)
+
+    assert isinstance(result, UpdateUsernameResponse)
+    assert result.message == "Username updated successfully"
+    assert result.username == "newuser"
+
+
+def test_update_username_conflict_raises_409_with_suggestions():
+    token = "valid_token"
+    request = UpdateUsernameRequest(username="takenuser")
+    current_user = Users(
+        id="user-id-123",
+        firstname="John",
+        lastname="Doe",
+        username="olduser",
+        email="john@example.com",
+        social_media_accounts=[]
+    )
+    existing_user = Users(
+        id="other-id",
+        username="takenuser",
+        email="other@example.com",
+        social_media_accounts=[]
+    )
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details", return_value=current_user), \
+         patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.find_user_by_username", return_value=existing_user), \
+         patch("pecha_api.users.users_service._generate_username_suggestions", return_value=["takenuser1234", "takenuser5678", "takenuser9012"]):
+
+        _mock_session_ctx(mock_session)
+        with pytest.raises(HTTPException) as exc_info:
+            update_username(token=token, request=request)
+
+    assert exc_info.value.status_code == status.HTTP_409_CONFLICT
+    detail = exc_info.value.detail
+    assert detail["message"] == "Username already exists"
+    assert detail["suggestions"] == ["takenuser1234", "takenuser5678", "takenuser9012"]
+
+
+def test_update_username_invalid_token_raises_401():
+    token = "bad_token"
+    request = UpdateUsernameRequest(username="anyuser")
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details",
+               side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or no token found")):
+        with pytest.raises(HTTPException) as exc_info:
+            update_username(token=token, request=request)
+
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_update_username_db_error_raises_500():
+    token = "valid_token"
+    request = UpdateUsernameRequest(username="newuser")
+    current_user = Users(
+        id="user-id-123",
+        firstname="John",
+        lastname="Doe",
+        username="olduser",
+        email="john@example.com",
+        social_media_accounts=[]
+    )
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details", return_value=current_user), \
+         patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.find_user_by_username", return_value=None), \
+         patch("pecha_api.users.users_service.update_user", side_effect=Exception("DB failure")):
+
+        _mock_session_ctx(mock_session)
+        with pytest.raises(HTTPException) as exc_info:
+            update_username(token=token, request=request)
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "Internal Server Error"
+
+
+# ---------------------------------------------------------------------------
+# _generate_username_suggestions
+# ---------------------------------------------------------------------------
+
+def test_generate_username_suggestions_returns_three_unique():
+    with patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.find_user_by_username", return_value=None):
+
+        _mock_session_ctx(mock_session)
+        suggestions = _generate_username_suggestions(base="testuser", count=3)
+
+    assert len(suggestions) == 3
+    for s in suggestions:
+        assert s.startswith("testuser")
+        assert len(s) == len("testuser") + 4  # 4-digit suffix
+
+
+def test_generate_username_suggestions_skips_taken_names():
+    taken = {"testuser1234"}
+    call_count = 0
+
+    def fake_find(db, username):
+        nonlocal call_count
+        call_count += 1
+        return MagicMock() if username in taken else None
+
+    with patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.find_user_by_username", side_effect=fake_find), \
+         patch("pecha_api.users.users_service.random.choices", side_effect=[
+             list("1234"), list("1234"), list("5678"), list("9012"), list("3456")
+         ]):
+
+        _mock_session_ctx(mock_session)
+        suggestions = _generate_username_suggestions(base="testuser", count=3)
+
+    assert "testuser1234" not in suggestions
+    assert len(suggestions) == 3
+
+
+# ---------------------------------------------------------------------------
+# UpdateUsernameRequest model validation
+# ---------------------------------------------------------------------------
+
+def test_update_username_request_strips_whitespace():
+    req = UpdateUsernameRequest(username="  hello  ")
+    assert req.username == "hello"
+
+
+def test_update_username_request_too_short():
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="ab")
+
+
+def test_update_username_request_too_long():
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="a" * 31)
+
+
+def test_update_username_request_empty():
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="   ")

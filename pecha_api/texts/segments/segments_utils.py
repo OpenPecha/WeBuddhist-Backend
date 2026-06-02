@@ -2,9 +2,6 @@ from typing import Dict, List, Optional, Union
 from uuid import UUID
 from fastapi import HTTPException
 from starlette import status
-import bophono
-from botok.tokenizers.wordtokenizer import WordTokenizer
-
 
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.texts.texts_enums import TextType
@@ -341,19 +338,3 @@ class SegmentUtils:
         
         return grouped_segments
     
-    @staticmethod
-    def apply_bophono(segmentContent:str)->str:
-        options = {
-            'aspirateLowTones': True
-        }
-        tokenizer = WordTokenizer()
-        tokens = tokenizer.tokenize(segmentContent)
-        token_text =  []
-        for token in tokens:
-            token_text.append(token.text)
-        kvpconverter = bophono.UnicodeToApi(schema="KVP", options = options)
-        kvp_ipa_list = []
-        for segment in token_text:
-            kvp_ipa = kvpconverter.get_api(segment)
-            kvp_ipa_list.append(kvp_ipa)
-        return " ".join(kvp_ipa_list)

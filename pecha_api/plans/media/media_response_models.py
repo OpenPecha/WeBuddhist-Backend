@@ -2,11 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 from pecha_api.plans.response_message import IMAGE_UPLOAD_SUCCESS
-
-class ImageUrlModel(BaseModel):
-    thumbnail: str
-    medium: str
-    original: str
+from pecha_api.plans.shared.models import ImageUrlModel
 
 class PlanUploadResponse(BaseModel):
     image: ImageUrlModel

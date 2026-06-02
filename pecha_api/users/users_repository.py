@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from sqlalchemy.exc import InvalidRequestError, IntegrityError
 from sqlalchemy.orm import Session
 from .users_models import Users, SocialMediaAccount
@@ -45,6 +45,11 @@ def get_user_by_username(db: Session, username: str) -> Users:
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.USER_NOT_FOUND)
     return user
+
+
+def find_user_by_username(db: Session, username: str) -> Optional[Users]:
+    """Returns the user or None without raising an exception."""
+    return db.query(Users).filter(Users.username == username).first()
 
 def get_user_social_account(db: Session, user_id: str) -> List[SocialMediaAccount]:
     social_accounts = db.query(SocialMediaAccount).filter(SocialMediaAccount.user_id == user_id).all()

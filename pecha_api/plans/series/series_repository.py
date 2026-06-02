@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy import String, cast, desc, asc, or_, exists, select, func
@@ -9,6 +9,7 @@ from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.groups.groups_models import author_group_series
 
 
@@ -24,12 +25,28 @@ def _series_active_plans_count_subquery(published_only: bool = False):
     )
 
 
+def get_plan_item_counts_by_plan_ids(db: Session, plan_ids: List[UUID]) -> Dict[UUID, int]:
+    """Return a mapping of plan_id → number of items (days) using a single GROUP BY query.
+
+    Replaces the previous pattern of eagerly loading all PlanItem rows via
+    selectinload(Plan.items) just to call len() on the result.
+    """
+    if not plan_ids:
+        return {}
+    rows = (
+        db.query(PlanItem.plan_id, func.count(PlanItem.id).label("item_count"))
+        .filter(PlanItem.plan_id.in_(plan_ids))
+        .group_by(PlanItem.plan_id)
+        .all()
+    )
+    return {row.plan_id: row.item_count for row in rows}
+
+
 def get_series_by_id(db: Session, series_id) -> Optional[Series]:
     return (
         db.query(Series)
         .options(
             selectinload(Series.metadata_entries),
-            selectinload(Series.plans).selectinload(Plan.items),
             selectinload(Series.plans).selectinload(Plan.tag_list),
         )
         .filter(Series.id == series_id, Series.deleted_at.is_(None))
@@ -54,7 +71,6 @@ def get_series_with_plans_by_ids(db: Session, series_ids: List[UUID]) -> List[Se
     return (
         db.query(Series)
         .options(
-            selectinload(Series.plans).selectinload(Plan.items),
             selectinload(Series.plans).selectinload(Plan.tag_list),
         )
         .filter(Series.id.in_(series_ids), Series.deleted_at.is_(None))
