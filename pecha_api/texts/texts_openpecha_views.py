@@ -16,7 +16,7 @@ from .texts_openpecha_service import (
     get_text_versions_from_openpecha,
     get_text_commentaries_from_openpecha,
 )
-from pecha_api.texts.text_openpecha_response_models import TextDetailResponse
+from pecha_api.texts.text_openpecha_response_models import TextDetailWithContentResponse
 
 texts_v2_router = APIRouter(
     prefix="/texts",
@@ -42,14 +42,14 @@ async def get_texts_by_collection(
         limit=limit,
     )
 
-@texts_v2_router.get(
+@texts_v2_router.post(
     "/{text_id}/details",
-    response_model=TextDetailResponse,
+    response_model=TextDetailWithContentResponse,
     status_code=status.HTTP_200_OK,
     summary="Get a text with pagination",
     description="Retrieve a text by its OpenPecha ID, including local edition details with pagination."
 )
-async def read_text_by_id(text_id: str, offset: int = Query(default=0), limit: int = Query(default=30)) -> TextDetailResponse:
+async def read_text_by_id(text_id: str, offset: int = Query(default=0), limit: int = Query(default=20)) -> TextDetailWithContentResponse:
     return await get_text_detail_by_id(text_id=text_id, offset=offset, limit=limit)
 
 

@@ -15,7 +15,17 @@ from pecha_api.collections.collections_response_models import V2CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
 from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
 from pecha_api.texts.texts_openpecha_api import fetch_critical_editions, fetch_text_detail, fetch_editions_segmentation, fetch_segmentation_segments, fetch_edition_content
-from pecha_api.texts.text_openpecha_response_models import SegmentationSegmentResponseModel, SegmentContentModel, SegmentContentResponse, TextDetailResponse
+from pecha_api.texts.text_openpecha_response_models import (
+    SegmentationSegmentResponseModel,
+    SegmentContentModel,
+    SegmentContentResponse,
+    TextDetailResponse,
+    TextDetailWithContentResponse,
+    TextDetailDTO,
+    ContentDTO,
+    SectionDTO,
+    SegmentDTO,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -149,7 +159,7 @@ async def get_text_by_id_from_openpecha(text_id: str) -> V2TextDTO:
     return _map_external_text_to_dto(data, data.get("language"))
 
 
-async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDetailResponse:
+async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDetailWithContentResponse:
     text_detail = await fetch_text_detail(text_id=text_id)
     edition_details = await fetch_critical_editions(text_id=text_id)
     if not edition_details:
@@ -157,13 +167,80 @@ async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDe
             status_code=status.HTTP_404_NOT_FOUND, 
             detail=f"No critical editions found for text with id '{text_id}'",
         )
-    text_detail.edition_details = edition_details
     segmentations = await fetch_editions_segmentation(edition_id=edition_details[0].id)
     edition_content = await fetch_edition_content(edition_id=edition_details[0].id)
-    segments = await fetch_segmentation_segments(segmentation_id=segmentations[0].id, limit=limit, offset=offset)  # noqa: F841
-    segment_contents = trim_segment_content(edition_content=edition_content.content, segments=segments)
-    text_detail.segments = segment_contents
-    return text_detail
+    segments = await fetch_segmentation_segments(segmentation_id=segmentations[0].id, limit=limit, offset=offset)
+    
+    # Build segment DTOs
+    segment_dtos = []
+    for i, segment in enumerate(segments.items):
+        content = "".join(edition_content.content[line.start:line.end] for line in segment.lines)
+        segment_dtos.append(SegmentDTO(
+            segment_id=segment.id,
+            segment_number=offset + i + 1,
+            content=content,
+            translation=None
+        ))
+    
+    # Extract title as string
+    title_str = _extract_title(text_detail.title, text_detail.language)
+    date_str = text_detail.date or ""
+    
+    # Build TextDetailDTO
+    text_detail_dto = TextDetailDTO(
+        id=text_detail.id,
+        pecha_text_id=text_detail.bdrc or text_detail.id,
+        title=title_str,
+        language=text_detail.language,
+        group_id=text_detail.category_id,
+        type="version",
+        summary="",
+        is_published=True,
+        created_date=date_str,
+        updated_date=date_str,
+        published_date=date_str,
+        published_by="",
+        categories=[text_detail.category_id] if text_detail.category_id else [],
+        views=0,
+        likes=[],
+        source_link=text_detail.wiki or "unknown",
+        ranking=None,
+        license=text_detail.license or "unknown"
+    )
+    
+    # Build a single section containing all segments
+    section = SectionDTO(
+        id=segmentations[0].id if segmentations else "",
+        title="1",
+        section_number=1,
+        parent_id=None,
+        segments=segment_dtos,
+        sections=[],
+        created_date=None,
+        updated_date=None,
+        published_date=None
+    )
+    
+    # Build ContentDTO
+    content_dto = ContentDTO(
+        id=edition_details[0].id,
+        text_id=text_detail.id,
+        sections=[section]
+    )
+    
+    # Calculate total segments (estimate based on has_more)
+    total_segments = offset + len(segment_dtos)
+    if segments.has_more:
+        total_segments += 1  # Indicate there are more
+    
+    return TextDetailWithContentResponse(
+        text_detail=text_detail_dto,
+        content=content_dto,
+        size=len(segment_dtos),
+        pagination_direction="next",
+        current_segment_position=offset + 1 if segment_dtos else 0,
+        total_segments=total_segments
+    )
 
 
 def trim_segment_content(edition_content: str, segments: SegmentationSegmentResponseModel) -> SegmentContentResponse:
