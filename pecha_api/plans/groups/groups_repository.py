@@ -302,12 +302,14 @@ def list_invites_by_group(
 
 
 def list_pending_invites_by_email(db: Session, target_email: str) -> List[AuthorGroupInvite]:
+    now = datetime.now(timezone.utc)
     return (
         db.query(AuthorGroupInvite)
         .options(selectinload(AuthorGroupInvite.group).selectinload(AuthorGroup.metadata_entries))
         .filter(
             AuthorGroupInvite.target_email == target_email.lower(),
             AuthorGroupInvite.status == AuthorGroupInviteStatus.PENDING.value,
+            AuthorGroupInvite.expires_at > now,
         )
         .order_by(AuthorGroupInvite.created_at.desc())
         .all()
@@ -315,12 +317,14 @@ def list_pending_invites_by_email(db: Session, target_email: str) -> List[Author
 
 
 def has_pending_invite(db: Session, group_id: UUID, target_email: str) -> bool:
+    now = datetime.now(timezone.utc)
     return (
         db.query(AuthorGroupInvite.id)
         .filter(
             AuthorGroupInvite.group_id == group_id,
             AuthorGroupInvite.target_email == target_email.lower(),
             AuthorGroupInvite.status == AuthorGroupInviteStatus.PENDING.value,
+            AuthorGroupInvite.expires_at > now,
         )
         .first()
         is not None
@@ -342,24 +346,6 @@ def revoke_invite(db: Session, invite: AuthorGroupInvite, revoked_by: str) -> No
     db.add(invite)
     db.commit()
 
-
-def expire_pending_invites(db: Session) -> int:
-    now = datetime.now(timezone.utc)
-    rows = (
-        db.query(AuthorGroupInvite)
-        .filter(
-            AuthorGroupInvite.status == AuthorGroupInviteStatus.PENDING.value,
-            AuthorGroupInvite.expires_at < now,
-        )
-        .all()
-    )
-    if not rows:
-        return 0
-    for invite in rows:
-        invite.status = AuthorGroupInviteStatus.EXPIRED.value
-        db.add(invite)
-    db.commit()
-    return len(rows)
 
 
 def add_group_member(db: Session, member: AuthorGroupMember) -> AuthorGroupMember:

@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -14,7 +13,6 @@ from ..texts.segments.segments_models import Segment
 from ..texts.texts_models import TableOfContent
 from ..texts.groups.groups_models import Group
 from ..config import get
-from pecha_api.plans.groups.invite_expiry_job import run_invite_expiry_scheduler
 
 mongodb_client = None
 mongodb = None
@@ -37,12 +35,7 @@ async def lifespan(api: FastAPI):
         logging.error(f"Error during collection initialization: {e}")
         raise
 
-    invite_expiry_task = asyncio.create_task(run_invite_expiry_scheduler())
     yield
 
-    invite_expiry_task.cancel()
-    try:
-        await invite_expiry_task
-    finally:
-        if mongodb_client:
-            mongodb_client.close()
+    if mongodb_client:
+        mongodb_client.close()
