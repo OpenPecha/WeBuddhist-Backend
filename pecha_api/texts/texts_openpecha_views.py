@@ -43,7 +43,7 @@ async def get_texts_by_collection(
     )
 
 @texts_v2_router.get(
-    "/detail",
+    "/{text_id}/details",
     response_model=TextDetailResponse,
     status_code=status.HTTP_200_OK,
     summary="Get a text with pagination",
