@@ -19,6 +19,7 @@ from pecha_api.plans.groups.groups_response_models import (
     ReplaceGroupSocialLinksRequest,
     ReplaceGroupTagsRequest,
     UpdateAuthorGroupRequest,
+    TransferGroupOwnershipRequest,
     UpdateGroupMemberRoleRequest,
 )
 from pecha_api.plans.groups.groups_service import (
@@ -42,6 +43,7 @@ from pecha_api.plans.groups.groups_service import (
     revoke_group_invite,
     unfollow_group,
     update_author_group,
+    transfer_group_ownership,
     update_group_member_role,
 )
 
@@ -266,6 +268,23 @@ def post_revoke_group_invite(
         invite_id=invite_id,
     )
     return None
+
+
+@cms_groups_router.post(
+    "/{group_id}/transfer-ownership",
+    status_code=status.HTTP_200_OK,
+    response_model=AuthorGroupDetailDTO,
+)
+def post_transfer_group_ownership(
+    group_id: UUID,
+    request: TransferGroupOwnershipRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return transfer_group_ownership(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        new_owner_author_id=request.new_owner_author_id,
+    )
 
 
 @cms_groups_router.patch("/{group_id}/members/{author_id}/role", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)

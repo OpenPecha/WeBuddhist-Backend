@@ -46,7 +46,9 @@ from pecha_api.plans.groups.groups_service import (
     revoke_group_invite,
     unfollow_group,
     update_author_group,
+    transfer_group_ownership,
     update_group_member_role,
+    OWNER_ROLE_NOT_ASSIGNABLE,
 )
 from pecha_api.plans.plans_enums import LanguageCode
 
@@ -558,6 +560,34 @@ def test_create_group_member_invite_blocks_existing_member():
     assert "already a member" in exc.value.detail.lower()
 
 
+def test_create_group_member_invite_cannot_invite_as_owner():
+    author = _make_author()
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=MagicMock(role=AuthorGroupMemberRole.OWNER),
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            create_group_member_invite(
+                token="t",
+                group_id=group.id,
+                request=CreateGroupInviteRequest(
+                    target_email="invitee@example.org",
+                    role=AuthorGroupMemberRole.OWNER,
+                ),
+            )
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert exc.value.detail == OWNER_ROLE_NOT_ASSIGNABLE
+
+
 def test_create_group_member_invite_admin_cannot_invite_as_admin():
     author = _make_author()
     group = _make_group()
@@ -737,7 +767,7 @@ def test_accept_group_invite_success_adds_member():
     mock_add.assert_called_once()
 
 
-def test_update_group_member_role_admin_cannot_promote_self_to_owner():
+def test_update_group_member_role_cannot_promote_to_owner():
     author = _make_author()
     group = _make_group()
     current = MagicMock()
@@ -763,7 +793,8 @@ def test_update_group_member_role_admin_cannot_promote_self_to_owner():
                 author_id=author.id,
                 request=UpdateGroupMemberRoleRequest(role=AuthorGroupMemberRole.OWNER),
             )
-    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert exc.value.detail == OWNER_ROLE_NOT_ASSIGNABLE
 
 
 def test_update_group_member_role_blocks_last_owner_demotion():
@@ -1511,4 +1542,97 @@ def test_revoke_group_invite_admin_cannot_revoke_admin_invite():
         _session_local_context(mock_session)
         with pytest.raises(HTTPException) as exc:
             revoke_group_invite(token="t", group_id=group.id, invite_id=invite.id)
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_update_group_member_role_cannot_assign_owner():
+    author = _make_author()
+    group = _make_group()
+    target_id = uuid4()
+    current = MagicMock()
+    current.role = AuthorGroupMemberRole.OWNER
+    target = MagicMock()
+    target.role = AuthorGroupMemberRole.ADMIN
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        side_effect=lambda db, group_id, author_id: current if author_id == author.id else target,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            update_group_member_role(
+                token="t",
+                group_id=group.id,
+                author_id=target_id,
+                request=UpdateGroupMemberRoleRequest(role=AuthorGroupMemberRole.OWNER),
+            )
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert exc.value.detail == OWNER_ROLE_NOT_ASSIGNABLE
+
+
+def test_transfer_group_ownership_success():
+    owner = _make_author()
+    group = _make_group()
+    new_owner_id = uuid4()
+    owner_member = MagicMock()
+    owner_member.role = AuthorGroupMemberRole.OWNER
+    new_member = MagicMock()
+    new_member.role = AuthorGroupMemberRole.ADMIN
+    loaded = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=owner,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        side_effect=[group, loaded],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        side_effect=lambda db, group_id, author_id: (
+            owner_member if author_id == owner.id else new_member
+        ),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.set_group_member_role",
+    ) as mock_set_role, patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={},
+    ):
+        _session_local_context(mock_session)
+        transfer_group_ownership(
+            token="t",
+            group_id=group.id,
+            new_owner_author_id=new_owner_id,
+        )
+    assert mock_set_role.call_count == 2
+
+
+def test_transfer_group_ownership_requires_current_owner():
+    author = _make_author()
+    group = _make_group()
+    admin_member = MagicMock()
+    admin_member.role = AuthorGroupMemberRole.ADMIN
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=admin_member,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            transfer_group_ownership(
+                token="t",
+                group_id=group.id,
+                new_owner_author_id=uuid4(),
+            )
     assert exc.value.status_code == status.HTTP_403_FORBIDDEN

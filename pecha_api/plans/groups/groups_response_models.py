@@ -148,3 +148,7 @@ class GroupInviteCreatedResponse(BaseModel):
 
 class UpdateGroupMemberRoleRequest(BaseModel):
     role: AuthorGroupMemberRole
+
+
+class TransferGroupOwnershipRequest(BaseModel):
+    new_owner_author_id: UUID

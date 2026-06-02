@@ -205,6 +205,12 @@ class AuthorGroupMember(Base):
     __table_args__ = (
         UniqueConstraint("group_id", "author_id", name="uq_author_group_members_group_author"),
         Index("idx_author_group_members_group_author", "group_id", "author_id"),
+        Index(
+            "uq_author_group_members_one_owner_per_group",
+            "group_id",
+            unique=True,
+            postgresql_where=text("role = 'OWNER'"),
+        ),
     )
 
 

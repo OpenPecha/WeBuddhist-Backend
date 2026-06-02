@@ -88,6 +88,10 @@ from pecha_api.users.users_service import validate_and_extract_user_details
 
 GROUP_NOT_FOUND = "Group not found"
 INVITE_NOT_FOUND = "Invite not found"
+OWNER_ROLE_NOT_ASSIGNABLE = (
+    "The OWNER role cannot be assigned via invite or role change; use transfer ownership"
+)
+GROUP_ALREADY_HAS_OWNER = "This group already has an owner"
 NOTIFICATION_CATEGORY_GROUP_INVITE = "group_invite"
 
 
@@ -178,7 +182,7 @@ def _assert_role_allowed(member: AuthorGroupMember, allowed_roles: List[AuthorGr
 
 _GROUP_SETTINGS_ROLES = [AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN]
 _MEMBER_MANAGEMENT_ROLES = [AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN]
-_OWNER_ONLY_INVITE_ROLES = frozenset({"OWNER", "ADMIN"})
+_ADMIN_INVITE_ROLE = AuthorGroupMemberRole.ADMIN.value
 
 
 def _resolve_actor_group_role(
@@ -194,10 +198,23 @@ def _resolve_actor_group_role(
 
 
 def _assert_invite_role_allowed(*, actor_role: str, invite_role: str) -> None:
-    if invite_role in _OWNER_ONLY_INVITE_ROLES and actor_role != AuthorGroupMemberRole.OWNER.value:
+    if invite_role == AuthorGroupMemberRole.OWNER.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=OWNER_ROLE_NOT_ASSIGNABLE,
+        )
+    if invite_role == _ADMIN_INVITE_ROLE and actor_role != AuthorGroupMemberRole.OWNER.value:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the group owner can invite with OWNER or ADMIN role",
+            detail="Only the group owner can invite with ADMIN role",
+        )
+
+
+def _assert_role_not_owner_assignment(requested_role: str) -> None:
+    if requested_role == AuthorGroupMemberRole.OWNER.value:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=OWNER_ROLE_NOT_ASSIGNABLE,
         )
 
 
@@ -217,13 +234,9 @@ def _assert_role_change_allowed(
     target_role: str,
     requested_role: str,
 ) -> None:
+    _assert_role_not_owner_assignment(requested_role)
     if actor_role == AuthorGroupMemberRole.OWNER.value:
         return
-    if requested_role == AuthorGroupMemberRole.OWNER.value:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only the group owner can assign the OWNER role",
-        )
     if target_role == AuthorGroupMemberRole.ADMIN.value and target_author_id != actor_author_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -832,6 +845,14 @@ def accept_group_invite_by_id(token: str, invite_id: UUID) -> AuthorGroupDetailD
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
 
+        invite_role = _to_role_value(invite.role)
+        if invite_role == AuthorGroupMemberRole.OWNER.value and get_owner_count(db=db, group_id=group.id) >= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=GROUP_ALREADY_HAS_OWNER,
+            )
+        _assert_role_not_owner_assignment(invite_role)
+
         existing_member = get_group_member(db=db, group_id=group.id, author_id=author.id)
         if existing_member is None:
             add_group_member(
@@ -935,7 +956,7 @@ def update_group_member_role(
             requested_role=requested_role,
         )
 
-        if target_role == "OWNER" and requested_role != "OWNER":
+        if target_role == AuthorGroupMemberRole.OWNER.value and requested_role != AuthorGroupMemberRole.OWNER.value:
             owner_count = get_owner_count(db=db, group_id=group_id)
             if owner_count <= 1:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one OWNER must always remain")
@@ -971,11 +992,58 @@ def _assert_admin_can_remove_target(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the group owner can remove a member with role OWNER or ADMIN",
         )
-    if current_role == "OWNER" and target_role == "OWNER":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Transfer ownership before removing another OWNER",
+def transfer_group_ownership(
+    token: str,
+    group_id: UUID,
+    new_owner_author_id: UUID,
+) -> AuthorGroupDetailDTO:
+    current_author = validate_and_extract_author_details(token=token)
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+
+        current_member = get_group_member(db=db, group_id=group_id, author_id=current_author.id)
+        if not current_member or _to_role_value(current_member.role) != AuthorGroupMemberRole.OWNER.value:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only the group owner can transfer ownership",
+            )
+
+        if new_owner_author_id == current_author.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You are already the group owner",
+            )
+
+        new_owner_member = get_group_member(db=db, group_id=group_id, author_id=new_owner_author_id)
+        if not new_owner_member:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Group member not found",
+            )
+        if _to_role_value(new_owner_member.role) == AuthorGroupMemberRole.OWNER.value:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Selected member is already the group owner",
+            )
+
+        set_group_member_role(
+            db=db,
+            member=current_member,
+            role=AuthorGroupMemberRole.ADMIN.value,
+            updated_by=current_author.email,
         )
+        set_group_member_role(
+            db=db,
+            member=new_owner_member,
+            role=AuthorGroupMemberRole.OWNER.value,
+            updated_by=current_author.email,
+        )
+
+        loaded = get_group_by_id(db=db, group_id=group_id)
+        follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_detail(loaded, follower_count=follower_count, db=db)
 
 
 def delete_group_member(token: str, group_id: UUID, author_id: UUID) -> None:
