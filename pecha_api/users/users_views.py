@@ -5,7 +5,7 @@ from starlette import status
 from .user_response_models import UserInfoRequest, UserInfoResponse
 from ..db import database
 from typing import Annotated
-from .users_service import get_user_info, update_user_info, upload_user_image, get_user_info_by_username
+from .users_service import get_user_info, update_user_info, upload_user_image, get_user_info_by_username, delete_user_account
 
 oauth2_scheme = HTTPBearer()
 user_router = APIRouter(
@@ -35,6 +35,11 @@ async def get_user_detail_by_username(username:str) -> UserInfoResponse:
 def update_user_information(authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
                             user_info_request: UserInfoRequest):
     return update_user_info(token=authentication_credential.credentials, user_info_request=user_info_request)
+
+
+@user_router.delete("/info", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user_information(authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]):
+    delete_user_account(token=authentication_credential.credentials)
 
 
 @user_router.post("/upload", status_code=status.HTTP_201_CREATED)

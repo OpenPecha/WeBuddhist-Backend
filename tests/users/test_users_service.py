@@ -7,7 +7,8 @@ from pecha_api.image_utils import ImageUtils
 from pecha_api.utils import Utils
 from pecha_api.users.users_service import get_user_info, update_user_info, \
     validate_and_extract_user_details, verify_admin_access, get_social_profile, update_social_profiles, \
-    get_publisher_info_by_username, fetch_user_by_email, validate_user_exists, get_user_info_by_username
+    get_publisher_info_by_username, fetch_user_by_email, validate_user_exists, get_user_info_by_username, \
+    delete_user_account
 from pecha_api.users.user_response_models import UserInfoRequest, SocialMediaProfile, PublisherInfoResponse, \
     UserInfoResponse
 from pecha_api.users.users_models import Users, SocialMediaAccount
@@ -765,3 +766,101 @@ async def test_get_user_info_by_username_database_error():
             await get_user_info_by_username(username)
         
         mock_get_user.assert_called_once_with(db=mock_db_session, username=username)
+
+
+def test_delete_user_account_success_with_avatar():
+    token = "valid_token"
+    mock_user = MagicMock()
+    mock_user.avatar_url = "images/profile_images/user_123.jpg"
+    mock_user.id = "user-id-123"
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details", return_value=mock_user), \
+         patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.delete_user") as mock_delete_user, \
+         patch("pecha_api.users.users_service.delete_file") as mock_delete_file:
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_session.return_value.__exit__.return_value = None
+
+        delete_user_account(token)
+
+        mock_delete_user.assert_called_once_with(db=mock_db, user=mock_user)
+        mock_delete_file.assert_called_once_with(file_path="images/profile_images/user_123.jpg")
+
+
+def test_delete_user_account_success_no_avatar():
+    token = "valid_token"
+    mock_user = MagicMock()
+    mock_user.avatar_url = None
+    mock_user.id = "user-id-456"
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details", return_value=mock_user), \
+         patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.delete_user") as mock_delete_user, \
+         patch("pecha_api.users.users_service.delete_file") as mock_delete_file:
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_session.return_value.__exit__.return_value = None
+
+        delete_user_account(token)
+
+        mock_delete_user.assert_called_once_with(db=mock_db, user=mock_user)
+        mock_delete_file.assert_not_called()
+
+
+def test_delete_user_account_invalid_token():
+    token = "invalid_token"
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details",
+               side_effect=HTTPException(status_code=401, detail="Invalid or no token found")):
+        with pytest.raises(HTTPException) as exc_info:
+            delete_user_account(token)
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "Invalid or no token found"
+
+
+def test_delete_user_account_s3_delete_warning():
+    token = "valid_token"
+    mock_user = MagicMock()
+    mock_user.avatar_url = "images/profile_images/user_789.jpg"
+    mock_user.id = "user-id-789"
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details", return_value=mock_user), \
+         patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.delete_user"), \
+         patch("pecha_api.users.users_service.delete_file", side_effect=Exception("S3 unavailable")), \
+         patch("pecha_api.users.users_service.logging") as mock_logging:
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_session.return_value.__exit__.return_value = None
+
+        delete_user_account(token)
+
+        mock_logging.warning.assert_called_once()
+        warning_msg = mock_logging.warning.call_args[0][0]
+        assert "user-id-789" in warning_msg
+        assert "S3 unavailable" in warning_msg
+
+
+def test_delete_user_account_db_error():
+    token = "valid_token"
+    mock_user = MagicMock()
+    mock_user.avatar_url = None
+    mock_user.id = "user-id-000"
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details", return_value=mock_user), \
+         patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.delete_user",
+               side_effect=HTTPException(status_code=500, detail="Failed to delete user account")):
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_session.return_value.__exit__.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            delete_user_account(token)
+        assert exc_info.value.status_code == 500
+        assert exc_info.value.detail == "Failed to delete user account"
