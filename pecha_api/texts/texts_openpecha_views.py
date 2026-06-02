@@ -24,13 +24,13 @@ texts_v2_router = APIRouter(
 )
 
 @texts_v2_router.get(
-    "/collection/{collection_id}",
+    "",
     status_code=status.HTTP_200_OK,
     summary="Get texts by collection from OpenPecha",
     description="Retrieve texts for a collection from OpenPecha API. "
 )
 async def get_texts_by_collection(
-    collection_id: str,
+    collection_id: Annotated[str, Query(description="Collection ID to filter texts")],
     language: Annotated[Optional[str], Query(description="Language code filter")] = None,
     skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10,
