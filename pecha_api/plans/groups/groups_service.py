@@ -668,7 +668,9 @@ def _invite_to_dto(
     if db is not None:
         inviter = get_author_by_email(db=db, email=inviter_email)
         if inviter:
-            inviter_name = _inviter_display_name(inviter)
+            display_name = _inviter_display_name(inviter)
+            if display_name:
+                inviter_name = display_name
     return GroupInviteDTO(
         id=invite.id,
         group_id=invite.group_id,
@@ -690,7 +692,10 @@ def _invite_to_dto(
 def _inviter_display_name(author) -> str:
     parts = [getattr(author, "first_name", None), getattr(author, "last_name", None)]
     name = " ".join(part for part in parts if isinstance(part, str) and part.strip()).strip()
-    return name or author.email
+    email = getattr(author, "email", None)
+    if isinstance(email, str) and email.strip():
+        return name or email
+    return name
 
 
 def _group_title_from_metadata(metadata_entries) -> str:

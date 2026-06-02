@@ -103,6 +103,8 @@ def test_create_group_invite_success():
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
         created_at=datetime.now(timezone.utc),
         created_by="owner@example.org",
+        inviter_name="Group Owner",
+        inviter_email="owner@example.org",
     )
     invite_response = GroupInviteCreatedResponse(
         invite=invite_dto,
@@ -154,6 +156,8 @@ def test_reject_group_invite_by_id_delegates_to_service():
         expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
         created_at=datetime.now(timezone.utc),
         created_by="owner@example.org",
+        inviter_name="Group Owner",
+        inviter_email="owner@example.org",
     )
     with patch(
         "pecha_api.plans.groups.groups_views.reject_group_invite_by_id",
