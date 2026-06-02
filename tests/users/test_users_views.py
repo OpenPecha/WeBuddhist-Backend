@@ -164,3 +164,32 @@ def test_get_user_detail_by_username_with_special_characters():
         assert response_data["username"] == "test.user-123"
         mock_get_user_info.assert_called_once_with("test.user-123")
 
+
+def test_delete_user_information_success():
+    with patch("pecha_api.users.users_views.delete_user_account") as mock_delete:
+        mock_delete.return_value = None
+        response = client.delete("/users/info", headers={"Authorization": "Bearer testtoken"})
+        assert response.status_code == 204
+        mock_delete.assert_called_once_with(token="testtoken")
+
+
+def test_delete_user_information_no_auth_token():
+    response = client.delete("/users/info")
+    assert response.status_code == 403
+
+
+def test_delete_user_information_invalid_token():
+    with patch("pecha_api.users.users_views.delete_user_account",
+               side_effect=HTTPException(status_code=401, detail="Invalid or no token found")):
+        response = client.delete("/users/info", headers={"Authorization": "Bearer badtoken"})
+        assert response.status_code == 401
+        assert response.json()["detail"] == "Invalid or no token found"
+
+
+def test_delete_user_information_server_error():
+    with patch("pecha_api.users.users_views.delete_user_account",
+               side_effect=HTTPException(status_code=500, detail="Failed to delete user account")):
+        response = client.delete("/users/info", headers={"Authorization": "Bearer testtoken"})
+        assert response.status_code == 500
+        assert response.json()["detail"] == "Failed to delete user account"
+

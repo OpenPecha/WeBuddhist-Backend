@@ -12,7 +12,7 @@ from .user_response_models import UserInfoRequest, UserInfoResponse, SocialMedia
 from .users_enums import SocialProfile
 from .users_models import Users, SocialMediaAccount
 from ..auth.auth_repository import validate_token
-from .users_repository import get_user_by_email, update_user, get_user_by_username
+from .users_repository import get_user_by_email, update_user, get_user_by_username, delete_user
 from ..uploads.S3_utils import delete_file, upload_bytes, generate_presigned_access_url
 from ..db.database import SessionLocal
 from ..config import get
@@ -157,6 +157,19 @@ def validate_and_extract_user_details(token: str) -> Users:
     except JWTError as jwt_exception:
         logging.debug(f"exception: {jwt_exception}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorConstants.TOKEN_ERROR_MESSAGE)
+
+
+def delete_user_account(token: str) -> None:
+    current_user = validate_and_extract_user_details(token=token)
+    avatar_key = current_user.avatar_url
+    with SessionLocal() as db_session:
+        db_session.add(current_user)
+        delete_user(db=db_session, user=current_user)
+    if avatar_key:
+        try:
+            delete_file(file_path=avatar_key)
+        except Exception as e:
+            logging.warning(f"Failed to delete avatar from S3 for user {current_user.id}: {e}")
 
 
 def verify_admin_access(token: str) -> bool:
