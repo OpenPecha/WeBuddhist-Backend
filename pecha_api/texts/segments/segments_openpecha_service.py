@@ -29,6 +29,9 @@ logger = logging.getLogger(__name__)
 TRANSLATION = "translation"
 COMMENTARY = "commentary"
 RELATED_SEGMENTS_MAX_PAGE_SIZE = 100
+MAX_PAGINATION_SKIP = 10000
+MAX_PAGINATION_LIMIT = 100
+MAX_FETCH_ITERATIONS = 100
 
 
 def _classify_text(text_payload: Dict[str, Any]) -> Optional[str]:
@@ -151,12 +154,18 @@ async def _fetch_matching_related_segments_by_text_id(
     skip: int,
     limit: int,
 ) -> Tuple[List[Dict[str, Any]], bool]:
+    # Sanitize user-controlled inputs to prevent unbounded loops
+    safe_skip = max(0, min(skip, MAX_PAGINATION_SKIP))
+    safe_limit = max(1, min(limit, MAX_PAGINATION_LIMIT))
+    
     matching_items: List[Dict[str, Any]] = []
     upstream_offset = 0
     upstream_has_more = True
-    target_count = skip + limit + 1
+    target_count = safe_skip + safe_limit + 1
+    iterations = 0
 
-    while upstream_has_more and len(matching_items) < target_count:
+    while upstream_has_more and len(matching_items) < target_count and iterations < MAX_FETCH_ITERATIONS:
+        iterations += 1
         related_page = await fetch_related_segments(
             segment_id=segment_id,
             limit=RELATED_SEGMENTS_MAX_PAGE_SIZE,
@@ -171,8 +180,8 @@ async def _fetch_matching_related_segments_by_text_id(
             break
         upstream_offset += len(items)
 
-    paginated_items = matching_items[skip : skip + limit]
-    has_more = len(matching_items) > skip + limit
+    paginated_items = matching_items[safe_skip : safe_skip + safe_limit]
+    has_more = len(matching_items) > safe_skip + safe_limit
     return paginated_items, has_more
 
 
