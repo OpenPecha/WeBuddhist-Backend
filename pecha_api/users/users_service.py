@@ -261,5 +261,5 @@ def update_username(token: str, request: UpdateUsernameRequest) -> UpdateUsernam
                 username=updated_user.username,
             )
         except Exception as e:
-            logging.error(f"Failed to update username: {e}")
+            logging.exception(f"Failed to update username: {e}")
             raise HTTPException(status_code=500, detail="Internal Server Error")
