@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
@@ -7,6 +7,7 @@ import pytest
 from fastapi import HTTPException
 
 from pecha_api.plans.plans_enums import EnrollmentSource, SeriesStatus, UserPlanStatus
+from pecha_api.plans.users.plan_user_series_repository import _filter_plans_by_date_availability
 from pecha_api.plans.response_message import BAD_REQUEST
 from pecha_api.plans.users.plan_users_response_models import (
     UserSeriesEnrollRequest,
@@ -41,6 +42,39 @@ def _mock_series_query(db_mock, series):
     mock_query = MagicMock()
     mock_query.filter.return_value.first.return_value = series
     db_mock.query.return_value = mock_query
+
+
+def _plan_for_date_filter(*, plan_id, series_id, display_order, start_date):
+    return SimpleNamespace(
+        id=plan_id,
+        series_id=series_id,
+        display_order=display_order,
+        start_date=start_date,
+    )
+
+
+def test_filter_plans_by_date_availability_excludes_display_order_zero():
+    series_id = uuid.uuid4()
+    today = datetime.now(timezone.utc)
+    started = today - timedelta(days=1)
+
+    first_plan = _plan_for_date_filter(
+        plan_id=uuid.uuid4(),
+        series_id=series_id,
+        display_order=0,
+        start_date=started,
+    )
+    second_plan = _plan_for_date_filter(
+        plan_id=uuid.uuid4(),
+        series_id=series_id,
+        display_order=1,
+        start_date=started,
+    )
+
+    result = _filter_plans_by_date_availability([first_plan, second_plan])
+
+    assert len(result) == 1
+    assert result[0].id == second_plan.id
 
 
 def test_generate_presigned_image_url_returns_empty_when_no_key():
