@@ -14,8 +14,12 @@ from openpecha_api.text.openpecha_text_service import fetch_text_by_id
 
 from .segments_response_models import (
     ParentSegment,
+    SegmentInfo,
+    SegmentRelatedText,
+    SegmentResources,
     V2RelatedSegmentItem,
     V2SegmentCommentariesResponse,
+    V2SegmentInfoResponse,
     V2SegmentResponse,
     V2SegmentRootTextResponse,
     V2SegmentTextDetail,
@@ -307,3 +311,52 @@ async def get_commentaries_by_segment_id_from_openpecha(
         limit=limit,
         has_more=has_more,
     )
+
+
+async def get_segment_info_by_id_from_openpecha(
+    segment_id: str,
+) -> V2SegmentInfoResponse:
+    try:
+        segment_details = await fetch_segment_details(segment_id)
+    except Exception:
+        logger.exception("Failed to fetch segment details for %s", segment_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Segment with id '{segment_id}' not found",
+        )
+
+    text_id = segment_details.get("text_id")
+    if not text_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Text ID not found for segment '{segment_id}'",
+        )
+
+    text_payload = await _fetch_text_safe(text_id)
+    if not text_payload:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Text with id '{text_id}' not found",
+        )
+
+    translations_count = len(text_payload.get("translations", []))
+    commentaries_count = len(text_payload.get("commentaries", []))
+
+    root_text_count = 0
+    if text_payload.get("commentary_of") or text_payload.get("translation_of"):
+        root_text_count = 1
+
+    segment_info = SegmentInfo(
+        segment_id=segment_id,
+        text_id=text_id,
+        translations=translations_count,
+        related_text=SegmentRelatedText(
+            commentaries=commentaries_count,
+            root_text=root_text_count,
+        ),
+        resources=SegmentResources(
+            sheets=0,
+        ),
+    )
+
+    return V2SegmentInfoResponse(segment_info=segment_info)

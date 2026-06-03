@@ -125,3 +125,24 @@ class V2SegmentResponse(BaseModel):
     segment_id: str
     content: str
     text: Optional[V2SegmentTextDetail] = None
+
+
+class SegmentRelatedText(BaseModel):
+    commentaries: int
+    root_text: int
+
+
+class SegmentResources(BaseModel):
+    sheets: int
+
+
+class SegmentInfo(BaseModel):
+    segment_id: str
+    text_id: str
+    translations: int
+    related_text: SegmentRelatedText
+    resources: SegmentResources
+
+
+class V2SegmentInfoResponse(BaseModel):
+    segment_info: SegmentInfo
