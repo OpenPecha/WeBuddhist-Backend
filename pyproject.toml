@@ -51,6 +51,7 @@ start = "uvicorn:main"
 omit = [ "*/*_repository.py", "*/*_models.py", "*/*_init__.py", "*/db/*", "*/external_clients/*",]
 
 [tool.coverage.report]
+fail_under = 80
 exclude_lines = [ "pragma: no cover", "def __repr__", "if self.debug:", "raise NotImplementedError", "if __name__ == .__main__.:", "pass", "raise ImportError",]
 
 [tool.poetry.dependencies.uvicorn]

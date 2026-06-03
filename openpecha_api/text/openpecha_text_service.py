@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 async def fetch_texts_by_category(
     category_id: str,
     language: Optional[str] = None,
+    title: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
 ) -> Dict[str, Any]:
@@ -19,6 +20,8 @@ async def fetch_texts_by_category(
     }
     if language:
         params["language"] = language
+    if title:
+        params["title"] = title
 
     client = get_authenticated_open_pecha_client()
     http_client = client.get_async_httpx_client()
