@@ -5,7 +5,9 @@ from fastapi import HTTPException
 from pecha_api.texts.segments.segments_openpecha_service import (
     _classify_text,
     _fetch_segment_content_safe,
+    get_openpecha_segment_details_by_id,
     get_translations_by_segment_id_from_openpecha,
+    get_commentaries_by_segment_id_from_openpecha,
 )
 from pecha_api.texts.segments.segments_response_models import (
     V2SegmentCommentariesResponse,

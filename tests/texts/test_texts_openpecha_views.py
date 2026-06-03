@@ -91,7 +91,7 @@ class TestTextsV2Endpoint:
             limit=10,
         )
 
-        response = client.get("/v2/texts/collection/cat-1")
+        response = client.get("/texts/collection/cat-1")
 
         assert response.status_code == 200
         data = response.json()
@@ -107,7 +107,7 @@ class TestTextsV2Endpoint:
             license="CC0",
         )
 
-        response = client.get("/v2/texts/t1")
+        response = client.get("/texts/t1")
 
         assert response.status_code == 200
         data = response.json()
@@ -117,11 +117,11 @@ class TestTextsV2Endpoint:
 
 class TestTextsV2ValidationErrors:
     def test_invalid_skip_negative(self):
-        response = client.get("/v2/texts/collection/cat-1?skip=-1")
+        response = client.get("/texts/collection/cat-1?skip=-1")
         assert response.status_code == 422
 
     def test_invalid_limit_zero(self):
-        response = client.get("/v2/texts/collection/cat-1?limit=0")
+        response = client.get("/texts/collection/cat-1?limit=0")
         assert response.status_code == 422
 
 
@@ -133,7 +133,7 @@ class TestTextsV2ErrorHandling:
             detail="Failed to fetch texts from upstream service",
         )
 
-        response = client.get("/v2/texts/collection/cat-1")
+        response = client.get("/texts/collection/cat-1")
 
         assert response.status_code == 502
         assert "upstream" in response.json()["detail"].lower()
@@ -145,7 +145,7 @@ class TestTextsV2ErrorHandling:
             detail="Text with id 'missing' not found",
         )
 
-        response = client.get("/v2/texts/missing")
+        response = client.get("/texts/missing")
 
         assert response.status_code == 404
 
@@ -165,7 +165,7 @@ class TestGetTextVersionsEndpoint:
         )
         mock_service.return_value = mock_response
 
-        response = client.get("/v2/texts/text-123/versions")
+        response = client.get("/texts/text-123/versions")
 
         assert response.status_code == 200
         data = response.json()
@@ -191,7 +191,7 @@ class TestGetTextVersionsEndpoint:
         )
         mock_service.return_value = mock_response
 
-        response = client.get("/v2/texts/text-123/versions?language=en")
+        response = client.get("/texts/text-123/versions?language=en")
 
         assert response.status_code == 200
         data = response.json()
@@ -212,7 +212,7 @@ class TestGetTextVersionsEndpoint:
         )
         mock_service.return_value = mock_response
 
-        response = client.get("/v2/texts/text-123/versions?skip=1&limit=5")
+        response = client.get("/texts/text-123/versions?skip=1&limit=5")
 
         assert response.status_code == 200
         data = response.json()
@@ -232,7 +232,7 @@ class TestGetTextVersionsEndpoint:
         )
         mock_service.return_value = mock_response
 
-        response = client.get("/v2/texts/text-123/versions")
+        response = client.get("/texts/text-123/versions")
 
         assert response.status_code == 200
         data = response.json()
@@ -247,7 +247,7 @@ class TestGetTextVersionsEndpoint:
         )
         mock_service.return_value = mock_response
 
-        response = client.get("/v2/texts/text-123/versions?language=bo&skip=2&limit=20")
+        response = client.get("/texts/text-123/versions?language=bo&skip=2&limit=20")
 
         assert response.status_code == 200
         mock_service.assert_called_once_with(
@@ -268,7 +268,7 @@ class TestGetTextVersionsErrorHandling:
             detail="Text with id 'nonexistent' not found"
         )
 
-        response = client.get("/v2/texts/nonexistent/versions")
+        response = client.get("/texts/nonexistent/versions")
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
@@ -280,7 +280,7 @@ class TestGetTextVersionsErrorHandling:
             detail="Failed to fetch text from external API"
         )
 
-        response = client.get("/v2/texts/text-123/versions")
+        response = client.get("/texts/text-123/versions")
 
         assert response.status_code == 502
         assert "external" in response.json()["detail"].lower() or "failed" in response.json()["detail"].lower()
@@ -292,7 +292,7 @@ class TestGetTextVersionsErrorHandling:
             detail="Internal server error"
         )
 
-        response = client.get("/v2/texts/text-123/versions")
+        response = client.get("/texts/text-123/versions")
 
         assert response.status_code == 500
 
@@ -308,7 +308,7 @@ class TestGetTextVersionsResponseStructure:
         )
         mock_service.return_value = mock_response
 
-        response = client.get("/v2/texts/text-123/versions")
+        response = client.get("/texts/text-123/versions")
 
         assert response.status_code == 200
         text_data = response.json()["text"]
@@ -328,7 +328,7 @@ class TestGetTextVersionsResponseStructure:
         )
         mock_service.return_value = mock_response
 
-        response = client.get("/v2/texts/text-123/versions")
+        response = client.get("/texts/text-123/versions")
 
         assert response.status_code == 200
         version_data = response.json()["versions"][0]
@@ -365,7 +365,7 @@ class TestGetTextVersionsResponseStructure:
         )
         mock_service.return_value = mock_response
 
-        response = client.get("/v2/texts/text-123/versions")
+        response = client.get("/texts/text-123/versions")
 
         assert response.status_code == 200
         version_data = response.json()["versions"][0]
@@ -405,7 +405,7 @@ class TestGetTextCommentariesEndpoint:
         )
         mock_service.return_value = [mock_commentary]
 
-        response = client.get("/v2/texts/text-123/commentaries")
+        response = client.get("/texts/text-123/commentaries")
 
         assert response.status_code == 200
         data = response.json()
@@ -443,7 +443,7 @@ class TestGetTextCommentariesEndpoint:
         ]
         mock_service.return_value = mock_commentaries
 
-        response = client.get("/v2/texts/text-123/commentaries")
+        response = client.get("/texts/text-123/commentaries")
 
         assert response.status_code == 200
         data = response.json()
@@ -456,7 +456,7 @@ class TestGetTextCommentariesEndpoint:
     def test_get_text_commentaries_empty(self, mock_service):
         mock_service.return_value = []
 
-        response = client.get("/v2/texts/text-123/commentaries")
+        response = client.get("/texts/text-123/commentaries")
 
         assert response.status_code == 200
         data = response.json()
@@ -466,7 +466,7 @@ class TestGetTextCommentariesEndpoint:
     def test_get_text_commentaries_with_pagination(self, mock_service):
         mock_service.return_value = []
 
-        response = client.get("/v2/texts/text-123/commentaries?skip=5&limit=20")
+        response = client.get("/texts/text-123/commentaries?skip=5&limit=20")
 
         assert response.status_code == 200
         mock_service.assert_called_once_with(
@@ -479,7 +479,7 @@ class TestGetTextCommentariesEndpoint:
     def test_get_text_commentaries_with_skip_only(self, mock_service):
         mock_service.return_value = []
 
-        response = client.get("/v2/texts/text-123/commentaries?skip=10")
+        response = client.get("/texts/text-123/commentaries?skip=10")
 
         assert response.status_code == 200
         mock_service.assert_called_once_with(
@@ -492,7 +492,7 @@ class TestGetTextCommentariesEndpoint:
     def test_get_text_commentaries_with_limit_only(self, mock_service):
         mock_service.return_value = []
 
-        response = client.get("/v2/texts/text-123/commentaries?limit=50")
+        response = client.get("/texts/text-123/commentaries?limit=50")
 
         assert response.status_code == 200
         mock_service.assert_called_once_with(
@@ -502,11 +502,11 @@ class TestGetTextCommentariesEndpoint:
         )
 
     def test_get_text_commentaries_invalid_skip(self):
-        response = client.get("/v2/texts/text-123/commentaries?skip=-1")
+        response = client.get("/texts/text-123/commentaries?skip=-1")
         assert response.status_code == 422
 
     def test_get_text_commentaries_invalid_limit(self):
-        response = client.get("/v2/texts/text-123/commentaries?limit=101")
+        response = client.get("/texts/text-123/commentaries?limit=101")
         assert response.status_code == 422
 
 
@@ -520,7 +520,7 @@ class TestGetTextCommentariesErrorHandling:
             detail="Text with id 'nonexistent' not found"
         )
 
-        response = client.get("/v2/texts/nonexistent/commentaries")
+        response = client.get("/texts/nonexistent/commentaries")
 
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
@@ -532,7 +532,7 @@ class TestGetTextCommentariesErrorHandling:
             detail="Failed to fetch commentaries from external API"
         )
 
-        response = client.get("/v2/texts/text-123/commentaries")
+        response = client.get("/texts/text-123/commentaries")
 
         assert response.status_code == 502
 
@@ -543,7 +543,7 @@ class TestGetTextCommentariesErrorHandling:
             detail="Internal server error"
         )
 
-        response = client.get("/v2/texts/text-123/commentaries")
+        response = client.get("/texts/text-123/commentaries")
 
         assert response.status_code == 500
 
@@ -573,7 +573,7 @@ class TestGetTextCommentariesResponseStructure:
         )
         mock_service.return_value = [mock_commentary]
 
-        response = client.get("/v2/texts/text-123/commentaries")
+        response = client.get("/texts/text-123/commentaries")
 
         assert response.status_code == 200
         data = response.json()[0]
@@ -616,7 +616,7 @@ class TestGetTextCommentariesResponseStructure:
         )
         mock_service.return_value = [mock_commentary]
 
-        response = client.get("/v2/texts/text-123/commentaries")
+        response = client.get("/texts/text-123/commentaries")
 
         assert response.status_code == 200
         data = response.json()[0]
