@@ -91,7 +91,7 @@ class TestTextsV2Endpoint:
             limit=10,
         )
 
-        response = client.get("/texts/collection/cat-1")
+        response = client.get("/texts?collection_id=cat-1")
 
         assert response.status_code == 200
         data = response.json()
@@ -117,11 +117,11 @@ class TestTextsV2Endpoint:
 
 class TestTextsV2ValidationErrors:
     def test_invalid_skip_negative(self):
-        response = client.get("/texts/collection/cat-1?skip=-1")
+        response = client.get("/texts?collection_id=cat-1&skip=-1")
         assert response.status_code == 422
 
     def test_invalid_limit_zero(self):
-        response = client.get("/texts/collection/cat-1?limit=0")
+        response = client.get("/texts?collection_id=cat-1&limit=0")
         assert response.status_code == 422
 
 
@@ -133,7 +133,7 @@ class TestTextsV2ErrorHandling:
             detail="Failed to fetch texts from upstream service",
         )
 
-        response = client.get("/texts/collection/cat-1")
+        response = client.get("/texts?collection_id=cat-1")
 
         assert response.status_code == 502
         assert "upstream" in response.json()["detail"].lower()

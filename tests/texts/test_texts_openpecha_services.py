@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from pecha_api.texts.texts_openpecha_service import get_text_detail_by_id, trim_segment_content
 from pecha_api.texts.text_openpecha_response_models import (
     TextDetailResponse,
+    TextDetailWithContentResponse,
     CriticalEditionModel,
     ContributionModel,
     SegmentationResponseModel,
@@ -87,12 +88,13 @@ async def test_get_text_detail_by_id_success(mocker):
 
     result = await get_text_detail_by_id(text_id=TEXT_ID, offset=0, limit=30)
 
-    assert result.id == TEXT_ID
-    assert result.edition_details == MOCK_EDITIONS
-    assert len(result.segments.contents) == 2
-    assert result.segments.has_more is False
-    assert result.segments.offset == 0
-    assert result.segments.limit == 30
+    assert isinstance(result, TextDetailWithContentResponse)
+    assert result.text_detail.id == TEXT_ID
+    assert result.text_detail.title == "Test Text"
+    assert result.size == 2
+    assert result.current_segment_position == 1
+    assert len(result.content.sections) == 1
+    assert len(result.content.sections[0].segments) == 2
 
 
 @pytest.mark.asyncio
