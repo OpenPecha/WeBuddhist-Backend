@@ -13,7 +13,6 @@ from ..texts.segments.segments_models import Segment
 from ..texts.texts_models import TableOfContent
 from ..texts.groups.groups_models import Group
 from ..config import get
-from fastapi import HTTPException
 
 mongodb_client = None
 mongodb = None
@@ -35,9 +34,8 @@ async def lifespan(api: FastAPI):
     except Exception as e:
         logging.error(f"Error during collection initialization: {e}")
         raise
-    # Yield control back to FastAPI
+
     yield
 
-    # Close the MongoDB connection when the application shuts down
     if mongodb_client:
         mongodb_client.close()

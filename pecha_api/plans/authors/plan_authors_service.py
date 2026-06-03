@@ -58,6 +58,7 @@ async def get_author_details(token: str) -> AuthorInfoResponse:
         firstname=author.first_name,
         lastname=author.last_name,
         email=author.email,
+        is_admin=bool(author.is_admin),
         image_url=generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key= author.image_url),
         bio=author.bio,
         social_profiles=social_media_profiles

@@ -1,4 +1,3 @@
-import hashlib
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
@@ -7,9 +6,8 @@ import pytest
 from fastapi import HTTPException
 from starlette import status
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole
 from pecha_api.plans.groups.groups_response_models import (
-    AcceptGroupInviteRequest,
     CreateAuthorGroupRequest,
     CreateGroupInviteRequest,
     GroupMetadataInput,
@@ -23,16 +21,18 @@ from pecha_api.plans.groups.groups_response_models import (
 )
 from pecha_api.plans.groups.groups_service import (
     GROUP_NOT_FOUND,
-    InviteEmailMismatchError,
     _assert_metadata_valid,
     _generate_group_asset_url,
     _get_member_or_403,
     _group_to_detail,
     _to_role_value,
-    accept_group_invite,
+    accept_group_invite_by_id,
     create_author_group,
     create_group_member_invite,
     delete_group_member,
+    list_group_invites,
+    list_my_pending_group_invites,
+    reject_group_invite_by_id,
     follow_group,
     get_author_group_detail,
     get_cms_group_detail,
@@ -46,7 +46,9 @@ from pecha_api.plans.groups.groups_service import (
     revoke_group_invite,
     unfollow_group,
     update_author_group,
+    transfer_group_ownership,
     update_group_member_role,
+    OWNER_ROLE_NOT_ASSIGNABLE,
 )
 from pecha_api.plans.plans_enums import LanguageCode
 
@@ -63,6 +65,8 @@ def _make_author(author_id=None, email="author@example.org", is_admin=False):
     author.id = author_id or uuid4()
     author.email = email
     author.is_admin = is_admin
+    author.first_name = None
+    author.last_name = None
     return author
 
 
@@ -198,26 +202,24 @@ def test_update_author_group_success_as_admin():
     assert result.is_public is False
 
 
-def test_accept_group_invite_revoked():
+def test_accept_group_invite_not_pending():
     author = _make_author(email="a@b.com")
     invite = MagicMock()
     invite.target_email = "a@b.com"
-    invite.revoked_at = datetime.now(timezone.utc)
-    invite.expires_at = datetime.now(timezone.utc) + timedelta(days=1)
-    invite.max_uses = 1
-    invite.uses_count = 0
+    invite.status = AuthorGroupInviteStatus.REVOKED.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_invite_by_token_hash",
+        "pecha_api.plans.groups.groups_service.get_invite_by_id",
         return_value=invite,
     ):
         _session_local_context(mock_session)
         with pytest.raises(HTTPException) as exc:
-            accept_group_invite(token="t", request=AcceptGroupInviteRequest(token="raw"))
-    assert "revoked" in exc.value.detail.lower()
+            accept_group_invite_by_id(token="t", invite_id=uuid4())
+    assert "not pending" in exc.value.detail.lower()
 
 
 def test_accept_group_invite_not_found():
@@ -226,12 +228,12 @@ def test_accept_group_invite_not_found():
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_invite_by_token_hash",
+        "pecha_api.plans.groups.groups_service.get_invite_by_id",
         return_value=None,
     ):
         _session_local_context(mock_session)
         with pytest.raises(HTTPException) as exc:
-            accept_group_invite(token="t", request=AcceptGroupInviteRequest(token="raw"))
+            accept_group_invite_by_id(token="t", invite_id=uuid4())
     assert exc.value.detail == "Invite not found"
 
 
@@ -459,15 +461,108 @@ def test_list_followed_groups():
     assert result.total == 1
 
 
-def test_create_group_member_invite_returns_raw_token():
+def test_create_group_member_invite_creates_notification():
     author = _make_author()
     group = _make_group()
+    target_author = MagicMock()
+    target_author.id = uuid4()
     invite = MagicMock()
     invite.id = uuid4()
+    invite.group_id = group.id
     invite.target_email = "invitee@example.org"
     invite.role = AuthorGroupMemberRole.AUTHOR
-    invite.expires_at = datetime.now(timezone.utc) + timedelta(days=1)
-    invite.max_uses = 1
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    invite.created_at = datetime.now(timezone.utc)
+    invite.created_by = author.email
+    invite.accepted_at = None
+    invite.rejected_at = None
+    invite.revoked_at = None
+
+    notification = MagicMock()
+    notification.id = uuid4()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        side_effect=lambda db, group_id, author_id: (
+            MagicMock(role=AuthorGroupMemberRole.OWNER) if author_id == author.id else None
+        ),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        return_value=target_author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_invite",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_invite",
+        return_value=invite,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_notification_record",
+        return_value=notification,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.send_group_invitation_email",
+    ):
+        _session_local_context(mock_session)
+        result = create_group_member_invite(
+            token="t",
+            group_id=group.id,
+            request=CreateGroupInviteRequest(
+                target_email="invitee@example.org",
+                role=AuthorGroupMemberRole.AUTHOR,
+            ),
+        )
+    assert result.invite.target_email == "invitee@example.org"
+    assert result.notification_id == notification.id
+
+
+def test_create_group_member_invite_blocks_existing_member():
+    author = _make_author()
+    group = _make_group()
+    target_author = MagicMock()
+    target_author.id = uuid4()
+
+    def _get_member(db, group_id, author_id):
+        if author_id == author.id:
+            return MagicMock(role=AuthorGroupMemberRole.OWNER)
+        if author_id == target_author.id:
+            return MagicMock(role=AuthorGroupMemberRole.AUTHOR)
+        return None
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        side_effect=_get_member,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        return_value=target_author,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            create_group_member_invite(
+                token="t",
+                group_id=group.id,
+                request=CreateGroupInviteRequest(
+                    target_email="invitee@example.org",
+                    role=AuthorGroupMemberRole.AUTHOR,
+                ),
+            )
+    assert "already a member" in exc.value.detail.lower()
+
+
+def test_create_group_member_invite_cannot_invite_as_owner():
+    author = _make_author()
+    group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
@@ -478,69 +573,159 @@ def test_create_group_member_invite_returns_raw_token():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_member",
         return_value=MagicMock(role=AuthorGroupMemberRole.OWNER),
-    ), patch(
-        "pecha_api.plans.groups.groups_service.create_group_invite",
-        return_value=invite,
     ):
         _session_local_context(mock_session)
-        result = create_group_member_invite(
-            token="t",
-            group_id=group.id,
-            request=CreateGroupInviteRequest(
-                target_email="invitee@example.org",
-                role=AuthorGroupMemberRole.AUTHOR,
-                expires_at=invite.expires_at,
-                max_uses=1,
-            ),
-        )
-    assert result.token
-    assert result.target_email == "invitee@example.org"
+        with pytest.raises(HTTPException) as exc:
+            create_group_member_invite(
+                token="t",
+                group_id=group.id,
+                request=CreateGroupInviteRequest(
+                    target_email="invitee@example.org",
+                    role=AuthorGroupMemberRole.OWNER,
+                ),
+            )
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert exc.value.detail == OWNER_ROLE_NOT_ASSIGNABLE
+
+
+def test_create_group_member_invite_admin_cannot_invite_as_admin():
+    author = _make_author()
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=MagicMock(role=AuthorGroupMemberRole.ADMIN),
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            create_group_member_invite(
+                token="t",
+                group_id=group.id,
+                request=CreateGroupInviteRequest(
+                    target_email="invitee@example.org",
+                    role=AuthorGroupMemberRole.ADMIN,
+                ),
+            )
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_update_group_member_role_admin_cannot_assign_admin_to_other():
+    author = _make_author()
+    group = _make_group()
+    target_id = uuid4()
+    current = MagicMock()
+    current.role = AuthorGroupMemberRole.ADMIN
+    target = MagicMock()
+    target.role = AuthorGroupMemberRole.AUTHOR
+
+    def _get_member(db, group_id, author_id):
+        if author_id == author.id:
+            return current
+        if author_id == target_id:
+            return target
+        return None
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        side_effect=_get_member,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            update_group_member_role(
+                token="t",
+                group_id=group.id,
+                author_id=target_id,
+                request=UpdateGroupMemberRoleRequest(role=AuthorGroupMemberRole.ADMIN),
+            )
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_create_group_member_invite_blocks_pending_invite():
+    author = _make_author()
+    group = _make_group()
+    target_author = MagicMock()
+    target_author.id = uuid4()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        side_effect=lambda db, group_id, author_id: (
+            MagicMock(role=AuthorGroupMemberRole.OWNER) if author_id == author.id else None
+        ),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        return_value=target_author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_invite",
+        return_value=True,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            create_group_member_invite(
+                token="t",
+                group_id=group.id,
+                request=CreateGroupInviteRequest(
+                    target_email="invitee@example.org",
+                    role=AuthorGroupMemberRole.AUTHOR,
+                ),
+            )
+    assert "pending invitation" in exc.value.detail.lower()
 
 
 def test_accept_group_invite_email_mismatch():
     author = _make_author(email="other@example.org")
     invite = MagicMock()
     invite.target_email = "invitee@example.org"
-    invite.revoked_at = None
-    invite.expires_at = datetime.now(timezone.utc) + timedelta(days=1)
-    invite.max_uses = 1
-    invite.uses_count = 0
-    invite.group_id = uuid4()
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_invite_by_token_hash",
+        "pecha_api.plans.groups.groups_service.get_invite_by_id",
         return_value=invite,
     ):
         _session_local_context(mock_session)
-        with pytest.raises(InviteEmailMismatchError):
-            accept_group_invite(
-                token="t",
-                request=AcceptGroupInviteRequest(token="raw"),
-            )
+        with pytest.raises(HTTPException) as exc:
+            accept_group_invite_by_id(token="t", invite_id=uuid4())
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_accept_group_invite_expired():
     author = _make_author(email="invitee@example.org")
     invite = MagicMock()
     invite.target_email = "invitee@example.org"
-    invite.revoked_at = None
-    invite.expires_at = datetime.now(timezone.utc) - timedelta(days=1)
-    invite.max_uses = 1
-    invite.uses_count = 0
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_invite_by_token_hash",
+        "pecha_api.plans.groups.groups_service.get_invite_by_id",
         return_value=invite,
     ):
         _session_local_context(mock_session)
         with pytest.raises(HTTPException) as exc:
-            accept_group_invite(token="t", request=AcceptGroupInviteRequest(token="raw"))
+            accept_group_invite_by_id(token="t", invite_id=uuid4())
     assert "expired" in exc.value.detail.lower()
 
 
@@ -549,18 +734,17 @@ def test_accept_group_invite_success_adds_member():
     group = _make_group()
     invite = MagicMock()
     invite.target_email = "invitee@example.org"
-    invite.revoked_at = None
-    invite.expires_at = datetime.now(timezone.utc) + timedelta(days=1)
-    invite.max_uses = 1
-    invite.uses_count = 0
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
     invite.role = AuthorGroupMemberRole.AUTHOR
     invite.group_id = group.id
+    invite.id = uuid4()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_invite_by_token_hash",
+        "pecha_api.plans.groups.groups_service.get_invite_by_id",
         return_value=invite,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
@@ -571,23 +755,25 @@ def test_accept_group_invite_success_adds_member():
     ), patch(
         "pecha_api.plans.groups.groups_service.add_group_member",
     ) as mock_add, patch(
-        "pecha_api.plans.groups.groups_service.increase_invite_use_count",
+        "pecha_api.plans.groups.groups_service.save_invite",
+    ), patch(
+        "pecha_api.plans.groups.groups_service._mark_invite_notification_read",
     ), patch(
         "pecha_api.plans.groups.groups_service.get_followers_count_map",
         return_value={},
     ):
         _session_local_context(mock_session)
-        accept_group_invite(token="t", request=AcceptGroupInviteRequest(token="raw-token"))
+        accept_group_invite_by_id(token="t", invite_id=invite.id)
     mock_add.assert_called_once()
 
 
-def test_update_group_member_role_blocks_last_owner_demotion():
+def test_update_group_member_role_cannot_promote_to_owner():
     author = _make_author()
     group = _make_group()
-    target = MagicMock()
-    target.role = AuthorGroupMemberRole.OWNER
     current = MagicMock()
     current.role = AuthorGroupMemberRole.ADMIN
+    target = MagicMock()
+    target.role = AuthorGroupMemberRole.ADMIN
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
@@ -597,7 +783,45 @@ def test_update_group_member_role_blocks_last_owner_demotion():
         return_value=group,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_member",
-        side_effect=[current, target],
+        side_effect=lambda db, group_id, author_id: target if author_id == author.id else current,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            update_group_member_role(
+                token="t",
+                group_id=group.id,
+                author_id=author.id,
+                request=UpdateGroupMemberRoleRequest(role=AuthorGroupMemberRole.OWNER),
+            )
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert exc.value.detail == OWNER_ROLE_NOT_ASSIGNABLE
+
+
+def test_update_group_member_role_blocks_last_owner_demotion():
+    author = _make_author()
+    group = _make_group()
+    target_id = uuid4()
+    target = MagicMock()
+    target.role = AuthorGroupMemberRole.OWNER
+    current = MagicMock()
+    current.role = AuthorGroupMemberRole.OWNER
+
+    def _get_member(db, group_id, author_id):
+        if author_id == author.id:
+            return current
+        if author_id == target_id:
+            return target
+        return None
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        side_effect=_get_member,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_owner_count",
         return_value=1,
@@ -607,19 +831,17 @@ def test_update_group_member_role_blocks_last_owner_demotion():
             update_group_member_role(
                 token="t",
                 group_id=group.id,
-                author_id=uuid4(),
+                author_id=target_id,
                 request=UpdateGroupMemberRoleRequest(role=AuthorGroupMemberRole.ADMIN),
             )
     assert "OWNER" in exc.value.detail
 
 
 def test_delete_group_member_blocks_last_owner_removal():
-    author = _make_author()
+    author = _make_author(is_admin=True)
     group = _make_group()
-    member = MagicMock()
-    member.role = AuthorGroupMemberRole.OWNER
-    current = MagicMock()
-    current.role = AuthorGroupMemberRole.ADMIN
+    target = MagicMock()
+    target.role = AuthorGroupMemberRole.OWNER
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
@@ -629,7 +851,7 @@ def test_delete_group_member_blocks_last_owner_removal():
         return_value=group,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_member",
-        side_effect=[current, member],
+        return_value=target,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_owner_count",
         return_value=1,
@@ -637,7 +859,87 @@ def test_delete_group_member_blocks_last_owner_removal():
         _session_local_context(mock_session)
         with pytest.raises(HTTPException) as exc:
             delete_group_member(token="t", group_id=group.id, author_id=uuid4())
-    assert "last owner" in exc.value.detail.lower()
+    assert "owner" in exc.value.detail.lower()
+
+
+def test_delete_group_member_self_remove_as_author():
+    author = _make_author()
+    group = _make_group()
+    member = MagicMock()
+    member.role = AuthorGroupMemberRole.AUTHOR
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=member,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.remove_group_member",
+    ) as mock_remove:
+        _session_local_context(mock_session)
+        delete_group_member(token="t", group_id=group.id, author_id=author.id)
+    mock_remove.assert_called_once()
+
+
+def test_delete_group_member_self_remove_last_owner_blocked():
+    author = _make_author()
+    group = _make_group()
+    member = MagicMock()
+    member.role = AuthorGroupMemberRole.OWNER
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=member,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_owner_count",
+        return_value=1,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            delete_group_member(token="t", group_id=group.id, author_id=author.id)
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_delete_group_member_admin_cannot_remove_owner():
+    author = _make_author()
+    group = _make_group()
+    target_id = uuid4()
+    target = MagicMock()
+    target.role = AuthorGroupMemberRole.OWNER
+    current = MagicMock()
+    current.role = AuthorGroupMemberRole.ADMIN
+
+    def _get_member(db, group_id, author_id):
+        if author_id == target_id:
+            return target
+        if author_id == author.id:
+            return current
+        return None
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        side_effect=_get_member,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            delete_group_member(token="t", group_id=group.id, author_id=target_id)
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_replace_group_tags_invalid_tag_ids():
@@ -721,49 +1023,13 @@ def test_revoke_group_invite_not_found():
     assert exc.value.detail == "Invite not found"
 
 
-def test_accept_group_invite_uses_token_hash():
-    raw = "secret-token"
-    expected_hash = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-    author = _make_author(email="a@b.com")
-    invite = MagicMock()
-    invite.target_email = "a@b.com"
-    invite.revoked_at = None
-    invite.expires_at = datetime.now(timezone.utc) + timedelta(days=1)
-    invite.max_uses = 1
-    invite.uses_count = 0
-    invite.role = AuthorGroupMemberRole.AUTHOR
-    invite.group_id = uuid4()
-
-    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
-        return_value=author,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_invite_by_token_hash",
-        return_value=invite,
-    ) as mock_lookup, patch(
-        "pecha_api.plans.groups.groups_service.get_group_by_id",
-        return_value=_make_group(),
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_group_member",
-        return_value=MagicMock(),
-    ), patch(
-        "pecha_api.plans.groups.groups_service.increase_invite_use_count",
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_followers_count_map",
-        return_value={},
-    ):
-        _session_local_context(mock_session)
-        accept_group_invite(token="t", request=AcceptGroupInviteRequest(token=raw))
-    mock_lookup.assert_called_once_with(db=mock_session.return_value.__enter__.return_value, token_hash=expected_hash)
-
-
 def test_replace_group_plans_and_series_delegate_to_repository():
     author = _make_author()
     group = _make_group()
     plan_id = uuid4()
     series_id = uuid4()
     current = MagicMock()
-    current.role = AuthorGroupMemberRole.EDITOR
+    current.role = AuthorGroupMemberRole.ADMIN
     loaded = _make_group()
 
     base_patches = {
@@ -851,3 +1117,522 @@ def test_replace_group_plans_and_series_delegate_to_repository():
             ),
         )
     mock_links.assert_called_once()
+
+
+def test_reject_group_invite_by_id_success():
+    author = _make_author(email="invitee@example.org")
+    invite = MagicMock()
+    invite.target_email = "invitee@example.org"
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    invite.id = uuid4()
+    invite.group_id = uuid4()
+    invite.role = AuthorGroupMemberRole.AUTHOR
+    invite.group = None
+    invite.created_at = datetime.now(timezone.utc)
+    invite.created_by = "owner@example.org"
+    invite.accepted_at = None
+    invite.rejected_at = None
+    invite.revoked_at = None
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_invite_by_id",
+        return_value=invite,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.save_invite",
+    ), patch(
+        "pecha_api.plans.groups.groups_service._mark_invite_notification_read",
+    ):
+        _session_local_context(mock_session)
+        result = reject_group_invite_by_id(token="t", invite_id=invite.id)
+    assert result.status == AuthorGroupInviteStatus.REJECTED
+
+
+def test_list_my_pending_group_invites():
+    author = _make_author(email="invitee@example.org")
+    invite = MagicMock()
+    invite.target_email = "invitee@example.org"
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    invite.id = uuid4()
+    invite.group_id = uuid4()
+    invite.role = AuthorGroupMemberRole.AUTHOR.value
+    invite.group = MagicMock()
+    invite.group.metadata_entries = []
+    invite.accepted_at = None
+    invite.rejected_at = None
+    invite.revoked_at = None
+    invite.created_at = datetime.now(timezone.utc)
+    invite.created_by = "owner@example.org"
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_pending_invites_by_email",
+        return_value=[invite],
+    ):
+        _session_local_context(mock_session)
+        result = list_my_pending_group_invites(token="t")
+    assert result.total == 1
+
+
+def test_list_group_invites_as_admin_member():
+    author = _make_author()
+    group = _make_group()
+    current = MagicMock()
+    current.role = AuthorGroupMemberRole.ADMIN
+    invite = MagicMock()
+    invite.id = uuid4()
+    invite.group_id = group.id
+    invite.target_email = "invitee@example.org"
+    invite.role = AuthorGroupMemberRole.AUTHOR.value
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    invite.accepted_at = None
+    invite.rejected_at = None
+    invite.revoked_at = None
+    invite.created_at = datetime.now(timezone.utc)
+    invite.created_by = author.email
+    invite.group = group
+    group.metadata_entries = []
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=current,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_invites_by_group",
+        return_value=[invite],
+    ):
+        _session_local_context(mock_session)
+        result = list_group_invites(token="t", group_id=group.id, status_filter=None)
+    assert result.total == 1
+
+
+def test_revoke_group_invite_success():
+    author = _make_author()
+    group = _make_group()
+    current = MagicMock()
+    current.role = AuthorGroupMemberRole.OWNER
+    invite = MagicMock()
+    invite.id = uuid4()
+    invite.group_id = group.id
+    invite.role = AuthorGroupMemberRole.AUTHOR.value
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.target_email = "invitee@example.org"
+    target_author = MagicMock()
+    target_author.id = uuid4()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=current,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_invite_by_id",
+        return_value=invite,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.revoke_invite",
+    ) as mock_revoke, patch(
+        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        return_value=target_author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service._mark_invite_notification_read",
+    ):
+        _session_local_context(mock_session)
+        revoke_group_invite(token="t", group_id=group.id, invite_id=invite.id)
+    mock_revoke.assert_called_once()
+
+
+def test_create_group_member_invite_builds_notification_with_group_title():
+    author = _make_author()
+    author.first_name = "Jane"
+    author.last_name = "Doe"
+    group = _make_group()
+    metadata = MagicMock()
+    metadata.language = LanguageCode.EN
+    metadata.title = "English Group"
+    loaded_group = _make_group()
+    loaded_group.metadata_entries = [metadata]
+    target_author = MagicMock()
+    target_author.id = uuid4()
+    invite = MagicMock()
+    invite.id = uuid4()
+    invite.group_id = group.id
+    invite.target_email = "invitee@example.org"
+    invite.role = AuthorGroupMemberRole.AUTHOR
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    invite.created_at = datetime.now(timezone.utc)
+    invite.created_by = author.email
+    invite.accepted_at = None
+    invite.rejected_at = None
+    invite.revoked_at = None
+    notification = MagicMock()
+    notification.id = uuid4()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        side_effect=[group, loaded_group],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        side_effect=lambda db, group_id, author_id: (
+            MagicMock(role=AuthorGroupMemberRole.OWNER)
+            if author_id == author.id
+            else None
+        ),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        return_value=target_author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_invite",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_invite",
+        return_value=invite,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_notification_record",
+        return_value=notification,
+    ) as mock_notify, patch(
+        "pecha_api.plans.groups.groups_service.send_group_invitation_email",
+    ):
+        _session_local_context(mock_session)
+        create_group_member_invite(
+            token="t",
+            group_id=group.id,
+            request=CreateGroupInviteRequest(
+                target_email="invitee@example.org",
+                role=AuthorGroupMemberRole.AUTHOR,
+            ),
+        )
+    assert mock_notify.call_args.kwargs["title"] == "Invitation to join English Group"
+    assert "Jane Doe" in mock_notify.call_args.kwargs["description"]
+
+
+def test_create_group_member_invite_requires_target_email():
+    author = _make_author()
+    group = _make_group()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=MagicMock(role=AuthorGroupMemberRole.OWNER),
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            create_group_member_invite(
+                token="t",
+                group_id=group.id,
+                request=CreateGroupInviteRequest(target_email="   ", role=AuthorGroupMemberRole.AUTHOR),
+            )
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_create_group_member_invite_unknown_target_email():
+    author = _make_author()
+    group = _make_group()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=MagicMock(role=AuthorGroupMemberRole.OWNER),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            create_group_member_invite(
+                token="t",
+                group_id=group.id,
+                request=CreateGroupInviteRequest(
+                    target_email="missing@example.org",
+                    role=AuthorGroupMemberRole.AUTHOR,
+                ),
+            )
+    assert "No registered author" in exc.value.detail
+
+
+def test_accept_group_invite_group_missing_after_invite_found():
+    author = _make_author(email="invitee@example.org")
+    invite = MagicMock()
+    invite.target_email = "invitee@example.org"
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    invite.group_id = uuid4()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_invite_by_id",
+        return_value=invite,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            accept_group_invite_by_id(token="t", invite_id=uuid4())
+    assert exc.value.detail == GROUP_NOT_FOUND
+
+
+def test_accept_group_invite_skips_add_when_already_member():
+    author = _make_author(email="invitee@example.org")
+    group = _make_group()
+    invite = MagicMock()
+    invite.target_email = "invitee@example.org"
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    invite.role = AuthorGroupMemberRole.AUTHOR
+    invite.group_id = group.id
+    invite.id = uuid4()
+    existing = MagicMock()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_invite_by_id",
+        return_value=invite,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=existing,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.add_group_member",
+    ) as mock_add, patch(
+        "pecha_api.plans.groups.groups_service.save_invite",
+    ), patch(
+        "pecha_api.plans.groups.groups_service._mark_invite_notification_read",
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={},
+    ):
+        _session_local_context(mock_session)
+        accept_group_invite_by_id(token="t", invite_id=invite.id)
+    mock_add.assert_not_called()
+
+
+def test_list_group_invites_group_not_found():
+    author = _make_author()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            list_group_invites(token="t", group_id=uuid4(), status_filter=None)
+    assert exc.value.detail == GROUP_NOT_FOUND
+
+
+def test_revoke_group_invite_not_pending():
+    author = _make_author()
+    group = _make_group()
+    current = MagicMock()
+    current.role = AuthorGroupMemberRole.OWNER
+    invite = MagicMock()
+    invite.id = uuid4()
+    invite.group_id = group.id
+    invite.role = AuthorGroupMemberRole.AUTHOR.value
+    invite.status = AuthorGroupInviteStatus.ACCEPTED.value
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=current,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_invite_by_id",
+        return_value=invite,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            revoke_group_invite(token="t", group_id=group.id, invite_id=invite.id)
+    assert "pending" in exc.value.detail.lower()
+
+
+def test_revoke_group_invite_wrong_group():
+    author = _make_author()
+    group = _make_group()
+    current = MagicMock()
+    current.role = AuthorGroupMemberRole.OWNER
+    invite = MagicMock()
+    invite.id = uuid4()
+    invite.group_id = uuid4()
+    invite.role = AuthorGroupMemberRole.AUTHOR.value
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=current,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_invite_by_id",
+        return_value=invite,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            revoke_group_invite(token="t", group_id=group.id, invite_id=invite.id)
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_revoke_group_invite_admin_cannot_revoke_admin_invite():
+    author = _make_author()
+    group = _make_group()
+    current = MagicMock()
+    current.role = AuthorGroupMemberRole.ADMIN
+    invite = MagicMock()
+    invite.id = uuid4()
+    invite.group_id = group.id
+    invite.role = AuthorGroupMemberRole.ADMIN.value
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=current,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_invite_by_id",
+        return_value=invite,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            revoke_group_invite(token="t", group_id=group.id, invite_id=invite.id)
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_update_group_member_role_cannot_assign_owner():
+    author = _make_author()
+    group = _make_group()
+    target_id = uuid4()
+    current = MagicMock()
+    current.role = AuthorGroupMemberRole.OWNER
+    target = MagicMock()
+    target.role = AuthorGroupMemberRole.ADMIN
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        side_effect=lambda db, group_id, author_id: current if author_id == author.id else target,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            update_group_member_role(
+                token="t",
+                group_id=group.id,
+                author_id=target_id,
+                request=UpdateGroupMemberRoleRequest(role=AuthorGroupMemberRole.OWNER),
+            )
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert exc.value.detail == OWNER_ROLE_NOT_ASSIGNABLE
+
+
+def test_transfer_group_ownership_success():
+    owner = _make_author()
+    group = _make_group()
+    new_owner_id = uuid4()
+    owner_member = MagicMock()
+    owner_member.role = AuthorGroupMemberRole.OWNER
+    new_member = MagicMock()
+    new_member.role = AuthorGroupMemberRole.ADMIN
+    loaded = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=owner,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        side_effect=[group, loaded],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        side_effect=lambda db, group_id, author_id: (
+            owner_member if author_id == owner.id else new_member
+        ),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.set_group_member_role",
+    ) as mock_set_role, patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={},
+    ):
+        _session_local_context(mock_session)
+        transfer_group_ownership(
+            token="t",
+            group_id=group.id,
+            new_owner_author_id=new_owner_id,
+        )
+    assert mock_set_role.call_count == 2
+
+
+def test_transfer_group_ownership_requires_current_owner():
+    author = _make_author()
+    group = _make_group()
+    admin_member = MagicMock()
+    admin_member.role = AuthorGroupMemberRole.ADMIN
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=admin_member,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            transfer_group_ownership(
+                token="t",
+                group_id=group.id,
+                new_owner_author_id=uuid4(),
+            )
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN

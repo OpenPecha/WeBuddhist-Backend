@@ -16,7 +16,7 @@ from .texts_openpecha_service import (
     get_text_versions_from_openpecha,
     get_text_commentaries_from_openpecha,
 )
-from pecha_api.texts.text_openpecha_response_models import TextDetailResponse
+from pecha_api.texts.text_openpecha_response_models import TextDetailWithContentResponse
 
 texts_v2_router = APIRouter(
     prefix="/texts",
@@ -24,13 +24,13 @@ texts_v2_router = APIRouter(
 )
 
 @texts_v2_router.get(
-    "/collection/{collection_id}",
+    "",
     status_code=status.HTTP_200_OK,
     summary="Get texts by collection from OpenPecha",
     description="Retrieve texts for a collection from OpenPecha API. "
 )
 async def get_texts_by_collection(
-    collection_id: str,
+    collection_id: Annotated[str, Query(description="Collection ID to filter texts")],
     language: Annotated[Optional[str], Query(description="Language code filter")] = None,
     skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10,
@@ -43,13 +43,13 @@ async def get_texts_by_collection(
     )
 
 @texts_v2_router.get(
-    "/detail",
-    response_model=TextDetailResponse,
+    "/{text_id}/details",
+    response_model=TextDetailWithContentResponse,
     status_code=status.HTTP_200_OK,
     summary="Get a text with pagination",
     description="Retrieve a text by its OpenPecha ID, including local edition details with pagination."
 )
-async def read_text_by_id(text_id: str, offset: int = Query(default=0), limit: int = Query(default=30)) -> TextDetailResponse:
+async def read_text_by_id(text_id: str, offset: int = Query(default=0), limit: int = Query(default=20)) -> TextDetailWithContentResponse:
     return await get_text_detail_by_id(text_id=text_id, offset=offset, limit=limit)
 
 

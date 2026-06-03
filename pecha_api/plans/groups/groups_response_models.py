@@ -4,8 +4,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole
 from pecha_api.plans.plans_enums import LanguageCode
+from pecha_api.plans.plans_response_models import PlanDTO
+from pecha_api.plans.series.series_response_models import SeriesListItemDTO
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 
@@ -63,8 +65,8 @@ class AuthorGroupDetailDTO(BaseModel):
     members: List[AuthorGroupMemberDTO] = []
     tags: List[TagSummaryDTO] = []
     social_links: List[GroupSocialLinkDTO] = []
-    series_ids: List[UUID] = []
-    plan_ids: List[UUID] = []
+    series: List[SeriesListItemDTO] = []
+    plans: List[PlanDTO] = []
     follower_count: int = 0
 
 
@@ -117,22 +119,38 @@ class ReplaceGroupSocialLinksRequest(BaseModel):
 class CreateGroupInviteRequest(BaseModel):
     target_email: str
     role: AuthorGroupMemberRole
+
+
+class GroupInviteDTO(BaseModel):
+    id: UUID
+    group_id: UUID
+    group_name: str
+    target_email: str
+    role: AuthorGroupMemberRole
+    status: AuthorGroupInviteStatus
     expires_at: datetime
-    max_uses: int = 1
+    accepted_at: Optional[datetime] = None
+    rejected_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    created_at: datetime
+    created_by: str
+    inviter_name: str
+    inviter_email: str
+
+
+class GroupInviteListResponse(BaseModel):
+    invites: List[GroupInviteDTO]
+    total: int
 
 
 class GroupInviteCreatedResponse(BaseModel):
-    invite_id: UUID
-    token: str
-    target_email: str
-    role: AuthorGroupMemberRole
-    expires_at: datetime
-    max_uses: int
-
-
-class AcceptGroupInviteRequest(BaseModel):
-    token: str
+    invite: GroupInviteDTO
+    notification_id: Optional[UUID] = None
 
 
 class UpdateGroupMemberRoleRequest(BaseModel):
     role: AuthorGroupMemberRole
+
+
+class TransferGroupOwnershipRequest(BaseModel):
+    new_owner_author_id: UUID

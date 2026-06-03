@@ -83,3 +83,62 @@ class SegmentContentResponse(BaseModel):
     offset: int
     limit: int
 
+
+# ============================================================================
+# New Response Models for /{text_id}/details endpoint
+# ============================================================================
+
+class SegmentDTO(BaseModel):
+    segment_id: str
+    segment_number: int
+    content: str
+    translation: Optional[str] = None
+
+
+class SectionDTO(BaseModel):
+    id: str
+    title: str
+    section_number: int
+    parent_id: Optional[str] = None
+    segments: List[SegmentDTO] = []
+    sections: List["SectionDTO"] = []
+    created_date: Optional[str] = None
+    updated_date: Optional[str] = None
+    published_date: Optional[str] = None
+
+
+class ContentDTO(BaseModel):
+    id: str
+    text_id: str
+    sections: List[SectionDTO] = []
+
+
+class TextDetailDTO(BaseModel):
+    id: str
+    pecha_text_id: str
+    title: str
+    language: str
+    group_id: str
+    type: str
+    summary: str
+    is_published: bool
+    created_date: str
+    updated_date: str
+    published_date: str
+    published_by: str
+    categories: List[str] = []
+    views: int
+    likes: List[str] = []
+    source_link: Optional[str] = None
+    ranking: Optional[int] = None
+    license: Optional[str] = None
+
+
+class TextDetailWithContentResponse(BaseModel):
+    text_detail: TextDetailDTO
+    content: ContentDTO
+    size: int
+    pagination_direction: str
+    current_segment_position: int
+    total_segments: int
+
