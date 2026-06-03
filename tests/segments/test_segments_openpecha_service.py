@@ -6,11 +6,13 @@ from pecha_api.texts.segments.segments_openpecha_service import (
     _classify_text,
     _fetch_segment_content_safe,
     get_openpecha_segment_details_by_id,
+    get_segment_info_by_id_from_openpecha,
     get_translations_by_segment_id_from_openpecha,
     get_commentaries_by_segment_id_from_openpecha,
 )
 from pecha_api.texts.segments.segments_response_models import (
     V2SegmentCommentariesResponse,
+    V2SegmentInfoResponse,
     V2SegmentResponse,
     V2SegmentRootTextResponse,
     V2SegmentTranslationsResponse,
@@ -562,3 +564,236 @@ class TestGetCommentariesBySegmentIdFromOpenpecha:
         assert len(result.translations) == 1
         assert len(result.translations[0].segments) == 1
         assert result.translations[0].segments[0].id == "seg-trans-2"
+
+
+class TestGetSegmentInfoByIdFromOpenpecha:
+    """Tests for the get_segment_info_by_id_from_openpecha service function."""
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
+        new_callable=AsyncMock,
+    )
+    async def test_returns_segment_info_with_translations_and_commentaries(
+        self,
+        mock_fetch_segment_details,
+        mock_fetch_text,
+    ):
+        """Test successful retrieval of segment info with translations and commentaries counts."""
+        mock_fetch_segment_details.return_value = {"text_id": ROOT_TEXT_ID}
+        mock_fetch_text.return_value = {
+            "id": ROOT_TEXT_ID,
+            "title": {"bo": "Root Text Title"},
+            "language": "bo",
+            "translations": ["trans-1", "trans-2", "trans-3"],
+            "commentaries": ["comm-1", "comm-2"],
+            "translation_of": None,
+            "commentary_of": None,
+        }
+
+        result = await get_segment_info_by_id_from_openpecha(segment_id=PARENT_SEGMENT_ID)
+
+        assert isinstance(result, V2SegmentInfoResponse)
+        assert result.segment_info.segment_id == PARENT_SEGMENT_ID
+        assert result.segment_info.text_id == ROOT_TEXT_ID
+        assert result.segment_info.translations == 3
+        assert result.segment_info.related_text.commentaries == 2
+        assert result.segment_info.related_text.root_text == 0
+        assert result.segment_info.resources.sheets == 0
+
+        mock_fetch_segment_details.assert_awaited_once_with(PARENT_SEGMENT_ID)
+        mock_fetch_text.assert_awaited_once_with(ROOT_TEXT_ID)
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
+        new_callable=AsyncMock,
+    )
+    async def test_returns_root_text_count_1_when_text_is_translation(
+        self,
+        mock_fetch_segment_details,
+        mock_fetch_text,
+    ):
+        """Test that root_text count is 1 when the text is a translation of another text."""
+        mock_fetch_segment_details.return_value = {"text_id": TRANSLATION_TEXT_ID}
+        mock_fetch_text.return_value = {
+            "id": TRANSLATION_TEXT_ID,
+            "title": {"en": "Translation Title"},
+            "language": "en",
+            "translations": [],
+            "commentaries": [],
+            "translation_of": "root-text-id",
+            "commentary_of": None,
+        }
+
+        result = await get_segment_info_by_id_from_openpecha(segment_id=PARENT_SEGMENT_ID)
+
+        assert result.segment_info.related_text.root_text == 1
+        assert result.segment_info.translations == 0
+        assert result.segment_info.related_text.commentaries == 0
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
+        new_callable=AsyncMock,
+    )
+    async def test_returns_root_text_count_1_when_text_is_commentary(
+        self,
+        mock_fetch_segment_details,
+        mock_fetch_text,
+    ):
+        """Test that root_text count is 1 when the text is a commentary of another text."""
+        mock_fetch_segment_details.return_value = {"text_id": COMMENTARY_TEXT_ID}
+        mock_fetch_text.return_value = {
+            "id": COMMENTARY_TEXT_ID,
+            "title": {"bo": "Commentary Title"},
+            "language": "bo",
+            "translations": ["trans-1"],
+            "commentaries": [],
+            "translation_of": None,
+            "commentary_of": "root-text-id",
+        }
+
+        result = await get_segment_info_by_id_from_openpecha(segment_id=PARENT_SEGMENT_ID)
+
+        assert result.segment_info.related_text.root_text == 1
+        assert result.segment_info.translations == 1
+        assert result.segment_info.related_text.commentaries == 0
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
+        new_callable=AsyncMock,
+    )
+    async def test_returns_empty_counts_when_no_related_texts(
+        self,
+        mock_fetch_segment_details,
+        mock_fetch_text,
+    ):
+        """Test that counts are 0 when text has no translations or commentaries."""
+        mock_fetch_segment_details.return_value = {"text_id": ROOT_TEXT_ID}
+        mock_fetch_text.return_value = {
+            "id": ROOT_TEXT_ID,
+            "title": {"bo": "Root Text"},
+            "language": "bo",
+            "translations": [],
+            "commentaries": [],
+            "translation_of": None,
+            "commentary_of": None,
+        }
+
+        result = await get_segment_info_by_id_from_openpecha(segment_id=PARENT_SEGMENT_ID)
+
+        assert result.segment_info.translations == 0
+        assert result.segment_info.related_text.commentaries == 0
+        assert result.segment_info.related_text.root_text == 0
+        assert result.segment_info.resources.sheets == 0
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
+        new_callable=AsyncMock,
+    )
+    async def test_raises_404_when_segment_not_found(
+        self,
+        mock_fetch_segment_details,
+    ):
+        """Test that 404 is raised when segment details cannot be fetched."""
+        mock_fetch_segment_details.side_effect = Exception("Segment not found")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_segment_info_by_id_from_openpecha(segment_id="missing-segment")
+
+        assert exc_info.value.status_code == 404
+        assert "missing-segment" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
+        new_callable=AsyncMock,
+    )
+    async def test_raises_404_when_text_id_not_in_segment_details(
+        self,
+        mock_fetch_segment_details,
+        mock_fetch_text,
+    ):
+        """Test that 404 is raised when segment details don't contain text_id."""
+        mock_fetch_segment_details.return_value = {"other_field": "value"}
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_segment_info_by_id_from_openpecha(segment_id=PARENT_SEGMENT_ID)
+
+        assert exc_info.value.status_code == 404
+        assert "Text ID not found" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
+        new_callable=AsyncMock,
+    )
+    async def test_raises_404_when_text_not_found(
+        self,
+        mock_fetch_segment_details,
+        mock_fetch_text,
+    ):
+        """Test that 404 is raised when text cannot be fetched."""
+        mock_fetch_segment_details.return_value = {"text_id": ROOT_TEXT_ID}
+        mock_fetch_text.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_segment_info_by_id_from_openpecha(segment_id=PARENT_SEGMENT_ID)
+
+        assert exc_info.value.status_code == 404
+        assert ROOT_TEXT_ID in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
+        new_callable=AsyncMock,
+    )
+    async def test_handles_missing_translations_and_commentaries_keys(
+        self,
+        mock_fetch_segment_details,
+        mock_fetch_text,
+    ):
+        """Test that missing translations/commentaries keys default to empty lists."""
+        mock_fetch_segment_details.return_value = {"text_id": ROOT_TEXT_ID}
+        mock_fetch_text.return_value = {
+            "id": ROOT_TEXT_ID,
+            "title": {"bo": "Root Text"},
+            "language": "bo",
+        }
+
+        result = await get_segment_info_by_id_from_openpecha(segment_id=PARENT_SEGMENT_ID)
+
+        assert result.segment_info.translations == 0
+        assert result.segment_info.related_text.commentaries == 0
+        assert result.segment_info.related_text.root_text == 0

@@ -7,10 +7,12 @@ from .segments_openpecha_service import (
     get_commentaries_by_segment_id_from_openpecha,
     get_openpecha_segment_details_by_id,
     get_root_text_by_segment_id_from_openpecha,
+    get_segment_info_by_id_from_openpecha,
     get_translations_by_segment_id_from_openpecha,
 )
 from .segments_response_models import (
     V2SegmentCommentariesResponse,
+    V2SegmentInfoResponse,
     V2SegmentResponse,
     V2SegmentTranslationsResponse,
     V2SegmentRootTextResponse,
@@ -78,4 +80,18 @@ async def get_commentaries_for_segment_v2(
         segment_id=segment_id,
         skip=skip,
         limit=limit,
+    )
+
+
+@segments_v2_router.get(
+    "/{segment_id}/info",
+    status_code=status.HTTP_200_OK,
+    summary="Get Segment Info",
+    description="Retrieve segment information including translation count, related text counts, and resources.",
+)
+async def get_segment_info_v2(
+    segment_id: str,
+) -> V2SegmentInfoResponse:
+    return await get_segment_info_by_id_from_openpecha(
+        segment_id=segment_id,
     )
