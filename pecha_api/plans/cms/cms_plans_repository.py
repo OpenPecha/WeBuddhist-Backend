@@ -1,7 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func, asc, desc
-from typing import Optional
+from typing import List, Optional, Sequence
 from uuid import UUID
 from datetime import datetime, timezone
 from pecha_api.plans.authors.plan_authors_model import Author
@@ -97,6 +97,36 @@ def get_plans_by_author_id(
     # Total count without pagination/joins
     total = db.query(func.count(Plan.id)).filter(*filters).scalar()
     return PlansRepositoryResponse(plan_info=plan_aggregates, total=total)
+
+
+def get_plans_with_aggregates_by_ids(
+    db: Session,
+    plan_ids: Sequence[UUID],
+) -> List[PlanWithAggregates]:
+    if not plan_ids:
+        return []
+    total_days_label = func.count(func.distinct(PlanItem.id)).label("total_days")
+    subscription_count_label = func.count(func.distinct(UserPlanProgress.user_id)).label(
+        "subscription_count"
+    )
+    rows = (
+        db.query(Plan, total_days_label, subscription_count_label)
+        .outerjoin(PlanItem, PlanItem.plan_id == Plan.id)
+        .outerjoin(UserPlanProgress, UserPlanProgress.plan_id == Plan.id)
+        .options(selectinload(Plan.author), selectinload(Plan.tag_list))
+        .filter(Plan.id.in_(plan_ids), Plan.deleted_at.is_(None))
+        .group_by(Plan.id)
+        .all()
+    )
+    return [
+        PlanWithAggregates(
+            plan=plan,
+            total_days=int(total_days or 0),
+            subscription_count=int(subscription_count or 0),
+        )
+        for plan, total_days, subscription_count in rows
+    ]
+
 
 def get_plan_by_id(db: Session, plan_id: UUID) -> Plan:
     try:   

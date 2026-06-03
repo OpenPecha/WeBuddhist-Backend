@@ -85,6 +85,8 @@ DEFAULTS = dict(
 
     SQS_TIMEOUT=1800,
 
+    GROUP_INVITE_EXPIRY_MINUTES=30,
+    WEBUDDHIST_EMAIL_LOGO_URL="https://studio.webuddhist.com/assets/pecha_icon-DkKJLXuA.png",
 
 )
 

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
 from sqlalchemy import String, cast, desc, asc, or_, exists, select, func
@@ -46,6 +46,28 @@ def get_series_by_ids(db: Session, series_ids: List[UUID]) -> List[Series]:
         .filter(Series.id.in_(series_ids), Series.deleted_at.is_(None))
         .all()
     )
+
+
+def get_active_plan_count_map_by_series_ids(
+    db: Session,
+    series_ids: Sequence[UUID],
+    published_only: bool = False,
+) -> Dict[UUID, int]:
+    if not series_ids:
+        return {}
+    conditions = [
+        Plan.series_id.in_(series_ids),
+        Plan.deleted_at.is_(None),
+    ]
+    if published_only:
+        conditions.append(Plan.status == PlanStatus.PUBLISHED)
+    rows = (
+        db.query(Plan.series_id, func.count(Plan.id))
+        .filter(*conditions)
+        .group_by(Plan.series_id)
+        .all()
+    )
+    return {series_id: int(count or 0) for series_id, count in rows}
 
 
 def get_series_with_plans_by_ids(db: Session, series_ids: List[UUID]) -> List[Series]:

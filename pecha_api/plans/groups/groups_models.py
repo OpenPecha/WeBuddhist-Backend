@@ -20,7 +20,7 @@ from sqlalchemy.orm import relationship
 
 from pecha_api.db.database import Base
 
-from .groups_enums import AuthorGroupMemberRoleEnum
+from .groups_enums import AuthorGroupMemberRoleEnum, AuthorGroupInviteStatusEnum
 
 FK_AUTHOR_GROUPS_ID = "author_groups.id"
 CASCADE_DELETE_ORPHAN = "all, delete-orphan"
@@ -205,6 +205,12 @@ class AuthorGroupMember(Base):
     __table_args__ = (
         UniqueConstraint("group_id", "author_id", name="uq_author_group_members_group_author"),
         Index("idx_author_group_members_group_author", "group_id", "author_id"),
+        Index(
+            "uq_author_group_members_one_owner_per_group",
+            "group_id",
+            unique=True,
+            postgresql_where=text("role = 'OWNER'"),
+        ),
     )
 
 
@@ -238,10 +244,10 @@ class AuthorGroupInvite(Base):
     )
     target_email = Column(String(255), nullable=False)
     role = Column(AuthorGroupMemberRoleEnum, nullable=False, default="AUTHOR")
-    token_hash = Column(String(255), nullable=False, unique=True)
+    status = Column(AuthorGroupInviteStatusEnum, nullable=False, default="PENDING")
     expires_at = Column(DateTime(timezone=True), nullable=False)
-    max_uses = Column(Integer, nullable=False, default=1)
-    uses_count = Column(Integer, nullable=False, default=0)
+    accepted_at = Column(DateTime(timezone=True), nullable=True)
+    rejected_at = Column(DateTime(timezone=True), nullable=True)
     revoked_at = Column(DateTime(timezone=True), nullable=True)
     revoked_by = Column(String(255), nullable=True)
     created_at = Column(
@@ -252,6 +258,7 @@ class AuthorGroupInvite(Base):
     group = relationship("AuthorGroup")
 
     __table_args__ = (
-        Index("idx_author_group_invites_token_hash", "token_hash"),
         Index("idx_author_group_invites_target_email", "target_email"),
+        Index("idx_author_group_invites_group_status", "group_id", "status"),
+        Index("idx_author_group_invites_target_email_status", "target_email", "status"),
     )

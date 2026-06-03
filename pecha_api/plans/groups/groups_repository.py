@@ -5,6 +5,7 @@ from uuid import UUID
 from sqlalchemy import and_, delete, exists, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus
 from pecha_api.plans.groups.groups_models import (
     AuthorGroup,
     AuthorGroupInvite,
@@ -78,8 +79,9 @@ def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
             selectinload(AuthorGroup.members).selectinload(AuthorGroupMember.author),
             selectinload(AuthorGroup.social_links),
             selectinload(AuthorGroup.tags),
-            selectinload(AuthorGroup.plans),
-            selectinload(AuthorGroup.series),
+            selectinload(AuthorGroup.plans).selectinload(Plan.tag_list),
+            selectinload(AuthorGroup.plans).selectinload(Plan.author),
+            selectinload(AuthorGroup.series).selectinload(Series.metadata_entries),
         )
         .filter(AuthorGroup.id == group_id, AuthorGroup.deleted_at.is_(None))
         .first()
@@ -272,30 +274,78 @@ def create_group_invite(db: Session, invite: AuthorGroupInvite) -> AuthorGroupIn
     return invite
 
 
-def get_invite_by_token_hash(db: Session, token_hash: str) -> Optional[AuthorGroupInvite]:
+def get_invite_by_id(
+    db: Session,
+    invite_id: UUID,
+    *,
+    load_group: bool = False,
+) -> Optional[AuthorGroupInvite]:
+    query = db.query(AuthorGroupInvite).filter(AuthorGroupInvite.id == invite_id)
+    if load_group:
+        query = query.options(selectinload(AuthorGroupInvite.group))
+    return query.first()
+
+
+def list_invites_by_group(
+    db: Session,
+    group_id: UUID,
+    status: Optional[AuthorGroupInviteStatus] = None,
+) -> List[AuthorGroupInvite]:
+    query = (
+        db.query(AuthorGroupInvite)
+        .options(selectinload(AuthorGroupInvite.group).selectinload(AuthorGroup.metadata_entries))
+        .filter(AuthorGroupInvite.group_id == group_id)
+    )
+    if status is not None:
+        query = query.filter(AuthorGroupInvite.status == status.value)
+    return query.order_by(AuthorGroupInvite.created_at.desc()).all()
+
+
+def list_pending_invites_by_email(db: Session, target_email: str) -> List[AuthorGroupInvite]:
+    now = datetime.now(timezone.utc)
     return (
         db.query(AuthorGroupInvite)
-        .options(selectinload(AuthorGroupInvite.group))
-        .filter(AuthorGroupInvite.token_hash == token_hash)
-        .first()
+        .options(selectinload(AuthorGroupInvite.group).selectinload(AuthorGroup.metadata_entries))
+        .filter(
+            AuthorGroupInvite.target_email == target_email.lower(),
+            AuthorGroupInvite.status == AuthorGroupInviteStatus.PENDING.value,
+            AuthorGroupInvite.expires_at > now,
+        )
+        .order_by(AuthorGroupInvite.created_at.desc())
+        .all()
     )
 
 
-def get_invite_by_id(db: Session, invite_id: UUID) -> Optional[AuthorGroupInvite]:
-    return db.query(AuthorGroupInvite).filter(AuthorGroupInvite.id == invite_id).first()
+def has_pending_invite(db: Session, group_id: UUID, target_email: str) -> bool:
+    now = datetime.now(timezone.utc)
+    return (
+        db.query(AuthorGroupInvite.id)
+        .filter(
+            AuthorGroupInvite.group_id == group_id,
+            AuthorGroupInvite.target_email == target_email.lower(),
+            AuthorGroupInvite.status == AuthorGroupInviteStatus.PENDING.value,
+            AuthorGroupInvite.expires_at > now,
+        )
+        .first()
+        is not None
+    )
+
+
+def save_invite(db: Session, invite: AuthorGroupInvite) -> AuthorGroupInvite:
+    db.add(invite)
+    db.commit()
+    db.refresh(invite)
+    return invite
 
 
 def revoke_invite(db: Session, invite: AuthorGroupInvite, revoked_by: str) -> None:
-    invite.revoked_at = datetime.now(timezone.utc)
+    now = datetime.now(timezone.utc)
+    invite.status = AuthorGroupInviteStatus.REVOKED.value
+    invite.revoked_at = now
     invite.revoked_by = revoked_by
     db.add(invite)
     db.commit()
 
-
-def increase_invite_use_count(db: Session, invite: AuthorGroupInvite) -> None:
-    invite.uses_count = (invite.uses_count or 0) + 1
-    db.add(invite)
-    db.commit()
 
 
 def add_group_member(db: Session, member: AuthorGroupMember) -> AuthorGroupMember:

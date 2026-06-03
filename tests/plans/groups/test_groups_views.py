@@ -14,9 +14,6 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupInviteCreatedResponse,
     GroupMetadataDTO,
 )
-from pecha_api.plans.groups.groups_service import InviteEmailMismatchError
-
-
 client = TestClient(api)
 
 
@@ -40,8 +37,8 @@ def _group_detail() -> AuthorGroupDetailDTO:
         members=[],
         tags=[],
         social_links=[],
-        series_ids=[],
-        plan_ids=[],
+        series=[],
+        plans=[],
         follower_count=0,
     )
 
@@ -91,21 +88,29 @@ def test_get_public_groups_success():
 
 
 def test_create_group_invite_success():
+    from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus
+    from pecha_api.plans.groups.groups_response_models import GroupInviteDTO
+
     group_id = uuid4()
-    invite_response = GroupInviteCreatedResponse(
-        invite_id=uuid4(),
-        token="raw-token",
+    invite_id = uuid4()
+    invite_dto = GroupInviteDTO(
+        id=invite_id,
+        group_id=group_id,
+        group_name="Bodhichitta Authors",
         target_email="author@example.org",
         role=AuthorGroupMemberRole.AUTHOR,
-        expires_at=datetime.now(timezone.utc) + timedelta(days=2),
-        max_uses=1,
+        status=AuthorGroupInviteStatus.PENDING,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        created_at=datetime.now(timezone.utc),
+        created_by="owner@example.org",
+        inviter_name="Group Owner",
+        inviter_email="owner@example.org",
     )
-    payload = {
-        "target_email": "author@example.org",
-        "role": "AUTHOR",
-        "expires_at": "2026-05-31T12:00:00Z",
-        "max_uses": 1,
-    }
+    invite_response = GroupInviteCreatedResponse(
+        invite=invite_dto,
+        notification_id=uuid4(),
+    )
+    payload = {"target_email": "author@example.org", "role": "AUTHOR"}
     with patch(
         "pecha_api.plans.groups.groups_views.create_group_member_invite",
         return_value=invite_response,
@@ -117,27 +122,68 @@ def test_create_group_invite_success():
         )
 
     assert response.status_code == status.HTTP_201_CREATED
-    assert response.json()["token"] == "raw-token"
+    assert response.json()["invite"]["id"] == str(invite_id)
     mock_service.assert_called_once()
 
 
-def test_accept_group_invite_email_mismatch_returns_code():
-    payload = {"token": "wrong-user-token"}
+def test_get_my_pending_group_invites_delegates_to_service():
+    from pecha_api.plans.groups.groups_response_models import GroupInviteListResponse
+
     with patch(
-        "pecha_api.plans.groups.groups_views.accept_group_invite",
-        side_effect=InviteEmailMismatchError("This invite was sent to a different email address."),
-    ):
+        "pecha_api.plans.groups.groups_views.list_my_pending_group_invites",
+        return_value=GroupInviteListResponse(invites=[], total=0),
+    ) as mock_service:
+        response = client.get(
+            "/cms/author/groups/invites/me",
+            headers={"Authorization": "Bearer dummy"},
+        )
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(token="dummy")
+
+
+def test_reject_group_invite_by_id_delegates_to_service():
+    from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus
+    from pecha_api.plans.groups.groups_response_models import GroupInviteDTO
+
+    invite_id = uuid4()
+    invite_dto = GroupInviteDTO(
+        id=invite_id,
+        group_id=uuid4(),
+        group_name="Test Group",
+        target_email="invitee@example.org",
+        role=AuthorGroupMemberRole.AUTHOR,
+        status=AuthorGroupInviteStatus.REJECTED,
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=30),
+        created_at=datetime.now(timezone.utc),
+        created_by="owner@example.org",
+        inviter_name="Group Owner",
+        inviter_email="owner@example.org",
+    )
+    with patch(
+        "pecha_api.plans.groups.groups_views.reject_group_invite_by_id",
+        return_value=invite_dto,
+    ) as mock_service:
         response = client.post(
-            "/cms/author/groups/invites/accept",
-            json=payload,
+            f"/cms/author/groups/invites/{invite_id}/reject",
+            headers={"Authorization": "Bearer dummy"},
+        )
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(token="dummy", invite_id=invite_id)
+
+
+def test_accept_group_invite_by_id_delegates_to_service():
+    invite_id = uuid4()
+    with patch(
+        "pecha_api.plans.groups.groups_views.accept_group_invite_by_id",
+        return_value=_group_detail(),
+    ) as mock_service:
+        response = client.post(
+            f"/cms/author/groups/invites/{invite_id}/accept",
             headers={"Authorization": "Bearer dummy"},
         )
 
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "detail": "This invite was sent to a different email address.",
-        "code": "INVITE_EMAIL_MISMATCH",
-    }
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once()
 
 
 def test_put_cms_group_delegates_to_service():
