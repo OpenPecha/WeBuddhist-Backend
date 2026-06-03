@@ -154,7 +154,9 @@ class SegmentUtils:
                         title=text_detail.title,
                         source=text_detail.published_by,
                         language=text_detail.language,
-                        content=segment.content
+                        content=segment.content,
+                        source_link=text_detail.source_link,
+                        license=text_detail.license
                     )
                 )
             elif text_detail.type == TextType.COMMENTARY.value and type == TextType.COMMENTARY.value:
@@ -180,7 +182,9 @@ class SegmentUtils:
                         title=text_detail.title,
                         segments=mapped_segments,
                         language=text_detail.language,
-                        count=count
+                        count=count,
+                        source_link=text_detail.source_link,
+                        license=text_detail.license
                     )
                 )
                 appended_commentary_text_ids.append(segment.text_id)
