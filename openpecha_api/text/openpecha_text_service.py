@@ -7,17 +7,18 @@ logger = logging.getLogger(__name__)
 
 
 async def fetch_texts_by_category(
-    category_id: str,
+    category_id: Optional[str] = None,
     language: Optional[str] = None,
     title: Optional[str] = None,
     limit: int = 20,
     offset: int = 0,
 ) -> Dict[str, Any]:
     params: Dict[str, Any] = {
-        "category_id": category_id,
         "limit": limit,
         "offset": offset,
     }
+    if category_id:
+        params["category_id"] = category_id
     if language:
         params["language"] = language
     if title:
