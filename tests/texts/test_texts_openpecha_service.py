@@ -87,6 +87,10 @@ class TestExtractTitle:
         result = _extract_title(title_payload, None)
         assert result == "English Title"
 
+    def test_extract_title_invalid_payload_returns_empty_string(self):
+        assert _extract_title(None) == ""
+        assert _extract_title(123) == ""
+
 
 class TestMapExternalTextToDto:
     """Tests for map_external_text_to_dto function (legacy TextDTO mapper)."""
@@ -293,8 +297,33 @@ class TestGetTextsByCollectionId:
 
         mock_fetch_texts.assert_awaited_once_with(
             category_id="cat-1",
+            title=None,
             offset=5,
             limit=3,
+        )
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_passes_title_filter_to_upstream(self, mock_fetch_texts):
+        mock_fetch_texts.return_value = {
+            "items": [_text_item("t-en", "en")],
+            "has_more": False,
+        }
+
+        texts, has_more = await _get_texts_by_collection_id(
+            collection_id="cat-1",
+            skip=0,
+            limit=10,
+            title="heart",
+        )
+
+        assert len(texts) == 1
+        assert has_more is False
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id="cat-1",
+            title="heart",
+            offset=0,
+            limit=10,
         )
 
     @pytest.mark.asyncio
@@ -376,6 +405,32 @@ class TestGetTextsByCollectionFromOpenpecha:
 
         mock_fetch_texts.assert_awaited_once_with(
             category_id="cat-1",
+            title=None,
+            offset=0,
+            limit=10,
+        )
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_category_by_id", new_callable=AsyncMock)
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_get_texts_with_title_filter(self, mock_fetch_texts, mock_fetch_category):
+        mock_fetch_texts.return_value = {
+            "items": [{"id": "t-en", "title": {"en": "Heart Sutra"}, "language": "en"}],
+            "has_more": False,
+        }
+        mock_fetch_category.return_value = {"title": {"en": "Collection"}}
+
+        result = await get_texts_by_collection_from_openpecha(
+            collection_id="cat-1",
+            title="heart",
+            skip=0,
+            limit=10,
+        )
+
+        assert len(result.texts) == 1
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id="cat-1",
+            title="heart",
             offset=0,
             limit=10,
         )
@@ -406,6 +461,7 @@ class TestGetTextsByCollectionFromOpenpecha:
 
         mock_fetch_texts.assert_awaited_once_with(
             category_id="cat-1",
+            title=None,
             offset=1,
             limit=1,
         )

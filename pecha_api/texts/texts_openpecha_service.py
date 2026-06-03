@@ -84,10 +84,12 @@ async def _get_texts_by_collection_id(
     collection_id: str,
     skip: int,
     limit: int,
+    title: Optional[str] = None,
 ) -> Tuple[List[V2TextDTO], bool]:
     try:
         page = await fetch_texts_by_category(
             category_id=collection_id,
+            title=title,
             offset=skip,
             limit=limit,
         )
@@ -107,11 +109,13 @@ async def _get_texts_by_collection_id(
 async def get_texts_by_collection_from_openpecha(
     collection_id: str,
     language: Optional[str] = None,
+    title: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
 ) -> V2TextsCategoryResponse:
     texts, has_more = await _get_texts_by_collection_id(
         collection_id=collection_id,
+        title=title,
         skip=skip,
         limit=limit,
     )

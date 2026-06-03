@@ -98,6 +98,26 @@ class TestTextsV2Endpoint:
         assert data["collection"]["title"] == "Discourses"
         assert len(data["texts"]) == 2
 
+    @patch("pecha_api.texts.texts_openpecha_views.get_texts_by_collection_from_openpecha")
+    def test_get_texts_by_collection_with_title_filter(self, mock_service):
+        mock_service.return_value = V2TextsCategoryResponse(
+            collection=V2CollectionModel(id="cat-1", title="Discourses"),
+            texts=[V2TextDTO(id="t1", title="Heart Sutra", language="en")],
+            skip=0,
+            limit=10,
+        )
+
+        response = client.get("/texts?collection_id=cat-1&title=heart&skip=0&limit=10")
+
+        assert response.status_code == 200
+        mock_service.assert_awaited_once_with(
+            collection_id="cat-1",
+            language=None,
+            title="heart",
+            skip=0,
+            limit=10,
+        )
+
     @patch("pecha_api.texts.texts_openpecha_views.get_text_by_id_from_openpecha")
     def test_get_text_by_id_success(self, mock_service):
         mock_service.return_value = V2TextDTO(
