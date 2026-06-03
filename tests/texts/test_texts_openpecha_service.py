@@ -8,7 +8,6 @@ from pecha_api.texts.texts_openpecha_service import (
     _get_texts_by_collection_id,
     map_external_text_to_dto,
     map_external_text_to_text_version,
-    filter_versions_by_language,
     paginate_versions,
     fetch_translation_details,
     fetch_commentary_details,
@@ -166,70 +165,6 @@ class TestMapExternalTextToTextVersion:
         result = map_external_text_to_text_version(commentary_data, "en")
 
         assert result.parent_id == "text-123"
-
-
-class TestFilterVersionsByLanguage:
-    """Tests for filter_versions_by_language function."""
-
-    def test_filter_with_language(self):
-        versions = [
-            TextVersion(
-                id="v1", title="English", parent_id=None, priority=1,
-                language="en", type="translation", group_id="g1",
-                table_of_contents=[], is_published=True,
-                created_date="2025-01-01", updated_date="2025-01-01",
-                published_date="2025-01-01", published_by="user"
-            ),
-            TextVersion(
-                id="v2", title="Tibetan", parent_id=None, priority=2,
-                language="bo", type="translation", group_id="g1",
-                table_of_contents=[], is_published=True,
-                created_date="2025-01-01", updated_date="2025-01-01",
-                published_date="2025-01-01", published_by="user"
-            )
-        ]
-
-        result = filter_versions_by_language(versions, "en")
-
-        assert len(result) == 1
-        assert result[0].language == "en"
-
-    def test_filter_without_language(self):
-        versions = [
-            TextVersion(
-                id="v1", title="English", parent_id=None, priority=1,
-                language="en", type="translation", group_id="g1",
-                table_of_contents=[], is_published=True,
-                created_date="2025-01-01", updated_date="2025-01-01",
-                published_date="2025-01-01", published_by="user"
-            ),
-            TextVersion(
-                id="v2", title="Tibetan", parent_id=None, priority=2,
-                language="bo", type="translation", group_id="g1",
-                table_of_contents=[], is_published=True,
-                created_date="2025-01-01", updated_date="2025-01-01",
-                published_date="2025-01-01", published_by="user"
-            )
-        ]
-
-        result = filter_versions_by_language(versions, None)
-
-        assert len(result) == 2
-
-    def test_filter_no_matches(self):
-        versions = [
-            TextVersion(
-                id="v1", title="English", parent_id=None, priority=1,
-                language="en", type="translation", group_id="g1",
-                table_of_contents=[], is_published=True,
-                created_date="2025-01-01", updated_date="2025-01-01",
-                published_date="2025-01-01", published_by="user"
-            )
-        ]
-
-        result = filter_versions_by_language(versions, "zh")
-
-        assert len(result) == 0
 
 
 class TestPaginateVersions:
@@ -494,7 +429,6 @@ class TestGetTextVersionsFromOpenpecha:
 
         result = await get_text_versions_from_openpecha(
             text_id="text-123",
-            language=None,
             skip=0,
             limit=10
         )
@@ -513,7 +447,6 @@ class TestGetTextVersionsFromOpenpecha:
         with pytest.raises(HTTPException) as exc_info:
             await get_text_versions_from_openpecha(
                 text_id="nonexistent",
-                language=None,
                 skip=0,
                 limit=10
             )
@@ -529,7 +462,6 @@ class TestGetTextVersionsFromOpenpecha:
         with pytest.raises(HTTPException) as exc_info:
             await get_text_versions_from_openpecha(
                 text_id="text-123",
-                language=None,
                 skip=0,
                 limit=10
             )
@@ -549,33 +481,12 @@ class TestGetTextVersionsFromOpenpecha:
 
         result = await get_text_versions_from_openpecha(
             text_id="text-123",
-            language=None,
             skip=0,
             limit=10
         )
 
         assert result.text is not None
         assert len(result.versions) == 0
-
-    @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_translation_details')
-    async def test_get_text_versions_with_language_filter(self, mock_fetch_translations, mock_fetch_text):
-        mock_fetch_text.return_value = MOCK_EXTERNAL_TEXT_DATA
-        mock_fetch_translations.return_value = [
-            {"id": "t1", "title": {"en": "English"}, "language": "en", "translation_of": "text-123"},
-            {"id": "t2", "title": {"bo": "Tibetan"}, "language": "bo", "translation_of": "text-123"}
-        ]
-
-        result = await get_text_versions_from_openpecha(
-            text_id="text-123",
-            language="en",
-            skip=0,
-            limit=10
-        )
-
-        assert len(result.versions) == 1
-        assert result.versions[0].language == "en"
 
     @pytest.mark.asyncio
     @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
@@ -589,7 +500,6 @@ class TestGetTextVersionsFromOpenpecha:
 
         result = await get_text_versions_from_openpecha(
             text_id="text-123",
-            language=None,
             skip=2,
             limit=2
         )

@@ -178,28 +178,6 @@ class TestGetTextVersionsEndpoint:
         assert data["versions"][1]["id"] == "version-2"
         mock_service.assert_called_once_with(
             text_id="text-123",
-            language=None,
-            skip=0,
-            limit=10
-        )
-
-    @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
-    def test_get_text_versions_with_language_filter(self, mock_service):
-        mock_response = TextVersionResponse(
-            text=MOCK_TEXT_DTO,
-            versions=[MOCK_TEXT_VERSION_1]
-        )
-        mock_service.return_value = mock_response
-
-        response = client.get("/texts/text-123/versions?language=en")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["versions"]) == 1
-        assert data["versions"][0]["language"] == "en"
-        mock_service.assert_called_once_with(
-            text_id="text-123",
-            language="en",
             skip=0,
             limit=10
         )
@@ -219,7 +197,6 @@ class TestGetTextVersionsEndpoint:
         assert len(data["versions"]) == 1
         mock_service.assert_called_once_with(
             text_id="text-123",
-            language=None,
             skip=1,
             limit=5
         )
@@ -247,12 +224,11 @@ class TestGetTextVersionsEndpoint:
         )
         mock_service.return_value = mock_response
 
-        response = client.get("/texts/text-123/versions?language=bo&skip=2&limit=20")
+        response = client.get("/texts/text-123/versions?skip=2&limit=20")
 
         assert response.status_code == 200
         mock_service.assert_called_once_with(
             text_id="text-123",
-            language="bo",
             skip=2,
             limit=20
         )
