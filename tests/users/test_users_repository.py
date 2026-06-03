@@ -8,7 +8,8 @@ from starlette import status
 from pecha_api.auth.auth_enums import RegistrationSource
 from pecha_api.users.users_models import Base, Users, SocialMediaAccount, PasswordReset
 from pecha_api.users.users_repository import save_user, get_user_by_email, get_user_by_username, \
-    get_user_social_account, update_user
+    get_user_social_account, update_user, delete_user
+from pecha_api.plans.users.recitation.user_recitations_models import UserRecitations
 
 DATABASE_URL = os.getenv("TEST_DATABASE_URL")
 if not DATABASE_URL:
@@ -23,17 +24,26 @@ TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engin
 
 @pytest.fixture(scope="module")
 def db():
-    # Create only the users-related tables to avoid touching unrelated metadata
     Base.metadata.create_all(
         bind=engine,
-        tables=[Users.__table__, SocialMediaAccount.__table__, PasswordReset.__table__],
+        tables=[
+            Users.__table__,
+            SocialMediaAccount.__table__,
+            PasswordReset.__table__,
+            UserRecitations.__table__,
+        ],
     )
     db = TestingSessionLocal()
     yield db
     db.close()
     Base.metadata.drop_all(
         bind=engine,
-        tables=[Users.__table__, SocialMediaAccount.__table__, PasswordReset.__table__],
+        tables=[
+            Users.__table__,
+            SocialMediaAccount.__table__,
+            PasswordReset.__table__,
+            UserRecitations.__table__,
+        ],
     )
 
 
@@ -197,3 +207,58 @@ def test_update_user_integrity_error(db):
         update_user(db, user2)
     assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
     assert exc_info.value.detail == "User update issue"
+
+
+def test_delete_user_success(db):
+    user = Users(
+        email="delete_test@example.com",
+        username="delete_test",
+        firstname='firstname',
+        lastname='lastname',
+        password='password',
+        registration_source=RegistrationSource.EMAIL.name
+    )
+    saved_user = save_user(db, user)
+    user_id = saved_user.id
+
+    recitation = UserRecitations(
+        user_id=user_id,
+        text_id="00000000-0000-0000-0000-000000000001",
+        display_order=1,
+    )
+    db.add(recitation)
+    db.commit()
+
+    delete_user(db, saved_user)
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_user_by_email(db, "delete_test@example.com")
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    remaining = db.query(UserRecitations).filter(UserRecitations.user_id == user_id).all()
+    assert remaining == []
+
+
+def test_delete_user_cascades_social_accounts(db):
+    user = Users(
+        email="delete_cascade@example.com",
+        username="delete_cascade",
+        firstname='firstname',
+        lastname='lastname',
+        password='password',
+        registration_source=RegistrationSource.EMAIL.name
+    )
+    saved_user = save_user(db, user)
+    social_account = SocialMediaAccount(
+        user_id=saved_user.id,
+        platform_name="linkedin",
+        profile_url="http://linkedin.com/in/delete_cascade"
+    )
+    db.add(social_account)
+    db.commit()
+
+    delete_user(db, saved_user)
+
+    with pytest.raises(HTTPException) as exc_info:
+        get_user_by_email(db, "delete_cascade@example.com")
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND

@@ -36,6 +36,7 @@ class AuthorInfoResponse(BaseModel):
     firstname: str
     lastname: str
     email: str
+    is_admin: bool = False
     image_url: Optional[str] = None
     bio: Optional[str] = None
     social_profiles: List[SocialMediaProfile]
