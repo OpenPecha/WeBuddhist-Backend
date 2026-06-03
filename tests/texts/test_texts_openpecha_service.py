@@ -87,6 +87,10 @@ class TestExtractTitle:
         result = _extract_title(title_payload, None)
         assert result == "English Title"
 
+    def test_extract_title_unsupported_type_returns_empty(self):
+        assert _extract_title(123) == ""
+        assert _extract_title(None) == ""
+
 
 class TestMapExternalTextToDto:
     """Tests for map_external_text_to_dto function (legacy TextDTO mapper)."""
@@ -654,6 +658,20 @@ class TestGetTextCommentariesFromOpenpecha:
 
     @pytest.mark.asyncio
     @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    async def test_get_commentaries_upstream_failure(self, mock_fetch_text):
+        mock_fetch_text.side_effect = Exception("upstream error")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_text_commentaries_from_openpecha(
+                text_id="text-123",
+                skip=0,
+                limit=10,
+            )
+
+        assert exc_info.value.status_code == 502
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     async def test_get_commentaries_no_commentaries(self, mock_fetch_text):
         mock_fetch_text.return_value = {
             "id": "text-123",
@@ -845,6 +863,23 @@ class TestFetchCommentaryDetails:
         result = await fetch_commentary_details(["comm-1", "comm-2"])
 
         assert len(result) == 0
+
+
+class TestFetchTextDetailWithSource:
+    """Tests for _fetch_text_detail_with_source helper."""
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_source_link', new_callable=AsyncMock)
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id', new_callable=AsyncMock)
+    async def test_returns_none_when_text_not_found(self, mock_fetch, mock_fetch_source):
+        mock_fetch.return_value = None
+
+        from pecha_api.texts.texts_openpecha_service import _fetch_text_detail_with_source
+
+        result = await _fetch_text_detail_with_source("missing-id")
+
+        assert result is None
+        mock_fetch_source.assert_not_awaited()
 
 
 class TestFetchTranslationDetails:
