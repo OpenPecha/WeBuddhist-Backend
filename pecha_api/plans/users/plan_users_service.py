@@ -43,6 +43,7 @@ from pecha_api.plans.users.plan_users_subtasks_repository import (
 )
 
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
+from pecha_api.plans.authors.plan_authors_service import get_image_url
 from pecha_api.plans.plans_enums import ContentType
 
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_repository import get_sub_task_by_subtask_id, get_sub_tasks_by_task_id
@@ -653,7 +654,11 @@ def _build_user_series_enrollment_dto(
     bucket_name: str,
 ) -> UserSeriesEnrollmentDTO:
     series_metadata = series.metadata_entries[0] if series.metadata_entries else None
-    image_url = _generate_presigned_image_url(bucket_name, series.image, series.id, "series")
+    try:
+        series_image = get_image_url(image_url=series.image)
+    except Exception:
+        logger.exception(f"Failed to generate series image URLs for series {series.id}")
+        series_image = None
     current_plan_title = (
         current_plan_title_by_id.get(enrollment.current_plan_id)
         if enrollment.current_plan_id
@@ -669,7 +674,7 @@ def _build_user_series_enrollment_dto(
         series_id=enrollment.series_id,
         series_title=series_metadata.title if series_metadata else "Untitled Series",
         series_description=series_metadata.description if series_metadata else None,
-        series_image_url=image_url,
+        series_image=series_image,
         enrolled_at=enrollment.enrolled_at,
         status=enrollment.status.value if hasattr(enrollment.status, 'value') else str(enrollment.status),
         auto_enroll_next=enrollment.auto_enroll_next,

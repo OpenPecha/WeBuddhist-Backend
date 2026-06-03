@@ -191,7 +191,7 @@ def test_upload_user_image_success():
                   return_value="http://example.com/presigned_url"):
         response = upload_user_image(token, file)
         mock_update_user.assert_called_once()
-        mock_delete_file.assert_called_once_with(file_path="images/profile_images/user_id.jpg")
+        mock_delete_file.assert_called_once_with(file_path="images/profile_images/user_id.webp")
         assert response == "http://example.com/presigned_url"
 
 
@@ -222,7 +222,7 @@ def test_validate_and_compress_image_success():
         image_utils = ImageUtils()
         compressed_image = image_utils.validate_and_compress_image(file=file, content_type="image/jpeg")
         assert isinstance(compressed_image, io.BytesIO)
-        mock_image.save.assert_called_once_with(compressed_image, format="JPEG", quality=75)
+        mock_image.save.assert_called_once_with(compressed_image, format="WEBP", quality=75)
 
 
 def test_validate_and_compress_image_invalid_file_type():

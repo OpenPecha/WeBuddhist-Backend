@@ -21,7 +21,7 @@ TEST_PLAN_ID = "plan123"
 TEST_TEXT_ID = "text123"
 TEST_UUID = "uuid123"
 TEST_BUCKET_NAME = "test-bucket"
-TEST_S3_KEY = "images/plan_images/uuid123/test_image.jpg"
+TEST_S3_KEY = "images/plan_images/uuid123/test_image.webp"
 TEST_PRESIGNED_URL = f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{TEST_S3_KEY}"
 
 # Mock Path Constants
@@ -95,14 +95,14 @@ class TestDataFactory:
         base_name = filename.rsplit('.', 1)[0]
         
         image_urls = ImageUrlModel(
-            thumbnail=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/thumbnail/{base_name}.jpg",
-            medium=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/medium/{base_name}.jpg",
-            original=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/original/{base_name}.jpg"
+            thumbnail=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/thumbnail/{base_name}.webp",
+            medium=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/medium/{base_name}.webp",
+            original=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/original/{base_name}.webp"
         )
         
         return PlanUploadResponse(
             image=image_urls,
-            key=f"{path_segment}/original/{base_name}.jpg",
+            key=f"{path_segment}/original/{base_name}.webp",
             path=path_segment,
             message=IMAGE_UPLOAD_SUCCESS
         )
@@ -117,16 +117,16 @@ class TestDataFactory:
         base_name = filename.rsplit('.', 1)[0]
 
         image_urls = ImageUrlModel(
-            thumbnail=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/thumbnail/{base_name}.jpg",
-            medium=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/medium/{base_name}.jpg",
-            original=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/original/{base_name}.jpg"
+            thumbnail=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/thumbnail/{base_name}.webp",
+            medium=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/medium/{base_name}.webp",
+            original=f"https://s3.amazonaws.com/{TEST_BUCKET_NAME}/{path_segment}/original/{base_name}.webp"
         )
 
         return TextImageUploadResponse(
             id="text_image_id",
             text_id=text_id,
             image=image_urls,
-            key=f"{path_segment}/original/{base_name}.jpg",
+            key=f"{path_segment}/original/{base_name}.webp",
             path=path_segment,
             message=IMAGE_UPLOAD_SUCCESS
         )
@@ -345,6 +345,26 @@ class TestImageUploadSuccess:
                 s3_key = call[1]['s3_key']
                 assert f"images/plan_images/{TEST_PLAN_ID}/{TEST_UUID}" in s3_key
             assert TEST_PLAN_ID in result.path
+
+    def test_successful_series_upload_with_series_id(self, mock_upload_file):
+        """Test successful series image upload with series_id"""
+        series_id = "series-123"
+        with MockManager() as mock_manager:
+            from pecha_api.plans.media.media_services import upload_series_image
+
+            result = upload_series_image(
+                token=VALID_TOKEN,
+                series_id=series_id,
+                file=mock_upload_file,
+            )
+
+            self._assert_upload_dependencies_called(mock_manager.mocks)
+            upload_calls = mock_manager.mocks['upload_bytes'].call_args_list
+            for call in upload_calls:
+                s3_key = call[1]['s3_key']
+                assert f"images/series_images/{series_id}/{TEST_UUID}" in s3_key
+            assert series_id in result.path
+            assert "original" in result.key
     
     def test_upload_with_different_content_types(self, mock_upload_file):
         """Test upload with different image content types"""
@@ -631,7 +651,7 @@ class TestTextImageUploadValidation:
             for call in upload_calls:
                 upload_args = call[1]
                 assert upload_args['bucket_name'] == TEST_BUCKET_NAME
-                assert upload_args['content_type'] == "image/jpeg"  # All converted to JPEG
+                assert upload_args['content_type'] == "image/webp"  # All converted to WebP
                 assert TEST_PLAN_ID in upload_args['s3_key']
                 assert "custom_image" in upload_args['s3_key']
             

@@ -866,6 +866,7 @@ def test_enroll_in_series_service_error(authenticated_client):
 
 
 def test_get_user_series_enrollments_success(authenticated_client):
+    from pecha_api.plans.media.media_response_models import ImageUrlModel
     from pecha_api.plans.users.plan_users_response_models import (
         UserSeriesEnrollmentsResponse,
         UserSeriesEnrollmentDTO,
@@ -881,7 +882,11 @@ def test_get_user_series_enrollments_success(authenticated_client):
                 series_id=series_id,
                 series_title="Test Series",
                 series_description="Description",
-                series_image_url="https://signed.example.com/series.jpg",
+                series_image=ImageUrlModel(
+                    thumbnail="https://signed.example.com/series-thumb.jpg",
+                    medium="https://signed.example.com/series-medium.jpg",
+                    original="https://signed.example.com/series.jpg",
+                ),
                 enrolled_at=datetime.now(timezone.utc),
                 status="ACTIVE",
                 auto_enroll_next=True,

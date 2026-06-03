@@ -86,7 +86,7 @@ def test_validate_and_compress_image_success():
         image_utils = ImageUtils()
         compressed_image = image_utils.validate_and_compress_image(file=file, content_type="image/jpeg")
         assert isinstance(compressed_image, io.BytesIO)
-        mock_image.save.assert_called_once_with(compressed_image, format="JPEG", quality=75)
+        mock_image.save.assert_called_once_with(compressed_image, format="WEBP", quality=75)
 
 
 def test_validate_and_compress_image_invalid_file_type():

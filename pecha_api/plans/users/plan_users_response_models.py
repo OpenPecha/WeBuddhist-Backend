@@ -1,5 +1,6 @@
 from typing import List, Optional
 from pydantic import BaseModel
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from uuid import UUID
 from datetime import datetime
 from pecha_api.plans.plans_enums import ContentType, SeriesStatus
@@ -114,7 +115,7 @@ class UserSeriesEnrollmentDTO(BaseModel):
     series_id: UUID
     series_title: str
     series_description: Optional[str] = None
-    series_image_url: Optional[str] = None
+    series_image: Optional[ImageUrlModel] = None
     enrolled_at: datetime
     status: str  # ACTIVE, PAUSED, COMPLETED, CANCELLED
     auto_enroll_next: bool

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, status, Depends, Query, Form
 from uuid import UUID
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from .media_services import upload_plan_image, upload_text_image
+from .media_services import upload_plan_image, upload_series_image, upload_text_image
 from .media_response_models import PlanUploadResponse, TextImageUploadResponse, PlanDayAudioUploadResponse
 from pecha_api.plans.audio.plan_day_audio_service import upload_plan_day_audio
 from typing import Annotated, Optional
@@ -17,6 +17,19 @@ media_router = APIRouter(
 @media_router.post("/upload", status_code=status.HTTP_201_CREATED)
 async def upload_media_image(authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)], plan_id: Optional[str] = Query(None), file: UploadFile = File(...)) -> PlanUploadResponse:
     return upload_plan_image(token=authentication_credential.credentials, plan_id=plan_id, file=file)
+
+
+@media_router.post("/upload/series", status_code=status.HTTP_201_CREATED)
+async def upload_series_media_image(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    series_id: Optional[str] = Query(None),
+    file: UploadFile = File(...),
+) -> PlanUploadResponse:
+    return upload_series_image(
+        token=authentication_credential.credentials,
+        series_id=series_id,
+        file=file,
+    )
 
 
 @media_router.post("/upload/text", status_code=status.HTTP_201_CREATED)

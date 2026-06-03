@@ -34,7 +34,10 @@ from pecha_api.plans.series.series_response_models import (
     SeriesPlanDTO,
     SeriesListResponse,
 )
-from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
+from pecha_api.plans.authors.plan_authors_service import (
+    validate_and_extract_author_details,
+    get_image_url,
+)
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from starlette import status
@@ -43,7 +46,7 @@ from starlette import status
 _SERIES_UPDATE_PERMISSION_ERROR = "You do not have permission to update this series"
 
 
-def _generate_image_url(image_key: Optional[str]) -> Optional[str]:
+def _generate_presigned_image_url(image_key: Optional[str]) -> Optional[str]:
     if not image_key:
         return None
     return generate_presigned_access_url(
@@ -107,7 +110,7 @@ def _plan_to_dto(plan, group_id: Optional[UUID] = None) -> SeriesPlanDTO:
         description=plan.description,
         language=plan.language,
         difficulty_level=plan.difficulty_level,
-        image_url=_generate_image_url(plan.image_url),
+        image_url=_generate_presigned_image_url(plan.image_url),
         image_key=plan.image_url,
         tags=tags_to_summary_dtos(plan.tag_list),
         status=_to_plan_status(plan.status),
@@ -164,7 +167,7 @@ def _series_to_list_item_dto(row: Series, plan_count: int = 0) -> SeriesListItem
     return SeriesListItemDTO(
         id=row.id,
         metadata=_metadata_to_dtos(row.metadata_entries),
-        image=_generate_image_url(row.image),
+        image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
         featured=bool(row.featured),
@@ -200,7 +203,7 @@ def _series_to_dto(
     return SeriesDTO(
         id=row.id,
         metadata=_metadata_to_dtos(row.metadata_entries),
-        image=_generate_image_url(row.image),
+        image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
         featured=bool(row.featured),

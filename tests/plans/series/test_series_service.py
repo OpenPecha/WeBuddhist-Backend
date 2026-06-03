@@ -102,29 +102,36 @@ def test_get_filtered_series_maps_rows_to_response():
 
 
 def test_get_filtered_series_presigns_image_when_key_present():
+    from pecha_api.plans.media.media_response_models import ImageUrlModel
+
     row = MagicMock()
     row.id = uuid.uuid4()
     row.metadata_entries = [_metadata_entry(title="With cover")]
-    row.image = "series/covers/x.jpg"
+    row.image = "images/series_images/sid/uuid/original/cover.jpg"
     row.author_id = uuid.uuid4()
     row.featured = False
     row.status = MagicMock()
     row.status.value = PlanStatus.PUBLISHED.value
+    image_model = ImageUrlModel(
+        thumbnail="https://signed.example/thumb.jpg",
+        medium="https://signed.example/medium.jpg",
+        original="https://signed.example/original.jpg",
+    )
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
         return_value=([(row, 0)], 1),
-    ), patch("pecha_api.plans.series.series_service.get", return_value="test-bucket"), patch(
-        "pecha_api.plans.series.series_service.generate_presigned_access_url",
-        return_value="https://signed.example/x.jpg",
-    ) as mock_presign:
+    ), patch(
+        "pecha_api.plans.series.series_service.get_image_url",
+        return_value=image_model,
+    ) as mock_get_image:
         _session_local_context(mock_session_local)
 
         result = get_filtered_series(search=None, skip=0, limit=10)
 
-    assert result.series[0].image == "https://signed.example/x.jpg"
-    assert result.series[0].image_key == "series/covers/x.jpg"
-    mock_presign.assert_called_once_with(bucket_name="test-bucket", s3_key="series/covers/x.jpg")
+    assert result.series[0].image == image_model
+    assert result.series[0].image_key == row.image
+    mock_get_image.assert_called_once_with(image_url=row.image)
 
 
 def test_get_filtered_series_empty_repository():
