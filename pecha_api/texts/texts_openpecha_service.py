@@ -290,15 +290,6 @@ def map_external_text_to_text_version(item: Dict[str, Any], language: Optional[s
     )
 
 
-def filter_versions_by_language(
-    versions: List[TextVersion],
-    language: Optional[str]
-) -> List[TextVersion]:
-    if not language:
-        return versions
-    return [v for v in versions if v.language == language]
-
-
 def paginate_versions(
     versions: List[TextVersion],
     skip: int,
@@ -309,7 +300,6 @@ def paginate_versions(
 
 async def get_text_versions_from_openpecha(
     text_id: str,
-    language: Optional[str] = None,
     skip: int = 0,
     limit: int = 10
 ) -> TextVersionResponse:
@@ -346,9 +336,7 @@ async def get_text_versions_from_openpecha(
         for item in translation_details
     ]
 
-    filtered_versions = filter_versions_by_language(versions, language)
-
-    paginated_versions = paginate_versions(filtered_versions, skip, limit)
+    paginated_versions = paginate_versions(versions, skip, limit)
 
     return TextVersionResponse(
         text=root_text,
