@@ -80,6 +80,29 @@ MOCK_TEXT_VERSION_2 = TextVersion(
 
 class TestTextsV2Endpoint:
     @patch("pecha_api.texts.texts_openpecha_views.get_texts_by_collection_from_openpecha")
+    def test_get_texts_without_collection_id(self, mock_service):
+        mock_service.return_value = V2TextsCategoryResponse(
+            collection=None,
+            texts=[V2TextDTO(id="t1", title="Text 1", language="en")],
+            skip=0,
+            limit=10,
+        )
+
+        response = client.get("/texts")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["collection"] is None
+        assert len(data["texts"]) == 1
+        mock_service.assert_awaited_once_with(
+            collection_id=None,
+            language=None,
+            title=None,
+            skip=0,
+            limit=10,
+        )
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_texts_by_collection_from_openpecha")
     def test_get_texts_by_collection_success(self, mock_service):
         mock_service.return_value = V2TextsCategoryResponse(
             collection=V2CollectionModel(id="cat-1", title="Discourses"),

@@ -489,6 +489,27 @@ class TestGetTextsByCollectionFromOpenpecha:
         assert exc_info.value.status_code == 502
         assert "category" in exc_info.value.detail.lower()
 
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_category_by_id", new_callable=AsyncMock)
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_get_texts_without_collection_id(self, mock_fetch_texts, mock_fetch_category):
+        mock_fetch_texts.return_value = {
+            "items": [{"id": "t1", "title": {"en": "Text 1"}, "language": "en"}],
+            "has_more": False,
+        }
+
+        result = await get_texts_by_collection_from_openpecha(skip=0, limit=10)
+
+        assert result.collection is None
+        assert len(result.texts) == 1
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id=None,
+            title=None,
+            offset=0,
+            limit=10,
+        )
+        mock_fetch_category.assert_not_awaited()
+
 
 # =============================================================================
 # Service Function Tests - get_text_by_id_from_openpecha (V2)

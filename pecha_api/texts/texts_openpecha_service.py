@@ -81,7 +81,7 @@ def map_external_text_to_dto(item: Dict[str, Any], language: Optional[str] = Non
 
 
 async def _get_texts_by_collection_id(
-    collection_id: str,
+    collection_id: Optional[str],
     skip: int,
     limit: int,
     title: Optional[str] = None,
@@ -107,7 +107,7 @@ async def _get_texts_by_collection_id(
 
 
 async def get_texts_by_collection_from_openpecha(
-    collection_id: str,
+    collection_id: Optional[str] = None,
     language: Optional[str] = None,
     title: Optional[str] = None,
     skip: int = 0,
@@ -120,21 +120,23 @@ async def get_texts_by_collection_from_openpecha(
         limit=limit,
     )
 
-    category_title = ""
-    try:
-        category_data = await fetch_category_by_id(collection_id, language=language)
-        if category_data:
-            category_title = _extract_title(category_data.get("title", {}), language)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to fetch category title from upstream service",
-        )
+    collection: Optional[V2CollectionModel] = None
+    if collection_id:
+        category_title = ""
+        try:
+            category_data = await fetch_category_by_id(collection_id, language=language)
+            if category_data:
+                category_title = _extract_title(category_data.get("title", {}), language)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Failed to fetch category title from upstream service",
+            )
 
-    collection = V2CollectionModel(
-        id=collection_id,
-        title=category_title,
-    )
+        collection = V2CollectionModel(
+            id=collection_id,
+            title=category_title,
+        )
 
     return V2TextsCategoryResponse(
         collection=collection,

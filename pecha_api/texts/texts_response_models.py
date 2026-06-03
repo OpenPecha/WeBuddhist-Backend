@@ -173,7 +173,7 @@ class TextsCategoryResponse(BaseModel):
 
 
 class V2TextsCategoryResponse(BaseModel):
-    collection: V2CollectionModel
+    collection: Optional[V2CollectionModel] = None
     texts: List[V2TextDTO]
     skip: int
     limit: int
