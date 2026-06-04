@@ -761,7 +761,7 @@ async def test_get_plan_daily_content_first_day_sets_previous_plan_id_in_series(
     assert result.previous_plan_id == prev_plan_uuid
     assert result.next_plan_id is None
     mock_prev_fn.assert_called_once_with(
-        db=mock_db, series_id=series_id, current_display_order=2
+        db=mock_db, series_id=series_id, current_display_order=2, language=None
     )
     mock_next_fn.assert_not_called()
 
@@ -793,7 +793,7 @@ async def test_get_plan_daily_content_last_day_sets_next_plan_id_in_series():
     assert result.next_plan_id == next_plan_uuid
     assert result.previous_plan_id is None
     mock_next_fn.assert_called_once_with(
-        db=mock_db, series_id=series_id, current_display_order=2
+        db=mock_db, series_id=series_id, current_display_order=2, language=None
     )
     mock_prev_fn.assert_not_called()
 

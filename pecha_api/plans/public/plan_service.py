@@ -372,7 +372,27 @@ def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
         return _build_plan_day_dto(plan_item)
 
 
-async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = None) -> DailyPlanResponse:
+def _filter_series_metadata_by_language(metadata_entries, language: Optional[str]):
+    if not language or not metadata_entries:
+        return metadata_entries or []
+    language_upper = language.upper()
+    return [
+        entry
+        for entry in metadata_entries
+        if (
+            entry.language.value
+            if hasattr(entry.language, "value")
+            else str(entry.language)
+        ).upper()
+        == language_upper
+    ]
+
+
+async def get_plan_daily_content(
+    plan_id: UUID,
+    requested_date: Optional[DateType] = None,
+    language: Optional[str] = None,
+) -> DailyPlanResponse:
 
     with SessionLocal() as db:
         plan = get_published_plan_by_id(db=db, plan_id=plan_id)
@@ -424,7 +444,10 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
         series_dto = None
         if plan.series:
             series_image = await get_image_url(image_url=plan.series.image)
-            metadata_entries = getattr(plan.series, "metadata_entries", None) or []
+            metadata_entries = _filter_series_metadata_by_language(
+                getattr(plan.series, "metadata_entries", None) or [],
+                language=language,
+            )
             series_metadata = [
                 SeriesMetadataDTO(
                     id=entry.id,
@@ -455,12 +478,22 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
 
         if plan.series_id and plan.display_order is not None:
             if previous_date is None:
-                previous_plan = get_previous_plan_in_series(db=db, series_id=plan.series_id, current_display_order=plan.display_order)
+                previous_plan = get_previous_plan_in_series(
+                    db=db,
+                    series_id=plan.series_id,
+                    current_display_order=plan.display_order,
+                    language=language,
+                )
                 if previous_plan:
                     previous_plan_id = previous_plan.id
 
             if next_date is None:
-                next_plan = get_next_plan_in_series(db=db, series_id=plan.series_id, current_display_order=plan.display_order)
+                next_plan = get_next_plan_in_series(
+                    db=db,
+                    series_id=plan.series_id,
+                    current_display_order=plan.display_order,
+                    language=language,
+                )
                 if next_plan:
                     next_plan_id = next_plan.id
 

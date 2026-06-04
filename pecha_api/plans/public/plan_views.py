@@ -77,8 +77,12 @@ async def get_plan_daily(
         Optional[DateType],
         Query(description="Date in YYYY-MM-DD format. Defaults to today if not provided."),
     ] = None,
+    language: Annotated[
+        Optional[str],
+        Query(description="Filter series navigation and metadata by language (e.g. 'en', 'bo', 'zh')."),
+    ] = None,
 ):
-    return await get_plan_daily_content(plan_id=plan_id, requested_date=date)
+    return await get_plan_daily_content(plan_id=plan_id, requested_date=date, language=language)
 
 
 @public_plans_router.get("/{plan_id}/days", status_code=status.HTTP_200_OK, response_model=PlanDaysResponse)
