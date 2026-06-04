@@ -3,6 +3,7 @@ from sqlalchemy import and_, exists, func, desc, asc, or_, select
 from typing import Optional, Tuple, List
 from uuid import UUID
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.groups.groups_models import author_group_plans, author_group_series
 from pecha_api.plans.tags.tag_model import Tag, plan_tags
 from pecha_api.plans.items.plan_items_models import PlanItem
@@ -151,6 +152,28 @@ def get_published_plan_by_id(db: Session, plan_id: UUID) -> Optional[Plan]:
             Plan.status == PlanStatus.PUBLISHED,
             Plan.deleted_at.is_(None)
         ).first()
+
+
+def get_published_plans_in_series(
+    db: Session,
+    series_id: UUID,
+    language: Optional[str] = None,
+) -> List[Plan]:
+    query = (
+        db.query(Plan)
+        .options(
+            selectinload(Plan.series).selectinload(Series.metadata_entries),
+        )
+        .filter(
+            Plan.series_id == series_id,
+            Plan.display_order.isnot(None),
+            Plan.status == PlanStatus.PUBLISHED,
+            Plan.deleted_at.is_(None),
+        )
+    )
+    if language:
+        query = query.filter(Plan.language == language.upper())
+    return query.order_by(asc(Plan.display_order)).all()
 
 
 def get_plan_items_by_plan_id(db: Session, plan_id: UUID) -> list[PlanItem]:

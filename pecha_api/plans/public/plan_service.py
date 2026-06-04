@@ -14,7 +14,15 @@ from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.plans_enums import ContentType, UserPlanStatus
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id, get_all_unique_tags, get_next_plan_in_series, get_previous_plan_in_series)
+from pecha_api.plans.public.plan_repository import (
+    get_published_plans_from_db,
+    get_published_plans_count,
+    get_published_plan_by_id,
+    get_published_plans_in_series,
+    get_all_unique_tags,
+    get_next_plan_in_series,
+    get_previous_plan_in_series,
+)
 from pecha_api.plans.users.plan_users_progress_repository import get_plan_progress_by_user_id_and_plan_id, save_plan_progress
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.routines.routines_repository import (
@@ -388,6 +396,83 @@ def _filter_series_metadata_by_language(metadata_entries, language: Optional[str
     ]
 
 
+def _to_plan_date(value) -> DateType:
+    if isinstance(value, dt):
+        return value.date()
+    return value
+
+
+def _resolve_plan_for_date_in_series(plans: List, reference_date: DateType):
+    sorted_plans = sorted(
+        plans,
+        key=lambda plan: (plan.display_order is None, plan.display_order or 0),
+    )
+    if not sorted_plans:
+        return None
+
+    for index, plan in enumerate(sorted_plans):
+        if not plan.start_date:
+            continue
+        plan_start = _to_plan_date(plan.start_date)
+        next_start = None
+        if index + 1 < len(sorted_plans) and sorted_plans[index + 1].start_date:
+            next_start = _to_plan_date(sorted_plans[index + 1].start_date)
+        if plan_start <= reference_date and (next_start is None or reference_date < next_start):
+            return plan
+
+    for plan in sorted_plans:
+        if plan.start_date:
+            return plan
+
+    return sorted_plans[0]
+
+
+def _resolve_daily_plan(
+    db,
+    plan_id: UUID,
+    requested_date: Optional[DateType],
+    language: Optional[str],
+):
+    entry_plan = get_published_plan_by_id(db=db, plan_id=plan_id)
+    if not entry_plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.PLAN_NOT_FOUND,
+        )
+
+    if not entry_plan.series_id:
+        return entry_plan
+
+    plan_language = language
+    if not plan_language:
+        plan_language = (
+            entry_plan.language.value
+            if hasattr(entry_plan.language, "value")
+            else str(entry_plan.language)
+        )
+
+    series_plans = get_published_plans_in_series(
+        db=db,
+        series_id=entry_plan.series_id,
+        language=plan_language,
+    )
+    if not series_plans:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.PLAN_NOT_FOUND,
+        )
+
+    today = dt.now(timezone.utc).date()
+    reference_date = requested_date if requested_date is not None else today
+    resolved_plan = _resolve_plan_for_date_in_series(series_plans, reference_date)
+    if not resolved_plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.PLAN_NOT_FOUND,
+        )
+    return resolved_plan
+
+
 async def get_plan_daily_content(
     plan_id: UUID,
     requested_date: Optional[DateType] = None,
@@ -395,21 +480,29 @@ async def get_plan_daily_content(
 ) -> DailyPlanResponse:
 
     with SessionLocal() as db:
-        plan = get_published_plan_by_id(db=db, plan_id=plan_id)
-        if not plan:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=ErrorConstants.PLAN_NOT_FOUND
+        plan = _resolve_daily_plan(
+            db=db,
+            plan_id=plan_id,
+            requested_date=requested_date,
+            language=language,
+        )
+
+        navigation_language = language
+        if not navigation_language:
+            navigation_language = (
+                plan.language.value
+                if hasattr(plan.language, "value")
+                else str(plan.language)
             )
 
         today = dt.now(timezone.utc).date()
 
         if plan.start_date:
-            start = plan.start_date.date() if isinstance(plan.start_date, dt) else plan.start_date
+            start = _to_plan_date(plan.start_date)
         else:
             start = today
 
-        total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan_id).count()
+        total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan.id).count()
         if total_days == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -436,7 +529,7 @@ async def get_plan_daily_content(
             )
 
         plan_item = get_plan_day_with_tasks_and_subtasks(
-            db=db, plan_id=plan_id, day_number=day_number
+            db=db, plan_id=plan.id, day_number=day_number
         )
 
         plan_image = await get_image_url(image_url=plan.image_url)
@@ -446,7 +539,7 @@ async def get_plan_daily_content(
             series_image = await get_image_url(image_url=plan.series.image)
             metadata_entries = _filter_series_metadata_by_language(
                 getattr(plan.series, "metadata_entries", None) or [],
-                language=language,
+                language=navigation_language,
             )
             series_metadata = [
                 SeriesMetadataDTO(
@@ -482,7 +575,7 @@ async def get_plan_daily_content(
                     db=db,
                     series_id=plan.series_id,
                     current_display_order=plan.display_order,
-                    language=language,
+                    language=navigation_language,
                 )
                 if previous_plan:
                     previous_plan_id = previous_plan.id
@@ -492,7 +585,7 @@ async def get_plan_daily_content(
                     db=db,
                     series_id=plan.series_id,
                     current_display_order=plan.display_order,
-                    language=language,
+                    language=navigation_language,
                 )
                 if next_plan:
                     next_plan_id = next_plan.id

@@ -712,15 +712,22 @@ def _daily_content_mock_db_session(total_days: int):
     return mock_db
 
 
-def _daily_content_series_plan(plan_id, series_id, display_order: int):
+def _daily_content_series_plan(
+    plan_id,
+    series_id,
+    display_order: int,
+    start_date=None,
+    language_value: str = "EN",
+):
     mock_plan = MagicMock()
     mock_plan.id = plan_id
-    mock_plan.title = "Plan B"
+    mock_plan.title = f"Plan {display_order}"
     mock_plan.description = "Desc"
     mock_plan.image_url = None
     mock_plan.series_id = series_id
     mock_plan.display_order = display_order
-    mock_plan.start_date = datetime(2026, 5, 1, tzinfo=timezone.utc)
+    mock_plan.start_date = start_date or datetime(2026, 5, 1, tzinfo=timezone.utc)
+    mock_plan.language = MagicMock(value=language_value)
     mock_series = MagicMock()
     mock_series.id = series_id
     metadata_entry = MagicMock()
@@ -748,20 +755,21 @@ async def test_get_plan_daily_content_first_day_sets_previous_plan_id_in_series(
 
     with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db), \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan), \
+         patch("pecha_api.plans.public.plan_service.get_published_plans_in_series", return_value=[mock_plan]), \
          patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks", return_value=mock_plan_item), \
          patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=mock_prev) as mock_prev_fn, \
          patch("pecha_api.plans.public.plan_service.get_next_plan_in_series") as mock_next_fn, \
          patch("pecha_api.plans.public.plan_service.get_image_url", new_callable=AsyncMock, return_value=None):
 
         result = await get_plan_daily_content(
-            plan_id=plan_id, requested_date=DateType(2026, 5, 1)
+            plan_id=plan_id, requested_date=DateType(2026, 5, 1), language="en"
         )
 
     assert isinstance(result, DailyPlanResponse)
     assert result.previous_plan_id == prev_plan_uuid
     assert result.next_plan_id is None
     mock_prev_fn.assert_called_once_with(
-        db=mock_db, series_id=series_id, current_display_order=2, language=None
+        db=mock_db, series_id=series_id, current_display_order=2, language="en"
     )
     mock_next_fn.assert_not_called()
 
@@ -780,22 +788,68 @@ async def test_get_plan_daily_content_last_day_sets_next_plan_id_in_series():
 
     with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db), \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan), \
+         patch("pecha_api.plans.public.plan_service.get_published_plans_in_series", return_value=[mock_plan]), \
          patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks", return_value=mock_plan_item), \
          patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series") as mock_prev_fn, \
          patch("pecha_api.plans.public.plan_service.get_next_plan_in_series", return_value=mock_next) as mock_next_fn, \
          patch("pecha_api.plans.public.plan_service.get_image_url", new_callable=AsyncMock, return_value=None):
 
         result = await get_plan_daily_content(
-            plan_id=plan_id, requested_date=DateType(2026, 5, 3)
+            plan_id=plan_id, requested_date=DateType(2026, 5, 3), language="en"
         )
 
     assert isinstance(result, DailyPlanResponse)
     assert result.next_plan_id == next_plan_uuid
     assert result.previous_plan_id is None
     mock_next_fn.assert_called_once_with(
-        db=mock_db, series_id=series_id, current_display_order=2, language=None
+        db=mock_db, series_id=series_id, current_display_order=2, language="en"
     )
     mock_prev_fn.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_get_plan_daily_content_resolves_plan_by_date_in_series():
+    series_id = uuid4()
+    plan_one_id = uuid4()
+    plan_two_id = uuid4()
+    entry_plan = _daily_content_series_plan(
+        plan_two_id,
+        series_id,
+        display_order=2,
+        start_date=datetime(2026, 5, 10, tzinfo=timezone.utc),
+    )
+    active_plan = _daily_content_series_plan(
+        plan_one_id,
+        series_id,
+        display_order=1,
+        start_date=datetime(2026, 5, 1, tzinfo=timezone.utc),
+    )
+    mock_plan_item = MagicMock()
+    mock_plan_item.tasks = []
+    mock_db = _daily_content_mock_db_session(total_days=3)
+
+    with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db), \
+         patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=entry_plan), \
+         patch(
+             "pecha_api.plans.public.plan_service.get_published_plans_in_series",
+             return_value=[active_plan, entry_plan],
+         ) as mock_series_plans, \
+         patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks", return_value=mock_plan_item) as mock_day_fn, \
+         patch("pecha_api.plans.public.plan_service.get_next_plan_in_series", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.get_image_url", new_callable=AsyncMock, return_value=None):
+
+        result = await get_plan_daily_content(
+            plan_id=plan_two_id,
+            requested_date=DateType(2026, 5, 3),
+            language="en",
+        )
+
+    assert result.plan_id == plan_one_id
+    mock_series_plans.assert_called_once_with(
+        db=mock_db, series_id=series_id, language="en"
+    )
+    mock_day_fn.assert_called_once_with(db=mock_db, plan_id=plan_one_id, day_number=3)
+
 
 @pytest.mark.asyncio
 async def test_get_plan_daily_content_plan_not_found():
