@@ -476,7 +476,6 @@ async def test_change_subtask_order_service_success():
             db=db_mock,
             task_id=task_id,
             current_author=mock_validate.return_value,
-            is_admin=mock_validate.return_value.is_admin
         )
         
         mock_update_bulk.assert_called_once_with(

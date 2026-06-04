@@ -30,6 +30,8 @@ from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel, LanguageCod
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.plans_enums import ContentType
 
+FIXTURE_GROUP_ID = uuid4()
+
 @pytest.fixture
 def sample_author():
     author = MagicMock()
@@ -62,6 +64,7 @@ def sample_plan(sample_author):
     plan.author = sample_author
     plan.deleted_at = None
     plan.start_date = None
+    plan.group_id = FIXTURE_GROUP_ID
     return plan
 
 
@@ -484,6 +487,7 @@ async def test_get_published_plan_success(sample_plan, sample_author, mock_db_se
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session), \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=sample_plan) as mock_repo, \
+         patch("pecha_api.plans.public.plan_service.get_group_id_for_plan", return_value=FIXTURE_GROUP_ID), \
          patch("pecha_api.plans.public.plan_service.generate_presigned_access_url", return_value="https://bucket.s3.amazonaws.com/presigned-url") as mock_presigned_url:
         
         result = await get_published_plan(plan_id=plan_id)
@@ -533,6 +537,8 @@ async def test_get_published_plan_without_author(mock_db_session):
     plan_no_author.status = PlanStatus.PUBLISHED
     plan_no_author.tag_list = []
     plan_no_author.author = None
+    plan_no_author.deleted_at = None
+    plan_no_author.group_id = FIXTURE_GROUP_ID
     
     mock_query = MagicMock()
     mock_db_session.__enter__.return_value.query.return_value = mock_query
@@ -541,6 +547,7 @@ async def test_get_published_plan_without_author(mock_db_session):
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session), \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=plan_no_author), \
+         patch("pecha_api.plans.public.plan_service.get_group_id_for_plan", return_value=FIXTURE_GROUP_ID), \
          patch("pecha_api.plans.public.plan_service.generate_presigned_access_url", return_value="https://bucket.s3.amazonaws.com/presigned-url"):
         
         result = await get_published_plan(plan_id=plan_no_author.id)
@@ -560,6 +567,7 @@ async def test_get_published_plan_image_url_generation_failure(sample_plan, mock
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session), \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=sample_plan), \
+         patch("pecha_api.plans.public.plan_service.get_group_id_for_plan", return_value=FIXTURE_GROUP_ID), \
          patch("pecha_api.plans.public.plan_service.generate_presigned_access_url", return_value="https://bucket.s3.amazonaws.com/presigned-url"):
         
         result = await get_published_plan(plan_id=plan_id)
@@ -592,6 +600,7 @@ async def test_get_published_plan_with_empty_tags(sample_plan, mock_db_session):
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session), \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=sample_plan), \
+         patch("pecha_api.plans.public.plan_service.get_group_id_for_plan", return_value=FIXTURE_GROUP_ID), \
          patch("pecha_api.plans.public.plan_service.generate_presigned_access_url", return_value="https://bucket.s3.amazonaws.com/presigned-url"):
         
         result = await get_published_plan(plan_id=sample_plan.id)
@@ -608,6 +617,7 @@ async def test_get_published_plan_zero_subscriptions(sample_plan, mock_db_sessio
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session), \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=sample_plan), \
+         patch("pecha_api.plans.public.plan_service.get_group_id_for_plan", return_value=FIXTURE_GROUP_ID), \
          patch("pecha_api.plans.public.plan_service.generate_presigned_access_url", return_value="https://bucket.s3.amazonaws.com/presigned-url"):
         
         result = await get_published_plan(plan_id=sample_plan.id)

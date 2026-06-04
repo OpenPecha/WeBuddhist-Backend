@@ -131,6 +131,7 @@ def test_get_series_list_with_search_pagination(sample_series_dto):
 def test_create_series_success(sample_series_dto):
     author_id = uuid.uuid4()
     payload = {
+        "group_id": str(uuid.uuid4()),
         "metadata": [{"title": "New Series", "language": "EN"}],
         "image_key": "series/uploads/key.jpg",
         "featured": False,
@@ -143,7 +144,7 @@ def test_create_series_success(sample_series_dto):
         "pecha_api.plans.series.series_view.create_new_series",
         return_value=sample_series_dto,
     ) as mock_create, patch(
-        "pecha_api.plans.series.series_service.validate_and_extract_author_details",
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
         return_value=mock_author,
     ):
         response = client.post(
@@ -170,6 +171,7 @@ def test_create_series_success(sample_series_dto):
 def test_create_series_defaults_optional_featured(sample_series_dto):
     author_id = uuid.uuid4()
     payload = {
+        "group_id": str(uuid.uuid4()),
         "metadata": [{"title": "Minimal", "language": "EN"}],
     }
 
@@ -180,7 +182,7 @@ def test_create_series_defaults_optional_featured(sample_series_dto):
         "pecha_api.plans.series.series_view.create_new_series",
         return_value=sample_series_dto,
     ) as mock_create, patch(
-        "pecha_api.plans.series.series_service.validate_and_extract_author_details",
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
         return_value=mock_author,
     ):
         response = client.post(

@@ -59,7 +59,7 @@ async def create_new_task(token: str, create_task_request: CreateTaskRequest, pl
     )
 
 async def delete_task_by_id(task_id: UUID, token: str):
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
     
     with SessionLocal() as db:
         task = _get_author_task(db=db, task_id=task_id, current_author=current_author)
@@ -70,7 +70,7 @@ async def delete_task_by_id(task_id: UUID, token: str):
             _reorder_sequentially(db=db, tasks=tasks)
 
 async def change_task_day_service(token: str, task_id: UUID, update_task_request: UpdateTaskDayRequest) -> UpdatedTaskDayResponse:
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
 
     with SessionLocal() as db:
         display_order = _get_max_display_order(plan_item_id=update_task_request.target_day_id) + 1
@@ -98,7 +98,7 @@ async def change_task_day_service(token: str, task_id: UUID, update_task_request
         )
 
 async def update_task_title_service(token: str, task_id: UUID, update_request: UpdateTaskTitleRequest) -> UpdateTaskTitleResponse:
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
     
     with SessionLocal() as db:
         task = _get_author_task(db=db, task_id=task_id, current_author=current_author)
@@ -113,7 +113,7 @@ async def update_task_title_service(token: str, task_id: UUID, update_request: U
 
 
 async def change_task_order_service(token: str, day_id: UUID, update_task_order_request: UpdateTaskOrderRequest) -> UpdatedTaskOrderResponse:
-    validate_and_extract_author_details(token=token)
+    validate_cms_author_details(token=token)
 
     with SessionLocal() as db:
         _check_duplicate_task_order(update_task_orders=update_task_order_request.tasks)
@@ -121,7 +121,7 @@ async def change_task_order_service(token: str, day_id: UUID, update_task_order_
 
 
 async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskResponse:
-    current_user = validate_and_extract_author_details(token=token)
+    current_user = validate_cms_author_details(token=token)
 
     with SessionLocal() as db:
         task = _get_author_task(db=db, task_id=task_id, current_author=current_user)

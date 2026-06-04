@@ -18,6 +18,7 @@ class _Creds:
 @pytest.mark.asyncio
 async def test_create_plan_success():
     request = CreatePlanRequest(
+        group_id=uuid.uuid4(),
         title="Mindfulness Basics",
         description="A simple plan to get started with mindfulness.",
         difficulty_level=DifficultyLevel.BEGINNER,
