@@ -18,7 +18,17 @@ from pecha_api.plans.tags.tag_service import validate_tag_ids
 from pecha_api.plans.items.plan_items_repository import save_plan_items, get_plan_items_by_plan_id, get_plan_day_with_tasks_and_subtasks, get_plan_day_by_id_any_plan
 from pecha_api.plans.users.plan_users_progress_repository import get_plan_progress
 from pecha_api.plans.authors.plan_authors_model import Author
-from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
+from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
+from pecha_api.plans.shared.permissions import (
+    is_reviewer,
+    is_super_admin,
+    require_can_change_status,
+    require_can_create_content,
+    require_can_edit_content,
+    require_can_read_group_content,
+    require_cms_write_access,
+)
+from pecha_api.plans.groups.groups_repository import get_author_group_ids
 from pecha_api.plans.plans_enums import LanguageCode, PlanStatus, ContentType, PlanAudioType
 from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, CreatePlanRequest, TaskDTO, PlanDayDTO, \
     PlanWithDays, UpdatePlanRequest, PlanStatusUpdate, PlansRepositoryResponse, PlanWithAggregates, AuthorDTO, SubTaskDTO
@@ -315,14 +325,12 @@ async def _generate_subtask_audio(sub_task_id: UUID, audio_type: PlanAudioType):
         "s3_key": s3_key,
     }
 
-async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, sort_order: str, skip: int, limit: int, tag: Optional[str] = None, language: Optional[str] = None) -> PlansResponse:
-    # Validate token and author context (authorization can be extended later)
-    current_author = validate_and_extract_author_details(token=token)
+async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, sort_order: str, skip: int, limit: int, tag: Optional[str] = None, language: Optional[str] = None, group_id: Optional[UUID] = None) -> PlansResponse:
+    current_author = validate_cms_author_details(token=token)
     with SessionLocal() as db_session:
         plan_repository_response : PlansRepositoryResponse = get_plans_by_author_id(
             db=db_session,
-            author_id=current_author.id,
-            is_admin=current_author.is_admin,
+            author=current_author,
             search=search,
             sort_by=sort_by,
             sort_order=sort_order,
@@ -330,6 +338,7 @@ async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, so
             limit=limit,
             tag=tag,
             language=language,
+            group_id=group_id,
         )
 
         plans: List[PlanDTO] = []
@@ -385,8 +394,8 @@ def _get_next_display_order_in_series(db: Session, series_id: UUID) -> int:
 def _validate_series_for_plan_attachment(
     db: Session,
     series_id: UUID,
-    author_id: UUID,
-    is_admin: bool,
+    plan_group_id: UUID,
+    author: Author,
 ) -> None:
     series = get_series_by_id(db=db, series_id=series_id)
     if not series:
@@ -394,19 +403,19 @@ def _validate_series_for_plan_attachment(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Series with id '{series_id}' not found",
         )
-    if not is_admin and series.author_id != author_id:
+    if series.group_id != plan_group_id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You do not have permission to attach plans to this series",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Plan and series must belong to the same group",
         )
+    require_can_read_group_content(db=db, group_id=series.group_id, author=author)
 
 
 def _apply_series_attachment_to_plan(
     db: Session,
     plan: Plan,
     series_id: UUID,
-    author_id: UUID,
-    is_admin: bool,
+    author: Author,
     display_order: Optional[int] = None,
 ) -> None:
     if plan.series_id is not None and plan.series_id != series_id:
@@ -414,7 +423,7 @@ def _apply_series_attachment_to_plan(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Plan is already attached to another series",
         )
-    _validate_series_for_plan_attachment(db, series_id, author_id, is_admin)
+    _validate_series_for_plan_attachment(db, series_id, plan.group_id, author)
     plan.series_id = series_id
     plan.display_order = (
         display_order
@@ -432,8 +441,7 @@ def _apply_create_plan_series_fields(
     db: Session,
     plan: Plan,
     create_plan_request: CreatePlanRequest,
-    author_id: UUID,
-    is_admin: bool,
+    author: Author,
 ) -> None:
     if not create_plan_request.series_id:
         return
@@ -441,17 +449,23 @@ def _apply_create_plan_series_fields(
         db=db,
         plan=plan,
         series_id=create_plan_request.series_id,
-        author_id=author_id,
-        is_admin=is_admin,
+        author=author,
         display_order=create_plan_request.display_order,
     )
 
 
 def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanDTO:
 
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
 
     language = create_plan_request.language.upper() if create_plan_request.language else get("SITE_LANGUAGE").upper()
+
+    with SessionLocal() as db_session:
+        require_can_create_content(
+            db=db_session,
+            group_id=create_plan_request.group_id,
+            author=current_author,
+        )
 
     new_plan_model = Plan(
         title=create_plan_request.title,
@@ -459,6 +473,7 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
         image_url=create_plan_request.image_url,
         start_date=create_plan_request.start_date,
         author_id=current_author.id,
+        group_id=create_plan_request.group_id,
         difficulty_level=create_plan_request.difficulty_level,
         status=PlanStatus.DRAFT,
         featured=False,
@@ -466,7 +481,6 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
         created_by=current_author.email
     )
 
-    # Save to database
     with SessionLocal() as db_session:
         if create_plan_request.tag_ids:
             validate_tag_ids(db=db_session, tag_ids=create_plan_request.tag_ids)
@@ -474,8 +488,7 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
             db=db_session,
             plan=new_plan_model,
             create_plan_request=create_plan_request,
-            author_id=current_author.id,
-            is_admin=bool(current_author.is_admin),
+            author=current_author,
         )
         saved_plan = save_plan(db=db_session, plan=new_plan_model)
         if create_plan_request.tag_ids:
@@ -497,7 +510,7 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
         total_subscription_count = len(plan_progress)
         total_days = len(saved_items)
 
-        group_id = get_group_id_for_plan(db=db_session, plan_id=saved_plan.id)
+        group_id = saved_plan.group_id
 
         return PlanDTO(
             id=saved_plan.id,
@@ -518,14 +531,15 @@ def create_new_plan(token: str, create_plan_request: CreatePlanRequest) -> PlanD
         )
 
 async def get_details_plan(token:str,plan_id: UUID) -> PlanWithDays:
-    validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
     with SessionLocal() as db_session:
+        plan = _get_plan_or_404(db=db_session, plan_id=plan_id)
+        require_can_read_group_content(db=db_session, group_id=plan.group_id, author=current_author)
         return _get_plan_details(db_session, plan_id)
 
 
 def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
-    # Fetch base plan
-    plan: Plan = _check_author_plan_availability(plan_id=plan_id)
+    plan: Plan = _get_plan_or_404(db=db, plan_id=plan_id)
 
     # Fetch items (days)
     items = get_plan_items_by_plan_id(db=db, plan_id=plan.id)
@@ -576,7 +590,7 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
             )
         )
 
-    group_id = get_group_id_for_plan(db=db, plan_id=plan.id)
+    group_id = plan.group_id
 
     return PlanWithDays(
         id=plan.id,
@@ -641,10 +655,16 @@ def _generate_plan_image_url(plan_image_key: Optional[str]) -> Optional[str]:
 
 
 async def update_plan_details(token: str, plan_id: UUID, update_plan_request: UpdatePlanRequest) -> PlanDTO:
-    author_details = validate_and_extract_author_details(token=token)
+    author_details = validate_cms_author_details(token=token)
     
     with SessionLocal() as db:
-        plan = _check_author_plan_availability(plan_id=plan_id, author_id=author_details.id, is_admin=author_details.is_admin)
+        plan = _get_plan_or_404(db=db, plan_id=plan_id)
+        require_can_edit_content(
+            db=db,
+            group_id=plan.group_id,
+            author=author_details,
+            content_status=plan.status,
+        )
 
         if "start_date" in update_plan_request.model_fields_set:
             _validate_start_date_update(db, plan, plan_id, update_plan_request.start_date)
@@ -664,8 +684,7 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
                     db=db,
                     plan=plan,
                     series_id=update_plan_request.series_id,
-                    author_id=author_details.id,
-                    is_admin=bool(author_details.is_admin),
+                    author=author_details,
                     display_order=update_plan_request.display_order,
                 )
         elif (
@@ -699,16 +718,17 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
             start_date=plan.start_date,
             series_id=plan.series_id,
             display_order=plan.display_order,
-            group_id=get_group_id_for_plan(db=db, plan_id=plan.id),
+            group_id=plan.group_id,
         )
 
 async def update_selected_plan_status(token:str,plan_id: UUID, plan_status_update: PlanStatusUpdate) -> PlanDTO:
-    
-   current_author = validate_and_extract_author_details(token=token)
+   
+   current_author = validate_cms_author_details(token=token)
 
    with SessionLocal() as db:
 
-        plan = _check_author_plan_availability(plan_id=plan_id, author_id=current_author.id, is_admin=current_author.is_admin)
+        plan = _get_plan_or_404(db=db, plan_id=plan_id)
+        require_can_change_status(db=db, group_id=plan.group_id, author=current_author)
         _check_published_plan_day_availability(plan_id=plan_id, plan_status=plan_status_update.status)
 
         plan.status = plan_status_update.status
@@ -727,13 +747,14 @@ async def update_selected_plan_status(token:str,plan_id: UUID, plan_status_updat
             subscription_count=len(get_plan_progress(db=db, plan_id=plan.id)),
             series_id=plan.series_id,
             display_order=plan.display_order,
-            group_id=get_group_id_for_plan(db=db, plan_id=plan.id),
+            group_id=plan.group_id,
         )
 
 async def delete_selected_plan(token:str,plan_id: UUID):
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
     with SessionLocal() as db:
-        plan = _check_author_plan_availability(plan_id=plan_id, author_id=current_author.id, is_admin=current_author.is_admin)
+        plan = _get_plan_or_404(db=db, plan_id=plan_id)
+        require_can_change_status(db=db, group_id=plan.group_id, author=current_author)
         _soft_delete_plan_by_id(db=db, plan_id=plan.id, author=current_author)
         return
 
@@ -761,8 +782,10 @@ def _get_task_subtasks_dto(subtasks: List[PlanSubTask]) -> List[SubTaskDTO]:
     return subtasks_dto
 
 async def get_plan_day_details(token:str,plan_id: UUID, day_number: int) -> PlanDayDTO:
-    validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
     with SessionLocal() as db:
+        plan = _get_plan_or_404(db=db, plan_id=plan_id)
+        require_can_read_group_content(db=db, group_id=plan.group_id, author=current_author)
         plan_item: PlanItem = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
         from pecha_api.plans.audio.dto_helpers import build_plan_day_audio_fields
 
@@ -796,14 +819,15 @@ def _soft_delete_plan_by_id(db: Session, plan_id: UUID, author: Author):
     plan = update_plan(db=db, plan=plan)
 
 
-def _check_author_plan_availability(plan_id: UUID, author_id: Optional[UUID] = None, is_admin: bool = False) -> Plan:
-    with SessionLocal() as db:
-        plan = get_plan_by_id(db=db, plan_id=plan_id)
-        if not plan:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ResponseError(error=BAD_REQUEST, message=PLAN_NOT_FOUND).model_dump())
-        if not is_admin and author_id and plan.author_id != author_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ResponseError(error=BAD_REQUEST, message=PLAN_AUTHOR_MISMATCH).model_dump())
-        return plan
+def _get_plan_or_404(db: Session, plan_id: UUID) -> Plan:
+    plan = get_plan_by_id(db=db, plan_id=plan_id)
+    if not plan or plan.deleted_at is not None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ResponseError(error=BAD_REQUEST, message=PLAN_NOT_FOUND).model_dump(),
+        )
+    return plan
+
 
 def _check_published_plan_day_availability(plan_id: UUID, plan_status: PlanStatus):
     with SessionLocal() as db:
@@ -812,8 +836,9 @@ def _check_published_plan_day_availability(plan_id: UUID, plan_status: PlanStatu
         return
 
 def update_plan_featured_service(token:str, plan_id: UUID):
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
     with SessionLocal() as db:
-        plan = _check_author_plan_availability(plan_id=plan_id, author_id=current_author.id, is_admin=current_author.is_admin)
+        plan = _get_plan_or_404(db=db, plan_id=plan_id)
+        require_can_change_status(db=db, group_id=plan.group_id, author=current_author)
         plan.featured = not plan.featured
         plan = update_plan(db=db, plan=plan)

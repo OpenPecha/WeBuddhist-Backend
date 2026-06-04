@@ -19,7 +19,9 @@ from pecha_api.plans.audio.plan_item_audio_repository import (
 )
 from pecha_api.plans.audio.plan_audio_response_models import AssignPlanDayAudioRequest
 from pecha_api.plans.auth.plan_auth_models import ResponseError
-from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
+from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
+from pecha_api.plans.groups.groups_repository import get_author_group_ids
+from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin, require_can_edit_content
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.plans.items.plan_items_repository import get_plan_item_by_id
 from pecha_api.plans.media.media_response_models import PlanDayAudioUploadResponse
@@ -51,8 +53,7 @@ def _validate_audio_file(file: UploadFile) -> None:
         )
 
 
-def _get_author_plan_item_by_day_id(db, day_id: UUID, token: str):
-    current_author = validate_and_extract_author_details(token=token)
+def _get_author_plan_item_by_day_id(db, day_id: UUID, current_author):
     plan_item = get_plan_item_by_id(db=db, day_id=day_id)
     if not plan_item:
         raise HTTPException(
@@ -65,11 +66,12 @@ def _get_author_plan_item_by_day_id(db, day_id: UUID, token: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ResponseError(error=BAD_REQUEST, message=PLAN_NOT_FOUND).model_dump(),
         )
-    if not current_author.is_admin and plan.author_id != current_author.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=ResponseError(error=BAD_REQUEST, message=PLAN_NOT_FOUND).model_dump(),
-        )
+    require_can_edit_content(
+        db=db,
+        group_id=plan.group_id,
+        author=current_author,
+        content_status=plan.status,
+    )
     return plan_item
 
 
@@ -84,8 +86,8 @@ def upload_plan_day_audio(
     content_type = file.content_type or mimetypes.guess_type(file.filename or "")[0] or "audio/mpeg"
 
     with SessionLocal() as db:
-        current_author = validate_and_extract_author_details(token=token)
-        plan_item = _get_author_plan_item_by_day_id(db=db, day_id=day_id, token=token)
+        current_author = validate_cms_author_details(token=token)
+        plan_item = _get_author_plan_item_by_day_id(db=db, day_id=day_id, current_author=current_author)
 
         unique_id = str(uuid.uuid4())
         s3_key = f"audio/plan_days/{plan_item.plan_id}/{day_id}/{unique_id}{file_extension}"
@@ -144,14 +146,16 @@ def assign_plan_day_audio(
         )
 
     with SessionLocal() as db:
-        current_author = validate_and_extract_author_details(token=token)
-        plan_item = _get_author_plan_item_by_day_id(db=db, day_id=day_id, token=token)
+        current_author = validate_cms_author_details(token=token)
+        plan_item = _get_author_plan_item_by_day_id(db=db, day_id=day_id, current_author=current_author)
 
+        see_all = is_super_admin(current_author) or is_reviewer(current_author)
+        group_ids = None if see_all else get_author_group_ids(db=db, author_id=current_author.id)
         source_audio = get_accessible_plan_item_audio_by_key(
             db=db,
             audio_key=audio_key,
-            author_id=current_author.id,
-            is_admin=current_author.is_admin,
+            group_ids=group_ids,
+            see_all=see_all,
         )
         if not source_audio:
             raise HTTPException(

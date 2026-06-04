@@ -4,7 +4,9 @@ from uuid import UUID
 
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
-from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
+from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
+from pecha_api.plans.groups.groups_repository import get_author_group_ids
+from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin
 from pecha_api.plans.dashboard.dashboard_repository import get_dashboard_items, total_pages
 from pecha_api.plans.dashboard.dashboard_response_models import (
     DashboardItemDTO,
@@ -89,8 +91,21 @@ def get_dashboard_items_list(
     language: Optional[str] = None,
     featured: Optional[bool] = None,
 ) -> DashboardItemsResponse:
-    current_author = validate_and_extract_author_details(token=token)
-    author_id = None if current_author.is_admin else current_author.id
+    current_author = validate_cms_author_details(token=token)
+    group_ids = None
+    if not is_super_admin(current_author) and not is_reviewer(current_author):
+        with SessionLocal() as db_session:
+            group_ids = get_author_group_ids(db=db_session, author_id=current_author.id)
+            if not group_ids:
+                return DashboardItemsResponse(
+                    items=[],
+                    pagination=DashboardPaginationDTO(
+                        page=page,
+                        page_size=page_size,
+                        total=0,
+                        total_pages=0,
+                    ),
+                )
 
     page = max(page, 1)
     page_size = max(page_size, 1)
@@ -105,7 +120,7 @@ def get_dashboard_items_list(
             status=status,
             language=language,
             featured=featured,
-            author_id=author_id,
+            group_ids=group_ids,
         )
 
     items = [_row_to_dto(row) for row in rows]

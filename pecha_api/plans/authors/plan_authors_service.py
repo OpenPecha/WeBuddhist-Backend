@@ -22,7 +22,8 @@ from pecha_api.plans.authors.plan_authors_response_models import AuthorInfoRespo
     ImageUrlModel, AuthorInfoPublicResponse
 from pecha_api.plans.plans_response_models import PlansResponse
 
-from pecha_api.plans.shared.utils import load_plans_from_json
+from pecha_api.plans.platform_enums import PlatformRole
+from pecha_api.plans.shared.permissions import build_author_access_context, get_platform_role, require_active_author
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.users.users_service import get_social_profile
 from pecha_api.plans.shared.utils import convert_plan_model_to_dto
@@ -53,12 +54,18 @@ async def get_authors() -> AuthorsResponse:
 async def get_author_details(token: str) -> AuthorInfoResponse:
     author = validate_and_extract_author_details(token=token)
     social_media_profiles = _get_author_social_profile(author=author)
+    with SessionLocal() as db_session:
+        access = build_author_access_context(db=db_session, author=author)
     return AuthorInfoResponse(
         id=author.id,
         firstname=author.first_name,
         lastname=author.last_name,
         email=author.email,
-        is_admin=bool(author.is_admin),
+        platform_role=access["platform_role"],
+        is_verified=access["is_verified"],
+        is_active=access["is_active"],
+        has_group=access["has_group"],
+        can_create_content=access["can_create_content"],
         image_url=generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key= author.image_url),
         bio=author.bio,
         social_profiles=social_media_profiles
@@ -201,6 +208,12 @@ def validate_and_extract_author_details(token: str) -> Author:
     except JWTError as jwt_exception:
         logging.debug(f"exception: {jwt_exception}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorConstants.TOKEN_ERROR_MESSAGE)
+
+
+def validate_cms_author_details(token: str) -> Author:
+    author = validate_and_extract_author_details(token=token)
+    require_active_author(author)
+    return author
 
 def delete_social_profiles(author: Author, social_profiles: List[SocialMediaProfile], existing_profiles: Dict[str, SocialMediaProfile]) -> None:
     social_profile_names = [social_profile.account.name for social_profile in social_profiles]

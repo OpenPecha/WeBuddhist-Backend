@@ -10,7 +10,8 @@ from pecha_api.config import get, get_int
 from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.plans.authors.plan_authors_repository import get_author_by_email
-from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
+from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
+from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin, require_cms_write_access
 from pecha_api.notification.notification_repository import mark_notifications_read_by_reference
 from pecha_api.notification.notification_service import create_notification_record
 from pecha_api.plans.groups.group_invite_email import send_group_invitation_email
@@ -39,7 +40,9 @@ from pecha_api.plans.groups.groups_repository import (
     get_groups_paginated,
     get_invite_by_id,
     get_owner_count,
+    get_plans_by_group_id,
     get_plans_by_ids,
+    get_series_by_group_id,
     has_pending_invite,
     list_invites_by_group,
     list_pending_invites_by_email,
@@ -78,11 +81,7 @@ from pecha_api.plans.groups.groups_response_models import (
     UpdateAuthorGroupRequest,
     UpdateGroupMemberRoleRequest,
 )
-from pecha_api.plans.groups.groups_models import (
-    author_group_plans,
-    author_group_series,
-    author_group_tags,
-)
+from pecha_api.plans.groups.groups_models import author_group_tags
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
 
@@ -191,7 +190,7 @@ def _resolve_actor_group_role(
     group_id: UUID,
     author,
 ) -> str:
-    if author.is_admin:
+    if is_super_admin(author):
         return AuthorGroupMemberRole.OWNER.value
     member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
     return _to_role_value(member.role)
@@ -348,10 +347,12 @@ def _group_to_detail(
     db: Optional[Session] = None,
 ) -> AuthorGroupDetailDTO:
     if db is not None:
-        series_dtos = _series_to_dtos(db=db, series_list=list(group.series))
-        plans_dtos = _plans_to_dtos(db=db, plan_list=list(group.plans), group_id=group.id)
+        group_series = get_series_by_group_id(db=db, group_id=group.id)
+        group_plans = get_plans_by_group_id(db=db, group_id=group.id)
+        series_dtos = _series_to_dtos(db=db, series_list=group_series)
+        plans_dtos = _plans_to_dtos(db=db, plan_list=group_plans, group_id=group.id)
     else:
-        series_dtos = [_series_to_list_item_dto(series) for series in group.series]
+        series_dtos = []
         plans_dtos = []
 
     return AuthorGroupDetailDTO(
@@ -413,7 +414,7 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        if not author.is_admin:
+        if not is_super_admin(author):
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=_GROUP_SETTINGS_ROLES)
 
@@ -469,7 +470,7 @@ def get_cms_group_detail(token: str, group_id: UUID) -> AuthorGroupDetailDTO:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        if not author.is_admin:
+        if not is_super_admin(author) and not is_reviewer(author):
             _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         return _group_to_detail(group=group, follower_count=follower_count, db=db)
@@ -509,11 +510,14 @@ def list_cms_groups(
     search: Optional[str] = None,
     language: Optional[str] = None,
     tag_id: Optional[UUID] = None,
+    for_transfer: bool = False,
 ) -> AuthorGroupListResponse:
     author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
         group_ids = None
-        if not author.is_admin:
+        if for_transfer:
+            require_cms_write_access(author)
+        elif not is_super_admin(author) and not is_reviewer(author):
             membership_rows = db.query(AuthorGroupMember.group_id).filter(AuthorGroupMember.author_id == author.id).all()
             group_ids = [row.group_id for row in membership_rows]
         groups, total = get_groups_paginated(
@@ -542,7 +546,7 @@ def replace_group_tags(token: str, group_id: UUID, request: ReplaceGroupTagsRequ
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        if not author.is_admin:
+        if not is_super_admin(author):
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=_GROUP_SETTINGS_ROLES)
         _validate_group_links(db=db, tag_ids=request.tag_ids, series_ids=None, plan_ids=None)
@@ -563,45 +567,11 @@ def replace_group_social_links_by_id(
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        if not author.is_admin:
+        if not is_super_admin(author):
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=_GROUP_SETTINGS_ROLES)
         social_links = [AuthorGroupSocialLink(platform=item.platform, url=item.url) for item in request.social_links]
         replace_group_social_links(db=db, group_id=group_id, social_links=social_links)
-        db.commit()
-        loaded = get_group_by_id(db=db, group_id=group_id)
-        follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count, db=db)
-
-
-def replace_group_series_by_id(token: str, group_id: UUID, request: ReplaceGroupSeriesRequest) -> AuthorGroupDetailDTO:
-    author = validate_and_extract_author_details(token=token)
-    with SessionLocal() as db:
-        group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        if not author.is_admin:
-            member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
-            _assert_role_allowed(member=member, allowed_roles=_GROUP_SETTINGS_ROLES)
-        _validate_group_links(db=db, tag_ids=None, series_ids=request.series_ids, plan_ids=None)
-        replace_group_relation_ids(db=db, table=author_group_series, group_id=group_id, column_name="series_id", ids=request.series_ids)
-        db.commit()
-        loaded = get_group_by_id(db=db, group_id=group_id)
-        follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count, db=db)
-
-
-def replace_group_plans_by_id(token: str, group_id: UUID, request: ReplaceGroupPlansRequest) -> AuthorGroupDetailDTO:
-    author = validate_and_extract_author_details(token=token)
-    with SessionLocal() as db:
-        group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        if not author.is_admin:
-            member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
-            _assert_role_allowed(member=member, allowed_roles=_GROUP_SETTINGS_ROLES)
-        _validate_group_links(db=db, tag_ids=None, series_ids=None, plan_ids=request.plan_ids)
-        replace_group_relation_ids(db=db, table=author_group_plans, group_id=group_id, column_name="plan_id", ids=request.plan_ids)
         db.commit()
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
@@ -756,7 +726,7 @@ def create_group_member_invite(
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         actor_role = _resolve_actor_group_role(db, group_id=group_id, author=author)
-        if not author.is_admin:
+        if not is_super_admin(author):
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=_MEMBER_MANAGEMENT_ROLES)
 
@@ -830,7 +800,7 @@ def list_group_invites(
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        if not author.is_admin:
+        if not is_super_admin(author):
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=[AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN])
 
@@ -918,7 +888,7 @@ def revoke_group_invite(token: str, group_id: UUID, invite_id: UUID) -> None:
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         actor_role = _resolve_actor_group_role(db, group_id=group_id, author=author)
-        if not author.is_admin:
+        if not is_super_admin(author):
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=_MEMBER_MANAGEMENT_ROLES)
 
@@ -952,7 +922,7 @@ def update_group_member_role(
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        if not current_author.is_admin:
+        if not is_super_admin(current_author):
             current_member = _get_member_or_403(db=db, group_id=group_id, author_id=current_author.id)
             _assert_role_allowed(current_member, [AuthorGroupMemberRole.OWNER, AuthorGroupMemberRole.ADMIN])
 
@@ -1079,11 +1049,11 @@ def delete_group_member(token: str, group_id: UUID, author_id: UUID) -> None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group member not found")
 
         if is_self_remove:
-            if not current_author.is_admin:
+            if not is_super_admin(current_author):
                 _get_member_or_403(db=db, group_id=group_id, author_id=current_author.id)
             _assert_not_last_owner_removal(db, group_id=group_id, member=member)
         else:
-            if not current_author.is_admin:
+            if not is_super_admin(current_author):
                 current_member = _get_member_or_403(db=db, group_id=group_id, author_id=current_author.id)
                 _assert_role_allowed(
                     current_member,
