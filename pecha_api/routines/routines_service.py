@@ -259,8 +259,8 @@ def build_session_models(time_block_id: UUID, sessions: List) -> List[RoutineSes
         RoutineSession(
             time_block_id=time_block_id,
             session_type=session.session_type,
-            source_id=session.source_id,
-            duration_ms=session.duration_ms,
+            source_id=None if session.session_type == SessionType.TIMER else session.source_id,
+            duration_ms=session.duration_ms if session.session_type == SessionType.TIMER else None,
             display_order=session.display_order,
         )
         for session in sessions

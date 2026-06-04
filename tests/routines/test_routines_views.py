@@ -169,8 +169,12 @@ def test_create_routine_with_timer_success(authenticated_client):
         timer_session = body["time_blocks"][0]["sessions"][0]
         assert timer_session["session_type"] == "TIMER"
         assert timer_session["duration_ms"] == 900000
-        assert timer_session["source_id"] is None
-        assert timer_session["title"] is None
+        assert "source_id" not in timer_session
+        assert "title" not in timer_session
+        assert "language" not in timer_session
+        assert "image_url" not in timer_session
+        assert "start_date" not in timer_session
+        assert "started_at" not in timer_session
         mock_create.assert_called_once()
 
 

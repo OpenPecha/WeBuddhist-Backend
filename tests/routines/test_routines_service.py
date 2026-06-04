@@ -16,6 +16,7 @@ from pecha_api.routines.routines_service import (
     _resolve_recitation_sessions,
     _resolve_timer_sessions,
     _resolve_sessions,
+    build_session_models,
     group_sessions_by_block,
     build_time_block_dto,
 )
@@ -641,6 +642,33 @@ def test_resolve_timer_sessions_success():
 def test_resolve_timer_sessions_empty_list():
     result = _resolve_timer_sessions(timer_sessions=[])
     assert result == []
+
+
+def test_build_session_models_sanitises_inapplicable_fields():
+    time_block_id = uuid.uuid4()
+    plan_source_id = uuid.uuid4()
+    sessions = [
+        SessionRequest(
+            session_type=SessionType.PLAN,
+            source_id=plan_source_id,
+            duration_ms=900000,  # stray, must be dropped
+            display_order=0,
+        ),
+        SessionRequest(
+            session_type=SessionType.TIMER,
+            source_id=uuid.uuid4(),  # stray, must be dropped
+            duration_ms=600000,
+            display_order=1,
+        ),
+    ]
+
+    result = build_session_models(time_block_id=time_block_id, sessions=sessions)
+
+    plan_model, timer_model = result
+    assert plan_model.source_id == plan_source_id
+    assert plan_model.duration_ms is None
+    assert timer_model.source_id is None
+    assert timer_model.duration_ms == 600000
 
 
 @pytest.mark.asyncio
