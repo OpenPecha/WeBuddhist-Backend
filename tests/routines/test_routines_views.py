@@ -177,7 +177,7 @@ def test_create_routine_with_timer_success(authenticated_client):
         assert "source_id" not in timer_session
         assert "title" not in timer_session
         assert "language" not in timer_session
-        assert "image_url" not in timer_session
+        assert "image" not in timer_session
         assert "start_date" not in timer_session
         assert "started_at" not in timer_session
         mock_create.assert_called_once()
