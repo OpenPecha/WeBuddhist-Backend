@@ -5,5 +5,6 @@ from sqlalchemy import Enum
 class SessionType(enum.Enum):
     PLAN = "PLAN"
     RECITATION = "RECITATION"
+    TIMER = "TIMER"
     
 SessionTypeEnum = Enum(SessionType)

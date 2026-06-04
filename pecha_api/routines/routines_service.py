@@ -42,9 +42,11 @@ from .routines_repository import (
 from .response_message import (
     DUPLICATE_PLAN,
     INVALID_TIME_FORMAT,
+    INVALID_TIMER_DURATION,
     ROUTINE_ALREADY_EXISTS,
     ROUTINE_NOT_FOUND,
     SESSIONS_REQUIRED,
+    SOURCE_ID_REQUIRED,
     TIME_ALREADY_EXISTS,
     TIME_BLOCK_NOT_FOUND,
     TIME_BLOCK_TIME_CONFLICT,
@@ -78,6 +80,24 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
                 error=BAD_REQUEST, message=INVALID_TIME_FORMAT
             ).model_dump(),
         )
+
+    # TIMER sessions carry a positive duration_ms; PLAN/RECITATION carry a source_id
+    for session in request.sessions:
+        if session.session_type == SessionType.TIMER:
+            if session.duration_ms is None or session.duration_ms <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=ResponseError(
+                        error=BAD_REQUEST, message=INVALID_TIMER_DURATION
+                    ).model_dump(),
+                )
+        elif session.source_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=SOURCE_ID_REQUIRED
+                ).model_dump(),
+            )
 
     # Duplicate plan source_ids within the request
     plan_source_ids = [
@@ -239,7 +259,8 @@ def build_session_models(time_block_id: UUID, sessions: List) -> List[RoutineSes
         RoutineSession(
             time_block_id=time_block_id,
             session_type=session.session_type,
-            source_id=session.source_id,
+            source_id=None if session.session_type == SessionType.TIMER else session.source_id,
+            duration_ms=session.duration_ms if session.session_type == SessionType.TIMER else None,
             display_order=session.display_order,
         )
         for session in sessions
@@ -328,6 +349,19 @@ async def _resolve_recitation_sessions(
     return resolved
 
 
+def _resolve_timer_sessions(timer_sessions: List[RoutineSession]) -> List[SessionDTO]:
+    return [
+        SessionDTO(
+            id=session.id,
+            session_type=session.session_type,
+            source_id=None,
+            duration_ms=session.duration_ms,
+            display_order=session.display_order,
+        )
+        for session in timer_sessions
+    ]
+
+
 async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -> List[SessionDTO]:
     plan_sessions = [
         session for session in sessions if session.session_type == SessionType.PLAN
@@ -337,13 +371,17 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -
         for session in sessions
         if session.session_type == SessionType.RECITATION
     ]
+    timer_sessions = [
+        session for session in sessions if session.session_type == SessionType.TIMER
+    ]
 
     resolved_plans = _resolve_plan_sessions(db=db, plan_sessions=plan_sessions, user_id=user_id)
     resolved_recitations = await _resolve_recitation_sessions(
         recitation_sessions=recitation_sessions
     )
+    resolved_timers = _resolve_timer_sessions(timer_sessions=timer_sessions)
 
-    resolved = resolved_plans + resolved_recitations
+    resolved = resolved_plans + resolved_recitations + resolved_timers
     resolved.sort(key=lambda session: session.display_order)
 
     return resolved
