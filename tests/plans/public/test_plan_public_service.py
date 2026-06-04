@@ -1,5 +1,6 @@
 import pytest
 from uuid import uuid4
+from types import SimpleNamespace
 from unittest.mock import patch, MagicMock, Mock, AsyncMock
 from datetime import date as DateType, datetime, timezone
 from fastapi import HTTPException
@@ -16,6 +17,10 @@ from pecha_api.plans.public.plan_service import (
     auto_enroll_plan,
     is_user_enrolled_in_previous_plan,
     is_within_plan_date_range,
+    _to_plan_date,
+    _resolve_plan_for_date_in_series,
+    _resolve_daily_plan,
+    _filter_series_metadata_by_language,
 )
 from pecha_api.plans.public.plan_response_models import (
     PublicPlansResponse,
@@ -702,6 +707,138 @@ async def test_get_plan_days_plan_not_found():
         mock_get_plan.assert_called_once_with(db=db_session, plan_id=plan_id)
 
 
+def test_to_plan_date_from_datetime_and_date():
+    assert _to_plan_date(datetime(2026, 5, 1, tzinfo=timezone.utc)) == DateType(2026, 5, 1)
+    assert _to_plan_date(DateType(2026, 5, 2)) == DateType(2026, 5, 2)
+
+
+def test_resolve_plan_for_date_in_series_empty():
+    assert _resolve_plan_for_date_in_series([], DateType(2026, 5, 1)) is None
+
+
+def test_resolve_plan_for_date_in_series_picks_active_plan():
+    series_id = uuid4()
+    plan_one = _daily_content_series_plan(
+        uuid4(), series_id, 1, start_date=datetime(2026, 5, 1, tzinfo=timezone.utc)
+    )
+    plan_two = _daily_content_series_plan(
+        uuid4(), series_id, 2, start_date=datetime(2026, 5, 10, tzinfo=timezone.utc)
+    )
+
+    assert _resolve_plan_for_date_in_series(
+        [plan_two, plan_one], DateType(2026, 5, 5)
+    ).id == plan_one.id
+    assert _resolve_plan_for_date_in_series(
+        [plan_one, plan_two], DateType(2026, 5, 15)
+    ).id == plan_two.id
+
+
+def test_resolve_plan_for_date_in_series_before_first_start():
+    series_id = uuid4()
+    plan = _daily_content_series_plan(
+        uuid4(), series_id, 1, start_date=datetime(2026, 5, 10, tzinfo=timezone.utc)
+    )
+
+    assert _resolve_plan_for_date_in_series([plan], DateType(2026, 5, 1)).id == plan.id
+
+
+def test_resolve_plan_for_date_in_series_without_start_dates():
+    series_id = uuid4()
+    plan = _daily_content_series_plan(uuid4(), series_id, 1)
+    plan.start_date = None
+
+    assert _resolve_plan_for_date_in_series([plan], DateType(2026, 5, 1)).id == plan.id
+
+
+def test_filter_series_metadata_by_language():
+    entry_en = MagicMock()
+    entry_en.language = MagicMock(value="EN")
+    entry_bo = MagicMock()
+    entry_bo.language = "BO"
+
+    filtered = _filter_series_metadata_by_language([entry_en, entry_bo], "en")
+
+    assert filtered == [entry_en]
+
+
+def test_filter_series_metadata_without_language_returns_entries():
+    entry = MagicMock()
+    entries = [entry]
+
+    assert _filter_series_metadata_by_language(entries, None) == entries
+    assert _filter_series_metadata_by_language(None, "en") == []
+
+
+def test_resolve_daily_plan_returns_entry_when_not_in_series():
+    plan_id = uuid4()
+    mock_plan = MagicMock()
+    mock_plan.series_id = None
+    mock_db = MagicMock()
+
+    with patch(
+        "pecha_api.plans.public.plan_service.get_published_plan_by_id",
+        return_value=mock_plan,
+    ) as mock_get:
+        result = _resolve_daily_plan(db=mock_db, plan_id=plan_id, requested_date=None, language="en")
+
+    assert result is mock_plan
+    mock_get.assert_called_once_with(db=mock_db, plan_id=plan_id)
+
+
+def test_resolve_daily_plan_raises_when_entry_not_found():
+    mock_db = MagicMock()
+
+    with patch(
+        "pecha_api.plans.public.plan_service.get_published_plan_by_id",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _resolve_daily_plan(db=mock_db, plan_id=uuid4(), requested_date=None, language="en")
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_resolve_daily_plan_raises_when_no_language_plans_in_series():
+    series_id = uuid4()
+    entry_plan = MagicMock()
+    entry_plan.series_id = series_id
+    entry_plan.language = LanguageCode.EN
+    mock_db = MagicMock()
+
+    with patch(
+        "pecha_api.plans.public.plan_service.get_published_plan_by_id",
+        return_value=entry_plan,
+    ), patch(
+        "pecha_api.plans.public.plan_service.get_published_plans_in_series",
+        return_value=[],
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _resolve_daily_plan(db=mock_db, plan_id=uuid4(), requested_date=None, language=None)
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_resolve_daily_plan_uses_entry_language_when_omitted():
+    series_id = uuid4()
+    plan_id = uuid4()
+    entry_plan = _daily_content_series_plan(plan_id, series_id, 1)
+    mock_db = MagicMock()
+
+    with patch(
+        "pecha_api.plans.public.plan_service.get_published_plan_by_id",
+        return_value=entry_plan,
+    ), patch(
+        "pecha_api.plans.public.plan_service.get_published_plans_in_series",
+        return_value=[entry_plan],
+    ) as mock_series:
+        result = _resolve_daily_plan(
+            db=mock_db, plan_id=plan_id, requested_date=DateType(2026, 5, 1), language=None
+        )
+
+    assert result is entry_plan
+    mock_series.assert_called_once_with(db=mock_db, series_id=series_id, language="EN")
+
+
 def _daily_content_mock_db_session(total_days: int):
     mock_db = MagicMock()
     mock_db.__enter__ = Mock(return_value=mock_db)
@@ -861,6 +998,205 @@ async def test_get_plan_daily_content_plan_not_found():
 
         with pytest.raises(HTTPException) as exc_info:
             await get_plan_daily_content(plan_id=plan_id)
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def _standalone_daily_plan(plan_id, *, start_date=None):
+    return SimpleNamespace(
+        id=plan_id,
+        title="Solo Plan",
+        description="Desc",
+        image_url=None,
+        series_id=None,
+        series=None,
+        display_order=None,
+        start_date=start_date,
+        language=SimpleNamespace(value="EN"),
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_plan_daily_content_standalone_plan_without_series():
+    plan_id = uuid4()
+    mock_plan = _standalone_daily_plan(
+        plan_id, start_date=datetime(2026, 5, 1, tzinfo=timezone.utc)
+    )
+    mock_plan_item = MagicMock()
+    mock_plan_item.tasks = []
+    mock_db = _daily_content_mock_db_session(total_days=2)
+
+    with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db), \
+         patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan), \
+         patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks", return_value=mock_plan_item), \
+         patch("pecha_api.plans.public.plan_service.get_image_url", new_callable=AsyncMock, return_value=None):
+
+        result = await get_plan_daily_content(
+            plan_id=plan_id, requested_date=DateType(2026, 5, 2)
+        )
+
+    assert result.plan_id == plan_id
+    assert result.series is None
+    assert result.day_number == 2
+
+
+@pytest.mark.asyncio
+async def test_get_plan_daily_content_no_content_yet():
+    plan_id = uuid4()
+    mock_plan = _standalone_daily_plan(plan_id)
+    mock_db = _daily_content_mock_db_session(total_days=0)
+
+    with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db), \
+         patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan):
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_plan_daily_content(plan_id=plan_id)
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    assert "no content yet" in exc_info.value.detail.lower()
+
+
+@pytest.mark.asyncio
+async def test_get_plan_daily_content_date_out_of_range():
+    plan_id = uuid4()
+    mock_plan = _standalone_daily_plan(
+        plan_id, start_date=datetime(2026, 5, 1, tzinfo=timezone.utc)
+    )
+    mock_db = _daily_content_mock_db_session(total_days=3)
+
+    with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db), \
+         patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan):
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_plan_daily_content(
+                plan_id=plan_id, requested_date=DateType(2026, 5, 10)
+            )
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    assert "No content for date" in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_get_plan_daily_content_defaults_date_when_before_plan_window():
+    plan_id = uuid4()
+    mock_plan = _standalone_daily_plan(
+        plan_id, start_date=datetime(2099, 1, 1, tzinfo=timezone.utc)
+    )
+    mock_plan.title = "Future Plan"
+    mock_plan_item = MagicMock()
+    mock_plan_item.tasks = []
+    mock_db = _daily_content_mock_db_session(total_days=5)
+
+    with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db), \
+         patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan), \
+         patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks", return_value=mock_plan_item), \
+         patch("pecha_api.plans.public.plan_service.get_image_url", new_callable=AsyncMock, return_value=None):
+
+        result = await get_plan_daily_content(plan_id=plan_id)
+
+    assert result.date == DateType(2099, 1, 1)
+    assert result.day_number == 1
+
+
+@pytest.mark.asyncio
+async def test_get_plan_daily_content_filters_series_metadata_by_navigation_language():
+    plan_id = uuid4()
+    series_id = uuid4()
+    mock_plan = _daily_content_series_plan(plan_id, series_id, display_order=1)
+    bo_entry = MagicMock()
+    bo_entry.id = uuid4()
+    bo_entry.title = "Tibetan"
+    bo_entry.description = None
+    bo_entry.language = MagicMock(value="BO")
+    mock_plan.series.metadata_entries = [
+        mock_plan.series.metadata_entries[0],
+        bo_entry,
+    ]
+    mock_plan_item = MagicMock()
+    mock_plan_item.tasks = []
+    mock_db = _daily_content_mock_db_session(total_days=1)
+
+    with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db), \
+         patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan), \
+         patch("pecha_api.plans.public.plan_service.get_published_plans_in_series", return_value=[mock_plan]), \
+         patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks", return_value=mock_plan_item), \
+         patch("pecha_api.plans.public.plan_service.get_previous_plan_in_series", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.get_next_plan_in_series", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.get_image_url", new_callable=AsyncMock, return_value=None):
+
+        result = await get_plan_daily_content(
+            plan_id=plan_id, requested_date=DateType(2026, 5, 1), language="en"
+        )
+
+    assert result.series is not None
+    assert len(result.series.metadata) == 1
+    assert result.series.metadata[0].language == "EN"
+
+
+@pytest.mark.asyncio
+async def test_get_plan_daily_content_defaults_date_to_today_when_in_window():
+    from pecha_api.plans.public import plan_service
+
+    plan_id = uuid4()
+    mock_plan = _standalone_daily_plan(
+        plan_id, start_date=datetime(2026, 6, 1, tzinfo=timezone.utc)
+    )
+    mock_plan_item = MagicMock()
+    mock_plan_item.tasks = []
+    mock_db = _daily_content_mock_db_session(total_days=30)
+    today = plan_service.dt.now(timezone.utc).date()
+
+    with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db), \
+         patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan), \
+         patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks", return_value=mock_plan_item), \
+         patch("pecha_api.plans.public.plan_service.get_image_url", new_callable=AsyncMock, return_value=None):
+
+        result = await get_plan_daily_content(plan_id=plan_id)
+
+    assert result.date == today
+    assert result.day_number == (today - DateType(2026, 6, 1)).days + 1
+
+
+@pytest.mark.asyncio
+async def test_get_plan_daily_content_without_start_date_uses_today():
+    from pecha_api.plans.public import plan_service
+
+    plan_id = uuid4()
+    mock_plan = _standalone_daily_plan(plan_id)
+    mock_plan.start_date = None
+    mock_plan_item = MagicMock()
+    mock_plan_item.tasks = []
+    mock_db = _daily_content_mock_db_session(total_days=1)
+    today = plan_service.dt.now(timezone.utc).date()
+
+    with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db), \
+         patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan), \
+         patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks", return_value=mock_plan_item), \
+         patch("pecha_api.plans.public.plan_service.get_image_url", new_callable=AsyncMock, return_value=None):
+
+        result = await get_plan_daily_content(plan_id=plan_id)
+
+    assert result.date == today
+    assert result.day_number == 1
+
+
+def test_resolve_daily_plan_raises_when_date_resolution_fails():
+    series_id = uuid4()
+    entry_plan = _daily_content_series_plan(uuid4(), series_id, 1)
+    mock_db = MagicMock()
+
+    with patch(
+        "pecha_api.plans.public.plan_service.get_published_plan_by_id",
+        return_value=entry_plan,
+    ), patch(
+        "pecha_api.plans.public.plan_service.get_published_plans_in_series",
+        return_value=[entry_plan],
+    ), patch(
+        "pecha_api.plans.public.plan_service._resolve_plan_for_date_in_series",
+        return_value=None,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _resolve_daily_plan(db=mock_db, plan_id=entry_plan.id, requested_date=None, language="en")
 
     assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
