@@ -26,7 +26,7 @@ def get_db():
 async def get_user_information(authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)])  -> UserInfoResponse:
     return await get_user_info(token=authentication_credential.credentials)
 
-@user_router.get("/{username}", status_code=status.HTTP_200_OK, response_model=UserInfoResponse)  
+@user_router.get("/{username}", status_code=status.HTTP_200_OK)
 async def get_user_detail_by_username(username:str) -> UserInfoResponse:    
     return await get_user_info_by_username(username)
 
@@ -48,7 +48,7 @@ def upload_user_avatar_image(authentication_credential: Annotated[HTTPAuthorizat
     return upload_user_image(token=authentication_credential.credentials, file=file)
 
 
-@user_router.patch("/username", status_code=status.HTTP_200_OK, response_model=UpdateUsernameResponse)
+@user_router.patch("/username", status_code=status.HTTP_200_OK)
 def patch_username(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     request: UpdateUsernameRequest,
