@@ -471,6 +471,24 @@ async def get_text_commentaries_from_openpecha(
             detail=f"Text with id '{text_id}' not found",
         )
 
+    commentary_of = text_data.get("commentary_of")
+    translation_of = text_data.get("translation_of")
+
+    # If commentary_of is not null, fetch commentaries from the parent text
+    if commentary_of:
+        return await _fetch_commentaries_from_parent(commentary_of, skip, limit)
+
+    # If both commentary_of and translation_of are null, check translations and commentaries lists
+    if not commentary_of and not translation_of:
+        translation_ids = text_data.get("translations", [])
+        commentary_ids = text_data.get("commentaries", [])
+
+        # If there are translations or commentaries, fetch commentaries from the first available ID
+        related_ids = translation_ids + commentary_ids
+        if related_ids:
+            return await _fetch_commentaries_from_related(related_ids[0], skip, limit)
+
+    # Default: fetch commentaries directly from this text
     commentary_ids = text_data.get("commentaries", [])
 
     if not commentary_ids:
@@ -486,3 +504,69 @@ async def get_text_commentaries_from_openpecha(
     paginated_commentaries = commentaries[skip:skip + limit]
 
     return paginated_commentaries
+
+
+async def _fetch_commentaries_from_parent(
+    parent_id: str,
+    skip: int,
+    limit: int
+) -> List[TextDTO]:
+    """Fetch commentaries from a parent text (commentary_of)."""
+    try:
+        parent_data = await fetch_text_by_id(parent_id)
+    except Exception:
+        logger.warning(f"Failed to fetch parent text {parent_id}, returning empty commentaries")
+        return []
+
+    if not parent_data:
+        return []
+
+    commentary_ids = parent_data.get("commentaries", [])
+
+    if not commentary_ids:
+        return []
+
+    commentary_details = await fetch_commentary_details(commentary_ids)
+
+    commentaries = [
+        map_external_text_to_dto(item, item.get("language"))
+        for item in commentary_details
+    ]
+
+    return commentaries[skip:skip + limit]
+
+
+async def _fetch_commentaries_from_related(
+    related_id: str,
+    skip: int,
+    limit: int
+) -> List[TextDTO]:
+    """Fetch commentaries from a related text (from translations or commentaries list)."""
+    try:
+        related_data = await fetch_text_by_id(related_id)
+    except Exception:
+        logger.warning(f"Failed to fetch related text {related_id}, returning empty commentaries")
+        return []
+
+    if not related_data:
+        return []
+
+    # Check if the related text has a commentary_of pointing to a parent
+    commentary_of = related_data.get("commentary_of")
+    if commentary_of:
+        return await _fetch_commentaries_from_parent(commentary_of, skip, limit)
+
+    # Otherwise, get commentaries from the related text itself
+    commentary_ids = related_data.get("commentaries", [])
+
+    if not commentary_ids:
+        return []
+
+    commentary_details = await fetch_commentary_details(commentary_ids)
+
+    commentaries = [
+        map_external_text_to_dto(item, item.get("language"))
+        for item in commentary_details
+    ]
+
+    return commentaries[skip:skip + limit]
