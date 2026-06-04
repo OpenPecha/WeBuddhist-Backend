@@ -18,6 +18,7 @@ from pecha_api.routines.routines_service import (
     group_sessions_by_block,
     build_time_block_dto,
 )
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.routines.routines_response_models import (
     CreateTimeBlockRequest,
     UpdateTimeBlockRequest,
@@ -183,16 +184,22 @@ async def test_create_routine_success():
         id=source_id,
         title="Daily Routine",
         language=SimpleNamespace(value="EN"),
-        image_url="https://example.com/image.jpg",
+        image_url="images/plan/original/cover.jpg",
         start_date=None,
+    )
+
+    plan_image = ImageUrlModel(
+        thumbnail="https://example.com/image-thumb.jpg",
+        medium="https://example.com/image-medium.jpg",
+        original="https://example.com/image.jpg",
     )
 
     mock_time_block_model = MagicMock()
     mock_session_model = MagicMock()
 
     with patch(
-        "pecha_api.routines.routines_service.generate_presigned_access_url",
-        side_effect=lambda bucket_name, s3_key: s3_key,
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=plan_image,
     ), patch(
         "pecha_api.routines.routines_service.validate_and_extract_user_details",
         return_value=SimpleNamespace(id=user_id),
@@ -240,10 +247,7 @@ async def test_create_routine_success():
         assert len(result.time_blocks[0].sessions) == 1
         assert result.time_blocks[0].sessions[0].title == "Daily Routine"
         assert result.time_blocks[0].sessions[0].language == "EN"
-        assert (
-            result.time_blocks[0].sessions[0].image_url
-            == "https://example.com/image.jpg"
-        )
+        assert result.time_blocks[0].sessions[0].image == plan_image
 
 
 @pytest.mark.asyncio
@@ -298,13 +302,19 @@ def test_resolve_plan_sessions_success():
         id=source_id,
         title="Test Plan",
         language=SimpleNamespace(value="EN"),
-        image_url="https://example.com/plan.jpg",
+        image_url="images/plan/original/cover.jpg",
         start_date=None,
     )
 
+    plan_image = ImageUrlModel(
+        thumbnail="https://example.com/plan-thumb.jpg",
+        medium="https://example.com/plan-medium.jpg",
+        original="https://example.com/plan.jpg",
+    )
+
     with patch(
-        "pecha_api.routines.routines_service.generate_presigned_access_url",
-        side_effect=lambda bucket_name, s3_key: s3_key,
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=plan_image,
     ), patch(
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
@@ -317,7 +327,7 @@ def test_resolve_plan_sessions_success():
         assert len(result) == 1
         assert result[0].title == "Test Plan"
         assert result[0].language == "EN"
-        assert result[0].image_url == "https://example.com/plan.jpg"
+        assert result[0].image == plan_image
 
 
 def test_resolve_plan_sessions_missing_plan():
@@ -366,7 +376,7 @@ def test_resolve_plan_sessions_with_user_progress():
         id=source_id,
         title="Test Plan",
         language=SimpleNamespace(value="EN"),
-        image_url="https://example.com/plan.jpg",
+        image_url="images/plan/original/cover.jpg",
         start_date=plan_start_date,
     )
     
@@ -378,8 +388,8 @@ def test_resolve_plan_sessions_with_user_progress():
     )
 
     with patch(
-        "pecha_api.routines.routines_service.generate_presigned_access_url",
-        side_effect=lambda bucket_name, s3_key: s3_key,
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=None,
     ), patch(
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
@@ -424,7 +434,7 @@ async def test_resolve_recitation_sessions_success():
         assert len(result) == 1
         assert result[0].title == "Heart Sutra"
         assert result[0].language == "bo"
-        assert result[0].image_url is None
+        assert result[0].image is None
 
 
 @pytest.mark.asyncio

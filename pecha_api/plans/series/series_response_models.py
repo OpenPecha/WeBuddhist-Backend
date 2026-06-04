@@ -69,7 +69,7 @@ class SeriesPlanDTO(BaseModel):
     description: Optional[str] = None
     language: str
     difficulty_level: Optional[DifficultyLevel] = None
-    image_url: Optional[str] = None
+    image: Optional[ImageUrlModel] = None
     image_key: Optional[str] = None
     tags: List[TagSummaryDTO] = []
     status: PlanStatus

@@ -6,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
@@ -37,22 +36,13 @@ from pecha_api.plans.series.series_response_models import (
 from pecha_api.plans.authors.plan_authors_service import (
     validate_and_extract_author_details,
     get_image_url,
+    safe_get_image_url,
 )
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
-from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from starlette import status
 
 
 _SERIES_UPDATE_PERMISSION_ERROR = "You do not have permission to update this series"
-
-
-def _generate_presigned_image_url(image_key: Optional[str]) -> Optional[str]:
-    if not image_key:
-        return None
-    return generate_presigned_access_url(
-        bucket_name=get("AWS_BUCKET_NAME"),
-        s3_key=image_key,
-    )
 
 
 def _to_plan_status(status_value) -> PlanStatus:
@@ -110,7 +100,9 @@ def _plan_to_dto(plan, group_id: Optional[UUID] = None) -> SeriesPlanDTO:
         description=plan.description,
         language=plan.language,
         difficulty_level=plan.difficulty_level,
-        image_url=_generate_presigned_image_url(plan.image_url),
+        image=safe_get_image_url(
+            plan.image_url, resource_id=plan.id, resource_type="plan"
+        ),
         image_key=plan.image_url,
         tags=tags_to_summary_dtos(plan.tag_list),
         status=_to_plan_status(plan.status),

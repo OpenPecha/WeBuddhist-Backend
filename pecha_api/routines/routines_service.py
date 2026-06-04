@@ -5,6 +5,7 @@ from typing import List, Dict
 from uuid import UUID
 
 from pecha_api.config import TIME_FORMAT_PATTERN, get
+from pecha_api.plans.authors.plan_authors_service import safe_get_image_url
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.db.database import SessionLocal
 from pecha_api.users.users_service import validate_and_extract_user_details
@@ -259,22 +260,15 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
         db=db, user_id=user_id, plan_ids=plan_ids
     )
     
-    bucket_name = get("AWS_BUCKET_NAME")
-
     resolved = []
     for session in plan_sessions:
         plan = plan_map.get(session.source_id)
         if plan is None:
             continue
 
-        image_url = ""
-        if plan.image_url:
-            try:
-                image_url = generate_presigned_access_url(
-                    bucket_name=bucket_name, s3_key=plan.image_url
-                )
-            except Exception:
-                image_url = ""
+        plan_image = safe_get_image_url(
+            plan.image_url, resource_id=plan.id, resource_type="plan"
+        )
         
         # Get user progress for this plan
         progress = progress_map.get(session.source_id)
@@ -290,7 +284,7 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
                     if hasattr(plan.language, "value")
                     else str(plan.language)
                 ),
-                image_url=image_url,
+                image=plan_image,
                 display_order=session.display_order,
                 start_date=plan.start_date,  # Plan's start_date
                 started_at=progress.started_at if progress else None,  # User's started_at
@@ -321,7 +315,7 @@ async def _resolve_recitation_sessions(
                 source_id=session.source_id,
                 title=text.title,
                 language=text.language or "en",
-                image_url=None,
+                image=None,
                 display_order=session.display_order,
             )
         )

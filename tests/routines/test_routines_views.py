@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from fastapi import HTTPException, FastAPI
 from starlette import status
 
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.routines.routines_response_models import (
     RoutineWithTimeBlocksResponse,
     RoutineResponse,
@@ -75,7 +76,11 @@ def test_create_routine_success(authenticated_client):
                         source_id=source_id,
                         title="Daily Routine",
                         language="EN",
-                        image_url="https://example.com/image.jpg",
+                        image=ImageUrlModel(
+                            thumbnail="https://example.com/image-thumb.jpg",
+                            medium="https://example.com/image-medium.jpg",
+                            original="https://example.com/image.jpg",
+                        ),
                         display_order=0,
                     )
                 ],
@@ -293,7 +298,11 @@ def test_create_time_block_success(authenticated_client):
                 source_id=source_id,
                 title="Morning Plan",
                 language="EN",
-                image_url="https://example.com/morning.jpg",
+                image=ImageUrlModel(
+                    thumbnail="https://example.com/morning-thumb.jpg",
+                    medium="https://example.com/morning-medium.jpg",
+                    original="https://example.com/morning.jpg",
+                ),
                 display_order=0,
             )
         ],
@@ -572,7 +581,11 @@ def test_update_time_block_success(authenticated_client):
                 source_id=source_id,
                 title="Updated Routine",
                 language="EN",
-                image_url="https://example.com/image.jpg",
+                image=ImageUrlModel(
+                    thumbnail="https://example.com/image-thumb.jpg",
+                    medium="https://example.com/image-medium.jpg",
+                    original="https://example.com/image.jpg",
+                ),
                 display_order=0,
             )
         ],
@@ -818,7 +831,11 @@ def test_get_routine_success(authenticated_client):
                         source_id=source_id,
                         title="Morning Meditation",
                         language="EN",
-                        image_url="https://example.com/image.jpg",
+                        image=ImageUrlModel(
+                            thumbnail="https://example.com/image-thumb.jpg",
+                            medium="https://example.com/image-medium.jpg",
+                            original="https://example.com/image.jpg",
+                        ),
                         display_order=0,
                     )
                 ],
@@ -911,7 +928,7 @@ def test_get_routine_with_pagination(authenticated_client):
                         source_id=source_id,
                         title="Daily Recitation",
                         language="BO",
-                        image_url=None,
+                        image=None,
                         display_order=0,
                     )
                 ],
@@ -965,7 +982,11 @@ def test_get_routine_with_multiple_time_blocks(authenticated_client):
                         source_id=source_id_1,
                         title="Morning Practice",
                         language="EN",
-                        image_url="https://example.com/morning.jpg",
+                        image=ImageUrlModel(
+                    thumbnail="https://example.com/morning-thumb.jpg",
+                    medium="https://example.com/morning-medium.jpg",
+                    original="https://example.com/morning.jpg",
+                ),
                         display_order=0,
                     )
                 ],
@@ -982,7 +1003,7 @@ def test_get_routine_with_multiple_time_blocks(authenticated_client):
                         source_id=source_id_2,
                         title="Evening Recitation",
                         language="BO",
-                        image_url=None,
+                        image=None,
                         display_order=0,
                     )
                 ],

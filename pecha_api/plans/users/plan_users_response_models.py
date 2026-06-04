@@ -52,7 +52,7 @@ class UserPlanDTO(BaseModel):
     description: str
     language: str
     difficulty_level: str
-    image_url: str
+    image: Optional[ImageUrlModel] = None
     started_at: datetime
     total_days: int
     tags: list[TagSummaryDTO] = []
@@ -115,7 +115,7 @@ class UserSeriesEnrollmentDTO(BaseModel):
     series_id: UUID
     series_title: str
     series_description: Optional[str] = None
-    series_image: Optional[ImageUrlModel] = None
+    image: Optional[ImageUrlModel] = None
     enrolled_at: datetime
     status: str  # ACTIVE, PAUSED, COMPLETED, CANCELLED
     auto_enroll_next: bool
