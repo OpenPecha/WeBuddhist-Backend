@@ -1222,13 +1222,20 @@ def test_check_day_completion_marks_day_complete_when_all_done():
         side_effect=lambda user_id, day_id: SimpleNamespace(user_id=user_id, day_id=day_id),
     ), patch(
         "pecha_api.plans.users.plan_users_service.save_user_day_completion",
-    ) as mock_save:
+    ) as mock_save, patch(
+        "pecha_api.plans.users.plan_users_service.sync_series_day_completion",
+        return_value=[],
+    ) as mock_sync, patch(
+        "pecha_api.plans.users.plan_users_service.check_plan_completion",
+    ) as mock_plan_completion:
         check_day_completion(db=db_mock, user_id=user_id, day_id=day_id)
 
         assert mock_save.call_count == 1
         udc = mock_save.call_args.kwargs["user_day_completion"]
         assert udc.user_id == user_id
         assert udc.day_id == day_id
+        mock_sync.assert_called_once_with(db=db_mock, user_id=user_id, completed_day_id=day_id)
+        mock_plan_completion.assert_called_once_with(db_mock, user_id, day_id)
 
 
 def test_check_day_completion_does_nothing_when_remaining_tasks():
