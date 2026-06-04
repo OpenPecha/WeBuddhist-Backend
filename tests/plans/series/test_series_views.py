@@ -213,7 +213,7 @@ def test_get_series_by_id_success(sample_series_dto):
         response = client.get(f"/series/{series_id}")
 
         assert response.status_code == status.HTTP_200_OK
-        mock_detail.assert_called_once_with(series_id=series_id)
+        mock_detail.assert_called_once_with(series_id=series_id, language=None)
 
         data = response.json()
         assert data["id"] == str(sample_series_dto.id)
@@ -293,7 +293,7 @@ def test_get_series_by_id_includes_total_days_in_response():
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_detail.assert_called_once_with(series_id=series_id)
+        mock_detail.assert_called_once_with(series_id=series_id, language=None)
 
         assert data["total_days"] == 8
         assert len(data["plans"]) == 2
@@ -526,6 +526,18 @@ def test_get_cms_series_by_id_forbidden():
         )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_series_by_id_passes_language_param(sample_series_dto):
+    series_id = sample_series_dto.id
+    with patch(
+        "pecha_api.plans.series.public_series_view.get_series_detail",
+        return_value=sample_series_dto,
+    ) as mock_detail:
+        response = client.get(f"/series/{series_id}", params={"language": "bo"})
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_detail.assert_called_once_with(series_id=series_id, language="bo")
 
 
 def test_get_cms_series_by_id_passes_language_param(sample_series_dto):

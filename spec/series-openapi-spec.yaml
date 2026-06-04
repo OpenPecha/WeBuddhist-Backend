@@ -382,10 +382,21 @@ paths:
         Public, unauthenticated retrieval of a single Series. Only attached
         plans that are published and active are included in the response.
 
+        Optional `language` query filters the returned plans (and
+        `total_days`) to those matching the given language code (e.g. `en`,
+        `bo`, `zh`); case-insensitive.
+
         Returns 404 if the Series does not exist, is soft-deleted, OR exists
         but does not have status PUBLISHED. A non-published Series is
         deliberately indistinguishable from a missing one on this endpoint.
       security: []
+      parameters:
+        - name: language
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter plans by language (e.g. en, bo, zh).
       responses:
         '200':
           description: The requested Series.

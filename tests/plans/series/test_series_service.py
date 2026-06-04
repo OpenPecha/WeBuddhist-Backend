@@ -610,6 +610,62 @@ def test_get_series_detail_excludes_non_published_plans():
     assert dto.plans[0].status == PlanStatus.PUBLISHED
 
 
+def test_get_series_detail_filters_plans_by_language():
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+
+    plan_en = MagicMock()
+    plan_en.deleted_at = None
+    plan_en.display_order = 0
+    plan_en.id = uuid.uuid4()
+    plan_en.title = "English plan"
+    plan_en.description = None
+    plan_en.language = LanguageCode.EN
+    plan_en.difficulty_level = None
+    plan_en.image_url = None
+    plan_en.tag_list = []
+    plan_en.status = PlanStatus.PUBLISHED
+    plan_en.featured = False
+    plan_en.start_date = None
+    plan_en.items = []
+
+    plan_bo = MagicMock()
+    plan_bo.deleted_at = None
+    plan_bo.display_order = 1
+    plan_bo.id = uuid.uuid4()
+    plan_bo.title = "Tibetan plan"
+    plan_bo.description = None
+    plan_bo.language = LanguageCode.BO
+    plan_bo.difficulty_level = None
+    plan_bo.image_url = None
+    plan_bo.tag_list = []
+    plan_bo.status = PlanStatus.PUBLISHED
+    plan_bo.featured = False
+    plan_bo.start_date = None
+    plan_bo.items = []
+
+    row = MagicMock()
+    row.id = series_id
+    row.metadata_entries = []
+    row.image = None
+    row.author_id = author_id
+    row.featured = False
+    row.status = PlanStatus.PUBLISHED
+    row.plans = [plan_en, plan_bo]
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=row,
+    ):
+        _session_local_context(mock_session_local)
+
+        dto = get_series_detail(series_id=series_id, language="bo")
+
+    assert len(dto.plans) == 1
+    assert dto.plans[0].id == plan_bo.id
+    assert dto.plans[0].language == "BO"
+
+
 # ---------------------------------------------------------------------------
 # Helpers shared by update_existing_series tests
 # ---------------------------------------------------------------------------

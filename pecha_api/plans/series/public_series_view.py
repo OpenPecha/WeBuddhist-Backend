@@ -34,5 +34,11 @@ async def get_series_list(
 @public_series_router.get(
     "/{series_id}", status_code=status.HTTP_200_OK, response_model=SeriesDTO
 )
-async def get_series(series_id: UUID):
-    return get_series_detail(series_id=series_id)
+async def get_series(
+    series_id: UUID,
+    language: Annotated[
+        Optional[str],
+        Query(description="Filter plans by language (e.g. 'en', 'bo', 'zh')"),
+    ] = None,
+):
+    return get_series_detail(series_id=series_id, language=language)
