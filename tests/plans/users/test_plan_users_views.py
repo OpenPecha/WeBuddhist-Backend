@@ -118,6 +118,7 @@ def test_complete_sub_task_unauthenticated(unauthenticated_client):
 
 
 def test_get_user_plans_success(authenticated_client):
+    from pecha_api.plans.media.media_response_models import ImageUrlModel
     from pecha_api.plans.users.plan_users_response_models import UserPlansResponse, UserPlanDTO
     from datetime import datetime, timezone
     from tests.plans.tag_test_helpers import make_tag_summaries
@@ -131,7 +132,11 @@ def test_get_user_plans_success(authenticated_client):
                 description="Test Description",
                 language="EN",
                 difficulty_level="BEGINNER",
-                image_url="https://s3.amazonaws.com/presigned-url",
+                image=ImageUrlModel(
+                    thumbnail="https://s3.amazonaws.com/presigned-thumb",
+                    medium="https://s3.amazonaws.com/presigned-medium",
+                    original="https://s3.amazonaws.com/presigned-url",
+                ),
                 started_at=datetime.now(timezone.utc),
                 total_days=30,
                 tags=make_tag_summaries(["meditation", "mindfulness"]),
@@ -167,7 +172,7 @@ def test_get_user_plans_success(authenticated_client):
         assert plan["description"] == "Test Description"
         assert plan["language"] == "EN"
         assert plan["difficulty_level"] == "BEGINNER"
-        assert plan["image_url"] == "https://s3.amazonaws.com/presigned-url"
+        assert plan["image"]["original"] == "https://s3.amazonaws.com/presigned-url"
         assert plan["total_days"] == 30
         assert [t["name"] for t in plan["tags"]] == ["meditation", "mindfulness"]
         
@@ -214,7 +219,7 @@ def test_get_user_plans_with_pagination(authenticated_client):
             description=f"Description {i}",
             language="EN",
             difficulty_level="BEGINNER",
-            image_url="",
+            image=None,
             started_at=datetime.now(timezone.utc),
             total_days=30,
             tags=[],
@@ -373,9 +378,16 @@ def test_get_user_plans_database_error(authenticated_client):
 
 def test_get_user_plans_multiple_plans(authenticated_client):
     """Test retrieval of multiple enrolled plans"""
+    from pecha_api.plans.media.media_response_models import ImageUrlModel
     from pecha_api.plans.users.plan_users_response_models import UserPlansResponse, UserPlanDTO
     from datetime import datetime, timezone
     from tests.plans.tag_test_helpers import make_tag_summaries
+
+    plan_image = ImageUrlModel(
+        thumbnail="https://s3.amazonaws.com/plan-thumb.jpg",
+        medium="https://s3.amazonaws.com/plan-medium.jpg",
+        original="https://s3.amazonaws.com/plan.jpg",
+    )
     
     mock_plans = [
         UserPlanDTO(
@@ -384,7 +396,7 @@ def test_get_user_plans_multiple_plans(authenticated_client):
             description="Daily meditation practice",
             language="EN",
             difficulty_level="BEGINNER",
-            image_url="https://s3.amazonaws.com/plan1.jpg",
+            image=plan_image,
             started_at=datetime.now(timezone.utc),
             total_days=21,
             tags=make_tag_summaries(["meditation", "mindfulness"]),
@@ -395,7 +407,7 @@ def test_get_user_plans_multiple_plans(authenticated_client):
             description="Advanced Buddhist teachings",
             language="BO",
             difficulty_level="ADVANCED",
-            image_url="https://s3.amazonaws.com/plan2.jpg",
+            image=plan_image,
             started_at=datetime.now(timezone.utc),
             total_days=90,
             tags=make_tag_summaries(["dharma", "philosophy"]),
@@ -406,7 +418,7 @@ def test_get_user_plans_multiple_plans(authenticated_client):
             description="Introduction to Buddhism",
             language="EN",
             difficulty_level="BEGINNER",
-            image_url="",
+            image=None,
             started_at=datetime.now(timezone.utc),
             total_days=7,
             tags=make_tag_summaries(["basics"]),
@@ -434,7 +446,9 @@ def test_get_user_plans_multiple_plans(authenticated_client):
         
         assert data["plans"][0]["title"] == "Meditation Plan"
         assert data["plans"][1]["language"] == "BO"
-        assert data["plans"][2]["image_url"] == ""
+        assert data["plans"][2]["image"] is None
+
+
 def test_get_user_plans_success_default_pagination(authenticated_client):
     response_payload = {"plans": [], "skip": 0, "limit": 20, "total": 0}
 
@@ -866,6 +880,7 @@ def test_enroll_in_series_service_error(authenticated_client):
 
 
 def test_get_user_series_enrollments_success(authenticated_client):
+    from pecha_api.plans.media.media_response_models import ImageUrlModel
     from pecha_api.plans.users.plan_users_response_models import (
         UserSeriesEnrollmentsResponse,
         UserSeriesEnrollmentDTO,
@@ -881,7 +896,11 @@ def test_get_user_series_enrollments_success(authenticated_client):
                 series_id=series_id,
                 series_title="Test Series",
                 series_description="Description",
-                series_image_url="https://signed.example.com/series.jpg",
+                image=ImageUrlModel(
+                    thumbnail="https://signed.example.com/series-thumb.jpg",
+                    medium="https://signed.example.com/series-medium.jpg",
+                    original="https://signed.example.com/series.jpg",
+                ),
                 enrolled_at=datetime.now(timezone.utc),
                 status="ACTIVE",
                 auto_enroll_next=True,
@@ -971,7 +990,7 @@ def test_get_user_series_progress_success(authenticated_client):
                 description="Desc",
                 language="EN",
                 difficulty_level="BEGINNER",
-                image_url="",
+                image=None,
                 started_at=started_at,
                 total_days=7,
                 tags=[],

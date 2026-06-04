@@ -117,13 +117,13 @@ def upload_user_image(token: str, file: UploadFile) -> str:
     # Validate and compress the uploaded image
     image_utils = ImageUtils()
     compressed_image = image_utils.validate_and_compress_image(file=file, content_type=file.content_type)
-    file_path = f'images/profile_images/{current_user.id}.jpg'
+    file_path = f'images/profile_images/{current_user.id}.webp'
     delete_file(file_path=file_path)
     upload_key = upload_bytes(
         bucket_name=get("AWS_BUCKET_NAME"),
         s3_key=file_path,
         file=compressed_image,
-        content_type=file.content_type
+        content_type="image/webp"
     )
     presigned_url = generate_presigned_access_url(
         bucket_name=get("AWS_BUCKET_NAME"),

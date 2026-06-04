@@ -9,12 +9,13 @@ from fastapi import HTTPException
 from pecha_api.plans.plans_enums import EnrollmentSource, SeriesStatus, UserPlanStatus
 from pecha_api.plans.users.plan_user_series_repository import _filter_plans_by_date_availability
 from pecha_api.plans.response_message import BAD_REQUEST
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.users.plan_users_response_models import (
     UserSeriesEnrollRequest,
     UpdateSeriesEnrollmentRequest,
 )
+from pecha_api.plans.authors.plan_authors_service import safe_get_image_url
 from pecha_api.plans.users.plan_users_service import (
-    _generate_presigned_image_url,
     _compute_series_plan_progress,
     _build_user_series_enrollment_dto,
     _build_series_plan_dto_for_progress,
@@ -77,36 +78,41 @@ def test_filter_plans_by_date_availability_excludes_display_order_zero():
     assert result[0].id == second_plan.id
 
 
-def test_generate_presigned_image_url_returns_empty_when_no_key():
-    result = _generate_presigned_image_url("bucket", None, uuid.uuid4(), "series")
-    assert result == ""
+def test_safe_get_image_url_returns_none_when_no_key():
+    result = safe_get_image_url(None, resource_id=uuid.uuid4(), resource_type="series")
+    assert result is None
 
 
-def test_generate_presigned_image_url_success():
+def test_safe_get_image_url_delegates_to_get_image_url():
     resource_id = uuid.uuid4()
+    expected = ImageUrlModel(
+        thumbnail="https://signed.example.com/thumb.jpg",
+        medium="https://signed.example.com/medium.jpg",
+        original="https://signed.example.com/img.jpg",
+    )
     with patch(
-        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
-        return_value="https://signed.example.com/img.jpg",
-    ) as mock_presign:
-        result = _generate_presigned_image_url(
-            "bucket", "images/series.jpg", resource_id, "series"
+        "pecha_api.plans.authors.plan_authors_service.get_image_url",
+        return_value=expected,
+    ) as mock_get:
+        result = safe_get_image_url(
+            "images/series/original/cover.jpg", resource_id=resource_id, resource_type="series"
         )
 
-    assert result == "https://signed.example.com/img.jpg"
-    mock_presign.assert_called_once_with(bucket_name="bucket", s3_key="images/series.jpg")
+    assert result == expected
+    mock_get.assert_called_once_with(image_url="images/series/original/cover.jpg")
 
 
-def test_generate_presigned_image_url_returns_empty_on_error():
+def test_safe_get_image_url_returns_none_on_error():
     resource_id = uuid.uuid4()
     with patch(
-        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
+        "pecha_api.plans.authors.plan_authors_service.get_image_url",
         side_effect=Exception("S3 error"),
     ):
-        result = _generate_presigned_image_url(
-            "bucket", "images/series.jpg", resource_id, "series"
+        result = safe_get_image_url(
+            "images/series.jpg", resource_id=resource_id, resource_type="series"
         )
 
-    assert result == ""
+    assert result is None
 
 
 def test_compute_series_plan_progress_empty_plans():
@@ -155,9 +161,16 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
         metadata_entries=[SimpleNamespace(title="Series Title", description="Series Desc")],
     )
 
+    from pecha_api.plans.media.media_response_models import ImageUrlModel
+
+    series_image = ImageUrlModel(
+        thumbnail="https://signed.example.com/series-thumb.jpg",
+        medium="https://signed.example.com/series-medium.jpg",
+        original="https://signed.example.com/series.jpg",
+    )
     with patch(
-        "pecha_api.plans.users.plan_users_service._generate_presigned_image_url",
-        return_value="https://signed.example.com/series.jpg",
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=series_image,
     ):
         dto = _build_user_series_enrollment_dto(
             enrollment,
@@ -165,13 +178,12 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
             {current_plan_id: "Current Plan"},
             {series_id: [SimpleNamespace(id=plan_id)]},
             {plan_id: SimpleNamespace(is_completed=True)},
-            "bucket",
         )
 
     assert dto.id == enrollment_id
     assert dto.series_title == "Series Title"
     assert dto.series_description == "Series Desc"
-    assert dto.series_image_url == "https://signed.example.com/series.jpg"
+    assert dto.image == series_image
     assert dto.current_plan_title == "Current Plan"
     assert dto.total_plans == 1
     assert dto.completed_plans == 1
@@ -194,11 +206,11 @@ def test_build_user_series_enrollment_dto_without_metadata():
     series = SimpleNamespace(id=series_id, image=None, metadata_entries=[])
 
     with patch(
-        "pecha_api.plans.users.plan_users_service._generate_presigned_image_url",
-        return_value="",
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
     ):
         dto = _build_user_series_enrollment_dto(
-            enrollment, series, {}, {series_id: []}, {}, "bucket"
+            enrollment, series, {}, {series_id: []}, {}
         )
 
     assert dto.series_title == "Untitled Series"
@@ -228,18 +240,22 @@ def test_build_series_plan_dto_for_progress():
         "pecha_api.plans.users.plan_users_service.get_days_by_plan_id",
         return_value=[SimpleNamespace(), SimpleNamespace()],
     ), patch(
-        "pecha_api.plans.users.plan_users_service._generate_presigned_image_url",
-        return_value="https://signed.example.com/plan.jpg",
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=ImageUrlModel(
+            thumbnail="https://signed.example.com/plan-thumb.jpg",
+            medium="https://signed.example.com/plan-medium.jpg",
+            original="https://signed.example.com/plan.jpg",
+        ),
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
         return_value=SimpleNamespace(started_at=started_at),
     ):
-        dto = _build_series_plan_dto_for_progress(db_mock, plan, user_id, "bucket")
+        dto = _build_series_plan_dto_for_progress(db_mock, plan, user_id)
 
     assert dto.id == plan_id
     assert dto.title == "Plan A"
     assert dto.total_days == 2
-    assert dto.image_url == "https://signed.example.com/plan.jpg"
+    assert dto.image.original == "https://signed.example.com/plan.jpg"
     assert dto.started_at == started_at
 
 
@@ -432,11 +448,12 @@ def test_get_user_series_enrollments_success():
         "pecha_api.plans.users.plan_users_service.get_plans_by_ids",
         return_value=[plan],
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get",
-        return_value="bucket",
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
-        return_value="https://signed.example.com/series.jpg",
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=ImageUrlModel(
+            thumbnail="https://signed.example.com/series-thumb.jpg",
+            medium="https://signed.example.com/series-medium.jpg",
+            original="https://signed.example.com/series.jpg",
+        ),
     ):
         result = get_user_series_enrollments(
             token="tok", status_filter="active", skip=0, limit=20
@@ -449,7 +466,8 @@ def test_get_user_series_enrollments_success():
     assert dto.current_plan_title == "Plan 1"
     assert dto.completed_plans == 1
     assert dto.progress_percentage == 100.0
-    assert dto.series_image_url == "https://signed.example.com/series.jpg"
+    assert dto.image is not None
+    assert dto.image.original == "https://signed.example.com/series.jpg"
 
 
 def test_get_user_series_enrollments_skips_missing_series():
@@ -540,16 +558,13 @@ def test_get_user_series_enrollments_presigned_url_error():
         "pecha_api.plans.users.plan_users_service.get_plans_by_ids",
         return_value=[],
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get",
-        return_value="bucket",
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
-        side_effect=Exception("S3 error"),
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
     ):
         result = get_user_series_enrollments(token="tok")
 
     assert len(result.enrollments) == 1
-    assert result.enrollments[0].series_image_url == ""
+    assert result.enrollments[0].image is None
 
 
 def test_get_user_series_progress_success():
@@ -599,14 +614,14 @@ def test_get_user_series_progress_success():
         "pecha_api.plans.users.plan_users_service.get_plans_by_series_id",
         return_value=[plan],
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get",
-        return_value="bucket",
-    ), patch(
         "pecha_api.plans.users.plan_users_service.get_days_by_plan_id",
         return_value=[SimpleNamespace()],
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
         return_value=SimpleNamespace(started_at=datetime.now(timezone.utc)),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
     ):
         result = get_user_series_progress(token="tok", series_id=series_id)
 
@@ -614,7 +629,7 @@ def test_get_user_series_progress_success():
     assert result.series_title == "Series"
     assert len(result.plans) == 1
     assert result.plans[0].title == "Plan 1"
-    assert result.plans[0].image_url == ""
+    assert result.plans[0].image is None
 
 
 def test_get_user_series_progress_not_enrolled_raises_404():

@@ -20,10 +20,12 @@ from pecha_api.routines.routines_service import (
     group_sessions_by_block,
     build_time_block_dto,
 )
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.routines.routines_response_models import (
     CreateTimeBlockRequest,
     UpdateTimeBlockRequest,
     SessionRequest,
+    SessionDTO,
     RoutineResponse,
 )
 from pecha_api.routines.routines_enums import SessionType
@@ -46,6 +48,48 @@ def _mock_session_with_db():
     session_cm = MagicMock()
     session_cm.__enter__.return_value = db_mock
     return db_mock, session_cm
+
+
+def test_session_dto_serializer_omits_plan_fields_for_timer():
+    dto = SessionDTO(
+        id=uuid.uuid4(),
+        session_type=SessionType.TIMER,
+        source_id=uuid.uuid4(),
+        title="Should be omitted",
+        language="EN",
+        duration_ms=900000,
+        image=ImageUrlModel(
+            thumbnail="https://example.com/t.jpg",
+            medium="https://example.com/m.jpg",
+            original="https://example.com/o.jpg",
+        ),
+        display_order=0,
+    )
+    data = dto.model_dump()
+    assert data["session_type"] == SessionType.TIMER
+    assert data["duration_ms"] == 900000
+    assert "source_id" not in data
+    assert "title" not in data
+    assert "language" not in data
+    assert "image" not in data
+    assert "start_date" not in data
+    assert "started_at" not in data
+
+
+def test_session_dto_serializer_omits_duration_for_plan():
+    dto = SessionDTO(
+        id=uuid.uuid4(),
+        session_type=SessionType.PLAN,
+        source_id=uuid.uuid4(),
+        title="Morning Plan",
+        language="EN",
+        duration_ms=900000,
+        display_order=0,
+    )
+    data = dto.model_dump()
+    assert data["session_type"] == SessionType.PLAN
+    assert data["title"] == "Morning Plan"
+    assert "duration_ms" not in data
 
 
 # --- Validation tests ---
@@ -254,16 +298,22 @@ async def test_create_routine_success():
         id=source_id,
         title="Daily Routine",
         language=SimpleNamespace(value="EN"),
-        image_url="https://example.com/image.jpg",
+        image_url="images/plan/original/cover.jpg",
         start_date=None,
+    )
+
+    plan_image = ImageUrlModel(
+        thumbnail="https://example.com/image-thumb.jpg",
+        medium="https://example.com/image-medium.jpg",
+        original="https://example.com/image.jpg",
     )
 
     mock_time_block_model = MagicMock()
     mock_session_model = MagicMock()
 
     with patch(
-        "pecha_api.routines.routines_service.generate_presigned_access_url",
-        side_effect=lambda bucket_name, s3_key: s3_key,
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=plan_image,
     ), patch(
         "pecha_api.routines.routines_service.validate_and_extract_user_details",
         return_value=SimpleNamespace(id=user_id),
@@ -311,10 +361,7 @@ async def test_create_routine_success():
         assert len(result.time_blocks[0].sessions) == 1
         assert result.time_blocks[0].sessions[0].title == "Daily Routine"
         assert result.time_blocks[0].sessions[0].language == "EN"
-        assert (
-            result.time_blocks[0].sessions[0].image_url
-            == "https://example.com/image.jpg"
-        )
+        assert result.time_blocks[0].sessions[0].image == plan_image
 
 
 @pytest.mark.asyncio
@@ -446,13 +493,19 @@ def test_resolve_plan_sessions_success():
         id=source_id,
         title="Test Plan",
         language=SimpleNamespace(value="EN"),
-        image_url="https://example.com/plan.jpg",
+        image_url="images/plan/original/cover.jpg",
         start_date=None,
     )
 
+    plan_image = ImageUrlModel(
+        thumbnail="https://example.com/plan-thumb.jpg",
+        medium="https://example.com/plan-medium.jpg",
+        original="https://example.com/plan.jpg",
+    )
+
     with patch(
-        "pecha_api.routines.routines_service.generate_presigned_access_url",
-        side_effect=lambda bucket_name, s3_key: s3_key,
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=plan_image,
     ), patch(
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
@@ -465,7 +518,7 @@ def test_resolve_plan_sessions_success():
         assert len(result) == 1
         assert result[0].title == "Test Plan"
         assert result[0].language == "EN"
-        assert result[0].image_url == "https://example.com/plan.jpg"
+        assert result[0].image == plan_image
 
 
 def test_resolve_plan_sessions_missing_plan():
@@ -514,7 +567,7 @@ def test_resolve_plan_sessions_with_user_progress():
         id=source_id,
         title="Test Plan",
         language=SimpleNamespace(value="EN"),
-        image_url="https://example.com/plan.jpg",
+        image_url="images/plan/original/cover.jpg",
         start_date=plan_start_date,
     )
     
@@ -526,8 +579,8 @@ def test_resolve_plan_sessions_with_user_progress():
     )
 
     with patch(
-        "pecha_api.routines.routines_service.generate_presigned_access_url",
-        side_effect=lambda bucket_name, s3_key: s3_key,
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=None,
     ), patch(
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
@@ -572,7 +625,7 @@ async def test_resolve_recitation_sessions_success():
         assert len(result) == 1
         assert result[0].title == "Heart Sutra"
         assert result[0].language == "bo"
-        assert result[0].image_url is None
+        assert result[0].image is None
 
 
 @pytest.mark.asyncio
@@ -1263,6 +1316,59 @@ async def test_update_time_block_service_time_conflict():
             )
         assert exc_info.value.status_code == 409
         assert exc_info.value.detail["message"] == TIME_BLOCK_TIME_CONFLICT
+
+
+@pytest.mark.asyncio
+async def test_update_time_block_duplicate_plan_across_routine():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    existing_plan_id = uuid.uuid4()
+
+    request = UpdateTimeBlockRequest(
+        time="14:00",
+        time_int=1400,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.PLAN,
+                source_id=existing_plan_id,
+                display_order=0,
+            )
+        ],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_time_block_by_id_and_routine",
+        return_value=SimpleNamespace(
+            id=time_block_id, routine_id=routine_id, time="12:00", time_int=1200
+        ),
+    ), patch(
+        "pecha_api.routines.routines_service.get_time_block_by_routine_and_time",
+        return_value=None,
+    ), patch(
+        "pecha_api.routines.routines_service.get_existing_plan_source_ids_in_routine",
+        return_value=[existing_plan_id],
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await update_time_block_service(
+                token="token123",
+                routine_id=routine_id,
+                time_block_id=time_block_id,
+                request=request,
+            )
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail["message"] == DUPLICATE_PLAN
 
 
 # ============================================================================

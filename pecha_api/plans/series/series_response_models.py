@@ -5,6 +5,7 @@ from datetime import datetime
 
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel, LanguageCode
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 
 
 def _validate_plan_language_keys(v):
@@ -68,7 +69,7 @@ class SeriesPlanDTO(BaseModel):
     description: Optional[str] = None
     language: str
     difficulty_level: Optional[DifficultyLevel] = None
-    image_url: Optional[str] = None
+    image: Optional[ImageUrlModel] = None
     image_key: Optional[str] = None
     tags: List[TagSummaryDTO] = []
     status: PlanStatus
@@ -82,7 +83,7 @@ class SeriesPlanDTO(BaseModel):
 class SeriesListItemDTO(BaseModel):
     id: UUID
     metadata: List[SeriesMetadataDTO] = []
-    image: Optional[str] = None
+    image: Optional[ImageUrlModel] = None
     image_key: Optional[str] = None
     author_id: UUID
     featured: bool
@@ -94,7 +95,7 @@ class SeriesListItemDTO(BaseModel):
 class SeriesDTO(BaseModel):
     id: UUID
     metadata: List[SeriesMetadataDTO] = []
-    image: Optional[str] = None
+    image: Optional[ImageUrlModel] = None
     image_key: Optional[str] = None
     author_id: UUID
     featured: bool

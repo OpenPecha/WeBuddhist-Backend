@@ -341,18 +341,18 @@ def upload_sheet_image_request(sheet_id: Optional[str], file: UploadFile) -> She
     # Validate and compress the uploaded image
     image_utils = ImageUtils()
     compressed_image = image_utils.validate_and_compress_image(file=file, content_type=file.content_type)
-    file_name, ext = os.path.splitext(file.filename)
+    file_name, _ = os.path.splitext(file.filename)
     unique_id = str(uuid.uuid4())
     
     # If no id is provided, use a random UUID as the folder name
     path = "images/sheet_images"
     image_path_full = f"{path}/{sheet_id}/{unique_id}" if sheet_id is not None else f"{path}/{unique_id}"
-    sheet_image_name = f"{image_path_full}/{file_name}{ext}"
+    sheet_image_name = f"{image_path_full}/{file_name}.webp"
     upload_key = upload_bytes(
         bucket_name=get("AWS_BUCKET_NAME"),
         s3_key=sheet_image_name,
         file=compressed_image,
-        content_type=file.content_type
+        content_type="image/webp"
     )
     presigned_url = generate_presigned_access_url(
         bucket_name=get("AWS_BUCKET_NAME"),

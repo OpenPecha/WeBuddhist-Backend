@@ -3,6 +3,7 @@ from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from .routines_enums import SessionType
 
 
@@ -34,7 +35,7 @@ class SessionDTO(BaseModel):
     title: Optional[str] = None  
     language: Optional[str] = None  
     duration_ms: Optional[int] = None  
-    image_url: Optional[str] = None
+    image: Optional[ImageUrlModel] = None    
     display_order: int
     start_date: Optional[datetime] = None  # Plan's start_date
     started_at: Optional[datetime] = None  # User's started_at from progress
@@ -43,7 +44,7 @@ class SessionDTO(BaseModel):
     def _omit_inapplicable_fields(self, serializer):
         data = serializer(self)
         if self.session_type == SessionType.TIMER:
-            for field in ("source_id", "title", "language", "image_url", "start_date", "started_at"):
+            for field in ("source_id", "title", "language", "image", "start_date", "started_at"):
                 data.pop(field, None)
         else:
             data.pop("duration_ms", None)

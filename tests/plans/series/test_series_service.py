@@ -22,6 +22,7 @@ from pecha_api.plans.series.series_service import (
     get_cms_series_detail,
     delete_existing_series,
 )
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
     UpdateSeriesRequest,
@@ -102,29 +103,36 @@ def test_get_filtered_series_maps_rows_to_response():
 
 
 def test_get_filtered_series_presigns_image_when_key_present():
+    from pecha_api.plans.media.media_response_models import ImageUrlModel
+
     row = MagicMock()
     row.id = uuid.uuid4()
     row.metadata_entries = [_metadata_entry(title="With cover")]
-    row.image = "series/covers/x.jpg"
+    row.image = "images/series_images/sid/uuid/original/cover.jpg"
     row.author_id = uuid.uuid4()
     row.featured = False
     row.status = MagicMock()
     row.status.value = PlanStatus.PUBLISHED.value
+    image_model = ImageUrlModel(
+        thumbnail="https://signed.example/thumb.jpg",
+        medium="https://signed.example/medium.jpg",
+        original="https://signed.example/original.jpg",
+    )
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
         return_value=([(row, 0)], 1),
-    ), patch("pecha_api.plans.series.series_service.get", return_value="test-bucket"), patch(
-        "pecha_api.plans.series.series_service.generate_presigned_access_url",
-        return_value="https://signed.example/x.jpg",
-    ) as mock_presign:
+    ), patch(
+        "pecha_api.plans.series.series_service.get_image_url",
+        return_value=image_model,
+    ) as mock_get_image:
         _session_local_context(mock_session_local)
 
         result = get_filtered_series(search=None, skip=0, limit=10)
 
-    assert result.series[0].image == "https://signed.example/x.jpg"
-    assert result.series[0].image_key == "series/covers/x.jpg"
-    mock_presign.assert_called_once_with(bucket_name="test-bucket", s3_key="series/covers/x.jpg")
+    assert result.series[0].image == image_model
+    assert result.series[0].image_key == row.image
+    mock_get_image.assert_called_once_with(image_url=row.image)
 
 
 def test_get_filtered_series_empty_repository():
@@ -164,9 +172,13 @@ def test_create_new_series_persists_and_returns_dto():
     ) as mock_save, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=saved,
-    ), patch("pecha_api.plans.series.series_service.get", return_value="b"), patch(
-        "pecha_api.plans.series.series_service.generate_presigned_access_url",
-        return_value="https://signed/img.png",
+    ), patch(
+        "pecha_api.plans.series.series_service.get_image_url",
+        return_value=ImageUrlModel(
+            thumbnail="https://signed/img-thumb.png",
+            medium="https://signed/img-medium.png",
+            original="https://signed/img.png",
+        ),
     ), patch(
         "pecha_api.plans.series.series_service.validate_and_extract_author_details",
         return_value=mock_author,
@@ -184,6 +196,8 @@ def test_create_new_series_persists_and_returns_dto():
 
     assert dto.id == saved.id
     assert dto.metadata[0].title == "New"
+    assert dto.image is not None
+    assert dto.image.original == "https://signed/img.png"
     assert dto.image_key == request.image_key
     assert dto.featured is True
     assert dto.status == PlanStatus.DRAFT
@@ -362,10 +376,18 @@ def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=row,
-    ), patch("pecha_api.plans.series.series_service.get", return_value="bk"), patch(
-        "pecha_api.plans.series.series_service.generate_presigned_access_url",
-        return_value="https://signed/b.jpg",
-    ) as mock_presign:
+    ), patch(
+        "pecha_api.plans.series.series_service.safe_get_image_url",
+        side_effect=lambda image_url, **kwargs: (
+            ImageUrlModel(
+                thumbnail="https://signed/b-thumb.jpg",
+                medium="https://signed/b-medium.jpg",
+                original="https://signed/b.jpg",
+            )
+            if image_url
+            else None
+        ),
+    ) as mock_safe_image:
         _session_local_context(mock_session_local)
 
         dto = get_series_detail(series_id=series_id)
@@ -373,16 +395,20 @@ def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     assert len(dto.plans) == 2
     assert dto.plans[0].id == plan_a_id
     assert dto.plans[0].title == "First order"
-    assert dto.plans[0].image_url is None
+    assert dto.plans[0].image is None
     assert dto.plans[0].image_key is None
     assert dto.plans[0].tags == []
     assert dto.plans[0].status == PlanStatus.PUBLISHED
     assert dto.plans[0].featured is True
 
     assert dto.plans[1].id == plan_b_id
-    assert dto.plans[1].image_url == "https://signed/b.jpg"
+    assert dto.plans[1].image is not None
+    assert dto.plans[1].image.original == "https://signed/b.jpg"
     assert dto.plans[1].image_key == "plans/b.jpg"
-    mock_presign.assert_called_once_with(bucket_name="bk", s3_key="plans/b.jpg")
+    mock_safe_image.assert_any_call(
+        "plans/b.jpg", resource_id=plan_b_id, resource_type="plan"
+    )
+    assert mock_safe_image.call_count == 2
 
 
 def test_get_series_detail_includes_total_days_for_each_plan():

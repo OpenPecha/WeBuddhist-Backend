@@ -10,6 +10,7 @@ from pecha_api.plans.dashboard.dashboard_response_models import (
     DashboardItemsResponse,
     DashboardPaginationDTO,
 )
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.dashboard.dashboard_views import list_practice_items
 from pecha_api.plans.plans_enums import PlanStatus
 
@@ -23,7 +24,11 @@ async def test_list_practice_items_success():
                 id=item_id,
                 type="plan",
                 title="Morning Practice",
-                image_url="https://example.com/image.jpg",
+                image=ImageUrlModel(
+                    thumbnail="https://example.com/image-thumb.jpg",
+                    medium="https://example.com/image-medium.jpg",
+                    original="https://example.com/image.jpg",
+                ),
                 image_key="plan/cover.jpg",
                 status=PlanStatus.PUBLISHED,
                 featured=True,

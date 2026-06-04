@@ -46,6 +46,25 @@ def test_sync_series_day_completion_returns_empty_when_display_order_missing():
     assert result == []
 
 
+def test_sync_series_day_completion_returns_empty_when_no_sibling_plans():
+    db_mock = MagicMock()
+    day_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    with patch(
+        "pecha_api.plans.users.plan_user_series_day_sync_service.get_plan_item_by_id",
+        return_value=SimpleNamespace(id=day_id, plan_id=plan_id, day_number=1),
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_day_sync_service.get_plan_by_id",
+        return_value=SimpleNamespace(id=plan_id, series_id=series_id, display_order=1),
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_day_sync_service.get_sibling_plans_in_series_slot",
+        return_value=[],
+    ):
+        result = sync_series_day_completion(db_mock, uuid.uuid4(), day_id)
+    assert result == []
+
+
 def test_sync_series_day_completion_marks_sibling_days_complete():
     db_mock = MagicMock()
     user_id = uuid.uuid4()
