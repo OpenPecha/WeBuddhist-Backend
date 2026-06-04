@@ -8,7 +8,8 @@ from .routines_enums import SessionType
 
 class SessionRequest(BaseModel):
     session_type: SessionType
-    source_id: UUID
+    source_id: Optional[UUID] = None  
+    duration_ms: Optional[int] = None  
     display_order: int
 
 
@@ -29,9 +30,10 @@ class UpdateTimeBlockRequest(BaseModel):
 class SessionDTO(BaseModel):
     id: UUID
     session_type: SessionType
-    source_id: UUID
-    title: str
-    language: str
+    source_id: Optional[UUID] = None  
+    title: Optional[str] = None  
+    language: Optional[str] = None  
+    duration_ms: Optional[int] = None  
     image_url: Optional[str] = None
     display_order: int
     start_date: Optional[datetime] = None  # Plan's start_date

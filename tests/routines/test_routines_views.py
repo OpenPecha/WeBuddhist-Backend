@@ -116,6 +116,64 @@ def test_create_routine_success(authenticated_client):
         mock_create.assert_called_once()
 
 
+def test_create_routine_with_timer_success(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+
+    mock_response = RoutineWithTimeBlocksResponse(
+        id=routine_id,
+        time_blocks=[
+            TimeBlockDTO(
+                id=time_block_id,
+                time="12:00",
+                time_int=1200,
+                notification_enabled=True,
+                sessions=[
+                    SessionDTO(
+                        id=session_id,
+                        session_type=SessionType.TIMER,
+                        source_id=None,
+                        duration_ms=900000,
+                        display_order=0,
+                    )
+                ],
+            )
+        ],
+    )
+
+    with patch(
+        "pecha_api.routines.routines_views.create_routine_with_time_block",
+        new_callable=AsyncMock,
+        return_value=mock_response,
+    ) as mock_create:
+        response = authenticated_client.post(
+            "/routines",
+            json={
+                "time": "12:00",
+                "time_int": 1200,
+                "notification_enabled": True,
+                "sessions": [
+                    {
+                        "session_type": "TIMER",
+                        "duration_ms": 900000,
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        body = response.json()
+        timer_session = body["time_blocks"][0]["sessions"][0]
+        assert timer_session["session_type"] == "TIMER"
+        assert timer_session["duration_ms"] == 900000
+        assert timer_session["source_id"] is None
+        assert timer_session["title"] is None
+        mock_create.assert_called_once()
+
+
 def test_create_routine_unauthorized(unauthenticated_client):
     response = unauthenticated_client.post(
         "/routines",
