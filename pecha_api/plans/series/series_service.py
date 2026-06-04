@@ -240,7 +240,7 @@ def get_filtered_series(
     )
 
 
-def get_series_detail(series_id: UUID) -> SeriesDTO:
+def get_series_detail(series_id: UUID, language: Optional[str] = None) -> SeriesDTO:
     with SessionLocal() as db_session:
         row = get_series_by_id(db=db_session, series_id=series_id)
         if not row or _to_plan_status(row.status) != PlanStatus.PUBLISHED:
@@ -253,6 +253,7 @@ def get_series_detail(series_id: UUID) -> SeriesDTO:
             row,
             include_plans=True,
             published_only=True,
+            plan_language=language,
         )
 
 def get_cms_filtered_series(

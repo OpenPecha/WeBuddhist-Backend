@@ -14,7 +14,9 @@ from pecha_api.routines.routines_service import (
     _validate_time_block_request,
     _resolve_plan_sessions,
     _resolve_recitation_sessions,
+    _resolve_timer_sessions,
     _resolve_sessions,
+    build_session_models,
     group_sessions_by_block,
     build_time_block_dto,
 )
@@ -36,6 +38,8 @@ from pecha_api.routines.response_message import (
     SESSIONS_REQUIRED,
     DUPLICATE_PLAN,
     TIME_ALREADY_EXISTS,
+    SOURCE_ID_REQUIRED,
+    INVALID_TIMER_DURATION,
 )
 
 def _mock_session_with_db():
@@ -138,6 +142,73 @@ def test_validate_duplicate_recitations_allowed():
         ],
     )
     _validate_time_block_request(request)
+
+
+def test_validate_timer_session_valid():
+    request = CreateTimeBlockRequest(
+        time="12:00",
+        time_int=1200,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.TIMER,
+                duration_ms=900000,
+                display_order=0,
+            )
+        ],
+    )
+    _validate_time_block_request(request)
+
+
+def test_validate_timer_session_missing_duration():
+    request = CreateTimeBlockRequest(
+        time="12:00",
+        time_int=1200,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.TIMER,
+                display_order=0,
+            )
+        ],
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_time_block_request(request)
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["message"] == INVALID_TIMER_DURATION
+
+
+def test_validate_timer_session_non_positive_duration():
+    request = CreateTimeBlockRequest(
+        time="12:00",
+        time_int=1200,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.TIMER,
+                duration_ms=0,
+                display_order=0,
+            )
+        ],
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_time_block_request(request)
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["message"] == INVALID_TIMER_DURATION
+
+
+def test_validate_plan_session_missing_source_id():
+    request = CreateTimeBlockRequest(
+        time="12:00",
+        time_int=1200,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.PLAN,
+                display_order=0,
+            )
+        ],
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_time_block_request(request)
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["message"] == SOURCE_ID_REQUIRED
 
 
 # --- Create routine tests ---
@@ -282,6 +353,83 @@ async def test_create_routine_already_exists():
             await create_routine_with_time_block(token="token123", request=request)
         assert exc_info.value.status_code == 409
         assert exc_info.value.detail["message"] == ROUTINE_ALREADY_EXISTS
+
+
+@pytest.mark.asyncio
+async def test_create_routine_with_timer_session():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+
+    request = CreateTimeBlockRequest(
+        time="12:00",
+        time_int=1200,
+        notification_enabled=True,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.TIMER,
+                duration_ms=900000,
+                display_order=0,
+            )
+        ],
+    )
+
+    _db_mock, session_cm = _mock_session_with_db()
+
+    saved_routine = SimpleNamespace(id=routine_id, user_id=user_id)
+    saved_time_block = SimpleNamespace(
+        id=time_block_id,
+        time="12:00",
+        time_int=1200,
+        notification_enabled=True,
+    )
+    saved_session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.TIMER,
+        source_id=None,
+        duration_ms=900000,
+        display_order=0,
+    )
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_user_id",
+        return_value=None,
+    ), patch(
+        "pecha_api.routines.routines_service.Routine",
+        return_value=saved_routine,
+    ), patch(
+        "pecha_api.routines.routines_service.save_routine",
+        return_value=saved_routine,
+    ), patch(
+        "pecha_api.routines.routines_service.RoutineTimeBlock",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.routines.routines_service.save_time_block",
+        return_value=saved_time_block,
+    ), patch(
+        "pecha_api.routines.routines_service.RoutineSession",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.routines.routines_service.save_sessions",
+        return_value=[saved_session],
+    ):
+        result = await create_routine_with_time_block(token="token123", request=request)
+
+        assert result.id == routine_id
+        assert len(result.time_blocks) == 1
+        assert len(result.time_blocks[0].sessions) == 1
+        timer_session = result.time_blocks[0].sessions[0]
+        assert timer_session.session_type == SessionType.TIMER
+        assert timer_session.duration_ms == 900000
+        assert timer_session.source_id is None
+        assert timer_session.title is None
 
 
 # --- Resolve sessions tests ---
@@ -480,6 +628,57 @@ async def test_resolve_recitation_sessions_missing_text():
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
         assert len(result) == 0
+
+
+def test_resolve_timer_sessions_success():
+    session = SimpleNamespace(
+        id=uuid.uuid4(),
+        session_type=SessionType.TIMER,
+        source_id=None,
+        duration_ms=900000,
+        display_order=0,
+    )
+
+    result = _resolve_timer_sessions(timer_sessions=[session])
+
+    assert len(result) == 1
+    assert result[0].session_type == SessionType.TIMER
+    assert result[0].source_id is None
+    assert result[0].duration_ms == 900000
+    assert result[0].title is None
+    assert result[0].language is None
+
+
+def test_resolve_timer_sessions_empty_list():
+    result = _resolve_timer_sessions(timer_sessions=[])
+    assert result == []
+
+
+def test_build_session_models_sanitises_inapplicable_fields():
+    time_block_id = uuid.uuid4()
+    plan_source_id = uuid.uuid4()
+    sessions = [
+        SessionRequest(
+            session_type=SessionType.PLAN,
+            source_id=plan_source_id,
+            duration_ms=900000,  # stray, must be dropped
+            display_order=0,
+        ),
+        SessionRequest(
+            session_type=SessionType.TIMER,
+            source_id=uuid.uuid4(),  # stray, must be dropped
+            duration_ms=600000,
+            display_order=1,
+        ),
+    ]
+
+    result = build_session_models(time_block_id=time_block_id, sessions=sessions)
+
+    plan_model, timer_model = result
+    assert plan_model.source_id == plan_source_id
+    assert plan_model.duration_ms is None
+    assert timer_model.source_id is None
+    assert timer_model.duration_ms == 600000
 
 
 @pytest.mark.asyncio
@@ -1441,9 +1640,10 @@ async def test_build_time_block_dto():
 
 @pytest.mark.asyncio
 async def test_resolve_sessions_mixed_types():
-    """Test resolving sessions with both PLAN and RECITATION types."""
+    """Test resolving sessions with PLAN, RECITATION and TIMER types."""
     plan_session_id = uuid.uuid4()
     recitation_session_id = uuid.uuid4()
+    timer_session_id = uuid.uuid4()
     plan_source_id = uuid.uuid4()
     recitation_source_id = uuid.uuid4()
 
@@ -1459,6 +1659,13 @@ async def test_resolve_sessions_mixed_types():
             session_type=SessionType.RECITATION,
             source_id=recitation_source_id,
             display_order=0,
+        ),
+        SimpleNamespace(
+            id=timer_session_id,
+            session_type=SessionType.TIMER,
+            source_id=None,
+            duration_ms=600000,
+            display_order=2,
         ),
     ]
 
@@ -1489,11 +1696,15 @@ async def test_resolve_sessions_mixed_types():
         result = await _resolve_sessions(db=MagicMock(), sessions=sessions, user_id=uuid.uuid4())
 
         # Results should be sorted by display_order
-        assert len(result) == 2
+        assert len(result) == 3
         assert result[0].display_order == 0  # Recitation first
         assert result[1].display_order == 1  # Plan second
+        assert result[2].display_order == 2  # Timer last
         assert result[0].title == "Recitation Title"
         assert result[1].title == "Plan Title"
+        assert result[2].session_type == SessionType.TIMER
+        assert result[2].duration_ms == 600000
+        assert result[2].source_id is None
 
 
 @pytest.mark.asyncio

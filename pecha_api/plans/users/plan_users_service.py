@@ -65,6 +65,7 @@ from pecha_api.plans.response_message import (
 )
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.users.plan_user_day_repository import get_completed_day_ids_by_user_id_and_day_ids, save_user_day_completion, delete_user_day_completion, get_user_day_completion_by_user_id_and_day_id
+from pecha_api.plans.users.plan_user_series_day_sync_service import sync_series_day_completion
 from pecha_api.plans.users.plan_users_subtasks_repository import (
     save_user_sub_task_completions, 
     get_user_subtask_completions_by_user_id_and_sub_task_ids, 
@@ -452,9 +453,12 @@ def check_day_completion(db:SessionLocal(), user_id: UUID, day_id: UUID) -> None
     
     if len(uncompleted_task_ids) == 0:
         save_user_day_completion(db=db, user_day_completion=UserDayCompletion(user_id=user_id, day_id=day_id))
-        
-        # Check if plan is now completed
+
+        sibling_day_ids = sync_series_day_completion(db=db, user_id=user_id, completed_day_id=day_id)
+
         check_plan_completion(db, user_id, day_id)
+        for sibling_day_id in sibling_day_ids:
+            check_plan_completion(db, user_id, sibling_day_id)
     else:
         return
 
