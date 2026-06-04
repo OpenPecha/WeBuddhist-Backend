@@ -317,6 +317,25 @@ async def get_text_versions_from_openpecha(
 
     root_text = map_external_text_to_dto(text_data, text_data.get("language"))
 
+    commentary_of = text_data.get("commentary_of")
+    translation_of = text_data.get("translation_of")
+
+    # If translation_of is not null, fetch versions from the parent text
+    if translation_of:
+        return await _fetch_versions_from_parent(translation_of, root_text, skip, limit)
+
+    # If both commentary_of and translation_of are null, check translations and commentaries lists
+    if not commentary_of and not translation_of:
+        translation_ids = text_data.get("translations", [])
+        commentary_ids = text_data.get("commentaries", [])
+
+        # If there are translations or commentaries, fetch versions from the first available ID
+        related_ids = translation_ids + commentary_ids
+        if related_ids:
+            # Fetch versions from the first related text
+            return await _fetch_versions_from_related(related_ids[0], root_text, skip, limit)
+
+    # Default: fetch translations directly from this text
     translation_ids = text_data.get("translations", [])
 
     if not translation_ids:
@@ -336,6 +355,84 @@ async def get_text_versions_from_openpecha(
 
     return TextVersionResponse(
         text=root_text,
+        versions=paginated_versions
+    )
+
+
+async def _fetch_versions_from_parent(
+    parent_id: str,
+    original_text: TextDTO,
+    skip: int,
+    limit: int
+) -> TextVersionResponse:
+    """Fetch versions from a parent text (translation_of)."""
+    try:
+        parent_data = await fetch_text_by_id(parent_id)
+    except Exception:
+        logger.warning(f"Failed to fetch parent text {parent_id}, returning empty versions")
+        return TextVersionResponse(text=original_text, versions=[])
+
+    if not parent_data:
+        return TextVersionResponse(text=original_text, versions=[])
+
+    translation_ids = parent_data.get("translations", [])
+
+    if not translation_ids:
+        return TextVersionResponse(text=original_text, versions=[])
+
+    translation_details = await fetch_translation_details(translation_ids)
+
+    versions = [
+        map_external_text_to_text_version(item, item.get("language"))
+        for item in translation_details
+    ]
+
+    paginated_versions = paginate_versions(versions, skip, limit)
+
+    return TextVersionResponse(
+        text=original_text,
+        versions=paginated_versions
+    )
+
+
+async def _fetch_versions_from_related(
+    related_id: str,
+    original_text: TextDTO,
+    skip: int,
+    limit: int
+) -> TextVersionResponse:
+    """Fetch versions from a related text (from translations or commentaries list)."""
+    try:
+        related_data = await fetch_text_by_id(related_id)
+    except Exception:
+        logger.warning(f"Failed to fetch related text {related_id}, returning empty versions")
+        return TextVersionResponse(text=original_text, versions=[])
+
+    if not related_data:
+        return TextVersionResponse(text=original_text, versions=[])
+
+    # Check if the related text has a translation_of pointing to a parent
+    translation_of = related_data.get("translation_of")
+    if translation_of:
+        return await _fetch_versions_from_parent(translation_of, original_text, skip, limit)
+
+    # Otherwise, get translations from the related text itself
+    translation_ids = related_data.get("translations", [])
+
+    if not translation_ids:
+        return TextVersionResponse(text=original_text, versions=[])
+
+    translation_details = await fetch_translation_details(translation_ids)
+
+    versions = [
+        map_external_text_to_text_version(item, item.get("language"))
+        for item in translation_details
+    ]
+
+    paginated_versions = paginate_versions(versions, skip, limit)
+
+    return TextVersionResponse(
+        text=original_text,
         versions=paginated_versions
     )
 
