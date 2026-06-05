@@ -97,7 +97,8 @@ class RoutineSession(Base):
         nullable=False,
     )
     session_type = Column(SessionTypeEnum, nullable=False)
-    source_id = Column(UUID(as_uuid=True), nullable=False)
+    source_id = Column(UUID(as_uuid=True), nullable=True)
+    duration_ms = Column(Integer, nullable=True)
     display_order = Column(Integer, nullable=False)
 
     created_at = Column(

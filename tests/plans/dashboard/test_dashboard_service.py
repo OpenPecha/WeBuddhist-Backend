@@ -10,6 +10,7 @@ from pecha_api.plans.dashboard.dashboard_service import (
     get_dashboard_items_list,
     get_practice_items_list,
 )
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.platform_enums import PlatformRole
 
@@ -100,11 +101,12 @@ def test_get_dashboard_items_list_admin_passes_no_author_filter():
         "pecha_api.plans.dashboard.dashboard_service.get_dashboard_items",
         return_value=([series_row], 1),
     ) as mock_repo, patch(
-        "pecha_api.plans.dashboard.dashboard_service.get",
-        return_value="test-bucket",
-    ), patch(
-        "pecha_api.plans.dashboard.dashboard_service.generate_presigned_access_url",
-        return_value="https://signed.example/cover.jpg",
+        "pecha_api.plans.dashboard.dashboard_service.safe_get_image_url",
+        return_value=ImageUrlModel(
+            thumbnail="https://signed.example/cover-thumb.jpg",
+            medium="https://signed.example/cover-medium.jpg",
+            original="https://signed.example/cover.jpg",
+        ),
     ):
         _session_local_context(mock_session_local)
         result = get_dashboard_items_list(
@@ -121,7 +123,8 @@ def test_get_dashboard_items_list_admin_passes_no_author_filter():
     assert len(result.items[0].metadata) == 1
     assert result.items[0].metadata[0].title == "Foundations"
     assert result.items[0].languages == ["EN", "BO"]
-    assert result.items[0].image_url == "https://signed.example/cover.jpg"
+    assert result.items[0].image is not None
+    assert result.items[0].image.original == "https://signed.example/cover.jpg"
     assert result.items[0].plans_count == 2
     assert result.pagination.total == 1
     assert result.pagination.total_pages == 1
@@ -309,7 +312,7 @@ def test_get_dashboard_items_list_maps_plan_row():
     assert item.metadata is None
     assert item.author_id is None
     assert item.languages == ["EN"]
-    assert item.image_url is None
+    assert item.image is None
     assert item.plans_count is None
     assert item.status == PlanStatus.DRAFT
     assert item.enrolled_count == 10
@@ -355,7 +358,7 @@ def test_get_dashboard_items_list_parses_metadata_json_string():
     assert item.metadata[0].language == "BO"
     assert item.languages == []
     assert item.enrolled_count == 0
-    assert item.image_url is None
+    assert item.image is None
 
 
 def test_get_dashboard_items_list_series_with_null_metadata():
@@ -417,11 +420,15 @@ def test_get_practice_items_list_forces_published_and_public_scope():
         "pecha_api.plans.dashboard.dashboard_service.get_dashboard_items",
         return_value=([series_row], 1),
     ) as mock_repo, patch(
-        "pecha_api.plans.dashboard.dashboard_service.get",
-        return_value="test-bucket",
+        "pecha_api.plans.dashboard.dashboard_service._published_plans_by_series",
+        return_value={},
     ), patch(
-        "pecha_api.plans.dashboard.dashboard_service.generate_presigned_access_url",
-        return_value="https://signed.example/cover.jpg",
+        "pecha_api.plans.dashboard.dashboard_service.safe_get_image_url",
+        return_value=ImageUrlModel(
+            thumbnail="https://signed.example/cover-thumb.jpg",
+            medium="https://signed.example/cover-medium.jpg",
+            original="https://signed.example/cover.jpg",
+        ),
     ):
         _session_local_context(mock_session_local)
         result = get_practice_items_list(
@@ -441,7 +448,8 @@ def test_get_practice_items_list_forces_published_and_public_scope():
     assert kwargs["language"] == "en"
     assert kwargs["featured"] is True
     assert result.items[0].author_id is None
-    assert result.items[0].image_url == "https://signed.example/cover.jpg"
+    assert result.items[0].image is not None
+    assert result.items[0].image.original == "https://signed.example/cover.jpg"
     assert result.pagination.total == 1
     assert result.pagination.total_pages == 1
 

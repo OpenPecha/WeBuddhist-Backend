@@ -1,12 +1,24 @@
 import pytest
 from uuid import uuid4
+from datetime import date as DateType
 from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from starlette import status
 
 from pecha_api.app import api
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, AuthorDTO, PlanDayBasic, PlanDayDTO, TaskDTO, SubTaskDTO,PlanDaysResponse, TagsResponse
+from pecha_api.plans.public.plan_response_models import (
+    PublicPlansResponse,
+    PublicPlanDTO,
+    AuthorDTO,
+    PlanDayBasic,
+    PlanDayDTO,
+    TaskDTO,
+    SubTaskDTO,
+    PlanDaysResponse,
+    TagsResponse,
+    DailyPlanResponse,
+)
 from tests.plans.tag_test_helpers import make_tag_summaries
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel,ContentType
 from pecha_api.error_contants import ErrorConstants
@@ -314,6 +326,59 @@ async def test_get_plan_details_not_found():
         
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert ErrorConstants.PLAN_NOT_FOUND in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_get_plan_daily_success():
+    plan_id = uuid4()
+    daily_response = DailyPlanResponse(
+        plan_id=plan_id,
+        plan_title="Daily Plan",
+        plan_description="Desc",
+        date=DateType(2026, 5, 1),
+        day_number=1,
+        total_days=3,
+        start_date=DateType(2026, 5, 1),
+        end_date=DateType(2026, 5, 3),
+        tasks=[],
+    )
+
+    with patch(
+        "pecha_api.plans.public.plan_views.get_plan_daily_content",
+        new_callable=AsyncMock,
+        return_value=daily_response,
+    ) as mock_service:
+        response = client.get(
+            f"/api/v1/plans/{plan_id}/daily",
+            params={"date": "2026-05-01", "language": "en"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["plan_id"] == str(plan_id)
+    assert data["day_number"] == 1
+    mock_service.assert_called_once_with(
+        plan_id=plan_id,
+        requested_date=DateType(2026, 5, 1),
+        language="en",
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_plan_daily_not_found():
+    plan_id = uuid4()
+
+    with patch(
+        "pecha_api.plans.public.plan_views.get_plan_daily_content",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.PLAN_NOT_FOUND,
+        ),
+    ):
+        response = client.get(f"/api/v1/plans/{plan_id}/daily")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.asyncio

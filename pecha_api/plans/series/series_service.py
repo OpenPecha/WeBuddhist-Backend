@@ -6,7 +6,6 @@ from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
@@ -34,7 +33,11 @@ from pecha_api.plans.series.series_response_models import (
     SeriesPlanDTO,
     SeriesListResponse,
 )
-from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
+from pecha_api.plans.authors.plan_authors_service import (
+    validate_cms_author_details,
+    get_image_url,
+    safe_get_image_url,
+)
 from pecha_api.plans.groups.groups_repository import get_author_group_ids
 from pecha_api.plans.shared.permissions import (
     is_reviewer,
@@ -45,20 +48,10 @@ from pecha_api.plans.shared.permissions import (
     require_can_read_group_content,
 )
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
-from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from starlette import status
 
 
 _SERIES_UPDATE_PERMISSION_ERROR = "You do not have permission to update this series"
-
-
-def _generate_image_url(image_key: Optional[str]) -> Optional[str]:
-    if not image_key:
-        return None
-    return generate_presigned_access_url(
-        bucket_name=get("AWS_BUCKET_NAME"),
-        s3_key=image_key,
-    )
 
 
 def _to_plan_status(status_value) -> PlanStatus:
@@ -116,7 +109,9 @@ def _plan_to_dto(plan, group_id: Optional[UUID] = None) -> SeriesPlanDTO:
         description=plan.description,
         language=plan.language,
         difficulty_level=plan.difficulty_level,
-        image_url=_generate_image_url(plan.image_url),
+        image=safe_get_image_url(
+            plan.image_url, resource_id=plan.id, resource_type="plan"
+        ),
         image_key=plan.image_url,
         tags=tags_to_summary_dtos(plan.tag_list),
         status=_to_plan_status(plan.status),
@@ -175,7 +170,7 @@ def _series_to_list_item_dto(row: Series, plan_count: int = 0) -> SeriesListItem
     return SeriesListItemDTO(
         id=row.id,
         metadata=_metadata_to_dtos(row.metadata_entries),
-        image=_generate_image_url(row.image),
+        image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
         featured=bool(row.featured),
@@ -211,7 +206,7 @@ def _series_to_dto(
     return SeriesDTO(
         id=row.id,
         metadata=_metadata_to_dtos(row.metadata_entries),
-        image=_generate_image_url(row.image),
+        image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
         featured=bool(row.featured),
@@ -256,7 +251,7 @@ def get_filtered_series(
     )
 
 
-def get_series_detail(series_id: UUID) -> SeriesDTO:
+def get_series_detail(series_id: UUID, language: Optional[str] = None) -> SeriesDTO:
     with SessionLocal() as db_session:
         row = get_series_by_id(db=db_session, series_id=series_id)
         if not row or _to_plan_status(row.status) != PlanStatus.PUBLISHED:
@@ -269,6 +264,7 @@ def get_series_detail(series_id: UUID) -> SeriesDTO:
             row,
             include_plans=True,
             published_only=True,
+            plan_language=language,
         )
 
 def get_cms_filtered_series(

@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_serializer
 
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_response_models import SeriesMetadataDTO, SeriesPlanDTO
 
@@ -18,7 +19,7 @@ class DashboardItemDTO(BaseModel):
     metadata: Optional[List[SeriesMetadataDTO]] = None
     plans: Optional[List[SeriesPlanDTO]] = None
     author_id: Optional[UUID] = None
-    image_url: Optional[str] = None
+    image: Optional[ImageUrlModel] = None
     image_key: Optional[str] = None
     status: PlanStatus
     featured: bool

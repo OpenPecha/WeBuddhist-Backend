@@ -8,6 +8,7 @@ from starlette import status
 
 from pecha_api.app import api
 from pecha_api.plans.plans_enums import PlanStatus, LanguageCode, DifficultyLevel
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.series.series_response_models import (
     SeriesDTO,
     SeriesListItemDTO,
@@ -50,8 +51,12 @@ def sample_series_dto():
             _metadata("Foundations of Meditation", "EN"),
             _metadata("སྒོམ་", "BO"),
         ],
-        image="https://example.com/presigned/series.jpg",
-        image_key="series/cover.jpg",
+        image=ImageUrlModel(
+            thumbnail="https://example.com/presigned/series-thumb.jpg",
+            medium="https://example.com/presigned/series-medium.jpg",
+            original="https://example.com/presigned/series.jpg",
+        ),
+        image_key="images/series_images/sid/uuid/original/cover.jpg",
         author_id=uuid.uuid4(),
         featured=True,
         status=PlanStatus.DRAFT,
@@ -105,7 +110,7 @@ def test_get_series_list_success(sample_series_list_response):
         assert item["author_id"] == str(sample_series_list_response.series[0].author_id)
         assert item["featured"] is True
         assert item["status"] == PlanStatus.DRAFT.value
-        assert item["image"] == sample_series_list_response.series[0].image
+        assert item["image"] == sample_series_list_response.series[0].image.model_dump()
         assert item["image_key"] == sample_series_list_response.series[0].image_key
 
 
@@ -215,7 +220,7 @@ def test_get_series_by_id_success(sample_series_dto):
         response = client.get(f"/series/{series_id}")
 
         assert response.status_code == status.HTTP_200_OK
-        mock_detail.assert_called_once_with(series_id=series_id)
+        mock_detail.assert_called_once_with(series_id=series_id, language=None)
 
         data = response.json()
         assert data["id"] == str(sample_series_dto.id)
@@ -248,7 +253,7 @@ def test_get_series_by_id_includes_total_days_in_response():
         description="First plan",
         language=LanguageCode.EN.value,
         difficulty_level=DifficultyLevel.BEGINNER,
-        image_url=None,
+        image=None,
         image_key=None,
         tags=[],
         status=PlanStatus.DRAFT,
@@ -264,7 +269,7 @@ def test_get_series_by_id_includes_total_days_in_response():
         description="Second plan",
         language=LanguageCode.EN.value,
         difficulty_level=DifficultyLevel.INTERMEDIATE,
-        image_url=None,
+        image=None,
         image_key=None,
         tags=[],
         status=PlanStatus.PUBLISHED,
@@ -295,7 +300,7 @@ def test_get_series_by_id_includes_total_days_in_response():
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_detail.assert_called_once_with(series_id=series_id)
+        mock_detail.assert_called_once_with(series_id=series_id, language=None)
 
         assert data["total_days"] == 8
         assert len(data["plans"]) == 2
@@ -528,6 +533,18 @@ def test_get_cms_series_by_id_forbidden():
         )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_series_by_id_passes_language_param(sample_series_dto):
+    series_id = sample_series_dto.id
+    with patch(
+        "pecha_api.plans.series.public_series_view.get_series_detail",
+        return_value=sample_series_dto,
+    ) as mock_detail:
+        response = client.get(f"/series/{series_id}", params={"language": "bo"})
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_detail.assert_called_once_with(series_id=series_id, language="bo")
 
 
 def test_get_cms_series_by_id_passes_language_param(sample_series_dto):

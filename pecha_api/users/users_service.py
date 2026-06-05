@@ -1,4 +1,6 @@
 import logging
+import random
+import string
 from typing import List, Optional
 
 import jose
@@ -8,11 +10,11 @@ from jose.exceptions import JWTClaimsError
 from jwt import ExpiredSignatureError
 
 from pecha_api.error_contants import ErrorConstants
-from .user_response_models import UserInfoRequest, UserInfoResponse, SocialMediaProfile, PublisherInfoResponse
+from .user_response_models import UserInfoRequest, UserInfoResponse, SocialMediaProfile, PublisherInfoResponse, UpdateUsernameRequest, UpdateUsernameResponse
 from .users_enums import SocialProfile
 from .users_models import Users, SocialMediaAccount
 from ..auth.auth_repository import validate_token
-from .users_repository import get_user_by_email, update_user, get_user_by_username, delete_user
+from .users_repository import get_user_by_email, update_user, get_user_by_username, find_user_by_username, delete_user
 from ..uploads.S3_utils import delete_file, upload_bytes, generate_presigned_access_url
 from ..db.database import SessionLocal
 from ..config import get
@@ -115,13 +117,13 @@ def upload_user_image(token: str, file: UploadFile) -> str:
     # Validate and compress the uploaded image
     image_utils = ImageUtils()
     compressed_image = image_utils.validate_and_compress_image(file=file, content_type=file.content_type)
-    file_path = f'images/profile_images/{current_user.id}.jpg'
+    file_path = f'images/profile_images/{current_user.id}.webp'
     delete_file(file_path=file_path)
     upload_key = upload_bytes(
         bucket_name=get("AWS_BUCKET_NAME"),
         s3_key=file_path,
         file=compressed_image,
-        content_type=file.content_type
+        content_type="image/webp"
     )
     presigned_url = generate_presigned_access_url(
         bucket_name=get("AWS_BUCKET_NAME"),
@@ -217,3 +219,47 @@ def get_publisher_info_by_username(username: str) -> Optional[PublisherInfoRespo
     except Exception as e:
         logging.error(f"Error getting publisher info by username: {e}")
     return None
+
+
+def _generate_username_suggestions(base: str, count: int = 3) -> List[str]:
+    base = "".join(base.split())
+    suggestions: List[str] = []
+    attempts = 0
+    with SessionLocal() as db_session:
+        while len(suggestions) < count and attempts < 20:
+            suffix = ''.join(random.choices(string.digits, k=4))
+            candidate = f"{base}{suffix}"
+            if not find_user_by_username(db=db_session, username=candidate):
+                suggestions.append(candidate)
+            attempts += 1
+    return suggestions
+
+
+def update_username(token: str, request: UpdateUsernameRequest) -> UpdateUsernameResponse:
+    current_user = validate_and_extract_user_details(token=token)
+    new_username = request.username
+
+    with SessionLocal() as db_session:
+        existing = find_user_by_username(db=db_session, username=new_username)
+
+    if existing and existing.id != current_user.id:
+        suggestions = _generate_username_suggestions(base=new_username)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": ErrorConstants.USER_ALREADY_EXISTS,
+                "suggestions": suggestions,
+            },
+        )
+
+    current_user.username = new_username
+    with SessionLocal() as db_session:
+        try:
+            updated_user = update_user(db=db_session, user=current_user)
+            return UpdateUsernameResponse(
+                message="Username updated successfully",
+                username=updated_user.username,
+            )
+        except Exception as e:
+            logging.exception(f"Failed to update username: {e}")
+            raise HTTPException(status_code=500, detail="Internal Server Error")

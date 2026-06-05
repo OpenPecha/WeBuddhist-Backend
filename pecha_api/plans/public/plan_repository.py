@@ -3,6 +3,7 @@ from sqlalchemy import and_, exists, func, desc, asc, or_, select
 from typing import Optional, Tuple, List
 from uuid import UUID
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.groups.groups_models import author_group_plans, author_group_series
 from pecha_api.plans.tags.tag_model import Tag, plan_tags
 from pecha_api.plans.items.plan_items_models import PlanItem
@@ -153,6 +154,28 @@ def get_published_plan_by_id(db: Session, plan_id: UUID) -> Optional[Plan]:
         ).first()
 
 
+def get_published_plans_in_series(
+    db: Session,
+    series_id: UUID,
+    language: Optional[str] = None,
+) -> List[Plan]:
+    query = (
+        db.query(Plan)
+        .options(
+            selectinload(Plan.series).selectinload(Series.metadata_entries),
+        )
+        .filter(
+            Plan.series_id == series_id,
+            Plan.display_order.isnot(None),
+            Plan.status == PlanStatus.PUBLISHED,
+            Plan.deleted_at.is_(None),
+        )
+    )
+    if language:
+        query = query.filter(Plan.language == language.upper())
+    return query.order_by(asc(Plan.display_order)).all()
+
+
 def get_plan_items_by_plan_id(db: Session, plan_id: UUID) -> list[PlanItem]:
     return db.query(PlanItem).filter(PlanItem.plan_id == plan_id).order_by(PlanItem.day_number).all()
 
@@ -192,25 +215,41 @@ def get_all_unique_tags(db: Session, language: str = "EN") -> List[str]:
     return [row.tag for row in results]
 
 
-def get_next_plan_in_series(db: Session, series_id: UUID, current_display_order: Optional[int]) -> Optional[Plan]:
+def get_next_plan_in_series(
+    db: Session,
+    series_id: UUID,
+    current_display_order: Optional[int],
+    language: Optional[str] = None,
+) -> Optional[Plan]:
     if series_id is None or current_display_order is None:
         return None
-    
-    return db.query(Plan).filter(
+
+    query = db.query(Plan).filter(
         Plan.series_id == series_id,
         Plan.display_order > current_display_order,
         Plan.status == PlanStatus.PUBLISHED,
-        Plan.deleted_at.is_(None)
-    ).order_by(asc(Plan.display_order)).first()
+        Plan.deleted_at.is_(None),
+    )
+    if language:
+        query = query.filter(Plan.language == language.upper())
+    return query.order_by(asc(Plan.display_order)).first()
 
 
-def get_previous_plan_in_series(db: Session, series_id: UUID, current_display_order: Optional[int]) -> Optional[Plan]:
+def get_previous_plan_in_series(
+    db: Session,
+    series_id: UUID,
+    current_display_order: Optional[int],
+    language: Optional[str] = None,
+) -> Optional[Plan]:
     if series_id is None or current_display_order is None:
         return None
-    
-    return db.query(Plan).filter(
+
+    query = db.query(Plan).filter(
         Plan.series_id == series_id,
         Plan.display_order < current_display_order,
         Plan.status == PlanStatus.PUBLISHED,
-        Plan.deleted_at.is_(None)
-    ).order_by(desc(Plan.display_order)).first()
+        Plan.deleted_at.is_(None),
+    )
+    if language:
+        query = query.filter(Plan.language == language.upper())
+    return query.order_by(desc(Plan.display_order)).first()

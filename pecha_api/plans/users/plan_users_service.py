@@ -43,6 +43,7 @@ from pecha_api.plans.users.plan_users_subtasks_repository import (
 )
 
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
+from pecha_api.plans.authors.plan_authors_service import safe_get_image_url
 from pecha_api.plans.plans_enums import ContentType
 
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_repository import get_sub_task_by_subtask_id, get_sub_tasks_by_task_id
@@ -64,6 +65,7 @@ from pecha_api.plans.response_message import (
 )
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.users.plan_user_day_repository import get_completed_day_ids_by_user_id_and_day_ids, save_user_day_completion, delete_user_day_completion, get_user_day_completion_by_user_id_and_day_id
+from pecha_api.plans.users.plan_user_series_day_sync_service import sync_series_day_completion
 from pecha_api.plans.users.plan_users_subtasks_repository import (
     save_user_sub_task_completions, 
     get_user_subtask_completions_by_user_id_and_sub_task_ids, 
@@ -247,20 +249,8 @@ async def get_user_enrolled_plans(token: str, status_filter: Optional[str] = Non
         progress_map = get_plan_progress_by_user_id_and_plan_ids(db, current_user.id, plan_ids)
         
         enrolled_plans = []
-        bucket_name = get("AWS_BUCKET_NAME")
         
         for plan in plans:
-            image_url = ""
-            if plan.image_url:
-                try:
-                    image_url = generate_presigned_access_url(
-                        bucket_name=bucket_name,
-                        s3_key=plan.image_url
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to generate presigned URL for plan {plan.id}: {e}", exc_info=True)
-                    image_url = ""
-            
             progress = progress_map.get(plan.id)
             started_at = progress.started_at if progress else plan.created_at
             
@@ -270,7 +260,7 @@ async def get_user_enrolled_plans(token: str, status_filter: Optional[str] = Non
                 description=plan.description or "",
                 language=plan.language.value if hasattr(plan.language, 'value') else str(plan.language),
                 difficulty_level=plan.difficulty_level.value if hasattr(plan.difficulty_level, 'value') else str(plan.difficulty_level),
-                image_url=image_url,
+                image=safe_get_image_url(plan.image_url, resource_id=plan.id, resource_type="plan"),
                 started_at=started_at,
                 total_days=days_count_map.get(plan.id, 0),
                 tags=tags_to_summary_dtos(plan.tag_list),
@@ -359,16 +349,9 @@ def get_user_plan_progress(token: str, plan_id: UUID) -> UserPlanProgressRespons
                 ).model_dump()
             )
         
-        # Generate presigned URL for plan image if exists
-        plan_image_url = None
-        if plan.image_url:
-            try:
-                plan_image_url = generate_presigned_access_url(
-                    bucket_name=get("AWS_BUCKET_NAME"),
-                    s3_key=plan.image_url
-                )
-            except Exception:
-                plan_image_url = None
+        plan_image = safe_get_image_url(
+            plan.image_url, resource_id=plan.id, resource_type="plan"
+        )
         
         # Build plan details dict
         plan_details = {
@@ -377,7 +360,7 @@ def get_user_plan_progress(token: str, plan_id: UUID) -> UserPlanProgressRespons
             "description": plan.description,
             "language": plan.language.value if plan.language else None,
             "difficulty_level": plan.difficulty_level.value if plan.difficulty_level else None,
-            "image_url": plan_image_url,
+            "image": plan_image.model_dump() if plan_image else None,
             "tags": [t.model_dump() for t in tags_to_summary_dtos(plan.tag_list)]
         }
         
@@ -470,9 +453,12 @@ def check_day_completion(db:SessionLocal(), user_id: UUID, day_id: UUID) -> None
     
     if len(uncompleted_task_ids) == 0:
         save_user_day_completion(db=db, user_day_completion=UserDayCompletion(user_id=user_id, day_id=day_id))
-        
-        # Check if plan is now completed
+
+        sibling_day_ids = sync_series_day_completion(db=db, user_id=user_id, completed_day_id=day_id)
+
         check_plan_completion(db, user_id, day_id)
+        for sibling_day_id in sibling_day_ids:
+            check_plan_completion(db, user_id, sibling_day_id)
     else:
         return
 
@@ -622,16 +608,6 @@ def _get_presigned_url(content: str) -> str:
 
 # Series Enrollment Service Functions
 
-def _generate_presigned_image_url(bucket_name: str, s3_key: Optional[str], resource_id: UUID, resource_type: str) -> str:
-    if not s3_key:
-        return ""
-    try:
-        return generate_presigned_access_url(bucket_name=bucket_name, s3_key=s3_key)
-    except Exception:
-        logger.exception(f"Failed to generate presigned URL for {resource_type} {resource_id}")
-        return ""
-
-
 def _compute_series_plan_progress(all_plans: list, progress_by_plan_id: dict) -> tuple[int, int, float]:
     total_plans = len(all_plans)
     if total_plans == 0:
@@ -650,10 +626,11 @@ def _build_user_series_enrollment_dto(
     current_plan_title_by_id: dict,
     plans_by_series_id: dict,
     progress_by_plan_id: dict,
-    bucket_name: str,
 ) -> UserSeriesEnrollmentDTO:
     series_metadata = series.metadata_entries[0] if series.metadata_entries else None
-    image_url = _generate_presigned_image_url(bucket_name, series.image, series.id, "series")
+    series_image = safe_get_image_url(
+        series.image, resource_id=series.id, resource_type="series"
+    )
     current_plan_title = (
         current_plan_title_by_id.get(enrollment.current_plan_id)
         if enrollment.current_plan_id
@@ -669,7 +646,7 @@ def _build_user_series_enrollment_dto(
         series_id=enrollment.series_id,
         series_title=series_metadata.title if series_metadata else "Untitled Series",
         series_description=series_metadata.description if series_metadata else None,
-        series_image_url=image_url,
+        image=series_image,
         enrolled_at=enrollment.enrolled_at,
         status=enrollment.status.value if hasattr(enrollment.status, 'value') else str(enrollment.status),
         auto_enroll_next=enrollment.auto_enroll_next,
@@ -683,9 +660,8 @@ def _build_user_series_enrollment_dto(
     )
 
 
-def _build_series_plan_dto_for_progress(db, plan, user_id: UUID, bucket_name: str) -> UserPlanDTO:
+def _build_series_plan_dto_for_progress(db, plan, user_id: UUID) -> UserPlanDTO:
     total_days = len(get_days_by_plan_id(db, plan.id))
-    image_url = _generate_presigned_image_url(bucket_name, plan.image_url, plan.id, "plan")
     progress = get_plan_progress_by_user_id_and_plan_id(db, user_id, plan.id)
     started_at = progress.started_at if progress else None
     return UserPlanDTO(
@@ -694,7 +670,7 @@ def _build_series_plan_dto_for_progress(db, plan, user_id: UUID, bucket_name: st
         description=plan.description or "",
         language=plan.language.value if hasattr(plan.language, 'value') else str(plan.language),
         difficulty_level=plan.difficulty_level.value if hasattr(plan.difficulty_level, 'value') else str(plan.difficulty_level),
-        image_url=image_url,
+        image=safe_get_image_url(plan.image_url, resource_id=plan.id, resource_type="plan"),
         started_at=started_at,
         total_days=total_days,
         tags=tags_to_summary_dtos(plan.tag_list),
@@ -793,7 +769,6 @@ def get_user_series_enrollments(
             for plan in get_plans_by_ids(db, current_plan_ids)
         }
 
-        bucket_name = get("AWS_BUCKET_NAME")
         enrollment_dtos = [
             _build_user_series_enrollment_dto(
                 enrollment,
@@ -801,7 +776,6 @@ def get_user_series_enrollments(
                 current_plan_title_by_id,
                 plans_by_series_id,
                 progress_by_plan_id,
-                bucket_name,
             )
             for enrollment in enrollments
             if (series := series_by_id.get(enrollment.series_id))
@@ -837,10 +811,9 @@ def get_user_series_progress(token: str, series_id: UUID) -> UserSeriesProgressR
             )
         
         series_metadata = series.metadata_entries[0] if series.metadata_entries else None
-        bucket_name = get("AWS_BUCKET_NAME")
         all_plans = get_plans_by_series_id(db, series_id)
         plan_dtos = [
-            _build_series_plan_dto_for_progress(db, plan, current_user.id, bucket_name)
+            _build_series_plan_dto_for_progress(db, plan, current_user.id)
             for plan in all_plans
         ]
 

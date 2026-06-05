@@ -26,6 +26,7 @@ from pecha_api.plans.response_message import (
     TASK_NOT_FOUND,
     ALREADY_COMPLETED_SUB_TASK,
 )
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.plans_response_models import PlanDTO
 from tests.plans.tag_test_helpers import mock_tag_entities
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus
@@ -444,11 +445,12 @@ async def test_get_user_enrolled_plans_success():
         "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
         return_value={plan_id: progress},
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get",
-        return_value="bucket",
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
-        return_value="https://signed.example.com/plan.jpg",
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=ImageUrlModel(
+            thumbnail="https://signed.example.com/plan-thumb.jpg",
+            medium="https://signed.example.com/plan-medium.jpg",
+            original="https://signed.example.com/plan.jpg",
+        ),
     ):
         result = await get_user_enrolled_plans(
             token="token123", status_filter=None, skip=0, limit=20
@@ -469,7 +471,7 @@ async def test_get_user_enrolled_plans_success():
         assert plan_dto.difficulty_level == "BEGINNER"
         assert plan_dto.total_days == 30
         assert [t.name for t in plan_dto.tags] == ["meditation", "mindfulness"]
-        assert plan_dto.image_url.startswith("https://signed.")
+        assert plan_dto.image.original == "https://signed.example.com/plan.jpg"
         assert plan_dto.start_date == datetime(2025, 1, 15, tzinfo=timezone.utc)
 
 
@@ -739,7 +741,7 @@ def test_get_user_plan_progress_not_enrolled_raises_404():
         assert exc_info.value.detail["message"] == "User not enrolled in this plan"
 
 
-def test_get_user_plan_progress_presigned_image_url_success():
+def test_get_user_plan_progress_image_url_success():
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
     progress_id = uuid.uuid4()
@@ -781,18 +783,19 @@ def test_get_user_plan_progress_presigned_image_url_success():
         "pecha_api.plans.users.plan_users_service.get_plan_by_id",
         return_value=plan_record,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get",
-        return_value="test-bucket",
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
-        return_value="https://signed.example.com/plan.jpg",
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=ImageUrlModel(
+            thumbnail="https://signed.example.com/plan-thumb.jpg",
+            medium="https://signed.example.com/plan-medium.jpg",
+            original="https://signed.example.com/plan.jpg",
+        ),
     ):
         result = get_user_plan_progress(token="tok", plan_id=plan_id)
 
-    assert result.plan["image_url"] == "https://signed.example.com/plan.jpg"
+    assert result.plan["image"]["original"] == "https://signed.example.com/plan.jpg"
 
 
-def test_get_user_plan_progress_presigned_image_url_error_returns_none():
+def test_get_user_plan_progress_image_url_error_returns_none():
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
     progress_id = uuid.uuid4()
@@ -834,15 +837,12 @@ def test_get_user_plan_progress_presigned_image_url_error_returns_none():
         "pecha_api.plans.users.plan_users_service.get_plan_by_id",
         return_value=plan_record,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get",
-        return_value="test-bucket",
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
-        side_effect=Exception("S3 error"),
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
     ):
         result = get_user_plan_progress(token="tok", plan_id=plan_id)
 
-    assert result.plan["image_url"] is None
+    assert result.plan["image"] is None
 
 
 def _mock_session_with_db_and_task_flow():
@@ -946,7 +946,7 @@ async def test_get_user_enrolled_plans_without_image():
         assert len(result.plans) == 1
         assert result.plans[0].id == plan_id
         assert result.plans[0].title == "Plan Without Image"
-        assert result.plans[0].image_url == ""
+        assert result.plans[0].image is None
         assert result.skip == 0
         assert result.limit == 20
         assert result.total == 1
@@ -1017,11 +1017,8 @@ async def test_get_user_enrolled_plans_presigned_url_error():
         "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
         return_value={plan_id: progress},
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get",
-        return_value="bucket",
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
-        side_effect=Exception("S3 error"),
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
     ):
         result = await get_user_enrolled_plans(
             token="token123", status_filter=None, skip=0, limit=20
@@ -1029,7 +1026,7 @@ async def test_get_user_enrolled_plans_presigned_url_error():
 
         assert len(result.plans) == 1
         plan_dto = result.plans[0]
-        assert plan_dto.image_url == ""
+        assert plan_dto.image is None
 
 
 @pytest.mark.asyncio
@@ -1113,11 +1110,16 @@ async def test_get_user_enrolled_plans_multiple_plans():
             plan_id_3: progress_3,
         },
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get",
-        return_value="bucket",
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
-        return_value="https://signed.example.com/img.jpg",
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        side_effect=lambda image_url, **kwargs: (
+            ImageUrlModel(
+                thumbnail="https://signed.example.com/img-thumb.jpg",
+                medium="https://signed.example.com/img-medium.jpg",
+                original="https://signed.example.com/img.jpg",
+            )
+            if image_url
+            else None
+        ),
     ):
         result = await get_user_enrolled_plans(
             token="token123", status_filter=None, skip=0, limit=20
@@ -1138,7 +1140,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
         assert result.plans[1].total_days == 90
 
         assert result.plans[2].title == "Beginner's Guide"
-        assert result.plans[2].image_url == ""  # no image generates empty string
+        assert result.plans[2].image is None
         assert result.plans[2].total_days == 7
 
 
@@ -1222,13 +1224,20 @@ def test_check_day_completion_marks_day_complete_when_all_done():
         side_effect=lambda user_id, day_id: SimpleNamespace(user_id=user_id, day_id=day_id),
     ), patch(
         "pecha_api.plans.users.plan_users_service.save_user_day_completion",
-    ) as mock_save:
+    ) as mock_save, patch(
+        "pecha_api.plans.users.plan_users_service.sync_series_day_completion",
+        return_value=[],
+    ) as mock_sync, patch(
+        "pecha_api.plans.users.plan_users_service.check_plan_completion",
+    ) as mock_plan_completion:
         check_day_completion(db=db_mock, user_id=user_id, day_id=day_id)
 
         assert mock_save.call_count == 1
         udc = mock_save.call_args.kwargs["user_day_completion"]
         assert udc.user_id == user_id
         assert udc.day_id == day_id
+        mock_sync.assert_called_once_with(db=db_mock, user_id=user_id, completed_day_id=day_id)
+        mock_plan_completion.assert_called_once_with(db_mock, user_id, day_id)
 
 
 def test_check_day_completion_does_nothing_when_remaining_tasks():

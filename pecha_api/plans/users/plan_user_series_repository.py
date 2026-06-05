@@ -267,8 +267,9 @@ def get_paginated_plans_from_enrolled_series(
 def _filter_plans_by_date_availability(plans: List[Plan]) -> List[Plan]:
     """
     Filter plans to only include:
-    1. Prior plans: Plans that have started and either completed or should have been completed (next plan started)
-    2. Current active plans: Plans that are currently active (started but next plan hasn't started)
+    1. Plans with display_order > 0 (first plan in a series is excluded from /users/me/plans)
+    2. Prior plans: Plans that have started and either completed or should have been completed (next plan started)
+    3. Current active plans: Plans that are currently active (started but next plan hasn't started)
     """
     from datetime import datetime, timezone
     
@@ -288,6 +289,9 @@ def _filter_plans_by_date_availability(plans: List[Plan]) -> List[Plan]:
         sorted_plans = sorted(series_plan_list, key=lambda p: p.display_order or 999)
         
         for i, plan in enumerate(sorted_plans):
+            if plan.display_order == 0:
+                continue
+
             if not plan.start_date:
                 # Plans without start date are not date-restricted, skip them
                 continue

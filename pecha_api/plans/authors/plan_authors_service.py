@@ -128,6 +128,21 @@ def get_image_url(image_url: Optional[str]) -> Optional[ImageUrlModel]:
         original=generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=original_url)
     )
 
+
+def safe_get_image_url(
+    image_url: Optional[str], *, resource_id: UUID, resource_type: str
+) -> Optional[ImageUrlModel]:
+    if not image_url:
+        return None
+    try:
+        return get_image_url(image_url=image_url)
+    except Exception:
+        logging.exception(
+            f"Failed to generate image URLs for {resource_type} {resource_id}"
+        )
+        return None
+
+
 async def get_selected_author_details(author_id: UUID) -> AuthorInfoPublicResponse:
     author = await _get_author_details_by_id(author_id=author_id)
     author_image: Optional[ImageUrlModel] = get_image_url(image_url=author.image_url)

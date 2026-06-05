@@ -1,14 +1,16 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, model_serializer
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime
 
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from .routines_enums import SessionType
 
 
 class SessionRequest(BaseModel):
     session_type: SessionType
-    source_id: UUID
+    source_id: Optional[UUID] = None  
+    duration_ms: Optional[int] = None  
     display_order: int
 
 
@@ -29,13 +31,24 @@ class UpdateTimeBlockRequest(BaseModel):
 class SessionDTO(BaseModel):
     id: UUID
     session_type: SessionType
-    source_id: UUID
-    title: str
-    language: str
-    image_url: Optional[str] = None
+    source_id: Optional[UUID] = None  
+    title: Optional[str] = None  
+    language: Optional[str] = None  
+    duration_ms: Optional[int] = None  
+    image: Optional[ImageUrlModel] = None    
     display_order: int
     start_date: Optional[datetime] = None  # Plan's start_date
     started_at: Optional[datetime] = None  # User's started_at from progress
+
+    @model_serializer(mode="wrap")
+    def _omit_inapplicable_fields(self, serializer):
+        data = serializer(self)
+        if self.session_type == SessionType.TIMER:
+            for field in ("source_id", "title", "language", "image", "start_date", "started_at"):
+                data.pop(field, None)
+        else:
+            data.pop("duration_ms", None)
+        return data
 
 
 class TimeBlockDTO(BaseModel):

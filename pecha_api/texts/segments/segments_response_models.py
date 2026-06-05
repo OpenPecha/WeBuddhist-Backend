@@ -61,6 +61,8 @@ class SegmentTranslation(BaseModel):
     source: str
     language: str
     content: str
+    source_link: Optional[str] = None
+    license: Optional[str] = None
 
 class SegmentRecitation(BaseModel):
     segment_id: str
@@ -97,6 +99,8 @@ class SegmentCommentry(BaseModel):
     segments: List[MappedSegmentDTO]
     language: str
     count: int
+    source_link: Optional[str] = None
+    license: Optional[str] = None
 
 class SegmentCommentariesResponse(BaseModel):
     parent_segment: ParentSegment

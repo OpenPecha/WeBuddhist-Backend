@@ -7,7 +7,10 @@ from sqlalchemy.orm import Session
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.authors.plan_authors_model import Author
-from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
+from pecha_api.plans.authors.plan_authors_service import (
+    safe_get_image_url,
+    validate_cms_author_details,
+)
 from pecha_api.plans.groups.groups_repository import get_author_group_ids
 from pecha_api.plans.shared.permissions import (
     is_reviewer,
@@ -25,9 +28,6 @@ from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_repository import get_series_with_plans_by_ids
 from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
 from pecha_api.plans.series.series_service import _get_sorted_active_plans, _plan_to_dto
-from pecha_api.uploads.S3_utils import generate_presigned_access_url
-
-
 def _parse_languages(item_type: str, languages_raw: Optional[str]) -> List[str]:
     if not languages_raw:
         return []
@@ -40,15 +40,6 @@ def _to_plan_status(status_value) -> PlanStatus:
     if hasattr(status_value, "value"):
         return PlanStatus(status_value.value)
     return PlanStatus(status_value)
-
-
-def _image_url(image_key: Optional[str]) -> Optional[str]:
-    if not image_key:
-        return None
-    return generate_presigned_access_url(
-        bucket_name=get("AWS_BUCKET_NAME"),
-        s3_key=image_key,
-    )
 
 
 def _parse_metadata(raw) -> List[SeriesMetadataDTO]:
@@ -66,7 +57,9 @@ def _row_to_dto(row) -> DashboardItemDTO:
     common = dict(
         id=row.id,
         type=item_type,
-        image_url=_image_url(row.image_key),
+        image=safe_get_image_url(
+            row.image_key, resource_id=row.id, resource_type=item_type
+        ),
         image_key=row.image_key,
         status=_to_plan_status(row.status),
         featured=bool(row.featured),
