@@ -66,20 +66,6 @@ class AuthorGroupMemberDTO(BaseModel):
     email: str
 
 
-class AuthorGroupSummaryDTO(BaseModel):
-    id: UUID
-    slug: str
-    is_public: bool
-    avatar_key: Optional[str] = None
-    banner_key: Optional[str] = None
-    avatar_url: Optional[str] = None
-    banner_url: Optional[str] = None
-    metadata: GroupMetadataResponse = []
-    tags: List[TagSummaryDTO] = []
-    follower_count: int = 0
-    member_count: int = 0
-
-
 class AuthorGroupDetailDTO(BaseModel):
     id: UUID
     slug: str
