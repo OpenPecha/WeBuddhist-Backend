@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
 from sqlalchemy import and_, delete, exists, func, or_, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus
 from pecha_api.plans.groups.groups_models import (
@@ -13,8 +13,6 @@ from pecha_api.plans.groups.groups_models import (
     AuthorGroupMetadata,
     AuthorGroupSocialLink,
     author_group_followers,
-    author_group_plans,
-    author_group_series,
     author_group_tags,
 )
 from pecha_api.plans.plans_models import Plan
@@ -22,53 +20,70 @@ from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.tags.tag_model import Tag
 
 
-def _map_entity_ids_to_first_group_id(
-    db: Session,
-    entity_ids: Sequence[UUID],
-    entity_id_column,
-    group_id_column,
-) -> Dict[UUID, UUID]:
-    if not entity_ids:
+def get_group_ids_by_plan_ids(db: Session, plan_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
+    if not plan_ids:
         return {}
     rows = (
         db.execute(
-            select(entity_id_column, group_id_column)
-            .where(entity_id_column.in_(entity_ids))
-            .order_by(entity_id_column, group_id_column)
+            select(Plan.id, Plan.group_id).where(
+                Plan.id.in_(plan_ids),
+                Plan.group_id.isnot(None),
+            )
         )
         .all()
     )
-    group_id_by_entity_id: Dict[UUID, UUID] = {}
-    for entity_id, group_id in rows:
-        if entity_id not in group_id_by_entity_id:
-            group_id_by_entity_id[entity_id] = group_id
-    return group_id_by_entity_id
-
-
-def get_group_ids_by_plan_ids(db: Session, plan_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
-    return _map_entity_ids_to_first_group_id(
-        db=db,
-        entity_ids=plan_ids,
-        entity_id_column=author_group_plans.c.plan_id,
-        group_id_column=author_group_plans.c.group_id,
-    )
+    return dict(rows)
 
 
 def get_group_id_for_plan(db: Session, plan_id: UUID) -> Optional[UUID]:
-    return get_group_ids_by_plan_ids(db=db, plan_ids=[plan_id]).get(plan_id)
+    row = db.execute(select(Plan.group_id).where(Plan.id == plan_id)).first()
+    return row[0] if row else None
 
 
 def get_group_ids_by_series_ids(db: Session, series_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
-    return _map_entity_ids_to_first_group_id(
-        db=db,
-        entity_ids=series_ids,
-        entity_id_column=author_group_series.c.series_id,
-        group_id_column=author_group_series.c.group_id,
+    if not series_ids:
+        return {}
+    rows = (
+        db.execute(
+            select(Series.id, Series.group_id).where(
+                Series.id.in_(series_ids),
+                Series.group_id.isnot(None),
+            )
+        )
+        .all()
     )
+    return dict(rows)
 
 
 def get_group_id_for_series(db: Session, series_id: UUID) -> Optional[UUID]:
-    return get_group_ids_by_series_ids(db=db, series_ids=[series_id]).get(series_id)
+    row = db.execute(select(Series.group_id).where(Series.id == series_id)).first()
+    return row[0] if row else None
+
+
+def get_author_group_ids(db: Session, author_id: UUID) -> List[UUID]:
+    rows = (
+        db.query(AuthorGroupMember.group_id)
+        .filter(AuthorGroupMember.author_id == author_id)
+        .distinct()
+        .all()
+    )
+    return [row[0] for row in rows]
+
+
+def get_plans_by_group_id(db: Session, group_id: UUID) -> List[Plan]:
+    return (
+        db.query(Plan)
+        .filter(Plan.group_id == group_id, Plan.deleted_at.is_(None))
+        .all()
+    )
+
+
+def get_series_by_group_id(db: Session, group_id: UUID) -> List[Series]:
+    return (
+        db.query(Series)
+        .filter(Series.group_id == group_id, Series.deleted_at.is_(None))
+        .all()
+    )
 
 
 def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
@@ -79,9 +94,6 @@ def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
             selectinload(AuthorGroup.members).selectinload(AuthorGroupMember.author),
             selectinload(AuthorGroup.social_links),
             selectinload(AuthorGroup.tags),
-            selectinload(AuthorGroup.plans).selectinload(Plan.tag_list),
-            selectinload(AuthorGroup.plans).selectinload(Plan.author),
-            selectinload(AuthorGroup.series).selectinload(Series.metadata_entries),
         )
         .filter(AuthorGroup.id == group_id, AuthorGroup.deleted_at.is_(None))
         .first()
@@ -93,6 +105,24 @@ def get_group_by_slug(db: Session, slug: str) -> Optional[AuthorGroup]:
         db.query(AuthorGroup)
         .filter(AuthorGroup.slug == slug, AuthorGroup.deleted_at.is_(None))
         .first()
+    )
+
+
+def get_groups_by_ids(db: Session, group_ids: Sequence[UUID]) -> List[AuthorGroup]:
+    if not group_ids:
+        return []
+    return (
+        db.query(AuthorGroup)
+        .options(
+            selectinload(AuthorGroup.metadata_entries),
+            selectinload(AuthorGroup.tags),
+            selectinload(AuthorGroup.members),
+        )
+        .filter(
+            AuthorGroup.id.in_(group_ids),
+            AuthorGroup.deleted_at.is_(None),
+        )
+        .all()
     )
 
 
@@ -153,6 +183,7 @@ def get_groups_paginated(
                     AuthorGroupMetadata.group_id == AuthorGroup.id,
                     or_(
                         AuthorGroupMetadata.title.ilike(f"%{search}%"),
+                        AuthorGroupMetadata.sub_title.ilike(f"%{search}%"),
                         AuthorGroupMetadata.description.ilike(f"%{search}%"),
                     ),
                 )

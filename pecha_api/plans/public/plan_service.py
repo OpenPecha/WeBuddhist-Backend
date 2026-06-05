@@ -34,6 +34,7 @@ from pecha_api.plans.groups.groups_repository import get_group_id_for_plan, get_
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.tags.tag_repository import get_published_tags_for_language, get_all_tags_paginated
 from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
+from pecha_api.plans.shared.metadata_utils import format_metadata_response
 
 logger = logging.getLogger(__name__)
 
@@ -537,14 +538,17 @@ async def get_plan_daily_content(
         series_dto = None
         if plan.series:
             series_image = await get_image_url(image_url=plan.series.image)
-            metadata_entries = _filter_series_metadata_by_language(
-                getattr(plan.series, "metadata_entries", None) or [],
-                language=navigation_language,
-            )
+            metadata_entries = getattr(plan.series, "metadata_entries", None) or []
+            if language:
+                metadata_entries = _filter_series_metadata_by_language(
+                    metadata_entries,
+                    language=language,
+                )
             series_metadata = [
                 SeriesMetadataDTO(
                     id=entry.id,
                     title=entry.title,
+                    sub_title=entry.sub_title if isinstance(entry.sub_title, str) else None,
                     description=entry.description,
                     language=entry.language.value
                     if hasattr(entry.language, "value")
@@ -559,7 +563,7 @@ async def get_plan_daily_content(
             ]
             series_dto = SeriesDTO(
                 id=plan.series.id,
-                metadata=series_metadata,
+                metadata=format_metadata_response(series_metadata, language=language),
                 image=series_image,
             )
 

@@ -39,7 +39,7 @@ async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) 
     current_author = validate_and_extract_author_details(token=token)
 
     with SessionLocal() as db:
-        _get_author_task(db=db, task_id=create_task_request.task_id, current_author=current_author,is_admin=current_author.is_admin)
+        _get_author_task(db=db, task_id=create_task_request.task_id, current_author=current_author)
 
         next_display_order = get_max_display_order_for_sub_task(db=db, task_id=create_task_request.task_id) + 1
 
@@ -93,7 +93,7 @@ async def update_sub_task_by_task_id(token: str, update_sub_task_request: Update
     current_author = validate_and_extract_author_details(token=token)
 
     with SessionLocal() as db:
-        _get_author_task(db=db, task_id=update_sub_task_request.task_id, current_author=current_author,is_admin=current_author.is_admin)
+        _get_author_task(db=db, task_id=update_sub_task_request.task_id, current_author=current_author)
 
         existing_sub_tasks_to_update: List[SubTaskDTO] = [
             subtask for subtask in update_sub_task_request.sub_tasks if subtask.id is not None
@@ -155,6 +155,6 @@ async def update_sub_task_by_task_id(token: str, update_sub_task_request: Update
 async def change_subtask_order_service(token: str, task_id: UUID, update_subtask_order: SubTaskOrderRequest) -> None:
     current_author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
-        task = _get_author_task(db=db, task_id=task_id, current_author=current_author,is_admin=current_author.is_admin)
+        task = _get_author_task(db=db, task_id=task_id, current_author=current_author)
         
         update_sub_task_order_in_bulk_by_task_id(db=db, sub_task_list=update_subtask_order.subtasks,task_id=task.id)

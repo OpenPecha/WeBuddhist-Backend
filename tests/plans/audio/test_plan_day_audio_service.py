@@ -1,3 +1,4 @@
+from pecha_api.plans.platform_enums import PlatformRole
 import io
 import pytest
 from unittest.mock import MagicMock, patch
@@ -26,7 +27,7 @@ def test_validate_audio_file_rejects_invalid_extension():
 @patch("pecha_api.plans.audio.plan_day_audio_service.get_plan_item_audio_by_plan_item_id", return_value=None)
 @patch("pecha_api.plans.audio.plan_day_audio_service.upload_file", return_value="audio/key.mp3")
 @patch("pecha_api.plans.audio.plan_day_audio_service._get_author_plan_item_by_day_id")
-@patch("pecha_api.plans.audio.plan_day_audio_service.validate_and_extract_author_details")
+@patch("pecha_api.plans.audio.plan_day_audio_service.validate_cms_author_details")
 @patch("pecha_api.plans.audio.plan_day_audio_service.SessionLocal")
 def test_upload_plan_day_audio_success(
     mock_session,
@@ -43,7 +44,7 @@ def test_upload_plan_day_audio_success(
 
     author = MagicMock()
     author.email = "author@test.com"
-    author.is_admin = True
+    author.platform_role = PlatformRole.SUPER_ADMIN
     mock_validate.return_value = author
 
     plan_item = MagicMock()
@@ -84,7 +85,7 @@ def test_upload_plan_day_audio_success(
 @patch("pecha_api.plans.audio.plan_day_audio_service.get_plan_item_audio_by_plan_item_id")
 @patch("pecha_api.plans.audio.plan_day_audio_service.get_accessible_plan_item_audio_by_key")
 @patch("pecha_api.plans.audio.plan_day_audio_service._get_author_plan_item_by_day_id")
-@patch("pecha_api.plans.audio.plan_day_audio_service.validate_and_extract_author_details")
+@patch("pecha_api.plans.audio.plan_day_audio_service.validate_cms_author_details")
 @patch("pecha_api.plans.audio.plan_day_audio_service.SessionLocal")
 def test_assign_plan_day_audio_success(
     mock_session,
@@ -105,7 +106,7 @@ def test_assign_plan_day_audio_success(
     author = MagicMock()
     author.email = "author@test.com"
     author.id = uuid4()
-    author.is_admin = False
+    author.platform_role = PlatformRole.CREATOR
     mock_validate.return_value = author
 
     plan_item = MagicMock()
@@ -146,7 +147,7 @@ def test_assign_plan_day_audio_success(
 
 @patch("pecha_api.plans.audio.plan_day_audio_service.get_accessible_plan_item_audio_by_key", return_value=None)
 @patch("pecha_api.plans.audio.plan_day_audio_service._get_author_plan_item_by_day_id")
-@patch("pecha_api.plans.audio.plan_day_audio_service.validate_and_extract_author_details")
+@patch("pecha_api.plans.audio.plan_day_audio_service.validate_cms_author_details")
 @patch("pecha_api.plans.audio.plan_day_audio_service.SessionLocal")
 def test_assign_plan_day_audio_unknown_key_returns_404(
     mock_session,
@@ -154,7 +155,7 @@ def test_assign_plan_day_audio_unknown_key_returns_404(
     mock_get_item,
     mock_get_source,
 ):
-    mock_validate.return_value = MagicMock(email="a@test.com", id=uuid4(), is_admin=False)
+    mock_validate.return_value = MagicMock(email="a@test.com", id=uuid4(), platform_role=PlatformRole.CREATOR, is_active=True)
     mock_get_item.return_value = MagicMock(id=uuid4())
     mock_session.return_value.__enter__ = MagicMock(return_value=MagicMock())
     mock_session.return_value.__exit__ = MagicMock(return_value=False)

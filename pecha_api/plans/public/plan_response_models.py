@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Union
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus,ContentType
 from uuid import UUID
 from datetime import datetime, date as DateType
@@ -100,13 +100,17 @@ class PlansRepositoryResponse(BaseModel):
 class SeriesMetadataDTO(BaseModel):
     id: UUID
     title: str
+    sub_title: Optional[str] = None
     description: Optional[str] = None
     language: str
 
 
+SeriesMetadataResponse = Union[SeriesMetadataDTO, List[SeriesMetadataDTO], None]
+
+
 class SeriesDTO(BaseModel):
     id: UUID
-    metadata: List[SeriesMetadataDTO] = []
+    metadata: SeriesMetadataResponse = []
     image: Optional[ImageUrlModel] = None
 
 class DailyPlanResponse(BaseModel):

@@ -142,8 +142,6 @@ class AuthorGroup(Base):
         cascade=CASCADE_DELETE_ORPHAN,
     )
     tags = relationship("Tag", secondary=author_group_tags, lazy="select")
-    plans = relationship("Plan", secondary=author_group_plans, lazy="select")
-    series = relationship("Series", secondary=author_group_series, lazy="select")
     followers = relationship("Users", secondary=author_group_followers, lazy="select")
 
     __table_args__ = (
@@ -167,6 +165,7 @@ class AuthorGroupMetadata(Base):
     )
     language = Column(String(10), nullable=False)
     title = Column(String(255), nullable=False)
+    sub_title = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
 
     group = relationship("AuthorGroup", back_populates="metadata_entries")

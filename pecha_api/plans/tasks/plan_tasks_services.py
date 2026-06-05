@@ -1,7 +1,9 @@
 from pecha_api.plans.tasks.plan_tasks_repository import save_task, get_task_by_id, delete_task, update_task_day, update_task_title, get_tasks_by_plan_item_id, reorder_day_tasks_display_order, update_task_order, get_tasks_by_plan_item_id
 from pecha_api.plans.tasks.plan_tasks_response_model import CreateTaskRequest, TaskDTO, UpdateTaskDayRequest, UpdatedTaskDayResponse, GetTaskResponse, UpdateTaskTitleRequest, UpdateTaskTitleResponse, ContentAndImageUrl, UpdateTaskOrderRequest, UpdatedTaskOrderResponse, TaskOrderItem
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_response_model import SubTaskDTO
-from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
+from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
+from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
+from pecha_api.plans.shared.permissions import require_can_edit_content, require_can_read_group_content
 from uuid import UUID
 from fastapi import HTTPException
 from pecha_api.db.database import SessionLocal
@@ -24,11 +26,18 @@ def _get_max_display_order(plan_item_id: UUID) -> int:
         return max_order
 
 async def create_new_task(token: str, create_task_request: CreateTaskRequest, plan_id: UUID, day_id: UUID) -> TaskDTO:
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
 
     with SessionLocal() as db:
 
         plan_item = get_plan_item(db=db, plan_id=plan_id, day_id=day_id)
+        plan = get_plan_by_id(db=db, plan_id=plan_id)
+        require_can_edit_content(
+            db=db,
+            group_id=plan.group_id,
+            author=current_author,
+            content_status=plan.status,
+        )
         
         display_order:int = _get_max_display_order(plan_item_id=plan_item.id) + 1
 
@@ -50,10 +59,10 @@ async def create_new_task(token: str, create_task_request: CreateTaskRequest, pl
     )
 
 async def delete_task_by_id(task_id: UUID, token: str):
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
     
     with SessionLocal() as db:
-        task = _get_author_task(db=db, task_id=task_id, current_author=current_author,is_admin=current_author.is_admin)
+        task = _get_author_task(db=db, task_id=task_id, current_author=current_author)
         delete_task(db=db, task_id=task.id)
 
         tasks = get_tasks_by_plan_item_id(db=db, plan_item_id=task.plan_item_id)
@@ -61,7 +70,7 @@ async def delete_task_by_id(task_id: UUID, token: str):
             _reorder_sequentially(db=db, tasks=tasks)
 
 async def change_task_day_service(token: str, task_id: UUID, update_task_request: UpdateTaskDayRequest) -> UpdatedTaskDayResponse:
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
 
     with SessionLocal() as db:
         display_order = _get_max_display_order(plan_item_id=update_task_request.target_day_id) + 1
@@ -71,7 +80,7 @@ async def change_task_day_service(token: str, task_id: UUID, update_task_request
         if not targeted_day:
             raise HTTPException(status_code=404, detail=ResponseError(error=BAD_REQUEST, message=PLAN_DAY_NOT_FOUND).model_dump())
         
-        task = _get_author_task(db=db, task_id=task_id, current_author=current_author,is_admin=current_author.is_admin)
+        task = _get_author_task(db=db, task_id=task_id, current_author=current_author)
         task.plan_item_id = update_task_request.target_day_id
         task.display_order = display_order
 
@@ -89,10 +98,10 @@ async def change_task_day_service(token: str, task_id: UUID, update_task_request
         )
 
 async def update_task_title_service(token: str, task_id: UUID, update_request: UpdateTaskTitleRequest) -> UpdateTaskTitleResponse:
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
     
     with SessionLocal() as db:
-        task = _get_author_task(db=db, task_id=task_id, current_author=current_author,is_admin=current_author.is_admin)
+        task = _get_author_task(db=db, task_id=task_id, current_author=current_author)
 
         task.title = update_request.title
         updated_task = update_task_title(db=db, updated_task=task)
@@ -104,7 +113,7 @@ async def update_task_title_service(token: str, task_id: UUID, update_request: U
 
 
 async def change_task_order_service(token: str, day_id: UUID, update_task_order_request: UpdateTaskOrderRequest) -> UpdatedTaskOrderResponse:
-    validate_and_extract_author_details(token=token)
+    validate_cms_author_details(token=token)
 
     with SessionLocal() as db:
         _check_duplicate_task_order(update_task_orders=update_task_order_request.tasks)
@@ -112,10 +121,10 @@ async def change_task_order_service(token: str, day_id: UUID, update_task_order_
 
 
 async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskResponse:
-    current_user = validate_and_extract_author_details(token=token)
+    current_user = validate_cms_author_details(token=token)
 
     with SessionLocal() as db:
-        task = _get_author_task(db=db, task_id=task_id, current_author=current_user,is_admin=current_user.is_admin)
+        task = _get_author_task(db=db, task_id=task_id, current_author=current_user)
 
         from pecha_api.plans.audio.dto_helpers import build_subtask_timestamp_fields
 
@@ -177,10 +186,25 @@ def _reorder_sequentially(db: SessionLocal(), tasks: List[PlanTask]):
         reorder_day_tasks_display_order(db=db, tasks=tasks_to_update)
 
 
-def _get_author_task(db: SessionLocal(), task_id: UUID, current_author: Author, is_admin: bool) -> PlanTask:
+def _get_author_task(db: SessionLocal(), task_id: UUID, current_author: Author) -> PlanTask:
     task = get_task_by_id(db=db, task_id=task_id)
-    if not is_admin and task.created_by != current_author.email:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=ResponseError(error=FORBIDDEN, message=UNAUTHORIZED_TASK_ACCESS).model_dump())
+    if not task:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ResponseError(error=BAD_REQUEST, message=TASK_NOT_FOUND).model_dump(),
+        )
+    plan_item = get_plan_item_by_id(db=db, day_id=task.plan_item_id)
+    if not plan_item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ResponseError(error=BAD_REQUEST, message=PLAN_DAY_NOT_FOUND).model_dump())
+    plan = get_plan_by_id(db=db, plan_id=plan_item.plan_id)
+    if not plan:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ResponseError(error=BAD_REQUEST, message=PLAN_DAY_NOT_FOUND).model_dump())
+    require_can_edit_content(
+        db=db,
+        group_id=plan.group_id,
+        author=current_author,
+        content_status=plan.status,
+    )
     return task
 
 def _check_duplicate_task_order(update_task_orders: List[TaskOrderItem]) -> None:

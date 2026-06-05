@@ -25,6 +25,14 @@ def test_get_group_ids_by_plan_ids_returns_first_group_per_plan():
     result = get_group_ids_by_plan_ids(db=db, plan_ids=[plan_id])
 
     assert result == {plan_id: group_id}
+
+
+def test_get_group_id_for_plan():
+    db = _make_session_mock()
+    plan_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+    db.execute.return_value.first.return_value = (group_id,)
+
     assert get_group_id_for_plan(db=db, plan_id=plan_id) == group_id
 
 
@@ -44,6 +52,14 @@ def test_get_group_ids_by_series_ids_returns_first_group_per_series():
     result = get_group_ids_by_series_ids(db=db, series_ids=[series_id])
 
     assert result == {series_id: group_id}
+
+
+def test_get_group_id_for_series():
+    db = _make_session_mock()
+    series_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+    db.execute.return_value.first.return_value = (group_id,)
+
     assert get_group_id_for_series(db=db, series_id=series_id) == group_id
 
 

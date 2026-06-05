@@ -1,5 +1,5 @@
 import math
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 from uuid import UUID
 
 from sqlalchemy import String, cast, desc, exists, func, literal, or_, select
@@ -23,6 +23,8 @@ _SERIES_METADATA_JSON = (
                         SeriesMetadata.id,
                         "title",
                         SeriesMetadata.title,
+                        "sub_title",
+                        SeriesMetadata.sub_title,
                         "description",
                         SeriesMetadata.description,
                         "language",
@@ -88,17 +90,20 @@ def _apply_series_filters(
     status: Optional[PlanStatus],
     featured: Optional[bool],
     language: Optional[str],
-    author_id: Optional[UUID],
+    group_ids: Optional[Sequence[UUID]] = None,
 ) -> Query:
     query = query.filter(Series.deleted_at.is_(None))
-    if author_id is not None:
-        query = query.filter(Series.author_id == author_id)
+    if group_ids is not None:
+        query = query.filter(Series.group_id.in_(group_ids))
     if search:
         query = query.filter(
             exists(
                 select(literal(1)).where(
                     SeriesMetadata.series_id == Series.id,
-                    SeriesMetadata.title.ilike(f"%{search}%"),
+                    or_(
+                        SeriesMetadata.title.ilike(f"%{search}%"),
+                        SeriesMetadata.sub_title.ilike(f"%{search}%"),
+                    ),
                 )
             )
         )
@@ -135,14 +140,14 @@ def _apply_plan_filters(
     status: Optional[PlanStatus],
     featured: Optional[bool],
     language: Optional[str],
-    author_id: Optional[UUID],
+    group_ids: Optional[Sequence[UUID]] = None,
     standalone_only: bool,
 ) -> Query:
     query = query.filter(Plan.deleted_at.is_(None))
     if standalone_only:
         query = query.filter(Plan.series_id.is_(None))
-    if author_id is not None:
-        query = query.filter(Plan.author_id == author_id)
+    if group_ids is not None:
+        query = query.filter(Plan.group_id.in_(group_ids))
     if search:
         query = query.filter(Plan.title.ilike(f"%{search}%"))
     if status is not None:
@@ -209,14 +214,14 @@ def get_dashboard_items(
     status: Optional[PlanStatus],
     language: Optional[str],
     featured: Optional[bool],
-    author_id: Optional[UUID],
+    group_ids: Optional[Sequence[UUID]] = None,
 ) -> Tuple[List, int]:
     filter_kwargs = {
         "search": search,
         "status": status,
         "featured": featured,
         "language": language,
-        "author_id": author_id,
+        "group_ids": group_ids,
     }
 
     series_query = _apply_series_filters(_series_base_query(db), **filter_kwargs)

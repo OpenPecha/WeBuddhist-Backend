@@ -21,6 +21,7 @@ setattr(_stub_repo_module, "get_plan_items_by_plan_id", MagicMock())
 setattr(_stub_repo_module, "get_plan_item_by_day_number", MagicMock())
 sys.modules["pecha_api.plans.public.plan_repository"] = _stub_repo_module
 
+from pecha_api.plans.platform_enums import PlatformRole
 from pecha_api.plans.authors.plan_authors_service import (
     validate_and_extract_author_details,
     get_author_details,
@@ -465,14 +466,22 @@ class TestGetAuthorDetails:
     @patch('pecha_api.plans.authors.plan_authors_service.generate_presigned_access_url')
     @patch('pecha_api.plans.authors.plan_authors_service.get')
     @patch('pecha_api.plans.authors.plan_authors_service._get_author_social_profile')
+    @patch('pecha_api.plans.authors.plan_authors_service.build_author_access_context', return_value={
+        'platform_role': PlatformRole.CREATOR,
+        'is_verified': True,
+        'is_active': True,
+        'has_group': True,
+        'can_create_content': True,
+    })
     @patch('pecha_api.plans.authors.plan_authors_service.validate_and_extract_author_details')
     @pytest.mark.asyncio
     async def test_get_author_details_success(
         self,
         mock_validate_and_extract,
+        mock_build_author_access_context,
         mock_get_social_profile,
         mock_get_config,
-        mock_generate_presigned_url
+        mock_generate_presigned_url,
     ):
         """Test successful retrieval of author details."""
         # Arrange
