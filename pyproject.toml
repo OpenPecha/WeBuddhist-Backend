@@ -10,7 +10,7 @@ authors = [ "tenzinsamten <iamsamten>",]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.13"
 alembic = "^1.14.0"
 bcrypt = "^4.2.1"
 fastapi = "^0.115.5"
@@ -40,8 +40,8 @@ elasticsearch = "^9.0.1"
 toml = "^0.10.2"
 mailtrap = "^2.3.0"
 bophono = "^0.2.0"
-botok = "^0.9.0"
 rich = "^14.2.0"
+google-genai = "^2.0"
 
 [tool.poetry.scripts]
 start = "uvicorn:main"
@@ -50,6 +50,7 @@ start = "uvicorn:main"
 omit = [ "*/*_repository.py", "*/*_models.py", "*/*_init__.py", "*/db/*", "*/external_clients/*",]
 
 [tool.coverage.report]
+fail_under = 80
 exclude_lines = [ "pragma: no cover", "def __repr__", "if self.debug:", "raise NotImplementedError", "if __name__ == .__main__.:", "pass", "raise ImportError",]
 
 [tool.poetry.dependencies.uvicorn]

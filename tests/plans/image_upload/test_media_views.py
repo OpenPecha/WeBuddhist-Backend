@@ -55,14 +55,14 @@ class TestDataFactory:
         path = f"images/plan_images/{plan_id}/{uuid_part}"
         
         image_urls = ImageUrlModel(
-            thumbnail=f"{TEST_BUCKET_URL}/{path}/thumbnail/{base_name}.jpg",
-            medium=f"{TEST_BUCKET_URL}/{path}/medium/{base_name}.jpg",
-            original=f"{TEST_BUCKET_URL}/{path}/original/{base_name}.jpg"
+            thumbnail=f"{TEST_BUCKET_URL}/{path}/thumbnail/{base_name}.webp",
+            medium=f"{TEST_BUCKET_URL}/{path}/medium/{base_name}.webp",
+            original=f"{TEST_BUCKET_URL}/{path}/original/{base_name}.webp"
         )
         
         return PlanUploadResponse(
             image=image_urls,
-            key=f"{path}/original/{base_name}.jpg",
+            key=f"{path}/original/{base_name}.webp",
             path=path,
             message=message
         )
@@ -86,16 +86,16 @@ class TestDataFactory:
         path = f"images/text_images/{text_id}/{uuid_part}"
 
         image_urls = ImageUrlModel(
-            thumbnail=f"{TEST_BUCKET_URL}/{path}/thumbnail/{base_name}.jpg",
-            medium=f"{TEST_BUCKET_URL}/{path}/medium/{base_name}.jpg",
-            original=f"{TEST_BUCKET_URL}/{path}/original/{base_name}.jpg",
+            thumbnail=f"{TEST_BUCKET_URL}/{path}/thumbnail/{base_name}.webp",
+            medium=f"{TEST_BUCKET_URL}/{path}/medium/{base_name}.webp",
+            original=f"{TEST_BUCKET_URL}/{path}/original/{base_name}.webp",
         )
 
         return TextImageUploadResponse(
             id="text_image_id",
             text_id=text_id,
             image=image_urls,
-            key=f"{path}/original/{base_name}.jpg",
+            key=f"{path}/original/{base_name}.webp",
             path=path,
             message=message,
         )
@@ -126,6 +126,14 @@ def mock_validate_author(mock_author):
 def mock_upload_service(mock_success_response):
     """Mock the upload service with success response"""
     with patch("pecha_api.plans.media.media_views.upload_plan_image") as mock_func:
+        mock_func.return_value = mock_success_response
+        yield mock_func
+
+
+@pytest.fixture
+def mock_series_upload_service(mock_success_response):
+    """Mock the series upload service with success response"""
+    with patch("pecha_api.plans.media.media_views.upload_series_image") as mock_func:
         mock_func.return_value = mock_success_response
         yield mock_func
 
@@ -197,6 +205,28 @@ class TestMediaUploadSuccess:
         assert "original" in response_data["image"]
         assert "key" in response_data
         assert "path" in response_data
+
+    def test_upload_series_image_success(self, authenticated_client, mock_series_upload_service):
+        """Test successful series image upload with valid data"""
+        series_id = "series-123"
+        files = [TestDataFactory.create_test_file()]
+        headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+        params = {"series_id": series_id}
+
+        response = authenticated_client.post(
+            "/cms/media/upload/series",
+            files=files,
+            headers=headers,
+            params=params,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        response_data = response.json()
+        assert response_data["message"] == IMAGE_UPLOAD_SUCCESS
+        assert "thumbnail" in response_data["image"]
+        assert "medium" in response_data["image"]
+        assert "original" in response_data["image"]
+        mock_series_upload_service.assert_called_once()
     
     def test_upload_different_image_formats(self, authenticated_client, mock_success_response):
         """Test upload with different supported image formats"""

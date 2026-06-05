@@ -26,6 +26,7 @@ from pecha_api.plans.response_message import (
     TASK_NOT_FOUND,
     ALREADY_COMPLETED_SUB_TASK,
 )
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.plans_response_models import PlanDTO
 from tests.plans.tag_test_helpers import mock_tag_entities
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus
@@ -56,8 +57,11 @@ def test_enroll_user_in_plan_success():
         return_value=session_cm,
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_plan_by_id",
-        return_value=SimpleNamespace(id=plan_id),
+        return_value=SimpleNamespace(id=plan_id, series_id=None),
     ) as mock_get_plan, patch(
+        "pecha_api.plans.users.plan_users_service.is_user_enrolled_in_plan",
+        return_value=False,
+    ), patch(
         "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
         return_value=None,
     ) as mock_get_progress, patch(
@@ -74,13 +78,14 @@ def test_enroll_user_in_plan_success():
 
         mock_validate.assert_called_once_with(token="token123")
         mock_get_plan.assert_called_once_with(db=db_mock, plan_id=plan_id)
-        mock_get_progress.assert_called_once_with(db=db_mock, user_id=user_id, plan_id=plan_id)
 
         ctor_kwargs = MockUserPlanProgress.call_args.kwargs
         assert ctor_kwargs["user_id"] == user_id
         assert ctor_kwargs["plan_id"] == plan_id
         assert ctor_kwargs["streak_count"] == 0
         assert ctor_kwargs["longest_streak"] == 0
+        assert ctor_kwargs["auto_enrolled"] is False
+        assert ctor_kwargs["series_enrollment_id"] is None
         assert "status" in ctor_kwargs  
         assert ctor_kwargs["is_completed"] is False
         assert "started_at" in ctor_kwargs
@@ -131,10 +136,10 @@ def test_enroll_user_in_plan_already_enrolled_raises_409():
         return_value=session_cm,
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_plan_by_id",
-        return_value=SimpleNamespace(id=plan_id),
+        return_value=SimpleNamespace(id=plan_id, series_id=None),
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
-        return_value=SimpleNamespace(id=uuid.uuid4()),
+        "pecha_api.plans.users.plan_users_service.is_user_enrolled_in_plan",
+        return_value=True,
     ):
         with pytest.raises(HTTPException) as exc_info:
             enroll_user_in_plan(token="tkn", enroll_request=enroll_request)
@@ -365,30 +370,29 @@ def test_complete_sub_task_service_saves_day_completion_when_day_completed():
     ) as MockUserTaskCompletion, patch(
         "pecha_api.plans.users.plan_users_service.save_user_task_completion",
     ), patch(
-        "pecha_api.plans.users.plan_users_service.check_day_completion",
-        return_value=True,
-    ) as mock_check_day, patch(
+        "pecha_api.plans.users.plan_users_service.get_tasks_by_plan_item_id",
+        return_value=[SimpleNamespace(id=task_id)],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_uncompleted_user_task_ids",
+        return_value=[],
+    ), patch(
         "pecha_api.plans.users.plan_users_service.UserDayCompletion",
-    ) as MockUserDayCompletion, patch(
+        side_effect=lambda user_id, day_id: SimpleNamespace(user_id=user_id, day_id=day_id),
+    ), patch(
         "pecha_api.plans.users.plan_users_service.save_user_day_completion",
-    ) as mock_save_day:
+    ) as mock_save_day, patch(
+        "pecha_api.plans.users.plan_users_service.check_plan_completion",
+    ):
         constructed_sub = SimpleNamespace(user_id=user_id, sub_task_id=sub_task_id)
         MockUserSubTaskCompletion.return_value = constructed_sub
 
         constructed_task = SimpleNamespace(user_id=user_id, task_id=task_id)
         MockUserTaskCompletion.return_value = constructed_task
 
-        constructed_day = SimpleNamespace(user_id=user_id, day_id=day_id)
-        MockUserDayCompletion.return_value = constructed_day
-
         result = complete_sub_task_service(token="token123", id=sub_task_id)
 
         assert result is None
-        
-        # check_day_completion should be called
-        mock_check_day.assert_called_once_with(db=db_mock, user_id=user_id, day_id=day_id)
-        
-        # Day completion SHOULD be saved since check_day_completion returned True
+
         mock_save_day.assert_called_once()
         assert mock_save_day.call_args.kwargs["db"] is db_mock
         saved_day = mock_save_day.call_args.kwargs["user_day_completion"]
@@ -403,14 +407,15 @@ async def test_get_user_enrolled_plans_success():
 
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
 
     mock_user = SimpleNamespace(id=user_id)
     progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
-    # emulate enums with .value
     language = SimpleNamespace(value="EN")
     difficulty = SimpleNamespace(value="BEGINNER")
     plan = SimpleNamespace(
         id=plan_id,
+        series_id=series_id,
         title="Test Plan",
         description="Test Description",
         language=language,
@@ -419,9 +424,13 @@ async def test_get_user_enrolled_plans_success():
         tag_list=mock_tag_entities(["meditation", "mindfulness"]),
         start_date=datetime(2025, 1, 15, tzinfo=timezone.utc),
         display_order=1,
+        created_at=datetime.now(timezone.utc),
     )
 
     db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+        SimpleNamespace(plan_id=plan_id, total_days=30)
+    ]
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
@@ -430,14 +439,18 @@ async def test_get_user_enrolled_plans_success():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_enrolled_plans_with_details",
-        return_value=([(progress, plan, 30)], 1),
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=([plan], 1),
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get",
-        return_value="bucket",
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={plan_id: progress},
     ), patch(
-        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
-        return_value="https://signed.example.com/plan.jpg",
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=ImageUrlModel(
+            thumbnail="https://signed.example.com/plan-thumb.jpg",
+            medium="https://signed.example.com/plan-medium.jpg",
+            original="https://signed.example.com/plan.jpg",
+        ),
     ):
         result = await get_user_enrolled_plans(
             token="token123", status_filter=None, skip=0, limit=20
@@ -458,9 +471,122 @@ async def test_get_user_enrolled_plans_success():
         assert plan_dto.difficulty_level == "BEGINNER"
         assert plan_dto.total_days == 30
         assert [t.name for t in plan_dto.tags] == ["meditation", "mindfulness"]
-        assert plan_dto.image_url.startswith("https://signed.")
+        assert plan_dto.image.original == "https://signed.example.com/plan.jpg"
         assert plan_dto.start_date == datetime(2025, 1, 15, tzinfo=timezone.utc)
 
+
+@pytest.mark.asyncio
+async def test_get_user_enrolled_plans_includes_group_info():
+    from datetime import datetime, timezone
+    from pecha_api.plans.users.plan_users_service import get_user_enrolled_plans
+    from pecha_api.plans.groups.groups_response_models import AuthorGroupSummaryDTO, GroupMetadataDTO
+
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+
+    mock_user = SimpleNamespace(id=user_id)
+    progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
+    plan = SimpleNamespace(
+        id=plan_id,
+        series_id=series_id,
+        title="Grouped Plan",
+        description="Test",
+        language=SimpleNamespace(value="EN"),
+        difficulty_level=SimpleNamespace(value="BEGINNER"),
+        image_url=None,
+        tag_list=[],
+        start_date=None,
+        display_order=1,
+        created_at=datetime.now(timezone.utc),
+    )
+    group_summary = AuthorGroupSummaryDTO(
+        id=group_id,
+        slug="dharma-group",
+        is_public=True,
+        metadata=[GroupMetadataDTO(id=uuid.uuid4(), title="Dharma Group", description=None, language="EN")],
+        tags=[],
+        follower_count=5,
+        member_count=2,
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+        SimpleNamespace(plan_id=plan_id, total_days=10)
+    ]
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=([plan], 1),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={plan_id: progress},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service._load_group_summaries_for_plans",
+        return_value=({group_id: group_summary}, {}, {series_id: group_id}),
+    ):
+        result = await get_user_enrolled_plans(token="token123", skip=0, limit=20)
+
+        assert result.plans[0].group is not None
+        assert result.plans[0].group.id == group_id
+        assert result.plans[0].group.slug == "dharma-group"
+        assert result.plans[0].group.metadata[0].title == "Dharma Group"
+
+
+@pytest.mark.asyncio
+async def test_get_user_enrolled_plans_passes_language_to_group_summaries():
+    from datetime import datetime, timezone
+    from pecha_api.plans.users.plan_users_service import get_user_enrolled_plans
+
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    mock_user = SimpleNamespace(id=user_id)
+    plan = SimpleNamespace(
+        id=plan_id,
+        series_id=series_id,
+        title="Plan",
+        description="",
+        language=SimpleNamespace(value="EN"),
+        difficulty_level=SimpleNamespace(value="BEGINNER"),
+        image_url=None,
+        tag_list=[],
+        start_date=None,
+        display_order=1,
+        created_at=datetime.now(timezone.utc),
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+        SimpleNamespace(plan_id=plan_id, total_days=5)
+    ]
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=([plan], 1),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service._load_group_summaries_for_plans",
+        return_value=({}, {}, {}),
+    ) as mock_load:
+        await get_user_enrolled_plans(token="token123", language="bo", skip=0, limit=20)
+
+        assert mock_load.call_args.kwargs["language"] == "bo"
 
 
 @pytest.mark.asyncio
@@ -469,10 +595,13 @@ async def test_get_user_enrolled_plans_with_status_filter():
     from datetime import datetime, timezone
 
     user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
     mock_user = SimpleNamespace(id=user_id)
     progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
     plan = SimpleNamespace(
-        id=uuid.uuid4(),
+        id=plan_id,
+        series_id=series_id,
         title="Active Plan",
         description="Test",
         language=SimpleNamespace(value="EN"),
@@ -481,9 +610,13 @@ async def test_get_user_enrolled_plans_with_status_filter():
         tag_list=[],
         start_date=None,
         display_order=None,
+        created_at=datetime.now(timezone.utc),
     )
 
     db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+        SimpleNamespace(plan_id=plan_id, total_days=10)
+    ]
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
@@ -492,17 +625,71 @@ async def test_get_user_enrolled_plans_with_status_filter():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_enrolled_plans_with_details",
-    ) as mock_repo:
-        mock_repo.return_value = ([(progress, plan, 10)], 1)
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+    ) as mock_repo, patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={plan_id: progress},
+    ):
+        mock_repo.return_value = ([plan], 1)
 
         result = await get_user_enrolled_plans(
             token="token123", status_filter="active", skip=0, limit=20
         )
 
-        # status normalized to uppercase
-        assert mock_repo.call_args.kwargs["status"] == "ACTIVE"
+        assert mock_repo.call_args.kwargs["status_filter"] == "ACTIVE"
         assert result.total == 1
+
+
+@pytest.mark.asyncio
+async def test_get_user_enrolled_plans_with_language_filter():
+    from pecha_api.plans.users.plan_users_service import get_user_enrolled_plans
+    from datetime import datetime, timezone
+
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    mock_user = SimpleNamespace(id=user_id)
+    progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
+    plan = SimpleNamespace(
+        id=plan_id,
+        series_id=series_id,
+        title="Tibetan Plan",
+        description="Test",
+        language=SimpleNamespace(value="BO"),
+        difficulty_level=SimpleNamespace(value="BEGINNER"),
+        image_url=None,
+        tag_list=[],
+        start_date=None,
+        display_order=None,
+        created_at=datetime.now(timezone.utc),
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+        SimpleNamespace(plan_id=plan_id, total_days=10)
+    ]
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+    ) as mock_repo, patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={plan_id: progress},
+    ):
+        mock_repo.return_value = ([plan], 1)
+
+        result = await get_user_enrolled_plans(
+            token="token123", language="bo", skip=0, limit=20
+        )
+
+        assert mock_repo.call_args.kwargs["language"] == "bo"
+        assert result.total == 1
+        assert result.plans[0].language == "BO"
 
 
 @pytest.mark.asyncio
@@ -511,28 +698,31 @@ async def test_get_user_enrolled_plans_with_pagination():
     from datetime import datetime, timezone
 
     user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
     mock_user = SimpleNamespace(id=user_id)
 
-    # repo returns only the page slice, but also a total count
-    total = 50
-    results = []
+    paginated_plans = []
+    days_count_results = []
     for i in range(10):
         pid = uuid.uuid4()
-        progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
         plan = SimpleNamespace(
             id=pid,
-            title=f"Plan {i}",
+            series_id=series_id,
+            title=f"Plan {i + 10}",
             description="Test",
             language=SimpleNamespace(value="EN"),
             difficulty_level=SimpleNamespace(value="BEGINNER"),
             image_url=None,
             tag_list=[],
             start_date=None,
-            display_order=None,
+            display_order=i + 10,
+            created_at=datetime.now(timezone.utc),
         )
-        results.append((progress, plan, 10))
+        paginated_plans.append(plan)
+        days_count_results.append(SimpleNamespace(plan_id=pid, total_days=10))
 
     db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = days_count_results
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
@@ -541,8 +731,11 @@ async def test_get_user_enrolled_plans_with_pagination():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_enrolled_plans_with_details",
-        return_value=(results, total),
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=(paginated_plans, 50),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={},
     ):
         result = await get_user_enrolled_plans(
             token="token123", status_filter=None, skip=10, limit=10
@@ -570,7 +763,7 @@ async def test_get_user_enrolled_plans_empty_result():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_enrolled_plans_with_details",
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
         return_value=([], 0),
     ):
         result = await get_user_enrolled_plans(
@@ -589,12 +782,13 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
     from datetime import datetime, timezone
 
     user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
     plan_id_1 = uuid.uuid4()
-    plan_id_2 = uuid.uuid4()
 
     progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
     plan1 = SimpleNamespace(
         id=plan_id_1,
+        series_id=series_id,
         title="Plan 1",
         description="Desc",
         language=SimpleNamespace(value="EN"),
@@ -602,21 +796,14 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
         image_url=None,
         tag_list=[],
         start_date=None,
-        display_order=None,
-    )
-    plan2 = SimpleNamespace(
-        id=plan_id_2,
-        title="Plan 2",
-        description="Desc",
-        language=SimpleNamespace(value="EN"),
-        difficulty_level=SimpleNamespace(value="BEGINNER"),
-        image_url=None,
-        tag_list=[],
-        start_date=None,
-        display_order=None,
+        display_order=1,
+        created_at=datetime.now(timezone.utc),
     )
 
-    _, session_cm = _mock_session_with_db()
+    db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+        SimpleNamespace(plan_id=plan_id_1, total_days=10)
+    ]
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
@@ -625,8 +812,11 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_enrolled_plans_with_details",
-        return_value=([(progress, plan1, 10)], 1),
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=([plan1], 2),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={plan_id_1: progress},
     ):
         result = await get_user_enrolled_plans(
             token="tok", status_filter="active", skip=0, limit=1
@@ -634,7 +824,7 @@ async def test_get_user_enrolled_plans_success_with_filter_and_pagination():
 
         assert result.skip == 0
         assert result.limit == 1
-        assert result.total == 1
+        assert result.total == 2
         assert len(result.plans) == 1
         assert result.plans[0].id == plan_id_1
 
@@ -716,6 +906,110 @@ def test_get_user_plan_progress_not_enrolled_raises_404():
         assert exc_info.value.detail["message"] == "User not enrolled in this plan"
 
 
+def test_get_user_plan_progress_image_url_success():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    progress_id = uuid.uuid4()
+
+    db_mock, session_cm = _mock_session_with_db()
+
+    progress_record = SimpleNamespace(
+        id=progress_id,
+        user_id=user_id,
+        plan_id=plan_id,
+        started_at="2024-01-15T10:00:00Z",
+        streak_count=0,
+        longest_streak=0,
+        status="active",
+        is_completed=False,
+        completed_at=None,
+        created_at="2024-01-15T10:00:00Z",
+    )
+    plan_record = SimpleNamespace(
+        id=plan_id,
+        title="Plan X",
+        description="desc",
+        language=SimpleNamespace(value="en"),
+        difficulty_level=SimpleNamespace(value="beginner"),
+        image_url="plans/plan.jpg",
+        tag_list=[],
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=progress_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=plan_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=ImageUrlModel(
+            thumbnail="https://signed.example.com/plan-thumb.jpg",
+            medium="https://signed.example.com/plan-medium.jpg",
+            original="https://signed.example.com/plan.jpg",
+        ),
+    ):
+        result = get_user_plan_progress(token="tok", plan_id=plan_id)
+
+    assert result.plan["image"]["original"] == "https://signed.example.com/plan.jpg"
+
+
+def test_get_user_plan_progress_image_url_error_returns_none():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    progress_id = uuid.uuid4()
+
+    db_mock, session_cm = _mock_session_with_db()
+
+    progress_record = SimpleNamespace(
+        id=progress_id,
+        user_id=user_id,
+        plan_id=plan_id,
+        started_at="2024-01-15T10:00:00Z",
+        streak_count=0,
+        longest_streak=0,
+        status="active",
+        is_completed=False,
+        completed_at=None,
+        created_at="2024-01-15T10:00:00Z",
+    )
+    plan_record = SimpleNamespace(
+        id=plan_id,
+        title="Plan X",
+        description="desc",
+        language=SimpleNamespace(value="en"),
+        difficulty_level=SimpleNamespace(value="beginner"),
+        image_url="plans/plan.jpg",
+        tag_list=[],
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=progress_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_by_id",
+        return_value=plan_record,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
+    ):
+        result = get_user_plan_progress(token="tok", plan_id=plan_id)
+
+    assert result.plan["image"] is None
+
+
 def _mock_session_with_db_and_task_flow():
     db_mock, session_cm = _mock_session_with_db()
     return db_mock, session_cm
@@ -774,11 +1068,13 @@ async def test_get_user_enrolled_plans_without_image():
 
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
 
     mock_user = SimpleNamespace(id=user_id)
     progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
     plan = SimpleNamespace(
         id=plan_id,
+        series_id=series_id,
         title="Plan Without Image",
         description="Description",
         language=SimpleNamespace(value="BO"),
@@ -787,9 +1083,13 @@ async def test_get_user_enrolled_plans_without_image():
         tag_list=[],
         start_date=None,
         display_order=None,
+        created_at=datetime.now(timezone.utc),
     )
 
-    _, session_cm = _mock_session_with_db()
+    db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+        SimpleNamespace(plan_id=plan_id, total_days=0)
+    ]
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
@@ -798,8 +1098,11 @@ async def test_get_user_enrolled_plans_without_image():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_enrolled_plans_with_details",
-        return_value=([(progress, plan, 0)], 1),
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=([plan], 1),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={plan_id: progress},
     ):
         result = await get_user_enrolled_plans(
             token="token123", status_filter=None, skip=0, limit=20
@@ -808,7 +1111,7 @@ async def test_get_user_enrolled_plans_without_image():
         assert len(result.plans) == 1
         assert result.plans[0].id == plan_id
         assert result.plans[0].title == "Plan Without Image"
-        assert result.plans[0].image_url == ""
+        assert result.plans[0].image is None
         assert result.skip == 0
         assert result.limit == 20
         assert result.total == 1
@@ -843,11 +1146,13 @@ async def test_get_user_enrolled_plans_presigned_url_error():
 
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
 
     mock_user = SimpleNamespace(id=user_id)
     progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
     plan = SimpleNamespace(
         id=plan_id,
+        series_id=series_id,
         title="Test Plan",
         description="Test Description",
         language=SimpleNamespace(value="EN"),
@@ -856,9 +1161,13 @@ async def test_get_user_enrolled_plans_presigned_url_error():
         tag_list=[],
         start_date=None,
         display_order=None,
+        created_at=datetime.now(timezone.utc),
     )
 
-    _, session_cm = _mock_session_with_db()
+    db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+        SimpleNamespace(plan_id=plan_id, total_days=30)
+    ]
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
@@ -867,14 +1176,14 @@ async def test_get_user_enrolled_plans_presigned_url_error():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_enrolled_plans_with_details",
-        return_value=([(progress, plan, 30)], 1),
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=([plan], 1),
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get",
-        return_value="bucket",
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={plan_id: progress},
     ), patch(
-        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
-        side_effect=Exception("S3 error"),
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
     ):
         result = await get_user_enrolled_plans(
             token="token123", status_filter=None, skip=0, limit=20
@@ -882,7 +1191,7 @@ async def test_get_user_enrolled_plans_presigned_url_error():
 
         assert len(result.plans) == 1
         plan_dto = result.plans[0]
-        assert plan_dto.image_url == ""
+        assert plan_dto.image is None
 
 
 @pytest.mark.asyncio
@@ -891,6 +1200,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
     from datetime import datetime, timezone
 
     user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
     plan_id_1 = uuid.uuid4()
     plan_id_2 = uuid.uuid4()
     plan_id_3 = uuid.uuid4()
@@ -903,6 +1213,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
 
     plan_1 = SimpleNamespace(
         id=plan_id_1,
+        series_id=series_id,
         title="Meditation Plan",
         description="Daily meditation",
         language=SimpleNamespace(value="EN"),
@@ -911,9 +1222,11 @@ async def test_get_user_enrolled_plans_multiple_plans():
         tag_list=mock_tag_entities(["meditation"]),
         start_date=datetime(2025, 2, 1, tzinfo=timezone.utc),
         display_order=1,
+        created_at=datetime.now(timezone.utc),
     )
     plan_2 = SimpleNamespace(
         id=plan_id_2,
+        series_id=series_id,
         title="Advanced Dharma",
         description="Advanced teachings",
         language=SimpleNamespace(value="BO"),
@@ -922,9 +1235,11 @@ async def test_get_user_enrolled_plans_multiple_plans():
         tag_list=mock_tag_entities(["dharma", "philosophy"]),
         start_date=None,
         display_order=2,
+        created_at=datetime.now(timezone.utc),
     )
     plan_3 = SimpleNamespace(
         id=plan_id_3,
+        series_id=series_id,
         title="Beginner's Guide",
         description="Introduction",
         language="EN",  # exercise string branch
@@ -933,9 +1248,15 @@ async def test_get_user_enrolled_plans_multiple_plans():
         tag_list=mock_tag_entities(["basics"]),
         start_date=None,
         display_order=None,
+        created_at=datetime.now(timezone.utc),
     )
 
-    _, session_cm = _mock_session_with_db()
+    db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+        SimpleNamespace(plan_id=plan_id_1, total_days=21),
+        SimpleNamespace(plan_id=plan_id_2, total_days=90),
+        SimpleNamespace(plan_id=plan_id_3, total_days=7),
+    ]
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
@@ -944,21 +1265,26 @@ async def test_get_user_enrolled_plans_multiple_plans():
         "pecha_api.plans.users.plan_users_service.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.users.plan_users_service.get_user_enrolled_plans_with_details",
-        return_value=(
-            [
-                (progress_1, plan_1, 21),
-                (progress_2, plan_2, 90),
-                (progress_3, plan_3, 7),
-            ],
-            3,
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=([plan_1, plan_2, plan_3], 3),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={
+            plan_id_1: progress_1,
+            plan_id_2: progress_2,
+            plan_id_3: progress_3,
+        },
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        side_effect=lambda image_url, **kwargs: (
+            ImageUrlModel(
+                thumbnail="https://signed.example.com/img-thumb.jpg",
+                medium="https://signed.example.com/img-medium.jpg",
+                original="https://signed.example.com/img.jpg",
+            )
+            if image_url
+            else None
         ),
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.get",
-        return_value="bucket",
-    ), patch(
-        "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
-        return_value="https://signed.example.com/img.jpg",
     ):
         result = await get_user_enrolled_plans(
             token="token123", status_filter=None, skip=0, limit=20
@@ -979,7 +1305,7 @@ async def test_get_user_enrolled_plans_multiple_plans():
         assert result.plans[1].total_days == 90
 
         assert result.plans[2].title == "Beginner's Guide"
-        assert result.plans[2].image_url == ""  # no image generates empty string
+        assert result.plans[2].image is None
         assert result.plans[2].total_days == 7
 
 
@@ -1063,13 +1389,20 @@ def test_check_day_completion_marks_day_complete_when_all_done():
         side_effect=lambda user_id, day_id: SimpleNamespace(user_id=user_id, day_id=day_id),
     ), patch(
         "pecha_api.plans.users.plan_users_service.save_user_day_completion",
-    ) as mock_save:
+    ) as mock_save, patch(
+        "pecha_api.plans.users.plan_users_service.sync_series_day_completion",
+        return_value=[],
+    ) as mock_sync, patch(
+        "pecha_api.plans.users.plan_users_service.check_plan_completion",
+    ) as mock_plan_completion:
         check_day_completion(db=db_mock, user_id=user_id, day_id=day_id)
 
         assert mock_save.call_count == 1
         udc = mock_save.call_args.kwargs["user_day_completion"]
         assert udc.user_id == user_id
         assert udc.day_id == day_id
+        mock_sync.assert_called_once_with(db=db_mock, user_id=user_id, completed_day_id=day_id)
+        mock_plan_completion.assert_called_once_with(db_mock, user_id, day_id)
 
 
 def test_check_day_completion_does_nothing_when_remaining_tasks():
@@ -1268,7 +1601,7 @@ def test_get_user_plan_day_details_service_success():
                 estimated_time=10,
                 display_order=1,
                 sub_tasks=[
-                    SimpleNamespace(id=sub1_id, content_type=ContentType.TEXT, content="A", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None),
+                    SimpleNamespace(id=sub1_id, content_type=ContentType.TEXT, content="A", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None, audio_url=None),
                 ],
             ),
             SimpleNamespace(
@@ -1277,7 +1610,7 @@ def test_get_user_plan_day_details_service_success():
                 estimated_time=5,
                 display_order=2,
                 sub_tasks=[
-                    SimpleNamespace(id=sub2_id, content_type=ContentType.AUDIO, content="B", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None),
+                    SimpleNamespace(id=sub2_id, content_type=ContentType.AUDIO, content="B", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None, audio_url=None),
                 ],
             ),
         ],
@@ -1434,6 +1767,7 @@ def test_get_user_plan_day_details_service_image_subtask_presigned():
                         source_text_id=None,
                         pecha_segment_id=None,
                         segment_ids=None,
+                        audio_url=None,
                     )
                 ],
             )
@@ -1506,6 +1840,7 @@ def test_get_user_plan_day_details_service_with_segment_fields():
                         source_text_id=source_text_id,
                         pecha_segment_id=pecha_segment_id,
                         segment_ids=segment_ids,
+                        audio_url=None,
                     )
                 ],
             )

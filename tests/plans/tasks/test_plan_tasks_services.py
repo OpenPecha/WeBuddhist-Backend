@@ -1,3 +1,5 @@
+from pecha_api.plans.platform_enums import PlatformRole
+from pecha_api.plans.plans_enums import PlanStatus
 import uuid
 import pytest
 from types import SimpleNamespace
@@ -59,7 +61,7 @@ async def test_create_new_task_builds_and_saves_with_incremented_display_order()
     )
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         return_value=SimpleNamespace(email="author@example.com"),
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
@@ -139,7 +141,7 @@ async def test_delete_task_by_id_success():
     token = "valid_token_123"
     author_email = "author@example.com"
 
-    mock_author = SimpleNamespace(email=author_email, is_admin=False)
+    mock_author = SimpleNamespace(id=__import__('uuid').uuid4(), email=author_email, platform_role=PlatformRole.CREATOR, is_active=True)
 
     mock_task = SimpleNamespace(
         id=task_id,
@@ -153,7 +155,7 @@ async def test_delete_task_by_id_success():
     session_cm.__enter__.return_value = db_mock
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         return_value=mock_author,
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
@@ -176,7 +178,7 @@ async def test_delete_task_by_id_success():
 
         assert mock_session.call_count == 1
         assert mock_get_task.call_count == 1
-        assert mock_get_task.call_args.kwargs == {"db": db_mock, "task_id": task_id}
+        assert mock_get_task.call_args.kwargs["task_id"] == task_id
 
         assert mock_delete.call_count == 1
         assert mock_delete.call_args.kwargs == {"db": db_mock, "task_id": task_id}
@@ -192,35 +194,28 @@ async def test_delete_task_by_id_success():
 
 @pytest.mark.asyncio
 async def test_delete_task_by_id_unauthorized():
-    """Test task deletion fails when user is not the task creator."""
+    """Test task deletion fails when user lacks edit permission on the plan group."""
     task_id = uuid.uuid4()
     token = "valid_token_123"
     author_email = "author@example.com"
-    different_author_email = "different@example.com"
-
-    mock_author = SimpleNamespace(email=author_email, is_admin=False)
-
-    mock_task = SimpleNamespace(
-        id=task_id,
-        title="Test Task",
-        created_by=different_author_email,
-        plan_item_id=uuid.uuid4(),
-    )
 
     db_mock = MagicMock()
     session_cm = MagicMock()
     session_cm.__enter__.return_value = db_mock
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
-        return_value=SimpleNamespace(email=author_email, is_admin=False),
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
+        return_value=SimpleNamespace(id=uuid.uuid4(), email=author_email, platform_role=PlatformRole.CREATOR, is_active=True),
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.get_task_by_id",
-        return_value=mock_task,
-    ) as mock_get_task, patch(
+        "pecha_api.plans.tasks.plan_tasks_services._get_author_task",
+        side_effect=HTTPException(
+            status_code=403,
+            detail={"error": FORBIDDEN, "message": UNAUTHORIZED_TASK_ACCESS},
+        ),
+    ) as mock_get_author_task, patch(
         "pecha_api.plans.tasks.plan_tasks_services.delete_task",
     ) as mock_delete, patch(
         "pecha_api.plans.tasks.plan_tasks_services.get_tasks_by_plan_item_id",
@@ -235,8 +230,7 @@ async def test_delete_task_by_id_unauthorized():
         assert exc_info.value.detail["message"] == UNAUTHORIZED_TASK_ACCESS
 
         assert mock_validate.call_count == 1
-        assert mock_get_task.call_count == 1
-        # ensure delete, get_tasks and reorder were not called
+        assert mock_get_author_task.call_count == 1
         assert mock_delete.call_count == 0
         assert mock_get_tasks.call_count == 0
         assert mock_reorder.call_count == 0
@@ -257,6 +251,7 @@ async def test_get_task_subtasks_service_image_content_uses_presigned_url():
         source_text_id=None,
         pecha_segment_id=None,
         segment_ids=None,
+        audio_url=None,
     )
 
     mock_task = SimpleNamespace(
@@ -276,13 +271,13 @@ async def test_get_task_subtasks_service_image_content_uses_presigned_url():
     presigned = "https://signed-url.example.com/img-123.png?sig=abc"
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
-        return_value=SimpleNamespace(email="creator@example.com", is_admin=False),
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
+        return_value=SimpleNamespace(id=__import__("uuid").uuid4(), email="creator@example.com", platform_role=PlatformRole.CREATOR, is_active=True),
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.get_task_by_id",
+        "pecha_api.plans.tasks.plan_tasks_services._get_author_task",
         return_value=mock_task,
     ) as mock_get_task, patch(
         "pecha_api.plans.tasks.plan_tasks_services.get",
@@ -327,14 +322,14 @@ async def test_delete_task_by_id_task_not_found():
     token = "valid_token_123"
     author_email = "author@example.com"
 
-    mock_author = SimpleNamespace(email=author_email, is_admin=False)
+    mock_author = SimpleNamespace(id=__import__('uuid').uuid4(), email=author_email, platform_role=PlatformRole.CREATOR, is_active=True)
 
     db_mock = MagicMock()
     session_cm = MagicMock()
     session_cm.__enter__.return_value = db_mock
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         return_value=mock_author,
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
@@ -369,7 +364,7 @@ async def test_delete_task_by_id_invalid_token():
     token = "invalid_token"
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         side_effect=HTTPException(status_code=401, detail={"error": "UNAUTHORIZED", "message": "Invalid token"}),
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
@@ -402,7 +397,7 @@ async def test_delete_task_by_id_database_error():
     token = "valid_token_123"
     author_email = "author@example.com"
 
-    mock_author = SimpleNamespace(email=author_email, is_admin=False)
+    mock_author = SimpleNamespace(id=__import__('uuid').uuid4(), email=author_email, platform_role=PlatformRole.CREATOR, is_active=True)
 
     mock_task = SimpleNamespace(
         id=task_id,
@@ -416,7 +411,7 @@ async def test_delete_task_by_id_database_error():
     session_cm.__enter__.return_value = db_mock
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         return_value=mock_author,
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
@@ -465,7 +460,7 @@ async def test_change_task_day_service_success():
     )
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
         return_value=session_cm,
@@ -527,7 +522,7 @@ async def test_change_task_day_service_day_not_found():
     session_cm.__enter__.return_value = db_mock
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
         return_value=session_cm,
@@ -566,6 +561,7 @@ async def test_get_task_subtasks_service_success():
         source_text_id=None,
         pecha_segment_id=None,
         segment_ids=None,
+        audio_url=None,
     )
     subtask2 = SimpleNamespace(
         id=uuid.uuid4(),
@@ -576,6 +572,7 @@ async def test_get_task_subtasks_service_success():
         source_text_id=None,
         pecha_segment_id=None,
         segment_ids=None,
+        audio_url=None,
     )
 
     mock_task = SimpleNamespace(
@@ -592,20 +589,20 @@ async def test_get_task_subtasks_service_success():
     session_cm.__enter__.return_value = db_mock
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
-        return_value=SimpleNamespace(email="creator@example.com", is_admin=False),
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
+        return_value=SimpleNamespace(id=__import__("uuid").uuid4(), email="creator@example.com", platform_role=PlatformRole.CREATOR, is_active=True),
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.get_task_by_id",
+        "pecha_api.plans.tasks.plan_tasks_services._get_author_task",
         return_value=mock_task,
     ) as mock_get_task:
         resp = await get_task_subtasks_service(task_id=task_id, token="token789")
 
         assert mock_validate.call_count == 1
         assert mock_get_task.call_count == 1
-        assert mock_get_task.call_args.kwargs == {"db": db_mock, "task_id": task_id}
+        assert mock_get_task.call_args.kwargs["task_id"] == task_id
 
         expected = GetTaskResponse(
             id=mock_task.id,
@@ -656,14 +653,17 @@ async def test_get_task_subtasks_service_forbidden_when_not_creator():
     session_cm.__enter__.return_value = db_mock
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
-        return_value=SimpleNamespace(email="current_user@example.com", is_admin=False),
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
+        return_value=SimpleNamespace(id=__import__("uuid").uuid4(), email="current_user@example.com", platform_role=PlatformRole.CREATOR, is_active=True),
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
         return_value=session_cm,
     ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.get_task_by_id",
-        return_value=mock_task,
+        "pecha_api.plans.tasks.plan_tasks_services._get_author_task",
+        side_effect=HTTPException(
+            status_code=403,
+            detail={"error": FORBIDDEN, "message": UNAUTHORIZED_TASK_ACCESS},
+        ),
     ) as mock_get_task:
         with pytest.raises(HTTPException) as exc_info:
             await get_task_subtasks_service(task_id=task_id, token="token789")
@@ -738,7 +738,7 @@ async def test_get_task_subtasks_service_invalid_token():
     task_id = uuid.uuid4()
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         side_effect=HTTPException(status_code=401, detail={"error": "UNAUTHORIZED", "message": "Invalid token"}),
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
@@ -763,7 +763,7 @@ async def test_get_task_subtasks_service_task_not_found():
     session_cm.__enter__.return_value = db_mock
 
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
         return_value=session_cm,
@@ -791,7 +791,7 @@ async def test_update_task_title_service_success():
         email=author_email,
         first_name="John",
         last_name="Doe",
-        is_admin=False,
+        platform_role=PlatformRole.CREATOR, is_active=True,
     )
     
     mock_task = SimpleNamespace(
@@ -811,7 +811,7 @@ async def test_update_task_title_service_success():
     session_cm.__enter__.return_value = db_mock
     
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         return_value=mock_author,
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
@@ -862,7 +862,7 @@ async def test_update_task_title_service_unauthorized():
         email=different_email,
         first_name="Jane",
         last_name="Smith",
-        is_admin=False,
+        platform_role=PlatformRole.CREATOR, is_active=True,
     )
     
     db_mock = MagicMock()
@@ -870,7 +870,7 @@ async def test_update_task_title_service_unauthorized():
     session_cm.__enter__.return_value = db_mock
     
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         return_value=mock_author,
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
@@ -907,7 +907,7 @@ async def test_update_task_title_service_task_not_found():
         email="author@example.com",
         first_name="John",
         last_name="Doe",
-        is_admin=False,
+        platform_role=PlatformRole.CREATOR, is_active=True,
     )
     
     db_mock = MagicMock()
@@ -915,7 +915,7 @@ async def test_update_task_title_service_task_not_found():
     session_cm.__enter__.return_value = db_mock
     
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         return_value=mock_author,
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
@@ -950,7 +950,7 @@ async def test_update_task_title_service_invalid_token():
     request = UpdateTaskTitleRequest(title=new_title)
     
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         side_effect=HTTPException(
             status_code=401,
             detail={"error": "UNAUTHORIZED", "message": "Invalid authentication token"}
@@ -983,7 +983,7 @@ async def test_update_task_title_service_database_error():
         email=author_email,
         first_name="John",
         last_name="Doe",
-        is_admin=False,
+        platform_role=PlatformRole.CREATOR, is_active=True,
     )
     
     mock_task = SimpleNamespace(
@@ -997,7 +997,7 @@ async def test_update_task_title_service_database_error():
     session_cm.__enter__.return_value = db_mock
     
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         return_value=mock_author,
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
@@ -1096,33 +1096,48 @@ def test__check_duplicate_task_order_with_duplicates_raises_400():
 def test__get_author_task_success():
     db = MagicMock()
     task_id = uuid.uuid4()
-    current_author = SimpleNamespace(email="owner@example.com", is_admin=False)
+    plan_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+    current_author = SimpleNamespace(
+        id=uuid.uuid4(),
+        email="owner@example.com",
+        platform_role=PlatformRole.CREATOR,
+        is_active=True,
+    )
+    mock_plan = SimpleNamespace(group_id=group_id, status=PlanStatus.DRAFT)
 
-    # Return a task owned by current_author
     with patch(
         "pecha_api.plans.tasks.plan_tasks_services.get_task_by_id",
-        return_value=SimpleNamespace(id=task_id, created_by="owner@example.com"),
-    ) as mock_get:
-        task = _get_author_task(db=db, task_id=task_id, current_author=current_author, is_admin=False)
+        return_value=SimpleNamespace(id=task_id, plan_item_id=uuid.uuid4(), created_by="owner@example.com"),
+    ), patch(
+        "pecha_api.plans.tasks.plan_tasks_services.get_plan_item_by_id",
+        return_value=SimpleNamespace(plan_id=plan_id),
+    ), patch(
+        "pecha_api.plans.tasks.plan_tasks_services.get_plan_by_id",
+        return_value=mock_plan,
+    ) as mock_get_plan:
+        task = _get_author_task(db=db, task_id=task_id, current_author=current_author)
 
     assert task.id == task_id
-    assert mock_get.call_count == 1
+    mock_get_plan.assert_called_once()
 
 
 def test__get_author_task_not_found_raises_404():
     db = MagicMock()
     task_id = uuid.uuid4()
-    current_author = SimpleNamespace(email="owner@example.com", is_admin=False)
+    current_author = SimpleNamespace(
+        id=uuid.uuid4(),
+        email="owner@example.com",
+        platform_role=PlatformRole.CREATOR,
+        is_active=True,
+    )
 
     with patch(
         "pecha_api.plans.tasks.plan_tasks_services.get_task_by_id",
-        side_effect=HTTPException(
-            status_code=404,
-            detail={"error": BAD_REQUEST, "message": TASK_NOT_FOUND},
-        ),
+        return_value=None,
     ):
         with pytest.raises(HTTPException) as exc_info:
-            _get_author_task(db=db, task_id=task_id, current_author=current_author, is_admin=False)
+            _get_author_task(db=db, task_id=task_id, current_author=current_author)
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail["error"] == BAD_REQUEST
@@ -1132,14 +1147,32 @@ def test__get_author_task_not_found_raises_404():
 def test__get_author_task_unauthorized_raises_403():
     db = MagicMock()
     task_id = uuid.uuid4()
-    current_author = SimpleNamespace(email="owner@example.com", is_admin=False)
+    plan_id = uuid.uuid4()
+    current_author = SimpleNamespace(
+        id=uuid.uuid4(),
+        email="owner@example.com",
+        platform_role=PlatformRole.CREATOR,
+        is_active=True,
+    )
 
     with patch(
         "pecha_api.plans.tasks.plan_tasks_services.get_task_by_id",
-        return_value=SimpleNamespace(id=task_id, created_by="other@example.com"),
+        return_value=SimpleNamespace(id=task_id, plan_item_id=uuid.uuid4(), created_by="other@example.com"),
+    ), patch(
+        "pecha_api.plans.tasks.plan_tasks_services.get_plan_item_by_id",
+        return_value=SimpleNamespace(plan_id=plan_id),
+    ), patch(
+        "pecha_api.plans.tasks.plan_tasks_services.get_plan_by_id",
+        return_value=SimpleNamespace(group_id=uuid.uuid4(), status=PlanStatus.DRAFT),
+    ), patch(
+        "pecha_api.plans.tasks.plan_tasks_services.require_can_edit_content",
+        side_effect=HTTPException(
+            status_code=403,
+            detail={"error": FORBIDDEN, "message": UNAUTHORIZED_TASK_ACCESS},
+        ),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            _get_author_task(db=db, task_id=task_id, current_author=current_author, is_admin=False)
+            _get_author_task(db=db, task_id=task_id, current_author=current_author)
 
     assert exc_info.value.status_code == 403
     assert exc_info.value.detail["error"] == FORBIDDEN
@@ -1158,7 +1191,7 @@ async def test_update_task_title_service_empty_title():
         email=author_email,
         first_name="John",
         last_name="Doe",
-        is_admin=False,
+        platform_role=PlatformRole.CREATOR, is_active=True,
     )
     
     mock_task = SimpleNamespace(
@@ -1178,7 +1211,7 @@ async def test_update_task_title_service_empty_title():
     session_cm.__enter__.return_value = db_mock
     
     with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details",
+        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         return_value=mock_author,
     ) as mock_validate, patch(
         "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
@@ -1220,7 +1253,7 @@ async def test_change_task_order_service_success():
     session_cm = MagicMock()
     session_cm.__enter__.return_value = db_mock
 
-    with patch("pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details") as mock_validate, \
+    with patch("pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details") as mock_validate, \
          patch("pecha_api.plans.tasks.plan_tasks_services.SessionLocal", return_value=session_cm), \
          patch("pecha_api.plans.tasks.plan_tasks_services._check_duplicate_task_order") as mock_check_dup, \
          patch("pecha_api.plans.tasks.plan_tasks_services.update_task_order") as mock_update:
@@ -1255,7 +1288,7 @@ async def test_change_task_order_service_duplicate_display_order_raises_400():
     session_cm = MagicMock()
     session_cm.__enter__.return_value = db_mock
 
-    with patch("pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details"), \
+    with patch("pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details"), \
          patch("pecha_api.plans.tasks.plan_tasks_services.SessionLocal", return_value=session_cm), \
          patch("pecha_api.plans.tasks.plan_tasks_services._check_duplicate_task_order", 
                side_effect=HTTPException(status_code=400, detail={"error": BAD_REQUEST, "message": DUPLICATE_TASK_ORDER})), \
@@ -1300,7 +1333,7 @@ async def test_change_task_order_service_invalid_token():
         TaskOrderItem(id=task_id, display_order=3),
     ])
     
-    with patch("pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details", 
+    with patch("pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details", 
                side_effect=HTTPException(status_code=401, detail={"error": "UNAUTHORIZED", "message": "Invalid token"})) as mock_validate:
         
         with pytest.raises(HTTPException) as exc_info:
@@ -1344,7 +1377,7 @@ async def test_change_task_order_service_database_error():
     session_cm = MagicMock()
     session_cm.__enter__.return_value = db_mock
 
-    with patch("pecha_api.plans.tasks.plan_tasks_services.validate_and_extract_author_details"), \
+    with patch("pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details"), \
          patch("pecha_api.plans.tasks.plan_tasks_services.SessionLocal", return_value=session_cm), \
          patch("pecha_api.plans.tasks.plan_tasks_services.update_task_order", side_effect=Exception("Database connection error")):
         with pytest.raises(Exception) as exc_info:

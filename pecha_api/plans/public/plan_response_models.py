@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Union
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus,ContentType
 from uuid import UUID
 from datetime import datetime, date as DateType
@@ -38,6 +38,7 @@ class PublicPlanDTO(BaseModel):
     author: Optional[AuthorDTO] = None
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
+    group_id: Optional[UUID] = None
 
 class SubTaskDTO(BaseModel):
     id: UUID
@@ -45,6 +46,7 @@ class SubTaskDTO(BaseModel):
     content: Optional[str] = None
     duration: Optional[str] = None
     image_url: Optional[str] = None
+    audio_url: Optional[str] = None
     source_text_id: Optional[UUID] = None
     pecha_segment_id: Optional[str] = None
     segment_ids: Optional[List[UUID]] = None
@@ -98,13 +100,17 @@ class PlansRepositoryResponse(BaseModel):
 class SeriesMetadataDTO(BaseModel):
     id: UUID
     title: str
+    sub_title: Optional[str] = None
     description: Optional[str] = None
     language: str
 
 
+SeriesMetadataResponse = Union[SeriesMetadataDTO, List[SeriesMetadataDTO], None]
+
+
 class SeriesDTO(BaseModel):
     id: UUID
-    metadata: List[SeriesMetadataDTO] = []
+    metadata: SeriesMetadataResponse = []
     image: Optional[ImageUrlModel] = None
 
 class DailyPlanResponse(BaseModel):

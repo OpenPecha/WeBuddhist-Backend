@@ -18,6 +18,7 @@ class _Creds:
 @pytest.mark.asyncio
 async def test_create_plan_success():
     request = CreatePlanRequest(
+        group_id=uuid.uuid4(),
         title="Mindfulness Basics",
         description="A simple plan to get started with mindfulness.",
         difficulty_level=DifficultyLevel.BEGINNER,
@@ -61,8 +62,7 @@ async def test_create_plan_success():
 
 
 
-@pytest.mark.asyncio
-async def test_get_plans_success_with_params():
+def test_get_plans_success_with_params():
     creds = _Creds(token="token123")
 
     plan1 = PlanDTO(
@@ -87,10 +87,11 @@ async def test_get_plans_success_with_params():
     )
     expected = PlansResponse(plans=[plan1, plan2], skip=1, limit=5, total=2)
 
-    with patch("pecha_api.plans.cms.cms_plans_views.get_filtered_plans", return_value=expected, new_callable=AsyncMock) as mock_service:
-        resp = await get_plans(
+    with patch("pecha_api.plans.cms.cms_plans_views.get_filtered_plans", return_value=expected) as mock_service:
+        resp = get_plans(
             authentication_credential=creds,
             search="plan",
+            language="en",
             sort_by="status",
             sort_order="asc",
             skip=1,
@@ -106,21 +107,22 @@ async def test_get_plans_success_with_params():
             "sort_order": "asc",
             "skip": 1,
             "limit": 5,
+            "language": "en",
         }
 
         assert resp == expected
 
 
-@pytest.mark.asyncio
-async def test_get_plans_defaults():
+def test_get_plans_defaults():
     creds = _Creds(token="tkn")
     expected = PlansResponse(plans=[], skip=0, limit=10, total=0)
 
-    with patch("pecha_api.plans.cms.cms_plans_views.get_filtered_plans", return_value=expected, new_callable=AsyncMock) as mock_service:
+    with patch("pecha_api.plans.cms.cms_plans_views.get_filtered_plans", return_value=expected) as mock_service:
         # Pass explicit defaults to avoid FastAPI Query objects when calling directly
-        resp = await get_plans(
+        resp = get_plans(
             authentication_credential=creds,
             search=None,
+            language=None,
             sort_by="total_days",
             sort_order="asc",
             skip=0,
@@ -136,6 +138,7 @@ async def test_get_plans_defaults():
             "sort_order": "asc",
             "skip": 0,
             "limit": 10,
+            "language": None,
         }
         assert resp == expected
 

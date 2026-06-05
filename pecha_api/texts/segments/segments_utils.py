@@ -3,7 +3,6 @@ from uuid import UUID
 from fastapi import HTTPException
 from starlette import status
 import bophono
-from botok.tokenizers.wordtokenizer import WordTokenizer
 
 
 from pecha_api.error_contants import ErrorConstants
@@ -154,7 +153,9 @@ class SegmentUtils:
                         title=text_detail.title,
                         source=text_detail.published_by,
                         language=text_detail.language,
-                        content=segment.content
+                        content=segment.content,
+                        source_link=text_detail.source_link,
+                        license=text_detail.license
                     )
                 )
             elif text_detail.type == TextType.COMMENTARY.value and type == TextType.COMMENTARY.value:
@@ -180,7 +181,9 @@ class SegmentUtils:
                         title=text_detail.title,
                         segments=mapped_segments,
                         language=text_detail.language,
-                        count=count
+                        count=count,
+                        source_link=text_detail.source_link,
+                        license=text_detail.license
                     )
                 )
                 appended_commentary_text_ids.append(segment.text_id)
@@ -341,19 +344,4 @@ class SegmentUtils:
         
         return grouped_segments
     
-    @staticmethod
-    def apply_bophono(segmentContent:str)->str:
-        options = {
-            'aspirateLowTones': True
-        }
-        tokenizer = WordTokenizer()
-        tokens = tokenizer.tokenize(segmentContent)
-        token_text =  []
-        for token in tokens:
-            token_text.append(token.text)
-        kvpconverter = bophono.UnicodeToApi(schema="KVP", options = options)
-        kvp_ipa_list = []
-        for segment in token_text:
-            kvp_ipa = kvpconverter.get_api(segment)
-            kvp_ipa_list.append(kvp_ipa)
-        return " ".join(kvp_ipa_list)
+

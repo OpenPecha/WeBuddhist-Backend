@@ -6,6 +6,7 @@ from fastapi import HTTPException, status
 from pecha_api.texts.texts_openpecha_api import (
     _parse_text_detail,
     fetch_text_detail,
+    fetch_text_source_link,
     fetch_critical_editions,
     fetch_editions_segmentation,
     fetch_segmentation_segments,
@@ -220,6 +221,79 @@ async def test_fetch_text_detail_network_error_raises_502(mocker):
         await fetch_text_detail(text_id=TEXT_ID)
 
     assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+# ============================================================================
+# fetch_text_source_link
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_fetch_text_source_link_success(mocker):
+    """Test successful fetch returns source from first critical edition"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        return_value=_make_mock_client(200, [{"id": EDITION_ID, "source": "https://example.com/source"}]),
+    )
+
+    result = await fetch_text_source_link(text_id=TEXT_ID)
+
+    assert result == "https://example.com/source"
+
+
+@pytest.mark.asyncio
+async def test_fetch_text_source_link_empty_list_returns_none(mocker):
+    """Test that an empty editions list returns None"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        return_value=_make_mock_client(200, []),
+    )
+
+    result = await fetch_text_source_link(text_id=TEXT_ID)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_text_source_link_missing_source_returns_none(mocker):
+    """Test that an edition without a source field returns None"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        return_value=_make_mock_client(200, [{"id": EDITION_ID}]),
+    )
+
+    result = await fetch_text_source_link(text_id=TEXT_ID)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_text_source_link_non_200_returns_none(mocker):
+    """Test that a non-200 response returns None without raising"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        return_value=_make_mock_client(404, {}),
+    )
+
+    result = await fetch_text_source_link(text_id=TEXT_ID)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_fetch_text_source_link_network_error_returns_none(mocker):
+    """Test that a network exception returns None"""
+    mock_http_client = AsyncMock()
+    mock_http_client.get = AsyncMock(side_effect=RuntimeError("timeout"))
+    mock_client = MagicMock()
+    mock_client.get_async_httpx_client.return_value = mock_http_client
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        return_value=mock_client,
+    )
+
+    result = await fetch_text_source_link(text_id=TEXT_ID)
+
+    assert result is None
 
 
 # ============================================================================

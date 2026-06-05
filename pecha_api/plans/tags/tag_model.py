@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, Text, UUID, ForeignKey, Table, Index, text
+from sqlalchemy import Boolean, Column, String, DateTime, Text, UUID, ForeignKey, Table, Index, text
 from sqlalchemy.orm import relationship
 from uuid import uuid4
 import _datetime
@@ -21,6 +21,7 @@ class Tag(Base):
     name = Column(String(255), nullable=False)
     image_key = Column(String(1000), nullable=True)
     description = Column(Text, nullable=True)
+    featured = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc))
@@ -36,5 +37,10 @@ class Tag(Base):
             "name",
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "idx_tags_featured",
+            "featured",
+            postgresql_where=text("featured = TRUE AND deleted_at IS NULL"),
         ),
     )

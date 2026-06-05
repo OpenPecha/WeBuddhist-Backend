@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from uuid import UUID
 from typing import List
@@ -23,3 +23,10 @@ class ItemDayNumberDTO(BaseModel):
 
 class ReorderDaysRequest(BaseModel):
     days: List[ItemDayNumberDTO]
+
+class CreateDaysRequest(BaseModel):
+    number_of_days: int = Field(default=1, ge=1)
+    source_day_id: Optional[UUID] = None
+
+class DeleteDaysRequest(BaseModel):
+    day_ids: List[UUID]

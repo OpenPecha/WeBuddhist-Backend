@@ -6,7 +6,7 @@ import io
 
 
 from ...config import get, get_int
-from ...image_utils import ImageUtils
+from ...image_utils import WEBP_CONTENT_TYPE, WEBP_EXTENSION, WEBP_FORMAT
 from ...uploads.S3_utils import upload_bytes, generate_presigned_access_url
 from ...plans.authors.plan_authors_service import validate_and_extract_author_details
 from .media_response_models import PlanUploadResponse, ImageUrlModel, TextImageUploadResponse
@@ -30,18 +30,15 @@ def validate_file(file: UploadFile) -> None:
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=FILE_TOO_LARGE)
 
 
-def convert_to_rgb(image: Image.Image) -> Image.Image:
-    """
-    Convert image to RGB mode for JPEG compatibility.
-    Handles transparency by adding white background.
-    """
+def prepare_for_webp(image: Image.Image) -> Image.Image:
+    """Normalize image mode for WebP encoding while preserving transparency."""
     if image.mode in ('RGBA', 'LA') or (image.mode == 'P' and 'transparency' in image.info):
-        background = Image.new('RGB', image.size, (255, 255, 255))
         if image.mode == 'P':
-            image = image.convert('RGBA')
-        background.paste(image, mask=image.split()[3] if image.mode == 'RGBA' else image.split()[1])
-        return background
-    elif image.mode != 'RGB':
+            return image.convert('RGBA')
+        if image.mode == 'LA':
+            return image.convert('RGBA')
+        return image
+    if image.mode != 'RGB':
         return image.convert('RGB')
     return image
 
@@ -53,7 +50,7 @@ def compress_image_to_size(image: Image.Image, max_width: int, quality: int = 85
     Args:
         image: PIL Image object
         max_width: Maximum width in pixels
-        quality: JPEG quality (1-100)
+        quality: WebP quality (1-100)
     
     Returns:
         BytesIO object containing compressed image
@@ -66,12 +63,11 @@ def compress_image_to_size(image: Image.Image, max_width: int, quality: int = 85
     # Resize image using high-quality LANCZOS resampling
     resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
     
-    # Convert to RGB if necessary
-    resized_image = convert_to_rgb(resized_image)
+    resized_image = prepare_for_webp(resized_image)
     
     # Save to BytesIO with compression
     output = io.BytesIO()
-    resized_image.save(output, format='JPEG', quality=quality, optimize=True)
+    resized_image.save(output, format=WEBP_FORMAT, quality=quality, method=6)
     output.seek(0)
     return output
 
@@ -82,17 +78,16 @@ def compress_image_original_size(image: Image.Image, quality: int = 90) -> io.By
     
     Args:
         image: PIL Image object
-        quality: JPEG quality (1-100)
+        quality: WebP quality (1-100)
     
     Returns:
         BytesIO object containing compressed image
     """
-    # Convert to RGB if necessary
-    rgb_image = convert_to_rgb(image)
+    webp_image = prepare_for_webp(image)
     
     # Save to BytesIO with compression
     output = io.BytesIO()
-    rgb_image.save(output, format='JPEG', quality=quality, optimize=True)
+    webp_image.save(output, format=WEBP_FORMAT, quality=quality, method=6)
     output.seek(0)
     return output
 
@@ -121,12 +116,12 @@ def upload_image_versions(*, image_path_full: str, file_name: str, image_version
     original_key = ""
 
     for version_name, compressed_image in image_versions:
-        s3_key = f"{image_path_full}/{version_name}/{file_name}.jpg"
+        s3_key = f"{image_path_full}/{version_name}/{file_name}{WEBP_EXTENSION}"
         upload_key = upload_bytes(
             bucket_name=get("AWS_BUCKET_NAME"),
             s3_key=s3_key,
             file=compressed_image,
-            content_type="image/jpeg",
+            content_type=WEBP_CONTENT_TYPE,
         )
         if version_name == "original":
             original_key = upload_key
@@ -177,6 +172,27 @@ def upload_plan_image(token: str, plan_id: Optional[str], file: UploadFile) -> P
         key=original_key,
         path=image_path_full,
         message=IMAGE_UPLOAD_SUCCESS
+    )
+
+
+def upload_series_image(token: str, series_id: Optional[str], file: UploadFile) -> PlanUploadResponse:
+    validate_and_extract_author_details(token=token)
+    validate_file(file)
+
+    unique_id = str(uuid.uuid4())
+    path = "images/series_images"
+    image_path_full = f"{path}/{series_id}/{unique_id}" if series_id is not None else f"{path}/{unique_id}"
+
+    image_url_model, original_key = prepare_image_upload(
+        file=file,
+        image_path_full=image_path_full,
+    )
+
+    return PlanUploadResponse(
+        image=image_url_model,
+        key=original_key,
+        path=image_path_full,
+        message=IMAGE_UPLOAD_SUCCESS,
     )
 
 

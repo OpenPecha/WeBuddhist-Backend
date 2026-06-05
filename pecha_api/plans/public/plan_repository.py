@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session, selectinload
-from sqlalchemy import func, desc, asc
+from sqlalchemy import and_, exists, func, desc, asc, or_, select
 from typing import Optional, Tuple, List
 from uuid import UUID
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.series.series_model import Series
+from pecha_api.plans.groups.groups_models import author_group_plans, author_group_series
 from pecha_api.plans.tags.tag_model import Tag, plan_tags
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
@@ -16,6 +18,7 @@ DEFAULT_SEARCH = None
 DEFAULT_SORT_BY = "title"
 DEFAULT_SORT_ORDER = "asc"
 DEFAULT_TAG = None
+DEFAULT_GROUP_ID = None
 
 def get_aggregate_counts():
     total_days_label = func.count(func.distinct(PlanItem.id)).label("total_days")
@@ -54,6 +57,28 @@ def apply_tag_filter(query, tag: Optional[str]):
         )
     return query
 
+
+def apply_group_filter(query, group_id: Optional[UUID]):
+    if group_id:
+        direct_plan_exists = exists(
+            select(1).where(
+                and_(
+                    author_group_plans.c.group_id == group_id,
+                    author_group_plans.c.plan_id == Plan.id,
+                )
+            )
+        )
+        series_plan_exists = exists(
+            select(1).where(
+                and_(
+                    author_group_series.c.group_id == group_id,
+                    author_group_series.c.series_id == Plan.series_id,
+                )
+            )
+        )
+        query = query.filter(or_(direct_plan_exists, series_plan_exists))
+    return query
+
 def apply_sorting(query, sort_by: str, sort_order: str, total_days_label, subscription_count_label):
     sort_column_map = {
         "title": Plan.title,
@@ -83,19 +108,27 @@ def get_published_plans_from_db(db: Session,
     language: str = DEFAULT_LANGUAGE,  
     sort_by: str = DEFAULT_SORT_BY,
     sort_order: str = DEFAULT_SORT_ORDER,
-    tag: Optional[str] = DEFAULT_TAG
+    tag: Optional[str] = DEFAULT_TAG,
+    group_id: Optional[UUID] = DEFAULT_GROUP_ID,
 ):
     total_days_label, subscription_count_label = get_aggregate_counts()
     query = get_published_plans_query(db, total_days_label, subscription_count_label, language)
     query = apply_search_filter(query, search)
     query = apply_tag_filter(query, tag)
+    query = apply_group_filter(query, group_id)
     query = apply_sorting(query, sort_by, sort_order, total_days_label, subscription_count_label)
     rows = query.offset(skip).limit(limit).all()
     
     return convert_to_plan_aggregates(rows)
 
 
-def get_published_plans_count(db: Session, search: Optional[str] = DEFAULT_SEARCH, language: str = DEFAULT_LANGUAGE, tag: Optional[str] = DEFAULT_TAG) -> int:
+def get_published_plans_count(
+    db: Session,
+    search: Optional[str] = DEFAULT_SEARCH,
+    language: str = DEFAULT_LANGUAGE,
+    tag: Optional[str] = DEFAULT_TAG,
+    group_id: Optional[UUID] = DEFAULT_GROUP_ID,
+) -> int:
     query = db.query(func.count(Plan.id)).filter(
         Plan.deleted_at.is_(None),
         Plan.status == PlanStatus.PUBLISHED,
@@ -109,6 +142,7 @@ def get_published_plans_count(db: Session, search: Optional[str] = DEFAULT_SEARC
             .join(Tag, Tag.id == plan_tags.c.tag_id)
             .filter(Tag.deleted_at.is_(None), func.lower(Tag.name) == tag.lower())
         )
+    query = apply_group_filter(query, group_id)
     return query.scalar()
 
 
@@ -118,6 +152,28 @@ def get_published_plan_by_id(db: Session, plan_id: UUID) -> Optional[Plan]:
             Plan.status == PlanStatus.PUBLISHED,
             Plan.deleted_at.is_(None)
         ).first()
+
+
+def get_published_plans_in_series(
+    db: Session,
+    series_id: UUID,
+    language: Optional[str] = None,
+) -> List[Plan]:
+    query = (
+        db.query(Plan)
+        .options(
+            selectinload(Plan.series).selectinload(Series.metadata_entries),
+        )
+        .filter(
+            Plan.series_id == series_id,
+            Plan.display_order.isnot(None),
+            Plan.status == PlanStatus.PUBLISHED,
+            Plan.deleted_at.is_(None),
+        )
+    )
+    if language:
+        query = query.filter(Plan.language == language.upper())
+    return query.order_by(asc(Plan.display_order)).all()
 
 
 def get_plan_items_by_plan_id(db: Session, plan_id: UUID) -> list[PlanItem]:
@@ -159,25 +215,41 @@ def get_all_unique_tags(db: Session, language: str = "EN") -> List[str]:
     return [row.tag for row in results]
 
 
-def get_next_plan_in_series(db: Session, series_id: UUID, current_display_order: Optional[int]) -> Optional[Plan]:
+def get_next_plan_in_series(
+    db: Session,
+    series_id: UUID,
+    current_display_order: Optional[int],
+    language: Optional[str] = None,
+) -> Optional[Plan]:
     if series_id is None or current_display_order is None:
         return None
-    
-    return db.query(Plan).filter(
+
+    query = db.query(Plan).filter(
         Plan.series_id == series_id,
         Plan.display_order > current_display_order,
         Plan.status == PlanStatus.PUBLISHED,
-        Plan.deleted_at.is_(None)
-    ).order_by(asc(Plan.display_order)).first()
+        Plan.deleted_at.is_(None),
+    )
+    if language:
+        query = query.filter(Plan.language == language.upper())
+    return query.order_by(asc(Plan.display_order)).first()
 
 
-def get_previous_plan_in_series(db: Session, series_id: UUID, current_display_order: Optional[int]) -> Optional[Plan]:
+def get_previous_plan_in_series(
+    db: Session,
+    series_id: UUID,
+    current_display_order: Optional[int],
+    language: Optional[str] = None,
+) -> Optional[Plan]:
     if series_id is None or current_display_order is None:
         return None
-    
-    return db.query(Plan).filter(
+
+    query = db.query(Plan).filter(
         Plan.series_id == series_id,
         Plan.display_order < current_display_order,
         Plan.status == PlanStatus.PUBLISHED,
-        Plan.deleted_at.is_(None)
-    ).order_by(desc(Plan.display_order)).first()
+        Plan.deleted_at.is_(None),
+    )
+    if language:
+        query = query.filter(Plan.language == language.upper())
+    return query.order_by(desc(Plan.display_order)).first()

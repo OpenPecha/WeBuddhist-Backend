@@ -5,6 +5,7 @@ from typing import List, Dict
 from uuid import UUID
 
 from pecha_api.config import TIME_FORMAT_PATTERN, get
+from pecha_api.plans.authors.plan_authors_service import safe_get_image_url
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.db.database import SessionLocal
 from pecha_api.users.users_service import validate_and_extract_user_details
@@ -15,6 +16,7 @@ from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.plans_enums import UserPlanStatus
 from pecha_api.plans.users.plan_users_progress_repository import (
     delete_user_plan_progress,
+    get_plan_progress_by_user_id_and_plan_ids,
 )
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
@@ -41,9 +43,11 @@ from .routines_repository import (
 from .response_message import (
     DUPLICATE_PLAN,
     INVALID_TIME_FORMAT,
+    INVALID_TIMER_DURATION,
     ROUTINE_ALREADY_EXISTS,
     ROUTINE_NOT_FOUND,
     SESSIONS_REQUIRED,
+    SOURCE_ID_REQUIRED,
     TIME_ALREADY_EXISTS,
     TIME_BLOCK_NOT_FOUND,
     TIME_BLOCK_TIME_CONFLICT,
@@ -77,6 +81,24 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
                 error=BAD_REQUEST, message=INVALID_TIME_FORMAT
             ).model_dump(),
         )
+
+    # TIMER sessions carry a positive duration_ms; PLAN/RECITATION carry a source_id
+    for session in request.sessions:
+        if session.session_type == SessionType.TIMER:
+            if session.duration_ms is None or session.duration_ms <= 0:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=ResponseError(
+                        error=BAD_REQUEST, message=INVALID_TIMER_DURATION
+                    ).model_dump(),
+                )
+        elif session.source_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=SOURCE_ID_REQUIRED
+                ).model_dump(),
+            )
 
     # Duplicate plan source_ids within the request
     plan_source_ids = [
@@ -238,37 +260,40 @@ def build_session_models(time_block_id: UUID, sessions: List) -> List[RoutineSes
         RoutineSession(
             time_block_id=time_block_id,
             session_type=session.session_type,
-            source_id=session.source_id,
+            source_id=None if session.session_type == SessionType.TIMER else session.source_id,
+            duration_ms=session.duration_ms if session.session_type == SessionType.TIMER else None,
             display_order=session.display_order,
         )
         for session in sessions
     ]
 
 
-def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession]) -> List[SessionDTO]:
+def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUID) -> List[SessionDTO]:
     if not plan_sessions:
         return []
 
     plan_ids = [session.source_id for session in plan_sessions]
     plans = get_plans_by_ids(db=db, plan_ids=plan_ids)
     plan_map = {plan.id: plan for plan in plans}
-    bucket_name = get("AWS_BUCKET_NAME")
-
+    
+    # Fetch user progress data for all plan sessions
+    progress_map = get_plan_progress_by_user_id_and_plan_ids(
+        db=db, user_id=user_id, plan_ids=plan_ids
+    )
+    
     resolved = []
     for session in plan_sessions:
         plan = plan_map.get(session.source_id)
         if plan is None:
             continue
 
-        image_url = ""
-        if plan.image_url:
-            try:
-                image_url = generate_presigned_access_url(
-                    bucket_name=bucket_name, s3_key=plan.image_url
-                )
-            except Exception:
-                image_url = ""
-
+        plan_image = safe_get_image_url(
+            plan.image_url, resource_id=plan.id, resource_type="plan"
+        )
+        
+        # Get user progress for this plan
+        progress = progress_map.get(session.source_id)
+        
         resolved.append(
             SessionDTO(
                 id=session.id,
@@ -280,8 +305,10 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession]) -> List[Sess
                     if hasattr(plan.language, "value")
                     else str(plan.language)
                 ),
-                image_url=image_url,
+                image=plan_image,
                 display_order=session.display_order,
+                start_date=plan.start_date,  # Plan's start_date
+                started_at=progress.started_at if progress else None,  # User's started_at
             )
         )
     return resolved
@@ -309,14 +336,27 @@ async def _resolve_recitation_sessions(
                 source_id=session.source_id,
                 title=text.title,
                 language=text.language or "en",
-                image_url=None,
+                image=None,
                 display_order=session.display_order,
             )
         )
     return resolved
 
 
-async def _resolve_sessions(db, sessions: List[RoutineSession]) -> List[SessionDTO]:
+def _resolve_timer_sessions(timer_sessions: List[RoutineSession]) -> List[SessionDTO]:
+    return [
+        SessionDTO(
+            id=session.id,
+            session_type=session.session_type,
+            source_id=None,
+            duration_ms=session.duration_ms,
+            display_order=session.display_order,
+        )
+        for session in timer_sessions
+    ]
+
+
+async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -> List[SessionDTO]:
     plan_sessions = [
         session for session in sessions if session.session_type == SessionType.PLAN
     ]
@@ -325,13 +365,17 @@ async def _resolve_sessions(db, sessions: List[RoutineSession]) -> List[SessionD
         for session in sessions
         if session.session_type == SessionType.RECITATION
     ]
+    timer_sessions = [
+        session for session in sessions if session.session_type == SessionType.TIMER
+    ]
 
-    resolved_plans = _resolve_plan_sessions(db=db, plan_sessions=plan_sessions)
+    resolved_plans = _resolve_plan_sessions(db=db, plan_sessions=plan_sessions, user_id=user_id)
     resolved_recitations = await _resolve_recitation_sessions(
         recitation_sessions=recitation_sessions
     )
+    resolved_timers = _resolve_timer_sessions(timer_sessions=timer_sessions)
 
-    resolved = resolved_plans + resolved_recitations
+    resolved = resolved_plans + resolved_recitations + resolved_timers
     resolved.sort(key=lambda session: session.display_order)
 
     return resolved
@@ -349,9 +393,9 @@ def group_sessions_by_block(
 
 
 async def build_time_block_dto(
-    db, time_block: RoutineTimeBlock, sessions: List[RoutineSession]
+    db, time_block: RoutineTimeBlock, sessions: List[RoutineSession], user_id: UUID
 ) -> TimeBlockDTO:
-    resolved_sessions = await _resolve_sessions(db=db, sessions=sessions)
+    resolved_sessions = await _resolve_sessions(db=db, sessions=sessions, user_id=user_id)
     return TimeBlockDTO(
         id=time_block.id,
         time=time_block.time,
@@ -406,7 +450,7 @@ async def create_routine_with_time_block(
         )
 
         time_block_dto = await build_time_block_dto(
-            db=db, time_block=saved_time_block, sessions=saved_sessions
+            db=db, time_block=saved_time_block, sessions=saved_sessions, user_id=current_user.id
         )
 
         return RoutineWithTimeBlocksResponse(
@@ -460,7 +504,7 @@ async def get_user_routine(
 
         time_block_dtos = [
             await build_time_block_dto(
-                db=db, time_block=tb, sessions=sessions_by_block.get(tb.id, [])
+                db=db, time_block=tb, sessions=sessions_by_block.get(tb.id, []), user_id=current_user.id
             )
             for tb in time_blocks
         ]
@@ -517,7 +561,7 @@ async def add_time_block_to_routine(
             db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(request.sessions)
         )
 
-        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
+        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions, user_id=current_user.id)
 
         return TimeBlockDTO(
             id=saved_time_block.id,
@@ -620,7 +664,7 @@ async def update_time_block_service(
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
-        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions)
+        resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions, user_id=current_user.id)
 
         return TimeBlockDTO(
             id=updated_time_block.id,

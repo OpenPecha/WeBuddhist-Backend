@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from fastapi import HTTPException, FastAPI
 from starlette import status
 
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.routines.routines_response_models import (
     RoutineWithTimeBlocksResponse,
     RoutineResponse,
@@ -75,7 +76,11 @@ def test_create_routine_success(authenticated_client):
                         source_id=source_id,
                         title="Daily Routine",
                         language="EN",
-                        image_url="https://example.com/image.jpg",
+                        image=ImageUrlModel(
+                            thumbnail="https://example.com/image-thumb.jpg",
+                            medium="https://example.com/image-medium.jpg",
+                            original="https://example.com/image.jpg",
+                        ),
                         display_order=0,
                     )
                 ],
@@ -113,6 +118,68 @@ def test_create_routine_success(authenticated_client):
         assert body["time_blocks"][0]["time_int"] == 1200
         assert body["time_blocks"][0]["sessions"][0]["title"] == "Daily Routine"
         assert body["time_blocks"][0]["sessions"][0]["language"] == "EN"
+        mock_create.assert_called_once()
+
+
+def test_create_routine_with_timer_success(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+
+    mock_response = RoutineWithTimeBlocksResponse(
+        id=routine_id,
+        time_blocks=[
+            TimeBlockDTO(
+                id=time_block_id,
+                time="12:00",
+                time_int=1200,
+                notification_enabled=True,
+                sessions=[
+                    SessionDTO(
+                        id=session_id,
+                        session_type=SessionType.TIMER,
+                        source_id=None,
+                        duration_ms=900000,
+                        display_order=0,
+                    )
+                ],
+            )
+        ],
+    )
+
+    with patch(
+        "pecha_api.routines.routines_views.create_routine_with_time_block",
+        new_callable=AsyncMock,
+        return_value=mock_response,
+    ) as mock_create:
+        response = authenticated_client.post(
+            "/routines",
+            json={
+                "time": "12:00",
+                "time_int": 1200,
+                "notification_enabled": True,
+                "sessions": [
+                    {
+                        "session_type": "TIMER",
+                        "duration_ms": 900000,
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        body = response.json()
+        timer_session = body["time_blocks"][0]["sessions"][0]
+        assert timer_session["session_type"] == "TIMER"
+        assert timer_session["duration_ms"] == 900000
+        assert "source_id" not in timer_session
+        assert "title" not in timer_session
+        assert "language" not in timer_session
+        assert "image" not in timer_session
+        assert "start_date" not in timer_session
+        assert "started_at" not in timer_session
         mock_create.assert_called_once()
 
 
@@ -293,7 +360,11 @@ def test_create_time_block_success(authenticated_client):
                 source_id=source_id,
                 title="Morning Plan",
                 language="EN",
-                image_url="https://example.com/morning.jpg",
+                image=ImageUrlModel(
+                    thumbnail="https://example.com/morning-thumb.jpg",
+                    medium="https://example.com/morning-medium.jpg",
+                    original="https://example.com/morning.jpg",
+                ),
                 display_order=0,
             )
         ],
@@ -572,7 +643,11 @@ def test_update_time_block_success(authenticated_client):
                 source_id=source_id,
                 title="Updated Routine",
                 language="EN",
-                image_url="https://example.com/image.jpg",
+                image=ImageUrlModel(
+                    thumbnail="https://example.com/image-thumb.jpg",
+                    medium="https://example.com/image-medium.jpg",
+                    original="https://example.com/image.jpg",
+                ),
                 display_order=0,
             )
         ],
@@ -818,7 +893,11 @@ def test_get_routine_success(authenticated_client):
                         source_id=source_id,
                         title="Morning Meditation",
                         language="EN",
-                        image_url="https://example.com/image.jpg",
+                        image=ImageUrlModel(
+                            thumbnail="https://example.com/image-thumb.jpg",
+                            medium="https://example.com/image-medium.jpg",
+                            original="https://example.com/image.jpg",
+                        ),
                         display_order=0,
                     )
                 ],
@@ -911,7 +990,7 @@ def test_get_routine_with_pagination(authenticated_client):
                         source_id=source_id,
                         title="Daily Recitation",
                         language="BO",
-                        image_url=None,
+                        image=None,
                         display_order=0,
                     )
                 ],
@@ -965,7 +1044,11 @@ def test_get_routine_with_multiple_time_blocks(authenticated_client):
                         source_id=source_id_1,
                         title="Morning Practice",
                         language="EN",
-                        image_url="https://example.com/morning.jpg",
+                        image=ImageUrlModel(
+                    thumbnail="https://example.com/morning-thumb.jpg",
+                    medium="https://example.com/morning-medium.jpg",
+                    original="https://example.com/morning.jpg",
+                ),
                         display_order=0,
                     )
                 ],
@@ -982,7 +1065,7 @@ def test_get_routine_with_multiple_time_blocks(authenticated_client):
                         source_id=source_id_2,
                         title="Evening Recitation",
                         language="BO",
-                        image_url=None,
+                        image=None,
                         display_order=0,
                     )
                 ],

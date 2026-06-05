@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
 from sqlalchemy import String, cast, desc, asc, or_, exists, select, func
@@ -36,6 +36,53 @@ def get_series_by_id(db: Session, series_id) -> Optional[Series]:
     )
 
 
+def get_series_by_ids(db: Session, series_ids: List[UUID]) -> List[Series]:
+    if not series_ids:
+        return []
+    return (
+        db.query(Series)
+        .options(selectinload(Series.metadata_entries))
+        .filter(Series.id.in_(series_ids), Series.deleted_at.is_(None))
+        .all()
+    )
+
+
+def get_active_plan_count_map_by_series_ids(
+    db: Session,
+    series_ids: Sequence[UUID],
+    published_only: bool = False,
+) -> Dict[UUID, int]:
+    if not series_ids:
+        return {}
+    conditions = [
+        Plan.series_id.in_(series_ids),
+        Plan.deleted_at.is_(None),
+    ]
+    if published_only:
+        conditions.append(Plan.status == PlanStatus.PUBLISHED)
+    rows = (
+        db.query(Plan.series_id, func.count(Plan.id))
+        .filter(*conditions)
+        .group_by(Plan.series_id)
+        .all()
+    )
+    return {series_id: int(count or 0) for series_id, count in rows}
+
+
+def get_series_with_plans_by_ids(db: Session, series_ids: List[UUID]) -> List[Series]:
+    if not series_ids:
+        return []
+    return (
+        db.query(Series)
+        .options(
+            selectinload(Series.plans).selectinload(Plan.items),
+            selectinload(Series.plans).selectinload(Plan.tag_list),
+        )
+        .filter(Series.id.in_(series_ids), Series.deleted_at.is_(None))
+        .all()
+    )
+
+
 def get_plans_by_ids(db: Session, plan_ids: List[UUID]) -> List[Plan]:
     if not plan_ids:
         return []
@@ -52,6 +99,7 @@ def _persist_metadata_entries(
             SeriesMetadata(
                 series_id=series_id,
                 title=entry.title,
+                sub_title=entry.sub_title,
                 description=entry.description,
                 language=entry.language,
             )
@@ -196,6 +244,7 @@ def get_series_paginated(
     status: Optional[PlanStatus] = None,
     featured: Optional[bool] = None,
     published_only: bool = False,
+    group_ids: Optional[Sequence[UUID]] = None,
 ) -> Tuple[List[Tuple[Series, int]], int]:
 
     filters = []
@@ -208,6 +257,7 @@ def get_series_paginated(
                     SeriesMetadata.series_id == Series.id,
                     or_(
                         SeriesMetadata.title.ilike(f"%{search}%"),
+                        SeriesMetadata.sub_title.ilike(f"%{search}%"),
                         SeriesMetadata.description.ilike(f"%{search}%"),
                     ),
                 )
@@ -229,6 +279,10 @@ def get_series_paginated(
                 )
             )
         )
+    if group_ids is not None:
+        if not group_ids:
+            return [], 0
+        filters.append(Series.group_id.in_(group_ids))
 
     plan_count = _series_active_plans_count_subquery(published_only=published_only).label("plan_count")
     query = db.query(Series, plan_count).options(selectinload(Series.metadata_entries))

@@ -1,4 +1,5 @@
-from typing import List
+import logging
+from typing import List, Optional
 from sqlalchemy.exc import InvalidRequestError, IntegrityError
 from sqlalchemy.orm import Session
 from .users_models import Users, SocialMediaAccount
@@ -46,6 +47,23 @@ def get_user_by_username(db: Session, username: str) -> Users:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.USER_NOT_FOUND)
     return user
 
+
+def find_user_by_username(db: Session, username: str) -> Optional[Users]:
+    return db.query(Users).filter(Users.username == username).first()
+
+
 def get_user_social_account(db: Session, user_id: str) -> List[SocialMediaAccount]:
     social_accounts = db.query(SocialMediaAccount).filter(SocialMediaAccount.user_id == user_id).all()
     return social_accounts
+
+
+def delete_user(db: Session, user: Users) -> None:
+    try:
+        from pecha_api.plans.users.recitation.user_recitations_models import UserRecitations
+        db.query(UserRecitations).filter(UserRecitations.user_id == user.id).delete(synchronize_session=False)
+        db.delete(user)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        logging.exception(f"Failed to delete user {user.id}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorConstants.USER_DELETE_FAILED)
