@@ -57,9 +57,15 @@ def _language_value(language) -> str:
     return str(language)
 
 
-def _metadata_to_dtos(entries) -> List[SeriesMetadataDTO]:
+def _metadata_to_dtos(entries, language: Optional[str] = None) -> List[SeriesMetadataDTO]:
     if not entries:
         return []
+    if language:
+        language_upper = language.upper()
+        entries = [
+            entry for entry in entries
+            if _language_value(entry.language).upper() == language_upper
+        ]
     return sorted(
         [
             SeriesMetadataDTO(
@@ -174,6 +180,7 @@ def _series_to_dto(
     include_plans: bool = False,
     published_only: bool = False,
     plan_language: Optional[str] = None,
+    metadata_language: Optional[str] = None,
     group_id: Optional[UUID] = None,
     plan_group_ids: Optional[Dict[UUID, UUID]] = None,
 ) -> SeriesDTO:
@@ -194,7 +201,7 @@ def _series_to_dto(
 
     return SeriesDTO(
         id=row.id,
-        metadata=_metadata_to_dtos(row.metadata_entries),
+        metadata=_metadata_to_dtos(row.metadata_entries, language=metadata_language),
         image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
@@ -254,6 +261,7 @@ def get_series_detail(series_id: UUID, language: Optional[str] = None) -> Series
             include_plans=True,
             published_only=True,
             plan_language=language,
+            metadata_language=language,
         )
 
 def get_cms_filtered_series(
