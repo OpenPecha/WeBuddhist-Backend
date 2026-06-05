@@ -28,6 +28,7 @@ from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_repository import get_series_with_plans_by_ids
 from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
 from pecha_api.plans.series.series_service import _get_sorted_active_plans, _plan_to_dto
+from pecha_api.plans.shared.metadata_utils import format_metadata_response
 def _parse_languages(item_type: str, languages_raw: Optional[str]) -> List[str]:
     if not languages_raw:
         return []
@@ -42,17 +43,27 @@ def _to_plan_status(status_value) -> PlanStatus:
     return PlanStatus(status_value)
 
 
-def _parse_metadata(raw) -> List[SeriesMetadataDTO]:
+def _parse_metadata(raw, language: Optional[str] = None):
     if raw is None:
-        return []
-    if isinstance(raw, str):
-        raw = json.loads(raw)
-    if not raw:
-        return []
-    return [SeriesMetadataDTO(**item) for item in raw]
+        metadata_list: List[SeriesMetadataDTO] = []
+    elif isinstance(raw, str):
+        parsed = json.loads(raw)
+        metadata_list = [SeriesMetadataDTO(**item) for item in parsed] if parsed else []
+    elif not raw:
+        metadata_list = []
+    else:
+        metadata_list = [SeriesMetadataDTO(**item) for item in raw]
+
+    if language:
+        language_upper = language.upper()
+        metadata_list = [
+            item for item in metadata_list
+            if item.language.upper() == language_upper
+        ]
+    return format_metadata_response(metadata_list, language=language)
 
 
-def _row_to_dto(row) -> DashboardItemDTO:
+def _row_to_dto(row, language: Optional[str] = None) -> DashboardItemDTO:
     item_type = row.item_type
     common = dict(
         id=row.id,
@@ -72,7 +83,7 @@ def _row_to_dto(row) -> DashboardItemDTO:
     if item_type == "series":
         return DashboardItemDTO(
             **common,
-            metadata=_parse_metadata(row.metadata_json),
+            metadata=_parse_metadata(row.metadata_json, language=language),
             author_id=row.author_id,
         )
     return DashboardItemDTO(
@@ -142,7 +153,7 @@ def get_dashboard_items_list(
             group_ids=group_ids,
         )
 
-    items = [_row_to_dto(row) for row in rows]
+    items = [_row_to_dto(row, language=language) for row in rows]
     return DashboardItemsResponse(
         items=items,
         pagination=DashboardPaginationDTO(
@@ -154,8 +165,8 @@ def get_dashboard_items_list(
     )
 
 
-def _row_to_public_dto(row) -> DashboardItemDTO:
-    return _row_to_dto(row).model_copy(update={"author_id": None})
+def _row_to_public_dto(row, language: Optional[str] = None) -> DashboardItemDTO:
+    return _row_to_dto(row, language=language).model_copy(update={"author_id": None})
 
 
 def _published_plans_by_series(db_session, series_ids: List[UUID]) -> dict:
@@ -191,7 +202,7 @@ def get_practice_items_list(
             featured=featured,
         )
 
-        items = [_row_to_public_dto(row) for row in rows]
+        items = [_row_to_public_dto(row, language=language) for row in rows]
         series_ids = [item.id for item in items if item.type == "series"]
         plans_by_series = _published_plans_by_series(db_session, series_ids)
 

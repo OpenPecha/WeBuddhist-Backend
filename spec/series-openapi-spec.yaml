@@ -484,6 +484,9 @@ components:
       properties:
         title:
           type: string
+        sub_title:
+          type: string
+          nullable: true
         description:
           type: string
           nullable: true
@@ -502,6 +505,9 @@ components:
           format: uuid
         title:
           type: string
+        sub_title:
+          type: string
+          nullable: true
         description:
           type: string
           nullable: true

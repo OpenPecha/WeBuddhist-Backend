@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 from uuid import UUID
 
 from pydantic import BaseModel, field_validator
@@ -13,6 +13,7 @@ from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 class GroupMetadataInput(BaseModel):
     title: str
+    sub_title: Optional[str] = None
     description: Optional[str] = None
     language: LanguageCode
 
@@ -20,8 +21,12 @@ class GroupMetadataInput(BaseModel):
 class GroupMetadataDTO(BaseModel):
     id: UUID
     title: str
+    sub_title: Optional[str] = None
     description: Optional[str] = None
     language: str
+
+
+GroupMetadataResponse = Union[GroupMetadataDTO, List[GroupMetadataDTO], None]
 
 
 class GroupSocialLinkInput(BaseModel):
@@ -51,7 +56,7 @@ class AuthorGroupSummaryDTO(BaseModel):
     banner_key: Optional[str] = None
     avatar_url: Optional[str] = None
     banner_url: Optional[str] = None
-    metadata: List[GroupMetadataDTO]
+    metadata: GroupMetadataResponse = []
     tags: List[TagSummaryDTO] = []
     follower_count: int = 0
     member_count: int = 0
@@ -65,7 +70,7 @@ class AuthorGroupDetailDTO(BaseModel):
     banner_key: Optional[str] = None
     avatar_url: Optional[str] = None
     banner_url: Optional[str] = None
-    metadata: List[GroupMetadataDTO]
+    metadata: GroupMetadataResponse = []
     members: List[AuthorGroupMemberDTO] = []
     tags: List[TagSummaryDTO] = []
     social_links: List[GroupSocialLinkDTO] = []

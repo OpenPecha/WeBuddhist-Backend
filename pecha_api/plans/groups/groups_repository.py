@@ -165,6 +165,7 @@ def get_groups_paginated(
                     AuthorGroupMetadata.group_id == AuthorGroup.id,
                     or_(
                         AuthorGroupMetadata.title.ilike(f"%{search}%"),
+                        AuthorGroupMetadata.sub_title.ilike(f"%{search}%"),
                         AuthorGroupMetadata.description.ilike(f"%{search}%"),
                     ),
                 )

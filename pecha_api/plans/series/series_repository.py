@@ -99,6 +99,7 @@ def _persist_metadata_entries(
             SeriesMetadata(
                 series_id=series_id,
                 title=entry.title,
+                sub_title=entry.sub_title,
                 description=entry.description,
                 language=entry.language,
             )
@@ -256,6 +257,7 @@ def get_series_paginated(
                     SeriesMetadata.series_id == Series.id,
                     or_(
                         SeriesMetadata.title.ilike(f"%{search}%"),
+                        SeriesMetadata.sub_title.ilike(f"%{search}%"),
                         SeriesMetadata.description.ilike(f"%{search}%"),
                     ),
                 )
