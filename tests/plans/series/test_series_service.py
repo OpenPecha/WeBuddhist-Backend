@@ -684,6 +684,7 @@ def test_get_series_detail_filters_plans_by_language():
     plan_en.featured = False
     plan_en.start_date = None
     plan_en.items = []
+    plan_en.group_id = FIXTURE_GROUP_ID
 
     plan_bo = MagicMock()
     plan_bo.deleted_at = None
@@ -699,6 +700,7 @@ def test_get_series_detail_filters_plans_by_language():
     plan_bo.featured = False
     plan_bo.start_date = None
     plan_bo.items = []
+    plan_bo.group_id = FIXTURE_GROUP_ID
 
     row = MagicMock()
     row.id = series_id
@@ -707,6 +709,7 @@ def test_get_series_detail_filters_plans_by_language():
     row.author_id = author_id
     row.featured = False
     row.status = PlanStatus.PUBLISHED
+    row.group_id = FIXTURE_GROUP_ID
     row.plans = [plan_en, plan_bo]
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
