@@ -26,3 +26,8 @@ def get_verse_of_day_by_filters(
 def get_verse_of_day_by_id(db: Session, verse_id: UUID) -> Optional[VerseOfDay]:
 
     return db.query(VerseOfDay).filter(VerseOfDay.id == verse_id).first()
+
+
+def get_verse_of_day_today(db: Session, today: date) -> Optional[VerseOfDay]:
+
+    return db.query(VerseOfDay).filter(VerseOfDay.date == today).first()
