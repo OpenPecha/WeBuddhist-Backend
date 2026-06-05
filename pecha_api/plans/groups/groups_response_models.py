@@ -47,6 +47,10 @@ class AuthorGroupSummaryDTO(BaseModel):
     id: UUID
     slug: str
     is_public: bool
+    avatar_key: Optional[str] = None
+    banner_key: Optional[str] = None
+    avatar_url: Optional[str] = None
+    banner_url: Optional[str] = None
     metadata: List[GroupMetadataDTO]
     tags: List[TagSummaryDTO] = []
     follower_count: int = 0

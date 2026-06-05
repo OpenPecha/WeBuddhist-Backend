@@ -279,13 +279,17 @@ Because the detail response has no `is_following` flag, list the user's followed
 | `limit` | `int` | Query param, default `20`, range `1..100` |
 | `total` | `int` | Total followed groups |
 
-**`AuthorGroupSummaryDTO`** (lighter than detail — no images, members, links, series, or plans):
+**`AuthorGroupSummaryDTO`** (lighter than detail — no members, links, series, or plans):
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `id` | `UUID` | |
 | `slug` | `str` | |
 | `is_public` | `bool` | |
+| `avatar_key` | `str` | no | Raw S3 key for the avatar |
+| `banner_key` | `str` | no | Raw S3 key for the banner |
+| `avatar_url` | `str` | no | Presigned avatar URL; `null` when no `avatar_key` |
+| `banner_url` | `str` | no | Presigned banner URL; `null` when no `banner_key` |
 | `metadata` | `GroupMetadataDTO[]` | |
 | `tags` | `TagSummaryDTO[]` | Default `[]` |
 | `follower_count` | `int` | Default `0` |
