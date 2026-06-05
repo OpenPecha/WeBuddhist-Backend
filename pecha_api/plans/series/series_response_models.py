@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from uuid import UUID
 from datetime import datetime
 
@@ -26,12 +26,17 @@ def _validate_plan_language_keys(v):
 class SeriesMetadataDTO(BaseModel):
     id: UUID
     title: str
+    sub_title: Optional[str] = None
     description: Optional[str] = None
     language: str
 
 
+SeriesMetadataResponse = Union[SeriesMetadataDTO, List[SeriesMetadataDTO], None]
+
+
 class SeriesMetadataInput(BaseModel):
     title: str
+    sub_title: Optional[str] = None
     description: Optional[str] = None
     language: LanguageCode
 
@@ -84,7 +89,7 @@ class SeriesPlanDTO(BaseModel):
 
 class SeriesListItemDTO(BaseModel):
     id: UUID
-    metadata: List[SeriesMetadataDTO] = []
+    metadata: SeriesMetadataResponse = []
     image: Optional[ImageUrlModel] = None
     image_key: Optional[str] = None
     author_id: UUID
@@ -97,7 +102,7 @@ class SeriesListItemDTO(BaseModel):
 
 class SeriesDTO(BaseModel):
     id: UUID
-    metadata: List[SeriesMetadataDTO] = []
+    metadata: SeriesMetadataResponse = []
     image: Optional[ImageUrlModel] = None
     image_key: Optional[str] = None
     author_id: UUID

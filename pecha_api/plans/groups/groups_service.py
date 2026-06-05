@@ -63,6 +63,7 @@ from pecha_api.plans.groups.groups_repository import (
 from pecha_api.plans.series.series_repository import get_active_plan_count_map_by_series_ids
 from pecha_api.plans.series.series_response_models import SeriesListItemDTO
 from pecha_api.plans.series.series_service import _series_to_list_item_dto
+from pecha_api.plans.shared.metadata_utils import format_metadata_response
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
     AuthorGroupListResponse,
@@ -110,25 +111,34 @@ def _generate_group_asset_url(asset_key: Optional[str]) -> Optional[str]:
     )
 
 
+def _optional_metadata_str(value) -> Optional[str]:
+    return value if isinstance(value, str) else None
+
+
 def _metadata_to_dtos(metadata_entries, language: Optional[str] = None) -> List[GroupMetadataDTO]:
-    entries = sorted(metadata_entries, key=lambda value: value.language)
     if language:
         language_upper = language.upper()
-        entries = [
-            item
-            for item in entries
-            if (item.language.value if hasattr(item.language, "value") else str(item.language)).upper()
-            == language_upper
+        metadata_entries = [
+            item for item in metadata_entries
+            if _language_value(item.language).upper() == language_upper
         ]
     return [
         GroupMetadataDTO(
             id=item.id,
             title=item.title,
+            sub_title=_optional_metadata_str(getattr(item, "sub_title", None)),
             description=item.description,
-            language=item.language,
+            language=_language_value(item.language),
         )
-        for item in entries
+        for item in sorted(metadata_entries, key=lambda value: value.language)
     ]
+
+
+def _metadata_response(metadata_entries, language: Optional[str] = None):
+    return format_metadata_response(
+        _metadata_to_dtos(metadata_entries, language=language),
+        language=language,
+    )
 
 
 def _members_to_dtos(members) -> List[AuthorGroupMemberDTO]:
@@ -348,7 +358,7 @@ def _group_to_summary(
         id=group.id,
         slug=group.slug,
         is_public=group.is_public,
-        metadata=_metadata_to_dtos(group.metadata_entries, language=language),
+        metadata=_metadata_response(group.metadata_entries, language=language),
         tags=tags_to_summary_dtos(group.tags),
         follower_count=follower_count,
         member_count=len(group.members),
@@ -398,7 +408,7 @@ def _group_to_detail(
         banner_key=group.banner_key,
         avatar_url=_generate_group_asset_url(group.avatar_key),
         banner_url=_generate_group_asset_url(group.banner_key),
-        metadata=_metadata_to_dtos(group.metadata_entries, language=language),
+        metadata=_metadata_response(group.metadata_entries, language=language),
         members=_members_to_dtos(group.members),
         tags=tags_to_summary_dtos(group.tags),
         social_links=_social_links_to_dtos(group.social_links),
@@ -420,6 +430,7 @@ def create_author_group(token: str, request: CreateAuthorGroupRequest) -> Author
             AuthorGroupMetadata(
                 language=item.language.value,
                 title=item.title,
+                sub_title=item.sub_title,
                 description=item.description,
             )
             for item in request.metadata
@@ -473,6 +484,7 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
                 AuthorGroupMetadata(
                     language=item.language.value,
                     title=item.title,
+                    sub_title=item.sub_title,
                     description=item.description,
                 )
                 for item in request.metadata

@@ -1,12 +1,16 @@
 from datetime import datetime
-from typing import List, Literal, Optional
+from typing import List, Literal, Optional, Union
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_serializer
 
 from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.plans_enums import PlanStatus
-from pecha_api.plans.series.series_response_models import SeriesMetadataDTO, SeriesPlanDTO
+from pecha_api.plans.series.series_response_models import (
+    SeriesMetadataDTO,
+    SeriesMetadataResponse,
+    SeriesPlanDTO,
+)
 
 DashboardTab = Literal["all", "series", "plans"]
 DashboardItemType = Literal["series", "plan"]
@@ -16,7 +20,7 @@ class DashboardItemDTO(BaseModel):
     id: UUID
     type: DashboardItemType
     title: Optional[str] = None
-    metadata: Optional[List[SeriesMetadataDTO]] = None
+    metadata: Optional[SeriesMetadataResponse] = None
     plans: Optional[List[SeriesPlanDTO]] = None
     author_id: Optional[UUID] = None
     image: Optional[ImageUrlModel] = None

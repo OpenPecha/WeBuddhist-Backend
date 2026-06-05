@@ -360,9 +360,8 @@ def test_group_summary_metadata_filtered_by_language():
     summary_bo = _group_to_summary(group, language="bo")
 
     assert len(summary_all.metadata) == 2
-    assert len(summary_bo.metadata) == 1
-    assert summary_bo.metadata[0].title == "Tibetan Group"
-    assert summary_bo.metadata[0].language == "BO"
+    assert summary_bo.metadata.title == "Tibetan Group"
+    assert summary_bo.metadata.language == "BO"
 
 
 def test_list_cms_groups_scopes_to_member_groups_for_non_admin():

@@ -23,6 +23,8 @@ _SERIES_METADATA_JSON = (
                         SeriesMetadata.id,
                         "title",
                         SeriesMetadata.title,
+                        "sub_title",
+                        SeriesMetadata.sub_title,
                         "description",
                         SeriesMetadata.description,
                         "language",
@@ -98,7 +100,10 @@ def _apply_series_filters(
             exists(
                 select(literal(1)).where(
                     SeriesMetadata.series_id == Series.id,
-                    SeriesMetadata.title.ilike(f"%{search}%"),
+                    or_(
+                        SeriesMetadata.title.ilike(f"%{search}%"),
+                        SeriesMetadata.sub_title.ilike(f"%{search}%"),
+                    ),
                 )
             )
         )
