@@ -14,6 +14,8 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupInviteCreatedResponse,
     GroupInviteDTO,
     GroupInviteListResponse,
+    PublicAuthorGroupDetailDTO,
+    PublicAuthorGroupListResponse,
     ReplaceGroupSocialLinksRequest,
     ReplaceGroupTagsRequest,
     UpdateAuthorGroupRequest,
@@ -288,12 +290,12 @@ def delete_group_member_by_id(
     return None
 
 
-@public_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
+@public_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=PublicAuthorGroupDetailDTO)
 def get_public_group(group_id: UUID):
     return get_author_group_detail(group_id=group_id, require_public=True)
 
 
-@public_groups_router.get("", status_code=status.HTTP_200_OK, response_model=AuthorGroupListResponse)
+@public_groups_router.get("", status_code=status.HTTP_200_OK, response_model=PublicAuthorGroupListResponse)
 def get_public_groups(
     search: Annotated[Optional[str], Query()] = None,
     language: Annotated[Optional[str], Query()] = None,
@@ -328,7 +330,7 @@ def delete_follow_group(
     return None
 
 
-@user_groups_router.get("", status_code=status.HTTP_200_OK, response_model=AuthorGroupListResponse)
+@user_groups_router.get("", status_code=status.HTTP_200_OK, response_model=PublicAuthorGroupListResponse)
 def get_my_followed_groups(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     skip: Annotated[int, Query(ge=0)] = 0,

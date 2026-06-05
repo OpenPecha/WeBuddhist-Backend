@@ -47,7 +47,7 @@ Returns the **public profile** of one author group. No authentication required.
 | `banner_url` | `str` | no | Presigned banner URL; `null` when no `banner_key` |
 | `metadata` | `GroupMetadataDTO[]` | yes | Per-language title + description; sorted by language |
 | `members` | `AuthorGroupMemberDTO[]` | yes | Default `[]` |
-| `tags` | `TagSummaryDTO[]` | yes | Default `[]` |
+| `tags` | `str[]` | yes | Tag names only; default `[]` |
 | `social_links` | `GroupSocialLinkDTO[]` | yes | Default `[]` |
 | `series` | `SeriesListItemDTO[]` | yes | Group's series; default `[]` |
 | `plans` | `PlanDTO[]` | yes | Group's plans; default `[]` |
@@ -86,16 +86,7 @@ The display name and description live here, one entry per language.
 | `platform` | `str` | yes | Free-form platform label, e.g. `website`, `youtube`, `x` |
 | `url` | `str` | yes | Link URL |
 
-### Nested: `TagSummaryDTO`
-
-| Field | Type | Required | Notes |
-|-------|------|----------|-------|
-| `id` | `UUID` | yes | |
-| `name` | `str` | yes | |
-| `image` | `str` | no | Single URL string |
-| `image_key` | `str` | no | Raw S3 key |
-| `description` | `str` | no | |
-| `featured` | `bool` | yes | Default `false` |
+> **Tags are plain strings.** Group-level `tags` is a flat array of tag name strings (e.g. `["Translation", "Practice"]`), not tag objects. Nested `plans[].tags` still use the full `TagSummaryDTO` shape.
 
 ### Nested: `SeriesListItemDTO`
 
@@ -151,9 +142,7 @@ The display name and description live here, one entry per language.
   "members": [
     { "author_id": "aa...", "role": "OWNER", "firstname": "Tenzin", "lastname": "Kunsang", "email": "tenzin@example.com" }
   ],
-  "tags": [
-    { "id": "t1...", "name": "Translation", "image": null, "image_key": null, "description": null, "featured": false }
-  ],
+  "tags": ["Translation"],
   "social_links": [
     { "id": "s1...", "platform": "website", "url": "https://dharma.example.com" },
     { "id": "s2...", "platform": "youtube", "url": "https://youtube.com/@dharma" }
@@ -291,7 +280,7 @@ Because the detail response has no `is_following` flag, list the user's followed
 | `avatar_url` | `str` | no | Presigned avatar URL; `null` when no `avatar_key` |
 | `banner_url` | `str` | no | Presigned banner URL; `null` when no `banner_key` |
 | `metadata` | `GroupMetadataDTO[]` | |
-| `tags` | `TagSummaryDTO[]` | Default `[]` |
+| `tags` | `str[]` | Tag names only; default `[]` |
 | `follower_count` | `int` | Default `0` |
 | `member_count` | `int` | Default `0` |
 

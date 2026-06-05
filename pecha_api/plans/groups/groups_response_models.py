@@ -74,8 +74,23 @@ class AuthorGroupDetailDTO(BaseModel):
     follower_count: int = 0
 
 
+class PublicAuthorGroupSummaryDTO(AuthorGroupSummaryDTO):
+    tags: List[str] = []
+
+
+class PublicAuthorGroupDetailDTO(AuthorGroupDetailDTO):
+    tags: List[str] = []
+
+
 class AuthorGroupListResponse(BaseModel):
     groups: List[AuthorGroupSummaryDTO]
+    skip: int
+    limit: int
+    total: int
+
+
+class PublicAuthorGroupListResponse(BaseModel):
+    groups: List[PublicAuthorGroupSummaryDTO]
     skip: int
     limit: int
     total: int
