@@ -1,12 +1,19 @@
 import json
-from typing import List, Optional
+from typing import List, Optional, Sequence
 from uuid import UUID
+
+from sqlalchemy.orm import Session
 
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
+from pecha_api.plans.authors.plan_authors_model import Author
 from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
 from pecha_api.plans.groups.groups_repository import get_author_group_ids
-from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin
+from pecha_api.plans.shared.permissions import (
+    is_reviewer,
+    is_super_admin,
+    require_can_read_group_content,
+)
 from pecha_api.plans.dashboard.dashboard_repository import get_dashboard_items, total_pages
 from pecha_api.plans.dashboard.dashboard_response_models import (
     DashboardItemDTO,
@@ -81,6 +88,31 @@ def _row_to_dto(row) -> DashboardItemDTO:
     )
 
 
+def _resolve_dashboard_group_ids(
+    db: Session,
+    author: Author,
+    group_id: Optional[UUID] = None,
+) -> Optional[Sequence[UUID]]:
+    if group_id is not None:
+        require_can_read_group_content(db=db, group_id=group_id, author=author)
+        return [group_id]
+    if is_super_admin(author) or is_reviewer(author):
+        return None
+    return get_author_group_ids(db=db, author_id=author.id)
+
+
+def _empty_dashboard_response(page: int, page_size: int) -> DashboardItemsResponse:
+    return DashboardItemsResponse(
+        items=[],
+        pagination=DashboardPaginationDTO(
+            page=page,
+            page_size=page_size,
+            total=0,
+            total_pages=0,
+        ),
+    )
+
+
 def get_dashboard_items_list(
     token: str,
     tab: DashboardTab,
@@ -90,27 +122,21 @@ def get_dashboard_items_list(
     status: Optional[PlanStatus] = None,
     language: Optional[str] = None,
     featured: Optional[bool] = None,
+    group_id: Optional[UUID] = None,
 ) -> DashboardItemsResponse:
     current_author = validate_cms_author_details(token=token)
-    group_ids = None
-    if not is_super_admin(current_author) and not is_reviewer(current_author):
-        with SessionLocal() as db_session:
-            group_ids = get_author_group_ids(db=db_session, author_id=current_author.id)
-            if not group_ids:
-                return DashboardItemsResponse(
-                    items=[],
-                    pagination=DashboardPaginationDTO(
-                        page=page,
-                        page_size=page_size,
-                        total=0,
-                        total_pages=0,
-                    ),
-                )
-
     page = max(page, 1)
     page_size = max(page_size, 1)
 
     with SessionLocal() as db_session:
+        group_ids = _resolve_dashboard_group_ids(
+            db=db_session,
+            author=current_author,
+            group_id=group_id,
+        )
+        if group_ids is not None and len(group_ids) == 0:
+            return _empty_dashboard_response(page=page, page_size=page_size)
+
         rows, total = get_dashboard_items(
             db_session,
             tab=tab,
