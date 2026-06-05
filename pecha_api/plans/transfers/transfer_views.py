@@ -24,12 +24,14 @@ from pecha_api.plans.transfers.transfer_service import (
     revoke_transfer_request,
 )
 
-cms_transfers_router = APIRouter(prefix="/cms/transfer-requests", tags=["CMS Content Transfers"])
+CMS_CONTENT_TRANSFERS_TAG = "CMS Content Transfers"
+
+cms_transfers_router = APIRouter(prefix="/cms/transfer-requests", tags=[CMS_CONTENT_TRANSFERS_TAG])
 
 
 @cms_transfers_router.get("/incoming", status_code=status.HTTP_200_OK, response_model=TransferRequestListResponse)
 def get_incoming_transfer_requests(
-    status_filter: Optional[ContentTransferStatus] = Query(None, alias="status"),
+    status_filter: Annotated[Optional[ContentTransferStatus], Query(alias="status")] = None,
     token: Annotated[str, Depends(get_cms_author_token)] = "",
 ):
     return list_incoming_transfer_requests(token=token, status_filter=status_filter)
@@ -37,7 +39,7 @@ def get_incoming_transfer_requests(
 
 @cms_transfers_router.get("/outgoing", status_code=status.HTTP_200_OK, response_model=TransferRequestListResponse)
 def get_outgoing_transfer_requests(
-    status_filter: Optional[ContentTransferStatus] = Query(None, alias="status"),
+    status_filter: Annotated[Optional[ContentTransferStatus], Query(alias="status")] = None,
     token: Annotated[str, Depends(get_cms_author_token)] = "",
 ):
     return list_outgoing_transfer_requests(token=token, status_filter=status_filter)
@@ -67,7 +69,7 @@ def post_revoke_transfer_request(
     return revoke_transfer_request(token=token, transfer_id=transfer_id)
 
 
-plan_transfers_router = APIRouter(prefix="/cms/plans", tags=["CMS Content Transfers"])
+plan_transfers_router = APIRouter(prefix="/cms/plans", tags=[CMS_CONTENT_TRANSFERS_TAG])
 
 
 @plan_transfers_router.post(
@@ -83,7 +85,7 @@ def post_plan_transfer_request(
     return create_plan_transfer_request(token=token, plan_id=plan_id, body=body)
 
 
-series_transfers_router = APIRouter(prefix="/cms/series", tags=["CMS Content Transfers"])
+series_transfers_router = APIRouter(prefix="/cms/series", tags=[CMS_CONTENT_TRANSFERS_TAG])
 
 
 @series_transfers_router.post(
@@ -101,14 +103,14 @@ def post_series_transfer_request(
 
 group_transfers_router = APIRouter(
     prefix="/cms/author/groups/{group_id}/transfer-requests",
-    tags=["CMS Content Transfers"],
+    tags=[CMS_CONTENT_TRANSFERS_TAG],
 )
 
 
 @group_transfers_router.get("/incoming", status_code=status.HTTP_200_OK, response_model=TransferRequestListResponse)
 def get_group_incoming_transfer_requests(
     group_id: UUID,
-    status_filter: Optional[ContentTransferStatus] = Query(None, alias="status"),
+    status_filter: Annotated[Optional[ContentTransferStatus], Query(alias="status")] = None,
     token: Annotated[str, Depends(get_cms_author_token)] = "",
 ):
     return list_incoming_transfer_requests_for_group(
@@ -121,7 +123,7 @@ def get_group_incoming_transfer_requests(
 @group_transfers_router.get("/outgoing", status_code=status.HTTP_200_OK, response_model=TransferRequestListResponse)
 def get_group_outgoing_transfer_requests(
     group_id: UUID,
-    status_filter: Optional[ContentTransferStatus] = Query(None, alias="status"),
+    status_filter: Annotated[Optional[ContentTransferStatus], Query(alias="status")] = None,
     token: Annotated[str, Depends(get_cms_author_token)] = "",
 ):
     return list_outgoing_transfer_requests_for_group(

@@ -243,7 +243,6 @@ def get_series_paginated(
     status: Optional[PlanStatus] = None,
     featured: Optional[bool] = None,
     published_only: bool = False,
-    group_id: Optional[UUID] = None,
     group_ids: Optional[Sequence[UUID]] = None,
 ) -> Tuple[List[Tuple[Series, int]], int]:
 
@@ -282,8 +281,6 @@ def get_series_paginated(
         if not group_ids:
             return [], 0
         filters.append(Series.group_id.in_(group_ids))
-    elif group_id is not None:
-        filters.append(Series.group_id == group_id)
 
     plan_count = _series_active_plans_count_subquery(published_only=published_only).label("plan_count")
     query = db.query(Series, plan_count).options(selectinload(Series.metadata_entries))

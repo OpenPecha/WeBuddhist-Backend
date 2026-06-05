@@ -442,7 +442,7 @@ def test_get_practice_items_list_forces_published_and_public_scope():
 
     kwargs = mock_repo.call_args.kwargs
     assert kwargs["status"] == PlanStatus.PUBLISHED
-    assert kwargs["author_id"] is None
+    assert kwargs.get("group_ids") is None
     assert kwargs["tab"] == "series"
     assert kwargs["search"] == "found"
     assert kwargs["language"] == "en"

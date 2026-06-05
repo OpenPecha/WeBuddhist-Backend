@@ -152,7 +152,7 @@ def _active_plan_ids(series: Series) -> List[UUID]:
     return [plan.id for plan in (series.plans or []) if plan.deleted_at is None]
 
 
-def _series_group_context(db: Session, series: Series) -> Tuple[Optional[UUID], Dict[UUID, UUID]]:
+def _series_group_context(series: Series) -> Tuple[Optional[UUID], Dict[UUID, UUID]]:
     plan_group_ids = {
         plan.id: plan.group_id
         for plan in (series.plans or [])
@@ -162,7 +162,7 @@ def _series_group_context(db: Session, series: Series) -> Tuple[Optional[UUID], 
 
 
 def _series_detail_dto(db: Session, series: Series, **kwargs) -> SeriesDTO:
-    group_id, plan_group_ids = _series_group_context(db=db, series=series)
+    group_id, plan_group_ids = _series_group_context(series=series)
     return _series_to_dto(series, group_id=group_id, plan_group_ids=plan_group_ids, **kwargs)
 
 
@@ -236,7 +236,7 @@ def get_filtered_series(
             language=language,
             status=PlanStatus.PUBLISHED,
             published_only=True,
-            group_id=group_id,
+            group_ids=[group_id] if group_id is not None else None,
         )
 
     series_dtos: List[SeriesListItemDTO] = [

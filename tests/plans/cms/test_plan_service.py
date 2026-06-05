@@ -443,8 +443,7 @@ def test_create_new_plan_series_not_found():
         assert str(series_id) in exc_info.value.detail
 
 
-@pytest.mark.asyncio
-async def test_get_filtered_plans_success():
+def test_get_filtered_plans_success():
     plan1 = Plan(
         id=uuid.uuid4(),
         title="Plan One",
@@ -508,7 +507,7 @@ async def test_get_filtered_plans_success():
         mock_presign.side_effect = lambda bucket_name, s3_key: s3_key
         mock_get_config.return_value = "dummy-bucket"
 
-        resp = await get_filtered_plans(
+        resp = get_filtered_plans(
             token="dummy-token",
             search="plan",
             sort_by="created_at",

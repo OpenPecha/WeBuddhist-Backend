@@ -200,6 +200,10 @@ def _mark_transfer_notifications_read(db: Session, *, transfer_id: UUID) -> None
     )
 
 
+_TRANSFER_NOT_FOUND = "Transfer request not found"
+_TRANSFER_NOT_PENDING = "Transfer request is not pending"
+
+
 def _create_transfer(
     token: str,
     *,
@@ -244,7 +248,10 @@ def _create_transfer(
         require_can_request_transfer(db=db, from_group_id=from_group_id, author=author)
         target_role = get_member_role(db=db, group_id=body.target_group_id, author_id=author.id)
         if not is_super_admin(author) and target_role is None:
-            pass
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="NO_GROUP_MEMBERSHIP",
+            )
 
         if has_pending_transfer(db=db, entity_type=entity_type, entity_id=entity_id):
             raise HTTPException(
@@ -416,9 +423,9 @@ def accept_transfer_request(token: str, transfer_id: UUID) -> TransferRequestDTO
     with SessionLocal() as db:
         transfer = get_transfer_by_id(db=db, transfer_id=transfer_id)
         if not transfer:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transfer request not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_TRANSFER_NOT_FOUND)
         if normalize_transfer_status(transfer.status) != ContentTransferStatus.PENDING:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Transfer request is not pending")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_TRANSFER_NOT_PENDING)
         if transfer.expires_at < datetime.now(timezone.utc):
             transfer.status = ContentTransferStatus.EXPIRED
             save_transfer(db=db, transfer=transfer)
@@ -441,9 +448,9 @@ def reject_transfer_request(token: str, transfer_id: UUID) -> TransferRequestDTO
     with SessionLocal() as db:
         transfer = get_transfer_by_id(db=db, transfer_id=transfer_id)
         if not transfer:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transfer request not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_TRANSFER_NOT_FOUND)
         if normalize_transfer_status(transfer.status) != ContentTransferStatus.PENDING:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Transfer request is not pending")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_TRANSFER_NOT_PENDING)
         require_can_respond_transfer(db=db, to_group_id=transfer.to_group_id, author=author)
         transfer.status = ContentTransferStatus.REJECTED
         transfer.responded_by = author.email
@@ -461,9 +468,9 @@ def revoke_transfer_request(token: str, transfer_id: UUID) -> TransferRequestDTO
     with SessionLocal() as db:
         transfer = get_transfer_by_id(db=db, transfer_id=transfer_id)
         if not transfer:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transfer request not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_TRANSFER_NOT_FOUND)
         if normalize_transfer_status(transfer.status) != ContentTransferStatus.PENDING:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Transfer request is not pending")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=_TRANSFER_NOT_PENDING)
         if not is_super_admin(author) and transfer.requested_by != author.email:
             require_can_request_transfer(db=db, from_group_id=transfer.from_group_id, author=author)
         transfer.status = ContentTransferStatus.REVOKED

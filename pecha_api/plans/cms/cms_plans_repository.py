@@ -148,7 +148,7 @@ def get_plan_by_id(db: Session, plan_id: UUID) -> Plan:
             detail=f"Failed to get plan by id: {str(e)}"
         )
 
-def get_plan_by_id_and_created_by(db: Session, plan_id: UUID, author: Author) -> Plan:
+def get_plan_by_id_and_created_by(db: Session, plan_id: UUID, author: Author) -> Optional[Plan]:
     try:
         plan = db.query(Plan).options(selectinload(Plan.tag_list)).filter(Plan.id == plan_id).first()
         if not plan:

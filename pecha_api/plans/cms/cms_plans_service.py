@@ -325,7 +325,7 @@ async def _generate_subtask_audio(sub_task_id: UUID, audio_type: PlanAudioType):
         "s3_key": s3_key,
     }
 
-async def get_filtered_plans(token: str, search: Optional[str], sort_by: str, sort_order: str, skip: int, limit: int, tag: Optional[str] = None, language: Optional[str] = None, group_id: Optional[UUID] = None) -> PlansResponse:
+def get_filtered_plans(token: str, search: Optional[str], sort_by: str, sort_order: str, skip: int, limit: int, tag: Optional[str] = None, language: Optional[str] = None, group_id: Optional[UUID] = None) -> PlansResponse:
     current_author = validate_cms_author_details(token=token)
     with SessionLocal() as db_session:
         plan_repository_response : PlansRepositoryResponse = get_plans_by_author_id(

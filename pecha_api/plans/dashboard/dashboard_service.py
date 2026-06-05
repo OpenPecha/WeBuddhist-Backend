@@ -189,7 +189,6 @@ def get_practice_items_list(
             status=PlanStatus.PUBLISHED,
             language=language,
             featured=featured,
-            author_id=None,
         )
 
         items = [_row_to_public_dto(row) for row in rows]

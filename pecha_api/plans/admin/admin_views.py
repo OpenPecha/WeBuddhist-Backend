@@ -25,12 +25,12 @@ cms_admin_router = APIRouter(prefix="/cms/admin/authors", tags=["CMS Admin Autho
 
 @cms_admin_router.get("", status_code=status.HTTP_200_OK, response_model=AdminAuthorListResponse)
 def get_cms_admin_authors(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
-    is_verified: Optional[bool] = None,
-    is_active: Optional[bool] = None,
-    platform_role: Optional[PlatformRole] = None,
-    search: Optional[str] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    is_verified: Annotated[Optional[bool], Query()] = None,
+    is_active: Annotated[Optional[bool], Query()] = None,
+    platform_role: Annotated[Optional[PlatformRole], Query()] = None,
+    search: Annotated[Optional[str], Query()] = None,
     token: Annotated[str, Depends(get_cms_author_token)] = "",
 ):
     return list_admin_authors(

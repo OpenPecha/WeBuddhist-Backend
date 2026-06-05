@@ -32,7 +32,7 @@ def get_group_ids_by_plan_ids(db: Session, plan_ids: Sequence[UUID]) -> Dict[UUI
         )
         .all()
     )
-    return {plan_id: group_id for plan_id, group_id in rows}
+    return dict(rows)
 
 
 def get_group_id_for_plan(db: Session, plan_id: UUID) -> Optional[UUID]:
@@ -52,7 +52,7 @@ def get_group_ids_by_series_ids(db: Session, series_ids: Sequence[UUID]) -> Dict
         )
         .all()
     )
-    return {series_id: group_id for series_id, group_id in rows}
+    return dict(rows)
 
 
 def get_group_id_for_series(db: Session, series_id: UUID) -> Optional[UUID]:

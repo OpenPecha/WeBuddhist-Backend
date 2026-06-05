@@ -205,7 +205,8 @@ def assign_plan_day_audio(
 
 def delete_plan_day_audio(token: str, day_id: UUID) -> None:
     with SessionLocal() as db:
-        plan_item = _get_author_plan_item_by_day_id(db=db, day_id=day_id, token=token)
+        current_author = validate_cms_author_details(token=token)
+        plan_item = _get_author_plan_item_by_day_id(db=db, day_id=day_id, current_author=current_author)
         existing = get_plan_item_audio_by_plan_item_id(db=db, plan_item_id=plan_item.id)
         if existing and existing.audio_key:
             delete_file(existing.audio_key)
