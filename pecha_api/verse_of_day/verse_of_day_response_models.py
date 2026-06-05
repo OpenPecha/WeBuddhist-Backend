@@ -22,6 +22,21 @@ class VerseOfDayResponse(BaseModel):
     verse_of_day: VerseOfDayDTO
 
 
+class VerseOfDayPublicDTO(BaseModel):
+    verse: str
+    image_urls: Optional[List[str]] = None
+    ref_id: str
+    ref_type: str
+    date: date
+
+    class Config:
+        from_attributes = True
+
+
+class VerseOfDayPublicResponse(BaseModel):
+    verse_of_day: Optional[VerseOfDayPublicDTO] = None
+
+
 class CreateVerseOfDayRequest(BaseModel):
     verse: str
     image_urls: Optional[List[str]] = None

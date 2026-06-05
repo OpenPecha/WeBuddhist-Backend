@@ -45,6 +45,7 @@ from pecha_api.texts import texts_openpecha_views
 from pecha_api.texts.segments import segments_openpecha_views
 from pecha_api.routines import routines_views
 from pecha_api.notification import notification_views as cms_notification_views
+from pecha_api.verse_of_day import verse_of_day_views
 import uvicorn
 
 api = FastAPI(
@@ -97,6 +98,7 @@ api.include_router(routines_views.routines_router)
 api.include_router(collections_openpecha_views.collections_v2_router)
 api.include_router(texts_openpecha_views.texts_v2_router)
 api.include_router(segments_openpecha_views.segments_v2_router)
+api.include_router(verse_of_day_views.verse_of_day_router)
 
 api.include_router(routines_views.user_routine_router)
 api.add_middleware(
