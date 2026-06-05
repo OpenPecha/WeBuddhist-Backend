@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from pecha_api.db.database import SessionLocal
+from pecha_api.plans.shared.metadata_utils import format_metadata_response
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.groups.groups_repository import (
@@ -66,6 +67,10 @@ def _language_value(language) -> str:
     return str(language)
 
 
+def _optional_metadata_str(value) -> Optional[str]:
+    return value if isinstance(value, str) else None
+
+
 def _metadata_to_dtos(entries, language: Optional[str] = None) -> List[SeriesMetadataDTO]:
     if not entries:
         return []
@@ -80,12 +85,20 @@ def _metadata_to_dtos(entries, language: Optional[str] = None) -> List[SeriesMet
             SeriesMetadataDTO(
                 id=entry.id,
                 title=entry.title,
+                sub_title=_optional_metadata_str(getattr(entry, "sub_title", None)),
                 description=entry.description,
                 language=_language_value(entry.language),
             )
             for entry in entries
         ],
         key=lambda metadata_dto: metadata_dto.language,
+    )
+
+
+def _metadata_response(entries, language: Optional[str] = None):
+    return format_metadata_response(
+        _metadata_to_dtos(entries, language=language),
+        language=language,
     )
 
 
@@ -177,7 +190,7 @@ def _series_to_list_item_dto(
 ) -> SeriesListItemDTO:
     return SeriesListItemDTO(
         id=row.id,
-        metadata=_metadata_to_dtos(row.metadata_entries, language=language),
+        metadata=_metadata_response(row.metadata_entries, language=language),
         image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
@@ -214,7 +227,7 @@ def _series_to_dto(
 
     return SeriesDTO(
         id=row.id,
-        metadata=_metadata_to_dtos(row.metadata_entries, language=metadata_language),
+        metadata=_metadata_response(row.metadata_entries, language=metadata_language),
         image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,

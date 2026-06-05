@@ -1139,8 +1139,7 @@ async def test_get_plan_daily_content_filters_series_metadata_by_navigation_lang
         )
 
     assert result.series is not None
-    assert len(result.series.metadata) == 1
-    assert result.series.metadata[0].language == "EN"
+    assert result.series.metadata.language == "EN"
 
 
 @pytest.mark.asyncio
