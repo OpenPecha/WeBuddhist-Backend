@@ -5,6 +5,7 @@ from uuid import UUID
 from datetime import datetime
 from pecha_api.plans.plans_enums import ContentType, SeriesStatus
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
+from pecha_api.plans.groups.groups_response_models import AuthorGroupSummaryDTO
 
 
 
@@ -58,6 +59,7 @@ class UserPlanDTO(BaseModel):
     tags: list[TagSummaryDTO] = []
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
+    group: Optional[AuthorGroupSummaryDTO] = None
 
 
 class UserPlansResponse(BaseModel):
@@ -126,6 +128,7 @@ class UserSeriesEnrollmentDTO(BaseModel):
     total_plans: int
     completed_plans: int
     progress_percentage: float
+    group: Optional[AuthorGroupSummaryDTO] = None
 
 
 class UserSeriesEnrollmentsResponse(BaseModel):
@@ -147,6 +150,7 @@ class UserSeriesProgressResponse(BaseModel):
     is_completed: bool
     completed_at: Optional[datetime] = None
     plans: List[UserPlanDTO]  # All plans in series with completion status
+    group: Optional[AuthorGroupSummaryDTO] = None
 
 
 class UpdateSeriesEnrollmentRequest(BaseModel):

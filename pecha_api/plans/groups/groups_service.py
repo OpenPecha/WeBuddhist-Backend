@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional, Sequence
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -35,6 +35,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_following_group_ids_by_user,
     get_group_by_id,
     get_group_by_slug,
+    get_groups_by_ids,
     get_group_member,
     get_groups_paginated,
     get_invite_by_id,
@@ -110,7 +111,16 @@ def _generate_group_asset_url(asset_key: Optional[str]) -> Optional[str]:
     )
 
 
-def _metadata_to_dtos(metadata_entries) -> List[GroupMetadataDTO]:
+def _metadata_to_dtos(metadata_entries, language: Optional[str] = None) -> List[GroupMetadataDTO]:
+    entries = sorted(metadata_entries, key=lambda value: value.language)
+    if language:
+        language_upper = language.upper()
+        entries = [
+            item
+            for item in entries
+            if (item.language.value if hasattr(item.language, "value") else str(item.language)).upper()
+            == language_upper
+        ]
     return [
         GroupMetadataDTO(
             id=item.id,
@@ -118,7 +128,7 @@ def _metadata_to_dtos(metadata_entries) -> List[GroupMetadataDTO]:
             description=item.description,
             language=item.language,
         )
-        for item in sorted(metadata_entries, key=lambda value: value.language)
+        for item in entries
     ]
 
 
@@ -330,22 +340,47 @@ def _plans_to_dtos(db: Session, plan_list: List[Plan], group_id: UUID) -> List[P
     ]
 
 
-def _group_to_summary(group: AuthorGroup, follower_count: int = 0) -> AuthorGroupSummaryDTO:
+def _group_to_summary(
+    group: AuthorGroup,
+    follower_count: int = 0,
+    language: Optional[str] = None,
+) -> AuthorGroupSummaryDTO:
     return AuthorGroupSummaryDTO(
         id=group.id,
         slug=group.slug,
         is_public=group.is_public,
-        metadata=_metadata_to_dtos(group.metadata_entries),
+        metadata=_metadata_to_dtos(group.metadata_entries, language=language),
         tags=tags_to_summary_dtos(group.tags),
         follower_count=follower_count,
         member_count=len(group.members),
     )
 
 
+def get_group_summaries_by_ids(
+    db: Session,
+    group_ids: Sequence[UUID],
+    language: Optional[str] = None,
+) -> Dict[UUID, AuthorGroupSummaryDTO]:
+    if not group_ids:
+        return {}
+    unique_group_ids = list(dict.fromkeys(group_ids))
+    groups = get_groups_by_ids(db=db, group_ids=unique_group_ids)
+    follower_count_map = get_followers_count_map(db=db, group_ids=unique_group_ids)
+    return {
+        group.id: _group_to_summary(
+            group,
+            follower_count=follower_count_map.get(group.id, 0),
+            language=language,
+        )
+        for group in groups
+    }
+
+
 def _group_to_detail(
     group: AuthorGroup,
     follower_count: int = 0,
     db: Optional[Session] = None,
+    language: Optional[str] = None,
 ) -> AuthorGroupDetailDTO:
     if db is not None:
         series_dtos = _series_to_dtos(db=db, series_list=list(group.series))
@@ -362,7 +397,7 @@ def _group_to_detail(
         banner_key=group.banner_key,
         avatar_url=_generate_group_asset_url(group.avatar_key),
         banner_url=_generate_group_asset_url(group.banner_key),
-        metadata=_metadata_to_dtos(group.metadata_entries),
+        metadata=_metadata_to_dtos(group.metadata_entries, language=language),
         members=_members_to_dtos(group.members),
         tags=tags_to_summary_dtos(group.tags),
         social_links=_social_links_to_dtos(group.social_links),
@@ -452,7 +487,11 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
         return _group_to_detail(group=loaded, follower_count=followers_count, db=db)
 
 
-def get_author_group_detail(group_id: UUID, require_public: bool = True) -> AuthorGroupDetailDTO:
+def get_author_group_detail(
+    group_id: UUID,
+    require_public: bool = True,
+    language: Optional[str] = None,
+) -> AuthorGroupDetailDTO:
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
@@ -460,10 +499,19 @@ def get_author_group_detail(group_id: UUID, require_public: bool = True) -> Auth
         if require_public and not group.is_public:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(group=group, follower_count=follower_count, db=db)
+        return _group_to_detail(
+            group=group,
+            follower_count=follower_count,
+            db=db,
+            language=language,
+        )
 
 
-def get_cms_group_detail(token: str, group_id: UUID) -> AuthorGroupDetailDTO:
+def get_cms_group_detail(
+    token: str,
+    group_id: UUID,
+    language: Optional[str] = None,
+) -> AuthorGroupDetailDTO:
     author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
@@ -472,7 +520,12 @@ def get_cms_group_detail(token: str, group_id: UUID) -> AuthorGroupDetailDTO:
         if not author.is_admin:
             _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(group=group, follower_count=follower_count, db=db)
+        return _group_to_detail(
+            group=group,
+            follower_count=follower_count,
+            db=db,
+            language=language,
+        )
 
 
 def list_public_groups(
@@ -495,7 +548,14 @@ def list_public_groups(
         group_ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=group_ids)
         return AuthorGroupListResponse(
-            groups=[_group_to_summary(group=item, follower_count=follower_count_map.get(item.id, 0)) for item in groups],
+            groups=[
+                _group_to_summary(
+                    group=item,
+                    follower_count=follower_count_map.get(item.id, 0),
+                    language=language,
+                )
+                for item in groups
+            ],
             skip=skip,
             limit=limit,
             total=total,
@@ -529,7 +589,14 @@ def list_cms_groups(
         ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=ids)
         return AuthorGroupListResponse(
-            groups=[_group_to_summary(group=item, follower_count=follower_count_map.get(item.id, 0)) for item in groups],
+            groups=[
+                _group_to_summary(
+                    group=item,
+                    follower_count=follower_count_map.get(item.id, 0),
+                    language=language,
+                )
+                for item in groups
+            ],
             skip=skip,
             limit=limit,
             total=total,

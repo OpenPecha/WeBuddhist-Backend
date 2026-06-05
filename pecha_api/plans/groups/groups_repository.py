@@ -96,6 +96,24 @@ def get_group_by_slug(db: Session, slug: str) -> Optional[AuthorGroup]:
     )
 
 
+def get_groups_by_ids(db: Session, group_ids: Sequence[UUID]) -> List[AuthorGroup]:
+    if not group_ids:
+        return []
+    return (
+        db.query(AuthorGroup)
+        .options(
+            selectinload(AuthorGroup.metadata_entries),
+            selectinload(AuthorGroup.tags),
+            selectinload(AuthorGroup.members),
+        )
+        .filter(
+            AuthorGroup.id.in_(group_ids),
+            AuthorGroup.deleted_at.is_(None),
+        )
+        .all()
+    )
+
+
 def get_group_member(
     db: Session,
     group_id: UUID,
