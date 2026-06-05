@@ -93,15 +93,21 @@ def upgrade() -> None:
     op.execute(
         """
         INSERT INTO author_groups (id, slug, is_public, created_at, created_by)
-        SELECT gen_random_uuid(), 'workspace-' || a.id::text, FALSE, NOW(), a.email
+        SELECT gen_random_uuid(), 'workspace-' || a.id::text, FALSE, NOW(), COALESCE(a.email, 'migration@local')
         FROM authors a
-        WHERE EXISTS (
-            SELECT 1 FROM plans p
-            WHERE p.author_id = a.id AND p.group_id IS NULL AND p.deleted_at IS NULL
+        WHERE (
+            EXISTS (
+                SELECT 1 FROM plans p
+                WHERE p.author_id = a.id AND p.group_id IS NULL
+            )
+            OR EXISTS (
+                SELECT 1 FROM series s
+                WHERE s.author_id = a.id AND s.group_id IS NULL
+            )
         )
-        OR EXISTS (
-            SELECT 1 FROM series s
-            WHERE s.author_id = a.id AND s.group_id IS NULL AND s.deleted_at IS NULL
+        AND NOT EXISTS (
+            SELECT 1 FROM author_groups g
+            WHERE g.slug = 'workspace-' || a.id::text AND g.deleted_at IS NULL
         )
         """
     )
@@ -119,7 +125,7 @@ def upgrade() -> None:
     op.execute(
         """
         INSERT INTO author_group_members (id, group_id, author_id, role, created_at, created_by)
-        SELECT gen_random_uuid(), g.id, a.id, 'OWNER', NOW(), a.email
+        SELECT gen_random_uuid(), g.id, a.id, 'OWNER', NOW(), COALESCE(a.email, 'migration@local')
         FROM author_groups g
         JOIN authors a ON g.slug = 'workspace-' || a.id::text
         WHERE NOT EXISTS (
@@ -144,6 +150,53 @@ def upgrade() -> None:
         FROM author_groups g
         JOIN authors a ON g.slug = 'workspace-' || a.id::text
         WHERE s.author_id = a.id AND s.group_id IS NULL
+        """
+    )
+    op.execute(
+        """
+        INSERT INTO author_groups (id, slug, is_public, created_at, created_by)
+        SELECT gen_random_uuid(), 'migration-orphans', FALSE, NOW(), 'migration@local'
+        WHERE (
+            EXISTS (SELECT 1 FROM plans WHERE group_id IS NULL)
+            OR EXISTS (SELECT 1 FROM series WHERE group_id IS NULL)
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM author_groups g
+            WHERE g.slug = 'migration-orphans' AND g.deleted_at IS NULL
+        )
+        """
+    )
+    op.execute(
+        """
+        INSERT INTO author_group_metadata (id, group_id, language, title, description)
+        SELECT gen_random_uuid(), g.id, 'EN', 'Migration Orphans', 'Auto-created for legacy rows without a group'
+        FROM author_groups g
+        WHERE g.slug = 'migration-orphans'
+          AND NOT EXISTS (
+              SELECT 1 FROM author_group_metadata m WHERE m.group_id = g.id
+          )
+        """
+    )
+    op.execute(
+        """
+        UPDATE plans
+        SET group_id = (
+            SELECT g.id FROM author_groups g
+            WHERE g.slug = 'migration-orphans' AND g.deleted_at IS NULL
+            LIMIT 1
+        )
+        WHERE group_id IS NULL
+        """
+    )
+    op.execute(
+        """
+        UPDATE series
+        SET group_id = (
+            SELECT g.id FROM author_groups g
+            WHERE g.slug = 'migration-orphans' AND g.deleted_at IS NULL
+            LIMIT 1
+        )
+        WHERE group_id IS NULL
         """
     )
 

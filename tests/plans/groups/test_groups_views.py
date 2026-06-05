@@ -326,7 +326,7 @@ def test_get_public_group_by_id():
         response = client.get(f"/author/groups/{group_id}")
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["slug"] == "bodhichitta-authors"
-    mock_service.assert_called_once_with(group_id=group_id, require_public=True)
+    mock_service.assert_called_once_with(group_id=group_id, require_public=True, language=None)
 
 
 def test_follow_and_unfollow_group():

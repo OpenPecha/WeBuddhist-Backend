@@ -10,10 +10,7 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.plans.shared.metadata_utils import format_metadata_response
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
-from pecha_api.plans.groups.groups_repository import (
-    get_group_id_for_series,
-    get_group_ids_by_plan_ids,
-)
+from pecha_api.plans.groups.groups_repository import get_author_group_ids
 from pecha_api.plans.series.series_repository import (
     get_series_by_id,
     get_series_paginated,
@@ -39,7 +36,7 @@ from pecha_api.plans.authors.plan_authors_service import (
     get_image_url,
     safe_get_image_url,
 )
-from pecha_api.plans.groups.groups_repository import get_author_group_ids
+from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 from pecha_api.plans.shared.permissions import (
     is_reviewer,
     is_super_admin,
@@ -171,22 +168,68 @@ def _active_plan_ids(series: Series) -> List[UUID]:
     return [plan.id for plan in (series.plans or []) if plan.deleted_at is None]
 
 
-def _series_group_context(series: Series) -> Tuple[Optional[UUID], Dict[UUID, UUID]]:
-    plan_group_ids = {
+def _series_group_context(series: Series) -> Dict[UUID, UUID]:
+    return {
         plan.id: plan.group_id
         for plan in (series.plans or [])
         if plan.deleted_at is None and plan.group_id is not None
     }
-    return series.group_id, plan_group_ids
 
 
-def _series_detail_dto(series: Series, **kwargs) -> SeriesDTO:
-    group_id, plan_group_ids = _series_group_context(series=series)
-    return _series_to_dto(series, group_id=group_id, plan_group_ids=plan_group_ids, **kwargs)
+def _group_summary_for_series(
+    db: Session,
+    series: Series,
+    language: Optional[str] = None,
+) -> Optional[AuthorGroupSummaryDTO]:
+    if not series.group_id:
+        return None
+    from pecha_api.plans.groups.groups_service import get_group_summaries_by_ids
+
+    summaries = get_group_summaries_by_ids(
+        db=db,
+        group_ids=[series.group_id],
+        language=language,
+    )
+    return summaries.get(series.group_id)
+
+
+def _group_summaries_for_series_rows(
+    db: Session,
+    series_rows: List[Series],
+    language: Optional[str] = None,
+) -> Dict[UUID, AuthorGroupSummaryDTO]:
+    from pecha_api.plans.groups.groups_service import get_group_summaries_by_ids
+
+    group_ids = list({row.group_id for row in series_rows if row.group_id})
+    return get_group_summaries_by_ids(db=db, group_ids=group_ids, language=language)
+
+
+def _series_detail_dto(
+    db: Session,
+    series: Series,
+    metadata_language: Optional[str] = None,
+    **kwargs,
+) -> SeriesDTO:
+    plan_group_ids = _series_group_context(series=series)
+    group = _group_summary_for_series(
+        db=db,
+        series=series,
+        language=metadata_language,
+    )
+    return _series_to_dto(
+        series,
+        group=group,
+        plan_group_ids=plan_group_ids,
+        metadata_language=metadata_language,
+        **kwargs,
+    )
 
 
 def _series_to_list_item_dto(
-    row: Series, plan_count: int = 0, language: Optional[str] = None
+    row: Series,
+    plan_count: int = 0,
+    language: Optional[str] = None,
+    group: Optional[AuthorGroupSummaryDTO] = None,
 ) -> SeriesListItemDTO:
     return SeriesListItemDTO(
         id=row.id,
@@ -198,6 +241,7 @@ def _series_to_list_item_dto(
         status=_to_plan_status(row.status),
         plan_count=plan_count,
         total_days=0,
+        group=group,
     )
 
 
@@ -207,7 +251,7 @@ def _series_to_dto(
     published_only: bool = False,
     plan_language: Optional[str] = None,
     metadata_language: Optional[str] = None,
-    group_id: Optional[UUID] = None,
+    group: Optional[AuthorGroupSummaryDTO] = None,
     plan_group_ids: Optional[Dict[UUID, UUID]] = None,
 ) -> SeriesDTO:
     plans_dtos = []
@@ -235,7 +279,7 @@ def _series_to_dto(
         status=_to_plan_status(row.status),
         plans=plans_dtos,
         total_days=series_total_days,
-        group_id=group_id,
+        group=group,
     )
 
 
@@ -260,9 +304,19 @@ def get_filtered_series(
             published_only=True,
             group_ids=[group_id] if group_id is not None else None,
         )
+        group_summaries = _group_summaries_for_series_rows(
+            db=db_session,
+            series_rows=[row for row, _ in rows],
+            language=language,
+        )
 
     series_dtos: List[SeriesListItemDTO] = [
-        _series_to_list_item_dto(row, plan_count=plan_count, language=language)
+        _series_to_list_item_dto(
+            row,
+            plan_count=plan_count,
+            language=language,
+            group=group_summaries.get(row.group_id),
+        )
         for row, plan_count in rows
     ]
     return SeriesListResponse(
@@ -282,6 +336,7 @@ def get_series_detail(series_id: UUID, language: Optional[str] = None) -> Series
                 detail=f"Series with id '{series_id}' not found",
             )
         return _series_detail_dto(
+            db_session,
             row,
             include_plans=True,
             published_only=True,
@@ -323,9 +378,19 @@ def get_cms_filtered_series(
             featured=featured,
             group_ids=group_ids,
         )
+        group_summaries = _group_summaries_for_series_rows(
+            db=db_session,
+            series_rows=[row for row, _ in rows],
+            language=language,
+        )
 
     series_dtos: List[SeriesListItemDTO] = [
-        _series_to_list_item_dto(row, plan_count=plan_count, language=language)
+        _series_to_list_item_dto(
+            row,
+            plan_count=plan_count,
+            language=language,
+            group=group_summaries.get(row.group_id),
+        )
         for row, plan_count in rows
     ]
     return SeriesListResponse(
@@ -352,6 +417,7 @@ def get_cms_series_detail(
             )
         require_can_read_group_content(db=db_session, group_id=row.group_id, author=current_author)
         return _series_detail_dto(
+            db_session,
             row,
             include_plans=True,
             plan_language=language,
@@ -469,7 +535,7 @@ def update_existing_series(
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
 
-        return _series_detail_dto(refreshed, include_plans=True)
+            return _series_detail_dto(db_session, refreshed, include_plans=True)
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -504,7 +570,7 @@ def update_existing_series_status(
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
 
-        return _series_detail_dto(refreshed, include_plans=True)
+            return _series_detail_dto(db_session, refreshed, include_plans=True)
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -580,7 +646,7 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
 
             saved = get_series_by_id(db=db_session, series_id=saved.id)
 
-        return _series_detail_dto(saved, include_plans=bool(plan_ids))
+            return _series_detail_dto(db_session, saved, include_plans=bool(plan_ids))
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

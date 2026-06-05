@@ -106,8 +106,13 @@ def patch_cms_group(
 def get_cms_group(
     group_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    language: Annotated[Optional[str], Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')")] = None,
 ):
-    return get_cms_group_detail(token=authentication_credential.credentials, group_id=group_id)
+    return get_cms_group_detail(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        language=language,
+    )
 
 
 @cms_groups_router.get("", status_code=status.HTTP_200_OK, response_model=AuthorGroupListResponse)
@@ -289,8 +294,11 @@ def delete_group_member_by_id(
 
 
 @public_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
-def get_public_group(group_id: UUID):
-    return get_author_group_detail(group_id=group_id, require_public=True)
+def get_public_group(
+    group_id: UUID,
+    language: Annotated[Optional[str], Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')")] = None,
+):
+    return get_author_group_detail(group_id=group_id, require_public=True, language=language)
 
 
 @public_groups_router.get("", status_code=status.HTTP_200_OK, response_model=AuthorGroupListResponse)
