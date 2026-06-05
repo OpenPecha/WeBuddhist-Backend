@@ -462,6 +462,7 @@ def test_get_user_plans_success_default_pagination(authenticated_client):
         assert mock_get.call_count == 1
         assert mock_get.call_args.kwargs.get("token") == VALID_TOKEN
         assert mock_get.call_args.kwargs.get("status_filter") is None
+        assert mock_get.call_args.kwargs.get("language") is None
         assert mock_get.call_args.kwargs.get("skip") == 0
         assert mock_get.call_args.kwargs.get("limit") == 20
 
@@ -482,6 +483,21 @@ def test_get_user_plans_with_filters_and_pagination(authenticated_client):
         assert mock_get.call_args.kwargs.get("status_filter") == "active"
         assert mock_get.call_args.kwargs.get("skip") == 10
         assert mock_get.call_args.kwargs.get("limit") == 5
+
+
+def test_get_user_plans_with_language_filter(authenticated_client):
+    response_payload = {"plans": [], "skip": 0, "limit": 20, "total": 0}
+
+    with patch("pecha_api.plans.users.plan_users_views.get_user_enrolled_plans", new_callable=AsyncMock, return_value=response_payload) as mock_get:
+        response = authenticated_client.get(
+            "/users/me/plans?language=bo",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == response_payload
+        assert mock_get.call_count == 1
+        assert mock_get.call_args.kwargs.get("language") == "bo"
 
 
 def test_get_user_plan_progress_details_success(authenticated_client):
