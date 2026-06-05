@@ -211,8 +211,9 @@ def get_paginated_plans_from_enrolled_series(
     user_id: UUID,
     status_filter: Optional[str] = None,
     series_id: Optional[UUID] = None,
+    language: Optional[str] = None,
     skip: int = 0,
-    limit: int = 20
+    limit: int = 20,
 ) -> Tuple[List[Plan], int]:
     from sqlalchemy.orm import selectinload
     from sqlalchemy import func, case, literal
@@ -237,7 +238,7 @@ def get_paginated_plans_from_enrolled_series(
     enrollment_subquery = enrollment_query.subquery()
     
     # Get all plans from enrolled series
-    all_plans_query = (
+    plans_query = (
         db.query(Plan)
         .join(enrollment_subquery, Plan.series_id == enrollment_subquery.c.series_id)
         .filter(Plan.deleted_at.is_(None))
@@ -246,8 +247,10 @@ def get_paginated_plans_from_enrolled_series(
             enrollment_subquery.c.series_id,
             asc(func.coalesce(Plan.display_order, 999))
         )
-        .all()
     )
+    if language:
+        plans_query = plans_query.filter(Plan.language == language.upper())
+    all_plans_query = plans_query.all()
     
     if not all_plans_query:
         return [], 0
