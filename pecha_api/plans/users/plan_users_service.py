@@ -97,7 +97,7 @@ from pecha_api.plans.users.plan_user_series_repository import (
 from pecha_api.plans.series.series_repository import get_series_by_ids, get_plans_by_ids
 from pecha_api.plans.groups.groups_repository import get_group_ids_by_plan_ids, get_group_ids_by_series_ids
 from pecha_api.plans.groups.groups_service import get_group_summaries_by_ids
-from pecha_api.plans.groups.groups_response_models import AuthorGroupSummaryDTO
+from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.config import get
 import logging

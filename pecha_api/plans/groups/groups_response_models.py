@@ -5,23 +5,40 @@ from uuid import UUID
 from pydantic import BaseModel, field_validator
 
 from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole
+from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO, GroupMetadataDTO
 from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.plans.plans_response_models import PlanDTO
 from pecha_api.plans.series.series_response_models import SeriesListItemDTO
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
+
+__all__ = [
+    "AuthorGroupSummaryDTO",
+    "GroupMetadataDTO",
+    "GroupMetadataInput",
+    "GroupSocialLinkInput",
+    "GroupSocialLinkDTO",
+    "AuthorGroupMemberDTO",
+    "AuthorGroupDetailDTO",
+    "AuthorGroupListResponse",
+    "CreateAuthorGroupRequest",
+    "UpdateAuthorGroupRequest",
+    "ReplaceGroupTagsRequest",
+    "ReplaceGroupSeriesRequest",
+    "ReplaceGroupPlansRequest",
+    "ReplaceGroupSocialLinksRequest",
+    "CreateGroupInviteRequest",
+    "GroupInviteDTO",
+    "GroupInviteListResponse",
+    "GroupInviteCreatedResponse",
+    "UpdateGroupMemberRoleRequest",
+    "TransferGroupOwnershipRequest",
+]
 
 
 class GroupMetadataInput(BaseModel):
     title: str
     description: Optional[str] = None
     language: LanguageCode
-
-
-class GroupMetadataDTO(BaseModel):
-    id: UUID
-    title: str
-    description: Optional[str] = None
-    language: str
 
 
 class GroupSocialLinkInput(BaseModel):
@@ -41,16 +58,6 @@ class AuthorGroupMemberDTO(BaseModel):
     firstname: str
     lastname: str
     email: str
-
-
-class AuthorGroupSummaryDTO(BaseModel):
-    id: UUID
-    slug: str
-    is_public: bool
-    metadata: List[GroupMetadataDTO]
-    tags: List[TagSummaryDTO] = []
-    follower_count: int = 0
-    member_count: int = 0
 
 
 class AuthorGroupDetailDTO(BaseModel):

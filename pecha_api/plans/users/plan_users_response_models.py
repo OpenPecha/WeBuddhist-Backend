@@ -5,7 +5,7 @@ from uuid import UUID
 from datetime import datetime
 from pecha_api.plans.plans_enums import ContentType, SeriesStatus
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
-from pecha_api.plans.groups.groups_response_models import AuthorGroupSummaryDTO
+from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 
 
 

@@ -28,6 +28,7 @@ FIXTURE_GROUP_ID = uuid.uuid4()
 _SERIES_FORBIDDEN = HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
 _MEMBER_GROUP_IDS = [FIXTURE_GROUP_ID]
 
+from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
@@ -323,12 +324,18 @@ def test_get_series_detail_returns_dto_without_plans():
     row.plans = []
 
     group_id = uuid.uuid4()
+    group_summary = AuthorGroupSummaryDTO(
+        id=group_id,
+        slug="test-group",
+        is_public=True,
+        metadata=[],
+    )
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=row,
     ), patch(
-        "pecha_api.plans.series.series_service._series_group_context",
-        return_value=(group_id, {}),
+        "pecha_api.plans.series.series_service._group_summary_for_series",
+        return_value=group_summary,
     ):
         _session_local_context(mock_session_local)
 
@@ -336,7 +343,8 @@ def test_get_series_detail_returns_dto_without_plans():
 
     assert dto.id == series_id
     assert dto.plans == []
-    assert dto.group_id == group_id
+    assert dto.group is not None
+    assert dto.group.id == group_id
 
 
 def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
