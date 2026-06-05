@@ -76,6 +76,9 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupInviteListResponse,
     GroupMetadataDTO,
     GroupSocialLinkDTO,
+    PublicAuthorGroupDetailDTO,
+    PublicAuthorGroupListResponse,
+    PublicAuthorGroupSummaryDTO,
     ReplaceGroupPlansRequest,
     ReplaceGroupSeriesRequest,
     ReplaceGroupSocialLinksRequest,
@@ -156,6 +159,13 @@ def _members_to_dtos(members) -> List[AuthorGroupMemberDTO]:
 
 def _social_links_to_dtos(links) -> List[GroupSocialLinkDTO]:
     return [GroupSocialLinkDTO(id=link.id, platform=link.platform, url=link.url) for link in links]
+
+
+def _group_tag_names(tags) -> List[str]:
+    if not tags:
+        return []
+    active = [tag for tag in tags if tag.deleted_at is None]
+    return sorted((tag.name for tag in active), key=str.lower)
 
 
 def _assert_metadata_valid(metadata_entries: List) -> None:
@@ -351,15 +361,21 @@ def _plans_to_dtos(db: Session, plan_list: List[Plan], group_id: UUID) -> List[P
 
 def _group_to_summary(
     group: AuthorGroup,
-    follower_count: int = 0,
+    follower_count: int = 0, public: bool = False,
     language: Optional[str] = None,
 ) -> AuthorGroupSummaryDTO:
-    return AuthorGroupSummaryDTO(
+    dto_class = PublicAuthorGroupSummaryDTO if public else AuthorGroupSummaryDTO
+    tags = _group_tag_names(group.tags) if public else tags_to_summary_dtos(group.tags)
+    return dto_class(
         id=group.id,
         slug=group.slug,
         is_public=group.is_public,
+        avatar_key=group.avatar_key,
+        banner_key=group.banner_key,
+        avatar_url=_generate_group_asset_url(group.avatar_key),
+        banner_url=_generate_group_asset_url(group.banner_key),
         metadata=_metadata_response(group.metadata_entries, language=language),
-        tags=tags_to_summary_dtos(group.tags),
+        tags=tags,
         follower_count=follower_count,
         member_count=len(group.members),
     )
@@ -389,6 +405,7 @@ def _group_to_detail(
     group: AuthorGroup,
     follower_count: int = 0,
     db: Optional[Session] = None,
+    public: bool = False,
     language: Optional[str] = None,
 ) -> AuthorGroupDetailDTO:
     if db is not None:
@@ -400,7 +417,9 @@ def _group_to_detail(
         series_dtos = []
         plans_dtos = []
 
-    return AuthorGroupDetailDTO(
+    dto_class = PublicAuthorGroupDetailDTO if public else AuthorGroupDetailDTO
+    tags = _group_tag_names(group.tags) if public else tags_to_summary_dtos(group.tags)
+    return dto_class(
         id=group.id,
         slug=group.slug,
         is_public=group.is_public,
@@ -410,7 +429,7 @@ def _group_to_detail(
         banner_url=_generate_group_asset_url(group.banner_key),
         metadata=_metadata_response(group.metadata_entries, language=language),
         members=_members_to_dtos(group.members),
-        tags=tags_to_summary_dtos(group.tags),
+        tags=tags,
         social_links=_social_links_to_dtos(group.social_links),
         series=series_dtos,
         plans=plans_dtos,
@@ -504,7 +523,7 @@ def get_author_group_detail(
     group_id: UUID,
     require_public: bool = True,
     language: Optional[str] = None,
-) -> AuthorGroupDetailDTO:
+) -> PublicAuthorGroupDetailDTO:
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
@@ -515,7 +534,7 @@ def get_author_group_detail(
         return _group_to_detail(
             group=group,
             follower_count=follower_count,
-            db=db,
+            db=db, public=True,
             language=language,
         )
 
@@ -547,7 +566,7 @@ def list_public_groups(
     search: Optional[str] = None,
     language: Optional[str] = None,
     tag_id: Optional[UUID] = None,
-) -> AuthorGroupListResponse:
+) -> PublicAuthorGroupListResponse:
     with SessionLocal() as db:
         groups, total = get_groups_paginated(
             db=db,
@@ -560,11 +579,11 @@ def list_public_groups(
         )
         group_ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=group_ids)
-        return AuthorGroupListResponse(
+        return PublicAuthorGroupListResponse(
             groups=[
                 _group_to_summary(
                     group=item,
-                    follower_count=follower_count_map.get(item.id, 0),
+                    follower_count=follower_count_map.get(item.id, 0), public=True,
                     language=language,
                 )
                 for item in groups
@@ -672,7 +691,7 @@ def unfollow_group(token: str, group_id: UUID) -> None:
         remove_group_follow(db=db, group_id=group_id, user_id=user.id)
 
 
-def list_followed_groups(token: str, skip: int, limit: int) -> AuthorGroupListResponse:
+def list_followed_groups(token: str, skip: int, limit: int) -> PublicAuthorGroupListResponse:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         group_ids = get_following_group_ids_by_user(db=db, user_id=user.id)
@@ -684,8 +703,8 @@ def list_followed_groups(token: str, skip: int, limit: int) -> AuthorGroupListRe
             public_only=False,
         )
         follower_count_map = get_followers_count_map(db=db, group_ids=[group.id for group in groups])
-        return AuthorGroupListResponse(
-            groups=[_group_to_summary(group=item, follower_count=follower_count_map.get(item.id, 0)) for item in groups],
+        return PublicAuthorGroupListResponse(
+            groups=[_group_to_summary(group=item, follower_count=follower_count_map.get(item.id, 0), public=True) for item in groups],
             skip=skip,
             limit=limit,
             total=total,
