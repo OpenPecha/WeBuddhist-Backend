@@ -35,7 +35,6 @@ from pecha_api.plans.authors.plan_authors_service import (
     get_image_url,
     safe_get_image_url,
 )
-from pecha_api.plans.groups.groups_repository import get_author_group_ids
 from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 from pecha_api.plans.shared.permissions import (
     is_reviewer,
@@ -64,9 +63,15 @@ def _language_value(language) -> str:
     return str(language)
 
 
-def _metadata_to_dtos(entries) -> List[SeriesMetadataDTO]:
+def _metadata_to_dtos(entries, language: Optional[str] = None) -> List[SeriesMetadataDTO]:
     if not entries:
         return []
+    if language:
+        language_upper = language.upper()
+        entries = [
+            entry for entry in entries
+            if _language_value(entry.language).upper() == language_upper
+        ]
     return sorted(
         [
             SeriesMetadataDTO(
@@ -189,15 +194,20 @@ def _group_summaries_for_series_rows(
 def _series_detail_dto(
     db: Session,
     series: Series,
-    language: Optional[str] = None,
+    metadata_language: Optional[str] = None,
     **kwargs,
 ) -> SeriesDTO:
     plan_group_ids = _series_group_context(series=series)
-    group = _group_summary_for_series(db=db, series=series, language=language)
+    group = _group_summary_for_series(
+        db=db,
+        series=series,
+        language=metadata_language,
+    )
     return _series_to_dto(
         series,
         group=group,
         plan_group_ids=plan_group_ids,
+        metadata_language=metadata_language,
         **kwargs,
     )
 
@@ -205,11 +215,12 @@ def _series_detail_dto(
 def _series_to_list_item_dto(
     row: Series,
     plan_count: int = 0,
+    language: Optional[str] = None,
     group: Optional[AuthorGroupSummaryDTO] = None,
 ) -> SeriesListItemDTO:
     return SeriesListItemDTO(
         id=row.id,
-        metadata=_metadata_to_dtos(row.metadata_entries),
+        metadata=_metadata_to_dtos(row.metadata_entries, language=language),
         image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
@@ -226,6 +237,7 @@ def _series_to_dto(
     include_plans: bool = False,
     published_only: bool = False,
     plan_language: Optional[str] = None,
+    metadata_language: Optional[str] = None,
     group: Optional[AuthorGroupSummaryDTO] = None,
     plan_group_ids: Optional[Dict[UUID, UUID]] = None,
 ) -> SeriesDTO:
@@ -246,7 +258,7 @@ def _series_to_dto(
 
     return SeriesDTO(
         id=row.id,
-        metadata=_metadata_to_dtos(row.metadata_entries),
+        metadata=_metadata_to_dtos(row.metadata_entries, language=metadata_language),
         image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
@@ -289,6 +301,7 @@ def get_filtered_series(
         _series_to_list_item_dto(
             row,
             plan_count=plan_count,
+            language=language,
             group=group_summaries.get(row.group_id),
         )
         for row, plan_count in rows
@@ -315,7 +328,7 @@ def get_series_detail(series_id: UUID, language: Optional[str] = None) -> Series
             include_plans=True,
             published_only=True,
             plan_language=language,
-            language=language,
+            metadata_language=language,
         )
 
 def get_cms_filtered_series(
@@ -362,6 +375,7 @@ def get_cms_filtered_series(
         _series_to_list_item_dto(
             row,
             plan_count=plan_count,
+            language=language,
             group=group_summaries.get(row.group_id),
         )
         for row, plan_count in rows
@@ -394,7 +408,7 @@ def get_cms_series_detail(
             row,
             include_plans=True,
             plan_language=language,
-            language=language,
+            metadata_language=language,
         )
 
 def _validate_plan_ids(
