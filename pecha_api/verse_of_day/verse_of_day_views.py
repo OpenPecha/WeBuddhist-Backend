@@ -5,7 +5,7 @@ from datetime import date
 from starlette import status
 
 from .verse_of_day_response_models import VerseOfDayPublicResponse
-from .verse_of_day_service import get_verse_of_day
+from .verse_of_day_service import get_verse_of_day, get_verse_of_day_by_id_service
 
 
 verse_of_day_router = APIRouter(
@@ -25,3 +25,13 @@ def get_verse_of_day_endpoint(
 ):
  
     return get_verse_of_day(group_id=group_id, filter_date=date)
+
+
+@verse_of_day_router.get(
+    "/{id}",
+    status_code=status.HTTP_200_OK,
+    response_model=VerseOfDayPublicResponse
+)
+def get_verse_of_day_by_id_endpoint(id: UUID):
+
+    return get_verse_of_day_by_id_service(verse_id=id)
