@@ -45,6 +45,13 @@ from pecha_api.texts import texts_openpecha_views
 from pecha_api.texts.segments import segments_openpecha_views
 from pecha_api.routines import routines_views
 from pecha_api.notification import notification_views as cms_notification_views
+from pecha_api.plans.admin.admin_views import cms_admin_router
+from pecha_api.plans.transfers.transfer_views import (
+    cms_transfers_router,
+    group_transfers_router,
+    plan_transfers_router,
+    series_transfers_router,
+)
 import uvicorn
 
 api = FastAPI(
@@ -74,6 +81,11 @@ api.include_router(cms_dashboard_views.dashboard_router)
 api.include_router(cms_dashboard_views.practice_router)
 api.include_router(author_groups_views.cms_groups_router)
 api.include_router(cms_notification_views.cms_notifications_router)
+api.include_router(cms_admin_router)
+api.include_router(cms_transfers_router)
+api.include_router(group_transfers_router)
+api.include_router(plan_transfers_router)
+api.include_router(series_transfers_router)
 api.include_router(public_series_views.public_series_router)
 api.include_router(media_views.media_router)
 api.include_router(public_plans_views.public_plans_router)

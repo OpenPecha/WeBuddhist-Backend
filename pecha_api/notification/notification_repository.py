@@ -83,3 +83,28 @@ def mark_notifications_read_by_reference(
         row.read_at = now
         db.add(row)
     db.commit()
+
+
+def mark_all_notifications_read_by_reference(
+    db: Session,
+    *,
+    category: str,
+    reference_id: UUID,
+) -> None:
+    rows = (
+        db.query(Notification)
+        .filter(
+            Notification.category == category,
+            Notification.reference_id == reference_id,
+            Notification.is_read.is_(False),
+        )
+        .all()
+    )
+    if not rows:
+        return
+    now = datetime.now(timezone.utc)
+    for row in rows:
+        row.is_read = True
+        row.read_at = now
+        db.add(row)
+    db.commit()

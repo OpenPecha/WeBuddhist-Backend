@@ -34,9 +34,18 @@ from pecha_api.plans.series.series_response_models import (
     SeriesListResponse,
 )
 from pecha_api.plans.authors.plan_authors_service import (
-    validate_and_extract_author_details,
+    validate_cms_author_details,
     get_image_url,
     safe_get_image_url,
+)
+from pecha_api.plans.groups.groups_repository import get_author_group_ids
+from pecha_api.plans.shared.permissions import (
+    is_reviewer,
+    is_super_admin,
+    require_can_change_status,
+    require_can_create_content,
+    require_can_edit_content,
+    require_can_read_group_content,
 )
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from starlette import status
@@ -143,15 +152,17 @@ def _active_plan_ids(series: Series) -> List[UUID]:
     return [plan.id for plan in (series.plans or []) if plan.deleted_at is None]
 
 
-def _series_group_context(db: Session, series: Series) -> Tuple[Optional[UUID], Dict[UUID, UUID]]:
-    return (
-        get_group_id_for_series(db=db, series_id=series.id),
-        get_group_ids_by_plan_ids(db=db, plan_ids=_active_plan_ids(series)),
-    )
+def _series_group_context(series: Series) -> Tuple[Optional[UUID], Dict[UUID, UUID]]:
+    plan_group_ids = {
+        plan.id: plan.group_id
+        for plan in (series.plans or [])
+        if plan.deleted_at is None and plan.group_id is not None
+    }
+    return series.group_id, plan_group_ids
 
 
-def _series_detail_dto(db: Session, series: Series, **kwargs) -> SeriesDTO:
-    group_id, plan_group_ids = _series_group_context(db=db, series=series)
+def _series_detail_dto(series: Series, **kwargs) -> SeriesDTO:
+    group_id, plan_group_ids = _series_group_context(series=series)
     return _series_to_dto(series, group_id=group_id, plan_group_ids=plan_group_ids, **kwargs)
 
 
@@ -225,7 +236,7 @@ def get_filtered_series(
             language=language,
             status=PlanStatus.PUBLISHED,
             published_only=True,
-            group_id=group_id,
+            group_ids=[group_id] if group_id is not None else None,
         )
 
     series_dtos: List[SeriesListItemDTO] = [
@@ -249,7 +260,6 @@ def get_series_detail(series_id: UUID, language: Optional[str] = None) -> Series
                 detail=f"Series with id '{series_id}' not found",
             )
         return _series_detail_dto(
-            db_session,
             row,
             include_plans=True,
             published_only=True,
@@ -266,16 +276,14 @@ def get_cms_filtered_series(
     featured: Optional[bool] = None,
     filter_author_id: Optional[UUID] = None,
 ) -> SeriesListResponse:
-    current_author = validate_and_extract_author_details(token=token)
-    if current_author.is_admin:
-        author_id = filter_author_id
-    else:
-        if filter_author_id is not None and filter_author_id != current_author.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to filter by another author's series",
-            )
-        author_id = current_author.id
+    current_author = validate_cms_author_details(token=token)
+    group_ids = None
+    author_id = filter_author_id if is_super_admin(current_author) or is_reviewer(current_author) else None
+    if not is_super_admin(current_author) and not is_reviewer(current_author):
+        with SessionLocal() as db_session:
+            group_ids = get_author_group_ids(db=db_session, author_id=current_author.id)
+            if not group_ids:
+                return SeriesListResponse(series=[], skip=skip, limit=limit, total=0)
 
     with SessionLocal() as db_session:
         rows, total = get_series_paginated(
@@ -290,6 +298,7 @@ def get_cms_filtered_series(
             language=language,
             status=plan_status,
             featured=featured,
+            group_ids=group_ids,
         )
 
     series_dtos: List[SeriesListItemDTO] = [
@@ -309,7 +318,7 @@ def get_cms_series_detail(
     series_id: UUID,
     language: Optional[str] = None,
 ) -> SeriesDTO:
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
 
     with SessionLocal() as db_session:
         row = get_series_by_id(db=db_session, series_id=series_id)
@@ -318,13 +327,8 @@ def get_cms_series_detail(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Series with id '{series_id}' not found",
             )
-        if not current_author.is_admin and row.author_id != current_author.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You do not have permission to view this series",
-            )
+        require_can_read_group_content(db=db_session, group_id=row.group_id, author=current_author)
         return _series_detail_dto(
-            db_session,
             row,
             include_plans=True,
             plan_language=language,
@@ -333,8 +337,7 @@ def get_cms_series_detail(
 def _validate_plan_ids(
     db,
     plan_ids: List[UUID],
-    current_author_id: UUID,
-    is_admin: bool,
+    series_group_id: UUID,
     current_series_id: Optional[UUID] = None,
 ) -> None:
     if not plan_ids:
@@ -366,10 +369,10 @@ def _validate_plan_ids(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Plan with id '{plan_id}' is already attached to another series",
             )
-        if not is_admin and plan.author_id != current_author_id:
+        if plan.group_id != series_group_id:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Plan with id '{plan_id}' belongs to another author",
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Plan with id '{plan_id}' must belong to the same group as the series",
             )
 
 
@@ -385,7 +388,7 @@ def update_existing_series(
     series_id: UUID,
     update_series_request: UpdateSeriesRequest,
 ) -> SeriesDTO:
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
 
     try:
         with SessionLocal() as db_session:
@@ -395,11 +398,12 @@ def update_existing_series(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Series with id '{series_id}' not found",
                 )
-            if not current_author.is_admin and series.author_id != current_author.id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=_SERIES_UPDATE_PERMISSION_ERROR,
-                )
+            require_can_edit_content(
+                db=db_session,
+                group_id=series.group_id,
+                author=current_author,
+                content_status=series.status,
+            )
 
             if update_series_request.plans is not None:
                 plan_order_pairs = _build_plan_order_pairs(update_series_request.plans)
@@ -412,8 +416,7 @@ def update_existing_series(
                     _validate_plan_ids(
                         db=db_session,
                         plan_ids=new_plan_ids,
-                        current_author_id=current_author.id,
-                        is_admin=bool(current_author.is_admin),
+                        series_group_id=series.group_id,
                         current_series_id=series_id,
                     )
 
@@ -442,7 +445,7 @@ def update_existing_series(
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
 
-        return _series_detail_dto(db_session, refreshed, include_plans=True)
+        return _series_detail_dto(refreshed, include_plans=True)
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -455,7 +458,7 @@ def update_existing_series_status(
     series_id: UUID,
     update_series_status_request: UpdateSeriesStatusRequest,
 ) -> SeriesDTO:
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
 
     try:
         with SessionLocal() as db_session:
@@ -465,11 +468,7 @@ def update_existing_series_status(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Series with id '{series_id}' not found",
                 )
-            if not current_author.is_admin and series.author_id != current_author.id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=_SERIES_UPDATE_PERMISSION_ERROR,
-                )
+            require_can_change_status(db=db_session, group_id=series.group_id, author=current_author)
 
             update_series_status(
                 db=db_session,
@@ -481,7 +480,7 @@ def update_existing_series_status(
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
 
-        return _series_detail_dto(db_session, refreshed, include_plans=True)
+        return _series_detail_dto(refreshed, include_plans=True)
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -493,7 +492,7 @@ def update_existing_series_featured(
     token: str,
     series_id: UUID,
 ) -> None:
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
 
     try:
         with SessionLocal() as db_session:
@@ -503,11 +502,7 @@ def update_existing_series_featured(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Series with id '{series_id}' not found",
                 )
-            if not current_author.is_admin and series.author_id != current_author.id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=_SERIES_UPDATE_PERMISSION_ERROR,
-                )
+            require_can_change_status(db=db_session, group_id=series.group_id, author=current_author)
 
             update_series_featured(
                 db=db_session,
@@ -525,11 +520,12 @@ def update_existing_series_featured(
 
 
 def create_new_series(token: str, create_series_request: CreateSeriesRequest) -> SeriesDTO:
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
 
     new_series = Series(
         image=create_series_request.image_key,
         author_id=current_author.id,
+        group_id=create_series_request.group_id,
         featured=create_series_request.featured if create_series_request.featured is not None else False,
         status=PlanStatus.DRAFT,
     )
@@ -539,12 +535,16 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
 
     try:
         with SessionLocal() as db_session:
+            require_can_create_content(
+                db=db_session,
+                group_id=create_series_request.group_id,
+                author=current_author,
+            )
             if plan_ids:
                 _validate_plan_ids(
                     db=db_session,
                     plan_ids=plan_ids,
-                    current_author_id=current_author.id,
-                    is_admin=bool(current_author.is_admin),
+                    series_group_id=create_series_request.group_id,
                 )
 
             saved = save_series_with_plans(
@@ -556,7 +556,7 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
 
             saved = get_series_by_id(db=db_session, series_id=saved.id)
 
-        return _series_detail_dto(db_session, saved, include_plans=bool(plan_ids))
+        return _series_detail_dto(saved, include_plans=bool(plan_ids))
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -565,7 +565,7 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
 
 
 def delete_existing_series(token: str, series_id: UUID) -> None:
-    current_author = validate_and_extract_author_details(token=token)
+    current_author = validate_cms_author_details(token=token)
 
     try:
         with SessionLocal() as db_session:
@@ -575,11 +575,7 @@ def delete_existing_series(token: str, series_id: UUID) -> None:
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Series with id '{series_id}' not found",
                 )
-            if not current_author.is_admin and series.author_id != current_author.id:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="You do not have permission to delete this series",
-                )
+            require_can_change_status(db=db_session, group_id=series.group_id, author=current_author)
 
             soft_delete_series_with_plan_detach(
                 db=db_session,

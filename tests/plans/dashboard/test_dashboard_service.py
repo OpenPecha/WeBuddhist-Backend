@@ -3,12 +3,16 @@ import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+import pytest
+from fastapi import HTTPException
+
 from pecha_api.plans.dashboard.dashboard_service import (
     get_dashboard_items_list,
     get_practice_items_list,
 )
 from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.plans_enums import PlanStatus
+from pecha_api.plans.platform_enums import PlatformRole
 
 
 def _session_local_context(mock_session_local):
@@ -21,7 +25,8 @@ def _session_local_context(mock_session_local):
 def _make_mock_author(*, author_id=None, is_admin=False):
     author = MagicMock()
     author.id = author_id or uuid.uuid4()
-    author.is_admin = is_admin
+    author.platform_role = PlatformRole.SUPER_ADMIN if is_admin else PlatformRole.CREATOR
+    author.is_active = True
     return author
 
 
@@ -88,7 +93,7 @@ def test_get_dashboard_items_list_admin_passes_no_author_filter():
     series_row = _make_series_row()
 
     with patch(
-        "pecha_api.plans.dashboard.dashboard_service.validate_and_extract_author_details",
+        "pecha_api.plans.dashboard.dashboard_service.validate_cms_author_details",
         return_value=mock_admin,
     ), patch(
         "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
@@ -111,7 +116,7 @@ def test_get_dashboard_items_list_admin_passes_no_author_filter():
             page_size=20,
         )
 
-    assert mock_repo.call_args.kwargs["author_id"] is None
+    assert mock_repo.call_args.kwargs["group_ids"] is None
     assert len(result.items) == 1
     assert result.items[0].type == "series"
     assert result.items[0].author_id == series_row.author_id
@@ -129,12 +134,16 @@ def test_get_dashboard_items_list_non_admin_scopes_to_author():
     author_id = uuid.uuid4()
     mock_author = _make_mock_author(author_id=author_id, is_admin=False)
 
+    group_ids = [uuid.uuid4()]
     with patch(
-        "pecha_api.plans.dashboard.dashboard_service.validate_and_extract_author_details",
+        "pecha_api.plans.dashboard.dashboard_service.validate_cms_author_details",
         return_value=mock_author,
     ), patch(
         "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
     ) as mock_session_local, patch(
+        "pecha_api.plans.dashboard.dashboard_service.get_author_group_ids",
+        return_value=group_ids,
+    ), patch(
         "pecha_api.plans.dashboard.dashboard_service.get_dashboard_items",
         return_value=([], 0),
     ) as mock_repo:
@@ -152,7 +161,7 @@ def test_get_dashboard_items_list_non_admin_scopes_to_author():
 
     mock_repo.assert_called_once()
     kwargs = mock_repo.call_args.kwargs
-    assert kwargs["author_id"] == author_id
+    assert kwargs["group_ids"] == group_ids
     assert kwargs["tab"] == "series"
     assert kwargs["search"] == "found"
     assert kwargs["status"] == PlanStatus.PUBLISHED
@@ -160,11 +169,101 @@ def test_get_dashboard_items_list_non_admin_scopes_to_author():
     assert kwargs["featured"] is False
 
 
+def test_get_dashboard_items_list_with_group_id_scopes_to_single_group():
+    group_id = uuid.uuid4()
+    mock_author = _make_mock_author(is_admin=False)
+
+    with patch(
+        "pecha_api.plans.dashboard.dashboard_service.validate_cms_author_details",
+        return_value=mock_author,
+    ), patch(
+        "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
+    ) as mock_session_local, patch(
+        "pecha_api.plans.dashboard.dashboard_service.require_can_read_group_content",
+    ) as mock_require_read, patch(
+        "pecha_api.plans.dashboard.dashboard_service.get_author_group_ids",
+    ) as mock_get_group_ids, patch(
+        "pecha_api.plans.dashboard.dashboard_service.get_dashboard_items",
+        return_value=([], 0),
+    ) as mock_repo:
+        _session_local_context(mock_session_local)
+        get_dashboard_items_list(
+            token="author-token",
+            tab="all",
+            page=1,
+            page_size=10,
+            status=PlanStatus.DRAFT,
+            language="EN",
+            group_id=group_id,
+        )
+
+    mock_require_read.assert_called_once()
+    assert mock_require_read.call_args.kwargs["group_id"] == group_id
+    mock_get_group_ids.assert_not_called()
+    assert mock_repo.call_args.kwargs["group_ids"] == [group_id]
+    assert mock_repo.call_args.kwargs["status"] == PlanStatus.DRAFT
+    assert mock_repo.call_args.kwargs["language"] == "EN"
+
+
+def test_get_dashboard_items_list_admin_with_group_id_passes_single_group():
+    group_id = uuid.uuid4()
+    mock_admin = _make_mock_author(is_admin=True)
+
+    with patch(
+        "pecha_api.plans.dashboard.dashboard_service.validate_cms_author_details",
+        return_value=mock_admin,
+    ), patch(
+        "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
+    ) as mock_session_local, patch(
+        "pecha_api.plans.dashboard.dashboard_service.get_dashboard_items",
+        return_value=([], 0),
+    ) as mock_repo:
+        _session_local_context(mock_session_local)
+        get_dashboard_items_list(
+            token="admin-token",
+            tab="plans",
+            page=1,
+            page_size=10,
+            group_id=group_id,
+        )
+
+    assert mock_repo.call_args.kwargs["group_ids"] == [group_id]
+
+
+def test_get_dashboard_items_list_forbidden_when_group_not_accessible():
+    group_id = uuid.uuid4()
+    mock_author = _make_mock_author(is_admin=False)
+
+    with patch(
+        "pecha_api.plans.dashboard.dashboard_service.validate_cms_author_details",
+        return_value=mock_author,
+    ), patch(
+        "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
+    ) as mock_session_local, patch(
+        "pecha_api.plans.dashboard.dashboard_service.require_can_read_group_content",
+        side_effect=HTTPException(status_code=403, detail="NO_GROUP_MEMBERSHIP"),
+    ), patch(
+        "pecha_api.plans.dashboard.dashboard_service.get_dashboard_items",
+    ) as mock_repo:
+        _session_local_context(mock_session_local)
+        with pytest.raises(HTTPException) as exc_info:
+            get_dashboard_items_list(
+                token="author-token",
+                tab="all",
+                page=1,
+                page_size=10,
+                group_id=group_id,
+            )
+
+    assert exc_info.value.status_code == 403
+    mock_repo.assert_not_called()
+
+
 def test_get_dashboard_items_list_clamps_page_and_page_size():
     mock_author = _make_mock_author(is_admin=True)
 
     with patch(
-        "pecha_api.plans.dashboard.dashboard_service.validate_and_extract_author_details",
+        "pecha_api.plans.dashboard.dashboard_service.validate_cms_author_details",
         return_value=mock_author,
     ), patch(
         "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
@@ -191,7 +290,7 @@ def test_get_dashboard_items_list_maps_plan_row():
     plan_row = _make_plan_row()
 
     with patch(
-        "pecha_api.plans.dashboard.dashboard_service.validate_and_extract_author_details",
+        "pecha_api.plans.dashboard.dashboard_service.validate_cms_author_details",
         return_value=_make_mock_author(is_admin=True),
     ), patch(
         "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
@@ -238,7 +337,7 @@ def test_get_dashboard_items_list_parses_metadata_json_string():
     )
 
     with patch(
-        "pecha_api.plans.dashboard.dashboard_service.validate_and_extract_author_details",
+        "pecha_api.plans.dashboard.dashboard_service.validate_cms_author_details",
         return_value=_make_mock_author(is_admin=True),
     ), patch(
         "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
@@ -266,7 +365,7 @@ def test_get_dashboard_items_list_series_with_null_metadata():
     series_row = _make_series_row(metadata_json=None, image_key=None)
 
     with patch(
-        "pecha_api.plans.dashboard.dashboard_service.validate_and_extract_author_details",
+        "pecha_api.plans.dashboard.dashboard_service.validate_cms_author_details",
         return_value=_make_mock_author(is_admin=True),
     ), patch(
         "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
@@ -290,7 +389,7 @@ def test_get_dashboard_items_list_empty_metadata_and_default_plan_title():
     plan_row = _make_plan_row(title=None)
 
     with patch(
-        "pecha_api.plans.dashboard.dashboard_service.validate_and_extract_author_details",
+        "pecha_api.plans.dashboard.dashboard_service.validate_cms_author_details",
         return_value=_make_mock_author(is_admin=True),
     ), patch(
         "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
@@ -343,7 +442,7 @@ def test_get_practice_items_list_forces_published_and_public_scope():
 
     kwargs = mock_repo.call_args.kwargs
     assert kwargs["status"] == PlanStatus.PUBLISHED
-    assert kwargs["author_id"] is None
+    assert kwargs.get("group_ids") is None
     assert kwargs["tab"] == "series"
     assert kwargs["search"] == "found"
     assert kwargs["language"] == "en"

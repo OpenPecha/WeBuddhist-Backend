@@ -13,6 +13,7 @@ class CreatePlanRequest(BaseModel):
     difficulty_level: DifficultyLevel
     total_days: int
     language: str
+    group_id: UUID
     image_url: Optional[str] = None
     tag_ids: Optional[List[UUID]] = []
     start_date: Optional[datetime] = None

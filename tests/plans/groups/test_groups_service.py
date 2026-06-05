@@ -12,8 +12,6 @@ from pecha_api.plans.groups.groups_response_models import (
     CreateGroupInviteRequest,
     GroupMetadataInput,
     GroupSocialLinkInput,
-    ReplaceGroupPlansRequest,
-    ReplaceGroupSeriesRequest,
     ReplaceGroupSocialLinksRequest,
     ReplaceGroupTagsRequest,
     UpdateAuthorGroupRequest,
@@ -39,8 +37,6 @@ from pecha_api.plans.groups.groups_service import (
     list_cms_groups,
     list_followed_groups,
     list_public_groups,
-    replace_group_plans_by_id,
-    replace_group_series_by_id,
     replace_group_social_links_by_id,
     replace_group_tags,
     revoke_group_invite,
@@ -50,6 +46,7 @@ from pecha_api.plans.groups.groups_service import (
     update_group_member_role,
     OWNER_ROLE_NOT_ASSIGNABLE,
 )
+from pecha_api.plans.platform_enums import PlatformRole
 from pecha_api.plans.plans_enums import LanguageCode
 
 
@@ -60,13 +57,20 @@ def _session_local_context(mock_session_local):
     return mock_db
 
 
-def _make_author(author_id=None, email="author@example.org", is_admin=False):
+def _make_author(
+    author_id=None,
+    email="author@example.org",
+    *,
+    platform_role: PlatformRole = PlatformRole.CREATOR,
+    is_admin: bool = False,
+):
     author = MagicMock()
     author.id = author_id or uuid4()
     author.email = email
-    author.is_admin = is_admin
+    author.platform_role = PlatformRole.SUPER_ADMIN if is_admin else platform_role
     author.first_name = None
     author.last_name = None
+    author.is_active = True
     return author
 
 
@@ -235,36 +239,6 @@ def test_accept_group_invite_not_found():
         with pytest.raises(HTTPException) as exc:
             accept_group_invite_by_id(token="t", invite_id=uuid4())
     assert exc.value.detail == "Invite not found"
-
-
-def test_replace_group_series_invalid_ids():
-    author = _make_author()
-    group = _make_group()
-    series_id = uuid4()
-    current = MagicMock()
-    current.role = AuthorGroupMemberRole.OWNER
-
-    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
-        return_value=author,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_group_by_id",
-        return_value=group,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_group_member",
-        return_value=current,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_series_by_ids",
-        return_value=[],
-    ):
-        _session_local_context(mock_session)
-        with pytest.raises(HTTPException) as exc:
-            replace_group_series_by_id(
-                token="t",
-                group_id=group.id,
-                request=ReplaceGroupSeriesRequest(series_ids=[series_id]),
-            )
-    assert "series" in exc.value.detail.lower()
 
 
 def test_create_author_group_success():
@@ -1023,75 +997,12 @@ def test_revoke_group_invite_not_found():
     assert exc.value.detail == "Invite not found"
 
 
-def test_replace_group_plans_and_series_delegate_to_repository():
+def test_replace_group_social_links_by_id_delegates_to_repository():
     author = _make_author()
     group = _make_group()
-    plan_id = uuid4()
-    series_id = uuid4()
     current = MagicMock()
     current.role = AuthorGroupMemberRole.ADMIN
     loaded = _make_group()
-
-    base_patches = {
-        "validate_and_extract_author_details": author,
-        "get_group_by_id": group,
-        "get_group_member": current,
-        "get_plans_by_ids": [MagicMock(id=plan_id)],
-        "get_series_by_ids": [MagicMock(id=series_id)],
-        "get_followers_count_map": {},
-    }
-
-    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
-        return_value=author,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_group_by_id",
-        side_effect=[group, loaded],
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_group_member",
-        return_value=current,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_plans_by_ids",
-        return_value=[MagicMock(id=plan_id)],
-    ), patch(
-        "pecha_api.plans.groups.groups_service.replace_group_relation_ids",
-    ) as mock_replace, patch(
-        "pecha_api.plans.groups.groups_service.get_followers_count_map",
-        return_value={},
-    ):
-        db = _session_local_context(mock_session)
-        replace_group_plans_by_id(
-            token="t",
-            group_id=group.id,
-            request=ReplaceGroupPlansRequest(plan_ids=[plan_id]),
-        )
-        db.commit.assert_called()
-        mock_replace.assert_called_once()
-
-    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
-        return_value=author,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_group_by_id",
-        side_effect=[group, loaded],
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_group_member",
-        return_value=current,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_series_by_ids",
-        return_value=[MagicMock(id=series_id)],
-    ), patch(
-        "pecha_api.plans.groups.groups_service.replace_group_relation_ids",
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_followers_count_map",
-        return_value={},
-    ):
-        _session_local_context(mock_session)
-        replace_group_series_by_id(
-            token="t",
-            group_id=group.id,
-            request=ReplaceGroupSeriesRequest(series_ids=[series_id]),
-        )
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",

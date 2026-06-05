@@ -22,7 +22,7 @@ cms_plans_router = APIRouter(
 
 
 @cms_plans_router.get("", status_code=status.HTTP_200_OK, response_model=PlansResponse)
-async def get_plans(
+def get_plans(
         authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
         search: Annotated[Optional[str], Query(description="Search by plan title")] = None,
         language: Annotated[Optional[str], Query(description="Filter by language code (e.g., 'bo', 'en', 'zh')")] = None,
@@ -31,7 +31,7 @@ async def get_plans(
         skip: Annotated[int, Query()] = 0,
         limit: Annotated[int, Query()] = 10,
 ):
-    return await get_filtered_plans(
+    return get_filtered_plans(
         token=authentication_credential.credentials,
         search=search,
         sort_by=sort_by,

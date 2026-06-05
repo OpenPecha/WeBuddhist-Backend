@@ -13,8 +13,8 @@ def get_plan_item_audio_paginated(
     *,
     search: Optional[str],
     plan_id: Optional[UUID],
-    author_id: UUID,
-    is_admin: bool,
+    group_ids: Optional[List[UUID]] = None,
+    see_all: bool = False,
     skip: int,
     limit: int,
 ) -> Tuple[List[Tuple[PlanItemAudio, PlanItem, Plan]], int]:
@@ -24,8 +24,10 @@ def get_plan_item_audio_paginated(
         .join(Plan, Plan.id == PlanItem.plan_id)
         .filter(Plan.deleted_at.is_(None))
     )
-    if not is_admin:
-        query = query.filter(Plan.author_id == author_id)
+    if not see_all and group_ids is not None:
+        if not group_ids:
+            return [], 0
+        query = query.filter(Plan.group_id.in_(group_ids))
     if plan_id is not None:
         query = query.filter(Plan.id == plan_id)
     if search:
@@ -43,8 +45,8 @@ def get_plan_item_audio_paginated(
 def get_accessible_plan_item_audio_by_key(
     db: Session,
     audio_key: str,
-    author_id: UUID,
-    is_admin: bool,
+    group_ids: Optional[List[UUID]] = None,
+    see_all: bool = False,
 ) -> Optional[PlanItemAudio]:
     query = (
         db.query(PlanItemAudio)
@@ -52,8 +54,10 @@ def get_accessible_plan_item_audio_by_key(
         .join(Plan, Plan.id == PlanItem.plan_id)
         .filter(Plan.deleted_at.is_(None), PlanItemAudio.audio_key == audio_key)
     )
-    if not is_admin:
-        query = query.filter(Plan.author_id == author_id)
+    if not see_all and group_ids is not None:
+        if not group_ids:
+            return None
+        query = query.filter(Plan.group_id.in_(group_ids))
     return query.first()
 
 
