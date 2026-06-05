@@ -161,10 +161,12 @@ def _series_detail_dto(db: Session, series: Series, **kwargs) -> SeriesDTO:
     return _series_to_dto(series, group_id=group_id, plan_group_ids=plan_group_ids, **kwargs)
 
 
-def _series_to_list_item_dto(row: Series, plan_count: int = 0) -> SeriesListItemDTO:
+def _series_to_list_item_dto(
+    row: Series, plan_count: int = 0, language: Optional[str] = None
+) -> SeriesListItemDTO:
     return SeriesListItemDTO(
         id=row.id,
-        metadata=_metadata_to_dtos(row.metadata_entries),
+        metadata=_metadata_to_dtos(row.metadata_entries, language=language),
         image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
@@ -236,7 +238,7 @@ def get_filtered_series(
         )
 
     series_dtos: List[SeriesListItemDTO] = [
-        _series_to_list_item_dto(row, plan_count=plan_count)
+        _series_to_list_item_dto(row, plan_count=plan_count, language=language)
         for row, plan_count in rows
     ]
     return SeriesListResponse(
