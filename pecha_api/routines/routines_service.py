@@ -15,7 +15,6 @@ from pecha_api.texts.texts_models import Text
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.plans_enums import UserPlanStatus
 from pecha_api.plans.users.plan_users_progress_repository import (
-    delete_user_plan_progress,
     get_plan_progress_by_user_id_and_plan_ids,
 )
 
@@ -191,32 +190,15 @@ def _enroll_plans(db, user_id: UUID, plan_ids: List[UUID]) -> None:
         db.rollback()
 
 
-def _unenroll_plans(db, user_id: UUID, plan_ids: List[UUID]) -> None:
-    if not plan_ids:
-        return
-
-    for plan_id in plan_ids:
-        try:
-            delete_user_plan_progress(db=db, user_id=user_id, plan_id=plan_id)
-        except HTTPException as e:
-            if e.status_code == status.HTTP_404_NOT_FOUND:
-                continue
-            raise
-
-
-def _sync_plan_enrollments_on_update(
+def _enroll_new_plans_on_update(
     db, user_id: UUID, time_block_id: UUID, new_sessions: List
 ) -> None:
     old_plan_ids = set(
         get_plan_source_ids_by_time_block_id(db=db, time_block_id=time_block_id)
     )
     new_plan_ids = set(_extract_plan_ids(new_sessions))
-
     added_plans = list(new_plan_ids - old_plan_ids)
-    removed_plans = list(old_plan_ids - new_plan_ids)
-
     _enroll_plans(db=db, user_id=user_id, plan_ids=added_plans)
-    _unenroll_plans(db=db, user_id=user_id, plan_ids=removed_plans)
 
 
 def _validate_and_sync_update(
@@ -247,7 +229,7 @@ def _validate_and_sync_update(
         sessions=request.sessions,
     )
 
-    _sync_plan_enrollments_on_update(
+    _enroll_new_plans_on_update(
         db=db,
         user_id=user_id,
         time_block_id=time_block_id,
@@ -600,13 +582,6 @@ def delete_time_block(token: str, routine_id: UUID, time_block_id: UUID) -> None
                 ).model_dump(),
             )
 
-        # Auto-unenroll plans before soft delete
-        plan_ids = get_plan_source_ids_by_time_block_id(
-            db=db, time_block_id=time_block_id
-        )
-        _unenroll_plans(db=db, user_id=current_user.id, plan_ids=plan_ids)
-
-        # Soft delete
         soft_delete_time_block(db=db, time_block=time_block)
 
 
