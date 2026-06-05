@@ -303,7 +303,7 @@ def get_cms_filtered_series(
         )
 
     series_dtos: List[SeriesListItemDTO] = [
-        _series_to_list_item_dto(row, plan_count=plan_count)
+        _series_to_list_item_dto(row, plan_count=plan_count, language=language)
         for row, plan_count in rows
     ]
     return SeriesListResponse(
@@ -338,6 +338,7 @@ def get_cms_series_detail(
             row,
             include_plans=True,
             plan_language=language,
+            metadata_language=language,
         )
 
 def _validate_plan_ids(
