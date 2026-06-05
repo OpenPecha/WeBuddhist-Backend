@@ -641,6 +641,58 @@ async def test_get_user_enrolled_plans_with_status_filter():
 
 
 @pytest.mark.asyncio
+async def test_get_user_enrolled_plans_with_language_filter():
+    from pecha_api.plans.users.plan_users_service import get_user_enrolled_plans
+    from datetime import datetime, timezone
+
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    mock_user = SimpleNamespace(id=user_id)
+    progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
+    plan = SimpleNamespace(
+        id=plan_id,
+        series_id=series_id,
+        title="Tibetan Plan",
+        description="Test",
+        language=SimpleNamespace(value="BO"),
+        difficulty_level=SimpleNamespace(value="BEGINNER"),
+        image_url=None,
+        tag_list=[],
+        start_date=None,
+        display_order=None,
+        created_at=datetime.now(timezone.utc),
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+        SimpleNamespace(plan_id=plan_id, total_days=10)
+    ]
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+    ) as mock_repo, patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={plan_id: progress},
+    ):
+        mock_repo.return_value = ([plan], 1)
+
+        result = await get_user_enrolled_plans(
+            token="token123", language="bo", skip=0, limit=20
+        )
+
+        assert mock_repo.call_args.kwargs["language"] == "bo"
+        assert result.total == 1
+        assert result.plans[0].language == "BO"
+
+
+@pytest.mark.asyncio
 async def test_get_user_enrolled_plans_with_pagination():
     from pecha_api.plans.users.plan_users_service import get_user_enrolled_plans
     from datetime import datetime, timezone

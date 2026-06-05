@@ -14,8 +14,6 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupInviteCreatedResponse,
     GroupInviteDTO,
     GroupInviteListResponse,
-    ReplaceGroupPlansRequest,
-    ReplaceGroupSeriesRequest,
     ReplaceGroupSocialLinksRequest,
     ReplaceGroupTagsRequest,
     UpdateAuthorGroupRequest,
@@ -36,8 +34,6 @@ from pecha_api.plans.groups.groups_service import (
     list_my_pending_group_invites,
     list_public_groups,
     reject_group_invite_by_id,
-    replace_group_plans_by_id,
-    replace_group_series_by_id,
     replace_group_social_links_by_id,
     replace_group_tags,
     revoke_group_invite,
@@ -125,6 +121,7 @@ def get_cms_groups(
     search: Annotated[Optional[str], Query()] = None,
     language: Annotated[Optional[str], Query()] = None,
     tag_id: Annotated[Optional[UUID], Query()] = None,
+    for_transfer: Annotated[bool, Query(description="When true, list all groups for transfer target selection")] = False,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
@@ -133,6 +130,7 @@ def get_cms_groups(
         search=search,
         language=language,
         tag_id=tag_id,
+        for_transfer=for_transfer,
         skip=skip,
         limit=limit,
     )
@@ -158,32 +156,6 @@ def put_cms_group_social_links(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
     return replace_group_social_links_by_id(
-        token=authentication_credential.credentials,
-        group_id=group_id,
-        request=request,
-    )
-
-
-@cms_groups_router.put("/{group_id}/series", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
-def put_cms_group_series(
-    group_id: UUID,
-    request: ReplaceGroupSeriesRequest,
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
-    return replace_group_series_by_id(
-        token=authentication_credential.credentials,
-        group_id=group_id,
-        request=request,
-    )
-
-
-@cms_groups_router.put("/{group_id}/plans", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
-def put_cms_group_plans(
-    group_id: UUID,
-    request: ReplaceGroupPlansRequest,
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
-    return replace_group_plans_by_id(
         token=authentication_credential.credentials,
         group_id=group_id,
         request=request,

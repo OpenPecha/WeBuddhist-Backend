@@ -22,6 +22,12 @@ from pecha_api.plans.series.series_service import (
     get_cms_series_detail,
     delete_existing_series,
 )
+from pecha_api.plans.platform_enums import PlatformRole
+
+FIXTURE_GROUP_ID = uuid.uuid4()
+_SERIES_FORBIDDEN = HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+_MEMBER_GROUP_IDS = [FIXTURE_GROUP_ID]
+
 from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
@@ -60,6 +66,7 @@ def test_get_filtered_series_maps_rows_to_response():
     row.metadata_entries = [_metadata_entry(title="Series A")]
     row.image = None
     row.author_id = author_id
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = True
     row.status = PlanStatus.DRAFT
     row.plans = None
@@ -110,6 +117,7 @@ def test_get_filtered_series_presigns_image_when_key_present():
     row.metadata_entries = [_metadata_entry(title="With cover")]
     row.image = "images/series_images/sid/uuid/original/cover.jpg"
     row.author_id = uuid.uuid4()
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = MagicMock()
     row.status.value = PlanStatus.PUBLISHED.value
@@ -151,6 +159,7 @@ def test_get_filtered_series_empty_repository():
 def test_create_new_series_persists_and_returns_dto():
     author_id = uuid.uuid4()
     request = CreateSeriesRequest(
+        group_id=FIXTURE_GROUP_ID,
         metadata=[_metadata_input(title="New")],
         image_key="img/key.png",
         featured=True,
@@ -160,6 +169,7 @@ def test_create_new_series_persists_and_returns_dto():
     saved.metadata_entries = [_metadata_entry(title="New")]
     saved.image = request.image_key
     saved.author_id = author_id
+    saved.group_id = FIXTURE_GROUP_ID
     saved.featured = True
     saved.status = PlanStatus.DRAFT
 
@@ -179,8 +189,8 @@ def test_create_new_series_persists_and_returns_dto():
             medium="https://signed/img-medium.png",
             original="https://signed/img.png",
         ),
-    ), patch(
-        "pecha_api.plans.series.series_service.validate_and_extract_author_details",
+    ), patch("pecha_api.plans.series.series_service.require_can_create_content"), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
         return_value=mock_author,
     ):
         _session_local_context(mock_session_local)
@@ -206,6 +216,7 @@ def test_create_new_series_persists_and_returns_dto():
 def test_create_new_series_featured_defaults_when_none():
     author_id = uuid.uuid4()
     request = CreateSeriesRequest(
+        group_id=FIXTURE_GROUP_ID,
         metadata=[_metadata_input(title="བོད་", language=LanguageCode.BO)],
         featured=None,
     )
@@ -214,6 +225,7 @@ def test_create_new_series_featured_defaults_when_none():
     saved.metadata_entries = [_metadata_entry(title="བོད་", language=LanguageCode.BO)]
     saved.image = None
     saved.author_id = author_id
+    saved.group_id = FIXTURE_GROUP_ID
     saved.featured = False
     saved.status = PlanStatus.DRAFT
 
@@ -226,8 +238,8 @@ def test_create_new_series_featured_defaults_when_none():
     ) as mock_save, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=saved,
-    ), patch(
-        "pecha_api.plans.series.series_service.validate_and_extract_author_details",
+    ), patch("pecha_api.plans.series.series_service.require_can_create_content"), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
         return_value=mock_author,
     ):
         _session_local_context(mock_session_local)
@@ -241,6 +253,7 @@ def test_create_new_series_featured_defaults_when_none():
 def test_create_new_series_integrity_error_raises_400():
     author_id = uuid.uuid4()
     request = CreateSeriesRequest(
+        group_id=FIXTURE_GROUP_ID,
         metadata=[_metadata_input(title="Test")],
     )
     orig = Exception("foreign key violation")
@@ -251,8 +264,8 @@ def test_create_new_series_integrity_error_raises_400():
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.save_series_with_plans",
         side_effect=IntegrityError("statement", {}, orig),
-    ), patch(
-        "pecha_api.plans.series.series_service.validate_and_extract_author_details",
+    ), patch("pecha_api.plans.series.series_service.require_can_create_content"), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
         return_value=mock_author,
     ):
         _session_local_context(mock_session_local)
@@ -304,6 +317,7 @@ def test_get_series_detail_returns_dto_without_plans():
     row.metadata_entries = [_metadata_entry(title="Only series")]
     row.image = None
     row.author_id = uuid.uuid4()
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.PUBLISHED
     row.plans = []
@@ -334,6 +348,7 @@ def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     deleted_plan = MagicMock()
     deleted_plan.deleted_at = datetime.now(timezone.utc)
     deleted_plan.display_order = 0
+    deleted_plan.group_id = FIXTURE_GROUP_ID
 
     plan_b = MagicMock()
     plan_b.deleted_at = None
@@ -348,6 +363,7 @@ def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     plan_b.status = PlanStatus.PUBLISHED
     plan_b.featured = False
     plan_b.start_date = None
+    plan_b.group_id = FIXTURE_GROUP_ID
 
     plan_a = MagicMock()
     plan_a.deleted_at = None
@@ -363,12 +379,14 @@ def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     plan_a.status.value = PlanStatus.PUBLISHED.value
     plan_a.featured = 1
     plan_a.start_date = None
+    plan_a.group_id = FIXTURE_GROUP_ID
 
     row = MagicMock()
     row.id = series_id
     row.metadata_entries = [_metadata_entry(title="With plans")]
     row.image = None
     row.author_id = author_id
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = True
     row.status = PlanStatus.PUBLISHED
     row.plans = [deleted_plan, plan_b, plan_a]
@@ -433,6 +451,7 @@ def test_get_series_detail_includes_total_days_for_each_plan():
     plan_a.featured = False
     plan_a.start_date = None
     plan_a.items = [item_1, item_2, item_3]
+    plan_a.group_id = FIXTURE_GROUP_ID
 
     item_4 = MagicMock()
     item_5 = MagicMock()
@@ -451,12 +470,14 @@ def test_get_series_detail_includes_total_days_for_each_plan():
     plan_b.featured = False
     plan_b.start_date = None
     plan_b.items = [item_4, item_5]
+    plan_b.group_id = FIXTURE_GROUP_ID
 
     row = MagicMock()
     row.id = series_id
     row.metadata_entries = [_metadata_entry(title="Series with day counts")]
     row.image = None
     row.author_id = author_id
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.PUBLISHED
     row.plans = [plan_a, plan_b]
@@ -493,12 +514,14 @@ def test_get_series_detail_total_days_zero_when_no_items():
     plan_empty.featured = False
     plan_empty.start_date = None
     plan_empty.items = []
+    plan_empty.group_id = FIXTURE_GROUP_ID
 
     row = MagicMock()
     row.id = series_id
     row.metadata_entries = [_metadata_entry(title="Series with empty plan")]
     row.image = None
     row.author_id = author_id
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.PUBLISHED
     row.plans = [plan_empty]
@@ -525,6 +548,7 @@ def test_get_series_detail_total_days_zero_when_no_plans():
     row.metadata_entries = [_metadata_entry(title="Series without plans")]
     row.image = None
     row.author_id = author_id
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.PUBLISHED
     row.plans = []
@@ -547,10 +571,11 @@ def test_get_series_detail_handles_plan_without_items_attribute():
 
     plan_no_items = MagicMock(spec=["deleted_at", "display_order", "id", "title", "description", 
                                      "language", "difficulty_level", "image_url", "tag_list", 
-                                     "status", "featured", "start_date"])
+                                     "status", "featured", "start_date", "group_id"])
     plan_no_items.deleted_at = None
     plan_no_items.display_order = 1
     plan_no_items.id = uuid.uuid4()
+    plan_no_items.group_id = FIXTURE_GROUP_ID
     plan_no_items.title = "Plan without items"
     plan_no_items.description = None
     plan_no_items.language = LanguageCode.EN
@@ -566,6 +591,7 @@ def test_get_series_detail_handles_plan_without_items_attribute():
     row.metadata_entries = [_metadata_entry(title="Series with plan without items")]
     row.image = None
     row.author_id = author_id
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.PUBLISHED
     row.plans = [plan_no_items]
@@ -601,24 +627,28 @@ def test_get_series_detail_excludes_non_published_plans():
     published_plan.featured = False
     published_plan.start_date = None
     published_plan.items = []
+    published_plan.group_id = FIXTURE_GROUP_ID
 
     draft_plan = MagicMock()
     draft_plan.deleted_at = None
     draft_plan.display_order = 2
     draft_plan.id = uuid.uuid4()
     draft_plan.status = PlanStatus.DRAFT
+    draft_plan.group_id = FIXTURE_GROUP_ID
 
     archived_plan = MagicMock()
     archived_plan.deleted_at = None
     archived_plan.display_order = 3
     archived_plan.id = uuid.uuid4()
     archived_plan.status = PlanStatus.ARCHIVED
+    archived_plan.group_id = FIXTURE_GROUP_ID
 
     row = MagicMock()
     row.id = series_id
     row.metadata_entries = [_metadata_entry(title="Mixed statuses")]
     row.image = None
     row.author_id = author_id
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.PUBLISHED
     row.plans = [published_plan, draft_plan, archived_plan]
@@ -654,6 +684,7 @@ def test_get_series_detail_filters_plans_by_language():
     plan_en.featured = False
     plan_en.start_date = None
     plan_en.items = []
+    plan_en.group_id = FIXTURE_GROUP_ID
 
     plan_bo = MagicMock()
     plan_bo.deleted_at = None
@@ -669,6 +700,7 @@ def test_get_series_detail_filters_plans_by_language():
     plan_bo.featured = False
     plan_bo.start_date = None
     plan_bo.items = []
+    plan_bo.group_id = FIXTURE_GROUP_ID
 
     row = MagicMock()
     row.id = series_id
@@ -677,6 +709,7 @@ def test_get_series_detail_filters_plans_by_language():
     row.author_id = author_id
     row.featured = False
     row.status = PlanStatus.PUBLISHED
+    row.group_id = FIXTURE_GROUP_ID
     row.plans = [plan_en, plan_bo]
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
@@ -700,6 +733,8 @@ def _make_existing_series(series_id, author_id, plans=None):
     series = MagicMock()
     series.id = series_id
     series.author_id = author_id
+    series.group_id = FIXTURE_GROUP_ID
+    series.status = PlanStatus.DRAFT
     series.plans = plans or []
     return series
 
@@ -710,6 +745,7 @@ def _make_refreshed_series(series_id, author_id):
     refreshed.metadata_entries = [_metadata_entry(title="Updated")]
     refreshed.image = None
     refreshed.author_id = author_id
+    refreshed.group_id = FIXTURE_GROUP_ID
     refreshed.featured = False
     refreshed.status = PlanStatus.DRAFT
     refreshed.plans = []
@@ -720,7 +756,8 @@ def _make_mock_author(author_id, email="author@example.com", is_admin=False):
     author = MagicMock()
     author.id = author_id
     author.email = email
-    author.is_admin = is_admin
+    author.platform_role = PlatformRole.SUPER_ADMIN if is_admin else PlatformRole.CREATOR
+    author.is_active = True
     return author
 
 
@@ -735,10 +772,12 @@ def test_update_existing_series_plans_omitted_leaves_attachments_untouched():
     plan_a = MagicMock()
     plan_a.id = uuid.uuid4()
     plan_a.deleted_at = None
+    plan_a.group_id = FIXTURE_GROUP_ID
 
     plan_b = MagicMock()
     plan_b.id = uuid.uuid4()
     plan_b.deleted_at = None
+    plan_b.group_id = FIXTURE_GROUP_ID
 
     existing = _make_existing_series(series_id, author_id, plans=[plan_a, plan_b])
     refreshed = _make_refreshed_series(series_id, author_id)
@@ -747,7 +786,7 @@ def test_update_existing_series_plans_omitted_leaves_attachments_untouched():
     request = UpdateSeriesRequest(plans=None)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update, \
          patch("pecha_api.plans.series.series_service._validate_plan_ids") as mock_validate:
@@ -770,10 +809,12 @@ def test_update_existing_series_plans_empty_dict_detaches_all():
     plan_a = MagicMock()
     plan_a.id = plan_a_id
     plan_a.deleted_at = None
+    plan_a.group_id = FIXTURE_GROUP_ID
 
     plan_b = MagicMock()
     plan_b.id = plan_b_id
     plan_b.deleted_at = None
+    plan_b.group_id = FIXTURE_GROUP_ID
 
     existing = _make_existing_series(series_id, author_id, plans=[plan_a, plan_b])
     refreshed = _make_refreshed_series(series_id, author_id)
@@ -782,7 +823,7 @@ def test_update_existing_series_plans_empty_dict_detaches_all():
     request = UpdateSeriesRequest(plans={})
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
         _session_local_context(mock_session_local)
@@ -804,10 +845,12 @@ def test_update_existing_series_full_replacement_with_diff():
     existing_plan_a = MagicMock()
     existing_plan_a.id = plan_a_id
     existing_plan_a.deleted_at = None
+    existing_plan_a.group_id = FIXTURE_GROUP_ID
 
     existing_plan_b = MagicMock()
     existing_plan_b.id = plan_b_id
     existing_plan_b.deleted_at = None
+    existing_plan_b.group_id = FIXTURE_GROUP_ID
 
     existing = _make_existing_series(series_id, author_id, plans=[existing_plan_a, existing_plan_b])
     refreshed = _make_refreshed_series(series_id, author_id)
@@ -818,17 +861,19 @@ def test_update_existing_series_full_replacement_with_diff():
     fetched_plan_a.deleted_at = None
     fetched_plan_a.series_id = series_id
     fetched_plan_a.author_id = author_id
+    fetched_plan_a.group_id = FIXTURE_GROUP_ID
 
     fetched_plan_c = MagicMock()
     fetched_plan_c.id = plan_c_id
     fetched_plan_c.deleted_at = None
     fetched_plan_c.series_id = None
     fetched_plan_c.author_id = author_id
+    fetched_plan_c.group_id = FIXTURE_GROUP_ID
 
     request = UpdateSeriesRequest(plans={"EN": [plan_a_id, plan_c_id]})
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[fetched_plan_a, fetched_plan_c]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
@@ -860,7 +905,7 @@ def test_update_existing_series_updates_name_image_featured():
     )
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
         _session_local_context(mock_session_local)
@@ -883,7 +928,7 @@ def test_update_existing_series_sets_updated_at_and_updated_by():
     request = UpdateSeriesRequest(metadata=[_metadata_input(title="Updated")])
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
         _session_local_context(mock_session_local)
@@ -907,7 +952,7 @@ def test_update_existing_series_featured_not_modified_when_none():
     request = UpdateSeriesRequest(featured=None)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
         _session_local_context(mock_session_local)
@@ -929,7 +974,7 @@ def test_update_existing_series_returns_404_when_series_not_found():
     request = UpdateSeriesRequest(metadata=[_metadata_input(title="Updated")])
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=None), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
         _session_local_context(mock_session_local)
@@ -952,7 +997,8 @@ def test_update_existing_series_returns_403_when_non_admin_other_author():
     request = UpdateSeriesRequest(metadata=[_metadata_input(title="Updated")])
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.require_can_edit_content", side_effect=_SERIES_FORBIDDEN), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
         _session_local_context(mock_session_local)
@@ -976,7 +1022,7 @@ def test_update_existing_series_admin_can_edit_other_author_series():
     request = UpdateSeriesRequest(metadata=[_metadata_input(title="Admin edit")])
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
         _session_local_context(mock_session_local)
@@ -1000,7 +1046,7 @@ def test_update_existing_series_400_when_plan_does_not_exist():
     request = UpdateSeriesRequest(plans={"EN": [missing_plan_id]})
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
@@ -1028,11 +1074,12 @@ def test_update_existing_series_400_when_plan_attached_to_different_series():
     conflicting_plan.deleted_at = None
     conflicting_plan.series_id = other_series_id
     conflicting_plan.author_id = author_id
+    conflicting_plan.group_id = FIXTURE_GROUP_ID
 
     request = UpdateSeriesRequest(plans={"EN": [plan_id]})
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[conflicting_plan]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
@@ -1054,6 +1101,7 @@ def test_update_existing_series_allows_plan_already_attached_to_current_series()
     existing_plan = MagicMock()
     existing_plan.id = plan_id
     existing_plan.deleted_at = None
+    existing_plan.group_id = FIXTURE_GROUP_ID
 
     existing = _make_existing_series(series_id, author_id, plans=[existing_plan])
     refreshed = _make_refreshed_series(series_id, author_id)
@@ -1064,11 +1112,12 @@ def test_update_existing_series_allows_plan_already_attached_to_current_series()
     fetched_plan.deleted_at = None
     fetched_plan.series_id = series_id
     fetched_plan.author_id = author_id
+    fetched_plan.group_id = FIXTURE_GROUP_ID
 
     request = UpdateSeriesRequest(plans={"EN": [plan_id]})
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[fetched_plan]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
@@ -1081,32 +1130,33 @@ def test_update_existing_series_allows_plan_already_attached_to_current_series()
 def test_update_existing_series_403_when_non_admin_plan_belongs_to_other_author():
     series_id = uuid.uuid4()
     author_id = uuid.uuid4()
-    other_author_id = uuid.uuid4()
+    other_group_id = uuid.uuid4()
     plan_id = uuid.uuid4()
 
     existing = _make_existing_series(series_id, author_id)
     mock_author = _make_mock_author(author_id, is_admin=False)
 
-    other_authors_plan = MagicMock()
-    other_authors_plan.id = plan_id
-    other_authors_plan.deleted_at = None
-    other_authors_plan.series_id = None
-    other_authors_plan.author_id = other_author_id
+    other_group_plan = MagicMock()
+    other_group_plan.id = plan_id
+    other_group_plan.deleted_at = None
+    other_group_plan.series_id = None
+    other_group_plan.author_id = uuid.uuid4()
+    other_group_plan.group_id = other_group_id
 
     request = UpdateSeriesRequest(plans={"EN": [plan_id]})
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
-         patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[other_authors_plan]), \
+         patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[other_group_plan]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
         _session_local_context(mock_session_local)
 
         with pytest.raises(HTTPException) as exc:
             update_existing_series(token="dummy", series_id=series_id, update_series_request=request)
 
-    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
-    assert "belongs to another author" in exc.value.detail
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert "same group" in exc.value.detail
     mock_update.assert_not_called()
 
 
@@ -1125,7 +1175,7 @@ def test_update_existing_series_omitting_featured_keeps_existing_value():
     request = UpdateSeriesRequest(metadata=[_metadata_input(title="Renamed only")])
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
         _session_local_context(mock_session_local)
@@ -1146,7 +1196,7 @@ def test_update_existing_series_omitting_image_key_keeps_existing_image():
     request = UpdateSeriesRequest(featured=True)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
         _session_local_context(mock_session_local)
@@ -1172,7 +1222,7 @@ def test_update_existing_series_omitting_all_fields_is_noop_on_scalars():
     request = UpdateSeriesRequest()
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
         _session_local_context(mock_session_local)
@@ -1199,7 +1249,7 @@ def test_update_existing_series_integrity_error_raises_400():
     request = UpdateSeriesRequest(metadata=[_metadata_input(title="Updated")])
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans",
                side_effect=IntegrityError("statement", {}, orig)):
@@ -1218,6 +1268,7 @@ def test_create_new_series_with_plans_attaches_and_returns_dto():
     series_id = uuid.uuid4()
 
     request = CreateSeriesRequest(
+        group_id=FIXTURE_GROUP_ID,
         metadata=[_metadata_input(title="Series with plan")],
         plans={"EN": [plan_id]},
     )
@@ -1240,12 +1291,14 @@ def test_create_new_series_with_plans_attaches_and_returns_dto():
     valid_plan.featured = False
     valid_plan.display_order = None
     valid_plan.start_date = None
+    valid_plan.group_id = FIXTURE_GROUP_ID
 
     saved = MagicMock()
     saved.id = series_id
     saved.metadata_entries = [_metadata_entry(title="Series with plan")]
     saved.image = None
     saved.author_id = author_id
+    saved.group_id = FIXTURE_GROUP_ID
     saved.featured = False
     saved.status = PlanStatus.DRAFT
 
@@ -1254,12 +1307,13 @@ def test_create_new_series_with_plans_attaches_and_returns_dto():
     refreshed.metadata_entries = [_metadata_entry(title="Series with plan")]
     refreshed.image = None
     refreshed.author_id = author_id
+    refreshed.group_id = FIXTURE_GROUP_ID
     refreshed.featured = False
     refreshed.status = PlanStatus.DRAFT
     refreshed.plans = [valid_plan]
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[valid_plan]), \
          patch("pecha_api.plans.series.series_service.save_series_with_plans", return_value=saved) as mock_save, \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=refreshed):
@@ -1276,6 +1330,7 @@ def test_create_new_series_rejects_soft_deleted_plan():
     plan_id = uuid.uuid4()
 
     request = CreateSeriesRequest(
+        group_id=FIXTURE_GROUP_ID,
         metadata=[_metadata_input(title="Series")],
         plans={"EN": [plan_id]},
     )
@@ -1287,9 +1342,10 @@ def test_create_new_series_rejects_soft_deleted_plan():
     deleted_plan.deleted_at = datetime.now(timezone.utc)
     deleted_plan.series_id = None
     deleted_plan.author_id = author_id
+    deleted_plan.group_id = FIXTURE_GROUP_ID
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[deleted_plan]), \
          patch("pecha_api.plans.series.series_service.save_series_with_plans") as mock_save:
         _session_local_context(mock_session_local)
@@ -1308,6 +1364,7 @@ def test_create_new_series_rejects_plan_already_attached_to_another_series():
     other_series_id = uuid.uuid4()
 
     request = CreateSeriesRequest(
+        group_id=FIXTURE_GROUP_ID,
         metadata=[_metadata_input(title="Series")],
         plans={"EN": [plan_id]},
     )
@@ -1319,9 +1376,10 @@ def test_create_new_series_rejects_plan_already_attached_to_another_series():
     attached_plan.deleted_at = None
     attached_plan.series_id = other_series_id
     attached_plan.author_id = author_id
+    attached_plan.group_id = FIXTURE_GROUP_ID
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[attached_plan]), \
          patch("pecha_api.plans.series.series_service.save_series_with_plans") as mock_save:
         _session_local_context(mock_session_local)
@@ -1336,33 +1394,35 @@ def test_create_new_series_rejects_plan_already_attached_to_another_series():
 
 def test_create_new_series_rejects_plan_belonging_to_other_author_non_admin():
     author_id = uuid.uuid4()
-    other_author_id = uuid.uuid4()
+    other_group_id = uuid.uuid4()
     plan_id = uuid.uuid4()
 
     request = CreateSeriesRequest(
+        group_id=FIXTURE_GROUP_ID,
         metadata=[_metadata_input(title="Series")],
         plans={"EN": [plan_id]},
     )
 
     mock_author = _make_mock_author(author_id, is_admin=False)
 
-    other_authors_plan = MagicMock()
-    other_authors_plan.id = plan_id
-    other_authors_plan.deleted_at = None
-    other_authors_plan.series_id = None
-    other_authors_plan.author_id = other_author_id
+    other_group_plan = MagicMock()
+    other_group_plan.id = plan_id
+    other_group_plan.deleted_at = None
+    other_group_plan.series_id = None
+    other_group_plan.author_id = uuid.uuid4()
+    other_group_plan.group_id = other_group_id
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
-         patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[other_authors_plan]), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[other_group_plan]), \
          patch("pecha_api.plans.series.series_service.save_series_with_plans") as mock_save:
         _session_local_context(mock_session_local)
 
         with pytest.raises(HTTPException) as exc:
             create_new_series(token="dummy", create_series_request=request)
 
-    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
-    assert "belongs to another author" in exc.value.detail
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert "same group" in exc.value.detail
     mock_save.assert_not_called()
 
 
@@ -1371,6 +1431,7 @@ def test_validate_plan_ids_dedupes_before_fetching():
     plan_id = uuid.uuid4()
 
     request = CreateSeriesRequest(
+        group_id=FIXTURE_GROUP_ID,
         metadata=[_metadata_input(title="Series")],
         plans={"EN": [plan_id], "BO": [plan_id]},
     )
@@ -1393,12 +1454,14 @@ def test_validate_plan_ids_dedupes_before_fetching():
     valid_plan.featured = False
     valid_plan.display_order = None
     valid_plan.start_date = None
+    valid_plan.group_id = FIXTURE_GROUP_ID
 
     saved = MagicMock()
     saved.id = uuid.uuid4()
     saved.metadata_entries = [_metadata_entry(title="Series")]
     saved.image = None
     saved.author_id = author_id
+    saved.group_id = FIXTURE_GROUP_ID
     saved.featured = False
     saved.status = PlanStatus.DRAFT
 
@@ -1407,12 +1470,13 @@ def test_validate_plan_ids_dedupes_before_fetching():
     refreshed.metadata_entries = [_metadata_entry(title="Series")]
     refreshed.image = None
     refreshed.author_id = author_id
+    refreshed.group_id = FIXTURE_GROUP_ID
     refreshed.featured = False
     refreshed.status = PlanStatus.DRAFT
     refreshed.plans = [valid_plan]
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[valid_plan]) as mock_get_plans, \
          patch("pecha_api.plans.series.series_service.save_series_with_plans", return_value=saved), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=refreshed):
@@ -1435,6 +1499,7 @@ def test_get_cms_filtered_series_scopes_to_current_author_when_not_admin():
     row.name = {"en": "Mine"}
     row.image = None
     row.author_id = author_id
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.DRAFT
     row.plans = None
@@ -1442,7 +1507,8 @@ def test_get_cms_filtered_series_scopes_to_current_author_when_not_admin():
     mock_author = _make_mock_author(author_id, is_admin=False)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_author_group_ids", return_value=_MEMBER_GROUP_IDS), \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
                return_value=([(row, 2)], 1)) as mock_repo:
         _session_local_context(mock_session_local)
@@ -1450,7 +1516,8 @@ def test_get_cms_filtered_series_scopes_to_current_author_when_not_admin():
         result = get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10)
 
     call_kwargs = mock_repo.call_args.kwargs
-    assert call_kwargs["author_id"] == author_id
+    assert call_kwargs["author_id"] is None
+    assert call_kwargs["group_ids"] == _MEMBER_GROUP_IDS
     assert call_kwargs["search"] is None
     assert call_kwargs["skip"] == 0
     assert call_kwargs["limit"] == 10
@@ -1470,6 +1537,7 @@ def test_get_cms_filtered_series_admin_sees_all_authors():
     row.name = {"en": "Someone else's"}
     row.image = None
     row.author_id = uuid.uuid4()
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.DRAFT
     row.plans = None
@@ -1477,7 +1545,7 @@ def test_get_cms_filtered_series_admin_sees_all_authors():
     mock_admin = _make_mock_author(admin_id, is_admin=True)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_admin), \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
                return_value=([(row, 0)], 1)) as mock_repo:
         _session_local_context(mock_session_local)
@@ -1493,7 +1561,8 @@ def test_get_cms_filtered_series_passes_search_and_pagination():
     mock_author = _make_mock_author(author_id, is_admin=False)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_author_group_ids", return_value=_MEMBER_GROUP_IDS), \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
                return_value=([], 0)) as mock_repo:
         _session_local_context(mock_session_local)
@@ -1504,7 +1573,8 @@ def test_get_cms_filtered_series_passes_search_and_pagination():
     assert call_kwargs["search"] == "meditation"
     assert call_kwargs["skip"] == 5
     assert call_kwargs["limit"] == 20
-    assert call_kwargs["author_id"] == author_id
+    assert call_kwargs["author_id"] is None
+    assert call_kwargs["group_ids"] == _MEMBER_GROUP_IDS
 
 
 def test_get_filtered_series_passes_language_to_repository():
@@ -1525,7 +1595,8 @@ def test_get_cms_filtered_series_passes_language_to_repository():
     mock_author = _make_mock_author(author_id, is_admin=False)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_author_group_ids", return_value=_MEMBER_GROUP_IDS), \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
                return_value=([], 0)) as mock_repo:
         _session_local_context(mock_session_local)
@@ -1541,7 +1612,7 @@ def test_get_cms_filtered_series_admin_passes_status_featured_and_author_filters
     mock_admin = _make_mock_author(admin_id, is_admin=True)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_admin), \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
                return_value=([], 0)) as mock_repo:
         _session_local_context(mock_session_local)
@@ -1567,17 +1638,21 @@ def test_get_cms_filtered_series_non_admin_cannot_filter_by_other_author():
     other_author_id = uuid.uuid4()
     mock_author = _make_mock_author(author_id, is_admin=False)
 
-    with patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author):
-        with pytest.raises(HTTPException) as exc_info:
-            get_cms_filtered_series(
-                token="dummy",
-                search=None,
-                skip=0,
-                limit=10,
-                filter_author_id=other_author_id,
-            )
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_author_group_ids", return_value=_MEMBER_GROUP_IDS), \
+         patch("pecha_api.plans.series.series_service.get_series_paginated", return_value=([], 0)) as mock_repo:
+        _session_local_context(mock_session_local)
+        get_cms_filtered_series(
+            token="dummy",
+            search=None,
+            skip=0,
+            limit=10,
+            filter_author_id=other_author_id,
+        )
 
-    assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+    assert mock_repo.call_args.kwargs["author_id"] is None
+    assert mock_repo.call_args.kwargs["group_ids"] == _MEMBER_GROUP_IDS
 
 
 # ---------------------------------------------------------------------------
@@ -1593,6 +1668,7 @@ def test_get_cms_series_detail_returns_dto_when_owner():
     row.name = {"en": "Mine"}
     row.image = None
     row.author_id = author_id
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.DRAFT
     row.plans = []
@@ -1600,7 +1676,7 @@ def test_get_cms_series_detail_returns_dto_when_owner():
     mock_author = _make_mock_author(author_id, is_admin=False)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=row):
         _session_local_context(mock_session_local)
 
@@ -1616,7 +1692,7 @@ def test_get_cms_series_detail_raises_404_when_not_found():
     mock_author = _make_mock_author(author_id)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=None):
         _session_local_context(mock_session_local)
 
@@ -1635,11 +1711,13 @@ def test_get_cms_series_detail_raises_403_when_non_admin_other_author():
     row = MagicMock()
     row.id = series_id
     row.author_id = other_author_id
+    row.group_id = FIXTURE_GROUP_ID
 
     mock_author = _make_mock_author(author_id, is_admin=False)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.require_can_read_group_content", side_effect=_SERIES_FORBIDDEN), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=row):
         _session_local_context(mock_session_local)
 
@@ -1659,6 +1737,7 @@ def test_get_cms_series_detail_admin_can_view_other_author_series():
     row.name = {"en": "Someone else's"}
     row.image = None
     row.author_id = other_author_id
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.DRAFT
     row.plans = []
@@ -1666,7 +1745,7 @@ def test_get_cms_series_detail_admin_can_view_other_author_series():
     mock_admin = _make_mock_author(admin_id, is_admin=True)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_admin), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=row):
         _session_local_context(mock_session_local)
 
@@ -1694,6 +1773,7 @@ def test_get_cms_series_detail_filters_plans_by_language():
     plan_en.featured = False
     plan_en.start_date = None
     plan_en.items = []
+    plan_en.group_id = FIXTURE_GROUP_ID
 
     plan_bo = MagicMock()
     plan_bo.deleted_at = None
@@ -1709,12 +1789,14 @@ def test_get_cms_series_detail_filters_plans_by_language():
     plan_bo.featured = False
     plan_bo.start_date = None
     plan_bo.items = []
+    plan_bo.group_id = FIXTURE_GROUP_ID
 
     row = MagicMock()
     row.id = series_id
     row.metadata_entries = []
     row.image = None
     row.author_id = author_id
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.DRAFT
     row.plans = [plan_en, plan_bo]
@@ -1722,7 +1804,7 @@ def test_get_cms_series_detail_filters_plans_by_language():
     mock_author = _make_mock_author(author_id, is_admin=False)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=row):
         _session_local_context(mock_session_local)
 
@@ -1739,6 +1821,7 @@ def test_get_filtered_series_handles_plain_string_status_and_language():
     row.metadata_entries = []
     row.image = None
     row.author_id = uuid.uuid4()
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.DRAFT.value
     row.plans = None
@@ -1768,6 +1851,7 @@ def test_get_filtered_series_metadata_uses_string_language():
     row.metadata_entries = [entry]
     row.image = None
     row.author_id = uuid.uuid4()
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.DRAFT
     row.plans = None
@@ -1788,8 +1872,7 @@ def test_validate_plan_ids_noop_when_empty():
         _validate_plan_ids(
             db=MagicMock(),
             plan_ids=[],
-            current_author_id=uuid.uuid4(),
-            is_admin=False,
+            series_group_id=FIXTURE_GROUP_ID,
         )
     mock_get_plans.assert_not_called()
 
@@ -1890,22 +1973,25 @@ def test_update_existing_series_pure_reorder_sends_all_plans_with_new_order():
     fetched_a.deleted_at = None
     fetched_a.series_id = series_id
     fetched_a.author_id = author_id
+    fetched_a.group_id = FIXTURE_GROUP_ID
     fetched_b = MagicMock()
     fetched_b.id = plan_b_id
     fetched_b.deleted_at = None
     fetched_b.series_id = series_id
     fetched_b.author_id = author_id
+    fetched_b.group_id = FIXTURE_GROUP_ID
     fetched_c = MagicMock()
     fetched_c.id = plan_c_id
     fetched_c.deleted_at = None
     fetched_c.series_id = series_id
     fetched_c.author_id = author_id
+    fetched_c.group_id = FIXTURE_GROUP_ID
 
     # Same three plans, reordered to C, A, B.
     request = UpdateSeriesRequest(plans={"EN": [plan_c_id, plan_a_id, plan_b_id]})
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[fetched_a, fetched_b, fetched_c]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
@@ -1939,6 +2025,7 @@ def test_update_existing_series_multi_language_independent_ordering():
         m.deleted_at = None
         m.series_id = None
         m.author_id = author_id
+        m.group_id = FIXTURE_GROUP_ID
         return m
 
     request = UpdateSeriesRequest(
@@ -1946,7 +2033,7 @@ def test_update_existing_series_multi_language_independent_ordering():
     )
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[_fetched(en_1), _fetched(en_2), _fetched(bo_1), _fetched(bo_2)]), \
          patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
@@ -1969,7 +2056,7 @@ def test_delete_existing_series_soft_deletes_when_owner():
     mock_author = _make_mock_author(author_id, email="owner@pecha.org", is_admin=False)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach") as mock_soft_delete:
         _session_local_context(mock_session_local)
@@ -1989,7 +2076,7 @@ def test_delete_existing_series_returns_404_when_series_not_found():
     mock_author = _make_mock_author(author_id)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=None), \
          patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach") as mock_soft_delete:
         _session_local_context(mock_session_local)
@@ -2011,7 +2098,8 @@ def test_delete_existing_series_returns_403_when_non_admin_other_author():
     mock_author = _make_mock_author(author_id, is_admin=False)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.require_can_change_status", side_effect=_SERIES_FORBIDDEN), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach") as mock_soft_delete:
         _session_local_context(mock_session_local)
@@ -2032,7 +2120,7 @@ def test_delete_existing_series_admin_can_delete_other_author_series():
     mock_admin = _make_mock_author(admin_id, is_admin=True)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_admin), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach") as mock_soft_delete:
         _session_local_context(mock_session_local)
@@ -2052,7 +2140,7 @@ def test_delete_existing_series_integrity_error_raises_400():
     mock_author = _make_mock_author(author_id)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.soft_delete_series_with_plan_detach",
                side_effect=IntegrityError("statement", {}, orig)):
@@ -2079,7 +2167,7 @@ def test_update_existing_series_status_updates_status_when_owner():
     request = UpdateSeriesStatusRequest(status=PlanStatus.PUBLISHED)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.update_series_status") as mock_update:
         _session_local_context(mock_session_local)
@@ -2105,7 +2193,7 @@ def test_update_existing_series_status_returns_404_when_not_found():
     request = UpdateSeriesStatusRequest(status=PlanStatus.PUBLISHED)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=None), \
          patch("pecha_api.plans.series.series_service.update_series_status") as mock_update:
         _session_local_context(mock_session_local)
@@ -2131,7 +2219,8 @@ def test_update_existing_series_status_returns_403_when_non_admin_other_author()
     request = UpdateSeriesStatusRequest(status=PlanStatus.PUBLISHED)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.require_can_change_status", side_effect=_SERIES_FORBIDDEN), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.update_series_status") as mock_update:
         _session_local_context(mock_session_local)
@@ -2157,7 +2246,7 @@ def test_update_existing_series_status_admin_can_update_other_author_series():
     request = UpdateSeriesStatusRequest(status=PlanStatus.PUBLISHED)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_admin), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
          patch("pecha_api.plans.series.series_service.update_series_status") as mock_update:
         _session_local_context(mock_session_local)
@@ -2179,7 +2268,7 @@ def test_update_existing_series_status_integrity_error_raises_400():
     request = UpdateSeriesStatusRequest(status=PlanStatus.PUBLISHED)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.update_series_status",
                side_effect=IntegrityError("statement", {}, orig)):
@@ -2207,7 +2296,7 @@ def test_update_existing_series_featured_toggles_false_to_true():
     mock_author = _make_mock_author(author_id, email="owner@pecha.org")
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.update_series_featured") as mock_update:
         _session_local_context(mock_session_local)
@@ -2232,7 +2321,7 @@ def test_update_existing_series_featured_toggles_true_to_false():
     mock_author = _make_mock_author(author_id)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.update_series_featured") as mock_update:
         _session_local_context(mock_session_local)
@@ -2247,7 +2336,7 @@ def test_update_existing_series_featured_returns_404_when_not_found():
     mock_author = _make_mock_author(author_id)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=None), \
          patch("pecha_api.plans.series.series_service.update_series_featured") as mock_update:
         _session_local_context(mock_session_local)
@@ -2269,7 +2358,8 @@ def test_update_existing_series_featured_returns_403_when_non_admin_other_author
     mock_author = _make_mock_author(author_id, is_admin=False)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.require_can_change_status", side_effect=_SERIES_FORBIDDEN), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.update_series_featured") as mock_update:
         _session_local_context(mock_session_local)
@@ -2291,7 +2381,7 @@ def test_update_existing_series_featured_admin_can_update_other_author_series():
     mock_admin = _make_mock_author(admin_id, is_admin=True)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_admin), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_admin), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.update_series_featured") as mock_update:
         _session_local_context(mock_session_local)
@@ -2309,7 +2399,7 @@ def test_update_existing_series_featured_integrity_error_raises_400():
     mock_author = _make_mock_author(author_id)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_series_by_id", return_value=existing), \
          patch("pecha_api.plans.series.series_service.update_series_featured",
                side_effect=IntegrityError("statement", {}, orig)):
@@ -2344,6 +2434,7 @@ def test_get_filtered_series_published_count_maps_to_plan_count():
     row.metadata_entries = [_metadata_entry(title="Published count")]
     row.image = None
     row.author_id = uuid.uuid4()
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.PUBLISHED
     row.plans = None
@@ -2364,7 +2455,8 @@ def test_get_cms_filtered_series_does_not_pass_published_only():
     mock_author = _make_mock_author(author_id, is_admin=False)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_author_group_ids", return_value=_MEMBER_GROUP_IDS), \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
                return_value=([], 0)) as mock_repo:
         _session_local_context(mock_session_local)
@@ -2381,6 +2473,7 @@ def test_get_cms_filtered_series_count_maps_to_plan_count():
     row.metadata_entries = [_metadata_entry(title="All-status count")]
     row.image = None
     row.author_id = author_id
+    row.group_id = FIXTURE_GROUP_ID
     row.featured = False
     row.status = PlanStatus.DRAFT
     row.plans = None
@@ -2388,7 +2481,8 @@ def test_get_cms_filtered_series_count_maps_to_plan_count():
     mock_author = _make_mock_author(author_id, is_admin=False)
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.series.series_service.validate_and_extract_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_author_group_ids", return_value=_MEMBER_GROUP_IDS), \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
                return_value=([(row, 9)], 1)):
         _session_local_context(mock_session_local)

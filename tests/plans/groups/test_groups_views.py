@@ -258,6 +258,7 @@ def test_get_cms_groups_with_filters():
         search="foo",
         language="EN",
         tag_id=tag_id,
+        for_transfer=False,
         skip=5,
         limit=10,
     )
@@ -288,14 +289,6 @@ def test_put_cms_group_relations():
             == 200
         )
         mock_links.assert_called_once()
-
-    with patch("pecha_api.plans.groups.groups_views.replace_group_series_by_id", return_value=detail) as mock_series:
-        assert client.put(f"/cms/author/groups/{group_id}/series", json={"series_ids": [str(series_id)]}, headers=headers).status_code == 200
-        mock_series.assert_called_once()
-
-    with patch("pecha_api.plans.groups.groups_views.replace_group_plans_by_id", return_value=detail) as mock_plans:
-        assert client.put(f"/cms/author/groups/{group_id}/plans", json={"plan_ids": [str(plan_id)]}, headers=headers).status_code == 200
-        mock_plans.assert_called_once()
 
 
 def test_revoke_invite_and_member_endpoints():

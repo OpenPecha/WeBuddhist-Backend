@@ -276,8 +276,9 @@ async def get_user_enrolled_plans(
             user_id=current_user.id,
             status_filter=normalized_status,
             series_id=series_id,
+            language=language,
             skip=skip,
-            limit=limit
+            limit=limit,
         )
         
         if not plans:

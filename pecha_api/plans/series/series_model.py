@@ -13,6 +13,7 @@ class Series(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     image = Column(String(1000), nullable=True)
     author_id = Column(UUID(as_uuid=True), ForeignKey('authors.id', ondelete='RESTRICT'), nullable=False)
+    group_id = Column(UUID(as_uuid=True), ForeignKey('author_groups.id', ondelete='RESTRICT'), nullable=False)
     featured = Column(Boolean, default=False, nullable=False)
     status = Column(PlanStatusEnum, nullable=False, default='DRAFT')
     

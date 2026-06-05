@@ -3,13 +3,15 @@ from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from pecha_api.plans.audio.cms_plan_audio_service import get_cms_plan_audio_list
+from pecha_api.plans.platform_enums import PlatformRole
 
 
 def _make_author(*, is_admin: bool = False):
     author = MagicMock()
     author.id = uuid.uuid4()
     author.email = "author@example.com"
-    author.is_admin = is_admin
+    author.platform_role = PlatformRole.SUPER_ADMIN if is_admin else PlatformRole.CREATOR
+    author.is_active = True
     return author
 
 
@@ -40,9 +42,11 @@ def test_get_cms_plan_audio_list_maps_rows_and_pagination():
     plan_item = _make_plan_item(plan_id=plan_id, day_number=3)
     plan = MagicMock()
     plan.author_id = author.id
+    plan.group_id = uuid.uuid4()
+    plan.group_id = uuid.uuid4()
 
     with patch(
-        "pecha_api.plans.audio.cms_plan_audio_service.validate_and_extract_author_details",
+        "pecha_api.plans.audio.cms_plan_audio_service.validate_cms_author_details",
         return_value=author,
     ), patch("pecha_api.plans.audio.cms_plan_audio_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.audio.cms_plan_audio_service.get_plan_by_id",
@@ -70,8 +74,8 @@ def test_get_cms_plan_audio_list_maps_rows_and_pagination():
         db=mock_db,
         search="recording",
         plan_id=plan_id,
-        author_id=author.id,
-        is_admin=False,
+        group_ids=[],
+        see_all=False,
         skip=0,
         limit=10,
     )
@@ -92,7 +96,7 @@ def test_get_cms_plan_audio_list_admin_passes_is_admin():
     author = _make_author(is_admin=True)
 
     with patch(
-        "pecha_api.plans.audio.cms_plan_audio_service.validate_and_extract_author_details",
+        "pecha_api.plans.audio.cms_plan_audio_service.validate_cms_author_details",
         return_value=author,
     ), patch("pecha_api.plans.audio.cms_plan_audio_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.audio.cms_plan_audio_service.get_plan_item_audio_paginated",
@@ -108,7 +112,7 @@ def test_get_cms_plan_audio_list_admin_passes_is_admin():
         )
 
     mock_repo.assert_called_once()
-    assert mock_repo.call_args.kwargs["is_admin"] is True
+    assert mock_repo.call_args.kwargs["see_all"] is True
     assert response.total == 0
     assert response.skip == 5
     assert response.limit == 20
@@ -119,9 +123,11 @@ def test_get_cms_plan_audio_list_validates_plan_access_when_plan_id_set():
     plan_id = uuid.uuid4()
     plan = MagicMock()
     plan.author_id = author.id
+    plan.group_id = uuid.uuid4()
+    plan.group_id = uuid.uuid4()
 
     with patch(
-        "pecha_api.plans.audio.cms_plan_audio_service.validate_and_extract_author_details",
+        "pecha_api.plans.audio.cms_plan_audio_service.validate_cms_author_details",
         return_value=author,
     ), patch("pecha_api.plans.audio.cms_plan_audio_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.audio.cms_plan_audio_service.get_plan_by_id",

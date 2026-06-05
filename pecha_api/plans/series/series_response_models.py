@@ -36,6 +36,7 @@ class SeriesMetadataInput(BaseModel):
 
 
 class CreateSeriesRequest(BaseModel):
+    group_id: UUID
     metadata: List[SeriesMetadataInput]
     image_key: Optional[str] = None
     featured: Optional[bool] = False

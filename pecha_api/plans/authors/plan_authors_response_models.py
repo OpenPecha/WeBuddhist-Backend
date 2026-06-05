@@ -2,6 +2,7 @@ from typing import Optional, List
 
 from pydantic import BaseModel
 from uuid import UUID
+from pecha_api.plans.platform_enums import PlatformRole
 from pecha_api.users.users_enums import SocialProfile
 from pecha_api.plans.media.media_response_models import ImageUrlModel
 
@@ -32,7 +33,11 @@ class AuthorInfoResponse(BaseModel):
     firstname: str
     lastname: str
     email: str
-    is_admin: bool = False
+    platform_role: PlatformRole = PlatformRole.CREATOR
+    is_verified: bool = False
+    is_active: bool = False
+    has_group: bool = False
+    can_create_content: bool = False
     image_url: Optional[str] = None
     bio: Optional[str] = None
     social_profiles: List[SocialMediaProfile]
