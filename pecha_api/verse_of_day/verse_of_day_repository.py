@@ -31,3 +31,11 @@ def get_verse_of_day_by_id(db: Session, verse_id: UUID) -> Optional[VerseOfDay]:
 def get_verse_of_day_today(db: Session, today: date) -> Optional[VerseOfDay]:
 
     return db.query(VerseOfDay).filter(VerseOfDay.date == today).first()
+
+
+def create_verse_of_day(db: Session, verse_of_day: VerseOfDay) -> VerseOfDay:
+
+    db.add(verse_of_day)
+    db.commit()
+    db.refresh(verse_of_day)
+    return verse_of_day
