@@ -125,7 +125,10 @@ def _group_summary_for_id(
 ) -> Optional[AuthorGroupSummaryDTO]:
     if not group_id:
         return None
-    return group_summaries.get(group_id)
+    group_summary = group_summaries.get(group_id)
+    if not group_summary:
+        return None
+    return AuthorGroupSummaryDTO.model_validate(group_summary.model_dump())
 
 
 def _load_group_summaries_for_plans(
