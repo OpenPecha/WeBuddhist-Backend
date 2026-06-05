@@ -9,6 +9,7 @@ class VerseOfDayDTO(BaseModel):
     verse: str
     image_urls: Optional[List[str]] = None
     verse_id: str
+    ref_id: str
     ref_type: str
     group_id: Optional[UUID] = None
     date: date
@@ -25,6 +26,7 @@ class CreateVerseOfDayRequest(BaseModel):
     verse: str
     image_urls: Optional[List[str]] = None
     verse_id: str
+    ref_id: str
     ref_type: str
     group_id: Optional[UUID] = None
     date: date
@@ -34,6 +36,7 @@ class UpdateVerseOfDayRequest(BaseModel):
     verse: Optional[str] = None
     image_urls: Optional[List[str]] = None
     verse_id: Optional[str] = None
+    ref_id: Optional[str] = None
     ref_type: Optional[str] = None
     group_id: Optional[UUID] = None
     date: Optional[date] = None

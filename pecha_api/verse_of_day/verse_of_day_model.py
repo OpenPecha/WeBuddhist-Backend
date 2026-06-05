@@ -12,6 +12,7 @@ class VerseOfDay(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     verse_id = Column(String(255), nullable=False)
     verse = Column(Text, nullable=False)
+    ref_id = Column(String(255), nullable=False)
     ref_type = Column(String(50), nullable=False)
     image_urls = Column(JSONB, nullable=True)
     group_id = Column(UUID(as_uuid=True), nullable=True)
