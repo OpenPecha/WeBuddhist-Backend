@@ -51,7 +51,7 @@ async def get_user_plans(
     series_id: Optional[UUID] = Query(None, description="Filter by series ID to only get plans from that series"),
     language: Annotated[
         Optional[str],
-        Query(description="Filter by plan language (e.g. 'en', 'bo', 'zh')"),
+        Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')"),
     ] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50)
@@ -168,6 +168,10 @@ def enroll_in_series(
 async def get_user_series_enrollments_endpoint(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     status_filter: Annotated[Optional[str], Query(description="Filter by series enrollment status")] = None,
+    language: Annotated[
+        Optional[str],
+        Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')"),
+    ] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
 ):
@@ -175,6 +179,7 @@ async def get_user_series_enrollments_endpoint(
     return get_user_series_enrollments(
         token=authentication_credential.credentials,
         status_filter=status_filter,
+        language=language,
         skip=skip,
         limit=limit
     )
@@ -183,12 +188,17 @@ async def get_user_series_enrollments_endpoint(
 @user_progress_router.get("/series/{series_id}", status_code=status.HTTP_200_OK, response_model=UserSeriesProgressResponse)
 async def get_user_series_progress_endpoint(
     series_id: UUID,
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    language: Annotated[
+        Optional[str],
+        Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')"),
+    ] = None,
 ):
     """Get detailed progress for a specific series"""
     return get_user_series_progress(
         token=authentication_credential.credentials,
-        series_id=series_id
+        series_id=series_id,
+        language=language,
     )
 
 

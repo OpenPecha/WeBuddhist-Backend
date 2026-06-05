@@ -6,6 +6,7 @@ from datetime import datetime
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel, LanguageCode
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 from pecha_api.plans.media.media_response_models import ImageUrlModel
+from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 
 
 def _validate_plan_language_keys(v):
@@ -96,6 +97,7 @@ class SeriesListItemDTO(BaseModel):
     status: PlanStatus
     plan_count: int = 0
     total_days: int = 0
+    group: Optional[AuthorGroupSummaryDTO] = None
 
 
 class SeriesDTO(BaseModel):
@@ -108,7 +110,7 @@ class SeriesDTO(BaseModel):
     status: PlanStatus
     plans: List[SeriesPlanDTO] = []
     total_days: int = 0
-    group_id: Optional[UUID] = None
+    group: Optional[AuthorGroupSummaryDTO] = None
 
 
 class SeriesListResponse(BaseModel):

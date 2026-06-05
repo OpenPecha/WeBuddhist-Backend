@@ -475,6 +475,119 @@ async def test_get_user_enrolled_plans_success():
         assert plan_dto.start_date == datetime(2025, 1, 15, tzinfo=timezone.utc)
 
 
+@pytest.mark.asyncio
+async def test_get_user_enrolled_plans_includes_group_info():
+    from datetime import datetime, timezone
+    from pecha_api.plans.users.plan_users_service import get_user_enrolled_plans
+    from pecha_api.plans.groups.groups_response_models import AuthorGroupSummaryDTO, GroupMetadataDTO
+
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+
+    mock_user = SimpleNamespace(id=user_id)
+    progress = SimpleNamespace(started_at=datetime.now(timezone.utc))
+    plan = SimpleNamespace(
+        id=plan_id,
+        series_id=series_id,
+        title="Grouped Plan",
+        description="Test",
+        language=SimpleNamespace(value="EN"),
+        difficulty_level=SimpleNamespace(value="BEGINNER"),
+        image_url=None,
+        tag_list=[],
+        start_date=None,
+        display_order=1,
+        created_at=datetime.now(timezone.utc),
+    )
+    group_summary = AuthorGroupSummaryDTO(
+        id=group_id,
+        slug="dharma-group",
+        is_public=True,
+        metadata=[GroupMetadataDTO(id=uuid.uuid4(), title="Dharma Group", description=None, language="EN")],
+        tags=[],
+        follower_count=5,
+        member_count=2,
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+        SimpleNamespace(plan_id=plan_id, total_days=10)
+    ]
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=([plan], 1),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={plan_id: progress},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service._load_group_summaries_for_plans",
+        return_value=({group_id: group_summary}, {}, {series_id: group_id}),
+    ):
+        result = await get_user_enrolled_plans(token="token123", skip=0, limit=20)
+
+        assert result.plans[0].group is not None
+        assert result.plans[0].group.id == group_id
+        assert result.plans[0].group.slug == "dharma-group"
+        assert result.plans[0].group.metadata[0].title == "Dharma Group"
+
+
+@pytest.mark.asyncio
+async def test_get_user_enrolled_plans_passes_language_to_group_summaries():
+    from datetime import datetime, timezone
+    from pecha_api.plans.users.plan_users_service import get_user_enrolled_plans
+
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    mock_user = SimpleNamespace(id=user_id)
+    plan = SimpleNamespace(
+        id=plan_id,
+        series_id=series_id,
+        title="Plan",
+        description="",
+        language=SimpleNamespace(value="EN"),
+        difficulty_level=SimpleNamespace(value="BEGINNER"),
+        image_url=None,
+        tag_list=[],
+        start_date=None,
+        display_order=1,
+        created_at=datetime.now(timezone.utc),
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+    db_mock.query.return_value.filter.return_value.group_by.return_value.all.return_value = [
+        SimpleNamespace(plan_id=plan_id, total_days=5)
+    ]
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_paginated_plans_from_enrolled_series",
+        return_value=([plan], 1),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service._load_group_summaries_for_plans",
+        return_value=({}, {}, {}),
+    ) as mock_load:
+        await get_user_enrolled_plans(token="token123", language="bo", skip=0, limit=20)
+
+        assert mock_load.call_args.kwargs["language"] == "bo"
+
 
 @pytest.mark.asyncio
 async def test_get_user_enrolled_plans_with_status_filter():

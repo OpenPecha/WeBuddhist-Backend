@@ -338,6 +338,32 @@ def test_list_public_groups_returns_paginated():
     assert result.groups[0].follower_count == 3
 
 
+def test_group_summary_metadata_filtered_by_language():
+    from pecha_api.plans.groups.groups_service import _group_to_summary
+
+    group = _make_group()
+    meta_en = MagicMock()
+    meta_en.id = uuid4()
+    meta_en.title = "English Group"
+    meta_en.description = "EN desc"
+    meta_en.language = "EN"
+    meta_bo = MagicMock()
+    meta_bo.id = uuid4()
+    meta_bo.title = "Tibetan Group"
+    meta_bo.description = "BO desc"
+    meta_bo.language = "BO"
+    group.metadata_entries = [meta_en, meta_bo]
+    group.tags = []
+    group.members = []
+
+    summary_all = _group_to_summary(group)
+    summary_bo = _group_to_summary(group, language="bo")
+
+    assert len(summary_all.metadata) == 2
+    assert summary_bo.metadata.title == "Tibetan Group"
+    assert summary_bo.metadata.language == "BO"
+
+
 def test_list_cms_groups_scopes_to_member_groups_for_non_admin():
     author = _make_author(is_admin=False)
     group = _make_group()

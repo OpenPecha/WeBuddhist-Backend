@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional, Sequence
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -36,6 +36,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_following_group_ids_by_user,
     get_group_by_id,
     get_group_by_slug,
+    get_groups_by_ids,
     get_group_member,
     get_groups_paginated,
     get_invite_by_id,
@@ -380,6 +381,26 @@ def _group_to_summary(
     )
 
 
+def get_group_summaries_by_ids(
+    db: Session,
+    group_ids: Sequence[UUID],
+    language: Optional[str] = None,
+) -> Dict[UUID, AuthorGroupSummaryDTO]:
+    if not group_ids:
+        return {}
+    unique_group_ids = list(dict.fromkeys(group_ids))
+    groups = get_groups_by_ids(db=db, group_ids=unique_group_ids)
+    follower_count_map = get_followers_count_map(db=db, group_ids=unique_group_ids)
+    return {
+        group.id: _group_to_summary(
+            group,
+            follower_count=follower_count_map.get(group.id, 0),
+            language=language,
+        )
+        for group in groups
+    }
+
+
 def _group_to_detail(
     group: AuthorGroup,
     follower_count: int = 0,
@@ -498,7 +519,11 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
         return _group_to_detail(group=loaded, follower_count=followers_count, db=db)
 
 
-def get_author_group_detail(group_id: UUID, require_public: bool = True) -> PublicAuthorGroupDetailDTO:
+def get_author_group_detail(
+    group_id: UUID,
+    require_public: bool = True,
+    language: Optional[str] = None,
+) -> PublicAuthorGroupDetailDTO:
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
@@ -506,10 +531,19 @@ def get_author_group_detail(group_id: UUID, require_public: bool = True) -> Publ
         if require_public and not group.is_public:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(group=group, follower_count=follower_count, db=db, public=True)
+        return _group_to_detail(
+            group=group,
+            follower_count=follower_count,
+            db=db, public=True,
+            language=language,
+        )
 
 
-def get_cms_group_detail(token: str, group_id: UUID) -> AuthorGroupDetailDTO:
+def get_cms_group_detail(
+    token: str,
+    group_id: UUID,
+    language: Optional[str] = None,
+) -> AuthorGroupDetailDTO:
     author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
@@ -518,7 +552,12 @@ def get_cms_group_detail(token: str, group_id: UUID) -> AuthorGroupDetailDTO:
         if not is_super_admin(author) and not is_reviewer(author):
             _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(group=group, follower_count=follower_count, db=db)
+        return _group_to_detail(
+            group=group,
+            follower_count=follower_count,
+            db=db,
+            language=language,
+        )
 
 
 def list_public_groups(
