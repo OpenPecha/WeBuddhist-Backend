@@ -161,7 +161,7 @@ def _series_group_context(series: Series) -> Tuple[Optional[UUID], Dict[UUID, UU
     return series.group_id, plan_group_ids
 
 
-def _series_detail_dto(db: Session, series: Series, **kwargs) -> SeriesDTO:
+def _series_detail_dto(series: Series, **kwargs) -> SeriesDTO:
     group_id, plan_group_ids = _series_group_context(series=series)
     return _series_to_dto(series, group_id=group_id, plan_group_ids=plan_group_ids, **kwargs)
 
@@ -260,7 +260,6 @@ def get_series_detail(series_id: UUID, language: Optional[str] = None) -> Series
                 detail=f"Series with id '{series_id}' not found",
             )
         return _series_detail_dto(
-            db_session,
             row,
             include_plans=True,
             published_only=True,
@@ -330,7 +329,6 @@ def get_cms_series_detail(
             )
         require_can_read_group_content(db=db_session, group_id=row.group_id, author=current_author)
         return _series_detail_dto(
-            db_session,
             row,
             include_plans=True,
             plan_language=language,
@@ -447,7 +445,7 @@ def update_existing_series(
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
 
-        return _series_detail_dto(db_session, refreshed, include_plans=True)
+        return _series_detail_dto(refreshed, include_plans=True)
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -482,7 +480,7 @@ def update_existing_series_status(
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
 
-        return _series_detail_dto(db_session, refreshed, include_plans=True)
+        return _series_detail_dto(refreshed, include_plans=True)
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -558,7 +556,7 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
 
             saved = get_series_by_id(db=db_session, series_id=saved.id)
 
-        return _series_detail_dto(db_session, saved, include_plans=bool(plan_ids))
+        return _series_detail_dto(saved, include_plans=bool(plan_ids))
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
