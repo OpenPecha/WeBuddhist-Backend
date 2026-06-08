@@ -26,8 +26,11 @@ from pecha_api.texts.texts_service import (
     get_titles_and_ids_by_query,
     get_text_languages,
     get_language_versions,
-    get_version_info
+    get_version_info,
+    check_segment_has_translations
 )
+from pecha_api.texts.segments.segments_response_models import SegmentDTO
+from pecha_api.texts.segments.segments_enum import SegmentType
 from pecha_api.terms.terms_response_models import TermsModel
 from pecha_api.texts.texts_response_models import (
     CreateTextRequest,
@@ -4191,7 +4194,7 @@ async def test_get_text_languages_single_language():
 
 @pytest.mark.asyncio
 async def test_get_language_versions_success():
-    """Test get_language_versions returns versions for a specific language"""
+    """Test get_language_versions returns versions for a specific language when translations exist"""
     text_id = "123e4567-e89b-12d3-a456-426614174000"
     language = "bo"
     group_id = "group_id_1"
@@ -4210,6 +4213,15 @@ async def test_get_language_versions_success():
         categories=[],
         views=0
     )
+    
+    mock_segments = [
+        SegmentDTO(
+            id="segment-1-uuid",
+            text_id=text_id,
+            content="Test content",
+            type=SegmentType.TEXT
+        )
+    ]
     
     mock_texts = [
         TextDTO(
@@ -4271,6 +4283,8 @@ async def test_get_language_versions_success():
     
     with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
          patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
+         patch("pecha_api.texts.texts_service.check_segment_has_translations", new_callable=AsyncMock, return_value=True), \
          patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts), \
          patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=[mock_table_of_content]):
         
@@ -4324,6 +4338,15 @@ async def test_get_language_versions_empty_for_language():
         views=0
     )
     
+    mock_segments = [
+        SegmentDTO(
+            id="segment-1-uuid",
+            text_id=text_id,
+            content="Test content",
+            type=SegmentType.TEXT
+        )
+    ]
+    
     mock_texts = [
         TextDTO(
             id=text_id,
@@ -4357,6 +4380,8 @@ async def test_get_language_versions_empty_for_language():
     
     with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
          patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
+         patch("pecha_api.texts.texts_service.check_segment_has_translations", new_callable=AsyncMock, return_value=True), \
          patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts):
         
         response = await get_language_versions(text_id=text_id, language=language)
@@ -4390,6 +4415,15 @@ async def test_get_language_versions_with_table_of_contents():
         views=0
     )
     
+    mock_segments = [
+        SegmentDTO(
+            id="segment-1-uuid",
+            text_id=text_id,
+            content="Test content",
+            type=SegmentType.TEXT
+        )
+    ]
+    
     mock_texts = [
         TextDTO(
             id=text_id,
@@ -4414,6 +4448,8 @@ async def test_get_language_versions_with_table_of_contents():
     
     with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
          patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
+         patch("pecha_api.texts.texts_service.check_segment_has_translations", new_callable=AsyncMock, return_value=True), \
          patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts), \
          patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=mock_table_of_contents):
         
@@ -4424,6 +4460,156 @@ async def test_get_language_versions_with_table_of_contents():
         assert len(response.available_versions[0].table_of_contents) == 2
         assert "toc-1" in response.available_versions[0].table_of_contents
         assert "toc-2" in response.available_versions[0].table_of_contents
+
+
+@pytest.mark.asyncio
+async def test_get_language_versions_no_segments():
+    """Test get_language_versions returns empty list when text has no segments"""
+    text_id = "123e4567-e89b-12d3-a456-426614174000"
+    language = "bo"
+    group_id = "group_id_1"
+    
+    mock_text_detail = TextDTO(
+        id=text_id,
+        title="Test Text",
+        language="bo",
+        group_id=group_id,
+        type="version",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="pecha",
+        categories=[],
+        views=0
+    )
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=[]):
+        
+        response = await get_language_versions(text_id=text_id, language=language)
+        
+        assert response is not None
+        assert isinstance(response, VersionsResponse)
+        assert response.text_id == text_id
+        assert response.language == language
+        assert len(response.available_versions) == 0
+
+
+@pytest.mark.asyncio
+async def test_get_language_versions_no_translations():
+    """Test get_language_versions returns empty list when segment has no translations"""
+    text_id = "123e4567-e89b-12d3-a456-426614174000"
+    language = "bo"
+    group_id = "group_id_1"
+    
+    mock_text_detail = TextDTO(
+        id=text_id,
+        title="Test Text",
+        language="bo",
+        group_id=group_id,
+        type="version",
+        is_published=True,
+        created_date="2025-01-01T00:00:00",
+        updated_date="2025-01-01T00:00:00",
+        published_date="2025-01-01T00:00:00",
+        published_by="pecha",
+        categories=[],
+        views=0
+    )
+    
+    mock_segments = [
+        SegmentDTO(
+            id="segment-1-uuid",
+            text_id=text_id,
+            content="Test content",
+            type=SegmentType.TEXT
+        )
+    ]
+    
+    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
+         patch("pecha_api.texts.texts_service.check_segment_has_translations", new_callable=AsyncMock, return_value=False):
+        
+        response = await get_language_versions(text_id=text_id, language=language)
+        
+        assert response is not None
+        assert isinstance(response, VersionsResponse)
+        assert response.text_id == text_id
+        assert response.language == language
+        assert len(response.available_versions) == 0
+
+
+@pytest.mark.asyncio
+async def test_check_segment_has_translations_true():
+    """Test check_segment_has_translations returns True when translations exist"""
+    segment_id = "segment-1-uuid"
+    
+    mock_mapped_segments = [
+        SegmentDTO(
+            id="mapped-segment-1",
+            text_id="version-text-id",
+            content="Translation content",
+            type=SegmentType.TEXT
+        )
+    ]
+    
+    mock_translations = [MagicMock()]
+    
+    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, return_value=mock_mapped_segments), \
+         patch("pecha_api.texts.texts_service.SegmentUtils.filter_segment_mapping_by_type_or_text_id", new_callable=AsyncMock, return_value=mock_translations):
+        
+        result = await check_segment_has_translations(segment_id=segment_id)
+        
+        assert result is True
+
+
+@pytest.mark.asyncio
+async def test_check_segment_has_translations_false_no_mapped_segments():
+    """Test check_segment_has_translations returns False when no mapped segments"""
+    segment_id = "segment-1-uuid"
+    
+    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, return_value=[]):
+        
+        result = await check_segment_has_translations(segment_id=segment_id)
+        
+        assert result is False
+
+
+@pytest.mark.asyncio
+async def test_check_segment_has_translations_false_no_translations():
+    """Test check_segment_has_translations returns False when no translations found"""
+    segment_id = "segment-1-uuid"
+    
+    mock_mapped_segments = [
+        SegmentDTO(
+            id="mapped-segment-1",
+            text_id="commentary-text-id",
+            content="Commentary content",
+            type=SegmentType.TEXT
+        )
+    ]
+    
+    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, return_value=mock_mapped_segments), \
+         patch("pecha_api.texts.texts_service.SegmentUtils.filter_segment_mapping_by_type_or_text_id", new_callable=AsyncMock, return_value=[]):
+        
+        result = await check_segment_has_translations(segment_id=segment_id)
+        
+        assert result is False
+
+
+@pytest.mark.asyncio
+async def test_check_segment_has_translations_exception_handling():
+    """Test check_segment_has_translations returns False on exception"""
+    segment_id = "segment-1-uuid"
+    
+    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, side_effect=Exception("Database error")):
+        
+        result = await check_segment_has_translations(segment_id=segment_id)
+        
+        assert result is False
 
 
 # ============================================================================
