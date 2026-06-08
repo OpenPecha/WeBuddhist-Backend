@@ -10,7 +10,7 @@ public_tags_router = APIRouter(prefix="/public/tags", tags=["Public Tags"])
 
 
 @public_tags_router.get("", status_code=status.HTTP_200_OK, response_model=PublicTagsListResponse)
-def get_tags(
+async def get_tags(
     featured: Annotated[
         Optional[bool],
         Query(description="Filter by featured flag. Omit for all tags."),
@@ -22,7 +22,7 @@ def get_tags(
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
-    return get_public_tags(
+    return await get_public_tags(
         featured=featured,
         search=search,
         skip=skip,
