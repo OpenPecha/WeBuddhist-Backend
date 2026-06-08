@@ -2,7 +2,7 @@ from sqlalchemy import Column, DateTime, Boolean, Integer, Index, UniqueConstrai
 from uuid import uuid4
 from _datetime import datetime
 import _datetime
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 
 from ...db.database import Base
 from ...plans.plans_enums import UserPlanStatusEnum, EnrollmentSourceEnum, SeriesStatusEnum
@@ -44,7 +44,7 @@ class UserPlanProgress(Base):
         default=lambda: datetime.now(_datetime.timezone.utc),
     )
 
-    user = relationship("Users", backref="plan_progress")
+    user = relationship("Users", backref=backref("plan_progress", cascade="all, delete-orphan"))
     series_enrollment = relationship("UserSeriesEnrollment", back_populates="plan_progress_records")
 
     __table_args__ = (
@@ -74,7 +74,7 @@ class UserTaskCompletion(Base):
         nullable=False,
     )
 
-    user = relationship("Users", backref="completed_tasks")
+    user = relationship("Users", backref=backref("completed_tasks", cascade="all, delete-orphan"))
     task = relationship("PlanTask", back_populates="user_task_completions")
 
     __table_args__ = (
@@ -101,7 +101,7 @@ class UserDayCompletion(Base):
         nullable=False,
     )
 
-    user = relationship("Users", backref="day_completions")
+    user = relationship("Users", backref=backref("day_completions", cascade="all, delete-orphan"))
     item = relationship("PlanItem", backref="user_day_completions")
 
     __table_args__ = (
@@ -127,7 +127,7 @@ class UserSubTaskCompletion(Base):
         nullable=False,
     )
 
-    user = relationship("Users", backref="sub_task_completions")
+    user = relationship("Users", backref=backref("sub_task_completions", cascade="all, delete-orphan"))
     sub_task = relationship("PlanSubTask", back_populates="user_sub_task_completions")
 
     __table_args__ = (
@@ -169,7 +169,7 @@ class UserSeriesEnrollment(Base):
     )
 
     # Relationships
-    user = relationship("Users", backref="series_enrollments")
+    user = relationship("Users", backref=backref("series_enrollments", cascade="all, delete-orphan"))
     series = relationship("Series", backref="user_enrollments")
     current_plan = relationship("Plan", foreign_keys=[current_plan_id])
     plan_progress_records = relationship("UserPlanProgress", back_populates="series_enrollment")
