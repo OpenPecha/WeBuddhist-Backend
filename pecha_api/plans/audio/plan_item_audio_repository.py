@@ -1,9 +1,68 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from pecha_api.plans.audio.plan_item_audio_models import PlanItemAudio
+from pecha_api.plans.items.plan_items_models import PlanItem
+from pecha_api.plans.plans_models import Plan
+
+
+def get_plan_item_audio_paginated(
+    db: Session,
+    *,
+    search: Optional[str],
+    plan_id: Optional[UUID],
+    group_ids: Optional[List[UUID]] = None,
+    see_all: bool = False,
+    skip: int,
+    limit: int,
+) -> Tuple[List[Tuple[PlanItemAudio, PlanItem, Plan]], int]:
+    query = (
+        db.query(PlanItemAudio, PlanItem, Plan)
+        .join(PlanItem, PlanItem.id == PlanItemAudio.plan_item_id)
+        .join(Plan, Plan.id == PlanItem.plan_id)
+        .filter(Plan.deleted_at.is_(None))
+    )
+    if not see_all and group_ids is not None:
+        if not group_ids:
+            return [], 0
+        query = query.filter(Plan.group_id.in_(group_ids))
+    if plan_id is not None:
+        query = query.filter(Plan.id == plan_id)
+    if search:
+        query = query.filter(PlanItemAudio.audio_key.ilike(f"%{search}%"))
+    total = query.count()
+    rows = (
+        query.order_by(PlanItemAudio.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return rows, total
+
+
+def get_accessible_plan_item_audio_by_key(
+    db: Session,
+    audio_key: str,
+    group_ids: Optional[List[UUID]] = None,
+    see_all: bool = False,
+) -> Optional[PlanItemAudio]:
+    query = (
+        db.query(PlanItemAudio)
+        .join(PlanItem, PlanItem.id == PlanItemAudio.plan_item_id)
+        .join(Plan, Plan.id == PlanItem.plan_id)
+        .filter(Plan.deleted_at.is_(None), PlanItemAudio.audio_key == audio_key)
+    )
+    if not see_all and group_ids is not None:
+        if not group_ids:
+            return None
+        query = query.filter(Plan.group_id.in_(group_ids))
+    return query.first()
+
+
+def count_plan_item_audio_by_audio_key(db: Session, audio_key: str) -> int:
+    return db.query(PlanItemAudio).filter(PlanItemAudio.audio_key == audio_key).count()
 
 
 def get_plan_item_audio_by_plan_item_id(db: Session, plan_item_id: UUID) -> Optional[PlanItemAudio]:

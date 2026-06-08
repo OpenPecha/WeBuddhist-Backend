@@ -12,6 +12,7 @@ class SeriesMetadata(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     title = Column(String(255), nullable=False)
+    sub_title = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
     language = Column(LanguageCodeEnum, nullable=False)
     series_id = Column(

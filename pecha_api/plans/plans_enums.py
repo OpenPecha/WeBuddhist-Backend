@@ -41,6 +41,21 @@ class SortBy(enum.Enum):
     STATUS = "status"
     CREATED_AT = "created_at"
 
+class EnrollmentSource(enum.Enum):
+    DIRECT = "DIRECT"
+    SERIES = "SERIES"
+
+class SeriesStatus(enum.Enum):
+    ACTIVE = "ACTIVE"
+    PAUSED = "PAUSED"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
+
+class PlanAudioType(enum.Enum):
+    RECITATION = "RECITATION"
+    INSTRUCTION = "INSTRUCTION"
+    TEXT_READING = "TEXT_READING"
+
 
 # SQLAlchemy enum types
 DifficultyLevelEnum = Enum(DifficultyLevel)
@@ -48,5 +63,8 @@ ContentTypeEnum = Enum(ContentType)
 UserPlanStatusEnum = Enum(UserPlanStatus)
 PlanStatusEnum = Enum(PlanStatus)
 LanguageCodeEnum = Enum(LanguageCode)
+EnrollmentSourceEnum = Enum(EnrollmentSource)
+SeriesStatusEnum = Enum(SeriesStatus)
+PlanAudioTypeEnum = Enum(PlanAudioType)
 
 

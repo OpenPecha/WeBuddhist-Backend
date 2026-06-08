@@ -1,7 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func, asc, desc
-from typing import Optional
+from typing import List, Optional, Sequence
 from uuid import UUID
 from datetime import datetime, timezone
 from pecha_api.plans.authors.plan_authors_model import Author
@@ -11,7 +11,9 @@ from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from fastapi import HTTPException
 from starlette import status
+from pecha_api.plans.groups.groups_repository import get_author_group_ids
 from pecha_api.plans.plans_response_models import PlansRepositoryResponse, PlanWithAggregates
+from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin
 
 def save_plan(db: Session, plan: Plan):
     try:
@@ -28,19 +30,26 @@ def save_plan(db: Session, plan: Plan):
 def get_plans_by_author_id(
     db: Session,
     search: Optional[str],
-    author_id: UUID,
-    is_admin: bool,
+    author: Author,
     sort_by: str,
     sort_order: str,
     skip: int,
     limit: int,
     tag: Optional[str] = None,
     language: Optional[str] = None,
+    group_id: Optional[UUID] = None,
 ) -> PlansRepositoryResponse:
-    # Filters
+    from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin
+    from pecha_api.plans.groups.groups_repository import get_author_group_ids
+
     filters = [Plan.deleted_at.is_(None)]
-    if not is_admin:
-        filters.append(Plan.author_id == author_id)
+    if group_id is not None:
+        filters.append(Plan.group_id == group_id)
+    if not is_super_admin(author) and not is_reviewer(author):
+        member_group_ids = get_author_group_ids(db=db, author_id=author.id)
+        if not member_group_ids:
+            return PlansRepositoryResponse(plan_info=[], total=0)
+        filters.append(Plan.group_id.in_(member_group_ids))
     if search:
         filters.append(Plan.title.ilike(f"%{search}%"))
     if tag:
@@ -98,6 +107,36 @@ def get_plans_by_author_id(
     total = db.query(func.count(Plan.id)).filter(*filters).scalar()
     return PlansRepositoryResponse(plan_info=plan_aggregates, total=total)
 
+
+def get_plans_with_aggregates_by_ids(
+    db: Session,
+    plan_ids: Sequence[UUID],
+) -> List[PlanWithAggregates]:
+    if not plan_ids:
+        return []
+    total_days_label = func.count(func.distinct(PlanItem.id)).label("total_days")
+    subscription_count_label = func.count(func.distinct(UserPlanProgress.user_id)).label(
+        "subscription_count"
+    )
+    rows = (
+        db.query(Plan, total_days_label, subscription_count_label)
+        .outerjoin(PlanItem, PlanItem.plan_id == Plan.id)
+        .outerjoin(UserPlanProgress, UserPlanProgress.plan_id == Plan.id)
+        .options(selectinload(Plan.author), selectinload(Plan.tag_list))
+        .filter(Plan.id.in_(plan_ids), Plan.deleted_at.is_(None))
+        .group_by(Plan.id)
+        .all()
+    )
+    return [
+        PlanWithAggregates(
+            plan=plan,
+            total_days=int(total_days or 0),
+            subscription_count=int(subscription_count or 0),
+        )
+        for plan, total_days, subscription_count in rows
+    ]
+
+
 def get_plan_by_id(db: Session, plan_id: UUID) -> Plan:
     try:   
         return db.query(Plan).options(selectinload(Plan.tag_list)).filter(Plan.id == plan_id).first()
@@ -109,12 +148,17 @@ def get_plan_by_id(db: Session, plan_id: UUID) -> Plan:
             detail=f"Failed to get plan by id: {str(e)}"
         )
 
-def get_plan_by_id_and_created_by(db: Session, plan_id: UUID, created_by: str, is_admin: bool) -> Plan:
+def get_plan_by_id_and_created_by(db: Session, plan_id: UUID, author: Author) -> Optional[Plan]:
     try:
-        if not is_admin:
-            return db.query(Plan).filter(Plan.id == plan_id, Plan.created_by == created_by).first()
-        else:
-            return db.query(Plan).options(selectinload(Plan.tag_list)).filter(Plan.id == plan_id).first()
+        plan = db.query(Plan).options(selectinload(Plan.tag_list)).filter(Plan.id == plan_id).first()
+        if not plan:
+            return None
+        if is_super_admin(author) or is_reviewer(author):
+            return plan
+        member_group_ids = get_author_group_ids(db=db, author_id=author.id)
+        if plan.group_id in member_group_ids:
+            return plan
+        return None
     except Exception as e:
         db.rollback()
         print(f"Error getting plan by id and created by: {str(e)}")

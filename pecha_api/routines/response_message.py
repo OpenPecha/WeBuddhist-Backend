@@ -8,3 +8,5 @@ TIME_ALREADY_EXISTS = "A time block with this time already exists in the routine
 TIME_BLOCK_NOT_FOUND = "Time block not found"
 TIME_BLOCK_TIME_CONFLICT = "Time block with this time already exists"
 NO_ROUTINE_CREATED_FOR_USER = "No routine created for this user"
+SOURCE_ID_REQUIRED = "source_id is required for PLAN and RECITATION sessions"
+INVALID_TIMER_DURATION = "A TIMER session requires a positive duration_ms"

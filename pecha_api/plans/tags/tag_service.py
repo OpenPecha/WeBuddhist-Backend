@@ -36,12 +36,14 @@ def _active_plan_ids(tag: Tag) -> List[UUID]:
 
 
 def _tag_to_dto(tag: Tag) -> TagDTO:
+    featured = tag.featured if isinstance(tag.featured, bool) else False
     return TagDTO(
         id=tag.id,
         name=tag.name,
         image=generate_tag_image_url(tag.image_key),
         image_key=tag.image_key,
         description=tag.description,
+        featured=featured,
         plan_ids=_active_plan_ids(tag),
     )
 
@@ -80,6 +82,7 @@ def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> TagDTO:
             name=create_tag_request.name.strip(),
             image_key=create_tag_request.image_key,
             description=create_tag_request.description,
+            featured=create_tag_request.featured,
             updated_by=author.email,
         )
         try:
@@ -121,6 +124,8 @@ def update_existing_tag(token: str, tag_id: UUID, update_tag_request: UpdateTagR
             tag.image_key = update_tag_request.image_key
         if update_tag_request.description is not None:
             tag.description = update_tag_request.description
+        if update_tag_request.featured is not None:
+            tag.featured = update_tag_request.featured
 
         tag.updated_at = datetime.now(timezone.utc)
         tag.updated_by = author.email

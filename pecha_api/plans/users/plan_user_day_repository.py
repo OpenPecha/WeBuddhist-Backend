@@ -17,6 +17,19 @@ def save_user_day_completion(db: Session, user_day_completion: UserDayCompletion
         db.rollback()
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ResponseError(error=BAD_REQUEST, message=str(e.orig)).model_dump())
 
+
+def save_user_day_completion_if_not_exists(db: Session, user_id: UUID, day_id: UUID) -> bool:
+    """Insert day completion when missing. Returns True if a new row was created."""
+    if get_user_day_completion_by_user_id_and_day_id(db, user_id, day_id):
+        return False
+    try:
+        db.add(UserDayCompletion(user_id=user_id, day_id=day_id))
+        db.commit()
+        return True
+    except IntegrityError:
+        db.rollback()
+        return False
+
 def delete_user_day_completion(db: Session, user_id: UUID, day_id: UUID) -> None:
     try:
         db.query(UserDayCompletion).filter(UserDayCompletion.user_id == user_id, UserDayCompletion.day_id == day_id).delete()

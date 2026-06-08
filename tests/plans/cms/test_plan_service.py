@@ -19,6 +19,9 @@ from pecha_api.plans.cms.cms_plans_service import (
     DUMMY_PLANS, DUMMY_DAYS,
     _get_subscription_count, _validate_start_date_update, _apply_plan_field_updates, _generate_plan_image_url
 )
+from pecha_api.plans.platform_enums import PlatformRole
+
+TEST_GROUP_ID = uuid.uuid4()
 
 
 def _mock_session_local(mock_session_local):
@@ -63,9 +66,12 @@ def test_validate_start_date_update_raises_for_published_with_subscribers():
     
     mock_plan = MagicMock()
     mock_plan.status = PlanStatus.PUBLISHED
+    mock_plan.start_date = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    
+    new_start_date = datetime(2025, 2, 1, 0, 0, 0, tzinfo=timezone.utc)
     
     with pytest.raises(HTTPException) as exc_info:
-        _validate_start_date_update(mock_db, mock_plan, plan_id)
+        _validate_start_date_update(mock_db, mock_plan, plan_id, new_start_date)
     
     assert exc_info.value.status_code == 400
 
@@ -79,7 +85,9 @@ def test_validate_start_date_update_allows_draft_plan():
     mock_plan = MagicMock()
     mock_plan.status = PlanStatus.DRAFT
     
-    _validate_start_date_update(mock_db, mock_plan, plan_id)
+    new_start_date = datetime(2025, 2, 1, 0, 0, 0, tzinfo=timezone.utc)
+    
+    _validate_start_date_update(mock_db, mock_plan, plan_id, new_start_date)
 
 
 def test_validate_start_date_update_allows_published_with_no_subscribers():
@@ -91,7 +99,25 @@ def test_validate_start_date_update_allows_published_with_no_subscribers():
     mock_plan = MagicMock()
     mock_plan.status = PlanStatus.PUBLISHED
     
-    _validate_start_date_update(mock_db, mock_plan, plan_id)
+    new_start_date = datetime(2025, 2, 1, 0, 0, 0, tzinfo=timezone.utc)
+    
+    _validate_start_date_update(mock_db, mock_plan, plan_id, new_start_date)
+
+
+def test_validate_start_date_update_allows_same_date_for_published_with_subscribers():
+    """Test _validate_start_date_update does not raise when start date is not changing for published plan with subscribers"""
+    plan_id = uuid.uuid4()
+    mock_db = MagicMock()
+    mock_db.query.return_value.filter.return_value.scalar.return_value = 5
+    
+    same_start_date = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    
+    mock_plan = MagicMock()
+    mock_plan.status = PlanStatus.PUBLISHED
+    mock_plan.start_date = same_start_date
+    
+    # This should not raise because the date is not actually changing
+    _validate_start_date_update(mock_db, mock_plan, plan_id, same_start_date)
 
 
 def test_apply_plan_field_updates_updates_all_fields():
@@ -175,6 +201,7 @@ def test_generate_plan_image_url_returns_key_on_exception():
 
 def test_create_new_plan_success():
     request = CreatePlanRequest(
+        group_id=TEST_GROUP_ID,
         title="Mindfulness Basics",
         description="A simple plan to get started with mindfulness.",
         difficulty_level=DifficultyLevel.BEGINNER,
@@ -195,12 +222,19 @@ def test_create_new_plan_success():
     saved_plan.language = request.language
     saved_plan.status = PlanStatus.DRAFT
     saved_plan.start_date = request.start_date
+    saved_plan.series_id = None
+    saved_plan.display_order = None
+    saved_plan.group_id = TEST_GROUP_ID
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.cms.cms_plans_service.save_plan") as mock_save_plan, \
         patch("pecha_api.plans.cms.cms_plans_service.save_plan_items") as mock_save_plan_items, \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_progress") as mock_get_plan_progress, \
-        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author:
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author:
         db_session = _mock_session_local(mock_session_local)
         mock_save_plan.return_value = saved_plan
         # save_plan_items returns the list of saved items; return a list sized to total_days
@@ -210,7 +244,7 @@ def test_create_new_plan_success():
         author = MagicMock()
         author.id = uuid.uuid4()
         author.email = "author@example.com"
-        author.is_admin = False
+        author.platform_role = PlatformRole.CREATOR
         mock_validate_author.return_value = author
 
         response = create_new_plan(token="dummy", create_plan_request=request)
@@ -256,6 +290,7 @@ def test_create_new_plan_success():
 def test_create_new_plan_with_series_id():
     series_id = uuid.uuid4()
     request = CreatePlanRequest(
+        group_id=TEST_GROUP_ID,
         title="Series Plan",
         description="Attached to a series on create.",
         difficulty_level=DifficultyLevel.BEGINNER,
@@ -275,15 +310,23 @@ def test_create_new_plan_with_series_id():
     saved_plan.language = request.language
     saved_plan.status = PlanStatus.DRAFT
     saved_plan.start_date = None
+    saved_plan.series_id = None
+    saved_plan.display_order = None
+    saved_plan.group_id = TEST_GROUP_ID
 
     mock_series = MagicMock()
     mock_series.author_id = uuid.uuid4()
+    mock_series.group_id = TEST_GROUP_ID
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.cms.cms_plans_service.save_plan") as mock_save_plan, \
         patch("pecha_api.plans.cms.cms_plans_service.save_plan_items") as mock_save_plan_items, \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_progress") as mock_get_plan_progress, \
-        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
         patch("pecha_api.plans.cms.cms_plans_service.get_series_by_id") as mock_get_series:
         db_session = _mock_session_local(mock_session_local)
         mock_save_plan.return_value = saved_plan
@@ -294,7 +337,7 @@ def test_create_new_plan_with_series_id():
         author = MagicMock()
         author.id = mock_series.author_id
         author.email = "author@example.com"
-        author.is_admin = False
+        author.platform_role = PlatformRole.CREATOR
         mock_validate_author.return_value = author
 
         create_new_plan(token="dummy", create_plan_request=request)
@@ -308,6 +351,7 @@ def test_create_new_plan_with_series_id():
 def test_create_new_plan_with_series_id_auto_display_order():
     series_id = uuid.uuid4()
     request = CreatePlanRequest(
+        group_id=TEST_GROUP_ID,
         title="Series Plan",
         description="Auto display order.",
         difficulty_level=DifficultyLevel.BEGINNER,
@@ -326,15 +370,23 @@ def test_create_new_plan_with_series_id_auto_display_order():
     saved_plan.language = request.language
     saved_plan.status = PlanStatus.DRAFT
     saved_plan.start_date = None
+    saved_plan.series_id = None
+    saved_plan.display_order = None
+    saved_plan.group_id = TEST_GROUP_ID
 
     mock_series = MagicMock()
     mock_series.author_id = uuid.uuid4()
+    mock_series.group_id = TEST_GROUP_ID
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.cms.cms_plans_service.save_plan") as mock_save_plan, \
         patch("pecha_api.plans.cms.cms_plans_service.save_plan_items") as mock_save_plan_items, \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_progress") as mock_get_plan_progress, \
-        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
         patch("pecha_api.plans.cms.cms_plans_service.get_series_by_id") as mock_get_series:
         db_session = _mock_session_local(mock_session_local)
         db_session.query.return_value.filter.return_value.scalar.return_value = 4
@@ -346,7 +398,7 @@ def test_create_new_plan_with_series_id_auto_display_order():
         author = MagicMock()
         author.id = mock_series.author_id
         author.email = "author@example.com"
-        author.is_admin = False
+        author.platform_role = PlatformRole.CREATOR
         mock_validate_author.return_value = author
 
         create_new_plan(token="dummy", create_plan_request=request)
@@ -359,6 +411,7 @@ def test_create_new_plan_with_series_id_auto_display_order():
 def test_create_new_plan_series_not_found():
     series_id = uuid.uuid4()
     request = CreatePlanRequest(
+        group_id=TEST_GROUP_ID,
         title="Series Plan",
         description="Missing series.",
         difficulty_level=DifficultyLevel.BEGINNER,
@@ -368,7 +421,11 @@ def test_create_new_plan_series_not_found():
     )
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
-        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
         patch("pecha_api.plans.cms.cms_plans_service.get_series_by_id") as mock_get_series:
         _mock_session_local(mock_session_local)
         mock_get_series.return_value = None
@@ -376,7 +433,7 @@ def test_create_new_plan_series_not_found():
         author = MagicMock()
         author.id = uuid.uuid4()
         author.email = "author@example.com"
-        author.is_admin = False
+        author.platform_role = PlatformRole.CREATOR
         mock_validate_author.return_value = author
 
         with pytest.raises(HTTPException) as exc_info:
@@ -386,8 +443,7 @@ def test_create_new_plan_series_not_found():
         assert str(series_id) in exc_info.value.detail
 
 
-@pytest.mark.asyncio
-async def test_get_filtered_plans_success():
+def test_get_filtered_plans_success():
     plan1 = Plan(
         id=uuid.uuid4(),
         title="Plan One",
@@ -395,6 +451,7 @@ async def test_get_filtered_plans_success():
         image_url="https://example.com/one.jpg",
         status=PlanStatus.PUBLISHED,
         author_id=uuid.uuid4(),
+        group_id=TEST_GROUP_ID,
         created_by="tester@example.com",
     )
 
@@ -406,6 +463,7 @@ async def test_get_filtered_plans_success():
         image_url="https://example.com/two.jpg",
         status=PlanStatus.DRAFT,
         author_id=uuid.uuid4(),
+        group_id=TEST_GROUP_ID,
         created_by="tester@example.com",
     )
     plan1.tag_list = []
@@ -432,19 +490,24 @@ async def test_get_filtered_plans_success():
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.cms.cms_plans_service.get_plans_by_author_id") as mock_get_plans_by_author_id, \
-        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+        patch("pecha_api.plans.cms.cms_plans_service.get_group_ids_by_plan_ids", return_value={plan1.id: TEST_GROUP_ID, plan2.id: TEST_GROUP_ID}), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
         patch("pecha_api.plans.cms.cms_plans_service.generate_presigned_access_url") as mock_presign, \
         patch("pecha_api.plans.cms.cms_plans_service.get") as mock_get_config:
         db_session = _mock_session_local(mock_session_local)
         mock_get_plans_by_author_id.return_value = repo_response
         # author.id is used in service to pass author_id to repository
-        mock_author = MagicMock(id=uuid.uuid4(), is_admin=False)
+        mock_author = MagicMock(id=uuid.uuid4(), platform_role=PlatformRole.CREATOR, is_active=True)
         mock_validate_author.return_value = mock_author
         # Return the original key so assertions comparing to plan.image_url still pass
         mock_presign.side_effect = lambda bucket_name, s3_key: s3_key
         mock_get_config.return_value = "dummy-bucket"
 
-        resp = await get_filtered_plans(
+        resp = get_filtered_plans(
             token="dummy-token",
             search="plan",
             sort_by="created_at",
@@ -460,8 +523,7 @@ async def test_get_filtered_plans_success():
         called_kwargs = mock_get_plans_by_author_id.call_args.kwargs
         assert called_kwargs == {
             "db": db_session,
-            "author_id": mock_author.id,
-            "is_admin": False,
+            "author": mock_author,
             "search": "plan",
             "sort_by": "created_at",
             "sort_order": "desc",
@@ -469,6 +531,7 @@ async def test_get_filtered_plans_success():
             "limit": 10,
             "tag": None,
             "language": None,
+            "group_id": None,
         }
 
         # verify response mapping
@@ -520,6 +583,7 @@ async def test_get_details_plan_success():
         image_url="https://example.com/image.jpg",
         status=PlanStatus.PUBLISHED,
         author_id=uuid.uuid4(),
+        group_id=TEST_GROUP_ID,
         created_by="tester@example.com",
     )
     # Ensure required fields used by service/DTO are present
@@ -552,11 +616,15 @@ async def test_get_details_plan_success():
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_plan_items_by_plan_id, \
         patch("pecha_api.plans.cms.cms_plans_service.get_tasks_by_item_ids") as mock_get_tasks_by_item_ids, \
         patch("pecha_api.plans.audio.plan_item_audio_repository.get_plan_item_audio_by_plan_item_ids", return_value=[]) as mock_get_audio, \
-        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
         patch("pecha_api.plans.cms.cms_plans_service.generate_presigned_access_url") as mock_presign, \
         patch("pecha_api.plans.cms.cms_plans_service.get") as mock_get_config:
         db_session = _mock_session_local(mock_session_local)
-        mock_validate_author.return_value = MagicMock(is_admin=False)
+        mock_validate_author.return_value = MagicMock(platform_role=PlatformRole.CREATOR)
         mock_get_plan_by_id.return_value = plan
         mock_get_plan_items_by_plan_id.return_value = [item1, item2]
         mock_get_tasks_by_item_ids.return_value = [task1, task2]
@@ -566,7 +634,7 @@ async def test_get_details_plan_success():
         response = await get_details_plan(token="dummy-token", plan_id=plan.id)
 
         mock_validate_author.assert_called_once_with(token="dummy-token")
-        mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan.id)
+        assert mock_get_plan_by_id.call_count == 2
         mock_get_plan_items_by_plan_id.assert_called_once_with(db=db_session, plan_id=plan.id)
         mock_get_tasks_by_item_ids.assert_called_once_with(db=db_session, plan_item_ids=[item1.id, item2.id])
 
@@ -627,9 +695,18 @@ async def test_get_plan_day_details_success():
     plan_item.tasks = [task]
     plan_item.audio = None
 
+    mock_plan_for_day = MagicMock()
+    mock_plan_for_day.group_id = TEST_GROUP_ID
+    mock_plan_for_day.deleted_at = None
+
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+        patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id", return_value=mock_plan_for_day), \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_day_with_tasks_and_subtasks") as mock_get_day, \
-        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author:
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author:
         _ = _mock_session_local(mock_session_local)
         mock_validate_author.return_value = MagicMock()
         mock_get_day.return_value = plan_item
@@ -661,9 +738,18 @@ async def test_get_plan_day_details_success():
 @pytest.mark.asyncio
 async def test_get_plan_day_details_not_found():
     non_existent_plan_id = uuid.uuid4()
+    mock_plan_for_day = MagicMock()
+    mock_plan_for_day.group_id = TEST_GROUP_ID
+    mock_plan_for_day.deleted_at = None
+
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+        patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id", return_value=mock_plan_for_day), \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_day_with_tasks_and_subtasks") as mock_get_day, \
-        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author:
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author:
         _ = _mock_session_local(mock_session_local)
         mock_validate_author.return_value = MagicMock()
         mock_get_day.side_effect = HTTPException(status_code=404, detail={"error": "Bad request", "message": "Plan day not found"})
@@ -691,9 +777,18 @@ async def test_get_plan_day_details_no_subtasks():
     plan_item.tasks = [task]
     plan_item.audio = None
 
+    mock_plan_for_day = MagicMock()
+    mock_plan_for_day.group_id = TEST_GROUP_ID
+    mock_plan_for_day.deleted_at = None
+
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+        patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id", return_value=mock_plan_for_day), \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_day_with_tasks_and_subtasks") as mock_get_day, \
-        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author:
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author:
         _ = _mock_session_local(mock_session_local)
         mock_validate_author.return_value = MagicMock()
         mock_get_day.return_value = plan_item
@@ -716,7 +811,11 @@ async def test_get_details_plan_not_found():
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan_by_id, \
-        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author:
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author:
         _ = _mock_session_local(mock_session_local)
 
         mock_validate_author.return_value = MagicMock()
@@ -747,6 +846,10 @@ async def test_update_plan_details_success():
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
+    mock_plan.series_id = None
+    mock_plan.display_order = None
+    mock_plan.group_id = TEST_GROUP_ID
+    mock_plan.deleted_at = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=i) for i in range(1, 6)]
     
@@ -761,7 +864,11 @@ async def test_update_plan_details_success():
     )
     
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.update_plan") as mock_update_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_items, \
@@ -774,7 +881,7 @@ async def test_update_plan_details_success():
         mock_author = MagicMock()
         mock_author.email = author_email
         mock_author.id = author_id
-        mock_author.is_admin = False
+        mock_author.platform_role = PlatformRole.CREATOR
         mock_validate_author.return_value = mock_author
         
         mock_get_plan.return_value = mock_plan
@@ -829,11 +936,17 @@ async def test_update_plan_details_cannot_update_start_date_for_published_with_s
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.PUBLISHED
     mock_plan.start_date = None
+    mock_plan.group_id = TEST_GROUP_ID
+    mock_plan.deleted_at = None
 
     update_request = UpdatePlanRequest(start_date=start_date)
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan:
 
         db_session = _mock_session_local(mock_session_local)
@@ -842,7 +955,7 @@ async def test_update_plan_details_cannot_update_start_date_for_published_with_s
         mock_author = MagicMock()
         mock_author.email = author_email
         mock_author.id = author_id
-        mock_author.is_admin = False
+        mock_author.platform_role = PlatformRole.CREATOR
         mock_validate_author.return_value = mock_author
 
         mock_get_plan.return_value = mock_plan
@@ -874,6 +987,10 @@ async def test_update_plan_details_partial_update():
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
+    mock_plan.series_id = None
+    mock_plan.display_order = None
+    mock_plan.group_id = TEST_GROUP_ID
+    mock_plan.deleted_at = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=i) for i in range(1, 6)]
     
@@ -883,7 +1000,11 @@ async def test_update_plan_details_partial_update():
     )
     
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.update_plan") as mock_update_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_items:
@@ -894,7 +1015,7 @@ async def test_update_plan_details_partial_update():
         mock_author = MagicMock()
         mock_author.email = "author@example.com"
         mock_author.id = author_id
-        mock_author.is_admin = False
+        mock_author.platform_role = PlatformRole.CREATOR
         mock_validate_author.return_value = mock_author
         
         mock_get_plan.return_value = mock_plan
@@ -923,7 +1044,11 @@ async def test_update_plan_details_not_found():
     update_request = UpdatePlanRequest(title="Updated Title")
     
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan:
         
         _mock_session_local(mock_session_local)
@@ -961,13 +1086,21 @@ async def test_update_plan_details_with_image_url_generation():
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
+    mock_plan.series_id = None
+    mock_plan.display_order = None
+    mock_plan.group_id = TEST_GROUP_ID
+    mock_plan.deleted_at = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=1)]
     
     update_request = UpdatePlanRequest(title="Test Plan")
     
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.update_plan") as mock_update_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_items, \
@@ -979,7 +1112,7 @@ async def test_update_plan_details_with_image_url_generation():
         
         mock_author = MagicMock()
         mock_author.id = author_id
-        mock_author.is_admin = False
+        mock_author.platform_role = PlatformRole.CREATOR
         mock_validate_author.return_value = mock_author
         
         mock_get_plan.return_value = mock_plan
@@ -1018,13 +1151,21 @@ async def test_update_plan_details_image_url_generation_failure():
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
+    mock_plan.series_id = None
+    mock_plan.display_order = None
+    mock_plan.group_id = TEST_GROUP_ID
+    mock_plan.deleted_at = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=1)]
     
     update_request = UpdatePlanRequest(title="Test Plan")
     
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.update_plan") as mock_update_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_items, \
@@ -1036,7 +1177,7 @@ async def test_update_plan_details_image_url_generation_failure():
         
         mock_author = MagicMock()
         mock_author.id = author_id
-        mock_author.is_admin = False
+        mock_author.platform_role = PlatformRole.CREATOR
         mock_validate_author.return_value = mock_author
         
         mock_get_plan.return_value = mock_plan
@@ -1072,13 +1213,21 @@ async def test_update_plan_details_no_image_url():
     mock_plan.language = MagicMock(value="en")
     mock_plan.status = PlanStatus.DRAFT
     mock_plan.start_date = None
+    mock_plan.series_id = None
+    mock_plan.display_order = None
+    mock_plan.group_id = TEST_GROUP_ID
+    mock_plan.deleted_at = None
     
     existing_items = [MagicMock(spec=PlanItem, day_number=1)]
     
     update_request = UpdatePlanRequest(title="Test Plan")
     
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.update_plan") as mock_update_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_items:
@@ -1088,7 +1237,7 @@ async def test_update_plan_details_no_image_url():
         
         mock_author = MagicMock()
         mock_author.id = author_id
-        mock_author.is_admin = False
+        mock_author.platform_role = PlatformRole.CREATOR
         mock_validate_author.return_value = mock_author
         
         mock_get_plan.return_value = mock_plan
@@ -1123,15 +1272,22 @@ async def test_update_plan_details_with_series_id():
     mock_plan.start_date = None
     mock_plan.series_id = None
     mock_plan.display_order = None
+    mock_plan.group_id = TEST_GROUP_ID
+    mock_plan.deleted_at = None
 
     mock_series = MagicMock()
     mock_series.author_id = author_id
+    mock_series.group_id = TEST_GROUP_ID
 
     existing_items = [MagicMock(spec=PlanItem, day_number=1)]
     update_request = UpdatePlanRequest(series_id=series_id, display_order=1)
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.update_plan") as mock_update_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_items, \
@@ -1142,7 +1298,7 @@ async def test_update_plan_details_with_series_id():
         mock_author = MagicMock()
         mock_author.id = author_id
         mock_author.email = "author@example.com"
-        mock_author.is_admin = False
+        mock_author.platform_role = PlatformRole.CREATOR
         mock_validate_author.return_value = mock_author
 
         mock_get_plan.return_value = mock_plan
@@ -1180,12 +1336,18 @@ async def test_update_plan_details_detach_series():
     mock_plan.start_date = None
     mock_plan.series_id = existing_series_id
     mock_plan.display_order = 2
+    mock_plan.group_id = TEST_GROUP_ID
+    mock_plan.deleted_at = None
 
     existing_items = [MagicMock(spec=PlanItem, day_number=1)]
     update_request = UpdatePlanRequest.model_validate({"series_id": None})
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.update_plan") as mock_update_plan, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_items:
@@ -1195,7 +1357,7 @@ async def test_update_plan_details_detach_series():
         mock_author = MagicMock()
         mock_author.id = author_id
         mock_author.email = "author@example.com"
-        mock_author.is_admin = False
+        mock_author.platform_role = PlatformRole.CREATOR
         mock_validate_author.return_value = mock_author
 
         mock_get_plan.return_value = mock_plan
@@ -1227,6 +1389,10 @@ async def test_update_selected_plan_status_success_db_backed():
     mock_plan.image_url = "images/plan.jpg"
     mock_plan.tag_list = []
     mock_plan.status = PlanStatus.DRAFT
+    mock_plan.series_id = None
+    mock_plan.display_order = None
+    mock_plan.group_id = TEST_GROUP_ID
+    mock_plan.deleted_at = None
 
     items = [MagicMock(spec=PlanItem), MagicMock(spec=PlanItem)]
     user_progress = [MagicMock(), MagicMock(), MagicMock()]
@@ -1238,10 +1404,14 @@ async def test_update_selected_plan_status_success_db_backed():
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_items, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_progress") as mock_get_progress, \
          patch("pecha_api.plans.cms.cms_plans_service.update_plan") as mock_update_plan, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author:
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author:
         db_session = _mock_session_local(mock_session_local)
 
-        mock_validate_author.return_value = MagicMock(id=author_id, is_admin=False)
+        mock_validate_author.return_value = MagicMock(id=author_id, platform_role=PlatformRole.CREATOR)
         mock_get_plan_by_id.return_value = mock_plan
         mock_get_items.return_value = items
         mock_get_progress.return_value = user_progress
@@ -1273,13 +1443,19 @@ async def test_update_selected_plan_status_invalid_transition_no_days():
     mock_plan.id = plan_id
     mock_plan.author_id = author_id
     mock_plan.status = PlanStatus.DRAFT
+    mock_plan.group_id = TEST_GROUP_ID
+    mock_plan.deleted_at = None
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan_by_id, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_items, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author:
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author:
         _ = _mock_session_local(mock_session_local)
-        mock_validate_author.return_value = MagicMock(id=author_id, is_admin=False)
+        mock_validate_author.return_value = MagicMock(id=author_id, platform_role=PlatformRole.CREATOR)
         mock_get_plan_by_id.return_value = mock_plan
         mock_get_items.return_value = []
 
@@ -1300,9 +1476,13 @@ async def test_update_selected_plan_status_not_found():
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan_by_id, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author:
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author:
         _ = _mock_session_local(mock_session_local)
-        mock_validate_author.return_value = MagicMock(id=uuid.uuid4(), is_admin=False)
+        mock_validate_author.return_value = MagicMock(id=uuid.uuid4(), platform_role=PlatformRole.CREATOR)
         mock_get_plan_by_id.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
@@ -1322,13 +1502,24 @@ async def test_update_selected_plan_status_author_mismatch():
 
     mock_plan = MagicMock(spec=Plan)
     mock_plan.id = plan_id
-    mock_plan.author_id = uuid.uuid4()  # different than caller
+    mock_plan.author_id = uuid.uuid4()
+    mock_plan.group_id = TEST_GROUP_ID
+    mock_plan.deleted_at = None
+
+    forbidden = HTTPException(
+        status_code=403,
+        detail={"error": "Bad request", "message": "You are not authorized to update this plan"},
+    )
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan_by_id, \
-         patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author:
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status", side_effect=forbidden), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author:
         _ = _mock_session_local(mock_session_local)
-        mock_validate_author.return_value = MagicMock(id=uuid.uuid4(), is_admin=False)
+        mock_validate_author.return_value = MagicMock(id=uuid.uuid4(), platform_role=PlatformRole.CREATOR)
         mock_get_plan_by_id.return_value = mock_plan
 
         with pytest.raises(HTTPException) as exc_info:
@@ -1347,16 +1538,22 @@ async def test_delete_selected_plan_success():
     plan_id = uuid.uuid4()
     author = MagicMock()
     author.id = uuid.uuid4()
-    author.is_admin = False
+    author.platform_role = PlatformRole.CREATOR
 
     plan = MagicMock(spec=Plan)
     plan.id = plan_id
     plan.author_id = author.id
+    plan.group_id = TEST_GROUP_ID
+    plan.deleted_at = None
 
     with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan_by_id, \
         patch("pecha_api.plans.cms.cms_plans_service._soft_delete_plan_by_id") as mock_soft_delete, \
-        patch("pecha_api.plans.cms.cms_plans_service.validate_and_extract_author_details") as mock_validate_author:
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author:
         db_session = _mock_session_local(mock_session_local)
         mock_validate_author.return_value = author
         mock_get_plan_by_id.return_value = plan

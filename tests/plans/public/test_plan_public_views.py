@@ -1,17 +1,30 @@
 import pytest
 from uuid import uuid4
+from datetime import date as DateType
 from unittest.mock import patch, AsyncMock, MagicMock
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from starlette import status
 
 from pecha_api.app import api
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, AuthorDTO, PlanDayBasic, PlanDayDTO, TaskDTO, SubTaskDTO,PlanDaysResponse, TagsResponse
+from pecha_api.plans.public.plan_response_models import (
+    PublicPlansResponse,
+    PublicPlanDTO,
+    AuthorDTO,
+    PlanDayBasic,
+    PlanDayDTO,
+    TaskDTO,
+    SubTaskDTO,
+    PlanDaysResponse,
+    TagsResponse,
+    DailyPlanResponse,
+)
 from tests.plans.tag_test_helpers import make_tag_summaries
 from pecha_api.plans.plans_enums import PlanStatus, DifficultyLevel,ContentType
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.public.plan_views import get_plan_days_list, get_plan_day_content
 from pecha_api.plans.public.plan_service import auto_enroll_plan
+from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
 
 
 client = TestClient(api)
@@ -91,6 +104,7 @@ async def test_get_plans_success(sample_plans_response):
         
         mock_service.assert_called_once_with(
             tag=None,
+            group_id=None,
             search=None,
             language="en",
             sort_by="title",
@@ -112,6 +126,7 @@ async def test_get_plans_with_search_filter(sample_plans_response):
         
         mock_service.assert_called_once_with(
             tag=None,
+            group_id=None,
             search="meditation",
             language="en",
             sort_by="title",
@@ -133,6 +148,7 @@ async def test_get_plans_with_language_filter(sample_plans_response):
         
         mock_service.assert_called_once_with(
             tag=None,
+            group_id=None,
             search=None,
             language="en",
             sort_by="title",
@@ -154,6 +170,7 @@ async def test_get_plans_with_sorting(sample_plans_response):
         
         mock_service.assert_called_once_with(
             tag=None,
+            group_id=None,
             search=None,
             language="en",
             sort_by="subscription_count",
@@ -170,10 +187,10 @@ async def test_get_plans_with_pagination(sample_plans_response):
         response = client.get("/api/v1/plans?skip=10&limit=5")
         
         assert response.status_code == status.HTTP_200_OK
-        data = response.json()
         
         mock_service.assert_called_once_with(
             tag=None,
+            group_id=None,
             search=None,
             language="en",
             sort_by="title",
@@ -192,10 +209,10 @@ async def test_get_plans_with_all_filters(sample_plans_response):
         )
         
         assert response.status_code == status.HTTP_200_OK
-        data = response.json()
         
         mock_service.assert_called_once_with(
             tag=None,
+            group_id=None,
             search="meditation",
             language="en",
             sort_by="total_days",
@@ -309,6 +326,59 @@ async def test_get_plan_details_not_found():
         
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert ErrorConstants.PLAN_NOT_FOUND in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_get_plan_daily_success():
+    plan_id = uuid4()
+    daily_response = DailyPlanResponse(
+        plan_id=plan_id,
+        plan_title="Daily Plan",
+        plan_description="Desc",
+        date=DateType(2026, 5, 1),
+        day_number=1,
+        total_days=3,
+        start_date=DateType(2026, 5, 1),
+        end_date=DateType(2026, 5, 3),
+        tasks=[],
+    )
+
+    with patch(
+        "pecha_api.plans.public.plan_views.get_plan_daily_content",
+        new_callable=AsyncMock,
+        return_value=daily_response,
+    ) as mock_service:
+        response = client.get(
+            f"/api/v1/plans/{plan_id}/daily",
+            params={"date": "2026-05-01", "language": "en"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["plan_id"] == str(plan_id)
+    assert data["day_number"] == 1
+    mock_service.assert_called_once_with(
+        plan_id=plan_id,
+        requested_date=DateType(2026, 5, 1),
+        language="en",
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_plan_daily_not_found():
+    plan_id = uuid4()
+
+    with patch(
+        "pecha_api.plans.public.plan_views.get_plan_daily_content",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.PLAN_NOT_FOUND,
+        ),
+    ):
+        response = client.get(f"/api/v1/plans/{plan_id}/daily")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.asyncio
@@ -615,6 +685,66 @@ async def test_get_plan_tags_with_language_param():
 
         mock_service.assert_called_once_with(language="zh")
 
+
+@pytest.mark.asyncio
+async def test_get_public_tags_success():
+    response_model = PublicTagsListResponse(
+        tags=make_tag_summaries(["meditation", "sleep"]),
+        skip=0,
+        limit=20,
+        total=2,
+    )
+
+    with patch(
+        "pecha_api.plans.public.public_tags_views.get_public_tags",
+        return_value=response_model,
+    ) as mock_service:
+        response = client.get("/api/v1/public/tags")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total"] == 2
+        assert response.json()["skip"] == 0
+        assert response.json()["limit"] == 20
+        assert [t["name"] for t in response.json()["tags"]] == ["meditation", "sleep"]
+        mock_service.assert_called_once_with(
+            featured=None,
+            search=None,
+            skip=0,
+            limit=20,
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_public_tags_with_filters():
+    response_model = PublicTagsListResponse(
+        tags=make_tag_summaries(["meditation"]),
+        skip=5,
+        limit=10,
+        total=1,
+    )
+
+    with patch(
+        "pecha_api.plans.public.public_tags_views.get_public_tags",
+        return_value=response_model,
+    ) as mock_service:
+        response = client.get(
+            "/api/v1/public/tags",
+            params={
+                "featured": "true",
+                "search": "med",
+                "skip": 5,
+                "limit": 10,
+            },
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(
+            featured=True,
+            search="med",
+            skip=5,
+            limit=10,
+        )
+
 @pytest.mark.asyncio
 async def test_get_plans_with_tag_filter(sample_plans_response):
     """Test retrieval of plans with tag filter."""
@@ -630,6 +760,30 @@ async def test_get_plans_with_tag_filter(sample_plans_response):
 
         mock_service.assert_called_once_with(
             tag="meditation",
+            group_id=None,
+            search=None,
+            language="en",
+            sort_by="title",
+            sort_order="asc",
+            skip=0,
+            limit=20,
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_plans_with_group_filter(sample_plans_response):
+    group_id = uuid4()
+    with patch(
+        "pecha_api.plans.public.plan_views.get_published_plans",
+        return_value=sample_plans_response,
+    ) as mock_service:
+        response = client.get(f"/api/v1/plans?group_id={group_id}")
+
+        assert response.status_code == status.HTTP_200_OK
+
+        mock_service.assert_called_once_with(
+            tag=None,
+            group_id=group_id,
             search=None,
             language="en",
             sort_by="title",

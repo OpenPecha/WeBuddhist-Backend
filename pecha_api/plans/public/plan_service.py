@@ -14,7 +14,15 @@ from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.plans_enums import ContentType, UserPlanStatus
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.public.plan_repository import (get_published_plans_from_db, get_published_plans_count, get_published_plan_by_id, get_all_unique_tags, get_next_plan_in_series, get_previous_plan_in_series)
+from pecha_api.plans.public.plan_repository import (
+    get_published_plans_from_db,
+    get_published_plans_count,
+    get_published_plan_by_id,
+    get_published_plans_in_series,
+    get_all_unique_tags,
+    get_next_plan_in_series,
+    get_previous_plan_in_series,
+)
 from pecha_api.plans.users.plan_users_progress_repository import get_plan_progress_by_user_id_and_plan_id, save_plan_progress
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.routines.routines_repository import (
@@ -22,8 +30,11 @@ from pecha_api.routines.routines_repository import (
     get_max_display_order_in_time_block,
     add_plan_session_to_time_block,
 )
+from pecha_api.plans.groups.groups_repository import get_group_id_for_plan, get_group_ids_by_plan_ids
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
-from pecha_api.plans.tags.tag_repository import get_published_tags_for_language
+from pecha_api.plans.tags.tag_repository import get_published_tags_for_language, get_all_tags_paginated
+from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
+from pecha_api.plans.shared.metadata_utils import format_metadata_response
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +53,7 @@ async def get_image_url(image_url: Optional[str]) -> Optional[ImageUrlModel]:
 
 async def get_published_plans(
     tag: Optional[str] = None,
+    group_id: Optional[UUID] = None,
     search: Optional[str] = None, 
     language: str = "en", 
     sort_by: str = "title", 
@@ -53,8 +65,21 @@ async def get_published_plans(
     try:
         with SessionLocal() as db:
             language_upper = language.upper()
-            plan_aggregates = get_published_plans_from_db(db=db, skip=skip, limit=limit, search=search, language=language_upper, sort_by=sort_by, sort_order=sort_order, tag=tag)
+            plan_aggregates = get_published_plans_from_db(
+                db=db,
+                skip=skip,
+                limit=limit,
+                search=search,
+                language=language_upper,
+                sort_by=sort_by,
+                sort_order=sort_order,
+                tag=tag,
+                group_id=group_id,
+            )
             
+            plan_ids = [plan_aggregate.plan.id for plan_aggregate in plan_aggregates]
+            group_id_by_plan_id = get_group_ids_by_plan_ids(db=db, plan_ids=plan_ids)
+
             plan_dtos = []
             for plan_aggregate in plan_aggregates:
                 plan = plan_aggregate.plan
@@ -82,11 +107,18 @@ async def get_published_plans(
                     tags=tags_to_summary_dtos(plan.tag_list),
                     author=author_dto,
                     start_date=plan.start_date,
-                    display_order=plan.display_order
+                    display_order=plan.display_order,
+                    group_id=group_id_by_plan_id.get(plan.id),
                 )
                 plan_dtos.append(plan_dto)
             
-            total = get_published_plans_count(db=db, search=search, language=language_upper, tag=tag)
+            total = get_published_plans_count(
+                db=db,
+                search=search,
+                language=language_upper,
+                tag=tag,
+                group_id=group_id,
+            )
             
             return PublicPlansResponse(plans=plan_dtos, skip=skip, limit=limit, total=total)
     
@@ -120,7 +152,8 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
                 )
             
             
-            total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan_id).count()  
+            total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan_id).count()
+            group_id = get_group_id_for_plan(db=db, plan_id=plan.id)
 
             return PublicPlanDTO(
                 id=plan.id,
@@ -133,7 +166,8 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
                 tags=tags_to_summary_dtos(plan.tag_list),
                 author=author_dto,
                 start_date=plan.start_date,
-                display_order=plan.display_order
+                display_order=plan.display_order,
+                group_id=group_id,
             )
     
     except Exception as e:
@@ -299,6 +333,10 @@ def build_task_dto(task) -> TaskDTO:
     subtasks = []
     for subtask in sorted(task.sub_tasks, key=lambda st: st.display_order):
         start_ms, end_ms = build_subtask_timestamp_fields(subtask)
+        audio_url = (
+            generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=subtask.audio_url)
+            if subtask.audio_url else None
+        )
         subtasks.append(
             SubTaskDTO(
                 id=subtask.id,
@@ -306,6 +344,7 @@ def build_task_dto(task) -> TaskDTO:
                 duration=subtask.duration,
                 content=generate_subtask_content_url(subtask.content_type, subtask.content or ""),
                 image_url=subtask.content if subtask.content_type == ContentType.IMAGE else None,
+                audio_url=audio_url,
                 source_text_id=subtask.source_text_id,
                 pecha_segment_id=subtask.pecha_segment_id,
                 segment_ids=subtask.segment_ids,
@@ -342,24 +381,129 @@ def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
         return _build_plan_day_dto(plan_item)
 
 
-async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateType] = None) -> DailyPlanResponse:
+def _filter_series_metadata_by_language(metadata_entries, language: Optional[str]):
+    if not language or not metadata_entries:
+        return metadata_entries or []
+    language_upper = language.upper()
+    return [
+        entry
+        for entry in metadata_entries
+        if (
+            entry.language.value
+            if hasattr(entry.language, "value")
+            else str(entry.language)
+        ).upper()
+        == language_upper
+    ]
+
+
+def _to_plan_date(value) -> DateType:
+    if isinstance(value, dt):
+        return value.date()
+    return value
+
+
+def _resolve_plan_for_date_in_series(plans: List, reference_date: DateType):
+    sorted_plans = sorted(
+        plans,
+        key=lambda plan: (plan.display_order is None, plan.display_order or 0),
+    )
+    if not sorted_plans:
+        return None
+
+    for index, plan in enumerate(sorted_plans):
+        if not plan.start_date:
+            continue
+        plan_start = _to_plan_date(plan.start_date)
+        next_start = None
+        if index + 1 < len(sorted_plans) and sorted_plans[index + 1].start_date:
+            next_start = _to_plan_date(sorted_plans[index + 1].start_date)
+        if plan_start <= reference_date and (next_start is None or reference_date < next_start):
+            return plan
+
+    for plan in sorted_plans:
+        if plan.start_date:
+            return plan
+
+    return sorted_plans[0]
+
+
+def _resolve_daily_plan(
+    db,
+    plan_id: UUID,
+    requested_date: Optional[DateType],
+    language: Optional[str],
+):
+    entry_plan = get_published_plan_by_id(db=db, plan_id=plan_id)
+    if not entry_plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.PLAN_NOT_FOUND,
+        )
+
+    if not entry_plan.series_id:
+        return entry_plan
+
+    plan_language = language
+    if not plan_language:
+        plan_language = (
+            entry_plan.language.value
+            if hasattr(entry_plan.language, "value")
+            else str(entry_plan.language)
+        )
+
+    series_plans = get_published_plans_in_series(
+        db=db,
+        series_id=entry_plan.series_id,
+        language=plan_language,
+    )
+    if not series_plans:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.PLAN_NOT_FOUND,
+        )
+
+    today = dt.now(timezone.utc).date()
+    reference_date = requested_date if requested_date is not None else today
+    resolved_plan = _resolve_plan_for_date_in_series(series_plans, reference_date)
+    if not resolved_plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.PLAN_NOT_FOUND,
+        )
+    return resolved_plan
+
+
+async def get_plan_daily_content(
+    plan_id: UUID,
+    requested_date: Optional[DateType] = None,
+    language: Optional[str] = None,
+) -> DailyPlanResponse:
 
     with SessionLocal() as db:
-        plan = get_published_plan_by_id(db=db, plan_id=plan_id)
-        if not plan:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=ErrorConstants.PLAN_NOT_FOUND
+        plan = _resolve_daily_plan(
+            db=db,
+            plan_id=plan_id,
+            requested_date=requested_date,
+            language=language,
+        )
+
+        navigation_language = language
+        if not navigation_language:
+            navigation_language = (
+                plan.language.value
+                if hasattr(plan.language, "value")
+                else str(plan.language)
             )
 
         today = dt.now(timezone.utc).date()
 
         if plan.start_date:
-            start = plan.start_date.date() if isinstance(plan.start_date, dt) else plan.start_date
+            start = _to_plan_date(plan.start_date)
         else:
             start = today
 
-        total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan_id).count()
+        total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan.id).count()
         if total_days == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -386,7 +530,7 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
             )
 
         plan_item = get_plan_day_with_tasks_and_subtasks(
-            db=db, plan_id=plan_id, day_number=day_number
+            db=db, plan_id=plan.id, day_number=day_number
         )
 
         plan_image = await get_image_url(image_url=plan.image_url)
@@ -395,10 +539,16 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
         if plan.series:
             series_image = await get_image_url(image_url=plan.series.image)
             metadata_entries = getattr(plan.series, "metadata_entries", None) or []
+            if language:
+                metadata_entries = _filter_series_metadata_by_language(
+                    metadata_entries,
+                    language=language,
+                )
             series_metadata = [
                 SeriesMetadataDTO(
                     id=entry.id,
                     title=entry.title,
+                    sub_title=entry.sub_title if isinstance(entry.sub_title, str) else None,
                     description=entry.description,
                     language=entry.language.value
                     if hasattr(entry.language, "value")
@@ -413,7 +563,7 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
             ]
             series_dto = SeriesDTO(
                 id=plan.series.id,
-                metadata=series_metadata,
+                metadata=format_metadata_response(series_metadata, language=language),
                 image=series_image,
             )
 
@@ -425,12 +575,22 @@ async def get_plan_daily_content(plan_id: UUID, requested_date: Optional[DateTyp
 
         if plan.series_id and plan.display_order is not None:
             if previous_date is None:
-                previous_plan = get_previous_plan_in_series(db=db, series_id=plan.series_id, current_display_order=plan.display_order)
+                previous_plan = get_previous_plan_in_series(
+                    db=db,
+                    series_id=plan.series_id,
+                    current_display_order=plan.display_order,
+                    language=navigation_language,
+                )
                 if previous_plan:
                     previous_plan_id = previous_plan.id
 
             if next_date is None:
-                next_plan = get_next_plan_in_series(db=db, series_id=plan.series_id, current_display_order=plan.display_order)
+                next_plan = get_next_plan_in_series(
+                    db=db,
+                    series_id=plan.series_id,
+                    current_display_order=plan.display_order,
+                    language=navigation_language,
+                )
                 if next_plan:
                     next_plan_id = next_plan.id
 
@@ -467,4 +627,33 @@ def get_tags(language: str = "en") -> TagsResponse:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch tags: {str(e)}",
+        )
+
+
+def get_public_tags(
+    featured: Optional[bool] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+) -> PublicTagsListResponse:
+    try:
+        with SessionLocal() as db:
+            tag_rows, total = get_all_tags_paginated(
+                db=db,
+                featured=featured,
+                search=search,
+                skip=skip,
+                limit=limit,
+            )
+            return PublicTagsListResponse(
+                tags=tags_to_summary_dtos(tag_rows, preserve_order=True),
+                skip=skip,
+                limit=limit,
+                total=total,
+            )
+    except Exception as e:
+        logger.error(f"Error fetching public tags: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch public tags: {str(e)}",
         )

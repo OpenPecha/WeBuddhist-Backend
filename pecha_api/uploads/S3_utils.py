@@ -77,6 +77,14 @@ def generate_presigned_access_url(bucket_name: str, s3_key: str):
     return ""
 
 
+def download_bytes(bucket_name: str, s3_key: str) -> bytes:
+    try:
+        response = s3_client.get_object(Bucket=bucket_name, Key=s3_key, ExpectedBucketOwner=get("AWS_BUCKET_OWNER"))
+        return response["Body"].read()
+    except ClientError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to download file from S3.")
+
+
 def delete_file(file_path: str):
     try:
         s3_client.delete_object(

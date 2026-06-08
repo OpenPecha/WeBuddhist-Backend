@@ -10,6 +10,7 @@ from pecha_api.plans.dashboard.dashboard_response_models import (
     DashboardItemsResponse,
     DashboardPaginationDTO,
 )
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
 from pecha_api.plans.dashboard.dashboard_views import list_dashboard_items
 from pecha_api.plans.plans_enums import PlanStatus
@@ -37,7 +38,11 @@ async def test_list_dashboard_items_success():
                     )
                 ],
                 author_id=uuid.uuid4(),
-                image_url="https://example.com/image.jpg",
+                image=ImageUrlModel(
+                    thumbnail="https://example.com/image-thumb.jpg",
+                    medium="https://example.com/image-medium.jpg",
+                    original="https://example.com/image.jpg",
+                ),
                 image_key="series/cover.jpg",
                 status=PlanStatus.DRAFT,
                 featured=True,
@@ -81,6 +86,7 @@ async def test_list_dashboard_items_success():
             status=PlanStatus.DRAFT,
             language="en",
             featured=True,
+            group_id=None,
         )
         assert response == expected
         assert response.items[0].type == "series"
