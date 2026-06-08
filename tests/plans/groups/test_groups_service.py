@@ -23,6 +23,7 @@ from pecha_api.plans.groups.groups_service import (
     _generate_group_asset_url,
     _get_member_or_403,
     _group_to_detail,
+    _series_to_dtos,
     _to_role_value,
     accept_group_invite_by_id,
     create_author_group,
@@ -336,6 +337,133 @@ def test_list_public_groups_returns_paginated():
 
     assert result.total == 1
     assert result.groups[0].follower_count == 3
+
+
+def _make_series_with_metadata():
+    meta_en = MagicMock()
+    meta_en.id = uuid4()
+    meta_en.title = "English Series"
+    meta_en.description = None
+    meta_en.language = LanguageCode.EN
+    meta_bo = MagicMock()
+    meta_bo.id = uuid4()
+    meta_bo.title = "Tibetan Series"
+    meta_bo.description = None
+    meta_bo.language = LanguageCode.BO
+
+    series = MagicMock()
+    series.id = uuid4()
+    series.metadata_entries = [meta_en, meta_bo]
+    series.image = None
+    series.author_id = uuid4()
+    series.featured = False
+    series.status = MagicMock(value="PUBLISHED")
+    return series
+
+
+def test_series_to_dtos_returns_empty_for_empty_series_list():
+    mock_db = MagicMock()
+    assert _series_to_dtos(db=mock_db, series_list=[]) == []
+    mock_db.assert_not_called()
+
+
+def test_series_to_dtos_filters_metadata_by_language():
+    series = _make_series_with_metadata()
+    mock_db = MagicMock()
+    with patch(
+        "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
+        return_value={series.id: 2},
+    ):
+        all_metadata = _series_to_dtos(db=mock_db, series_list=[series])
+        bo_metadata = _series_to_dtos(db=mock_db, series_list=[series], language="bo")
+        missing_metadata = _series_to_dtos(db=mock_db, series_list=[series], language="zh")
+
+    assert len(all_metadata[0].metadata) == 2
+    assert bo_metadata[0].metadata.title == "Tibetan Series"
+    assert bo_metadata[0].metadata.language == "BO"
+    assert bo_metadata[0].plan_count == 2
+    assert missing_metadata[0].metadata is None
+
+
+def test_group_detail_series_metadata_filtered_by_language():
+    group = _make_group()
+    series = _make_series_with_metadata()
+
+    mock_db = MagicMock()
+    with patch(
+        "pecha_api.plans.groups.groups_service.get_series_by_group_id",
+        return_value=[series],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_plans_by_group_id",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
+        return_value={series.id: 0},
+    ):
+        detail_all = _group_to_detail(group, db=mock_db)
+        detail_bo = _group_to_detail(group, db=mock_db, language="bo")
+
+    assert len(detail_all.series[0].metadata) == 2
+    assert detail_bo.series[0].metadata.title == "Tibetan Series"
+    assert detail_bo.series[0].metadata.language == "BO"
+
+
+def test_get_author_group_detail_series_metadata_filtered_by_language():
+    group = _make_group()
+    series = _make_series_with_metadata()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={group.id: 1},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_by_group_id",
+        return_value=[series],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_plans_by_group_id",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
+        return_value={series.id: 0},
+    ):
+        _session_local_context(mock_session)
+        result = get_author_group_detail(group_id=group.id, language="bo")
+
+    assert result.series[0].metadata.title == "Tibetan Series"
+    assert result.series[0].metadata.language == "BO"
+
+
+def test_get_cms_group_detail_series_metadata_filtered_by_language():
+    author = _make_author(is_admin=True)
+    group = _make_group()
+    series = _make_series_with_metadata()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={group.id: 2},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_by_group_id",
+        return_value=[series],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_plans_by_group_id",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
+        return_value={series.id: 0},
+    ):
+        _session_local_context(mock_session)
+        result = get_cms_group_detail(token="t", group_id=group.id, language="bo")
+
+    assert result.series[0].metadata.title == "Tibetan Series"
+    assert result.series[0].metadata.language == "BO"
 
 
 def test_group_summary_metadata_filtered_by_language():
