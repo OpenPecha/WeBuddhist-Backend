@@ -77,7 +77,7 @@ from pecha_api.texts.texts_cache_service import (
     update_text_details_cache,
     invalidate_text_cache_on_update
 )
-from .segments.segments_repository import get_segments_by_text_id
+from .segments.segments_repository import get_segments_by_text_id, get_related_mapped_segments
 from pecha_api.sheets.sheets_enum import (
     SortBy,
     SortOrder
@@ -906,6 +906,24 @@ async def get_language_versions(text_id: str, language: str) -> VersionsResponse
     text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
     group_id: str = text_detail.group_id
     
+    segments = await get_segments_by_text_id(text_id=text_id)
+    if not segments:
+        return VersionsResponse(
+            text_id=text_id,
+            language=language,
+            available_versions=[]
+        )
+    
+    first_segment_id = str(segments[0].id)
+    has_translations = await check_segment_has_translations(segment_id=first_segment_id)
+    
+    if not has_translations:
+        return VersionsResponse(
+            text_id=text_id,
+            language=language,
+            available_versions=[]
+        )
+    
     texts: List[TextDTO] = await get_all_texts_by_group_id(group_id=group_id)
     
     filtered_texts = [text for text in texts if text.language == language]
@@ -940,6 +958,22 @@ async def get_language_versions(text_id: str, language: str) -> VersionsResponse
         language=language,
         available_versions=available_versions
     )
+
+
+async def check_segment_has_translations(segment_id: str) -> bool:
+
+    try:
+        mapped_segments = await get_related_mapped_segments(parent_segment_id=segment_id)
+        if not mapped_segments:
+            return False
+        
+        translations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
+            segments=mapped_segments, 
+            type=TextType.VERSION.value
+        )
+        return len(translations) > 0
+    except Exception:
+        return False
 
 
 async def get_version_info(version_id: str) -> VersionDetail:
