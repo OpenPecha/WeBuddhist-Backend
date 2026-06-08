@@ -915,9 +915,11 @@ async def get_language_versions(text_id: str, language: str) -> VersionsResponse
         )
     
     first_segment_id = str(segments[0].id)
-    has_translations = await check_segment_has_translations(segment_id=first_segment_id)
     
-    if not has_translations:
+    # Get translation titles from the segment
+    translation_titles = await get_segment_translation_titles(segment_id=first_segment_id)
+    
+    if not translation_titles:
         return VersionsResponse(
             text_id=text_id,
             language=language,
@@ -926,7 +928,11 @@ async def get_language_versions(text_id: str, language: str) -> VersionsResponse
     
     texts: List[TextDTO] = await get_all_texts_by_group_id(group_id=group_id)
     
-    filtered_texts = [text for text in texts if text.language == language]
+    # Filter texts by language AND by matching translation titles
+    filtered_texts = [
+        text for text in texts 
+        if text.language == language and text.title in translation_titles
+    ]
     
     versions_table_of_content_id_dict: Dict[str, List[str]] = await _get_table_of_content_by_version_text_id(versions=filtered_texts)
     
@@ -974,6 +980,22 @@ async def check_segment_has_translations(segment_id: str) -> bool:
         return len(translations) > 0
     except Exception:
         return False
+
+
+async def get_segment_translation_titles(segment_id: str) -> set:
+
+    try:
+        mapped_segments = await get_related_mapped_segments(parent_segment_id=segment_id)
+        if not mapped_segments:
+            return set()
+        
+        translations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
+            segments=mapped_segments, 
+            type=TextType.VERSION.value
+        )
+        return {t.title for t in translations}
+    except Exception:
+        return set()
 
 
 async def get_version_info(version_id: str) -> VersionDetail:
