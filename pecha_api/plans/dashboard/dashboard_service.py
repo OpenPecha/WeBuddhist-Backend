@@ -169,11 +169,19 @@ def _row_to_public_dto(row, language: Optional[str] = None) -> DashboardItemDTO:
     return _row_to_dto(row, language=language).model_copy(update={"author_id": None})
 
 
-def _published_plans_by_series(db_session, series_ids: List[UUID]) -> dict:
+def _published_plans_by_series(
+    db_session,
+    series_ids: List[UUID],
+    language: Optional[str] = None,
+) -> dict:
     return {
         series.id: [
             _plan_to_dto(plan)
-            for plan in _get_sorted_active_plans(series.plans, published_only=True)
+            for plan in _get_sorted_active_plans(
+                series.plans,
+                published_only=True,
+                language=language,
+            )
         ]
         for series in get_series_with_plans_by_ids(db_session, series_ids)
     }
@@ -204,7 +212,11 @@ def get_practice_items_list(
 
         items = [_row_to_public_dto(row, language=language) for row in rows]
         series_ids = [item.id for item in items if item.type == "series"]
-        plans_by_series = _published_plans_by_series(db_session, series_ids)
+        plans_by_series = _published_plans_by_series(
+            db_session,
+            series_ids,
+            language=language,
+        )
 
     for item in items:
         if item.type == "series":
