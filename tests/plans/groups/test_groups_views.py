@@ -329,6 +329,17 @@ def test_get_public_group_by_id():
     mock_service.assert_called_once_with(group_id=group_id, require_public=True, language=None)
 
 
+def test_get_public_group_by_id_with_language():
+    group_id = uuid4()
+    with patch(
+        "pecha_api.plans.groups.groups_views.get_author_group_detail",
+        return_value=_group_detail(),
+    ) as mock_service:
+        response = client.get(f"/author/groups/{group_id}?language=bo")
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(group_id=group_id, require_public=True, language="bo")
+
+
 def test_follow_and_unfollow_group():
     group_id = uuid4()
     headers = {"Authorization": "Bearer dummy"}
