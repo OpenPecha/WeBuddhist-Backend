@@ -871,14 +871,33 @@ async def get_text_languages(text_id: str) -> LanguageResponse:
     
     text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
     group_id: str = text_detail.group_id
-    
+
+    segments = await get_segments_by_text_id(text_id=text_id)
+    if not segments:
+        return LanguageResponse(
+            text_id=text_id,
+            title=text_detail.title,
+            available_languages=[]
+        )
+
+    first_segment_id = str(segments[0].id)
+    translation_titles = await get_segment_translation_titles(segment_id=first_segment_id)
+
+    if not translation_titles:
+        return LanguageResponse(
+            text_id=text_id,
+            title=text_detail.title,
+            available_languages=[]
+        )
+
     texts = await get_all_texts_by_group_id(group_id=group_id)
-    
+    linked_texts = [text for text in texts if text.title in translation_titles]
+
     language_counts: Dict[str, int] = {}
-    for text in texts:
+    for text in linked_texts:
         if text.language:
             language_counts[text.language] = language_counts.get(text.language, 0) + 1
-    
+
     available_languages = [
         AvailableLanguage(
             language=lang,
