@@ -433,6 +433,20 @@ def get_following_group_ids_by_user(
     return [row[0] for row in rows]
 
 
+def is_user_following_group(
+    db: Session,
+    group_id: UUID,
+    user_id: UUID,
+) -> bool:
+    row = db.execute(
+        select(author_group_followers.c.group_id).where(
+            author_group_followers.c.group_id == group_id,
+            author_group_followers.c.user_id == user_id,
+        )
+    ).first()
+    return row is not None
+
+
 def get_followers_count_map(db: Session, group_ids: Sequence[UUID]) -> dict[UUID, int]:
     if not group_ids:
         return {}

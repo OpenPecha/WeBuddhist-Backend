@@ -363,3 +363,27 @@ def test_get_my_followed_groups():
         )
     assert response.status_code == status.HTTP_200_OK
     mock_service.assert_called_once_with(token="dummy", skip=0, limit=20)
+
+
+def test_get_my_followed_group_by_id():
+    group_id = uuid4()
+    group_summary = AuthorGroupSummaryDTO(
+        id=group_id,
+        slug="bodhichitta-authors",
+        is_public=True,
+        metadata=_metadata(),
+        tags=[],
+        follower_count=4,
+        member_count=2,
+    )
+    with patch(
+        "pecha_api.plans.groups.groups_views.get_followed_group",
+        return_value=group_summary,
+    ) as mock_service:
+        response = client.get(
+            f"/users/me/following/author/groups?group_id={group_id}&language=bo",
+            headers={"Authorization": "Bearer dummy"},
+        )
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["id"] == str(group_id)
+    mock_service.assert_called_once_with(token="dummy", group_id=group_id, language="bo")

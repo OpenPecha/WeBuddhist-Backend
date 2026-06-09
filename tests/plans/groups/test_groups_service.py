@@ -33,6 +33,7 @@ from pecha_api.plans.groups.groups_service import (
     list_my_pending_group_invites,
     reject_group_invite_by_id,
     follow_group,
+    get_followed_group,
     get_author_group_detail,
     get_cms_group_detail,
     list_cms_groups,
@@ -587,6 +588,75 @@ def test_list_followed_groups():
         _session_local_context(mock_session)
         result = list_followed_groups(token="t", skip=0, limit=20)
     assert result.total == 1
+
+
+def test_get_followed_group_returns_group_when_following():
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group()
+    meta = MagicMock()
+    meta.id = uuid4()
+    meta.title = "Followed Group"
+    meta.description = None
+    meta.language = "EN"
+    group.metadata_entries = [meta]
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_following_group",
+        return_value=True,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={group.id: 5},
+    ):
+        _session_local_context(mock_session)
+        result = get_followed_group(token="t", group_id=group.id)
+
+    assert result.id == group.id
+    assert result.follower_count == 5
+
+
+def test_get_followed_group_returns_404_when_not_following():
+    user = MagicMock()
+    user.id = uuid4()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_following_group",
+        return_value=False,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_followed_group(token="t", group_id=uuid4())
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.value.detail == GROUP_NOT_FOUND
+
+
+def test_get_followed_group_returns_404_when_group_missing():
+    user = MagicMock()
+    user.id = uuid4()
+    group_id = uuid4()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_following_group",
+        return_value=True,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_followed_group(token="t", group_id=group_id)
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.value.detail == GROUP_NOT_FOUND
 
 
 def test_create_group_member_invite_creates_notification():
