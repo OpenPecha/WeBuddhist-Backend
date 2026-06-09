@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -60,14 +60,7 @@ def _session_local_context(mock_session_local):
     return mock_db
 
 
-_SERIES_LIST_CACHE_GET = "pecha_api.plans.series.series_service.get_series_list_cache"
-_SERIES_LIST_CACHE_SET = "pecha_api.plans.series.series_service.set_series_list_cache"
-_SERIES_DETAIL_CACHE_GET = "pecha_api.plans.series.series_service.get_series_detail_cache"
-_SERIES_DETAIL_CACHE_SET = "pecha_api.plans.series.series_service.set_series_detail_cache"
-
-
-@pytest.mark.asyncio
-async def test_get_filtered_series_maps_rows_to_response():
+def test_get_filtered_series_maps_rows_to_response():
     author_id = uuid.uuid4()
     row = MagicMock()
     row.id = uuid.uuid4()
@@ -79,15 +72,13 @@ async def test_get_filtered_series_maps_rows_to_response():
     row.status = PlanStatus.DRAFT
     row.plans = None
 
-    with patch(_SERIES_LIST_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_LIST_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
         return_value=([(row, 3)], 1),
     ) as mock_repo:
         _session_local_context(mock_session_local)
 
-        result = await get_filtered_series(search=None, skip=2, limit=5)
+        result = get_filtered_series(search=None, skip=2, limit=5)
 
     mock_repo.assert_called_once()
     call_kwargs = mock_repo.call_args.kwargs
@@ -119,8 +110,7 @@ async def test_get_filtered_series_maps_rows_to_response():
     assert "plans" not in SeriesListItemDTO.model_fields
 
 
-@pytest.mark.asyncio
-async def test_get_filtered_series_presigns_image_when_key_present():
+def test_get_filtered_series_presigns_image_when_key_present():
     from pecha_api.plans.media.media_response_models import ImageUrlModel
 
     row = MagicMock()
@@ -138,9 +128,7 @@ async def test_get_filtered_series_presigns_image_when_key_present():
         original="https://signed.example/original.jpg",
     )
 
-    with patch(_SERIES_LIST_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_LIST_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
         return_value=([(row, 0)], 1),
     ), patch(
@@ -149,24 +137,21 @@ async def test_get_filtered_series_presigns_image_when_key_present():
     ) as mock_get_image:
         _session_local_context(mock_session_local)
 
-        result = await get_filtered_series(search=None, skip=0, limit=10)
+        result = get_filtered_series(search=None, skip=0, limit=10)
 
     assert result.series[0].image == image_model
     assert result.series[0].image_key == row.image
     mock_get_image.assert_called_once_with(image_url=row.image)
 
 
-@pytest.mark.asyncio
-async def test_get_filtered_series_empty_repository():
-    with patch(_SERIES_LIST_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_LIST_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+def test_get_filtered_series_empty_repository():
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
         return_value=([], 0),
     ):
         _session_local_context(mock_session_local)
 
-        result = await get_filtered_series(search="nomatch", skip=0, limit=10)
+        result = get_filtered_series(search="nomatch", skip=0, limit=10)
 
     assert result.series == []
     assert result.total == 0
@@ -293,47 +278,40 @@ def test_create_new_series_integrity_error_raises_400():
     assert "Database integrity error" in exc.value.detail
 
 
-@pytest.mark.asyncio
-async def test_get_series_detail_raises_404_when_not_found():
+def test_get_series_detail_raises_404_when_not_found():
     series_id = uuid.uuid4()
-    with patch(_SERIES_DETAIL_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_DETAIL_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=None,
     ):
         _session_local_context(mock_session_local)
 
         with pytest.raises(HTTPException) as exc:
-            await get_series_detail(series_id=series_id)
+            get_series_detail(series_id=series_id)
 
     assert exc.value.status_code == status.HTTP_404_NOT_FOUND
     assert str(series_id) in exc.value.detail
 
 
-@pytest.mark.asyncio
-async def test_get_series_detail_raises_404_when_not_published():
+def test_get_series_detail_raises_404_when_not_published():
     series_id = uuid.uuid4()
     row = MagicMock()
     row.id = series_id
     row.status = PlanStatus.DRAFT
 
-    with patch(_SERIES_DETAIL_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_DETAIL_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=row,
     ):
         _session_local_context(mock_session_local)
 
         with pytest.raises(HTTPException) as exc:
-            await get_series_detail(series_id=series_id)
+            get_series_detail(series_id=series_id)
 
     assert exc.value.status_code == status.HTTP_404_NOT_FOUND
 
 
-@pytest.mark.asyncio
-async def test_get_series_detail_returns_dto_without_plans():
+def test_get_series_detail_returns_dto_without_plans():
     series_id = uuid.uuid4()
     row = MagicMock()
     row.id = series_id
@@ -352,9 +330,7 @@ async def test_get_series_detail_returns_dto_without_plans():
         is_public=True,
         metadata=[],
     )
-    with patch(_SERIES_DETAIL_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_DETAIL_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=row,
     ), patch(
@@ -363,7 +339,7 @@ async def test_get_series_detail_returns_dto_without_plans():
     ):
         _session_local_context(mock_session_local)
 
-        dto = await get_series_detail(series_id=series_id)
+        dto = get_series_detail(series_id=series_id)
 
     assert dto.id == series_id
     assert dto.plans == []
@@ -371,8 +347,7 @@ async def test_get_series_detail_returns_dto_without_plans():
     assert dto.group.id == group_id
 
 
-@pytest.mark.asyncio
-async def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
+def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     series_id = uuid.uuid4()
     author_id = uuid.uuid4()
     plan_b_id = uuid.uuid4()
@@ -424,9 +399,7 @@ async def test_get_series_detail_includes_active_plans_sorted_and_presigns_image
     row.status = PlanStatus.PUBLISHED
     row.plans = [deleted_plan, plan_b, plan_a]
 
-    with patch(_SERIES_DETAIL_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_DETAIL_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=row,
     ), patch(
@@ -443,7 +416,7 @@ async def test_get_series_detail_includes_active_plans_sorted_and_presigns_image
     ) as mock_safe_image:
         _session_local_context(mock_session_local)
 
-        dto = await get_series_detail(series_id=series_id)
+        dto = get_series_detail(series_id=series_id)
 
     assert len(dto.plans) == 2
     assert dto.plans[0].id == plan_a_id
@@ -464,8 +437,7 @@ async def test_get_series_detail_includes_active_plans_sorted_and_presigns_image
     assert mock_safe_image.call_count == 2
 
 
-@pytest.mark.asyncio
-async def test_get_series_detail_includes_total_days_for_each_plan():
+def test_get_series_detail_includes_total_days_for_each_plan():
     series_id = uuid.uuid4()
     author_id = uuid.uuid4()
 
@@ -518,15 +490,13 @@ async def test_get_series_detail_includes_total_days_for_each_plan():
     row.status = PlanStatus.PUBLISHED
     row.plans = [plan_a, plan_b]
 
-    with patch(_SERIES_DETAIL_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_DETAIL_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=row,
     ):
         _session_local_context(mock_session_local)
 
-        dto = await get_series_detail(series_id=series_id)
+        dto = get_series_detail(series_id=series_id)
 
     assert len(dto.plans) == 2
     assert dto.plans[0].total_days == 3
@@ -534,8 +504,7 @@ async def test_get_series_detail_includes_total_days_for_each_plan():
     assert dto.total_days == 5
 
 
-@pytest.mark.asyncio
-async def test_get_series_detail_total_days_zero_when_no_items():
+def test_get_series_detail_total_days_zero_when_no_items():
     series_id = uuid.uuid4()
     author_id = uuid.uuid4()
 
@@ -565,23 +534,20 @@ async def test_get_series_detail_total_days_zero_when_no_items():
     row.status = PlanStatus.PUBLISHED
     row.plans = [plan_empty]
 
-    with patch(_SERIES_DETAIL_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_DETAIL_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=row,
     ):
         _session_local_context(mock_session_local)
 
-        dto = await get_series_detail(series_id=series_id)
+        dto = get_series_detail(series_id=series_id)
 
     assert len(dto.plans) == 1
     assert dto.plans[0].total_days == 0
     assert dto.total_days == 0
 
 
-@pytest.mark.asyncio
-async def test_get_series_detail_total_days_zero_when_no_plans():
+def test_get_series_detail_total_days_zero_when_no_plans():
     series_id = uuid.uuid4()
     author_id = uuid.uuid4()
 
@@ -595,22 +561,19 @@ async def test_get_series_detail_total_days_zero_when_no_plans():
     row.status = PlanStatus.PUBLISHED
     row.plans = []
 
-    with patch(_SERIES_DETAIL_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_DETAIL_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=row,
     ):
         _session_local_context(mock_session_local)
 
-        dto = await get_series_detail(series_id=series_id)
+        dto = get_series_detail(series_id=series_id)
 
     assert dto.plans == []
     assert dto.total_days == 0
 
 
-@pytest.mark.asyncio
-async def test_get_series_detail_handles_plan_without_items_attribute():
+def test_get_series_detail_handles_plan_without_items_attribute():
     series_id = uuid.uuid4()
     author_id = uuid.uuid4()
 
@@ -641,23 +604,20 @@ async def test_get_series_detail_handles_plan_without_items_attribute():
     row.status = PlanStatus.PUBLISHED
     row.plans = [plan_no_items]
 
-    with patch(_SERIES_DETAIL_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_DETAIL_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=row,
     ):
         _session_local_context(mock_session_local)
 
-        dto = await get_series_detail(series_id=series_id)
+        dto = get_series_detail(series_id=series_id)
 
     assert len(dto.plans) == 1
     assert dto.plans[0].total_days == 0
     assert dto.total_days == 0
 
 
-@pytest.mark.asyncio
-async def test_get_series_detail_excludes_non_published_plans():
+def test_get_series_detail_excludes_non_published_plans():
     series_id = uuid.uuid4()
     author_id = uuid.uuid4()
 
@@ -701,23 +661,20 @@ async def test_get_series_detail_excludes_non_published_plans():
     row.status = PlanStatus.PUBLISHED
     row.plans = [published_plan, draft_plan, archived_plan]
 
-    with patch(_SERIES_DETAIL_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_DETAIL_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=row,
     ):
         _session_local_context(mock_session_local)
 
-        dto = await get_series_detail(series_id=series_id)
+        dto = get_series_detail(series_id=series_id)
 
     assert len(dto.plans) == 1
     assert dto.plans[0].id == published_plan.id
     assert dto.plans[0].status == PlanStatus.PUBLISHED
 
 
-@pytest.mark.asyncio
-async def test_get_series_detail_filters_plans_by_language():
+def test_get_series_detail_filters_plans_by_language():
     series_id = uuid.uuid4()
     author_id = uuid.uuid4()
 
@@ -763,15 +720,13 @@ async def test_get_series_detail_filters_plans_by_language():
     row.group_id = FIXTURE_GROUP_ID
     row.plans = [plan_en, plan_bo]
 
-    with patch(_SERIES_DETAIL_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_DETAIL_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_by_id",
         return_value=row,
     ):
         _session_local_context(mock_session_local)
 
-        dto = await get_series_detail(series_id=series_id, language="bo")
+        dto = get_series_detail(series_id=series_id, language="bo")
 
     assert len(dto.plans) == 1
     assert dto.plans[0].id == plan_bo.id
@@ -1630,16 +1585,13 @@ def test_get_cms_filtered_series_passes_search_and_pagination():
     assert call_kwargs["group_ids"] == _MEMBER_GROUP_IDS
 
 
-@pytest.mark.asyncio
-async def test_get_filtered_series_passes_language_to_repository():
-    with patch(_SERIES_LIST_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_LIST_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+def test_get_filtered_series_passes_language_to_repository():
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
                return_value=([], 0)) as mock_repo:
         _session_local_context(mock_session_local)
 
-        await get_filtered_series(search=None, skip=0, limit=10, language="zh")
+        get_filtered_series(search=None, skip=0, limit=10, language="zh")
 
     call_kwargs = mock_repo.call_args.kwargs
     assert call_kwargs["language"] == "zh"
@@ -1871,8 +1823,7 @@ def test_get_cms_series_detail_filters_plans_by_language():
     assert dto.plans[0].language == "BO"
 
 
-@pytest.mark.asyncio
-async def test_get_filtered_series_handles_plain_string_status_and_language():
+def test_get_filtered_series_handles_plain_string_status_and_language():
     row = MagicMock()
     row.id = uuid.uuid4()
     row.metadata_entries = []
@@ -1883,23 +1834,20 @@ async def test_get_filtered_series_handles_plain_string_status_and_language():
     row.status = PlanStatus.DRAFT.value
     row.plans = None
 
-    with patch(_SERIES_LIST_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_LIST_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
         return_value=([(row, 0)], 1),
     ):
         _session_local_context(mock_session_local)
 
-        result = await get_filtered_series(search=None, skip=0, limit=10)
+        result = get_filtered_series(search=None, skip=0, limit=10)
 
     assert result.total == 1
     assert result.series[0].status == PlanStatus.DRAFT
     assert result.series[0].metadata == []
 
 
-@pytest.mark.asyncio
-async def test_get_filtered_series_metadata_uses_string_language():
+def test_get_filtered_series_metadata_uses_string_language():
     entry = MagicMock()
     entry.id = uuid.uuid4()
     entry.title = "Title"
@@ -1916,15 +1864,13 @@ async def test_get_filtered_series_metadata_uses_string_language():
     row.status = PlanStatus.DRAFT
     row.plans = None
 
-    with patch(_SERIES_LIST_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_LIST_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
         return_value=([(row, 0)], 1),
     ):
         _session_local_context(mock_session_local)
 
-        result = await get_filtered_series(search=None, skip=0, limit=10)
+        result = get_filtered_series(search=None, skip=0, limit=10)
 
     assert result.series[0].metadata[0].language == "EN"
 
@@ -2478,23 +2424,19 @@ def test_update_existing_series_featured_integrity_error_raises_400():
 # plan_count published_only: get_filtered_series vs get_cms_filtered_series
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
-async def test_get_filtered_series_passes_published_only_true_to_repository():
-    with patch(_SERIES_LIST_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_LIST_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+def test_get_filtered_series_passes_published_only_true_to_repository():
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
         return_value=([], 0),
     ) as mock_repo:
         _session_local_context(mock_session_local)
 
-        await get_filtered_series(search=None, skip=0, limit=10)
+        get_filtered_series(search=None, skip=0, limit=10)
 
     assert mock_repo.call_args.kwargs["published_only"] is True
 
 
-@pytest.mark.asyncio
-async def test_get_filtered_series_published_count_maps_to_plan_count():
+def test_get_filtered_series_published_count_maps_to_plan_count():
     row = MagicMock()
     row.id = uuid.uuid4()
     row.metadata_entries = [_metadata_entry(title="Published count")]
@@ -2505,15 +2447,13 @@ async def test_get_filtered_series_published_count_maps_to_plan_count():
     row.status = PlanStatus.PUBLISHED
     row.plans = None
 
-    with patch(_SERIES_LIST_CACHE_GET, new_callable=AsyncMock, return_value=None), patch(
-        _SERIES_LIST_CACHE_SET, new_callable=AsyncMock
-    ), patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
         return_value=([(row, 4)], 1),
     ):
         _session_local_context(mock_session_local)
 
-        result = await get_filtered_series(search=None, skip=0, limit=10)
+        result = get_filtered_series(search=None, skip=0, limit=10)
 
     assert result.series[0].plan_count == 4
 
