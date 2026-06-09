@@ -15,7 +15,8 @@ from .texts_response_models import (
     TableOfContentResponse,
     TextVersionResponse,
     TextDTO,
-    TableOfContent
+    TableOfContent,
+    LanguageResponse,
 )
 from pecha_api.cache.cache_enums import CacheType
 
@@ -179,6 +180,22 @@ async def update_text_details_cache(text_id: str, updated_text_data: TextDTO, ca
         # Fallback to cache invalidation to maintain consistency
         await invalidate_text_cache_on_update(text_id=text_id, cache_type=cache_type)
         return False
+
+
+async def get_text_languages_cache(text_id: str) -> Optional[LanguageResponse]:
+    payload = [text_id, CacheType.TEXT_LANGUAGES]
+    hashed_key: str = Utils.generate_hash_key(payload=payload)
+    cache_data: LanguageResponse = await get_cache_data(hash_key=hashed_key)
+    if cache_data and isinstance(cache_data, dict):
+        cache_data = LanguageResponse(**cache_data)
+    return cache_data
+
+
+async def set_text_languages_cache(text_id: str, data: LanguageResponse) -> None:
+    payload = [text_id, CacheType.TEXT_LANGUAGES]
+    hashed_key: str = Utils.generate_hash_key(payload=payload)
+    cache_time_out = config.get_int("CACHE_TEXT_TIMEOUT")
+    await set_cache(hash_key=hashed_key, value=data, cache_time_out=cache_time_out)
 
 
 async def invalidate_text_cache_on_update(text_id: str, cache_type: CacheType = CacheType.TEXT_DETAIL) -> bool:
