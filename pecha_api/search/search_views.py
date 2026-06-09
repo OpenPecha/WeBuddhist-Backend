@@ -1,15 +1,14 @@
-from fastapi import APIRouter, Query
-from .search_enums import SearchType, MultilingualSearchType
-from starlette import status
-
 from typing import Optional
 
+from fastapi import APIRouter, Query
+from starlette import status
+
+from .search_enums import SearchType, MultilingualSearchType
+from .search_openpecha_service import get_multilingual_search_results
 from .search_service import (
     get_search_results,
-    get_multilingual_search_results,
-    get_url_link as get_url_link_service
+    get_url_link as get_url_link_service,
 )
-
 from .search_response_models import (
     SearchResponse,
     MultilingualSearchResponse,
@@ -18,8 +17,9 @@ from .search_response_models import (
 
 search_router = APIRouter(
     prefix="/search",
-    tags=["Search"]
+    tags=["Search"],
 )
+
 
 @search_router.get("", status_code=status.HTTP_200_OK)
 async def search(
@@ -27,32 +27,35 @@ async def search(
     search_type: SearchType = Query(default=None, description="Search type (SOURCE / SHEET)"),
     text_id: Optional[str] = Query(default=None, description="Text ID where the search is to be performed"),
     skip: int = Query(default=0),
-    limit: int = Query(default=10)
+    limit: int = Query(default=10),
 ) -> SearchResponse:
     return await get_search_results(
         query=query,
         search_type=search_type,
         text_id=text_id,
         skip=skip,
-        limit=limit
+        limit=limit,
     )
+
 
 @search_router.get("/multilingual", status_code=status.HTTP_200_OK)
 async def multilingual_search(
     query: str = Query(...),
-    search_type: MultilingualSearchType = Query(default=MultilingualSearchType.HYBRID),
+    search_type: MultilingualSearchType = Query(default=MultilingualSearchType.SIMILAR),
     text_id: Optional[str] = Query(default=None),
+    edition_id: Optional[str] = Query(default=None),
     skip: int = Query(default=0, ge=0),
-    limit: int = Query(default=10, ge=1, le=100)
+    limit: int = Query(default=10, ge=1, le=100),
 ) -> MultilingualSearchResponse:
-
     return await get_multilingual_search_results(
         query=query,
         search_type=search_type.value,
         text_id=text_id,
+        edition_id=edition_id,
         skip=skip,
-        limit=limit
+        limit=limit,
     )
+
 
 @search_router.get("/chat/{pecha_segment_id}", status_code=status.HTTP_200_OK)
 async def get_url_link(pecha_segment_id: str) -> SegmentLinkResponse:

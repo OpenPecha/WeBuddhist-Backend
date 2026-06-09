@@ -12,7 +12,7 @@ from pecha_api.texts.texts_response_models import (
     V2TextsCategoryResponse,
 )
 from pecha_api.collections.collections_response_models import V2CollectionModel
-from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
+from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id, search_by_content
 from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
 from pecha_api.texts.texts_openpecha_api import fetch_critical_editions, fetch_text_detail, fetch_editions_segmentation, fetch_segmentation_segments, fetch_edition_content
 from pecha_api.texts.text_openpecha_response_models import (
@@ -576,3 +576,19 @@ async def _fetch_commentaries_from_related(
     ]
 
     return commentaries[skip:skip + limit]
+
+
+
+
+CONTENT_SEARCH_URL = "http://13.250.189.160/v2/content-search"
+
+
+async def search_text_content(
+    query: str,
+    search_type: Optional[str] = None,
+    limit: Optional[int] = 10,
+    text_id: Optional[str] = None,
+    edition_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    
+ return await search_by_content(query, search_type, limit, text_id, edition_id)
