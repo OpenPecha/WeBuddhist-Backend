@@ -8,7 +8,8 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_service i
     get_user_collections_service,
     get_collection_detail_service,
     create_collection_service,
-    add_items_to_collection_service
+    add_items_to_collection_service,
+    delete_collection_service
 )
 from pecha_api.plans.users.recitation_collection.recitation_collection_response_models import (
     RecitationCollectionsResponse,
@@ -843,3 +844,177 @@ class TestAddItemsToCollectionService:
             )
 
         assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+
+
+class TestDeleteCollectionService:
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.delete_collection')
+    @pytest.mark.asyncio
+    async def test_delete_collection_success(
+        self,
+        mock_delete_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test successful collection deletion"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        deleted_collection = MockCollection(
+            id=collection_id,
+            user_id=user_id,
+            name="Test Collection"
+        )
+        mock_delete_collection.return_value = deleted_collection
+
+        result = await delete_collection_service(token="valid_token", collection_id=collection_id)
+
+        assert result is None
+
+        mock_validate.assert_called_once_with(token="valid_token")
+        mock_delete_collection.assert_called_once_with(
+            db=mock_db,
+            collection_id=collection_id,
+            user_id=user_id
+        )
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.delete_collection')
+    @pytest.mark.asyncio
+    async def test_delete_collection_not_found(
+        self,
+        mock_delete_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test deleting non-existent collection"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_delete_collection.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            await delete_collection_service(token="valid_token", collection_id=collection_id)
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        assert "not found" in str(exc_info.value.detail).lower()
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.delete_collection')
+    @pytest.mark.asyncio
+    async def test_delete_collection_wrong_owner(
+        self,
+        mock_delete_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test deleting collection owned by another user"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_delete_collection.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            await delete_collection_service(token="valid_token", collection_id=collection_id)
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @pytest.mark.asyncio
+    async def test_delete_collection_invalid_token(self, mock_validate):
+        """Test deleting collection with invalid token"""
+        collection_id = uuid4()
+
+        mock_validate.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await delete_collection_service(token="invalid_token", collection_id=collection_id)
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.delete_collection')
+    @pytest.mark.asyncio
+    async def test_delete_collection_database_error(
+        self,
+        mock_delete_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test database error during collection deletion"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_delete_collection.side_effect = HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "BAD_REQUEST", "message": "Database error"}
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await delete_collection_service(token="valid_token", collection_id=collection_id)
+
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.delete_collection')
+    @pytest.mark.asyncio
+    async def test_delete_collection_with_items(
+        self,
+        mock_delete_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test deleting collection that has items (cascade delete)"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        deleted_collection = MockCollection(
+            id=collection_id,
+            user_id=user_id,
+            name="Collection with Items"
+        )
+        mock_delete_collection.return_value = deleted_collection
+
+        result = await delete_collection_service(token="valid_token", collection_id=collection_id)
+
+        assert result is None
+        mock_delete_collection.assert_called_once()
