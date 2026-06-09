@@ -191,7 +191,7 @@ async def create_collection_service(
         )
 
 
-def _validate_collection_exists(collection, collection_id: UUID):
+def validate_collection_exists(collection, collection_id: UUID):
     if not collection:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -199,12 +199,12 @@ def _validate_collection_exists(collection, collection_id: UUID):
         )
 
 
-async def _validate_texts_exist(text_ids: list[UUID]):
+async def validate_texts_exist(text_ids: list[UUID]):
     for text_id in text_ids:
         await TextUtils.validate_text_exists(text_id=str(text_id))
 
 
-def _create_collection_items(
+def create_collection_items(
     collection_id: UUID,
     text_ids: list[UUID],
     start_order: int
@@ -219,7 +219,7 @@ def _create_collection_items(
     ]
 
 
-async def _build_items_dto(
+async def build_items_dto(
     saved_items: list[RecitationCollectionItem]
 ) -> list[RecitationCollectionItemDTO]:
     text_ids_str = [str(item.text_id) for item in saved_items]
@@ -257,16 +257,16 @@ async def add_items_to_collection_service(
             collection_id=collection_id,
             user_id=current_user.id
         )
-        _validate_collection_exists(collection, collection_id)
+        validate_collection_exists(collection, collection_id)
         
-        await _validate_texts_exist(request.text_ids)
+        await validate_texts_exist(request.text_ids)
         
         max_order = get_max_display_order_for_collection(db=db, collection_id=collection_id)
         start_order = (max_order or 0) + 1
         
-        new_items = _create_collection_items(collection_id, request.text_ids, start_order)
+        new_items = create_collection_items(collection_id, request.text_ids, start_order)
         saved_items = save_collection_items(db=db, items=new_items)
-        items_dto = await _build_items_dto(saved_items)
+        items_dto = await build_items_dto(saved_items)
         
         return AddItemsResponse(
             collection_id=collection_id,
