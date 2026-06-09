@@ -1,7 +1,10 @@
+import re
 from typing import List, Optional
 
 from pydantic import BaseModel, field_validator
 from .users_enums import SocialProfile
+
+USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9](?:[a-zA-Z0-9_.-]{1,28}[a-zA-Z0-9])?$")
 
 class SocialMediaProfile(BaseModel):
     account: SocialProfile
@@ -47,6 +50,8 @@ class UpdateUsernameRequest(BaseModel):
     @field_validator("username")
     @classmethod
     def username_must_be_valid(cls, v: str) -> str:
+        if re.search(r"\s", v):
+            raise ValueError("Username cannot contain spaces")
         v = v.strip()
         if not v:
             raise ValueError("Username cannot be empty")
@@ -54,7 +59,12 @@ class UpdateUsernameRequest(BaseModel):
             raise ValueError("Username must be at least 3 characters")
         if len(v) > 30:
             raise ValueError("Username must be at most 30 characters")
-        return v
+        if not USERNAME_PATTERN.match(v):
+            raise ValueError(
+                "Username can only contain letters, numbers, underscores, hyphens, and periods, "
+                "and must start and end with a letter or number"
+            )
+        return v.lower()
 
 
 class UpdateUsernameResponse(BaseModel):
