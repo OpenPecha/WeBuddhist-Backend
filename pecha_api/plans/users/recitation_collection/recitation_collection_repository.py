@@ -119,3 +119,26 @@ def save_collection_items(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=ResponseError(error=BAD_REQUEST, message=str(e.orig)).model_dump()
         )
+
+
+def delete_collection(
+    db: Session,
+    collection_id: UUID,
+    user_id: UUID
+) -> Optional[RecitationCollection]:
+
+    collection = get_collection_by_id(db=db, collection_id=collection_id, user_id=user_id)
+    
+    if not collection:
+        return None
+    
+    try:
+        db.delete(collection)
+        db.commit()
+        return collection
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ResponseError(error=BAD_REQUEST, message=str(e.orig)).model_dump()
+        )
