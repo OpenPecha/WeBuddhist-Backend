@@ -448,6 +448,121 @@ class TestCreateCollectionView:
 
         assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
 
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.create_collection_service')
+    @pytest.mark.asyncio
+    async def test_create_collection_without_image(self, mock_service):
+        """Test creating collection without image URL (empty string)"""
+        token = "valid_token"
+        collection_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = CreateCollectionRequest(name="No Image Collection", img_url="")
+
+        mock_response = CreateCollectionResponse(
+            id=collection_id,
+            name="No Image Collection",
+            img_url=None,
+            created_at="2025-06-09T10:00:00",
+            updated_at="2025-06-09T10:00:00"
+        )
+        mock_service.return_value = mock_response
+
+        result = await create_collection(
+            authentication_credential=auth_credentials,
+            request=request
+        )
+
+        assert result.img_url is None
+        assert result.name == "No Image Collection"
+        mock_service.assert_awaited_once_with(token=token, request=request)
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.create_collection_service')
+    @pytest.mark.asyncio
+    async def test_create_collection_with_long_name(self, mock_service):
+        """Test creating collection with long name"""
+        token = "valid_token"
+        collection_id = uuid4()
+        long_name = "A" * 255
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = CreateCollectionRequest(name=long_name, img_url="images/test.jpg")
+
+        mock_response = CreateCollectionResponse(
+            id=collection_id,
+            name=long_name,
+            img_url="https://presigned-url.com/test.jpg",
+            created_at="2025-06-09T10:00:00",
+            updated_at="2025-06-09T10:00:00"
+        )
+        mock_service.return_value = mock_response
+
+        result = await create_collection(
+            authentication_credential=auth_credentials,
+            request=request
+        )
+
+        assert result.name == long_name
+        assert len(result.name) == 255
+        mock_service.assert_awaited_once_with(token=token, request=request)
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.create_collection_service')
+    @pytest.mark.asyncio
+    async def test_create_collection_with_special_characters(self, mock_service):
+        """Test creating collection with special characters in name"""
+        token = "valid_token"
+        collection_id = uuid4()
+        special_name = "Morning Prayers 🙏 - དུས་གསུམ་སངས་རྒྱས།"
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = CreateCollectionRequest(name=special_name, img_url="images/test.jpg")
+
+        mock_response = CreateCollectionResponse(
+            id=collection_id,
+            name=special_name,
+            img_url="https://presigned-url.com/test.jpg",
+            created_at="2025-06-09T10:00:00",
+            updated_at="2025-06-09T10:00:00"
+        )
+        mock_service.return_value = mock_response
+
+        result = await create_collection(
+            authentication_credential=auth_credentials,
+            request=request
+        )
+
+        assert result.name == special_name
+        mock_service.assert_awaited_once_with(token=token, request=request)
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.create_collection_service')
+    @pytest.mark.asyncio
+    async def test_create_collection_presigned_url_generation(self, mock_service):
+        """Test that presigned URL is generated for S3 key"""
+        token = "valid_token"
+        collection_id = uuid4()
+        s3_key = "images/collections/user123/collection.jpg"
+        presigned_url = "https://bucket.s3.amazonaws.com/images/collections/user123/collection.jpg?X-Amz-Algorithm=..."
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = CreateCollectionRequest(name="Test Collection", img_url=s3_key)
+
+        mock_response = CreateCollectionResponse(
+            id=collection_id,
+            name="Test Collection",
+            img_url=presigned_url,
+            created_at="2025-06-09T10:00:00",
+            updated_at="2025-06-09T10:00:00"
+        )
+        mock_service.return_value = mock_response
+
+        result = await create_collection(
+            authentication_credential=auth_credentials,
+            request=request
+        )
+
+        assert result.img_url == presigned_url
+        assert "X-Amz-Algorithm" in result.img_url
+        mock_service.assert_awaited_once_with(token=token, request=request)
+
 
 class TestAddItemsToCollectionView:
 
@@ -602,3 +717,249 @@ class TestAddItemsToCollectionView:
             )
 
         assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.add_items_to_collection_service')
+    @pytest.mark.asyncio
+    async def test_add_items_invalid_token(self, mock_service):
+        """Test adding items with invalid authentication token"""
+        token = "invalid_token"
+        collection_id = uuid4()
+        text_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = AddItemsRequest(text_ids=[text_id])
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await add_items_to_collection(
+                collection_id=collection_id,
+                authentication_credential=auth_credentials,
+                request=request
+            )
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.add_items_to_collection_service')
+    @pytest.mark.asyncio
+    async def test_add_items_large_batch(self, mock_service):
+        """Test adding large batch of items (50 texts)"""
+        token = "valid_token"
+        collection_id = uuid4()
+        text_ids = [uuid4() for _ in range(50)]
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = AddItemsRequest(text_ids=text_ids)
+
+        items_dto = [
+            TestDataFactory.create_collection_item_dto(
+                text_id=text_ids[i],
+                title=f"Text {i+1}",
+                display_order=i+1
+            )
+            for i in range(50)
+        ]
+        mock_response = AddItemsResponse(
+            collection_id=collection_id,
+            added_count=50,
+            items=items_dto
+        )
+        mock_service.return_value = mock_response
+
+        result = await add_items_to_collection(
+            collection_id=collection_id,
+            authentication_credential=auth_credentials,
+            request=request
+        )
+
+        assert result.added_count == 50
+        assert len(result.items) == 50
+        assert result.items[0].display_order == 1
+        assert result.items[49].display_order == 50
+
+        mock_service.assert_awaited_once_with(
+            token=token,
+            collection_id=collection_id,
+            request=request
+        )
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.add_items_to_collection_service')
+    @pytest.mark.asyncio
+    async def test_add_items_display_order_continuation(self, mock_service):
+        """Test that display order continues from existing items"""
+        token = "valid_token"
+        collection_id = uuid4()
+        text_ids = [uuid4(), uuid4()]
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = AddItemsRequest(text_ids=text_ids)
+
+        items_dto = [
+            TestDataFactory.create_collection_item_dto(
+                text_id=text_ids[0],
+                title="Text 1",
+                display_order=11
+            ),
+            TestDataFactory.create_collection_item_dto(
+                text_id=text_ids[1],
+                title="Text 2",
+                display_order=12
+            )
+        ]
+        mock_response = AddItemsResponse(
+            collection_id=collection_id,
+            added_count=2,
+            items=items_dto
+        )
+        mock_service.return_value = mock_response
+
+        result = await add_items_to_collection(
+            collection_id=collection_id,
+            authentication_credential=auth_credentials,
+            request=request
+        )
+
+        assert result.items[0].display_order == 11
+        assert result.items[1].display_order == 12
+
+        mock_service.assert_awaited_once_with(
+            token=token,
+            collection_id=collection_id,
+            request=request
+        )
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.add_items_to_collection_service')
+    @pytest.mark.asyncio
+    async def test_add_items_with_different_text_types(self, mock_service):
+        """Test adding items with different text types (root_text, translation, etc.)"""
+        token = "valid_token"
+        collection_id = uuid4()
+        text_ids = [uuid4(), uuid4(), uuid4()]
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = AddItemsRequest(text_ids=text_ids)
+
+        items_dto = [
+            TestDataFactory.create_collection_item_dto(
+                text_id=text_ids[0],
+                title="Root Text",
+                type="root_text",
+                display_order=1
+            ),
+            TestDataFactory.create_collection_item_dto(
+                text_id=text_ids[1],
+                title="Translation",
+                type="translation",
+                display_order=2
+            ),
+            TestDataFactory.create_collection_item_dto(
+                text_id=text_ids[2],
+                title="Commentary",
+                type="commentary",
+                display_order=3
+            )
+        ]
+        mock_response = AddItemsResponse(
+            collection_id=collection_id,
+            added_count=3,
+            items=items_dto
+        )
+        mock_service.return_value = mock_response
+
+        result = await add_items_to_collection(
+            collection_id=collection_id,
+            authentication_credential=auth_credentials,
+            request=request
+        )
+
+        assert result.items[0].type == "root_text"
+        assert result.items[1].type == "translation"
+        assert result.items[2].type == "commentary"
+
+        mock_service.assert_awaited_once_with(
+            token=token,
+            collection_id=collection_id,
+            request=request
+        )
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.add_items_to_collection_service')
+    @pytest.mark.asyncio
+    async def test_add_items_with_different_languages(self, mock_service):
+        """Test adding items with different languages"""
+        token = "valid_token"
+        collection_id = uuid4()
+        text_ids = [uuid4(), uuid4(), uuid4()]
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = AddItemsRequest(text_ids=text_ids)
+
+        items_dto = [
+            TestDataFactory.create_collection_item_dto(
+                text_id=text_ids[0],
+                title="Tibetan Text",
+                language="bo",
+                display_order=1
+            ),
+            TestDataFactory.create_collection_item_dto(
+                text_id=text_ids[1],
+                title="English Text",
+                language="en",
+                display_order=2
+            ),
+            TestDataFactory.create_collection_item_dto(
+                text_id=text_ids[2],
+                title="Sanskrit Text",
+                language="sa",
+                display_order=3
+            )
+        ]
+        mock_response = AddItemsResponse(
+            collection_id=collection_id,
+            added_count=3,
+            items=items_dto
+        )
+        mock_service.return_value = mock_response
+
+        result = await add_items_to_collection(
+            collection_id=collection_id,
+            authentication_credential=auth_credentials,
+            request=request
+        )
+
+        assert result.items[0].language == "bo"
+        assert result.items[1].language == "en"
+        assert result.items[2].language == "sa"
+
+        mock_service.assert_awaited_once_with(
+            token=token,
+            collection_id=collection_id,
+            request=request
+        )
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.add_items_to_collection_service')
+    @pytest.mark.asyncio
+    async def test_add_items_database_error(self, mock_service):
+        """Test database error handling when adding items"""
+        token = "valid_token"
+        collection_id = uuid4()
+        text_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = AddItemsRequest(text_ids=[text_id])
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database connection error"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await add_items_to_collection(
+                collection_id=collection_id,
+                authentication_credential=auth_credentials,
+                request=request
+            )
+
+        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
