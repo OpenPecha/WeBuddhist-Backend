@@ -139,7 +139,7 @@ async def _build_sources_from_content_search_matches(
     return sources
 
 
-async def get_v2_multilingual_search_results(
+async def get_multilingual_search_results(
     query: str,
     search_type: str = "similar",
     text_id: Optional[str] = None,
@@ -198,5 +198,5 @@ async def get_v2_multilingual_search_results(
         )
 
     except Exception:
-        logger.exception("Error in v2 multilingual search")
+        logger.exception("Error in multilingual search")
         raise
