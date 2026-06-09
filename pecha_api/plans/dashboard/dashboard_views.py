@@ -69,7 +69,7 @@ async def list_practice_items(
     language: Annotated[Optional[str], Query()] = None,
     featured: Annotated[Optional[bool], Query()] = None,
 ):
-    return get_practice_items_list(
+    return await get_practice_items_list(
         tab=tab,
         page=page,
         page_size=page_size,

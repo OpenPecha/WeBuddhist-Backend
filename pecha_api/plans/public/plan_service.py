@@ -35,6 +35,20 @@ from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.tags.tag_repository import get_published_tags_for_language, get_all_tags_paginated
 from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
 from pecha_api.plans.shared.metadata_utils import format_metadata_response
+from pecha_api.plans.public.plans_cache_service import (
+    get_published_plans_cache,
+    set_published_plans_cache,
+    get_plan_detail_cache,
+    set_plan_detail_cache,
+    get_plan_days_cache,
+    set_plan_days_cache,
+    get_plan_day_detail_cache,
+    set_plan_day_detail_cache,
+    get_plan_tags_cache,
+    set_plan_tags_cache,
+    get_public_tags_cache,
+    set_public_tags_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +75,14 @@ async def get_published_plans(
     skip: int = 0, 
     limit: int = 20
     ) -> PublicPlansResponse:
-    
+
+    cached = await get_published_plans_cache(
+        tag=tag, group_id=group_id, search=search, language=language,
+        sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit,
+    )
+    if cached is not None:
+        return cached
+
     try:
         with SessionLocal() as db:
             language_upper = language.upper()
@@ -120,8 +141,15 @@ async def get_published_plans(
                 group_id=group_id,
             )
             
-            return PublicPlansResponse(plans=plan_dtos, skip=skip, limit=limit, total=total)
-    
+            response = PublicPlansResponse(plans=plan_dtos, skip=skip, limit=limit, total=total)
+
+        await set_published_plans_cache(
+            tag=tag, group_id=group_id, search=search, language=language,
+            sort_by=sort_by, sort_order=sort_order, skip=skip, limit=limit,
+            data=response,
+        )
+        return response
+
     except Exception as e:
         logger.error(f"Error fetching published plans: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -131,6 +159,10 @@ async def get_published_plans(
 
 
 async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
+
+    cached = await get_plan_detail_cache(plan_id=plan_id)
+    if cached is not None:
+        return cached
 
     try:
         with SessionLocal() as db:
@@ -155,7 +187,7 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
             total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan_id).count()
             group_id = get_group_id_for_plan(db=db, plan_id=plan.id)
 
-            return PublicPlanDTO(
+            plan_dto = PublicPlanDTO(
                 id=plan.id,
                 title=plan.title,
                 description=plan.description,
@@ -169,7 +201,10 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
                 display_order=plan.display_order,
                 group_id=group_id,
             )
-    
+
+        await set_plan_detail_cache(plan_id=plan_id, data=plan_dto)
+        return plan_dto
+
     except Exception as e:
         logger.error(f"Error fetching published plan details: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -304,7 +339,11 @@ def add_plan_to_routine_time_blocks(
 
 async def get_plan_days(plan_id: UUID) -> PlanDaysResponse:
     """Get all days for a specific plan"""
-    
+
+    cached = await get_plan_days_cache(plan_id=plan_id)
+    if cached is not None:
+        return cached
+
     with SessionLocal() as db:
         plan_model = get_plan_by_id(db=db, plan_id=plan_id)
         if not plan_model:
@@ -312,15 +351,15 @@ async def get_plan_days(plan_id: UUID) -> PlanDaysResponse:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=ErrorConstants.PLAN_NOT_FOUND
             )
-        plan_days=get_days_by_plan_id(db=db, plan_id=plan_id)
-        days_basic =[]
-        for day_model in plan_days:
-            day_basic = PlanDayBasic(
-                id=str(day_model.id),
-                day_number=day_model.day_number,
-            )
-            days_basic.append(day_basic)
-        return PlanDaysResponse(days=days_basic)
+        plan_days = get_days_by_plan_id(db=db, plan_id=plan_id)
+        days_basic = [
+            PlanDayBasic(id=str(day_model.id), day_number=day_model.day_number)
+            for day_model in plan_days
+        ]
+        response = PlanDaysResponse(days=days_basic)
+
+    await set_plan_days_cache(plan_id=plan_id, data=response)
+    return response
 
 from pecha_api.plans.audio.dto_helpers import (
     build_plan_day_audio_fields,
@@ -373,12 +412,19 @@ def _build_plan_day_dto(plan_item) -> PlanDayDTO:
         audio_duration_ms=audio_duration_ms,
     )
 
-def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
+async def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
     """Get specific day's content with tasks"""
+
+    cached = await get_plan_day_detail_cache(plan_id=plan_id, day_number=day_number)
+    if cached is not None:
+        return cached
 
     with SessionLocal() as db:
         plan_item = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
-        return _build_plan_day_dto(plan_item)
+        response = _build_plan_day_dto(plan_item)
+
+    await set_plan_day_detail_cache(plan_id=plan_id, day_number=day_number, data=response)
+    return response
 
 
 def _filter_series_metadata_by_language(metadata_entries, language: Optional[str]):
@@ -616,12 +662,19 @@ async def get_plan_daily_content(
         )
 
 
-def get_tags(language: str = "en") -> TagsResponse:
+async def get_tags(language: str = "en") -> TagsResponse:
+    cached = await get_plan_tags_cache(language=language)
+    if cached is not None:
+        return cached
+
     try:
         with SessionLocal() as db:
             language_upper = language.upper()
             tag_rows = get_published_tags_for_language(db=db, language=language_upper)
-            return TagsResponse(tags=tags_to_summary_dtos(tag_rows))
+            response = TagsResponse(tags=tags_to_summary_dtos(tag_rows))
+
+        await set_plan_tags_cache(language=language, data=response)
+        return response
     except Exception as e:
         logger.error(f"Error fetching tags: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -630,12 +683,16 @@ def get_tags(language: str = "en") -> TagsResponse:
         )
 
 
-def get_public_tags(
+async def get_public_tags(
     featured: Optional[bool] = None,
     search: Optional[str] = None,
     skip: int = 0,
     limit: int = 20,
 ) -> PublicTagsListResponse:
+    cached = await get_public_tags_cache(featured=featured, search=search, skip=skip, limit=limit)
+    if cached is not None:
+        return cached
+
     try:
         with SessionLocal() as db:
             tag_rows, total = get_all_tags_paginated(
@@ -645,12 +702,15 @@ def get_public_tags(
                 skip=skip,
                 limit=limit,
             )
-            return PublicTagsListResponse(
+            response = PublicTagsListResponse(
                 tags=tags_to_summary_dtos(tag_rows, preserve_order=True),
                 skip=skip,
                 limit=limit,
                 total=total,
             )
+
+        await set_public_tags_cache(featured=featured, search=search, skip=skip, limit=limit, data=response)
+        return response
     except Exception as e:
         logger.error(f"Error fetching public tags: {str(e)}", exc_info=True)
         raise HTTPException(
