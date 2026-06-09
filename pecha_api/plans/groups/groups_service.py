@@ -34,6 +34,7 @@ from pecha_api.plans.groups.groups_repository import (
     create_group_invite,
     get_followers_count_map,
     get_following_group_ids_by_user,
+    is_user_following_group,
     get_group_by_id,
     get_group_by_slug,
     get_groups_by_ids,
@@ -697,6 +698,27 @@ def unfollow_group(token: str, group_id: UUID) -> None:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         remove_group_follow(db=db, group_id=group_id, user_id=user.id)
+
+
+def get_followed_group(
+    token: str,
+    group_id: UUID,
+    language: Optional[str] = None,
+) -> PublicAuthorGroupSummaryDTO:
+    user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        if not is_user_following_group(db=db, group_id=group_id, user_id=user.id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_summary(
+            group=group,
+            follower_count=follower_count,
+            public=True,
+            language=language,
+        )
 
 
 def list_followed_groups(token: str, skip: int, limit: int) -> PublicAuthorGroupListResponse:
