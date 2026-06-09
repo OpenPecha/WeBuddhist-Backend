@@ -56,13 +56,13 @@ async def get_plans(
 @public_plans_router.get(
     "/tags", status_code=status.HTTP_200_OK, response_model=TagsResponse
 )
-async def get_plan_tags(
+def get_plan_tags(
     language: Annotated[
         str,
         Query(description="Filter by language code (e.g., 'bo', 'en', 'zh'). Defaults to 'en'."),
     ] = "en",
 ):
-    return await get_tags(language=language)
+    return get_tags(language=language)
 
 
 @public_plans_router.get("/{plan_id}", status_code=status.HTTP_200_OK, response_model=PublicPlanDTO)
@@ -105,4 +105,4 @@ async def get_plan_days_list(
 @public_plans_router.get("/{plan_id}/days/{day_number}", status_code=status.HTTP_200_OK, response_model=PlanDayDTO)
 async def get_plan_day_content(plan_id: UUID, day_number: int):
     """Get specific day's content with tasks"""
-    return await get_plan_day_details(plan_id=plan_id, day_number=day_number)
+    return get_plan_day_details(plan_id=plan_id, day_number=day_number)
