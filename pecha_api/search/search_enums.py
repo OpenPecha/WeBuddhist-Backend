@@ -16,3 +16,7 @@ class MultilingualSearchType(Enum):
     BM25 = "bm25"         # Keyword-based ranking algorithm
     SEMANTIC = "semantic" # Vector similarity search
     EXACT = "exact"       # Exact text matching
+
+class V2ContentSearchType(Enum):
+    EXACT = "exact"
+    SIMILAR = "similar"
