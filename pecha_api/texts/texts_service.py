@@ -75,7 +75,9 @@ from pecha_api.texts.texts_cache_service import (
     set_table_of_content_by_sheet_id_cache,
     delete_table_of_content_by_sheet_id_cache,
     update_text_details_cache,
-    invalidate_text_cache_on_update
+    invalidate_text_cache_on_update,
+    get_text_languages_cache,
+    set_text_languages_cache,
 )
 from .segments.segments_repository import get_segments_by_text_id, get_related_mapped_segments
 from pecha_api.sheets.sheets_enum import (
@@ -364,16 +366,16 @@ async def get_text_versions_by_group_id(text_id: str, language: str, skip: int, 
     if language is None:
         language = get("DEFAULT_LANGUAGE")
     
-    # cached_data: TextVersionResponse = await get_text_versions_by_group_id_cache(
-    #     text_id = text_id,
-    #     language = language,
-    #     skip = skip,
-    #     limit = limit,
-    #     cache_type = CacheType.TEXT_VERSIONS
-    # )
-    # if cached_data is not None:
-    #     return cached_data
-    
+    cached_data: TextVersionResponse = await get_text_versions_by_group_id_cache(
+        text_id=text_id,
+        language=language,
+        skip=skip,
+        limit=limit,
+        cache_type=CacheType.TEXT_VERSIONS,
+    )
+    if cached_data is not None:
+        return cached_data
+
     root_text = await TextUtils.get_text_detail_by_id(text_id=text_id)
     group_id = root_text.group_id
     texts = await get_texts_by_group_id(group_id=group_id, skip=skip, limit=limit)
@@ -862,6 +864,10 @@ async def get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request: Te
 
 async def get_text_languages(text_id: str) -> LanguageResponse:
 
+    cached_languages = await get_text_languages_cache(text_id=text_id)
+    if cached_languages is not None:
+        return cached_languages
+
     is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
     if not is_valid_text:
         raise HTTPException(
@@ -871,14 +877,37 @@ async def get_text_languages(text_id: str) -> LanguageResponse:
     
     text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
     group_id: str = text_detail.group_id
-    
+
+    segments = await get_segments_by_text_id(text_id=text_id)
+    if not segments:
+        response = LanguageResponse(
+            text_id=text_id,
+            title=text_detail.title,
+            available_languages=[]
+        )
+        await set_text_languages_cache(text_id=text_id, data=response)
+        return response
+
+    first_segment_id = str(segments[0].id)
+    translation_titles = await get_segment_translation_titles(segment_id=first_segment_id)
+
+    if not translation_titles:
+        response = LanguageResponse(
+            text_id=text_id,
+            title=text_detail.title,
+            available_languages=[]
+        )
+        await set_text_languages_cache(text_id=text_id, data=response)
+        return response
+
     texts = await get_all_texts_by_group_id(group_id=group_id)
-    
+    linked_texts = [text for text in texts if text.title in translation_titles]
+
     language_counts: Dict[str, int] = {}
-    for text in texts:
+    for text in linked_texts:
         if text.language:
             language_counts[text.language] = language_counts.get(text.language, 0) + 1
-    
+
     available_languages = [
         AvailableLanguage(
             language=lang,
@@ -887,12 +916,14 @@ async def get_text_languages(text_id: str) -> LanguageResponse:
         )
         for lang, count in language_counts.items()
     ]
-    
-    return LanguageResponse(
+
+    response = LanguageResponse(
         text_id=text_id,
         title=text_detail.title,
         available_languages=available_languages
     )
+    await set_text_languages_cache(text_id=text_id, data=response)
+    return response
 
 
 async def get_language_versions(text_id: str, language: str) -> VersionsResponse:
