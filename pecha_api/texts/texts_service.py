@@ -935,46 +935,50 @@ async def get_text_languages(text_id: str) -> LanguageResponse:
 
 
 async def get_language_versions(text_id: str, language: str) -> VersionsResponse:
-    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
+    # Round 1: all three only depend on text_id
+    is_valid_text, text_detail, segments = await asyncio.gather(
+        TextUtils.validate_text_exists(text_id=text_id),
+        TextUtils.get_text_detail_by_id(text_id=text_id),
+        get_segments_by_text_id(text_id=text_id),
+    )
+
     if not is_valid_text:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
         )
-    
-    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
-    group_id: str = text_detail.group_id
-    
-    segments = await get_segments_by_text_id(text_id=text_id)
+
     if not segments:
         return VersionsResponse(
             text_id=text_id,
             language=language,
             available_versions=[]
         )
-    
+
+    # Round 2: translation titles and group texts can be fetched in parallel
     first_segment_id = str(segments[0].id)
-    
-    # Get translation titles from the segment
-    translation_titles = await get_segment_translation_titles(segment_id=first_segment_id)
-    
+    group_id: str = text_detail.group_id
+
+    translation_titles, texts = await asyncio.gather(
+        get_segment_translation_titles(segment_id=first_segment_id),
+        get_all_texts_by_group_id(group_id=group_id),
+    )
+
     if not translation_titles:
         return VersionsResponse(
             text_id=text_id,
             language=language,
             available_versions=[]
         )
-    
-    texts: List[TextDTO] = await get_all_texts_by_group_id(group_id=group_id)
-    
+
     # Filter texts by language AND by matching translation titles
-    filtered_texts = [
-        text for text in texts 
+    filtered_texts: List[TextDTO] = [
+        text for text in texts
         if text.language == language and text.title in translation_titles
     ]
-    
+
     versions_table_of_content_id_dict: Dict[str, List[str]] = await _get_table_of_content_by_version_text_id(versions=filtered_texts)
-    
+
     available_versions = [
         VersionDetail(
             id=str(text.id),
@@ -997,7 +1001,7 @@ async def get_language_versions(text_id: str, language: str) -> VersionsResponse
         )
         for text in filtered_texts
     ]
-    
+
     return VersionsResponse(
         text_id=text_id,
         language=language,
