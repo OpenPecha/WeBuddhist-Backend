@@ -28,7 +28,7 @@ async def get_series_list(
     skip: Annotated[int, Query()] = 0,
     limit: Annotated[int, Query()] = 10,
 ):
-    return await get_filtered_series(search=search, skip=skip, limit=limit, language=language, group_id=group_id)
+    return get_filtered_series(search=search, skip=skip, limit=limit, language=language, group_id=group_id)
 
 
 @public_series_router.get(
@@ -41,4 +41,4 @@ async def get_series(
         Query(description="Filter plans by language (e.g. 'en', 'bo', 'zh')"),
     ] = None,
 ):
-    return await get_series_detail(series_id=series_id, language=language)
+    return get_series_detail(series_id=series_id, language=language)

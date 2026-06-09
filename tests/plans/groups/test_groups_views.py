@@ -258,6 +258,7 @@ def test_get_cms_groups_with_filters():
         search="foo",
         language="EN",
         tag_id=tag_id,
+        is_public=None,
         for_transfer=False,
         skip=5,
         limit=10,

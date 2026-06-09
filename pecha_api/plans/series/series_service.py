@@ -46,12 +46,6 @@ from pecha_api.plans.shared.permissions import (
     require_can_read_group_content,
 )
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
-from pecha_api.plans.series.series_cache_service import (
-    get_series_list_cache,
-    set_series_list_cache,
-    get_series_detail_cache,
-    set_series_detail_cache,
-)
 from starlette import status
 
 
@@ -289,19 +283,13 @@ def _series_to_dto(
     )
 
 
-async def get_filtered_series(
+def get_filtered_series(
     search: Optional[str],
     skip: int,
     limit: int,
     language: Optional[str] = None,
     group_id: Optional[UUID] = None,
 ) -> SeriesListResponse:
-    cached = await get_series_list_cache(
-        search=search, skip=skip, limit=limit, language=language, group_id=group_id,
-    )
-    if cached is not None:
-        return cached
-
     with SessionLocal() as db_session:
         rows, total = get_series_paginated(
             db=db_session,
@@ -331,23 +319,15 @@ async def get_filtered_series(
         )
         for row, plan_count in rows
     ]
-    response = SeriesListResponse(
+    return SeriesListResponse(
         series=series_dtos,
         skip=skip,
         limit=limit,
         total=total,
     )
-    await set_series_list_cache(
-        search=search, skip=skip, limit=limit, language=language, group_id=group_id, data=response,
-    )
-    return response
 
 
-async def get_series_detail(series_id: UUID, language: Optional[str] = None) -> SeriesDTO:
-    cached = await get_series_detail_cache(series_id=series_id, language=language)
-    if cached is not None:
-        return cached
-
+def get_series_detail(series_id: UUID, language: Optional[str] = None) -> SeriesDTO:
     with SessionLocal() as db_session:
         row = get_series_by_id(db=db_session, series_id=series_id)
         if not row or _to_plan_status(row.status) != PlanStatus.PUBLISHED:
@@ -355,7 +335,7 @@ async def get_series_detail(series_id: UUID, language: Optional[str] = None) -> 
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Series with id '{series_id}' not found",
             )
-        response = _series_detail_dto(
+        return _series_detail_dto(
             db_session,
             row,
             include_plans=True,
@@ -363,9 +343,6 @@ async def get_series_detail(series_id: UUID, language: Optional[str] = None) -> 
             plan_language=language,
             metadata_language=language,
         )
-
-    await set_series_detail_cache(series_id=series_id, language=language, data=response)
-    return response
 
 def get_cms_filtered_series(
     token: str,

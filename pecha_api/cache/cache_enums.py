@@ -28,21 +28,4 @@ class CacheType(Enum):
     # Collection-specific cache types
     COLLECTIONS = "collections"
     COLLECTION_DETAIL = "collection_detail"
-
-    # Plan-specific cache types
-    PUBLISHED_PLANS = "published_plans"
-    PLAN_DETAIL = "plan_detail"
-    PLAN_DAYS = "plan_days"
-    PLAN_DAY_DETAIL = "plan_day_detail"
-    PLAN_TAGS = "plan_tags"
-    PUBLIC_TAGS = "public_tags"
-
-    # Series-specific cache types
-    SERIES_LIST = "series_list"
-    SERIES_DETAIL = "series_detail"
-
-    # Practice / dashboard cache types
-    PRACTICE_ITEMS = "practice_items"
-
-    # Text languages / version count
-    TEXT_LANGUAGES = "text_languages"
+    

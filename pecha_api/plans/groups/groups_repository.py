@@ -162,11 +162,11 @@ def get_groups_paginated(
     language: Optional[str] = None,
     tag_id: Optional[UUID] = None,
     group_ids: Optional[Sequence[UUID]] = None,
-    public_only: bool = True,
+    is_public: Optional[bool] = None,
 ) -> Tuple[List[AuthorGroup], int]:
     filters = [AuthorGroup.deleted_at.is_(None)]
-    if public_only:
-        filters.append(AuthorGroup.is_public.is_(True))
+    if is_public is not None:
+        filters.append(AuthorGroup.is_public.is_(is_public))
     if language:
         filters.append(
             exists(
@@ -213,9 +213,15 @@ def get_groups_paginated(
             selectinload(AuthorGroup.tags),
         )
         .filter(*filters)
+
     )
     total = query.count()
-    groups = query.order_by(AuthorGroup.created_at.desc()).offset(skip).limit(limit).all()
+    groups = (
+        query.order_by(AuthorGroup.is_public.desc(), AuthorGroup.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return groups, total
 
 

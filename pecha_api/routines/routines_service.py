@@ -104,7 +104,6 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
                 ).model_dump(),
             )
 
-    # Duplicate plan source_ids within the request
     plan_source_ids = [
         session.source_id
         for session in request.sessions
