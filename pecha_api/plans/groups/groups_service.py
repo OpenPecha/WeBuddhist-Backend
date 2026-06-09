@@ -584,7 +584,7 @@ def list_public_groups(
             search=search,
             language=language,
             tag_id=tag_id,
-            public_only=True,
+            is_public=True,
         )
         group_ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=group_ids)
@@ -610,6 +610,7 @@ def list_cms_groups(
     search: Optional[str] = None,
     language: Optional[str] = None,
     tag_id: Optional[UUID] = None,
+    is_public: Optional[bool] = None,
     for_transfer: bool = False,
 ) -> AuthorGroupListResponse:
     author = validate_and_extract_author_details(token=token)
@@ -628,7 +629,7 @@ def list_cms_groups(
             language=language,
             tag_id=tag_id,
             group_ids=group_ids,
-            public_only=False,
+            is_public=is_public,
         )
         ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=ids)
@@ -730,7 +731,6 @@ def list_followed_groups(token: str, skip: int, limit: int) -> PublicAuthorGroup
             skip=skip,
             limit=limit,
             group_ids=group_ids,
-            public_only=False,
         )
         follower_count_map = get_followers_count_map(db=db, group_ids=[group.id for group in groups])
         return PublicAuthorGroupListResponse(
