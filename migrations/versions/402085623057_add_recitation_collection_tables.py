@@ -1,7 +1,7 @@
 """add recitation_collection tables
 
 Revision ID: 402085623057
-Revises: 4dc71853233a
+Revises: e8f9a0b1c2d3
 Create Date: 2025-11-12 10:15:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '402085623057'
-down_revision: Union[str, None] = '4dc71853233a'
+down_revision: Union[str, None] = 'e8f9a0b1c2d3'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
