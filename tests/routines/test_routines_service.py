@@ -809,6 +809,87 @@ async def test_add_time_block_success():
 
 
 @pytest.mark.asyncio
+async def test_add_time_block_allows_same_plan_in_different_time_block():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    source_id = uuid.uuid4()
+
+    request = CreateTimeBlockRequest(
+        time="18:00",
+        time_int=1800,
+        notification_enabled=True,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.PLAN,
+                source_id=source_id,
+                display_order=0,
+            )
+        ],
+    )
+
+    _db_mock, session_cm = _mock_session_with_db()
+
+    saved_time_block = SimpleNamespace(
+        id=time_block_id,
+        time="18:00",
+        time_int=1800,
+        notification_enabled=True,
+    )
+    saved_session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.PLAN,
+        source_id=source_id,
+        display_order=0,
+    )
+
+    mock_plan = SimpleNamespace(
+        id=source_id,
+        title="Evening Plan",
+        language=SimpleNamespace(value="EN"),
+        image_url="https://example.com/evening.jpg",
+        start_date=None,
+    )
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.time_block_exists_for_routine",
+        return_value=False,
+    ), patch(
+        "pecha_api.routines.routines_service.RoutineTimeBlock",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.routines.routines_service.save_time_block",
+        return_value=saved_time_block,
+    ), patch(
+        "pecha_api.routines.routines_service.RoutineSession",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.routines.routines_service.save_sessions",
+        return_value=[saved_session],
+    ), patch(
+        "pecha_api.routines.routines_service.get_plans_by_ids",
+        return_value=[mock_plan],
+    ):
+        result = await add_time_block_to_routine(
+            token="token123", routine_id=routine_id, request=request
+        )
+
+        assert result.id == time_block_id
+        assert len(result.sessions) == 1
+        assert result.sessions[0].source_id == source_id
+
+
+@pytest.mark.asyncio
 async def test_add_time_block_routine_not_found():
     request = CreateTimeBlockRequest(
         time="08:00",
