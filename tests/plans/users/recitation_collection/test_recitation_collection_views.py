@@ -7,13 +7,19 @@ from starlette import status
 
 from pecha_api.plans.users.recitation_collection.recitation_collection_views import (
     get_user_collections,
-    get_collection_detail
+    get_collection_detail,
+    create_collection,
+    add_items_to_collection
 )
 from pecha_api.plans.users.recitation_collection.recitation_collection_response_models import (
     RecitationCollectionsResponse,
     RecitationCollectionDTO,
     RecitationCollectionDetailDTO,
-    RecitationCollectionItemDTO
+    RecitationCollectionItemDTO,
+    CreateCollectionRequest,
+    CreateCollectionResponse,
+    AddItemsRequest,
+    AddItemsResponse
 )
 
 
@@ -366,3 +372,233 @@ class TestGetCollectionDetailView:
         assert len(result.items) == 20
         assert result.items[0].display_order == 1
         assert result.items[19].display_order == 20
+
+
+class TestCreateCollectionView:
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.create_collection_service')
+    @pytest.mark.asyncio
+    async def test_create_collection_success(self, mock_service):
+        token = "valid_token"
+        collection_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = CreateCollectionRequest(name="Morning Prayers", img_url="images/morning.jpg")
+
+        mock_response = CreateCollectionResponse(
+            id=collection_id,
+            name="Morning Prayers",
+            img_url="https://presigned-url.com/morning.jpg",
+            created_at="2025-06-09T10:00:00",
+            updated_at="2025-06-09T10:00:00"
+        )
+        mock_service.return_value = mock_response
+
+        result = await create_collection(
+            authentication_credential=auth_credentials,
+            request=request
+        )
+
+        assert isinstance(result, CreateCollectionResponse)
+        assert result.id == collection_id
+        assert result.name == "Morning Prayers"
+        assert result.img_url == "https://presigned-url.com/morning.jpg"
+
+        mock_service.assert_awaited_once_with(token=token, request=request)
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.create_collection_service')
+    @pytest.mark.asyncio
+    async def test_create_collection_invalid_token(self, mock_service):
+        token = "invalid_token"
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = CreateCollectionRequest(name="Test Collection", img_url="images/test.jpg")
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await create_collection(
+                authentication_credential=auth_credentials,
+                request=request
+            )
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.create_collection_service')
+    @pytest.mark.asyncio
+    async def test_create_collection_database_error(self, mock_service):
+        token = "valid_token"
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = CreateCollectionRequest(name="Test Collection", img_url="images/test.jpg")
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "BAD_REQUEST", "message": "Database error"}
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await create_collection(
+                authentication_credential=auth_credentials,
+                request=request
+            )
+
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+
+
+class TestAddItemsToCollectionView:
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.add_items_to_collection_service')
+    @pytest.mark.asyncio
+    async def test_add_items_single_success(self, mock_service):
+        token = "valid_token"
+        collection_id = uuid4()
+        text_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = AddItemsRequest(text_ids=[text_id])
+
+        item_dto = TestDataFactory.create_collection_item_dto(
+            text_id=text_id,
+            title="Heart Sutra",
+            display_order=1
+        )
+        mock_response = AddItemsResponse(
+            collection_id=collection_id,
+            added_count=1,
+            items=[item_dto]
+        )
+        mock_service.return_value = mock_response
+
+        result = await add_items_to_collection(
+            collection_id=collection_id,
+            authentication_credential=auth_credentials,
+            request=request
+        )
+
+        assert isinstance(result, AddItemsResponse)
+        assert result.collection_id == collection_id
+        assert result.added_count == 1
+        assert len(result.items) == 1
+        assert result.items[0].title == "Heart Sutra"
+
+        mock_service.assert_awaited_once_with(
+            token=token,
+            collection_id=collection_id,
+            request=request
+        )
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.add_items_to_collection_service')
+    @pytest.mark.asyncio
+    async def test_add_items_multiple_success(self, mock_service):
+        token = "valid_token"
+        collection_id = uuid4()
+        text_ids = [uuid4(), uuid4(), uuid4()]
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = AddItemsRequest(text_ids=text_ids)
+
+        items_dto = [
+            TestDataFactory.create_collection_item_dto(
+                text_id=text_ids[i],
+                title=f"Text {i+1}",
+                display_order=i+1
+            )
+            for i in range(3)
+        ]
+        mock_response = AddItemsResponse(
+            collection_id=collection_id,
+            added_count=3,
+            items=items_dto
+        )
+        mock_service.return_value = mock_response
+
+        result = await add_items_to_collection(
+            collection_id=collection_id,
+            authentication_credential=auth_credentials,
+            request=request
+        )
+
+        assert result.added_count == 3
+        assert len(result.items) == 3
+
+        mock_service.assert_awaited_once_with(
+            token=token,
+            collection_id=collection_id,
+            request=request
+        )
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.add_items_to_collection_service')
+    @pytest.mark.asyncio
+    async def test_add_items_collection_not_found(self, mock_service):
+        token = "valid_token"
+        collection_id = uuid4()
+        text_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = AddItemsRequest(text_ids=[text_id])
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "NOT_FOUND", "message": f"Collection with ID {collection_id} not found"}
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await add_items_to_collection(
+                collection_id=collection_id,
+                authentication_credential=auth_credentials,
+                request=request
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.add_items_to_collection_service')
+    @pytest.mark.asyncio
+    async def test_add_items_text_not_found(self, mock_service):
+        token = "valid_token"
+        collection_id = uuid4()
+        text_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = AddItemsRequest(text_ids=[text_id])
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "NOT_FOUND", "message": f"Text with ID {text_id} not found"}
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await add_items_to_collection(
+                collection_id=collection_id,
+                authentication_credential=auth_credentials,
+                request=request
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.add_items_to_collection_service')
+    @pytest.mark.asyncio
+    async def test_add_items_duplicate_item(self, mock_service):
+        token = "valid_token"
+        collection_id = uuid4()
+        text_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = AddItemsRequest(text_ids=[text_id])
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "BAD_REQUEST", "message": "duplicate key value violates unique constraint"}
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await add_items_to_collection(
+                collection_id=collection_id,
+                authentication_credential=auth_credentials,
+                request=request
+            )
+
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST

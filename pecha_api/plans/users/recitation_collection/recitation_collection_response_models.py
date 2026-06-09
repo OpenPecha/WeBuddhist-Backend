@@ -3,6 +3,29 @@ from typing import List, Optional
 from uuid import UUID
 
 
+class CreateCollectionRequest(BaseModel):
+    name: str
+    img_url: str
+
+
+class CreateCollectionResponse(BaseModel):
+    id: UUID
+    name: str
+    img_url: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
+class AddItemsRequest(BaseModel):
+    text_ids: List[UUID]
+
+
+class AddItemsResponse(BaseModel):
+    collection_id: UUID
+    added_count: int
+    items: List["RecitationCollectionItemDTO"]
+
+
 class RecitationCollectionItemDTO(BaseModel):
     """DTO for collection item with text details from MongoDB"""
     id: UUID

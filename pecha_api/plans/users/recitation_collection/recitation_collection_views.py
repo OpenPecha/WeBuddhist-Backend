@@ -6,11 +6,17 @@ from uuid import UUID
 
 from pecha_api.plans.users.recitation_collection.recitation_collection_response_models import (
     RecitationCollectionsResponse,
-    RecitationCollectionDetailDTO
+    RecitationCollectionDetailDTO,
+    CreateCollectionRequest,
+    CreateCollectionResponse,
+    AddItemsRequest,
+    AddItemsResponse
 )
 from pecha_api.plans.users.recitation_collection.recitation_collection_service import (
     get_user_collections_service,
-    get_collection_detail_service
+    get_collection_detail_service,
+    create_collection_service,
+    add_items_to_collection_service
 )
 
 oauth2_scheme = HTTPBearer()
@@ -52,4 +58,38 @@ async def get_collection_detail(
     return await get_collection_detail_service(
         token=authentication_credential.credentials,
         collection_id=collection_id
+    )
+
+
+@recitation_collection_router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=CreateCollectionResponse
+)
+async def create_collection(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    request: CreateCollectionRequest
+):
+
+    return await create_collection_service(
+        token=authentication_credential.credentials,
+        request=request
+    )
+
+
+@recitation_collection_router.post(
+    "/{collection_id}/items",
+    status_code=status.HTTP_201_CREATED,
+    response_model=AddItemsResponse
+)
+async def add_items_to_collection(
+    collection_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    request: AddItemsRequest
+):
+
+    return await add_items_to_collection_service(
+        token=authentication_credential.credentials,
+        collection_id=collection_id,
+        request=request
     )

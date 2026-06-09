@@ -1,12 +1,17 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Tuple
 from uuid import UUID
+from fastapi import HTTPException
+from starlette import status
 
 from pecha_api.plans.users.recitation_collection.recitation_collection_models import (
     RecitationCollection,
     RecitationCollectionItem
 )
+from pecha_api.plans.auth.plan_auth_models import ResponseError
+from pecha_api.plans.response_message import BAD_REQUEST
 
 
 def get_user_collections(
@@ -66,3 +71,51 @@ def get_collection_items(
     return db.query(RecitationCollectionItem).filter(
         RecitationCollectionItem.recitation_collection_id == collection_id
     ).order_by(RecitationCollectionItem.display_order).all()
+
+
+def save_collection(
+    db: Session,
+    collection: RecitationCollection
+) -> RecitationCollection:
+
+    try:
+        db.add(collection)
+        db.commit()
+        db.refresh(collection)
+        return collection
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ResponseError(error=BAD_REQUEST, message=str(e.orig)).model_dump()
+        )
+
+
+def get_max_display_order_for_collection(
+    db: Session,
+    collection_id: UUID
+) -> Optional[int]:
+
+    result = db.query(func.max(RecitationCollectionItem.display_order)).filter(
+        RecitationCollectionItem.recitation_collection_id == collection_id
+    ).scalar()
+    return result
+
+
+def save_collection_items(
+    db: Session,
+    items: List[RecitationCollectionItem]
+) -> List[RecitationCollectionItem]:
+
+    try:
+        db.add_all(items)
+        db.commit()
+        for item in items:
+            db.refresh(item)
+        return items
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ResponseError(error=BAD_REQUEST, message=str(e.orig)).model_dump()
+        )
