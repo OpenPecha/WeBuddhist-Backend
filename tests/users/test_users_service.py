@@ -908,9 +908,35 @@ def test_generate_username_suggestions_strip_spaces_from_base():
         assert len(suggestion) == len("johndoe") + 4
 
 
-def test_update_username_request_strips_whitespace():
-    req = UpdateUsernameRequest(username="  hello  ")
-    assert req.username == "hello"
+def test_update_username_request_normalizes_to_lowercase():
+    req = UpdateUsernameRequest(username="HelloWorld")
+    assert req.username == "helloworld"
+
+
+def test_update_username_request_rejects_spaces():
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="  hello  ")
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="hello world")
+
+
+def test_update_username_request_rejects_emojis():
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="user😀123")
+
+
+def test_update_username_request_rejects_invalid_characters():
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="user@name")
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username=".username")
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="username-")
+
+
+def test_update_username_request_allows_valid_special_characters():
+    req = UpdateUsernameRequest(username="test.user-123")
+    assert req.username == "test.user-123"
 
 
 def test_update_username_request_too_short():
