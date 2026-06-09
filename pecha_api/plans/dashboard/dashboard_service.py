@@ -29,6 +29,12 @@ from pecha_api.plans.series.series_repository import get_series_with_plans_by_id
 from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
 from pecha_api.plans.series.series_service import _get_sorted_active_plans, _plan_to_dto
 from pecha_api.plans.shared.metadata_utils import format_metadata_response
+from pecha_api.plans.dashboard.practice_cache_service import (
+    get_practice_items_cache,
+    set_practice_items_cache,
+)
+
+
 def _parse_languages(item_type: str, languages_raw: Optional[str]) -> List[str]:
     if not languages_raw:
         return []
@@ -169,17 +175,25 @@ def _row_to_public_dto(row, language: Optional[str] = None) -> DashboardItemDTO:
     return _row_to_dto(row, language=language).model_copy(update={"author_id": None})
 
 
-def _published_plans_by_series(db_session, series_ids: List[UUID]) -> dict:
+def _published_plans_by_series(
+    db_session,
+    series_ids: List[UUID],
+    language: Optional[str] = None,
+) -> dict:
     return {
         series.id: [
             _plan_to_dto(plan)
-            for plan in _get_sorted_active_plans(series.plans, published_only=True)
+            for plan in _get_sorted_active_plans(
+                series.plans,
+                published_only=True,
+                language=language,
+            )
         ]
         for series in get_series_with_plans_by_ids(db_session, series_ids)
     }
 
 
-def get_practice_items_list(
+async def get_practice_items_list(
     tab: DashboardTab,
     page: int,
     page_size: int,
@@ -189,6 +203,13 @@ def get_practice_items_list(
 ) -> DashboardItemsResponse:
     page = max(page, 1)
     page_size = max(page_size, 1)
+
+    cached = await get_practice_items_cache(
+        tab=tab, page=page, page_size=page_size,
+        search=search, language=language, featured=featured,
+    )
+    if cached is not None:
+        return cached
 
     with SessionLocal() as db_session:
         rows, total = get_dashboard_items(
@@ -204,13 +225,17 @@ def get_practice_items_list(
 
         items = [_row_to_public_dto(row, language=language) for row in rows]
         series_ids = [item.id for item in items if item.type == "series"]
-        plans_by_series = _published_plans_by_series(db_session, series_ids)
+        plans_by_series = _published_plans_by_series(
+            db_session,
+            series_ids,
+            language=language,
+        )
 
     for item in items:
         if item.type == "series":
             item.plans = plans_by_series.get(item.id, [])
 
-    return DashboardItemsResponse(
+    response = DashboardItemsResponse(
         items=items,
         pagination=DashboardPaginationDTO(
             page=page,
@@ -219,3 +244,9 @@ def get_practice_items_list(
             total_pages=total_pages(total, page_size),
         ),
     )
+    await set_practice_items_cache(
+        tab=tab, page=page, page_size=page_size,
+        search=search, language=language, featured=featured,
+        data=response,
+    )
+    return response

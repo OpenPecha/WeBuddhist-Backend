@@ -34,6 +34,7 @@ from pecha_api.plans.groups.groups_repository import (
     create_group_invite,
     get_followers_count_map,
     get_following_group_ids_by_user,
+    is_user_following_group,
     get_group_by_id,
     get_group_by_slug,
     get_groups_by_ids,
@@ -293,13 +294,21 @@ def _validate_group_links(db, tag_ids: Optional[List[UUID]], series_ids: Optiona
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="One or more plans do not exist")
 
 
-def _series_to_dtos(db: Session, series_list: List[Series]) -> List[SeriesListItemDTO]:
+def _series_to_dtos(
+    db: Session,
+    series_list: List[Series],
+    language: Optional[str] = None,
+) -> List[SeriesListItemDTO]:
     if not series_list:
         return []
     series_ids = [series.id for series in series_list]
     plan_count_map = get_active_plan_count_map_by_series_ids(db=db, series_ids=series_ids)
     return [
-        _series_to_list_item_dto(series, plan_count=plan_count_map.get(series.id, 0))
+        _series_to_list_item_dto(
+            series,
+            plan_count=plan_count_map.get(series.id, 0),
+            language=language,
+        )
         for series in series_list
     ]
 
@@ -411,7 +420,7 @@ def _group_to_detail(
     if db is not None:
         group_series = get_series_by_group_id(db=db, group_id=group.id)
         group_plans = get_plans_by_group_id(db=db, group_id=group.id)
-        series_dtos = _series_to_dtos(db=db, series_list=group_series)
+        series_dtos = _series_to_dtos(db=db, series_list=group_series, language=language)
         plans_dtos = _plans_to_dtos(db=db, plan_list=group_plans, group_id=group.id)
     else:
         series_dtos = []
@@ -689,6 +698,27 @@ def unfollow_group(token: str, group_id: UUID) -> None:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         remove_group_follow(db=db, group_id=group_id, user_id=user.id)
+
+
+def get_followed_group(
+    token: str,
+    group_id: UUID,
+    language: Optional[str] = None,
+) -> PublicAuthorGroupSummaryDTO:
+    user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        if not is_user_following_group(db=db, group_id=group_id, user_id=user.id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_summary(
+            group=group,
+            follower_count=follower_count,
+            public=True,
+            language=language,
+        )
 
 
 def list_followed_groups(token: str, skip: int, limit: int) -> PublicAuthorGroupListResponse:

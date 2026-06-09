@@ -1,12 +1,13 @@
 import json
 import uuid
 from datetime import datetime, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
 
 from pecha_api.plans.dashboard.dashboard_service import (
+    _published_plans_by_series,
     get_dashboard_items_list,
     get_practice_items_list,
 )
@@ -411,10 +412,18 @@ def test_get_dashboard_items_list_empty_metadata_and_default_plan_title():
     assert result.pagination.total_pages == 3
 
 
-def test_get_practice_items_list_forces_published_and_public_scope():
+@pytest.mark.asyncio
+async def test_get_practice_items_list_forces_published_and_public_scope():
     series_row = _make_series_row()
 
     with patch(
+        "pecha_api.plans.dashboard.dashboard_service.get_practice_items_cache",
+        new_callable=AsyncMock,
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.dashboard.dashboard_service.set_practice_items_cache",
+        new_callable=AsyncMock,
+    ), patch(
         "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
     ) as mock_session_local, patch(
         "pecha_api.plans.dashboard.dashboard_service.get_dashboard_items",
@@ -422,7 +431,7 @@ def test_get_practice_items_list_forces_published_and_public_scope():
     ) as mock_repo, patch(
         "pecha_api.plans.dashboard.dashboard_service._published_plans_by_series",
         return_value={},
-    ), patch(
+    ) as mock_plans_by_series, patch(
         "pecha_api.plans.dashboard.dashboard_service.safe_get_image_url",
         return_value=ImageUrlModel(
             thumbnail="https://signed.example/cover-thumb.jpg",
@@ -431,7 +440,7 @@ def test_get_practice_items_list_forces_published_and_public_scope():
         ),
     ):
         _session_local_context(mock_session_local)
-        result = get_practice_items_list(
+        result = await get_practice_items_list(
             tab="series",
             page=1,
             page_size=20,
@@ -447,6 +456,7 @@ def test_get_practice_items_list_forces_published_and_public_scope():
     assert kwargs["search"] == "found"
     assert kwargs["language"] == "en"
     assert kwargs["featured"] is True
+    assert mock_plans_by_series.call_args.kwargs["language"] == "en"
     assert result.items[0].author_id is None
     assert result.items[0].image is not None
     assert result.items[0].image.original == "https://signed.example/cover.jpg"
@@ -454,15 +464,54 @@ def test_get_practice_items_list_forces_published_and_public_scope():
     assert result.pagination.total_pages == 1
 
 
-def test_get_practice_items_list_clamps_page_and_page_size():
+def test_published_plans_by_series_filters_by_language():
+    series_id = uuid.uuid4()
+    mock_series = MagicMock()
+    mock_series.id = series_id
+    mock_series.plans = [MagicMock(), MagicMock()]
+    mock_plan_dto = MagicMock()
+
     with patch(
+        "pecha_api.plans.dashboard.dashboard_service.get_series_with_plans_by_ids",
+        return_value=[mock_series],
+    ), patch(
+        "pecha_api.plans.dashboard.dashboard_service._get_sorted_active_plans",
+        return_value=[mock_series.plans[0]],
+    ) as mock_sorted_plans, patch(
+        "pecha_api.plans.dashboard.dashboard_service._plan_to_dto",
+        return_value=mock_plan_dto,
+    ):
+        result = _published_plans_by_series(
+            MagicMock(),
+            [series_id],
+            language="bo",
+        )
+
+    mock_sorted_plans.assert_called_once_with(
+        mock_series.plans,
+        published_only=True,
+        language="bo",
+    )
+    assert result == {series_id: [mock_plan_dto]}
+
+
+@pytest.mark.asyncio
+async def test_get_practice_items_list_clamps_page_and_page_size():
+    with patch(
+        "pecha_api.plans.dashboard.dashboard_service.get_practice_items_cache",
+        new_callable=AsyncMock,
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.dashboard.dashboard_service.set_practice_items_cache",
+        new_callable=AsyncMock,
+    ), patch(
         "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
     ) as mock_session_local, patch(
         "pecha_api.plans.dashboard.dashboard_service.get_dashboard_items",
         return_value=([], 0),
     ) as mock_repo:
         _session_local_context(mock_session_local)
-        result = get_practice_items_list(
+        result = await get_practice_items_list(
             tab="all",
             page=0,
             page_size=-5,

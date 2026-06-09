@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import HTTPException
 from starlette import status
 
@@ -75,9 +76,11 @@ from pecha_api.texts.texts_cache_service import (
     set_table_of_content_by_sheet_id_cache,
     delete_table_of_content_by_sheet_id_cache,
     update_text_details_cache,
-    invalidate_text_cache_on_update
+    invalidate_text_cache_on_update,
+    get_text_languages_cache,
+    set_text_languages_cache,
 )
-from .segments.segments_repository import get_segments_by_text_id
+from .segments.segments_repository import get_segments_by_text_id, get_related_mapped_segments
 from pecha_api.sheets.sheets_enum import (
     SortBy,
     SortOrder
@@ -364,16 +367,16 @@ async def get_text_versions_by_group_id(text_id: str, language: str, skip: int, 
     if language is None:
         language = get("DEFAULT_LANGUAGE")
     
-    # cached_data: TextVersionResponse = await get_text_versions_by_group_id_cache(
-    #     text_id = text_id,
-    #     language = language,
-    #     skip = skip,
-    #     limit = limit,
-    #     cache_type = CacheType.TEXT_VERSIONS
-    # )
-    # if cached_data is not None:
-    #     return cached_data
-    
+    cached_data: TextVersionResponse = await get_text_versions_by_group_id_cache(
+        text_id=text_id,
+        language=language,
+        skip=skip,
+        limit=limit,
+        cache_type=CacheType.TEXT_VERSIONS,
+    )
+    if cached_data is not None:
+        return cached_data
+
     root_text = await TextUtils.get_text_detail_by_id(text_id=text_id)
     group_id = root_text.group_id
     texts = await get_texts_by_group_id(group_id=group_id, skip=skip, limit=limit)
@@ -861,6 +864,16 @@ async def get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request: Te
 
 
 async def get_text_languages(text_id: str) -> LanguageResponse:
+    # Round 1: all three only depend on text_id
+    is_valid_text, text_detail, segments = await asyncio.gather(
+        TextUtils.validate_text_exists(text_id=text_id),
+        TextUtils.get_text_detail_by_id(text_id=text_id),
+        get_segments_by_text_id(text_id=text_id),
+    )
+
+    cached_languages = await get_text_languages_cache(text_id=text_id)
+    if cached_languages is not None:
+        return cached_languages
 
     is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
     if not is_valid_text:
@@ -868,17 +881,41 @@ async def get_text_languages(text_id: str) -> LanguageResponse:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
         )
-    
-    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
+
+    if not segments:
+        response = LanguageResponse(
+            text_id=text_id,
+            title=text_detail.title,
+            available_languages=[]
+        )
+        await set_text_languages_cache(text_id=text_id, data=response)
+        return response
+
+    # Round 2: translation titles and group texts can be fetched in parallel
+    first_segment_id = str(segments[0].id)
     group_id: str = text_detail.group_id
-    
-    texts = await get_all_texts_by_group_id(group_id=group_id)
-    
+
+    translation_titles, texts = await asyncio.gather(
+        get_segment_translation_titles(segment_id=first_segment_id),
+        get_all_texts_by_group_id(group_id=group_id),
+    )
+
+    if not translation_titles:
+        response = LanguageResponse(
+            text_id=text_id,
+            title=text_detail.title,
+            available_languages=[]
+        )
+        await set_text_languages_cache(text_id=text_id, data=response)
+        return response
+
+    linked_texts = [text for text in texts if text.title in translation_titles]
+
     language_counts: Dict[str, int] = {}
-    for text in texts:
+    for text in linked_texts:
         if text.language:
             language_counts[text.language] = language_counts.get(text.language, 0) + 1
-    
+
     available_languages = [
         AvailableLanguage(
             language=lang,
@@ -887,31 +924,61 @@ async def get_text_languages(text_id: str) -> LanguageResponse:
         )
         for lang, count in language_counts.items()
     ]
-    
-    return LanguageResponse(
+
+    response = LanguageResponse(
         text_id=text_id,
         title=text_detail.title,
         available_languages=available_languages
     )
+    await set_text_languages_cache(text_id=text_id, data=response)
+    return response
 
 
 async def get_language_versions(text_id: str, language: str) -> VersionsResponse:
-    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
+    # Round 1: all three only depend on text_id
+    is_valid_text, text_detail, segments = await asyncio.gather(
+        TextUtils.validate_text_exists(text_id=text_id),
+        TextUtils.get_text_detail_by_id(text_id=text_id),
+        get_segments_by_text_id(text_id=text_id),
+    )
+
     if not is_valid_text:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
         )
-    
-    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
+
+    if not segments:
+        return VersionsResponse(
+            text_id=text_id,
+            language=language,
+            available_versions=[]
+        )
+
+    # Round 2: translation titles and group texts can be fetched in parallel
+    first_segment_id = str(segments[0].id)
     group_id: str = text_detail.group_id
-    
-    texts: List[TextDTO] = await get_all_texts_by_group_id(group_id=group_id)
-    
-    filtered_texts = [text for text in texts if text.language == language]
-    
+
+    translation_titles, texts = await asyncio.gather(
+        get_segment_translation_titles(segment_id=first_segment_id),
+        get_all_texts_by_group_id(group_id=group_id),
+    )
+
+    if not translation_titles:
+        return VersionsResponse(
+            text_id=text_id,
+            language=language,
+            available_versions=[]
+        )
+
+    # Filter texts by language AND by matching translation titles
+    filtered_texts: List[TextDTO] = [
+        text for text in texts
+        if text.language == language and text.title in translation_titles
+    ]
+
     versions_table_of_content_id_dict: Dict[str, List[str]] = await _get_table_of_content_by_version_text_id(versions=filtered_texts)
-    
+
     available_versions = [
         VersionDetail(
             id=str(text.id),
@@ -934,12 +1001,44 @@ async def get_language_versions(text_id: str, language: str) -> VersionsResponse
         )
         for text in filtered_texts
     ]
-    
+
     return VersionsResponse(
         text_id=text_id,
         language=language,
         available_versions=available_versions
     )
+
+
+async def check_segment_has_translations(segment_id: str) -> bool:
+
+    try:
+        mapped_segments = await get_related_mapped_segments(parent_segment_id=segment_id)
+        if not mapped_segments:
+            return False
+        
+        translations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
+            segments=mapped_segments, 
+            type=TextType.VERSION.value
+        )
+        return len(translations) > 0
+    except Exception:
+        return False
+
+
+async def get_segment_translation_titles(segment_id: str) -> set:
+
+    try:
+        mapped_segments = await get_related_mapped_segments(parent_segment_id=segment_id)
+        if not mapped_segments:
+            return set()
+        
+        translations = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
+            segments=mapped_segments, 
+            type=TextType.VERSION.value
+        )
+        return {t.title for t in translations}
+    except Exception:
+        return set()
 
 
 async def get_version_info(version_id: str) -> VersionDetail:
