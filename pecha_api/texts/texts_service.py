@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import HTTPException
 from starlette import status
 
@@ -861,18 +862,19 @@ async def get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request: Te
 
 
 async def get_text_languages(text_id: str) -> LanguageResponse:
+    # Round 1: all three only depend on text_id
+    is_valid_text, text_detail, segments = await asyncio.gather(
+        TextUtils.validate_text_exists(text_id=text_id),
+        TextUtils.get_text_detail_by_id(text_id=text_id),
+        get_segments_by_text_id(text_id=text_id),
+    )
 
-    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
     if not is_valid_text:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
         )
-    
-    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
-    group_id: str = text_detail.group_id
 
-    segments = await get_segments_by_text_id(text_id=text_id)
     if not segments:
         return LanguageResponse(
             text_id=text_id,
@@ -880,8 +882,14 @@ async def get_text_languages(text_id: str) -> LanguageResponse:
             available_languages=[]
         )
 
+    # Round 2: translation titles and group texts can be fetched in parallel
     first_segment_id = str(segments[0].id)
-    translation_titles = await get_segment_translation_titles(segment_id=first_segment_id)
+    group_id: str = text_detail.group_id
+
+    translation_titles, texts = await asyncio.gather(
+        get_segment_translation_titles(segment_id=first_segment_id),
+        get_all_texts_by_group_id(group_id=group_id),
+    )
 
     if not translation_titles:
         return LanguageResponse(
@@ -890,7 +898,6 @@ async def get_text_languages(text_id: str) -> LanguageResponse:
             available_languages=[]
         )
 
-    texts = await get_all_texts_by_group_id(group_id=group_id)
     linked_texts = [text for text in texts if text.title in translation_titles]
 
     language_counts: Dict[str, int] = {}
@@ -906,7 +913,7 @@ async def get_text_languages(text_id: str) -> LanguageResponse:
         )
         for lang, count in language_counts.items()
     ]
-    
+
     return LanguageResponse(
         text_id=text_id,
         title=text_detail.title,
