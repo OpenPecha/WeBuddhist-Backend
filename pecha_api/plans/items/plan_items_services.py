@@ -99,8 +99,19 @@ def delete_plan_days(token: str, plan_id: UUID, delete_days_request: DeleteDaysR
                 detail=ResponseError(error=BAD_REQUEST, message=PLAN_DAY_NOT_FOUND).model_dump(),
             )
 
-        delete_days_by_ids(db=db_session, plan_id=plan.id, day_ids=unique_day_ids)
-        _reorder_day_display_order(db=db_session, plan_id=plan.id)
+        try:
+            delete_days_by_ids(db=db_session, plan_id=plan.id, day_ids=unique_day_ids, commit=False)
+            _reorder_day_display_order(db=db_session, plan_id=plan.id, commit=False)
+            db_session.commit()
+        except HTTPException:
+            db_session.rollback()
+            raise
+        except Exception as e:
+            db_session.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ResponseError(error=BAD_REQUEST, message=str(e)).model_dump(),
+            ) from e
 
 
 def update_plans_day_number(token: str, plan_id: UUID, reorder_days_request: ReorderDaysRequest) -> None:
@@ -111,15 +122,29 @@ def update_plans_day_number(token: str, plan_id: UUID, reorder_days_request: Reo
         update_days_in_bulk_by_plan_id(db=db_session, plan_id=plan.id, days=reorder_days_request.days)
 
 
-def _reorder_day_display_order(db: Session, plan_id: UUID) -> None:
+def _reorder_day_display_order(db: Session, plan_id: UUID, *, commit: bool = True) -> None:
     items = get_days_by_plan_id(db=db, plan_id=plan_id)
     sorted_items = sorted(items, key=lambda x: x.day_number)
-    reordered = [
-        ItemDayNumberDTO(id=item.id, day_number=index)
+    changes = [
+        (item, index)
         for index, item in enumerate(sorted_items, start=1)
+        if item.day_number != index
     ]
-    if reordered:
-        update_days_in_bulk_by_plan_id(db=db, plan_id=plan_id, days=reordered)
+    if not changes:
+        return
+
+    # Two-phase update avoids unique-constraint conflicts when shifting day numbers down.
+    temp_updates = [
+        ItemDayNumberDTO(id=item.id, day_number=-index)
+        for item, index in changes
+    ]
+    update_days_in_bulk_by_plan_id(db=db, plan_id=plan_id, days=temp_updates, commit=False)
+
+    final_updates = [
+        ItemDayNumberDTO(id=item.id, day_number=index)
+        for item, index in changes
+    ]
+    update_days_in_bulk_by_plan_id(db=db, plan_id=plan_id, days=final_updates, commit=commit)
 
 
 def _get_author_plan(db: Session, plan_id: UUID, current_author: Author) -> Plan:

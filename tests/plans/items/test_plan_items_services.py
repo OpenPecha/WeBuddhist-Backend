@@ -174,15 +174,67 @@ def test_delete_plan_days_success_reorders():
         assert mock_validate_author.call_count == 1
         mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id)
         mock_get_days_by_ids.assert_called_once_with(db=db_session, plan_id=plan_id, day_ids=[day_id])
-        mock_delete.assert_called_once_with(db=db_session, plan_id=plan_id, day_ids=[day_id])
+        mock_delete.assert_called_once_with(
+            db=db_session, plan_id=plan_id, day_ids=[day_id], commit=False,
+        )
+        db_session.commit.assert_called_once()
 
-        mock_bulk_update.assert_called_once()
-        bulk_kwargs = mock_bulk_update.call_args.kwargs
-        assert bulk_kwargs["db"] is db_session
-        assert bulk_kwargs["plan_id"] == plan_id
-        reordered_days = bulk_kwargs["days"]
-        assert len(reordered_days) == 3
-        assert [d.day_number for d in reordered_days] == [1, 2, 3]
+        assert mock_bulk_update.call_count == 2
+        temp_call, final_call = mock_bulk_update.call_args_list
+        assert temp_call.kwargs["commit"] is False
+        assert [d.day_number for d in temp_call.kwargs["days"]] == [-2, -3]
+        assert final_call.kwargs["commit"] is False
+        assert [d.day_number for d in final_call.kwargs["days"]] == [2, 3]
+
+
+def test_delete_plan_days_success_reorders_when_first_day_deleted():
+    plan_id = uuid.uuid4()
+    day_id = uuid.uuid4()
+
+    plan = MagicMock()
+    plan.id = plan_id
+    plan.deleted_at = None
+    plan.group_id = uuid.uuid4()
+
+    item_to_delete = MagicMock()
+    item_to_delete.id = day_id
+
+    remaining_items = [
+        MagicMock(id=uuid.uuid4(), day_number=2),
+        MagicMock(id=uuid.uuid4(), day_number=3),
+        MagicMock(id=uuid.uuid4(), day_number=4),
+    ]
+
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.platform_role = PlatformRole.CREATOR
+    plan.author_id = author.id
+
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_cms_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id_and_day_ids") as mock_get_days_by_ids, \
+         patch("pecha_api.plans.items.plan_items_services.delete_days_by_ids") as mock_delete, \
+         patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id") as mock_get_days, \
+         patch("pecha_api.plans.items.plan_items_services.update_days_in_bulk_by_plan_id") as mock_bulk_update:
+        db_session = _mock_session_local(mock_session_local)
+
+        mock_validate_author.return_value = author
+        mock_get_plan_by_id.return_value = plan
+        mock_get_days_by_ids.return_value = [item_to_delete]
+        mock_get_days.return_value = remaining_items
+
+        delete_plan_days(
+            token="dummy-token",
+            plan_id=plan_id,
+            delete_days_request=DeleteDaysRequest(day_ids=[day_id]),
+        )
+
+        assert mock_bulk_update.call_count == 2
+        temp_call, final_call = mock_bulk_update.call_args_list
+        assert [d.day_number for d in temp_call.kwargs["days"]] == [-1, -2, -3]
+        assert [d.day_number for d in final_call.kwargs["days"]] == [1, 2, 3]
 
 
 def test_delete_plan_days_not_found():
