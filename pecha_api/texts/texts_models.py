@@ -1,6 +1,6 @@
 import uuid
 from uuid import UUID
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from .texts_response_models import Section
 
@@ -23,11 +23,25 @@ class TableOfContent(Document):
 
     class Settings:
         collection = "table_of_contents"
+        indexes = [
+            "text_id",
+        ]
     
     @classmethod
     async def get_table_of_contents_by_text_id(cls, text_id: str) -> List["TableOfContent"]: # this methods is getting all the available table of content for a text
         query = cls.find(cls.text_id == text_id)
         return await query.to_list()
+
+    @classmethod
+    async def get_table_of_contents_by_text_ids(cls, text_ids: List[str]) -> Dict[str, List["TableOfContent"]]:
+        if not text_ids:
+            return {}
+        contents = await cls.find({"text_id": {"$in": text_ids}}).to_list()
+        result: Dict[str, List["TableOfContent"]] = {text_id: [] for text_id in text_ids}
+        for content in contents:
+            if content.text_id in result:
+                result[content.text_id].append(content)
+        return result
 
     @classmethod
     async def delete_table_of_content_by_text_id(cls, text_id: str):
@@ -72,6 +86,9 @@ class Text(Document):
 
     class Settings:
         collection = "texts"
+        indexes = [
+            "group_id",
+        ]
 
     @classmethod
     async def get_texts_by_pecha_text_ids(cls, pecha_text_ids: List[str]) -> List["Text"]:

@@ -28,7 +28,9 @@ from pecha_api.texts.texts_service import (
     get_language_versions,
     get_version_info,
     check_segment_has_translations,
-    get_segment_translation_titles
+    get_segment_translation_titles,
+    _get_linked_translation_texts,
+    _get_table_of_content_by_version_text_id,
 )
 from pecha_api.texts.segments.segments_response_models import SegmentDTO
 from pecha_api.texts.segments.segments_enum import SegmentType
@@ -253,10 +255,13 @@ async def test_get_versions_by_group_id():
         patch("pecha_api.texts.texts_service.get_text_versions_by_group_id_cache", new_callable=AsyncMock, return_value=None),\
         patch("pecha_api.texts.texts_service.set_text_versions_by_group_id_cache", new_callable=AsyncMock, return_value=None),\
         patch('pecha_api.texts.texts_service.get_texts_by_group_id', new_callable=AsyncMock) as mock_get_texts_by_group_id,\
-        patch('pecha_api.texts.texts_service.get_contents_by_id', new_callable=AsyncMock) as mock_get_contents_by_id:
+        patch('pecha_api.texts.texts_service.get_contents_by_text_ids', new_callable=AsyncMock) as mock_get_contents_by_text_ids:
         mock_text_detail.return_value = text_detail
         mock_get_texts_by_group_id.return_value = texts_by_group_id
-        mock_get_contents_by_id.return_value = [mock_table_of_content]
+        mock_get_contents_by_text_ids.return_value = {
+            "text_id_1": [mock_table_of_content],
+            "text_id_3": [],
+        }
         response = await get_text_versions_by_group_id(text_id="id_1",language=language, skip=0, limit=10)
         assert response is not None
         assert response.text is not None
@@ -1598,10 +1603,13 @@ async def test_get_versions_by_group_id_language_is_none():
         patch("pecha_api.texts.texts_service.get_text_versions_by_group_id_cache", new_callable=AsyncMock, return_value=None),\
         patch("pecha_api.texts.texts_service.set_text_versions_by_group_id_cache", new_callable=AsyncMock, return_value=None),\
         patch('pecha_api.texts.texts_service.get_texts_by_group_id', new_callable=AsyncMock) as mock_get_texts_by_group_id,\
-        patch('pecha_api.texts.texts_service.get_contents_by_id', new_callable=AsyncMock) as mock_get_contents_by_id:
+        patch('pecha_api.texts.texts_service.get_contents_by_text_ids', new_callable=AsyncMock) as mock_get_contents_by_text_ids:
         mock_text_detail.return_value = text_detail
         mock_get_texts_by_group_id.return_value = texts_by_group_id
-        mock_get_contents_by_id.return_value = [mock_table_of_content]
+        mock_get_contents_by_text_ids.return_value = {
+            "text_id_1": [mock_table_of_content],
+            "text_id_3": [],
+        }
         response = await get_text_versions_by_group_id(text_id="id_1",language=None, skip=0, limit=10)
         assert response is not None
         assert response.text is not None
@@ -1705,7 +1713,7 @@ async def test_get_versions_by_group_id_cache_data_is_not_none():
     # Note: The actual implementation first gets the root text, then checks cache
     with patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=text_detail), \
          patch("pecha_api.texts.texts_service.get_texts_by_group_id", new_callable=AsyncMock, return_value=texts_by_group_id), \
-         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=[]), \
+         patch("pecha_api.texts.texts_service.get_contents_by_text_ids", new_callable=AsyncMock, return_value={}), \
          patch("pecha_api.texts.texts_service.set_text_versions_by_group_id_cache", new_callable=AsyncMock):
 
         response = await get_text_versions_by_group_id(text_id="id_1", language=language, skip=0, limit=10)
@@ -4091,11 +4099,26 @@ async def test_get_text_languages_success():
         MagicMock(language="bo", title="Unlinked Version"),
     ]
     
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
-         patch("pecha_api.texts.texts_service.get_segment_translation_titles", new_callable=AsyncMock, return_value=mock_translation_titles), \
-         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts):
+    mock_linked_texts = [
+        TextDTO(id="text-bo-1", title="Version 1", language="bo", group_id=group_id, type="version",
+                is_published=True, created_date="2025-01-01T00:00:00", updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00", published_by="test_user", categories=[], views=0),
+        TextDTO(id="text-bo-2", title="Version 2", language="bo", group_id=group_id, type="version",
+                is_published=True, created_date="2025-01-01T00:00:00", updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00", published_by="test_user", categories=[], views=0),
+        TextDTO(id="text-en-1", title="English Version", language="en", group_id=group_id, type="version",
+                is_published=True, created_date="2025-01-01T00:00:00", updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00", published_by="test_user", categories=[], views=0),
+        TextDTO(id="text-zh-1", title="Chinese Version", language="zh", group_id=group_id, type="version",
+                is_published=True, created_date="2025-01-01T00:00:00", updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00", published_by="test_user", categories=[], views=0),
+    ]
+
+    with patch("pecha_api.texts.texts_service.get_text_languages_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.set_text_languages_cache", new_callable=AsyncMock), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_first_segment_by_text_id", new_callable=AsyncMock, return_value=mock_segments[0]), \
+         patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=mock_linked_texts):
         
         response = await get_text_languages(text_id=text_id)
         
@@ -4116,7 +4139,10 @@ async def test_get_text_languages_text_not_found():
     """Test get_text_languages raises 404 when text doesn't exist"""
     text_id = "non-existent-id"
     
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=False):
+    with patch("pecha_api.texts.texts_service.get_text_languages_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, side_effect=HTTPException(
+             status_code=404, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+         )):
         with pytest.raises(HTTPException) as exc_info:
             await get_text_languages(text_id=text_id)
         
@@ -4161,11 +4187,20 @@ async def test_get_text_languages_empty_languages():
         MagicMock(language=None, title="Version 2")
     ]
     
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
-         patch("pecha_api.texts.texts_service.get_segment_translation_titles", new_callable=AsyncMock, return_value=mock_translation_titles), \
-         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts):
+    mock_linked_texts = [
+        TextDTO(id="text-1", title="Version 1", language=None, group_id=group_id, type="version",
+                is_published=True, created_date="2025-01-01T00:00:00", updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00", published_by="test_user", categories=[], views=0),
+        TextDTO(id="text-2", title="Version 2", language=None, group_id=group_id, type="version",
+                is_published=True, created_date="2025-01-01T00:00:00", updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00", published_by="test_user", categories=[], views=0),
+    ]
+
+    with patch("pecha_api.texts.texts_service.get_text_languages_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.set_text_languages_cache", new_callable=AsyncMock), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_first_segment_by_text_id", new_callable=AsyncMock, return_value=mock_segments[0]), \
+         patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=mock_linked_texts):
         
         response = await get_text_languages(text_id=text_id)
         
@@ -4210,11 +4245,18 @@ async def test_get_text_languages_single_language():
         MagicMock(language="bo", title=f"Version {i}") for i in range(1, 6)
     ] + [MagicMock(language="bo", title="Unlinked Version")]
     
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
-         patch("pecha_api.texts.texts_service.get_segment_translation_titles", new_callable=AsyncMock, return_value=mock_translation_titles), \
-         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts):
+    mock_linked_texts = [
+        TextDTO(id=f"text-bo-{i}", title=f"Version {i}", language="bo", group_id=group_id, type="version",
+                is_published=True, created_date="2025-01-01T00:00:00", updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00", published_by="test_user", categories=[], views=0)
+        for i in range(1, 6)
+    ]
+
+    with patch("pecha_api.texts.texts_service.get_text_languages_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.set_text_languages_cache", new_callable=AsyncMock), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_first_segment_by_text_id", new_callable=AsyncMock, return_value=mock_segments[0]), \
+         patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=mock_linked_texts):
         
         response = await get_text_languages(text_id=text_id)
         
@@ -4246,9 +4288,10 @@ async def test_get_text_languages_empty_when_no_segments():
         views=0
     )
 
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=[]):
+    with patch("pecha_api.texts.texts_service.get_text_languages_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.set_text_languages_cache", new_callable=AsyncMock), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_first_segment_by_text_id", new_callable=AsyncMock, return_value=None):
 
         response = await get_text_languages(text_id=text_id)
 
@@ -4286,10 +4329,11 @@ async def test_get_text_languages_empty_when_no_segment_links():
         )
     ]
 
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
-         patch("pecha_api.texts.texts_service.get_segment_translation_titles", new_callable=AsyncMock, return_value=set()):
+    with patch("pecha_api.texts.texts_service.get_text_languages_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.set_text_languages_cache", new_callable=AsyncMock), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_first_segment_by_text_id", new_callable=AsyncMock, return_value=mock_segments[0]), \
+         patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=[]):
 
         response = await get_text_languages(text_id=text_id)
 
@@ -4390,15 +4434,17 @@ async def test_get_language_versions_success():
         sections=[]
     )
     
-    # Mock translation titles that match the version titles
-    mock_translation_titles = {"Version 1", "Version 2"}
-    
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
-         patch("pecha_api.texts.texts_service.get_segment_translation_titles", new_callable=AsyncMock, return_value=mock_translation_titles), \
-         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts), \
-         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=[mock_table_of_content]):
+    mock_linked_texts = [text for text in mock_texts if text.type == "version" and text.language == "bo"]
+
+    with patch("pecha_api.texts.texts_service.get_language_versions_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.set_language_versions_cache", new_callable=AsyncMock), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_first_segment_by_text_id", new_callable=AsyncMock, return_value=mock_segments[0]), \
+         patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=mock_linked_texts), \
+         patch("pecha_api.texts.texts_service.get_contents_by_text_ids", new_callable=AsyncMock, return_value={
+             text_id: [mock_table_of_content],
+             "text-2-uuid": [mock_table_of_content],
+         }):
         
         response = await get_language_versions(text_id=text_id, language=language)
         
@@ -4420,7 +4466,10 @@ async def test_get_language_versions_text_not_found():
     text_id = "non-existent-id"
     language = "bo"
     
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=False):
+    with patch("pecha_api.texts.texts_service.get_language_versions_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, side_effect=HTTPException(
+             status_code=404, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+         )):
         with pytest.raises(HTTPException) as exc_info:
             await get_language_versions(text_id=text_id, language=language)
         
@@ -4490,14 +4539,13 @@ async def test_get_language_versions_empty_for_language():
         )
     ]
     
-    # Mock translation titles - none match the "zh" language versions
-    mock_translation_titles = {"Tibetan Version", "English Version"}
-    
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
-         patch("pecha_api.texts.texts_service.get_segment_translation_titles", new_callable=AsyncMock, return_value=mock_translation_titles), \
-         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts):
+    mock_linked_texts = [text for text in mock_texts if text.type == "version"]
+
+    with patch("pecha_api.texts.texts_service.get_language_versions_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.set_language_versions_cache", new_callable=AsyncMock), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_first_segment_by_text_id", new_callable=AsyncMock, return_value=mock_segments[0]), \
+         patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=mock_linked_texts):
         
         response = await get_language_versions(text_id=text_id, language=language)
         
@@ -4561,15 +4609,12 @@ async def test_get_language_versions_with_table_of_contents():
         TableOfContent(id="toc-2", text_id=text_id, type=TableOfContentType.TEXT, sections=[])
     ]
     
-    # Mock translation titles that match the version title
-    mock_translation_titles = {"Version 1"}
-    
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
-         patch("pecha_api.texts.texts_service.get_segment_translation_titles", new_callable=AsyncMock, return_value=mock_translation_titles), \
-         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts), \
-         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=mock_table_of_contents):
+    with patch("pecha_api.texts.texts_service.get_language_versions_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.set_language_versions_cache", new_callable=AsyncMock), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_first_segment_by_text_id", new_callable=AsyncMock, return_value=mock_segments[0]), \
+         patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=mock_texts), \
+         patch("pecha_api.texts.texts_service.get_contents_by_text_ids", new_callable=AsyncMock, return_value={text_id: mock_table_of_contents}):
         
         response = await get_language_versions(text_id=text_id, language=language)
         
@@ -4602,9 +4647,10 @@ async def test_get_language_versions_no_segments():
         views=0
     )
     
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=[]):
+    with patch("pecha_api.texts.texts_service.get_language_versions_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.set_language_versions_cache", new_callable=AsyncMock), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_first_segment_by_text_id", new_callable=AsyncMock, return_value=None):
         
         response = await get_language_versions(text_id=text_id, language=language)
         
@@ -4646,11 +4692,11 @@ async def test_get_language_versions_no_translations():
         )
     ]
     
-    # Empty set means no translations exist
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
-         patch("pecha_api.texts.texts_service.get_segment_translation_titles", new_callable=AsyncMock, return_value=set()):
+    with patch("pecha_api.texts.texts_service.get_language_versions_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.set_language_versions_cache", new_callable=AsyncMock), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_first_segment_by_text_id", new_callable=AsyncMock, return_value=mock_segments[0]), \
+         patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=[]):
         
         response = await get_language_versions(text_id=text_id, language=language)
         
@@ -4675,10 +4721,9 @@ async def test_check_segment_has_translations_true():
         )
     ]
     
-    mock_translations = [MagicMock()]
+    mock_linked_texts = [MagicMock()]
     
-    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, return_value=mock_mapped_segments), \
-         patch("pecha_api.texts.texts_service.SegmentUtils.filter_segment_mapping_by_type_or_text_id", new_callable=AsyncMock, return_value=mock_translations):
+    with patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=mock_linked_texts):
         
         result = await check_segment_has_translations(segment_id=segment_id)
         
@@ -4690,7 +4735,7 @@ async def test_check_segment_has_translations_false_no_mapped_segments():
     """Test check_segment_has_translations returns False when no mapped segments"""
     segment_id = "segment-1-uuid"
     
-    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, return_value=[]):
+    with patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=[]):
         
         result = await check_segment_has_translations(segment_id=segment_id)
         
@@ -4702,17 +4747,7 @@ async def test_check_segment_has_translations_false_no_translations():
     """Test check_segment_has_translations returns False when no translations found"""
     segment_id = "segment-1-uuid"
     
-    mock_mapped_segments = [
-        SegmentDTO(
-            id="mapped-segment-1",
-            text_id="commentary-text-id",
-            content="Commentary content",
-            type=SegmentType.SOURCE
-        )
-    ]
-    
-    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, return_value=mock_mapped_segments), \
-         patch("pecha_api.texts.texts_service.SegmentUtils.filter_segment_mapping_by_type_or_text_id", new_callable=AsyncMock, return_value=[]):
+    with patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=[]):
         
         result = await check_segment_has_translations(segment_id=segment_id)
         
@@ -4724,7 +4759,7 @@ async def test_check_segment_has_translations_exception_handling():
     """Test check_segment_has_translations returns False on exception"""
     segment_id = "segment-1-uuid"
     
-    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, side_effect=Exception("Database error")):
+    with patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, side_effect=Exception("Database error")):
         
         result = await check_segment_has_translations(segment_id=segment_id)
         
@@ -4749,14 +4784,16 @@ async def test_get_segment_translation_titles_success():
         )
     ]
     
-    mock_translation_1 = MagicMock()
-    mock_translation_1.title = "Translation Title 1"
-    mock_translation_2 = MagicMock()
-    mock_translation_2.title = "Translation Title 2"
-    mock_translations = [mock_translation_1, mock_translation_2]
+    mock_linked_texts = [
+        TextDTO(id="text-1", title="Translation Title 1", language="bo", group_id="group-1", type="version",
+                is_published=True, created_date="2025-01-01T00:00:00", updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00", published_by="test_user", categories=[], views=0),
+        TextDTO(id="text-2", title="Translation Title 2", language="en", group_id="group-1", type="version",
+                is_published=True, created_date="2025-01-01T00:00:00", updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00", published_by="test_user", categories=[], views=0),
+    ]
     
-    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, return_value=mock_mapped_segments), \
-         patch("pecha_api.texts.texts_service.SegmentUtils.filter_segment_mapping_by_type_or_text_id", new_callable=AsyncMock, return_value=mock_translations):
+    with patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=mock_linked_texts):
         
         result = await get_segment_translation_titles(segment_id=segment_id)
         
@@ -4768,7 +4805,7 @@ async def test_get_segment_translation_titles_empty_when_no_mapped_segments():
     """Test get_segment_translation_titles returns empty set when no mapped segments"""
     segment_id = "segment-1-uuid"
     
-    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, return_value=[]):
+    with patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=[]):
         
         result = await get_segment_translation_titles(segment_id=segment_id)
         
@@ -4780,17 +4817,7 @@ async def test_get_segment_translation_titles_empty_when_no_translations():
     """Test get_segment_translation_titles returns empty set when no translations found"""
     segment_id = "segment-1-uuid"
     
-    mock_mapped_segments = [
-        SegmentDTO(
-            id="mapped-segment-1",
-            text_id="commentary-text-id",
-            content="Commentary content",
-            type=SegmentType.SOURCE
-        )
-    ]
-    
-    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, return_value=mock_mapped_segments), \
-         patch("pecha_api.texts.texts_service.SegmentUtils.filter_segment_mapping_by_type_or_text_id", new_callable=AsyncMock, return_value=[]):
+    with patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=[]):
         
         result = await get_segment_translation_titles(segment_id=segment_id)
         
@@ -4802,7 +4829,7 @@ async def test_get_segment_translation_titles_exception_handling():
     """Test get_segment_translation_titles returns empty set on exception"""
     segment_id = "segment-1-uuid"
     
-    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, side_effect=Exception("Database error")):
+    with patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, side_effect=Exception("Database error")):
         
         result = await get_segment_translation_titles(segment_id=segment_id)
         
@@ -4810,8 +4837,8 @@ async def test_get_segment_translation_titles_exception_handling():
 
 
 @pytest.mark.asyncio
-async def test_get_language_versions_filters_by_matching_titles():
-    """Test get_language_versions only returns versions whose titles match translation titles"""
+async def test_get_language_versions_filters_by_linked_translations():
+    """Test get_language_versions only returns versions linked via segment mapping"""
     text_id = "123e4567-e89b-12d3-a456-426614174000"
     language = "bo"
     group_id = "group_id_1"
@@ -4886,9 +4913,8 @@ async def test_get_language_versions_filters_by_matching_titles():
         )
     ]
     
-    # Only "Version A" and "Version B" have translations, "Version C" does not
-    mock_translation_titles = {"Version A", "Version B"}
-    
+    mock_linked_texts = mock_texts[:2]
+
     mock_table_of_content = TableOfContent(
         id="toc-1",
         text_id=text_id,
@@ -4896,12 +4922,15 @@ async def test_get_language_versions_filters_by_matching_titles():
         sections=[]
     )
     
-    with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-         patch("pecha_api.texts.texts_service.get_segments_by_text_id", new_callable=AsyncMock, return_value=mock_segments), \
-         patch("pecha_api.texts.texts_service.get_segment_translation_titles", new_callable=AsyncMock, return_value=mock_translation_titles), \
-         patch("pecha_api.texts.texts_service.get_all_texts_by_group_id", new_callable=AsyncMock, return_value=mock_texts), \
-         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=[mock_table_of_content]):
+    with patch("pecha_api.texts.texts_service.get_language_versions_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.texts.texts_service.set_language_versions_cache", new_callable=AsyncMock), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.texts.texts_service.get_first_segment_by_text_id", new_callable=AsyncMock, return_value=mock_segments[0]), \
+         patch("pecha_api.texts.texts_service._get_linked_translation_texts", new_callable=AsyncMock, return_value=mock_linked_texts), \
+         patch("pecha_api.texts.texts_service.get_contents_by_text_ids", new_callable=AsyncMock, return_value={
+             text_id: [mock_table_of_content],
+             "text-2-uuid": [mock_table_of_content],
+         }):
         
         response = await get_language_versions(text_id=text_id, language=language)
         
@@ -4909,7 +4938,6 @@ async def test_get_language_versions_filters_by_matching_titles():
         assert isinstance(response, VersionsResponse)
         assert len(response.available_versions) == 2
         
-        # Only Version A and Version B should be returned
         returned_titles = {v.title for v in response.available_versions}
         assert returned_titles == {"Version A", "Version B"}
         assert "Version C" not in returned_titles
@@ -5097,3 +5125,92 @@ async def test_get_version_info_translation_type():
         assert response.language == "en"
         assert response.title == "English Translation"
         assert len(response.table_of_contents) == 1
+
+
+# ============================================================================
+# Language optimization coverage tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_get_text_languages_returns_cached_data():
+    cached_response = LanguageResponse(
+        text_id="text-id",
+        title="Cached Title",
+        available_languages=[AvailableLanguage(language="bo", language_code="bo", version_count=2)],
+    )
+    with patch("pecha_api.texts.texts_service.get_text_languages_cache", new_callable=AsyncMock, return_value=cached_response):
+        response = await get_text_languages(text_id="text-id")
+        assert response == cached_response
+
+
+@pytest.mark.asyncio
+async def test_get_language_versions_returns_cached_data():
+    cached_response = VersionsResponse(
+        text_id="text-id",
+        language="bo",
+        available_versions=[],
+    )
+    with patch("pecha_api.texts.texts_service.get_language_versions_cache", new_callable=AsyncMock, return_value=cached_response):
+        response = await get_language_versions(text_id="text-id", language="bo")
+        assert response == cached_response
+
+
+@pytest.mark.asyncio
+async def test_get_linked_translation_texts_success():
+    segment_id = "segment-1"
+    mapped_segments = [
+        SegmentDTO(id="mapped-1", text_id="text-1", content="c1", type=SegmentType.SOURCE),
+        SegmentDTO(id="mapped-2", text_id="text-2", content="c2", type=SegmentType.SOURCE),
+    ]
+    text_details = {
+        "text-1": TextDTO(
+            id="text-1", title="Version A", language="bo", group_id="g1", type="version",
+            is_published=True, created_date="", updated_date="", published_date="",
+            published_by="", categories=[], views=0,
+        ),
+        "text-2": TextDTO(
+            id="text-2", title="Commentary", language="bo", group_id="g1", type="commentary",
+            is_published=True, created_date="", updated_date="", published_date="",
+            published_by="", categories=[], views=0,
+        ),
+    }
+    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, return_value=mapped_segments), \
+         patch("pecha_api.texts.texts_service.TextUtils.get_text_details_by_ids", new_callable=AsyncMock, return_value=text_details):
+        result = await _get_linked_translation_texts(segment_id=segment_id)
+        assert len(result) == 1
+        assert result[0].title == "Version A"
+
+
+@pytest.mark.asyncio
+async def test_get_linked_translation_texts_no_mapped_segments():
+    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, return_value=[]):
+        result = await _get_linked_translation_texts(segment_id="segment-1")
+        assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_linked_translation_texts_exception_returns_empty():
+    with patch("pecha_api.texts.texts_service.get_related_mapped_segments", new_callable=AsyncMock, side_effect=Exception("db error")):
+        result = await _get_linked_translation_texts(segment_id="segment-1")
+        assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_table_of_content_by_version_text_id_empty_versions():
+    result = await _get_table_of_content_by_version_text_id(versions=[])
+    assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_get_table_of_content_by_version_text_id_batch_fetch():
+    versions = [
+        TextDTO(
+            id="version-1", title="V1", language="bo", group_id="g1", type="version",
+            is_published=True, created_date="", updated_date="", published_date="",
+            published_by="", categories=[], views=0,
+        )
+    ]
+    mock_toc = TableOfContent(id="toc-1", text_id="version-1", type=TableOfContentType.TEXT, sections=[])
+    with patch("pecha_api.texts.texts_service.get_contents_by_text_ids", new_callable=AsyncMock, return_value={"version-1": [mock_toc]}):
+        result = await _get_table_of_content_by_version_text_id(versions=versions)
+        assert result == {"version-1": ["toc-1"]}

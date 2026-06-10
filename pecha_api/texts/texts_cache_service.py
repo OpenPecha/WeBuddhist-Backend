@@ -15,7 +15,9 @@ from .texts_response_models import (
     TableOfContentResponse,
     TextVersionResponse,
     TextDTO,
-    TableOfContent
+    TableOfContent,
+    LanguageResponse,
+    VersionsResponse,
 )
 from pecha_api.cache.cache_enums import CacheType
 
@@ -130,6 +132,42 @@ async def delete_text_details_by_id_cache(text_id: str = None, cache_type: Cache
     await clear_cache(hash_key = hashed_key)
 
 
+async def get_text_languages_cache(text_id: str = None, cache_type: CacheType = None) -> LanguageResponse:
+    payload = [text_id, cache_type]
+    hashed_key: str = Utils.generate_hash_key(payload=payload)
+    cache_data: LanguageResponse = await get_cache_data(hash_key=hashed_key)
+    if cache_data and isinstance(cache_data, dict):
+        cache_data = LanguageResponse(**cache_data)
+    return cache_data
+
+
+async def set_text_languages_cache(text_id: str = None, data: LanguageResponse = None, cache_type: CacheType = None):
+    payload = [text_id, cache_type]
+    hashed_key: str = Utils.generate_hash_key(payload=payload)
+    cache_time_out = config.get_int("CACHE_TEXT_TIMEOUT")
+    await set_cache(hash_key=hashed_key, value=data, cache_time_out=cache_time_out)
+
+
+async def get_language_versions_cache(
+    text_id: str = None, language: str = None, cache_type: CacheType = None
+) -> VersionsResponse:
+    payload = [text_id, language, cache_type]
+    hashed_key: str = Utils.generate_hash_key(payload=payload)
+    cache_data: VersionsResponse = await get_cache_data(hash_key=hashed_key)
+    if cache_data and isinstance(cache_data, dict):
+        cache_data = VersionsResponse(**cache_data)
+    return cache_data
+
+
+async def set_language_versions_cache(
+    text_id: str = None, language: str = None, data: VersionsResponse = None, cache_type: CacheType = None
+):
+    payload = [text_id, language, cache_type]
+    hashed_key: str = Utils.generate_hash_key(payload=payload)
+    cache_time_out = config.get_int("CACHE_TEXT_TIMEOUT")
+    await set_cache(hash_key=hashed_key, value=data, cache_time_out=cache_time_out)
+
+
 async def update_text_details_cache(text_id: str, updated_text_data: TextDTO, cache_type: CacheType = CacheType.TEXT_DETAIL) -> bool:
     #Update cached text details for a specific text_id with new data. Handles both text and sheet instances.
     try:
@@ -218,6 +256,14 @@ async def invalidate_text_cache_on_update(text_id: str, cache_type: CacheType = 
             # TEXT_VERSIONS cache
             versions_payload = [text_id, None, None, None, CacheType.TEXT_VERSIONS]
             cache_keys_to_invalidate.append(Utils.generate_hash_key(payload=versions_payload))
+
+            # TEXT_LANGUAGES cache
+            languages_payload = [text_id, CacheType.TEXT_LANGUAGES]
+            cache_keys_to_invalidate.append(Utils.generate_hash_key(payload=languages_payload))
+
+            # LANGUAGE_VERSIONS cache (language=None invalidates the default lookup key)
+            language_versions_payload = [text_id, None, CacheType.LANGUAGE_VERSIONS]
+            cache_keys_to_invalidate.append(Utils.generate_hash_key(payload=language_versions_payload))
         
         # Invalidate specific cache keys
         await invalidate_multiple_cache_keys(hash_keys=cache_keys_to_invalidate)
