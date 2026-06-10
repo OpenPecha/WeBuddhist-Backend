@@ -946,9 +946,11 @@ async def test_add_time_block_duplicate_time():
 
 
 @pytest.mark.asyncio
-async def test_add_time_block_duplicate_plan_across_routine():
+async def test_add_time_block_allows_same_plan_in_different_time_block():
     user_id = uuid.uuid4()
     routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    session_id = uuid.uuid4()
     existing_plan_id = uuid.uuid4()
 
     request = CreateTimeBlockRequest(
@@ -965,6 +967,26 @@ async def test_add_time_block_duplicate_plan_across_routine():
 
     _, session_cm = _mock_session_with_db()
 
+    saved_time_block = SimpleNamespace(
+        id=time_block_id,
+        time="08:00",
+        time_int=800,
+        notification_enabled=True,
+    )
+    saved_session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.PLAN,
+        source_id=existing_plan_id,
+        display_order=0,
+    )
+    mock_plan = SimpleNamespace(
+        id=existing_plan_id,
+        title="Morning Plan",
+        language=SimpleNamespace(value="EN"),
+        image_url="https://example.com/morning.jpg",
+        start_date=None,
+    )
+
     with patch(
         "pecha_api.routines.routines_service.validate_and_extract_user_details",
         return_value=SimpleNamespace(id=user_id),
@@ -975,15 +997,31 @@ async def test_add_time_block_duplicate_plan_across_routine():
         "pecha_api.routines.routines_service.get_routine_by_id_and_user",
         return_value=SimpleNamespace(id=routine_id, user_id=user_id),
     ), patch(
-        "pecha_api.routines.routines_service.get_existing_plan_source_ids",
-        return_value=[existing_plan_id],
+        "pecha_api.routines.routines_service.time_block_exists_for_routine",
+        return_value=False,
+    ), patch(
+        "pecha_api.routines.routines_service.RoutineTimeBlock",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.routines.routines_service.save_time_block",
+        return_value=saved_time_block,
+    ), patch(
+        "pecha_api.routines.routines_service.RoutineSession",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.routines.routines_service.save_sessions",
+        return_value=[saved_session],
+    ), patch(
+        "pecha_api.routines.routines_service.get_plans_by_ids",
+        return_value=[mock_plan],
     ):
-        with pytest.raises(HTTPException) as exc_info:
-            await add_time_block_to_routine(
-                token="token123", routine_id=routine_id, request=request
-            )
-        assert exc_info.value.status_code == 422
-        assert exc_info.value.detail["message"] == DUPLICATE_PLAN
+        result = await add_time_block_to_routine(
+            token="token123", routine_id=routine_id, request=request
+        )
+
+        assert result.id == time_block_id
+        assert len(result.sessions) == 1
+        assert result.sessions[0].source_id == existing_plan_id
 
 
 @pytest.mark.asyncio
@@ -1016,8 +1054,8 @@ async def test_add_time_block_duplicate_collection_across_routine():
         "pecha_api.routines.routines_service.get_routine_by_id_and_user",
         return_value=SimpleNamespace(id=routine_id, user_id=user_id),
     ), patch(
-        "pecha_api.routines.routines_service.get_existing_plan_source_ids",
-        return_value=[],
+        "pecha_api.routines.routines_service.time_block_exists_for_routine",
+        return_value=False,
     ), patch(
         "pecha_api.routines.routines_service.get_existing_collection_source_ids",
         return_value=[existing_collection_id],
@@ -1445,10 +1483,11 @@ async def test_update_time_block_service_time_conflict():
 
 
 @pytest.mark.asyncio
-async def test_update_time_block_service_duplicate_plan_across_routine():
+async def test_update_time_block_service_allows_same_plan_in_different_time_block():
     user_id = uuid.uuid4()
     routine_id = uuid.uuid4()
     time_block_id = uuid.uuid4()
+    session_id = uuid.uuid4()
     existing_plan_id = uuid.uuid4()
 
     request = UpdateTimeBlockRequest(
@@ -1465,6 +1504,33 @@ async def test_update_time_block_service_duplicate_plan_across_routine():
 
     _, session_cm = _mock_session_with_db()
 
+    saved_time_block = SimpleNamespace(
+        id=time_block_id,
+        time="14:00",
+        time_int=1400,
+        notification_enabled=True,
+    )
+    mock_time_block = SimpleNamespace(
+        id=time_block_id,
+        routine_id=routine_id,
+        time="12:00",
+        time_int=1200,
+        notification_enabled=True,
+    )
+    saved_session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.PLAN,
+        source_id=existing_plan_id,
+        display_order=0,
+    )
+    mock_plan = SimpleNamespace(
+        id=existing_plan_id,
+        title="Updated Plan",
+        language=SimpleNamespace(value="EN"),
+        image_url="https://example.com/updated.jpg",
+        start_date=None,
+    )
+
     with patch(
         "pecha_api.routines.routines_service.validate_and_extract_user_details",
         return_value=SimpleNamespace(id=user_id),
@@ -1476,23 +1542,35 @@ async def test_update_time_block_service_duplicate_plan_across_routine():
         return_value=SimpleNamespace(id=routine_id, user_id=user_id),
     ), patch(
         "pecha_api.routines.routines_service.get_time_block_by_id_and_routine",
-        return_value=SimpleNamespace(id=time_block_id, routine_id=routine_id),
+        return_value=mock_time_block,
     ), patch(
         "pecha_api.routines.routines_service.get_time_block_by_routine_and_time",
         return_value=None,
     ), patch(
-        "pecha_api.routines.routines_service.get_existing_plan_source_ids_in_routine",
-        return_value=[existing_plan_id],
+        "pecha_api.routines.routines_service.delete_sessions_by_time_block_id",
+    ), patch(
+        "pecha_api.routines.routines_service.update_time_block_repo",
+        return_value=saved_time_block,
+    ), patch(
+        "pecha_api.routines.routines_service.build_session_models",
+        return_value=[MagicMock()],
+    ), patch(
+        "pecha_api.routines.routines_service.save_sessions",
+        return_value=[saved_session],
+    ), patch(
+        "pecha_api.routines.routines_service.get_plans_by_ids",
+        return_value=[mock_plan],
     ):
-        with pytest.raises(HTTPException) as exc_info:
-            await update_time_block_service(
-                token="token123",
-                routine_id=routine_id,
-                time_block_id=time_block_id,
-                request=request,
-            )
-        assert exc_info.value.status_code == 422
-        assert exc_info.value.detail["message"] == DUPLICATE_PLAN
+        result = await update_time_block_service(
+            token="token123",
+            routine_id=routine_id,
+            time_block_id=time_block_id,
+            request=request,
+        )
+
+        assert result.id == time_block_id
+        assert len(result.sessions) == 1
+        assert result.sessions[0].source_id == existing_plan_id
 
 
 @pytest.mark.asyncio
@@ -1531,9 +1609,6 @@ async def test_update_time_block_service_duplicate_collection_across_routine():
     ), patch(
         "pecha_api.routines.routines_service.get_time_block_by_routine_and_time",
         return_value=None,
-    ), patch(
-        "pecha_api.routines.routines_service.get_existing_plan_source_ids_in_routine",
-        return_value=[],
     ), patch(
         "pecha_api.routines.routines_service.get_existing_collection_source_ids_in_routine",
         return_value=[existing_collection_id],

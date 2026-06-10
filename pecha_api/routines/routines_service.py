@@ -24,8 +24,6 @@ from .routines_enums import SessionType
 from .routines_repository import (
     get_routine_by_user_id,
     get_routine_by_id_and_user,
-    get_existing_plan_source_ids,
-    get_existing_plan_source_ids_in_routine,
     get_existing_collection_source_ids,
     get_existing_collection_source_ids_in_routine,
     get_collection_source_ids_by_time_block_id,
@@ -128,36 +126,6 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=ResponseError(
                 error=BAD_REQUEST, message=DUPLICATE_RECITATION_COLLECTION
-            ).model_dump(),
-        )
-
-
-def _check_duplicate_plans(db, routine_id: UUID, sessions: List) -> None:
-    existing_plan_ids = get_existing_plan_source_ids(db=db, routine_id=routine_id)
-    new_plan_ids = [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
-    overlap = set(new_plan_ids) & set(existing_plan_ids)
-    if overlap:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=DUPLICATE_PLAN
-            ).model_dump(),
-        )
-
-
-def _check_duplicate_plans_on_update(
-    db, routine_id: UUID, time_block_id: UUID, sessions: List
-) -> None:
-    existing_plan_ids = get_existing_plan_source_ids_in_routine(
-        db=db, routine_id=routine_id, exclude_time_block_id=time_block_id
-    )
-    new_plan_ids = [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
-    overlap = set(new_plan_ids) & set(existing_plan_ids)
-    if overlap:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=DUPLICATE_PLAN
             ).model_dump(),
         )
 
@@ -271,13 +239,6 @@ def _validate_and_sync_update(
                 error=BAD_REQUEST, message=TIME_BLOCK_TIME_CONFLICT
             ).model_dump(),
         )
-
-    _check_duplicate_plans_on_update(
-        db=db,
-        routine_id=routine_id,
-        time_block_id=time_block_id,
-        sessions=request.sessions,
-    )
 
     _check_duplicate_collections_on_update(
         db=db,
@@ -645,7 +606,6 @@ async def add_time_block_to_routine(
                 ).model_dump(),
             )
 
-        _check_duplicate_plans(db=db, routine_id=routine_id, sessions=request.sessions)
         _check_duplicate_collections(db=db, routine_id=routine_id, sessions=request.sessions)
         _check_duplicate_time(db=db, routine_id=routine_id, time=request.time)
 
