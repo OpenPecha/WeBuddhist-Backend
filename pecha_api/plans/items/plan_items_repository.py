@@ -159,7 +159,7 @@ def get_days_by_plan_id_and_day_ids(db: Session, plan_id: UUID, day_ids: List[UU
     )
 
 
-def delete_days_by_ids(db: Session, plan_id: UUID, day_ids: List[UUID]) -> None:
+def delete_days_by_ids(db: Session, plan_id: UUID, day_ids: List[UUID], *, commit: bool = True) -> None:
     if not day_ids:
         return
     try:
@@ -167,7 +167,8 @@ def delete_days_by_ids(db: Session, plan_id: UUID, day_ids: List[UUID]) -> None:
             PlanItem.id.in_(day_ids),
             PlanItem.plan_id == plan_id,
         ).delete(synchronize_session=False)
-        db.commit()
+        if commit:
+            db.commit()
     except Exception as e:
         db.rollback()
         raise HTTPException(
@@ -201,16 +202,26 @@ def update_day_by_id(db: Session, plan_id: UUID, day_id: UUID, day_number: int) 
         )
 
 
-def update_days_in_bulk_by_plan_id(db: Session, plan_id: UUID, days: List[ItemDayNumberDTO]) -> None:
+def update_days_in_bulk_by_plan_id(
+    db: Session,
+    plan_id: UUID,
+    days: List[ItemDayNumberDTO],
+    *,
+    commit: bool = True,
+) -> None:
+    if not days:
+        return
     try:
-        db.execute(
+        # Use connection.execute to avoid SQLAlchemy's ORM "bulk update by primary key"
+        # mode, which requires `id` in each param dict instead of our bindparam keys.
+        db.connection().execute(
             update(PlanItem)
             .where(PlanItem.plan_id == plan_id, PlanItem.id == bindparam("b_id"))
-            .values(day_number=bindparam("b_day_number"))
-            .execution_options(synchronize_session=False),
+            .values(day_number=bindparam("b_day_number")),
             [{"b_id": day.id, "b_day_number": day.day_number} for day in days],
         )
-        db.commit()
+        if commit:
+            db.commit()
     except Exception as e:
         db.rollback()
         raise HTTPException(

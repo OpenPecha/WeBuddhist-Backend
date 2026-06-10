@@ -155,6 +155,48 @@ def test_complete_all_tasks_for_day_marks_uncompleted_tasks_and_subtasks():
     assert saved_subtasks[0].sub_task_id == sub_task_id
 
 
+def test_complete_all_tasks_for_day_returns_early_when_no_tasks():
+    from pecha_api.plans.users.plan_user_series_day_sync_service import _complete_all_tasks_for_day
+
+    db_mock = MagicMock()
+
+    with patch(
+        "pecha_api.plans.users.plan_user_series_day_sync_service.get_tasks_by_plan_item_id",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_day_sync_service.get_uncompleted_user_task_ids",
+    ) as mock_uncompleted_tasks:
+        _complete_all_tasks_for_day(db_mock, uuid.uuid4(), uuid.uuid4())
+
+    # No tasks -> bails out before touching task completion repositories.
+    mock_uncompleted_tasks.assert_not_called()
+
+
+def test_complete_all_tasks_for_day_returns_early_when_no_sub_tasks():
+    from pecha_api.plans.users.plan_user_series_day_sync_service import _complete_all_tasks_for_day
+
+    db_mock = MagicMock()
+    user_id = uuid.uuid4()
+    task = SimpleNamespace(id=uuid.uuid4())
+
+    with patch(
+        "pecha_api.plans.users.plan_user_series_day_sync_service.get_tasks_by_plan_item_id",
+        return_value=[task],
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_day_sync_service.get_uncompleted_user_task_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_day_sync_service.get_sub_tasks_by_task_id",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_day_sync_service.get_uncompleted_user_sub_task_ids",
+    ) as mock_uncompleted_subtasks:
+        _complete_all_tasks_for_day(db_mock, user_id, uuid.uuid4())
+
+    # Tasks exist but have no subtasks -> bails out before subtask completion lookup.
+    mock_uncompleted_subtasks.assert_not_called()
+
+
 def test_check_day_completion_runs_plan_completion_for_sibling_days():
     from pecha_api.plans.users.plan_users_service import check_day_completion
 
