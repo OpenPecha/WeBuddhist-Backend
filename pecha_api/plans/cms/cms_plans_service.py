@@ -676,7 +676,10 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
             validate_tag_ids(db=db, tag_ids=update_plan_request.tag_ids)
             set_plan_tags(db=db, plan=plan, tag_ids=update_plan_request.tag_ids)
 
-        if "series_id" in update_plan_request.model_fields_set:
+        if (
+            "series_id" in update_plan_request.model_fields_set
+            and update_plan_request.series_id != plan.series_id
+        ):
             if update_plan_request.series_id is None:
                 _detach_plan_from_series(plan)
             else:
