@@ -4,6 +4,8 @@ class CacheType(Enum):
     RECITATION_DETAILS = "recitation_details"
     TEXT_DETAIL = "text_detail"
     TEXT_VERSIONS = "text_versions"
+    TEXT_LANGUAGES = "text_languages"
+    LANGUAGE_VERSIONS = "language_versions"
     TEXTS_BY_ID_OR_COLLECTION = "texts_by_id_or_collection"
     TEXT_TABLE_OF_CONTENTS = "text_table_of_contents"
     DETAIL_TEXT_TABLE_OF_CONTENT = "detail_text_table_of_content"

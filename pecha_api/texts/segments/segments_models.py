@@ -21,7 +21,8 @@ class Segment(Document):
     class Settings:
         collection = "segments"
         indexes = [
-            "mapping.segments"  # Index for faster lookup of segment IDs within mapping arrays
+            "text_id",
+            "mapping.segments",
         ]
 
     @classmethod
@@ -52,6 +53,10 @@ class Segment(Document):
     @classmethod
     async def get_segments_by_text_id(cls, text_id: str) -> List["Segment"]:
         return await cls.find(cls.text_id == text_id).to_list()
+
+    @classmethod
+    async def get_first_segment_by_text_id(cls, text_id: str) -> Optional["Segment"]:
+        return await cls.find_one({"text_id": text_id})
 
     @classmethod
     async def check_exists(cls, segment_id: uuid.UUID) -> bool:
