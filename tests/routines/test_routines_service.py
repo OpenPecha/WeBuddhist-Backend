@@ -39,6 +39,7 @@ from pecha_api.routines.response_message import (
     INVALID_TIME_FORMAT,
     SESSIONS_REQUIRED,
     DUPLICATE_PLAN,
+    DUPLICATE_RECITATION_COLLECTION,
     TIME_ALREADY_EXISTS,
     SOURCE_ID_REQUIRED,
     INVALID_TIMER_DURATION,
@@ -186,6 +187,30 @@ def test_validate_duplicate_recitations_allowed():
         ],
     )
     _validate_time_block_request(request)
+
+
+def test_validate_duplicate_recitation_collection_source_ids():
+    duplicate_id = uuid.uuid4()
+    request = CreateTimeBlockRequest(
+        time="12:00",
+        time_int=1200,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.RECITATION_COLLECTION,
+                source_id=duplicate_id,
+                display_order=0,
+            ),
+            SessionRequest(
+                session_type=SessionType.RECITATION_COLLECTION,
+                source_id=duplicate_id,
+                display_order=1,
+            ),
+        ],
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_time_block_request(request)
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["message"] == DUPLICATE_RECITATION_COLLECTION
 
 
 def test_validate_timer_session_valid():
@@ -919,6 +944,91 @@ async def test_add_time_block_duplicate_time():
         assert exc_info.value.detail["message"] == TIME_ALREADY_EXISTS
 
 
+@pytest.mark.asyncio
+async def test_add_time_block_duplicate_plan_across_routine():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    existing_plan_id = uuid.uuid4()
+
+    request = CreateTimeBlockRequest(
+        time="08:00",
+        time_int=800,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.PLAN,
+                source_id=existing_plan_id,
+                display_order=0,
+            )
+        ],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_existing_plan_source_ids",
+        return_value=[existing_plan_id],
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await add_time_block_to_routine(
+                token="token123", routine_id=routine_id, request=request
+            )
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail["message"] == DUPLICATE_PLAN
+
+
+@pytest.mark.asyncio
+async def test_add_time_block_duplicate_collection_across_routine():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    existing_collection_id = uuid.uuid4()
+
+    request = CreateTimeBlockRequest(
+        time="08:00",
+        time_int=800,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.RECITATION_COLLECTION,
+                source_id=existing_collection_id,
+                display_order=0,
+            )
+        ],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_existing_plan_source_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.routines.routines_service.get_existing_collection_source_ids",
+        return_value=[existing_collection_id],
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await add_time_block_to_routine(
+                token="token123", routine_id=routine_id, request=request
+            )
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail["message"] == DUPLICATE_RECITATION_COLLECTION
+
+
 def test_enroll_new_plans_on_update_does_not_unenroll_removed_plans():
     user_id = uuid.uuid4()
     time_block_id = uuid.uuid4()
@@ -1331,6 +1441,111 @@ async def test_update_time_block_service_time_conflict():
             )
         assert exc_info.value.status_code == 409
         assert exc_info.value.detail["message"] == TIME_BLOCK_TIME_CONFLICT
+
+
+@pytest.mark.asyncio
+async def test_update_time_block_service_duplicate_plan_across_routine():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    existing_plan_id = uuid.uuid4()
+
+    request = UpdateTimeBlockRequest(
+        time="14:00",
+        time_int=1400,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.PLAN,
+                source_id=existing_plan_id,
+                display_order=0,
+            )
+        ],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_time_block_by_id_and_routine",
+        return_value=SimpleNamespace(id=time_block_id, routine_id=routine_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_time_block_by_routine_and_time",
+        return_value=None,
+    ), patch(
+        "pecha_api.routines.routines_service.get_existing_plan_source_ids_in_routine",
+        return_value=[existing_plan_id],
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await update_time_block_service(
+                token="token123",
+                routine_id=routine_id,
+                time_block_id=time_block_id,
+                request=request,
+            )
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail["message"] == DUPLICATE_PLAN
+
+
+@pytest.mark.asyncio
+async def test_update_time_block_service_duplicate_collection_across_routine():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    existing_collection_id = uuid.uuid4()
+
+    request = UpdateTimeBlockRequest(
+        time="14:00",
+        time_int=1400,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.RECITATION_COLLECTION,
+                source_id=existing_collection_id,
+                display_order=0,
+            )
+        ],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_time_block_by_id_and_routine",
+        return_value=SimpleNamespace(id=time_block_id, routine_id=routine_id),
+    ), patch(
+        "pecha_api.routines.routines_service.get_time_block_by_routine_and_time",
+        return_value=None,
+    ), patch(
+        "pecha_api.routines.routines_service.get_existing_plan_source_ids_in_routine",
+        return_value=[],
+    ), patch(
+        "pecha_api.routines.routines_service.get_existing_collection_source_ids_in_routine",
+        return_value=[existing_collection_id],
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await update_time_block_service(
+                token="token123",
+                routine_id=routine_id,
+                time_block_id=time_block_id,
+                request=request,
+            )
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail["message"] == DUPLICATE_RECITATION_COLLECTION
 
 
 # ============================================================================
