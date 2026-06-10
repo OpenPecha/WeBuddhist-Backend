@@ -14,6 +14,7 @@ from pecha_api.routines.routines_service import (
     _validate_time_block_request,
     _resolve_plan_sessions,
     _resolve_recitation_sessions,
+    _resolve_recitation_collection_sessions,
     _resolve_timer_sessions,
     _resolve_sessions,
     _enroll_new_plans_on_update,
@@ -1985,3 +1986,128 @@ async def test_resolve_sessions_empty_list():
     """Test resolving empty session list."""
     result = await _resolve_sessions(db=MagicMock(), sessions=[], user_id=uuid.uuid4())
     assert result == []
+
+
+def _make_collection_db(collections, item_counts):
+    """Build a db mock whose first query() returns collections and second returns item counts."""
+    collections_chain = MagicMock()
+    collections_chain.filter.return_value = collections_chain
+    collections_chain.all.return_value = collections
+
+    counts_chain = MagicMock()
+    counts_chain.filter.return_value = counts_chain
+    counts_chain.group_by.return_value = counts_chain
+    counts_chain.all.return_value = item_counts
+
+    db = MagicMock()
+    db.query.side_effect = [collections_chain, counts_chain]
+    return db
+
+
+def test_resolve_recitation_collection_sessions_empty():
+    """Empty collection session list returns an empty list without touching the db."""
+    db = MagicMock()
+    result = _resolve_recitation_collection_sessions(
+        db=db, collection_sessions=[], user_id=uuid.uuid4()
+    )
+    assert result == []
+    db.query.assert_not_called()
+
+
+def test_resolve_recitation_collection_sessions_success():
+    """Resolve a collection session into a SessionDTO with name, image and item count."""
+    user_id = uuid.uuid4()
+    collection_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+
+    session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.RECITATION_COLLECTION,
+        source_id=collection_id,
+        display_order=3,
+    )
+    collection = SimpleNamespace(
+        id=collection_id,
+        name="My Collection",
+        img_url="collections/img.jpg",
+    )
+    db = _make_collection_db(
+        collections=[collection],
+        item_counts=[(collection_id, 5)],
+    )
+
+    collection_image = ImageUrlModel(
+        thumbnail="https://example.com/collection_thumb.jpg",
+        medium="https://example.com/collection_med.jpg",
+        original="https://example.com/collection.jpg",
+    )
+    with patch(
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=collection_image,
+    ):
+        result = _resolve_recitation_collection_sessions(
+            db=db, collection_sessions=[session], user_id=user_id
+        )
+
+    assert len(result) == 1
+    dto = result[0]
+    assert dto.id == session_id
+    assert dto.session_type == SessionType.RECITATION_COLLECTION
+    assert dto.source_id == collection_id
+    assert dto.title == "My Collection"
+    assert dto.image == collection_image
+    assert dto.display_order == 3
+    assert dto.item_count == 5
+
+
+def test_resolve_recitation_collection_sessions_missing_collection_skipped():
+    """A session whose collection is not owned by the user is skipped."""
+    user_id = uuid.uuid4()
+    session = SimpleNamespace(
+        id=uuid.uuid4(),
+        session_type=SessionType.RECITATION_COLLECTION,
+        source_id=uuid.uuid4(),
+        display_order=0,
+    )
+    # No collections returned -> collection_map is empty -> session skipped.
+    db = _make_collection_db(collections=[], item_counts=[])
+
+    with patch(
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=None,
+    ):
+        result = _resolve_recitation_collection_sessions(
+            db=db, collection_sessions=[session], user_id=user_id
+        )
+
+    assert result == []
+
+
+def test_resolve_recitation_collection_sessions_defaults_item_count_to_zero():
+    """When no item count row exists for a collection, item_count defaults to 0."""
+    user_id = uuid.uuid4()
+    collection_id = uuid.uuid4()
+    session = SimpleNamespace(
+        id=uuid.uuid4(),
+        session_type=SessionType.RECITATION_COLLECTION,
+        source_id=collection_id,
+        display_order=1,
+    )
+    collection = SimpleNamespace(
+        id=collection_id,
+        name="Empty Collection",
+        img_url=None,
+    )
+    db = _make_collection_db(collections=[collection], item_counts=[])
+
+    with patch(
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=None,
+    ):
+        result = _resolve_recitation_collection_sessions(
+            db=db, collection_sessions=[session], user_id=user_id
+        )
+
+    assert len(result) == 1
+    assert result[0].item_count == 0
+    assert result[0].image is None

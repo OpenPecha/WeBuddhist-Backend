@@ -9,7 +9,8 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_service i
     get_collection_detail_service,
     create_collection_service,
     add_items_to_collection_service,
-    delete_collection_service
+    delete_collection_service,
+    _generate_presigned_url
 )
 from pecha_api.plans.users.recitation_collection.recitation_collection_response_models import (
     RecitationCollectionsResponse,
@@ -51,6 +52,37 @@ class MockTextDTO:
         self.title = title
         self.language = language
         self.type = type
+
+
+class TestGeneratePresignedUrl:
+
+    def test_returns_none_when_key_is_empty(self):
+        assert _generate_presigned_url("") is None
+        assert _generate_presigned_url(None) is None
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.generate_presigned_access_url')
+    def test_returns_presigned_url_on_success(self, mock_generate, mock_get):
+        mock_get.return_value = "test-bucket"
+        mock_generate.return_value = "https://signed.example.com/img.jpg"
+
+        result = _generate_presigned_url("images/test.jpg")
+
+        assert result == "https://signed.example.com/img.jpg"
+        mock_generate.assert_called_once_with(
+            bucket_name="test-bucket",
+            s3_key="images/test.jpg"
+        )
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.generate_presigned_access_url')
+    def test_returns_none_when_generation_raises(self, mock_generate, mock_get):
+        mock_get.return_value = "test-bucket"
+        mock_generate.side_effect = Exception("S3 boom")
+
+        result = _generate_presigned_url("images/test.jpg")
+
+        assert result is None
 
 
 class TestGetUserCollectionsService:

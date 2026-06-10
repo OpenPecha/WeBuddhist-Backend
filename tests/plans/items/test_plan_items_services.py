@@ -337,6 +337,99 @@ def test_delete_plan_days_repository_error():
         assert exc_info.value.detail == {"error": "Bad request", "message": "cannot delete"}
 
 
+def test_delete_plan_days_unexpected_error_rolls_back_and_wraps():
+    plan_id = uuid.uuid4()
+    day_id = uuid.uuid4()
+
+    plan = MagicMock()
+    plan.id = plan_id
+    plan.deleted_at = None
+    plan.group_id = uuid.uuid4()
+
+    item_to_delete = MagicMock()
+    item_to_delete.id = day_id
+
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.platform_role = PlatformRole.CREATOR
+    plan.author_id = author.id
+
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_cms_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id_and_day_ids") as mock_get_days_by_ids, \
+         patch("pecha_api.plans.items.plan_items_services.delete_days_by_ids") as mock_delete:
+        db_session = _mock_session_local(mock_session_local)
+
+        mock_validate_author.return_value = author
+        mock_get_plan_by_id.return_value = plan
+        mock_get_days_by_ids.return_value = [item_to_delete]
+        mock_delete.side_effect = Exception("unexpected db failure")
+
+        with pytest.raises(HTTPException) as exc_info:
+            delete_plan_days(
+                token="dummy-token",
+                plan_id=plan_id,
+                delete_days_request=DeleteDaysRequest(day_ids=[day_id]),
+            )
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.detail["message"] == "unexpected db failure"
+        db_session.rollback.assert_called_once()
+        db_session.commit.assert_not_called()
+
+
+def test_delete_plan_days_no_reorder_when_already_sequential():
+    plan_id = uuid.uuid4()
+    day_id = uuid.uuid4()
+
+    plan = MagicMock()
+    plan.id = plan_id
+    plan.deleted_at = None
+    plan.group_id = uuid.uuid4()
+
+    item_to_delete = MagicMock()
+    item_to_delete.id = day_id
+
+    # Remaining days are already numbered 1..3 sequentially -> no reorder needed.
+    remaining_items = [
+        MagicMock(id=uuid.uuid4(), day_number=1),
+        MagicMock(id=uuid.uuid4(), day_number=2),
+        MagicMock(id=uuid.uuid4(), day_number=3),
+    ]
+
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.platform_role = PlatformRole.CREATOR
+    plan.author_id = author.id
+
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_cms_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id_and_day_ids") as mock_get_days_by_ids, \
+         patch("pecha_api.plans.items.plan_items_services.delete_days_by_ids"), \
+         patch("pecha_api.plans.items.plan_items_services.get_days_by_plan_id") as mock_get_days, \
+         patch("pecha_api.plans.items.plan_items_services.update_days_in_bulk_by_plan_id") as mock_bulk_update:
+        db_session = _mock_session_local(mock_session_local)
+
+        mock_validate_author.return_value = author
+        mock_get_plan_by_id.return_value = plan
+        mock_get_days_by_ids.return_value = [item_to_delete]
+        mock_get_days.return_value = remaining_items
+
+        delete_plan_days(
+            token="dummy-token",
+            plan_id=plan_id,
+            delete_days_request=DeleteDaysRequest(day_ids=[day_id]),
+        )
+
+        # No day_number changes required, so bulk update is never invoked.
+        mock_bulk_update.assert_not_called()
+        db_session.commit.assert_called_once()
+
+
 def test_update_plans_day_number_success_calls_bulk_update():
     plan_id = uuid.uuid4()
 
