@@ -143,12 +143,18 @@ def verify_author_email(token: str) -> AuthorVerificationResponse:
 
 
 def authenticate_author(email: str, password: str):
+    import logging
+    logger = logging.getLogger(__name__)
     with SessionLocal() as db_session:
         author = get_author_by_email(db=db_session, email=email)
-        if not verify_password(
-                plain_password=password,
-                hashed_password=author.password
-        ):
+        logger.info(f"Login attempt for email: {email}")
+        logger.info(f"Author found: {author.email}, has password: {author.password is not None}")
+        password_valid = verify_password(
+            plain_password=password,
+            hashed_password=author.password
+        )
+        logger.info(f"Password verification result: {password_valid}")
+        if not password_valid:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=INVALID_EMAIL_PASSWORD
@@ -235,7 +241,7 @@ def update_password(token: str, password: str):
         _validate_password(password)
         hashed_password = get_hashed_password(password)
         current_user.password = hashed_password
-        updated_user = save_author(db=db_session, author=current_user)
+        updated_user = update_author(db=db_session, author=current_user)
         return updated_user
 
 def re_verify_email(email: str) -> EmailReVerificationResponse:

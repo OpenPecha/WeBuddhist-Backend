@@ -203,16 +203,17 @@ def update_day_by_id(db: Session, plan_id: UUID, day_id: UUID, day_number: int) 
 
 def update_days_in_bulk_by_plan_id(db: Session, plan_id: UUID, days: List[ItemDayNumberDTO]) -> None:
     try:
-        db.execute(
-            update(PlanItem)
-            .where(PlanItem.plan_id == plan_id, PlanItem.id == bindparam("b_id"))
-            .values(day_number=bindparam("b_day_number"))
-            .execution_options(synchronize_session=False),
-            [{"b_id": day.id, "b_day_number": day.day_number} for day in days],
-        )
+        logger.info(f"Updating days in bulk for plan_id={plan_id}, days={[{'id': d.id, 'day_number': d.day_number} for d in days]}")
+        for day in days:
+            db.query(PlanItem).filter(
+                PlanItem.plan_id == plan_id,
+                PlanItem.id == day.id
+            ).update({"day_number": day.day_number}, synchronize_session=False)
         db.commit()
+        logger.info(f"Successfully updated days for plan_id={plan_id}")
     except Exception as e:
         db.rollback()
+        logger.error(f"Error updating days in bulk for plan_id={plan_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=ResponseError(error=BAD_REQUEST, message=str(e)).model_dump(),
