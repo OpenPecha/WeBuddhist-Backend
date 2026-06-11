@@ -2,9 +2,21 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated
 from uuid import UUID
+from starlette import status
 
-from .timer_service import get_all_timers_service, get_user_timers_service
-from .timer_response_models import TimersResponse
+from .timer_service import (
+    get_all_timers_service, 
+    get_user_timers_service,
+    create_timer_service,
+    update_timer_service,
+    delete_timer_service
+)
+from .timer_response_models import (
+    TimersResponse, 
+    TimerDTO, 
+    CreateTimerRequest, 
+    UpdateTimerRequest
+)
 from ..users.users_service import validate_and_extract_user_details
 
 timer_router = APIRouter(prefix="/timers", tags=["Timers"])
@@ -33,4 +45,39 @@ async def get_user_timers(
         group_id=group_id,
         skip=skip,
         limit=limit
+    )
+
+
+@timer_router.post("/user", status_code=status.HTTP_201_CREATED, response_model=TimerDTO)
+async def create_user_timer(
+    request: CreateTimerRequest,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+    return create_timer_service(
+        token=credentials.credentials,
+        request=request
+    )
+
+
+@timer_router.put("/user/{timer_id}", response_model=TimerDTO)
+async def update_user_timer(
+    timer_id: UUID,
+    request: UpdateTimerRequest,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+    return update_timer_service(
+        token=credentials.credentials,
+        timer_id=timer_id,
+        request=request
+    )
+
+
+@timer_router.delete("/user/{timer_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_timer(
+    timer_id: UUID,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+    delete_timer_service(
+        token=credentials.credentials,
+        timer_id=timer_id
     )

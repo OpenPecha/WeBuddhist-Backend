@@ -1,7 +1,53 @@
 from sqlalchemy.orm import Session
-from typing import List, Tuple
+from sqlalchemy.exc import IntegrityError
+from typing import List, Tuple, Optional
 from uuid import UUID
+from fastapi import HTTPException
+from starlette import status
 from .timer_model import Timer
+
+
+def save_timer(db: Session, timer: Timer) -> Timer:
+    try:
+        db.add(timer)
+        db.commit()
+        db.refresh(timer)
+        return timer
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "BAD_REQUEST", "message": str(e.orig)}
+        )
+
+
+def get_timer_by_id(db: Session, timer_id: UUID) -> Optional[Timer]:
+    return db.query(Timer).filter(Timer.id == timer_id).first()
+
+
+def update_timer(db: Session, timer: Timer) -> Timer:
+    try:
+        db.commit()
+        db.refresh(timer)
+        return timer
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "BAD_REQUEST", "message": str(e.orig)}
+        )
+
+
+def delete_timer(db: Session, timer: Timer) -> None:
+    try:
+        db.delete(timer)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "BAD_REQUEST", "message": str(e)}
+        )
 
 
 def get_timers_by_group(

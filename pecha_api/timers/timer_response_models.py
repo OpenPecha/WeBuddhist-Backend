@@ -23,3 +23,18 @@ class TimersResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+
+class CreateTimerRequest(BaseModel):
+    group_id: UUID
+    name: str
+    description: Optional[str] = None
+    duration: int
+    audio_url: Optional[str] = None
+
+
+class UpdateTimerRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    duration: Optional[int] = None
+    audio_url: Optional[str] = None
