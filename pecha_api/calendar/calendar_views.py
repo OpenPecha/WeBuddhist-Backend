@@ -16,7 +16,7 @@ from .calendar_service import (
 )
 
 calendar_router = APIRouter(
-    prefix="/calender",
+    prefix="/calendar",
     tags=["Calendar"],
 )
 
