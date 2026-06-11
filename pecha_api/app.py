@@ -37,6 +37,7 @@ from pecha_api.recitations import recitations_view
 from pecha_api.user_follows import user_follow_views
 from pecha_api.plans.users.recitation import user_recitations_views
 from pecha_api.plans.users.recitation_collection import recitation_collection_views
+from pecha_api.bookmarks import bookmark_views
 from pecha_api.text_uploader import text_uploader_views
 from pecha_api.cataloger import cataloger_views
 from pecha_api.text_uploader.text_metadata import text_metadata_views
@@ -49,6 +50,8 @@ from pecha_api.notification import notification_views as cms_notification_views
 from pecha_api.verse_of_day import verse_of_day_views
 from pecha_api.calendar import calendar_views
 from pecha_api.timers import timer_router
+from pecha_api.daily_log import daily_log_views
+from pecha_api.daily_log.daily_log_middleware import DailyLogMiddleware
 from pecha_api.plans.admin.admin_views import cms_admin_router
 from pecha_api.plans.transfers.transfer_views import (
     cms_transfers_router,
@@ -106,6 +109,7 @@ api.include_router(recitations_view.recitation_router)
 api.include_router(user_follow_views.user_follow_router)
 api.include_router(user_recitations_views.user_recitation_router)
 api.include_router(recitation_collection_views.recitation_collection_router)
+api.include_router(bookmark_views.bookmark_router)
 api.include_router(text_uploader_views.text_uploader_router)
 api.include_router(cataloger_views.cataloger_router)
 api.include_router(text_metadata_views.text_metadata_router)
@@ -117,8 +121,10 @@ api.include_router(segments_openpecha_views.segments_v2_router)
 api.include_router(verse_of_day_views.verse_of_day_router)
 api.include_router(calendar_views.calendar_router)
 api.include_router(timer_router)
+api.include_router(daily_log_views.daily_log_router)
 
 api.include_router(routines_views.user_routine_router)
+api.add_middleware(DailyLogMiddleware)
 api.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
