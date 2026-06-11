@@ -1,8 +1,5 @@
 import struct
 
-from google import genai
-from google.genai import types
-
 from pecha_api.config import get
 from pecha_api.plans.audio.audio_prompt import build_tts_prompt, DEFAULT_VOICE_NAME
 from pecha_api.plans.plans_enums import PlanAudioType
@@ -16,6 +13,9 @@ def generate_tts_audio(
         raise ValueError("Content cannot be empty")
 
     prompt = build_tts_prompt(transcript=content, audio_type=audio_type)
+
+    from google import genai
+    from google.genai import types
 
     client = genai.Client(api_key=get("GEMINI_API_KEY"))
 

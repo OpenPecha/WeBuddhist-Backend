@@ -299,8 +299,8 @@ class TextUtils:
 
     @staticmethod
     async def get_commentaries_by_text_type(text_type: str, language: str, skip: int, limit: int) -> List[TextDTO]:
-        texts = await Text.find({"type": "commentary"}).to_list()
-    
+        texts = await Text.find({"type": "commentary"}).skip(skip).limit(limit).to_list()
+
         return [
             TextDTO(
                 id=str(text.id),

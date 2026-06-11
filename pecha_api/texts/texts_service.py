@@ -324,7 +324,21 @@ async def get_text_details_by_text_id(
         text_id: str,
         text_details_request: TextDetailsRequest
 ) -> DetailTableOfContentResponse:
-    
+
+    # Cache key encodes all request dimensions so different pages/versions never collide.
+    # We reuse the skip/limit slots for segment_id and direction respectively.
+    _direction_value = text_details_request.direction.value if text_details_request.direction else None
+    cached_data: DetailTableOfContentResponse = await get_text_details_cache(
+        text_id=text_id,
+        content_id=text_details_request.content_id,
+        version_id=text_details_request.version_id,
+        skip=text_details_request.segment_id,
+        limit=_direction_value,
+        cache_type=CacheType.DETAIL_TEXT_TABLE_OF_CONTENT,
+    )
+    if cached_data is not None:
+        return cached_data
+
     await _validate_text_detail_request(
         text_id=text_id,
         text_details_request=text_details_request
@@ -359,6 +373,16 @@ async def get_text_details_by_text_id(
         total_segments=total_segments,
         current_segment_position=current_segment_position,
         pagination_direction=text_details_request.direction
+    )
+
+    await set_text_details_cache(
+        text_id=text_id,
+        content_id=text_details_request.content_id,
+        version_id=text_details_request.version_id,
+        skip=text_details_request.segment_id,
+        limit=_direction_value,
+        data=detail_table_of_content,
+        cache_type=CacheType.DETAIL_TEXT_TABLE_OF_CONTENT,
     )
 
     return detail_table_of_content
