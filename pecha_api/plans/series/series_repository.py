@@ -5,11 +5,11 @@ from uuid import UUID
 from sqlalchemy import String, cast, desc, asc, or_, exists, select, func
 from sqlalchemy.orm import Session, selectinload
 
-from pecha_api.plans.plans_enums import PlanStatus
+from pecha_api.plans.plans_enums import PlanStatus, SeriesStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.plans_models import Plan
-from pecha_api.plans.users.plan_users_models import UserPlanProgress
+from pecha_api.plans.users.plan_users_models import UserSeriesEnrollment
 
 
 def _series_active_plans_count_subquery(published_only: bool = False):
@@ -24,21 +24,18 @@ def _series_active_plans_count_subquery(published_only: bool = False):
     )
 
 
-def _series_enrolled_count_subquery(published_only: bool = False):
-    """Distinct users enrolled in a series' non-deleted plans.
+def _series_enrolled_count_subquery():
+    """Distinct users with an ACTIVE enrollment in the series itself.
 
-    When ``published_only`` is True the count is restricted to published plans
-    (public surface); otherwise it spans all non-deleted plans regardless of
-    status (CMS surface, matching the dashboard).
+    Counts ``UserSeriesEnrollment`` rows (the series-subscribe action), not
+    per-plan progress, and only those currently ACTIVE.
     """
-    conditions = [Plan.series_id == Series.id, Plan.deleted_at.is_(None)]
-    if published_only:
-        conditions.append(Plan.status == PlanStatus.PUBLISHED)
     return (
-        select(func.count(func.distinct(UserPlanProgress.user_id)))
-        .select_from(UserPlanProgress)
-        .join(Plan, Plan.id == UserPlanProgress.plan_id)
-        .where(*conditions)
+        select(func.count(func.distinct(UserSeriesEnrollment.user_id)))
+        .where(
+            UserSeriesEnrollment.series_id == Series.id,
+            UserSeriesEnrollment.status == SeriesStatus.ACTIVE,
+        )
         .correlate(Series)
         .scalar_subquery()
     )
@@ -47,29 +44,20 @@ def _series_enrolled_count_subquery(published_only: bool = False):
 def get_enrolled_count_map_by_series_ids(
     db: Session,
     series_ids: Sequence[UUID],
-    published_only: bool = False,
 ) -> Dict[UUID, int]:
-    """Map series_id -> distinct enrolled users across its non-deleted plans.
-
-    ``published_only`` restricts the count to published plans (public surface);
-    otherwise all non-deleted plans count regardless of status (CMS surface).
-    """
+    """Map series_id -> distinct users with an ACTIVE enrollment in the series."""
     if not series_ids:
         return {}
-    conditions = [
-        Plan.series_id.in_(series_ids),
-        Plan.deleted_at.is_(None),
-    ]
-    if published_only:
-        conditions.append(Plan.status == PlanStatus.PUBLISHED)
     rows = (
         db.query(
-            Plan.series_id,
-            func.count(func.distinct(UserPlanProgress.user_id)),
+            UserSeriesEnrollment.series_id,
+            func.count(func.distinct(UserSeriesEnrollment.user_id)),
         )
-        .join(UserPlanProgress, UserPlanProgress.plan_id == Plan.id)
-        .filter(*conditions)
-        .group_by(Plan.series_id)
+        .filter(
+            UserSeriesEnrollment.series_id.in_(series_ids),
+            UserSeriesEnrollment.status == SeriesStatus.ACTIVE,
+        )
+        .group_by(UserSeriesEnrollment.series_id)
         .all()
     )
     return {series_id: int(count or 0) for series_id, count in rows}
@@ -337,7 +325,7 @@ def get_series_paginated(
         filters.append(Series.group_id.in_(group_ids))
 
     plan_count = _series_active_plans_count_subquery(published_only=published_only).label("plan_count")
-    enrolled_count = _series_enrolled_count_subquery(published_only=published_only).label("enrolled_count")
+    enrolled_count = _series_enrolled_count_subquery().label("enrolled_count")
     query = db.query(Series, plan_count, enrolled_count).options(
         selectinload(Series.metadata_entries)
     )

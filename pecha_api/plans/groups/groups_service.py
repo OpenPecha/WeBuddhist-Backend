@@ -309,9 +309,7 @@ def _series_to_dtos(
     plan_count_map = get_active_plan_count_map_by_series_ids(
         db=db, series_ids=series_ids, published_only=published_only
     )
-    enrolled_count_map = get_enrolled_count_map_by_series_ids(
-        db=db, series_ids=series_ids, published_only=published_only
-    )
+    enrolled_count_map = get_enrolled_count_map_by_series_ids(db=db, series_ids=series_ids)
     return [
         _series_to_list_item_dto(
             series,

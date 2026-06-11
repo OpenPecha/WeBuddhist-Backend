@@ -209,7 +209,6 @@ def _series_detail_dto(
     db: Session,
     series: Series,
     metadata_language: Optional[str] = None,
-    published_only_enrolled: bool = False,
     **kwargs,
 ) -> SeriesDTO:
     plan_group_ids = _series_group_context(series=series)
@@ -221,7 +220,6 @@ def _series_detail_dto(
     enrolled_count = get_enrolled_count_map_by_series_ids(
         db=db,
         series_ids=[series.id],
-        published_only=published_only_enrolled,
     ).get(series.id, 0)
     return _series_to_dto(
         series,
@@ -355,7 +353,6 @@ def get_series_detail(series_id: UUID, language: Optional[str] = None) -> Series
             published_only=True,
             plan_language=language,
             metadata_language=language,
-            published_only_enrolled=True,
         )
 
 def get_cms_filtered_series(
