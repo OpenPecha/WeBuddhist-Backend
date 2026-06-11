@@ -4,24 +4,27 @@ from typing import Dict, Any
 from jose import jwt
 import requests
 from jose import JWTError
-from passlib.context import CryptContext
+import bcrypt
 from datetime import datetime, timedelta, timezone
 
 from ..config import get_float, get
 from ..users.users_models import Users
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def get_hashed_password(password):
     if not password:
         return None
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password, hashed_password):
+    if not plain_password or not hashed_password:
+        return False
     try:
-        return pwd_context.verify(plain_password, hashed_password)
+        return bcrypt.checkpw(
+            plain_password.encode("utf-8"),
+            hashed_password.encode("utf-8"),
+        )
     except Exception as exception:
         logging.error(exception)
         return False
