@@ -10,7 +10,7 @@ authors = [ "tenzinsamten <iamsamten>",]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.13"
+python = "^3.12"
 alembic = "^1.14.0"
 bcrypt = "^4.2.1"
 fastapi = "^0.115.5"

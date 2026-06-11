@@ -23,10 +23,12 @@ def _make_session_mock() -> Session:
     return MagicMock(spec=Session)
 
 
-def _paginated_query_chain(rows, total, *, with_filter=True, plan_counts=None):
+def _paginated_query_chain(rows, total, *, with_filter=True, plan_counts=None, enrolled_counts=None):
     if plan_counts is None:
         plan_counts = [0] * len(rows)
-    query_rows = list(zip(rows, plan_counts))
+    if enrolled_counts is None:
+        enrolled_counts = [0] * len(rows)
+    query_rows = list(zip(rows, plan_counts, enrolled_counts))
     query_mock = MagicMock()
     options_mock = MagicMock()
     target = options_mock.filter.return_value if with_filter else options_mock
@@ -70,7 +72,7 @@ def test_get_series_paginated_no_search_returns_rows_and_total():
     rows, total = get_series_paginated(db=db, search=None, skip=0, limit=10)
 
     assert total == 2
-    assert rows == [(row1, 0), (row2, 0)]
+    assert rows == [(row1, 0, 0), (row2, 0, 0)]
     db.query.assert_called_once()
     assert db.query.call_args.args[0] is Series
     db.query.return_value.options.return_value.filter.return_value.count.assert_called_once()
@@ -88,7 +90,7 @@ def test_get_series_paginated_with_include_deleted():
     )
 
     assert total == 1
-    assert rows == [(row, 0)]
+    assert rows == [(row, 0, 0)]
     db.query.return_value.options.return_value.filter.assert_not_called()
 
 
@@ -108,7 +110,7 @@ def test_get_series_paginated_with_custom_ordering():
     )
 
     assert total == 1
-    assert rows == [(row, 0)]
+    assert rows == [(row, 0, 0)]
     db.query.return_value.options.return_value.filter.return_value.order_by.assert_called_once()
 
 
@@ -141,7 +143,7 @@ def test_get_series_paginated_with_author_id_applies_filter():
         db=db, search=None, skip=0, limit=10, author_id=author_id
     )
 
-    assert rows == [(row, 0)]
+    assert rows == [(row, 0, 0)]
     assert total == 1
     filtered = db.query.return_value.options.return_value.filter
     assert filtered.call_count == 1
@@ -173,7 +175,7 @@ def test_get_series_paginated_returns_series_with_plan_count():
     rows, total = get_series_paginated(db=db, search=None, skip=0, limit=10)
 
     assert total == 1
-    assert rows == [(row, 5)]
+    assert rows == [(row, 5, 0)]
 
 
 def test_get_series_paginated_with_status_and_featured_applies_filters():
@@ -543,7 +545,7 @@ def test_get_series_paginated_defaults_published_only_false():
     rows, total = get_series_paginated(db=db, search=None, skip=0, limit=10)
 
     assert total == 1
-    assert rows == [(row, 7)]
+    assert rows == [(row, 7, 0)]
 
 
 def test_get_series_paginated_accepts_published_only_true():
@@ -557,7 +559,7 @@ def test_get_series_paginated_accepts_published_only_true():
     )
 
     assert total == 1
-    assert rows == [(row, 3)]
+    assert rows == [(row, 3, 0)]
 
 
 def test_get_series_paginated_published_only_does_not_add_series_filter():

@@ -97,6 +97,7 @@ class SeriesListItemDTO(BaseModel):
     status: PlanStatus
     plan_count: int = 0
     total_days: int = 0
+    enrolled_count: int = 0
     group: Optional[AuthorGroupSummaryDTO] = None
 
 
@@ -110,6 +111,7 @@ class SeriesDTO(BaseModel):
     status: PlanStatus
     plans: List[SeriesPlanDTO] = []
     total_days: int = 0
+    enrolled_count: int = 0
     group: Optional[AuthorGroupSummaryDTO] = None
 
 

@@ -299,49 +299,6 @@ def test_create_routine_invalid_time(authenticated_client):
         )
 
 
-def test_create_routine_duplicate_plan(authenticated_client):
-    duplicate_source_id = uuid.uuid4()
-
-    with patch(
-        "pecha_api.routines.routines_views.create_routine_with_time_block",
-        new_callable=AsyncMock,
-    ) as mock_create:
-        mock_create.side_effect = HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "Bad request",
-                "message": "A plan can only appear once across the entire routine",
-            },
-        )
-
-        response = authenticated_client.post(
-            "/routines",
-            json={
-                "time": "12:00",
-                "time_int": 1200,
-                "sessions": [
-                    {
-                        "session_type": "PLAN",
-                        "source_id": str(duplicate_source_id),
-                        "display_order": 0,
-                    },
-                    {
-                        "session_type": "PLAN",
-                        "source_id": str(duplicate_source_id),
-                        "display_order": 1,
-                    },
-                ],
-            },
-            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
-        )
-
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        assert (
-            response.json()["detail"]["message"]
-            == "A plan can only appear once across the entire routine"
-        )
-
-
 def test_create_time_block_success(authenticated_client):
     routine_id = uuid.uuid4()
     time_block_id = uuid.uuid4()
@@ -501,38 +458,6 @@ def test_create_time_block_duplicate_time(authenticated_client):
             response.json()["detail"]["message"]
             == "A time block with this time already exists in the routine"
         )
-
-
-def test_create_time_block_duplicate_plan(authenticated_client):
-    with patch(
-        "pecha_api.routines.routines_views.add_time_block_to_routine",
-        new_callable=AsyncMock,
-    ) as mock_add:
-        mock_add.side_effect = HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "Bad request",
-                "message": "A plan can only appear once across the entire routine",
-            },
-        )
-
-        response = authenticated_client.post(
-            f"/routines/{uuid.uuid4()}/time-blocks",
-            json={
-                "time": "08:00",
-                "time_int": 800,
-                "sessions": [
-                    {
-                        "session_type": "PLAN",
-                        "source_id": str(uuid.uuid4()),
-                        "display_order": 0,
-                    }
-                ],
-            },
-            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
-        )
-
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 def test_delete_time_block_success(authenticated_client):
@@ -804,39 +729,6 @@ def test_update_time_block_time_conflict(authenticated_client):
 
         assert response.status_code == status.HTTP_409_CONFLICT
         assert response.json()["detail"]["message"] == "Time block with this time already exists"
-
-
-def test_update_time_block_duplicate_plan(authenticated_client):
-    routine_id = uuid.uuid4()
-    time_block_id = uuid.uuid4()
-
-    with patch(
-        "pecha_api.routines.routines_views.update_time_block_service",
-        new_callable=AsyncMock,
-    ) as mock_update:
-        mock_update.side_effect = HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error": "Bad request", "message": "A plan can only appear once across the entire routine"},
-        )
-
-        response = authenticated_client.put(
-            f"/routines/{routine_id}/time-blocks/{time_block_id}",
-            json={
-                "time": "14:00",
-                "time_int": 1400,
-                "sessions": [
-                    {
-                        "session_type": "PLAN",
-                        "source_id": str(uuid.uuid4()),
-                        "display_order": 0,
-                    }
-                ],
-            },
-            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
-        )
-
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        assert response.json()["detail"]["message"] == "A plan can only appear once across the entire routine"
 
 
 def test_update_time_block_empty_sessions(authenticated_client):

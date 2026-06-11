@@ -46,20 +46,6 @@ def get_routine_by_id_and_user(
     )
 
 
-def get_existing_plan_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
-    sessions = (
-        db.query(RoutineSession.source_id)
-        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
-        .filter(
-            RoutineTimeBlock.routine_id == routine_id,
-            RoutineTimeBlock.deleted_at.is_(None),
-            RoutineSession.session_type == SessionType.PLAN,
-        )
-        .all()
-    )
-    return [s.source_id for s in sessions]
-
-
 def time_block_exists_for_routine(db: Session, routine_id: UUID, time: str) -> bool:
     return (
         db.query(RoutineTimeBlock)
@@ -158,21 +144,6 @@ def get_time_block_by_id(db: Session, time_block_id: UUID) -> Optional[RoutineTi
         )
         .first()
     )
-
-
-def get_existing_plan_source_ids_in_routine(db: Session, routine_id: UUID, exclude_time_block_id: Optional[UUID] = None) -> List[UUID]:
-    query = (
-        db.query(RoutineSession.source_id)
-        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
-        .filter(
-            RoutineTimeBlock.routine_id == routine_id,
-            RoutineTimeBlock.deleted_at.is_(None),
-            RoutineSession.session_type == SessionType.PLAN,
-        )
-    )
-    if exclude_time_block_id:
-        query = query.filter(RoutineTimeBlock.id != exclude_time_block_id)
-    return [row[0] for row in query.all()]
 
 
 def get_time_block_by_routine_and_time(db: Session, routine_id: UUID, time: str, exclude_time_block_id: Optional[UUID] = None) -> Optional[RoutineTimeBlock]:
@@ -278,3 +249,82 @@ def add_plan_session_to_time_block(db: Session, time_block_id: UUID, plan_id: UU
     db.commit()
     db.refresh(session)
     return session
+
+
+def get_existing_plan_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
+    """Get all plan source_ids in a routine."""
+    sessions = (
+        db.query(RoutineSession.source_id)
+        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            RoutineTimeBlock.routine_id == routine_id,
+            RoutineTimeBlock.deleted_at.is_(None),
+            RoutineSession.session_type == SessionType.PLAN,
+        )
+        .all()
+    )
+    return [s.source_id for s in sessions]
+
+
+def get_existing_plan_source_ids_in_routine(
+    db: Session, routine_id: UUID, exclude_time_block_id: Optional[UUID] = None
+) -> List[UUID]:
+    """Get all plan source_ids in a routine, optionally excluding a time block."""
+    query = (
+        db.query(RoutineSession.source_id)
+        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            RoutineTimeBlock.routine_id == routine_id,
+            RoutineTimeBlock.deleted_at.is_(None),
+            RoutineSession.session_type == SessionType.PLAN,
+        )
+    )
+    if exclude_time_block_id:
+        query = query.filter(RoutineTimeBlock.id != exclude_time_block_id)
+    return [row[0] for row in query.all()]
+
+
+def get_existing_collection_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
+    """Get all recitation collection source_ids in a routine."""
+    sessions = (
+        db.query(RoutineSession.source_id)
+        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            RoutineTimeBlock.routine_id == routine_id,
+            RoutineTimeBlock.deleted_at.is_(None),
+            RoutineSession.session_type == SessionType.RECITATION_COLLECTION,
+        )
+        .all()
+    )
+    return [s.source_id for s in sessions]
+
+
+def get_existing_collection_source_ids_in_routine(
+    db: Session, routine_id: UUID, exclude_time_block_id: Optional[UUID] = None
+) -> List[UUID]:
+    """Get all recitation collection source_ids in a routine, optionally excluding a time block."""
+    query = (
+        db.query(RoutineSession.source_id)
+        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            RoutineTimeBlock.routine_id == routine_id,
+            RoutineTimeBlock.deleted_at.is_(None),
+            RoutineSession.session_type == SessionType.RECITATION_COLLECTION,
+        )
+    )
+    if exclude_time_block_id:
+        query = query.filter(RoutineTimeBlock.id != exclude_time_block_id)
+    return [row[0] for row in query.all()]
+
+
+def get_collection_source_ids_by_time_block_id(db: Session, time_block_id: UUID) -> List[UUID]:
+    """Get recitation collection source_ids for a specific time block."""
+    sessions = (
+        db.query(RoutineSession.source_id)
+        .filter(
+            RoutineSession.time_block_id == time_block_id,
+            RoutineSession.session_type == SessionType.RECITATION_COLLECTION,
+        )
+        .all()
+    )
+    return [s.source_id for s in sessions]

@@ -39,15 +39,23 @@ class SessionDTO(BaseModel):
     display_order: int
     start_date: Optional[datetime] = None  # Plan's start_date
     started_at: Optional[datetime] = None  # User's started_at from progress
+    item_count: Optional[int] = None  # Recitation collection's item count
 
     @model_serializer(mode="wrap")
     def _omit_inapplicable_fields(self, serializer):
         data = serializer(self)
         if self.session_type == SessionType.TIMER:
-            for field in ("source_id", "title", "language", "image", "start_date", "started_at"):
+            for field in ("source_id", "title", "language", "image", "start_date", "started_at", "item_count"):
                 data.pop(field, None)
-        else:
-            data.pop("duration_ms", None)
+        elif self.session_type == SessionType.RECITATION_COLLECTION:
+            for field in ("duration_ms", "language", "start_date", "started_at"):
+                data.pop(field, None)
+        elif self.session_type == SessionType.RECITATION:
+            for field in ("duration_ms", "start_date", "started_at", "item_count"):
+                data.pop(field, None)
+        else:  # PLAN
+            for field in ("duration_ms", "item_count"):
+                data.pop(field, None)
         return data
 
 

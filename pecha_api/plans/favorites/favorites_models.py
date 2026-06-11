@@ -1,5 +1,5 @@
 from sqlalchemy import Column, DateTime, UUID, ForeignKey, Index
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from uuid import uuid4
 from ...db.database import Base
 from _datetime import datetime
@@ -16,7 +16,7 @@ class Favorite(Base):
     created_at = Column(DateTime, default=datetime.now(_datetime.timezone.utc))
     updated_at = Column(DateTime, default=datetime.now(_datetime.timezone.utc))
 
-    user = relationship("Users", backref="favorites")
+    user = relationship("Users", backref=backref("favorites", cascade="all, delete-orphan"))
 
     __table_args__ = (
         Index("idx_favorites_user_plan", "user_id", "plan_id"),

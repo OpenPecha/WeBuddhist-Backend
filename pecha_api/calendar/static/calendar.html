@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Phugpa Tibetan Calendar</title>
+  <style>
+    :root {
+      --bg: #f4efe4;
+      --surface: #fffdf8;
+      --ink: #2a2118;
+      --muted: #6b5f52;
+      --accent: #8b1e1e;
+      --accent-dark: #5c1212;
+      --gold: #b8860b;
+      --gold-light: #e8c96a;
+      --border: #ddd3c4;
+      --today-ring: #c0392b;
+      --shadow: 0 10px 30px rgba(42, 33, 24, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(184, 134, 11, 0.12), transparent 40%),
+        radial-gradient(circle at bottom left, rgba(139, 30, 30, 0.08), transparent 35%),
+        var(--bg);
+    }
+
+    .app {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 16px 40px;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding: 20px 24px;
+      background: linear-gradient(135deg, var(--accent-dark), var(--accent));
+      color: #fff8ef;
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    header h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 1.6rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    header p {
+      margin: 4px 0 0;
+      font-size: 0.9rem;
+      opacity: 0.85;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    button, select {
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      background: rgba(255, 255, 255, 0.12);
+      color: inherit;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    button:hover, select:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    select {
+      appearance: none;
+      padding-right: 28px;
+      background-image: linear-gradient(45deg, transparent 50%, #fff 50%),
+        linear-gradient(135deg, #fff 50%, transparent 50%);
+      background-position: calc(100% - 16px) calc(50% - 2px),
+        calc(100% - 11px) calc(50% - 2px);
+      background-size: 5px 5px, 5px 5px;
+      background-repeat: no-repeat;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 20px;
+      align-items: start;
+    }
+
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+
+    .calendar-panel, .detail-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .calendar-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(184, 134, 11, 0.08);
+    }
+
+    .calendar-head h2 {
+      margin: 0;
+      font-family: Georgia, serif;
+      font-size: 1.35rem;
+    }
+
+    .tibetan-meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .weekdays, .days-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+    }
+
+    .weekdays {
+      background: #efe7d8;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .weekdays div {
+      padding: 10px 4px;
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .days-grid {
+      min-height: 420px;
+    }
+
+    .day-cell {
+      min-height: 92px;
+      padding: 8px;
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.12s ease;
+      position: relative;
+    }
+
+    .day-cell:nth-child(7n) { border-right: none; }
+
+    .day-cell:hover:not(.empty) {
+      background: rgba(184, 134, 11, 0.1);
+    }
+
+    .day-cell.empty {
+      background: #faf7f1;
+      cursor: default;
+    }
+
+    .day-cell.selected {
+      background: rgba(139, 30, 30, 0.1);
+      outline: 2px solid var(--accent);
+      outline-offset: -2px;
+      z-index: 1;
+    }
+
+    .day-cell.today::before {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border: 2px solid var(--today-ring);
+      border-radius: 10px;
+      pointer-events: none;
+    }
+
+    .greg-day {
+      font-size: 1rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .lunar-day {
+      margin-top: 4px;
+      font-size: 0.78rem;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .solar-snippet {
+      margin-top: 4px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .detail-panel {
+      padding: 20px;
+      position: sticky;
+      top: 16px;
+    }
+
+    .detail-panel h3 {
+      margin: 0 0 6px;
+      font-family: Georgia, serif;
+      font-size: 1.2rem;
+    }
+
+    .detail-subtitle {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .detail-block {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      background: #faf6ee;
+      border-radius: 10px;
+      border-left: 3px solid var(--gold);
+    }
+
+    .detail-block label {
+      display: block;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .detail-block p {
+      margin: 0;
+      font-size: 0.92rem;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .placeholder {
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    .status {
+      margin: 12px 0 0;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .status.error { color: #a93226; }
+
+    .loading .days-grid {
+      opacity: 0.45;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div>
+        <h1>Phugpa Tibetan Calendar</h1>
+        <p>Gregorian view with lunar &amp; solar details from the Phugpa tradition</p>
+      </div>
+      <div class="controls">
+        <button id="prev-month" type="button" aria-label="Previous month">&#8592;</button>
+        <select id="month-select" aria-label="Month"></select>
+        <select id="year-select" aria-label="Year"></select>
+        <button id="next-month" type="button" aria-label="Next month">&#8594;</button>
+        <button id="today-btn" type="button">Today</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <section class="calendar-panel" id="calendar-panel">
+        <div class="calendar-head">
+          <h2 id="month-title">—</h2>
+          <div class="tibetan-meta" id="tibetan-meta"></div>
+        </div>
+        <div class="weekdays">
+          <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div>
+          <div>Thu</div><div>Fri</div><div>Sat</div>
+        </div>
+        <div class="days-grid" id="days-grid"></div>
+        <p class="status" id="status"></p>
+      </section>
+
+      <aside class="detail-panel" id="detail-panel">
+        <h3 id="detail-title">Select a day</h3>
+        <p class="detail-subtitle" id="detail-subtitle">Click any date to see lunar and solar information.</p>
+        <div id="detail-content" class="placeholder">
+          Navigate the calendar or press <strong>Today</strong> to jump to the current date.
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const MONTH_NAMES = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+
+    const API_BASE = window.location.pathname.replace(/\/view\/?$/, "");
+    const state = {
+      viewYear: new Date().getFullYear(),
+      viewMonth: new Date().getMonth(),
+      todayIso: null,
+      dayMap: {},
+      selectedIso: null,
+      tibetanYears: new Set(),
+    };
+
+    const monthSelect = document.getElementById("month-select");
+    const yearSelect = document.getElementById("year-select");
+    const daysGrid = document.getElementById("days-grid");
+    const monthTitle = document.getElementById("month-title");
+    const tibetanMeta = document.getElementById("tibetan-meta");
+    const statusEl = document.getElementById("status");
+    const calendarPanel = document.getElementById("calendar-panel");
+    const detailTitle = document.getElementById("detail-title");
+    const detailSubtitle = document.getElementById("detail-subtitle");
+    const detailContent = document.getElementById("detail-content");
+
+    function initSelectors() {
+      MONTH_NAMES.forEach((name, index) => {
+        const option = document.createElement("option");
+        option.value = String(index);
+        option.textContent = name;
+        monthSelect.appendChild(option);
+      });
+
+      const currentYear = new Date().getFullYear();
+      for (let year = currentYear - 5; year <= currentYear + 5; year += 1) {
+        const option = document.createElement("option");
+        option.value = String(year);
+        option.textContent = String(year);
+        yearSelect.appendChild(option);
+      }
+    }
+
+    function setStatus(message, isError = false) {
+      statusEl.textContent = message;
+      statusEl.classList.toggle("error", isError);
+    }
+
+    function isoDate(year, monthIndex, day) {
+      const month = String(monthIndex + 1).padStart(2, "0");
+      const d = String(day).padStart(2, "0");
+      return `${year}-${month}-${d}`;
+    }
+
+    async function fetchJson(path) {
+      const response = await fetch(`${API_BASE}${path}`);
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Request failed (${response.status})`);
+      }
+      return response.json();
+    }
+
+    async function loadToday() {
+      const data = await fetchJson("/today");
+      state.todayIso = data.gregorian_date;
+      if (data.day?.gregorian_date) {
+        state.dayMap[data.gregorian_date] = {
+          ...data.day,
+          tibetan_year: data.tibetan_year,
+        };
+      }
+    }
+
+    async function loadYearData(tibetanYear) {
+      const data = await fetchJson(`/${tibetanYear}`);
+      state.tibetanYears.add(data.year);
+
+      Object.values(data.months || {}).forEach((monthData) => {
+        monthData.days.forEach((day) => {
+          if (!day.gregorian_date) return;
+          state.dayMap[day.gregorian_date] = {
+            ...day,
+            tibetan_year: data.year,
+            tibetan_new_year: data.new_year,
+          };
+        });
+      });
+
+      return data;
+    }
+
+    async function ensureMonthData(gregorianYear, gregorianMonthIndex) {
+      state.dayMap = {};
+      state.tibetanYears = new Set();
+      setStatus("Loading calendar data…");
+      calendarPanel.classList.add("loading");
+
+      const yearsToFetch = [gregorianYear - 1, gregorianYear, gregorianYear + 1];
+      const results = await Promise.allSettled(
+        yearsToFetch.map((year) => loadYearData(year))
+      );
+
+      const loaded = results.filter((r) => r.status === "fulfilled").length;
+      if (loaded === 0) {
+        throw new Error("Could not load calendar data for this period.");
+      }
+
+      const monthStart = isoDate(gregorianYear, gregorianMonthIndex, 1);
+      const daysInMonth = new Date(gregorianYear, gregorianMonthIndex + 1, 0).getDate();
+      const monthEnd = isoDate(gregorianYear, gregorianMonthIndex, daysInMonth);
+      const daysWithData = Object.keys(state.dayMap).filter(
+        (key) => key >= monthStart && key <= monthEnd
+      ).length;
+
+      const metaYear = [...state.tibetanYears].sort((a, b) => a - b).join(", ");
+      tibetanMeta.textContent = metaYear
+        ? `Tibetan year${state.tibetanYears.size > 1 ? "s" : ""}: ${metaYear}`
+        : "";
+
+      setStatus(
+        daysWithData
+          ? `${daysWithData} day${daysWithData === 1 ? "" : "s"} with calendar data this month`
+          : "No calendar data found for this month"
+      );
+      calendarPanel.classList.remove("loading");
+    }
+
+    function renderCalendar() {
+      monthSelect.value = String(state.viewMonth);
+      yearSelect.value = String(state.viewYear);
+      monthTitle.textContent = `${MONTH_NAMES[state.viewMonth]} ${state.viewYear}`;
+
+      daysGrid.innerHTML = "";
+      const firstDay = new Date(state.viewYear, state.viewMonth, 1).getDay();
+      const daysInMonth = new Date(state.viewYear, state.viewMonth + 1, 0).getDate();
+
+      for (let i = 0; i < firstDay; i += 1) {
+        const empty = document.createElement("div");
+        empty.className = "day-cell empty";
+        daysGrid.appendChild(empty);
+      }
+
+      for (let day = 1; day <= daysInMonth; day += 1) {
+        const dateKey = isoDate(state.viewYear, state.viewMonth, day);
+        const dayData = state.dayMap[dateKey];
+        const cell = document.createElement("button");
+        cell.type = "button";
+        cell.className = "day-cell";
+        cell.dataset.date = dateKey;
+
+        if (dateKey === state.todayIso) cell.classList.add("today");
+        if (dateKey === state.selectedIso) cell.classList.add("selected");
+
+        const greg = document.createElement("div");
+        greg.className = "greg-day";
+        greg.textContent = String(day);
+        cell.appendChild(greg);
+
+        if (dayData) {
+          const lunar = document.createElement("div");
+          lunar.className = "lunar-day";
+          lunar.textContent = `Lunar ${dayData.lunar_day}`;
+          cell.appendChild(lunar);
+
+          if (dayData.solar) {
+            const solar = document.createElement("div");
+            solar.className = "solar-snippet";
+            solar.textContent = `${dayData.solar.designation} · ${dayData.solar.zodiac}`;
+            cell.appendChild(solar);
+          }
+
+          cell.addEventListener("click", () => selectDay(dateKey, dayData));
+        } else {
+          cell.style.cursor = "default";
+          cell.style.opacity = "0.55";
+        }
+
+        daysGrid.appendChild(cell);
+      }
+    }
+
+    function selectDay(dateKey, dayData) {
+      state.selectedIso = dateKey;
+      renderCalendar();
+      showDayDetails(dateKey, dayData);
+    }
+
+    function showDayDetails(dateKey, dayData) {
+      const dateObj = new Date(`${dateKey}T12:00:00`);
+      detailTitle.textContent = dateObj.toLocaleDateString(undefined, {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+      if (!dayData) {
+        detailSubtitle.textContent = "No Phugpa calendar data available for this date.";
+        detailContent.innerHTML = '<p class="placeholder">Try another date within the supported range (1800–2049).</p>';
+        return;
+      }
+
+      const lunarMonth = dayData.lunar_month
+        ? `Month ${dayData.lunar_month.month} — ${dayData.lunar_month.designation}`
+        : "—";
+      const newYear = dayData.new_year || dayData.tibetan_new_year;
+      const newYearText = newYear
+        ? `${newYear.year} (${newYear.designation})`
+        : dayData.tibetan_year || "—";
+      const solarText = dayData.solar
+        ? `${dayData.solar.designation} · ${dayData.solar.zodiac}${dayData.solar.number ? ` (${dayData.solar.number})` : ""}`
+        : "—";
+
+      detailSubtitle.textContent = `Tibetan year ${dayData.tibetan_year || "—"} · Lunar day ${dayData.lunar_day}`;
+
+      detailContent.innerHTML = `
+        <div class="detail-block">
+          <label>Day summary</label>
+          <p>${escapeHtml(dayData.day_summary)}</p>
+        </div>
+        <div class="detail-block">
+          <label>Tibetan new year</label>
+          <p>${escapeHtml(newYearText)}</p>
+        </div>
+        <div class="detail-block">
+          <label>Lunar month</label>
+          <p>${escapeHtml(lunarMonth)}</p>
+        </div>
+        <div class="detail-block">
+          <label>Solar</label>
+          <p>${escapeHtml(solarText)}</p>
+        </div>
+        ${dayData.lunar_qualities ? `
+        <div class="detail-block">
+          <label>Lunar qualities</label>
+          <p>${escapeHtml(dayData.lunar_qualities)}</p>
+        </div>` : ""}
+        ${dayData.lunar_times ? `
+        <div class="detail-block">
+          <label>Lunar times</label>
+          <p>${escapeHtml(dayData.lunar_times)}</p>
+        </div>` : ""}
+      `;
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    async function refreshView(selectToday = false) {
+      try {
+        if (!state.todayIso) await loadToday();
+
+        if (selectToday && state.todayIso) {
+          const today = new Date(`${state.todayIso}T12:00:00`);
+          state.viewYear = today.getFullYear();
+          state.viewMonth = today.getMonth();
+        }
+
+        await ensureMonthData(state.viewYear, state.viewMonth);
+        renderCalendar();
+
+        const focusIso = selectToday
+          ? state.todayIso
+          : state.selectedIso || state.todayIso;
+        if (focusIso) {
+          const focusData = state.dayMap[focusIso];
+          if (focusData) selectDay(focusIso, focusData);
+        }
+      } catch (error) {
+        calendarPanel.classList.remove("loading");
+        setStatus(error.message || "Failed to load calendar.", true);
+      }
+    }
+
+    function shiftMonth(delta) {
+      state.viewMonth += delta;
+      if (state.viewMonth > 11) {
+        state.viewMonth = 0;
+        state.viewYear += 1;
+      } else if (state.viewMonth < 0) {
+        state.viewMonth = 11;
+        state.viewYear -= 1;
+      }
+      refreshView(false);
+    }
+
+    document.getElementById("prev-month").addEventListener("click", () => shiftMonth(-1));
+    document.getElementById("next-month").addEventListener("click", () => shiftMonth(1));
+    document.getElementById("today-btn").addEventListener("click", () => refreshView(true));
+    monthSelect.addEventListener("change", () => {
+      state.viewMonth = Number(monthSelect.value);
+      refreshView(false);
+    });
+    yearSelect.addEventListener("change", () => {
+      state.viewYear = Number(yearSelect.value);
+      refreshView(false);
+    });
+
+    initSelectors();
+    refreshView(true);
+  </script>
+</body>
+</html>

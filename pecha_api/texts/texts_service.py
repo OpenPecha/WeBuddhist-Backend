@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import HTTPException
 from starlette import status
 
@@ -10,6 +11,7 @@ from .texts_repository import (
     create_text,
     create_table_of_content_detail,
     get_contents_by_id,
+    get_contents_by_text_ids,
     get_table_of_content_by_content_id,
     get_sections_count_of_table_of_content,
     delete_table_of_content_by_text_id,
@@ -20,7 +22,7 @@ from .texts_repository import (
     get_all_recitation_texts_by_collection,
     get_texts_by_pecha_text_ids,
     get_texts_by_titles,
-    get_all_texts_by_group_id
+    get_all_texts_by_group_id,
 
 )
 from .texts_response_models import (
@@ -75,9 +77,17 @@ from pecha_api.texts.texts_cache_service import (
     set_table_of_content_by_sheet_id_cache,
     delete_table_of_content_by_sheet_id_cache,
     update_text_details_cache,
-    invalidate_text_cache_on_update
+    invalidate_text_cache_on_update,
+    get_text_languages_cache,
+    set_text_languages_cache,
+    get_language_versions_cache,
+    set_language_versions_cache,
 )
-from .segments.segments_repository import get_segments_by_text_id
+from .segments.segments_repository import (
+    get_segments_by_text_id,
+    get_first_segment_by_text_id,
+    get_related_mapped_segments,
+)
 from pecha_api.sheets.sheets_enum import (
     SortBy,
     SortOrder
@@ -373,7 +383,7 @@ async def get_text_versions_by_group_id(text_id: str, language: str, skip: int, 
     # )
     # if cached_data is not None:
     #     return cached_data
-    
+
     root_text = await TextUtils.get_text_detail_by_id(text_id=text_id)
     group_id = root_text.group_id
     texts = await get_texts_by_group_id(group_id=group_id, skip=skip, limit=limit)
@@ -604,14 +614,14 @@ async def _get_texts_by_collection_id(collection_id: str, language: str, skip: i
 
 
 async def _get_table_of_content_by_version_text_id(versions: List[TextDTO]) -> Dict[str, List[str]]:
-    versions_table_of_content_id_dict = {}
-    for version in versions:
-        list_of_table_of_contents = await get_contents_by_id(text_id=str(version.id))
-        list_of_table_of_contents_ids = []
-        for table_of_content in list_of_table_of_contents:
-            list_of_table_of_contents_ids.append(str(table_of_content.id))
-        versions_table_of_content_id_dict[str(version.id)] = list_of_table_of_contents_ids
-    return versions_table_of_content_id_dict
+    if not versions:
+        return {}
+    version_ids = [str(version.id) for version in versions]
+    all_table_of_contents = await get_contents_by_text_ids(text_ids=version_ids)
+    return {
+        version_id: [str(toc.id) for toc in all_table_of_contents.get(version_id, [])]
+        for version_id in version_ids
+    }
 
 
 async def get_commentaries_by_text_id(text_id: str, skip: int, limit: int) -> List[TextDTO]:
@@ -861,24 +871,29 @@ async def get_text_by_pecha_text_ids_service(texts_by_pecha_text_ids_request: Te
 
 
 async def get_text_languages(text_id: str) -> LanguageResponse:
+    cached_data = await get_text_languages_cache(text_id=text_id, cache_type=CacheType.TEXT_LANGUAGES)
+    if cached_data is not None:
+        return cached_data
 
-    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
-    if not is_valid_text:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+    text_detail = await TextUtils.get_text_details_by_id(text_id=text_id)
+    first_segment = await get_first_segment_by_text_id(text_id=text_id)
+
+    if not first_segment:
+        response = LanguageResponse(
+            text_id=text_id,
+            title=text_detail.title,
+            available_languages=[]
         )
-    
-    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
-    group_id: str = text_detail.group_id
-    
-    texts = await get_all_texts_by_group_id(group_id=group_id)
-    
+        await set_text_languages_cache(text_id=text_id, data=response, cache_type=CacheType.TEXT_LANGUAGES)
+        return response
+
+    linked_texts = await _get_linked_translation_texts(segment_id=str(first_segment.id))
+
     language_counts: Dict[str, int] = {}
-    for text in texts:
+    for text in linked_texts:
         if text.language:
             language_counts[text.language] = language_counts.get(text.language, 0) + 1
-    
+
     available_languages = [
         AvailableLanguage(
             language=lang,
@@ -887,31 +902,46 @@ async def get_text_languages(text_id: str) -> LanguageResponse:
         )
         for lang, count in language_counts.items()
     ]
-    
-    return LanguageResponse(
+
+    response = LanguageResponse(
         text_id=text_id,
         title=text_detail.title,
         available_languages=available_languages
     )
+    await set_text_languages_cache(text_id=text_id, data=response, cache_type=CacheType.TEXT_LANGUAGES)
+    return response
 
 
 async def get_language_versions(text_id: str, language: str) -> VersionsResponse:
-    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
-    if not is_valid_text:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+    cached_data = await get_language_versions_cache(
+        text_id=text_id, language=language, cache_type=CacheType.LANGUAGE_VERSIONS
+    )
+    if cached_data is not None:
+        return cached_data
+
+    await TextUtils.get_text_details_by_id(text_id=text_id)
+    first_segment = await get_first_segment_by_text_id(text_id=text_id)
+
+    if not first_segment:
+        response = VersionsResponse(
+            text_id=text_id,
+            language=language,
+            available_versions=[]
         )
-    
-    text_detail: TextDTO = await TextUtils.get_text_detail_by_id(text_id=text_id)
-    group_id: str = text_detail.group_id
-    
-    texts: List[TextDTO] = await get_all_texts_by_group_id(group_id=group_id)
-    
-    filtered_texts = [text for text in texts if text.language == language]
-    
-    versions_table_of_content_id_dict: Dict[str, List[str]] = await _get_table_of_content_by_version_text_id(versions=filtered_texts)
-    
+        await set_language_versions_cache(
+            text_id=text_id, language=language, data=response, cache_type=CacheType.LANGUAGE_VERSIONS
+        )
+        return response
+
+    linked_texts = await _get_linked_translation_texts(segment_id=str(first_segment.id))
+    filtered_texts: List[TextDTO] = [
+        text for text in linked_texts if text.language == language
+    ]
+
+    versions_table_of_content_id_dict: Dict[str, List[str]] = await _get_table_of_content_by_version_text_id(
+        versions=filtered_texts
+    )
+
     available_versions = [
         VersionDetail(
             id=str(text.id),
@@ -934,12 +964,55 @@ async def get_language_versions(text_id: str, language: str) -> VersionsResponse
         )
         for text in filtered_texts
     ]
-    
-    return VersionsResponse(
+
+    response = VersionsResponse(
         text_id=text_id,
         language=language,
         available_versions=available_versions
     )
+    await set_language_versions_cache(
+        text_id=text_id, language=language, data=response, cache_type=CacheType.LANGUAGE_VERSIONS
+    )
+    return response
+
+
+async def _get_linked_translation_texts(segment_id: str) -> List[TextDTO]:
+    try:
+        mapped_segments = await get_related_mapped_segments(parent_segment_id=segment_id)
+        if not mapped_segments:
+            return []
+
+        unique_text_ids = list({segment.text_id for segment in mapped_segments})
+        text_details_dict = await TextUtils.get_text_details_by_ids(text_ids=unique_text_ids)
+
+        linked_texts: List[TextDTO] = []
+        for text_id_key in unique_text_ids:
+            text_detail = text_details_dict.get(text_id_key)
+            if not text_detail:
+                continue
+            if str(text_detail.id) in Constants.excluded_text_ids:
+                continue
+            if text_detail.type == TextType.VERSION.value:
+                linked_texts.append(text_detail)
+        return linked_texts
+    except Exception:
+        return []
+
+
+async def check_segment_has_translations(segment_id: str) -> bool:
+    try:
+        linked_texts = await _get_linked_translation_texts(segment_id=segment_id)
+        return len(linked_texts) > 0
+    except Exception:
+        return False
+
+
+async def get_segment_translation_titles(segment_id: str) -> set:
+    try:
+        linked_texts = await _get_linked_translation_texts(segment_id=segment_id)
+        return {text.title for text in linked_texts}
+    except Exception:
+        return set()
 
 
 async def get_version_info(version_id: str) -> VersionDetail:

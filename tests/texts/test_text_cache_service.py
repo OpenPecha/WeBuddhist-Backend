@@ -17,7 +17,11 @@ from pecha_api.texts.texts_cache_service import (
     delete_table_of_content_by_sheet_id_cache,
     set_text_details_by_id_cache,
     get_text_details_by_id_cache,
-    delete_text_details_by_id_cache
+    delete_text_details_by_id_cache,
+    get_text_languages_cache,
+    set_text_languages_cache,
+    get_language_versions_cache,
+    set_language_versions_cache,
 )
 from pecha_api.texts.texts_response_models import (
     DetailTableOfContent,
@@ -30,7 +34,10 @@ from pecha_api.texts.texts_response_models import (
     TextVersionResponse,
     TextsCategoryResponse,
     DetailTableOfContentResponse,
-    TableOfContentResponse
+    TableOfContentResponse,
+    LanguageResponse,
+    AvailableLanguage,
+    VersionsResponse,
 )
 from pecha_api.collections.collections_response_models import CollectionModel
 
@@ -514,7 +521,7 @@ async def test_invalidate_text_cache_on_update_success():
         # Verify that hash keys are generated for all cache types
         args, kwargs = mock_invalidate_multiple.call_args
         assert "hash_keys" in kwargs
-        assert len(kwargs["hash_keys"]) == 4  # Four different cache types
+        assert len(kwargs["hash_keys"]) == 6  # Six different cache types
 
 @pytest.mark.asyncio
 async def test_invalidate_text_cache_on_update_exception_handling():
@@ -551,7 +558,7 @@ async def test_invalidate_text_cache_on_update_hash_key_generation():
         assert result is True
         
         # Verify hash key generation calls
-        assert mock_hash.call_count == 4
+        assert mock_hash.call_count == 6
         
         # Verify the correct cache types are used
         args, kwargs = mock_invalidate_multiple.call_args
@@ -559,7 +566,9 @@ async def test_invalidate_text_cache_on_update_hash_key_generation():
             "hash_text_detail",
             "hash_texts_by_id_or_collection", 
             "hash_text_table_of_contents",
-            "hash_text_versions"
+            "hash_text_versions",
+            "hash_text_languages",
+            "hash_language_versions",
         ]
         assert kwargs["hash_keys"] == expected_hash_keys
 
@@ -936,4 +945,64 @@ async def test_invalidate_text_cache_on_update_for_sheet():
         args, kwargs = mock_invalidate_multiple.call_args
         assert "hash_keys" in kwargs
         assert len(kwargs["hash_keys"]) == 4  # Four different cache types for sheets
+
+
+@pytest.mark.asyncio
+async def test_get_text_languages_cache_empty():
+    with patch("pecha_api.texts.texts_cache_service.get_cache_data", new_callable=AsyncMock, return_value=None):
+        response = await get_text_languages_cache(text_id="text_id", cache_type=CacheType.TEXT_LANGUAGES)
+        assert response is None
+
+
+@pytest.mark.asyncio
+async def test_get_text_languages_cache_with_dict_response():
+    mock_cache_dict = {
+        "text_id": "text_id",
+        "title": "Title",
+        "available_languages": [{"language": "bo", "language_code": "bo", "version_count": 1}],
+    }
+    with patch("pecha_api.texts.texts_cache_service.get_cache_data", new_callable=AsyncMock, return_value=mock_cache_dict):
+        response = await get_text_languages_cache(text_id="text_id", cache_type=CacheType.TEXT_LANGUAGES)
+        assert response is not None
+        assert isinstance(response, LanguageResponse)
+        assert response.available_languages[0].language == "bo"
+
+
+@pytest.mark.asyncio
+async def test_set_text_languages_cache():
+    data = LanguageResponse(
+        text_id="text_id",
+        title="Title",
+        available_languages=[AvailableLanguage(language="bo", language_code="bo", version_count=1)],
+    )
+    with patch("pecha_api.texts.texts_cache_service.set_cache", new_callable=AsyncMock):
+        await set_text_languages_cache(text_id="text_id", data=data, cache_type=CacheType.TEXT_LANGUAGES)
+
+
+@pytest.mark.asyncio
+async def test_get_language_versions_cache_empty():
+    with patch("pecha_api.texts.texts_cache_service.get_cache_data", new_callable=AsyncMock, return_value=None):
+        response = await get_language_versions_cache(text_id="text_id", language="bo", cache_type=CacheType.LANGUAGE_VERSIONS)
+        assert response is None
+
+
+@pytest.mark.asyncio
+async def test_get_language_versions_cache_with_dict_response():
+    mock_cache_dict = {
+        "text_id": "text_id",
+        "language": "bo",
+        "available_versions": [],
+    }
+    with patch("pecha_api.texts.texts_cache_service.get_cache_data", new_callable=AsyncMock, return_value=mock_cache_dict):
+        response = await get_language_versions_cache(text_id="text_id", language="bo", cache_type=CacheType.LANGUAGE_VERSIONS)
+        assert response is not None
+        assert isinstance(response, VersionsResponse)
+        assert response.language == "bo"
+
+
+@pytest.mark.asyncio
+async def test_set_language_versions_cache():
+    data = VersionsResponse(text_id="text_id", language="bo", available_versions=[])
+    with patch("pecha_api.texts.texts_cache_service.set_cache", new_callable=AsyncMock):
+        await set_language_versions_cache(text_id="text_id", language="bo", data=data, cache_type=CacheType.LANGUAGE_VERSIONS)
 

@@ -1,6 +1,6 @@
 """platform roles, group_id on plans/series, content transfer requests
 
-Revision ID: a1b2c3d4e5f7
+Revision ID: 440953ec8a21
 Revises: f6a7b8c9d0e1
 Create Date: 2026-06-02 12:00:00.000000
 """
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "a1b2c3d4e5f7"
+revision: str = "440953ec8a21"
 down_revision: Union[str, None] = "f6a7b8c9d0e1"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

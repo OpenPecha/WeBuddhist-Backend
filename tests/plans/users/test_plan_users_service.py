@@ -479,7 +479,7 @@ async def test_get_user_enrolled_plans_success():
 async def test_get_user_enrolled_plans_includes_group_info():
     from datetime import datetime, timezone
     from pecha_api.plans.users.plan_users_service import get_user_enrolled_plans
-    from pecha_api.plans.groups.groups_response_models import AuthorGroupSummaryDTO, GroupMetadataDTO
+    from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO, GroupMetadataDTO
 
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()

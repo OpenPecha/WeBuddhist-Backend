@@ -13,9 +13,9 @@ from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
 from pecha_api.texts.texts_models import Text
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
+from pecha_api.plans.users.recitation_collection.recitation_collection_models import RecitationCollection
 from pecha_api.plans.plans_enums import UserPlanStatus
 from pecha_api.plans.users.plan_users_progress_repository import (
-    delete_user_plan_progress,
     get_plan_progress_by_user_id_and_plan_ids,
 )
 
@@ -24,8 +24,9 @@ from .routines_enums import SessionType
 from .routines_repository import (
     get_routine_by_user_id,
     get_routine_by_id_and_user,
-    get_existing_plan_source_ids,
-    get_existing_plan_source_ids_in_routine,
+    get_existing_collection_source_ids,
+    get_existing_collection_source_ids_in_routine,
+    get_collection_source_ids_by_time_block_id,
     time_block_exists_for_routine,
     get_time_block_by_id_and_routine,
     get_plan_source_ids_by_time_block_id,
@@ -42,6 +43,7 @@ from .routines_repository import (
 )
 from .response_message import (
     DUPLICATE_PLAN,
+    DUPLICATE_RECITATION_COLLECTION,
     INVALID_TIME_FORMAT,
     INVALID_TIMER_DURATION,
     ROUTINE_ALREADY_EXISTS,
@@ -100,7 +102,6 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
                 ).model_dump(),
             )
 
-    # Duplicate plan source_ids within the request
     plan_source_ids = [
         session.source_id
         for session in request.sessions
@@ -114,33 +115,49 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
             ).model_dump(),
         )
 
-
-def _check_duplicate_plans(db, routine_id: UUID, sessions: List) -> None:
-    existing_plan_ids = get_existing_plan_source_ids(db=db, routine_id=routine_id)
-    new_plan_ids = [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
-    overlap = set(new_plan_ids) & set(existing_plan_ids)
-    if overlap:
+    # Duplicate recitation collection source_ids within the request
+    collection_source_ids = [
+        session.source_id
+        for session in request.sessions
+        if session.session_type == SessionType.RECITATION_COLLECTION
+    ]
+    if len(collection_source_ids) != len(set(collection_source_ids)):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=ResponseError(
-                error=BAD_REQUEST, message=DUPLICATE_PLAN
+                error=BAD_REQUEST, message=DUPLICATE_RECITATION_COLLECTION
             ).model_dump(),
         )
 
 
-def _check_duplicate_plans_on_update(
-    db, routine_id: UUID, time_block_id: UUID, sessions: List
-) -> None:
-    existing_plan_ids = get_existing_plan_source_ids_in_routine(
-        db=db, routine_id=routine_id, exclude_time_block_id=time_block_id
-    )
-    new_plan_ids = [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
-    overlap = set(new_plan_ids) & set(existing_plan_ids)
+def _check_duplicate_collections(db, routine_id: UUID, sessions: List) -> None:
+    """Check for duplicate recitation collections when adding a new time block."""
+    existing_collection_ids = get_existing_collection_source_ids(db=db, routine_id=routine_id)
+    new_collection_ids = [s.source_id for s in sessions if s.session_type == SessionType.RECITATION_COLLECTION]
+    overlap = set(new_collection_ids) & set(existing_collection_ids)
     if overlap:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=ResponseError(
-                error=BAD_REQUEST, message=DUPLICATE_PLAN
+                error=BAD_REQUEST, message=DUPLICATE_RECITATION_COLLECTION
+            ).model_dump(),
+        )
+
+
+def _check_duplicate_collections_on_update(
+    db, routine_id: UUID, time_block_id: UUID, sessions: List
+) -> None:
+    """Check for duplicate recitation collections when updating a time block."""
+    existing_collection_ids = get_existing_collection_source_ids_in_routine(
+        db=db, routine_id=routine_id, exclude_time_block_id=time_block_id
+    )
+    new_collection_ids = [s.source_id for s in sessions if s.session_type == SessionType.RECITATION_COLLECTION]
+    overlap = set(new_collection_ids) & set(existing_collection_ids)
+    if overlap:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=DUPLICATE_RECITATION_COLLECTION
             ).model_dump(),
         )
 
@@ -191,32 +208,15 @@ def _enroll_plans(db, user_id: UUID, plan_ids: List[UUID]) -> None:
         db.rollback()
 
 
-def _unenroll_plans(db, user_id: UUID, plan_ids: List[UUID]) -> None:
-    if not plan_ids:
-        return
-
-    for plan_id in plan_ids:
-        try:
-            delete_user_plan_progress(db=db, user_id=user_id, plan_id=plan_id)
-        except HTTPException as e:
-            if e.status_code == status.HTTP_404_NOT_FOUND:
-                continue
-            raise
-
-
-def _sync_plan_enrollments_on_update(
+def _enroll_new_plans_on_update(
     db, user_id: UUID, time_block_id: UUID, new_sessions: List
 ) -> None:
     old_plan_ids = set(
         get_plan_source_ids_by_time_block_id(db=db, time_block_id=time_block_id)
     )
     new_plan_ids = set(_extract_plan_ids(new_sessions))
-
     added_plans = list(new_plan_ids - old_plan_ids)
-    removed_plans = list(old_plan_ids - new_plan_ids)
-
     _enroll_plans(db=db, user_id=user_id, plan_ids=added_plans)
-    _unenroll_plans(db=db, user_id=user_id, plan_ids=removed_plans)
 
 
 def _validate_and_sync_update(
@@ -240,14 +240,14 @@ def _validate_and_sync_update(
             ).model_dump(),
         )
 
-    _check_duplicate_plans_on_update(
+    _check_duplicate_collections_on_update(
         db=db,
         routine_id=routine_id,
         time_block_id=time_block_id,
         sessions=request.sessions,
     )
 
-    _sync_plan_enrollments_on_update(
+    _enroll_new_plans_on_update(
         db=db,
         user_id=user_id,
         time_block_id=time_block_id,
@@ -356,6 +356,65 @@ def _resolve_timer_sessions(timer_sessions: List[RoutineSession]) -> List[Sessio
     ]
 
 
+def _resolve_recitation_collection_sessions(
+    db, collection_sessions: List[RoutineSession], user_id: UUID
+) -> List[SessionDTO]:
+    """Resolve recitation collection sessions by fetching collection details."""
+    if not collection_sessions:
+        return []
+
+    collection_ids = [session.source_id for session in collection_sessions]
+    
+    # Fetch collections owned by the user
+    collections = (
+        db.query(RecitationCollection)
+        .filter(
+            RecitationCollection.id.in_(collection_ids),
+            RecitationCollection.user_id == user_id,
+        )
+        .all()
+    )
+    collection_map = {collection.id: collection for collection in collections}
+    
+    # Get item counts for each collection
+    from sqlalchemy import func
+    from pecha_api.plans.users.recitation_collection.recitation_collection_models import RecitationCollectionItem
+    
+    item_counts = dict(
+        db.query(
+            RecitationCollectionItem.recitation_collection_id,
+            func.count(RecitationCollectionItem.id)
+        )
+        .filter(RecitationCollectionItem.recitation_collection_id.in_(collection_ids))
+        .group_by(RecitationCollectionItem.recitation_collection_id)
+        .all()
+    )
+
+    resolved = []
+    for session in collection_sessions:
+        collection = collection_map.get(session.source_id)
+        if collection is None:
+            continue
+        
+        # Generate presigned URL for collection image
+        collection_image = safe_get_image_url(
+            collection.img_url, resource_id=collection.id, resource_type="collection"
+        )
+        
+        resolved.append(
+            SessionDTO(
+                id=session.id,
+                session_type=session.session_type,
+                source_id=session.source_id,
+                title=collection.name,
+                image=collection_image,
+                display_order=session.display_order,
+                item_count=item_counts.get(collection.id, 0),
+            )
+        )
+    return resolved
+
+
 async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -> List[SessionDTO]:
     plan_sessions = [
         session for session in sessions if session.session_type == SessionType.PLAN
@@ -365,6 +424,11 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -
         for session in sessions
         if session.session_type == SessionType.RECITATION
     ]
+    recitation_collection_sessions = [
+        session
+        for session in sessions
+        if session.session_type == SessionType.RECITATION_COLLECTION
+    ]
     timer_sessions = [
         session for session in sessions if session.session_type == SessionType.TIMER
     ]
@@ -373,9 +437,12 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -
     resolved_recitations = await _resolve_recitation_sessions(
         recitation_sessions=recitation_sessions
     )
+    resolved_collections = _resolve_recitation_collection_sessions(
+        db=db, collection_sessions=recitation_collection_sessions, user_id=user_id
+    )
     resolved_timers = _resolve_timer_sessions(timer_sessions=timer_sessions)
 
-    resolved = resolved_plans + resolved_recitations + resolved_timers
+    resolved = resolved_plans + resolved_recitations + resolved_collections + resolved_timers
     resolved.sort(key=lambda session: session.display_order)
 
     return resolved
@@ -539,7 +606,7 @@ async def add_time_block_to_routine(
                 ).model_dump(),
             )
 
-        _check_duplicate_plans(db=db, routine_id=routine_id, sessions=request.sessions)
+        _check_duplicate_collections(db=db, routine_id=routine_id, sessions=request.sessions)
         _check_duplicate_time(db=db, routine_id=routine_id, time=request.time)
 
         # Save time block
@@ -600,13 +667,6 @@ def delete_time_block(token: str, routine_id: UUID, time_block_id: UUID) -> None
                 ).model_dump(),
             )
 
-        # Auto-unenroll plans before soft delete
-        plan_ids = get_plan_source_ids_by_time_block_id(
-            db=db, time_block_id=time_block_id
-        )
-        _unenroll_plans(db=db, user_id=current_user.id, plan_ids=plan_ids)
-
-        # Soft delete
         soft_delete_time_block(db=db, time_block=time_block)
 
 
