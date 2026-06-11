@@ -14,6 +14,7 @@ from pecha_api.plans.groups.groups_repository import get_author_group_ids
 from pecha_api.plans.series.series_repository import (
     get_series_by_id,
     get_series_paginated,
+    get_enrolled_count_map_by_series_ids,
     get_plans_by_ids,
     save_series_with_plans,
     update_series_with_plans,
@@ -208,6 +209,7 @@ def _series_detail_dto(
     db: Session,
     series: Series,
     metadata_language: Optional[str] = None,
+    published_only_enrolled: bool = False,
     **kwargs,
 ) -> SeriesDTO:
     plan_group_ids = _series_group_context(series=series)
@@ -216,11 +218,17 @@ def _series_detail_dto(
         series=series,
         language=metadata_language,
     )
+    enrolled_count = get_enrolled_count_map_by_series_ids(
+        db=db,
+        series_ids=[series.id],
+        published_only=published_only_enrolled,
+    ).get(series.id, 0)
     return _series_to_dto(
         series,
         group=group,
         plan_group_ids=plan_group_ids,
         metadata_language=metadata_language,
+        enrolled_count=enrolled_count,
         **kwargs,
     )
 
@@ -228,6 +236,7 @@ def _series_detail_dto(
 def _series_to_list_item_dto(
     row: Series,
     plan_count: int = 0,
+    enrolled_count: int = 0,
     language: Optional[str] = None,
     group: Optional[AuthorGroupSummaryDTO] = None,
 ) -> SeriesListItemDTO:
@@ -241,6 +250,7 @@ def _series_to_list_item_dto(
         status=_to_plan_status(row.status),
         plan_count=plan_count,
         total_days=0,
+        enrolled_count=enrolled_count,
         group=group,
     )
 
@@ -253,6 +263,7 @@ def _series_to_dto(
     metadata_language: Optional[str] = None,
     group: Optional[AuthorGroupSummaryDTO] = None,
     plan_group_ids: Optional[Dict[UUID, UUID]] = None,
+    enrolled_count: int = 0,
 ) -> SeriesDTO:
     plans_dtos = []
     series_total_days = 0
@@ -279,6 +290,7 @@ def _series_to_dto(
         status=_to_plan_status(row.status),
         plans=plans_dtos,
         total_days=series_total_days,
+        enrolled_count=enrolled_count,
         group=group,
     )
 
@@ -306,7 +318,7 @@ def get_filtered_series(
         )
         group_summaries = _group_summaries_for_series_rows(
             db=db_session,
-            series_rows=[row for row, _ in rows],
+            series_rows=[row for row, _, _ in rows],
             language=language,
         )
 
@@ -314,10 +326,11 @@ def get_filtered_series(
         _series_to_list_item_dto(
             row,
             plan_count=plan_count,
+            enrolled_count=enrolled_count,
             language=language,
             group=group_summaries.get(row.group_id),
         )
-        for row, plan_count in rows
+        for row, plan_count, enrolled_count in rows
     ]
     return SeriesListResponse(
         series=series_dtos,
@@ -342,6 +355,7 @@ def get_series_detail(series_id: UUID, language: Optional[str] = None) -> Series
             published_only=True,
             plan_language=language,
             metadata_language=language,
+            published_only_enrolled=True,
         )
 
 def get_cms_filtered_series(
@@ -380,7 +394,7 @@ def get_cms_filtered_series(
         )
         group_summaries = _group_summaries_for_series_rows(
             db=db_session,
-            series_rows=[row for row, _ in rows],
+            series_rows=[row for row, _, _ in rows],
             language=language,
         )
 
@@ -388,10 +402,11 @@ def get_cms_filtered_series(
         _series_to_list_item_dto(
             row,
             plan_count=plan_count,
+            enrolled_count=enrolled_count,
             language=language,
             group=group_summaries.get(row.group_id),
         )
-        for row, plan_count in rows
+        for row, plan_count, enrolled_count in rows
     ]
     return SeriesListResponse(
         series=series_dtos,
