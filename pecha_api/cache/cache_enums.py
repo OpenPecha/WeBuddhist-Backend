@@ -24,6 +24,7 @@ class CacheType(Enum):
     SHEET_TABLE_OF_CONTENT = "sheet_table_of_content"
 
     USER_INFO = "user_info"
+    USER_DAILY_LOG = "user_daily_log"
 
     TOPICS = "topics"
     
