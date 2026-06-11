@@ -1375,6 +1375,73 @@ async def test_update_plan_details_detach_series():
 
 
 @pytest.mark.asyncio
+async def test_update_plan_details_unchanged_series_id_skips_validation():
+    """Regression: resending the existing (unchanged) series_id on an edit must
+    not re-run series-group validation, even when the plan's group_id no longer
+    matches the series' group_id (real data drift seen in production)."""
+    plan_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    existing_series_id = uuid.uuid4()
+
+    mock_plan = MagicMock(spec=Plan)
+    mock_plan.id = plan_id
+    mock_plan.author_id = author_id
+    mock_plan.title = "Old Title"
+    mock_plan.description = "Test Description"
+    mock_plan.difficulty_level = DifficultyLevel.BEGINNER
+    mock_plan.image_url = None
+    mock_plan.tag_list = []
+    mock_plan.language = MagicMock(value="en")
+    mock_plan.status = PlanStatus.PUBLISHED
+    mock_plan.start_date = None
+    mock_plan.series_id = existing_series_id
+    mock_plan.display_order = 3
+    mock_plan.group_id = TEST_GROUP_ID
+    mock_plan.deleted_at = None
+
+    existing_items = [MagicMock(spec=PlanItem, day_number=1)]
+    # Frontend resends the whole object, including the unchanged series_id.
+    update_request = UpdatePlanRequest(
+        title="New Title", series_id=existing_series_id
+    )
+
+    with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.cms.cms_plans_service.require_can_create_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_edit_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_read_group_content"), \
+        patch("pecha_api.plans.cms.cms_plans_service.require_can_change_status"), \
+        patch("pecha_api.plans.cms.cms_plans_service.validate_cms_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_plan_by_id") as mock_get_plan, \
+         patch("pecha_api.plans.cms.cms_plans_service.update_plan") as mock_update_plan, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_plan_items_by_plan_id") as mock_get_items, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_series_by_id") as mock_get_series:
+        db_session = _mock_session_local(mock_session_local)
+        db_session.query.return_value.filter.return_value.scalar.return_value = 0
+
+        mock_author = MagicMock()
+        mock_author.id = author_id
+        mock_author.email = "author@example.com"
+        mock_author.platform_role = PlatformRole.CREATOR
+        mock_validate_author.return_value = mock_author
+
+        mock_get_plan.return_value = mock_plan
+        mock_update_plan.return_value = mock_plan
+        mock_get_items.return_value = existing_items
+
+        await update_plan_details(
+            token="test-token",
+            plan_id=plan_id,
+            update_plan_request=update_request,
+        )
+
+        # Title applied, series attachment left untouched, no re-validation.
+        assert mock_plan.title == "New Title"
+        assert mock_plan.series_id == existing_series_id
+        assert mock_plan.display_order == 3
+        mock_get_series.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_update_selected_plan_status_success_db_backed():
     plan_id = uuid.uuid4()
     author_id = uuid.uuid4()

@@ -15,7 +15,7 @@ from .segments_repository import (
     get_related_mapped_segments,
 )
 from ..texts_response_models import TextDTO
-from ..texts_repository import get_contents_by_id
+from ..texts_repository import get_contents_by_text_ids
 from pecha_api.constants import Constants
 
 
@@ -328,18 +328,20 @@ class SegmentUtils:
                 grouped_segments[segment.text_id] = []
             grouped_segments[segment.text_id].append(segment)
         
-        for text_id, segment_list in grouped_segments.items():
-            try:
-                table_of_contents = await get_contents_by_id(text_id=text_id)
-                
-                segment_order_map = {}
-                for toc in table_of_contents:
-                    for section in toc.sections:
-                        _extract_segment_order(section, segment_order_map)
-                
-                segment_list.sort(key=lambda s, order_map=segment_order_map: order_map.get(str(s.id), float('inf')))
-                
-            except Exception:
+        try:
+            all_table_of_contents = await get_contents_by_text_ids(text_ids=list(grouped_segments.keys()))
+            for text_id, segment_list in grouped_segments.items():
+                try:
+                    table_of_contents = all_table_of_contents.get(text_id, [])
+                    segment_order_map = {}
+                    for toc in table_of_contents:
+                        for section in toc.sections:
+                            _extract_segment_order(section, segment_order_map)
+                    segment_list.sort(key=lambda s, order_map=segment_order_map: order_map.get(str(s.id), float('inf')))
+                except Exception:
+                    segment_list.sort(key=lambda s: s.pecha_segment_id or "")
+        except Exception:
+            for segment_list in grouped_segments.values():
                 segment_list.sort(key=lambda s: s.pecha_segment_id or "")
         
         return grouped_segments

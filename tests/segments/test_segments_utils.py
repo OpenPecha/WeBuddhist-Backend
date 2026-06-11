@@ -915,7 +915,7 @@ async def test_group_segment_content_by_text_id_with_table_of_contents():
         )
     ]
     
-    with patch("pecha_api.texts.segments.segments_utils.get_contents_by_id", new_callable=AsyncMock, return_value=table_of_contents):
+    with patch("pecha_api.texts.segments.segments_utils.get_contents_by_text_ids", new_callable=AsyncMock, return_value={text_id: table_of_contents}):
         result = await SegmentUtils._group_segment_content_by_text_id(segments)
         
         # Check that segments are grouped by text_id
@@ -961,8 +961,8 @@ async def test_group_segment_content_by_text_id_fallback_to_pecha_id():
         ),
     ]
     
-    # Mock get_contents_by_id to raise an exception (simulating failure)
-    with patch("pecha_api.texts.segments.segments_utils.get_contents_by_id", new_callable=AsyncMock, side_effect=Exception("TOC not found")):
+    # Mock get_contents_by_text_ids to raise an exception (simulating failure)
+    with patch("pecha_api.texts.segments.segments_utils.get_contents_by_text_ids", new_callable=AsyncMock, side_effect=Exception("TOC not found")):
         result = await SegmentUtils._group_segment_content_by_text_id(segments)
         
         # Check that segments are grouped
@@ -1008,7 +1008,7 @@ async def test_group_segment_content_by_text_id_multiple_text_ids():
         ),
     ]
     
-    with patch("pecha_api.texts.segments.segments_utils.get_contents_by_id", new_callable=AsyncMock, side_effect=Exception("TOC not found")):
+    with patch("pecha_api.texts.segments.segments_utils.get_contents_by_text_ids", new_callable=AsyncMock, side_effect=Exception("TOC not found")):
         result = await SegmentUtils._group_segment_content_by_text_id(segments)
         
         # Check that both text_ids are present
@@ -1074,7 +1074,7 @@ async def test_group_segment_content_by_text_id_nested_sections():
         )
     ]
     
-    with patch("pecha_api.texts.segments.segments_utils.get_contents_by_id", new_callable=AsyncMock, return_value=table_of_contents):
+    with patch("pecha_api.texts.segments.segments_utils.get_contents_by_text_ids", new_callable=AsyncMock, return_value={text_id: table_of_contents}):
         result = await SegmentUtils._group_segment_content_by_text_id(segments)
         
         # Check segments are correctly ordered from nested sections
@@ -1128,7 +1128,7 @@ async def test_filter_segment_mapping_uses_grouped_segments():
     
     # Mock to ensure segments are sorted
     with patch("pecha_api.texts.segments.segments_utils.TextUtils.get_text_details_by_ids", new_callable=AsyncMock, return_value=text_details), \
-         patch("pecha_api.texts.segments.segments_utils.get_contents_by_id", new_callable=AsyncMock, side_effect=Exception("TOC not found")):
+         patch("pecha_api.texts.segments.segments_utils.get_contents_by_text_ids", new_callable=AsyncMock, side_effect=Exception("TOC not found")):
         
         result = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(segments, type="commentary")
         
