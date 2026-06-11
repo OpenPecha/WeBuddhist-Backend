@@ -5,10 +5,11 @@ from uuid import UUID
 from sqlalchemy import String, cast, desc, asc, or_, exists, select, func
 from sqlalchemy.orm import Session, selectinload
 
-from pecha_api.plans.plans_enums import PlanStatus
+from pecha_api.plans.plans_enums import PlanStatus, SeriesStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.users.plan_users_models import UserSeriesEnrollment
 
 
 def _series_active_plans_count_subquery(published_only: bool = False):
@@ -21,6 +22,45 @@ def _series_active_plans_count_subquery(published_only: bool = False):
         .correlate(Series)
         .scalar_subquery()
     )
+
+
+def _series_enrolled_count_subquery():
+    """Distinct users with an ACTIVE enrollment in the series itself.
+
+    Counts ``UserSeriesEnrollment`` rows (the series-subscribe action), not
+    per-plan progress, and only those currently ACTIVE.
+    """
+    return (
+        select(func.count(func.distinct(UserSeriesEnrollment.user_id)))
+        .where(
+            UserSeriesEnrollment.series_id == Series.id,
+            UserSeriesEnrollment.status == SeriesStatus.ACTIVE,
+        )
+        .correlate(Series)
+        .scalar_subquery()
+    )
+
+
+def get_enrolled_count_map_by_series_ids(
+    db: Session,
+    series_ids: Sequence[UUID],
+) -> Dict[UUID, int]:
+    """Map series_id -> distinct users with an ACTIVE enrollment in the series."""
+    if not series_ids:
+        return {}
+    rows = (
+        db.query(
+            UserSeriesEnrollment.series_id,
+            func.count(func.distinct(UserSeriesEnrollment.user_id)),
+        )
+        .filter(
+            UserSeriesEnrollment.series_id.in_(series_ids),
+            UserSeriesEnrollment.status == SeriesStatus.ACTIVE,
+        )
+        .group_by(UserSeriesEnrollment.series_id)
+        .all()
+    )
+    return {series_id: int(count or 0) for series_id, count in rows}
 
 
 def get_series_by_id(db: Session, series_id) -> Optional[Series]:
@@ -245,7 +285,7 @@ def get_series_paginated(
     featured: Optional[bool] = None,
     published_only: bool = False,
     group_ids: Optional[Sequence[UUID]] = None,
-) -> Tuple[List[Tuple[Series, int]], int]:
+) -> Tuple[List[Tuple[Series, int, int]], int]:
 
     filters = []
     if not include_deleted:
@@ -285,7 +325,10 @@ def get_series_paginated(
         filters.append(Series.group_id.in_(group_ids))
 
     plan_count = _series_active_plans_count_subquery(published_only=published_only).label("plan_count")
-    query = db.query(Series, plan_count).options(selectinload(Series.metadata_entries))
+    enrolled_count = _series_enrolled_count_subquery().label("enrolled_count")
+    query = db.query(Series, plan_count, enrolled_count).options(
+        selectinload(Series.metadata_entries)
+    )
     if filters:
         query = query.filter(*filters)
 
@@ -300,7 +343,7 @@ def get_series_paginated(
         query = query.order_by(asc(order_by_field), Series.id)
 
     rows = [
-        (series, int(count or 0))
-        for series, count in query.offset(skip).limit(limit).all()
+        (series, int(count or 0), int(enrolled or 0))
+        for series, count, enrolled in query.offset(skip).limit(limit).all()
     ]
     return rows, total

@@ -61,7 +61,10 @@ from pecha_api.plans.groups.groups_repository import (
     update_group,
     upsert_group_follow,
 )
-from pecha_api.plans.series.series_repository import get_active_plan_count_map_by_series_ids
+from pecha_api.plans.series.series_repository import (
+    get_active_plan_count_map_by_series_ids,
+    get_enrolled_count_map_by_series_ids,
+)
 from pecha_api.plans.series.series_response_models import SeriesListItemDTO
 from pecha_api.plans.series.series_service import _series_to_list_item_dto
 from pecha_api.plans.shared.metadata_utils import format_metadata_response
@@ -298,15 +301,20 @@ def _series_to_dtos(
     db: Session,
     series_list: List[Series],
     language: Optional[str] = None,
+    published_only: bool = False,
 ) -> List[SeriesListItemDTO]:
     if not series_list:
         return []
     series_ids = [series.id for series in series_list]
-    plan_count_map = get_active_plan_count_map_by_series_ids(db=db, series_ids=series_ids)
+    plan_count_map = get_active_plan_count_map_by_series_ids(
+        db=db, series_ids=series_ids, published_only=published_only
+    )
+    enrolled_count_map = get_enrolled_count_map_by_series_ids(db=db, series_ids=series_ids)
     return [
         _series_to_list_item_dto(
             series,
             plan_count=plan_count_map.get(series.id, 0),
+            enrolled_count=enrolled_count_map.get(series.id, 0),
             language=language,
         )
         for series in series_list
@@ -420,7 +428,7 @@ def _group_to_detail(
     if db is not None:
         group_series = get_series_by_group_id(db=db, group_id=group.id)
         group_plans = get_plans_by_group_id(db=db, group_id=group.id)
-        series_dtos = _series_to_dtos(db=db, series_list=group_series, language=language)
+        series_dtos = _series_to_dtos(db=db, series_list=group_series, language=language, published_only=public)
         plans_dtos = _plans_to_dtos(db=db, plan_list=group_plans, group_id=group.id)
     else:
         series_dtos = []

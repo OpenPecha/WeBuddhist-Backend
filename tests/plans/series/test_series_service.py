@@ -74,7 +74,7 @@ def test_get_filtered_series_maps_rows_to_response():
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
-        return_value=([(row, 3)], 1),
+        return_value=([(row, 3, 0)], 1),
     ) as mock_repo:
         _session_local_context(mock_session_local)
 
@@ -130,7 +130,7 @@ def test_get_filtered_series_presigns_image_when_key_present():
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
-        return_value=([(row, 0)], 1),
+        return_value=([(row, 0, 0)], 1),
     ), patch(
         "pecha_api.plans.series.series_service.get_image_url",
         return_value=image_model,
@@ -1518,7 +1518,7 @@ def test_get_cms_filtered_series_scopes_to_current_author_when_not_admin():
          patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_author_group_ids", return_value=_MEMBER_GROUP_IDS), \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
-               return_value=([(row, 2)], 1)) as mock_repo:
+               return_value=([(row, 2, 0)], 1)) as mock_repo:
         _session_local_context(mock_session_local)
 
         result = get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10)
@@ -1555,7 +1555,7 @@ def test_get_cms_filtered_series_admin_sees_all_authors():
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_admin), \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
-               return_value=([(row, 0)], 1)) as mock_repo:
+               return_value=([(row, 0, 0)], 1)) as mock_repo:
         _session_local_context(mock_session_local)
 
         get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10)
@@ -1836,7 +1836,7 @@ def test_get_filtered_series_handles_plain_string_status_and_language():
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
-        return_value=([(row, 0)], 1),
+        return_value=([(row, 0, 0)], 1),
     ):
         _session_local_context(mock_session_local)
 
@@ -1866,7 +1866,7 @@ def test_get_filtered_series_metadata_uses_string_language():
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
-        return_value=([(row, 0)], 1),
+        return_value=([(row, 0, 0)], 1),
     ):
         _session_local_context(mock_session_local)
 
@@ -2449,7 +2449,7 @@ def test_get_filtered_series_published_count_maps_to_plan_count():
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
-        return_value=([(row, 4)], 1),
+        return_value=([(row, 4, 0)], 1),
     ):
         _session_local_context(mock_session_local)
 
@@ -2492,7 +2492,7 @@ def test_get_cms_filtered_series_count_maps_to_plan_count():
          patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
          patch("pecha_api.plans.series.series_service.get_author_group_ids", return_value=_MEMBER_GROUP_IDS), \
          patch("pecha_api.plans.series.series_service.get_series_paginated",
-               return_value=([(row, 9)], 1)):
+               return_value=([(row, 9, 0)], 1)):
         _session_local_context(mock_session_local)
 
         result = get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10)
