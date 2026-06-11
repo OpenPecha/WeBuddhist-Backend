@@ -1,7 +1,7 @@
 """add_bookmarks_table
 
 Revision ID: 9913dcde55ca
-Revises: 9fad9b63fa9a
+Revises: f1a2b3c4d5e6
 Create Date: 2026-06-10 10:46:18.447742
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '9913dcde55ca'
-down_revision: Union[str, None] = '9fad9b63fa9a'
+down_revision: Union[str, None] = 'f1a2b3c4d5e6'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
