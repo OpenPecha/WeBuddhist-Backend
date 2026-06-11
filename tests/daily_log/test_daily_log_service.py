@@ -4,11 +4,13 @@ from uuid import uuid4
 
 import pytest
 
+from fastapi import HTTPException
+
 from pecha_api.daily_log.daily_log_service import (
     _utc_today,
     calculate_streak,
     get_user_streak_service,
-    record_daily_log_for_token,
+    register_daily_log_service,
     record_daily_log_if_needed,
 )
 
@@ -55,29 +57,31 @@ def test_calculate_streak_uses_yesterday_when_today_missing():
 
 
 @pytest.mark.asyncio
-async def test_record_daily_log_for_token_validates_user_and_records_log():
+async def test_register_daily_log_service_validates_user_and_records_log():
     user_id = uuid4()
     mock_user = MagicMock()
     mock_user.id = user_id
 
     with patch("pecha_api.daily_log.daily_log_service.validate_and_extract_user_details", return_value=mock_user), \
          patch("pecha_api.daily_log.daily_log_service.record_daily_log_if_needed", new_callable=AsyncMock) as mock_record:
-        await record_daily_log_for_token(token="test_token")
+        await register_daily_log_service(token="test_token")
 
         mock_record.assert_awaited_once_with(user_id=user_id)
 
 
 @pytest.mark.asyncio
-async def test_record_daily_log_for_token_ignores_invalid_token():
+async def test_register_daily_log_service_raises_for_invalid_token():
     with patch(
         "pecha_api.daily_log.daily_log_service.validate_and_extract_user_details",
-        side_effect=Exception("invalid token"),
+        side_effect=HTTPException(status_code=401, detail="Invalid token"),
     ), patch(
         "pecha_api.daily_log.daily_log_service.record_daily_log_if_needed",
         new_callable=AsyncMock,
     ) as mock_record:
-        await record_daily_log_for_token(token="bad_token")
+        with pytest.raises(HTTPException) as exc_info:
+            await register_daily_log_service(token="bad_token")
 
+        assert exc_info.value.status_code == 401
         mock_record.assert_not_awaited()
 
 

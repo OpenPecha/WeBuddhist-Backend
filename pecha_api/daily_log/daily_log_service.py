@@ -1,4 +1,3 @@
-import logging
 from datetime import date, datetime, timedelta, timezone
 from typing import Set
 from uuid import UUID
@@ -38,12 +37,9 @@ def calculate_streak(log_dates: Set[date]) -> int:
     return streak
 
 
-async def record_daily_log_for_token(token: str) -> None:
-    try:
-        current_user = validate_and_extract_user_details(token=token)
-        await record_daily_log_if_needed(user_id=current_user.id)
-    except Exception as exception:
-        logging.debug("Skipping daily log for token: %s", exception)
+async def register_daily_log_service(token: str) -> None:
+    current_user = validate_and_extract_user_details(token=token)
+    await record_daily_log_if_needed(user_id=current_user.id)
 
 
 async def record_daily_log_if_needed(user_id: UUID) -> None:
