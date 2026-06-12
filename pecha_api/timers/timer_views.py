@@ -9,13 +9,17 @@ from .timer_service import (
     get_user_timers_service,
     create_timer_service,
     update_timer_service,
-    delete_timer_service
+    delete_timer_service,
+    record_timer_stop_service,
+    get_timer_history_service
 )
 from .timer_response_models import (
     TimersResponse, 
     TimerDTO, 
     CreateTimerRequest, 
-    UpdateTimerRequest
+    UpdateTimerRequest,
+    RecordTimerStopRequest,
+    TimerHistoryResponse
 )
 from ..users.users_service import validate_and_extract_user_details
 
@@ -80,4 +84,29 @@ async def delete_user_timer(
     delete_timer_service(
         token=credentials.credentials,
         timer_id=timer_id
+    )
+
+
+@timer_router.post("/user/timer_stop", status_code=status.HTTP_201_CREATED)
+async def record_timer_stop(
+    request: RecordTimerStopRequest,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+    record_timer_stop_service(
+        token=credentials.credentials,
+        request=request
+    )
+    return {"message": "Timer session recorded successfully"}
+
+
+@timer_router.get("/user/timer_history", response_model=TimerHistoryResponse)
+async def get_user_timer_history(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return")
+):
+    return get_timer_history_service(
+        token=credentials.credentials,
+        skip=skip,
+        limit=limit
     )
