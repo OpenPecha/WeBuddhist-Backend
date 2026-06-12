@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import HTTPException
 
 from pecha_api.texts.texts_utils import TextUtils
@@ -613,7 +613,9 @@ async def test_get_commentaries_by_text_type_success():
     
     # Mock the Text.find method at the module level
     with patch("pecha_api.texts.texts_utils.Text.find") as mock_find:
-        mock_cursor = AsyncMock()
+        mock_cursor = MagicMock()
+        mock_cursor.skip.return_value = mock_cursor
+        mock_cursor.limit.return_value = mock_cursor
         mock_cursor.to_list = AsyncMock(return_value=mock_texts)
         mock_find.return_value = mock_cursor
         
@@ -643,7 +645,9 @@ async def test_get_commentaries_by_text_type_empty_result():
     """Test get_commentaries_by_text_type returns empty list when no commentaries found."""
     # Mock the Text.find method at the module level to return empty list
     with patch("pecha_api.texts.texts_utils.Text.find") as mock_find:
-        mock_cursor = AsyncMock()
+        mock_cursor = MagicMock()
+        mock_cursor.skip.return_value = mock_cursor
+        mock_cursor.limit.return_value = mock_cursor
         mock_cursor.to_list = AsyncMock(return_value=[])
         mock_find.return_value = mock_cursor
         
