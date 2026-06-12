@@ -1,7 +1,6 @@
 import uuid
 from unittest.mock import AsyncMock, patch, MagicMock
 from fastapi import HTTPException
-import uuid
 import pytest
 from pecha_api.texts.segments.segments_service import (
     create_new_segment,
@@ -46,6 +45,36 @@ from pecha_api.texts.texts_response_models import TextDTO
 
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.cache.cache_enums import CacheType
+
+
+def _mock_source_segment(*, segment_id="seg_1", text_id="text_id_1", content="content"):
+    return type("Segment", (), {
+        "id": segment_id,
+        "text_id": text_id,
+        "content": content,
+        "mapping": [],
+        "type": SegmentType.SOURCE,
+    })()
+
+
+def _text_dto(text_id="text_id_1", **overrides) -> TextDTO:
+    defaults = {
+        "id": text_id,
+        "title": "title",
+        "language": "bo",
+        "type": "root_text",
+        "group_id": "group_id_1",
+        "is_published": True,
+        "created_date": "2021-01-01",
+        "updated_date": "2021-01-01",
+        "published_date": "2021-01-01",
+        "published_by": "admin",
+        "categories": [],
+        "views": 0,
+    }
+    defaults.update(overrides)
+    return TextDTO(**defaults)
+
 
 @pytest.mark.asyncio
 async def test_get_translations_by_segment_id_success():
@@ -444,27 +473,6 @@ async def test_get_infos_by_segment_id_invalid_segment_id():
 async def test_get_root_text_mapping_by_segment_id_success():
     segment_id = "seg_1"
     text_id = "text_id_1"
-    mock_segment = type("Segment", (), {
-        "id": segment_id,
-        "text_id": text_id,
-        "content": "root segment content",
-        "mapping": [],
-        "type": SegmentType.SOURCE,
-    })()
-    mock_text_detail = TextDTO(
-        id=text_id,
-        title="title",
-        language="bo",
-        type="root_text",
-        group_id="group_id_1",
-        is_published=True,
-        created_date="2021-01-01",
-        updated_date="2021-01-01",
-        published_date="2021-01-01",
-        published_by="admin",
-        categories=[],
-        views=0,
-    )
     mock_root_mapping = [
         SegmentRootMapping(
             text_id=text_id,
@@ -486,11 +494,15 @@ async def test_get_root_text_mapping_by_segment_id_success():
     ), patch(
         "pecha_api.texts.segments.segments_service.get_segment_by_id",
         new_callable=AsyncMock,
-        return_value=mock_segment,
+        return_value=_mock_source_segment(
+            segment_id=segment_id,
+            text_id=text_id,
+            content="root segment content",
+        ),
     ), patch(
         "pecha_api.texts.segments.segments_service.TextUtils.get_text_details_by_id",
         new_callable=AsyncMock,
-        return_value=mock_text_detail,
+        return_value=_text_dto(text_id),
     ), patch(
         "pecha_api.texts.segments.segments_service.get_related_mapped_segments",
         new_callable=AsyncMock,

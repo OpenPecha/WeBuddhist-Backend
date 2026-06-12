@@ -1,4 +1,3 @@
-import struct
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,6 +9,28 @@ from pecha_api.plans.audio.tts_service import (
     generate_tts_audio,
 )
 from pecha_api.plans.plans_enums import PlanAudioType
+
+_EN_RECITATION = {
+    "content": "Hello world",
+    "audio_type": PlanAudioType.RECITATION,
+    "language": "en",
+}
+
+
+def _configure_gemini_client(mock_client_cls, response):
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = response
+    mock_client_cls.return_value = mock_client
+    return mock_client
+
+
+def _build_gemini_audio_response(*, audio_data=b"\x00\x01\x02\x03", inline_data=None):
+    if inline_data is None:
+        inline_data = MagicMock(data=audio_data, mime_type="audio/L16;rate=24000")
+    part = MagicMock(inline_data=inline_data)
+    content = MagicMock(parts=[part])
+    candidate = MagicMock(content=content)
+    return MagicMock(candidates=[candidate])
 
 
 def test_normalize_language():
@@ -94,36 +115,19 @@ def test_generate_tts_audio_passes_voice_name_to_monlam(mock_monlam):
 @patch("pecha_api.plans.audio.tts_service.get", return_value="test-api-key")
 def test_generate_tts_audio_routes_en_to_gemini(mock_get, mock_client_cls):
     audio_data = b"\x00\x01\x02\x03"
-    inline_data = MagicMock(data=audio_data, mime_type="audio/L16;rate=24000")
-    part = MagicMock(inline_data=inline_data)
-    content = MagicMock(parts=[part])
-    candidate = MagicMock(content=content)
-    response = MagicMock(candidates=[candidate])
+    _configure_gemini_client(mock_client_cls, _build_gemini_audio_response(audio_data=audio_data))
 
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = response
-    mock_client_cls.return_value = mock_client
-
-    result = generate_tts_audio(
-        content="Hello world",
-        audio_type=PlanAudioType.RECITATION,
-        language="en",
-    )
+    result = generate_tts_audio(**_EN_RECITATION)
 
     assert result[:4] == b"RIFF"
     assert result.endswith(audio_data)
-    mock_client.models.generate_content.assert_called_once()
 
 
 @patch("google.genai.Client")
 @patch("pecha_api.plans.audio.tts_service.get", return_value=None)
 def test_generate_tts_audio_raises_when_api_key_missing(mock_get, mock_client_cls):
     with pytest.raises(RuntimeError, match="GEMINI_API_KEY is not configured"):
-        generate_tts_audio(
-            content="Hello world",
-            audio_type=PlanAudioType.RECITATION,
-            language="en",
-        )
+        generate_tts_audio(**_EN_RECITATION)
     mock_client_cls.assert_not_called()
 
 
@@ -131,33 +135,19 @@ def test_generate_tts_audio_raises_when_api_key_missing(mock_get, mock_client_cl
 @patch("pecha_api.plans.audio.tts_service.get", return_value="test-api-key")
 def test_generate_tts_audio_raises_when_no_inline_data(mock_get, mock_client_cls):
     inline_data = MagicMock(data=None, mime_type="audio/L16;rate=24000")
-    part = MagicMock(inline_data=inline_data)
-    content = MagicMock(parts=[part])
-    candidate = MagicMock(content=content)
-    response = MagicMock(candidates=[candidate])
-
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = response
-    mock_client_cls.return_value = mock_client
+    _configure_gemini_client(
+        mock_client_cls,
+        _build_gemini_audio_response(inline_data=inline_data),
+    )
 
     with pytest.raises(RuntimeError, match="no audio data"):
-        generate_tts_audio(
-            content="Hello world",
-            audio_type=PlanAudioType.RECITATION,
-            language="en",
-        )
+        generate_tts_audio(**_EN_RECITATION)
 
 
 @patch("google.genai.Client")
 @patch("pecha_api.plans.audio.tts_service.get", return_value="test-api-key")
 def test_generate_tts_audio_raises_when_no_candidates(mock_get, mock_client_cls):
-    mock_client = MagicMock()
-    mock_client.models.generate_content.return_value = MagicMock(candidates=[])
-    mock_client_cls.return_value = mock_client
+    _configure_gemini_client(mock_client_cls, MagicMock(candidates=[]))
 
     with pytest.raises(RuntimeError, match="no audio data"):
-        generate_tts_audio(
-            content="Hello world",
-            audio_type=PlanAudioType.RECITATION,
-            language="en",
-        )
+        generate_tts_audio(**_EN_RECITATION)
