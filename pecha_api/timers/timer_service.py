@@ -74,7 +74,7 @@ def is_user_created_timer(timer: Timer) -> bool:
 
 
 def get_all_timers_service(
-    group_id: UUID,
+    group_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 20
 ) -> TimersResponse:
@@ -90,7 +90,7 @@ def get_all_timers_service(
 
 def get_user_timers_service(
     user_id: UUID,
-    group_id: UUID,
+    group_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 20
 ) -> TimersResponse:

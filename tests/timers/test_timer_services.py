@@ -158,6 +158,26 @@ class TestGetAllTimersService:
         assert result.total == 10
         
         mock_get_timers.assert_called_once_with(mock_db, group_id, 5, 1)
+    
+    @patch('pecha_api.timers.timer_service.SessionLocal')
+    @patch('pecha_api.timers.timer_service.get_timers_by_group')
+    def test_get_all_timers_service_without_group_id(self, mock_get_timers, mock_session):
+        """Test get_all_timers_service without group_id filter."""
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        
+        timer1 = TestDataFactory.create_mock_timer(name="Timer 1")
+        timer2 = TestDataFactory.create_mock_timer(name="Timer 2")
+        
+        mock_get_timers.return_value = ([timer1, timer2], 2)
+        
+        result = get_all_timers_service(group_id=None, skip=0, limit=20)
+        
+        assert isinstance(result, TimersResponse)
+        assert len(result.timers) == 2
+        assert result.total == 2
+        
+        mock_get_timers.assert_called_once_with(mock_db, None, 0, 20)
 
 
 class TestGetUserTimersService:
@@ -202,6 +222,28 @@ class TestGetUserTimersService:
         
         assert len(result.timers) == 0
         assert result.total == 0
+    
+    @patch('pecha_api.timers.timer_service.SessionLocal')
+    @patch('pecha_api.timers.timer_service.get_user_timers_by_group')
+    def test_get_user_timers_service_without_group_id(self, mock_get_timers, mock_session):
+        """Test get_user_timers_service without group_id filter."""
+        user_id = uuid4()
+        
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        
+        timer1 = TestDataFactory.create_mock_timer(user_id=user_id, name="My Timer 1")
+        timer2 = TestDataFactory.create_mock_timer(user_id=user_id, name="My Timer 2")
+        
+        mock_get_timers.return_value = ([timer1, timer2], 2)
+        
+        result = get_user_timers_service(user_id=user_id, group_id=None, skip=0, limit=20)
+        
+        assert isinstance(result, TimersResponse)
+        assert len(result.timers) == 2
+        assert result.total == 2
+        
+        mock_get_timers.assert_called_once_with(mock_db, user_id, None, 0, 20)
 
 
 class TestCreateTimerService:
