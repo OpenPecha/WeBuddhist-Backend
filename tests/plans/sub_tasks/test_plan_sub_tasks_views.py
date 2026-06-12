@@ -17,6 +17,7 @@ from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_views import (
     create_sub_tasks,
     update_sub_task,
     change_subtask_order,
+    delete_subtask_audio,
 )
 
 
@@ -404,3 +405,24 @@ async def test_change_subtask_order_update_failed():
         assert exc_info.value.status_code == 400
         assert "failed" in exc_info.value.detail.lower()
         assert mock_change_order.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_delete_subtask_audio_success():
+    sub_task_id = uuid.uuid4()
+    creds = _Creds(token="valid_token")
+
+    with patch(
+        "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_views.delete_plan_subtask_audio",
+        return_value=None,
+    ) as mock_delete:
+        resp = await delete_subtask_audio(
+            sub_task_id=sub_task_id,
+            authentication_credential=creds,
+        )
+
+        assert resp is None
+        mock_delete.assert_called_once_with(
+            token="valid_token",
+            sub_task_id=sub_task_id,
+        )

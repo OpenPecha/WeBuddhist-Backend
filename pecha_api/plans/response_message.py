@@ -20,6 +20,7 @@ EMAIL_VERIFICATION_PENDING_STATUS = "EMAIL VERIFICATION PENDING"
 
 IMAGE_UPLOAD_SUCCESS = "Image uploaded successfully"
 AUDIO_UPLOAD_SUCCESS = "Day audio uploaded successfully"
+SUBTASK_AUDIO_UPLOAD_SUCCESS = "Sub task audio uploaded successfully"
 AUDIO_ASSIGN_SUCCESS = "Day audio assigned successfully"
 AUDIO_KEY_NOT_FOUND = "Audio not found or you do not have access to this audio key"
 INVALID_AUDIO_FILE_FORMAT = "Invalid audio format. Allowed: MP3, M4A, WAV, AAC, OGG"

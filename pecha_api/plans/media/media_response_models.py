@@ -32,6 +32,15 @@ class PlanDayAudioUploadResponse(BaseModel):
     message: str
 
 
+class SubTaskAudioUploadResponse(BaseModel):
+    sub_task_id: str
+    task_id: str
+    audio_key: str
+    audio_url: str
+    duration_ms: Optional[int] = None
+    message: str
+
+
 class Error(BaseModel):
     error: str
     message: str

@@ -267,6 +267,40 @@ class TestMediaUploadSuccess:
         assert response.status_code == status.HTTP_201_CREATED
 
 
+class TestSubtaskAudioUploadSuccess:
+    def test_upload_subtask_audio_success(self, authenticated_client):
+        sub_task_id = "550e8400-e29b-41d4-a716-446655440000"
+        mock_response = MagicMock()
+        mock_response.sub_task_id = sub_task_id
+        mock_response.task_id = "660e8400-e29b-41d4-a716-446655440001"
+        mock_response.audio_key = "audio/plan_subtasks/task/sub.mp3"
+        mock_response.audio_url = "https://audio.url"
+        mock_response.duration_ms = 30000
+        mock_response.message = "Sub task audio uploaded successfully"
+
+        with patch(
+            "pecha_api.plans.media.media_views.upload_plan_subtask_audio",
+            return_value=mock_response,
+        ) as mock_upload:
+            files = [TestDataFactory.create_test_file(filename="subtask.mp3", content_type="audio/mpeg")]
+            headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+            params = {"sub_task_id": sub_task_id}
+
+            response = authenticated_client.post(
+                "/cms/media/upload/subtask-audio",
+                files=files,
+                headers=headers,
+                params=params,
+            )
+
+            assert response.status_code == status.HTTP_201_CREATED
+            response_data = response.json()
+            assert response_data["sub_task_id"] == sub_task_id
+            assert response_data["audio_url"] == "https://audio.url"
+            assert response_data["duration_ms"] == 30000
+            mock_upload.assert_called_once()
+
+
 class TestTextMediaUploadSuccess:
     """Test cases for successful text media upload scenarios"""
 
