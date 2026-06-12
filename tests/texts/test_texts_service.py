@@ -1199,7 +1199,7 @@ async def test_get_text_details_by_text_id_with_segment_id_only_success():
 
     with patch("pecha_api.texts.texts_service._validate_text_detail_request", new_callable=AsyncMock, return_value=True), \
         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-        patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=mock_table_of_contents), \
+        patch("pecha_api.texts.texts_service.find_table_of_content_with_segment", new_callable=AsyncMock, return_value=mock_table_of_contents[0]), \
         patch("pecha_api.texts.texts_service.SegmentUtils.get_mapped_segment_content_for_table_of_content", new_callable=AsyncMock, return_value=mock_mapped_table_of_contents):
 
         response = await get_text_details_by_text_id(
@@ -1336,7 +1336,11 @@ async def test_get_text_details_by_text_id_with_content_id_only_success():
 
     with patch("pecha_api.texts.texts_service._validate_text_detail_request", new_callable=AsyncMock, return_value=True), \
         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
-        patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=mock_table_of_contents), \
+        patch(
+            "pecha_api.texts.texts_service.get_first_segment_table_of_content",
+            new_callable=AsyncMock,
+            return_value=("segment_id_1", mock_table_of_contents[0]),
+        ), \
         patch("pecha_api.texts.texts_service.SegmentUtils.get_mapped_segment_content_for_table_of_content", new_callable=AsyncMock, return_value=mock_mapped_table_of_contents):
 
         response = await get_text_details_by_text_id(

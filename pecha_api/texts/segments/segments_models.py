@@ -149,3 +149,58 @@ class Segment(Document):
                                 result[parent_id].append(segment)
         
         return result
+
+    @classmethod
+    async def get_segment_contents_by_ids(
+        cls,
+        segment_ids: List[str],
+    ) -> Dict[str, tuple[str, str]]:
+        """Fetch only text_id and content for the given segment ids."""
+        if not segment_ids:
+            return {}
+
+        segment_uuids = [uuid.UUID(segment_id) for segment_id in segment_ids]
+        cursor = cls.get_motor_collection().find(
+            {"_id": {"$in": segment_uuids}},
+            {"text_id": 1, "content": 1},
+        )
+
+        contents: Dict[str, tuple[str, str]] = {}
+        async for document in cursor:
+            contents[str(document["_id"])] = (
+                document.get("text_id", ""),
+                document.get("content", ""),
+            )
+        return contents
+
+    @classmethod
+    async def get_version_translation_contents_by_parent_ids(
+        cls,
+        parent_segment_ids: List[str],
+        version_text_id: str,
+    ) -> Dict[str, str]:
+        """Map parent segment id -> translation content for a specific version text."""
+        if not parent_segment_ids or not version_text_id:
+            return {}
+
+        query = {
+            "text_id": version_text_id,
+            "mapping": {
+                "$elemMatch": {
+                    "segments": {"$in": parent_segment_ids},
+                }
+            },
+        }
+        cursor = cls.get_motor_collection().find(
+            query,
+            {"content": 1, "mapping": 1},
+        )
+
+        translations: Dict[str, str] = {}
+        async for document in cursor:
+            content = document.get("content", "")
+            for mapping in document.get("mapping") or []:
+                for parent_id in mapping.get("segments") or []:
+                    if parent_id in parent_segment_ids and parent_id not in translations:
+                        translations[parent_id] = content
+        return translations

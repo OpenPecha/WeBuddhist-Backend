@@ -13,6 +13,8 @@ from .texts_repository import (
     get_contents_by_id,
     get_contents_by_text_ids,
     get_table_of_content_by_content_id,
+    find_table_of_content_with_segment,
+    get_first_segment_table_of_content,
     get_sections_count_of_table_of_content,
     delete_table_of_content_by_text_id,
     update_text_details_by_id,
@@ -93,6 +95,7 @@ from pecha_api.sheets.sheets_enum import (
     SortOrder
 )
 from pecha_api.cache.cache_enums import CacheType
+from pecha_api.texts.texts_toc_utils import get_segment_page, iter_segment_positions
 
 from .texts_utils import TextUtils
 from pecha_api.users.users_service import validate_user_exists
@@ -349,20 +352,15 @@ async def get_text_details_by_text_id(
         text_id=text_id,
         text_details_request=text_details_request
     )
-    segments_with_position: List[Tuple[str, int]] = _get_segments_with_position_(
+    total_segments, current_segment_position, trimmed_segment_dict = get_segment_page(
         table_of_content=table_of_content,
-    )
-    total_segments = len(segments_with_position)
-    trimmed_segment_dict = _get_trimmed_segment_dict_(
-        segments_with_position=segments_with_position,
         segment_id=text_details_request.segment_id,
         direction=text_details_request.direction,
-        size=text_details_request.size
+        size=text_details_request.size,
     )
-    current_segment_position = trimmed_segment_dict.get(text_details_request.segment_id)
     paginated_table_of_content: TableOfContent = _generate_paginated_table_of_content_by_segments_(
-        table_of_content = table_of_content,
-        segment_dict = trimmed_segment_dict
+        table_of_content=table_of_content,
+        segment_dict=trimmed_segment_dict,
     )
 
     detail_table_of_content: DetailTableOfContentResponse = await _mapping_table_of_content(
@@ -791,37 +789,27 @@ def _get_trimmed_segment_dict_(segments_with_position:List[Tuple[str,int]], segm
     return trimmed_segments_with_position
 
 def _get_segments_with_position_(table_of_content: TableOfContent) -> List[Tuple[str, int]]:
-    segments_with_position: List[Tuple[str, int]] = []
-    position = 1
-    
-    def get_segment_from_section(section: Section):
-        nonlocal position
-        
-        for segment in section.segments:
-            segments_with_position.append((segment.segment_id, position))
-            position += 1
-        
-        if section.sections:
-            for sub_section in section.sections: 
-                get_segment_from_section(sub_section)
-    
-    for section in table_of_content.sections:
-        get_segment_from_section(section)
-    return segments_with_position
+    return list(iter_segment_positions(table_of_content))
 
 
 async def _receive_table_of_content(text_id: str, text_details_request: TextDetailsRequest) -> TableOfContent:
     table_of_content = None
     if text_details_request.content_id is not None and text_details_request.segment_id is not None:
-        table_of_content:TableOfContent = await get_table_of_content_by_content_id(
+        table_of_content = await get_table_of_content_by_content_id(
             content_id=text_details_request.content_id
         )
     elif text_details_request.segment_id is not None:
-        table_of_contents: List[TableOfContent] = await get_contents_by_id(text_id=text_id)
-        table_of_content: TableOfContent = _search_table_of_content_where_segment_id_exists(table_of_contents=table_of_contents, segment_id=text_details_request.segment_id)
+        table_of_content = await find_table_of_content_with_segment(
+            text_id=text_id,
+            segment_id=text_details_request.segment_id,
+        )
+        if table_of_content is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ErrorConstants.TABLE_OF_CONTENT_NOT_FOUND_MESSAGE,
+            )
     else:
-        table_of_content = await get_contents_by_id(text_id=text_id)
-        segment_id, table_of_content = _get_first_segment_and_table_of_content_(table_of_contents=table_of_content)
+        segment_id, table_of_content = await get_first_segment_table_of_content(text_id=text_id)
         text_details_request.segment_id = segment_id
 
     if table_of_content is None:

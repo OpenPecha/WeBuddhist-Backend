@@ -14,6 +14,8 @@ from .segments_repository import (
     get_related_mapped_segments,
     get_segments_by_ids,
     get_related_mapped_segments_batch,
+    get_segment_contents_by_ids,
+    get_version_translation_contents_by_parent_ids,
 )
 from ..texts_response_models import TextDTO
 from ..texts_repository import get_contents_by_text_ids
@@ -231,46 +233,29 @@ class SegmentUtils:
         for section in table_of_content.sections:
             _collect_ids(section)
 
-        # Single DB call: fetch all segments for this page of the TOC.
-        segments_map: Dict[str, SegmentDTO] = await get_segments_by_ids(segment_ids=all_segment_ids)
+        segment_contents = await get_segment_contents_by_ids(segment_ids=all_segment_ids)
 
-        # If a version is requested, batch-fetch all related (translation) segments
-        # in one query instead of one query per segment.
         version_text_detail = None
-        mapped_segments_map: Dict[str, List[SegmentDTO]] = {}
-        related_text_details: Dict[str, object] = {}
+        translation_contents: Dict[str, str] = {}
 
         if version_id is not None:
             version_text_detail = await TextUtils.get_text_details_by_id(text_id=version_id)
-            mapped_segments_map = await get_related_mapped_segments_batch(
-                parent_segment_ids=all_segment_ids
+            translation_contents = await get_version_translation_contents_by_parent_ids(
+                parent_segment_ids=all_segment_ids,
+                version_text_id=version_id,
             )
-            # Collect unique text_ids from all related segments so we can resolve their type.
-            related_text_ids = {
-                seg.text_id
-                for segs in mapped_segments_map.values()
-                for seg in segs
-            }
-            if related_text_ids:
-                related_text_details = await TextUtils.get_text_details_by_ids(
-                    text_ids=list(related_text_ids)
-                )
 
         def _build_translation(parent_segment_id: str) -> Optional[Translation]:
-            """Pick the first related segment that belongs to the requested version text."""
             if version_text_detail is None:
                 return None
-            for related_seg in mapped_segments_map.get(parent_segment_id, []):
-                if related_seg.text_id != version_id:
-                    continue
-                text_detail = related_text_details.get(related_seg.text_id)
-                if text_detail and text_detail.type == TextType.VERSION.value:
-                    return Translation(
-                        text_id=related_seg.text_id,
-                        language=version_text_detail.language,
-                        content=related_seg.content,
-                    )
-            return None
+            translation_content = translation_contents.get(parent_segment_id)
+            if translation_content is None:
+                return None
+            return Translation(
+                text_id=version_id,
+                language=version_text_detail.language,
+                content=translation_content,
+            )
 
         def _process_section(section) -> DetailSection:
             detail_section = DetailSection(
@@ -286,17 +271,18 @@ class SegmentUtils:
             )
 
             for seg_ref in section.segments:
-                segment_details = segments_map.get(seg_ref.segment_id)
-                if not segment_details:
+                segment_content = segment_contents.get(seg_ref.segment_id)
+                if not segment_content:
                     continue
 
+                _, content = segment_content
                 translation = _build_translation(seg_ref.segment_id) if version_id else None
 
                 detail_section.segments.append(
                     DetailTextSegment(
                         segment_id=seg_ref.segment_id,
                         segment_number=seg_ref.segment_number,
-                        content=segment_details.content,
+                        content=content,
                         translation=translation,
                     )
                 )
