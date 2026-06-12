@@ -989,7 +989,9 @@ async def test_get_text_details_by_text_id_with_text_id_content_id_segment_id_su
         ]
     )
 
-    with patch("pecha_api.texts.texts_service._validate_text_detail_request", new_callable=AsyncMock, return_value=True), \
+    with patch("pecha_api.texts.texts_service.get_text_details_cache", new_callable=AsyncMock, return_value=None), \
+        patch("pecha_api.texts.texts_service.set_text_details_cache", new_callable=AsyncMock, return_value=None), \
+        patch("pecha_api.texts.texts_service._validate_text_detail_request", new_callable=AsyncMock, return_value=True), \
         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
         patch("pecha_api.texts.texts_service.get_table_of_content_by_content_id", new_callable=AsyncMock, return_value=mock_table_of_content), \
         patch("pecha_api.texts.texts_service.SegmentUtils.get_mapped_segment_content_for_table_of_content", new_callable=AsyncMock, return_value=mock_mapped_table_of_content):
@@ -1096,7 +1098,9 @@ async def test_get_text_details_by_text_id_with_text_id_content_id_segment_id_pr
         ]
     )
 
-    with patch("pecha_api.texts.texts_service._validate_text_detail_request", new_callable=AsyncMock, return_value=True), \
+    with patch("pecha_api.texts.texts_service.get_text_details_cache", new_callable=AsyncMock, return_value=None), \
+        patch("pecha_api.texts.texts_service.set_text_details_cache", new_callable=AsyncMock, return_value=None), \
+        patch("pecha_api.texts.texts_service._validate_text_detail_request", new_callable=AsyncMock, return_value=True), \
         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
         patch("pecha_api.texts.texts_service.get_table_of_content_by_content_id", new_callable=AsyncMock, return_value=mock_table_of_content), \
         patch("pecha_api.texts.texts_service.SegmentUtils.get_mapped_segment_content_for_table_of_content", new_callable=AsyncMock, return_value=mock_mapped_table_of_content):
@@ -1197,7 +1201,9 @@ async def test_get_text_details_by_text_id_with_segment_id_only_success():
         ]
     )
 
-    with patch("pecha_api.texts.texts_service._validate_text_detail_request", new_callable=AsyncMock, return_value=True), \
+    with patch("pecha_api.texts.texts_service.get_text_details_cache", new_callable=AsyncMock, return_value=None), \
+        patch("pecha_api.texts.texts_service.set_text_details_cache", new_callable=AsyncMock, return_value=None), \
+        patch("pecha_api.texts.texts_service._validate_text_detail_request", new_callable=AsyncMock, return_value=True), \
         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
         patch("pecha_api.texts.texts_service.find_table_of_content_with_segment", new_callable=AsyncMock, return_value=mock_table_of_contents[0]), \
         patch("pecha_api.texts.texts_service.SegmentUtils.get_mapped_segment_content_for_table_of_content", new_callable=AsyncMock, return_value=mock_mapped_table_of_contents):
@@ -1334,7 +1340,9 @@ async def test_get_text_details_by_text_id_with_content_id_only_success():
         ]
     )
 
-    with patch("pecha_api.texts.texts_service._validate_text_detail_request", new_callable=AsyncMock, return_value=True), \
+    with patch("pecha_api.texts.texts_service.get_text_details_cache", new_callable=AsyncMock, return_value=None), \
+        patch("pecha_api.texts.texts_service.set_text_details_cache", new_callable=AsyncMock, return_value=None), \
+        patch("pecha_api.texts.texts_service._validate_text_detail_request", new_callable=AsyncMock, return_value=True), \
         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
         patch(
             "pecha_api.texts.texts_service.get_first_segment_table_of_content",
@@ -1369,7 +1377,186 @@ async def test_get_text_details_by_text_id_with_content_id_only_success():
         assert len(section.segments) + len(section.sections[0].segments) == 2
         assert section.segments[0].segment_id == "segment_id_1"
         assert response.pagination_direction == PaginationDirection.NEXT
-    
+
+
+@pytest.mark.asyncio
+async def test_get_text_details_by_text_id_cache_hit():
+    text_id = "text_id_1"
+    content_id = "content_id_1"
+    cached_response = DetailTableOfContentResponse(
+        text_detail=TextDTO(
+            id=text_id,
+            title="cached title",
+            language="bo",
+            group_id="group_id_1",
+            type="version",
+            is_published=False,
+            created_date="created_date",
+            updated_date="updated_date",
+            published_date="published_date",
+            published_by="published_by",
+            categories=[],
+            views=0,
+        ),
+        content=DetailTableOfContent(
+            id=content_id,
+            text_id=text_id,
+            sections=[],
+        ),
+        size=2,
+        pagination_direction=PaginationDirection.NEXT,
+        current_segment_position=1,
+        total_segments=3,
+    )
+
+    with patch(
+        "pecha_api.texts.texts_service.get_text_details_cache",
+        new_callable=AsyncMock,
+        return_value=cached_response,
+    ) as mock_get_cache, patch(
+        "pecha_api.texts.texts_service._validate_text_detail_request",
+        new_callable=AsyncMock,
+    ) as mock_validate:
+        response = await get_text_details_by_text_id(
+            text_id=text_id,
+            text_details_request=TextDetailsRequest(
+                content_id=content_id,
+                segment_id="segment_id_1",
+                size=2,
+                direction=PaginationDirection.NEXT,
+            ),
+        )
+
+        assert response == cached_response
+        mock_get_cache.assert_awaited_once()
+        mock_validate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_text_details_by_text_id_cache_miss_sets_cache():
+    text_id = "text_id_1"
+    content_id = "content_id_1"
+    mock_text_detail = TextDTO(
+        id=text_id,
+        title="text_title",
+        language="bo",
+        group_id="group_id_1",
+        type="version",
+        is_published=False,
+        created_date="created_date",
+        updated_date="updated_date",
+        published_date="published_date",
+        published_by="published_by",
+        categories=[],
+        views=0,
+    )
+    mock_table_of_content = TableOfContent(
+        id=content_id,
+        text_id=text_id,
+        type=TableOfContentType.TEXT,
+        sections=[
+            Section(
+                id="section_id_1",
+                title="section_title",
+                section_number=1,
+                parent_id="parent_id_1",
+                segments=[
+                    TextSegment(segment_id="segment_id_1", segment_number=1),
+                ],
+                sections=[],
+                created_date="created_date",
+                updated_date="updated_date",
+                published_date="published_date",
+            )
+        ],
+    )
+    mock_mapped_table_of_content = DetailTableOfContent(
+        id=content_id,
+        text_id=text_id,
+        sections=[
+            DetailSection(
+                id="section_id_1",
+                title="section_title",
+                section_number=1,
+                parent_id="parent_id_1",
+                segments=[
+                    DetailTextSegment(
+                        segment_id="segment_id_1",
+                        segment_number=1,
+                        content="segment_content_1",
+                        translation=None,
+                    )
+                ],
+                sections=[],
+                created_date="created_date",
+                updated_date="updated_date",
+                published_date="published_date",
+            )
+        ],
+    )
+
+    with patch("pecha_api.texts.texts_service.get_text_details_cache", new_callable=AsyncMock, return_value=None), \
+        patch("pecha_api.texts.texts_service.set_text_details_cache", new_callable=AsyncMock) as mock_set_cache, \
+        patch("pecha_api.texts.texts_service._validate_text_detail_request", new_callable=AsyncMock, return_value=True), \
+        patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+        patch("pecha_api.texts.texts_service.get_table_of_content_by_content_id", new_callable=AsyncMock, return_value=mock_table_of_content), \
+        patch("pecha_api.texts.texts_service.SegmentUtils.get_mapped_segment_content_for_table_of_content", new_callable=AsyncMock, return_value=mock_mapped_table_of_content):
+        await get_text_details_by_text_id(
+            text_id=text_id,
+            text_details_request=TextDetailsRequest(
+                content_id=content_id,
+                segment_id="segment_id_1",
+                size=1,
+                direction=PaginationDirection.NEXT,
+            ),
+        )
+
+        mock_set_cache.assert_awaited_once()
+        assert mock_set_cache.await_args.kwargs["text_id"] == text_id
+        assert mock_set_cache.await_args.kwargs["content_id"] == content_id
+        assert mock_set_cache.await_args.kwargs["skip"] == "segment_id_1"
+
+
+@pytest.mark.asyncio
+async def test_get_table_of_contents_by_text_id_cache_hit():
+    text_id = "text_id_1"
+    cached_response = TableOfContentResponse(
+        text_detail=TextDTO(
+            id=text_id,
+            title="cached title",
+            language="en",
+            group_id="group_id_1",
+            type="version",
+            is_published=True,
+            created_date="created_date",
+            updated_date="updated_date",
+            published_date="published_date",
+            published_by="published_by",
+            categories=[],
+            views=0,
+        ),
+        contents=[],
+    )
+
+    with patch(
+        "pecha_api.texts.texts_service.get_table_of_contents_by_text_id_cache",
+        new_callable=AsyncMock,
+        return_value=cached_response,
+    ) as mock_get_cache, patch(
+        "pecha_api.texts.texts_service.TextUtils.validate_text_exists",
+        new_callable=AsyncMock,
+    ) as mock_validate:
+        response = await get_table_of_contents_by_text_id(
+            text_id=text_id,
+            language="en",
+            skip=0,
+            limit=10,
+        )
+
+        assert response == cached_response
+        mock_get_cache.assert_awaited_once()
+        mock_validate.assert_not_awaited()
+
 
 @pytest.mark.asyncio
 async def test_get_table_of_content_by_sheet_id_success():

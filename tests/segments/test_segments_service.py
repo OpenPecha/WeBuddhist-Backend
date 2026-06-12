@@ -96,6 +96,87 @@ async def test_get_translations_by_segment_id_segment_not_found():
         assert excinfo.value.status_code == 404
         assert excinfo.value.detail == ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE
 
+
+@pytest.mark.asyncio
+async def test_get_translations_by_segment_id_cache_hit():
+    segment_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
+    cached_response = SegmentTranslationsResponse(
+        parent_segment=ParentSegment(segment_id=segment_id, content="cached content"),
+        translations=[],
+    )
+
+    with patch(
+        "pecha_api.texts.segments.segments_service.SegmentUtils.validate_segment_exists",
+        new_callable=AsyncMock,
+        return_value=True,
+    ), patch(
+        "pecha_api.texts.segments.segments_service.get_segment_translations_by_id_cache",
+        new_callable=AsyncMock,
+        return_value=cached_response,
+    ) as mock_get_cache, patch(
+        "pecha_api.texts.segments.segments_service.get_segment_by_id",
+        new_callable=AsyncMock,
+    ) as mock_get_segment:
+        response = await get_translations_by_segment_id(segment_id=segment_id)
+
+        assert response == cached_response
+        mock_get_cache.assert_awaited_once()
+        mock_get_segment.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_translations_by_segment_id_cache_miss_sets_cache():
+    segment_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
+    segment = SegmentDTO(
+        id=segment_id,
+        text_id=segment_id,
+        content="parent content",
+        mapping=[],
+        type=SegmentType.SOURCE,
+    )
+    translations = [
+        SegmentTranslation(
+            segment_id=f"{segment_id}_1",
+            text_id=segment_id,
+            title="Title 1",
+            source="source 1",
+            language="en",
+            content="translation content",
+        )
+    ]
+
+    with patch(
+        "pecha_api.texts.segments.segments_service.SegmentUtils.validate_segment_exists",
+        new_callable=AsyncMock,
+        return_value=True,
+    ), patch(
+        "pecha_api.texts.segments.segments_service.get_segment_translations_by_id_cache",
+        new_callable=AsyncMock,
+        return_value=None,
+    ), patch(
+        "pecha_api.texts.segments.segments_service.get_segment_by_id",
+        new_callable=AsyncMock,
+        return_value=segment,
+    ), patch(
+        "pecha_api.texts.segments.segments_service.get_related_mapped_segments",
+        new_callable=AsyncMock,
+        return_value=translations,
+    ), patch(
+        "pecha_api.texts.segments.segments_service.SegmentUtils.filter_segment_mapping_by_type_or_text_id",
+        new_callable=AsyncMock,
+        return_value=translations,
+    ), patch(
+        "pecha_api.texts.segments.segments_service.set_segment_translations_by_id_cache",
+        new_callable=AsyncMock,
+    ) as mock_set_cache:
+        response = await get_translations_by_segment_id(segment_id=segment_id)
+
+        assert response.parent_segment.segment_id == segment_id
+        assert response.translations == translations
+        mock_set_cache.assert_awaited_once()
+        assert mock_set_cache.await_args.kwargs["segment_id"] == segment_id
+
+
 @pytest.mark.asyncio
 async def test_create_new_segment():
     """
@@ -362,6 +443,83 @@ async def test_get_commentaries_by_segment_id_not_found():
             await get_commentaries_by_segment_id(segment_id=segment_id)
         assert exc_info.value.status_code == 404
         assert exc_info.value.detail == ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE
+
+
+@pytest.mark.asyncio
+async def test_get_commentaries_by_segment_id_cache_hit():
+    segment_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
+    cached_response = SegmentCommentariesResponse(
+        parent_segment=ParentSegment(segment_id=segment_id, content="cached content"),
+        commentaries=[],
+    )
+
+    with patch(
+        "pecha_api.texts.segments.segments_service.SegmentUtils.validate_segment_exists",
+        new_callable=AsyncMock,
+        return_value=True,
+    ), patch(
+        "pecha_api.texts.segments.segments_service.get_segment_commentaries_by_id_cache",
+        new_callable=AsyncMock,
+        return_value=cached_response,
+    ) as mock_get_cache, patch(
+        "pecha_api.texts.segments.segments_service.get_segment_by_id",
+        new_callable=AsyncMock,
+    ) as mock_get_segment:
+        response = await get_commentaries_by_segment_id(segment_id=segment_id)
+
+        assert response == cached_response
+        mock_get_cache.assert_awaited_once()
+        mock_get_segment.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_get_commentaries_by_segment_id_cache_miss_sets_cache():
+    parent_segment_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
+    repo_parent_segment = type("Segment", (), {
+        "id": parent_segment_id,
+        "content": "parent_segment_content",
+    })()
+    filtered_commentaries = [
+        SegmentCommentry(
+            text_id="text_id_1",
+            title="title_1",
+            segments=[
+                MappedSegmentDTO(segment_id="id_1", content="content_1"),
+            ],
+            language="en",
+            count=1,
+        )
+    ]
+
+    with patch(
+        "pecha_api.texts.segments.segments_service.SegmentUtils.validate_segment_exists",
+        new_callable=AsyncMock,
+        return_value=True,
+    ), patch(
+        "pecha_api.texts.segments.segments_service.get_segment_commentaries_by_id_cache",
+        new_callable=AsyncMock,
+        return_value=None,
+    ), patch(
+        "pecha_api.texts.segments.segments_service.get_segment_by_id",
+        new_callable=AsyncMock,
+        return_value=repo_parent_segment,
+    ), patch(
+        "pecha_api.texts.segments.segments_service.get_related_mapped_segments",
+        new_callable=AsyncMock,
+        return_value=[],
+    ), patch(
+        "pecha_api.texts.segments.segments_service.SegmentUtils.filter_segment_mapping_by_type_or_text_id",
+        new_callable=AsyncMock,
+        return_value=filtered_commentaries,
+    ), patch(
+        "pecha_api.texts.segments.segments_service.set_segment_commentaries_by_id_cache",
+        new_callable=AsyncMock,
+    ) as mock_set_cache:
+        response = await get_commentaries_by_segment_id(segment_id=parent_segment_id)
+
+        assert response.commentaries == filtered_commentaries
+        mock_set_cache.assert_awaited_once()
+        assert mock_set_cache.await_args.kwargs["segment_id"] == parent_segment_id
 
 @pytest.mark.asyncio
 async def test_get_infos_by_segment_id_success():

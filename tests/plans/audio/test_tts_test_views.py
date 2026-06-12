@@ -50,3 +50,20 @@ def test_preview_tts_returns_400_for_validation_error(mock_generate):
 
     assert response.status_code == 400
     assert "Unsupported language" in response.json()["detail"]
+
+
+@patch(
+    "pecha_api.plans.audio.tts_test_views.generate_tts_audio",
+    side_effect=RuntimeError("GEMINI_API_KEY is not configured"),
+)
+def test_preview_tts_returns_502_for_runtime_error(mock_generate):
+    response = client.post(
+        "/preview",
+        json={
+            "text": "Hello",
+            "language": "en",
+        },
+    )
+
+    assert response.status_code == 502
+    assert "GEMINI_API_KEY" in response.json()["detail"]
