@@ -29,7 +29,13 @@ from pecha_api.plans.shared.permissions import (
     require_cms_write_access,
 )
 from pecha_api.plans.groups.groups_repository import get_author_group_ids
-from pecha_api.plans.plans_enums import LanguageCode, PlanStatus, ContentType, PlanAudioType
+from pecha_api.plans.plans_enums import (
+    LanguageCode,
+    PlanStatus,
+    ContentType,
+    PlanAudioType,
+    MonlamVoiceName,
+)
 from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, CreatePlanRequest, TaskDTO, PlanDayDTO, \
     PlanWithDays, UpdatePlanRequest, PlanStatusUpdate, PlansRepositoryResponse, PlanWithAggregates, AuthorDTO, SubTaskDTO
     
@@ -115,7 +121,10 @@ WAV_CONTENT_TYPE = "audio/wav"
 
 
 def _generate_audio_segments(
-    tasks, audio_type: PlanAudioType
+    tasks,
+    audio_type: PlanAudioType,
+    language: str,
+    voice_name: Optional[str] = None,
 ) -> tuple[List[bytes], list]:
     wav_header_size = 44
     audio_segments: List[bytes] = []
@@ -135,7 +144,9 @@ def _generate_audio_segments(
             )
             raw_pcm = existing_wav[wav_header_size:]
         else:
-            wav_bytes = generate_tts_audio(subtask.content, audio_type)
+            wav_bytes = generate_tts_audio(
+                subtask.content, audio_type, language, voice_name=voice_name
+            )
             raw_pcm = wav_bytes[wav_header_size:]
 
         audio_segments.append(raw_pcm)
@@ -219,9 +230,15 @@ async def generate_plan_audio_service(
     day_id: Optional[UUID] = None,
     sub_task_id: Optional[UUID] = None,
     audio_type: PlanAudioType = PlanAudioType.TEXT_READING,
+    voice_name: MonlamVoiceName = MonlamVoiceName.DOLKAR_LHASA_FEMALE,
 ):
     if sub_task_id:
-        return await _generate_subtask_audio(sub_task_id=sub_task_id, audio_type=audio_type)
+        return await _generate_subtask_audio(
+            sub_task_id=sub_task_id,
+            audio_type=audio_type,
+            language=language,
+            voice_name=voice_name,
+        )
 
     SAMPLE_RATE = 24000
     BYTES_PER_SAMPLE = 2
@@ -229,7 +246,9 @@ async def generate_plan_audio_service(
     with SessionLocal() as db:
         plan_item: PlanItem = get_plan_day_by_id_any_plan(db=db, day_id=day_id)
 
-        audio_segments, subtask_refs = _generate_audio_segments(plan_item.tasks, audio_type)
+        audio_segments, subtask_refs = _generate_audio_segments(
+            plan_item.tasks, audio_type, language, voice_name
+        )
         if not audio_segments:
             return []
 
@@ -263,7 +282,12 @@ async def generate_plan_audio_service(
     }
 
 
-async def _generate_subtask_audio(sub_task_id: UUID, audio_type: PlanAudioType):
+async def _generate_subtask_audio(
+    sub_task_id: UUID,
+    audio_type: PlanAudioType,
+    language: str,
+    voice_name: Optional[str] = None,
+):
     SAMPLE_RATE = 24000
     BYTES_PER_SAMPLE = 2
     WAV_HEADER_SIZE = 44
@@ -286,7 +310,9 @@ async def _generate_subtask_audio(sub_task_id: UUID, audio_type: PlanAudioType):
                 ).model_dump(),
             )
 
-        wav_bytes = generate_tts_audio(subtask.content, audio_type)
+        wav_bytes = generate_tts_audio(
+            subtask.content, audio_type, language, voice_name=voice_name
+        )
         raw_pcm = wav_bytes[WAV_HEADER_SIZE:]
 
         segment_samples = len(raw_pcm) // BYTES_PER_SAMPLE

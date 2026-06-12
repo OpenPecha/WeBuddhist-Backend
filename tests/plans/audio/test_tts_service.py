@@ -5,10 +5,17 @@ import pytest
 
 from pecha_api.plans.audio.tts_service import (
     _convert_to_wav,
+    _normalize_language,
     _parse_audio_mime_type,
     generate_tts_audio,
 )
 from pecha_api.plans.plans_enums import PlanAudioType
+
+
+def test_normalize_language():
+    assert _normalize_language("EN") == "en"
+    assert _normalize_language(" bo ") == "bo"
+    assert _normalize_language("") == "en"
 
 
 def test_parse_audio_mime_type_defaults():
@@ -40,9 +47,52 @@ def test_generate_tts_audio_rejects_empty_content():
         generate_tts_audio(content="   ", audio_type=PlanAudioType.RECITATION)
 
 
+def test_generate_tts_audio_rejects_unsupported_language():
+    with pytest.raises(ValueError, match="Unsupported language for TTS"):
+        generate_tts_audio(
+            content="Hello",
+            audio_type=PlanAudioType.RECITATION,
+            language="zh",
+        )
+
+
+@patch("pecha_api.plans.audio.tts_service.generate_monlam_tts_audio")
+def test_generate_tts_audio_routes_bo_to_monlam(mock_monlam):
+    mock_monlam.return_value = b"RIFF" + b"\x00" * 40
+
+    result = generate_tts_audio(
+        content="བཀྲ་ཤིས་བདེ་ལེགས",
+        audio_type=PlanAudioType.TEXT_READING,
+        language="bo",
+    )
+
+    mock_monlam.assert_called_once_with(
+        "བཀྲ་ཤིས་བདེ་ལེགས",
+        voice_name=None,
+    )
+    assert result[:4] == b"RIFF"
+
+
+@patch("pecha_api.plans.audio.tts_service.generate_monlam_tts_audio")
+def test_generate_tts_audio_passes_voice_name_to_monlam(mock_monlam):
+    mock_monlam.return_value = b"RIFF" + b"\x00" * 40
+
+    generate_tts_audio(
+        content="བཀྲ་ཤིས་བདེ་ལེགས",
+        audio_type=PlanAudioType.TEXT_READING,
+        language="bo",
+        voice_name="yangchen_lhasa_female",
+    )
+
+    mock_monlam.assert_called_once_with(
+        "བཀྲ་ཤིས་བདེ་ལེགས",
+        voice_name="yangchen_lhasa_female",
+    )
+
+
 @patch("google.genai.Client")
 @patch("pecha_api.plans.audio.tts_service.get", return_value="test-api-key")
-def test_generate_tts_audio_success(mock_get, mock_client_cls):
+def test_generate_tts_audio_routes_en_to_gemini(mock_get, mock_client_cls):
     audio_data = b"\x00\x01\x02\x03"
     inline_data = MagicMock(data=audio_data, mime_type="audio/L16;rate=24000")
     part = MagicMock(inline_data=inline_data)
@@ -54,7 +104,11 @@ def test_generate_tts_audio_success(mock_get, mock_client_cls):
     mock_client.models.generate_content.return_value = response
     mock_client_cls.return_value = mock_client
 
-    result = generate_tts_audio(content="Hello world", audio_type=PlanAudioType.RECITATION)
+    result = generate_tts_audio(
+        content="Hello world",
+        audio_type=PlanAudioType.RECITATION,
+        language="en",
+    )
 
     assert result[:4] == b"RIFF"
     assert result.endswith(audio_data)
@@ -69,4 +123,8 @@ def test_generate_tts_audio_raises_when_no_candidates(mock_get, mock_client_cls)
     mock_client_cls.return_value = mock_client
 
     with pytest.raises(RuntimeError, match="no audio data"):
-        generate_tts_audio(content="Hello world", audio_type=PlanAudioType.RECITATION)
+        generate_tts_audio(
+            content="Hello world",
+            audio_type=PlanAudioType.RECITATION,
+            language="en",
+        )

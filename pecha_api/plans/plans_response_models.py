@@ -1,7 +1,13 @@
 from pydantic import BaseModel, ConfigDict, model_validator
 from typing import Optional, List
 from datetime import datetime
-from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus, ContentType, PlanAudioType
+from pecha_api.plans.plans_enums import (
+    DifficultyLevel,
+    PlanStatus,
+    ContentType,
+    PlanAudioType,
+    MonlamVoiceName,
+)
 from uuid import UUID
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
@@ -37,6 +43,7 @@ class GeneratePlanAudioRequest(BaseModel):
     sub_task_id: Optional[UUID] = None
     language: str
     type: Optional[PlanAudioType] = PlanAudioType.TEXT_READING
+    voice_name: MonlamVoiceName = MonlamVoiceName.DOLKAR_LHASA_FEMALE
 
     @model_validator(mode="after")
     def validate_either_day_or_subtask(self):

@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TTS Test</title>
+  <style>
+    :root {
+      --bg: #f0f4f8;
+      --surface: #ffffff;
+      --ink: #1a2332;
+      --muted: #5c6b7a;
+      --accent: #2563eb;
+      --accent-dark: #1d4ed8;
+      --border: #d8e0ea;
+      --error: #b91c1c;
+      --ok: #166534;
+      --shadow: 0 12px 32px rgba(26, 35, 50, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 35%),
+        var(--bg);
+    }
+
+    .app {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 28px 16px 48px;
+    }
+
+    header {
+      margin-bottom: 20px;
+    }
+
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 1.75rem;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--muted);
+    }
+
+    select, textarea, button {
+      width: 100%;
+      font: inherit;
+    }
+
+    select, textarea {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    textarea {
+      min-height: 140px;
+      resize: vertical;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 16px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .player {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+    }
+
+    audio {
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    .status {
+      margin-top: 14px;
+      font-size: 0.92rem;
+      min-height: 1.2em;
+    }
+
+    .status.error { color: var(--error); }
+    .status.ok { color: var(--ok); }
+
+    .hidden { display: none; }
+
+    .samples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .samples button {
+      width: auto;
+      padding: 8px 12px;
+      background: #eef2ff;
+      color: var(--accent-dark);
+      border: 1px solid #c7d2fe;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>TTS Test</h1>
+      <p>Preview English (Gemini) or Tibetan (Monlam) speech synthesis.</p>
+    </header>
+
+    <div class="card">
+      <div class="grid">
+        <div>
+          <label for="language">Language</label>
+          <select id="language">
+            <option value="en">English (en)</option>
+            <option value="bo">Tibetan (bo)</option>
+          </select>
+        </div>
+
+        <div id="audioTypeField">
+          <label for="audioType">Audio type (English)</label>
+          <select id="audioType">
+            <option value="TEXT_READING">TEXT_READING</option>
+            <option value="RECITATION">RECITATION</option>
+            <option value="INSTRUCTION">INSTRUCTION</option>
+          </select>
+        </div>
+
+        <div id="voiceField">
+          <label for="voiceName">Voice (Tibetan)</label>
+          <select id="voiceName"></select>
+        </div>
+      </div>
+
+      <label for="text">Text</label>
+      <div class="samples">
+        <button type="button" data-sample="en">English sample</button>
+        <button type="button" data-sample="bo">Tibetan sample</button>
+      </div>
+      <textarea id="text" placeholder="Enter text to synthesize..."></textarea>
+
+      <button id="generateBtn" type="button">Generate audio</button>
+
+      <div class="player">
+        <label>Output</label>
+        <audio id="player" controls></audio>
+        <div id="status" class="status"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.pathname.replace(/\/view\/?$/, "");
+
+    const VOICES = {
+      Lhasa: [
+        "dolkar_lhasa_female",
+        "yangchen_lhasa_female",
+        "darjeeyalphel_lhasa_male",
+        "histry_lhasa_male",
+        "sonamtsering_lhasa_male",
+      ],
+      Amdo: [
+        "dolma_amdo_female",
+        "kid_amdo_female",
+        "buddhahistory_amdo_male",
+        "history_amdo_male",
+        "kalsang_gyatso_amdo_male",
+      ],
+      Kham: [
+        "kotheke_kham_male",
+        "tibet_tongue_kham_male",
+        "tsering_wangmo_kham_female",
+        "wangdontso_kham_female",
+      ],
+    };
+
+    const SAMPLES = {
+      en: "Welcome to this peaceful meditation. Take a slow breath and let the mind settle.",
+      bo: "བཀྲ་ཤིས་བདེ་ལེགས། དེ་རིང་གི་ཉིན་མ་འདི་ཆོས་ཀྱི་སྦྱོང་བར་བདེ་བ་ལེགས་པ་ཞིག་ཡིན།",
+    };
+
+    const languageEl = document.getElementById("language");
+    const audioTypeField = document.getElementById("audioTypeField");
+    const voiceField = document.getElementById("voiceField");
+    const audioTypeEl = document.getElementById("audioType");
+    const voiceNameEl = document.getElementById("voiceName");
+    const textEl = document.getElementById("text");
+    const generateBtn = document.getElementById("generateBtn");
+    const playerEl = document.getElementById("player");
+    const statusEl = document.getElementById("status");
+
+    let audioObjectUrl = null;
+
+    function populateVoices() {
+      voiceNameEl.innerHTML = "";
+      Object.entries(VOICES).forEach(([region, voices]) => {
+        const group = document.createElement("optgroup");
+        group.label = region;
+        voices.forEach((voice) => {
+          const option = document.createElement("option");
+          option.value = voice;
+          option.textContent = voice;
+          group.appendChild(option);
+        });
+        voiceNameEl.appendChild(group);
+      });
+    }
+
+    function updateLanguageFields() {
+      const isTibetan = languageEl.value === "bo";
+      audioTypeField.classList.toggle("hidden", isTibetan);
+      voiceField.classList.toggle("hidden", !isTibetan);
+    }
+
+    function setStatus(message, type = "") {
+      statusEl.textContent = message;
+      statusEl.className = `status ${type}`.trim();
+    }
+
+    function revokeAudioUrl() {
+      if (audioObjectUrl) {
+        URL.revokeObjectURL(audioObjectUrl);
+        audioObjectUrl = null;
+      }
+    }
+
+    async function generateAudio() {
+      const text = textEl.value.trim();
+      if (!text) {
+        setStatus("Please enter some text.", "error");
+        return;
+      }
+
+      const payload = {
+        text,
+        language: languageEl.value,
+      };
+
+      if (languageEl.value === "bo") {
+        payload.voice_name = voiceNameEl.value;
+      } else {
+        payload.type = audioTypeEl.value;
+      }
+
+      generateBtn.disabled = true;
+      setStatus("Generating audio...");
+
+      try {
+        const response = await fetch(`${API_BASE}/preview`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          let detail = `Request failed (${response.status})`;
+          try {
+            const data = await response.json();
+            detail = data.detail || detail;
+          } catch (_) {}
+          throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+        }
+
+        const blob = await response.blob();
+        revokeAudioUrl();
+        audioObjectUrl = URL.createObjectURL(blob);
+        playerEl.src = audioObjectUrl;
+        await playerEl.play().catch(() => {});
+        setStatus("Audio ready.", "ok");
+      } catch (error) {
+        revokeAudioUrl();
+        playerEl.removeAttribute("src");
+        setStatus(error.message || "Failed to generate audio.", "error");
+      } finally {
+        generateBtn.disabled = false;
+      }
+    }
+
+    document.querySelectorAll("[data-sample]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const lang = button.dataset.sample;
+        languageEl.value = lang;
+        updateLanguageFields();
+        textEl.value = SAMPLES[lang];
+      });
+    });
+
+    languageEl.addEventListener("change", updateLanguageFields);
+    generateBtn.addEventListener("click", generateAudio);
+
+    populateVoices();
+    updateLanguageFields();
+    textEl.value = SAMPLES.en;
+  </script>
+</body>
+</html>

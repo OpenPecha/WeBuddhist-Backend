@@ -2,22 +2,51 @@ import struct
 
 from pecha_api.config import get
 from pecha_api.plans.audio.audio_prompt import build_tts_prompt, DEFAULT_VOICE_NAME
+from pecha_api.plans.audio.monlam_tts_service import generate_monlam_tts_audio
 from pecha_api.plans.plans_enums import PlanAudioType
+
+SUPPORTED_TTS_LANGUAGES = {"en", "bo"}
+
+
+def _normalize_language(language: str) -> str:
+    return (language or "en").strip().lower()
 
 
 def generate_tts_audio(
     content: str,
     audio_type: PlanAudioType,
+    language: str = "en",
+    voice_name: str | None = None,
 ) -> bytes:
     if not content.strip():
         raise ValueError("Content cannot be empty")
 
+    normalized_language = _normalize_language(language)
+    if normalized_language not in SUPPORTED_TTS_LANGUAGES:
+        raise ValueError(
+            f"Unsupported language for TTS: {language}. Supported: {', '.join(sorted(SUPPORTED_TTS_LANGUAGES))}"
+        )
+
+    if normalized_language == "bo":
+        return generate_monlam_tts_audio(content, voice_name=voice_name)
+
+    return _generate_gemini_tts_audio(content=content, audio_type=audio_type)
+
+
+def _generate_gemini_tts_audio(
+    content: str,
+    audio_type: PlanAudioType,
+) -> bytes:
     prompt = build_tts_prompt(transcript=content, audio_type=audio_type)
 
     from google import genai
     from google.genai import types
 
-    client = genai.Client(api_key=get("GEMINI_API_KEY"))
+    api_key = get("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY is not configured")
+
+    client = genai.Client(api_key=api_key)
 
     response = client.models.generate_content(
         model="gemini-2.5-flash-preview-tts",
