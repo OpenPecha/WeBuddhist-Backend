@@ -584,8 +584,8 @@ async def test_get_table_of_contents_by_text_id_success():
     ]
 
     with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-        patch("pecha_api.texts.texts_service.get_table_of_contents_by_text_id_cache", new_callable=MagicMock, return_value=None),\
-        patch("pecha_api.texts.texts_service.set_table_of_contents_by_text_id_cache", new_callable=MagicMock, return_value=None),\
+        patch("pecha_api.texts.texts_service.get_table_of_contents_by_text_id_cache", new_callable=AsyncMock, return_value=None),\
+        patch("pecha_api.texts.texts_service.set_table_of_contents_by_text_id_cache", new_callable=AsyncMock, return_value=None),\
         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
         patch("pecha_api.texts.texts_service.get_texts_by_group_id", new_callable=AsyncMock, return_value=mock_group_texts), \
         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=table_of_contents):
@@ -690,8 +690,8 @@ async def test_get_table_of_contents_by_text_id_success_language_is_none():
     ]
 
     with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-        patch("pecha_api.texts.texts_service.get_table_of_contents_by_text_id_cache", new_callable=MagicMock, return_value=None),\
-        patch("pecha_api.texts.texts_service.set_table_of_contents_by_text_id_cache", new_callable=MagicMock, return_value=None),\
+        patch("pecha_api.texts.texts_service.get_table_of_contents_by_text_id_cache", new_callable=AsyncMock, return_value=None),\
+        patch("pecha_api.texts.texts_service.set_table_of_contents_by_text_id_cache", new_callable=AsyncMock, return_value=None),\
         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
         patch("pecha_api.texts.texts_service.get_texts_by_group_id", new_callable=AsyncMock, return_value=mock_group_texts), \
         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=table_of_contents):
@@ -779,8 +779,8 @@ async def test_get_table_of_contents_by_text_id_root_text_is_none():
     ]
 
     with patch("pecha_api.texts.texts_service.TextUtils.validate_text_exists", new_callable=AsyncMock, return_value=True), \
-        patch("pecha_api.texts.texts_service.get_table_of_contents_by_text_id_cache", new_callable=MagicMock, return_value=None),\
-        patch("pecha_api.texts.texts_service.set_table_of_contents_by_text_id_cache", new_callable=MagicMock, return_value=None),\
+        patch("pecha_api.texts.texts_service.get_table_of_contents_by_text_id_cache", new_callable=AsyncMock, return_value=None),\
+        patch("pecha_api.texts.texts_service.set_table_of_contents_by_text_id_cache", new_callable=AsyncMock, return_value=None),\
         patch("pecha_api.texts.texts_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
         patch("pecha_api.texts.texts_service.get_texts_by_group_id", new_callable=AsyncMock, return_value=mock_group_texts), \
         patch("pecha_api.texts.texts_service.get_contents_by_id", new_callable=AsyncMock, return_value=table_of_contents), \
