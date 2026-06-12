@@ -186,15 +186,9 @@ class Segment(Document):
         contents: Dict[str, tuple[str, str]] = {}
 
         if segment_uuids:
-            cursor = cls.get_motor_collection().find(
-                {"_id": {"$in": segment_uuids}},
-                {"text_id": 1, "content": 1},
-            )
-            async for document in cursor:
-                contents[str(document["_id"])] = (
-                    document.get("text_id", ""),
-                    document.get("content", ""),
-                )
+            segments = await cls.find({"_id": {"$in": segment_uuids}}).to_list()
+            for segment in segments:
+                contents[str(segment.id)] = (segment.text_id, segment.content)
 
         if pecha_segment_ids:
             cursor = cls.get_motor_collection().find(
