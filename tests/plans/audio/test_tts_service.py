@@ -116,6 +116,39 @@ def test_generate_tts_audio_routes_en_to_gemini(mock_get, mock_client_cls):
 
 
 @patch("google.genai.Client")
+@patch("pecha_api.plans.audio.tts_service.get", return_value=None)
+def test_generate_tts_audio_raises_when_api_key_missing(mock_get, mock_client_cls):
+    with pytest.raises(RuntimeError, match="GEMINI_API_KEY is not configured"):
+        generate_tts_audio(
+            content="Hello world",
+            audio_type=PlanAudioType.RECITATION,
+            language="en",
+        )
+    mock_client_cls.assert_not_called()
+
+
+@patch("google.genai.Client")
+@patch("pecha_api.plans.audio.tts_service.get", return_value="test-api-key")
+def test_generate_tts_audio_raises_when_no_inline_data(mock_get, mock_client_cls):
+    inline_data = MagicMock(data=None, mime_type="audio/L16;rate=24000")
+    part = MagicMock(inline_data=inline_data)
+    content = MagicMock(parts=[part])
+    candidate = MagicMock(content=content)
+    response = MagicMock(candidates=[candidate])
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = response
+    mock_client_cls.return_value = mock_client
+
+    with pytest.raises(RuntimeError, match="no audio data"):
+        generate_tts_audio(
+            content="Hello world",
+            audio_type=PlanAudioType.RECITATION,
+            language="en",
+        )
+
+
+@patch("google.genai.Client")
 @patch("pecha_api.plans.audio.tts_service.get", return_value="test-api-key")
 def test_generate_tts_audio_raises_when_no_candidates(mock_get, mock_client_cls):
     mock_client = MagicMock()

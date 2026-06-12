@@ -37,6 +37,23 @@ def test_preview_tts_returns_wav(mock_generate):
 
 @patch(
     "pecha_api.plans.audio.tts_test_views.generate_tts_audio",
+    side_effect=RuntimeError("TTS generation returned no audio data"),
+)
+def test_preview_tts_returns_502_for_runtime_error(mock_generate):
+    response = client.post(
+        "/preview",
+        json={
+            "text": "Hello",
+            "language": "en",
+        },
+    )
+
+    assert response.status_code == 502
+    assert "no audio data" in response.json()["detail"]
+
+
+@patch(
+    "pecha_api.plans.audio.tts_test_views.generate_tts_audio",
     side_effect=ValueError("Unsupported language for TTS: zh"),
 )
 def test_preview_tts_returns_400_for_validation_error(mock_generate):
