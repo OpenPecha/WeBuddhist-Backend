@@ -76,6 +76,7 @@ async def generate_plan_audio(
         sub_task_id=request.sub_task_id,
         language=request.language,
         audio_type=request.type,
+        voice_name=request.voice_name,
     )
 
 @cms_plans_router.get("/{plan_id}", status_code=status.HTTP_200_OK, response_model=PlanWithDays)
