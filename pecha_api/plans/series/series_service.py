@@ -475,7 +475,7 @@ def _validate_plan_ids(
         is_already_in_series = (
             current_series_id is not None and plan.series_id == current_series_id
         )
-        if not is_already_in_series:
+        if not is_already_in_series and plan.group_id != series_group_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Plan with id '{plan_id}' must belong to the same group as the series",
