@@ -2,8 +2,8 @@ from fastapi import APIRouter, Query
 from typing import Annotated, Optional
 from starlette import status
 
-from .mantra_response_models import MantraResponse, CreateMantraRequest, MantraDTO
-from .mantra_service import get_mantras_service, create_mantra_service
+from .mantra_response_models import MantraResponse
+from .mantra_service import get_mantras_service
 
 mantra_router = APIRouter(
     prefix="/mantra",
@@ -21,13 +21,3 @@ def get_mantras_endpoint(
 ):
 
     return get_mantras_service(language=language)
-
-
-@mantra_router.post(
-    "",
-    status_code=status.HTTP_201_CREATED,
-    response_model=MantraDTO
-)
-def create_mantra_endpoint(request: CreateMantraRequest):
-
-    return create_mantra_service(request=request)

@@ -18,10 +18,3 @@ class MantraDTO(BaseModel):
 
 class MantraResponse(BaseModel):
     mantras: List[MantraDTO]
-
-
-class CreateMantraRequest(BaseModel):
-    audio_url: Optional[str] = None
-    text: str
-    meaning: Optional[str] = None
-    language: LanguageCode = LanguageCode.EN
