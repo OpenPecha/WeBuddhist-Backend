@@ -144,6 +144,16 @@ def test_generate_tts_audio_raises_when_no_inline_data(mock_get, mock_client_cls
         generate_tts_audio(**_EN_RECITATION)
 
 
+@patch("pecha_api.plans.audio.tts_service.get", return_value=None)
+def test_generate_tts_audio_raises_when_gemini_key_missing(mock_get):
+    with pytest.raises(RuntimeError, match="GEMINI_API_KEY is not configured"):
+        generate_tts_audio(
+            content="Hello world",
+            audio_type=PlanAudioType.RECITATION,
+            language="en",
+        )
+
+
 @patch("google.genai.Client")
 @patch("pecha_api.plans.audio.tts_service.get", return_value="test-api-key")
 def test_generate_tts_audio_raises_when_no_candidates(mock_get, mock_client_cls):

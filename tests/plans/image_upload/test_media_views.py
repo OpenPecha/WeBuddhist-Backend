@@ -1,4 +1,5 @@
 import io
+import uuid
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
@@ -7,13 +8,19 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import UploadFile, HTTPException
 from starlette import status
 
-from pecha_api.plans.media.media_response_models import PlanUploadResponse, ImageUrlModel, TextImageUploadResponse
+from pecha_api.plans.media.media_response_models import (
+    PlanUploadResponse,
+    ImageUrlModel,
+    TextImageUploadResponse,
+    PlanDayAudioUploadResponse,
+)
 from pecha_api.plans.response_message import (
     IMAGE_UPLOAD_SUCCESS,
+    AUDIO_UPLOAD_SUCCESS,
     INVALID_FILE_FORMAT,
     FILE_TOO_LARGE,
     UNEXPECTED_ERROR_UPLOAD,
-    AUTHOR_NOT_FOUND
+    AUTHOR_NOT_FOUND,
 )
 
 
@@ -147,6 +154,20 @@ def mock_text_upload_service():
 
 
 @pytest.fixture
+def mock_day_audio_upload_service():
+    """Mock the day audio upload service with success response"""
+    with patch("pecha_api.plans.media.media_views.upload_plan_day_audio") as mock_func:
+        mock_func.return_value = PlanDayAudioUploadResponse(
+            plan_item_id="day-item-123",
+            audio_key="audio/day.mp3",
+            audio_url="https://audio.example.com/day.mp3",
+            duration_ms=120000,
+            message=AUDIO_UPLOAD_SUCCESS,
+        )
+        yield mock_func
+
+
+@pytest.fixture
 def media_app():
     """Create a minimal FastAPI app including only the media router."""
     from pecha_api.plans.media import media_views
@@ -267,38 +288,73 @@ class TestMediaUploadSuccess:
         assert response.status_code == status.HTTP_201_CREATED
 
 
-class TestSubtaskAudioUploadSuccess:
-    def test_upload_subtask_audio_success(self, authenticated_client):
-        sub_task_id = "550e8400-e29b-41d4-a716-446655440000"
-        mock_response = MagicMock()
-        mock_response.sub_task_id = sub_task_id
-        mock_response.task_id = "660e8400-e29b-41d4-a716-446655440001"
-        mock_response.audio_key = "audio/plan_subtasks/task/sub.mp3"
-        mock_response.audio_url = "https://audio.url"
-        mock_response.duration_ms = 30000
-        mock_response.message = "Sub task audio uploaded successfully"
+class TestDayAudioUploadSuccess:
+    """Test cases for successful day audio upload scenarios"""
 
-        with patch(
-            "pecha_api.plans.media.media_views.upload_plan_subtask_audio",
-            return_value=mock_response,
-        ) as mock_upload:
-            files = [TestDataFactory.create_test_file(filename="subtask.mp3", content_type="audio/mpeg")]
-            headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
-            params = {"sub_task_id": sub_task_id}
+    def test_upload_day_audio_success(self, authenticated_client, mock_day_audio_upload_service):
+        day_id = str(uuid.uuid4())
+        files = [("file", ("day.mp3", b"fake_audio_content", "audio/mpeg"))]
+        headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+        data = {"duration_ms": "120000"}
 
-            response = authenticated_client.post(
-                "/cms/media/upload/subtask-audio",
-                files=files,
-                headers=headers,
-                params=params,
-            )
+        response = authenticated_client.post(
+            "/cms/media/upload/day-audio",
+            files=files,
+            headers=headers,
+            params={"day_id": day_id},
+            data=data,
+        )
 
-            assert response.status_code == status.HTTP_201_CREATED
-            response_data = response.json()
-            assert response_data["sub_task_id"] == sub_task_id
-            assert response_data["audio_url"] == "https://audio.url"
-            assert response_data["duration_ms"] == 30000
-            mock_upload.assert_called_once()
+        assert response.status_code == status.HTTP_201_CREATED
+        response_data = response.json()
+        assert response_data["message"] == AUDIO_UPLOAD_SUCCESS
+        assert response_data["audio_key"] == "audio/day.mp3"
+        assert response_data["audio_url"] == "https://audio.example.com/day.mp3"
+        assert response_data["duration_ms"] == 120000
+        mock_day_audio_upload_service.assert_called_once()
+
+    def test_upload_day_audio_without_duration(self, authenticated_client, mock_day_audio_upload_service):
+        day_id = str(uuid.uuid4())
+        files = [("file", ("day.mp3", b"fake_audio_content", "audio/mpeg"))]
+        headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+
+        response = authenticated_client.post(
+            "/cms/media/upload/day-audio",
+            files=files,
+            headers=headers,
+            params={"day_id": day_id},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        mock_day_audio_upload_service.assert_called_once()
+
+
+class TestDayAudioUploadValidation:
+    """Test cases for day audio upload validation"""
+
+    def test_upload_day_audio_missing_day_id(self, authenticated_client):
+        files = [("file", ("day.mp3", b"fake_audio_content", "audio/mpeg"))]
+        headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+
+        response = authenticated_client.post(
+            "/cms/media/upload/day-audio",
+            files=files,
+            headers=headers,
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_upload_day_audio_missing_file(self, authenticated_client):
+        day_id = str(uuid.uuid4())
+        headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+
+        response = authenticated_client.post(
+            "/cms/media/upload/day-audio",
+            headers=headers,
+            params={"day_id": day_id},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 class TestTextMediaUploadSuccess:
