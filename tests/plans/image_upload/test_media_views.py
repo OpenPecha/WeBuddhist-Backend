@@ -1,4 +1,5 @@
 import io
+import uuid
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
 from fastapi.testclient import TestClient
@@ -7,13 +8,19 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import UploadFile, HTTPException
 from starlette import status
 
-from pecha_api.plans.media.media_response_models import PlanUploadResponse, ImageUrlModel, TextImageUploadResponse
+from pecha_api.plans.media.media_response_models import (
+    PlanUploadResponse,
+    ImageUrlModel,
+    TextImageUploadResponse,
+    PlanDayAudioUploadResponse,
+)
 from pecha_api.plans.response_message import (
     IMAGE_UPLOAD_SUCCESS,
+    AUDIO_UPLOAD_SUCCESS,
     INVALID_FILE_FORMAT,
     FILE_TOO_LARGE,
     UNEXPECTED_ERROR_UPLOAD,
-    AUTHOR_NOT_FOUND
+    AUTHOR_NOT_FOUND,
 )
 
 
@@ -147,6 +154,20 @@ def mock_text_upload_service():
 
 
 @pytest.fixture
+def mock_day_audio_upload_service():
+    """Mock the day audio upload service with success response"""
+    with patch("pecha_api.plans.media.media_views.upload_plan_day_audio") as mock_func:
+        mock_func.return_value = PlanDayAudioUploadResponse(
+            plan_item_id="day-item-123",
+            audio_key="audio/day.mp3",
+            audio_url="https://audio.example.com/day.mp3",
+            duration_ms=120000,
+            message=AUDIO_UPLOAD_SUCCESS,
+        )
+        yield mock_func
+
+
+@pytest.fixture
 def media_app():
     """Create a minimal FastAPI app including only the media router."""
     from pecha_api.plans.media import media_views
@@ -265,6 +286,75 @@ class TestMediaUploadSuccess:
         response = authenticated_client.post("/cms/media/upload", files=files, headers=headers, params=params)
         
         assert response.status_code == status.HTTP_201_CREATED
+
+
+class TestDayAudioUploadSuccess:
+    """Test cases for successful day audio upload scenarios"""
+
+    def test_upload_day_audio_success(self, authenticated_client, mock_day_audio_upload_service):
+        day_id = str(uuid.uuid4())
+        files = [("file", ("day.mp3", b"fake_audio_content", "audio/mpeg"))]
+        headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+        data = {"duration_ms": "120000"}
+
+        response = authenticated_client.post(
+            "/cms/media/upload/day-audio",
+            files=files,
+            headers=headers,
+            params={"day_id": day_id},
+            data=data,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        response_data = response.json()
+        assert response_data["message"] == AUDIO_UPLOAD_SUCCESS
+        assert response_data["audio_key"] == "audio/day.mp3"
+        assert response_data["audio_url"] == "https://audio.example.com/day.mp3"
+        assert response_data["duration_ms"] == 120000
+        mock_day_audio_upload_service.assert_called_once()
+
+    def test_upload_day_audio_without_duration(self, authenticated_client, mock_day_audio_upload_service):
+        day_id = str(uuid.uuid4())
+        files = [("file", ("day.mp3", b"fake_audio_content", "audio/mpeg"))]
+        headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+
+        response = authenticated_client.post(
+            "/cms/media/upload/day-audio",
+            files=files,
+            headers=headers,
+            params={"day_id": day_id},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        mock_day_audio_upload_service.assert_called_once()
+
+
+class TestDayAudioUploadValidation:
+    """Test cases for day audio upload validation"""
+
+    def test_upload_day_audio_missing_day_id(self, authenticated_client):
+        files = [("file", ("day.mp3", b"fake_audio_content", "audio/mpeg"))]
+        headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+
+        response = authenticated_client.post(
+            "/cms/media/upload/day-audio",
+            files=files,
+            headers=headers,
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_upload_day_audio_missing_file(self, authenticated_client):
+        day_id = str(uuid.uuid4())
+        headers = {"Authorization": f"Bearer {VALID_TOKEN}"}
+
+        response = authenticated_client.post(
+            "/cms/media/upload/day-audio",
+            headers=headers,
+            params={"day_id": day_id},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 class TestTextMediaUploadSuccess:

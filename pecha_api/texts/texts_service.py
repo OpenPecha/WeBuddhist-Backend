@@ -264,6 +264,12 @@ async def get_table_of_contents_by_text_id(text_id: str, language: str = None, s
     
     if language is None:
         language = get("DEFAULT_LANGUAGE")
+
+    cached_data: TableOfContentResponse = await get_table_of_contents_by_text_id_cache(
+        text_id=text_id, language=language, skip=skip, limit=limit, cache_type=CacheType.TEXT_TABLE_OF_CONTENTS
+    )
+    if cached_data is not None:
+        return cached_data
     
     is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
     if not is_valid_text:
@@ -290,7 +296,11 @@ async def get_table_of_contents_by_text_id(text_id: str, language: str = None, s
             for content in table_of_contents
         ]
     )
-    
+
+    await set_table_of_contents_by_text_id_cache(
+        text_id=text_id, language=language, skip=skip, limit=limit,
+        data=response, cache_type=CacheType.TEXT_TABLE_OF_CONTENTS
+    )
     return response
 
 def _get_paginated_sections(sections: List[Section], skip: int, limit: int) -> List[Section]:
@@ -396,15 +406,15 @@ async def get_text_versions_by_group_id(text_id: str, language: str, skip: int, 
     if language is None:
         language = get("DEFAULT_LANGUAGE")
     
-    # cached_data: TextVersionResponse = await get_text_versions_by_group_id_cache(
-    #     text_id = text_id,
-    #     language = language,
-    #     skip = skip,
-    #     limit = limit,
-    #     cache_type = CacheType.TEXT_VERSIONS
-    # )
-    # if cached_data is not None:
-    #     return cached_data
+    cached_data: TextVersionResponse = await get_text_versions_by_group_id_cache(
+        text_id=text_id,
+        language=language,
+        skip=skip,
+        limit=limit,
+        cache_type=CacheType.TEXT_VERSIONS
+    )
+    if cached_data is not None:
+        return cached_data
 
     root_text = await TextUtils.get_text_detail_by_id(text_id=text_id)
     group_id = root_text.group_id

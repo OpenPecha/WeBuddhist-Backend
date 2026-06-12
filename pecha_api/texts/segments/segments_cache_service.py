@@ -44,8 +44,8 @@ async def set_segment_info_by_id_cache(segment_id: str = None, cache_type: Cache
     cache_time_out = config.get_int("CACHE_TEXT_TIMEOUT")
     await set_cache(hash_key=hashed_key, value=data, cache_time_out=cache_time_out)
 
-async def get_segment_root_mapping_by_id_cache(segment_id: str = None) -> SegmentRootMappingResponse:
-    payload = [segment_id]
+async def get_segment_root_mapping_by_id_cache(segment_id: str = None, cache_type: CacheType = None) -> SegmentRootMappingResponse:
+    payload = [segment_id, cache_type]
     hashed_key: str = Utils.generate_hash_key(payload = payload)
     cache_data: SegmentRootMappingResponse = await get_cache_data(hash_key = hashed_key)
     if cache_data and isinstance(cache_data, dict):
@@ -58,8 +58,8 @@ async def set_segment_root_mapping_by_id_cache(segment_id: str = None, cache_typ
     cache_time_out = config.get_int("CACHE_TEXT_TIMEOUT")
     await set_cache(hash_key=hashed_key, value=data, cache_time_out=cache_time_out)
 
-async def get_segment_translations_by_id_cache(segment_id: str = None) -> SegmentTranslationsResponse:
-    payload = [segment_id]
+async def get_segment_translations_by_id_cache(segment_id: str = None, cache_type: CacheType = None) -> SegmentTranslationsResponse:
+    payload = [segment_id, cache_type]
     hashed_key: str = Utils.generate_hash_key(payload = payload)
     cache_data: SegmentTranslationsResponse = await get_cache_data(hash_key = hashed_key)
     if cache_data and isinstance(cache_data, dict):
@@ -72,8 +72,8 @@ async def set_segment_translations_by_id_cache(segment_id: str = None, cache_typ
     cache_time_out = config.get_int("CACHE_TEXT_TIMEOUT")
     await set_cache(hash_key=hashed_key, value=data, cache_time_out=cache_time_out)
 
-async def get_segment_commentaries_by_id_cache(segment_id: str = None) -> SegmentCommentariesResponse:
-    payload = [segment_id]
+async def get_segment_commentaries_by_id_cache(segment_id: str = None, cache_type: CacheType = None) -> SegmentCommentariesResponse:
+    payload = [segment_id, cache_type]
     hashed_key: str = Utils.generate_hash_key(payload = payload)
     cache_data: SegmentCommentariesResponse = await get_cache_data(hash_key = hashed_key)
     if cache_data and isinstance(cache_data, dict):
