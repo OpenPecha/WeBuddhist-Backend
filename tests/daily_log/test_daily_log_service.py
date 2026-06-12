@@ -152,8 +152,7 @@ async def test_get_user_streak_service_returns_streak():
 
     with patch("pecha_api.daily_log.daily_log_service.validate_and_extract_user_details", return_value=mock_user), \
          patch("pecha_api.daily_log.daily_log_service.SessionLocal", return_value=mock_db), \
-         patch("pecha_api.daily_log.daily_log_service.get_user_log_dates", return_value={today, today - timedelta(days=1)}), \
-         patch("pecha_api.daily_log.daily_log_service._utc_today", return_value=today):
+         patch("pecha_api.daily_log.daily_log_service.get_user_streak", return_value=2):
         result = await get_user_streak_service(token="test_token")
 
         assert result.streak == 2

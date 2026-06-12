@@ -40,7 +40,7 @@ def test_generate_tts_audio_rejects_empty_content():
         generate_tts_audio(content="   ", audio_type=PlanAudioType.RECITATION)
 
 
-@patch("pecha_api.plans.audio.tts_service.genai.Client")
+@patch("google.genai.Client")
 @patch("pecha_api.plans.audio.tts_service.get", return_value="test-api-key")
 def test_generate_tts_audio_success(mock_get, mock_client_cls):
     audio_data = b"\x00\x01\x02\x03"
@@ -61,7 +61,7 @@ def test_generate_tts_audio_success(mock_get, mock_client_cls):
     mock_client.models.generate_content.assert_called_once()
 
 
-@patch("pecha_api.plans.audio.tts_service.genai.Client")
+@patch("google.genai.Client")
 @patch("pecha_api.plans.audio.tts_service.get", return_value="test-api-key")
 def test_generate_tts_audio_raises_when_no_candidates(mock_get, mock_client_cls):
     mock_client = MagicMock()

@@ -64,6 +64,32 @@ class TableOfContent(Document):
             contents.sections = contents.sections[skip * limit:skip+limit]
         return contents
 
+    @classmethod
+    async def find_table_of_content_with_segment(
+        cls,
+        text_id: str,
+        segment_id: str,
+    ) -> Optional["TableOfContent"]:
+        from pecha_api.texts.texts_toc_utils import section_contains_segment
+
+        async for table_of_content in cls.find(cls.text_id == text_id):
+            if section_contains_segment(table_of_content.sections, segment_id):
+                return table_of_content
+        return None
+
+    @classmethod
+    async def get_first_segment_table_of_content(
+        cls,
+        text_id: str,
+    ) -> tuple[Optional[str], Optional["TableOfContent"]]:
+        from pecha_api.texts.texts_toc_utils import find_first_segment_in_sections
+
+        async for table_of_content in cls.find(cls.text_id == text_id):
+            segment_id = find_first_segment_in_sections(table_of_content.sections)
+            if segment_id:
+                return segment_id, table_of_content
+        return None, None
+
 
 class Text(Document):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)

@@ -107,6 +107,28 @@ async def get_related_mapped_segments(parent_segment_id: str) -> List[SegmentDTO
         return []
 
 
+async def get_segment_contents_by_ids(segment_ids: List[str]) -> Dict[str, tuple[str, str]]:
+    try:
+        return await Segment.get_segment_contents_by_ids(segment_ids=segment_ids)
+    except CollectionWasNotInitialized as e:
+        logging.debug(e)
+        return {}
+
+
+async def get_version_translation_contents_by_parent_ids(
+    parent_segment_ids: List[str],
+    version_text_id: str,
+) -> Dict[str, str]:
+    try:
+        return await Segment.get_version_translation_contents_by_parent_ids(
+            parent_segment_ids=parent_segment_ids,
+            version_text_id=version_text_id,
+        )
+    except CollectionWasNotInitialized as e:
+        logging.debug(e)
+        return {}
+
+
 async def get_related_mapped_segments_batch(
     parent_segment_ids: List[str]
 ) -> Dict[str, List[SegmentDTO]]:

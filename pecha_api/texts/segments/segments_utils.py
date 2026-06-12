@@ -2,7 +2,6 @@ from typing import Dict, List, Optional, Union
 from uuid import UUID
 from fastapi import HTTPException
 from starlette import status
-import bophono
 
 
 from pecha_api.error_contants import ErrorConstants
@@ -13,6 +12,10 @@ from .segments_repository import (
     check_all_segment_exists,
     get_segment_by_id,
     get_related_mapped_segments,
+    get_segments_by_ids,
+    get_related_mapped_segments_batch,
+    get_segment_contents_by_ids,
+    get_version_translation_contents_by_parent_ids,
 )
 from ..texts_response_models import TextDTO
 from ..texts_repository import get_contents_by_text_ids
@@ -212,24 +215,50 @@ class SegmentUtils:
         table_of_content: TableOfContent, version_id: Optional[str]
     ) -> DetailTableOfContent:
         """
-        Convert a TableOfContent model to a DetailTableOfContent model by enriching
-        each segment with detailed information fetched from get_segment_details_by_id.
-        
-        Args:
-            table_of_content: The TableOfContent model to be converted
-            
-        Returns:
-            A DetailTableOfContent model with enriched segment details
+        Convert a TableOfContent to a DetailTableOfContent by enriching each segment
+        with content and optional translation. Uses batch DB calls to avoid N+1 queries.
         """
-        
-        # Create a new DetailTableOfContent with the same base attributes
-        detail_table_of_content = DetailTableOfContent(
-            id=str(table_of_content.id) if table_of_content.id else None,
-            text_id=table_of_content.text_id,
-            sections=[]
-        )
-        
-        async def process_section(section) -> DetailSection:
+
+        # Collect every segment_id referenced in the TOC (across all nested sections).
+        all_segment_ids: List[str] = []
+
+        def _collect_ids(section) -> None:
+            for seg in section.segments:
+                segment_ref = seg.segment_id or seg.pecha_segment_id
+                if segment_ref:
+                    all_segment_ids.append(segment_ref)
+            if section.sections:
+                for sub in section.sections:
+                    _collect_ids(sub)
+
+        for section in table_of_content.sections:
+            _collect_ids(section)
+
+        segment_contents = await get_segment_contents_by_ids(segment_ids=all_segment_ids)
+
+        version_text_detail = None
+        translation_contents: Dict[str, str] = {}
+
+        if version_id is not None:
+            version_text_detail = await TextUtils.get_text_details_by_id(text_id=version_id)
+            translation_contents = await get_version_translation_contents_by_parent_ids(
+                parent_segment_ids=all_segment_ids,
+                version_text_id=version_id,
+            )
+
+        def _build_translation(parent_segment_id: str) -> Optional[Translation]:
+            if version_text_detail is None:
+                return None
+            translation_content = translation_contents.get(parent_segment_id)
+            if translation_content is None:
+                return None
+            return Translation(
+                text_id=version_id,
+                language=version_text_detail.language,
+                content=translation_content,
+            )
+
+        def _process_section(section) -> DetailSection:
             detail_section = DetailSection(
                 id=section.id,
                 title=section.title,
@@ -241,47 +270,37 @@ class SegmentUtils:
                 updated_date=section.updated_date,
                 published_date=section.published_date,
             )
-            # Process segments
-            for segment in section.segments:
-                segment_details = await get_segment_by_id(segment_id=segment.segment_id)
-                translation = None
-                if version_id is not None:
-                    version_text_detail = await TextUtils.get_text_details_by_id(text_id=version_id)
-                    segments = await get_related_mapped_segments(parent_segment_id=segment.segment_id)
-                    filtered_translation_by_version_id = await SegmentUtils.filter_segment_mapping_by_type_or_text_id(
-                        segments=segments,
-                        type=TextType.VERSION.value,
-                        text_id=version_id #pass the version_id so that only the mapping with a particular text_id is selected
+
+            for seg_ref in section.segments:
+                segment_ref = seg_ref.segment_id or seg_ref.pecha_segment_id
+                segment_content = segment_contents.get(segment_ref) if segment_ref else None
+                if not segment_content:
+                    continue
+
+                _, content = segment_content
+                translation = _build_translation(segment_ref) if version_id else None
+
+                detail_section.segments.append(
+                    DetailTextSegment(
+                        segment_id=seg_ref.segment_id or segment_ref,
+                        segment_number=seg_ref.segment_number,
+                        content=content,
+                        translation=translation,
                     )
-                    if filtered_translation_by_version_id:
-                        translation = Translation(
-                            text_id=filtered_translation_by_version_id[0].text_id,
-                            language=version_text_detail.language,
-                            content=filtered_translation_by_version_id[0].content
-                        )
-                # Create DetailTextSegment with enriched information
-                detail_segment = DetailTextSegment(
-                    segment_id=segment.segment_id,
-                    segment_number=segment.segment_number,
-                    content=segment_details.content,
-                    translation=translation
                 )
-                
-                detail_section.segments.append(detail_segment)
-            
-            # Process nested sections recursively
+
             if section.sections:
                 for subsection in section.sections:
-                    detail_subsection = await process_section(subsection)
-                    detail_section.sections.append(detail_subsection)
-            
+                    detail_section.sections.append(_process_section(subsection))
+
             return detail_section
-        
-        # Process all top-level sections
-        for section in table_of_content.sections:
-            detail_section = await process_section(section)
-            detail_table_of_content.sections.append(detail_section)
-        
+
+        detail_table_of_content = DetailTableOfContent(
+            id=str(table_of_content.id) if table_of_content.id else None,
+            text_id=table_of_content.text_id,
+            sections=[_process_section(section) for section in table_of_content.sections],
+        )
+
         return detail_table_of_content
     
     @staticmethod

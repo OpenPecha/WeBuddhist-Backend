@@ -23,12 +23,10 @@ def _make_session_mock() -> Session:
     return MagicMock(spec=Session)
 
 
-def _paginated_query_chain(rows, total, *, with_filter=True, plan_counts=None, enrolled_counts=None):
+def _paginated_query_chain(rows, total, *, with_filter=True, plan_counts=None):
     if plan_counts is None:
         plan_counts = [0] * len(rows)
-    if enrolled_counts is None:
-        enrolled_counts = [0] * len(rows)
-    query_rows = list(zip(rows, plan_counts, enrolled_counts))
+    query_rows = list(zip(rows, plan_counts))
     query_mock = MagicMock()
     options_mock = MagicMock()
     target = options_mock.filter.return_value if with_filter else options_mock
@@ -73,8 +71,8 @@ def test_get_series_paginated_no_search_returns_rows_and_total():
 
     assert total == 2
     assert rows == [(row1, 0, 0), (row2, 0, 0)]
-    db.query.assert_called_once()
-    assert db.query.call_args.args[0] is Series
+    assert db.query.call_count == 2
+    assert db.query.call_args_list[0].args[0] is Series
     db.query.return_value.options.return_value.filter.return_value.count.assert_called_once()
     db.query.return_value.options.return_value.filter.return_value.order_by.assert_called_once()
 

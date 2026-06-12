@@ -24,23 +24,6 @@ def _series_active_plans_count_subquery(published_only: bool = False):
     )
 
 
-def _series_enrolled_count_subquery():
-    """Distinct users with an ACTIVE enrollment in the series itself.
-
-    Counts ``UserSeriesEnrollment`` rows (the series-subscribe action), not
-    per-plan progress, and only those currently ACTIVE.
-    """
-    return (
-        select(func.count(func.distinct(UserSeriesEnrollment.user_id)))
-        .where(
-            UserSeriesEnrollment.series_id == Series.id,
-            UserSeriesEnrollment.status == SeriesStatus.ACTIVE,
-        )
-        .correlate(Series)
-        .scalar_subquery()
-    )
-
-
 def get_enrolled_count_map_by_series_ids(
     db: Session,
     series_ids: Sequence[UUID],
@@ -325,8 +308,7 @@ def get_series_paginated(
         filters.append(Series.group_id.in_(group_ids))
 
     plan_count = _series_active_plans_count_subquery(published_only=published_only).label("plan_count")
-    enrolled_count = _series_enrolled_count_subquery().label("enrolled_count")
-    query = db.query(Series, plan_count, enrolled_count).options(
+    query = db.query(Series, plan_count).options(
         selectinload(Series.metadata_entries)
     )
     if filters:
@@ -342,8 +324,13 @@ def get_series_paginated(
     else:
         query = query.order_by(asc(order_by_field), Series.id)
 
+    page_rows = query.offset(skip).limit(limit).all()
+    enrolled_map = get_enrolled_count_map_by_series_ids(
+        db=db,
+        series_ids=[series.id for series, _ in page_rows],
+    )
     rows = [
-        (series, int(count or 0), int(enrolled or 0))
-        for series, count, enrolled in query.offset(skip).limit(limit).all()
+        (series, int(count or 0), enrolled_map.get(series.id, 0))
+        for series, count in page_rows
     ]
     return rows, total

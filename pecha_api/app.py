@@ -3,6 +3,7 @@ from starlette import status
 from fastapi.middleware.cors import CORSMiddleware
 
 from pecha_api.auth.auth_service import retrieve_client_info
+from pecha_api.middleware.request_observability import RequestObservabilityMiddleware
 
 from pecha_api.db.mongo_database import lifespan
 from pecha_api.auth import auth_views
@@ -130,6 +131,7 @@ api.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+api.add_middleware(RequestObservabilityMiddleware)
 
 @api.get("/props", status_code=status.HTTP_200_OK)
 async def get_props():

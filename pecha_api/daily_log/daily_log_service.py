@@ -8,7 +8,7 @@ from pecha_api.daily_log.daily_log_cache_service import (
     set_user_daily_log_cache,
 )
 from pecha_api.daily_log.daily_log_repository import (
-    get_user_log_dates,
+    get_user_streak,
     has_log_for_date,
     save_daily_log,
 )
@@ -60,8 +60,9 @@ async def record_daily_log_if_needed(user_id: UUID) -> None:
 
 async def get_user_streak_service(token: str) -> UserStreakResponse:
     current_user = validate_and_extract_user_details(token=token)
+    today = _utc_today()
 
     with SessionLocal() as db:
-        log_dates = get_user_log_dates(db=db, user_id=current_user.id)
+        streak = get_user_streak(db=db, user_id=current_user.id, today=today)
 
-    return UserStreakResponse(streak=calculate_streak(log_dates=log_dates))
+    return UserStreakResponse(streak=streak)

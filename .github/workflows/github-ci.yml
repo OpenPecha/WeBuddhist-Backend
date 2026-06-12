@@ -60,12 +60,14 @@ jobs:
         run: |
           echo "Image Name: ${{ env.IMAGE_NAME }}"
           echo "Image Tag: ${{ env.IMAGE_TAG }}"
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Build and push Docker image to GHCR
+      - name: Build Docker image in Github container registry
         run: |
           lower_owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          docker buildx build --push -t ghcr.io/$lower_owner/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+          docker build -t ghcr.io/$lower_owner/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} .
+      - name: Push Docker image to GHCR
+        run: |
+          lower_owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          docker push ghcr.io/$lower_owner/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
 
   sonarqube:
     name: SonarQube Scan

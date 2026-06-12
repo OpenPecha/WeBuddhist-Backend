@@ -149,3 +149,106 @@ class Segment(Document):
                                 result[parent_id].append(segment)
         
         return result
+
+    @staticmethod
+    def _partition_segment_identifiers(
+        segment_ids: List[str],
+    ) -> tuple[List[uuid.UUID], List[str]]:
+        segment_uuids: List[uuid.UUID] = []
+        pecha_segment_ids: List[str] = []
+        seen_uuids: set[uuid.UUID] = set()
+        seen_pecha_ids: set[str] = set()
+
+        for segment_id in segment_ids:
+            if not segment_id:
+                continue
+            try:
+                parsed_uuid = uuid.UUID(segment_id)
+            except ValueError:
+                if segment_id not in seen_pecha_ids:
+                    pecha_segment_ids.append(segment_id)
+                    seen_pecha_ids.add(segment_id)
+                continue
+
+            if parsed_uuid not in seen_uuids:
+                segment_uuids.append(parsed_uuid)
+                seen_uuids.add(parsed_uuid)
+
+        return segment_uuids, pecha_segment_ids
+
+    @classmethod
+    async def _load_projected_segment_contents(
+        cls,
+        *,
+        segment_uuids: List[uuid.UUID],
+        pecha_segment_ids: List[str],
+    ) -> Dict[str, tuple[str, str]]:
+        contents: Dict[str, tuple[str, str]] = {}
+
+        if segment_uuids:
+            segments = await cls.find({"_id": {"$in": segment_uuids}}).to_list()
+            for segment in segments:
+                contents[str(segment.id)] = (segment.text_id, segment.content)
+
+        if pecha_segment_ids:
+            cursor = cls.get_motor_collection().find(
+                {"pecha_segment_id": {"$in": pecha_segment_ids}},
+                {"text_id": 1, "content": 1, "pecha_segment_id": 1},
+            )
+            async for document in cursor:
+                pecha_segment_id = document.get("pecha_segment_id")
+                if not pecha_segment_id:
+                    continue
+                contents[pecha_segment_id] = (
+                    document.get("text_id", ""),
+                    document.get("content", ""),
+                )
+
+        return contents
+
+    @classmethod
+    async def get_segment_contents_by_ids(
+        cls,
+        segment_ids: List[str],
+    ) -> Dict[str, tuple[str, str]]:
+        """Fetch only text_id and content for Mongo UUID or pecha segment identifiers."""
+        if not segment_ids:
+            return {}
+
+        segment_uuids, pecha_segment_ids = cls._partition_segment_identifiers(segment_ids)
+        return await cls._load_projected_segment_contents(
+            segment_uuids=segment_uuids,
+            pecha_segment_ids=pecha_segment_ids,
+        )
+
+    @classmethod
+    async def get_version_translation_contents_by_parent_ids(
+        cls,
+        parent_segment_ids: List[str],
+        version_text_id: str,
+    ) -> Dict[str, str]:
+        """Map parent segment id -> translation content for a specific version text."""
+        if not parent_segment_ids or not version_text_id:
+            return {}
+
+        query = {
+            "text_id": version_text_id,
+            "mapping": {
+                "$elemMatch": {
+                    "segments": {"$in": parent_segment_ids},
+                }
+            },
+        }
+        cursor = cls.get_motor_collection().find(
+            query,
+            {"content": 1, "mapping": 1},
+        )
+
+        translations: Dict[str, str] = {}
+        async for document in cursor:
+            content = document.get("content", "")
+            for mapping in document.get("mapping") or []:
+                for parent_id in mapping.get("segments") or []:
+                    if parent_id in parent_segment_ids and parent_id not in translations:
+                        translations[parent_id] = content
+        return translations

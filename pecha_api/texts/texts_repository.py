@@ -206,6 +206,17 @@ async def get_table_of_content_by_content_id(content_id: str, skip: int = None, 
     return await TableOfContent.get_table_of_content_by_content_id(content_id=content_id, skip=skip, limit=limit)
 
 
+async def find_table_of_content_with_segment(text_id: str, segment_id: str) -> Optional[TableOfContent]:
+    return await TableOfContent.find_table_of_content_with_segment(
+        text_id=text_id,
+        segment_id=segment_id,
+    )
+
+
+async def get_first_segment_table_of_content(text_id: str) -> tuple[Optional[str], Optional[TableOfContent]]:
+    return await TableOfContent.get_first_segment_table_of_content(text_id=text_id)
+
+
 async def delete_table_of_content_by_text_id(text_id: str):
     return await TableOfContent.delete_table_of_content_by_text_id(text_id=text_id)
 

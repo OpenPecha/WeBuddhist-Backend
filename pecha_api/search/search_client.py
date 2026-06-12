@@ -1,11 +1,17 @@
-from elasticsearch import AsyncElasticsearch
+from typing import TYPE_CHECKING
+
 from ..config import get
 from pecha_api.error_contants import ErrorConstants
 from fastapi import HTTPException
 
+if TYPE_CHECKING:
+    from elasticsearch import AsyncElasticsearch
+
 _search_client = None
 
-def search_client() -> AsyncElasticsearch:
+def search_client() -> "AsyncElasticsearch":
+    from elasticsearch import AsyncElasticsearch
+
     try:
         global _search_client
         if _search_client is None:
