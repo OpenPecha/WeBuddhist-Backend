@@ -38,3 +38,29 @@ class UpdateTimerRequest(BaseModel):
     description: Optional[str] = None
     duration: Optional[int] = None
     audio_url: Optional[str] = None
+
+
+class RecordTimerStopRequest(BaseModel):
+    timer_id: UUID
+    duration: int
+
+
+class TimerSessionDTO(BaseModel):
+    duration: int
+    created_at: datetime
+
+
+class TimerHistoryDTO(BaseModel):
+    timer_id: UUID
+    name: str
+    description: Optional[str] = None
+    actual_duration: int
+    total_time_spent: int
+    sessions: List[TimerSessionDTO]
+
+
+class TimerHistoryResponse(BaseModel):
+    timers: List[TimerHistoryDTO]
+    total: int
+    skip: int
+    limit: int
