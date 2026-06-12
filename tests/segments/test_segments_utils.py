@@ -362,6 +362,47 @@ async def test_get_segment_root_mapping_details_success():
         assert response[0].segments[0].content == "content"
           
 @pytest.mark.asyncio
+async def test_mapped_segment_content_for_table_of_content_with_pecha_segment_id_success():
+    table_of_content = TableOfContent(
+        id="efb26a06-f373-450b-ba57-e7a8d4dd5b64",
+        text_id="5f3c2e9d-9b7a-4f5e-8e2a-6a8b7c9d4e0f",
+        type=TableOfContentType.TEXT,
+        sections=[
+            Section(
+                id="123e4567-e89b-12d3-a456-426614174000",
+                title="title",
+                section_number=1,
+                parent_id=None,
+                segments=[
+                    TextSegment(
+                        segment_id=None,
+                        pecha_segment_id="pecha-seg-123",
+                        segment_number=1,
+                    )
+                ],
+                sections=[],
+                created_date="created_date",
+                updated_date="updated_date",
+                published_date="published_date",
+            )
+        ],
+    )
+
+    with patch(
+        "pecha_api.texts.segments.segments_utils.get_segment_contents_by_ids",
+        new_callable=AsyncMock,
+        return_value={"pecha-seg-123": ("text-id-1", "pecha content")},
+    ):
+        response = await SegmentUtils.get_mapped_segment_content_for_table_of_content(
+            table_of_content=table_of_content,
+            version_id=None,
+        )
+
+    assert response.sections[0].segments[0].content == "pecha content"
+    assert response.sections[0].segments[0].segment_id == "pecha-seg-123"
+
+
+@pytest.mark.asyncio
 async def test_mapped_segment_content_for_table_of_content_without_version_id_success():
     table_of_content = TableOfContent(
         id="efb26a06-f373-450b-ba57-e7a8d4dd5b64",

@@ -224,8 +224,9 @@ class SegmentUtils:
 
         def _collect_ids(section) -> None:
             for seg in section.segments:
-                if seg.segment_id:
-                    all_segment_ids.append(seg.segment_id)
+                segment_ref = seg.segment_id or seg.pecha_segment_id
+                if segment_ref:
+                    all_segment_ids.append(segment_ref)
             if section.sections:
                 for sub in section.sections:
                     _collect_ids(sub)
@@ -271,16 +272,17 @@ class SegmentUtils:
             )
 
             for seg_ref in section.segments:
-                segment_content = segment_contents.get(seg_ref.segment_id)
+                segment_ref = seg_ref.segment_id or seg_ref.pecha_segment_id
+                segment_content = segment_contents.get(segment_ref) if segment_ref else None
                 if not segment_content:
                     continue
 
                 _, content = segment_content
-                translation = _build_translation(seg_ref.segment_id) if version_id else None
+                translation = _build_translation(segment_ref) if version_id else None
 
                 detail_section.segments.append(
                     DetailTextSegment(
-                        segment_id=seg_ref.segment_id,
+                        segment_id=seg_ref.segment_id or segment_ref,
                         segment_number=seg_ref.segment_number,
                         content=content,
                         translation=translation,
