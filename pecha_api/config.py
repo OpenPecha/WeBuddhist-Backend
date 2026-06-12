@@ -88,6 +88,11 @@ DEFAULTS = dict(
     GROUP_INVITE_EXPIRY_MINUTES=30,
     WEBUDDHIST_EMAIL_LOGO_URL="https://studio.webuddhist.com/assets/pecha_icon-DkKJLXuA.png",
 
+    # Request observability (per-endpoint memory and latency logging)
+    REQUEST_OBSERVABILITY_ENABLED="true",
+    REQUEST_OBSERVABILITY_MEMORY_WARN_MB=50,
+    REQUEST_OBSERVABILITY_SKIP_PATHS="/health",
+
 )
 
 TIME_FORMAT_PATTERN = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
