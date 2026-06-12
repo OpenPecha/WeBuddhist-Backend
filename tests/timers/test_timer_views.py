@@ -176,6 +176,29 @@ class TestGetAllTimers:
         assert result.total == 10
         
         mock_service.assert_called_once_with(group_id=group_id, skip=5, limit=1)
+    
+    @patch('pecha_api.timers.timer_views.get_all_timers_service')
+    @pytest.mark.asyncio
+    async def test_get_all_timers_without_group_id(self, mock_service):
+        """Test get_all_timers without group_id filter (returns all timers)."""
+        timer1 = TestDataFactory.create_timer_dto(name="Timer 1")
+        timer2 = TestDataFactory.create_timer_dto(name="Timer 2")
+        
+        mock_response = TestDataFactory.create_timers_response(
+            timers=[timer1, timer2],
+            total=2,
+            skip=0,
+            limit=20
+        )
+        mock_service.return_value = mock_response
+        
+        result = await get_all_timers(group_id=None, skip=0, limit=20)
+        
+        assert isinstance(result, TimersResponse)
+        assert len(result.timers) == 2
+        assert result.total == 2
+        
+        mock_service.assert_called_once_with(group_id=None, skip=0, limit=20)
 
 
 class TestGetUserTimers:
@@ -260,6 +283,49 @@ class TestGetUserTimers:
         
         assert len(result.timers) == 0
         assert result.total == 0
+    
+    @patch('pecha_api.timers.timer_views.get_user_timers_service')
+    @patch('pecha_api.timers.timer_views.validate_and_extract_user_details')
+    @pytest.mark.asyncio
+    async def test_get_user_timers_without_group_id(self, mock_validate, mock_service):
+        """Test get_user_timers without group_id filter (returns all user timers)."""
+        user_id = uuid4()
+        token = "valid_token"
+        
+        mock_user = MagicMock()
+        mock_user.id = user_id
+        mock_validate.return_value = mock_user
+        
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        
+        timer1 = TestDataFactory.create_timer_dto(user_id=user_id, name="My Timer 1")
+        timer2 = TestDataFactory.create_timer_dto(user_id=user_id, name="My Timer 2")
+        
+        mock_response = TestDataFactory.create_timers_response(
+            timers=[timer1, timer2],
+            total=2,
+            skip=0,
+            limit=20
+        )
+        mock_service.return_value = mock_response
+        
+        result = await get_user_timers(
+            group_id=None,
+            skip=0,
+            limit=20,
+            credentials=auth_credentials
+        )
+        
+        assert isinstance(result, TimersResponse)
+        assert len(result.timers) == 2
+        
+        mock_validate.assert_called_once_with(token=token)
+        mock_service.assert_called_once_with(
+            user_id=user_id,
+            group_id=None,
+            skip=0,
+            limit=20
+        )
     
     @patch('pecha_api.timers.timer_views.validate_and_extract_user_details')
     @pytest.mark.asyncio

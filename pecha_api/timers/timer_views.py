@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 from starlette import status
 
@@ -25,7 +25,7 @@ oauth2_scheme = HTTPBearer()
 
 @timer_router.get("", response_model=TimersResponse)
 async def get_all_timers(
-    group_id: UUID = Query(..., description="Group ID to filter timers"),
+    group_id: Optional[UUID] = Query(None, description="Group ID to filter timers"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
 ):
@@ -34,7 +34,7 @@ async def get_all_timers(
 
 @timer_router.get("/user", response_model=TimersResponse)
 async def get_user_timers(
-    group_id: UUID = Query(..., description="Group ID to filter timers"),
+    group_id: Optional[UUID] = Query(None, description="Group ID to filter timers"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)] = None

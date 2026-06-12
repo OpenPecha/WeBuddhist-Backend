@@ -52,12 +52,14 @@ def delete_timer(db: Session, timer: Timer) -> None:
 
 def get_timers_by_group(
     db: Session,
-    group_id: UUID,
+    group_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 20
 ) -> Tuple[List[Timer], int]:
 
-    query = db.query(Timer).filter(Timer.group_id == group_id)
+    query = db.query(Timer)
+    if group_id:
+        query = query.filter(Timer.group_id == group_id)
     
     total = query.count()
     timers = query.order_by(Timer.created_at.desc()).offset(skip).limit(limit).all()
@@ -68,15 +70,14 @@ def get_timers_by_group(
 def get_user_timers_by_group(
     db: Session,
     user_id: UUID,
-    group_id: UUID,
+    group_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 20
 ) -> Tuple[List[Timer], int]:
 
-    query = db.query(Timer).filter(
-        Timer.user_id == user_id,
-        Timer.group_id == group_id
-    )
+    query = db.query(Timer).filter(Timer.user_id == user_id)
+    if group_id:
+        query = query.filter(Timer.group_id == group_id)
     
     total = query.count()
     timers = query.order_by(Timer.created_at.desc()).offset(skip).limit(limit).all()
