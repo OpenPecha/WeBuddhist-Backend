@@ -31,6 +31,7 @@ _CMS_MODULES = (
     "pecha_api.plans.series.series_service",
     "pecha_api.plans.audio.cms_plan_audio_service",
     "pecha_api.plans.audio.plan_day_audio_service",
+    "pecha_api.plans.audio.plan_subtask_audio_service",
     "pecha_api.plans.dashboard.dashboard_service",
 )
 
