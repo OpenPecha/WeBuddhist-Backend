@@ -2015,6 +2015,53 @@ def test_update_existing_series_pure_reorder_sends_all_plans_with_new_order():
     assert call_kwargs["plan_ids_to_detach"] == []
 
 
+def test_update_existing_series_reorder_skips_group_check_for_attached_plans():
+    """Reordering plans already in the series must not fail when plan.group_id
+    differs from series.group_id — series membership implies same group."""
+    series_id = uuid.uuid4()
+    author_id = uuid.uuid4()
+    other_group_id = uuid.uuid4()
+
+    plan_a_id = uuid.uuid4()
+    plan_b_id = uuid.uuid4()
+
+    existing_a = MagicMock()
+    existing_a.id = plan_a_id
+    existing_a.deleted_at = None
+    existing_b = MagicMock()
+    existing_b.id = plan_b_id
+    existing_b.deleted_at = None
+
+    existing = _make_existing_series(series_id, author_id, plans=[existing_a, existing_b])
+    refreshed = _make_refreshed_series(series_id, author_id)
+    mock_author = _make_mock_author(author_id)
+
+    fetched_a = MagicMock()
+    fetched_a.id = plan_a_id
+    fetched_a.deleted_at = None
+    fetched_a.series_id = series_id
+    fetched_a.author_id = author_id
+    fetched_a.group_id = other_group_id
+    fetched_b = MagicMock()
+    fetched_b.id = plan_b_id
+    fetched_b.deleted_at = None
+    fetched_b.series_id = series_id
+    fetched_b.author_id = author_id
+    fetched_b.group_id = other_group_id
+
+    request = UpdateSeriesRequest(plans={"EN": [plan_b_id, plan_a_id]})
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details", return_value=mock_author), \
+         patch("pecha_api.plans.series.series_service.get_series_by_id", side_effect=[existing, refreshed]), \
+         patch("pecha_api.plans.series.series_service.get_plans_by_ids", return_value=[fetched_a, fetched_b]), \
+         patch("pecha_api.plans.series.series_service.update_series_with_plans") as mock_update:
+        _session_local_context(mock_session_local)
+        update_existing_series(token="dummy", series_id=series_id, update_series_request=request)
+
+    mock_update.assert_called_once()
+
+
 def test_update_existing_series_multi_language_independent_ordering():
     """Each language list is numbered independently from zero."""
     series_id = uuid.uuid4()
