@@ -7,4 +7,9 @@ class TimerType(enum.Enum):
     USER = "user_created"
 
 
-TimerTypeEnum = Enum(TimerType)
+# Use values_callable to ensure PostgreSQL receives the enum values ("preset", "user_created")
+# instead of the enum names ("PRESET", "USER")
+TimerTypeEnum = Enum(
+    TimerType,
+    values_callable=lambda x: [e.value for e in x]
+)
