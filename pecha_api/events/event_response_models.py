@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from pecha_api.plans.plans_enums import LanguageCode
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 
 
 class EventMetadataDTO(BaseModel):
@@ -45,6 +46,8 @@ class EventDTO(BaseModel):
     end_date: datetime
     is_one_day: bool
     metadata: EventMetadataResponse
+    image: Optional[ImageUrlModel] = None
+    image_url: Optional[str] = None
     created_at: datetime
     created_by: str
     updated_at: Optional[datetime] = None
@@ -62,6 +65,7 @@ class CreateEventRequest(BaseModel):
     start_date: datetime
     end_date: datetime
     metadata: List[EventMetadataInput]
+    image_url: Optional[str] = None
     plan_id: Optional[UUID] = None
     accumulator_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
@@ -85,6 +89,7 @@ class UpdateEventRequest(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     metadata: Optional[List[EventMetadataInput]] = None
+    image_url: Optional[str] = None
     plan_id: Optional[UUID] = None
     accumulator_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
