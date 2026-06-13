@@ -8,6 +8,8 @@ from pecha_api.verse_of_day.verse_of_day_service import (
     get_verse_of_day_by_id_service,
     get_verse_of_day_today_service,
     create_verse_of_day_service,
+    _build_verses_dict,
+    _build_public_dto,
 )
 from pecha_api.verse_of_day.verse_of_day_response_models import (
     VerseOfDayPublicResponse,
@@ -31,11 +33,28 @@ def mock_db_session():
 
 
 @pytest.fixture
-def sample_verse_model():
-    """Sample VerseOfDay model mock."""
+def sample_verse_metadata():
+    """Sample verse metadata mocks for multilingual verses."""
+    en_metadata = MagicMock()
+    en_metadata.lang = "en"
+    en_metadata.verse = "May all beings be happy and free from suffering."
+    
+    bo_metadata = MagicMock()
+    bo_metadata.lang = "bo"
+    bo_metadata.verse = ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"]
+    
+    zh_metadata = MagicMock()
+    zh_metadata.lang = "zh"
+    zh_metadata.verse = "愿一切众生快乐，远离痛苦。"
+    
+    return [en_metadata, bo_metadata, zh_metadata]
+
+
+@pytest.fixture
+def sample_verse_model(sample_verse_metadata):
+    """Sample VerseOfDay model mock with verse_metadata relationship."""
     verse = MagicMock()
     verse.id = uuid4()
-    # verse.verse = "May all beings be happy and free from suffering."  # Removed - now in verse_metadata table
     verse.verse_id = "verse-456"
     verse.ref_id = "text-123"
     verse.ref_type = "sutra"
@@ -43,15 +62,19 @@ def sample_verse_model():
     verse.group_id = uuid4()
     verse.date = date(2025, 6, 5)
     verse.created_by = "test@example.com"
+    verse.verse_metadata = sample_verse_metadata
     return verse
 
 
 @pytest.fixture
 def sample_create_request():
-    """Sample create verse request."""
-    # Note: verse field will be deprecated in favor of verse_metadata table
+    """Sample create verse request with multilingual verses."""
     return CreateVerseOfDayRequest(
-        verse="May all beings be happy and free from suffering.",
+        verses={
+            "en": "May all beings be happy and free from suffering.",
+            "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+            "zh": "愿一切众生快乐，远离痛苦。"
+        },
         image_urls=["https://example.com/image1.jpg"],
         verse_id="verse-456",
         ref_id="text-123",
@@ -67,7 +90,7 @@ def sample_create_request():
 
 @pytest.mark.asyncio
 async def test_get_verse_of_day_service_success(sample_verse_model, mock_db_session):
-    """Test successful retrieval of verse with DTO transformation."""
+    """Test successful retrieval of verse with all languages."""
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=sample_verse_model) as mock_repo:
         
@@ -76,7 +99,10 @@ async def test_get_verse_of_day_service_success(sample_verse_model, mock_db_sess
         assert isinstance(result, VerseOfDayPublicResponse)
         assert result.verse_of_day is not None
         assert isinstance(result.verse_of_day, VerseOfDayPublicDTO)
-        # assert result.verse_of_day.verse == sample_verse_model.verse  # TODO: Update after API changes
+        assert result.verse_of_day.verses is not None
+        assert "en" in result.verse_of_day.verses
+        assert "bo" in result.verse_of_day.verses
+        assert "zh" in result.verse_of_day.verses
         assert result.verse_of_day.ref_id == sample_verse_model.ref_id
         assert result.verse_of_day.ref_type == sample_verse_model.ref_type
         assert result.verse_of_day.image_urls == sample_verse_model.image_urls
@@ -90,6 +116,33 @@ async def test_get_verse_of_day_service_success(sample_verse_model, mock_db_sess
 
 
 @pytest.mark.asyncio
+async def test_get_verse_of_day_service_with_lang_filter(sample_verse_model, mock_db_session):
+    """Test retrieval with language filter returns single verse."""
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=sample_verse_model):
+        
+        result = get_verse_of_day(lang="en")
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.verse == "May all beings be happy and free from suffering."
+        assert result.verse_of_day.verses is None
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_service_with_lang_filter_array(sample_verse_model, mock_db_session):
+    """Test retrieval with language filter for array verse."""
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=sample_verse_model):
+        
+        result = get_verse_of_day(lang="bo")
+        
+        assert result.verse_of_day is not None
+        assert isinstance(result.verse_of_day.verse, list)
+        assert len(result.verse_of_day.verse) == 2
+        assert result.verse_of_day.verses is None
+
+
+@pytest.mark.asyncio
 async def test_get_verse_of_day_service_with_group_id(sample_verse_model, mock_db_session):
     """Test retrieval with group_id filter."""
     group_id = uuid4()
@@ -100,7 +153,7 @@ async def test_get_verse_of_day_service_with_group_id(sample_verse_model, mock_d
         result = get_verse_of_day(group_id=group_id)
         
         assert result.verse_of_day is not None
-        # assert result.verse_of_day.verse == sample_verse_model.verse  # TODO: Update after API changes
+        assert result.verse_of_day.verses is not None
         
         mock_repo.assert_called_once_with(
             mock_db_session.__enter__.return_value,
@@ -125,26 +178,6 @@ async def test_get_verse_of_day_service_with_date(sample_verse_model, mock_db_se
         mock_repo.assert_called_once_with(
             mock_db_session.__enter__.return_value,
             group_id=None,
-            filter_date=filter_date
-        )
-
-
-@pytest.mark.asyncio
-async def test_get_verse_of_day_service_with_both_filters(sample_verse_model, mock_db_session):
-    """Test retrieval with both group_id and date filters."""
-    group_id = uuid4()
-    filter_date = date(2025, 6, 5)
-    
-    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
-         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=sample_verse_model) as mock_repo:
-        
-        result = get_verse_of_day(group_id=group_id, filter_date=filter_date)
-        
-        assert result.verse_of_day is not None
-        
-        mock_repo.assert_called_once_with(
-            mock_db_session.__enter__.return_value,
-            group_id=group_id,
             filter_date=filter_date
         )
 
@@ -179,7 +212,7 @@ async def test_get_verse_of_day_service_database_error(mock_db_session):
 
 @pytest.mark.asyncio
 async def test_get_verse_of_day_by_id_service_success(sample_verse_model, mock_db_session):
-    """Test successful retrieval of verse by ID."""
+    """Test successful retrieval of verse by ID with all languages."""
     verse_id = uuid4()
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
@@ -189,7 +222,8 @@ async def test_get_verse_of_day_by_id_service_success(sample_verse_model, mock_d
         
         assert isinstance(result, VerseOfDayPublicResponse)
         assert result.verse_of_day is not None
-        # assert result.verse_of_day.verse == sample_verse_model.verse  # TODO: Update after API changes
+        assert result.verse_of_day.verses is not None
+        assert "en" in result.verse_of_day.verses
         assert result.verse_of_day.ref_id == sample_verse_model.ref_id
         assert result.verse_of_day.ref_type == sample_verse_model.ref_type
         
@@ -197,6 +231,21 @@ async def test_get_verse_of_day_by_id_service_success(sample_verse_model, mock_d
             mock_db_session.__enter__.return_value,
             verse_id=verse_id
         )
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_by_id_service_with_lang(sample_verse_model, mock_db_session):
+    """Test retrieval by ID with language filter."""
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_id", return_value=sample_verse_model):
+        
+        result = get_verse_of_day_by_id_service(verse_id=verse_id, lang="zh")
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.verse == "愿一切众生快乐，远离痛苦。"
+        assert result.verse_of_day.verses is None
 
 
 @pytest.mark.asyncio
@@ -236,7 +285,7 @@ async def test_get_verse_of_day_by_id_service_database_error(mock_db_session):
 
 @pytest.mark.asyncio
 async def test_get_verse_of_day_today_service_success(sample_verse_model, mock_db_session):
-    """Test successful retrieval of today's verse."""
+    """Test successful retrieval of today's verse with all languages."""
     today = date(2025, 6, 5)
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
@@ -249,7 +298,8 @@ async def test_get_verse_of_day_today_service_success(sample_verse_model, mock_d
         
         assert isinstance(result, VerseOfDayPublicResponse)
         assert result.verse_of_day is not None
-        # assert result.verse_of_day.verse == sample_verse_model.verse  # TODO: Update after API changes
+        assert result.verse_of_day.verses is not None
+        assert "en" in result.verse_of_day.verses
         assert result.verse_of_day.ref_id == sample_verse_model.ref_id
         
         mock_date.today.assert_called_once()
@@ -257,6 +307,24 @@ async def test_get_verse_of_day_today_service_success(sample_verse_model, mock_d
             mock_db_session.__enter__.return_value,
             today=today
         )
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_service_with_lang(sample_verse_model, mock_db_session):
+    """Test retrieval of today's verse with language filter."""
+    today = date(2025, 6, 5)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.date") as mock_date, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_today", return_value=sample_verse_model):
+        
+        mock_date.today.return_value = today
+        
+        result = get_verse_of_day_today_service(lang="en")
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.verse == "May all beings be happy and free from suffering."
+        assert result.verse_of_day.verses is None
 
 
 @pytest.mark.asyncio
@@ -299,9 +367,10 @@ async def test_get_verse_of_day_today_service_database_error(mock_db_session):
 
 @pytest.mark.asyncio
 async def test_create_verse_of_day_service_success(sample_verse_model, sample_create_request, mock_db_session):
-    """Test successful creation of verse of day."""
+    """Test successful creation of verse of day with multilingual verses."""
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
-         patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_of_day", return_value=sample_verse_model) as mock_repo:
+         patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_of_day", return_value=sample_verse_model) as mock_create, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_metadata_bulk") as mock_metadata:
         
         result = create_verse_of_day_service(
             request=sample_create_request,
@@ -310,7 +379,7 @@ async def test_create_verse_of_day_service_success(sample_verse_model, sample_cr
         
         assert isinstance(result, VerseOfDayDTO)
         assert result.id == sample_verse_model.id
-        # assert result.verse == sample_verse_model.verse  # TODO: Update after API changes
+        assert result.verses == sample_create_request.verses
         assert result.verse_id == sample_verse_model.verse_id
         assert result.ref_id == sample_verse_model.ref_id
         assert result.ref_type == sample_verse_model.ref_type
@@ -318,14 +387,19 @@ async def test_create_verse_of_day_service_success(sample_verse_model, sample_cr
         assert result.group_id == sample_verse_model.group_id
         assert result.date == sample_verse_model.date
         
-        mock_repo.assert_called_once()
+        mock_create.assert_called_once()
+        mock_metadata.assert_called_once_with(
+            mock_db_session.__enter__.return_value,
+            sample_verse_model.id,
+            sample_create_request.verses
+        )
 
 
 @pytest.mark.asyncio
 async def test_create_verse_of_day_service_with_optional_fields(mock_db_session):
     """Test creation with optional fields (image_urls and group_id)."""
     request = CreateVerseOfDayRequest(
-        verse="Simple verse without extras.",
+        verses={"en": "Simple verse without extras."},
         verse_id="verse-simple",
         ref_id="text-simple",
         ref_type="commentary",
@@ -334,7 +408,6 @@ async def test_create_verse_of_day_service_with_optional_fields(mock_db_session)
     
     created_verse = MagicMock()
     created_verse.id = uuid4()
-    # created_verse.verse = request.verse  # Removed - now in verse_metadata table
     created_verse.verse_id = request.verse_id
     created_verse.ref_id = request.ref_id
     created_verse.ref_type = request.ref_type
@@ -343,7 +416,8 @@ async def test_create_verse_of_day_service_with_optional_fields(mock_db_session)
     created_verse.date = request.date
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
-         patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_of_day", return_value=created_verse) as mock_repo:
+         patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_of_day", return_value=created_verse), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_metadata_bulk"):
         
         result = create_verse_of_day_service(
             request=request,
@@ -351,11 +425,9 @@ async def test_create_verse_of_day_service_with_optional_fields(mock_db_session)
         )
         
         assert isinstance(result, VerseOfDayDTO)
-        # assert result.verse == request.verse  # TODO: Update after API changes
+        assert result.verses == {"en": "Simple verse without extras."}
         assert result.image_urls is None
         assert result.group_id is None
-        
-        mock_repo.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -376,7 +448,6 @@ async def test_create_verse_of_day_service_model_creation(sample_create_request,
     """Test that VerseOfDay model is created with correct fields."""
     created_verse = MagicMock()
     created_verse.id = uuid4()
-    # created_verse.verse = sample_create_request.verse  # Removed - now in verse_metadata table
     created_verse.verse_id = sample_create_request.verse_id
     created_verse.ref_id = sample_create_request.ref_id
     created_verse.ref_type = sample_create_request.ref_type
@@ -386,26 +457,25 @@ async def test_create_verse_of_day_service_model_creation(sample_create_request,
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
          patch("pecha_api.verse_of_day.verse_of_day_service.VerseOfDay") as mock_model, \
-         patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_of_day", return_value=created_verse) as mock_repo:
+         patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_of_day", return_value=created_verse), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_metadata_bulk"):
         
         result = create_verse_of_day_service(
             request=sample_create_request,
             created_by="test@example.com"
         )
         
-        # TODO: Update after API changes - verse field removed from VerseOfDay model
-        # mock_model.assert_called_once_with(
-        #     verse=sample_create_request.verse,
-        #     verse_id=sample_create_request.verse_id,
-        #     ref_id=sample_create_request.ref_id,
-        #     ref_type=sample_create_request.ref_type,
-        #     image_urls=sample_create_request.image_urls,
-        #     group_id=sample_create_request.group_id,
-        #     date=sample_create_request.date,
-        #     created_by="test@example.com"
-        # )
+        mock_model.assert_called_once_with(
+            verse_id=sample_create_request.verse_id,
+            ref_id=sample_create_request.ref_id,
+            ref_type=sample_create_request.ref_type,
+            image_urls=sample_create_request.image_urls,
+            group_id=sample_create_request.group_id,
+            date=sample_create_request.date,
+            created_by="test@example.com"
+        )
         
-        # assert result.verse == sample_create_request.verse  # TODO: Update after API changes
+        assert result.verses == sample_create_request.verses
 
 
 # =============================================================================
@@ -416,11 +486,12 @@ async def test_create_verse_of_day_service_model_creation(sample_create_request,
 async def test_get_verse_of_day_service_empty_image_urls(mock_db_session):
     """Test verse with empty image_urls array."""
     verse = MagicMock()
-    # verse.verse = "Simple verse."  # Removed - now in verse_metadata table
+    verse.id = uuid4()
     verse.ref_id = "text-empty"
     verse.ref_type = "commentary"
     verse.image_urls = []
     verse.date = date(2025, 6, 5)
+    verse.verse_metadata = []
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=verse):
@@ -434,11 +505,12 @@ async def test_get_verse_of_day_service_empty_image_urls(mock_db_session):
 async def test_get_verse_of_day_service_none_image_urls(mock_db_session):
     """Test verse with None image_urls."""
     verse = MagicMock()
-    # verse.verse = "Simple verse."  # Removed - now in verse_metadata table
+    verse.id = uuid4()
     verse.ref_id = "text-none"
     verse.ref_type = "commentary"
     verse.image_urls = None
     verse.date = date(2025, 6, 5)
+    verse.verse_metadata = []
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=verse):
@@ -446,3 +518,72 @@ async def test_get_verse_of_day_service_none_image_urls(mock_db_session):
         result = get_verse_of_day()
         
         assert result.verse_of_day.image_urls is None
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_service_empty_verse_metadata(mock_db_session):
+    """Test verse with no verse_metadata entries."""
+    verse = MagicMock()
+    verse.id = uuid4()
+    verse.ref_id = "text-no-metadata"
+    verse.ref_type = "commentary"
+    verse.image_urls = None
+    verse.date = date(2025, 6, 5)
+    verse.verse_metadata = []
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=verse):
+        
+        result = get_verse_of_day()
+        
+        assert result.verse_of_day.verses is None
+
+
+# =============================================================================
+# HELPER FUNCTION TESTS
+# =============================================================================
+
+def test_build_verses_dict(sample_verse_metadata):
+    """Test _build_verses_dict helper function."""
+    result = _build_verses_dict(sample_verse_metadata)
+    
+    assert "en" in result
+    assert "bo" in result
+    assert "zh" in result
+    assert result["en"] == "May all beings be happy and free from suffering."
+    assert isinstance(result["bo"], list)
+    assert len(result["bo"]) == 2
+
+
+def test_build_verses_dict_empty():
+    """Test _build_verses_dict with empty list."""
+    result = _build_verses_dict([])
+    
+    assert result == {}
+
+
+def test_build_public_dto_all_languages(sample_verse_model):
+    """Test _build_public_dto returns all languages when no lang filter."""
+    result = _build_public_dto(sample_verse_model)
+    
+    assert result.verses is not None
+    assert result.verse is None
+    assert "en" in result.verses
+    assert "bo" in result.verses
+    assert "zh" in result.verses
+
+
+def test_build_public_dto_single_language(sample_verse_model):
+    """Test _build_public_dto returns single verse when lang filter provided."""
+    result = _build_public_dto(sample_verse_model, lang="en")
+    
+    assert result.verse == "May all beings be happy and free from suffering."
+    assert result.verses is None
+
+
+def test_build_public_dto_invalid_language(sample_verse_model):
+    """Test _build_public_dto returns all languages when invalid lang provided."""
+    result = _build_public_dto(sample_verse_model, lang="fr")
+    
+    assert result.verses is not None
+    assert result.verse is None

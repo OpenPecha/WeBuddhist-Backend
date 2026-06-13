@@ -1,12 +1,29 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Union
 from uuid import UUID
 from datetime import date, datetime
 
 
+# Type alias for verse content (can be string or array of strings)
+VerseContent = Union[str, List[str]]
+
+# Type alias for verses dictionary by language
+VersesDict = Dict[str, VerseContent]
+
+
+class VerseMetadataDTO(BaseModel):
+    """DTO for individual verse metadata entry."""
+    lang: str
+    verse: VerseContent
+
+    class Config:
+        from_attributes = True
+
+
 class VerseOfDayDTO(BaseModel):
+    """Full DTO with all languages."""
     id: UUID
-    verse: str
+    verses: Optional[VersesDict] = None
     image_urls: Optional[List[str]] = None
     verse_id: str
     ref_id: str
@@ -23,7 +40,10 @@ class VerseOfDayResponse(BaseModel):
 
 
 class VerseOfDayPublicDTO(BaseModel):
-    verse: str
+    """Public DTO - returns all languages as verses dict, or single verse if lang filtered."""
+    id: UUID
+    verses: Optional[VersesDict] = None
+    verse: Optional[VerseContent] = None
     image_urls: Optional[List[str]] = None
     ref_id: str
     ref_type: str
@@ -38,7 +58,8 @@ class VerseOfDayPublicResponse(BaseModel):
 
 
 class CreateVerseOfDayRequest(BaseModel):
-    verse: str
+    """Request to create verse of day with multilingual verses."""
+    verses: VersesDict
     image_urls: Optional[List[str]] = None
     verse_id: str
     ref_id: str
@@ -48,7 +69,7 @@ class CreateVerseOfDayRequest(BaseModel):
 
 
 class UpdateVerseOfDayRequest(BaseModel):
-    verse: Optional[str] = None
+    verses: Optional[VersesDict] = None
     image_urls: Optional[List[str]] = None
     verse_id: Optional[str] = None
     ref_id: Optional[str] = None
