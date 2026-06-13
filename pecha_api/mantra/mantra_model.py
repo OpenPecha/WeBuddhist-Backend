@@ -12,8 +12,8 @@ class Mantra(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     audio_url = Column(String(1000), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(_datetime.timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(_datetime.timezone.utc), onupdate=lambda: datetime.now(_datetime.timezone.utc))
 
     metadata_entries = relationship(
         "MantraMetadata",

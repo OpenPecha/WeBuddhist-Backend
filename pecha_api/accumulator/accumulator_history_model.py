@@ -13,7 +13,7 @@ class AccumulatorHistory(Base):
     user_id = Column(UUID(as_uuid=True), nullable=False)
     count = Column(Integer, nullable=False)
 
-    created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(_datetime.timezone.utc), nullable=False)
 
     __table_args__ = (
         Index("idx_accumulator_history_accumulator_id", "accumulator_id"),

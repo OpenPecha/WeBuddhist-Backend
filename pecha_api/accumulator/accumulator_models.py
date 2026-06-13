@@ -24,8 +24,8 @@ class Accumulator(Base):
         nullable=True,
     )
 
-    created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), onupdate=datetime.now(_datetime.timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(_datetime.timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(_datetime.timezone.utc), onupdate=lambda: datetime.now(_datetime.timezone.utc))
 
     __table_args__ = (
         Index("idx_accumulators_user_id", "user_id"),
