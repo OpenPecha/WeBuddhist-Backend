@@ -10,7 +10,7 @@ class Accumulator(Base):
     __tablename__ = "accumulators"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    user_id = Column(UUID(as_uuid=True), nullable=False)
+    user_id = Column(UUID(as_uuid=True), nullable=True)
     group_id = Column(UUID(as_uuid=True), nullable=True)
     type = Column(AccumulatorTypeEnum, nullable=False)
     name = Column(String(255), nullable=False)
