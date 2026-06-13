@@ -11,6 +11,18 @@ VerseContent = Union[str, List[str]]
 VersesDict = Dict[str, VerseContent]
 
 
+class GroupInfoDTO(BaseModel):
+    """DTO for group metadata information."""
+    id: UUID
+    title: str
+    sub_title: Optional[str] = None
+    description: Optional[str] = None
+    language: str
+
+    class Config:
+        from_attributes = True
+
+
 class VerseMetadataDTO(BaseModel):
     """DTO for individual verse metadata entry."""
     lang: str
@@ -48,6 +60,7 @@ class VerseOfDayPublicDTO(BaseModel):
     ref_id: str
     ref_type: str
     date: date
+    group_info: Optional[List[GroupInfoDTO]] = None
 
     class Config:
         from_attributes = True
