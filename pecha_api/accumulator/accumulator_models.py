@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, UUID, Text, Index, Integer
+from sqlalchemy import Column, String, DateTime, UUID, Text, Index, Integer, ForeignKey
 from ..db.database import Base
 from uuid import uuid4
 import _datetime
@@ -18,7 +18,11 @@ class Accumulator(Base):
     target_count = Column(Integer, nullable=True)
     current_count = Column(Integer, nullable=False, default=0)
     text_id = Column(UUID(as_uuid=True), nullable=True)
-    mantra_id = Column(UUID(as_uuid=True), nullable=True)
+    mantra_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("mantra.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), onupdate=datetime.now(_datetime.timezone.utc))
