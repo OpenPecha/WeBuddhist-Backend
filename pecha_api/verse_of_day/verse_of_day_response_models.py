@@ -33,7 +33,6 @@ class VerseMetadataDTO(BaseModel):
 
 
 class VerseOfDayDTO(BaseModel):
-    """Full DTO with all languages."""
     id: UUID
     verses: Optional[VersesDict] = None
     image_urls: Optional[List[str]] = None
@@ -52,11 +51,10 @@ class VerseOfDayResponse(BaseModel):
 
 
 class VerseOfDayPublicDTO(BaseModel):
-    """Public DTO - returns all languages as verses dict, or single verse if lang filtered."""
     id: UUID
     verses: Optional[VersesDict] = None
     verse: Optional[VerseContent] = None
-    image_urls: Optional[List[str]] = None
+    image_url: Optional[str] = None  
     ref_id: str
     ref_type: str
     date: date

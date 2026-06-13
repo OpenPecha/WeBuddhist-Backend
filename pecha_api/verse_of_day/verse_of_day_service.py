@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Union, List
 from uuid import UUID
 from datetime import date
+import logging
 
 from ..db.database import SessionLocal
 from .verse_of_day_repository import (
@@ -20,6 +21,32 @@ from .verse_of_day_response_models import (
     GroupInfoDTO
 )
 from .verse_of_day_model import VerseOfDay
+from ..uploads.S3_utils import generate_presigned_access_url
+from ..config import get
+
+logger = logging.getLogger(__name__)
+
+
+def _generate_verse_image_url(image_keys: Optional[List[str]]) -> Optional[str]:
+
+    if not image_keys:
+        return None
+    
+    bucket_name = get("AWS_BUCKET_NAME")
+    
+    for key in image_keys:
+        if not key or not isinstance(key, str) or not key.strip():
+            continue
+            
+        try:
+            presigned_url = generate_presigned_access_url(bucket_name, key)
+            if presigned_url:
+                return presigned_url  
+        except Exception as e:
+            logger.error(f"Failed to generate presigned URL for key {key}: {e}", exc_info=True)
+            continue
+    
+    return None  
 
 
 def build_verses_dict(verse_metadata_list) -> VersesDict:
@@ -34,12 +61,15 @@ def build_public_dto(verse: VerseOfDay, lang: Optional[str] = None, group_info: 
     """Build public DTO with optional language filtering and group metadata."""
     verses_dict = build_verses_dict(verse.verse_metadata) if verse.verse_metadata else {}
     
+    # Generate presigned URL from first S3 key
+    presigned_image_url = _generate_verse_image_url(verse.image_urls)
+    
     if lang and lang in verses_dict:
         return VerseOfDayPublicDTO(
             id=verse.id,
             verse=verses_dict[lang],
             verses=None,
-            image_urls=verse.image_urls,
+            image_url=presigned_image_url,
             ref_id=verse.ref_id,
             ref_type=verse.ref_type,
             date=verse.date,
@@ -50,7 +80,7 @@ def build_public_dto(verse: VerseOfDay, lang: Optional[str] = None, group_info: 
             id=verse.id,
             verses=verses_dict if verses_dict else None,
             verse=None,
-            image_urls=verse.image_urls,
+            image_url=presigned_image_url,
             ref_id=verse.ref_id,
             ref_type=verse.ref_type,
             date=verse.date,
