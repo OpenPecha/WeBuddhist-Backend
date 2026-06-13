@@ -6,7 +6,10 @@ from fastapi import HTTPException
 from starlette import status
 
 from pecha_api.db.database import SessionLocal
-from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
+from pecha_api.plans.authors.plan_authors_service import (
+    safe_get_image_url,
+    validate_cms_author_details,
+)
 from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
 from pecha_api.plans.shared.metadata_utils import format_metadata_response
 from pecha_api.plans.shared.permissions import (
@@ -88,6 +91,10 @@ def _event_to_dto(event: Event, language: Optional[str] = None) -> EventDTO:
         end_date=event.end_date,
         is_one_day=event.end_date == event.start_date,
         metadata=_metadata_response(event.metadata_entries, language=language),
+        image=safe_get_image_url(
+            event.image_url, resource_id=event.id, resource_type="event"
+        ),
+        image_url=event.image_url,
         created_at=event.created_at,
         created_by=event.created_by,
         updated_at=event.updated_at,
@@ -161,6 +168,7 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         group_id=request.group_id,
         start_date=request.start_date,
         end_date=request.end_date,
+        image_url=request.image_url,
         created_by=current_author.email,
     )
 
@@ -205,6 +213,8 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
             event.mantra_id = request.mantra_id
         if request.timer_id is not None:
             event.timer_id = request.timer_id
+        if request.image_url is not None:
+            event.image_url = request.image_url
 
         event.updated_at = datetime.now(timezone.utc)
 

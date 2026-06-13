@@ -21,6 +21,7 @@ from pecha_api.plans.series.series_repository import (
     update_series_status,
     update_series_featured,
     soft_delete_series_with_plan_detach,
+    get_random_featured_published_series,
 )
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
@@ -335,6 +336,35 @@ def get_filtered_series(
         skip=skip,
         limit=limit,
         total=total,
+    )
+
+
+def get_random_featured_series(
+    language: Optional[str] = None,
+) -> SeriesListItemDTO:
+    from pecha_api.plans.response_message import NO_FEATURED_SERIES_FOUND
+
+    with SessionLocal() as db_session:
+        row = get_random_featured_published_series(db=db_session)
+        if row is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=NO_FEATURED_SERIES_FOUND,
+            )
+
+        series, plan_count, enrolled_count = row
+        group = _group_summary_for_series(
+            db=db_session,
+            series=series,
+            language=language,
+        )
+
+    return _series_to_list_item_dto(
+        series,
+        plan_count=plan_count,
+        enrolled_count=enrolled_count,
+        language=language,
+        group=group,
     )
 
 

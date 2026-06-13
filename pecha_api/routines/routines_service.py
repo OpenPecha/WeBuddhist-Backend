@@ -40,6 +40,7 @@ from .routines_repository import (
     update_time_block as update_time_block_repo,
     get_time_blocks,
     get_sessions_by_time_block_ids,
+    get_routine_series_and_recitation_counts,
 )
 from .response_message import (
     DUPLICATE_PLAN,
@@ -62,6 +63,7 @@ from .routines_response_models import (
     TimeBlockDTO,
     RoutineWithTimeBlocksResponse,
     RoutineResponse,
+    RoutineInfoResponse,
 )
 
 
@@ -582,6 +584,32 @@ async def get_user_routine(
             skip=skip,
             limit=limit,
             total=total,
+        )
+
+
+async def get_user_routine_info(token: str) -> RoutineInfoResponse:
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        routine = get_routine_by_user_id(
+            db=db, user_id=current_user.id, include_deleted=False
+        )
+
+        if routine is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=NO_ROUTINE_CREATED_FOR_USER
+                ).model_dump(),
+            )
+
+        series_count, recitation_count = get_routine_series_and_recitation_counts(
+            db=db, routine_id=routine.id
+        )
+
+        return RoutineInfoResponse(
+            series_count=series_count,
+            recitation_count=recitation_count,
         )
 
 

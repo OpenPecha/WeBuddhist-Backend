@@ -114,6 +114,50 @@ def test_get_series_list_success(sample_series_list_response):
         assert item["image_key"] == sample_series_list_response.series[0].image_key
 
 
+def test_get_featured_series_success(sample_series_list_response):
+    featured_item = sample_series_list_response.series[0]
+    with patch(
+        "pecha_api.plans.series.public_series_view.get_random_featured_series",
+        return_value=featured_item,
+    ) as mock_service:
+        response = client.get("/series/featured")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        mock_service.assert_called_once_with(language=None)
+        assert data["id"] == str(featured_item.id)
+        assert data["featured"] is True
+        assert "plans" not in data
+        assert data["plan_count"] == featured_item.plan_count
+
+
+def test_get_featured_series_with_language(sample_series_list_response):
+    featured_item = sample_series_list_response.series[0]
+    with patch(
+        "pecha_api.plans.series.public_series_view.get_random_featured_series",
+        return_value=featured_item,
+    ) as mock_service:
+        response = client.get("/series/featured", params={"language": "en"})
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(language="en")
+
+
+def test_get_featured_series_not_found():
+    with patch(
+        "pecha_api.plans.series.public_series_view.get_random_featured_series",
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No featured series found",
+        ),
+    ):
+        response = client.get("/series/featured")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json()["detail"] == "No featured series found"
+
+
 def test_get_series_list_with_search_pagination(sample_series_dto):
     empty_list = SeriesListResponse(series=[], skip=2, limit=5, total=0)
     with patch(
