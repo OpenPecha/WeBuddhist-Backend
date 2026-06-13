@@ -9,9 +9,16 @@ from .accumulator_models import Accumulator
 from .accumulator_history_model import AccumulatorHistory
 
 
-def save_accumulator(db: Session, accumulator: Accumulator) -> Accumulator:
+def add_accumulator(db: Session, accumulator: Accumulator) -> Accumulator:
+    """Stage and flush the accumulator so its id is usable by dependent rows
+    (e.g. history). Caller is responsible for the final commit."""
+    db.add(accumulator)
+    db.flush()
+    return accumulator
+
+
+def commit_accumulator(db: Session, accumulator: Accumulator) -> Accumulator:
     try:
-        db.add(accumulator)
         db.commit()
         db.refresh(accumulator)
         return accumulator
@@ -21,6 +28,11 @@ def save_accumulator(db: Session, accumulator: Accumulator) -> Accumulator:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": "BAD_REQUEST", "message": str(e.orig)}
         )
+
+
+def save_accumulator(db: Session, accumulator: Accumulator) -> Accumulator:
+    add_accumulator(db, accumulator)
+    return commit_accumulator(db, accumulator)
 
 
 def get_accumulator_by_id(db: Session, accumulator_id: UUID) -> Optional[Accumulator]:
@@ -52,16 +64,13 @@ def delete_accumulator(db: Session, accumulator: Accumulator) -> None:
         )
 
 
-def get_accumulators_by_group(
+def get_all_accumulators(
     db: Session,
-    group_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 20
 ) -> Tuple[List[Accumulator], int]:
 
     query = db.query(Accumulator)
-    if group_id:
-        query = query.filter(Accumulator.group_id == group_id)
 
     total = query.count()
     accumulators = query.order_by(Accumulator.created_at.desc()).offset(skip).limit(limit).all()
@@ -69,17 +78,14 @@ def get_accumulators_by_group(
     return accumulators, total
 
 
-def get_user_accumulators_by_group(
+def get_user_accumulators(
     db: Session,
     user_id: UUID,
-    group_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 20
 ) -> Tuple[List[Accumulator], int]:
 
     query = db.query(Accumulator).filter(Accumulator.user_id == user_id)
-    if group_id:
-        query = query.filter(Accumulator.group_id == group_id)
 
     total = query.count()
     accumulators = query.order_by(Accumulator.created_at.desc()).offset(skip).limit(limit).all()
@@ -87,29 +93,15 @@ def get_user_accumulators_by_group(
     return accumulators, total
 
 
-def record_accumulator_count(
-    db: Session,
-    accumulator: Accumulator,
-    user_id: UUID,
-    count: int
-) -> Accumulator:
-    try:
-        accumulator.current_count = (accumulator.current_count or 0) + count
-        history = AccumulatorHistory(
-            accumulator_id=accumulator.id,
+def add_history_row(db: Session, accumulator_id: UUID, user_id: UUID, count: int) -> None:
+    """Stage a history row recording a positive count delta. Caller commits."""
+    db.add(
+        AccumulatorHistory(
+            accumulator_id=accumulator_id,
             user_id=user_id,
             count=count
         )
-        db.add(history)
-        db.commit()
-        db.refresh(accumulator)
-        return accumulator
-    except IntegrityError as e:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "BAD_REQUEST", "message": str(e.orig)}
-        )
+    )
 
 
 def get_user_accumulator_history(

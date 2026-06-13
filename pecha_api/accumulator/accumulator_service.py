@@ -8,21 +8,23 @@ from ..db.database import SessionLocal
 from ..users.users_service import validate_and_extract_user_details
 from ..texts.texts_utils import TextUtils
 from .accumulator_repository import (
-    get_accumulators_by_group,
-    get_user_accumulators_by_group,
-    save_accumulator,
+    get_all_accumulators,
+    get_user_accumulators,
+    add_accumulator,
+    commit_accumulator,
     get_accumulator_by_id,
     update_accumulator,
     delete_accumulator,
-    record_accumulator_count,
+    add_history_row,
     get_user_accumulator_history
 )
 from .accumulator_response_models import (
     AccumulatorsResponse,
     AccumulatorDTO,
+    PublicAccumulatorDTO,
+    PublicAccumulatorsResponse,
     CreateAccumulatorRequest,
     UpdateAccumulatorRequest,
-    RecordAccumulatorCountRequest,
     AccumulatorHistoryResponse,
     AccumulatorHistoryDTO,
     AccumulatorSessionDTO
@@ -35,7 +37,6 @@ from .response_message import (
     ACCUMULATOR_NOT_FOUND,
     ACCUMULATOR_UPDATE_NOT_ALLOWED,
     ACCUMULATOR_DELETE_NOT_ALLOWED,
-    ACCUMULATOR_COUNT_NOT_ALLOWED,
     ONLY_USER_ACCUMULATORS_CAN_BE_UPDATED,
     ONLY_USER_ACCUMULATORS_CAN_BE_DELETED
 )
@@ -68,20 +69,39 @@ def convert_accumulators_to_dtos(accumulators: List[Accumulator]) -> List[Accumu
     return [convert_accumulator_to_dto(accumulator) for accumulator in accumulators]
 
 
+def convert_accumulator_to_public_dto(accumulator: Accumulator) -> PublicAccumulatorDTO:
+    accumulator_type = (
+        AccumulatorType(accumulator.type.value)
+        if hasattr(accumulator.type, 'value')
+        else accumulator.type
+    )
+    return PublicAccumulatorDTO(
+        id=accumulator.id,
+        group_id=accumulator.group_id,
+        type=accumulator_type,
+        name=accumulator.name,
+        description=accumulator.description,
+        target_count=accumulator.target_count,
+        current_count=accumulator.current_count or 0,
+        text_id=accumulator.text_id,
+        created_at=accumulator.created_at,
+        updated_at=accumulator.updated_at
+    )
+
+
 def is_user_created_accumulator(accumulator: Accumulator) -> bool:
     accumulator_type = accumulator.type.value if hasattr(accumulator.type, 'value') else accumulator.type
     return accumulator_type == AccumulatorType.USER.value
 
 
 def get_all_accumulators_service(
-    group_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 20
-) -> AccumulatorsResponse:
+) -> PublicAccumulatorsResponse:
     with SessionLocal() as db:
-        accumulators, total = get_accumulators_by_group(db, group_id, skip, limit)
-        return AccumulatorsResponse(
-            accumulators=convert_accumulators_to_dtos(accumulators),
+        accumulators, total = get_all_accumulators(db, skip, limit)
+        return PublicAccumulatorsResponse(
+            accumulators=[convert_accumulator_to_public_dto(a) for a in accumulators],
             total=total,
             skip=skip,
             limit=limit
@@ -90,12 +110,11 @@ def get_all_accumulators_service(
 
 def get_user_accumulators_service(
     user_id: UUID,
-    group_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 20
 ) -> AccumulatorsResponse:
     with SessionLocal() as db:
-        accumulators, total = get_user_accumulators_by_group(db, user_id, group_id, skip, limit)
+        accumulators, total = get_user_accumulators(db, user_id, skip, limit)
         return AccumulatorsResponse(
             accumulators=convert_accumulators_to_dtos(accumulators),
             total=total,
@@ -114,16 +133,25 @@ async def create_accumulator_service(token: str, request: CreateAccumulatorReque
         new_accumulator = Accumulator(
             id=uuid4(),
             user_id=current_user.id,
-            group_id=request.group_id,
             type=AccumulatorType.USER,
             name=request.name,
             description=request.description,
             target_count=request.target_count,
-            current_count=0,
+            current_count=request.current_count,
             text_id=request.text_id
         )
 
-        saved_accumulator = save_accumulator(db, new_accumulator)
+        add_accumulator(db, new_accumulator)
+
+        if request.current_count > 0:
+            add_history_row(
+                db=db,
+                accumulator_id=new_accumulator.id,
+                user_id=current_user.id,
+                count=request.current_count
+            )
+
+        saved_accumulator = commit_accumulator(db, new_accumulator)
         return convert_accumulator_to_dto(saved_accumulator)
 
 
@@ -162,6 +190,16 @@ async def update_accumulator_service(token: str, accumulator_id: UUID, request: 
             accumulator.target_count = request.target_count
         if request.text_id is not None:
             accumulator.text_id = request.text_id
+        if request.current_count is not None:
+            delta = request.current_count - (accumulator.current_count or 0)
+            accumulator.current_count = request.current_count
+            if delta > 0:
+                add_history_row(
+                    db=db,
+                    accumulator_id=accumulator.id,
+                    user_id=current_user.id,
+                    count=delta
+                )
 
         updated_accumulator = update_accumulator(db, accumulator)
         return convert_accumulator_to_dto(updated_accumulator)
@@ -192,32 +230,6 @@ def delete_accumulator_service(token: str, accumulator_id: UUID) -> None:
             )
 
         delete_accumulator(db, accumulator)
-
-
-def record_accumulator_count_service(token: str, request: RecordAccumulatorCountRequest) -> AccumulatorDTO:
-    current_user = validate_and_extract_user_details(token=token)
-
-    with SessionLocal() as db:
-        accumulator = get_accumulator_by_id(db, request.accumulator_id)
-        if not accumulator:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"error": NOT_FOUND, "message": ACCUMULATOR_NOT_FOUND}
-            )
-
-        if accumulator.user_id != current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={"error": FORBIDDEN, "message": ACCUMULATOR_COUNT_NOT_ALLOWED}
-            )
-
-        updated_accumulator = record_accumulator_count(
-            db=db,
-            accumulator=accumulator,
-            user_id=current_user.id,
-            count=request.count
-        )
-        return convert_accumulator_to_dto(updated_accumulator)
 
 
 def get_accumulator_history_service(
