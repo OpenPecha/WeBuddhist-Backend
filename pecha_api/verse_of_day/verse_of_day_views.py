@@ -25,9 +25,10 @@ verse_of_day_router = APIRouter(
 def get_verse_of_day_endpoint(
     group_id: Annotated[Optional[UUID], Query(description="Filter by group ID")] = None,
     date: Annotated[Optional[date], Query(description="Filter by date (YYYY-MM-DD)")] = None,
+    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh). Returns all languages if not specified.")] = None,
 ):
  
-    return get_verse_of_day(group_id=group_id, filter_date=date)
+    return get_verse_of_day(group_id=group_id, filter_date=date, lang=lang)
 
 
 @verse_of_day_router.get(
@@ -35,9 +36,11 @@ def get_verse_of_day_endpoint(
     status_code=status.HTTP_200_OK,
     response_model=VerseOfDayPublicResponse
 )
-def get_verse_of_day_today_endpoint():
+def get_verse_of_day_today_endpoint(
+    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh). Returns all languages if not specified.")] = None,
+):
 
-    return get_verse_of_day_today_service()
+    return get_verse_of_day_today_service(lang=lang)
 
 
 @verse_of_day_router.get(
@@ -45,9 +48,12 @@ def get_verse_of_day_today_endpoint():
     status_code=status.HTTP_200_OK,
     response_model=VerseOfDayPublicResponse
 )
-def get_verse_of_day_by_id_endpoint(id: UUID):
+def get_verse_of_day_by_id_endpoint(
+    id: UUID,
+    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh). Returns all languages if not specified.")] = None,
+):
 
-    return get_verse_of_day_by_id_service(verse_id=id)
+    return get_verse_of_day_by_id_service(verse_id=id, lang=lang)
 
 
 @verse_of_day_router.post(
