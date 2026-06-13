@@ -68,10 +68,14 @@ class Segment(Document):
     async def exists_all(cls, segment_ids: List[uuid.UUID], batch_size: int = 100) -> bool:
         if not segment_ids:
             return False
-        found_segments = await cls.find({"_id": {"$in": segment_ids}}).to_list()
-        found_ids = {segment.id for segment in found_segments}
-        for segment_id in segment_ids:
-            if segment_id not in found_ids:
+        for index in range(0, len(segment_ids), batch_size):
+            batch_ids = segment_ids[index: index + batch_size]
+            cursor = cls.get_motor_collection().find(
+                {"_id": {"$in": batch_ids}},
+                {"_id": 1},
+            )
+            found_ids = {document["_id"] async for document in cursor}
+            if len(found_ids) < len(batch_ids):
                 return False
         return True
 
@@ -79,6 +83,84 @@ class Segment(Document):
     async def get_segments_by_ids(cls, segment_ids: List[str]) -> List["Segment"]:
         segment_ids = [uuid.UUID(segment_id) for segment_id in segment_ids]
         return await cls.find({"_id": {"$in": segment_ids}}).to_list(length=len(segment_ids))
+
+    _MAPPING_PROJECTION = {
+        "_id": 1,
+        "pecha_segment_id": 1,
+        "text_id": 1,
+        "mapping": 1,
+        "type": 1,
+    }
+
+    @classmethod
+    async def resolve_segment_identifier_lookup(
+        cls,
+        segment_identifiers: List[str],
+    ) -> Dict[str, str]:
+        if not segment_identifiers:
+            return {}
+
+        segment_uuids, pecha_segment_ids = cls._partition_segment_identifiers(segment_identifiers)
+        lookup: Dict[str, str] = {}
+
+        if segment_uuids:
+            cursor = cls.get_motor_collection().find(
+                {"_id": {"$in": segment_uuids}},
+                {"_id": 1},
+            )
+            async for document in cursor:
+                segment_id = str(document["_id"])
+                lookup[segment_id] = segment_id
+
+        if pecha_segment_ids:
+            cursor = cls.get_motor_collection().find(
+                {"pecha_segment_id": {"$in": pecha_segment_ids}},
+                {"_id": 1, "pecha_segment_id": 1},
+            )
+            async for document in cursor:
+                pecha_segment_id = document.get("pecha_segment_id")
+                if pecha_segment_id:
+                    lookup[pecha_segment_id] = str(document["_id"])
+
+        return lookup
+
+    @classmethod
+    async def get_mapping_segments_by_ids(cls, segment_ids: List[str]) -> List[Dict]:
+        if not segment_ids:
+            return []
+
+        segment_uuids = [uuid.UUID(segment_id) for segment_id in segment_ids]
+        cursor = cls.get_motor_collection().find(
+            {"_id": {"$in": segment_uuids}},
+            cls._MAPPING_PROJECTION,
+        )
+        segments: List[Dict] = []
+        async for document in cursor:
+            segments.append(
+                {
+                    "id": str(document["_id"]),
+                    "pecha_segment_id": document.get("pecha_segment_id"),
+                    "text_id": document.get("text_id", ""),
+                    "mapping": document.get("mapping") or [],
+                    "type": document.get("type"),
+                }
+            )
+        return segments
+
+    @classmethod
+    async def bulk_set_segment_mappings(
+        cls,
+        segment_mappings: Dict[str, List[Mapping]],
+    ) -> None:
+        if not segment_mappings:
+            return
+
+        collection = cls.get_motor_collection()
+        for segment_id, mappings in segment_mappings.items():
+            await collection.update_one(
+                {"_id": uuid.UUID(segment_id)},
+                {"$set": {"mapping": [mapping.model_dump() for mapping in mappings]}},
+            )
     @classmethod
     async def get_first_segment_by_ids_and_type(cls, segment_ids: List[str], segment_type: SegmentType) -> Optional["Segment"]:
         """Get the first segment matching the IDs and type - optimized for single result"""

@@ -123,8 +123,7 @@ def test_process_new_mappings_merge():
     assert any(m.text_id == "text3" and m.segments == ["seg5"] for m in result)
 
 
-@pytest.mark.asyncio
-async def test_construct_update_segments(mock_segment):
+def test_construct_update_segments(mock_segment):
     """Test construction of updated segments"""
     # Arrange
     segments = [
@@ -149,7 +148,7 @@ async def test_construct_update_segments(mock_segment):
     }
 
     # Act
-    result = await _construct_update_segments(segments, update_dict)
+    result = _construct_update_segments(segments, update_dict)
 
     # Assert
     assert len(result) == 1

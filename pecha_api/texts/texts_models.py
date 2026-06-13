@@ -156,16 +156,53 @@ class Text(Document):
 
     @classmethod
     async def exists_all(cls, text_ids: List[UUID], batch_size: int = 100) -> bool:
-        for i in range(0, len(text_ids), batch_size):
-            batch_ids = text_ids[i: i + batch_size]
-            found_texts = await cls.find({"_id": {"$in": batch_ids}}).to_list()
-
-            found_ids = {text.id for text in found_texts}
-
-            # If any ID from the current batch is missing, stop early
+        for index in range(0, len(text_ids), batch_size):
+            batch_ids = text_ids[index: index + batch_size]
+            cursor = cls.get_motor_collection().find(
+                {"_id": {"$in": batch_ids}},
+                {"_id": 1},
+            )
+            found_ids = {document["_id"] async for document in cursor}
             if len(found_ids) < len(batch_ids):
-                return False  # One or more IDs are missing
-        return True  # All IDs exist
+                return False
+        return True
+
+    @classmethod
+    async def resolve_text_identifier_lookup(cls, text_identifiers: List[str]) -> Dict[str, str]:
+        if not text_identifiers:
+            return {}
+
+        unique_identifiers = list(dict.fromkeys(text_identifiers))
+        lookup: Dict[str, str] = {}
+        pecha_text_ids: List[str] = []
+        text_uuids: List[UUID] = []
+
+        for text_identifier in unique_identifiers:
+            try:
+                text_uuids.append(UUID(text_identifier))
+            except ValueError:
+                pecha_text_ids.append(text_identifier)
+
+        if text_uuids:
+            cursor = cls.get_motor_collection().find(
+                {"_id": {"$in": text_uuids}},
+                {"_id": 1},
+            )
+            async for document in cursor:
+                text_id = str(document["_id"])
+                lookup[text_id] = text_id
+
+        if pecha_text_ids:
+            cursor = cls.get_motor_collection().find(
+                {"pecha_text_id": {"$in": pecha_text_ids}},
+                {"_id": 1, "pecha_text_id": 1},
+            )
+            async for document in cursor:
+                pecha_text_id = document.get("pecha_text_id")
+                if pecha_text_id:
+                    lookup[pecha_text_id] = str(document["_id"])
+
+        return lookup
     
     # @classmethod
     # async def get_texts_by_collection_id(cls, collection_id: str, language: str, skip: int, limit: int) -> List["Text"]:
