@@ -334,3 +334,29 @@ def get_series_paginated(
         for series, count in page_rows
     ]
     return rows, total
+
+
+def get_random_featured_published_series(
+    db: Session,
+) -> Optional[Tuple[Series, int, int]]:
+    plan_count = _series_active_plans_count_subquery(published_only=True).label("plan_count")
+    row = (
+        db.query(Series, plan_count)
+        .options(selectinload(Series.metadata_entries))
+        .filter(
+            Series.deleted_at.is_(None),
+            Series.featured.is_(True),
+            Series.status == PlanStatus.PUBLISHED,
+        )
+        .order_by(func.random())
+        .first()
+    )
+    if row is None:
+        return None
+
+    series, count = row
+    enrolled_count = get_enrolled_count_map_by_series_ids(
+        db=db,
+        series_ids=[series.id],
+    ).get(series.id, 0)
+    return series, int(count or 0), enrolled_count

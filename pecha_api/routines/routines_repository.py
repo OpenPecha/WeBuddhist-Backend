@@ -328,3 +328,42 @@ def get_collection_source_ids_by_time_block_id(db: Session, time_block_id: UUID)
         .all()
     )
     return [s.source_id for s in sessions]
+
+
+def get_routine_series_and_recitation_counts(
+    db: Session, routine_id: UUID
+) -> Tuple[int, int]:
+    sessions = (
+        db.query(RoutineSession.session_type, RoutineSession.source_id)
+        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            RoutineTimeBlock.routine_id == routine_id,
+            RoutineTimeBlock.deleted_at.is_(None),
+        )
+        .all()
+    )
+
+    plan_ids = [
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.PLAN and session.source_id is not None
+    ]
+    recitation_count = sum(
+        1
+        for session in sessions
+        if session.session_type
+        in (SessionType.RECITATION, SessionType.RECITATION_COLLECTION)
+    )
+
+    if not plan_ids:
+        return 0, recitation_count
+
+    plans = get_plans_by_ids(db=db, plan_ids=plan_ids)
+    series_keys = set()
+    for plan in plans:
+        if plan.series_id is not None:
+            series_keys.add(("series", plan.series_id))
+        else:
+            series_keys.add(("plan", plan.id))
+
+    return len(series_keys), recitation_count
