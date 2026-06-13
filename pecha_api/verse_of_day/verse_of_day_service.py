@@ -8,14 +8,16 @@ from .verse_of_day_repository import (
     get_verse_of_day_by_id, 
     get_verse_of_day_today, 
     create_verse_of_day,
-    create_verse_metadata_bulk
+    create_verse_metadata_bulk,
+    get_group_metadata_by_group_id
 )
 from .verse_of_day_response_models import (
     VerseOfDayPublicDTO, 
     VerseOfDayPublicResponse, 
     CreateVerseOfDayRequest, 
     VerseOfDayDTO,
-    VersesDict
+    VersesDict,
+    GroupInfoDTO
 )
 from .verse_of_day_model import VerseOfDay
 
@@ -28,8 +30,8 @@ def build_verses_dict(verse_metadata_list) -> VersesDict:
     return verses
 
 
-def build_public_dto(verse: VerseOfDay, lang: Optional[str] = None) -> VerseOfDayPublicDTO:
-    """Build public DTO with optional language filtering."""
+def build_public_dto(verse: VerseOfDay, lang: Optional[str] = None, group_info: Optional[List[GroupInfoDTO]] = None) -> VerseOfDayPublicDTO:
+    """Build public DTO with optional language filtering and group metadata."""
     verses_dict = build_verses_dict(verse.verse_metadata) if verse.verse_metadata else {}
     
     if lang and lang in verses_dict:
@@ -40,7 +42,8 @@ def build_public_dto(verse: VerseOfDay, lang: Optional[str] = None) -> VerseOfDa
             image_urls=verse.image_urls,
             ref_id=verse.ref_id,
             ref_type=verse.ref_type,
-            date=verse.date
+            date=verse.date,
+            group_info=group_info
         )
     else:
         return VerseOfDayPublicDTO(
@@ -50,7 +53,8 @@ def build_public_dto(verse: VerseOfDay, lang: Optional[str] = None) -> VerseOfDa
             image_urls=verse.image_urls,
             ref_id=verse.ref_id,
             ref_type=verse.ref_type,
-            date=verse.date
+            date=verse.date,
+            group_info=group_info
         )
 
 
@@ -66,8 +70,31 @@ def get_verse_of_day(
         if verse is None:
             return VerseOfDayPublicResponse(verse_of_day=None)
         
+        # Fetch group metadata if group_id exists
+        group_info = None
+        if verse.group_id:
+            group_metadata_list = get_group_metadata_by_group_id(db, verse.group_id)
+            if group_metadata_list:
+                # Filter by language if lang parameter is provided
+                if lang:
+                    filtered_metadata = [m for m in group_metadata_list if m.language.lower() == lang.lower()]
+                else:
+                    filtered_metadata = group_metadata_list
+                
+                if filtered_metadata:
+                    group_info = [
+                        GroupInfoDTO(
+                            id=metadata.id,
+                            title=metadata.title,
+                            sub_title=metadata.sub_title,
+                            description=metadata.description,
+                            language=metadata.language
+                        )
+                        for metadata in filtered_metadata
+                    ]
+        
         return VerseOfDayPublicResponse(
-            verse_of_day=build_public_dto(verse, lang)
+            verse_of_day=build_public_dto(verse, lang, group_info)
         )
 
 
@@ -82,8 +109,31 @@ def get_verse_of_day_by_id_service(
         if verse is None:
             return VerseOfDayPublicResponse(verse_of_day=None)
         
+        # Fetch group metadata if group_id exists
+        group_info = None
+        if verse.group_id:
+            group_metadata_list = get_group_metadata_by_group_id(db, verse.group_id)
+            if group_metadata_list:
+                # Filter by language if lang parameter is provided
+                if lang:
+                    filtered_metadata = [m for m in group_metadata_list if m.language.lower() == lang.lower()]
+                else:
+                    filtered_metadata = group_metadata_list
+                
+                if filtered_metadata:
+                    group_info = [
+                        GroupInfoDTO(
+                            id=metadata.id,
+                            title=metadata.title,
+                            sub_title=metadata.sub_title,
+                            description=metadata.description,
+                            language=metadata.language
+                        )
+                        for metadata in filtered_metadata
+                    ]
+        
         return VerseOfDayPublicResponse(
-            verse_of_day=build_public_dto(verse, lang)
+            verse_of_day=build_public_dto(verse, lang, group_info)
         )
 
 
@@ -98,8 +148,31 @@ def get_verse_of_day_today_service(
         if verse is None:
             return VerseOfDayPublicResponse(verse_of_day=None)
         
+        # Fetch group metadata if group_id exists
+        group_info = None
+        if verse.group_id:
+            group_metadata_list = get_group_metadata_by_group_id(db, verse.group_id)
+            if group_metadata_list:
+                # Filter by language if lang parameter is provided
+                if lang:
+                    filtered_metadata = [m for m in group_metadata_list if m.language.lower() == lang.lower()]
+                else:
+                    filtered_metadata = group_metadata_list
+                
+                if filtered_metadata:
+                    group_info = [
+                        GroupInfoDTO(
+                            id=metadata.id,
+                            title=metadata.title,
+                            sub_title=metadata.sub_title,
+                            description=metadata.description,
+                            language=metadata.language
+                        )
+                        for metadata in filtered_metadata
+                    ]
+        
         return VerseOfDayPublicResponse(
-            verse_of_day=build_public_dto(verse, lang)
+            verse_of_day=build_public_dto(verse, lang, group_info)
         )
 
 

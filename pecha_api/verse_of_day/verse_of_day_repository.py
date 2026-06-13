@@ -5,6 +5,7 @@ from datetime import date
 
 from .verse_of_day_model import VerseOfDay
 from .verse_metadata_model import VerseMetadata
+from pecha_api.plans.groups.groups_models import AuthorGroupMetadata
 
 
 def get_verse_of_day_by_filters(
@@ -102,3 +103,12 @@ def get_verse_metadata_by_lang(
         VerseMetadata.verse_of_day_id == verse_of_day_id,
         VerseMetadata.lang == lang
     ).first()
+
+
+def get_group_metadata_by_group_id(
+    db: Session,
+    group_id: UUID
+) -> List[AuthorGroupMetadata]:
+    return db.query(AuthorGroupMetadata).filter(
+        AuthorGroupMetadata.group_id == group_id
+    ).all()

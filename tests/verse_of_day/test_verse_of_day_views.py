@@ -12,6 +12,7 @@ from pecha_api.verse_of_day.verse_of_day_response_models import (
     VerseOfDayPublicDTO,
     VerseOfDayDTO,
     CreateVerseOfDayRequest,
+    GroupInfoDTO,
 )
 
 
@@ -85,6 +86,52 @@ def sample_create_request():
         ref_type="sutra",
         group_id=uuid4(),
         date=date(2025, 6, 5)
+    )
+
+
+@pytest.fixture
+def sample_group_info():
+    """Sample GroupInfoDTO list for all languages."""
+    return [
+        GroupInfoDTO(
+            id=uuid4(),
+            title="English Title",
+            sub_title="English Subtitle",
+            description="English description",
+            language="EN"
+        ),
+        GroupInfoDTO(
+            id=uuid4(),
+            title="བོད་ཡིག་མིང་།",
+            sub_title="བོད་ཡིག་ཡན་ལག་མིང་།",
+            description="བོད་ཡིག་གསལ་བཤད།",
+            language="BO"
+        ),
+        GroupInfoDTO(
+            id=uuid4(),
+            title="中文标题",
+            sub_title="中文副标题",
+            description="中文描述",
+            language="zh"
+        )
+    ]
+
+
+@pytest.fixture
+def sample_verse_public_dto_with_group_info(sample_group_info):
+    """VerseOfDayPublicDTO with group_info included."""
+    return VerseOfDayPublicDTO(
+        id=uuid4(),
+        verses={
+            "en": "May all beings be happy and free from suffering.",
+            "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+            "zh": "愿一切众生快乐，远离痛苦。"
+        },
+        image_urls=["https://example.com/image1.jpg", "https://example.com/image2.jpg"],
+        ref_id="text-123",
+        ref_type="sutra",
+        date=date(2025, 6, 5),
+        group_info=sample_group_info
     )
 
 
@@ -196,6 +243,71 @@ async def test_get_verse_of_day_database_error():
         mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None)
 
 
+@pytest.mark.asyncio
+async def test_get_verse_of_day_with_group_info_in_response(sample_verse_public_dto_with_group_info):
+    """Test response includes group_info array."""
+    response_with_group_info = VerseOfDayPublicResponse(verse_of_day=sample_verse_public_dto_with_group_info)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day", return_value=response_with_group_info) as mock_service:
+        response = client.get("/verse-of-day")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "group_info" in data["verse_of_day"]
+        assert data["verse_of_day"]["group_info"] is not None
+        assert len(data["verse_of_day"]["group_info"]) == 3
+        assert data["verse_of_day"]["group_info"][0]["language"] == "EN"
+        assert data["verse_of_day"]["group_info"][1]["language"] == "BO"
+        assert data["verse_of_day"]["group_info"][2]["language"] == "zh"
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_with_lang_filter_filters_group_info(sample_group_info):
+    """Test group_info filtered when lang=zh."""
+    filtered_dto = VerseOfDayPublicDTO(
+        id=uuid4(),
+        verse="愿一切众生快乐，远离痛苦。",
+        verses=None,
+        image_urls=["https://example.com/image1.jpg"],
+        ref_id="text-123",
+        ref_type="sutra",
+        date=date(2025, 6, 5),
+        group_info=[sample_group_info[2]]  # Only zh
+    )
+    response_filtered = VerseOfDayPublicResponse(verse_of_day=filtered_dto)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day", return_value=response_filtered) as mock_service:
+        response = client.get("/verse-of-day?lang=zh")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "group_info" in data["verse_of_day"]
+        assert len(data["verse_of_day"]["group_info"]) == 1
+        assert data["verse_of_day"]["group_info"][0]["language"] == "zh"
+        assert data["verse_of_day"]["group_info"][0]["title"] == "中文标题"
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_group_info_structure(sample_verse_public_dto_with_group_info):
+    """Test validates group_info DTO structure."""
+    response_with_group_info = VerseOfDayPublicResponse(verse_of_day=sample_verse_public_dto_with_group_info)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day", return_value=response_with_group_info) as mock_service:
+        response = client.get("/verse-of-day")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        group_info = data["verse_of_day"]["group_info"][0]
+        assert "id" in group_info
+        assert "title" in group_info
+        assert "sub_title" in group_info
+        assert "description" in group_info
+        assert "language" in group_info
+
+
 # =============================================================================
 # GET /verse-of-day/today TESTS
 # =============================================================================
@@ -239,6 +351,47 @@ async def test_get_verse_of_day_today_database_error():
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert response.json()["detail"] == "Database connection error"
         mock_service.assert_called_once_with(lang=None)
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_with_group_info(sample_verse_public_dto_with_group_info):
+    """Test response includes group_info."""
+    response_with_group_info = VerseOfDayPublicResponse(verse_of_day=sample_verse_public_dto_with_group_info)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_today_service", return_value=response_with_group_info) as mock_service:
+        response = client.get("/verse-of-day/today")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "group_info" in data["verse_of_day"]
+        assert len(data["verse_of_day"]["group_info"]) == 3
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_with_lang_filter_filters_group_info(sample_group_info):
+    """Test group_info filtered by lang."""
+    filtered_dto = VerseOfDayPublicDTO(
+        id=uuid4(),
+        verse=["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+        verses=None,
+        image_urls=["https://example.com/image1.jpg"],
+        ref_id="text-123",
+        ref_type="sutra",
+        date=date(2025, 6, 5),
+        group_info=[sample_group_info[1]]  # Only BO
+    )
+    response_filtered = VerseOfDayPublicResponse(verse_of_day=filtered_dto)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_today_service", return_value=response_filtered) as mock_service:
+        response = client.get("/verse-of-day/today?lang=bo")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "group_info" in data["verse_of_day"]
+        assert len(data["verse_of_day"]["group_info"]) == 1
+        assert data["verse_of_day"]["group_info"][0]["language"] == "BO"
 
 
 # =============================================================================
@@ -294,6 +447,49 @@ async def test_get_verse_of_day_by_id_database_error():
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert response.json()["detail"] == "Database connection error"
         mock_service.assert_called_once_with(verse_id=verse_id, lang=None)
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_by_id_with_group_info(sample_verse_public_dto_with_group_info):
+    """Test response includes group_info."""
+    verse_id = uuid4()
+    response_with_group_info = VerseOfDayPublicResponse(verse_of_day=sample_verse_public_dto_with_group_info)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_by_id_service", return_value=response_with_group_info) as mock_service:
+        response = client.get(f"/verse-of-day/{verse_id}")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "group_info" in data["verse_of_day"]
+        assert len(data["verse_of_day"]["group_info"]) == 3
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_by_id_with_lang_filter_filters_group_info(sample_group_info):
+    """Test group_info filtered by lang."""
+    verse_id = uuid4()
+    filtered_dto = VerseOfDayPublicDTO(
+        id=uuid4(),
+        verse="May all beings be happy and free from suffering.",
+        verses=None,
+        image_urls=["https://example.com/image1.jpg"],
+        ref_id="text-123",
+        ref_type="sutra",
+        date=date(2025, 6, 5),
+        group_info=[sample_group_info[0]]  # Only EN
+    )
+    response_filtered = VerseOfDayPublicResponse(verse_of_day=filtered_dto)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_by_id_service", return_value=response_filtered) as mock_service:
+        response = client.get(f"/verse-of-day/{verse_id}?lang=en")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "group_info" in data["verse_of_day"]
+        assert len(data["verse_of_day"]["group_info"]) == 1
+        assert data["verse_of_day"]["group_info"][0]["language"] == "EN"
 
 
 # =============================================================================

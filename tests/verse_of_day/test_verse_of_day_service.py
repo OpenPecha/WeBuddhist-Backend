@@ -84,6 +84,66 @@ def sample_create_request():
     )
 
 
+@pytest.fixture
+def sample_group_metadata():
+    """Sample AuthorGroupMetadata objects for multiple languages."""
+    en_metadata = MagicMock()
+    en_metadata.id = uuid4()
+    en_metadata.group_id = uuid4()
+    en_metadata.language = "EN"
+    en_metadata.title = "English Title"
+    en_metadata.sub_title = "English Subtitle"
+    en_metadata.description = "English description"
+    
+    bo_metadata = MagicMock()
+    bo_metadata.id = uuid4()
+    bo_metadata.group_id = en_metadata.group_id
+    bo_metadata.language = "BO"
+    bo_metadata.title = "བོད་ཡིག་མིང་།"
+    bo_metadata.sub_title = "བོད་ཡིག་ཡན་ལག་མིང་།"
+    bo_metadata.description = "བོད་ཡིག་གསལ་བཤད།"
+    
+    zh_metadata = MagicMock()
+    zh_metadata.id = uuid4()
+    zh_metadata.group_id = en_metadata.group_id
+    zh_metadata.language = "zh"
+    zh_metadata.title = "中文标题"
+    zh_metadata.sub_title = "中文副标题"
+    zh_metadata.description = "中文描述"
+    
+    return [en_metadata, bo_metadata, zh_metadata]
+
+
+@pytest.fixture
+def sample_verse_with_group_id(sample_verse_metadata):
+    """Sample VerseOfDay model with group_id set."""
+    verse = MagicMock()
+    verse.id = uuid4()
+    verse.verse_id = "verse-456"
+    verse.ref_id = "text-123"
+    verse.ref_type = "sutra"
+    verse.image_urls = ["https://example.com/image1.jpg"]
+    verse.group_id = uuid4()
+    verse.date = date(2025, 6, 5)
+    verse.verse_metadata = sample_verse_metadata
+    return verse
+
+
+@pytest.fixture
+def sample_verse_without_group_id(sample_verse_metadata):
+    """Sample VerseOfDay model without group_id."""
+    verse = MagicMock()
+    verse.id = uuid4()
+    verse.verse_id = "verse-789"
+    verse.ref_id = "text-456"
+    verse.ref_type = "commentary"
+    verse.image_urls = None
+    verse.group_id = None
+    verse.date = date(2025, 6, 6)
+    verse.verse_metadata = sample_verse_metadata
+    return verse
+
+
 # =============================================================================
 # get_verse_of_day() TESTS
 # =============================================================================
@@ -206,6 +266,80 @@ async def test_get_verse_of_day_service_database_error(mock_db_session):
             get_verse_of_day()
 
 
+@pytest.mark.asyncio
+async def test_get_verse_of_day_with_group_info_all_languages(sample_verse_with_group_id, sample_group_metadata, mock_db_session):
+    """Test returns all group_info when no lang filter."""
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=sample_verse_with_group_id), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_group_metadata_by_group_id", return_value=sample_group_metadata):
+        
+        result = get_verse_of_day()
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.group_info is not None
+        assert len(result.verse_of_day.group_info) == 3
+        languages = [info.language for info in result.verse_of_day.group_info]
+        assert "EN" in languages
+        assert "BO" in languages
+        assert "zh" in languages
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_with_group_info_filtered_by_lang(sample_verse_with_group_id, sample_group_metadata, mock_db_session):
+    """Test returns only ZH group_info when lang=zh."""
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=sample_verse_with_group_id), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_group_metadata_by_group_id", return_value=sample_group_metadata):
+        
+        result = get_verse_of_day(lang="zh")
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.group_info is not None
+        assert len(result.verse_of_day.group_info) == 1
+        assert result.verse_of_day.group_info[0].language == "zh"
+        assert result.verse_of_day.group_info[0].title == "中文标题"
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_with_group_info_case_insensitive(sample_verse_with_group_id, sample_group_metadata, mock_db_session):
+    """Test language filter works with different cases (zh, ZH, Zh)."""
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=sample_verse_with_group_id), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_group_metadata_by_group_id", return_value=sample_group_metadata):
+        
+        result = get_verse_of_day(lang="ZH")
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.group_info is not None
+        assert len(result.verse_of_day.group_info) == 1
+        assert result.verse_of_day.group_info[0].language == "zh"
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_without_group_id(sample_verse_without_group_id, mock_db_session):
+    """Test returns None group_info when verse has no group_id."""
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=sample_verse_without_group_id):
+        
+        result = get_verse_of_day()
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.group_info is None
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_with_empty_group_metadata(sample_verse_with_group_id, mock_db_session):
+    """Test returns None group_info when group has no metadata."""
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=sample_verse_with_group_id), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_group_metadata_by_group_id", return_value=[]):
+        
+        result = get_verse_of_day()
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.group_info is None
+
+
 # =============================================================================
 # get_verse_of_day_by_id_service() TESTS
 # =============================================================================
@@ -277,6 +411,53 @@ async def test_get_verse_of_day_by_id_service_database_error(mock_db_session):
         
         with pytest.raises(Exception, match="Database error"):
             get_verse_of_day_by_id_service(verse_id=verse_id)
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_by_id_with_group_info_all_languages(sample_verse_with_group_id, sample_group_metadata, mock_db_session):
+    """Test returns all group_info."""
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_id", return_value=sample_verse_with_group_id), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_group_metadata_by_group_id", return_value=sample_group_metadata):
+        
+        result = get_verse_of_day_by_id_service(verse_id=verse_id)
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.group_info is not None
+        assert len(result.verse_of_day.group_info) == 3
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_by_id_with_group_info_filtered(sample_verse_with_group_id, sample_group_metadata, mock_db_session):
+    """Test returns filtered group_info by lang."""
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_id", return_value=sample_verse_with_group_id), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_group_metadata_by_group_id", return_value=sample_group_metadata):
+        
+        result = get_verse_of_day_by_id_service(verse_id=verse_id, lang="EN")
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.group_info is not None
+        assert len(result.verse_of_day.group_info) == 1
+        assert result.verse_of_day.group_info[0].language == "EN"
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_by_id_without_group_id(sample_verse_without_group_id, mock_db_session):
+    """Test returns None group_info."""
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_id", return_value=sample_verse_without_group_id):
+        
+        result = get_verse_of_day_by_id_service(verse_id=verse_id)
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.group_info is None
 
 
 # =============================================================================
@@ -359,6 +540,62 @@ async def test_get_verse_of_day_today_service_database_error(mock_db_session):
         
         with pytest.raises(Exception, match="Database error"):
             get_verse_of_day_today_service()
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_with_group_info_all_languages(sample_verse_with_group_id, sample_group_metadata, mock_db_session):
+    """Test returns all group_info."""
+    today = date(2025, 6, 5)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.date") as mock_date, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_today", return_value=sample_verse_with_group_id), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_group_metadata_by_group_id", return_value=sample_group_metadata):
+        
+        mock_date.today.return_value = today
+        
+        result = get_verse_of_day_today_service()
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.group_info is not None
+        assert len(result.verse_of_day.group_info) == 3
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_with_group_info_filtered(sample_verse_with_group_id, sample_group_metadata, mock_db_session):
+    """Test returns filtered group_info by lang."""
+    today = date(2025, 6, 5)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.date") as mock_date, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_today", return_value=sample_verse_with_group_id), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_group_metadata_by_group_id", return_value=sample_group_metadata):
+        
+        mock_date.today.return_value = today
+        
+        result = get_verse_of_day_today_service(lang="BO")
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.group_info is not None
+        assert len(result.verse_of_day.group_info) == 1
+        assert result.verse_of_day.group_info[0].language == "BO"
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_without_group_id(sample_verse_without_group_id, mock_db_session):
+    """Test returns None group_info."""
+    today = date(2025, 6, 5)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.date") as mock_date, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_today", return_value=sample_verse_without_group_id):
+        
+        mock_date.today.return_value = today
+        
+        result = get_verse_of_day_today_service()
+        
+        assert result.verse_of_day is not None
+        assert result.verse_of_day.group_info is None
 
 
 # =============================================================================
