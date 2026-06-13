@@ -10,6 +10,7 @@ from pecha_api.verse_of_day.verse_of_day_service import (
     create_verse_of_day_service,
     build_verses_dict,
     build_public_dto,
+    _generate_verse_image_url,
 )
 from pecha_api.verse_of_day.verse_of_day_response_models import (
     VerseOfDayPublicResponse,
@@ -58,7 +59,7 @@ def sample_verse_model(sample_verse_metadata):
     verse.verse_id = "verse-456"
     verse.ref_id = "text-123"
     verse.ref_type = "sutra"
-    verse.image_urls = ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]
+    verse.image_urls = ["images/verse_images/uuid1/image1.jpg", "images/verse_images/uuid2/image2.jpg"]  # S3 keys
     verse.group_id = uuid4()
     verse.date = date(2025, 6, 5)
     verse.created_by = "test@example.com"
@@ -122,7 +123,7 @@ def sample_verse_with_group_id(sample_verse_metadata):
     verse.verse_id = "verse-456"
     verse.ref_id = "text-123"
     verse.ref_type = "sutra"
-    verse.image_urls = ["https://example.com/image1.jpg"]
+    verse.image_urls = ["images/verse_images/uuid1/image1.jpg"]  # S3 key
     verse.group_id = uuid4()
     verse.date = date(2025, 6, 5)
     verse.verse_metadata = sample_verse_metadata
@@ -150,9 +151,12 @@ def sample_verse_without_group_id(sample_verse_metadata):
 
 @pytest.mark.asyncio
 async def test_get_verse_of_day_service_success(sample_verse_model, mock_db_session):
-    """Test successful retrieval of verse with all languages."""
+    """Test successful retrieval of verse with all languages and presigned URL."""
+    presigned_url = "https://bucket.s3.amazonaws.com/image1.jpg?X-Amz-Signature=..."
+    
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
-         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=sample_verse_model) as mock_repo:
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=sample_verse_model) as mock_repo, \
+         patch("pecha_api.verse_of_day.verse_of_day_service._generate_verse_image_url", return_value=presigned_url) as mock_presigned:
         
         result = get_verse_of_day()
         
@@ -165,7 +169,7 @@ async def test_get_verse_of_day_service_success(sample_verse_model, mock_db_sess
         assert "zh" in result.verse_of_day.verses
         assert result.verse_of_day.ref_id == sample_verse_model.ref_id
         assert result.verse_of_day.ref_type == sample_verse_model.ref_type
-        assert result.verse_of_day.image_urls == sample_verse_model.image_urls
+        assert result.verse_of_day.image_url == presigned_url  # Single presigned URL string
         assert result.verse_of_day.date == sample_verse_model.date
         
         mock_repo.assert_called_once_with(
@@ -173,6 +177,7 @@ async def test_get_verse_of_day_service_success(sample_verse_model, mock_db_sess
             group_id=None,
             filter_date=None
         )
+        mock_presigned.assert_called_once_with(sample_verse_model.image_urls)
 
 
 @pytest.mark.asyncio
@@ -721,7 +726,7 @@ async def test_create_verse_of_day_service_model_creation(sample_create_request,
 
 @pytest.mark.asyncio
 async def test_get_verse_of_day_service_empty_image_urls(mock_db_session):
-    """Test verse with empty image_urls array."""
+    """Test verse with empty image_urls array returns None."""
     verse = MagicMock()
     verse.id = uuid4()
     verse.ref_id = "text-empty"
@@ -735,12 +740,13 @@ async def test_get_verse_of_day_service_empty_image_urls(mock_db_session):
         
         result = get_verse_of_day()
         
-        assert result.verse_of_day.image_urls == []
+        # Empty list returns None
+        assert result.verse_of_day.image_url is None
 
 
 @pytest.mark.asyncio
 async def test_get_verse_of_day_service_none_image_urls(mock_db_session):
-    """Test verse with None image_urls."""
+    """Test verse with None image_url."""
     verse = MagicMock()
     verse.id = uuid4()
     verse.ref_id = "text-none"
@@ -754,7 +760,7 @@ async def test_get_verse_of_day_service_none_image_urls(mock_db_session):
         
         result = get_verse_of_day()
         
-        assert result.verse_of_day.image_urls is None
+        assert result.verse_of_day.image_url is None
 
 
 @pytest.mark.asyncio
@@ -824,3 +830,127 @@ def test_build_public_dto_invalid_language(sample_verse_model):
     
     assert result.verses is not None
     assert result.verse is None
+
+
+# =============================================================================
+# _generate_verse_image_url() TESTS
+# =============================================================================
+
+def test_generate_verse_image_url_success():
+    """Test successful generation of presigned URL from first S3 key."""
+    s3_keys = ["images/verse_images/uuid1/image1.jpg", "images/verse_images/uuid2/image2.jpg"]
+    presigned_url1 = "https://bucket.s3.amazonaws.com/images/verse_images/uuid1/image1.jpg?X-Amz-Signature=..."
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.get", return_value="test-bucket"), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.generate_presigned_access_url", return_value=presigned_url1) as mock_presigned:
+        
+        result = _generate_verse_image_url(s3_keys)
+        
+        assert result == presigned_url1  # Returns first URL as string
+        mock_presigned.assert_called_once_with("test-bucket", s3_keys[0])
+
+
+def test_generate_verse_image_url_none_input():
+    """Test returns None when input is None."""
+    result = _generate_verse_image_url(None)
+    assert result is None
+
+
+def test_generate_verse_image_url_empty_list():
+    """Test returns None when input is empty list."""
+    result = _generate_verse_image_url([])
+    assert result is None
+
+
+def test_generate_verse_image_url_single_key():
+    """Test generation with single S3 key."""
+    s3_keys = ["images/verse_images/uuid1/image1.jpg"]
+    presigned_url = "https://bucket.s3.amazonaws.com/images/verse_images/uuid1/image1.jpg?X-Amz-Signature=..."
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.get", return_value="test-bucket"), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.generate_presigned_access_url", return_value=presigned_url) as mock_presigned:
+        
+        result = _generate_verse_image_url(s3_keys)
+        
+        assert result == presigned_url
+        mock_presigned.assert_called_once_with("test-bucket", s3_keys[0])
+
+
+def test_generate_verse_image_url_skips_empty_strings():
+    """Test skips empty or whitespace-only strings and returns first valid."""
+    s3_keys = ["", "   ", "images/verse_images/uuid1/image1.jpg", "images/verse_images/uuid2/image2.jpg"]
+    presigned_url1 = "https://bucket.s3.amazonaws.com/images/verse_images/uuid1/image1.jpg?X-Amz-Signature=..."
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.get", return_value="test-bucket"), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.generate_presigned_access_url", return_value=presigned_url1) as mock_presigned:
+        
+        result = _generate_verse_image_url(s3_keys)
+        
+        assert result == presigned_url1  # Returns first valid URL
+        mock_presigned.assert_called_once_with("test-bucket", s3_keys[2])
+
+
+def test_generate_verse_image_url_skips_non_string():
+    """Test skips non-string values and returns first valid string."""
+    s3_keys = [None, 123, "images/verse_images/uuid1/image1.jpg", "images/verse_images/uuid2/image2.jpg"]
+    presigned_url1 = "https://bucket.s3.amazonaws.com/images/verse_images/uuid1/image1.jpg?X-Amz-Signature=..."
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.get", return_value="test-bucket"), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.generate_presigned_access_url", return_value=presigned_url1) as mock_presigned:
+        
+        result = _generate_verse_image_url(s3_keys)
+        
+        assert result == presigned_url1
+        mock_presigned.assert_called_once_with("test-bucket", s3_keys[2])
+
+
+def test_generate_verse_image_url_handles_exception():
+    """Test gracefully handles exception and tries next key."""
+    s3_keys = ["images/verse_images/uuid1/image1.jpg", "images/verse_images/uuid2/image2.jpg"]
+    presigned_url2 = "https://bucket.s3.amazonaws.com/images/verse_images/uuid2/image2.jpg?X-Amz-Signature=..."
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.get", return_value="test-bucket"), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.generate_presigned_access_url") as mock_presigned, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.logger") as mock_logger:
+        
+        # First call raises exception, second succeeds
+        mock_presigned.side_effect = [Exception("S3 NoSuchKey error"), presigned_url2]
+        
+        result = _generate_verse_image_url(s3_keys)
+        
+        assert result == presigned_url2  # Returns second URL after first fails
+        assert mock_presigned.call_count == 2
+        mock_logger.error.assert_called_once()  # Error was logged
+
+
+def test_generate_verse_image_url_returns_empty_string():
+    """Test tries next key when presigned URL generation returns empty string."""
+    s3_keys = ["images/verse_images/uuid1/image1.jpg", "images/verse_images/uuid2/image2.jpg"]
+    presigned_url2 = "https://bucket.s3.amazonaws.com/images/verse_images/uuid2/image2.jpg?X-Amz-Signature=..."
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.get", return_value="test-bucket"), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.generate_presigned_access_url") as mock_presigned:
+        
+        # First returns empty string, second succeeds
+        mock_presigned.side_effect = ["", presigned_url2]
+        
+        result = _generate_verse_image_url(s3_keys)
+        
+        assert result == presigned_url2  # Returns second URL
+        assert mock_presigned.call_count == 2
+
+
+def test_generate_verse_image_url_all_fail_returns_none():
+    """Test returns None when all URL generations fail."""
+    s3_keys = ["images/verse_images/uuid1/image1.jpg", "images/verse_images/uuid2/image2.jpg"]
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_service.get", return_value="test-bucket"), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.generate_presigned_access_url") as mock_presigned, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.logger"):
+        
+        # All calls raise exceptions
+        mock_presigned.side_effect = [Exception("Error 1"), Exception("Error 2")]
+        
+        result = _generate_verse_image_url(s3_keys)
+        
+        assert result is None  # No valid URLs generated
