@@ -16,7 +16,8 @@ from .accumulator_repository import (
     update_accumulator,
     delete_accumulator,
     add_history_row,
-    get_user_accumulator_history
+    get_user_accumulator_history,
+    mantra_exists
 )
 from .accumulator_response_models import (
     AccumulatorsResponse,
@@ -35,6 +36,7 @@ from .response_message import (
     NOT_FOUND,
     FORBIDDEN,
     ACCUMULATOR_NOT_FOUND,
+    MANTRA_NOT_FOUND,
     ACCUMULATOR_UPDATE_NOT_ALLOWED,
     ACCUMULATOR_DELETE_NOT_ALLOWED,
     ONLY_USER_ACCUMULATORS_CAN_BE_UPDATED,
@@ -91,6 +93,14 @@ def convert_accumulator_to_public_dto(accumulator: Accumulator) -> PublicAccumul
     )
 
 
+def validate_mantra_exists(db, mantra_id: UUID) -> None:
+    if not mantra_exists(db, mantra_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": NOT_FOUND, "message": MANTRA_NOT_FOUND}
+        )
+
+
 def is_user_created_accumulator(accumulator: Accumulator) -> bool:
     accumulator_type = accumulator.type.value if hasattr(accumulator.type, 'value') else accumulator.type
     return accumulator_type == AccumulatorType.USER.value
@@ -132,6 +142,9 @@ async def create_accumulator_service(token: str, request: CreateAccumulatorReque
         await TextUtils.validate_text_exists(text_id=str(request.text_id))
 
     with SessionLocal() as db:
+        if request.mantra_id is not None:
+            validate_mantra_exists(db, request.mantra_id)
+
         new_accumulator = Accumulator(
             id=uuid4(),
             user_id=current_user.id,
@@ -194,6 +207,7 @@ async def update_accumulator_service(token: str, accumulator_id: UUID, request: 
         if request.text_id is not None:
             accumulator.text_id = request.text_id
         if request.mantra_id is not None:
+            validate_mantra_exists(db, request.mantra_id)
             accumulator.mantra_id = request.mantra_id
         if request.current_count is not None:
             delta = request.current_count - (accumulator.current_count or 0)

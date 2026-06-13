@@ -7,6 +7,11 @@ from fastapi import HTTPException
 from starlette import status
 from .accumulator_models import Accumulator
 from .accumulator_history_model import AccumulatorHistory
+from ..mantra.mantra_model import Mantra
+
+
+def mantra_exists(db: Session, mantra_id: UUID) -> bool:
+    return db.query(Mantra.id).filter(Mantra.id == mantra_id).first() is not None
 
 
 def add_accumulator(db: Session, accumulator: Accumulator) -> Accumulator:
