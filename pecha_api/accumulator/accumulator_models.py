@@ -18,6 +18,7 @@ class Accumulator(Base):
     target_count = Column(Integer, nullable=True)
     current_count = Column(Integer, nullable=False, default=0)
     text_id = Column(UUID(as_uuid=True), nullable=True)
+    mantra_id = Column(UUID(as_uuid=True), nullable=True)
 
     created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), onupdate=datetime.now(_datetime.timezone.utc))

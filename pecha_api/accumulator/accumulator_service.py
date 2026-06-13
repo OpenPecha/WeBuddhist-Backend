@@ -60,6 +60,7 @@ def convert_accumulator_to_dto(accumulator: Accumulator) -> AccumulatorDTO:
         target_count=accumulator.target_count,
         current_count=accumulator.current_count or 0,
         text_id=accumulator.text_id,
+        mantra_id=accumulator.mantra_id,
         created_at=accumulator.created_at,
         updated_at=accumulator.updated_at
     )
@@ -84,6 +85,7 @@ def convert_accumulator_to_public_dto(accumulator: Accumulator) -> PublicAccumul
         target_count=accumulator.target_count,
         current_count=accumulator.current_count or 0,
         text_id=accumulator.text_id,
+        mantra_id=accumulator.mantra_id,
         created_at=accumulator.created_at,
         updated_at=accumulator.updated_at
     )
@@ -138,7 +140,8 @@ async def create_accumulator_service(token: str, request: CreateAccumulatorReque
             description=request.description,
             target_count=request.target_count,
             current_count=request.current_count,
-            text_id=request.text_id
+            text_id=request.text_id,
+            mantra_id=request.mantra_id
         )
 
         add_accumulator(db, new_accumulator)
@@ -190,6 +193,8 @@ async def update_accumulator_service(token: str, accumulator_id: UUID, request: 
             accumulator.target_count = request.target_count
         if request.text_id is not None:
             accumulator.text_id = request.text_id
+        if request.mantra_id is not None:
+            accumulator.mantra_id = request.mantra_id
         if request.current_count is not None:
             delta = request.current_count - (accumulator.current_count or 0)
             accumulator.current_count = request.current_count

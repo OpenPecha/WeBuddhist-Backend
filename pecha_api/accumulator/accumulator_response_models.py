@@ -15,6 +15,7 @@ class AccumulatorDTO(BaseModel):
     target_count: Optional[int] = None
     current_count: int
     text_id: Optional[UUID] = None
+    mantra_id: Optional[UUID] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -37,6 +38,7 @@ class PublicAccumulatorDTO(BaseModel):
     target_count: Optional[int] = None
     current_count: int
     text_id: Optional[UUID] = None
+    mantra_id: Optional[UUID] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -54,6 +56,7 @@ class CreateAccumulatorRequest(BaseModel):
     target_count: Optional[int] = None
     current_count: int = Field(0, ge=0, description="Initial count to seed the accumulator with")
     text_id: Optional[UUID] = None
+    mantra_id: Optional[UUID] = None
 
 
 class UpdateAccumulatorRequest(BaseModel):
@@ -62,6 +65,7 @@ class UpdateAccumulatorRequest(BaseModel):
     target_count: Optional[int] = None
     current_count: Optional[int] = Field(None, ge=0, description="New absolute current count")
     text_id: Optional[UUID] = None
+    mantra_id: Optional[UUID] = None
 
 
 class AccumulatorSessionDTO(BaseModel):
