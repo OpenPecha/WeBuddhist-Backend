@@ -52,7 +52,10 @@ from pecha_api.notification import notification_views as cms_notification_views
 from pecha_api.verse_of_day import verse_of_day_views
 from pecha_api.calendar import calendar_views
 from pecha_api.timers import timer_router
+from pecha_api.accumulator import accumulator_router
 from pecha_api.daily_log import daily_log_views
+from pecha_api.mantra import mantra_views
+from pecha_api.events import events_router, cms_events_router
 from pecha_api.plans.admin.admin_views import cms_admin_router
 from pecha_api.plans.transfers.transfer_views import (
     cms_transfers_router,
@@ -123,7 +126,11 @@ api.include_router(segments_openpecha_views.segments_v2_router)
 api.include_router(verse_of_day_views.verse_of_day_router)
 api.include_router(calendar_views.calendar_router)
 api.include_router(timer_router)
+api.include_router(accumulator_router)
 api.include_router(daily_log_views.daily_log_router)
+api.include_router(mantra_views.mantra_router)
+api.include_router(events_router)
+api.include_router(cms_events_router)
 
 api.include_router(routines_views.user_routine_router)
 api.add_middleware(

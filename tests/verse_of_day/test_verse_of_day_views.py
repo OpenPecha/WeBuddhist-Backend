@@ -12,6 +12,7 @@ from pecha_api.verse_of_day.verse_of_day_response_models import (
     VerseOfDayPublicDTO,
     VerseOfDayDTO,
     CreateVerseOfDayRequest,
+    GroupInfoDTO,
 )
 
 
@@ -24,9 +25,14 @@ client = TestClient(api)
 
 @pytest.fixture
 def sample_verse_public_dto():
-    """Sample public verse DTO for testing."""
+    """Sample public verse DTO for testing (all languages)."""
     return VerseOfDayPublicDTO(
-        verse="May all beings be happy and free from suffering.",
+        id=uuid4(),
+        verses={
+            "en": "May all beings be happy and free from suffering.",
+            "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+            "zh": "愿一切众生快乐，远离痛苦。"
+        },
         image_urls=["https://example.com/image1.jpg", "https://example.com/image2.jpg"],
         ref_id="text-123",
         ref_type="sutra",
@@ -51,7 +57,11 @@ def sample_verse_dto():
     """Sample full verse DTO for creation response."""
     return VerseOfDayDTO(
         id=uuid4(),
-        verse="May all beings be happy and free from suffering.",
+        verses={
+            "en": "May all beings be happy and free from suffering.",
+            "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+            "zh": "愿一切众生快乐，远离痛苦。"
+        },
         image_urls=["https://example.com/image1.jpg"],
         verse_id="verse-456",
         ref_id="text-123",
@@ -63,15 +73,65 @@ def sample_verse_dto():
 
 @pytest.fixture
 def sample_create_request():
-    """Sample create verse request."""
+    """Sample create verse request with multilingual verses."""
     return CreateVerseOfDayRequest(
-        verse="May all beings be happy and free from suffering.",
+        verses={
+            "en": "May all beings be happy and free from suffering.",
+            "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+            "zh": "愿一切众生快乐，远离痛苦。"
+        },
         image_urls=["https://example.com/image1.jpg"],
         verse_id="verse-456",
         ref_id="text-123",
         ref_type="sutra",
         group_id=uuid4(),
         date=date(2025, 6, 5)
+    )
+
+
+@pytest.fixture
+def sample_group_info():
+    """Sample GroupInfoDTO list for all languages."""
+    return [
+        GroupInfoDTO(
+            id=uuid4(),
+            title="English Title",
+            sub_title="English Subtitle",
+            description="English description",
+            language="EN"
+        ),
+        GroupInfoDTO(
+            id=uuid4(),
+            title="བོད་ཡིག་མིང་།",
+            sub_title="བོད་ཡིག་ཡན་ལག་མིང་།",
+            description="བོད་ཡིག་གསལ་བཤད།",
+            language="BO"
+        ),
+        GroupInfoDTO(
+            id=uuid4(),
+            title="中文标题",
+            sub_title="中文副标题",
+            description="中文描述",
+            language="zh"
+        )
+    ]
+
+
+@pytest.fixture
+def sample_verse_public_dto_with_group_info(sample_group_info):
+    """VerseOfDayPublicDTO with group_info included."""
+    return VerseOfDayPublicDTO(
+        id=uuid4(),
+        verses={
+            "en": "May all beings be happy and free from suffering.",
+            "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+            "zh": "愿一切众生快乐，远离痛苦。"
+        },
+        image_urls=["https://example.com/image1.jpg", "https://example.com/image2.jpg"],
+        ref_id="text-123",
+        ref_type="sutra",
+        date=date(2025, 6, 5),
+        group_info=sample_group_info
     )
 
 
@@ -90,13 +150,14 @@ async def test_get_verse_of_day_success(sample_verse_public_response):
         
         assert "verse_of_day" in data
         assert data["verse_of_day"] is not None
-        assert data["verse_of_day"]["verse"] == "May all beings be happy and free from suffering."
+        assert "verses" in data["verse_of_day"]
+        assert "en" in data["verse_of_day"]["verses"]
         assert data["verse_of_day"]["ref_id"] == "text-123"
         assert data["verse_of_day"]["ref_type"] == "sutra"
         assert "image_urls" in data["verse_of_day"]
         assert "date" in data["verse_of_day"]
         
-        mock_service.assert_called_once_with(group_id=None, filter_date=None)
+        mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None)
 
 
 @pytest.mark.asyncio
@@ -110,7 +171,7 @@ async def test_get_verse_of_day_with_group_id_filter(sample_verse_public_respons
         data = response.json()
         
         assert data["verse_of_day"] is not None
-        mock_service.assert_called_once_with(group_id=group_id, filter_date=None)
+        mock_service.assert_called_once_with(group_id=group_id, filter_date=None, lang=None)
 
 
 @pytest.mark.asyncio
@@ -124,7 +185,7 @@ async def test_get_verse_of_day_with_date_filter(sample_verse_public_response):
         data = response.json()
         
         assert data["verse_of_day"] is not None
-        mock_service.assert_called_once_with(group_id=None, filter_date=filter_date)
+        mock_service.assert_called_once_with(group_id=None, filter_date=filter_date, lang=None)
 
 
 @pytest.mark.asyncio
@@ -139,7 +200,7 @@ async def test_get_verse_of_day_with_both_filters(sample_verse_public_response):
         data = response.json()
         
         assert data["verse_of_day"] is not None
-        mock_service.assert_called_once_with(group_id=group_id, filter_date=filter_date)
+        mock_service.assert_called_once_with(group_id=group_id, filter_date=filter_date, lang=None)
 
 
 @pytest.mark.asyncio
@@ -152,7 +213,7 @@ async def test_get_verse_of_day_not_found(sample_empty_response):
         data = response.json()
         
         assert data["verse_of_day"] is None
-        mock_service.assert_called_once_with(group_id=None, filter_date=None)
+        mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None)
 
 
 @pytest.mark.asyncio
@@ -179,7 +240,72 @@ async def test_get_verse_of_day_database_error():
         
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert response.json()["detail"] == "Database connection error"
-        mock_service.assert_called_once_with(group_id=None, filter_date=None)
+        mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None)
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_with_group_info_in_response(sample_verse_public_dto_with_group_info):
+    """Test response includes group_info array."""
+    response_with_group_info = VerseOfDayPublicResponse(verse_of_day=sample_verse_public_dto_with_group_info)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day", return_value=response_with_group_info) as mock_service:
+        response = client.get("/verse-of-day")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "group_info" in data["verse_of_day"]
+        assert data["verse_of_day"]["group_info"] is not None
+        assert len(data["verse_of_day"]["group_info"]) == 3
+        assert data["verse_of_day"]["group_info"][0]["language"] == "EN"
+        assert data["verse_of_day"]["group_info"][1]["language"] == "BO"
+        assert data["verse_of_day"]["group_info"][2]["language"] == "zh"
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_with_lang_filter_filters_group_info(sample_group_info):
+    """Test group_info filtered when lang=zh."""
+    filtered_dto = VerseOfDayPublicDTO(
+        id=uuid4(),
+        verse="愿一切众生快乐，远离痛苦。",
+        verses=None,
+        image_urls=["https://example.com/image1.jpg"],
+        ref_id="text-123",
+        ref_type="sutra",
+        date=date(2025, 6, 5),
+        group_info=[sample_group_info[2]]  # Only zh
+    )
+    response_filtered = VerseOfDayPublicResponse(verse_of_day=filtered_dto)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day", return_value=response_filtered) as mock_service:
+        response = client.get("/verse-of-day?lang=zh")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "group_info" in data["verse_of_day"]
+        assert len(data["verse_of_day"]["group_info"]) == 1
+        assert data["verse_of_day"]["group_info"][0]["language"] == "zh"
+        assert data["verse_of_day"]["group_info"][0]["title"] == "中文标题"
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_group_info_structure(sample_verse_public_dto_with_group_info):
+    """Test validates group_info DTO structure."""
+    response_with_group_info = VerseOfDayPublicResponse(verse_of_day=sample_verse_public_dto_with_group_info)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day", return_value=response_with_group_info) as mock_service:
+        response = client.get("/verse-of-day")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        group_info = data["verse_of_day"]["group_info"][0]
+        assert "id" in group_info
+        assert "title" in group_info
+        assert "sub_title" in group_info
+        assert "description" in group_info
+        assert "language" in group_info
 
 
 # =============================================================================
@@ -197,10 +323,10 @@ async def test_get_verse_of_day_today_success(sample_verse_public_response):
         
         assert "verse_of_day" in data
         assert data["verse_of_day"] is not None
-        assert data["verse_of_day"]["verse"] == "May all beings be happy and free from suffering."
+        assert "verses" in data["verse_of_day"]
         assert data["verse_of_day"]["ref_id"] == "text-123"
         
-        mock_service.assert_called_once()
+        mock_service.assert_called_once_with(lang=None)
 
 
 @pytest.mark.asyncio
@@ -213,7 +339,7 @@ async def test_get_verse_of_day_today_not_found(sample_empty_response):
         data = response.json()
         
         assert data["verse_of_day"] is None
-        mock_service.assert_called_once()
+        mock_service.assert_called_once_with(lang=None)
 
 
 @pytest.mark.asyncio
@@ -224,7 +350,48 @@ async def test_get_verse_of_day_today_database_error():
         
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert response.json()["detail"] == "Database connection error"
-        mock_service.assert_called_once()
+        mock_service.assert_called_once_with(lang=None)
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_with_group_info(sample_verse_public_dto_with_group_info):
+    """Test response includes group_info."""
+    response_with_group_info = VerseOfDayPublicResponse(verse_of_day=sample_verse_public_dto_with_group_info)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_today_service", return_value=response_with_group_info) as mock_service:
+        response = client.get("/verse-of-day/today")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "group_info" in data["verse_of_day"]
+        assert len(data["verse_of_day"]["group_info"]) == 3
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_with_lang_filter_filters_group_info(sample_group_info):
+    """Test group_info filtered by lang."""
+    filtered_dto = VerseOfDayPublicDTO(
+        id=uuid4(),
+        verse=["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+        verses=None,
+        image_urls=["https://example.com/image1.jpg"],
+        ref_id="text-123",
+        ref_type="sutra",
+        date=date(2025, 6, 5),
+        group_info=[sample_group_info[1]]  # Only BO
+    )
+    response_filtered = VerseOfDayPublicResponse(verse_of_day=filtered_dto)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_today_service", return_value=response_filtered) as mock_service:
+        response = client.get("/verse-of-day/today?lang=bo")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "group_info" in data["verse_of_day"]
+        assert len(data["verse_of_day"]["group_info"]) == 1
+        assert data["verse_of_day"]["group_info"][0]["language"] == "BO"
 
 
 # =============================================================================
@@ -243,9 +410,9 @@ async def test_get_verse_of_day_by_id_success(sample_verse_public_response):
         
         assert "verse_of_day" in data
         assert data["verse_of_day"] is not None
-        assert data["verse_of_day"]["verse"] == "May all beings be happy and free from suffering."
+        assert "verses" in data["verse_of_day"]
         
-        mock_service.assert_called_once_with(verse_id=verse_id)
+        mock_service.assert_called_once_with(verse_id=verse_id, lang=None)
 
 
 @pytest.mark.asyncio
@@ -259,7 +426,7 @@ async def test_get_verse_of_day_by_id_not_found(sample_empty_response):
         data = response.json()
         
         assert data["verse_of_day"] is None
-        mock_service.assert_called_once_with(verse_id=verse_id)
+        mock_service.assert_called_once_with(verse_id=verse_id, lang=None)
 
 
 @pytest.mark.asyncio
@@ -279,7 +446,50 @@ async def test_get_verse_of_day_by_id_database_error():
         
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert response.json()["detail"] == "Database connection error"
-        mock_service.assert_called_once_with(verse_id=verse_id)
+        mock_service.assert_called_once_with(verse_id=verse_id, lang=None)
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_by_id_with_group_info(sample_verse_public_dto_with_group_info):
+    """Test response includes group_info."""
+    verse_id = uuid4()
+    response_with_group_info = VerseOfDayPublicResponse(verse_of_day=sample_verse_public_dto_with_group_info)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_by_id_service", return_value=response_with_group_info) as mock_service:
+        response = client.get(f"/verse-of-day/{verse_id}")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "group_info" in data["verse_of_day"]
+        assert len(data["verse_of_day"]["group_info"]) == 3
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_by_id_with_lang_filter_filters_group_info(sample_group_info):
+    """Test group_info filtered by lang."""
+    verse_id = uuid4()
+    filtered_dto = VerseOfDayPublicDTO(
+        id=uuid4(),
+        verse="May all beings be happy and free from suffering.",
+        verses=None,
+        image_urls=["https://example.com/image1.jpg"],
+        ref_id="text-123",
+        ref_type="sutra",
+        date=date(2025, 6, 5),
+        group_info=[sample_group_info[0]]  # Only EN
+    )
+    response_filtered = VerseOfDayPublicResponse(verse_of_day=filtered_dto)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_by_id_service", return_value=response_filtered) as mock_service:
+        response = client.get(f"/verse-of-day/{verse_id}?lang=en")
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "group_info" in data["verse_of_day"]
+        assert len(data["verse_of_day"]["group_info"]) == 1
+        assert data["verse_of_day"]["group_info"][0]["language"] == "EN"
 
 
 # =============================================================================
@@ -296,7 +506,11 @@ async def test_create_verse_of_day_success(sample_verse_dto):
          patch("pecha_api.verse_of_day.verse_of_day_views.create_verse_of_day_service", return_value=sample_verse_dto) as mock_create:
         
         request_data = {
-            "verse": "May all beings be happy and free from suffering.",
+            "verses": {
+                "en": "May all beings be happy and free from suffering.",
+                "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+                "zh": "愿一切众生快乐，远离痛苦。"
+            },
             "image_urls": ["https://example.com/image1.jpg"],
             "verse_id": "verse-456",
             "ref_id": "text-123",
@@ -315,7 +529,7 @@ async def test_create_verse_of_day_success(sample_verse_dto):
         data = response.json()
         
         assert "id" in data
-        assert data["verse"] == sample_verse_dto.verse
+        assert "verses" in data
         assert data["verse_id"] == sample_verse_dto.verse_id
         assert data["ref_id"] == sample_verse_dto.ref_id
         assert data["ref_type"] == sample_verse_dto.ref_type
@@ -334,7 +548,7 @@ async def test_create_verse_of_day_with_optional_fields(sample_verse_dto):
          patch("pecha_api.verse_of_day.verse_of_day_views.create_verse_of_day_service", return_value=sample_verse_dto) as mock_create:
         
         request_data = {
-            "verse": "May all beings be happy.",
+            "verses": {"en": "May all beings be happy."},
             "verse_id": "verse-789",
             "ref_id": "text-456",
             "ref_type": "tantra",
@@ -360,7 +574,7 @@ async def test_create_verse_of_day_missing_required_fields():
     
     with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user):
         request_data = {
-            "verse": "May all beings be happy."
+            "verses": {"en": "May all beings be happy."}
         }
         
         response = client.post(
@@ -378,7 +592,7 @@ async def test_create_verse_of_day_invalid_token():
     with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", side_effect=HTTPException(status_code=401, detail="Invalid token")) as mock_validate:
         
         request_data = {
-            "verse": "May all beings be happy.",
+            "verses": {"en": "May all beings be happy."},
             "verse_id": "verse-789",
             "ref_id": "text-456",
             "ref_type": "tantra",
@@ -400,7 +614,7 @@ async def test_create_verse_of_day_invalid_token():
 async def test_create_verse_of_day_missing_auth():
     """Test creation without authentication header."""
     request_data = {
-        "verse": "May all beings be happy.",
+        "verses": {"en": "May all beings be happy."},
         "verse_id": "verse-789",
         "ref_id": "text-456",
         "ref_type": "tantra",
@@ -425,7 +639,7 @@ async def test_create_verse_of_day_database_error():
          patch("pecha_api.verse_of_day.verse_of_day_views.create_verse_of_day_service", side_effect=HTTPException(status_code=500, detail="Database error")) as mock_create:
         
         request_data = {
-            "verse": "May all beings be happy.",
+            "verses": {"en": "May all beings be happy."},
             "verse_id": "verse-789",
             "ref_id": "text-456",
             "ref_type": "tantra",
@@ -452,7 +666,8 @@ async def test_create_verse_of_day_database_error():
 async def test_get_verse_of_day_with_empty_image_urls():
     """Test verse with empty image_urls array."""
     verse_dto = VerseOfDayPublicDTO(
-        verse="Simple verse without images.",
+        id=uuid4(),
+        verses={"en": "Simple verse without images."},
         image_urls=[],
         ref_id="text-empty",
         ref_type="commentary",
@@ -467,14 +682,15 @@ async def test_get_verse_of_day_with_empty_image_urls():
         data = response.json()
         
         assert data["verse_of_day"]["image_urls"] == []
-        mock_service.assert_called_once()
+        mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None)
 
 
 @pytest.mark.asyncio
 async def test_get_verse_of_day_with_none_image_urls():
     """Test verse with None image_urls."""
     verse_dto = VerseOfDayPublicDTO(
-        verse="Simple verse without images.",
+        id=uuid4(),
+        verses={"en": "Simple verse without images."},
         image_urls=None,
         ref_id="text-none",
         ref_type="commentary",
@@ -489,4 +705,4 @@ async def test_get_verse_of_day_with_none_image_urls():
         data = response.json()
         
         assert data["verse_of_day"]["image_urls"] is None
-        mock_service.assert_called_once()
+        mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None)
