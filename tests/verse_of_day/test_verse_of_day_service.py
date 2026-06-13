@@ -8,8 +8,8 @@ from pecha_api.verse_of_day.verse_of_day_service import (
     get_verse_of_day_by_id_service,
     get_verse_of_day_today_service,
     create_verse_of_day_service,
-    _build_verses_dict,
-    _build_public_dto,
+    build_verses_dict,
+    build_public_dto,
 )
 from pecha_api.verse_of_day.verse_of_day_response_models import (
     VerseOfDayPublicResponse,
@@ -544,8 +544,8 @@ async def test_get_verse_of_day_service_empty_verse_metadata(mock_db_session):
 # =============================================================================
 
 def test_build_verses_dict(sample_verse_metadata):
-    """Test _build_verses_dict helper function."""
-    result = _build_verses_dict(sample_verse_metadata)
+    """Test build_verses_dict helper function."""
+    result = build_verses_dict(sample_verse_metadata)
     
     assert "en" in result
     assert "bo" in result
@@ -556,15 +556,15 @@ def test_build_verses_dict(sample_verse_metadata):
 
 
 def test_build_verses_dict_empty():
-    """Test _build_verses_dict with empty list."""
-    result = _build_verses_dict([])
+    """Test build_verses_dict with empty list."""
+    result = build_verses_dict([])
     
     assert result == {}
 
 
 def test_build_public_dto_all_languages(sample_verse_model):
-    """Test _build_public_dto returns all languages when no lang filter."""
-    result = _build_public_dto(sample_verse_model)
+    """Test build_public_dto returns all languages when no lang filter."""
+    result = build_public_dto(sample_verse_model)
     
     assert result.verses is not None
     assert result.verse is None
@@ -574,16 +574,16 @@ def test_build_public_dto_all_languages(sample_verse_model):
 
 
 def test_build_public_dto_single_language(sample_verse_model):
-    """Test _build_public_dto returns single verse when lang filter provided."""
-    result = _build_public_dto(sample_verse_model, lang="en")
+    """Test build_public_dto returns single verse when lang filter provided."""
+    result = build_public_dto(sample_verse_model, lang="en")
     
     assert result.verse == "May all beings be happy and free from suffering."
     assert result.verses is None
 
 
 def test_build_public_dto_invalid_language(sample_verse_model):
-    """Test _build_public_dto returns all languages when invalid lang provided."""
-    result = _build_public_dto(sample_verse_model, lang="fr")
+    """Test build_public_dto returns all languages when invalid lang provided."""
+    result = build_public_dto(sample_verse_model, lang="fr")
     
     assert result.verses is not None
     assert result.verse is None
