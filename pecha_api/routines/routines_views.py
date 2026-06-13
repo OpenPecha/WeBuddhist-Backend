@@ -9,8 +9,9 @@ from .routines_response_models import (
     UpdateTimeBlockRequest,
     RoutineWithTimeBlocksResponse,
     RoutineResponse,
+    RoutineInfoResponse,
 )
-from .routines_service import create_routine_with_time_block, add_time_block_to_routine, delete_time_block, update_time_block_service, get_user_routine
+from .routines_service import create_routine_with_time_block, add_time_block_to_routine, delete_time_block, update_time_block_service, get_user_routine, get_user_routine_info
 
 oauth2_scheme = HTTPBearer()
 
@@ -102,4 +103,17 @@ async def get_routine(
         token=authentication_credential.credentials,
         skip=skip,
         limit=limit,
+    )
+
+
+@user_routine_router.get(
+    "/routine/info",
+    status_code=status.HTTP_200_OK,
+    response_model=RoutineInfoResponse,
+)
+async def get_routine_info(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return await get_user_routine_info(
+        token=authentication_credential.credentials,
     )

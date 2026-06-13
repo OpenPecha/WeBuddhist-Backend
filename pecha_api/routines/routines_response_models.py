@@ -78,3 +78,8 @@ class RoutineResponse(BaseModel):
     skip: int
     limit: int
     total: int
+
+
+class RoutineInfoResponse(BaseModel):
+    series_count: int
+    recitation_count: int
