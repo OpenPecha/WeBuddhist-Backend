@@ -13,12 +13,12 @@ def _query_dates(dates):
     return query
 
 
-def test_get_user_streak_returns_zero_when_yesterday_missing():
+def test_get_user_streak_returns_one_when_only_today_logged():
     db = MagicMock()
     today = date(2026, 6, 11)
     db.query.return_value = _query_dates([today])
 
-    assert get_user_streak(db=db, user_id=uuid4(), today=today) == 0
+    assert get_user_streak(db=db, user_id=uuid4(), today=today) == 1
 
 
 def test_get_user_streak_counts_consecutive_days_from_today():

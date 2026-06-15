@@ -24,7 +24,7 @@ def calculate_streak(log_dates: Set[date]) -> int:
     today = _utc_today()
     yesterday = today - timedelta(days=1)
 
-    if yesterday not in log_dates:
+    if today not in log_dates and yesterday not in log_dates:
         return 0
 
     anchor = today if today in log_dates else yesterday

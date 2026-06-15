@@ -26,12 +26,12 @@ def test_calculate_streak_returns_zero_when_no_logs_exist():
         assert calculate_streak(log_dates=set()) == 0
 
 
-def test_calculate_streak_returns_zero_when_yesterday_missing():
+def test_calculate_streak_returns_one_when_only_today_logged():
     today = date(2026, 6, 11)
     log_dates = {today}
 
     with patch("pecha_api.daily_log.daily_log_service._utc_today", return_value=today):
-        assert calculate_streak(log_dates=log_dates) == 0
+        assert calculate_streak(log_dates=log_dates) == 1
 
 
 def test_calculate_streak_counts_consecutive_days_from_today():
