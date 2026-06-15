@@ -34,7 +34,9 @@ from pecha_api.plans.groups.groups_repository import (
     create_group_invite,
     get_followers_count_map,
     get_following_group_ids_by_user,
+    get_joined_group_ids_by_user,
     is_user_following_group,
+    is_user_joined_group,
     get_group_by_id,
     get_group_by_slug,
     get_groups_by_ids,
@@ -52,6 +54,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_tags_by_ids,
     save_invite,
     remove_group_follow,
+    remove_group_join,
     remove_group_member,
     replace_group_metadata,
     replace_group_relation_ids,
@@ -60,6 +63,7 @@ from pecha_api.plans.groups.groups_repository import (
     set_group_member_role,
     update_group,
     upsert_group_follow,
+    upsert_group_join,
 )
 from pecha_api.plans.series.series_repository import (
     get_active_plan_count_map_by_series_ids,
@@ -734,6 +738,61 @@ def list_followed_groups(token: str, skip: int, limit: int) -> PublicAuthorGroup
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         group_ids = get_following_group_ids_by_user(db=db, user_id=user.id)
+        groups, total = get_groups_paginated(
+            db=db,
+            skip=skip,
+            limit=limit,
+            group_ids=group_ids,
+        )
+        follower_count_map = get_followers_count_map(db=db, group_ids=[group.id for group in groups])
+        return PublicAuthorGroupListResponse(
+            groups=[_group_to_summary(group=item, follower_count=follower_count_map.get(item.id, 0), public=True) for item in groups],
+            skip=skip,
+            limit=limit,
+            total=total,
+        )
+
+
+def join_group(token: str, group_id: UUID) -> None:
+    user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group or not group.is_public:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        upsert_group_join(db=db, group_id=group_id, user_id=user.id)
+
+
+def leave_group(token: str, group_id: UUID) -> None:
+    user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        remove_group_join(db=db, group_id=group_id, user_id=user.id)
+
+
+def get_joined_group(
+    token: str,
+    group_id: UUID,
+    language: Optional[str] = None,
+) -> PublicAuthorGroupSummaryDTO:
+    user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        if not is_user_joined_group(db=db, group_id=group_id, user_id=user.id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_summary(
+            group=group,
+            follower_count=follower_count,
+            public=True,
+            language=language,
+        )
+
+
+def list_joined_groups(token: str, skip: int, limit: int) -> PublicAuthorGroupListResponse:
+    user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        group_ids = get_joined_group_ids_by_user(db=db, user_id=user.id)
         groups, total = get_groups_paginated(
             db=db,
             skip=skip,
