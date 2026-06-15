@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from starlette import status
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole, AuthorGroupType
 from pecha_api.plans.groups.groups_response_models import (
     CreateAuthorGroupRequest,
     CreateGroupInviteRequest,
@@ -80,10 +80,11 @@ def _make_author(
     return author
 
 
-def _make_group(is_public=True, slug="test-group"):
+def _make_group(is_public=True, slug="test-group", group_type=AuthorGroupType.PAGE):
     group = MagicMock()
     group.id = uuid4()
     group.slug = slug
+    group.group_type = group_type
     group.is_public = is_public
     group.avatar_key = None
     group.banner_key = None
@@ -322,6 +323,25 @@ def test_get_author_group_detail_private_group_hidden():
     assert exc.value.detail == GROUP_NOT_FOUND
 
 
+def test_list_public_groups_defaults_to_community_type():
+    group = _make_group(group_type=AuthorGroupType.COMMUNITY)
+    group.metadata_entries = []
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_groups_paginated",
+        return_value=([group], 1),
+    ) as mock_paginated, patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map",
+        return_value={},
+    ):
+        _session_local_context(mock_session)
+        list_public_groups(skip=0, limit=10)
+
+    assert mock_paginated.call_args.kwargs["group_type"] == AuthorGroupType.COMMUNITY
+
+
 def test_list_public_groups_returns_paginated():
     group = _make_group()
     meta = MagicMock()
@@ -333,15 +353,21 @@ def test_list_public_groups_returns_paginated():
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.get_groups_paginated",
         return_value=([group], 1),
-    ), patch(
+    ) as mock_paginated, patch(
         "pecha_api.plans.groups.groups_service.get_followers_count_map",
         return_value={group.id: 3},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map",
+        return_value={group.id: 2},
     ):
         _session_local_context(mock_session)
-        result = list_public_groups(skip=0, limit=10)
+        result = list_public_groups(skip=0, limit=10, group_type=AuthorGroupType.COMMUNITY)
 
     assert result.total == 1
     assert result.groups[0].follower_count == 3
+    assert result.groups[0].joiner_count == 2
+    assert result.groups[0].group_type == AuthorGroupType.PAGE
+    assert mock_paginated.call_args.kwargs["group_type"] == AuthorGroupType.COMMUNITY
 
 
 def _make_series_with_metadata():
@@ -679,10 +705,46 @@ def test_join_group_requires_public_group():
     assert exc.value.detail == GROUP_NOT_FOUND
 
 
+def test_follow_group_rejects_community_type():
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(is_public=True, group_type=AuthorGroupType.COMMUNITY)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            follow_group(token="t", group_id=group.id)
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_join_group_rejects_page_type():
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(is_public=True, group_type=AuthorGroupType.PAGE)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            join_group(token="t", group_id=group.id)
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
 def test_join_group_success():
     user = MagicMock()
     user.id = uuid4()
-    group = _make_group(is_public=True)
+    group = _make_group(is_public=True, group_type=AuthorGroupType.COMMUNITY)
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",

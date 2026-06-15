@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Literal, Optional, Sequence
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -15,7 +15,7 @@ from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin, requ
 from pecha_api.notification.notification_repository import mark_notifications_read_by_reference
 from pecha_api.notification.notification_service import create_notification_record
 from pecha_api.plans.groups.group_invite_email import send_group_invitation_email
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole, AuthorGroupType
 from pecha_api.plans.groups.groups_models import (
     AuthorGroup,
     AuthorGroupInvite,
@@ -35,6 +35,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_followers_count_map,
     get_following_group_ids_by_user,
     get_joined_group_ids_by_user,
+    get_joiners_count_map,
     is_user_following_group,
     is_user_joined_group,
     get_group_by_id,
@@ -111,6 +112,27 @@ def _to_role_value(role: AuthorGroupMemberRole | str) -> str:
     if hasattr(role, "value"):
         return role.value
     return str(role)
+
+
+def _to_group_type(value) -> AuthorGroupType:
+    if hasattr(value, "value"):
+        return AuthorGroupType(value.value)
+    return AuthorGroupType(value)
+
+
+_GROUP_TYPE_ENGAGEMENT = {
+    AuthorGroupType.PAGE: "follow",
+    AuthorGroupType.COMMUNITY: "join",
+}
+
+
+def _assert_group_allows_engagement(group: AuthorGroup, action: Literal["follow", "join"]) -> None:
+    expected = _GROUP_TYPE_ENGAGEMENT[_to_group_type(group.group_type)]
+    if expected != action:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This group does not support that action",
+        )
 
 
 def _generate_group_asset_url(asset_key: Optional[str]) -> Optional[str]:
@@ -382,7 +404,9 @@ def _plans_to_dtos(db: Session, plan_list: List[Plan], group_id: UUID) -> List[P
 
 def _group_to_summary(
     group: AuthorGroup,
-    follower_count: int = 0, public: bool = False,
+    follower_count: int = 0,
+    joiner_count: int = 0,
+    public: bool = False,
     language: Optional[str] = None,
 ) -> AuthorGroupSummaryDTO:
     dto_class = PublicAuthorGroupSummaryDTO if public else AuthorGroupSummaryDTO
@@ -390,6 +414,7 @@ def _group_to_summary(
     return dto_class(
         id=group.id,
         slug=group.slug,
+        group_type=_to_group_type(group.group_type),
         is_public=group.is_public,
         avatar_key=group.avatar_key,
         banner_key=group.banner_key,
@@ -398,6 +423,7 @@ def _group_to_summary(
         metadata=_metadata_response(group.metadata_entries, language=language),
         tags=tags,
         follower_count=follower_count,
+        joiner_count=joiner_count,
         member_count=len(group.members),
     )
 
@@ -412,10 +438,12 @@ def get_group_summaries_by_ids(
     unique_group_ids = list(dict.fromkeys(group_ids))
     groups = get_groups_by_ids(db=db, group_ids=unique_group_ids)
     follower_count_map = get_followers_count_map(db=db, group_ids=unique_group_ids)
+    joiner_count_map = get_joiners_count_map(db=db, group_ids=unique_group_ids)
     return {
         group.id: _group_to_summary(
             group,
             follower_count=follower_count_map.get(group.id, 0),
+            joiner_count=joiner_count_map.get(group.id, 0),
             language=language,
         )
         for group in groups
@@ -425,6 +453,7 @@ def get_group_summaries_by_ids(
 def _group_to_detail(
     group: AuthorGroup,
     follower_count: int = 0,
+    joiner_count: int = 0,
     db: Optional[Session] = None,
     public: bool = False,
     language: Optional[str] = None,
@@ -443,6 +472,7 @@ def _group_to_detail(
     return dto_class(
         id=group.id,
         slug=group.slug,
+        group_type=_to_group_type(group.group_type),
         is_public=group.is_public,
         avatar_key=group.avatar_key,
         banner_key=group.banner_key,
@@ -455,6 +485,7 @@ def _group_to_detail(
         series=series_dtos,
         plans=plans_dtos,
         follower_count=follower_count,
+        joiner_count=joiner_count,
     )
 
 
@@ -477,6 +508,7 @@ def create_author_group(token: str, request: CreateAuthorGroupRequest) -> Author
         ]
         group = AuthorGroup(
             slug=request.slug,
+            group_type=request.group_type.value,
             is_public=request.is_public,
             avatar_key=request.avatar_key,
             banner_key=request.banner_key,
@@ -537,7 +569,13 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
         update_group(db=db, group=group)
         loaded = get_group_by_id(db=db, group_id=group_id)
         followers_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(group=loaded, follower_count=followers_count, db=db)
+        joiners_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_detail(
+            group=loaded,
+            follower_count=followers_count,
+            joiner_count=joiners_count,
+            db=db,
+        )
 
 
 def get_author_group_detail(
@@ -552,9 +590,11 @@ def get_author_group_detail(
         if require_public and not group.is_public:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         return _group_to_detail(
             group=group,
             follower_count=follower_count,
+            joiner_count=joiner_count,
             db=db, public=True,
             language=language,
         )
@@ -573,9 +613,11 @@ def get_cms_group_detail(
         if not is_super_admin(author) and not is_reviewer(author):
             _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         return _group_to_detail(
             group=group,
             follower_count=follower_count,
+            joiner_count=joiner_count,
             db=db,
             language=language,
         )
@@ -587,6 +629,7 @@ def list_public_groups(
     search: Optional[str] = None,
     language: Optional[str] = None,
     tag_id: Optional[UUID] = None,
+    group_type: AuthorGroupType = AuthorGroupType.COMMUNITY,
 ) -> PublicAuthorGroupListResponse:
     with SessionLocal() as db:
         groups, total = get_groups_paginated(
@@ -597,14 +640,18 @@ def list_public_groups(
             language=language,
             tag_id=tag_id,
             is_public=True,
+            group_type=group_type,
         )
         group_ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=group_ids)
+        joiner_count_map = get_joiners_count_map(db=db, group_ids=group_ids)
         return PublicAuthorGroupListResponse(
             groups=[
                 _group_to_summary(
                     group=item,
-                    follower_count=follower_count_map.get(item.id, 0), public=True,
+                    follower_count=follower_count_map.get(item.id, 0),
+                    joiner_count=joiner_count_map.get(item.id, 0),
+                    public=True,
                     language=language,
                 )
                 for item in groups
@@ -624,6 +671,7 @@ def list_cms_groups(
     tag_id: Optional[UUID] = None,
     is_public: Optional[bool] = None,
     for_transfer: bool = False,
+    group_type: Optional[AuthorGroupType] = None,
 ) -> AuthorGroupListResponse:
     author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
@@ -642,14 +690,17 @@ def list_cms_groups(
             tag_id=tag_id,
             group_ids=group_ids,
             is_public=is_public,
+            group_type=group_type,
         )
         ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=ids)
+        joiner_count_map = get_joiners_count_map(db=db, group_ids=ids)
         return AuthorGroupListResponse(
             groups=[
                 _group_to_summary(
                     group=item,
                     follower_count=follower_count_map.get(item.id, 0),
+                    joiner_count=joiner_count_map.get(item.id, 0),
                     language=language,
                 )
                 for item in groups
@@ -674,7 +725,8 @@ def replace_group_tags(token: str, group_id: UUID, request: ReplaceGroupTagsRequ
         db.commit()
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count, db=db)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_detail(loaded, follower_count=follower_count, joiner_count=joiner_count, db=db)
 
 
 def replace_group_social_links_by_id(
@@ -695,7 +747,8 @@ def replace_group_social_links_by_id(
         db.commit()
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count, db=db)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_detail(loaded, follower_count=follower_count, joiner_count=joiner_count, db=db)
 
 
 def follow_group(token: str, group_id: UUID) -> None:
@@ -704,6 +757,7 @@ def follow_group(token: str, group_id: UUID) -> None:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group or not group.is_public:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        _assert_group_allows_engagement(group=group, action="follow")
         upsert_group_follow(db=db, group_id=group_id, user_id=user.id)
 
 
@@ -726,9 +780,11 @@ def get_followed_group(
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         return _group_to_summary(
             group=group,
             follower_count=follower_count,
+            joiner_count=joiner_count,
             public=True,
             language=language,
         )
@@ -743,10 +799,20 @@ def list_followed_groups(token: str, skip: int, limit: int) -> PublicAuthorGroup
             skip=skip,
             limit=limit,
             group_ids=group_ids,
+            group_type=AuthorGroupType.PAGE,
         )
         follower_count_map = get_followers_count_map(db=db, group_ids=[group.id for group in groups])
+        joiner_count_map = get_joiners_count_map(db=db, group_ids=[group.id for group in groups])
         return PublicAuthorGroupListResponse(
-            groups=[_group_to_summary(group=item, follower_count=follower_count_map.get(item.id, 0), public=True) for item in groups],
+            groups=[
+                _group_to_summary(
+                    group=item,
+                    follower_count=follower_count_map.get(item.id, 0),
+                    joiner_count=joiner_count_map.get(item.id, 0),
+                    public=True,
+                )
+                for item in groups
+            ],
             skip=skip,
             limit=limit,
             total=total,
@@ -759,6 +825,7 @@ def join_group(token: str, group_id: UUID) -> None:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group or not group.is_public:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        _assert_group_allows_engagement(group=group, action="join")
         upsert_group_join(db=db, group_id=group_id, user_id=user.id)
 
 
@@ -781,9 +848,11 @@ def get_joined_group(
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         return _group_to_summary(
             group=group,
             follower_count=follower_count,
+            joiner_count=joiner_count,
             public=True,
             language=language,
         )
@@ -798,10 +867,20 @@ def list_joined_groups(token: str, skip: int, limit: int) -> PublicAuthorGroupLi
             skip=skip,
             limit=limit,
             group_ids=group_ids,
+            group_type=AuthorGroupType.COMMUNITY,
         )
         follower_count_map = get_followers_count_map(db=db, group_ids=[group.id for group in groups])
+        joiner_count_map = get_joiners_count_map(db=db, group_ids=[group.id for group in groups])
         return PublicAuthorGroupListResponse(
-            groups=[_group_to_summary(group=item, follower_count=follower_count_map.get(item.id, 0), public=True) for item in groups],
+            groups=[
+                _group_to_summary(
+                    group=item,
+                    follower_count=follower_count_map.get(item.id, 0),
+                    joiner_count=joiner_count_map.get(item.id, 0),
+                    public=True,
+                )
+                for item in groups
+            ],
             skip=skip,
             limit=limit,
             total=total,
@@ -1058,7 +1137,8 @@ def accept_group_invite_by_id(token: str, invite_id: UUID) -> AuthorGroupDetailD
 
         loaded = get_group_by_id(db=db, group_id=group.id)
         follower_count = get_followers_count_map(db=db, group_ids=[group.id]).get(group.id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count, db=db)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group.id]).get(group.id, 0)
+        return _group_to_detail(loaded, follower_count=follower_count, joiner_count=joiner_count, db=db)
 
 
 def reject_group_invite_by_id(token: str, invite_id: UUID) -> GroupInviteDTO:
@@ -1149,7 +1229,8 @@ def update_group_member_role(
         set_group_member_role(db=db, member=target_member, role=request.role.value, updated_by=current_author.email)
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count, db=db)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_detail(loaded, follower_count=follower_count, joiner_count=joiner_count, db=db)
 
 
 def _assert_not_last_owner_removal(db, *, group_id: UUID, member: AuthorGroupMember) -> None:
@@ -1228,7 +1309,8 @@ def transfer_group_ownership(
 
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count, db=db)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_detail(loaded, follower_count=follower_count, joiner_count=joiner_count, db=db)
 
 
 def delete_group_member(token: str, group_id: UUID, author_id: UUID) -> None:

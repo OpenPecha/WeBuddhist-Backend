@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupType
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
     AuthorGroupListResponse,
@@ -134,6 +134,7 @@ def get_cms_groups(
     language: Annotated[Optional[str], Query()] = None,
     tag_id: Annotated[Optional[UUID], Query()] = None,
     is_public: Annotated[Optional[bool], Query(description="Filter by public visibility; omit to include all groups")] = None,
+    group_type: Annotated[Optional[AuthorGroupType], Query(description="Filter by group type: PAGE or COMMUNITY")] = None,
     for_transfer: Annotated[bool, Query(description="When true, list all groups for transfer target selection")] = False,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
@@ -144,6 +145,7 @@ def get_cms_groups(
         language=language,
         tag_id=tag_id,
         is_public=is_public,
+        group_type=group_type,
         for_transfer=for_transfer,
         skip=skip,
         limit=limit,
@@ -320,6 +322,10 @@ def get_public_groups(
     search: Annotated[Optional[str], Query()] = None,
     language: Annotated[Optional[str], Query()] = None,
     tag_id: Annotated[Optional[UUID], Query()] = None,
+    group_type: Annotated[
+        AuthorGroupType,
+        Query(description="Filter by group type: PAGE or COMMUNITY"),
+    ] = AuthorGroupType.COMMUNITY,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
@@ -327,6 +333,7 @@ def get_public_groups(
         search=search,
         language=language,
         tag_id=tag_id,
+        group_type=group_type,
         skip=skip,
         limit=limit,
     )

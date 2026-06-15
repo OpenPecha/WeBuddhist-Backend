@@ -20,7 +20,7 @@ from sqlalchemy.orm import relationship
 
 from pecha_api.db.database import Base
 
-from .groups_enums import AuthorGroupMemberRoleEnum, AuthorGroupInviteStatusEnum
+from .groups_enums import AuthorGroupMemberRoleEnum, AuthorGroupInviteStatusEnum, AuthorGroupTypeEnum
 
 FK_AUTHOR_GROUPS_ID = "author_groups.id"
 CASCADE_DELETE_ORPHAN = "all, delete-orphan"
@@ -138,6 +138,7 @@ class AuthorGroup(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     slug = Column(String(255), nullable=False)
+    group_type = Column(AuthorGroupTypeEnum, nullable=False, default="PAGE")
     is_public = Column(Boolean, nullable=False, default=True)
     avatar_key = Column(String(1000), nullable=True)
     banner_key = Column(String(1000), nullable=True)
