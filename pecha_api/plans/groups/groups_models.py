@@ -51,6 +51,31 @@ author_group_followers = Table(
 )
 
 
+author_group_joins = Table(
+    "author_group_joins",
+    Base.metadata,
+    Column(
+        "group_id",
+        UUID(as_uuid=True),
+        ForeignKey(FK_AUTHOR_GROUPS_ID, ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "user_id",
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        default=datetime.now(_datetime.timezone.utc),
+        nullable=False,
+    ),
+    UniqueConstraint("group_id", "user_id", name="uq_author_group_joins_group_user"),
+)
+
+
 author_group_tags = Table(
     "author_group_tags",
     Base.metadata,
@@ -143,6 +168,7 @@ class AuthorGroup(Base):
     )
     tags = relationship("Tag", secondary=author_group_tags, lazy="select")
     followers = relationship("Users", secondary=author_group_followers, lazy="select")
+    joiners = relationship("Users", secondary=author_group_joins, lazy="select")
 
     __table_args__ = (
         Index(
