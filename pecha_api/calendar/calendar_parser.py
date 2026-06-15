@@ -121,6 +121,28 @@ def parse_calendar_file(file_path: str) -> Dict[str, Dict[str, Any]]:
     return data
 
 
+def get_days_for_gregorian_month(
+    gregorian_year: int,
+    gregorian_month: int,
+) -> list[Dict[str, Any]]:
+    month_prefix = f"{gregorian_year}-{gregorian_month:02d}"
+    days_by_date: Dict[str, Dict[str, Any]] = {}
+
+    for tibetan_year in (gregorian_year - 1, gregorian_year, gregorian_year + 1):
+        if tibetan_year < MIN_CALENDAR_YEAR or tibetan_year > MAX_CALENDAR_YEAR:
+            continue
+        try:
+            year_data = parse_calendar_year(tibetan_year)
+        except FileNotFoundError:
+            continue
+        for day_data in year_data.values():
+            gregorian_date = day_data.get("gregorian_date")
+            if gregorian_date and gregorian_date.startswith(month_prefix):
+                days_by_date[gregorian_date] = day_data
+
+    return [days_by_date[day_key] for day_key in sorted(days_by_date)]
+
+
 def find_calendar_day_for_gregorian_date(
     gregorian_date: date | str,
 ) -> Optional[tuple[int, Dict[str, Any]]]:
