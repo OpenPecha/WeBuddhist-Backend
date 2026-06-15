@@ -33,7 +33,7 @@ def sample_verse_public_dto():
             "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
             "zh": "愿一切众生快乐，远离痛苦。"
         },
-        image_urls=["https://example.com/image1.jpg", "https://example.com/image2.jpg"],
+        image_url="https://example.com/image1.jpg",
         ref_id="text-123",
         ref_type="sutra",
         date=date(2025, 6, 5)
@@ -62,7 +62,7 @@ def sample_verse_dto():
             "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
             "zh": "愿一切众生快乐，远离痛苦。"
         },
-        image_urls=["https://example.com/image1.jpg"],
+        image_url="https://example.com/image1.jpg",
         verse_id="verse-456",
         ref_id="text-123",
         ref_type="sutra",
@@ -80,7 +80,7 @@ def sample_create_request():
             "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
             "zh": "愿一切众生快乐，远离痛苦。"
         },
-        image_urls=["https://example.com/image1.jpg"],
+        image_url="https://example.com/image1.jpg",
         verse_id="verse-456",
         ref_id="text-123",
         ref_type="sutra",
@@ -127,7 +127,7 @@ def sample_verse_public_dto_with_group_info(sample_group_info):
             "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
             "zh": "愿一切众生快乐，远离痛苦。"
         },
-        image_urls=["https://example.com/image1.jpg", "https://example.com/image2.jpg"],
+        image_url="https://example.com/image1.jpg",
         ref_id="text-123",
         ref_type="sutra",
         date=date(2025, 6, 5),
@@ -154,7 +154,7 @@ async def test_get_verse_of_day_success(sample_verse_public_response):
         assert "en" in data["verse_of_day"]["verses"]
         assert data["verse_of_day"]["ref_id"] == "text-123"
         assert data["verse_of_day"]["ref_type"] == "sutra"
-        assert "image_urls" in data["verse_of_day"]
+        assert "image_url" in data["verse_of_day"]
         assert "date" in data["verse_of_day"]
         
         mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None)
@@ -269,7 +269,7 @@ async def test_get_verse_of_day_with_lang_filter_filters_group_info(sample_group
         id=uuid4(),
         verse="愿一切众生快乐，远离痛苦。",
         verses=None,
-        image_urls=["https://example.com/image1.jpg"],
+        image_url="https://example.com/image1.jpg",
         ref_id="text-123",
         ref_type="sutra",
         date=date(2025, 6, 5),
@@ -375,7 +375,7 @@ async def test_get_verse_of_day_today_with_lang_filter_filters_group_info(sample
         id=uuid4(),
         verse=["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
         verses=None,
-        image_urls=["https://example.com/image1.jpg"],
+        image_url="https://example.com/image1.jpg",
         ref_id="text-123",
         ref_type="sutra",
         date=date(2025, 6, 5),
@@ -473,7 +473,7 @@ async def test_get_verse_of_day_by_id_with_lang_filter_filters_group_info(sample
         id=uuid4(),
         verse="May all beings be happy and free from suffering.",
         verses=None,
-        image_urls=["https://example.com/image1.jpg"],
+        image_url="https://example.com/image1.jpg",
         ref_id="text-123",
         ref_type="sutra",
         date=date(2025, 6, 5),
@@ -663,12 +663,12 @@ async def test_create_verse_of_day_database_error():
 # =============================================================================
 
 @pytest.mark.asyncio
-async def test_get_verse_of_day_with_empty_image_urls():
-    """Test verse with empty image_urls array."""
+async def test_get_verse_of_day_with_empty_image_url():
+    """Test verse with no image_url."""
     verse_dto = VerseOfDayPublicDTO(
         id=uuid4(),
         verses={"en": "Simple verse without images."},
-        image_urls=[],
+        image_url=None,
         ref_id="text-empty",
         ref_type="commentary",
         date=date(2025, 6, 5)
@@ -681,17 +681,17 @@ async def test_get_verse_of_day_with_empty_image_urls():
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         
-        assert data["verse_of_day"]["image_urls"] == []
+        assert data["verse_of_day"]["image_url"] is None
         mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None)
 
 
 @pytest.mark.asyncio
-async def test_get_verse_of_day_with_none_image_urls():
-    """Test verse with None image_urls."""
+async def test_get_verse_of_day_with_none_image_url():
+    """Test verse with None image_url."""
     verse_dto = VerseOfDayPublicDTO(
         id=uuid4(),
         verses={"en": "Simple verse without images."},
-        image_urls=None,
+        image_url=None,
         ref_id="text-none",
         ref_type="commentary",
         date=date(2025, 6, 5)
@@ -704,5 +704,5 @@ async def test_get_verse_of_day_with_none_image_urls():
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
         
-        assert data["verse_of_day"]["image_urls"] is None
+        assert data["verse_of_day"]["image_url"] is None
         mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None)
