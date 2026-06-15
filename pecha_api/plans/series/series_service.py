@@ -341,30 +341,39 @@ def get_filtered_series(
 
 def get_random_featured_series(
     language: Optional[str] = None,
-) -> SeriesListItemDTO:
+    limit: int = 10,
+) -> SeriesListResponse:
     from pecha_api.plans.response_message import NO_FEATURED_SERIES_FOUND
 
     with SessionLocal() as db_session:
-        row = get_random_featured_published_series(db=db_session)
-        if row is None:
+        rows, total = get_random_featured_published_series(db=db_session, limit=limit)
+        if total == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=NO_FEATURED_SERIES_FOUND,
             )
 
-        series, plan_count, enrolled_count = row
-        group = _group_summary_for_series(
+        group_summaries = _group_summaries_for_series_rows(
             db=db_session,
-            series=series,
+            series_rows=[row for row, _, _ in rows],
             language=language,
         )
 
-    return _series_to_list_item_dto(
-        series,
-        plan_count=plan_count,
-        enrolled_count=enrolled_count,
-        language=language,
-        group=group,
+    series_dtos: List[SeriesListItemDTO] = [
+        _series_to_list_item_dto(
+            row,
+            plan_count=plan_count,
+            enrolled_count=enrolled_count,
+            language=language,
+            group=group_summaries.get(row.group_id),
+        )
+        for row, plan_count, enrolled_count in rows
+    ]
+    return SeriesListResponse(
+        series=series_dtos,
+        skip=0,
+        limit=limit,
+        total=total,
     )
 
 

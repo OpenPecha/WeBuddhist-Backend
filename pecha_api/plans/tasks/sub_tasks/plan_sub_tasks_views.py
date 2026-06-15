@@ -7,6 +7,7 @@ from starlette import status
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_response_model import (SubTaskRequest, SubTaskResponse, UpdateSubTaskRequest, SubTaskOrderRequest, SubTaskOrderResponse)
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services import (create_new_sub_tasks, update_sub_task_by_task_id, change_subtask_order_service)
 from pecha_api.plans.audio.plan_subtask_audio_service import delete_plan_subtask_audio
+from pecha_api.plans.audio.timestamp_service import delete_plan_subtask_timestamp
 
 sub_tasks_router = APIRouter(
     prefix="/cms/sub-tasks",
@@ -54,6 +55,17 @@ async def delete_subtask_audio(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
     return delete_plan_subtask_audio(
+        token=authentication_credential.credentials,
+        sub_task_id=sub_task_id,
+    )
+
+
+@sub_tasks_router.delete("/{sub_task_id}/timestamp", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_subtask_timestamp(
+    sub_task_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return delete_plan_subtask_timestamp(
         token=authentication_credential.credentials,
         sub_task_id=sub_task_id,
     )
