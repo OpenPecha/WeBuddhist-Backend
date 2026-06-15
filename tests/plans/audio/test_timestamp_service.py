@@ -149,6 +149,50 @@ def test_apply_sub_task_timestamp_clears_when_omitted(mock_delete):
 
 
 @patch("pecha_api.plans.audio.timestamp_service.delete_sub_task_timestamp")
+@patch("pecha_api.plans.audio.plan_subtask_audio_service.require_can_edit_content")
+@patch("pecha_api.plans.audio.plan_subtask_audio_service.get_plan_by_id")
+@patch("pecha_api.plans.audio.plan_subtask_audio_service.get_plan_item_by_id")
+@patch("pecha_api.plans.audio.plan_subtask_audio_service.get_task_by_id")
+@patch("pecha_api.plans.audio.plan_subtask_audio_service.get_sub_task_by_subtask_id")
+@patch("pecha_api.plans.audio.timestamp_service.validate_cms_author_details")
+@patch("pecha_api.plans.audio.timestamp_service.SessionLocal")
+def test_delete_plan_subtask_timestamp_with_author_lookup(
+    mock_session,
+    mock_validate,
+    mock_get_subtask,
+    mock_get_task,
+    mock_get_plan_item,
+    mock_get_plan,
+    mock_require_edit,
+    mock_delete_timestamp,
+):
+    sub_task_id = uuid4()
+    task_id = uuid4()
+    plan_item_id = uuid4()
+    plan_id = uuid4()
+
+    author = MagicMock(email="author@test.com")
+    mock_validate.return_value = author
+
+    subtask = MagicMock(task_id=task_id)
+    mock_get_subtask.return_value = subtask
+    mock_get_task.return_value = MagicMock(plan_item_id=plan_item_id)
+    mock_get_plan_item.return_value = MagicMock(plan_id=plan_id)
+    mock_get_plan.return_value = MagicMock(group_id=uuid4(), status="draft")
+
+    mock_db = MagicMock()
+    mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+    mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+    from pecha_api.plans.audio.timestamp_service import delete_plan_subtask_timestamp
+
+    delete_plan_subtask_timestamp(token="token", sub_task_id=sub_task_id)
+
+    mock_require_edit.assert_called_once()
+    mock_delete_timestamp.assert_called_once_with(db=mock_db, sub_task_id=sub_task_id)
+
+
+@patch("pecha_api.plans.audio.timestamp_service.delete_sub_task_timestamp")
 @patch("pecha_api.plans.audio.timestamp_service._get_author_sub_task")
 @patch("pecha_api.plans.audio.timestamp_service.validate_cms_author_details")
 @patch("pecha_api.plans.audio.timestamp_service.SessionLocal")
