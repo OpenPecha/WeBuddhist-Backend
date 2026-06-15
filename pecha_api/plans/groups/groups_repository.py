@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import and_, delete, exists, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupType, AuthorGroupType
 from pecha_api.plans.groups.groups_models import (
     AuthorGroup,
     AuthorGroupInvite,
@@ -164,10 +164,13 @@ def get_groups_paginated(
     tag_id: Optional[UUID] = None,
     group_ids: Optional[Sequence[UUID]] = None,
     is_public: Optional[bool] = None,
+    group_type: Optional[AuthorGroupType] = None,
 ) -> Tuple[List[AuthorGroup], int]:
     filters = [AuthorGroup.deleted_at.is_(None)]
     if is_public is not None:
         filters.append(AuthorGroup.is_public.is_(is_public))
+    if group_type is not None:
+        filters.append(AuthorGroup.group_type == group_type)
     if language:
         filters.append(
             exists(

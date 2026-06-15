@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from starlette import status
 
 from pecha_api.app import api
-from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
+from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole, AuthorGroupType
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
     AuthorGroupListResponse,
@@ -32,6 +32,7 @@ def _group_detail() -> AuthorGroupDetailDTO:
     return AuthorGroupDetailDTO(
         id=uuid4(),
         slug="bodhichitta-authors",
+        group_type=AuthorGroupType.PAGE,
         is_public=True,
         metadata=_metadata(),
         members=[],
@@ -69,6 +70,7 @@ def test_get_public_groups_success():
     group_summary = AuthorGroupSummaryDTO(
         id=uuid4(),
         slug="bodhichitta-authors",
+        group_type=AuthorGroupType.PAGE,
         is_public=True,
         metadata=_metadata(),
         tags=[],
@@ -83,7 +85,9 @@ def test_get_public_groups_success():
         response = client.get("/author/groups")
 
     assert response.status_code == status.HTTP_200_OK
-    mock_service.assert_called_once_with(search=None, language=None, tag_id=None, skip=0, limit=20)
+    mock_service.assert_called_once_with(
+        search=None, language=None, tag_id=None, group_type=AuthorGroupType.COMMUNITY, skip=0, limit=20
+    )
     assert response.json()["total"] == 1
 
 
@@ -236,6 +240,7 @@ def test_get_cms_groups_with_filters():
     summary = AuthorGroupSummaryDTO(
         id=uuid4(),
         slug="g",
+        group_type=AuthorGroupType.PAGE,
         is_public=True,
         metadata=_metadata(),
         tags=[],
@@ -259,6 +264,7 @@ def test_get_cms_groups_with_filters():
         language="EN",
         tag_id=tag_id,
         is_public=None,
+        group_type=None,
         for_transfer=False,
         skip=5,
         limit=10,
@@ -371,6 +377,7 @@ def test_get_my_followed_group_by_id():
     group_summary = AuthorGroupSummaryDTO(
         id=group_id,
         slug="bodhichitta-authors",
+        group_type=AuthorGroupType.PAGE,
         is_public=True,
         metadata=_metadata(),
         tags=[],
@@ -420,6 +427,7 @@ def test_get_my_joined_group_by_id():
     group_summary = AuthorGroupSummaryDTO(
         id=group_id,
         slug="bodhichitta-authors",
+        group_type=AuthorGroupType.PAGE,
         is_public=True,
         metadata=_metadata(),
         tags=[],

@@ -3,6 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from pecha_api.plans.groups.groups_enums import AuthorGroupType
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 
@@ -20,6 +21,7 @@ GroupMetadataResponse = Union[GroupMetadataDTO, List[GroupMetadataDTO], None]
 class AuthorGroupSummaryDTO(BaseModel):
     id: UUID
     slug: str
+    group_type: AuthorGroupType
     is_public: bool
     avatar_key: Optional[str] = None
     banner_key: Optional[str] = None
@@ -28,4 +30,5 @@ class AuthorGroupSummaryDTO(BaseModel):
     metadata: GroupMetadataResponse = []
     tags: List[TagSummaryDTO] = []
     follower_count: int = 0
+    joiner_count: int = 0
     member_count: int = 0
