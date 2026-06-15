@@ -3,7 +3,7 @@ from typing import Optional, Annotated
 from uuid import UUID
 from starlette import status
 
-from pecha_api.plans.series.series_response_models import SeriesDTO, SeriesListResponse, SeriesListItemDTO
+from pecha_api.plans.series.series_response_models import SeriesDTO, SeriesListResponse
 from pecha_api.plans.series.series_service import get_filtered_series, get_series_detail, get_random_featured_series
 
 
@@ -34,15 +34,16 @@ async def get_series_list(
 @public_series_router.get(
     "/featured",
     status_code=status.HTTP_200_OK,
-    response_model=SeriesListItemDTO,
+    response_model=SeriesListResponse,
 )
 async def get_featured_series(
     language: Annotated[
         Optional[str],
         Query(description="Filter metadata by language (e.g. 'en', 'bo', 'zh')"),
     ] = None,
+    limit: Annotated[int, Query()] = 10,
 ):
-    return get_random_featured_series(language=language)
+    return get_random_featured_series(language=language, limit=limit)
 
 
 @public_series_router.get(
