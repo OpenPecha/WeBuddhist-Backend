@@ -20,7 +20,7 @@ you typically override these values:
 Optional integrations:
 
 - `AWS_ACCESS_KEY`, `AWS_SECRET_KEY`, `AWS_BUCKET_NAME`
-- `DOMAIN_NAME`, `CLIENT_ID` (Auth0)
+- `DOMAIN_NAME`, `CLIENT_ID`, `AUTH0_AUDIENCE` (Auth0)
 - `MAILTRAP_API_KEY`, `SENDER_EMAIL`, `SENDER_NAME`
 
 ### Install Dependencies

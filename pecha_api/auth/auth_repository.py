@@ -92,7 +92,7 @@ def verify_auth0_token(token: str):
             token,
             rsa_key,
             algorithms=["RS256"],
-            audience=get("CLIENT_ID"),
+            audience=get("AUTH0_AUDIENCE"),
             issuer=f"https://{get('DOMAIN_NAME')}/"
         )
         return payload
