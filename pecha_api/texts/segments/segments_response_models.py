@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 from sqlalchemy.orm import strategies
@@ -48,6 +48,10 @@ class MappedSegmentDTO(BaseModel):
 
 class SegmentResponse(BaseModel):
     segments: List[SegmentDTO]
+
+
+class SegmentSearchRequest(BaseModel):
+    content: str = Field(..., min_length=1)
 
 class ParentSegment(BaseModel):
     segment_id: str
