@@ -507,6 +507,7 @@ async def test_get_user_enrolled_plans_includes_group_info():
         slug="dharma-group",
         group_type=AuthorGroupType.COMMUNITY,
         is_public=True,
+        group_type=AuthorGroupType.COMMUNITY,
         metadata=[GroupMetadataDTO(id=uuid.uuid4(), title="Dharma Group", description=None, language="EN")],
         tags=[],
         follower_count=5,
