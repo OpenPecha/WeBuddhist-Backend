@@ -28,3 +28,14 @@ AuthorGroupInviteStatusEnum = Enum(
     AuthorGroupInviteStatus,
     name="author_group_invite_status",
 )
+
+
+class AuthorGroupType(enum.Enum):
+    PAGE = "PAGE"
+    COMMUNITY = "COMMUNITY"
+
+
+AuthorGroupTypeEnum = Enum(
+    AuthorGroupType,
+    name="author_group_type",
+)

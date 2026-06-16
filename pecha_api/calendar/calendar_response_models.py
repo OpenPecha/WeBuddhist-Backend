@@ -52,7 +52,10 @@ class CalendarYearResponse(BaseModel):
 
 
 class CalendarMonthResponse(BaseModel):
-    year: int
-    month: int
-    designation: Optional[str] = None
+    year: int = Field(description="Gregorian calendar year")
+    month: int = Field(description="Gregorian calendar month (1-12)")
+    designation: Optional[str] = Field(
+        default=None,
+        description="Deprecated; lunar month designation is on each day in `days`",
+    )
     days: List[CalendarDay]

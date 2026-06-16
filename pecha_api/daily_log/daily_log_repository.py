@@ -37,7 +37,7 @@ def get_user_streak(db: Session, user_id: UUID, today: date) -> int:
         ).all()
     }
 
-    if yesterday not in recent_dates:
+    if today not in recent_dates and yesterday not in recent_dates:
         return 0
 
     anchor = today if today in recent_dates else yesterday
