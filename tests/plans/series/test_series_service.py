@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from starlette import status
 
 from pecha_api.plans.plans_enums import DifficultyLevel, LanguageCode, PlanStatus
+from pecha_api.plans.groups.groups_enums import AuthorGroupType
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_service import (
     _validate_plan_ids,
@@ -328,6 +329,7 @@ def test_get_series_detail_returns_dto_without_plans():
     group_summary = AuthorGroupSummaryDTO(
         id=group_id,
         slug="test-group",
+        group_type=AuthorGroupType.PAGE,
         is_public=True,
         metadata=[],
     )
@@ -1597,6 +1599,36 @@ def test_get_filtered_series_passes_language_to_repository():
     call_kwargs = mock_repo.call_args.kwargs
     assert call_kwargs["language"] == "zh"
     assert call_kwargs["status"] == PlanStatus.PUBLISHED
+
+
+def test_get_random_featured_series_returns_featured_series_without_language_filter():
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = [
+        _metadata_entry(title="Featured", language=LanguageCode.EN),
+        _metadata_entry(title="བོད་", language=LanguageCode.BO),
+    ]
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.group_id = None
+    row.featured = True
+    row.status = PlanStatus.PUBLISHED
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([(row, 4, 2)], 1)), \
+         patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
+               return_value={}):
+        _session_local_context(mock_session_local)
+
+        result = get_random_featured_series(limit=10)
+
+    assert len(result.series) == 1
+    assert result.total == 1
+    assert result.series[0].featured is True
+    assert result.series[0].plan_count == 4
+    assert result.series[0].enrolled_count == 2
+    assert len(result.series[0].metadata) == 2
 
 
 def test_get_random_featured_series_passes_language_to_repository():

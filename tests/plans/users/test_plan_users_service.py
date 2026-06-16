@@ -480,6 +480,7 @@ async def test_get_user_enrolled_plans_includes_group_info():
     from datetime import datetime, timezone
     from pecha_api.plans.users.plan_users_service import get_user_enrolled_plans
     from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO, GroupMetadataDTO
+    from pecha_api.plans.groups.groups_enums import AuthorGroupType
 
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
@@ -504,6 +505,7 @@ async def test_get_user_enrolled_plans_includes_group_info():
     group_summary = AuthorGroupSummaryDTO(
         id=group_id,
         slug="dharma-group",
+        group_type=AuthorGroupType.COMMUNITY,
         is_public=True,
         metadata=[GroupMetadataDTO(id=uuid.uuid4(), title="Dharma Group", description=None, language="EN")],
         tags=[],
