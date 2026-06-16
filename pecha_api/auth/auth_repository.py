@@ -79,6 +79,26 @@ def get_auth0_public_key():
     return {key["kid"]: key for key in jwks["keys"]}
 
 
+def _allowed_auth0_audiences() -> list[str]:
+    audiences: list[str] = []
+    for key in ("AUTH0_AUDIENCE", "CLIENT_ID"):
+        value = get(key)
+        if value:
+            audiences.append(value.strip())
+    extra = get("AUTH0_ADDITIONAL_CLIENT_IDS")
+    if extra:
+        audiences.extend(v.strip() for v in extra.split(",") if v.strip())
+    return audiences
+
+
+def _token_audiences(aud) -> list[str]:
+    if aud is None:
+        return []
+    if isinstance(aud, list):
+        return [str(a) for a in aud]
+    return [str(aud)]
+
+
 def verify_auth0_token(token: str):
     try:
         jwks = get_auth0_public_key()
@@ -92,9 +112,17 @@ def verify_auth0_token(token: str):
             token,
             rsa_key,
             algorithms=["RS256"],
-            audience=get("AUTH0_AUDIENCE"),
-            issuer=f"https://{get('DOMAIN_NAME')}/"
+            issuer=f"https://{get('DOMAIN_NAME')}/",
+            options={"verify_aud": False},
         )
+
+        allowed = set(_allowed_auth0_audiences())
+        token_auds = _token_audiences(payload.get("aud"))
+        if not allowed.intersection(token_auds):
+            raise ValueError(
+                f"Token audience {token_auds} not in allowed audiences {sorted(allowed)}"
+            )
+
         return payload
     except JWTError as e:
         raise ValueError(f"Token validation failed: {e}")
