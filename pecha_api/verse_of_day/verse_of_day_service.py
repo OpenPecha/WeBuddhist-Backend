@@ -2,20 +2,28 @@ from typing import Optional, Dict, Union, List
 from uuid import UUID
 from datetime import date
 import logging
+from fastapi import HTTPException
+from starlette import status
 
 from ..db.database import SessionLocal
 from .verse_of_day_repository import (
     get_verse_of_day_by_filters, 
+    get_verses_of_day_list,
     get_verse_of_day_by_id, 
     get_verse_of_day_today, 
     create_verse_of_day,
     create_verse_metadata_bulk,
-    get_group_metadata_by_group_id
+    get_group_metadata_by_group_id,
+    update_verse_of_day,
+    delete_verse_metadata_by_verse_id,
+    delete_verse_of_day
 )
 from .verse_of_day_response_models import (
     VerseOfDayPublicDTO, 
-    VerseOfDayPublicResponse, 
+    VerseOfDayPublicResponse,
+    VerseOfDayListResponse,
     CreateVerseOfDayRequest, 
+    UpdateVerseOfDayRequest,
     VerseOfDayDTO,
     VersesDict,
     GroupInfoDTO
@@ -128,6 +136,47 @@ def get_verse_of_day(
         )
 
 
+def get_verses_of_day_list_service(
+    group_id: Optional[UUID] = None,
+    filter_date: Optional[date] = None,
+    lang: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 100
+) -> VerseOfDayListResponse:
+    """Get list of verses with pagination."""
+    with SessionLocal() as db:
+        verses, total = get_verses_of_day_list(db, group_id=group_id, filter_date=filter_date, skip=skip, limit=limit)
+        
+        verse_dtos = []
+        for verse in verses:
+            # Fetch group metadata if group_id exists
+            group_info = None
+            if verse.group_id:
+                group_metadata_list = get_group_metadata_by_group_id(db, verse.group_id)
+                if group_metadata_list:
+                    # Filter by language if lang parameter is provided
+                    if lang:
+                        filtered_metadata = [m for m in group_metadata_list if m.language.lower() == lang.lower()]
+                    else:
+                        filtered_metadata = group_metadata_list
+                    
+                    if filtered_metadata:
+                        group_info = [
+                            GroupInfoDTO(
+                                id=metadata.id,
+                                title=metadata.title,
+                                sub_title=metadata.sub_title,
+                                description=metadata.description,
+                                language=metadata.language
+                            )
+                            for metadata in filtered_metadata
+                        ]
+            
+            verse_dtos.append(build_public_dto(verse, lang, group_info))
+        
+        return VerseOfDayListResponse(verses=verse_dtos, total=total)
+
+
 def get_verse_of_day_by_id_service(
     verse_id: UUID,
     lang: Optional[str] = None
@@ -209,6 +258,14 @@ def get_verse_of_day_today_service(
 def create_verse_of_day_service(request: CreateVerseOfDayRequest, created_by: str) -> VerseOfDayDTO:
 
     with SessionLocal() as db:
+        # Check if a verse already exists for this date
+        existing_verse = get_verse_of_day_by_filters(db, filter_date=request.date)
+        if existing_verse:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"A verse of the day already exists for date {request.date}. Please update the existing verse or choose a different date."
+            )
+        
         verse_of_day = VerseOfDay(
             verse_id=request.verse_id,
             ref_id=request.ref_id,
@@ -233,3 +290,68 @@ def create_verse_of_day_service(request: CreateVerseOfDayRequest, created_by: st
             group_id=created.group_id,
             date=created.date
         )
+
+
+def update_verse_of_day_service(
+    verse_id: UUID,
+    request: UpdateVerseOfDayRequest,
+    updated_by: str
+) -> VerseOfDayDTO:
+
+    with SessionLocal() as db:
+        existing_verse = get_verse_of_day_by_id(db, verse_id)
+        
+        if not existing_verse:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Verse of day with ID {verse_id} not found"
+            )
+        
+        updates = {}
+        if request.verse_id is not None:
+            updates['verse_id'] = request.verse_id
+        if request.ref_id is not None:
+            updates['ref_id'] = request.ref_id
+        if request.ref_type is not None:
+            updates['ref_type'] = request.ref_type
+        if request.image_urls is not None:
+            updates['image_urls'] = request.image_urls
+        if request.group_id is not None:
+            updates['group_id'] = request.group_id
+        if request.date is not None:
+            updates['date'] = request.date
+        
+        updated_verse = update_verse_of_day(db, verse_id, updates, updated_by)
+        
+        if request.verses is not None:
+            delete_verse_metadata_by_verse_id(db, verse_id)
+            create_verse_metadata_bulk(db, verse_id, request.verses)
+        
+        db.refresh(updated_verse)
+        
+        verses_dict = build_verses_dict(updated_verse.verse_metadata) if updated_verse.verse_metadata else {}
+        
+        return VerseOfDayDTO(
+            id=updated_verse.id,
+            verses=verses_dict if verses_dict else None,
+            verse_id=updated_verse.verse_id,
+            ref_id=updated_verse.ref_id,
+            ref_type=updated_verse.ref_type,
+            image_urls=updated_verse.image_urls,
+            group_id=updated_verse.group_id,
+            date=updated_verse.date
+        )
+
+
+def delete_verse_of_day_service(verse_id: UUID) -> None:
+
+    with SessionLocal() as db:
+        existing_verse = get_verse_of_day_by_id(db, verse_id)
+        
+        if not existing_verse:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Verse of day with ID {verse_id} not found"
+            )
+        
+        delete_verse_of_day(db, verse_id)

@@ -68,6 +68,12 @@ class VerseOfDayPublicResponse(BaseModel):
     verse_of_day: Optional[VerseOfDayPublicDTO] = None
 
 
+class VerseOfDayListResponse(BaseModel):
+    """Response for listing multiple verses of day."""
+    verses: List[VerseOfDayPublicDTO]
+    total: int
+
+
 class CreateVerseOfDayRequest(BaseModel):
     """Request to create verse of day with multilingual verses."""
     verses: VersesDict
