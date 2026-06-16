@@ -17,6 +17,8 @@ from pecha_api.plans.series.series_repository import (
     get_enrolled_count_map_by_series_ids,
     get_plans_by_ids,
     save_series_with_plans,
+    clone_series_with_plans,
+    get_series_for_clone,
     update_series_with_plans,
     update_series_status,
     update_series_featured,
@@ -69,6 +71,10 @@ def _language_value(language) -> str:
 
 def _optional_metadata_str(value) -> Optional[str]:
     return value if isinstance(value, str) else None
+
+
+def _optional_uuid(value) -> Optional[UUID]:
+    return value if isinstance(value, UUID) else None
 
 
 def _metadata_to_dtos(entries, language: Optional[str] = None) -> List[SeriesMetadataDTO]:
@@ -321,6 +327,7 @@ def _series_to_dto(
         image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
+        parent_series_id=_optional_uuid(getattr(row, "parent_series_id", None)),
         featured=bool(row.featured),
         status=_to_plan_status(row.status),
         plans=plans_dtos,
@@ -725,8 +732,62 @@ def update_existing_series_featured(
         ) from exc
 
 
+def _clone_existing_series(
+    current_author,
+    create_series_request: CreateSeriesRequest,
+) -> SeriesDTO:
+    target_group_id = create_series_request.group_id
+    parent_series_id = create_series_request.parent_series_id
+
+    try:
+        with SessionLocal() as db_session:
+            parent_series = get_series_for_clone(db=db_session, series_id=parent_series_id)
+            if not parent_series:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Series with id '{parent_series_id}' not found",
+                )
+            # Must be allowed to read the source and to create in the destination.
+            require_can_read_group_content(
+                db=db_session,
+                group_id=parent_series.group_id,
+                author=current_author,
+            )
+            require_can_create_content(
+                db=db_session,
+                group_id=target_group_id,
+                author=current_author,
+            )
+
+            cloned = clone_series_with_plans(
+                db=db_session,
+                parent_series=parent_series,
+                target_group_id=target_group_id,
+                author_id=current_author.id,
+                created_by=current_author.email,
+                image=create_series_request.image_key
+                if create_series_request.image_key is not None
+                else parent_series.image,
+                featured=bool(create_series_request.featured),
+            )
+
+            saved = get_series_by_id(db=db_session, series_id=cloned.id)
+            return _series_detail_dto(db_session, saved, include_plans=True)
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database integrity error: {exc.orig}",
+        ) from exc
+
+
 def create_new_series(token: str, create_series_request: CreateSeriesRequest) -> SeriesDTO:
     current_author = validate_cms_author_details(token=token)
+
+    if create_series_request.is_clone:
+        return _clone_existing_series(
+            current_author=current_author,
+            create_series_request=create_series_request,
+        )
 
     new_series = Series(
         image=create_series_request.image_key,
