@@ -16,6 +16,11 @@ verse_of_day_router = APIRouter(
     tags=["Verse of Day"]
 )
 
+cms_verse_of_day_router = APIRouter(
+    prefix="/cms/verse-of-day",
+    tags=["CMS Verse of Day"]
+)
+
 
 @verse_of_day_router.get(
     "",
@@ -56,7 +61,7 @@ def get_verse_of_day_by_id_endpoint(
     return get_verse_of_day_by_id_service(verse_id=id, lang=lang)
 
 
-@verse_of_day_router.post(
+@cms_verse_of_day_router.post(
     "",
     status_code=status.HTTP_201_CREATED,
     response_model=VerseOfDayDTO
