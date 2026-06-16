@@ -194,6 +194,7 @@ class AuthorGroupMetadata(Base):
     title = Column(String(255), nullable=False)
     sub_title = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
+    description_long = Column(Text, nullable=True)
 
     group = relationship("AuthorGroup", back_populates="metadata_entries")
 

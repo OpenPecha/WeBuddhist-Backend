@@ -161,6 +161,7 @@ def _metadata_to_dtos(metadata_entries, language: Optional[str] = None) -> List[
             title=item.title,
             sub_title=_optional_metadata_str(getattr(item, "sub_title", None)),
             description=item.description,
+            description_long=_optional_metadata_str(getattr(item, "description_long", None)),
             language=_language_value(item.language),
         )
         for item in sorted(metadata_entries, key=lambda value: value.language)
@@ -503,6 +504,7 @@ def create_author_group(token: str, request: CreateAuthorGroupRequest) -> Author
                 title=item.title,
                 sub_title=item.sub_title,
                 description=item.description,
+                description_long=item.description_long,
             )
             for item in request.metadata
         ]
@@ -558,6 +560,7 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
                     title=item.title,
                     sub_title=item.sub_title,
                     description=item.description,
+                    description_long=item.description_long,
                 )
                 for item in request.metadata
             ]

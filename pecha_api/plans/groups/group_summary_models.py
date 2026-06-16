@@ -12,6 +12,7 @@ class GroupMetadataDTO(BaseModel):
     title: str
     sub_title: Optional[str] = None
     description: Optional[str] = None
+    description_long: Optional[str] = None
     language: str
 
 
