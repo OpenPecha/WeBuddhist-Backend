@@ -58,6 +58,7 @@ class VerseOfDayPublicDTO(BaseModel):
     ref_id: str
     ref_type: str
     date: date
+    group_id: Optional[UUID] = None
     group_info: Optional[List[GroupInfoDTO]] = None
 
     class Config:

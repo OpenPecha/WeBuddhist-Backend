@@ -38,16 +38,20 @@ logger = logging.getLogger(__name__)
 def _generate_verse_image_url(image_keys: Optional[List[str]]) -> Optional[str]:
 
     if not image_keys:
+        logger.debug(f"No image_keys provided: {image_keys}")
         return None
     
+    logger.debug(f"Generating presigned URL for image_keys: {image_keys}")
     bucket_name = get("AWS_BUCKET_NAME")
     
     for key in image_keys:
         if not key or not isinstance(key, str) or not key.strip():
+            logger.debug(f"Skipping invalid key: {key}")
             continue
             
         try:
             presigned_url = generate_presigned_access_url(bucket_name, key)
+            logger.debug(f"Generated presigned URL for key {key}: {presigned_url[:100] if presigned_url else None}...")
             if presigned_url:
                 return presigned_url  
         except Exception as e:
@@ -81,6 +85,7 @@ def build_public_dto(verse: VerseOfDay, lang: Optional[str] = None, group_info: 
             ref_id=verse.ref_id,
             ref_type=verse.ref_type,
             date=verse.date,
+            group_id=verse.group_id,
             group_info=group_info
         )
     else:
@@ -92,6 +97,7 @@ def build_public_dto(verse: VerseOfDay, lang: Optional[str] = None, group_info: 
             ref_id=verse.ref_id,
             ref_type=verse.ref_type,
             date=verse.date,
+            group_id=verse.group_id,
             group_info=group_info
         )
 
