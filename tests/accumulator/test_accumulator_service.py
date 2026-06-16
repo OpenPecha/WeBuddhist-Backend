@@ -29,10 +29,8 @@ from pecha_api.accumulator.accumulator_response_models import (
 from pecha_api.accumulator.accumulator_models import Accumulator
 from pecha_api.accumulator.accumulator_history_model import AccumulatorHistory
 from pecha_api.accumulator.accumulator_enums import AccumulatorType
-# Imported so the SQLAlchemy mapper registry can resolve the Mantra ->
-# MantraMetadata relationship when the service constructs a real Accumulator.
-from pecha_api.mantra.mantra_model import Mantra  # noqa: F401
-from pecha_api.mantra.mantra_metadata_model import MantraMetadata  # noqa: F401
+from pecha_api.mantra.mantra_model import Mantra  
+from pecha_api.mantra.mantra_metadata_model import MantraMetadata  
 
 
 class TestDataFactory:
