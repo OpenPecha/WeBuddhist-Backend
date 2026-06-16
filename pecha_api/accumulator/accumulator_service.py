@@ -13,6 +13,7 @@ from .accumulator_repository import (
     add_accumulator,
     commit_accumulator,
     get_accumulator_by_id,
+    get_accumulator_with_history,
     update_accumulator,
     delete_accumulator,
     add_history_row,
@@ -249,6 +250,39 @@ def delete_accumulator_service(token: str, accumulator_id: UUID) -> None:
             )
 
         delete_accumulator(db, accumulator)
+
+
+def get_accumulator_detail_service(
+    token: str,
+    accumulator_id: UUID
+) -> AccumulatorHistoryDTO:
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        result = get_accumulator_with_history(db, accumulator_id, current_user.id)
+
+        if result is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": NOT_FOUND, "message": ACCUMULATOR_NOT_FOUND}
+            )
+
+        accumulator, total_counted, sessions = result
+        return AccumulatorHistoryDTO(
+            accumulator_id=accumulator.id,
+            name=accumulator.name,
+            description=accumulator.description,
+            target_count=accumulator.target_count,
+            current_count=accumulator.current_count or 0,
+            total_counted=total_counted,
+            sessions=[
+                AccumulatorSessionDTO(
+                    count=session.count,
+                    created_at=session.created_at
+                )
+                for session in sessions
+            ]
+        )
 
 
 def get_accumulator_history_service(

@@ -10,7 +10,8 @@ from .accumulator_service import (
     create_accumulator_service,
     update_accumulator_service,
     delete_accumulator_service,
-    get_accumulator_history_service
+    get_accumulator_history_service,
+    get_accumulator_detail_service
 )
 from .accumulator_response_models import (
     AccumulatorsResponse,
@@ -18,7 +19,8 @@ from .accumulator_response_models import (
     AccumulatorDTO,
     CreateAccumulatorRequest,
     UpdateAccumulatorRequest,
-    AccumulatorHistoryResponse
+    AccumulatorHistoryResponse,
+    AccumulatorHistoryDTO
 )
 from ..users.users_service import validate_and_extract_user_details
 
@@ -93,4 +95,15 @@ async def get_user_accumulator_history(
         token=credentials.credentials,
         skip=skip,
         limit=limit
+    )
+
+
+@accumulator_router.get("/{accumulator_id}", response_model=AccumulatorHistoryDTO)
+async def get_accumulator_detail(
+    accumulator_id: UUID,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+    return get_accumulator_detail_service(
+        token=credentials.credentials,
+        accumulator_id=accumulator_id
     )
