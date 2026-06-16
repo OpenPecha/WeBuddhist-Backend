@@ -283,6 +283,132 @@ def test_create_new_series_integrity_error_raises_400():
     assert "Database integrity error" in exc.value.detail
 
 
+def test_clone_series_routes_to_clone_path_and_returns_dto():
+    author_id = uuid.uuid4()
+    parent_id = uuid.uuid4()
+    target_group_id = uuid.uuid4()
+    request = CreateSeriesRequest(
+        group_id=target_group_id,
+        parent_series_id=parent_id,
+        featured=True,
+    )
+
+    parent = MagicMock()
+    parent.id = parent_id
+    parent.group_id = FIXTURE_GROUP_ID
+    parent.image = "img/parent.png"
+    parent.featured = True
+
+    cloned = MagicMock()
+    cloned.id = uuid.uuid4()
+    cloned.metadata_entries = [_metadata_entry(title="Cloned")]
+    cloned.image = "img/parent.png"
+    cloned.author_id = author_id
+    cloned.group_id = target_group_id
+    cloned.parent_series_id = parent_id
+    cloned.featured = True
+    cloned.status = PlanStatus.DRAFT
+    cloned.plans = []
+
+    mock_author = MagicMock()
+    mock_author.id = author_id
+    mock_author.email = "cloner@example.com"
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_for_clone",
+        return_value=parent,
+    ), patch(
+        "pecha_api.plans.series.series_service.clone_series_with_plans",
+        return_value=cloned,
+    ) as mock_clone, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=cloned,
+    ), patch(
+        "pecha_api.plans.series.series_service.get_enrolled_count_map_by_series_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.series.series_service._group_summary_for_series",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.series.series_service.get_image_url",
+        return_value=None,
+    ), patch("pecha_api.plans.series.series_service.require_can_read_group_content"), patch(
+        "pecha_api.plans.series.series_service.require_can_create_content"
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=mock_author,
+    ):
+        _session_local_context(mock_session_local)
+
+        dto = create_new_series(token="dummy", create_series_request=request)
+
+    mock_clone.assert_called_once()
+    clone_kwargs = mock_clone.call_args.kwargs
+    assert clone_kwargs["parent_series"] is parent
+    assert clone_kwargs["target_group_id"] == target_group_id
+    assert clone_kwargs["author_id"] == author_id
+    assert clone_kwargs["image"] == "img/parent.png"
+    assert clone_kwargs["featured"] is True
+
+    assert dto.id == cloned.id
+    assert dto.parent_series_id == parent_id
+    assert dto.status == PlanStatus.DRAFT
+
+
+def test_clone_series_raises_404_when_parent_missing():
+    request = CreateSeriesRequest(
+        group_id=uuid.uuid4(),
+        parent_series_id=uuid.uuid4(),
+    )
+    mock_author = MagicMock()
+    mock_author.id = uuid.uuid4()
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_for_clone",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=mock_author,
+    ):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            create_new_series(token="dummy", create_series_request=request)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_clone_series_requires_read_on_parent_group():
+    parent = MagicMock()
+    parent.group_id = FIXTURE_GROUP_ID
+    request = CreateSeriesRequest(
+        group_id=uuid.uuid4(),
+        parent_series_id=uuid.uuid4(),
+    )
+    mock_author = MagicMock()
+    mock_author.id = uuid.uuid4()
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_for_clone",
+        return_value=parent,
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_read_group_content",
+        side_effect=_SERIES_FORBIDDEN,
+    ), patch(
+        "pecha_api.plans.series.series_service.clone_series_with_plans",
+    ) as mock_clone, patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=mock_author,
+    ):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            create_new_series(token="dummy", create_series_request=request)
+
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+    mock_clone.assert_not_called()
+
+
 def test_get_series_detail_raises_404_when_not_found():
     series_id = uuid.uuid4()
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(

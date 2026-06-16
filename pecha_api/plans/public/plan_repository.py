@@ -20,6 +20,28 @@ DEFAULT_SORT_ORDER = "asc"
 DEFAULT_TAG = None
 DEFAULT_GROUP_ID = None
 
+
+def _series_published_or_standalone():
+    """Visibility gate for the series a plan belongs to.
+
+    A plan is publicly visible only if it is standalone (``series_id IS NULL``)
+    or its parent series is itself ``PUBLISHED``. This prevents a ``PUBLISHED``
+    plan that lives under a ``DRAFT`` series (e.g. a freshly cloned series)
+    from leaking to end-users before the series is published.
+    """
+    return or_(
+        Plan.series_id.is_(None),
+        exists(
+            select(1).where(
+                and_(
+                    Series.id == Plan.series_id,
+                    Series.status == PlanStatus.PUBLISHED,
+                )
+            )
+        ),
+    )
+
+
 def get_aggregate_counts():
     total_days_label = func.count(func.distinct(PlanItem.id)).label("total_days")
     subscription_count_label = func.count(func.distinct(UserPlanProgress.user_id)).label("subscription_count")
@@ -35,7 +57,8 @@ def get_published_plans_query(db: Session, total_days_label, subscription_count_
         .filter(
             Plan.language == language,
             Plan.deleted_at.is_(None),
-            Plan.status == PlanStatus.PUBLISHED
+            Plan.status == PlanStatus.PUBLISHED,
+            _series_published_or_standalone(),
         )
         .group_by(Plan.id)
     )
@@ -132,7 +155,8 @@ def get_published_plans_count(
     query = db.query(func.count(Plan.id)).filter(
         Plan.deleted_at.is_(None),
         Plan.status == PlanStatus.PUBLISHED,
-        Plan.language == language
+        Plan.language == language,
+        _series_published_or_standalone(),
     )
     if search:
         query = query.filter(Plan.title.ilike(f"%{search}%"))
@@ -150,7 +174,8 @@ def get_published_plan_by_id(db: Session, plan_id: UUID) -> Optional[Plan]:
     return db.query(Plan).options(selectinload(Plan.author), selectinload(Plan.tag_list)).filter(
             Plan.id == plan_id,
             Plan.status == PlanStatus.PUBLISHED,
-            Plan.deleted_at.is_(None)
+            Plan.deleted_at.is_(None),
+            _series_published_or_standalone(),
         ).first()
 
 
@@ -169,6 +194,7 @@ def get_published_plans_in_series(
             Plan.display_order.isnot(None),
             Plan.status == PlanStatus.PUBLISHED,
             Plan.deleted_at.is_(None),
+            _series_published_or_standalone(),
         )
     )
     if language:
@@ -197,7 +223,12 @@ def get_published_plans_by_author_id(db: Session, author_id: UUID, skip: int, li
         )
         .outerjoin(PlanItem, PlanItem.plan_id == Plan.id)
         .outerjoin(UserPlanProgress, UserPlanProgress.plan_id == Plan.id)
-        .filter(Plan.author_id == author_id, Plan.status == PlanStatus.PUBLISHED, Plan.deleted_at.is_(None))
+        .filter(
+            Plan.author_id == author_id,
+            Plan.status == PlanStatus.PUBLISHED,
+            Plan.deleted_at.is_(None),
+            _series_published_or_standalone(),
+        )
         .group_by(Plan.id)
     )
     total = query.count()
@@ -210,6 +241,7 @@ def get_all_unique_tags(db: Session, language: str = "EN") -> List[str]:
         Plan.deleted_at.is_(None),
         Plan.status == PlanStatus.PUBLISHED,
         Plan.language == language,
+        _series_published_or_standalone(),
     )
     results = query.distinct().all()
     return [row.tag for row in results]
@@ -229,6 +261,7 @@ def get_next_plan_in_series(
         Plan.display_order > current_display_order,
         Plan.status == PlanStatus.PUBLISHED,
         Plan.deleted_at.is_(None),
+        _series_published_or_standalone(),
     )
     if language:
         query = query.filter(Plan.language == language.upper())
@@ -249,6 +282,7 @@ def get_previous_plan_in_series(
         Plan.display_order < current_display_order,
         Plan.status == PlanStatus.PUBLISHED,
         Plan.deleted_at.is_(None),
+        _series_published_or_standalone(),
     )
     if language:
         query = query.filter(Plan.language == language.upper())
