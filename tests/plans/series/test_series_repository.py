@@ -11,6 +11,7 @@ from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_repository import (
     get_series_by_id,
     get_series_paginated,
+    get_random_featured_published_series,
     save_series_with_plans,
     update_series_with_plans,
     update_series_status,
@@ -33,6 +34,21 @@ def _paginated_query_chain(rows, total, *, with_filter=True, plan_counts=None):
     target.count.return_value = total
     ordered = MagicMock()
     ordered.offset.return_value.limit.return_value.all.return_value = query_rows
+    target.order_by.return_value = ordered
+    query_mock.options.return_value = options_mock
+    return query_mock
+
+
+def _random_featured_query_chain(rows, total, *, with_filter=True, plan_counts=None):
+    if plan_counts is None:
+        plan_counts = [0] * len(rows)
+    query_rows = list(zip(rows, plan_counts))
+    query_mock = MagicMock()
+    options_mock = MagicMock()
+    target = options_mock.filter.return_value if with_filter else options_mock
+    target.count.return_value = total
+    ordered = MagicMock()
+    ordered.limit.return_value.all.return_value = query_rows
     target.order_by.return_value = ordered
     query_mock.options.return_value = options_mock
     return query_mock
@@ -577,6 +593,37 @@ def test_get_series_paginated_published_only_does_not_add_series_filter():
 
     assert rows == []
     assert total == 0
+
+
+def test_get_random_featured_published_series_with_language_applies_metadata_filter():
+    db = _make_session_mock()
+
+    db.query.return_value = _random_featured_query_chain([], 0)
+
+    rows, total = get_random_featured_published_series(db=db, limit=10, language="bo")
+
+    assert rows == []
+    assert total == 0
+    filtered = db.query.return_value.options.return_value.filter
+    assert filtered.call_count == 1
+    filter_args = filtered.call_args[0]
+    assert len(filter_args) == 4
+
+
+def test_get_random_featured_published_series_without_language_uses_base_filters():
+    db = _make_session_mock()
+    row = MagicMock(spec=Series)
+
+    db.query.return_value = _random_featured_query_chain([row], 1)
+
+    rows, total = get_random_featured_published_series(db=db, limit=10)
+
+    assert total == 1
+    assert rows == [(row, 0, 0)]
+    filtered = db.query.return_value.options.return_value.filter
+    assert filtered.call_count == 1
+    filter_args = filtered.call_args[0]
+    assert len(filter_args) == 3
     filtered = db.query.return_value.options.return_value.filter
     assert filtered.call_count == 1
     filter_args = filtered.call_args[0]
