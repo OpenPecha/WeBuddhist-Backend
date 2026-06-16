@@ -9,6 +9,7 @@ from fastapi import HTTPException
 from starlette import status
 from .accumulator_models import Accumulator
 from .accumulator_history_model import AccumulatorHistory
+from .accumulator_enums import AccumulatorType
 from ..mantra.mantra_model import Mantra
 
 
@@ -85,13 +86,32 @@ def get_all_accumulators(
     skip: int = 0,
     limit: int = 20
 ) -> Tuple[List[Accumulator], int]:
-
-    query = db.query(Accumulator).filter(Accumulator.deleted_at.is_(None))
+    """Public list: only group-defined presets, never users' own accumulators."""
+    query = (
+        db.query(Accumulator)
+        .filter(
+            Accumulator.type == AccumulatorType.PRESET,
+            Accumulator.deleted_at.is_(None),
+        )
+    )
 
     total = query.count()
     accumulators = query.order_by(Accumulator.created_at.desc()).offset(skip).limit(limit).all()
 
     return accumulators, total
+
+
+def get_preset_by_id(db: Session, preset_id: UUID) -> Optional[Accumulator]:
+    """Fetch an active preset row (type=PRESET) by id, or None."""
+    return (
+        db.query(Accumulator)
+        .filter(
+            Accumulator.id == preset_id,
+            Accumulator.type == AccumulatorType.PRESET,
+            Accumulator.deleted_at.is_(None),
+        )
+        .first()
+    )
 
 
 def get_user_accumulators(

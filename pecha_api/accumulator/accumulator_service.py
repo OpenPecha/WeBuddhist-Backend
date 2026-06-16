@@ -10,6 +10,7 @@ from ..texts.texts_utils import TextUtils
 from .accumulator_repository import (
     get_all_accumulators,
     get_user_accumulators,
+    get_preset_by_id,
     add_accumulator,
     commit_accumulator,
     get_accumulator_by_id,
@@ -37,6 +38,7 @@ from .response_message import (
     NOT_FOUND,
     FORBIDDEN,
     ACCUMULATOR_NOT_FOUND,
+    PRESET_NOT_FOUND,
     MANTRA_NOT_FOUND,
     ACCUMULATOR_UPDATE_NOT_ALLOWED,
     ACCUMULATOR_DELETE_NOT_ALLOWED,
@@ -136,38 +138,34 @@ def get_user_accumulators_service(
         )
 
 
-async def create_accumulator_service(token: str, request: CreateAccumulatorRequest) -> AccumulatorDTO:
+def create_accumulator_service(token: str, request: CreateAccumulatorRequest) -> AccumulatorDTO:
+    """Create a user accumulator from a preset the user tapped. The preset's
+    fields are copied into a new user-owned row; count starts at 0 (the PUT
+    endpoint handles counting)."""
     current_user = validate_and_extract_user_details(token=token)
 
-    if request.text_id is not None:
-        await TextUtils.validate_text_exists(text_id=str(request.text_id))
-
     with SessionLocal() as db:
-        if request.mantra_id is not None:
-            validate_mantra_exists(db, request.mantra_id)
+        preset = get_preset_by_id(db, request.preset_id)
+        if preset is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": NOT_FOUND, "message": PRESET_NOT_FOUND}
+            )
 
         new_accumulator = Accumulator(
             id=uuid4(),
             user_id=current_user.id,
+            group_id=preset.group_id,
             type=AccumulatorType.USER,
-            name=request.name,
-            description=request.description,
-            target_count=request.target_count,
-            current_count=request.current_count,
-            text_id=request.text_id,
-            mantra_id=request.mantra_id
+            name=preset.name,
+            description=preset.description,
+            target_count=preset.target_count,
+            current_count=0,
+            text_id=preset.text_id,
+            mantra_id=preset.mantra_id
         )
 
         add_accumulator(db, new_accumulator)
-
-        if request.current_count > 0:
-            add_history_row(
-                db=db,
-                accumulator_id=new_accumulator.id,
-                user_id=current_user.id,
-                count=request.current_count
-            )
-
         saved_accumulator = commit_accumulator(db, new_accumulator)
         return convert_accumulator_to_dto(saved_accumulator)
 

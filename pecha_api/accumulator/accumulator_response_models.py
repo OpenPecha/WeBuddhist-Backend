@@ -51,12 +51,7 @@ class PublicAccumulatorsResponse(BaseModel):
 
 
 class CreateAccumulatorRequest(BaseModel):
-    name: str
-    description: Optional[str] = None
-    target_count: Optional[int] = None
-    current_count: int = Field(0, ge=0, description="Initial count to seed the accumulator with")
-    text_id: Optional[UUID] = None
-    mantra_id: Optional[UUID] = None
+    preset_id: UUID = Field(..., description="Id of the public preset the user tapped; its fields are copied into the new user accumulator")
 
 
 class UpdateAccumulatorRequest(BaseModel):

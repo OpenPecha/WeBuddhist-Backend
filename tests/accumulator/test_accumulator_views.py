@@ -70,16 +70,8 @@ class TestDataFactory:
         )
 
     @staticmethod
-    def create_accumulator_request(
-        name="New Accumulator",
-        target_count=108,
-        current_count=0,
-    ) -> CreateAccumulatorRequest:
-        return CreateAccumulatorRequest(
-            name=name,
-            target_count=target_count,
-            current_count=current_count,
-        )
+    def create_accumulator_request(preset_id=None) -> CreateAccumulatorRequest:
+        return CreateAccumulatorRequest(preset_id=preset_id or uuid4())
 
     @staticmethod
     def create_update_request(name=None, target_count=None, current_count=None) -> UpdateAccumulatorRequest:
@@ -209,7 +201,7 @@ class TestCreateUserAccumulator:
     async def test_create_user_accumulator_success(self, mock_service):
         """Test successful creation of user accumulator."""
         token = "valid_token"
-        request = TestDataFactory.create_accumulator_request(name="New Acc", target_count=108)
+        request = TestDataFactory.create_accumulator_request()
 
         mock_service.return_value = TestDataFactory.create_accumulator_dto(name="New Acc", target_count=108)
 
@@ -225,12 +217,12 @@ class TestCreateUserAccumulator:
 
     @patch('pecha_api.accumulator.accumulator_views.create_accumulator_service')
     @pytest.mark.asyncio
-    async def test_create_user_accumulator_mantra_not_found(self, mock_service):
-        """Test create_user_accumulator when mantra does not exist."""
+    async def test_create_user_accumulator_preset_not_found(self, mock_service):
+        """Test create_user_accumulator when the preset does not exist."""
         request = TestDataFactory.create_accumulator_request()
         mock_service.side_effect = HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "NOT_FOUND", "message": "Mantra not found"},
+            detail={"error": "NOT_FOUND", "message": "Preset accumulator not found"},
         )
 
         with pytest.raises(HTTPException) as exc_info:

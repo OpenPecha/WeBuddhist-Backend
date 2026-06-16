@@ -29,6 +29,10 @@ from pecha_api.accumulator.accumulator_response_models import (
 from pecha_api.accumulator.accumulator_models import Accumulator
 from pecha_api.accumulator.accumulator_history_model import AccumulatorHistory
 from pecha_api.accumulator.accumulator_enums import AccumulatorType
+# Imported so the SQLAlchemy mapper registry can resolve the Mantra ->
+# MantraMetadata relationship when the service constructs a real Accumulator.
+from pecha_api.mantra.mantra_model import Mantra  # noqa: F401
+from pecha_api.mantra.mantra_metadata_model import MantraMetadata  # noqa: F401
 
 
 class TestDataFactory:
@@ -72,23 +76,9 @@ class TestDataFactory:
         return user
 
     @staticmethod
-    def create_accumulator_request(
-        name="New Accumulator",
-        description=None,
-        target_count=108,
-        current_count=0,
-        text_id=None,
-        mantra_id=None,
-    ) -> CreateAccumulatorRequest:
-        """Create a CreateAccumulatorRequest."""
-        return CreateAccumulatorRequest(
-            name=name,
-            description=description,
-            target_count=target_count,
-            current_count=current_count,
-            text_id=text_id,
-            mantra_id=mantra_id,
-        )
+    def create_accumulator_request(preset_id=None) -> CreateAccumulatorRequest:
+        """Create a CreateAccumulatorRequest referencing a preset."""
+        return CreateAccumulatorRequest(preset_id=preset_id or uuid4())
 
     @staticmethod
     def create_update_request(
@@ -225,37 +215,57 @@ class TestGetUserAccumulatorsService:
 
 
 class TestCreateAccumulatorService:
-    """Test cases for create_accumulator_service function."""
+    """Test cases for create_accumulator_service function (preset -> user copy)."""
 
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
     @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
     @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
-    @pytest.mark.asyncio
-    async def test_create_accumulator_service_success(self, mock_validate, mock_add, mock_commit, mock_session):
-        """Test successful creation of accumulator."""
+    def test_create_accumulator_service_success(
+        self, mock_validate, mock_get_preset, mock_add, mock_commit, mock_session
+    ):
+        """Tapping a preset copies its fields into a new user-owned accumulator."""
         user_id = uuid4()
+        preset_id = uuid4()
+        group_id = uuid4()
         token = "valid_token"
 
         mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
 
-        request = TestDataFactory.create_accumulator_request(name="New Acc", target_count=108)
-
-        created = TestDataFactory.create_mock_accumulator(
-            user_id=user_id, name="New Acc", target_count=108, current_count=0
+        preset = TestDataFactory.create_mock_accumulator(
+            accumulator_id=preset_id,
+            user_id=None,
+            group_id=group_id,
+            accumulator_type=AccumulatorType.PRESET,
+            name="Refuge Prayer",
+            target_count=111111,
         )
-        mock_commit.return_value = created
+        mock_get_preset.return_value = preset
 
-        result = await create_accumulator_service(token=token, request=request)
+        request = TestDataFactory.create_accumulator_request(preset_id=preset_id)
+
+        # commit stamps server-side timestamps (as the DB would) and echoes the row.
+        def _commit(_db, accumulator):
+            accumulator.created_at = datetime.utcnow()
+            accumulator.updated_at = datetime.utcnow()
+            return accumulator
+        mock_commit.side_effect = _commit
+
+        result = create_accumulator_service(token=token, request=request)
 
         assert isinstance(result, AccumulatorDTO)
-        assert result.name == "New Acc"
+        assert result.name == "Refuge Prayer"
+        assert result.target_count == 111111
         assert result.type == AccumulatorType.USER
         assert result.user_id == user_id
+        assert result.group_id == group_id
+        assert result.current_count == 0
 
         mock_validate.assert_called_once_with(token=token)
+        mock_get_preset.assert_called_once_with(mock_db, preset_id)
         mock_add.assert_called_once()
         mock_commit.assert_called_once()
 
@@ -263,104 +273,56 @@ class TestCreateAccumulatorService:
     @patch('pecha_api.accumulator.accumulator_service.add_history_row')
     @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
     @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
     @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
-    @pytest.mark.asyncio
-    async def test_create_accumulator_service_seeds_history_when_count_positive(
-        self, mock_validate, mock_add, mock_commit, mock_add_history, mock_session
+    def test_create_accumulator_service_no_history_on_create(
+        self, mock_validate, mock_get_preset, mock_add, mock_commit, mock_add_history, mock_session
     ):
-        """A positive initial current_count should record a history row."""
+        """Creating from a preset starts at count 0 and writes no history row."""
         user_id = uuid4()
+        preset_id = uuid4()
         token = "valid_token"
 
         mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
-
-        request = TestDataFactory.create_accumulator_request(current_count=21)
-        mock_commit.return_value = TestDataFactory.create_mock_accumulator(
-            user_id=user_id, current_count=21
+        mock_get_preset.return_value = TestDataFactory.create_mock_accumulator(
+            accumulator_id=preset_id, accumulator_type=AccumulatorType.PRESET
         )
 
-        await create_accumulator_service(token=token, request=request)
+        def _commit(_db, accumulator):
+            accumulator.created_at = datetime.utcnow()
+            accumulator.updated_at = datetime.utcnow()
+            return accumulator
+        mock_commit.side_effect = _commit
 
-        mock_add_history.assert_called_once()
-        _, kwargs = mock_add_history.call_args
-        assert kwargs["count"] == 21
-        assert kwargs["user_id"] == user_id
-
-    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
-    @patch('pecha_api.accumulator.accumulator_service.add_history_row')
-    @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
-    @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
-    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
-    @pytest.mark.asyncio
-    async def test_create_accumulator_service_no_history_when_count_zero(
-        self, mock_validate, mock_add, mock_commit, mock_add_history, mock_session
-    ):
-        """A zero initial current_count should not record a history row."""
-        user_id = uuid4()
-        token = "valid_token"
-
-        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
-        mock_db = MagicMock()
-        mock_session.return_value.__enter__.return_value = mock_db
-
-        request = TestDataFactory.create_accumulator_request(current_count=0)
-        mock_commit.return_value = TestDataFactory.create_mock_accumulator(user_id=user_id, current_count=0)
-
-        await create_accumulator_service(token=token, request=request)
+        request = TestDataFactory.create_accumulator_request(preset_id=preset_id)
+        create_accumulator_service(token=token, request=request)
 
         mock_add_history.assert_not_called()
 
-    @patch('pecha_api.accumulator.accumulator_service.TextUtils.validate_text_exists', new_callable=AsyncMock)
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
-    @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
-    @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
     @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
-    @pytest.mark.asyncio
-    async def test_create_accumulator_service_validates_text(
-        self, mock_validate, mock_add, mock_commit, mock_session, mock_validate_text
+    def test_create_accumulator_service_preset_not_found(
+        self, mock_validate, mock_get_preset, mock_session
     ):
-        """When text_id is provided, the text existence is validated."""
-        user_id = uuid4()
-        text_id = uuid4()
-        token = "valid_token"
-
-        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
-        mock_db = MagicMock()
-        mock_session.return_value.__enter__.return_value = mock_db
-        mock_commit.return_value = TestDataFactory.create_mock_accumulator(user_id=user_id, text_id=text_id)
-
-        request = TestDataFactory.create_accumulator_request(text_id=text_id)
-
-        await create_accumulator_service(token=token, request=request)
-
-        mock_validate_text.assert_awaited_once_with(text_id=str(text_id))
-
-    @patch('pecha_api.accumulator.accumulator_service.mantra_exists')
-    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
-    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
-    @pytest.mark.asyncio
-    async def test_create_accumulator_service_mantra_not_found(
-        self, mock_validate, mock_session, mock_mantra_exists
-    ):
-        """Creating with a nonexistent mantra_id raises 404."""
+        """A preset_id that matches no preset raises 404."""
         token = "valid_token"
         mock_validate.return_value = TestDataFactory.create_mock_user()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
-        mock_mantra_exists.return_value = False
+        mock_get_preset.return_value = None
 
-        request = TestDataFactory.create_accumulator_request(mantra_id=uuid4())
+        request = TestDataFactory.create_accumulator_request(preset_id=uuid4())
 
         with pytest.raises(HTTPException) as exc_info:
-            await create_accumulator_service(token=token, request=request)
+            create_accumulator_service(token=token, request=request)
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
     @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
-    @pytest.mark.asyncio
-    async def test_create_accumulator_service_invalid_token(self, mock_validate):
+    def test_create_accumulator_service_invalid_token(self, mock_validate):
         """Test create_accumulator_service with invalid token."""
         mock_validate.side_effect = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -370,7 +332,7 @@ class TestCreateAccumulatorService:
         request = TestDataFactory.create_accumulator_request()
 
         with pytest.raises(HTTPException) as exc_info:
-            await create_accumulator_service(token="invalid_token", request=request)
+            create_accumulator_service(token="invalid_token", request=request)
 
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 

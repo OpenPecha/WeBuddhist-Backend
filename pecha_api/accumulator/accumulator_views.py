@@ -55,7 +55,7 @@ async def create_user_accumulator(
     request: CreateAccumulatorRequest,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
 ):
-    return await create_accumulator_service(
+    return create_accumulator_service(
         token=credentials.credentials,
         request=request
     )
