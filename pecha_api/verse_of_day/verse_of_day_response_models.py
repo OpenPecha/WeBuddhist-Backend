@@ -55,8 +55,8 @@ class VerseOfDayPublicDTO(BaseModel):
     verses: Optional[VersesDict] = None
     verse: Optional[VerseContent] = None
     image_url: Optional[str] = None  
-    ref_id: str
-    ref_type: str
+    ref_id: Optional[str] = None
+    ref_type: Optional[str] = None
     date: date
     group_id: Optional[UUID] = None
     group_info: Optional[List[GroupInfoDTO]] = None
