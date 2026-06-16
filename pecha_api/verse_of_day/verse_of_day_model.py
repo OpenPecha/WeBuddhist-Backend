@@ -11,9 +11,9 @@ class VerseOfDay(Base):
     __tablename__ = "verse_of_day"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    verse_id = Column(String(255), nullable=False)
-    ref_id = Column(String(255), nullable=False)
-    ref_type = Column(String(50), nullable=False)
+    verse_id = Column(String(255), nullable=True)
+    ref_id = Column(String(255), nullable=True)
+    ref_type = Column(String(50), nullable=True)
     image_urls = Column(JSONB, nullable=True)
     group_id = Column(UUID(as_uuid=True), nullable=True)
     date = Column(Date, nullable=False)

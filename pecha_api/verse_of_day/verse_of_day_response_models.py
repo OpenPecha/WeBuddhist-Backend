@@ -36,9 +36,9 @@ class VerseOfDayDTO(BaseModel):
     id: UUID
     verses: Optional[VersesDict] = None
     image_urls: Optional[List[str]] = None
-    verse_id: str
-    ref_id: str
-    ref_type: str
+    verse_id: Optional[str] = None
+    ref_id: Optional[str] = None
+    ref_type: Optional[str] = None
     group_id: Optional[UUID] = None
     date: date
 
@@ -79,9 +79,9 @@ class CreateVerseOfDayRequest(BaseModel):
     """Request to create verse of day with multilingual verses."""
     verses: VersesDict
     image_urls: Optional[List[str]] = None
-    verse_id: str
-    ref_id: str
-    ref_type: str
+    verse_id: Optional[str] = None
+    ref_id: Optional[str] = None
+    ref_type: Optional[str] = None
     group_id: Optional[UUID] = None
     date: date
 
