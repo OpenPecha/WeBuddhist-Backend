@@ -13,6 +13,8 @@ from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_service import (
     _validate_plan_ids,
     _build_plan_order_pairs,
+    _series_schedule_from_plans,
+    _plan_total_days,
     create_new_series,
     get_filtered_series,
     get_random_featured_series,
@@ -1797,6 +1799,123 @@ def test_get_random_featured_series_omits_schedule_when_first_plan_has_no_start_
     assert result.series[0].start_date is None
     assert result.series[0].end_date is None
     assert result.series[0].total_days == 5
+
+
+def test_series_schedule_from_plans_returns_empty_when_no_plans():
+    start_date, end_date, total_days = _series_schedule_from_plans([], published_only=True)
+
+    assert start_date is None
+    assert end_date is None
+    assert total_days == 0
+
+
+def test_series_schedule_from_plans_uses_start_date_when_series_has_no_days():
+    series_start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    plan = _featured_series_plan(display_order=0, start_date=series_start, item_count=0)
+
+    start_date, end_date, total_days = _series_schedule_from_plans(
+        [plan],
+        published_only=True,
+    )
+
+    assert start_date == series_start
+    assert end_date == series_start
+    assert total_days == 0
+
+
+def test_series_schedule_from_plans_excludes_unpublished_plans():
+    series_start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    draft_plan = _featured_series_plan(
+        display_order=0,
+        start_date=series_start,
+        item_count=2,
+        status=PlanStatus.DRAFT,
+    )
+
+    start_date, end_date, total_days = _series_schedule_from_plans(
+        [draft_plan],
+        published_only=True,
+    )
+
+    assert start_date is None
+    assert end_date is None
+    assert total_days == 0
+
+
+def test_series_schedule_from_plans_filters_by_language():
+    series_start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    en_plan = _featured_series_plan(
+        display_order=0,
+        start_date=series_start,
+        item_count=2,
+        language=LanguageCode.EN,
+    )
+    bo_plan = _featured_series_plan(
+        display_order=1,
+        start_date=datetime(2026, 7, 10, tzinfo=timezone.utc),
+        item_count=5,
+        language=LanguageCode.BO,
+    )
+
+    start_date, end_date, total_days = _series_schedule_from_plans(
+        [en_plan, bo_plan],
+        published_only=True,
+        language="bo",
+    )
+
+    assert start_date == datetime(2026, 7, 10, tzinfo=timezone.utc)
+    assert total_days == 5
+    assert end_date == datetime(2026, 7, 14, tzinfo=timezone.utc)
+
+
+def test_plan_total_days_returns_zero_when_plan_has_no_items():
+    plan = MagicMock()
+    plan.items = None
+
+    assert _plan_total_days(plan) == 0
+
+
+def test_get_random_featured_series_schedule_respects_language_filter():
+    series_start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = [_metadata_entry(title="བོད་", language=LanguageCode.BO)]
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.group_id = None
+    row.featured = True
+    row.status = PlanStatus.PUBLISHED
+
+    en_plan = _featured_series_plan(
+        display_order=0,
+        start_date=series_start,
+        item_count=4,
+        language=LanguageCode.EN,
+    )
+    bo_plan = _featured_series_plan(
+        display_order=1,
+        start_date=datetime(2026, 6, 15, tzinfo=timezone.utc),
+        item_count=2,
+        language=LanguageCode.BO,
+    )
+    series_with_plans = MagicMock()
+    series_with_plans.id = row.id
+    series_with_plans.plans = [en_plan, bo_plan]
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([(row, 2, 0)], 1)), \
+         patch("pecha_api.plans.series.series_service.get_series_with_plans_by_ids",
+               return_value=[series_with_plans]), \
+         patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
+               return_value={}):
+        _session_local_context(mock_session_local)
+
+        result = get_random_featured_series(language="bo", limit=10)
+
+    assert result.series[0].start_date == datetime(2026, 6, 15, tzinfo=timezone.utc)
+    assert result.series[0].total_days == 2
+    assert result.series[0].end_date == datetime(2026, 6, 16, tzinfo=timezone.utc)
 
 
 def test_get_cms_filtered_series_passes_language_to_repository():
