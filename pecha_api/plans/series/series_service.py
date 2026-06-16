@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -22,6 +22,7 @@ from pecha_api.plans.series.series_repository import (
     update_series_featured,
     soft_delete_series_with_plan_detach,
     get_random_featured_published_series,
+    get_series_with_plans_by_ids,
 )
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
@@ -120,7 +121,7 @@ def _build_plan_order_pairs(
 
 
 def _plan_to_dto(plan, group_id: Optional[UUID] = None) -> SeriesPlanDTO:
-    total_days = len(plan.items) if hasattr(plan, 'items') and plan.items else 0
+    total_days = _plan_total_days(plan)
     return SeriesPlanDTO(
         id=plan.id,
         title=plan.title,
@@ -139,6 +140,36 @@ def _plan_to_dto(plan, group_id: Optional[UUID] = None) -> SeriesPlanDTO:
         total_days=total_days,
         group_id=group_id,
     )
+
+
+def _plan_total_days(plan) -> int:
+    return len(plan.items) if hasattr(plan, "items") and plan.items else 0
+
+
+def _series_schedule_from_plans(
+    plans,
+    published_only: bool = False,
+    language: Optional[str] = None,
+) -> Tuple[Optional[datetime], Optional[datetime], int]:
+    sorted_plans = _get_sorted_active_plans(
+        plans,
+        published_only=published_only,
+        language=language,
+    )
+    if not sorted_plans:
+        return None, None, 0
+
+    series_total_days = sum(_plan_total_days(plan) for plan in sorted_plans)
+    first_plan = sorted_plans[0]
+    if not first_plan.start_date:
+        return None, None, series_total_days
+
+    start_date = first_plan.start_date
+    if series_total_days <= 0:
+        return start_date, start_date, series_total_days
+
+    end_date = start_date + timedelta(days=series_total_days - 1)
+    return start_date, end_date, series_total_days
 
 
 def _get_sorted_active_plans(
@@ -238,6 +269,9 @@ def _series_to_list_item_dto(
     enrolled_count: int = 0,
     language: Optional[str] = None,
     group: Optional[AuthorGroupSummaryDTO] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    total_days: int = 0,
 ) -> SeriesListItemDTO:
     return SeriesListItemDTO(
         id=row.id,
@@ -248,7 +282,9 @@ def _series_to_list_item_dto(
         featured=bool(row.featured),
         status=_to_plan_status(row.status),
         plan_count=plan_count,
-        total_days=0,
+        total_days=total_days,
+        start_date=start_date,
+        end_date=end_date,
         enrolled_count=enrolled_count,
         group=group,
     )
@@ -362,17 +398,31 @@ def get_random_featured_series(
             series_rows=[row for row, _, _ in rows],
             language=language,
         )
-
-    series_dtos: List[SeriesListItemDTO] = [
-        _series_to_list_item_dto(
-            row,
-            plan_count=plan_count,
-            enrolled_count=enrolled_count,
-            language=language,
-            group=group_summaries.get(row.group_id),
+        series_with_plans = get_series_with_plans_by_ids(
+            db=db_session,
+            series_ids=[row.id for row, _, _ in rows],
         )
-        for row, plan_count, enrolled_count in rows
-    ]
+        plans_by_series_id = {series.id: series.plans for series in series_with_plans}
+
+    series_dtos: List[SeriesListItemDTO] = []
+    for row, plan_count, enrolled_count in rows:
+        start_date, end_date, total_days = _series_schedule_from_plans(
+            plans_by_series_id.get(row.id, []),
+            published_only=True,
+            language=language,
+        )
+        series_dtos.append(
+            _series_to_list_item_dto(
+                row,
+                plan_count=plan_count,
+                enrolled_count=enrolled_count,
+                language=language,
+                group=group_summaries.get(row.group_id),
+                start_date=start_date,
+                end_date=end_date,
+                total_days=total_days,
+            )
+        )
     if language:
         series_dtos = [dto for dto in series_dtos if dto.metadata is not None]
         if not series_dtos:
