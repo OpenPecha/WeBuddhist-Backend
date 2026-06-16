@@ -152,6 +152,203 @@ def save_series_with_plans(
     return series
 
 
+def get_series_for_clone(db: Session, series_id) -> Optional[Series]:
+    """Load a series with the full plan tree needed to deep-clone it."""
+    from pecha_api.plans.items.plan_items_models import PlanItem
+    from pecha_api.plans.tasks.plan_tasks_models import PlanTask
+    from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
+
+    return (
+        db.query(Series)
+        .options(
+            selectinload(Series.metadata_entries),
+            selectinload(Series.plans).selectinload(Plan.tag_list),
+            selectinload(Series.plans)
+            .selectinload(Plan.items)
+            .selectinload(PlanItem.audio),
+            selectinload(Series.plans)
+            .selectinload(Plan.items)
+            .selectinload(PlanItem.tasks)
+            .selectinload(PlanTask.sub_tasks)
+            .selectinload(PlanSubTask.timestamp),
+        )
+        .filter(Series.id == series_id, Series.deleted_at.is_(None))
+        .first()
+    )
+
+
+def _clone_sub_task(db: Session, src_sub, new_task_id: UUID, created_by: str) -> None:
+    from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
+    from pecha_api.plans.audio.sub_task_timestamps_models import SubTaskTimestamp
+
+    new_sub = PlanSubTask(
+        task_id=new_task_id,
+        audio_url=src_sub.audio_url,
+        content_type=src_sub.content_type,
+        content=src_sub.content,
+        duration=src_sub.duration,
+        source_text_id=src_sub.source_text_id,
+        pecha_segment_id=src_sub.pecha_segment_id,
+        segment_ids=src_sub.segment_ids,
+        display_order=src_sub.display_order,
+        created_by=created_by,
+        updated_by=created_by,
+    )
+    db.add(new_sub)
+    db.flush()
+
+    if src_sub.timestamp is not None:
+        db.add(
+            SubTaskTimestamp(
+                sub_task_id=new_sub.id,
+                start_ms=src_sub.timestamp.start_ms,
+                end_ms=src_sub.timestamp.end_ms,
+                created_by=created_by,
+                updated_by=created_by,
+            )
+        )
+
+
+def _clone_task(db: Session, src_task, new_item_id: UUID, created_by: str) -> None:
+    from pecha_api.plans.tasks.plan_tasks_models import PlanTask
+
+    new_task = PlanTask(
+        plan_item_id=new_item_id,
+        title=src_task.title,
+        display_order=src_task.display_order,
+        estimated_time=src_task.estimated_time,
+        is_required=src_task.is_required,
+        created_by=created_by,
+        updated_by=created_by,
+    )
+    db.add(new_task)
+    db.flush()
+
+    for src_sub in src_task.sub_tasks or []:
+        if src_sub.deleted_at is None:
+            _clone_sub_task(db, src_sub, new_task.id, created_by)
+
+
+def _clone_item(db: Session, src_item, new_plan_id: UUID, created_by: str) -> None:
+    from pecha_api.plans.items.plan_items_models import PlanItem
+    from pecha_api.plans.audio.plan_item_audio_models import PlanItemAudio
+
+    new_item = PlanItem(
+        plan_id=new_plan_id,
+        day_number=src_item.day_number,
+        created_by=created_by,
+        updated_by=created_by,
+    )
+    db.add(new_item)
+    db.flush()
+
+    if src_item.audio is not None:
+        db.add(
+            PlanItemAudio(
+                plan_item_id=new_item.id,
+                audio_key=src_item.audio.audio_key,
+                duration_ms=src_item.audio.duration_ms,
+                mime_type=src_item.audio.mime_type,
+                file_size_bytes=src_item.audio.file_size_bytes,
+                created_by=created_by,
+                updated_by=created_by,
+            )
+        )
+
+    for src_task in src_item.tasks or []:
+        if src_task.deleted_at is None:
+            _clone_task(db, src_task, new_item.id, created_by)
+
+
+def _clone_plan(
+    db: Session,
+    src_plan,
+    new_series_id: UUID,
+    target_group_id: UUID,
+    author_id: UUID,
+    created_by: str,
+) -> None:
+    new_plan = Plan(
+        title=src_plan.title,
+        description=src_plan.description,
+        author_id=author_id,
+        group_id=target_group_id,
+        series_id=new_series_id,
+        language=src_plan.language,
+        difficulty_level=src_plan.difficulty_level,
+        featured=src_plan.featured,
+        display_order=src_plan.display_order,
+        status=src_plan.status,
+        image_url=src_plan.image_url,
+        start_date=src_plan.start_date,
+        created_by=created_by,
+        updated_by=created_by,
+    )
+    # Re-link to the same (global) tag rows.
+    new_plan.tag_list = list(src_plan.tag_list or [])
+    db.add(new_plan)
+    db.flush()
+
+    for src_item in src_plan.items or []:
+        _clone_item(db, src_item, new_plan.id, created_by)
+
+
+def clone_series_with_plans(
+    db: Session,
+    parent_series: Series,
+    target_group_id: UUID,
+    author_id: UUID,
+    created_by: str,
+    image: Optional[str],
+    featured: bool,
+) -> Series:
+    """Deep-copy a series and its full plan tree into another group.
+
+    The clone keeps every detail of the parent (metadata, plan content, plan
+    statuses, tag links) but lives in ``target_group_id``, is authored by
+    ``author_id``, starts as a DRAFT series, and records ``parent_series_id``.
+    User-specific data (enrollments, completions, recitations, favorites,
+    reviews) is intentionally not copied.
+    """
+    new_series = Series(
+        image=image,
+        author_id=author_id,
+        group_id=target_group_id,
+        parent_series_id=parent_series.id,
+        featured=featured,
+        status=PlanStatus.DRAFT,
+        updated_by=created_by,
+    )
+    db.add(new_series)
+    db.flush()
+
+    for entry in parent_series.metadata_entries or []:
+        db.add(
+            SeriesMetadata(
+                series_id=new_series.id,
+                title=entry.title,
+                sub_title=entry.sub_title,
+                description=entry.description,
+                language=entry.language,
+            )
+        )
+
+    for src_plan in parent_series.plans or []:
+        if src_plan.deleted_at is None:
+            _clone_plan(
+                db,
+                src_plan,
+                new_series.id,
+                target_group_id,
+                author_id,
+                created_by,
+            )
+
+    db.commit()
+    db.refresh(new_series)
+    return new_series
+
+
 def replace_series_metadata(
     db: Session,
     series_id: UUID,
@@ -339,16 +536,28 @@ def get_series_paginated(
 def get_random_featured_published_series(
     db: Session,
     limit: int = 10,
+    language: Optional[str] = None,
 ) -> Tuple[List[Tuple[Series, int, int]], int]:
     plan_count = _series_active_plans_count_subquery(published_only=True).label("plan_count")
+    filters = [
+        Series.deleted_at.is_(None),
+        Series.featured.is_(True),
+        Series.status == PlanStatus.PUBLISHED,
+    ]
+    if language:
+        language_upper = language.upper()
+        filters.append(
+            exists(
+                select(1).where(
+                    SeriesMetadata.series_id == Series.id,
+                    SeriesMetadata.language == language_upper,
+                )
+            )
+        )
     query = (
         db.query(Series, plan_count)
         .options(selectinload(Series.metadata_entries))
-        .filter(
-            Series.deleted_at.is_(None),
-            Series.featured.is_(True),
-            Series.status == PlanStatus.PUBLISHED,
-        )
+        .filter(*filters)
     )
     total = query.count()
     if total == 0:
