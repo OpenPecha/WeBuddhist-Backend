@@ -8,12 +8,14 @@ from sqlalchemy.exc import IntegrityError
 from starlette import status
 
 from pecha_api.plans.plans_enums import DifficultyLevel, LanguageCode, PlanStatus
+from pecha_api.plans.groups.groups_enums import AuthorGroupType
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_service import (
     _validate_plan_ids,
     _build_plan_order_pairs,
     create_new_series,
     get_filtered_series,
+    get_random_featured_series,
     get_series_detail,
     update_existing_series,
     update_existing_series_status,
@@ -327,6 +329,7 @@ def test_get_series_detail_returns_dto_without_plans():
     group_summary = AuthorGroupSummaryDTO(
         id=group_id,
         slug="test-group",
+        group_type=AuthorGroupType.PAGE,
         is_public=True,
         metadata=[],
     )
@@ -1596,6 +1599,108 @@ def test_get_filtered_series_passes_language_to_repository():
     call_kwargs = mock_repo.call_args.kwargs
     assert call_kwargs["language"] == "zh"
     assert call_kwargs["status"] == PlanStatus.PUBLISHED
+
+
+def test_get_random_featured_series_returns_featured_series_without_language_filter():
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = [
+        _metadata_entry(title="Featured", language=LanguageCode.EN),
+        _metadata_entry(title="བོད་", language=LanguageCode.BO),
+    ]
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.group_id = None
+    row.featured = True
+    row.status = PlanStatus.PUBLISHED
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([(row, 4, 2)], 1)), \
+         patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
+               return_value={}):
+        _session_local_context(mock_session_local)
+
+        result = get_random_featured_series(limit=10)
+
+    assert len(result.series) == 1
+    assert result.total == 1
+    assert result.series[0].featured is True
+    assert result.series[0].plan_count == 4
+    assert result.series[0].enrolled_count == 2
+    assert len(result.series[0].metadata) == 2
+
+
+def test_get_random_featured_series_passes_language_to_repository():
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([], 0)) as mock_repo:
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_random_featured_series(language="bo", limit=10)
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    call_kwargs = mock_repo.call_args.kwargs
+    assert call_kwargs["language"] == "bo"
+    assert call_kwargs["limit"] == 10
+
+
+def test_get_random_featured_series_excludes_series_without_requested_language_metadata():
+    row_with_bo = MagicMock()
+    row_with_bo.id = uuid.uuid4()
+    row_with_bo.metadata_entries = [_metadata_entry(title="བོད་", language=LanguageCode.BO)]
+    row_with_bo.image = None
+    row_with_bo.author_id = uuid.uuid4()
+    row_with_bo.group_id = None
+    row_with_bo.featured = True
+    row_with_bo.status = PlanStatus.PUBLISHED
+
+    row_en_only = MagicMock()
+    row_en_only.id = uuid.uuid4()
+    row_en_only.metadata_entries = [_metadata_entry(title="English only", language=LanguageCode.EN)]
+    row_en_only.image = None
+    row_en_only.author_id = uuid.uuid4()
+    row_en_only.group_id = None
+    row_en_only.featured = True
+    row_en_only.status = PlanStatus.PUBLISHED
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([(row_with_bo, 2, 0), (row_en_only, 1, 0)], 2)), \
+         patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
+               return_value={}):
+        _session_local_context(mock_session_local)
+
+        result = get_random_featured_series(language="bo", limit=10)
+
+    assert len(result.series) == 1
+    assert result.series[0].id == row_with_bo.id
+    assert result.series[0].metadata.title == "བོད་"
+    assert result.series[0].metadata.language == "BO"
+
+
+def test_get_random_featured_series_returns_404_when_no_metadata_for_language():
+    row_en_only = MagicMock()
+    row_en_only.id = uuid.uuid4()
+    row_en_only.metadata_entries = [_metadata_entry(title="English only", language=LanguageCode.EN)]
+    row_en_only.image = None
+    row_en_only.author_id = uuid.uuid4()
+    row_en_only.group_id = None
+    row_en_only.featured = True
+    row_en_only.status = PlanStatus.PUBLISHED
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([(row_en_only, 1, 0)], 1)), \
+         patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
+               return_value={}):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_random_featured_series(language="bo", limit=10)
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_get_cms_filtered_series_passes_language_to_repository():

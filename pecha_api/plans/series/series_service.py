@@ -346,7 +346,11 @@ def get_random_featured_series(
     from pecha_api.plans.response_message import NO_FEATURED_SERIES_FOUND
 
     with SessionLocal() as db_session:
-        rows, total = get_random_featured_published_series(db=db_session, limit=limit)
+        rows, total = get_random_featured_published_series(
+            db=db_session,
+            limit=limit,
+            language=language,
+        )
         if total == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -369,6 +373,13 @@ def get_random_featured_series(
         )
         for row, plan_count, enrolled_count in rows
     ]
+    if language:
+        series_dtos = [dto for dto in series_dtos if dto.metadata is not None]
+        if not series_dtos:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=NO_FEATURED_SERIES_FOUND,
+            )
     return SeriesListResponse(
         series=series_dtos,
         skip=0,
