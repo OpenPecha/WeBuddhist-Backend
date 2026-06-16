@@ -1,8 +1,8 @@
 """make verse_of_day verse_id, ref_id, ref_type nullable
 
-Revision ID: e8f9a0b1c2d3
+Revision ID: f9b0c1d2e3f4
 Revises: d7e8f9a0b1c2
-Create Date: 2026-06-16 23:20:00.000000
+Create Date: 2026-06-16 23:25:00.000000
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "e8f9a0b1c2d3"
+revision: str = "f9b0c1d2e3f4"
 down_revision: Union[str, None] = "d7e8f9a0b1c2"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
