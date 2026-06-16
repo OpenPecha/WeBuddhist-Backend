@@ -61,6 +61,35 @@ def get_verse_of_day_by_id_endpoint(
     return get_verse_of_day_by_id_service(verse_id=id, lang=lang)
 
 
+@cms_verse_of_day_router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=VerseOfDayPublicResponse
+)
+def cms_get_verse_of_day_endpoint(
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    group_id: Annotated[Optional[UUID], Query(description="Filter by group ID")] = None,
+    date: Annotated[Optional[date], Query(description="Filter by date (YYYY-MM-DD)")] = None,
+    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh). Returns all languages if not specified.")] = None,
+):
+    validate_and_extract_user_details(credentials.credentials)
+    return get_verse_of_day(group_id=group_id, filter_date=date, lang=lang)
+
+
+@cms_verse_of_day_router.get(
+    "/{id}",
+    status_code=status.HTTP_200_OK,
+    response_model=VerseOfDayPublicResponse
+)
+def cms_get_verse_of_day_by_id_endpoint(
+    id: UUID,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh). Returns all languages if not specified.")] = None,
+):
+    validate_and_extract_user_details(credentials.credentials)
+    return get_verse_of_day_by_id_service(verse_id=id, lang=lang)
+
+
 @cms_verse_of_day_router.post(
     "",
     status_code=status.HTTP_201_CREATED,
