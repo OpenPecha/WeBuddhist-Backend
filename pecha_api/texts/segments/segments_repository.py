@@ -27,6 +27,28 @@ async def get_segment_by_id(segment_id: str) -> SegmentDTO | None:
         logging.debug(e)
         return None
 
+async def search_segments_by_content(content: str) -> List[SegmentDTO]:
+    try:
+        segments = await Segment.search_segments_by_content(content=content)
+        return [
+            SegmentDTO(
+                id=str(segment.id),
+                pecha_segment_id=str(segment.pecha_segment_id) if segment.pecha_segment_id else None,
+                text_id=segment.text_id,
+                content=segment.content,
+                mapping=[
+                    MappingResponse(**mapping.model_dump())
+                    for mapping in (segment.mapping or [])
+                ],
+                type=segment.type,
+            )
+            for segment in segments
+        ]
+    except CollectionWasNotInitialized as e:
+        logging.debug(e)
+        return []
+
+
 async def get_segments_by_text_id(text_id: str) -> List[SegmentDTO]:
     try:
         segments = await Segment.get_segments_by_text_id(text_id=text_id)

@@ -11,7 +11,8 @@ from .segments_service import (
     get_segment_details_by_id, 
     get_info_by_segment_id,
     get_root_text_mapping_by_segment_id,
-    update_segments_service
+    update_segments_service,
+    search_segments_by_content_service,
 )
 from .segments_response_models import (
     CreateSegmentRequest,
@@ -20,7 +21,8 @@ from .segments_response_models import (
     SegmentInfoResponse,
     SegmentTranslationsResponse,
     SegmentCommentariesResponse,
-    SegmentUpdateRequest
+    SegmentUpdateRequest,
+    SegmentSearchRequest,
 )
 
 oauth2_scheme = HTTPBearer()
@@ -38,6 +40,16 @@ async def create_segment(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ) -> SegmentResponse:
     return await create_new_segment(create_segment_request=create_segment_request, token=authentication_credential.credentials)
+
+
+@segment_router.post("/search", status_code=status.HTTP_200_OK)
+async def search_segments(
+    segment_search_request: SegmentSearchRequest,
+) -> SegmentResponse:
+    return await search_segments_by_content_service(
+        segment_search_request=segment_search_request,
+    )
+
 
 @segment_router.get("/{segment_id}", status_code=status.HTTP_200_OK)
 async def get_segment(

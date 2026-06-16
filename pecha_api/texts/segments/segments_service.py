@@ -7,7 +7,8 @@ from .segments_repository import (
     get_related_mapped_segments_batch,
     get_segments_by_text_id,
     delete_segments_by_text_id,
-    update_segment_by_id
+    update_segment_by_id,
+    search_segments_by_content,
 )
 from ...users.users_service import verify_admin_access
 from .segments_response_models import (
@@ -17,7 +18,8 @@ from .segments_response_models import (
     SegmentDTO, 
     SegmentInfoResponse,
     SegmentRootMappingResponse,
-    SegmentUpdateRequest
+    SegmentUpdateRequest,
+    SegmentSearchRequest,
 )
 
 from pecha_api.cache.cache_enums import CacheType
@@ -71,6 +73,13 @@ async def get_segments_details_by_ids(segment_ids: List[str]) -> Dict[str, Segme
     await set_segments_details_by_ids_cache(segment_ids=segment_ids, cache_type=CacheType.SEGMENTS_DETAILS, data=segments)
     
     return segments
+
+async def search_segments_by_content_service(
+    segment_search_request: SegmentSearchRequest,
+) -> SegmentResponse:
+    segments = await search_segments_by_content(content=segment_search_request.content)
+    return SegmentResponse(segments=segments)
+
 
 async def get_segment_details_by_id(segment_id: str, text_details: bool = False) -> SegmentDTO:
     
