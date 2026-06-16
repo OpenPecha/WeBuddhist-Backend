@@ -37,11 +37,6 @@ def calculate_streak(log_dates: Set[date]) -> int:
     return streak
 
 
-async def register_daily_log_service(token: str) -> None:
-    current_user = validate_and_extract_user_details(token=token)
-    await record_daily_log_if_needed(user_id=current_user.id)
-
-
 async def record_daily_log_if_needed(user_id: UUID) -> None:
     today = _utc_today()
 
@@ -61,6 +56,8 @@ async def record_daily_log_if_needed(user_id: UUID) -> None:
 async def get_user_streak_service(token: str) -> UserStreakResponse:
     current_user = validate_and_extract_user_details(token=token)
     today = _utc_today()
+
+    await record_daily_log_if_needed(user_id=current_user.id)
 
     with SessionLocal() as db:
         streak = get_user_streak(db=db, user_id=current_user.id, today=today)

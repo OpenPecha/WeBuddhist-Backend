@@ -29,6 +29,7 @@ _SERIES_FORBIDDEN = HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=
 _MEMBER_GROUP_IDS = [FIXTURE_GROUP_ID]
 
 from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
+from pecha_api.plans.groups.groups_enums import AuthorGroupType
 from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
@@ -328,6 +329,7 @@ def test_get_series_detail_returns_dto_without_plans():
         id=group_id,
         slug="test-group",
         is_public=True,
+        group_type=AuthorGroupType.PAGE,
         metadata=[],
     )
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
