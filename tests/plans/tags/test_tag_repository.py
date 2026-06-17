@@ -10,10 +10,12 @@ from pecha_api.plans.tags.tag_repository import (
     get_tags_by_ids,
     get_tags_paginated,
     get_all_tags_paginated,
+    get_next_tag_display_order,
     get_published_tags_for_language,
     save_tag,
     set_plan_tags,
     set_tag_plans,
+    set_tag_segments,
     soft_delete_tag,
     update_tag_row,
 )
@@ -198,3 +200,44 @@ def test_get_all_tags_paginated_with_featured_and_search():
 
     assert rows == [tag]
     assert total == 1
+
+
+def test_get_next_tag_display_order_starts_at_one():
+    db = MagicMock()
+    db.query.return_value.filter.return_value.scalar.return_value = None
+
+    assert get_next_tag_display_order(db=db) == 1
+
+
+def test_get_next_tag_display_order_increments_max():
+    db = MagicMock()
+    db.query.return_value.filter.return_value.scalar.return_value = 4
+
+    assert get_next_tag_display_order(db=db) == 5
+
+
+def test_set_tag_segments_empty_clears_association():
+    db = MagicMock()
+    tag = MagicMock(spec=Tag)
+    tag.id = uuid.uuid4()
+    tag.segment_ids = [uuid.uuid4()]
+
+    result = set_tag_segments(db=db, tag=tag, segment_ids=[])
+
+    db.execute.assert_called()
+    db.commit.assert_called_once()
+    assert tag.segment_ids == []
+    assert result is tag
+
+
+def test_set_tag_segments_inserts_unique_rows():
+    db = MagicMock()
+    tag = MagicMock(spec=Tag)
+    tag.id = uuid.uuid4()
+    segment_id = uuid.uuid4()
+
+    set_tag_segments(db=db, tag=tag, segment_ids=[segment_id, segment_id])
+
+    assert tag.segment_ids == [segment_id]
+    assert db.execute.call_count == 2
+    db.commit.assert_called_once()

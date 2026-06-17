@@ -108,6 +108,38 @@ class PublicAuthorGroupListResponse(BaseModel):
     total: int
 
 
+class UserFollowedAuthorGroupDTO(BaseModel):
+    id: UUID
+    avatar_key: Optional[str] = None
+    avatar_url: Optional[str] = None
+    metadata: GroupMetadataResponse = []
+    follower_count: int = 0
+    tags: List[str] = []
+
+
+class UserJoinedAuthorGroupDTO(BaseModel):
+    id: UUID
+    avatar_key: Optional[str] = None
+    avatar_url: Optional[str] = None
+    metadata: GroupMetadataResponse = []
+    joiner_count: int = 0
+    tags: List[str] = []
+
+
+class UserFollowedAuthorGroupListResponse(BaseModel):
+    groups: List[UserFollowedAuthorGroupDTO]
+    skip: int
+    limit: int
+    total: int
+
+
+class UserJoinedAuthorGroupListResponse(BaseModel):
+    groups: List[UserJoinedAuthorGroupDTO]
+    skip: int
+    limit: int
+    total: int
+
+
 class CreateAuthorGroupRequest(BaseModel):
     slug: str
     group_type: AuthorGroupType = AuthorGroupType.PAGE

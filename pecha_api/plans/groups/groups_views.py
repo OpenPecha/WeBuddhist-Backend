@@ -1,4 +1,4 @@
-from typing import Annotated, Optional, Union
+from typing import Annotated, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -16,12 +16,15 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupInviteListResponse,
     PublicAuthorGroupDetailDTO,
     PublicAuthorGroupListResponse,
-    PublicAuthorGroupSummaryDTO,
     ReplaceGroupSocialLinksRequest,
     ReplaceGroupTagsRequest,
     UpdateAuthorGroupRequest,
     TransferGroupOwnershipRequest,
     UpdateGroupMemberRoleRequest,
+    UserFollowedAuthorGroupDTO,
+    UserFollowedAuthorGroupListResponse,
+    UserJoinedAuthorGroupDTO,
+    UserJoinedAuthorGroupListResponse,
 )
 from pecha_api.plans.groups.groups_service import (
     accept_group_invite_by_id,
@@ -378,7 +381,7 @@ def delete_join_group(
 @user_groups_router.get(
     "",
     status_code=status.HTTP_200_OK,
-    response_model=Union[PublicAuthorGroupListResponse, PublicAuthorGroupSummaryDTO],
+    response_model=UserFollowedAuthorGroupDTO | UserFollowedAuthorGroupListResponse,
 )
 def get_my_followed_groups(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
@@ -397,13 +400,14 @@ def get_my_followed_groups(
         token=authentication_credential.credentials,
         skip=skip,
         limit=limit,
+        language=language,
     )
 
 
 @user_joined_groups_router.get(
     "",
     status_code=status.HTTP_200_OK,
-    response_model=Union[PublicAuthorGroupListResponse, PublicAuthorGroupSummaryDTO],
+    response_model=UserJoinedAuthorGroupDTO | UserJoinedAuthorGroupListResponse,
 )
 def get_my_joined_groups(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
@@ -422,4 +426,5 @@ def get_my_joined_groups(
         token=authentication_credential.credentials,
         skip=skip,
         limit=limit,
+        language=language,
     )

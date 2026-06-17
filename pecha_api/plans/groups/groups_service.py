@@ -88,6 +88,10 @@ from pecha_api.plans.groups.groups_response_models import (
     PublicAuthorGroupDetailDTO,
     PublicAuthorGroupListResponse,
     PublicAuthorGroupSummaryDTO,
+    UserFollowedAuthorGroupDTO,
+    UserFollowedAuthorGroupListResponse,
+    UserJoinedAuthorGroupDTO,
+    UserJoinedAuthorGroupListResponse,
     ReplaceGroupPlansRequest,
     ReplaceGroupSeriesRequest,
     ReplaceGroupSocialLinksRequest,
@@ -426,6 +430,36 @@ def _group_to_summary(
         follower_count=follower_count,
         joiner_count=joiner_count,
         member_count=len(group.members),
+    )
+
+
+def _group_to_followed_summary(
+    group: AuthorGroup,
+    follower_count: int = 0,
+    language: Optional[str] = None,
+) -> UserFollowedAuthorGroupDTO:
+    return UserFollowedAuthorGroupDTO(
+        id=group.id,
+        avatar_key=group.avatar_key,
+        avatar_url=_generate_group_asset_url(group.avatar_key),
+        metadata=_metadata_response(group.metadata_entries, language=language),
+        follower_count=follower_count,
+        tags=_group_tag_names(group.tags),
+    )
+
+
+def _group_to_joined_summary(
+    group: AuthorGroup,
+    joiner_count: int = 0,
+    language: Optional[str] = None,
+) -> UserJoinedAuthorGroupDTO:
+    return UserJoinedAuthorGroupDTO(
+        id=group.id,
+        avatar_key=group.avatar_key,
+        avatar_url=_generate_group_asset_url(group.avatar_key),
+        metadata=_metadata_response(group.metadata_entries, language=language),
+        joiner_count=joiner_count,
+        tags=_group_tag_names(group.tags),
     )
 
 
@@ -774,7 +808,7 @@ def get_followed_group(
     token: str,
     group_id: UUID,
     language: Optional[str] = None,
-) -> PublicAuthorGroupSummaryDTO:
+) -> UserFollowedAuthorGroupDTO:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         if not is_user_following_group(db=db, group_id=group_id, user_id=user.id):
@@ -783,17 +817,19 @@ def get_followed_group(
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_summary(
+        return _group_to_followed_summary(
             group=group,
             follower_count=follower_count,
-            joiner_count=joiner_count,
-            public=True,
             language=language,
         )
 
 
-def list_followed_groups(token: str, skip: int, limit: int) -> PublicAuthorGroupListResponse:
+def list_followed_groups(
+    token: str,
+    skip: int,
+    limit: int,
+    language: Optional[str] = None,
+) -> UserFollowedAuthorGroupListResponse:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         group_ids = get_following_group_ids_by_user(db=db, user_id=user.id)
@@ -805,14 +841,12 @@ def list_followed_groups(token: str, skip: int, limit: int) -> PublicAuthorGroup
             group_type=AuthorGroupType.PAGE,
         )
         follower_count_map = get_followers_count_map(db=db, group_ids=[group.id for group in groups])
-        joiner_count_map = get_joiners_count_map(db=db, group_ids=[group.id for group in groups])
-        return PublicAuthorGroupListResponse(
+        return UserFollowedAuthorGroupListResponse(
             groups=[
-                _group_to_summary(
+                _group_to_followed_summary(
                     group=item,
                     follower_count=follower_count_map.get(item.id, 0),
-                    joiner_count=joiner_count_map.get(item.id, 0),
-                    public=True,
+                    language=language,
                 )
                 for item in groups
             ],
@@ -842,7 +876,7 @@ def get_joined_group(
     token: str,
     group_id: UUID,
     language: Optional[str] = None,
-) -> PublicAuthorGroupSummaryDTO:
+) -> UserJoinedAuthorGroupDTO:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         if not is_user_joined_group(db=db, group_id=group_id, user_id=user.id):
@@ -850,18 +884,20 @@ def get_joined_group(
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_summary(
+        return _group_to_joined_summary(
             group=group,
-            follower_count=follower_count,
             joiner_count=joiner_count,
-            public=True,
             language=language,
         )
 
 
-def list_joined_groups(token: str, skip: int, limit: int) -> PublicAuthorGroupListResponse:
+def list_joined_groups(
+    token: str,
+    skip: int,
+    limit: int,
+    language: Optional[str] = None,
+) -> UserJoinedAuthorGroupListResponse:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         group_ids = get_joined_group_ids_by_user(db=db, user_id=user.id)
@@ -872,15 +908,13 @@ def list_joined_groups(token: str, skip: int, limit: int) -> PublicAuthorGroupLi
             group_ids=group_ids,
             group_type=AuthorGroupType.COMMUNITY,
         )
-        follower_count_map = get_followers_count_map(db=db, group_ids=[group.id for group in groups])
         joiner_count_map = get_joiners_count_map(db=db, group_ids=[group.id for group in groups])
-        return PublicAuthorGroupListResponse(
+        return UserJoinedAuthorGroupListResponse(
             groups=[
-                _group_to_summary(
+                _group_to_joined_summary(
                     group=item,
-                    follower_count=follower_count_map.get(item.id, 0),
                     joiner_count=joiner_count_map.get(item.id, 0),
-                    public=True,
+                    language=language,
                 )
                 for item in groups
             ],

@@ -27,7 +27,7 @@ async def create_tag(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     create_tag_request: CreateTagRequest,
 ):
-    return create_new_tag(
+    return await create_new_tag(
         token=authentication_credential.credentials,
         create_tag_request=create_tag_request,
     )
@@ -39,7 +39,7 @@ async def update_tag(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     update_tag_request: UpdateTagRequest,
 ):
-    return update_existing_tag(
+    return await update_existing_tag(
         token=authentication_credential.credentials,
         tag_id=tag_id,
         update_tag_request=update_tag_request,
