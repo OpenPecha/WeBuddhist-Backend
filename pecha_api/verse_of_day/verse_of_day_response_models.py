@@ -1,14 +1,11 @@
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict
 from uuid import UUID
 from datetime import date, datetime
 
 
-# Type alias for verse content (can be string or array of strings)
-VerseContent = Union[str, List[str]]
-
 # Type alias for verses dictionary by language
-VersesDict = Dict[str, VerseContent]
+VersesDict = Dict[str, str]
 
 
 class GroupInfoDTO(BaseModel):
@@ -26,7 +23,7 @@ class GroupInfoDTO(BaseModel):
 class VerseMetadataDTO(BaseModel):
     """DTO for individual verse metadata entry."""
     lang: str
-    verse: VerseContent
+    verse: str
 
     class Config:
         from_attributes = True
@@ -53,7 +50,7 @@ class VerseOfDayResponse(BaseModel):
 class VerseOfDayPublicDTO(BaseModel):
     id: UUID
     verses: Optional[VersesDict] = None
-    verse: Optional[VerseContent] = None
+    verse: Optional[str] = None
     image_url: Optional[str] = None  
     ref_id: Optional[str] = None
     ref_type: Optional[str] = None

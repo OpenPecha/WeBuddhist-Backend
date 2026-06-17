@@ -1,20 +1,12 @@
 from sqlalchemy.orm import Session, joinedload
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict
 from uuid import UUID
 from datetime import date, datetime
 import _datetime
-import json
 
 from .verse_of_day_model import VerseOfDay
 from .verse_metadata_model import VerseMetadata
 from pecha_api.plans.groups.groups_models import AuthorGroupMetadata
-
-
-def _serialize_verse(verse: Union[str, List[str]]) -> str:
-    """Serialize verse content to string. Lists are JSON-encoded."""
-    if isinstance(verse, list):
-        return json.dumps(verse, ensure_ascii=False)
-    return verse
 
 
 def get_verse_of_day_by_filters(
@@ -98,14 +90,14 @@ def create_verse_metadata(
 def create_verse_metadata_bulk(
     db: Session,
     verse_of_day_id: UUID,
-    verses: Dict[str, Union[str, List[str]]]
+    verses: Dict[str, str]
 ) -> List[VerseMetadata]:
     metadata_list = []
     for lang, verse in verses.items():
         metadata = VerseMetadata(
             verse_of_day_id=verse_of_day_id,
             lang=lang,
-            verse=_serialize_verse(verse)
+            verse=verse
         )
         db.add(metadata)
         metadata_list.append(metadata)
