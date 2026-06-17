@@ -32,7 +32,7 @@ def sample_verse_public_dto():
         id=uuid4(),
         verses={
             "en": "May all beings be happy and free from suffering.",
-            "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+            "bo": "སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་། སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག",
             "zh": "愿一切众生快乐，远离痛苦。"
         },
         image_url="https://example.com/image1.jpg",
@@ -61,7 +61,7 @@ def sample_verse_dto():
         id=uuid4(),
         verses={
             "en": "May all beings be happy and free from suffering.",
-            "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+            "bo": "སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་། སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག",
             "zh": "愿一切众生快乐，远离痛苦。"
         },
         image_url="https://example.com/image1.jpg",
@@ -79,7 +79,7 @@ def sample_create_request():
     return CreateVerseOfDayRequest(
         verses={
             "en": "May all beings be happy and free from suffering.",
-            "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+            "bo": "སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་། སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག",
             "zh": "愿一切众生快乐，远离痛苦。"
         },
         image_url="https://example.com/image1.jpg",
@@ -126,7 +126,7 @@ def sample_verse_public_dto_with_group_info(sample_group_info):
         id=uuid4(),
         verses={
             "en": "May all beings be happy and free from suffering.",
-            "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+            "bo": "སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་། སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག",
             "zh": "愿一切众生快乐，远离痛苦。"
         },
         image_url="https://example.com/image1.jpg",
@@ -395,7 +395,7 @@ async def test_get_verse_of_day_today_with_lang_filter_filters_group_info(sample
     """Test group_info filtered by lang."""
     filtered_dto = VerseOfDayPublicDTO(
         id=uuid4(),
-        verse=["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+        verse="སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་། སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག",
         verses=None,
         image_url="https://example.com/image1.jpg",
         ref_id="text-123",
@@ -530,7 +530,7 @@ async def test_create_verse_of_day_success(sample_verse_dto):
         request_data = {
             "verses": {
                 "en": "May all beings be happy and free from suffering.",
-                "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+                "bo": "སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་། སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག",
                 "zh": "愿一切众生快乐，远离痛苦。"
             },
             "image_urls": ["https://example.com/image1.jpg"],

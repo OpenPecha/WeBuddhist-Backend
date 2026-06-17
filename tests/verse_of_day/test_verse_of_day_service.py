@@ -658,6 +658,7 @@ async def test_get_verse_of_day_today_without_group_id(sample_verse_without_grou
 async def test_create_verse_of_day_service_success(sample_verse_model, sample_create_request, mock_db_session):
     """Test successful creation of verse of day with multilingual verses."""
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=None), \
          patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_of_day", return_value=sample_verse_model) as mock_create, \
          patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_metadata_bulk") as mock_metadata:
         
@@ -705,6 +706,7 @@ async def test_create_verse_of_day_service_with_optional_fields(mock_db_session)
     created_verse.date = request.date
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=None), \
          patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_of_day", return_value=created_verse), \
          patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_metadata_bulk"):
         
@@ -723,6 +725,7 @@ async def test_create_verse_of_day_service_with_optional_fields(mock_db_session)
 async def test_create_verse_of_day_service_database_error(sample_create_request, mock_db_session):
     """Test handling of database error during creation."""
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=None), \
          patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_of_day", side_effect=Exception("Database error")):
         
         with pytest.raises(Exception, match="Database error"):
@@ -745,6 +748,7 @@ async def test_create_verse_of_day_service_model_creation(sample_create_request,
     created_verse.date = sample_create_request.date
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=None), \
          patch("pecha_api.verse_of_day.verse_of_day_service.VerseOfDay") as mock_model, \
          patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_of_day", return_value=created_verse), \
          patch("pecha_api.verse_of_day.verse_of_day_service.create_verse_metadata_bulk"):
@@ -1105,6 +1109,12 @@ async def test_update_verse_of_day_service_refreshes_verse(sample_verse_model, s
     verse_id = uuid4()
     updated_verse = MagicMock()
     updated_verse.id = verse_id
+    updated_verse.verse_id = "verse-updated"
+    updated_verse.ref_id = sample_update_request.ref_id
+    updated_verse.ref_type = sample_update_request.ref_type
+    updated_verse.image_urls = sample_update_request.image_urls
+    updated_verse.group_id = None
+    updated_verse.date = date(2025, 6, 10)
     updated_verse.verse_metadata = sample_verse_model.verse_metadata
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
@@ -1129,6 +1139,12 @@ async def test_update_verse_of_day_service_deletes_old_metadata(sample_verse_mod
     verse_id = uuid4()
     updated_verse = MagicMock()
     updated_verse.id = verse_id
+    updated_verse.verse_id = "verse-updated"
+    updated_verse.ref_id = sample_update_request.ref_id
+    updated_verse.ref_type = sample_update_request.ref_type
+    updated_verse.image_urls = sample_update_request.image_urls
+    updated_verse.group_id = None
+    updated_verse.date = date(2025, 6, 10)
     updated_verse.verse_metadata = sample_verse_model.verse_metadata
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
