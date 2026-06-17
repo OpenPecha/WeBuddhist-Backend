@@ -3,15 +3,33 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
 from typing import List, Tuple, Optional, Dict
 from uuid import UUID
+import _datetime
+from _datetime import datetime
 from fastapi import HTTPException
 from starlette import status
 from .accumulator_models import Accumulator
+from .mala_image_model import MalaImage
 from .accumulator_history_model import AccumulatorHistory
+from .accumulator_enums import AccumulatorType
 from ..mantra.mantra_model import Mantra
 
 
 def mantra_exists(db: Session, mantra_id: UUID) -> bool:
     return db.query(Mantra.id).filter(Mantra.id == mantra_id).first() is not None
+
+
+def get_mantra_mala_image_id(db: Session, mantra_id: UUID) -> Optional[UUID]:
+    """Return the mantra's default mala image id, or None if the mantra has
+    none set (or no mantra)."""
+    return (
+        db.query(Mantra.mala_image)
+        .filter(Mantra.id == mantra_id)
+        .scalar()
+    )
+
+
+def get_mala_image_by_id(db: Session, mala_image_id: UUID) -> Optional[MalaImage]:
+    return db.query(MalaImage).filter(MalaImage.id == mala_image_id).first()
 
 
 def add_accumulator(db: Session, accumulator: Accumulator) -> Accumulator:
@@ -40,8 +58,15 @@ def save_accumulator(db: Session, accumulator: Accumulator) -> Accumulator:
     return commit_accumulator(db, accumulator)
 
 
-def get_accumulator_by_id(db: Session, accumulator_id: UUID) -> Optional[Accumulator]:
-    return db.query(Accumulator).filter(Accumulator.id == accumulator_id).first()
+def get_accumulator_by_id(
+    db: Session,
+    accumulator_id: UUID,
+    include_deleted: bool = False
+) -> Optional[Accumulator]:
+    query = db.query(Accumulator).filter(Accumulator.id == accumulator_id)
+    if not include_deleted:
+        query = query.filter(Accumulator.deleted_at.is_(None))
+    return query.first()
 
 
 def update_accumulator(db: Session, accumulator: Accumulator) -> Accumulator:
@@ -58,8 +83,10 @@ def update_accumulator(db: Session, accumulator: Accumulator) -> Accumulator:
 
 
 def delete_accumulator(db: Session, accumulator: Accumulator) -> None:
+    """Soft-delete: mark deleted_at so the accumulator drops out of active
+    lists while its history rows are preserved for the user's me/history page."""
     try:
-        db.delete(accumulator)
+        accumulator.deleted_at = datetime.now(_datetime.timezone.utc)
         db.commit()
     except Exception as e:
         db.rollback()
@@ -74,13 +101,50 @@ def get_all_accumulators(
     skip: int = 0,
     limit: int = 20
 ) -> Tuple[List[Accumulator], int]:
-
-    query = db.query(Accumulator)
+    """Public list: only group-defined presets, never users' own accumulators."""
+    query = (
+        db.query(Accumulator)
+        .filter(
+            Accumulator.type == AccumulatorType.PRESET,
+            Accumulator.deleted_at.is_(None),
+        )
+    )
 
     total = query.count()
     accumulators = query.order_by(Accumulator.created_at.desc()).offset(skip).limit(limit).all()
 
     return accumulators, total
+
+
+def get_preset_by_id(db: Session, preset_id: UUID) -> Optional[Accumulator]:
+    """Fetch an active preset row (type=PRESET) by id, or None."""
+    return (
+        db.query(Accumulator)
+        .filter(
+            Accumulator.id == preset_id,
+            Accumulator.type == AccumulatorType.PRESET,
+            Accumulator.deleted_at.is_(None),
+        )
+        .first()
+    )
+
+
+def get_user_accumulator_by_parent(
+    db: Session,
+    user_id: UUID,
+    parent_id: UUID,
+) -> Optional[Accumulator]:
+    """Fetch the user's active accumulator created from a given preset
+    (parent_id), or None. A user has at most one active accumulator per preset."""
+    return (
+        db.query(Accumulator)
+        .filter(
+            Accumulator.user_id == user_id,
+            Accumulator.parent_id == parent_id,
+            Accumulator.deleted_at.is_(None),
+        )
+        .first()
+    )
 
 
 def get_user_accumulators(
@@ -90,7 +154,10 @@ def get_user_accumulators(
     limit: int = 20
 ) -> Tuple[List[Accumulator], int]:
 
-    query = db.query(Accumulator).filter(Accumulator.user_id == user_id)
+    query = (
+        db.query(Accumulator)
+        .filter(Accumulator.user_id == user_id, Accumulator.deleted_at.is_(None))
+    )
 
     total = query.count()
     accumulators = query.order_by(Accumulator.created_at.desc()).offset(skip).limit(limit).all()
@@ -107,6 +174,42 @@ def add_history_row(db: Session, accumulator_id: UUID, user_id: UUID, count: int
             count=count
         )
     )
+
+
+def get_accumulator_with_history(
+    db: Session,
+    user_id: UUID,
+    parent_id: UUID,
+) -> Optional[Tuple[Accumulator, int, List[AccumulatorHistory]]]:
+    """Fetch the user's active accumulator created from a given preset
+    (parent_id), along with their total counted and ordered session rows.
+    Returns None if the user has no accumulator for that preset."""
+    accumulator = get_user_accumulator_by_parent(db, user_id, parent_id)
+    if not accumulator:
+        return None
+
+    accumulator_id = accumulator.id
+
+    total_counted = (
+        db.query(func.sum(AccumulatorHistory.count))
+        .filter(
+            AccumulatorHistory.accumulator_id == accumulator_id,
+            AccumulatorHistory.user_id == user_id
+        )
+        .scalar()
+    ) or 0
+
+    sessions = (
+        db.query(AccumulatorHistory)
+        .filter(
+            AccumulatorHistory.accumulator_id == accumulator_id,
+            AccumulatorHistory.user_id == user_id
+        )
+        .order_by(AccumulatorHistory.created_at.desc())
+        .all()
+    )
+
+    return accumulator, total_counted, sessions
 
 
 def get_user_accumulator_history(

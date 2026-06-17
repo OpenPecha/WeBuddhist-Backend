@@ -10,7 +10,9 @@ from .accumulator_service import (
     create_accumulator_service,
     update_accumulator_service,
     delete_accumulator_service,
-    get_accumulator_history_service
+    get_accumulator_history_service,
+    get_accumulator_detail_service,
+    update_mala_image_service
 )
 from .accumulator_response_models import (
     AccumulatorsResponse,
@@ -18,7 +20,9 @@ from .accumulator_response_models import (
     AccumulatorDTO,
     CreateAccumulatorRequest,
     UpdateAccumulatorRequest,
-    AccumulatorHistoryResponse
+    UpdateMalaImageRequest,
+    AccumulatorHistoryResponse,
+    AccumulatorHistoryDTO
 )
 from ..users.users_service import validate_and_extract_user_details
 
@@ -26,8 +30,12 @@ accumulator_router = APIRouter(prefix="/accumulators", tags=["Accumulators"])
 oauth2_scheme = HTTPBearer()
 
 
-@accumulator_router.get("", response_model=PublicAccumulatorsResponse)
-async def get_all_accumulators(
+@accumulator_router.get(
+    "/presets",
+    response_model=PublicAccumulatorsResponse,
+    summary="Get all public preset accumulators",
+)
+async def get_all_preset_accumulators(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
 ):
@@ -53,7 +61,7 @@ async def create_user_accumulator(
     request: CreateAccumulatorRequest,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
 ):
-    return await create_accumulator_service(
+    return create_accumulator_service(
         token=credentials.credentials,
         request=request
     )
@@ -83,6 +91,19 @@ async def delete_user_accumulator(
     )
 
 
+@accumulator_router.put("/user/{accumulator_id}/mala-image", response_model=AccumulatorDTO)
+async def update_accumulator_mala_image(
+    accumulator_id: UUID,
+    request: UpdateMalaImageRequest,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+    return update_mala_image_service(
+        token=credentials.credentials,
+        accumulator_id=accumulator_id,
+        request=request
+    )
+
+
 @accumulator_router.get("/user/history", response_model=AccumulatorHistoryResponse)
 async def get_user_accumulator_history(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
@@ -93,4 +114,15 @@ async def get_user_accumulator_history(
         token=credentials.credentials,
         skip=skip,
         limit=limit
+    )
+
+
+@accumulator_router.get("/{parent_id}", response_model=AccumulatorHistoryDTO)
+async def get_accumulator_detail(
+    parent_id: UUID,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+    return get_accumulator_detail_service(
+        token=credentials.credentials,
+        parent_id=parent_id
     )

@@ -9,7 +9,7 @@ class AccumulatorHistory(Base):
     __tablename__ = "accumulator_history"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    accumulator_id = Column(UUID(as_uuid=True), ForeignKey("accumulators.id", ondelete="CASCADE"), nullable=False)
+    accumulator_id = Column(UUID(as_uuid=True), ForeignKey("accumulators.id"), nullable=False)
     user_id = Column(UUID(as_uuid=True), nullable=False)
     count = Column(Integer, nullable=False)
 

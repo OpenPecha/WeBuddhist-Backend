@@ -30,12 +30,13 @@ class TestDataFactory:
         return entry
 
     @staticmethod
-    def create_mock_mantra(mantra_id=None, audio_url="audio/mantra.mp3", metadata_entries=None):
+    def create_mock_mantra(mantra_id=None, audio_url="audio/mantra.mp3", metadata_entries=None, mala=None):
         """Create a mock Mantra model."""
         mantra = MagicMock(spec=Mantra)
         mantra.id = mantra_id or uuid4()
         mantra.audio_url = audio_url
         mantra.metadata_entries = metadata_entries or []
+        mantra.mala = mala
         return mantra
 
 

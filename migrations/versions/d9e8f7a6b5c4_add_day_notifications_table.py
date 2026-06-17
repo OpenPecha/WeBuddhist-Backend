@@ -1,7 +1,7 @@
 """add day_notifications table
 
 Revision ID: d9e8f7a6b5c4
-Revises: 4721283b22a9
+Revises: h1a2b3c4d5e6
 Create Date: 2026-06-13 22:48:00.000000
 
 """
@@ -13,13 +13,27 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'd9e8f7a6b5c4'
-down_revision: Union[str, None] = '4721283b22a9'
+down_revision: Union[str, None] = 'h1a2b3c4d5e6'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _day_notifications_exists() -> bool:
+    bind = op.get_bind()
+    return bool(
+        bind.execute(
+            sa.text(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema = 'public' AND table_name = 'day_notifications'"
+            )
+        ).fetchone()
+    )
+
+
 def upgrade() -> None:
-    # Create the imagetype enum if it doesn't exist
+    if _day_notifications_exists():
+        return
+
     op.execute("""
         DO $$ BEGIN
             CREATE TYPE imagetype AS ENUM ('PLAN', 'CUSTOM');
@@ -27,8 +41,7 @@ def upgrade() -> None:
             WHEN duplicate_object THEN null;
         END $$;
     """)
-    
-    # Create day_notifications table
+
     op.create_table(
         'day_notifications',
         sa.Column('id', sa.UUID(), nullable=False),
@@ -42,14 +55,12 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('day_id', name='uq_day_notifications_day_id')
     )
-    
-    # Add image_type column with enum type (enum already exists)
+
     op.execute("""
-        ALTER TABLE day_notifications 
+        ALTER TABLE day_notifications
         ADD COLUMN image_type imagetype
     """)
-    
-    # Create index on day_id for query performance
+
     op.create_index('idx_day_notifications_day_id', 'day_notifications', ['day_id'], unique=False)
 
 

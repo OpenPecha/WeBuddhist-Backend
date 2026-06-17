@@ -18,6 +18,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    if bind.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = 'tags' AND column_name = 'display_order'"
+        )
+    ).fetchone():
+        return
+
     op.add_column("tags", sa.Column("display_order", sa.Integer(), nullable=True))
 
 

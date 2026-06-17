@@ -19,6 +19,8 @@ class MantraMetadataDTO(BaseModel):
 class MantraDTO(BaseModel):
     id: UUID
     audio_url: Optional[str] = None
+    mala_image_id: Optional[UUID] = None
+    mala_image_url: Optional[str] = None
     metadata: List[MantraMetadataDTO] = []
 
     class Config:

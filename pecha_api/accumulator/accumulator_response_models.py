@@ -3,19 +3,29 @@ from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
 from .accumulator_enums import AccumulatorType
+from ..plans.plans_enums import LanguageCode
+
+
+class AccumulatorMetadataDTO(BaseModel):
+    """Per-language name/description for an accumulator."""
+    language: LanguageCode
+    name: str
+    description: Optional[str] = None
 
 
 class AccumulatorDTO(BaseModel):
     id: UUID
     user_id: UUID
     group_id: Optional[UUID] = None
+    parent_id: Optional[UUID] = Field(None, description="The preset this accumulator was created from")
     type: AccumulatorType
-    name: str
-    description: Optional[str] = None
     target_count: Optional[int] = None
     current_count: int
     text_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
+    mala_image_id: Optional[UUID] = None
+    mala_image_url: Optional[str] = Field(None, description="Presigned S3 URL for the chosen mala image (None when no image is set)")
+    metadata: List[AccumulatorMetadataDTO] = []
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -28,17 +38,20 @@ class AccumulatorsResponse(BaseModel):
 
 
 class PublicAccumulatorDTO(BaseModel):
-    """Accumulator shape for the public list endpoint: omits user_id so other
-    users' ids are not disclosed. group_id is kept for future CMS grouping."""
+    """Preset shape for the public list endpoint. Exposes the row `id` (the
+    value the app sends as preset_id to POST /accumulators/user) and omits
+    user_id so other users' ids are not disclosed. group_id is kept for future
+    CMS grouping."""
     id: UUID
     group_id: Optional[UUID] = None
     type: AccumulatorType
-    name: str
-    description: Optional[str] = None
     target_count: Optional[int] = None
     current_count: int
     text_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
+    mala_image_id: Optional[UUID] = None
+    mala_image_url: Optional[str] = Field(None, description="Presigned S3 URL for the chosen mala image (None when no image is set)")
+    metadata: List[AccumulatorMetadataDTO] = []
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -51,21 +64,18 @@ class PublicAccumulatorsResponse(BaseModel):
 
 
 class CreateAccumulatorRequest(BaseModel):
-    name: str
-    description: Optional[str] = None
-    target_count: Optional[int] = None
-    current_count: int = Field(0, ge=0, description="Initial count to seed the accumulator with")
-    text_id: Optional[UUID] = None
-    mantra_id: Optional[UUID] = None
+    parent_id: UUID = Field(..., description="Id of the public preset the user tapped (the `id` from GET /accumulators/presets); its fields are copied into the new user accumulator and stored as the new row's parent_id")
 
 
 class UpdateAccumulatorRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
     target_count: Optional[int] = None
     current_count: Optional[int] = Field(None, ge=0, description="New absolute current count")
     text_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
+
+
+class UpdateMalaImageRequest(BaseModel):
+    mala_image_id: UUID = Field(..., description="Id of the mala image (from the mala_images catalog) to set on the accumulator")
 
 
 class AccumulatorSessionDTO(BaseModel):
@@ -75,11 +85,13 @@ class AccumulatorSessionDTO(BaseModel):
 
 class AccumulatorHistoryDTO(BaseModel):
     accumulator_id: UUID
-    name: str
-    description: Optional[str] = None
+    parent_id: Optional[UUID] = Field(None, description="The preset this accumulator was created from")
     target_count: Optional[int] = None
     current_count: int
     total_counted: int
+    mala_image_id: Optional[UUID] = None
+    mala_image_url: Optional[str] = Field(None, description="Presigned S3 URL for the chosen mala image (None when no image is set)")
+    metadata: List[AccumulatorMetadataDTO] = []
     sessions: List[AccumulatorSessionDTO]
 
 

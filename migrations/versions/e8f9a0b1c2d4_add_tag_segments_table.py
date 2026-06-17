@@ -18,6 +18,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    if bind.execute(
+        sa.text(
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema = 'public' AND table_name = 'tag_segments'"
+        )
+    ).fetchone():
+        return
+
     op.create_table(
         "tag_segments",
         sa.Column("tag_id", sa.UUID(), nullable=False),
