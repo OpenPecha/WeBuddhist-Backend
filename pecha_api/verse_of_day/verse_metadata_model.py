@@ -1,5 +1,4 @@
-from sqlalchemy import Column, String, DateTime, UUID, ForeignKey, Index, UniqueConstraint
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, String, DateTime, UUID, ForeignKey, Index, UniqueConstraint, Text
 from sqlalchemy.orm import relationship
 from ..db.database import Base
 from uuid import uuid4
@@ -12,7 +11,7 @@ class VerseMetadata(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     verse_of_day_id = Column(UUID(as_uuid=True), ForeignKey('verse_of_day.id', ondelete='CASCADE'), nullable=False)
-    verse = Column(JSONB, nullable=False)
+    verse = Column(Text, nullable=False)
     lang = Column(String(10), nullable=False)
 
     created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False)
