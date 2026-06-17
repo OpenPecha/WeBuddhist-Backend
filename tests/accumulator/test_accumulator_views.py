@@ -60,7 +60,7 @@ class TestDataFactory:
     @staticmethod
     def create_public_dto(name="Test Accumulator", current_count=0) -> PublicAccumulatorDTO:
         return PublicAccumulatorDTO(
-            preset_id=uuid4(),
+            id=uuid4(),
             type=AccumulatorType.PRESET,
             name=name,
             target_count=108,

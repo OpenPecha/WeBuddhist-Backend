@@ -9,6 +9,7 @@ class AccumulatorDTO(BaseModel):
     id: UUID
     user_id: UUID
     group_id: Optional[UUID] = None
+    parent_id: Optional[UUID] = Field(None, description="The preset this accumulator was created from")
     type: AccumulatorType
     name: str
     description: Optional[str] = None
@@ -28,11 +29,11 @@ class AccumulatorsResponse(BaseModel):
 
 
 class PublicAccumulatorDTO(BaseModel):
-    """Preset shape for the public list endpoint. Exposes the row id as
-    `preset_id` (the value the app sends to POST /accumulators/user) and omits
+    """Preset shape for the public list endpoint. Exposes the row `id` (the
+    value the app sends as preset_id to POST /accumulators/user) and omits
     user_id so other users' ids are not disclosed. group_id is kept for future
     CMS grouping."""
-    preset_id: UUID
+    id: UUID
     group_id: Optional[UUID] = None
     type: AccumulatorType
     name: str
@@ -72,6 +73,7 @@ class AccumulatorSessionDTO(BaseModel):
 
 class AccumulatorHistoryDTO(BaseModel):
     accumulator_id: UUID
+    parent_id: Optional[UUID] = Field(None, description="The preset this accumulator was created from")
     name: str
     description: Optional[str] = None
     target_count: Optional[int] = None

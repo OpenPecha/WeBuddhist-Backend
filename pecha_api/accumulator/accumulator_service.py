@@ -11,7 +11,7 @@ from .accumulator_repository import (
     get_all_accumulators,
     get_user_accumulators,
     get_preset_by_id,
-    get_user_accumulator_by_mantra,
+    get_user_accumulator_by_parent,
     add_accumulator,
     commit_accumulator,
     get_accumulator_by_id,
@@ -38,7 +38,9 @@ from .accumulator_enums import AccumulatorType
 from .response_message import (
     NOT_FOUND,
     FORBIDDEN,
+    CONFLICT,
     ACCUMULATOR_NOT_FOUND,
+    ACCUMULATOR_ALREADY_EXISTS,
     PRESET_NOT_FOUND,
     MANTRA_NOT_FOUND,
     ACCUMULATOR_UPDATE_NOT_ALLOWED,
@@ -60,6 +62,7 @@ def convert_accumulator_to_dto(accumulator: Accumulator) -> AccumulatorDTO:
         id=accumulator.id,
         user_id=accumulator.user_id,
         group_id=accumulator.group_id,
+        parent_id=accumulator.parent_id,
         type=accumulator_type,
         name=accumulator.name,
         description=accumulator.description,
@@ -83,7 +86,7 @@ def convert_accumulator_to_public_dto(accumulator: Accumulator) -> PublicAccumul
         else accumulator.type
     )
     return PublicAccumulatorDTO(
-        preset_id=accumulator.id,
+        id=accumulator.id,
         group_id=accumulator.group_id,
         type=accumulator_type,
         name=accumulator.name,
@@ -140,14 +143,13 @@ def get_user_accumulators_service(
 
 
 def create_accumulator_service(token: str, request: CreateAccumulatorRequest) -> AccumulatorDTO:
-    """Create-or-reset the user's accumulator for a tapped preset.
+    """Create the user's accumulator from a tapped preset.
 
-    A user has at most one active accumulator per mantra. The app calls this
-    endpoint only on first-create or on an explicit reset (a plain re-open is a
-    GET):
-      - no accumulator yet for the preset's mantra -> create a new one, count 0;
-      - one already exists -> reset it (current_count = 0).
-    History rows are never touched, so the lifetime total survives resets."""
+    The app calls this only after GET /accumulators/{parent_id} returned 404,
+    i.e. the user has no accumulator for this preset yet. The preset's fields
+    are copied into a new user accumulator whose parent_id links back to the
+    preset. A user has at most one active accumulator per preset, so a duplicate
+    create is rejected."""
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
@@ -158,18 +160,18 @@ def create_accumulator_service(token: str, request: CreateAccumulatorRequest) ->
                 detail={"error": NOT_FOUND, "message": PRESET_NOT_FOUND}
             )
 
-        # Reset path: an existing accumulator for this mantra is zeroed in place.
-        if preset.mantra_id is not None:
-            existing = get_user_accumulator_by_mantra(db, current_user.id, preset.mantra_id)
-            if existing is not None:
-                existing.current_count = 0
-                reset_accumulator = update_accumulator(db, existing)
-                return convert_accumulator_to_dto(reset_accumulator)
+        existing = get_user_accumulator_by_parent(db, current_user.id, preset.id)
+        if existing is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"error": CONFLICT, "message": ACCUMULATOR_ALREADY_EXISTS}
+            )
 
         new_accumulator = Accumulator(
             id=uuid4(),
             user_id=current_user.id,
             group_id=preset.group_id,
+            parent_id=preset.id,
             type=AccumulatorType.USER,
             name=preset.name,
             description=preset.description,
@@ -266,12 +268,15 @@ def delete_accumulator_service(token: str, accumulator_id: UUID) -> None:
 
 def get_accumulator_detail_service(
     token: str,
-    accumulator_id: UUID
+    parent_id: UUID
 ) -> AccumulatorHistoryDTO:
+    """Fetch the current user's accumulator created from the given preset
+    (parent_id), with its history. 404 if the user has none yet, which signals
+    the app to POST and create one."""
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
-        result = get_accumulator_with_history(db, accumulator_id, current_user.id)
+        result = get_accumulator_with_history(db, current_user.id, parent_id)
 
         if result is None:
             raise HTTPException(
@@ -282,6 +287,7 @@ def get_accumulator_detail_service(
         accumulator, total_counted, sessions = result
         return AccumulatorHistoryDTO(
             accumulator_id=accumulator.id,
+            parent_id=accumulator.parent_id,
             name=accumulator.name,
             description=accumulator.description,
             target_count=accumulator.target_count,

@@ -114,18 +114,18 @@ def get_preset_by_id(db: Session, preset_id: UUID) -> Optional[Accumulator]:
     )
 
 
-def get_user_accumulator_by_mantra(
+def get_user_accumulator_by_parent(
     db: Session,
     user_id: UUID,
-    mantra_id: UUID,
+    parent_id: UUID,
 ) -> Optional[Accumulator]:
-    """Fetch the user's active accumulator for a given mantra, or None. A user
-    has at most one active accumulator per mantra."""
+    """Fetch the user's active accumulator created from a given preset
+    (parent_id), or None. A user has at most one active accumulator per preset."""
     return (
         db.query(Accumulator)
         .filter(
             Accumulator.user_id == user_id,
-            Accumulator.mantra_id == mantra_id,
+            Accumulator.parent_id == parent_id,
             Accumulator.deleted_at.is_(None),
         )
         .first()
@@ -163,15 +163,17 @@ def add_history_row(db: Session, accumulator_id: UUID, user_id: UUID, count: int
 
 def get_accumulator_with_history(
     db: Session,
-    accumulator_id: UUID,
-    user_id: UUID
+    user_id: UUID,
+    parent_id: UUID,
 ) -> Optional[Tuple[Accumulator, int, List[AccumulatorHistory]]]:
-    """Fetch a single accumulator along with the requesting user's total
-    counted and ordered session rows. Returns None if the accumulator does
-    not exist."""
-    accumulator = get_accumulator_by_id(db, accumulator_id, include_deleted=True)
+    """Fetch the user's active accumulator created from a given preset
+    (parent_id), along with their total counted and ordered session rows.
+    Returns None if the user has no accumulator for that preset."""
+    accumulator = get_user_accumulator_by_parent(db, user_id, parent_id)
     if not accumulator:
         return None
+
+    accumulator_id = accumulator.id
 
     total_counted = (
         db.query(func.sum(AccumulatorHistory.count))

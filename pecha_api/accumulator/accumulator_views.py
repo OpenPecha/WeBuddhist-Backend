@@ -102,12 +102,12 @@ async def get_user_accumulator_history(
     )
 
 
-@accumulator_router.get("/{accumulator_id}", response_model=AccumulatorHistoryDTO)
+@accumulator_router.get("/{parent_id}", response_model=AccumulatorHistoryDTO)
 async def get_accumulator_detail(
-    accumulator_id: UUID,
+    parent_id: UUID,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
 ):
     return get_accumulator_detail_service(
         token=credentials.credentials,
-        accumulator_id=accumulator_id
+        parent_id=parent_id
     )

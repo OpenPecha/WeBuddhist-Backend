@@ -41,6 +41,7 @@ class TestDataFactory:
         accumulator_id=None,
         user_id=None,
         group_id=None,
+        parent_id=None,
         accumulator_type=AccumulatorType.USER,
         name="Test Accumulator",
         description=None,
@@ -54,6 +55,7 @@ class TestDataFactory:
         accumulator.id = accumulator_id or uuid4()
         accumulator.user_id = user_id or uuid4()
         accumulator.group_id = group_id
+        accumulator.parent_id = parent_id
         accumulator.type = accumulator_type
         accumulator.name = name
         accumulator.description = description
@@ -218,13 +220,14 @@ class TestCreateAccumulatorService:
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
     @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
-    @patch('pecha_api.accumulator.accumulator_service.get_user_accumulator_by_mantra')
+    @patch('pecha_api.accumulator.accumulator_service.get_user_accumulator_by_parent')
     @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
     @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
     def test_create_accumulator_service_success(
-        self, mock_validate, mock_get_preset, mock_get_by_mantra, mock_add, mock_commit, mock_session
+        self, mock_validate, mock_get_preset, mock_get_by_parent, mock_add, mock_commit, mock_session
     ):
-        """First tap (no existing accumulator for the mantra) creates a new row."""
+        """First tap (no existing accumulator for the preset) creates a new row
+        whose parent_id links back to the preset."""
         user_id = uuid4()
         preset_id = uuid4()
         group_id = uuid4()
@@ -245,7 +248,7 @@ class TestCreateAccumulatorService:
             mantra_id=mantra_id,
         )
         mock_get_preset.return_value = preset
-        mock_get_by_mantra.return_value = None  # nothing exists yet -> create
+        mock_get_by_parent.return_value = None  # nothing exists yet -> create
 
         request = TestDataFactory.create_accumulator_request(preset_id=preset_id)
 
@@ -264,30 +267,27 @@ class TestCreateAccumulatorService:
         assert result.type == AccumulatorType.USER
         assert result.user_id == user_id
         assert result.group_id == group_id
+        assert result.parent_id == preset_id
         assert result.current_count == 0
 
         mock_validate.assert_called_once_with(token=token)
         mock_get_preset.assert_called_once_with(mock_db, preset_id)
-        mock_get_by_mantra.assert_called_once_with(mock_db, user_id, mantra_id)
+        mock_get_by_parent.assert_called_once_with(mock_db, user_id, preset_id)
         mock_add.assert_called_once()
         mock_commit.assert_called_once()
 
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
-    @patch('pecha_api.accumulator.accumulator_service.add_history_row')
-    @patch('pecha_api.accumulator.accumulator_service.update_accumulator')
     @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
-    @patch('pecha_api.accumulator.accumulator_service.get_user_accumulator_by_mantra')
+    @patch('pecha_api.accumulator.accumulator_service.get_user_accumulator_by_parent')
     @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
     @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
-    def test_create_accumulator_service_resets_existing(
-        self, mock_validate, mock_get_preset, mock_get_by_mantra, mock_add,
-        mock_update, mock_add_history, mock_session
+    def test_create_accumulator_service_rejects_duplicate(
+        self, mock_validate, mock_get_preset, mock_get_by_parent, mock_add, mock_session
     ):
-        """Tapping a preset whose mantra the user already has resets that
-        accumulator in place: count -> 0, no new row, no history written."""
+        """Tapping a preset the user already created an accumulator from is
+        rejected with 409: no second row, no reset."""
         user_id = uuid4()
         preset_id = uuid4()
-        mantra_id = uuid4()
         token = "valid_token"
 
         mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
@@ -295,33 +295,33 @@ class TestCreateAccumulatorService:
         mock_session.return_value.__enter__.return_value = mock_db
 
         mock_get_preset.return_value = TestDataFactory.create_mock_accumulator(
-            accumulator_id=preset_id, accumulator_type=AccumulatorType.PRESET, mantra_id=mantra_id
+            accumulator_id=preset_id, accumulator_type=AccumulatorType.PRESET
         )
         existing = TestDataFactory.create_mock_accumulator(
             user_id=user_id, accumulator_type=AccumulatorType.USER,
-            mantra_id=mantra_id, current_count=540,
+            parent_id=preset_id, current_count=540,
         )
-        mock_get_by_mantra.return_value = existing
-        mock_update.side_effect = lambda _db, accumulator: accumulator
+        mock_get_by_parent.return_value = existing
 
         request = TestDataFactory.create_accumulator_request(preset_id=preset_id)
-        result = create_accumulator_service(token=token, request=request)
 
-        assert existing.current_count == 0
-        assert result.current_count == 0
-        mock_get_by_mantra.assert_called_once_with(mock_db, user_id, mantra_id)
-        mock_update.assert_called_once()
+        with pytest.raises(HTTPException) as exc_info:
+            create_accumulator_service(token=token, request=request)
+
+        assert exc_info.value.status_code == status.HTTP_409_CONFLICT
+        assert existing.current_count == 540  # untouched, no reset
+        mock_get_by_parent.assert_called_once_with(mock_db, user_id, preset_id)
         mock_add.assert_not_called()       # no new accumulator created
-        mock_add_history.assert_not_called()  # history preserved, not touched
 
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.add_history_row')
     @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
     @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.get_user_accumulator_by_parent')
     @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
     @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
     def test_create_accumulator_service_no_history_on_create(
-        self, mock_validate, mock_get_preset, mock_add, mock_commit, mock_add_history, mock_session
+        self, mock_validate, mock_get_preset, mock_get_by_parent, mock_add, mock_commit, mock_add_history, mock_session
     ):
         """Creating from a preset starts at count 0 and writes no history row."""
         user_id = uuid4()
@@ -334,6 +334,7 @@ class TestCreateAccumulatorService:
         mock_get_preset.return_value = TestDataFactory.create_mock_accumulator(
             accumulator_id=preset_id, accumulator_type=AccumulatorType.PRESET
         )
+        mock_get_by_parent.return_value = None
 
         def _commit(_db, accumulator):
             accumulator.created_at = datetime.utcnow()
@@ -750,15 +751,15 @@ class TestHelperFunctions:
         assert result.current_count == 0
 
     def test_convert_accumulator_to_public_dto_omits_user_id(self):
-        """Public DTO should not carry user_id and exposes the row id as preset_id."""
+        """Public DTO should not carry user_id and exposes the row id as id."""
         accumulator = TestDataFactory.create_mock_accumulator()
 
         result = convert_accumulator_to_public_dto(accumulator)
 
         assert isinstance(result, PublicAccumulatorDTO)
         assert not hasattr(result, "user_id")
-        assert not hasattr(result, "id")
-        assert result.preset_id == accumulator.id
+        assert not hasattr(result, "preset_id")
+        assert result.id == accumulator.id
 
     def test_is_user_created_accumulator_user_type(self):
         """is_user_created_accumulator returns True for USER type."""

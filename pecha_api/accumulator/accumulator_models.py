@@ -12,6 +12,13 @@ class Accumulator(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     user_id = Column(UUID(as_uuid=True), nullable=True)
     group_id = Column(UUID(as_uuid=True), nullable=True)
+    # For a user-created accumulator, the preset it was created from. Presets
+    # themselves have no parent (NULL).
+    parent_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("accumulators.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     type = Column(AccumulatorTypeEnum, nullable=False)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
@@ -31,4 +38,5 @@ class Accumulator(Base):
     __table_args__ = (
         Index("idx_accumulators_user_id", "user_id"),
         Index("idx_accumulators_type", "type"),
+        Index("idx_accumulators_parent_id", "parent_id"),
     )
