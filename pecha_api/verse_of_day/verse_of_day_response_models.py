@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List, Dict
 from uuid import UUID
-from datetime import date, datetime
+import datetime
 
 
 # Type alias for verses dictionary by language
@@ -37,7 +37,7 @@ class VerseOfDayDTO(BaseModel):
     ref_id: Optional[str] = None
     ref_type: Optional[str] = None
     group_id: Optional[UUID] = None
-    date: date
+    date: datetime.date
 
     class Config:
         from_attributes = True
@@ -54,7 +54,7 @@ class VerseOfDayPublicDTO(BaseModel):
     image_url: Optional[str] = None  
     ref_id: Optional[str] = None
     ref_type: Optional[str] = None
-    date: date
+    date: datetime.date
     group_id: Optional[UUID] = None
     group_info: Optional[List[GroupInfoDTO]] = None
 
@@ -80,7 +80,7 @@ class CreateVerseOfDayRequest(BaseModel):
     ref_id: Optional[str] = None
     ref_type: Optional[str] = None
     group_id: Optional[UUID] = None
-    date: date
+    date: datetime.date
 
 
 class UpdateVerseOfDayRequest(BaseModel):
@@ -90,4 +90,4 @@ class UpdateVerseOfDayRequest(BaseModel):
     ref_id: Optional[str] = None
     ref_type: Optional[str] = None
     group_id: Optional[UUID] = None
-    date: Optional[date] = None
+    date: Optional[datetime.date] = None
