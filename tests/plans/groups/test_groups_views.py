@@ -10,6 +10,7 @@ from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole, AuthorGro
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
     AuthorGroupListResponse,
+    AuthorGroupSummaryDTO,
     GroupInviteCreatedResponse,
     GroupMetadataDTO,
     UserFollowedAuthorGroupDTO,

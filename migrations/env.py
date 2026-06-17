@@ -27,6 +27,8 @@ from pecha_api.plans.groups.groups_models import AuthorGroup, AuthorGroupMetadat
 from pecha_api.mantra.mantra_model import Mantra
 from pecha_api.timers.timer_model import Timer
 from pecha_api.accumulator.accumulator_models import Accumulator
+from pecha_api.accumulator.accumulator_metadata_model import AccumulatorMetadata
+from pecha_api.accumulator.mala_image_model import MalaImage
 from pecha_api.events.event_model import Event
 from pecha_api.events.event_metadata_model import EventMetadata
 from pecha_api.mantra.mantra_metadata_model import MantraMetadata
