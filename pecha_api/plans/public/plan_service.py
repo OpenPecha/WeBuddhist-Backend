@@ -633,6 +633,7 @@ def get_tags(language: str = "en") -> TagsResponse:
 def get_public_tags(
     featured: Optional[bool] = None,
     search: Optional[str] = None,
+    language: str = "EN",
     skip: int = 0,
     limit: int = 20,
 ) -> PublicTagsListResponse:
@@ -646,7 +647,7 @@ def get_public_tags(
                 limit=limit,
             )
             return PublicTagsListResponse(
-                tags=tags_to_summary_dtos(tag_rows, preserve_order=True),
+                tags=tags_to_summary_dtos(tag_rows, preserve_order=True, language=language),
                 skip=skip,
                 limit=limit,
                 total=total,

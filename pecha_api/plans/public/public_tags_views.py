@@ -19,12 +19,17 @@ def get_tags(
         Optional[str],
         Query(description="Search by tag name."),
     ] = None,
+    language: Annotated[
+        Optional[str],
+        Query(description="Language code (EN, BO, ZH, HI, NE, MN). Defaults to EN."),
+    ] = "EN",
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     return get_public_tags(
         featured=featured,
         search=search,
+        language=language,
         skip=skip,
         limit=limit,
     )

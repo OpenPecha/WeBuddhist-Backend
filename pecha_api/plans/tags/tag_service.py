@@ -259,8 +259,9 @@ def delete_tag(token: str, tag_id: UUID) -> None:
 def get_cms_tags_list(
     token: str,
     search: Optional[str],
-    skip: int,
-    limit: int,
+    language: str = 'EN',
+    skip: int = 0,
+    limit: int = 10,
 ) -> TagsListResponse:
     validate_and_extract_author_details(token=token)
 
@@ -273,14 +274,14 @@ def get_cms_tags_list(
         )
 
     return TagsListResponse(
-        tags=[_tag_to_dto(row) for row in rows],
+        tags=[_tag_to_dto(row, language=language) for row in rows],
         skip=skip,
         limit=limit,
         total=total,
     )
 
 
-def get_cms_tag_detail(token: str, tag_id: UUID) -> TagDTO:
+def get_cms_tag_detail(token: str, tag_id: UUID, language: str = 'EN') -> TagDTO:
     validate_and_extract_author_details(token=token)
 
     with SessionLocal() as db_session:
@@ -290,7 +291,7 @@ def get_cms_tag_detail(token: str, tag_id: UUID) -> TagDTO:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Tag with id '{tag_id}' not found",
         )
-    return _tag_to_dto(tag)
+    return _tag_to_dto(tag, language=language)
 
 
 def validate_tag_ids(db, tag_ids: List[UUID]) -> None:
