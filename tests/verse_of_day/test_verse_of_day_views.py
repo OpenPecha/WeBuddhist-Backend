@@ -12,6 +12,8 @@ from pecha_api.verse_of_day.verse_of_day_response_models import (
     VerseOfDayPublicDTO,
     VerseOfDayDTO,
     CreateVerseOfDayRequest,
+    UpdateVerseOfDayRequest,
+    VerseOfDayListResponse,
     GroupInfoDTO,
 )
 
@@ -132,6 +134,26 @@ def sample_verse_public_dto_with_group_info(sample_group_info):
         ref_type="sutra",
         date=date(2025, 6, 5),
         group_info=sample_group_info
+    )
+
+
+@pytest.fixture
+def sample_verse_list_response(sample_verse_public_dto):
+    """Sample list response with verses."""
+    return VerseOfDayListResponse(
+        verses=[sample_verse_public_dto],
+        total=1
+    )
+
+
+@pytest.fixture
+def sample_update_request():
+    """Sample update verse request."""
+    return UpdateVerseOfDayRequest(
+        verses={"en": "Updated verse text."},
+        image_urls=["https://example.com/updated-image.jpg"],
+        ref_id="text-updated",
+        ref_type="commentary"
     )
 
 
@@ -493,7 +515,7 @@ async def test_get_verse_of_day_by_id_with_lang_filter_filters_group_info(sample
 
 
 # =============================================================================
-# POST /verse-of-day TESTS
+# POST /cms/verse-of-day TESTS
 # =============================================================================
 
 @pytest.mark.asyncio
@@ -520,7 +542,7 @@ async def test_create_verse_of_day_success(sample_verse_dto):
         }
         
         response = client.post(
-            "/verse-of-day",
+            "/cms/verse-of-day",
             json=request_data,
             headers={"Authorization": "Bearer valid-token"}
         )
@@ -556,7 +578,7 @@ async def test_create_verse_of_day_with_optional_fields(sample_verse_dto):
         }
         
         response = client.post(
-            "/verse-of-day",
+            "/cms/verse-of-day",
             json=request_data,
             headers={"Authorization": "Bearer valid-token"}
         )
@@ -578,7 +600,7 @@ async def test_create_verse_of_day_missing_required_fields():
         }
         
         response = client.post(
-            "/verse-of-day",
+            "/cms/verse-of-day",
             json=request_data,
             headers={"Authorization": "Bearer valid-token"}
         )
@@ -600,7 +622,7 @@ async def test_create_verse_of_day_invalid_token():
         }
         
         response = client.post(
-            "/verse-of-day",
+            "/cms/verse-of-day",
             json=request_data,
             headers={"Authorization": "Bearer invalid-token"}
         )
@@ -622,7 +644,7 @@ async def test_create_verse_of_day_missing_auth():
     }
     
     response = client.post(
-        "/verse-of-day",
+        "/cms/verse-of-day",
         json=request_data
     )
     
@@ -647,7 +669,7 @@ async def test_create_verse_of_day_database_error():
         }
         
         response = client.post(
-            "/verse-of-day",
+            "/cms/verse-of-day",
             json=request_data,
             headers={"Authorization": "Bearer valid-token"}
         )
@@ -706,3 +728,517 @@ async def test_get_verse_of_day_with_none_image_url():
         
         assert data["verse_of_day"]["image_url"] is None
         mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None)
+
+
+# =============================================================================
+# GET /cms/verse-of-day TESTS (List with pagination)
+# =============================================================================
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_list_success(sample_verse_list_response):
+    """Test successful retrieval of verse list with authentication."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.get_verses_of_day_list_service", return_value=sample_verse_list_response) as mock_service:
+        
+        response = client.get(
+            "/cms/verse-of-day",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "verses" in data
+        assert "total" in data
+        assert data["total"] == 1
+        assert len(data["verses"]) == 1
+        
+        mock_validate.assert_called_once_with("valid-token")
+        mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None, skip=0, limit=100)
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_list_with_pagination(sample_verse_list_response):
+    """Test retrieval with custom pagination parameters."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.get_verses_of_day_list_service", return_value=sample_verse_list_response) as mock_service:
+        
+        response = client.get(
+            "/cms/verse-of-day?skip=10&limit=20",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_200_OK
+        mock_validate.assert_called_once_with("valid-token")
+        mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None, skip=10, limit=20)
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_list_with_filters(sample_verse_list_response):
+    """Test retrieval with group_id, date, and lang filters."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    group_id = uuid4()
+    filter_date = date(2025, 6, 5)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.get_verses_of_day_list_service", return_value=sample_verse_list_response) as mock_service:
+        
+        response = client.get(
+            f"/cms/verse-of-day?group_id={group_id}&date=2025-06-05&lang=en",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_200_OK
+        mock_validate.assert_called_once_with("valid-token")
+        mock_service.assert_called_once_with(group_id=group_id, filter_date=filter_date, lang="en", skip=0, limit=100)
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_list_empty():
+    """Test retrieval when no verses exist."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    empty_response = VerseOfDayListResponse(verses=[], total=0)
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.get_verses_of_day_list_service", return_value=empty_response) as mock_service:
+        
+        response = client.get(
+            "/cms/verse-of-day",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert data["verses"] == []
+        assert data["total"] == 0
+        mock_validate.assert_called_once_with("valid-token")
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_list_invalid_auth():
+    """Test retrieval with invalid authentication token."""
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", side_effect=HTTPException(status_code=401, detail="Invalid token")) as mock_validate:
+        
+        response = client.get(
+            "/cms/verse-of-day",
+            headers={"Authorization": "Bearer invalid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.json()["detail"] == "Invalid token"
+        mock_validate.assert_called_once_with("invalid-token")
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_list_missing_auth():
+    """Test retrieval without authentication header."""
+    response = client.get("/cms/verse-of-day")
+    
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_list_database_error():
+    """Test handling of database error."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.get_verses_of_day_list_service", side_effect=HTTPException(status_code=500, detail="Database error")) as mock_service:
+        
+        response = client.get(
+            "/cms/verse-of-day",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.json()["detail"] == "Database error"
+        mock_validate.assert_called_once_with("valid-token")
+
+
+# =============================================================================
+# GET /cms/verse-of-day/{id} TESTS
+# =============================================================================
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_by_id_success(sample_verse_public_response):
+    """Test successful retrieval of verse by ID with authentication."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_by_id_service", return_value=sample_verse_public_response) as mock_service:
+        
+        response = client.get(
+            f"/cms/verse-of-day/{verse_id}",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "verse_of_day" in data
+        assert data["verse_of_day"] is not None
+        
+        mock_validate.assert_called_once_with("valid-token")
+        mock_service.assert_called_once_with(verse_id=verse_id, lang=None)
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_by_id_not_found(sample_empty_response):
+    """Test retrieval when verse ID doesn't exist."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_by_id_service", return_value=sample_empty_response) as mock_service:
+        
+        response = client.get(
+            f"/cms/verse-of-day/{verse_id}",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert data["verse_of_day"] is None
+        mock_validate.assert_called_once_with("valid-token")
+        mock_service.assert_called_once_with(verse_id=verse_id, lang=None)
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_by_id_invalid_uuid():
+    """Test retrieval with invalid UUID format."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user):
+        response = client.get(
+            "/cms/verse-of-day/invalid-uuid",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_by_id_invalid_auth():
+    """Test retrieval with invalid authentication token."""
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", side_effect=HTTPException(status_code=401, detail="Invalid token")) as mock_validate:
+        
+        response = client.get(
+            f"/cms/verse-of-day/{verse_id}",
+            headers={"Authorization": "Bearer invalid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.json()["detail"] == "Invalid token"
+        mock_validate.assert_called_once_with("invalid-token")
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_by_id_missing_auth():
+    """Test retrieval without authentication header."""
+    verse_id = uuid4()
+    response = client.get(f"/cms/verse-of-day/{verse_id}")
+    
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_by_id_database_error():
+    """Test handling of database error when fetching by ID."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_by_id_service", side_effect=HTTPException(status_code=500, detail="Database error")) as mock_service:
+        
+        response = client.get(
+            f"/cms/verse-of-day/{verse_id}",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.json()["detail"] == "Database error"
+        mock_validate.assert_called_once_with("valid-token")
+
+
+# =============================================================================
+# PUT /cms/verse-of-day/{id} TESTS
+# =============================================================================
+
+@pytest.mark.asyncio
+async def test_cms_update_verse_of_day_success(sample_verse_dto):
+    """Test successful update of verse with authentication."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.update_verse_of_day_service", return_value=sample_verse_dto) as mock_update:
+        
+        request_data = {
+            "verses": {"en": "Updated verse text."},
+            "image_urls": ["https://example.com/updated-image.jpg"],
+            "ref_id": "text-updated",
+            "ref_type": "commentary"
+        }
+        
+        response = client.put(
+            f"/cms/verse-of-day/{verse_id}",
+            json=request_data,
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        
+        assert "id" in data
+        assert "verses" in data
+        
+        mock_validate.assert_called_once_with("valid-token")
+        mock_update.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_cms_update_verse_of_day_partial(sample_verse_dto):
+    """Test partial update with only some fields."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.update_verse_of_day_service", return_value=sample_verse_dto) as mock_update:
+        
+        request_data = {
+            "ref_id": "text-partial-update"
+        }
+        
+        response = client.put(
+            f"/cms/verse-of-day/{verse_id}",
+            json=request_data,
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_200_OK
+        mock_validate.assert_called_once_with("valid-token")
+        mock_update.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_cms_update_verse_of_day_not_found():
+    """Test update when verse doesn't exist."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.update_verse_of_day_service", side_effect=HTTPException(status_code=404, detail=f"Verse of day with ID {verse_id} not found")) as mock_update:
+        
+        request_data = {"ref_id": "text-updated"}
+        
+        response = client.put(
+            f"/cms/verse-of-day/{verse_id}",
+            json=request_data,
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert "not found" in response.json()["detail"]
+        mock_validate.assert_called_once_with("valid-token")
+
+
+@pytest.mark.asyncio
+async def test_cms_update_verse_of_day_invalid_uuid():
+    """Test update with invalid UUID format."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user):
+        request_data = {"ref_id": "text-updated"}
+        
+        response = client.put(
+            "/cms/verse-of-day/invalid-uuid",
+            json=request_data,
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_cms_update_verse_of_day_invalid_auth():
+    """Test update with invalid authentication token."""
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", side_effect=HTTPException(status_code=401, detail="Invalid token")) as mock_validate:
+        
+        request_data = {"ref_id": "text-updated"}
+        
+        response = client.put(
+            f"/cms/verse-of-day/{verse_id}",
+            json=request_data,
+            headers={"Authorization": "Bearer invalid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.json()["detail"] == "Invalid token"
+        mock_validate.assert_called_once_with("invalid-token")
+
+
+@pytest.mark.asyncio
+async def test_cms_update_verse_of_day_missing_auth():
+    """Test update without authentication header."""
+    verse_id = uuid4()
+    request_data = {"ref_id": "text-updated"}
+    
+    response = client.put(
+        f"/cms/verse-of-day/{verse_id}",
+        json=request_data
+    )
+    
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.asyncio
+async def test_cms_update_verse_of_day_database_error():
+    """Test handling of database error during update."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.update_verse_of_day_service", side_effect=HTTPException(status_code=500, detail="Database error")) as mock_update:
+        
+        request_data = {"ref_id": "text-updated"}
+        
+        response = client.put(
+            f"/cms/verse-of-day/{verse_id}",
+            json=request_data,
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.json()["detail"] == "Database error"
+        mock_validate.assert_called_once_with("valid-token")
+
+
+# =============================================================================
+# DELETE /cms/verse-of-day/{id} TESTS
+# =============================================================================
+
+@pytest.mark.asyncio
+async def test_cms_delete_verse_of_day_success():
+    """Test successful deletion of verse with authentication."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.delete_verse_of_day_service", return_value=None) as mock_delete:
+        
+        response = client.delete(
+            f"/cms/verse-of-day/{verse_id}",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        
+        mock_validate.assert_called_once_with("valid-token")
+        mock_delete.assert_called_once_with(verse_id=verse_id)
+
+
+@pytest.mark.asyncio
+async def test_cms_delete_verse_of_day_not_found():
+    """Test deletion when verse doesn't exist."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.delete_verse_of_day_service", side_effect=HTTPException(status_code=404, detail=f"Verse of day with ID {verse_id} not found")) as mock_delete:
+        
+        response = client.delete(
+            f"/cms/verse-of-day/{verse_id}",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert "not found" in response.json()["detail"]
+        mock_validate.assert_called_once_with("valid-token")
+
+
+@pytest.mark.asyncio
+async def test_cms_delete_verse_of_day_invalid_uuid():
+    """Test deletion with invalid UUID format."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user):
+        response = client.delete(
+            "/cms/verse-of-day/invalid-uuid",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+@pytest.mark.asyncio
+async def test_cms_delete_verse_of_day_invalid_auth():
+    """Test deletion with invalid authentication token."""
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", side_effect=HTTPException(status_code=401, detail="Invalid token")) as mock_validate:
+        
+        response = client.delete(
+            f"/cms/verse-of-day/{verse_id}",
+            headers={"Authorization": "Bearer invalid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        assert response.json()["detail"] == "Invalid token"
+        mock_validate.assert_called_once_with("invalid-token")
+
+
+@pytest.mark.asyncio
+async def test_cms_delete_verse_of_day_missing_auth():
+    """Test deletion without authentication header."""
+    verse_id = uuid4()
+    response = client.delete(f"/cms/verse-of-day/{verse_id}")
+    
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+@pytest.mark.asyncio
+async def test_cms_delete_verse_of_day_database_error():
+    """Test handling of database error during deletion."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+    verse_id = uuid4()
+    
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.delete_verse_of_day_service", side_effect=HTTPException(status_code=500, detail="Database error")) as mock_delete:
+        
+        response = client.delete(
+            f"/cms/verse-of-day/{verse_id}",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+        
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.json()["detail"] == "Database error"
+        mock_validate.assert_called_once_with("valid-token")
