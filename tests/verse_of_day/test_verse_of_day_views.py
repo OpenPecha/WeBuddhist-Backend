@@ -685,8 +685,9 @@ async def test_create_verse_of_day_database_error():
 # =============================================================================
 
 @pytest.mark.asyncio
+
 async def test_get_verse_of_day_with_empty_image_url():
-    """Test verse with no image_url."""
+
     verse_dto = VerseOfDayPublicDTO(
         id=uuid4(),
         verses={"en": "Simple verse without images."},
@@ -708,8 +709,9 @@ async def test_get_verse_of_day_with_empty_image_url():
 
 
 @pytest.mark.asyncio
+
 async def test_get_verse_of_day_with_none_image_url():
-    """Test verse with None image_url."""
+
     verse_dto = VerseOfDayPublicDTO(
         id=uuid4(),
         verses={"en": "Simple verse without images."},
