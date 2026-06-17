@@ -48,7 +48,7 @@ def sample_verse_metadata():
     
     bo_metadata = MagicMock()
     bo_metadata.lang = "bo"
-    bo_metadata.verse = ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"]
+    bo_metadata.verse = '["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"]'
     
     zh_metadata = MagicMock()
     zh_metadata.lang = "zh"
@@ -79,7 +79,7 @@ def sample_create_request():
     return CreateVerseOfDayRequest(
         verses={
             "en": "May all beings be happy and free from suffering.",
-            "bo": ["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"],
+            "bo": '["སེམས་ཅན་ཐམས་ཅད་བདེ་བ་དང་།", "སྡུག་བསྔལ་བྲལ་བར་གྱུར་ཅིག"]',
             "zh": "愿一切众生快乐，远离痛苦。"
         },
         image_urls=["https://example.com/image1.jpg"],
@@ -157,7 +157,7 @@ def sample_update_request():
     return UpdateVerseOfDayRequest(
         verses={
             "en": "Updated verse text.",
-            "bo": ["བོད་ཡིག་གསར་པ།"]
+            "bo": '["བོད་ཡིག་གསར་པ།"]'
         },
         image_urls=["https://example.com/updated-image.jpg"],
         ref_id="text-updated",
@@ -241,15 +241,16 @@ async def test_get_verse_of_day_service_with_lang_filter(sample_verse_model, moc
 
 @pytest.mark.asyncio
 async def test_get_verse_of_day_service_with_lang_filter_array(sample_verse_model, mock_db_session):
-    """Test retrieval with language filter for array verse."""
+    """Test retrieval with language filter for array verse (stored as JSON string)."""
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_by_filters", return_value=sample_verse_model):
         
         result = get_verse_of_day(lang="bo")
         
         assert result.verse_of_day is not None
-        assert isinstance(result.verse_of_day.verse, list)
-        assert len(result.verse_of_day.verse) == 2
+        # Verse is stored as JSON string in database
+        assert isinstance(result.verse_of_day.verse, str)
+        assert result.verse_of_day.verse.startswith('[')
         assert result.verse_of_day.verses is None
 
 
@@ -1286,6 +1287,7 @@ async def test_get_verse_of_day_service_empty_image_urls(mock_db_session):
     verse.ref_id = "text-empty"
     verse.ref_type = "commentary"
     verse.image_urls = []
+    verse.group_id = None
     verse.date = date(2025, 6, 5)
     verse.verse_metadata = []
     
@@ -1306,6 +1308,7 @@ async def test_get_verse_of_day_service_none_image_urls(mock_db_session):
     verse.ref_id = "text-none"
     verse.ref_type = "commentary"
     verse.image_urls = None
+    verse.group_id = None
     verse.date = date(2025, 6, 5)
     verse.verse_metadata = []
     
@@ -1325,6 +1328,7 @@ async def test_get_verse_of_day_service_empty_verse_metadata(mock_db_session):
     verse.ref_id = "text-no-metadata"
     verse.ref_type = "commentary"
     verse.image_urls = None
+    verse.group_id = None
     verse.date = date(2025, 6, 5)
     verse.verse_metadata = []
     
@@ -1348,8 +1352,9 @@ def test_build_verses_dict(sample_verse_metadata):
     assert "bo" in result
     assert "zh" in result
     assert result["en"] == "May all beings be happy and free from suffering."
-    assert isinstance(result["bo"], list)
-    assert len(result["bo"]) == 2
+    # Tibetan verse is stored as JSON string
+    assert isinstance(result["bo"], str)
+    assert result["bo"].startswith('[')
 
 
 def test_build_verses_dict_empty():
