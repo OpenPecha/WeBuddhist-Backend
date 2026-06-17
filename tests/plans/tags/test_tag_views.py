@@ -217,3 +217,21 @@ def test_create_tag_with_plan_ids(sample_tag_dto):
 
     assert response.status_code == status.HTTP_201_CREATED
     assert mock_create.call_args.kwargs["create_tag_request"].plan_ids == [plan_id]
+
+
+def test_create_tag_with_segment_ids(sample_tag_dto):
+    segment_id = uuid.uuid4()
+    payload = {"name": "Segments", "segment_ids": [str(segment_id)]}
+
+    with patch(
+        "pecha_api.plans.tags.tag_views.create_new_tag",
+        return_value=sample_tag_dto,
+    ) as mock_create:
+        response = client.post(
+            "/api/v1/cms/tags",
+            json=payload,
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    assert mock_create.call_args.kwargs["create_tag_request"].segment_ids == [segment_id]

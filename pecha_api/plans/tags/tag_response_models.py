@@ -10,10 +10,12 @@ class TagSummaryDTO(BaseModel):
     image_key: Optional[str] = None
     description: Optional[str] = None
     featured: bool = False
+    display_order: Optional[int] = None
 
 
 class TagDTO(TagSummaryDTO):
     plan_ids: List[UUID] = []
+    segment_ids: List[UUID] = []
 
 
 class CreateTagRequest(BaseModel):
@@ -21,7 +23,9 @@ class CreateTagRequest(BaseModel):
     image_key: Optional[str] = None
     description: Optional[str] = None
     featured: bool = False
+    display_order: Optional[int] = None
     plan_ids: Optional[List[UUID]] = None
+    segment_ids: Optional[List[UUID]] = None
 
 
 class UpdateTagRequest(BaseModel):
@@ -29,7 +33,9 @@ class UpdateTagRequest(BaseModel):
     image_key: Optional[str] = None
     description: Optional[str] = None
     featured: Optional[bool] = None
+    display_order: Optional[int] = None
     plan_ids: Optional[List[UUID]] = None
+    segment_ids: Optional[List[UUID]] = None
 
 
 class TagsListResponse(BaseModel):

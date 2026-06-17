@@ -16,8 +16,10 @@ from pecha_api.plans.tags.tag_repository import (
     get_tag_by_name,
     get_tags_paginated,
     get_tags_by_ids,
+    get_next_tag_display_order,
     save_tag,
     set_tag_plans,
+    set_tag_segments,
     soft_delete_tag,
     update_tag_row,
 )
@@ -27,12 +29,17 @@ from pecha_api.plans.tags.tag_response_models import (
     TagsListResponse,
     UpdateTagRequest,
 )
+from pecha_api.texts.segments.segments_repository import get_segments_by_ids
 
 
 def _active_plan_ids(tag: Tag) -> List[UUID]:
     if not tag.plans:
         return []
     return [p.id for p in tag.plans if p.deleted_at is None]
+
+
+def _tag_segment_ids(tag: Tag) -> List[UUID]:
+    return getattr(tag, "segment_ids", []) or []
 
 
 def _tag_to_dto(tag: Tag) -> TagDTO:
@@ -45,6 +52,8 @@ def _tag_to_dto(tag: Tag) -> TagDTO:
         description=tag.description,
         featured=featured,
         plan_ids=_active_plan_ids(tag),
+        segment_ids=_tag_segment_ids(tag),
+        display_order=tag.display_order,
     )
 
 
@@ -64,7 +73,23 @@ def _validate_plan_ids(db, plan_ids: List[UUID]) -> None:
             )
 
 
-def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> TagDTO:
+async def _validate_segment_ids(segment_ids: List[UUID]) -> None:
+    if not segment_ids:
+        return
+    unique_segment_ids = list(dict.fromkeys(segment_ids))
+    found_segments = await get_segments_by_ids(
+        segment_ids=[str(segment_id) for segment_id in unique_segment_ids]
+    )
+    found_ids = {UUID(segment_id) for segment_id in found_segments.keys()}
+    for segment_id in unique_segment_ids:
+        if segment_id not in found_ids:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Segment with id '{segment_id}' does not exist",
+            )
+
+
+async def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> TagDTO:
     author = validate_and_extract_author_details(token=token)
 
     with SessionLocal() as db_session:
@@ -76,19 +101,28 @@ def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> TagDTO:
             )
 
         plan_ids = create_tag_request.plan_ids or []
+        segment_ids = create_tag_request.segment_ids or []
         _validate_plan_ids(db=db_session, plan_ids=plan_ids)
+        await _validate_segment_ids(segment_ids=segment_ids)
 
         tag = Tag(
             name=create_tag_request.name.strip(),
             image_key=create_tag_request.image_key,
             description=create_tag_request.description,
             featured=create_tag_request.featured,
+            display_order=(
+                create_tag_request.display_order
+                if create_tag_request.display_order is not None
+                else get_next_tag_display_order(db=db_session)
+            ),
             updated_by=author.email,
         )
         try:
             tag = save_tag(db=db_session, tag=tag)
             if plan_ids:
                 tag = set_tag_plans(db=db_session, tag=tag, plan_ids=plan_ids)
+            if segment_ids:
+                tag = set_tag_segments(db=db_session, tag=tag, segment_ids=segment_ids)
             tag = get_tag_by_id(db=db_session, tag_id=tag.id)
             return _tag_to_dto(tag)
         except IntegrityError:
@@ -99,7 +133,7 @@ def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> TagDTO:
             )
 
 
-def update_existing_tag(token: str, tag_id: UUID, update_tag_request: UpdateTagRequest) -> TagDTO:
+async def update_existing_tag(token: str, tag_id: UUID, update_tag_request: UpdateTagRequest) -> TagDTO:
     author = validate_and_extract_author_details(token=token)
 
     with SessionLocal() as db_session:
@@ -126,6 +160,8 @@ def update_existing_tag(token: str, tag_id: UUID, update_tag_request: UpdateTagR
             tag.description = update_tag_request.description
         if update_tag_request.featured is not None:
             tag.featured = update_tag_request.featured
+        if update_tag_request.display_order is not None:
+            tag.display_order = update_tag_request.display_order
 
         tag.updated_at = datetime.now(timezone.utc)
         tag.updated_by = author.email
@@ -133,6 +169,10 @@ def update_existing_tag(token: str, tag_id: UUID, update_tag_request: UpdateTagR
         if update_tag_request.plan_ids is not None:
             _validate_plan_ids(db=db_session, plan_ids=update_tag_request.plan_ids)
             tag = set_tag_plans(db=db_session, tag=tag, plan_ids=update_tag_request.plan_ids)
+
+        if update_tag_request.segment_ids is not None:
+            await _validate_segment_ids(segment_ids=update_tag_request.segment_ids)
+            tag = set_tag_segments(db=db_session, tag=tag, segment_ids=update_tag_request.segment_ids)
 
         try:
             tag = update_tag_row(db=db_session, tag=tag)
