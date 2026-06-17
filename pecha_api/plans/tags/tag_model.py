@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, Text, UUID, ForeignKey, Table, Index, text
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, UUID, ForeignKey, Table, Index, text
 from sqlalchemy.orm import relationship
 from uuid import uuid4
 import _datetime
@@ -25,9 +25,7 @@ class Tag(Base):
     __tablename__ = "tags"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    name = Column(String(255), nullable=False)
     image_key = Column(String(1000), nullable=True)
-    description = Column(Text, nullable=True)
     featured = Column(Boolean, default=False, nullable=False)
     display_order = Column(Integer, nullable=True)
 
@@ -38,14 +36,9 @@ class Tag(Base):
     deleted_by = Column(String(255))
 
     plans = relationship("Plan", secondary=plan_tags, back_populates="tag_list")
+    metadata_entries = relationship("TagMetadata", back_populates="tag", cascade="all, delete-orphan")
 
     __table_args__ = (
-        Index(
-            "idx_tags_name_unique",
-            "name",
-            unique=True,
-            postgresql_where=text("deleted_at IS NULL"),
-        ),
         Index(
             "idx_tags_featured",
             "featured",

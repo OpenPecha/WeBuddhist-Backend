@@ -1,6 +1,13 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Dict, List, Optional
 from uuid import UUID
+
+
+class TagMetadataDTO(BaseModel):
+    id: UUID
+    language: str
+    name: str
+    description: Optional[str] = None
 
 
 class TagSummaryDTO(BaseModel):
@@ -16,12 +23,18 @@ class TagSummaryDTO(BaseModel):
 class TagDTO(TagSummaryDTO):
     plan_ids: List[UUID] = []
     segment_ids: List[UUID] = []
+    metadata: List[TagMetadataDTO] = []
+
+
+class TagMetadataInput(BaseModel):
+    language: str
+    name: str
+    description: Optional[str] = None
 
 
 class CreateTagRequest(BaseModel):
-    name: str
+    metadata: List[TagMetadataInput]
     image_key: Optional[str] = None
-    description: Optional[str] = None
     featured: bool = False
     display_order: Optional[int] = None
     plan_ids: Optional[List[UUID]] = None
@@ -29,9 +42,8 @@ class CreateTagRequest(BaseModel):
 
 
 class UpdateTagRequest(BaseModel):
-    name: Optional[str] = None
+    metadata: Optional[List[TagMetadataInput]] = None
     image_key: Optional[str] = None
-    description: Optional[str] = None
     featured: Optional[bool] = None
     display_order: Optional[int] = None
     plan_ids: Optional[List[UUID]] = None

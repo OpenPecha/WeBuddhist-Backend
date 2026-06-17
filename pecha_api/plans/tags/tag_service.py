@@ -11,13 +11,17 @@ from pecha_api.plans.authors.plan_authors_service import validate_and_extract_au
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.plans.tags.tag_helpers import generate_tag_image_url, tags_to_summary_dtos
 from pecha_api.plans.tags.tag_model import Tag
+from pecha_api.plans.tags.tag_metadata_model import TagMetadata
 from pecha_api.plans.tags.tag_repository import (
+    delete_tag_metadata_by_tag_id,
     get_tag_by_id,
     get_tag_by_name,
+    get_tag_metadata_by_tag_and_language,
     get_tags_paginated,
     get_tags_by_ids,
     get_next_tag_display_order,
     save_tag,
+    save_tag_metadata,
     set_tag_plans,
     set_tag_segments,
     soft_delete_tag,
@@ -26,6 +30,7 @@ from pecha_api.plans.tags.tag_repository import (
 from pecha_api.plans.tags.tag_response_models import (
     CreateTagRequest,
     TagDTO,
+    TagMetadataDTO,
     TagsListResponse,
     UpdateTagRequest,
 )
@@ -42,18 +47,43 @@ def _tag_segment_ids(tag: Tag) -> List[UUID]:
     return getattr(tag, "segment_ids", []) or []
 
 
-def _tag_to_dto(tag: Tag) -> TagDTO:
+def _tag_to_dto(tag: Tag, language: str = 'EN') -> TagDTO:
     featured = tag.featured if isinstance(tag.featured, bool) else False
+    
+    # Get name and description from metadata for the specified language
+    name = ""
+    description = None
+    metadata_dtos = []
+    
+    if hasattr(tag, 'metadata_entries') and tag.metadata_entries:
+        for meta in tag.metadata_entries:
+            metadata_dtos.append(TagMetadataDTO(
+                id=meta.id,
+                language=meta.language.value if hasattr(meta.language, 'value') else str(meta.language),
+                name=meta.name,
+                description=meta.description
+            ))
+            if (hasattr(meta.language, 'value') and meta.language.value == language) or str(meta.language) == language:
+                name = meta.name
+                description = meta.description
+        
+        # Fallback to first metadata entry if requested language not found
+        if not name and tag.metadata_entries:
+            first_meta = tag.metadata_entries[0]
+            name = first_meta.name
+            description = first_meta.description
+    
     return TagDTO(
         id=tag.id,
-        name=tag.name,
+        name=name,
         image=generate_tag_image_url(tag.image_key),
         image_key=tag.image_key,
-        description=tag.description,
+        description=description,
         featured=featured,
         plan_ids=_active_plan_ids(tag),
         segment_ids=_tag_segment_ids(tag),
         display_order=tag.display_order,
+        metadata=metadata_dtos,
     )
 
 
@@ -93,12 +123,21 @@ async def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> Ta
     author = validate_and_extract_author_details(token=token)
 
     with SessionLocal() as db_session:
-        existing = get_tag_by_name(db=db_session, name=create_tag_request.name)
-        if existing:
+        # Validate metadata entries
+        if not create_tag_request.metadata or len(create_tag_request.metadata) == 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Tag with name '{create_tag_request.name}' already exists",
+                detail="At least one metadata entry is required",
             )
+        
+        # Check for duplicate names in any language
+        for meta_input in create_tag_request.metadata:
+            existing = get_tag_by_name(db=db_session, name=meta_input.name, language=meta_input.language)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Tag with name '{meta_input.name}' in language '{meta_input.language}' already exists",
+                )
 
         plan_ids = create_tag_request.plan_ids or []
         segment_ids = create_tag_request.segment_ids or []
@@ -106,9 +145,7 @@ async def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> Ta
         await _validate_segment_ids(segment_ids=segment_ids)
 
         tag = Tag(
-            name=create_tag_request.name.strip(),
             image_key=create_tag_request.image_key,
-            description=create_tag_request.description,
             featured=create_tag_request.featured,
             display_order=(
                 create_tag_request.display_order
@@ -119,6 +156,17 @@ async def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> Ta
         )
         try:
             tag = save_tag(db=db_session, tag=tag)
+            
+            # Create metadata entries
+            for meta_input in create_tag_request.metadata:
+                tag_metadata = TagMetadata(
+                    tag_id=tag.id,
+                    name=meta_input.name.strip(),
+                    description=meta_input.description,
+                    language=meta_input.language,
+                )
+                save_tag_metadata(db=db_session, tag_metadata=tag_metadata)
+            
             if plan_ids:
                 tag = set_tag_plans(db=db_session, tag=tag, plan_ids=plan_ids)
             if segment_ids:
@@ -129,7 +177,7 @@ async def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> Ta
             db_session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Tag with name '{create_tag_request.name}' already exists",
+                detail="Tag metadata constraint violation",
             )
 
 
@@ -144,20 +192,29 @@ async def update_existing_tag(token: str, tag_id: UUID, update_tag_request: Upda
                 detail=f"Tag with id '{tag_id}' not found",
             )
 
-        if update_tag_request.name is not None:
-            name = update_tag_request.name.strip()
-            other = get_tag_by_name(db=db_session, name=name)
-            if other and other.id != tag_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Tag with name '{name}' already exists",
+        if update_tag_request.metadata is not None:
+            # Validate metadata entries for duplicates
+            for meta_input in update_tag_request.metadata:
+                other = get_tag_by_name(db=db_session, name=meta_input.name, language=meta_input.language)
+                if other and other.id != tag_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Tag with name '{meta_input.name}' in language '{meta_input.language}' already exists",
+                    )
+            
+            # Delete existing metadata and create new ones
+            delete_tag_metadata_by_tag_id(db=db_session, tag_id=tag_id)
+            for meta_input in update_tag_request.metadata:
+                tag_metadata = TagMetadata(
+                    tag_id=tag.id,
+                    name=meta_input.name.strip(),
+                    description=meta_input.description,
+                    language=meta_input.language,
                 )
-            tag.name = name
+                save_tag_metadata(db=db_session, tag_metadata=tag_metadata)
 
         if update_tag_request.image_key is not None:
             tag.image_key = update_tag_request.image_key
-        if update_tag_request.description is not None:
-            tag.description = update_tag_request.description
         if update_tag_request.featured is not None:
             tag.featured = update_tag_request.featured
         if update_tag_request.display_order is not None:
@@ -182,7 +239,7 @@ async def update_existing_tag(token: str, tag_id: UUID, update_tag_request: Upda
             db_session.rollback()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Tag name must be unique",
+                detail="Tag metadata constraint violation",
             )
 
 
