@@ -1,4 +1,5 @@
 from typing import List, Optional, Dict
+import re
 import uuid
 from pydantic import BaseModel, Field
 from beanie import Document
@@ -53,6 +54,12 @@ class Segment(Document):
     @classmethod
     async def get_segments_by_text_id(cls, text_id: str) -> List["Segment"]:
         return await cls.find(cls.text_id == text_id).to_list()
+
+    @classmethod
+    async def search_segments_by_content(cls, content: str, limit: int = 10) -> List["Segment"]:
+        return await cls.find(
+            {"content": {"$regex": re.escape(content)}}
+        ).limit(limit).to_list()
 
     @classmethod
     async def get_first_segment_by_text_id(cls, text_id: str) -> Optional["Segment"]:
