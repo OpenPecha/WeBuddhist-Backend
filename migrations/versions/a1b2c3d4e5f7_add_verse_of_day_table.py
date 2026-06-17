@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import inspect
 from sqlalchemy.dialects import postgresql
 
 revision: str = 'a1b2c3d4e5f7'
@@ -17,7 +18,19 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _table_exists(table: str) -> bool:
+    return table in set(inspect(op.get_bind()).get_table_names())
+
+
+def _index_exists(table: str, index_name: str) -> bool:
+    indexes = {idx["name"] for idx in inspect(op.get_bind()).get_indexes(table)}
+    return index_name in indexes
+
+
 def upgrade() -> None:
+    if _table_exists('verse_of_day'):
+        return
+
     op.create_table('verse_of_day',
         sa.Column('id', sa.UUID(), nullable=False),
         sa.Column('verse_id', sa.String(length=255), nullable=False),
