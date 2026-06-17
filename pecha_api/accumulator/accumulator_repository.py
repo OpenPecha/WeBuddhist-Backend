@@ -8,13 +8,36 @@ from _datetime import datetime
 from fastapi import HTTPException
 from starlette import status
 from .accumulator_models import Accumulator
+from .accumulator_metadata_model import AccumulatorMetadata
+from .mala_image_model import MalaImage
 from .accumulator_history_model import AccumulatorHistory
 from .accumulator_enums import AccumulatorType
 from ..mantra.mantra_model import Mantra
+from ..plans.plans_enums import LanguageCode
 
 
 def mantra_exists(db: Session, mantra_id: UUID) -> bool:
     return db.query(Mantra.id).filter(Mantra.id == mantra_id).first() is not None
+
+
+def get_mala_image_by_id(db: Session, mala_image_id: UUID) -> Optional[MalaImage]:
+    return db.query(MalaImage).filter(MalaImage.id == mala_image_id).first()
+
+
+def get_accumulator_metadata(
+    db: Session,
+    accumulator_id: UUID,
+    language: LanguageCode,
+) -> Optional[AccumulatorMetadata]:
+    """Fetch the metadata row for an accumulator in a given language, or None."""
+    return (
+        db.query(AccumulatorMetadata)
+        .filter(
+            AccumulatorMetadata.accumulator_id == accumulator_id,
+            AccumulatorMetadata.language == language,
+        )
+        .first()
+    )
 
 
 def add_accumulator(db: Session, accumulator: Accumulator) -> Accumulator:

@@ -18,6 +18,7 @@ from pecha_api.accumulator.accumulator_response_models import (
     AccumulatorsResponse,
     PublicAccumulatorsResponse,
     AccumulatorDTO,
+    AccumulatorMetadataDTO,
     PublicAccumulatorDTO,
     CreateAccumulatorRequest,
     UpdateAccumulatorRequest,
@@ -49,10 +50,9 @@ class TestDataFactory:
             id=accumulator_id or uuid4(),
             user_id=user_id or uuid4(),
             type=accumulator_type,
-            name=name,
-            description=description,
             target_count=target_count,
             current_count=current_count,
+            metadata=[AccumulatorMetadataDTO(language="EN", name=name, description=description)],
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
         )
@@ -62,9 +62,9 @@ class TestDataFactory:
         return PublicAccumulatorDTO(
             id=uuid4(),
             type=AccumulatorType.PRESET,
-            name=name,
             target_count=108,
             current_count=current_count,
+            metadata=[AccumulatorMetadataDTO(language="EN", name=name)],
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
         )
@@ -74,9 +74,8 @@ class TestDataFactory:
         return CreateAccumulatorRequest(preset_id=preset_id or uuid4())
 
     @staticmethod
-    def create_update_request(name=None, target_count=None, current_count=None) -> UpdateAccumulatorRequest:
+    def create_update_request(target_count=None, current_count=None) -> UpdateAccumulatorRequest:
         return UpdateAccumulatorRequest(
-            name=name,
             target_count=target_count,
             current_count=current_count,
         )
@@ -211,7 +210,7 @@ class TestCreateUserAccumulator:
         )
 
         assert isinstance(result, AccumulatorDTO)
-        assert result.name == "New Acc"
+        assert result.metadata[0].name == "New Acc"
         assert result.type == AccumulatorType.USER
         mock_service.assert_called_once_with(token=token, request=request)
 
@@ -261,7 +260,7 @@ class TestUpdateUserAccumulator:
         """Test successful update of user accumulator."""
         token = "valid_token"
         accumulator_id = uuid4()
-        request = TestDataFactory.create_update_request(name="Updated", target_count=200)
+        request = TestDataFactory.create_update_request(target_count=200)
 
         mock_service.return_value = TestDataFactory.create_accumulator_dto(
             accumulator_id=accumulator_id, name="Updated", target_count=200
@@ -274,7 +273,7 @@ class TestUpdateUserAccumulator:
         )
 
         assert isinstance(result, AccumulatorDTO)
-        assert result.name == "Updated"
+        assert result.metadata[0].name == "Updated"
         mock_service.assert_called_once_with(
             token=token, accumulator_id=accumulator_id, request=request
         )
@@ -283,7 +282,7 @@ class TestUpdateUserAccumulator:
     @pytest.mark.asyncio
     async def test_update_user_accumulator_not_found(self, mock_service):
         """Test update_user_accumulator when accumulator doesn't exist."""
-        request = TestDataFactory.create_update_request(name="Updated")
+        request = TestDataFactory.create_update_request()
         mock_service.side_effect = HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": "NOT_FOUND", "message": "Accumulator not found"},
@@ -302,7 +301,7 @@ class TestUpdateUserAccumulator:
     @pytest.mark.asyncio
     async def test_update_user_accumulator_forbidden(self, mock_service):
         """Test update_user_accumulator when user lacks permission."""
-        request = TestDataFactory.create_update_request(name="Updated")
+        request = TestDataFactory.create_update_request()
         mock_service.side_effect = HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"error": "FORBIDDEN", "message": "You don't have permission to update this accumulator"},
@@ -321,7 +320,7 @@ class TestUpdateUserAccumulator:
     @pytest.mark.asyncio
     async def test_update_user_accumulator_invalid_token(self, mock_service):
         """Test update_user_accumulator with invalid authentication token."""
-        request = TestDataFactory.create_update_request(name="Updated")
+        request = TestDataFactory.create_update_request()
         mock_service.side_effect = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
@@ -422,11 +421,10 @@ class TestGetUserAccumulatorHistory:
             accumulators=[
                 AccumulatorHistoryDTO(
                     accumulator_id=accumulator_id,
-                    name="Mani",
-                    description="Compassion",
                     target_count=108,
                     current_count=300,
                     total_counted=300,
+                    metadata=[AccumulatorMetadataDTO(language="EN", name="Mani", description="Compassion")],
                     sessions=[
                         AccumulatorSessionDTO(count=100, created_at=datetime.utcnow()),
                         AccumulatorSessionDTO(count=200, created_at=datetime.utcnow()),
@@ -446,7 +444,7 @@ class TestGetUserAccumulatorHistory:
 
         assert isinstance(result, AccumulatorHistoryResponse)
         assert len(result.accumulators) == 1
-        assert result.accumulators[0].name == "Mani"
+        assert result.accumulators[0].metadata[0].name == "Mani"
         assert result.accumulators[0].total_counted == 300
         assert len(result.accumulators[0].sessions) == 2
         mock_service.assert_called_once_with(token=token, skip=0, limit=20)

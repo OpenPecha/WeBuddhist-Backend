@@ -3,6 +3,17 @@ from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
 from .accumulator_enums import AccumulatorType
+from ..plans.plans_enums import LanguageCode
+
+
+class AccumulatorMetadataDTO(BaseModel):
+    """Per-language name/description plus the chosen mala image. mala_image_url
+    is a presigned S3 URL ready for the frontend (None when no image is set)."""
+    language: LanguageCode
+    name: str
+    description: Optional[str] = None
+    mala_image_id: Optional[UUID] = None
+    mala_image_url: Optional[str] = None
 
 
 class AccumulatorDTO(BaseModel):
@@ -11,12 +22,11 @@ class AccumulatorDTO(BaseModel):
     group_id: Optional[UUID] = None
     parent_id: Optional[UUID] = Field(None, description="The preset this accumulator was created from")
     type: AccumulatorType
-    name: str
-    description: Optional[str] = None
     target_count: Optional[int] = None
     current_count: int
     text_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
+    metadata: List[AccumulatorMetadataDTO] = []
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -36,12 +46,11 @@ class PublicAccumulatorDTO(BaseModel):
     id: UUID
     group_id: Optional[UUID] = None
     type: AccumulatorType
-    name: str
-    description: Optional[str] = None
     target_count: Optional[int] = None
     current_count: int
     text_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
+    metadata: List[AccumulatorMetadataDTO] = []
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -58,12 +67,15 @@ class CreateAccumulatorRequest(BaseModel):
 
 
 class UpdateAccumulatorRequest(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
     target_count: Optional[int] = None
     current_count: Optional[int] = Field(None, ge=0, description="New absolute current count")
     text_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
+
+
+class UpdateMalaImageRequest(BaseModel):
+    mala_image_id: UUID = Field(..., description="Id of the mala image (from the mala_images catalog) to set")
+    language: LanguageCode = Field(..., description="Language of the accumulator metadata row to update")
 
 
 class AccumulatorSessionDTO(BaseModel):
@@ -74,11 +86,10 @@ class AccumulatorSessionDTO(BaseModel):
 class AccumulatorHistoryDTO(BaseModel):
     accumulator_id: UUID
     parent_id: Optional[UUID] = Field(None, description="The preset this accumulator was created from")
-    name: str
-    description: Optional[str] = None
     target_count: Optional[int] = None
     current_count: int
     total_counted: int
+    metadata: List[AccumulatorMetadataDTO] = []
     sessions: List[AccumulatorSessionDTO]
 
 

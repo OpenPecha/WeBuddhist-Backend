@@ -37,6 +37,20 @@ class TestDataFactory:
     """Factory for creating test data objects."""
 
     @staticmethod
+    def create_mock_metadata(name="Test Accumulator", description=None, language="EN", mala=None):
+        """Create a mock AccumulatorMetadata row."""
+        metadata = MagicMock()
+        metadata.id = uuid4()
+        metadata.name = name
+        metadata.description = description
+        lang = MagicMock()
+        lang.value = language
+        metadata.language = lang
+        metadata.mala = mala
+        metadata.mala_image = mala.id if mala is not None else None
+        return metadata
+
+    @staticmethod
     def create_mock_accumulator(
         accumulator_id=None,
         user_id=None,
@@ -49,20 +63,25 @@ class TestDataFactory:
         current_count=0,
         text_id=None,
         mantra_id=None,
+        metadata_entries=None,
     ):
-        """Create a mock Accumulator model."""
+        """Create a mock Accumulator model. name/description are placed on a
+        single (EN) metadata row unless metadata_entries is given explicitly."""
         accumulator = MagicMock(spec=Accumulator)
         accumulator.id = accumulator_id or uuid4()
         accumulator.user_id = user_id or uuid4()
         accumulator.group_id = group_id
         accumulator.parent_id = parent_id
         accumulator.type = accumulator_type
-        accumulator.name = name
-        accumulator.description = description
         accumulator.target_count = target_count
         accumulator.current_count = current_count
         accumulator.text_id = text_id
         accumulator.mantra_id = mantra_id
+        if metadata_entries is None:
+            metadata_entries = [
+                TestDataFactory.create_mock_metadata(name=name, description=description)
+            ]
+        accumulator.metadata_entries = metadata_entries
         accumulator.created_at = datetime.utcnow()
         accumulator.updated_at = datetime.utcnow()
         return accumulator
@@ -82,8 +101,6 @@ class TestDataFactory:
 
     @staticmethod
     def create_update_request(
-        name=None,
-        description=None,
         target_count=None,
         current_count=None,
         text_id=None,
@@ -91,8 +108,6 @@ class TestDataFactory:
     ) -> UpdateAccumulatorRequest:
         """Create an UpdateAccumulatorRequest."""
         return UpdateAccumulatorRequest(
-            name=name,
-            description=description,
             target_count=target_count,
             current_count=current_count,
             text_id=text_id,
@@ -262,7 +277,7 @@ class TestCreateAccumulatorService:
         result = create_accumulator_service(token=token, request=request)
 
         assert isinstance(result, AccumulatorDTO)
-        assert result.name == "Refuge Prayer"
+        assert result.metadata[0].name == "Refuge Prayer"
         assert result.target_count == 111111
         assert result.type == AccumulatorType.USER
         assert result.user_id == user_id
@@ -407,12 +422,11 @@ class TestUpdateAccumulatorService:
         mock_get.return_value = existing
         mock_update.return_value = existing
 
-        request = TestDataFactory.create_update_request(name="Updated Name", target_count=200)
+        request = TestDataFactory.create_update_request(target_count=200)
 
         result = await update_accumulator_service(token=token, accumulator_id=accumulator_id, request=request)
 
         assert isinstance(result, AccumulatorDTO)
-        assert existing.name == "Updated Name"
         assert existing.target_count == 200
         mock_get.assert_called_once_with(mock_db, accumulator_id)
         mock_update.assert_called_once_with(mock_db, existing)
@@ -493,7 +507,7 @@ class TestUpdateAccumulatorService:
         mock_session.return_value.__enter__.return_value = mock_db
         mock_get.return_value = None
 
-        request = TestDataFactory.create_update_request(name="Updated")
+        request = TestDataFactory.create_update_request()
 
         with pytest.raises(HTTPException) as exc_info:
             await update_accumulator_service(token=token, accumulator_id=uuid4(), request=request)
@@ -512,7 +526,7 @@ class TestUpdateAccumulatorService:
         mock_session.return_value.__enter__.return_value = mock_db
         mock_get.return_value = TestDataFactory.create_mock_accumulator(user_id=uuid4())
 
-        request = TestDataFactory.create_update_request(name="Updated")
+        request = TestDataFactory.create_update_request()
 
         with pytest.raises(HTTPException) as exc_info:
             await update_accumulator_service(token=token, accumulator_id=uuid4(), request=request)
@@ -534,7 +548,7 @@ class TestUpdateAccumulatorService:
             user_id=user_id, accumulator_type=AccumulatorType.PRESET
         )
 
-        request = TestDataFactory.create_update_request(name="Updated")
+        request = TestDataFactory.create_update_request()
 
         with pytest.raises(HTTPException) as exc_info:
             await update_accumulator_service(token=token, accumulator_id=uuid4(), request=request)
@@ -550,7 +564,7 @@ class TestUpdateAccumulatorService:
             detail="Invalid authentication credentials",
         )
 
-        request = TestDataFactory.create_update_request(name="Updated")
+        request = TestDataFactory.create_update_request()
 
         with pytest.raises(HTTPException) as exc_info:
             await update_accumulator_service(token="invalid_token", accumulator_id=uuid4(), request=request)
@@ -677,7 +691,7 @@ class TestGetAccumulatorHistoryService:
 
         assert isinstance(result, AccumulatorHistoryResponse)
         assert len(result.accumulators) == 1
-        assert result.accumulators[0].name == "Mani"
+        assert result.accumulators[0].metadata[0].name == "Mani"
         assert result.accumulators[0].total_counted == 300
         assert len(result.accumulators[0].sessions) == 2
         assert result.total == 1
@@ -736,8 +750,8 @@ class TestHelperFunctions:
         assert isinstance(result, AccumulatorDTO)
         assert result.id == accumulator_id
         assert result.user_id == user_id
-        assert result.name == "Mani"
-        assert result.description == "Compassion mantra"
+        assert result.metadata[0].name == "Mani"
+        assert result.metadata[0].description == "Compassion mantra"
         assert result.target_count == 108
         assert result.current_count == 42
         assert result.type == AccumulatorType.USER

@@ -11,7 +11,8 @@ from .accumulator_service import (
     update_accumulator_service,
     delete_accumulator_service,
     get_accumulator_history_service,
-    get_accumulator_detail_service
+    get_accumulator_detail_service,
+    update_mala_image_service
 )
 from .accumulator_response_models import (
     AccumulatorsResponse,
@@ -19,6 +20,7 @@ from .accumulator_response_models import (
     AccumulatorDTO,
     CreateAccumulatorRequest,
     UpdateAccumulatorRequest,
+    UpdateMalaImageRequest,
     AccumulatorHistoryResponse,
     AccumulatorHistoryDTO
 )
@@ -86,6 +88,19 @@ async def delete_user_accumulator(
     delete_accumulator_service(
         token=credentials.credentials,
         accumulator_id=accumulator_id
+    )
+
+
+@accumulator_router.put("/user/{accumulator_id}/mala-image", response_model=AccumulatorDTO)
+async def update_accumulator_mala_image(
+    accumulator_id: UUID,
+    request: UpdateMalaImageRequest,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+    return update_mala_image_service(
+        token=credentials.credentials,
+        accumulator_id=accumulator_id,
+        request=request
     )
 
 

@@ -1,4 +1,5 @@
-from sqlalchemy import Column, String, DateTime, UUID, Text, Index, Integer, ForeignKey
+from sqlalchemy import Column, DateTime, UUID, Index, Integer, ForeignKey
+from sqlalchemy.orm import relationship
 from ..db.database import Base
 from uuid import uuid4
 import _datetime
@@ -20,8 +21,6 @@ class Accumulator(Base):
         nullable=True,
     )
     type = Column(AccumulatorTypeEnum, nullable=False)
-    name = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
     target_count = Column(Integer, nullable=True)
     current_count = Column(Integer, nullable=False, default=0)
     text_id = Column(UUID(as_uuid=True), nullable=True)
@@ -34,6 +33,12 @@ class Accumulator(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(_datetime.timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(_datetime.timezone.utc), onupdate=lambda: datetime.now(_datetime.timezone.utc))
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    metadata_entries = relationship(
+        "AccumulatorMetadata",
+        back_populates="accumulator",
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index("idx_accumulators_user_id", "user_id"),
