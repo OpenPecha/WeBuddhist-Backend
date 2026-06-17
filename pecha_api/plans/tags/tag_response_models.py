@@ -66,3 +66,13 @@ class PublicTagsListResponse(BaseModel):
     skip: int
     limit: int
     total: int
+
+
+class SegmentContentDTO(BaseModel):
+    segment_id: str
+    text_id: str
+    content: str
+
+
+class PublicTagDetailDTO(TagSummaryDTO):
+    segments: List[SegmentContentDTO] = []
