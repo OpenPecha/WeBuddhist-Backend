@@ -31,9 +31,17 @@ def tags_to_summary_dtos(
             image_key=tag.image_key,
             description=tag.description,
             featured=tag.featured,
+            display_order=tag.display_order,
         )
         for tag in active
     ]
     if preserve_order:
         return dtos
-    return sorted(dtos, key=lambda item: item.name.lower())
+    return sorted(
+        dtos,
+        key=lambda item: (
+            item.display_order is None,
+            item.display_order if item.display_order is not None else 0,
+            item.name.lower(),
+        ),
+    )

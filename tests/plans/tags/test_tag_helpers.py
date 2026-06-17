@@ -4,12 +4,14 @@ from unittest.mock import MagicMock, patch
 from pecha_api.plans.tags.tag_helpers import generate_tag_image_url, tags_to_summary_dtos
 
 
-def _tag_entity(name: str, image_key=None, deleted_at=None):
+def _tag_entity(name: str, image_key=None, deleted_at=None, display_order=None):
     tag = MagicMock()
     tag.id = uuid.uuid4()
     tag.name = name
     tag.image_key = image_key
     tag.description = "desc"
+    tag.featured = False
+    tag.display_order = display_order
     tag.deleted_at = deleted_at
     return tag
 
@@ -48,6 +50,19 @@ def test_tags_to_summary_dtos_sorts_and_maps_active_tags():
     assert len(result) == 2
     assert result[0].name == "alpha"
     assert result[1].name == "Zebra"
+
+
+def test_tags_to_summary_dtos_sorts_by_display_order_then_name():
+    with patch("pecha_api.plans.tags.tag_helpers.generate_tag_image_url", return_value=None):
+        result = tags_to_summary_dtos(
+            [
+                _tag_entity("Zebra", display_order=2),
+                _tag_entity("alpha", display_order=1),
+                _tag_entity("middle", display_order=None),
+            ]
+        )
+
+    assert [item.name for item in result] == ["alpha", "Zebra", "middle"]
 
 
 def test_tags_to_summary_dtos_includes_image_when_key_present():
