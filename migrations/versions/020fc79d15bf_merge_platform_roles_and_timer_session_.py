@@ -1,7 +1,7 @@
 """merge platform roles and timer session heads
 
 Revision ID: 020fc79d15bf
-Revises: 440953ec8a21, c5e7a9b1d3f2
+Revises: g0a1b2c3d4e5, c5e7a9b1d3f2
 Create Date: 2026-06-05 16:19:55.465424
 """
 from typing import Sequence, Union
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = "020fc79d15bf"
-down_revision: Union[str, Sequence[str], None] = ("440953ec8a21", "c5e7a9b1d3f2")
+down_revision: Union[str, Sequence[str], None] = ("g0a1b2c3d4e5", "c5e7a9b1d3f2")
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
