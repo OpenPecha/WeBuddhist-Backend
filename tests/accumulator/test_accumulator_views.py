@@ -7,7 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from starlette import status
 
 from pecha_api.accumulator.accumulator_views import (
-    get_all_accumulators,
+    get_all_preset_accumulators,
     get_user_accumulators,
     create_user_accumulator,
     update_user_accumulator,
@@ -99,7 +99,7 @@ class TestGetAllAccumulators:
             limit=20,
         )
 
-        result = await get_all_accumulators(skip=0, limit=20)
+        result = await get_all_preset_accumulators(skip=0, limit=20)
 
         assert isinstance(result, PublicAccumulatorsResponse)
         assert len(result.accumulators) == 2
@@ -114,7 +114,7 @@ class TestGetAllAccumulators:
             accumulators=[], total=0, skip=0, limit=20
         )
 
-        result = await get_all_accumulators(skip=0, limit=20)
+        result = await get_all_preset_accumulators(skip=0, limit=20)
 
         assert len(result.accumulators) == 0
         assert result.total == 0
@@ -130,7 +130,7 @@ class TestGetAllAccumulators:
             limit=1,
         )
 
-        result = await get_all_accumulators(skip=5, limit=1)
+        result = await get_all_preset_accumulators(skip=5, limit=1)
 
         assert result.skip == 5
         assert result.limit == 1

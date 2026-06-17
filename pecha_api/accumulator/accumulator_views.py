@@ -28,8 +28,12 @@ accumulator_router = APIRouter(prefix="/accumulators", tags=["Accumulators"])
 oauth2_scheme = HTTPBearer()
 
 
-@accumulator_router.get("/presets", response_model=PublicAccumulatorsResponse)
-async def get_all_accumulators(
+@accumulator_router.get(
+    "/presets",
+    response_model=PublicAccumulatorsResponse,
+    summary="Get all public preset accumulators",
+)
+async def get_all_preset_accumulators(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
 ):
