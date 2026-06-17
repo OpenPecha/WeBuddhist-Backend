@@ -133,6 +133,7 @@ api.include_router(timer_router)
 api.include_router(accumulator_router)
 api.include_router(daily_log_views.daily_log_router)
 api.include_router(mantra_views.mantra_router)
+api.include_router(mantra_views.cms_mantra_router)
 api.include_router(events_router)
 api.include_router(cms_events_router)
 

@@ -21,4 +21,4 @@ class MantraMetadata(Base):
     pronunciation = Column(Text, nullable=True)
     language = Column(LanguageCodeEnum, nullable=False)
 
-    mantra = relationship("Mantra", back_populates="metadata_entries")
+    parent_mantra = relationship("Mantra", back_populates="metadata_entries")
