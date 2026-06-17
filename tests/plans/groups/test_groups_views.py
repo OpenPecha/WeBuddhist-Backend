@@ -10,9 +10,12 @@ from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole, AuthorGro
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
     AuthorGroupListResponse,
-    AuthorGroupSummaryDTO,
     GroupInviteCreatedResponse,
     GroupMetadataDTO,
+    UserFollowedAuthorGroupDTO,
+    UserFollowedAuthorGroupListResponse,
+    UserJoinedAuthorGroupDTO,
+    UserJoinedAuthorGroupListResponse,
 )
 client = TestClient(api)
 
@@ -359,30 +362,26 @@ def test_follow_and_unfollow_group():
 
 
 def test_get_my_followed_groups():
-    listing = AuthorGroupListResponse(groups=[], skip=0, limit=20, total=0)
+    listing = UserFollowedAuthorGroupListResponse(groups=[], skip=0, limit=20, total=0)
     with patch(
         "pecha_api.plans.groups.groups_views.list_followed_groups",
         return_value=listing,
     ) as mock_service:
         response = client.get(
-            "/users/me/following/author/groups?skip=0&limit=20",
+            "/users/me/following/author/groups?skip=0&limit=20&language=bo",
             headers={"Authorization": "Bearer dummy"},
         )
     assert response.status_code == status.HTTP_200_OK
-    mock_service.assert_called_once_with(token="dummy", skip=0, limit=20)
+    mock_service.assert_called_once_with(token="dummy", skip=0, limit=20, language="bo")
 
 
 def test_get_my_followed_group_by_id():
     group_id = uuid4()
-    group_summary = AuthorGroupSummaryDTO(
+    group_summary = UserFollowedAuthorGroupDTO(
         id=group_id,
-        slug="bodhichitta-authors",
-        group_type=AuthorGroupType.PAGE,
-        is_public=True,
         metadata=_metadata(),
         tags=[],
         follower_count=4,
-        member_count=2,
     )
     with patch(
         "pecha_api.plans.groups.groups_views.get_followed_group",
@@ -409,30 +408,26 @@ def test_join_and_leave_group():
 
 
 def test_get_my_joined_groups():
-    listing = AuthorGroupListResponse(groups=[], skip=0, limit=20, total=0)
+    listing = UserJoinedAuthorGroupListResponse(groups=[], skip=0, limit=20, total=0)
     with patch(
         "pecha_api.plans.groups.groups_views.list_joined_groups",
         return_value=listing,
     ) as mock_service:
         response = client.get(
-            "/users/me/joined/author/groups?skip=0&limit=20",
+            "/users/me/joined/author/groups?skip=0&limit=20&language=bo",
             headers={"Authorization": "Bearer dummy"},
         )
     assert response.status_code == status.HTTP_200_OK
-    mock_service.assert_called_once_with(token="dummy", skip=0, limit=20)
+    mock_service.assert_called_once_with(token="dummy", skip=0, limit=20, language="bo")
 
 
 def test_get_my_joined_group_by_id():
     group_id = uuid4()
-    group_summary = AuthorGroupSummaryDTO(
+    group_summary = UserJoinedAuthorGroupDTO(
         id=group_id,
-        slug="bodhichitta-authors",
-        group_type=AuthorGroupType.PAGE,
-        is_public=True,
         metadata=_metadata(),
         tags=[],
-        follower_count=4,
-        member_count=2,
+        joiner_count=2,
     )
     with patch(
         "pecha_api.plans.groups.groups_views.get_joined_group",
