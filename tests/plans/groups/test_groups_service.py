@@ -818,14 +818,14 @@ def test_get_joined_group_returns_group_when_joined():
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_followers_count_map",
-        return_value={group.id: 5},
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map",
+        return_value={group.id: 3},
     ):
         _session_local_context(mock_session)
         result = get_joined_group(token="t", group_id=group.id)
 
     assert result.id == group.id
-    assert result.follower_count == 5
+    assert result.joiner_count == 3
 
 
 def test_get_joined_group_returns_404_when_not_joined():
