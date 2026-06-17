@@ -7,9 +7,9 @@ from ..plans.plans_enums import LanguageCode
 
 class MantraMetadataDTO(BaseModel):
     id: UUID
-    text: str
-    meaning: Optional[str] = None
-    transliteration: Optional[str] = None
+    mantra: str
+    title: Optional[str] = None
+    pronunciation: Optional[str] = None
     language: LanguageCode
 
     class Config:

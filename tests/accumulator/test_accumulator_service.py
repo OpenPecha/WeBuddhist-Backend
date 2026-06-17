@@ -12,9 +12,13 @@ from pecha_api.accumulator.accumulator_service import (
     update_accumulator_service,
     delete_accumulator_service,
     get_accumulator_history_service,
+    get_accumulator_detail_service,
     update_mala_image_service,
     convert_accumulator_to_dto,
     convert_accumulator_to_public_dto,
+    build_preset_mantra_dto,
+    generate_mala_image_presigned_url,
+    _create_accumulator_from_preset,
     is_user_created_accumulator,
     validate_mantra_exists,
 )
@@ -23,10 +27,12 @@ from pecha_api.accumulator.accumulator_response_models import (
     PublicAccumulatorsResponse,
     AccumulatorDTO,
     PublicAccumulatorDTO,
+    PresetMantraDTO,
     CreateAccumulatorRequest,
     UpdateAccumulatorRequest,
     UpdateMalaImageRequest,
     AccumulatorHistoryResponse,
+    AccumulatorHistoryDTO,
 )
 from pecha_api.accumulator.accumulator_models import Accumulator
 from pecha_api.accumulator.accumulator_history_model import AccumulatorHistory
@@ -35,8 +41,41 @@ from pecha_api.mantra.mantra_model import Mantra
 from pecha_api.mantra.mantra_metadata_model import MantraMetadata  
 
 
+from pecha_api.plans.plans_enums import LanguageCode
+
+
 class TestDataFactory:
     """Factory for creating test data objects."""
+
+    @staticmethod
+    def create_mock_mantra_metadata(
+        mantra="Om Mani Padme Hum",
+        title="The jewel in the lotus",
+        pronunciation="om mani padme hum",
+        language=LanguageCode.EN,
+    ):
+        entry = MagicMock(spec=MantraMetadata)
+        entry.mantra = mantra
+        entry.title = title
+        entry.pronunciation = pronunciation
+        entry.language = language
+        return entry
+
+    @staticmethod
+    def create_mock_mantra(
+        mantra_id=None,
+        audio_url="audio/mantra.mp3",
+        metadata_entries=None,
+        mala=None,
+    ):
+        mantra = MagicMock(spec=Mantra)
+        mantra.id = mantra_id or uuid4()
+        mantra.audio_url = audio_url
+        if metadata_entries is None:
+            metadata_entries = [TestDataFactory.create_mock_mantra_metadata()]
+        mantra.metadata_entries = metadata_entries
+        mantra.mala = mala
+        return mantra
 
     @staticmethod
     def create_mock_metadata(name="Test Accumulator", description=None, language="EN"):
@@ -136,9 +175,10 @@ class TestDataFactory:
 class TestGetAllAccumulatorsService:
     """Test cases for get_all_accumulators_service function."""
 
+    @patch('pecha_api.accumulator.accumulator_service.get_mantras_by_ids')
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.get_all_accumulators')
-    def test_get_all_accumulators_service_success(self, mock_get_all, mock_session):
+    def test_get_all_accumulators_service_success(self, mock_get_all, mock_session, mock_get_mantras):
         """Test successful retrieval of all accumulators."""
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
@@ -146,6 +186,7 @@ class TestGetAllAccumulatorsService:
         acc1 = TestDataFactory.create_mock_accumulator(name="Acc 1")
         acc2 = TestDataFactory.create_mock_accumulator(name="Acc 2")
         mock_get_all.return_value = ([acc1, acc2], 2)
+        mock_get_mantras.return_value = {}
 
         result = get_all_accumulators_service(skip=0, limit=20)
 
@@ -159,30 +200,85 @@ class TestGetAllAccumulatorsService:
         assert not hasattr(result.accumulators[0], "user_id")
 
         mock_get_all.assert_called_once_with(mock_db, 0, 20)
+        mock_get_mantras.assert_called_once_with(mock_db, [])
 
+    @patch('pecha_api.accumulator.accumulator_service.get_mantras_by_ids')
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.get_all_accumulators')
-    def test_get_all_accumulators_service_empty(self, mock_get_all, mock_session):
+    def test_get_all_accumulators_service_includes_mantra_detail(
+        self, mock_get_all, mock_session, mock_get_mantras
+    ):
+        """Preset list should embed mantra detail for the requested language."""
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        mantra_id = uuid4()
+        mala = MagicMock()
+        mala.id = uuid4()
+        mala.url = "mala-images/default.png"
+        mantra = TestDataFactory.create_mock_mantra(
+            mantra_id=mantra_id,
+            mala=mala,
+            metadata_entries=[
+                TestDataFactory.create_mock_mantra_metadata(
+                    mantra="Tibetan text",
+                    title="Tibetan title",
+                    pronunciation="tibetan pronunciation",
+                    language=LanguageCode.BO,
+                ),
+                TestDataFactory.create_mock_mantra_metadata(
+                    mantra="English text",
+                    title="English title",
+                    pronunciation="english pronunciation",
+                    language=LanguageCode.EN,
+                ),
+            ],
+        )
+        preset = TestDataFactory.create_mock_accumulator(
+            name="Preset",
+            accumulator_type=AccumulatorType.PRESET,
+            mantra_id=mantra_id,
+        )
+        mock_get_all.return_value = ([preset], 1)
+        mock_get_mantras.return_value = {mantra_id: mantra}
+
+        result = get_all_accumulators_service(skip=0, limit=20, language="bo")
+
+        assert result.accumulators[0].mantra.id == mantra_id
+        assert result.accumulators[0].mantra.mantra == "Tibetan text"
+        assert result.accumulators[0].mantra.title == "Tibetan title"
+        assert result.accumulators[0].mantra.pronunciation == "tibetan pronunciation"
+        assert result.accumulators[0].mantra.audio_url == mantra.audio_url
+        assert result.accumulators[0].mantra.mala_image_id == mala.id
+        mock_get_mantras.assert_called_once_with(mock_db, [mantra_id])
+
+    @patch('pecha_api.accumulator.accumulator_service.get_mantras_by_ids')
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_all_accumulators')
+    def test_get_all_accumulators_service_empty(self, mock_get_all, mock_session, mock_get_mantras):
         """Test get_all_accumulators_service when no accumulators exist."""
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
 
         mock_get_all.return_value = ([], 0)
+        mock_get_mantras.return_value = {}
 
         result = get_all_accumulators_service(skip=0, limit=20)
 
         assert len(result.accumulators) == 0
         assert result.total == 0
 
+    @patch('pecha_api.accumulator.accumulator_service.get_mantras_by_ids')
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.get_all_accumulators')
-    def test_get_all_accumulators_service_pagination(self, mock_get_all, mock_session):
+    def test_get_all_accumulators_service_pagination(self, mock_get_all, mock_session, mock_get_mantras):
         """Test get_all_accumulators_service with custom pagination."""
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
 
         acc1 = TestDataFactory.create_mock_accumulator()
         mock_get_all.return_value = ([acc1], 10)
+        mock_get_mantras.return_value = {}
 
         result = get_all_accumulators_service(skip=5, limit=1)
 
@@ -641,6 +737,69 @@ class TestUpdateAccumulatorService:
 
         assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
+    @patch('pecha_api.accumulator.accumulator_service.TextUtils.validate_text_exists', new_callable=AsyncMock)
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.update_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    @pytest.mark.asyncio
+    async def test_update_accumulator_service_updates_text_id(
+        self, mock_validate, mock_get, mock_update, mock_session, mock_validate_text
+    ):
+        """Test update_accumulator_service updates text_id after validation."""
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        text_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_validate_text.return_value = None
+
+        existing = TestDataFactory.create_mock_accumulator(
+            accumulator_id=accumulator_id, user_id=user_id
+        )
+        mock_get.return_value = existing
+        mock_update.return_value = existing
+
+        request = TestDataFactory.create_update_request(text_id=text_id)
+        await update_accumulator_service(token=token, accumulator_id=accumulator_id, request=request)
+
+        assert existing.text_id == text_id
+        mock_validate_text.assert_awaited_once_with(text_id=str(text_id))
+
+    @patch('pecha_api.accumulator.accumulator_service.validate_mantra_exists')
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.update_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    @pytest.mark.asyncio
+    async def test_update_accumulator_service_updates_mantra_id(
+        self, mock_validate, mock_get, mock_update, mock_session, mock_validate_mantra
+    ):
+        """Test update_accumulator_service updates mantra_id after validation."""
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        mantra_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        existing = TestDataFactory.create_mock_accumulator(
+            accumulator_id=accumulator_id, user_id=user_id
+        )
+        mock_get.return_value = existing
+        mock_update.return_value = existing
+
+        request = TestDataFactory.create_update_request(mantra_id=mantra_id)
+        await update_accumulator_service(token=token, accumulator_id=accumulator_id, request=request)
+
+        assert existing.mantra_id == mantra_id
+        mock_validate_mantra.assert_called_once_with(mock_db, mantra_id)
+
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
     @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
@@ -932,6 +1091,96 @@ class TestGetAccumulatorHistoryService:
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
 
+class TestGetAccumulatorDetailService:
+    """Test cases for get_accumulator_detail_service."""
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_with_history')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_detail_service_success(self, mock_validate, mock_get_history, mock_session):
+        """Return history when the user already has an accumulator for the preset."""
+        token = "valid_token"
+        user_id = uuid4()
+        parent_id = uuid4()
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        accumulator = TestDataFactory.create_mock_accumulator(
+            user_id=user_id,
+            parent_id=parent_id,
+            current_count=50,
+        )
+        sessions = [TestDataFactory.create_mock_history(accumulator_id=accumulator.id, user_id=user_id)]
+        mock_get_history.return_value = (accumulator, 50, sessions)
+
+        result = get_accumulator_detail_service(token=token, parent_id=parent_id)
+
+        assert isinstance(result, AccumulatorHistoryDTO)
+        assert result.accumulator_id == accumulator.id
+        assert result.parent_id == parent_id
+        assert result.current_count == 50
+        assert result.total_counted == 50
+        assert len(result.sessions) == 1
+        mock_get_history.assert_called_once_with(mock_db, user_id, parent_id)
+
+    @patch('pecha_api.accumulator.accumulator_service._create_accumulator_from_preset')
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_with_history')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_detail_service_creates_when_missing(
+        self, mock_validate, mock_get_history, mock_session, mock_create
+    ):
+        """Auto-create from preset when the user has no accumulator yet."""
+        token = "valid_token"
+        user_id = uuid4()
+        parent_id = uuid4()
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_history.return_value = None
+
+        created = TestDataFactory.create_mock_accumulator(
+            user_id=user_id,
+            parent_id=parent_id,
+            current_count=0,
+        )
+        mock_create.return_value = created
+
+        result = get_accumulator_detail_service(token=token, parent_id=parent_id)
+
+        assert isinstance(result, AccumulatorHistoryDTO)
+        assert result.accumulator_id == created.id
+        assert result.parent_id == parent_id
+        assert result.current_count == 0
+        assert result.total_counted == 0
+        assert result.sessions == []
+        mock_create.assert_called_once_with(mock_db, user_id, parent_id)
+
+    @patch('pecha_api.accumulator.accumulator_service._create_accumulator_from_preset')
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_with_history')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_detail_service_preset_not_found(
+        self, mock_validate, mock_get_history, mock_session, mock_create
+    ):
+        """Still returns 404 when the preset itself does not exist."""
+        token = "valid_token"
+        mock_validate.return_value = TestDataFactory.create_mock_user()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_history.return_value = None
+        mock_create.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "NOT_FOUND", "message": "Preset accumulator not found"},
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_accumulator_detail_service(token=token, parent_id=uuid4())
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
 class TestHelperFunctions:
     """Test cases for helper/conversion functions."""
 
@@ -976,7 +1225,116 @@ class TestHelperFunctions:
         assert isinstance(result, PublicAccumulatorDTO)
         assert not hasattr(result, "user_id")
         assert not hasattr(result, "preset_id")
+        assert not hasattr(result, "mantra_id")
         assert result.id == accumulator.id
+        assert result.mantra is None
+
+    def test_build_preset_mantra_dto_defaults_to_english(self):
+        """Without a language filter, English metadata is preferred."""
+        mantra = TestDataFactory.create_mock_mantra(
+            metadata_entries=[
+                TestDataFactory.create_mock_mantra_metadata(
+                    mantra="BO text", language=LanguageCode.BO
+                ),
+                TestDataFactory.create_mock_mantra_metadata(
+                    mantra="EN text", language=LanguageCode.EN
+                ),
+            ],
+        )
+
+        result = build_preset_mantra_dto(mantra, language=None)
+
+        assert result is not None
+        assert result.mantra == "EN text"
+
+    def test_build_preset_mantra_dto_returns_none_without_metadata(self):
+        """No metadata entries yields no mantra detail."""
+        mantra = TestDataFactory.create_mock_mantra(metadata_entries=[])
+
+        assert build_preset_mantra_dto(mantra, language="en") is None
+
+    def test_build_preset_mantra_dto_returns_none_when_language_missing(self):
+        """Requested language with no matching metadata yields None."""
+        mantra = TestDataFactory.create_mock_mantra(
+            metadata_entries=[
+                TestDataFactory.create_mock_mantra_metadata(language=LanguageCode.EN)
+            ],
+        )
+
+        assert build_preset_mantra_dto(mantra, language="bo") is None
+
+    def test_build_preset_mantra_dto_falls_back_to_first_metadata(self):
+        """Without English metadata, the first entry is used."""
+        mantra = TestDataFactory.create_mock_mantra(
+            metadata_entries=[
+                TestDataFactory.create_mock_mantra_metadata(
+                    mantra="BO text", language=LanguageCode.BO
+                ),
+            ],
+        )
+
+        result = build_preset_mantra_dto(mantra, language=None)
+
+        assert result is not None
+        assert result.mantra == "BO text"
+
+    def test_convert_accumulator_to_public_dto_includes_mantra_detail(self):
+        """Public DTO embeds mantra detail when mantra data is available."""
+        mantra_id = uuid4()
+        mantra = TestDataFactory.create_mock_mantra(mantra_id=mantra_id)
+        accumulator = TestDataFactory.create_mock_accumulator(mantra_id=mantra_id)
+
+        result = convert_accumulator_to_public_dto(
+            accumulator,
+            mantras_by_id={mantra_id: mantra},
+            language="en",
+        )
+
+        assert result.mantra is not None
+        assert result.mantra.id == mantra_id
+        assert result.mantra.mantra == "Om Mani Padme Hum"
+
+    @patch('pecha_api.accumulator.accumulator_service.generate_presigned_access_url')
+    @patch('pecha_api.accumulator.accumulator_service.get')
+    def test_generate_mala_image_presigned_url_success(self, mock_get, mock_presign):
+        """Presigned URL is returned for a valid mala image key."""
+        mock_get.return_value = "test-bucket"
+        mock_presign.return_value = "https://signed-url"
+
+        assert generate_mala_image_presigned_url("mala-images/default.png") == "https://signed-url"
+
+    def test_generate_mala_image_presigned_url_none_for_empty_url(self):
+        """Empty mala image url returns None without calling S3."""
+        assert generate_mala_image_presigned_url(None) is None
+
+    @patch('pecha_api.accumulator.accumulator_service.generate_presigned_access_url', side_effect=Exception("s3 down"))
+    @patch('pecha_api.accumulator.accumulator_service.get', return_value="test-bucket")
+    def test_generate_mala_image_presigned_url_handles_errors(self, _mock_get, _mock_presign):
+        """S3 failures are swallowed and return None."""
+        assert generate_mala_image_presigned_url("mala-images/default.png") is None
+
+    @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.get_mantra_mala_image_id', return_value=None)
+    @patch('pecha_api.accumulator.accumulator_service.get_user_accumulator_by_parent')
+    @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
+    def test_create_accumulator_from_preset_raises_when_duplicate(
+        self, mock_get_preset, mock_get_by_parent, _mock_mala, _mock_add, _mock_commit
+    ):
+        """Shared create helper rejects duplicate preset accumulators."""
+        user_id = uuid4()
+        preset_id = uuid4()
+        mock_get_preset.return_value = TestDataFactory.create_mock_accumulator(
+            accumulator_id=preset_id, accumulator_type=AccumulatorType.PRESET
+        )
+        mock_get_by_parent.return_value = TestDataFactory.create_mock_accumulator(
+            user_id=user_id, parent_id=preset_id
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            _create_accumulator_from_preset(MagicMock(), user_id, preset_id)
+
+        assert exc_info.value.status_code == status.HTTP_409_CONFLICT
 
     def test_is_user_created_accumulator_user_type(self):
         """is_user_created_accumulator returns True for USER type."""

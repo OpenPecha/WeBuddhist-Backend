@@ -13,6 +13,20 @@ class AccumulatorMetadataDTO(BaseModel):
     description: Optional[str] = None
 
 
+class PresetMantraDTO(BaseModel):
+    """Mantra content for a preset, resolved for a single language."""
+    id: UUID
+    mantra: str
+    title: Optional[str] = None
+    pronunciation: Optional[str] = None
+    audio_url: Optional[str] = None
+    mala_image_id: Optional[UUID] = None
+    mala_image_url: Optional[str] = Field(
+        None,
+        description="Presigned S3 URL for the mantra's default mala image",
+    )
+
+
 class AccumulatorDTO(BaseModel):
     id: UUID
     user_id: UUID
@@ -48,7 +62,7 @@ class PublicAccumulatorDTO(BaseModel):
     target_count: Optional[int] = None
     current_count: int
     text_id: Optional[UUID] = None
-    mantra_id: Optional[UUID] = None
+    mantra: Optional[PresetMantraDTO] = None
     mala_image_id: Optional[UUID] = None
     mala_image_url: Optional[str] = Field(None, description="Presigned S3 URL for the chosen mala image (None when no image is set)")
     metadata: List[AccumulatorMetadataDTO] = []
