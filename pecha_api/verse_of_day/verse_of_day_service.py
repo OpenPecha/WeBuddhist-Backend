@@ -2,6 +2,7 @@ from typing import Optional, Dict, Union, List
 from uuid import UUID
 from datetime import date
 import logging
+import json
 from fastapi import HTTPException
 from starlette import status
 
@@ -61,11 +62,21 @@ def _generate_verse_image_url(image_keys: Optional[List[str]]) -> Optional[str]:
     return None  
 
 
+def _deserialize_verse(verse: str) -> Union[str, List[str]]:
+    """Deserialize verse content. JSON arrays are parsed back to lists."""
+    if verse.startswith('[') and verse.endswith(']'):
+        try:
+            return json.loads(verse)
+        except json.JSONDecodeError:
+            pass
+    return verse
+
+
 def build_verses_dict(verse_metadata_list) -> VersesDict:
     """Build a dictionary of verses by language from verse_metadata relationship."""
     verses = {}
     for metadata in verse_metadata_list:
-        verses[metadata.lang] = metadata.verse
+        verses[metadata.lang] = _deserialize_verse(metadata.verse)
     return verses
 
 
