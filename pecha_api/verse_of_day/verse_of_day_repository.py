@@ -74,7 +74,7 @@ def create_verse_metadata(
     db: Session, 
     verse_of_day_id: UUID, 
     lang: str, 
-    verse: Union[str, List[str]]
+    verse: str
 ) -> VerseMetadata:
     metadata = VerseMetadata(
         verse_of_day_id=verse_of_day_id,
