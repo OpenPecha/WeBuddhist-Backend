@@ -30,7 +30,7 @@ cms_verse_of_day_router = APIRouter(
 def get_verse_of_day_endpoint(
     group_id: Annotated[Optional[UUID], Query(description="Filter by group ID")] = None,
     date: Annotated[Optional[date], Query(description="Filter by date (YYYY-MM-DD)")] = None,
-    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh). Returns all languages if not specified.")] = None,
+    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh, hi, ne, mn). Returns all languages if not specified.")] = None,
 ):
  
     return get_verse_of_day(group_id=group_id, filter_date=date, lang=lang)
@@ -42,7 +42,7 @@ def get_verse_of_day_endpoint(
     response_model=VerseOfDayPublicResponse
 )
 def get_verse_of_day_today_endpoint(
-    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh). Returns all languages if not specified.")] = None,
+    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh, hi, ne, mn). Returns all languages if not specified.")] = None,
 ):
 
     return get_verse_of_day_today_service(lang=lang)
@@ -55,7 +55,7 @@ def get_verse_of_day_today_endpoint(
 )
 def get_verse_of_day_by_id_endpoint(
     id: UUID,
-    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh). Returns all languages if not specified.")] = None,
+    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh, hi, ne, mn). Returns all languages if not specified.")] = None,
 ):
 
     return get_verse_of_day_by_id_service(verse_id=id, lang=lang)
@@ -70,7 +70,7 @@ def cms_get_verse_of_day_endpoint(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     group_id: Annotated[Optional[UUID], Query(description="Filter by group ID")] = None,
     date: Annotated[Optional[date], Query(description="Filter by date (YYYY-MM-DD)")] = None,
-    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh). Returns all languages if not specified.")] = None,
+    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh, hi, ne, mn). Returns all languages if not specified.")] = None,
     skip: Annotated[int, Query(description="Number of records to skip", ge=0)] = 0,
     limit: Annotated[int, Query(description="Maximum number of records to return", ge=1, le=100)] = 100,
 ):
@@ -86,7 +86,7 @@ def cms_get_verse_of_day_endpoint(
 def cms_get_verse_of_day_by_id_endpoint(
     id: UUID,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh). Returns all languages if not specified.")] = None,
+    lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh, hi, ne, mn). Returns all languages if not specified.")] = None,
 ):
     validate_and_extract_user_details(credentials.credentials)
     return get_verse_of_day_by_id_service(verse_id=id, lang=lang)
