@@ -55,7 +55,7 @@ def test_get_tag_by_name_returns_row():
     tag = MagicMock(spec=Tag)
     db.query.return_value = _mock_query_chain(tag)
 
-    result = get_tag_by_name(db=db, name="Meditation")
+    result = get_tag_by_name(db=db, name="Meditation", language="EN")
 
     assert result is tag
 
@@ -241,3 +241,44 @@ def test_set_tag_segments_inserts_unique_rows():
     assert tag.segment_ids == [segment_id]
     assert db.execute.call_count == 2
     db.commit.assert_called_once()
+
+
+def test_save_tag_metadata_commits():
+    from pecha_api.plans.tags.tag_metadata_model import TagMetadata
+    from pecha_api.plans.tags.tag_repository import save_tag_metadata
+    
+    db = MagicMock()
+    tag_metadata = MagicMock(spec=TagMetadata)
+
+    result = save_tag_metadata(db=db, tag_metadata=tag_metadata)
+
+    db.add.assert_called_once_with(tag_metadata)
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(tag_metadata)
+    assert result is tag_metadata
+
+
+def test_delete_tag_metadata_by_tag_id():
+    from pecha_api.plans.tags.tag_repository import delete_tag_metadata_by_tag_id
+    
+    db = MagicMock()
+    tag_id = uuid.uuid4()
+
+    delete_tag_metadata_by_tag_id(db=db, tag_id=tag_id)
+
+    db.execute.assert_called_once()
+    db.commit.assert_called_once()
+
+
+def test_get_tag_metadata_by_tag_and_language():
+    from pecha_api.plans.tags.tag_repository import get_tag_metadata_by_tag_and_language
+    from pecha_api.plans.tags.tag_metadata_model import TagMetadata
+    
+    db = MagicMock()
+    tag_id = uuid.uuid4()
+    metadata = MagicMock(spec=TagMetadata)
+    db.query.return_value = _mock_query_chain(metadata)
+
+    result = get_tag_metadata_by_tag_and_language(db=db, tag_id=tag_id, language="EN")
+
+    assert result is metadata

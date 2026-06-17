@@ -40,6 +40,7 @@ def _make_tag(
     display_order=None,
     plans=None,
     segment_ids=None,
+    language="EN",
 ):
     tag = MagicMock()
     tag.id = uuid.uuid4()
@@ -50,6 +51,16 @@ def _make_tag(
     tag.display_order = display_order
     tag.plans = plans or []
     tag.segment_ids = segment_ids or []
+    
+    # Add metadata_entries for the new metadata-based structure
+    meta = MagicMock()
+    meta.id = uuid.uuid4()
+    meta.name = name
+    meta.description = description
+    meta.language = MagicMock()
+    meta.language.value = language
+    tag.metadata_entries = [meta]
+    
     return tag
 
 
@@ -62,13 +73,16 @@ def _make_plan(plan_id=None, deleted_at=None):
 
 @pytest.mark.asyncio
 async def test_create_new_tag_success():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     author = _make_author()
     request = CreateTagRequest(
-        name="  Meditation  ",
+        metadata=[
+            TagMetadataInput(language="EN", name="  Meditation  ", description="Daily practice")
+        ],
         image_key="images/tags/cover.jpg",
-        description="Daily practice",
     )
-    saved = _make_tag(name="Meditation", image_key=request.image_key, description=request.description)
+    saved = _make_tag(name="Meditation", image_key=request.image_key, description="Daily practice")
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
@@ -80,6 +94,9 @@ async def test_create_new_tag_success():
         "pecha_api.plans.tags.tag_service.save_tag",
         return_value=saved,
     ) as mock_save, patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
+    ) as mock_save_metadata, patch(
         "pecha_api.plans.tags.tag_service.get_tag_by_id",
         return_value=saved,
     ), patch(
@@ -90,8 +107,8 @@ async def test_create_new_tag_success():
         dto = await create_new_tag(token="tok", create_tag_request=request)
 
     mock_save.assert_called_once()
+    mock_save_metadata.assert_called_once()
     passed_tag = mock_save.call_args.kwargs["tag"]
-    assert passed_tag.name == "Meditation"
     assert passed_tag.image_key == request.image_key
     assert passed_tag.updated_by == author.email
     assert dto.name == "Meditation"
@@ -103,9 +120,14 @@ async def test_create_new_tag_success():
 
 @pytest.mark.asyncio
 async def test_create_new_tag_with_plan_ids():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     author = _make_author()
     plan_id = uuid.uuid4()
-    request = CreateTagRequest(name="Sleep", plan_ids=[plan_id])
+    request = CreateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="Sleep")],
+        plan_ids=[plan_id]
+    )
     saved = _make_tag(name="Sleep")
     active_plan = _make_plan(plan_id=plan_id)
     saved_with_plans = _make_tag(name="Sleep", plans=[active_plan])
@@ -123,6 +145,9 @@ async def test_create_new_tag_with_plan_ids():
         "pecha_api.plans.tags.tag_service.save_tag",
         return_value=saved,
     ), patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
+    ), patch(
         "pecha_api.plans.tags.tag_service.set_tag_plans",
         return_value=saved_with_plans,
     ) as mock_set_plans, patch(
@@ -138,8 +163,13 @@ async def test_create_new_tag_with_plan_ids():
 
 @pytest.mark.asyncio
 async def test_create_new_tag_sets_featured_value():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     author = _make_author()
-    request = CreateTagRequest(name="Featured Tag", featured=True)
+    request = CreateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="Featured Tag")],
+        featured=True
+    )
     saved = _make_tag(name="Featured Tag", featured=True)
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
@@ -152,6 +182,9 @@ async def test_create_new_tag_sets_featured_value():
         "pecha_api.plans.tags.tag_service.save_tag",
         return_value=saved,
     ) as mock_save, patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
+    ), patch(
         "pecha_api.plans.tags.tag_service.get_tag_by_id",
         return_value=saved,
     ):
@@ -165,8 +198,12 @@ async def test_create_new_tag_sets_featured_value():
 
 @pytest.mark.asyncio
 async def test_create_new_tag_duplicate_name_raises_400():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     existing = _make_tag(name="Meditation")
-    request = CreateTagRequest(name="Meditation")
+    request = CreateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="Meditation")]
+    )
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
@@ -185,10 +222,31 @@ async def test_create_new_tag_duplicate_name_raises_400():
 
 
 @pytest.mark.asyncio
+async def test_create_new_tag_missing_metadata_raises_400():
+    with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
+        return_value=_make_author(),
+    ):
+        _session_local_context(mock_session)
+        request = CreateTagRequest(metadata=[])
+        
+        with pytest.raises(HTTPException) as exc:
+            await create_new_tag(token="tok", create_tag_request=request)
+    
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert "At least one metadata entry is required" in exc.value.detail
+
+
+@pytest.mark.asyncio
 async def test_create_new_tag_deduplicates_duplicate_plan_ids_in_request():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     author = _make_author()
     plan_id = uuid.uuid4()
-    request = CreateTagRequest(name="Tag", plan_ids=[plan_id, plan_id])
+    request = CreateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="Tag")],
+        plan_ids=[plan_id, plan_id]
+    )
     saved = _make_tag(name="Tag")
     plan = _make_plan(plan_id=plan_id)
 
@@ -205,6 +263,9 @@ async def test_create_new_tag_deduplicates_duplicate_plan_ids_in_request():
         "pecha_api.plans.tags.tag_service.save_tag",
         return_value=saved,
     ), patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
+    ), patch(
         "pecha_api.plans.tags.tag_service.set_tag_plans",
         return_value=saved,
     ), patch(
@@ -219,8 +280,13 @@ async def test_create_new_tag_deduplicates_duplicate_plan_ids_in_request():
 
 @pytest.mark.asyncio
 async def test_create_new_tag_invalid_plan_id_raises_400():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     missing_id = uuid.uuid4()
-    request = CreateTagRequest(name="New", plan_ids=[missing_id])
+    request = CreateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="New")],
+        plan_ids=[missing_id]
+    )
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
@@ -243,9 +309,14 @@ async def test_create_new_tag_invalid_plan_id_raises_400():
 
 @pytest.mark.asyncio
 async def test_create_new_tag_deleted_plan_raises_400():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     plan_id = uuid.uuid4()
     deleted_plan = _make_plan(plan_id=plan_id, deleted_at=datetime.now(timezone.utc))
-    request = CreateTagRequest(name="New", plan_ids=[plan_id])
+    request = CreateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="New")],
+        plan_ids=[plan_id]
+    )
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
@@ -268,7 +339,11 @@ async def test_create_new_tag_deleted_plan_raises_400():
 
 @pytest.mark.asyncio
 async def test_create_new_tag_integrity_error_raises_400():
-    request = CreateTagRequest(name="Duplicate")
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
+    request = CreateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="Duplicate")]
+    )
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
@@ -291,15 +366,16 @@ async def test_create_new_tag_integrity_error_raises_400():
 
 @pytest.mark.asyncio
 async def test_update_existing_tag_success():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     tag_id = uuid.uuid4()
     author = _make_author()
     existing = _make_tag(name="Old")
     refreshed = _make_tag(name="New Name", image_key="images/new.jpg", description="Updated")
 
     request = UpdateTagRequest(
-        name="  New Name  ",
+        metadata=[TagMetadataInput(language="EN", name="  New Name  ", description="Updated")],
         image_key="images/new.jpg",
-        description="Updated",
     )
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
@@ -312,6 +388,12 @@ async def test_update_existing_tag_success():
         "pecha_api.plans.tags.tag_service.get_tag_by_name",
         return_value=None,
     ), patch(
+        "pecha_api.plans.tags.tag_service.delete_tag_metadata_by_tag_id",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
+    ), patch(
         "pecha_api.plans.tags.tag_service.update_tag_row",
         return_value=existing,
     ) as mock_update_row:
@@ -319,9 +401,7 @@ async def test_update_existing_tag_success():
         dto = await update_existing_tag(token="tok", tag_id=tag_id, update_tag_request=request)
 
     mock_update_row.assert_called_once()
-    assert existing.name == "New Name"
     assert existing.image_key == "images/new.jpg"
-    assert existing.description == "Updated"
     assert existing.updated_by == author.email
     assert dto.name == "New Name"
 
@@ -353,7 +433,7 @@ async def test_update_existing_tag_updates_featured():
 @pytest.mark.asyncio
 async def test_update_existing_tag_not_found():
     tag_id = uuid.uuid4()
-    request = UpdateTagRequest(name="X")
+    request = UpdateTagRequest()
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
@@ -373,12 +453,16 @@ async def test_update_existing_tag_not_found():
 
 @pytest.mark.asyncio
 async def test_update_existing_tag_duplicate_name_raises_400():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     tag_id = uuid.uuid4()
     other_id = uuid.uuid4()
     existing = _make_tag(name="Keep")
     other = _make_tag(name="Taken")
     other.id = other_id
-    request = UpdateTagRequest(name="Taken")
+    request = UpdateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="Taken")]
+    )
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
@@ -433,9 +517,13 @@ async def test_update_existing_tag_replaces_plan_ids():
 
 @pytest.mark.asyncio
 async def test_update_existing_tag_integrity_error_raises_400():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     tag_id = uuid.uuid4()
     existing = _make_tag()
-    request = UpdateTagRequest(name="Conflict")
+    request = UpdateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="Conflict")]
+    )
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
@@ -446,6 +534,12 @@ async def test_update_existing_tag_integrity_error_raises_400():
     ), patch(
         "pecha_api.plans.tags.tag_service.get_tag_by_name",
         return_value=None,
+    ), patch(
+        "pecha_api.plans.tags.tag_service.delete_tag_metadata_by_tag_id",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
     ), patch(
         "pecha_api.plans.tags.tag_service.update_tag_row",
         side_effect=IntegrityError("update", {}, Exception("unique")),
@@ -510,7 +604,7 @@ def test_get_cms_tags_list_success():
         return_value=([row], 1),
     ) as mock_paginated:
         _session_local_context(mock_session)
-        result = get_cms_tags_list(token="tok", search=None, skip=0, limit=10)
+        result = get_cms_tags_list(token="tok", search=None, language="EN", skip=0, limit=10)
 
     mock_paginated.assert_called_once()
     assert result.total == 1
@@ -529,7 +623,7 @@ def test_get_cms_tags_list_with_search():
         return_value=([], 0),
     ) as mock_paginated:
         _session_local_context(mock_session)
-        get_cms_tags_list(token="tok", search="med", skip=2, limit=5)
+        get_cms_tags_list(token="tok", search="med", language="BO", skip=2, limit=5)
 
     assert mock_paginated.call_args.kwargs["search"] == "med"
     assert mock_paginated.call_args.kwargs["skip"] == 2
@@ -550,7 +644,7 @@ def test_get_cms_tag_detail_success():
         return_value=tag,
     ):
         _session_local_context(mock_session)
-        dto = get_cms_tag_detail(token="tok", tag_id=tag_id)
+        dto = get_cms_tag_detail(token="tok", tag_id=tag_id, language="EN")
 
     assert dto.plan_ids == [active.id]
 
@@ -568,7 +662,7 @@ def test_get_cms_tag_detail_not_found():
         _session_local_context(mock_session)
 
         with pytest.raises(HTTPException) as exc:
-            get_cms_tag_detail(token="tok", tag_id=tag_id)
+            get_cms_tag_detail(token="tok", tag_id=tag_id, language="EN")
 
     assert exc.value.status_code == status.HTTP_404_NOT_FOUND
 
@@ -606,9 +700,14 @@ def test_validate_tag_ids_missing_raises_400():
 
 @pytest.mark.asyncio
 async def test_create_new_tag_with_segment_ids():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     author = _make_author()
     segment_id = uuid.uuid4()
-    request = CreateTagRequest(name="Segments", segment_ids=[segment_id])
+    request = CreateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="Segments")],
+        segment_ids=[segment_id]
+    )
     saved = _make_tag(name="Segments")
     saved_with_segments = _make_tag(name="Segments", segment_ids=[segment_id])
 
@@ -626,6 +725,9 @@ async def test_create_new_tag_with_segment_ids():
         "pecha_api.plans.tags.tag_service.save_tag",
         return_value=saved,
     ), patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
+    ), patch(
         "pecha_api.plans.tags.tag_service.set_tag_segments",
         return_value=saved_with_segments,
     ) as mock_set_segments, patch(
@@ -641,8 +743,13 @@ async def test_create_new_tag_with_segment_ids():
 
 @pytest.mark.asyncio
 async def test_create_new_tag_invalid_segment_id_raises_400():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     missing_id = uuid.uuid4()
-    request = CreateTagRequest(name="New", segment_ids=[missing_id])
+    request = CreateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="New")],
+        segment_ids=[missing_id]
+    )
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
@@ -698,9 +805,14 @@ async def test_update_existing_tag_replaces_segment_ids():
 
 @pytest.mark.asyncio
 async def test_create_new_tag_deduplicates_duplicate_segment_ids_in_request():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     author = _make_author()
     segment_id = uuid.uuid4()
-    request = CreateTagRequest(name="Tag", segment_ids=[segment_id, segment_id])
+    request = CreateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="Tag")],
+        segment_ids=[segment_id, segment_id]
+    )
     saved = _make_tag(name="Tag")
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
@@ -717,6 +829,9 @@ async def test_create_new_tag_deduplicates_duplicate_segment_ids_in_request():
         "pecha_api.plans.tags.tag_service.save_tag",
         return_value=saved,
     ), patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
+    ), patch(
         "pecha_api.plans.tags.tag_service.set_tag_segments",
         return_value=saved,
     ), patch(
@@ -731,8 +846,13 @@ async def test_create_new_tag_deduplicates_duplicate_segment_ids_in_request():
 
 @pytest.mark.asyncio
 async def test_create_new_tag_sets_display_order_from_request():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     author = _make_author()
-    request = CreateTagRequest(name="Ordered Tag", display_order=3)
+    request = CreateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="Ordered Tag")],
+        display_order=3
+    )
     saved = _make_tag(name="Ordered Tag", display_order=3)
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
@@ -745,6 +865,9 @@ async def test_create_new_tag_sets_display_order_from_request():
         "pecha_api.plans.tags.tag_service.save_tag",
         return_value=saved,
     ) as mock_save, patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
+    ), patch(
         "pecha_api.plans.tags.tag_service.get_tag_by_id",
         return_value=saved,
     ):
@@ -758,8 +881,12 @@ async def test_create_new_tag_sets_display_order_from_request():
 
 @pytest.mark.asyncio
 async def test_create_new_tag_auto_assigns_display_order():
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
     author = _make_author()
-    request = CreateTagRequest(name="Auto Order")
+    request = CreateTagRequest(
+        metadata=[TagMetadataInput(language="EN", name="Auto Order")]
+    )
     saved = _make_tag(name="Auto Order", display_order=5)
 
     with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
@@ -775,6 +902,9 @@ async def test_create_new_tag_auto_assigns_display_order():
         "pecha_api.plans.tags.tag_service.save_tag",
         return_value=saved,
     ) as mock_save, patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
+    ), patch(
         "pecha_api.plans.tags.tag_service.get_tag_by_id",
         return_value=saved,
     ):
