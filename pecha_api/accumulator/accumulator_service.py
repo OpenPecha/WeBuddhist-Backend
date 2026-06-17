@@ -11,6 +11,7 @@ from .accumulator_repository import (
     get_all_accumulators,
     get_user_accumulators,
     get_preset_by_id,
+    get_user_accumulator_by_mantra,
     add_accumulator,
     commit_accumulator,
     get_accumulator_by_id,
@@ -82,7 +83,7 @@ def convert_accumulator_to_public_dto(accumulator: Accumulator) -> PublicAccumul
         else accumulator.type
     )
     return PublicAccumulatorDTO(
-        id=accumulator.id,
+        preset_id=accumulator.id,
         group_id=accumulator.group_id,
         type=accumulator_type,
         name=accumulator.name,
@@ -139,9 +140,14 @@ def get_user_accumulators_service(
 
 
 def create_accumulator_service(token: str, request: CreateAccumulatorRequest) -> AccumulatorDTO:
-    """Create a user accumulator from a preset the user tapped. The preset's
-    fields are copied into a new user-owned row; count starts at 0 (the PUT
-    endpoint handles counting)."""
+    """Create-or-reset the user's accumulator for a tapped preset.
+
+    A user has at most one active accumulator per mantra. The app calls this
+    endpoint only on first-create or on an explicit reset (a plain re-open is a
+    GET):
+      - no accumulator yet for the preset's mantra -> create a new one, count 0;
+      - one already exists -> reset it (current_count = 0).
+    History rows are never touched, so the lifetime total survives resets."""
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
@@ -151,6 +157,14 @@ def create_accumulator_service(token: str, request: CreateAccumulatorRequest) ->
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"error": NOT_FOUND, "message": PRESET_NOT_FOUND}
             )
+
+        # Reset path: an existing accumulator for this mantra is zeroed in place.
+        if preset.mantra_id is not None:
+            existing = get_user_accumulator_by_mantra(db, current_user.id, preset.mantra_id)
+            if existing is not None:
+                existing.current_count = 0
+                reset_accumulator = update_accumulator(db, existing)
+                return convert_accumulator_to_dto(reset_accumulator)
 
         new_accumulator = Accumulator(
             id=uuid4(),

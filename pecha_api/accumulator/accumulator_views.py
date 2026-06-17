@@ -28,7 +28,7 @@ accumulator_router = APIRouter(prefix="/accumulators", tags=["Accumulators"])
 oauth2_scheme = HTTPBearer()
 
 
-@accumulator_router.get("", response_model=PublicAccumulatorsResponse)
+@accumulator_router.get("/presets", response_model=PublicAccumulatorsResponse)
 async def get_all_accumulators(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),

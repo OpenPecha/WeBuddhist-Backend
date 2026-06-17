@@ -114,6 +114,24 @@ def get_preset_by_id(db: Session, preset_id: UUID) -> Optional[Accumulator]:
     )
 
 
+def get_user_accumulator_by_mantra(
+    db: Session,
+    user_id: UUID,
+    mantra_id: UUID,
+) -> Optional[Accumulator]:
+    """Fetch the user's active accumulator for a given mantra, or None. A user
+    has at most one active accumulator per mantra."""
+    return (
+        db.query(Accumulator)
+        .filter(
+            Accumulator.user_id == user_id,
+            Accumulator.mantra_id == mantra_id,
+            Accumulator.deleted_at.is_(None),
+        )
+        .first()
+    )
+
+
 def get_user_accumulators(
     db: Session,
     user_id: UUID,

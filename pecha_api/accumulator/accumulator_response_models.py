@@ -28,9 +28,11 @@ class AccumulatorsResponse(BaseModel):
 
 
 class PublicAccumulatorDTO(BaseModel):
-    """Accumulator shape for the public list endpoint: omits user_id so other
-    users' ids are not disclosed. group_id is kept for future CMS grouping."""
-    id: UUID
+    """Preset shape for the public list endpoint. Exposes the row id as
+    `preset_id` (the value the app sends to POST /accumulators/user) and omits
+    user_id so other users' ids are not disclosed. group_id is kept for future
+    CMS grouping."""
+    preset_id: UUID
     group_id: Optional[UUID] = None
     type: AccumulatorType
     name: str

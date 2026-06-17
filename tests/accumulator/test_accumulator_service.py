@@ -218,15 +218,17 @@ class TestCreateAccumulatorService:
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
     @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.get_user_accumulator_by_mantra')
     @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
     @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
     def test_create_accumulator_service_success(
-        self, mock_validate, mock_get_preset, mock_add, mock_commit, mock_session
+        self, mock_validate, mock_get_preset, mock_get_by_mantra, mock_add, mock_commit, mock_session
     ):
-        """Tapping a preset copies its fields into a new user-owned accumulator."""
+        """First tap (no existing accumulator for the mantra) creates a new row."""
         user_id = uuid4()
         preset_id = uuid4()
         group_id = uuid4()
+        mantra_id = uuid4()
         token = "valid_token"
 
         mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
@@ -240,8 +242,10 @@ class TestCreateAccumulatorService:
             accumulator_type=AccumulatorType.PRESET,
             name="Refuge Prayer",
             target_count=111111,
+            mantra_id=mantra_id,
         )
         mock_get_preset.return_value = preset
+        mock_get_by_mantra.return_value = None  # nothing exists yet -> create
 
         request = TestDataFactory.create_accumulator_request(preset_id=preset_id)
 
@@ -264,8 +268,51 @@ class TestCreateAccumulatorService:
 
         mock_validate.assert_called_once_with(token=token)
         mock_get_preset.assert_called_once_with(mock_db, preset_id)
+        mock_get_by_mantra.assert_called_once_with(mock_db, user_id, mantra_id)
         mock_add.assert_called_once()
         mock_commit.assert_called_once()
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.add_history_row')
+    @patch('pecha_api.accumulator.accumulator_service.update_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.get_user_accumulator_by_mantra')
+    @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_create_accumulator_service_resets_existing(
+        self, mock_validate, mock_get_preset, mock_get_by_mantra, mock_add,
+        mock_update, mock_add_history, mock_session
+    ):
+        """Tapping a preset whose mantra the user already has resets that
+        accumulator in place: count -> 0, no new row, no history written."""
+        user_id = uuid4()
+        preset_id = uuid4()
+        mantra_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        mock_get_preset.return_value = TestDataFactory.create_mock_accumulator(
+            accumulator_id=preset_id, accumulator_type=AccumulatorType.PRESET, mantra_id=mantra_id
+        )
+        existing = TestDataFactory.create_mock_accumulator(
+            user_id=user_id, accumulator_type=AccumulatorType.USER,
+            mantra_id=mantra_id, current_count=540,
+        )
+        mock_get_by_mantra.return_value = existing
+        mock_update.side_effect = lambda _db, accumulator: accumulator
+
+        request = TestDataFactory.create_accumulator_request(preset_id=preset_id)
+        result = create_accumulator_service(token=token, request=request)
+
+        assert existing.current_count == 0
+        assert result.current_count == 0
+        mock_get_by_mantra.assert_called_once_with(mock_db, user_id, mantra_id)
+        mock_update.assert_called_once()
+        mock_add.assert_not_called()       # no new accumulator created
+        mock_add_history.assert_not_called()  # history preserved, not touched
 
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.add_history_row')
@@ -703,13 +750,15 @@ class TestHelperFunctions:
         assert result.current_count == 0
 
     def test_convert_accumulator_to_public_dto_omits_user_id(self):
-        """Public DTO should not carry user_id."""
+        """Public DTO should not carry user_id and exposes the row id as preset_id."""
         accumulator = TestDataFactory.create_mock_accumulator()
 
         result = convert_accumulator_to_public_dto(accumulator)
 
         assert isinstance(result, PublicAccumulatorDTO)
         assert not hasattr(result, "user_id")
+        assert not hasattr(result, "id")
+        assert result.preset_id == accumulator.id
 
     def test_is_user_created_accumulator_user_type(self):
         """is_user_created_accumulator returns True for USER type."""
