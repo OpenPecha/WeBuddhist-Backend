@@ -1,6 +1,8 @@
 import uuid
-import pytest
+from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
+
+import pytest
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -118,30 +120,71 @@ def test_get_featured_series_success(sample_series_list_response):
     featured_item = sample_series_list_response.series[0]
     with patch(
         "pecha_api.plans.series.public_series_view.get_random_featured_series",
-        return_value=featured_item,
+        return_value=sample_series_list_response,
     ) as mock_service:
         response = client.get("/series/featured")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(language=None)
-        assert data["id"] == str(featured_item.id)
-        assert data["featured"] is True
-        assert "plans" not in data
-        assert data["plan_count"] == featured_item.plan_count
+        mock_service.assert_called_once_with(language=None, limit=10)
+        assert len(data["series"]) == 1
+        item = data["series"][0]
+        assert item["id"] == str(featured_item.id)
+        assert item["featured"] is True
+        assert "plans" not in item
+        assert item["plan_count"] == featured_item.plan_count
+        assert item["start_date"] is None
+        assert item["end_date"] is None
+        assert item["total_days"] == featured_item.total_days
+        assert data["skip"] == 0
+        assert data["limit"] == 10
+        assert data["total"] == 1
+
+
+def test_get_featured_series_includes_schedule_fields():
+    series_start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    series_end = datetime(2026, 6, 5, tzinfo=timezone.utc)
+    list_item = SeriesListItemDTO(
+        id=uuid.uuid4(),
+        metadata=[_metadata("Featured Series")],
+        author_id=uuid.uuid4(),
+        featured=True,
+        status=PlanStatus.PUBLISHED,
+        plan_count=2,
+        total_days=5,
+        start_date=series_start,
+        end_date=series_end,
+    )
+    featured_response = SeriesListResponse(
+        series=[list_item],
+        skip=0,
+        limit=10,
+        total=1,
+    )
+
+    with patch(
+        "pecha_api.plans.series.public_series_view.get_random_featured_series",
+        return_value=featured_response,
+    ):
+        response = client.get("/series/featured")
+
+    assert response.status_code == status.HTTP_200_OK
+    item = response.json()["series"][0]
+    assert item["start_date"] == "2026-06-01T00:00:00Z"
+    assert item["end_date"] == "2026-06-05T00:00:00Z"
+    assert item["total_days"] == 5
 
 
 def test_get_featured_series_with_language(sample_series_list_response):
-    featured_item = sample_series_list_response.series[0]
     with patch(
         "pecha_api.plans.series.public_series_view.get_random_featured_series",
-        return_value=featured_item,
+        return_value=sample_series_list_response,
     ) as mock_service:
         response = client.get("/series/featured", params={"language": "en"})
 
         assert response.status_code == status.HTTP_200_OK
-        mock_service.assert_called_once_with(language="en")
+        mock_service.assert_called_once_with(language="en", limit=10)
 
 
 def test_get_featured_series_not_found():

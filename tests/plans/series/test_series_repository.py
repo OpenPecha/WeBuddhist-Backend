@@ -11,12 +11,20 @@ from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_repository import (
     get_series_by_id,
     get_series_paginated,
+    get_random_featured_published_series,
     save_series_with_plans,
+    clone_series_with_plans,
     update_series_with_plans,
     update_series_status,
     update_series_featured,
     soft_delete_series_with_plan_detach,
 )
+from pecha_api.plans.series.series_metadata_model import SeriesMetadata
+from pecha_api.plans.items.plan_items_models import PlanItem
+from pecha_api.plans.audio.plan_item_audio_models import PlanItemAudio
+from pecha_api.plans.tasks.plan_tasks_models import PlanTask
+from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
+from pecha_api.plans.audio.sub_task_timestamps_models import SubTaskTimestamp
 
 
 def _make_session_mock() -> Session:
@@ -33,6 +41,21 @@ def _paginated_query_chain(rows, total, *, with_filter=True, plan_counts=None):
     target.count.return_value = total
     ordered = MagicMock()
     ordered.offset.return_value.limit.return_value.all.return_value = query_rows
+    target.order_by.return_value = ordered
+    query_mock.options.return_value = options_mock
+    return query_mock
+
+
+def _random_featured_query_chain(rows, total, *, with_filter=True, plan_counts=None):
+    if plan_counts is None:
+        plan_counts = [0] * len(rows)
+    query_rows = list(zip(rows, plan_counts))
+    query_mock = MagicMock()
+    options_mock = MagicMock()
+    target = options_mock.filter.return_value if with_filter else options_mock
+    target.count.return_value = total
+    ordered = MagicMock()
+    ordered.limit.return_value.all.return_value = query_rows
     target.order_by.return_value = ordered
     query_mock.options.return_value = options_mock
     return query_mock
@@ -577,7 +600,180 @@ def test_get_series_paginated_published_only_does_not_add_series_filter():
 
     assert rows == []
     assert total == 0
+
+
+def test_get_random_featured_published_series_with_language_applies_metadata_filter():
+    db = _make_session_mock()
+
+    db.query.return_value = _random_featured_query_chain([], 0)
+
+    rows, total = get_random_featured_published_series(db=db, limit=10, language="bo")
+
+    assert rows == []
+    assert total == 0
+    filtered = db.query.return_value.options.return_value.filter
+    assert filtered.call_count == 1
+    filter_args = filtered.call_args[0]
+    assert len(filter_args) == 4
+
+
+def test_get_random_featured_published_series_without_language_uses_base_filters():
+    db = _make_session_mock()
+    row = MagicMock(spec=Series)
+
+    db.query.return_value = _random_featured_query_chain([row], 1)
+
+    rows, total = get_random_featured_published_series(db=db, limit=10)
+
+    assert total == 1
+    assert rows == [(row, 0, 0)]
     filtered = db.query.return_value.options.return_value.filter
     assert filtered.call_count == 1
     filter_args = filtered.call_args[0]
     assert len(filter_args) == 3
+    filtered = db.query.return_value.options.return_value.filter
+    assert filtered.call_count == 1
+
+
+def _added_of_type(db, model_cls):
+    return [
+        call.args[0]
+        for call in db.add.call_args_list
+        if isinstance(call.args[0], model_cls)
+    ]
+
+
+def _build_parent_series_for_clone():
+    parent_id = uuid.uuid4()
+    source_group_id = uuid.uuid4()
+
+    meta = SeriesMetadata(
+        title="Parent",
+        sub_title="Sub",
+        description="Desc",
+        language="EN",
+    )
+
+    timestamp = SubTaskTimestamp(start_ms=0, end_ms=100)
+    sub_task = PlanSubTask(
+        audio_url="a.mp3",
+        content_type="TEXT",
+        content="hello",
+        duration="10",
+        display_order=0,
+        deleted_at=None,
+    )
+    sub_task.timestamp = timestamp
+    task = PlanTask(
+        title="Task",
+        display_order=0,
+        estimated_time=5,
+        is_required=True,
+        deleted_at=None,
+    )
+    task.sub_tasks = [sub_task]
+    audio = PlanItemAudio(audio_key="day1.mp3", duration_ms=1000, mime_type="audio/mpeg")
+    item = PlanItem(day_number=1)
+    item.audio = audio
+    item.tasks = [task]
+
+    tag = MagicMock()
+    plan = Plan(
+        id=uuid.uuid4(),
+        title="Plan A",
+        description="Plan desc",
+        language="EN",
+        difficulty_level="BEGINNER",
+        featured=False,
+        display_order=0,
+        status=PlanStatus.PUBLISHED,
+        image_url="plan.png",
+        group_id=source_group_id,
+        deleted_at=None,
+    )
+    plan.items = [item]
+    plan.tag_list = [tag]
+
+    parent = Series(
+        id=parent_id,
+        image="parent.png",
+        group_id=source_group_id,
+        status=PlanStatus.PUBLISHED,
+        featured=True,
+    )
+    parent.metadata_entries = [meta]
+    parent.plans = [plan]
+    return parent
+
+
+def test_clone_series_with_plans_deep_copies_tree_into_target_group():
+    db = _make_session_mock()
+    parent = _build_parent_series_for_clone()
+    target_group_id = uuid.uuid4()
+    new_author_id = uuid.uuid4()
+
+    clone_series_with_plans(
+        db=db,
+        parent_series=parent,
+        target_group_id=target_group_id,
+        author_id=new_author_id,
+        created_by="cloner@example.com",
+        image="parent.png",
+        featured=False,
+    )
+
+    new_series = _added_of_type(db, Series)
+    assert len(new_series) == 1
+    cloned = new_series[0]
+    assert cloned.group_id == target_group_id
+    assert cloned.author_id == new_author_id
+    assert cloned.parent_series_id == parent.id
+    assert cloned.status == PlanStatus.DRAFT
+    assert cloned is not parent
+
+    # Metadata copied.
+    metas = _added_of_type(db, SeriesMetadata)
+    assert len(metas) == 1
+    assert metas[0].title == "Parent"
+
+    # Plan copied into the target group, keeping its original (PUBLISHED) status.
+    plans = _added_of_type(db, Plan)
+    assert len(plans) == 1
+    cloned_plan = plans[0]
+    assert cloned_plan.group_id == target_group_id
+    assert cloned_plan.author_id == new_author_id
+    assert cloned_plan.series_id == cloned.id
+    assert cloned_plan.status == PlanStatus.PUBLISHED
+    assert cloned_plan is not parent.plans[0]
+    # Tags re-linked to the same row, not recreated.
+    assert cloned_plan.tag_list == parent.plans[0].tag_list
+
+    # Full nested tree copied.
+    assert len(_added_of_type(db, PlanItem)) == 1
+    assert len(_added_of_type(db, PlanItemAudio)) == 1
+    assert len(_added_of_type(db, PlanTask)) == 1
+    assert len(_added_of_type(db, PlanSubTask)) == 1
+    assert len(_added_of_type(db, SubTaskTimestamp)) == 1
+
+    db.commit.assert_called_once()
+
+
+def test_clone_series_with_plans_skips_soft_deleted_plans_and_tasks():
+    db = _make_session_mock()
+    parent = _build_parent_series_for_clone()
+    parent.plans[0].deleted_at = object()  # soft-deleted plan should be skipped
+
+    clone_series_with_plans(
+        db=db,
+        parent_series=parent,
+        target_group_id=uuid.uuid4(),
+        author_id=uuid.uuid4(),
+        created_by="cloner@example.com",
+        image=None,
+        featured=False,
+    )
+
+    assert len(_added_of_type(db, Plan)) == 0
+    assert len(_added_of_type(db, PlanItem)) == 0
+    # Series + its metadata are still created even with no plans.
+    assert len(_added_of_type(db, Series)) == 1

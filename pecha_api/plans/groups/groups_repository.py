@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import and_, delete, exists, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupType, AuthorGroupType
 from pecha_api.plans.groups.groups_models import (
     AuthorGroup,
     AuthorGroupInvite,
@@ -13,6 +13,7 @@ from pecha_api.plans.groups.groups_models import (
     AuthorGroupMetadata,
     AuthorGroupSocialLink,
     author_group_followers,
+    author_group_joins,
     author_group_tags,
 )
 from pecha_api.plans.plans_models import Plan
@@ -163,10 +164,13 @@ def get_groups_paginated(
     tag_id: Optional[UUID] = None,
     group_ids: Optional[Sequence[UUID]] = None,
     is_public: Optional[bool] = None,
+    group_type: Optional[AuthorGroupType] = None,
 ) -> Tuple[List[AuthorGroup], int]:
     filters = [AuthorGroup.deleted_at.is_(None)]
     if is_public is not None:
         filters.append(AuthorGroup.is_public.is_(is_public))
+    if group_type is not None:
+        filters.append(AuthorGroup.group_type == group_type)
     if language:
         filters.append(
             exists(
@@ -463,6 +467,82 @@ def get_followers_count_map(db: Session, group_ids: Sequence[UUID]) -> dict[UUID
         )
         .filter(author_group_followers.c.group_id.in_(group_ids))
         .group_by(author_group_followers.c.group_id)
+        .all()
+    )
+    return {group_id: int(count or 0) for group_id, count in rows}
+
+
+def upsert_group_join(
+    db: Session,
+    group_id: UUID,
+    user_id: UUID,
+) -> None:
+    exists_row = db.execute(
+        select(author_group_joins.c.group_id).where(
+            author_group_joins.c.group_id == group_id,
+            author_group_joins.c.user_id == user_id,
+        )
+    ).first()
+    if exists_row:
+        return
+    db.execute(
+        author_group_joins.insert().values(
+            group_id=group_id,
+            user_id=user_id,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    db.commit()
+
+
+def remove_group_join(
+    db: Session,
+    group_id: UUID,
+    user_id: UUID,
+) -> None:
+    db.execute(
+        delete(author_group_joins).where(
+            author_group_joins.c.group_id == group_id,
+            author_group_joins.c.user_id == user_id,
+        )
+    )
+    db.commit()
+
+
+def get_joined_group_ids_by_user(
+    db: Session,
+    user_id: UUID,
+) -> List[UUID]:
+    rows = db.execute(
+        select(author_group_joins.c.group_id).where(author_group_joins.c.user_id == user_id)
+    ).all()
+    return [row[0] for row in rows]
+
+
+def is_user_joined_group(
+    db: Session,
+    group_id: UUID,
+    user_id: UUID,
+) -> bool:
+    row = db.execute(
+        select(author_group_joins.c.group_id).where(
+            author_group_joins.c.group_id == group_id,
+            author_group_joins.c.user_id == user_id,
+        )
+    ).first()
+    return row is not None
+
+
+def get_joiners_count_map(db: Session, group_ids: Sequence[UUID]) -> dict[UUID, int]:
+    if not group_ids:
+        return {}
+    rows = (
+        db.query(
+            author_group_joins.c.group_id,
+            func.count(author_group_joins.c.user_id),
+        )
+        .filter(author_group_joins.c.group_id.in_(group_ids))
+        .group_by(author_group_joins.c.group_id)
         .all()
     )
     return {group_id: int(count or 0) for group_id, count in rows}

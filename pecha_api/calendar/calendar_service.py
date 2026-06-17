@@ -8,6 +8,7 @@ from .calendar_parser import (
     MAX_CALENDAR_YEAR,
     MIN_CALENDAR_YEAR,
     find_calendar_day_for_gregorian_date,
+    get_days_for_gregorian_month,
     parse_calendar_year,
 )
 from .calendar_response_models import (
@@ -48,11 +49,24 @@ def _validate_year(year: int) -> None:
         )
 
 
-def _validate_month(month: int) -> None:
-    if month < 1 or month > 13:
+MIN_GREGORIAN_YEAR = MIN_CALENDAR_YEAR
+MAX_GREGORIAN_YEAR = MAX_CALENDAR_YEAR + 1
+
+
+def _validate_gregorian_year(year: int) -> None:
+    if year < MIN_GREGORIAN_YEAR or year > MAX_GREGORIAN_YEAR:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Gregorian year {year} is not available. "
+            f"Supported range: {MIN_GREGORIAN_YEAR}-{MAX_GREGORIAN_YEAR}.",
+        )
+
+
+def _validate_gregorian_month(month: int) -> None:
+    if month < 1 or month > 12:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Month must be between 1 and 13.",
+            detail="Month must be between 1 and 12.",
         )
 
 
@@ -123,29 +137,20 @@ def get_calendar_year_service(year: int) -> CalendarYearResponse:
 
 
 def get_calendar_month_service(year: int, month: int) -> CalendarMonthResponse:
-    _validate_year(year)
-    _validate_month(month)
+    _validate_gregorian_year(year)
+    _validate_gregorian_month(month)
 
-    try:
-        year_data = parse_calendar_year(year)
-    except FileNotFoundError as exc:
+    month_days_data = get_days_for_gregorian_month(year, month)
+    if not month_days_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(exc),
-        ) from exc
-
-    grouped_months = _group_days_by_month(year_data)
-    month_days = grouped_months.get(month)
-    if not month_days:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No calendar data found for Tibetan year {year}, month {month}.",
+            detail=f"No calendar data found for {year}-{month:02d}.",
         )
 
-    designation = month_days[0].lunar_month.designation if month_days[0].lunar_month else None
+    month_days = [_to_calendar_day(day_data) for day_data in month_days_data]
     return CalendarMonthResponse(
         year=year,
         month=month,
-        designation=designation,
+        designation=None,
         days=month_days,
     )

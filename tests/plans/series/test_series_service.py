@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -8,12 +8,16 @@ from sqlalchemy.exc import IntegrityError
 from starlette import status
 
 from pecha_api.plans.plans_enums import DifficultyLevel, LanguageCode, PlanStatus
+from pecha_api.plans.groups.groups_enums import AuthorGroupType
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_service import (
     _validate_plan_ids,
     _build_plan_order_pairs,
+    _series_schedule_from_plans,
+    _plan_total_days,
     create_new_series,
     get_filtered_series,
+    get_random_featured_series,
     get_series_detail,
     update_existing_series,
     update_existing_series_status,
@@ -29,6 +33,7 @@ _SERIES_FORBIDDEN = HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=
 _MEMBER_GROUP_IDS = [FIXTURE_GROUP_ID]
 
 from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
+from pecha_api.plans.groups.groups_enums import AuthorGroupType
 from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
@@ -278,6 +283,132 @@ def test_create_new_series_integrity_error_raises_400():
     assert "Database integrity error" in exc.value.detail
 
 
+def test_clone_series_routes_to_clone_path_and_returns_dto():
+    author_id = uuid.uuid4()
+    parent_id = uuid.uuid4()
+    target_group_id = uuid.uuid4()
+    request = CreateSeriesRequest(
+        group_id=target_group_id,
+        parent_series_id=parent_id,
+        featured=True,
+    )
+
+    parent = MagicMock()
+    parent.id = parent_id
+    parent.group_id = FIXTURE_GROUP_ID
+    parent.image = "img/parent.png"
+    parent.featured = True
+
+    cloned = MagicMock()
+    cloned.id = uuid.uuid4()
+    cloned.metadata_entries = [_metadata_entry(title="Cloned")]
+    cloned.image = "img/parent.png"
+    cloned.author_id = author_id
+    cloned.group_id = target_group_id
+    cloned.parent_series_id = parent_id
+    cloned.featured = True
+    cloned.status = PlanStatus.DRAFT
+    cloned.plans = []
+
+    mock_author = MagicMock()
+    mock_author.id = author_id
+    mock_author.email = "cloner@example.com"
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_for_clone",
+        return_value=parent,
+    ), patch(
+        "pecha_api.plans.series.series_service.clone_series_with_plans",
+        return_value=cloned,
+    ) as mock_clone, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=cloned,
+    ), patch(
+        "pecha_api.plans.series.series_service.get_enrolled_count_map_by_series_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.series.series_service._group_summary_for_series",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.series.series_service.get_image_url",
+        return_value=None,
+    ), patch("pecha_api.plans.series.series_service.require_can_read_group_content"), patch(
+        "pecha_api.plans.series.series_service.require_can_create_content"
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=mock_author,
+    ):
+        _session_local_context(mock_session_local)
+
+        dto = create_new_series(token="dummy", create_series_request=request)
+
+    mock_clone.assert_called_once()
+    clone_kwargs = mock_clone.call_args.kwargs
+    assert clone_kwargs["parent_series"] is parent
+    assert clone_kwargs["target_group_id"] == target_group_id
+    assert clone_kwargs["author_id"] == author_id
+    assert clone_kwargs["image"] == "img/parent.png"
+    assert clone_kwargs["featured"] is True
+
+    assert dto.id == cloned.id
+    assert dto.parent_series_id == parent_id
+    assert dto.status == PlanStatus.DRAFT
+
+
+def test_clone_series_raises_404_when_parent_missing():
+    request = CreateSeriesRequest(
+        group_id=uuid.uuid4(),
+        parent_series_id=uuid.uuid4(),
+    )
+    mock_author = MagicMock()
+    mock_author.id = uuid.uuid4()
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_for_clone",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=mock_author,
+    ):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            create_new_series(token="dummy", create_series_request=request)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_clone_series_requires_read_on_parent_group():
+    parent = MagicMock()
+    parent.group_id = FIXTURE_GROUP_ID
+    request = CreateSeriesRequest(
+        group_id=uuid.uuid4(),
+        parent_series_id=uuid.uuid4(),
+    )
+    mock_author = MagicMock()
+    mock_author.id = uuid.uuid4()
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_for_clone",
+        return_value=parent,
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_read_group_content",
+        side_effect=_SERIES_FORBIDDEN,
+    ), patch(
+        "pecha_api.plans.series.series_service.clone_series_with_plans",
+    ) as mock_clone, patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=mock_author,
+    ):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            create_new_series(token="dummy", create_series_request=request)
+
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+    mock_clone.assert_not_called()
+
+
 def test_get_series_detail_raises_404_when_not_found():
     series_id = uuid.uuid4()
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
@@ -327,6 +458,7 @@ def test_get_series_detail_returns_dto_without_plans():
     group_summary = AuthorGroupSummaryDTO(
         id=group_id,
         slug="test-group",
+        group_type=AuthorGroupType.PAGE,
         is_public=True,
         metadata=[],
     )
@@ -1596,6 +1728,320 @@ def test_get_filtered_series_passes_language_to_repository():
     call_kwargs = mock_repo.call_args.kwargs
     assert call_kwargs["language"] == "zh"
     assert call_kwargs["status"] == PlanStatus.PUBLISHED
+
+
+def test_get_random_featured_series_returns_featured_series_without_language_filter():
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = [
+        _metadata_entry(title="Featured", language=LanguageCode.EN),
+        _metadata_entry(title="བོད་", language=LanguageCode.BO),
+    ]
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.group_id = None
+    row.featured = True
+    row.status = PlanStatus.PUBLISHED
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([(row, 4, 2)], 1)), \
+         patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
+               return_value={}):
+        _session_local_context(mock_session_local)
+
+        result = get_random_featured_series(limit=10)
+
+    assert len(result.series) == 1
+    assert result.total == 1
+    assert result.series[0].featured is True
+    assert result.series[0].plan_count == 4
+    assert result.series[0].enrolled_count == 2
+    assert len(result.series[0].metadata) == 2
+
+
+def test_get_random_featured_series_passes_language_to_repository():
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([], 0)) as mock_repo:
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_random_featured_series(language="bo", limit=10)
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    call_kwargs = mock_repo.call_args.kwargs
+    assert call_kwargs["language"] == "bo"
+    assert call_kwargs["limit"] == 10
+
+
+def test_get_random_featured_series_excludes_series_without_requested_language_metadata():
+    row_with_bo = MagicMock()
+    row_with_bo.id = uuid.uuid4()
+    row_with_bo.metadata_entries = [_metadata_entry(title="བོད་", language=LanguageCode.BO)]
+    row_with_bo.image = None
+    row_with_bo.author_id = uuid.uuid4()
+    row_with_bo.group_id = None
+    row_with_bo.featured = True
+    row_with_bo.status = PlanStatus.PUBLISHED
+
+    row_en_only = MagicMock()
+    row_en_only.id = uuid.uuid4()
+    row_en_only.metadata_entries = [_metadata_entry(title="English only", language=LanguageCode.EN)]
+    row_en_only.image = None
+    row_en_only.author_id = uuid.uuid4()
+    row_en_only.group_id = None
+    row_en_only.featured = True
+    row_en_only.status = PlanStatus.PUBLISHED
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([(row_with_bo, 2, 0), (row_en_only, 1, 0)], 2)), \
+         patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
+               return_value={}):
+        _session_local_context(mock_session_local)
+
+        result = get_random_featured_series(language="bo", limit=10)
+
+    assert len(result.series) == 1
+    assert result.series[0].id == row_with_bo.id
+    assert result.series[0].metadata.title == "བོད་"
+    assert result.series[0].metadata.language == "BO"
+
+
+def test_get_random_featured_series_returns_404_when_no_metadata_for_language():
+    row_en_only = MagicMock()
+    row_en_only.id = uuid.uuid4()
+    row_en_only.metadata_entries = [_metadata_entry(title="English only", language=LanguageCode.EN)]
+    row_en_only.image = None
+    row_en_only.author_id = uuid.uuid4()
+    row_en_only.group_id = None
+    row_en_only.featured = True
+    row_en_only.status = PlanStatus.PUBLISHED
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([(row_en_only, 1, 0)], 1)), \
+         patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
+               return_value={}):
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_random_featured_series(language="bo", limit=10)
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def _featured_series_plan(
+    *,
+    display_order,
+    start_date=None,
+    item_count=0,
+    language=LanguageCode.EN,
+    status=PlanStatus.PUBLISHED,
+):
+    plan = MagicMock()
+    plan.deleted_at = None
+    plan.display_order = display_order
+    plan.start_date = start_date
+    plan.status = status
+    plan.language = language
+    plan.items = [MagicMock() for _ in range(item_count)]
+    return plan
+
+
+def test_get_random_featured_series_includes_schedule_from_first_plan():
+    series_start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = [_metadata_entry(title="Featured", language=LanguageCode.EN)]
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.group_id = None
+    row.featured = True
+    row.status = PlanStatus.PUBLISHED
+
+    first_plan = _featured_series_plan(
+        display_order=0,
+        start_date=series_start,
+        item_count=3,
+    )
+    second_plan = _featured_series_plan(
+        display_order=1,
+        start_date=datetime(2026, 6, 10, tzinfo=timezone.utc),
+        item_count=2,
+    )
+    series_with_plans = MagicMock()
+    series_with_plans.id = row.id
+    series_with_plans.plans = [second_plan, first_plan]
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([(row, 2, 0)], 1)), \
+         patch("pecha_api.plans.series.series_service.get_series_with_plans_by_ids",
+               return_value=[series_with_plans]), \
+         patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
+               return_value={}):
+        _session_local_context(mock_session_local)
+
+        result = get_random_featured_series(limit=10)
+
+    assert result.series[0].start_date == series_start
+    assert result.series[0].total_days == 5
+    assert result.series[0].end_date == series_start + timedelta(days=4)
+
+
+def test_get_random_featured_series_omits_schedule_when_first_plan_has_no_start_date():
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = [_metadata_entry(title="Featured", language=LanguageCode.EN)]
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.group_id = None
+    row.featured = True
+    row.status = PlanStatus.PUBLISHED
+
+    first_plan = _featured_series_plan(display_order=0, start_date=None, item_count=2)
+    second_plan = _featured_series_plan(
+        display_order=1,
+        start_date=datetime(2026, 6, 10, tzinfo=timezone.utc),
+        item_count=3,
+    )
+    series_with_plans = MagicMock()
+    series_with_plans.id = row.id
+    series_with_plans.plans = [first_plan, second_plan]
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([(row, 2, 0)], 1)), \
+         patch("pecha_api.plans.series.series_service.get_series_with_plans_by_ids",
+               return_value=[series_with_plans]), \
+         patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
+               return_value={}):
+        _session_local_context(mock_session_local)
+
+        result = get_random_featured_series(limit=10)
+
+    assert result.series[0].start_date is None
+    assert result.series[0].end_date is None
+    assert result.series[0].total_days == 5
+
+
+def test_series_schedule_from_plans_returns_empty_when_no_plans():
+    start_date, end_date, total_days = _series_schedule_from_plans([], published_only=True)
+
+    assert start_date is None
+    assert end_date is None
+    assert total_days == 0
+
+
+def test_series_schedule_from_plans_uses_start_date_when_series_has_no_days():
+    series_start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    plan = _featured_series_plan(display_order=0, start_date=series_start, item_count=0)
+
+    start_date, end_date, total_days = _series_schedule_from_plans(
+        [plan],
+        published_only=True,
+    )
+
+    assert start_date == series_start
+    assert end_date == series_start
+    assert total_days == 0
+
+
+def test_series_schedule_from_plans_excludes_unpublished_plans():
+    series_start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    draft_plan = _featured_series_plan(
+        display_order=0,
+        start_date=series_start,
+        item_count=2,
+        status=PlanStatus.DRAFT,
+    )
+
+    start_date, end_date, total_days = _series_schedule_from_plans(
+        [draft_plan],
+        published_only=True,
+    )
+
+    assert start_date is None
+    assert end_date is None
+    assert total_days == 0
+
+
+def test_series_schedule_from_plans_filters_by_language():
+    series_start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    en_plan = _featured_series_plan(
+        display_order=0,
+        start_date=series_start,
+        item_count=2,
+        language=LanguageCode.EN,
+    )
+    bo_plan = _featured_series_plan(
+        display_order=1,
+        start_date=datetime(2026, 7, 10, tzinfo=timezone.utc),
+        item_count=5,
+        language=LanguageCode.BO,
+    )
+
+    start_date, end_date, total_days = _series_schedule_from_plans(
+        [en_plan, bo_plan],
+        published_only=True,
+        language="bo",
+    )
+
+    assert start_date == datetime(2026, 7, 10, tzinfo=timezone.utc)
+    assert total_days == 5
+    assert end_date == datetime(2026, 7, 14, tzinfo=timezone.utc)
+
+
+def test_plan_total_days_returns_zero_when_plan_has_no_items():
+    plan = MagicMock()
+    plan.items = None
+
+    assert _plan_total_days(plan) == 0
+
+
+def test_get_random_featured_series_schedule_respects_language_filter():
+    series_start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    row = MagicMock()
+    row.id = uuid.uuid4()
+    row.metadata_entries = [_metadata_entry(title="བོད་", language=LanguageCode.BO)]
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.group_id = None
+    row.featured = True
+    row.status = PlanStatus.PUBLISHED
+
+    en_plan = _featured_series_plan(
+        display_order=0,
+        start_date=series_start,
+        item_count=4,
+        language=LanguageCode.EN,
+    )
+    bo_plan = _featured_series_plan(
+        display_order=1,
+        start_date=datetime(2026, 6, 15, tzinfo=timezone.utc),
+        item_count=2,
+        language=LanguageCode.BO,
+    )
+    series_with_plans = MagicMock()
+    series_with_plans.id = row.id
+    series_with_plans.plans = [en_plan, bo_plan]
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
+               return_value=([(row, 2, 0)], 1)), \
+         patch("pecha_api.plans.series.series_service.get_series_with_plans_by_ids",
+               return_value=[series_with_plans]), \
+         patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
+               return_value={}):
+        _session_local_context(mock_session_local)
+
+        result = get_random_featured_series(language="bo", limit=10)
+
+    assert result.series[0].start_date == datetime(2026, 6, 15, tzinfo=timezone.utc)
+    assert result.series[0].total_days == 2
+    assert result.series[0].end_date == datetime(2026, 6, 16, tzinfo=timezone.utc)
 
 
 def test_get_cms_filtered_series_passes_language_to_repository():

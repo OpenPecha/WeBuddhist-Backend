@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupType
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
     AuthorGroupListResponse,
@@ -31,9 +31,13 @@ from pecha_api.plans.groups.groups_service import (
     follow_group,
     get_author_group_detail,
     get_cms_group_detail,
-    list_cms_groups,
     get_followed_group,
+    get_joined_group,
+    join_group,
+    leave_group,
+    list_cms_groups,
     list_followed_groups,
+    list_joined_groups,
     list_group_invites,
     list_my_pending_group_invites,
     list_public_groups,
@@ -53,6 +57,10 @@ cms_groups_router = APIRouter(prefix="/cms/author/groups", tags=["CMS Author Gro
 public_groups_router = APIRouter(prefix="/author/groups", tags=["Author Groups"])
 user_groups_router = APIRouter(
     prefix="/users/me/following/author/groups",
+    tags=["Author Groups"],
+)
+user_joined_groups_router = APIRouter(
+    prefix="/users/me/joined/author/groups",
     tags=["Author Groups"],
 )
 
@@ -126,6 +134,7 @@ def get_cms_groups(
     language: Annotated[Optional[str], Query()] = None,
     tag_id: Annotated[Optional[UUID], Query()] = None,
     is_public: Annotated[Optional[bool], Query(description="Filter by public visibility; omit to include all groups")] = None,
+    group_type: Annotated[Optional[AuthorGroupType], Query(description="Filter by group type: PAGE or COMMUNITY")] = None,
     for_transfer: Annotated[bool, Query(description="When true, list all groups for transfer target selection")] = False,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
@@ -136,6 +145,7 @@ def get_cms_groups(
         language=language,
         tag_id=tag_id,
         is_public=is_public,
+        group_type=group_type,
         for_transfer=for_transfer,
         skip=skip,
         limit=limit,
@@ -312,6 +322,10 @@ def get_public_groups(
     search: Annotated[Optional[str], Query()] = None,
     language: Annotated[Optional[str], Query()] = None,
     tag_id: Annotated[Optional[UUID], Query()] = None,
+    group_type: Annotated[
+        AuthorGroupType,
+        Query(description="Filter by group type: PAGE or COMMUNITY"),
+    ] = AuthorGroupType.COMMUNITY,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
@@ -319,6 +333,7 @@ def get_public_groups(
         search=search,
         language=language,
         tag_id=tag_id,
+        group_type=group_type,
         skip=skip,
         limit=limit,
     )
@@ -342,6 +357,24 @@ def delete_follow_group(
     return None
 
 
+@public_groups_router.post("/{group_id}/join", status_code=status.HTTP_204_NO_CONTENT)
+def post_join_group(
+    group_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    join_group(token=authentication_credential.credentials, group_id=group_id)
+    return None
+
+
+@public_groups_router.delete("/{group_id}/join", status_code=status.HTTP_204_NO_CONTENT)
+def delete_join_group(
+    group_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    leave_group(token=authentication_credential.credentials, group_id=group_id)
+    return None
+
+
 @user_groups_router.get(
     "",
     status_code=status.HTTP_200_OK,
@@ -361,6 +394,31 @@ def get_my_followed_groups(
             language=language,
         )
     return list_followed_groups(
+        token=authentication_credential.credentials,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@user_joined_groups_router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=Union[PublicAuthorGroupListResponse, PublicAuthorGroupSummaryDTO],
+)
+def get_my_joined_groups(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    group_id: Annotated[Optional[UUID], Query(description="Return this group if the user has joined it")] = None,
+    language: Annotated[Optional[str], Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')")] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    if group_id is not None:
+        return get_joined_group(
+            token=authentication_credential.credentials,
+            group_id=group_id,
+            language=language,
+        )
+    return list_joined_groups(
         token=authentication_credential.credentials,
         skip=skip,
         limit=limit,

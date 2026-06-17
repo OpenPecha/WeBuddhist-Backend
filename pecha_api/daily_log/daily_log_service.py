@@ -24,7 +24,7 @@ def calculate_streak(log_dates: Set[date]) -> int:
     today = _utc_today()
     yesterday = today - timedelta(days=1)
 
-    if yesterday not in log_dates:
+    if today not in log_dates and yesterday not in log_dates:
         return 0
 
     anchor = today if today in log_dates else yesterday
@@ -35,11 +35,6 @@ def calculate_streak(log_dates: Set[date]) -> int:
         current -= timedelta(days=1)
 
     return streak
-
-
-async def register_daily_log_service(token: str) -> None:
-    current_user = validate_and_extract_user_details(token=token)
-    await record_daily_log_if_needed(user_id=current_user.id)
 
 
 async def record_daily_log_if_needed(user_id: UUID) -> None:
@@ -61,6 +56,8 @@ async def record_daily_log_if_needed(user_id: UUID) -> None:
 async def get_user_streak_service(token: str) -> UserStreakResponse:
     current_user = validate_and_extract_user_details(token=token)
     today = _utc_today()
+
+    await record_daily_log_if_needed(user_id=current_user.id)
 
     with SessionLocal() as db:
         streak = get_user_streak(db=db, user_id=current_user.id, today=today)

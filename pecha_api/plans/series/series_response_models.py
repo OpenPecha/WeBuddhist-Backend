@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Dict, List, Optional, Union
 from uuid import UUID
 from datetime import datetime
@@ -43,7 +43,8 @@ class SeriesMetadataInput(BaseModel):
 
 class CreateSeriesRequest(BaseModel):
     group_id: UUID
-    metadata: List[SeriesMetadataInput]
+    parent_series_id: Optional[UUID] = None
+    metadata: Optional[List[SeriesMetadataInput]] = None
     image_key: Optional[str] = None
     featured: Optional[bool] = False
     plans: Optional[Dict[str, List[UUID]]] = None
@@ -52,6 +53,24 @@ class CreateSeriesRequest(BaseModel):
     @classmethod
     def _validate_plans(cls, v):
         return _validate_plan_language_keys(v)
+
+    @property
+    def is_clone(self) -> bool:
+        return self.parent_series_id is not None
+
+    @model_validator(mode="after")
+    def _validate_mode(self):
+        # Clone mode: copy everything from the parent series, so metadata/plans
+        # must not be supplied in the body. Create mode: metadata is required.
+        if self.parent_series_id is not None:
+            if self.metadata or self.plans:
+                raise ValueError(
+                    "When cloning a series (parent_series_id set), metadata and plans "
+                    "must not be provided; they are copied from the parent series."
+                )
+        elif not self.metadata:
+            raise ValueError("metadata is required when creating a new series")
+        return self
 
 
 class UpdateSeriesRequest(BaseModel):
@@ -97,6 +116,8 @@ class SeriesListItemDTO(BaseModel):
     status: PlanStatus
     plan_count: int = 0
     total_days: int = 0
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     enrolled_count: int = 0
     group: Optional[AuthorGroupSummaryDTO] = None
 
@@ -107,6 +128,7 @@ class SeriesDTO(BaseModel):
     image: Optional[ImageUrlModel] = None
     image_key: Optional[str] = None
     author_id: UUID
+    parent_series_id: Optional[UUID] = None
     featured: bool
     status: PlanStatus
     plans: List[SeriesPlanDTO] = []

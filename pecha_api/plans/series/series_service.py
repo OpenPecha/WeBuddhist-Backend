@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -17,11 +17,14 @@ from pecha_api.plans.series.series_repository import (
     get_enrolled_count_map_by_series_ids,
     get_plans_by_ids,
     save_series_with_plans,
+    clone_series_with_plans,
+    get_series_for_clone,
     update_series_with_plans,
     update_series_status,
     update_series_featured,
     soft_delete_series_with_plan_detach,
     get_random_featured_published_series,
+    get_series_with_plans_by_ids,
 )
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
@@ -68,6 +71,10 @@ def _language_value(language) -> str:
 
 def _optional_metadata_str(value) -> Optional[str]:
     return value if isinstance(value, str) else None
+
+
+def _optional_uuid(value) -> Optional[UUID]:
+    return value if isinstance(value, UUID) else None
 
 
 def _metadata_to_dtos(entries, language: Optional[str] = None) -> List[SeriesMetadataDTO]:
@@ -120,7 +127,7 @@ def _build_plan_order_pairs(
 
 
 def _plan_to_dto(plan, group_id: Optional[UUID] = None) -> SeriesPlanDTO:
-    total_days = len(plan.items) if hasattr(plan, 'items') and plan.items else 0
+    total_days = _plan_total_days(plan)
     return SeriesPlanDTO(
         id=plan.id,
         title=plan.title,
@@ -139,6 +146,36 @@ def _plan_to_dto(plan, group_id: Optional[UUID] = None) -> SeriesPlanDTO:
         total_days=total_days,
         group_id=group_id,
     )
+
+
+def _plan_total_days(plan) -> int:
+    return len(plan.items) if hasattr(plan, "items") and plan.items else 0
+
+
+def _series_schedule_from_plans(
+    plans,
+    published_only: bool = False,
+    language: Optional[str] = None,
+) -> Tuple[Optional[datetime], Optional[datetime], int]:
+    sorted_plans = _get_sorted_active_plans(
+        plans,
+        published_only=published_only,
+        language=language,
+    )
+    if not sorted_plans:
+        return None, None, 0
+
+    series_total_days = sum(_plan_total_days(plan) for plan in sorted_plans)
+    first_plan = sorted_plans[0]
+    if not first_plan.start_date:
+        return None, None, series_total_days
+
+    start_date = first_plan.start_date
+    if series_total_days <= 0:
+        return start_date, start_date, series_total_days
+
+    end_date = start_date + timedelta(days=series_total_days - 1)
+    return start_date, end_date, series_total_days
 
 
 def _get_sorted_active_plans(
@@ -238,6 +275,9 @@ def _series_to_list_item_dto(
     enrolled_count: int = 0,
     language: Optional[str] = None,
     group: Optional[AuthorGroupSummaryDTO] = None,
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    total_days: int = 0,
 ) -> SeriesListItemDTO:
     return SeriesListItemDTO(
         id=row.id,
@@ -248,7 +288,9 @@ def _series_to_list_item_dto(
         featured=bool(row.featured),
         status=_to_plan_status(row.status),
         plan_count=plan_count,
-        total_days=0,
+        total_days=total_days,
+        start_date=start_date,
+        end_date=end_date,
         enrolled_count=enrolled_count,
         group=group,
     )
@@ -285,6 +327,7 @@ def _series_to_dto(
         image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
+        parent_series_id=_optional_uuid(getattr(row, "parent_series_id", None)),
         featured=bool(row.featured),
         status=_to_plan_status(row.status),
         plans=plans_dtos,
@@ -341,30 +384,64 @@ def get_filtered_series(
 
 def get_random_featured_series(
     language: Optional[str] = None,
-) -> SeriesListItemDTO:
+    limit: int = 10,
+) -> SeriesListResponse:
     from pecha_api.plans.response_message import NO_FEATURED_SERIES_FOUND
 
     with SessionLocal() as db_session:
-        row = get_random_featured_published_series(db=db_session)
-        if row is None:
+        rows, total = get_random_featured_published_series(
+            db=db_session,
+            limit=limit,
+            language=language,
+        )
+        if total == 0:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=NO_FEATURED_SERIES_FOUND,
             )
 
-        series, plan_count, enrolled_count = row
-        group = _group_summary_for_series(
+        group_summaries = _group_summaries_for_series_rows(
             db=db_session,
-            series=series,
+            series_rows=[row for row, _, _ in rows],
             language=language,
         )
+        series_with_plans = get_series_with_plans_by_ids(
+            db=db_session,
+            series_ids=[row.id for row, _, _ in rows],
+        )
+        plans_by_series_id = {series.id: series.plans for series in series_with_plans}
 
-    return _series_to_list_item_dto(
-        series,
-        plan_count=plan_count,
-        enrolled_count=enrolled_count,
-        language=language,
-        group=group,
+    series_dtos: List[SeriesListItemDTO] = []
+    for row, plan_count, enrolled_count in rows:
+        start_date, end_date, total_days = _series_schedule_from_plans(
+            plans_by_series_id.get(row.id, []),
+            published_only=True,
+            language=language,
+        )
+        series_dtos.append(
+            _series_to_list_item_dto(
+                row,
+                plan_count=plan_count,
+                enrolled_count=enrolled_count,
+                language=language,
+                group=group_summaries.get(row.group_id),
+                start_date=start_date,
+                end_date=end_date,
+                total_days=total_days,
+            )
+        )
+    if language:
+        series_dtos = [dto for dto in series_dtos if dto.metadata is not None]
+        if not series_dtos:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=NO_FEATURED_SERIES_FOUND,
+            )
+    return SeriesListResponse(
+        series=series_dtos,
+        skip=0,
+        limit=limit,
+        total=total,
     )
 
 
@@ -655,8 +732,62 @@ def update_existing_series_featured(
         ) from exc
 
 
+def _clone_existing_series(
+    current_author,
+    create_series_request: CreateSeriesRequest,
+) -> SeriesDTO:
+    target_group_id = create_series_request.group_id
+    parent_series_id = create_series_request.parent_series_id
+
+    try:
+        with SessionLocal() as db_session:
+            parent_series = get_series_for_clone(db=db_session, series_id=parent_series_id)
+            if not parent_series:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Series with id '{parent_series_id}' not found",
+                )
+            # Must be allowed to read the source and to create in the destination.
+            require_can_read_group_content(
+                db=db_session,
+                group_id=parent_series.group_id,
+                author=current_author,
+            )
+            require_can_create_content(
+                db=db_session,
+                group_id=target_group_id,
+                author=current_author,
+            )
+
+            cloned = clone_series_with_plans(
+                db=db_session,
+                parent_series=parent_series,
+                target_group_id=target_group_id,
+                author_id=current_author.id,
+                created_by=current_author.email,
+                image=create_series_request.image_key
+                if create_series_request.image_key is not None
+                else parent_series.image,
+                featured=bool(create_series_request.featured),
+            )
+
+            saved = get_series_by_id(db=db_session, series_id=cloned.id)
+            return _series_detail_dto(db_session, saved, include_plans=True)
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database integrity error: {exc.orig}",
+        ) from exc
+
+
 def create_new_series(token: str, create_series_request: CreateSeriesRequest) -> SeriesDTO:
     current_author = validate_cms_author_details(token=token)
+
+    if create_series_request.is_clone:
+        return _clone_existing_series(
+            current_author=current_author,
+            create_series_request=create_series_request,
+        )
 
     new_series = Series(
         image=create_series_request.image_key,

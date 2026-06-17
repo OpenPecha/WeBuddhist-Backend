@@ -4,7 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole, AuthorGroupType
 from pecha_api.plans.groups.group_summary_models import (
     AuthorGroupSummaryDTO,
     GroupMetadataDTO,
@@ -44,6 +44,7 @@ class GroupMetadataInput(BaseModel):
     title: str
     sub_title: Optional[str] = None
     description: Optional[str] = None
+    description_long: Optional[str] = None
     language: LanguageCode
 
 
@@ -69,6 +70,7 @@ class AuthorGroupMemberDTO(BaseModel):
 class AuthorGroupDetailDTO(BaseModel):
     id: UUID
     slug: str
+    group_type: AuthorGroupType
     is_public: bool
     avatar_key: Optional[str] = None
     banner_key: Optional[str] = None
@@ -81,6 +83,7 @@ class AuthorGroupDetailDTO(BaseModel):
     series: List[SeriesListItemDTO] = []
     plans: List[PlanDTO] = []
     follower_count: int = 0
+    joiner_count: int = 0
 
 
 class PublicAuthorGroupSummaryDTO(AuthorGroupSummaryDTO):
@@ -107,6 +110,7 @@ class PublicAuthorGroupListResponse(BaseModel):
 
 class CreateAuthorGroupRequest(BaseModel):
     slug: str
+    group_type: AuthorGroupType = AuthorGroupType.PAGE
     is_public: bool = True
     avatar_key: Optional[str] = None
     banner_key: Optional[str] = None
