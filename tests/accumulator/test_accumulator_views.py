@@ -13,6 +13,8 @@ from pecha_api.accumulator.accumulator_views import (
     update_user_accumulator,
     delete_user_accumulator,
     get_user_accumulator_history,
+    get_accumulator_detail,
+    update_accumulator_mala_image,
 )
 from pecha_api.accumulator.accumulator_response_models import (
     AccumulatorsResponse,
@@ -22,6 +24,7 @@ from pecha_api.accumulator.accumulator_response_models import (
     PublicAccumulatorDTO,
     CreateAccumulatorRequest,
     UpdateAccumulatorRequest,
+    UpdateMalaImageRequest,
     AccumulatorHistoryResponse,
     AccumulatorHistoryDTO,
     AccumulatorSessionDTO,
@@ -103,7 +106,7 @@ class TestGetAllAccumulators:
         assert isinstance(result, PublicAccumulatorsResponse)
         assert len(result.accumulators) == 2
         assert result.total == 2
-        mock_service.assert_called_once_with(skip=0, limit=20)
+        mock_service.assert_called_once_with(skip=0, limit=20, language=None)
 
     @patch('pecha_api.accumulator.accumulator_views.get_all_accumulators_service')
     @pytest.mark.asyncio
@@ -134,7 +137,19 @@ class TestGetAllAccumulators:
         assert result.skip == 5
         assert result.limit == 1
         assert result.total == 10
-        mock_service.assert_called_once_with(skip=5, limit=1)
+        mock_service.assert_called_once_with(skip=5, limit=1, language=None)
+
+    @patch('pecha_api.accumulator.accumulator_views.get_all_accumulators_service')
+    @pytest.mark.asyncio
+    async def test_get_all_accumulators_with_language(self, mock_service):
+        """Test get_all_accumulators forwards the language filter to the service."""
+        mock_service.return_value = PublicAccumulatorsResponse(
+            accumulators=[], total=0, skip=0, limit=20
+        )
+
+        await get_all_preset_accumulators(skip=0, limit=20, language="bo")
+
+        mock_service.assert_called_once_with(skip=0, limit=20, language="bo")
 
 
 class TestGetUserAccumulators:
@@ -483,3 +498,62 @@ class TestGetUserAccumulatorHistory:
             )
 
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+class TestGetAccumulatorDetail:
+    """Test cases for get_accumulator_detail endpoint."""
+
+    @patch('pecha_api.accumulator.accumulator_views.get_accumulator_detail_service')
+    @pytest.mark.asyncio
+    async def test_get_accumulator_detail_success(self, mock_service):
+        """Test successful retrieval (or auto-create) of accumulator detail."""
+        parent_id = uuid4()
+        mock_service.return_value = AccumulatorHistoryDTO(
+            accumulator_id=uuid4(),
+            parent_id=parent_id,
+            target_count=108,
+            current_count=0,
+            total_counted=0,
+            metadata=[AccumulatorMetadataDTO(language="EN", name="Mani")],
+            sessions=[],
+        )
+
+        result = await get_accumulator_detail(
+            parent_id=parent_id,
+            credentials=TestDataFactory.create_auth_credentials(token="valid_token"),
+        )
+
+        assert isinstance(result, AccumulatorHistoryDTO)
+        assert result.parent_id == parent_id
+        mock_service.assert_called_once_with(token="valid_token", parent_id=parent_id)
+
+
+class TestUpdateAccumulatorMalaImage:
+    """Test cases for update_accumulator_mala_image endpoint."""
+
+    @patch('pecha_api.accumulator.accumulator_views.update_mala_image_service')
+    @pytest.mark.asyncio
+    async def test_update_accumulator_mala_image_success(self, mock_service):
+        """Test successful update of accumulator mala image."""
+        accumulator_id = uuid4()
+        mala_image_id = uuid4()
+        token = "valid_token"
+        request = UpdateMalaImageRequest(mala_image_id=mala_image_id)
+
+        mock_service.return_value = TestDataFactory.create_accumulator_dto(
+            accumulator_id=accumulator_id,
+            name="Updated Mala",
+        )
+
+        result = await update_accumulator_mala_image(
+            accumulator_id=accumulator_id,
+            request=request,
+            credentials=TestDataFactory.create_auth_credentials(token=token),
+        )
+
+        assert isinstance(result, AccumulatorDTO)
+        mock_service.assert_called_once_with(
+            token=token,
+            accumulator_id=accumulator_id,
+            request=request,
+        )

@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Dict, Optional, List
 from uuid import UUID, uuid4
 import logging
 
@@ -26,10 +26,14 @@ from .accumulator_repository import (
     get_mantra_mala_image_id,
     get_mala_image_by_id
 )
+from ..mantra.mantra_model import Mantra
+from ..mantra.mantra_metadata_model import MantraMetadata
+from ..mantra.mantra_repository import get_mantras_by_ids
 from .accumulator_response_models import (
     AccumulatorsResponse,
     AccumulatorDTO,
     AccumulatorMetadataDTO,
+    PresetMantraDTO,
     PublicAccumulatorDTO,
     PublicAccumulatorsResponse,
     CreateAccumulatorRequest,
@@ -41,6 +45,7 @@ from .accumulator_response_models import (
 )
 from .accumulator_models import Accumulator
 from .accumulator_metadata_model import AccumulatorMetadata
+from .accumulator_history_model import AccumulatorHistory
 from .accumulator_enums import AccumulatorType
 from .response_message import (
     NOT_FOUND,
@@ -123,13 +128,63 @@ def convert_accumulators_to_dtos(accumulators: List[Accumulator]) -> List[Accumu
     return [convert_accumulator_to_dto(accumulator) for accumulator in accumulators]
 
 
-def convert_accumulator_to_public_dto(accumulator: Accumulator) -> PublicAccumulatorDTO:
+def _metadata_language(entry: MantraMetadata) -> str:
+    return entry.language.value if hasattr(entry.language, "value") else entry.language
+
+
+def _pick_mantra_metadata(
+    metadata_entries: List[MantraMetadata],
+    language: Optional[str],
+) -> Optional[MantraMetadata]:
+    if not metadata_entries:
+        return None
+    if language:
+        language_upper = language.upper()
+        for entry in metadata_entries:
+            if _metadata_language(entry) == language_upper:
+                return entry
+        return None
+    for entry in metadata_entries:
+        if _metadata_language(entry) == "EN":
+            return entry
+    return metadata_entries[0]
+
+
+def build_preset_mantra_dto(
+    mantra: Mantra,
+    language: Optional[str],
+) -> Optional[PresetMantraDTO]:
+    metadata = _pick_mantra_metadata(mantra.metadata_entries, language)
+    if metadata is None:
+        return None
+    mala = mantra.mala
+    return PresetMantraDTO(
+        id=mantra.id,
+        mantra=metadata.mantra,
+        title=metadata.title,
+        pronunciation=metadata.pronunciation,
+        audio_url=mantra.audio_url,
+        mala_image_id=mala.id if mala is not None else None,
+        mala_image_url=generate_mala_image_presigned_url(mala.url) if mala is not None else None,
+    )
+
+
+def convert_accumulator_to_public_dto(
+    accumulator: Accumulator,
+    mantras_by_id: Optional[Dict[UUID, Mantra]] = None,
+    language: Optional[str] = None,
+) -> PublicAccumulatorDTO:
     accumulator_type = (
         AccumulatorType(accumulator.type.value)
         if hasattr(accumulator.type, 'value')
         else accumulator.type
     )
     mala_image_id, mala_image_url = resolve_mala_image_fields(accumulator)
+    mantra_dto = None
+    if accumulator.mantra_id and mantras_by_id:
+        mantra = mantras_by_id.get(accumulator.mantra_id)
+        if mantra is not None:
+            mantra_dto = build_preset_mantra_dto(mantra, language)
     return PublicAccumulatorDTO(
         id=accumulator.id,
         group_id=accumulator.group_id,
@@ -137,7 +192,7 @@ def convert_accumulator_to_public_dto(accumulator: Accumulator) -> PublicAccumul
         target_count=accumulator.target_count,
         current_count=accumulator.current_count or 0,
         text_id=accumulator.text_id,
-        mantra_id=accumulator.mantra_id,
+        mantra=mantra_dto,
         mala_image_id=mala_image_id,
         mala_image_url=mala_image_url,
         metadata=convert_metadata_entries_to_dtos(accumulator),
@@ -159,14 +214,98 @@ def is_user_created_accumulator(accumulator: Accumulator) -> bool:
     return accumulator_type == AccumulatorType.USER.value
 
 
+def _create_accumulator_from_preset(
+    db,
+    user_id: UUID,
+    preset_id: UUID,
+) -> Accumulator:
+    """Create a user accumulator by copying fields from a public preset."""
+    preset = get_preset_by_id(db, preset_id)
+    if preset is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": NOT_FOUND, "message": PRESET_NOT_FOUND}
+        )
+
+    existing = get_user_accumulator_by_parent(db, user_id, preset.id)
+    if existing is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"error": CONFLICT, "message": ACCUMULATOR_ALREADY_EXISTS}
+        )
+
+    mantra_mala_image_id = (
+        get_mantra_mala_image_id(db, preset.mantra_id)
+        if preset.mantra_id is not None
+        else None
+    )
+
+    new_accumulator = Accumulator(
+        id=uuid4(),
+        user_id=user_id,
+        group_id=preset.group_id,
+        parent_id=preset.id,
+        type=AccumulatorType.USER,
+        target_count=preset.target_count,
+        current_count=0,
+        text_id=preset.text_id,
+        mantra_id=preset.mantra_id,
+        mala_image=mantra_mala_image_id or preset.mala_image,
+    )
+
+    new_accumulator.metadata_entries = [
+        AccumulatorMetadata(
+            id=uuid4(),
+            name=entry.name,
+            description=entry.description,
+            language=entry.language,
+        )
+        for entry in preset.metadata_entries
+    ]
+
+    add_accumulator(db, new_accumulator)
+    return commit_accumulator(db, new_accumulator)
+
+
+def _build_accumulator_history_dto(
+    accumulator: Accumulator,
+    total_counted: int,
+    sessions: List[AccumulatorHistory],
+) -> AccumulatorHistoryDTO:
+    mala_image_id, mala_image_url = resolve_mala_image_fields(accumulator)
+    return AccumulatorHistoryDTO(
+        accumulator_id=accumulator.id,
+        parent_id=accumulator.parent_id,
+        target_count=accumulator.target_count,
+        current_count=accumulator.current_count or 0,
+        total_counted=total_counted,
+        mala_image_id=mala_image_id,
+        mala_image_url=mala_image_url,
+        metadata=convert_metadata_entries_to_dtos(accumulator),
+        sessions=[
+            AccumulatorSessionDTO(
+                count=session.count,
+                created_at=session.created_at
+            )
+            for session in sessions
+        ]
+    )
+
+
 def get_all_accumulators_service(
     skip: int = 0,
-    limit: int = 20
+    limit: int = 20,
+    language: Optional[str] = None,
 ) -> PublicAccumulatorsResponse:
     with SessionLocal() as db:
         accumulators, total = get_all_accumulators(db, skip, limit)
+        mantra_ids = [a.mantra_id for a in accumulators if a.mantra_id is not None]
+        mantras_by_id = get_mantras_by_ids(db, mantra_ids)
         return PublicAccumulatorsResponse(
-            accumulators=[convert_accumulator_to_public_dto(a) for a in accumulators],
+            accumulators=[
+                convert_accumulator_to_public_dto(a, mantras_by_id, language)
+                for a in accumulators
+            ],
             total=total,
             skip=skip,
             limit=limit
@@ -191,64 +330,15 @@ def get_user_accumulators_service(
 def create_accumulator_service(token: str, request: CreateAccumulatorRequest) -> AccumulatorDTO:
     """Create the user's accumulator from a tapped preset.
 
-    The app calls this only after GET /accumulators/{parent_id} returned 404,
-    i.e. the user has no accumulator for this preset yet. The preset's fields
-    are copied into a new user accumulator whose parent_id links back to the
-    preset. A user has at most one active accumulator per preset, so a duplicate
-    create is rejected."""
+    The preset's fields are copied into a new user accumulator whose parent_id
+    links back to the preset. A user has at most one active accumulator per
+    preset, so a duplicate create is rejected."""
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
-        preset = get_preset_by_id(db, request.parent_id)
-        if preset is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"error": NOT_FOUND, "message": PRESET_NOT_FOUND}
-            )
-
-        existing = get_user_accumulator_by_parent(db, current_user.id, preset.id)
-        if existing is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={"error": CONFLICT, "message": ACCUMULATOR_ALREADY_EXISTS}
-            )
-
-        # Default the new accumulator's mala image to the preset's mantra's
-        # mala image (the per-mantra default). Fall back to the preset's own
-        # mala image when the mantra has none set.
-        mantra_mala_image_id = (
-            get_mantra_mala_image_id(db, preset.mantra_id)
-            if preset.mantra_id is not None
-            else None
+        saved_accumulator = _create_accumulator_from_preset(
+            db, current_user.id, request.parent_id
         )
-
-        new_accumulator = Accumulator(
-            id=uuid4(),
-            user_id=current_user.id,
-            group_id=preset.group_id,
-            parent_id=preset.id,
-            type=AccumulatorType.USER,
-            target_count=preset.target_count,
-            current_count=0,
-            text_id=preset.text_id,
-            mantra_id=preset.mantra_id,
-            mala_image=mantra_mala_image_id or preset.mala_image,
-        )
-
-        # Copy the preset's per-language metadata (name/description) so the new
-        # accumulator starts with the same display text.
-        new_accumulator.metadata_entries = [
-            AccumulatorMetadata(
-                id=uuid4(),
-                name=entry.name,
-                description=entry.description,
-                language=entry.language,
-            )
-            for entry in preset.metadata_entries
-        ]
-
-        add_accumulator(db, new_accumulator)
-        saved_accumulator = commit_accumulator(db, new_accumulator)
         return convert_accumulator_to_dto(saved_accumulator)
 
 
@@ -333,38 +423,21 @@ def get_accumulator_detail_service(
     parent_id: UUID
 ) -> AccumulatorHistoryDTO:
     """Fetch the current user's accumulator created from the given preset
-    (parent_id), with its history. 404 if the user has none yet, which signals
-    the app to POST and create one."""
+    (parent_id), with its history. Creates one from the preset when the user
+    has none yet."""
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
         result = get_accumulator_with_history(db, current_user.id, parent_id)
 
         if result is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"error": NOT_FOUND, "message": ACCUMULATOR_NOT_FOUND}
+            accumulator = _create_accumulator_from_preset(
+                db, current_user.id, parent_id
             )
+            return _build_accumulator_history_dto(accumulator, total_counted=0, sessions=[])
 
         accumulator, total_counted, sessions = result
-        mala_image_id, mala_image_url = resolve_mala_image_fields(accumulator)
-        return AccumulatorHistoryDTO(
-            accumulator_id=accumulator.id,
-            parent_id=accumulator.parent_id,
-            target_count=accumulator.target_count,
-            current_count=accumulator.current_count or 0,
-            total_counted=total_counted,
-            mala_image_id=mala_image_id,
-            mala_image_url=mala_image_url,
-            metadata=convert_metadata_entries_to_dtos(accumulator),
-            sessions=[
-                AccumulatorSessionDTO(
-                    count=session.count,
-                    created_at=session.created_at
-                )
-                for session in sessions
-            ]
-        )
+        return _build_accumulator_history_dto(accumulator, total_counted, sessions)
 
 
 def get_accumulator_history_service(

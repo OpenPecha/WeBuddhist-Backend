@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 from starlette import status
 
@@ -38,8 +38,12 @@ oauth2_scheme = HTTPBearer()
 async def get_all_preset_accumulators(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
+    language: Annotated[
+        Optional[str],
+        Query(description="Language code for mantra title, text, and pronunciation (e.g. 'en', 'bo', 'zh')"),
+    ] = None,
 ):
-    return get_all_accumulators_service(skip=skip, limit=limit)
+    return get_all_accumulators_service(skip=skip, limit=limit, language=language)
 
 
 @accumulator_router.get("/user", response_model=AccumulatorsResponse)

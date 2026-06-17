@@ -15,17 +15,17 @@ class TestDataFactory:
     @staticmethod
     def create_mock_metadata(
         metadata_id=None,
-        text="Om Mani Padme Hum",
-        meaning="The jewel in the lotus",
-        transliteration="om mani padme hum",
+        mantra="Om Mani Padme Hum",
+        title="The jewel in the lotus",
+        pronunciation="om mani padme hum",
         language=LanguageCode.EN,
     ):
         """Create a mock MantraMetadata entry."""
         entry = MagicMock(spec=MantraMetadata)
         entry.id = metadata_id or uuid4()
-        entry.text = text
-        entry.meaning = meaning
-        entry.transliteration = transliteration
+        entry.mantra = mantra
+        entry.title = title
+        entry.pronunciation = pronunciation
         entry.language = language
         return entry
 
@@ -51,10 +51,10 @@ class TestGetMantrasService:
         mock_session.return_value.__enter__.return_value = mock_db
 
         mantra1 = TestDataFactory.create_mock_mantra(
-            metadata_entries=[TestDataFactory.create_mock_metadata(text="Mantra 1")]
+            metadata_entries=[TestDataFactory.create_mock_metadata(mantra="Mantra 1")]
         )
         mantra2 = TestDataFactory.create_mock_mantra(
-            metadata_entries=[TestDataFactory.create_mock_metadata(text="Mantra 2")]
+            metadata_entries=[TestDataFactory.create_mock_metadata(mantra="Mantra 2")]
         )
         mock_get_all.return_value = [mantra1, mantra2]
 
@@ -62,7 +62,7 @@ class TestGetMantrasService:
 
         assert isinstance(result, MantraResponse)
         assert len(result.mantras) == 2
-        assert result.mantras[0].metadata[0].text == "Mantra 1"
+        assert result.mantras[0].metadata[0].mantra == "Mantra 1"
         mock_get_all.assert_called_once_with(mock_db, language=None)
 
     @patch('pecha_api.mantra.mantra_service.SessionLocal')
@@ -96,8 +96,8 @@ class TestGetMantrasService:
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
 
-        en_entry = TestDataFactory.create_mock_metadata(text="English", language=LanguageCode.EN)
-        bo_entry = TestDataFactory.create_mock_metadata(text="Tibetan", language=LanguageCode.BO)
+        en_entry = TestDataFactory.create_mock_metadata(mantra="English", language=LanguageCode.EN)
+        bo_entry = TestDataFactory.create_mock_metadata(mantra="Tibetan", language=LanguageCode.BO)
         mantra = TestDataFactory.create_mock_mantra(metadata_entries=[en_entry, bo_entry])
         mock_get_all.return_value = [mantra]
 
@@ -114,7 +114,7 @@ class TestGetMantrasService:
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
 
-        bo_entry = TestDataFactory.create_mock_metadata(text="Tibetan", language=LanguageCode.BO)
+        bo_entry = TestDataFactory.create_mock_metadata(mantra="Tibetan", language=LanguageCode.BO)
         mantra = TestDataFactory.create_mock_mantra(metadata_entries=[bo_entry])
         mock_get_all.return_value = [mantra]
 
@@ -130,8 +130,8 @@ class TestBuildMantraDto:
     def test_build_mantra_dto_no_language_includes_all(self):
         """Without a language filter, all metadata entries are included."""
         entries = [
-            TestDataFactory.create_mock_metadata(text="EN", language=LanguageCode.EN),
-            TestDataFactory.create_mock_metadata(text="BO", language=LanguageCode.BO),
+            TestDataFactory.create_mock_metadata(mantra="EN", language=LanguageCode.EN),
+            TestDataFactory.create_mock_metadata(mantra="BO", language=LanguageCode.BO),
         ]
         mantra = TestDataFactory.create_mock_mantra(metadata_entries=entries)
 
@@ -145,8 +145,8 @@ class TestBuildMantraDto:
     def test_build_mantra_dto_filters_by_language(self):
         """With a language filter, only matching entries are kept."""
         entries = [
-            TestDataFactory.create_mock_metadata(text="EN", language=LanguageCode.EN),
-            TestDataFactory.create_mock_metadata(text="ZH", language=LanguageCode.ZH),
+            TestDataFactory.create_mock_metadata(mantra="EN", language=LanguageCode.EN),
+            TestDataFactory.create_mock_metadata(mantra="ZH", language=LanguageCode.ZH),
         ]
         mantra = TestDataFactory.create_mock_mantra(metadata_entries=entries)
 

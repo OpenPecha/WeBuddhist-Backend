@@ -11,12 +11,12 @@ class TestDataFactory:
     """Factory for creating test data objects."""
 
     @staticmethod
-    def create_metadata_dto(text="Om Mani Padme Hum", language=LanguageCode.EN) -> MantraMetadataDTO:
+    def create_metadata_dto(mantra="Om Mani Padme Hum", language=LanguageCode.EN) -> MantraMetadataDTO:
         return MantraMetadataDTO(
             id=uuid4(),
-            text=text,
-            meaning="meaning",
-            transliteration="translit",
+            mantra=mantra,
+            title="title",
+            pronunciation="pronunciation",
             language=language,
         )
 
