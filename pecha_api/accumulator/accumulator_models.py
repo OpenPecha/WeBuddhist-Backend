@@ -29,6 +29,14 @@ class Accumulator(Base):
         ForeignKey("mantra.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # The chosen mala image for this accumulator (one per accumulator, not
+    # per-language). Defaults from the mantra at create time; the user can
+    # override it via the update-mala-image endpoint.
+    mala_image = Column(
+        UUID(as_uuid=True),
+        ForeignKey("mala_images.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(_datetime.timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(_datetime.timezone.utc), onupdate=lambda: datetime.now(_datetime.timezone.utc))
@@ -39,6 +47,8 @@ class Accumulator(Base):
         back_populates="accumulator",
         cascade="all, delete-orphan",
     )
+
+    mala = relationship("MalaImage")
 
     __table_args__ = (
         Index("idx_accumulators_user_id", "user_id"),

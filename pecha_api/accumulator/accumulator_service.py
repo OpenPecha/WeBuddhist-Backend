@@ -23,8 +23,8 @@ from .accumulator_repository import (
     add_history_row,
     get_user_accumulator_history,
     mantra_exists,
-    get_mala_image_by_id,
-    get_accumulator_metadata
+    get_mantra_mala_image_id,
+    get_mala_image_by_id
 )
 from .accumulator_response_models import (
     AccumulatorsResponse,
@@ -48,7 +48,6 @@ from .response_message import (
     CONFLICT,
     ACCUMULATOR_NOT_FOUND,
     ACCUMULATOR_ALREADY_EXISTS,
-    ACCUMULATOR_METADATA_NOT_FOUND,
     MALA_IMAGE_NOT_FOUND,
     PRESET_NOT_FOUND,
     MANTRA_NOT_FOUND,
@@ -75,18 +74,24 @@ def generate_mala_image_presigned_url(url: Optional[str]) -> Optional[str]:
 
 def convert_metadata_to_dto(metadata: AccumulatorMetadata) -> AccumulatorMetadataDTO:
     language = metadata.language.value if hasattr(metadata.language, 'value') else metadata.language
-    mala = metadata.mala
     return AccumulatorMetadataDTO(
         language=language,
         name=metadata.name,
         description=metadata.description,
-        mala_image_id=mala.id if mala is not None else None,
-        mala_image_url=generate_mala_image_presigned_url(mala.url) if mala is not None else None,
     )
 
 
 def convert_metadata_entries_to_dtos(accumulator: Accumulator) -> List[AccumulatorMetadataDTO]:
     return [convert_metadata_to_dto(entry) for entry in accumulator.metadata_entries]
+
+
+def resolve_mala_image_fields(accumulator: Accumulator) -> tuple[Optional[UUID], Optional[str]]:
+    """Return (mala_image_id, presigned mala_image_url) for the accumulator's
+    chosen mala image, or (None, None) when none is set."""
+    mala = accumulator.mala
+    if mala is None:
+        return None, None
+    return mala.id, generate_mala_image_presigned_url(mala.url)
 
 
 def convert_accumulator_to_dto(accumulator: Accumulator) -> AccumulatorDTO:
@@ -95,6 +100,7 @@ def convert_accumulator_to_dto(accumulator: Accumulator) -> AccumulatorDTO:
         if hasattr(accumulator.type, 'value')
         else accumulator.type
     )
+    mala_image_id, mala_image_url = resolve_mala_image_fields(accumulator)
     return AccumulatorDTO(
         id=accumulator.id,
         user_id=accumulator.user_id,
@@ -105,6 +111,8 @@ def convert_accumulator_to_dto(accumulator: Accumulator) -> AccumulatorDTO:
         current_count=accumulator.current_count or 0,
         text_id=accumulator.text_id,
         mantra_id=accumulator.mantra_id,
+        mala_image_id=mala_image_id,
+        mala_image_url=mala_image_url,
         metadata=convert_metadata_entries_to_dtos(accumulator),
         created_at=accumulator.created_at,
         updated_at=accumulator.updated_at
@@ -121,6 +129,7 @@ def convert_accumulator_to_public_dto(accumulator: Accumulator) -> PublicAccumul
         if hasattr(accumulator.type, 'value')
         else accumulator.type
     )
+    mala_image_id, mala_image_url = resolve_mala_image_fields(accumulator)
     return PublicAccumulatorDTO(
         id=accumulator.id,
         group_id=accumulator.group_id,
@@ -129,6 +138,8 @@ def convert_accumulator_to_public_dto(accumulator: Accumulator) -> PublicAccumul
         current_count=accumulator.current_count or 0,
         text_id=accumulator.text_id,
         mantra_id=accumulator.mantra_id,
+        mala_image_id=mala_image_id,
+        mala_image_url=mala_image_url,
         metadata=convert_metadata_entries_to_dtos(accumulator),
         created_at=accumulator.created_at,
         updated_at=accumulator.updated_at
@@ -188,7 +199,7 @@ def create_accumulator_service(token: str, request: CreateAccumulatorRequest) ->
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
-        preset = get_preset_by_id(db, request.preset_id)
+        preset = get_preset_by_id(db, request.parent_id)
         if preset is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -202,6 +213,15 @@ def create_accumulator_service(token: str, request: CreateAccumulatorRequest) ->
                 detail={"error": CONFLICT, "message": ACCUMULATOR_ALREADY_EXISTS}
             )
 
+        # Default the new accumulator's mala image to the preset's mantra's
+        # mala image (the per-mantra default). Fall back to the preset's own
+        # mala image when the mantra has none set.
+        mantra_mala_image_id = (
+            get_mantra_mala_image_id(db, preset.mantra_id)
+            if preset.mantra_id is not None
+            else None
+        )
+
         new_accumulator = Accumulator(
             id=uuid4(),
             user_id=current_user.id,
@@ -211,18 +231,18 @@ def create_accumulator_service(token: str, request: CreateAccumulatorRequest) ->
             target_count=preset.target_count,
             current_count=0,
             text_id=preset.text_id,
-            mantra_id=preset.mantra_id
+            mantra_id=preset.mantra_id,
+            mala_image=mantra_mala_image_id or preset.mala_image,
         )
 
-        # Copy the preset's per-language metadata (name/description/mala image)
-        # so the new accumulator starts with the same display text.
+        # Copy the preset's per-language metadata (name/description) so the new
+        # accumulator starts with the same display text.
         new_accumulator.metadata_entries = [
             AccumulatorMetadata(
                 id=uuid4(),
                 name=entry.name,
                 description=entry.description,
                 language=entry.language,
-                mala_image=entry.mala_image,
             )
             for entry in preset.metadata_entries
         ]
@@ -327,12 +347,15 @@ def get_accumulator_detail_service(
             )
 
         accumulator, total_counted, sessions = result
+        mala_image_id, mala_image_url = resolve_mala_image_fields(accumulator)
         return AccumulatorHistoryDTO(
             accumulator_id=accumulator.id,
             parent_id=accumulator.parent_id,
             target_count=accumulator.target_count,
             current_count=accumulator.current_count or 0,
             total_counted=total_counted,
+            mala_image_id=mala_image_id,
+            mala_image_url=mala_image_url,
             metadata=convert_metadata_entries_to_dtos(accumulator),
             sessions=[
                 AccumulatorSessionDTO(
@@ -356,12 +379,15 @@ def get_accumulator_history_service(
 
         accumulators = []
         for accumulator, total_counted, sessions in history_data:
+            mala_image_id, mala_image_url = resolve_mala_image_fields(accumulator)
             accumulator_history_dto = AccumulatorHistoryDTO(
                 accumulator_id=accumulator.id,
                 parent_id=accumulator.parent_id,
                 target_count=accumulator.target_count,
                 current_count=accumulator.current_count or 0,
                 total_counted=total_counted,
+                mala_image_id=mala_image_id,
+                mala_image_url=mala_image_url,
                 metadata=convert_metadata_entries_to_dtos(accumulator),
                 sessions=[
                     AccumulatorSessionDTO(
@@ -386,8 +412,8 @@ def update_mala_image_service(
     accumulator_id: UUID,
     request: UpdateMalaImageRequest
 ) -> AccumulatorDTO:
-    """Set the mala image on an accumulator's metadata row for a given language.
-    The accumulator must belong to the requesting user and the mala image must
+    """Set the mala image on an accumulator (one image per accumulator). The
+    accumulator must belong to the requesting user and the mala image must
     exist in the catalog."""
     current_user = validate_and_extract_user_details(token=token)
 
@@ -412,13 +438,6 @@ def update_mala_image_service(
                 detail={"error": NOT_FOUND, "message": MALA_IMAGE_NOT_FOUND}
             )
 
-        metadata = get_accumulator_metadata(db, accumulator_id, request.language)
-        if metadata is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"error": NOT_FOUND, "message": ACCUMULATOR_METADATA_NOT_FOUND}
-            )
-
-        metadata.mala_image = mala.id
+        accumulator.mala_image = mala.id
         updated_accumulator = update_accumulator(db, accumulator)
         return convert_accumulator_to_dto(updated_accumulator)

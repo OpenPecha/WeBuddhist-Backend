@@ -12,6 +12,7 @@ from pecha_api.accumulator.accumulator_service import (
     update_accumulator_service,
     delete_accumulator_service,
     get_accumulator_history_service,
+    update_mala_image_service,
     convert_accumulator_to_dto,
     convert_accumulator_to_public_dto,
     is_user_created_accumulator,
@@ -24,6 +25,7 @@ from pecha_api.accumulator.accumulator_response_models import (
     PublicAccumulatorDTO,
     CreateAccumulatorRequest,
     UpdateAccumulatorRequest,
+    UpdateMalaImageRequest,
     AccumulatorHistoryResponse,
 )
 from pecha_api.accumulator.accumulator_models import Accumulator
@@ -37,8 +39,8 @@ class TestDataFactory:
     """Factory for creating test data objects."""
 
     @staticmethod
-    def create_mock_metadata(name="Test Accumulator", description=None, language="EN", mala=None):
-        """Create a mock AccumulatorMetadata row."""
+    def create_mock_metadata(name="Test Accumulator", description=None, language="EN"):
+        """Create a mock AccumulatorMetadata row (per-language name/description)."""
         metadata = MagicMock()
         metadata.id = uuid4()
         metadata.name = name
@@ -46,8 +48,6 @@ class TestDataFactory:
         lang = MagicMock()
         lang.value = language
         metadata.language = lang
-        metadata.mala = mala
-        metadata.mala_image = mala.id if mala is not None else None
         return metadata
 
     @staticmethod
@@ -63,10 +63,12 @@ class TestDataFactory:
         current_count=0,
         text_id=None,
         mantra_id=None,
+        mala=None,
         metadata_entries=None,
     ):
         """Create a mock Accumulator model. name/description are placed on a
-        single (EN) metadata row unless metadata_entries is given explicitly."""
+        single (EN) metadata row unless metadata_entries is given explicitly.
+        The chosen mala image (relationship) lives on the accumulator."""
         accumulator = MagicMock(spec=Accumulator)
         accumulator.id = accumulator_id or uuid4()
         accumulator.user_id = user_id or uuid4()
@@ -77,6 +79,8 @@ class TestDataFactory:
         accumulator.current_count = current_count
         accumulator.text_id = text_id
         accumulator.mantra_id = mantra_id
+        accumulator.mala = mala
+        accumulator.mala_image = mala.id if mala is not None else None
         if metadata_entries is None:
             metadata_entries = [
                 TestDataFactory.create_mock_metadata(name=name, description=description)
@@ -97,7 +101,7 @@ class TestDataFactory:
     @staticmethod
     def create_accumulator_request(preset_id=None) -> CreateAccumulatorRequest:
         """Create a CreateAccumulatorRequest referencing a preset."""
-        return CreateAccumulatorRequest(preset_id=preset_id or uuid4())
+        return CreateAccumulatorRequest(parent_id=preset_id or uuid4())
 
     @staticmethod
     def create_update_request(
@@ -233,13 +237,14 @@ class TestCreateAccumulatorService:
     """Test cases for create_accumulator_service function (preset -> user copy)."""
 
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_mantra_mala_image_id')
     @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
     @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
     @patch('pecha_api.accumulator.accumulator_service.get_user_accumulator_by_parent')
     @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
     @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
     def test_create_accumulator_service_success(
-        self, mock_validate, mock_get_preset, mock_get_by_parent, mock_add, mock_commit, mock_session
+        self, mock_validate, mock_get_preset, mock_get_by_parent, mock_add, mock_commit, mock_get_mantra_mala, mock_session
     ):
         """First tap (no existing accumulator for the preset) creates a new row
         whose parent_id links back to the preset."""
@@ -252,6 +257,7 @@ class TestCreateAccumulatorService:
         mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_mantra_mala.return_value = None
 
         preset = TestDataFactory.create_mock_accumulator(
             accumulator_id=preset_id,
@@ -329,6 +335,7 @@ class TestCreateAccumulatorService:
         mock_add.assert_not_called()       # no new accumulator created
 
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_mantra_mala_image_id')
     @patch('pecha_api.accumulator.accumulator_service.add_history_row')
     @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
     @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
@@ -336,7 +343,7 @@ class TestCreateAccumulatorService:
     @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
     @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
     def test_create_accumulator_service_no_history_on_create(
-        self, mock_validate, mock_get_preset, mock_get_by_parent, mock_add, mock_commit, mock_add_history, mock_session
+        self, mock_validate, mock_get_preset, mock_get_by_parent, mock_add, mock_commit, mock_add_history, mock_get_mantra_mala, mock_session
     ):
         """Creating from a preset starts at count 0 and writes no history row."""
         user_id = uuid4()
@@ -346,6 +353,7 @@ class TestCreateAccumulatorService:
         mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_mantra_mala.return_value = None
         mock_get_preset.return_value = TestDataFactory.create_mock_accumulator(
             accumulator_id=preset_id, accumulator_type=AccumulatorType.PRESET
         )
@@ -361,6 +369,106 @@ class TestCreateAccumulatorService:
         create_accumulator_service(token=token, request=request)
 
         mock_add_history.assert_not_called()
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_mantra_mala_image_id')
+    @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.get_user_accumulator_by_parent')
+    @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_create_accumulator_service_mantra_mala_image_default(
+        self, mock_validate, mock_get_preset, mock_get_by_parent, mock_add, mock_commit, mock_get_mantra_mala, mock_session
+    ):
+        """The new accumulator's mala image defaults to the preset mantra's
+        mala image, overriding the preset's own mala image."""
+        user_id = uuid4()
+        preset_id = uuid4()
+        mantra_id = uuid4()
+        preset_mala = MagicMock(); preset_mala.id = uuid4()
+        mantra_mala_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_mantra_mala.return_value = mantra_mala_id
+
+        preset = TestDataFactory.create_mock_accumulator(
+            accumulator_id=preset_id,
+            accumulator_type=AccumulatorType.PRESET,
+            mantra_id=mantra_id,
+            mala=preset_mala,
+        )
+        mock_get_preset.return_value = preset
+        mock_get_by_parent.return_value = None
+
+        captured = {}
+        def _add(_db, accumulator):
+            captured["accumulator"] = accumulator
+            return accumulator
+        mock_add.side_effect = _add
+
+        def _commit(_db, accumulator):
+            accumulator.created_at = datetime.utcnow()
+            accumulator.updated_at = datetime.utcnow()
+            return accumulator
+        mock_commit.side_effect = _commit
+
+        request = TestDataFactory.create_accumulator_request(preset_id=preset_id)
+        create_accumulator_service(token=token, request=request)
+
+        mock_get_mantra_mala.assert_called_once_with(mock_db, mantra_id)
+        assert captured["accumulator"].mala_image == mantra_mala_id  # mantra default wins
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_mantra_mala_image_id')
+    @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.add_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.get_user_accumulator_by_parent')
+    @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_create_accumulator_service_falls_back_to_preset_mala_image(
+        self, mock_validate, mock_get_preset, mock_get_by_parent, mock_add, mock_commit, mock_get_mantra_mala, mock_session
+    ):
+        """When the mantra has no mala image, the new accumulator keeps the
+        preset's own mala image."""
+        user_id = uuid4()
+        preset_id = uuid4()
+        mantra_id = uuid4()
+        preset_mala = MagicMock(); preset_mala.id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_mantra_mala.return_value = None  # mantra has no default
+
+        preset = TestDataFactory.create_mock_accumulator(
+            accumulator_id=preset_id,
+            accumulator_type=AccumulatorType.PRESET,
+            mantra_id=mantra_id,
+            mala=preset_mala,
+        )
+        mock_get_preset.return_value = preset
+        mock_get_by_parent.return_value = None
+
+        captured = {}
+        def _add(_db, accumulator):
+            captured["accumulator"] = accumulator
+            return accumulator
+        mock_add.side_effect = _add
+
+        def _commit(_db, accumulator):
+            accumulator.created_at = datetime.utcnow()
+            accumulator.updated_at = datetime.utcnow()
+            return accumulator
+        mock_commit.side_effect = _commit
+
+        request = TestDataFactory.create_accumulator_request(preset_id=preset_id)
+        create_accumulator_service(token=token, request=request)
+
+        assert captured["accumulator"].mala_image == preset_mala.id  # preset value retained
 
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.get_preset_by_id')
@@ -570,6 +678,101 @@ class TestUpdateAccumulatorService:
             await update_accumulator_service(token="invalid_token", accumulator_id=uuid4(), request=request)
 
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+class TestUpdateMalaImageService:
+    """Test cases for update_mala_image_service (one image per accumulator,
+    no language)."""
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.update_accumulator')
+    @patch('pecha_api.accumulator.accumulator_service.get_mala_image_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_update_mala_image_service_success(
+        self, mock_validate, mock_get_accumulator, mock_get_mala, mock_update, mock_session
+    ):
+        """Sets the chosen mala image directly on the accumulator."""
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        mala_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        accumulator = TestDataFactory.create_mock_accumulator(
+            accumulator_id=accumulator_id, user_id=user_id
+        )
+        mock_get_accumulator.return_value = accumulator
+        mala = MagicMock(); mala.id = mala_id; mala.url = "accumulator/mala/x.png"
+        mock_get_mala.return_value = mala
+        accumulator.mala = mala  # so the returned DTO reflects the new image
+        mock_update.side_effect = lambda _db, acc: acc
+
+        request = UpdateMalaImageRequest(mala_image_id=mala_id)
+        result = update_mala_image_service(token=token, accumulator_id=accumulator_id, request=request)
+
+        assert accumulator.mala_image == mala_id  # written on the accumulator
+        assert result.mala_image_id == mala_id
+        mock_update.assert_called_once()
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_update_mala_image_service_accumulator_not_found(
+        self, mock_validate, mock_get_accumulator, mock_session
+    ):
+        mock_validate.return_value = TestDataFactory.create_mock_user()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_accumulator.return_value = None
+
+        request = UpdateMalaImageRequest(mala_image_id=uuid4())
+        with pytest.raises(HTTPException) as exc_info:
+            update_mala_image_service(token="valid_token", accumulator_id=uuid4(), request=request)
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_update_mala_image_service_forbidden_for_other_user(
+        self, mock_validate, mock_get_accumulator, mock_session
+    ):
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=uuid4())
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_accumulator.return_value = TestDataFactory.create_mock_accumulator(
+            user_id=uuid4()  # different owner
+        )
+
+        request = UpdateMalaImageRequest(mala_image_id=uuid4())
+        with pytest.raises(HTTPException) as exc_info:
+            update_mala_image_service(token="valid_token", accumulator_id=uuid4(), request=request)
+
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_mala_image_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_update_mala_image_service_mala_not_found(
+        self, mock_validate, mock_get_accumulator, mock_get_mala, mock_session
+    ):
+        user_id = uuid4()
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_accumulator.return_value = TestDataFactory.create_mock_accumulator(user_id=user_id)
+        mock_get_mala.return_value = None  # catalog miss
+
+        request = UpdateMalaImageRequest(mala_image_id=uuid4())
+        with pytest.raises(HTTPException) as exc_info:
+            update_mala_image_service(token="valid_token", accumulator_id=uuid4(), request=request)
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 class TestDeleteAccumulatorService:

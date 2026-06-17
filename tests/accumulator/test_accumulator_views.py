@@ -71,7 +71,7 @@ class TestDataFactory:
 
     @staticmethod
     def create_accumulator_request(preset_id=None) -> CreateAccumulatorRequest:
-        return CreateAccumulatorRequest(preset_id=preset_id or uuid4())
+        return CreateAccumulatorRequest(parent_id=preset_id or uuid4())
 
     @staticmethod
     def create_update_request(target_count=None, current_count=None) -> UpdateAccumulatorRequest:

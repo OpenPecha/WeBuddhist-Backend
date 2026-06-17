@@ -7,7 +7,7 @@ from ..db.database import Base
 
 class MalaImage(Base):
     """Catalog of selectable mala images. The app lists these and the user
-    picks one per accumulator (stored on accumulator_metadata.mala_image)."""
+    picks one per accumulator (stored on accumulators.mala_image)."""
     __tablename__ = "mala_images"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
