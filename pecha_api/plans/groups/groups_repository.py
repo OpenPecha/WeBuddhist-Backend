@@ -94,7 +94,7 @@ def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
             selectinload(AuthorGroup.metadata_entries),
             selectinload(AuthorGroup.members).selectinload(AuthorGroupMember.author),
             selectinload(AuthorGroup.social_links),
-            selectinload(AuthorGroup.tags),
+            selectinload(AuthorGroup.tags).selectinload(Tag.metadata_entries),
         )
         .filter(AuthorGroup.id == group_id, AuthorGroup.deleted_at.is_(None))
         .first()
@@ -116,7 +116,7 @@ def get_groups_by_ids(db: Session, group_ids: Sequence[UUID]) -> List[AuthorGrou
         db.query(AuthorGroup)
         .options(
             selectinload(AuthorGroup.metadata_entries),
-            selectinload(AuthorGroup.tags),
+            selectinload(AuthorGroup.tags).selectinload(Tag.metadata_entries),
             selectinload(AuthorGroup.members),
         )
         .filter(
@@ -214,7 +214,7 @@ def get_groups_paginated(
         .options(
             selectinload(AuthorGroup.metadata_entries),
             selectinload(AuthorGroup.members),
-            selectinload(AuthorGroup.tags),
+            selectinload(AuthorGroup.tags).selectinload(Tag.metadata_entries),
         )
         .filter(*filters)
 
