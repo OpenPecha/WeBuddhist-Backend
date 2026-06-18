@@ -937,3 +937,123 @@ async def test_update_existing_tag_updates_display_order():
 
     assert existing.display_order == 2
     assert dto.display_order == 2
+
+
+@pytest.mark.asyncio
+async def test_create_new_tag_with_multiple_language_metadata():
+    """Test creating a tag with multiple language metadata entries"""
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
+    author = _make_author()
+    request = CreateTagRequest(
+        metadata=[
+            TagMetadataInput(language="EN", name="Meditation", description="Daily practice"),
+            TagMetadataInput(language="BO", name="བསམ་གཏན", description="ཉིན་རེའི་སྒོམ་ཉམས"),
+            TagMetadataInput(language="ZH", name="冥想", description="日常练习"),
+        ],
+        image_key="images/tags/meditation.jpg",
+    )
+    saved = _make_tag(name="Meditation")
+
+    with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.tags.tag_service.get_tag_by_name",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.tags.tag_service.save_tag",
+        return_value=saved,
+    ) as mock_save, patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
+    ) as mock_save_metadata, patch(
+        "pecha_api.plans.tags.tag_service.get_tag_by_id",
+        return_value=saved,
+    ):
+        _session_local_context(mock_session)
+        dto = await create_new_tag(token="tok", create_tag_request=request)
+
+    # Should save metadata 3 times (once for each language)
+    assert mock_save_metadata.call_count == 3
+    assert dto.name == "Meditation"
+
+
+@pytest.mark.asyncio
+async def test_update_tag_metadata_replaces_all_entries():
+    """Test that updating tag metadata replaces all existing entries"""
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
+    author = _make_author()
+    tag_id = uuid.uuid4()
+    existing = _make_tag(tag_id=tag_id, name="Old Name")
+    refreshed = _make_tag(tag_id=tag_id, name="New Name")
+    
+    request = UpdateTagRequest(
+        metadata=[
+            TagMetadataInput(language="EN", name="New Name", description="Updated"),
+            TagMetadataInput(language="BO", name="མིང་གསར", description="གསར་བཅོས"),
+        ]
+    )
+
+    with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.tags.tag_service.get_tag_by_id",
+        side_effect=[existing, refreshed],
+    ), patch(
+        "pecha_api.plans.tags.tag_service.update_tag_row",
+        return_value=existing,
+    ), patch(
+        "pecha_api.plans.tags.tag_service.delete_tag_metadata_by_tag_id",
+        return_value=None,
+    ) as mock_delete_metadata, patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
+    ) as mock_save_metadata:
+        _session_local_context(mock_session)
+        dto = await update_existing_tag(token="tok", tag_id=tag_id, update_tag_request=request)
+
+    # Should delete old metadata and save new ones
+    mock_delete_metadata.assert_called_once()
+    assert mock_save_metadata.call_count == 2  # Two language entries
+    assert dto.name == "New Name"
+
+
+@pytest.mark.asyncio
+async def test_create_tag_with_whitespace_in_metadata_name():
+    """Test that metadata names are trimmed of whitespace"""
+    from pecha_api.plans.tags.tag_response_models import TagMetadataInput
+    
+    author = _make_author()
+    request = CreateTagRequest(
+        metadata=[
+            TagMetadataInput(language="EN", name="  Spaced Name  ", description="Test"),
+        ],
+    )
+    saved = _make_tag(name="Spaced Name")
+
+    with patch("pecha_api.plans.tags.tag_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.tags.tag_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.tags.tag_service.get_tag_by_name",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.tags.tag_service.save_tag",
+        return_value=saved,
+    ), patch(
+        "pecha_api.plans.tags.tag_service.save_tag_metadata",
+        return_value=MagicMock(),
+    ) as mock_save_metadata, patch(
+        "pecha_api.plans.tags.tag_service.get_tag_by_id",
+        return_value=saved,
+    ):
+        _session_local_context(mock_session)
+        await create_new_tag(token="tok", create_tag_request=request)
+
+    # Verify that the name was trimmed
+    call_args = mock_save_metadata.call_args
+    saved_metadata = call_args.kwargs["tag_metadata"]
+    assert saved_metadata.name == "Spaced Name"

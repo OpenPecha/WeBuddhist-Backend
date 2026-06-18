@@ -258,6 +258,21 @@ def test_save_tag_metadata_commits():
     assert result is tag_metadata
 
 
+def test_save_tag_metadata_without_commit():
+    from pecha_api.plans.tags.tag_metadata_model import TagMetadata
+    from pecha_api.plans.tags.tag_repository import save_tag_metadata
+    
+    db = MagicMock()
+    tag_metadata = MagicMock(spec=TagMetadata)
+
+    result = save_tag_metadata(db=db, tag_metadata=tag_metadata, commit=False)
+
+    db.add.assert_called_once_with(tag_metadata)
+    db.commit.assert_not_called()
+    db.flush.assert_called_once()
+    assert result is tag_metadata
+
+
 def test_delete_tag_metadata_by_tag_id():
     from pecha_api.plans.tags.tag_repository import delete_tag_metadata_by_tag_id
     
@@ -268,6 +283,18 @@ def test_delete_tag_metadata_by_tag_id():
 
     db.execute.assert_called_once()
     db.commit.assert_called_once()
+
+
+def test_delete_tag_metadata_by_tag_id_without_commit():
+    from pecha_api.plans.tags.tag_repository import delete_tag_metadata_by_tag_id
+    
+    db = MagicMock()
+    tag_id = uuid.uuid4()
+
+    delete_tag_metadata_by_tag_id(db=db, tag_id=tag_id, commit=False)
+
+    db.execute.assert_called_once()
+    db.commit.assert_not_called()
 
 
 def test_get_tag_metadata_by_tag_and_language():
@@ -282,3 +309,15 @@ def test_get_tag_metadata_by_tag_and_language():
     result = get_tag_metadata_by_tag_and_language(db=db, tag_id=tag_id, language="EN")
 
     assert result is metadata
+
+
+def test_get_tag_metadata_by_tag_and_language_not_found():
+    from pecha_api.plans.tags.tag_repository import get_tag_metadata_by_tag_and_language
+    
+    db = MagicMock()
+    tag_id = uuid.uuid4()
+    db.query.return_value = _mock_query_chain(None)
+
+    result = get_tag_metadata_by_tag_and_language(db=db, tag_id=tag_id, language="ZH")
+
+    assert result is None
