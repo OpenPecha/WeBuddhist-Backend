@@ -119,6 +119,35 @@ async def _validate_segment_ids(segment_ids: List[UUID]) -> None:
             )
 
 
+def _segments_by_language_from_metadata(
+    metadata_inputs: List,
+    fallback_segment_ids: Optional[List[UUID]] = None,
+) -> dict[str, List[UUID]]:
+    segments_by_language: dict[str, List[UUID]] = {}
+    for meta_input in metadata_inputs:
+        if meta_input.segment_ids is not None:
+            segments_by_language[meta_input.language] = meta_input.segment_ids
+    if fallback_segment_ids is not None and "EN" not in segments_by_language:
+        segments_by_language["EN"] = fallback_segment_ids
+    return segments_by_language
+
+
+def _apply_tag_segments_by_language(
+    db_session,
+    tag: Tag,
+    segments_by_language: dict[str, List[UUID]],
+    commit: bool = False,
+) -> None:
+    for language, segment_ids in segments_by_language.items():
+        set_tag_segments(
+            db=db_session,
+            tag=tag,
+            segment_ids=segment_ids,
+            language=language,
+            commit=commit,
+        )
+
+
 async def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> TagDTO:
     author = validate_and_extract_author_details(token=token)
 
@@ -140,9 +169,13 @@ async def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> Ta
                 )
 
         plan_ids = create_tag_request.plan_ids or []
-        segment_ids = create_tag_request.segment_ids or []
+        segments_by_language = _segments_by_language_from_metadata(
+            metadata_inputs=create_tag_request.metadata,
+            fallback_segment_ids=create_tag_request.segment_ids,
+        )
         _validate_plan_ids(db=db_session, plan_ids=plan_ids)
-        await _validate_segment_ids(segment_ids=segment_ids)
+        for segment_ids in segments_by_language.values():
+            await _validate_segment_ids(segment_ids=segment_ids)
 
         tag = Tag(
             image_key=create_tag_request.image_key,
@@ -170,8 +203,13 @@ async def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> Ta
             
             if plan_ids:
                 tag = set_tag_plans(db=db_session, tag=tag, plan_ids=plan_ids, commit=False)
-            if segment_ids:
-                tag = set_tag_segments(db=db_session, tag=tag, segment_ids=segment_ids, commit=False)
+            if segments_by_language:
+                _apply_tag_segments_by_language(
+                    db_session=db_session,
+                    tag=tag,
+                    segments_by_language=segments_by_language,
+                    commit=False,
+                )
             
             # Single commit for the entire transaction
             db_session.commit()
@@ -232,9 +270,23 @@ async def update_existing_tag(token: str, tag_id: UUID, update_tag_request: Upda
             _validate_plan_ids(db=db_session, plan_ids=update_tag_request.plan_ids)
             tag = set_tag_plans(db=db_session, tag=tag, plan_ids=update_tag_request.plan_ids, commit=False)
 
-        if update_tag_request.segment_ids is not None:
-            await _validate_segment_ids(segment_ids=update_tag_request.segment_ids)
-            tag = set_tag_segments(db=db_session, tag=tag, segment_ids=update_tag_request.segment_ids, commit=False)
+        segments_by_language = None
+        if update_tag_request.metadata is not None:
+            segments_by_language = _segments_by_language_from_metadata(
+                metadata_inputs=update_tag_request.metadata,
+            )
+        elif update_tag_request.segment_ids is not None:
+            segments_by_language = {"EN": update_tag_request.segment_ids}
+
+        if segments_by_language is not None:
+            for segment_ids in segments_by_language.values():
+                await _validate_segment_ids(segment_ids=segment_ids)
+            _apply_tag_segments_by_language(
+                db_session=db_session,
+                tag=tag,
+                segments_by_language=segments_by_language,
+                commit=False,
+            )
 
         try:
             # Single commit for the entire transaction
@@ -279,6 +331,7 @@ def get_cms_tags_list(
             search=search,
             skip=skip,
             limit=limit,
+            language=language,
         )
 
     return TagsListResponse(
@@ -293,7 +346,7 @@ def get_cms_tag_detail(token: str, tag_id: UUID, language: str = 'EN') -> TagDTO
     validate_and_extract_author_details(token=token)
 
     with SessionLocal() as db_session:
-        tag = get_tag_by_id(db=db_session, tag_id=tag_id)
+        tag = get_tag_by_id(db=db_session, tag_id=tag_id, language=language)
     if not tag:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -5,6 +5,7 @@ import _datetime
 from _datetime import datetime
 
 from pecha_api.db.database import Base
+from pecha_api.plans.plans_enums import LanguageCodeEnum
 
 plan_tags = Table(
     "plan_tags",
@@ -18,6 +19,7 @@ tag_segments = Table(
     Base.metadata,
     Column("tag_id", UUID(as_uuid=True), ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
     Column("segment_id", UUID(as_uuid=True), primary_key=True),
+    Column("language", LanguageCodeEnum, primary_key=True, nullable=False),
 )
 
 

@@ -668,7 +668,7 @@ async def get_public_tag_detail(
 ) -> PublicTagDetailDTO:
     try:
         with SessionLocal() as db:
-            tag = get_tag_by_id(db=db, tag_id=tag_id)
+            tag = get_tag_by_id(db=db, tag_id=tag_id, language=language)
             if not tag or tag.deleted_at is not None:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
