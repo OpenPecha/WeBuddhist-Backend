@@ -29,7 +29,6 @@ def save_mantra(db: Session, mantra: Mantra, metadata_entries: List) -> Mantra:
         db.flush()
         _persist_metadata_entries(db, mantra.id, metadata_entries)
         db.commit()
-        db.refresh(mantra)
         return get_mantra_by_id(db, mantra.id)
     except IntegrityError as exc:
         db.rollback()
