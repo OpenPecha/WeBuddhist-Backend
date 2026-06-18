@@ -128,3 +128,36 @@ async def test_get_user_streak_service_returns_streak():
 
         assert result.streak == 2
         mock_record.assert_awaited_once_with(user_id=user_id)
+
+
+@pytest.mark.asyncio
+async def test_get_user_stats_service_aggregates_all_sources():
+    user_id = uuid4()
+    today = date(2026, 6, 11)
+    mock_user = MagicMock()
+    mock_user.id = user_id
+    mock_db = MagicMock()
+    mock_db.__enter__ = MagicMock(return_value=mock_db)
+    mock_db.__exit__ = MagicMock(return_value=False)
+
+    from pecha_api.daily_log.daily_log_service import get_user_stats_service
+
+    with patch("pecha_api.daily_log.daily_log_service.validate_and_extract_user_details", return_value=mock_user), \
+         patch("pecha_api.daily_log.daily_log_service.record_daily_log_if_needed", new_callable=AsyncMock) as mock_record, \
+         patch("pecha_api.daily_log.daily_log_service._utc_today", return_value=today), \
+         patch("pecha_api.daily_log.daily_log_service.SessionLocal", return_value=mock_db), \
+         patch("pecha_api.daily_log.daily_log_service.get_user_streak", return_value=3), \
+         patch("pecha_api.daily_log.daily_log_service.get_highest_streak", return_value=7), \
+         patch("pecha_api.daily_log.daily_log_service.get_week_active_days", return_value=5), \
+         patch("pecha_api.daily_log.daily_log_service.get_user_total_duration", return_value=1200), \
+         patch("pecha_api.daily_log.daily_log_service.get_user_total_count", return_value=10800), \
+         patch("pecha_api.daily_log.daily_log_service.get_user_total_practice_days", return_value=42):
+        result = await get_user_stats_service(token="test_token")
+
+        assert result.streak.current == 3
+        assert result.streak.highest == 7
+        assert result.streak.week == 5
+        assert result.total_timer_seconds == 1200
+        assert result.total_accumulated == 10800
+        assert result.total_practice_days == 42
+        mock_record.assert_awaited_once_with(user_id=user_id)

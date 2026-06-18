@@ -26,6 +26,43 @@ def save_daily_log(db: Session, user_id: UUID, log_date: date) -> None:
         db.rollback()
 
 
+def get_week_active_days(db: Session, user_id: UUID, today: date) -> int:
+    """Count distinct days the user logged in the current Monday-Sunday week (0-7).
+
+    weekday() is 0 for Monday, so subtracting it lands on this week's Monday.
+    """
+    week_start = today - timedelta(days=today.weekday())
+    return db.query(UserDailyLog.log_date).filter(
+        UserDailyLog.user_id == user_id,
+        UserDailyLog.log_date >= week_start,
+        UserDailyLog.log_date <= today,
+    ).distinct().count()
+
+
+def get_highest_streak(db: Session, user_id: UUID) -> int:
+    """Longest run of consecutive daily logs across the user's full history."""
+    log_dates = sorted(
+        row.log_date
+        for row in db.query(UserDailyLog.log_date).filter(
+            UserDailyLog.user_id == user_id,
+        ).all()
+    )
+
+    if not log_dates:
+        return 0
+
+    highest = 1
+    current = 1
+    for previous, current_date in zip(log_dates, log_dates[1:]):
+        if current_date == previous + timedelta(days=1):
+            current += 1
+        elif current_date != previous:
+            current = 1
+        highest = max(highest, current)
+
+    return highest
+
+
 def get_user_streak(db: Session, user_id: UUID, today: date) -> int:
     """Count consecutive daily logs ending today or yesterday without loading full history."""
     yesterday = today - timedelta(days=1)

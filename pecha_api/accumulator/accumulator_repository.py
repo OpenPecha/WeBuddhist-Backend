@@ -165,6 +165,16 @@ def get_user_accumulators(
     return accumulators, total
 
 
+def get_user_total_count(db: Session, user_id: UUID) -> int:
+    """Total accumulated count across all of the user's accumulators (all types)."""
+    total = (
+        db.query(func.sum(AccumulatorHistory.count))
+        .filter(AccumulatorHistory.user_id == user_id)
+        .scalar()
+    )
+    return total or 0
+
+
 def add_history_row(db: Session, accumulator_id: UUID, user_id: UUID, count: int) -> None:
     """Stage a history row recording a positive count delta. Caller commits."""
     db.add(
