@@ -157,7 +157,7 @@ async def test_create_new_tag_with_plan_ids():
         db = _session_local_context(mock_session)
         dto = await create_new_tag(token="tok", create_tag_request=request)
 
-    mock_set_plans.assert_called_once_with(db=db, tag=saved, plan_ids=[plan_id])
+    mock_set_plans.assert_called_once_with(db=db, tag=saved, plan_ids=[plan_id], commit=False)
     assert dto.plan_ids == [plan_id]
 
 
@@ -511,7 +511,7 @@ async def test_update_existing_tag_replaces_plan_ids():
         db = _session_local_context(mock_session)
         dto = await update_existing_tag(token="tok", tag_id=tag_id, update_tag_request=request)
 
-    mock_set.assert_called_once_with(db=db, tag=existing, plan_ids=[plan_id])
+    mock_set.assert_called_once_with(db=db, tag=existing, plan_ids=[plan_id], commit=False)
     assert dto.plan_ids == [plan_id]
 
 
@@ -737,7 +737,7 @@ async def test_create_new_tag_with_segment_ids():
         db = _session_local_context(mock_session)
         dto = await create_new_tag(token="tok", create_tag_request=request)
 
-    mock_set_segments.assert_called_once_with(db=db, tag=saved, segment_ids=[segment_id])
+    mock_set_segments.assert_called_once_with(db=db, tag=saved, segment_ids=[segment_id], commit=False)
     assert dto.segment_ids == [segment_id]
 
 
@@ -799,7 +799,7 @@ async def test_update_existing_tag_replaces_segment_ids():
         db = _session_local_context(mock_session)
         dto = await update_existing_tag(token="tok", tag_id=tag_id, update_tag_request=request)
 
-    mock_set.assert_called_once_with(db=db, tag=existing, segment_ids=[segment_id])
+    mock_set.assert_called_once_with(db=db, tag=existing, segment_ids=[segment_id], commit=False)
     assert dto.segment_ids == [segment_id]
 
 
