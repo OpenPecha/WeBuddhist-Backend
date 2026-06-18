@@ -986,8 +986,10 @@ async def test_update_tag_metadata_replaces_all_entries():
     
     author = _make_author()
     tag_id = uuid.uuid4()
-    existing = _make_tag(tag_id=tag_id, name="Old Name")
-    refreshed = _make_tag(tag_id=tag_id, name="New Name")
+    existing = _make_tag(name="Old Name")
+    existing.id = tag_id
+    refreshed = _make_tag(name="New Name")
+    refreshed.id = tag_id
     
     request = UpdateTagRequest(
         metadata=[
