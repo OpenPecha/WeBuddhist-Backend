@@ -157,7 +157,7 @@ async def test_get_user_stats_service_aggregates_all_sources():
         assert result.streak.current == 3
         assert result.streak.highest == 7
         assert result.streak.week == [2, 3, 6]
-        assert result.total_timer_seconds == 1200
+        assert result.total_timer == 1200
         assert result.total_accumulated == 10800
         assert result.total_practice_days == 42
         mock_record.assert_awaited_once_with(user_id=user_id)
