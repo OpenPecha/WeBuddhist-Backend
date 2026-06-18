@@ -196,11 +196,22 @@ def _social_links_to_dtos(links) -> List[GroupSocialLinkDTO]:
     return [GroupSocialLinkDTO(id=link.id, platform=link.platform, url=link.url) for link in links]
 
 
+def _tag_name(tag, language: str = 'EN') -> str:
+    if not getattr(tag, 'metadata_entries', None):
+        return ""
+    for meta in tag.metadata_entries:
+        lang_value = meta.language.value if hasattr(meta.language, 'value') else str(meta.language)
+        if lang_value == language:
+            return meta.name
+    return tag.metadata_entries[0].name
+
+
 def _group_tag_names(tags) -> List[str]:
     if not tags:
         return []
     active = [tag for tag in tags if tag.deleted_at is None]
-    return sorted((tag.name for tag in active), key=str.lower)
+    names = (name for name in (_tag_name(tag) for tag in active) if name)
+    return sorted(names, key=str.lower)
 
 
 def _assert_metadata_valid(metadata_entries: List) -> None:
