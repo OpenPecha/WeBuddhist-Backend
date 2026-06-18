@@ -211,7 +211,7 @@ def record_timer_stop_service(token: str, request: RecordTimerStopRequest) -> No
             id=uuid4(),
             timer_id=request.timer_id,
             user_id=current_user.id,
-            duration=request.duration,
+            duration_ms=request.duration,
             created_at=datetime.now(_datetime.timezone.utc)
         )
         
@@ -238,7 +238,7 @@ def get_timer_history_service(
                 total_time_spent=total_time_spent,
                 sessions=[
                     TimerSessionDTO(
-                        duration=session.duration,
+                        duration=session.duration_ms,
                         created_at=session.created_at
                     )
                     for session in sessions

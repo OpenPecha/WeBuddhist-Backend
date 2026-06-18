@@ -15,6 +15,6 @@ class StreakStats(BaseModel):
 
 class UserStatsResponse(BaseModel):
     streak: StreakStats
-    total_timer_seconds: int
+    total_timer: int
     total_accumulated: int
     total_practice_days: int

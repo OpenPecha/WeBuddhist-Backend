@@ -43,7 +43,7 @@ async def test_get_user_stats_endpoint_success():
     mock_credentials = type("Credentials", (), {"credentials": "test_token"})()
     response = UserStatsResponse(
         streak=StreakStats(current=3, highest=7, week=[2, 3, 6]),
-        total_timer_seconds=1200,
+        total_timer=1200,
         total_accumulated=10800,
         total_practice_days=42,
     )

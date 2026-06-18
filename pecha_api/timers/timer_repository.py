@@ -90,7 +90,7 @@ def get_user_timers_by_group(
 def get_user_total_duration(db: Session, user_id: UUID) -> int:
     """Total seconds across all of the user's timer sessions."""
     total = (
-        db.query(func.sum(TimerHistory.duration))
+        db.query(func.sum(TimerHistory.duration_ms))
         .filter(TimerHistory.user_id == user_id)
         .scalar()
     )
@@ -144,7 +144,7 @@ def get_user_timer_history(
     totals_query = (
         db.query(
             TimerHistory.timer_id,
-            func.sum(TimerHistory.duration).label('total_duration')
+            func.sum(TimerHistory.duration_ms).label('total_duration')
         )
         .filter(
             TimerHistory.timer_id.in_(timer_ids),

@@ -11,7 +11,7 @@ class TimerHistory(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     timer_id = Column(UUID(as_uuid=True), ForeignKey("timers.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(UUID(as_uuid=True), nullable=False)
-    duration = Column(Integer, nullable=False)
+    duration_ms = Column(Integer, nullable=False)
     
     created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False)
 

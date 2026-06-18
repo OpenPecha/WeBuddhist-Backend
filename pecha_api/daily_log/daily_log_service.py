@@ -87,7 +87,7 @@ async def get_user_stats_service(token: str) -> UserStatsResponse:
         current_streak = get_user_streak(db=db, user_id=user_id, today=today)
         highest_streak = get_highest_streak(db=db, user_id=user_id)
         week_active_days = get_week_active_days(db=db, user_id=user_id, today=today)
-        total_timer_seconds = get_user_total_duration(db=db, user_id=user_id)
+        total_timer = get_user_total_duration(db=db, user_id=user_id)
         total_accumulated = get_user_total_count(db=db, user_id=user_id)
         total_practice_days = get_user_total_practice_days(db=db, user_id=user_id)
 
@@ -97,7 +97,7 @@ async def get_user_stats_service(token: str) -> UserStatsResponse:
             highest=highest_streak,
             week=week_active_days,
         ),
-        total_timer_seconds=total_timer_seconds,
+        total_timer=total_timer,
         total_accumulated=total_accumulated,
         total_practice_days=total_practice_days,
     )
