@@ -120,6 +120,26 @@ DUMMY_DAYS = [
 WAV_CONTENT_TYPE = "audio/wav"
 
 
+def _generate_tts_wav(
+    content: str,
+    audio_type: PlanAudioType,
+    language: str,
+    voice_name: Optional[str] = None,
+) -> bytes:
+    try:
+        return generate_tts_audio(content, audio_type, language, voice_name=voice_name)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ResponseError(error=BAD_REQUEST, message=str(exc)).model_dump(),
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=ResponseError(error=BAD_REQUEST, message=str(exc)).model_dump(),
+        ) from exc
+
+
 def _generate_audio_segments(
     tasks,
     audio_type: PlanAudioType,
@@ -144,7 +164,7 @@ def _generate_audio_segments(
             )
             raw_pcm = existing_wav[wav_header_size:]
         else:
-            wav_bytes = generate_tts_audio(
+            wav_bytes = _generate_tts_wav(
                 subtask.content, audio_type, language, voice_name=voice_name
             )
             raw_pcm = wav_bytes[wav_header_size:]
@@ -310,7 +330,7 @@ async def _generate_subtask_audio(
                 ).model_dump(),
             )
 
-        wav_bytes = generate_tts_audio(
+        wav_bytes = _generate_tts_wav(
             subtask.content, audio_type, language, voice_name=voice_name
         )
         raw_pcm = wav_bytes[WAV_HEADER_SIZE:]

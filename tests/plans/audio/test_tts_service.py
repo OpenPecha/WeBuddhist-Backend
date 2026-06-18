@@ -161,3 +161,13 @@ def test_generate_tts_audio_raises_when_no_candidates(mock_get, mock_client_cls)
 
     with pytest.raises(RuntimeError, match="no audio data"):
         generate_tts_audio(**_EN_RECITATION)
+
+
+@patch("google.genai.Client")
+@patch("pecha_api.plans.audio.tts_service.get", return_value="test-api-key")
+def test_generate_tts_audio_raises_when_candidate_content_is_none(mock_get, mock_client_cls):
+    candidate = MagicMock(content=None)
+    _configure_gemini_client(mock_client_cls, MagicMock(candidates=[candidate]))
+
+    with pytest.raises(RuntimeError, match="no audio data"):
+        generate_tts_audio(**_EN_RECITATION)

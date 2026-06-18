@@ -69,17 +69,23 @@ def _generate_gemini_tts_audio(
         ),
     )
 
-    if not response.candidates or not response.candidates[0].content.parts:
+    audio_data, mime_type = _extract_gemini_tts_audio(response)
+    return _convert_to_wav(audio_data, mime_type)
+
+
+def _extract_gemini_tts_audio(response) -> tuple[bytes, str]:
+    candidate = response.candidates[0] if response.candidates else None
+    content = candidate.content if candidate else None
+    parts = content.parts if content else None
+    if not parts:
         raise RuntimeError("TTS generation returned no audio data")
 
-    part = response.candidates[0].content.parts[0]
+    part = parts[0]
     if not part.inline_data or not part.inline_data.data:
         raise RuntimeError("TTS generation returned no audio data")
 
-    audio_data = part.inline_data.data
     mime_type = part.inline_data.mime_type or "audio/L16;rate=24000"
-
-    return _convert_to_wav(audio_data, mime_type)
+    return part.inline_data.data, mime_type
 
 
 def _convert_to_wav(audio_data: bytes, mime_type: str) -> bytes:
