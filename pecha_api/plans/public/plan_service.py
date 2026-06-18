@@ -10,6 +10,7 @@ from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_day_with_tasks_and_subtasks
 from datetime import date as DateType, timedelta, datetime as dt, timezone
 from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO, SeriesMetadataDTO
+from pecha_api.plans.tags.tag_response_models import PublicTagDetailDTO, SegmentContentDTO
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.plans_enums import ContentType, UserPlanStatus
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
@@ -31,9 +32,10 @@ from pecha_api.routines.routines_repository import (
     add_plan_session_to_time_block,
 )
 from pecha_api.plans.groups.groups_repository import get_group_id_for_plan, get_group_ids_by_plan_ids
-from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
-from pecha_api.plans.tags.tag_repository import get_published_tags_for_language, get_all_tags_paginated
+from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos, generate_tag_image_url
+from pecha_api.plans.tags.tag_repository import get_published_tags_for_language, get_all_tags_paginated, get_tag_by_id
 from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
+from pecha_api.texts.segments.segments_repository import get_segments_by_ids
 from pecha_api.plans.shared.metadata_utils import format_metadata_response
 
 logger = logging.getLogger(__name__)
@@ -633,6 +635,7 @@ def get_tags(language: str = "en") -> TagsResponse:
 def get_public_tags(
     featured: Optional[bool] = None,
     search: Optional[str] = None,
+    language: str = "EN",
     skip: int = 0,
     limit: int = 20,
 ) -> PublicTagsListResponse:
@@ -646,7 +649,7 @@ def get_public_tags(
                 limit=limit,
             )
             return PublicTagsListResponse(
-                tags=tags_to_summary_dtos(tag_rows, preserve_order=True),
+                tags=tags_to_summary_dtos(tag_rows, preserve_order=True, language=language),
                 skip=skip,
                 limit=limit,
                 total=total,
@@ -656,4 +659,71 @@ def get_public_tags(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch public tags: {str(e)}",
+        )
+
+
+async def get_public_tag_detail(
+    tag_id: UUID,
+    language: str = "EN",
+) -> PublicTagDetailDTO:
+    try:
+        with SessionLocal() as db:
+            tag = get_tag_by_id(db=db, tag_id=tag_id)
+            if not tag or tag.deleted_at is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Tag with id '{tag_id}' not found",
+                )
+            
+            # Get name and description from metadata for the specified language
+            name = ""
+            description = None
+            
+            if hasattr(tag, 'metadata_entries') and tag.metadata_entries:
+                for meta in tag.metadata_entries:
+                    lang_value = meta.language.value if hasattr(meta.language, 'value') else str(meta.language)
+                    if lang_value == language:
+                        name = meta.name
+                        description = meta.description
+                        break
+                
+                # Fallback to first metadata entry if requested language not found
+                if not name and tag.metadata_entries:
+                    first_meta = tag.metadata_entries[0]
+                    name = first_meta.name
+                    description = first_meta.description
+            
+            # Get segment IDs from tag (same as CMS endpoint uses)
+            segment_ids = tag.segment_ids if hasattr(tag, 'segment_ids') and tag.segment_ids else []
+            
+            # Fetch segment contents using segment_ids from tag
+            segments_data = []
+            if segment_ids:
+                segments_dict = await get_segments_by_ids([str(sid) for sid in segment_ids])
+                for segment_id in segment_ids:
+                    segment = segments_dict.get(str(segment_id))
+                    if segment:
+                        segments_data.append(SegmentContentDTO(
+                            segment_id=segment.id,
+                            text_id=segment.text_id,
+                            content=segment.content
+                        ))
+            
+            return PublicTagDetailDTO(
+                id=tag.id,
+                name=name,
+                image=generate_tag_image_url(tag.image_key),
+                image_key=tag.image_key,
+                description=description,
+                featured=tag.featured,
+                display_order=tag.display_order,
+                segments=segments_data,
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching public tag detail: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch public tag detail: {str(e)}",
         )

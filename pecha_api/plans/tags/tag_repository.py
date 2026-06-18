@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.tags.tag_model import Tag, plan_tags, tag_segments
+from pecha_api.plans.tags.tag_metadata_model import TagMetadata
 
 
 def _attach_segment_ids(db: Session, tags: List[Tag]) -> None:
@@ -22,7 +23,6 @@ def _tag_order_clauses():
     return (
         Tag.featured.desc(),
         nulls_last(asc(Tag.display_order)),
-        Tag.name.asc(),
     )
 
 
@@ -50,7 +50,10 @@ def get_segment_ids_map_for_tags(db: Session, tag_ids: List[UUID]) -> Dict[UUID,
 
 
 def get_tag_by_id(db: Session, tag_id: UUID, include_deleted: bool = False) -> Optional[Tag]:
-    query = db.query(Tag).options(selectinload(Tag.plans)).filter(Tag.id == tag_id)
+    query = db.query(Tag).options(
+        selectinload(Tag.plans),
+        selectinload(Tag.metadata_entries)
+    ).filter(Tag.id == tag_id)
     if not include_deleted:
         query = query.filter(Tag.deleted_at.is_(None))
     tag = query.first()
@@ -59,10 +62,16 @@ def get_tag_by_id(db: Session, tag_id: UUID, include_deleted: bool = False) -> O
     return tag
 
 
-def get_tag_by_name(db: Session, name: str) -> Optional[Tag]:
+def get_tag_by_name(db: Session, name: str, language: str = 'EN') -> Optional[Tag]:
     return (
         db.query(Tag)
-        .filter(Tag.deleted_at.is_(None), func.lower(Tag.name) == name.lower())
+        .join(TagMetadata, Tag.id == TagMetadata.tag_id)
+        .filter(
+            Tag.deleted_at.is_(None),
+            func.lower(TagMetadata.name) == name.lower(),
+            TagMetadata.language == language
+        )
+        .options(selectinload(Tag.metadata_entries))
         .first()
     )
 
@@ -73,9 +82,14 @@ def get_tags_paginated(
     skip: int,
     limit: int,
 ) -> Tuple[List[Tag], int]:
-    query = db.query(Tag).options(selectinload(Tag.plans)).filter(Tag.deleted_at.is_(None))
+    query = db.query(Tag).options(
+        selectinload(Tag.plans),
+        selectinload(Tag.metadata_entries)
+    ).filter(Tag.deleted_at.is_(None))
     if search:
-        query = query.filter(Tag.name.ilike(f"%{search}%"))
+        query = query.join(TagMetadata, Tag.id == TagMetadata.tag_id).filter(
+            TagMetadata.name.ilike(f"%{search}%")
+        ).distinct()
     total = query.count()
     rows = (
         query.order_by(*_tag_order_clauses())
@@ -87,16 +101,22 @@ def get_tags_paginated(
     return rows, total
 
 
-def save_tag(db: Session, tag: Tag) -> Tag:
+def save_tag(db: Session, tag: Tag, commit: bool = True) -> Tag:
     db.add(tag)
-    db.commit()
-    db.refresh(tag)
+    if commit:
+        db.commit()
+        db.refresh(tag)
+    else:
+        db.flush()
     return tag
 
 
-def update_tag_row(db: Session, tag: Tag) -> Tag:
-    db.commit()
-    db.refresh(tag)
+def update_tag_row(db: Session, tag: Tag, commit: bool = True) -> Tag:
+    if commit:
+        db.commit()
+        db.refresh(tag)
+    else:
+        db.flush()
     return tag
 
 
@@ -116,22 +136,28 @@ def get_tags_by_ids(db: Session, tag_ids: List[UUID]) -> List[Tag]:
     )
 
 
-def set_tag_plans(db: Session, tag: Tag, plan_ids: List[UUID]) -> Tag:
+def set_tag_plans(db: Session, tag: Tag, plan_ids: List[UUID], commit: bool = True) -> Tag:
     plans = db.query(Plan).filter(Plan.id.in_(plan_ids), Plan.deleted_at.is_(None)).all() if plan_ids else []
     tag.plans = plans
-    db.commit()
-    db.refresh(tag)
+    if commit:
+        db.commit()
+        db.refresh(tag)
+    else:
+        db.flush()
     return tag
 
 
-def set_tag_segments(db: Session, tag: Tag, segment_ids: List[UUID]) -> Tag:
+def set_tag_segments(db: Session, tag: Tag, segment_ids: List[UUID], commit: bool = True) -> Tag:
     unique_segment_ids = list(dict.fromkeys(segment_ids))
     db.execute(delete(tag_segments).where(tag_segments.c.tag_id == tag.id))
     if unique_segment_ids:
         rows = [{"tag_id": tag.id, "segment_id": segment_id} for segment_id in unique_segment_ids]
         db.execute(tag_segments.insert(), rows)
-    db.commit()
-    db.refresh(tag)
+    if commit:
+        db.commit()
+        db.refresh(tag)
+    else:
+        db.flush()
     tag.segment_ids = unique_segment_ids
     return tag
 
@@ -149,6 +175,7 @@ def set_plan_tags(db: Session, plan: Plan, tag_ids: Optional[List[UUID]]) -> Pla
 def get_published_tags_for_language(db: Session, language: str) -> List[Tag]:
     return (
         db.query(Tag)
+        .options(selectinload(Tag.metadata_entries))
         .join(plan_tags, plan_tags.c.tag_id == Tag.id)
         .join(Plan, Plan.id == plan_tags.c.plan_id)
         .filter(
@@ -170,11 +197,13 @@ def get_all_tags_paginated(
     skip: int,
     limit: int,
 ) -> Tuple[List[Tag], int]:
-    query = db.query(Tag).filter(Tag.deleted_at.is_(None))
+    query = db.query(Tag).options(selectinload(Tag.metadata_entries)).filter(Tag.deleted_at.is_(None))
     if featured is not None:
         query = query.filter(Tag.featured == featured)
     if search:
-        query = query.filter(Tag.name.ilike(f"%{search}%"))
+        query = query.join(TagMetadata, Tag.id == TagMetadata.tag_id).filter(
+            TagMetadata.name.ilike(f"%{search}%")
+        ).distinct()
 
     total = query.count()
     rows = (
@@ -184,3 +213,27 @@ def get_all_tags_paginated(
         .all()
     )
     return rows, total
+
+
+def save_tag_metadata(db: Session, tag_metadata: TagMetadata, commit: bool = True) -> TagMetadata:
+    db.add(tag_metadata)
+    if commit:
+        db.commit()
+        db.refresh(tag_metadata)
+    else:
+        db.flush()
+    return tag_metadata
+
+
+def delete_tag_metadata_by_tag_id(db: Session, tag_id: UUID, commit: bool = True) -> None:
+    db.execute(delete(TagMetadata).where(TagMetadata.tag_id == tag_id))
+    if commit:
+        db.commit()
+
+
+def get_tag_metadata_by_tag_and_language(db: Session, tag_id: UUID, language: str) -> Optional[TagMetadata]:
+    return (
+        db.query(TagMetadata)
+        .filter(TagMetadata.tag_id == tag_id, TagMetadata.language == language)
+        .first()
+    )

@@ -709,6 +709,7 @@ async def test_get_public_tags_success():
         mock_service.assert_called_once_with(
             featured=None,
             search=None,
+            language='EN',
             skip=0,
             limit=20,
         )
@@ -741,6 +742,7 @@ async def test_get_public_tags_with_filters():
         mock_service.assert_called_once_with(
             featured=True,
             search="med",
+            language='EN',
             skip=5,
             limit=10,
         )

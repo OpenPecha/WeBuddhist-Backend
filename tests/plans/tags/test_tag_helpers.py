@@ -4,15 +4,25 @@ from unittest.mock import MagicMock, patch
 from pecha_api.plans.tags.tag_helpers import generate_tag_image_url, tags_to_summary_dtos
 
 
-def _tag_entity(name: str, image_key=None, deleted_at=None, display_order=None):
+def _tag_entity(name: str, image_key=None, deleted_at=None, display_order=None, language="EN", description="desc"):
     tag = MagicMock()
     tag.id = uuid.uuid4()
     tag.name = name
     tag.image_key = image_key
-    tag.description = "desc"
+    tag.description = description
     tag.featured = False
     tag.display_order = display_order
     tag.deleted_at = deleted_at
+    
+    # Add metadata_entries for the new metadata-based structure
+    meta = MagicMock()
+    meta.id = uuid.uuid4()
+    meta.name = name
+    meta.description = description
+    meta.language = MagicMock()
+    meta.language.value = language
+    tag.metadata_entries = [meta]
+    
     return tag
 
 
@@ -71,3 +81,42 @@ def test_tags_to_summary_dtos_includes_image_when_key_present():
 
     assert result[0].image == "https://signed"
     assert result[0].image_key == "images/tags/x"
+
+
+def test_tags_to_summary_dtos_with_language_fallback():
+    tag = _tag_entity("Meditation", language="EN")
+    with patch("pecha_api.plans.tags.tag_helpers.generate_tag_image_url", return_value=None):
+        result = tags_to_summary_dtos([tag], language="BO")
+
+    assert len(result) == 1
+    assert result[0].name == "Meditation"
+
+
+def test_tags_to_summary_dtos_with_specific_language():
+    tag = MagicMock()
+    tag.id = uuid.uuid4()
+    tag.image_key = None
+    tag.featured = False
+    tag.display_order = None
+    tag.deleted_at = None
+    
+    meta_en = MagicMock()
+    meta_en.name = "Meditation"
+    meta_en.description = "English desc"
+    meta_en.language = MagicMock()
+    meta_en.language.value = "EN"
+    
+    meta_bo = MagicMock()
+    meta_bo.name = "བསམ་གཏན"
+    meta_bo.description = "Tibetan desc"
+    meta_bo.language = MagicMock()
+    meta_bo.language.value = "BO"
+    
+    tag.metadata_entries = [meta_en, meta_bo]
+    
+    with patch("pecha_api.plans.tags.tag_helpers.generate_tag_image_url", return_value=None):
+        result = tags_to_summary_dtos([tag], language="BO")
+
+    assert len(result) == 1
+    assert result[0].name == "བསམ་གཏན"
+    assert result[0].description == "Tibetan desc"
