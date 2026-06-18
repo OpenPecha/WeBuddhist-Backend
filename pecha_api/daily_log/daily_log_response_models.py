@@ -1,3 +1,5 @@
+from typing import List
+
 from pydantic import BaseModel
 
 
@@ -8,7 +10,7 @@ class UserStreakResponse(BaseModel):
 class StreakStats(BaseModel):
     current: int
     highest: int
-    week: int
+    week: List[int]
 
 
 class UserStatsResponse(BaseModel):

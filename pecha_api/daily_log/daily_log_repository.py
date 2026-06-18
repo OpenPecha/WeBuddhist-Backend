@@ -26,17 +26,16 @@ def save_daily_log(db: Session, user_id: UUID, log_date: date) -> None:
         db.rollback()
 
 
-def get_week_active_days(db: Session, user_id: UUID, today: date) -> int:
-    """Count distinct days the user logged in the current Monday-Sunday week (0-7).
-
-    weekday() is 0 for Monday, so subtracting it lands on this week's Monday.
-    """
+def get_week_active_days(db: Session, user_id: UUID, today: date) -> list[int]:
+    """Which days the user was active this week, as a list like [2, 3, 6]
+    (Mon=1 .. Sun=7). The week runs Monday to Sunday."""
     week_start = today - timedelta(days=today.weekday())
-    return db.query(UserDailyLog.log_date).filter(
+    rows = db.query(UserDailyLog.log_date).filter(
         UserDailyLog.user_id == user_id,
         UserDailyLog.log_date >= week_start,
         UserDailyLog.log_date <= today,
-    ).distinct().count()
+    ).distinct().all()
+    return sorted(row.log_date.isoweekday() for row in rows)
 
 
 def get_highest_streak(db: Session, user_id: UUID) -> int:
