@@ -50,38 +50,41 @@ def test_get_user_streak_uses_yesterday_when_today_missing():
     assert get_user_streak(db=db, user_id=uuid4(), today=today) == 2
 
 
-def _week_db(captured):
+def _week_db(captured, logged_dates):
     """Mock DB that records the lower-bound (week_start) of the date filter so
-    tests can assert the Monday boundary, and returns a fixed distinct count."""
+    tests can assert the Monday boundary, and returns the given logged dates."""
     db = MagicMock()
 
     def filter_side_effect(*conditions):
         # conditions[1] is `UserDailyLog.log_date >= week_start`
         captured["week_start"] = conditions[1].right.value
         result = MagicMock()
-        result.distinct.return_value.count.return_value = 4
+        result.distinct.return_value.all.return_value = [
+            MagicMock(log_date=d) for d in logged_dates
+        ]
         return result
 
     db.query.return_value.filter.side_effect = filter_side_effect
     return db
 
 
-def test_get_week_active_days_uses_monday_as_week_start():
+def test_get_week_active_days_returns_sorted_iso_weekdays():
     captured = {}
     # 2026-06-11 is a Thursday; that week's Monday is 2026-06-08.
     thursday = date(2026, 6, 11)
-    db = _week_db(captured)
+    # Mon 06-08, Wed 06-10, Thu 06-11 -> ISO weekdays 1, 3, 4 (given out of order).
+    db = _week_db(captured, [date(2026, 6, 10), date(2026, 6, 8), date(2026, 6, 11)])
 
-    assert get_week_active_days(db=db, user_id=uuid4(), today=thursday) == 4
+    assert get_week_active_days(db=db, user_id=uuid4(), today=thursday) == [1, 3, 4]
     assert captured["week_start"] == date(2026, 6, 8)
 
 
-def test_get_week_active_days_week_start_is_today_when_today_is_monday():
+def test_get_week_active_days_empty_when_no_logs():
     captured = {}
     monday = date(2026, 6, 8)
-    db = _week_db(captured)
+    db = _week_db(captured, [])
 
-    assert get_week_active_days(db=db, user_id=uuid4(), today=monday) == 4
+    assert get_week_active_days(db=db, user_id=uuid4(), today=monday) == []
     assert captured["week_start"] == monday
 
 
