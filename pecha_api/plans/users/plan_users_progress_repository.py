@@ -24,6 +24,15 @@ def save_plan_progress(db: Session, plan_progress: EnrolledUserPlan):
         print(f"Integrity error: {e.orig}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ResponseError(error=BAD_REQUEST, message=e.orig).model_dump())
 
+def get_user_total_practice_days(db: Session, user_id: UUID) -> int:
+    """Number of unique calendar dates on which the user completed a plan day."""
+    return db.query(
+        func.count(func.distinct(func.date(UserDayCompletion.completed_at)))
+    ).filter(
+        UserDayCompletion.user_id == user_id,
+    ).scalar() or 0
+
+
 def get_plan_progress(db: Session, plan_id: UUID) -> List[UserPlanProgress]:
     return db.query(UserPlanProgress).filter(UserPlanProgress.plan_id == plan_id).all()
 

@@ -8,11 +8,22 @@ from pecha_api.daily_log.daily_log_cache_service import (
     set_user_daily_log_cache,
 )
 from pecha_api.daily_log.daily_log_repository import (
+    get_highest_streak,
     get_user_streak,
+    get_week_active_days,
     has_log_for_date,
     save_daily_log,
 )
-from pecha_api.daily_log.daily_log_response_models import UserStreakResponse
+from pecha_api.daily_log.daily_log_response_models import (
+    StreakStats,
+    UserStatsResponse,
+    UserStreakResponse,
+)
+from pecha_api.timers.timer_repository import get_user_total_duration
+from pecha_api.accumulator.accumulator_repository import get_user_total_count
+from pecha_api.plans.users.plan_users_progress_repository import (
+    get_user_total_practice_days,
+)
 from pecha_api.users.users_service import validate_and_extract_user_details
 
 
@@ -63,3 +74,30 @@ async def get_user_streak_service(token: str) -> UserStreakResponse:
         streak = get_user_streak(db=db, user_id=current_user.id, today=today)
 
     return UserStreakResponse(streak=streak)
+
+
+async def get_user_stats_service(token: str) -> UserStatsResponse:
+    current_user = validate_and_extract_user_details(token=token)
+    today = _utc_today()
+
+    await record_daily_log_if_needed(user_id=current_user.id)
+
+    user_id = current_user.id
+    with SessionLocal() as db:
+        current_streak = get_user_streak(db=db, user_id=user_id, today=today)
+        highest_streak = get_highest_streak(db=db, user_id=user_id)
+        week_active_days = get_week_active_days(db=db, user_id=user_id, today=today)
+        total_timer_seconds = get_user_total_duration(db=db, user_id=user_id)
+        total_accumulated = get_user_total_count(db=db, user_id=user_id)
+        total_practice_days = get_user_total_practice_days(db=db, user_id=user_id)
+
+    return UserStatsResponse(
+        streak=StreakStats(
+            current=current_streak,
+            highest=highest_streak,
+            week=week_active_days,
+        ),
+        total_timer_seconds=total_timer_seconds,
+        total_accumulated=total_accumulated,
+        total_practice_days=total_practice_days,
+    )

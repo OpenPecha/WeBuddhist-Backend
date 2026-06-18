@@ -2,7 +2,11 @@ from datetime import date, timedelta
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from pecha_api.daily_log.daily_log_repository import get_user_streak
+from pecha_api.daily_log.daily_log_repository import (
+    get_highest_streak,
+    get_user_streak,
+    get_week_active_days,
+)
 
 
 def _query_dates(dates):
@@ -44,3 +48,39 @@ def test_get_user_streak_uses_yesterday_when_today_missing():
     ]
 
     assert get_user_streak(db=db, user_id=uuid4(), today=today) == 2
+
+
+def test_get_week_active_days_counts_distinct_within_window():
+    db = MagicMock()
+    today = date(2026, 6, 11)
+    distinct_query = MagicMock()
+    distinct_query.count.return_value = 4
+    db.query.return_value.filter.return_value.distinct.return_value = distinct_query
+
+    assert get_week_active_days(db=db, user_id=uuid4(), today=today) == 4
+
+
+def test_get_highest_streak_returns_zero_when_no_logs():
+    db = MagicMock()
+    db.query.return_value.filter.return_value.all.return_value = []
+
+    assert get_highest_streak(db=db, user_id=uuid4()) == 0
+
+
+def test_get_highest_streak_finds_longest_run():
+    db = MagicMock()
+    anchor = date(2026, 6, 11)
+    # Two runs: a 2-day run, then a 4-day run after a gap.
+    dates = [
+        anchor,
+        anchor - timedelta(days=1),
+        anchor - timedelta(days=5),
+        anchor - timedelta(days=6),
+        anchor - timedelta(days=7),
+        anchor - timedelta(days=8),
+    ]
+    db.query.return_value.filter.return_value.all.return_value = [
+        MagicMock(log_date=d) for d in dates
+    ]
+
+    assert get_highest_streak(db=db, user_id=uuid4()) == 4
