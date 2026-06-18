@@ -27,8 +27,11 @@ def save_daily_log(db: Session, user_id: UUID, log_date: date) -> None:
 
 
 def get_week_active_days(db: Session, user_id: UUID, today: date) -> int:
-    """Count distinct days the user logged within the trailing 7 days (0-7)."""
-    week_start = today - timedelta(days=6)
+    """Count distinct days the user logged in the current Monday-Sunday week (0-7).
+
+    weekday() is 0 for Monday, so subtracting it lands on this week's Monday.
+    """
+    week_start = today - timedelta(days=today.weekday())
     return db.query(UserDailyLog.log_date).filter(
         UserDailyLog.user_id == user_id,
         UserDailyLog.log_date >= week_start,
