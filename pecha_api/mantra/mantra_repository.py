@@ -35,7 +35,7 @@ def save_mantra(db: Session, mantra: Mantra, metadata_entries: List) -> Mantra:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"error": "BAD_REQUEST", "message": str(exc.orig)},
+            detail={"error": "BAD_REQUEST", "message": "A database integrity constraint was violated."},
         ) from exc
 
 
