@@ -1,13 +1,21 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from typing import Annotated, Optional
 from starlette import status
 
-from .mantra_response_models import MantraResponse
-from .mantra_service import get_mantras_service
+from .mantra_response_models import CreateMantraRequest, MantraDTO, MantraResponse
+from .mantra_service import create_mantra_service, get_mantras_service
+
+oauth2_scheme = HTTPBearer()
 
 mantra_router = APIRouter(
     prefix="/mantra",
     tags=["Mantra"]
+)
+
+cms_mantra_router = APIRouter(
+    prefix="/cms/mantras",
+    tags=["CMS Mantras"],
 )
 
 
@@ -21,3 +29,18 @@ def get_mantras_endpoint(
 ):
 
     return get_mantras_service(language=language)
+
+
+@cms_mantra_router.post(
+    "",
+    status_code=status.HTTP_201_CREATED,
+    response_model=MantraDTO,
+)
+def create_mantra_endpoint(
+    create_mantra_request: CreateMantraRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+) -> MantraDTO:
+    return create_mantra_service(
+        token=authentication_credential.credentials,
+        request=create_mantra_request,
+    )

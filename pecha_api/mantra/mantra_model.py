@@ -25,7 +25,7 @@ class Mantra(Base):
 
     metadata_entries = relationship(
         "MantraMetadata",
-        back_populates="mantra",
+        back_populates="parent_mantra",
         cascade="all, delete-orphan",
     )
 
