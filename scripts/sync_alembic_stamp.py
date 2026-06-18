@@ -49,8 +49,12 @@ SCHEMA_MARKERS: dict[str, list[tuple]] = {
     "b4c5d6e7f8a9": [("column", "author_groups", "group_type")],
     "c5d6e7f8a9b0": [("column", "series", "parent_series_id")],
     "c6d7e8f9a0b1": [("column", "author_group_metadata", "description_long")],
-    "g0a1b2c3d4e5": [("table", "content_transfer_requests")],
     "440953ec8a21": [("table", "content_transfer_requests")],
+    "g0a1b2c3d4e5": [
+        "any_of",
+        [("column_type", "verse_metadata", "verse", "text")],
+        [("column_type", "verse_metadata", "verse", "character varying")],
+    ],
 }
 
 
@@ -111,6 +115,21 @@ def _marker_passes(conn, marker: tuple) -> bool:
             ),
             {"enum_name": enum_name, "value": value},
         ).scalar() is not None
+    if kind == "column_type":
+        _, table, column, data_type = marker
+        return conn.execute(
+            text(
+                """
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = :table
+                  AND column_name = :column
+                  AND data_type = :data_type
+                """
+            ),
+            {"table": table, "column": column, "data_type": data_type},
+        ).scalar() is not None
     return False
 
 
@@ -163,10 +182,15 @@ def _is_ancestor(script: ScriptDirectory, ancestor: str, descendant: str) -> boo
 
 
 def _should_stamp_forward(
-    script: ScriptDirectory, current: str, target: str
+    script: ScriptDirectory,
+    current: str,
+    target: str,
+    applied: dict[str, bool],
 ) -> bool:
     if current == target:
         return False
+    if applied.get(target) and not applied.get(current, False):
+        return True
     return _is_ancestor(script, current, target)
 
 
@@ -199,7 +223,7 @@ def sync_stamp() -> None:
             print("Could not detect applied schema revision; leaving stamp unchanged.")
             return
 
-        if not _should_stamp_forward(script, current, target):
+        if not _should_stamp_forward(script, current, target, applied):
             print(
                 f"Alembic stamp sync: current={current}, detected={target}; no change."
             )
