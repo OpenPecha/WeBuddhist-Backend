@@ -1266,18 +1266,35 @@ def test_get_plan_day_details_success():
 
 def test_get_tags_success(mock_db_session):
     """Test successful retrieval of tags."""
+    # Create metadata entries for tag_one
+    meta_one = MagicMock()
+    meta_one.language = MagicMock()
+    meta_one.language.value = "EN"
+    meta_one.name = "meditation"
+    meta_one.description = None
+    
     tag_one = MagicMock()
     tag_one.id = uuid4()
-    tag_one.name = "meditation"
     tag_one.image_key = None
-    tag_one.description = None
     tag_one.deleted_at = None
+    tag_one.metadata_entries = [meta_one]
+    tag_one.featured = False
+    tag_one.display_order = None
+    
+    # Create metadata entries for tag_two
+    meta_two = MagicMock()
+    meta_two.language = MagicMock()
+    meta_two.language.value = "EN"
+    meta_two.name = "sleep"
+    meta_two.description = None
+    
     tag_two = MagicMock()
     tag_two.id = uuid4()
-    tag_two.name = "sleep"
     tag_two.image_key = None
-    tag_two.description = None
     tag_two.deleted_at = None
+    tag_two.metadata_entries = [meta_two]
+    tag_two.featured = False
+    tag_two.display_order = None
 
     with patch(
         "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
@@ -1312,18 +1329,35 @@ def test_get_tags_empty(mock_db_session):
 
 
 def test_get_public_tags_success(mock_db_session):
+    # Create metadata entries for tag_one
+    meta_one = MagicMock()
+    meta_one.language = MagicMock()
+    meta_one.language.value = "EN"
+    meta_one.name = "meditation"
+    meta_one.description = None
+    
     tag_one = MagicMock()
     tag_one.id = uuid4()
-    tag_one.name = "meditation"
     tag_one.image_key = None
-    tag_one.description = None
     tag_one.deleted_at = None
+    tag_one.metadata_entries = [meta_one]
+    tag_one.featured = False
+    tag_one.display_order = None
+    
+    # Create metadata entries for tag_two
+    meta_two = MagicMock()
+    meta_two.language = MagicMock()
+    meta_two.language.value = "EN"
+    meta_two.name = "sleep"
+    meta_two.description = None
+    
     tag_two = MagicMock()
     tag_two.id = uuid4()
-    tag_two.name = "sleep"
     tag_two.image_key = None
-    tag_two.description = None
     tag_two.deleted_at = None
+    tag_two.metadata_entries = [meta_two]
+    tag_two.featured = False
+    tag_two.display_order = None
 
     with patch(
         "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session

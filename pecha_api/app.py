@@ -33,6 +33,7 @@ from pecha_api.plans.audio import tts_test_views
 from pecha_api.plans.items import plan_items_views
 from pecha_api.plans.authors import plan_authors_views as plan_authors_views
 from pecha_api.plans.featured import featured_day_views
+from pecha_api.plans.notifications import day_notification_views
 from pecha_api.plans.dashboard import dashboard_views as cms_dashboard_views
 from pecha_api.plans.groups import groups_views as author_groups_views
 from pecha_api.recitations import recitations_view
@@ -109,6 +110,7 @@ api.include_router(user_plans_views.user_progress_router)
 api.include_router(plan_items_views.items_router)
 api.include_router(plan_tasks_views.plans_router)
 api.include_router(plan_sub_tasks_views.sub_tasks_router)
+api.include_router(day_notification_views.notifications_router)
 api.include_router(plan_authors_views.author_router)
 api.include_router(featured_day_views.user_follow_router)
 api.include_router(recitations_view.recitation_router)
@@ -125,11 +127,13 @@ api.include_router(collections_openpecha_views.collections_v2_router)
 api.include_router(texts_openpecha_views.texts_v2_router)
 api.include_router(segments_openpecha_views.segments_v2_router)
 api.include_router(verse_of_day_views.verse_of_day_router)
+api.include_router(verse_of_day_views.cms_verse_of_day_router)
 api.include_router(calendar_views.calendar_router)
 api.include_router(timer_router)
 api.include_router(accumulator_router)
 api.include_router(daily_log_views.daily_log_router)
 api.include_router(mantra_views.mantra_router)
+api.include_router(mantra_views.cms_mantra_router)
 api.include_router(events_router)
 api.include_router(cms_events_router)
 

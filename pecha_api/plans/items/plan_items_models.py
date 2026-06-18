@@ -25,6 +25,13 @@ class PlanItem(Base):
         cascade="all, delete-orphan",
     )
 
+    notification = relationship(
+        "DayNotification",
+        back_populates="plan_item",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
     __table_args__ = (
         Index("idx_plan_items_plan_day", "plan_id", "day_number"),
     )

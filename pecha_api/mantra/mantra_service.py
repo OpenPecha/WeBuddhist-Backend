@@ -1,8 +1,20 @@
 from typing import Optional
 
+from fastapi import HTTPException
+from starlette import status
+
+from ..accumulator.accumulator_repository import get_mala_image_by_id
+from ..accumulator.accumulator_service import generate_mala_image_presigned_url
 from ..db.database import SessionLocal
-from .mantra_repository import get_all_mantras
-from .mantra_response_models import MantraDTO, MantraMetadataDTO, MantraResponse
+from ..plans.authors.plan_authors_service import validate_cms_author_details
+from .mantra_model import Mantra
+from .mantra_repository import get_all_mantras, save_mantra
+from .mantra_response_models import (
+    CreateMantraRequest,
+    MantraDTO,
+    MantraMetadataDTO,
+    MantraResponse,
+)
 
 
 def _build_mantra_dto(mantra, language: Optional[str]) -> MantraDTO:
@@ -13,9 +25,12 @@ def _build_mantra_dto(mantra, language: Optional[str]) -> MantraDTO:
             entry for entry in entries
             if entry.language.value == language_upper
         ]
+    mala = mantra.mala
     return MantraDTO(
         id=mantra.id,
         audio_url=mantra.audio_url,
+        mala_image_id=mala.id if mala is not None else None,
+        mala_image_url=generate_mala_image_presigned_url(mala.url) if mala is not None else None,
         metadata=[MantraMetadataDTO.model_validate(entry) for entry in entries],
     )
 
@@ -28,3 +43,24 @@ def get_mantras_service(language: Optional[str] = None) -> MantraResponse:
         return MantraResponse(
             mantras=[_build_mantra_dto(mantra, language) for mantra in mantras]
         )
+
+
+def create_mantra_service(token: str, request: CreateMantraRequest) -> MantraDTO:
+    validate_cms_author_details(token=token)
+
+    mantra = Mantra(
+        audio_url=request.audio_url,
+        mala_image=request.mala_image_id,
+    )
+
+    with SessionLocal() as db:
+        if request.mala_image_id is not None:
+            mala = get_mala_image_by_id(db, request.mala_image_id)
+            if mala is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Mala image with id '{request.mala_image_id}' does not exist",
+                )
+
+        saved = save_mantra(db, mantra, request.metadata)
+        return _build_mantra_dto(saved, language=None)

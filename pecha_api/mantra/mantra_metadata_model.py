@@ -16,9 +16,9 @@ class MantraMetadata(Base):
         ForeignKey("mantra.id", ondelete="CASCADE"),
         nullable=False,
     )
-    text = Column(Text, nullable=False)
-    meaning = Column(Text, nullable=True)
-    transliteration = Column(Text, nullable=True)
+    mantra = Column(Text, nullable=False)
+    title = Column(Text, nullable=True)
+    pronunciation = Column(Text, nullable=True)
     language = Column(LanguageCodeEnum, nullable=False)
 
-    mantra = relationship("Mantra", back_populates="metadata_entries")
+    parent_mantra = relationship("Mantra", back_populates="metadata_entries")
