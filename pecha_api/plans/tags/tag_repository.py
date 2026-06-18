@@ -11,10 +11,14 @@ from pecha_api.plans.tags.tag_model import Tag, plan_tags, tag_segments
 from pecha_api.plans.tags.tag_metadata_model import TagMetadata
 
 
-def _attach_segment_ids(db: Session, tags: List[Tag]) -> None:
+def _attach_segment_ids(db: Session, tags: List[Tag], language: str = "EN") -> None:
     if not tags:
         return
-    segment_ids_map = get_segment_ids_map_for_tags(db=db, tag_ids=[tag.id for tag in tags])
+    segment_ids_map = get_segment_ids_map_for_tags(
+        db=db,
+        tag_ids=[tag.id for tag in tags],
+        language=language,
+    )
     for tag in tags:
         tag.segment_ids = segment_ids_map.get(tag.id, [])
 
@@ -35,12 +39,17 @@ def get_next_tag_display_order(db: Session) -> int:
     return (result or 0) + 1
 
 
-def get_segment_ids_map_for_tags(db: Session, tag_ids: List[UUID]) -> Dict[UUID, List[UUID]]:
+def get_segment_ids_map_for_tags(
+    db: Session,
+    tag_ids: List[UUID],
+    language: str = "EN",
+) -> Dict[UUID, List[UUID]]:
     if not tag_ids:
         return {}
     rows = db.execute(
         select(tag_segments.c.tag_id, tag_segments.c.segment_id).where(
-            tag_segments.c.tag_id.in_(tag_ids)
+            tag_segments.c.tag_id.in_(tag_ids),
+            tag_segments.c.language == language,
         )
     ).all()
     mapping: Dict[UUID, List[UUID]] = {tag_id: [] for tag_id in tag_ids}
@@ -49,7 +58,12 @@ def get_segment_ids_map_for_tags(db: Session, tag_ids: List[UUID]) -> Dict[UUID,
     return mapping
 
 
-def get_tag_by_id(db: Session, tag_id: UUID, include_deleted: bool = False) -> Optional[Tag]:
+def get_tag_by_id(
+    db: Session,
+    tag_id: UUID,
+    include_deleted: bool = False,
+    language: str = "EN",
+) -> Optional[Tag]:
     query = db.query(Tag).options(
         selectinload(Tag.plans),
         selectinload(Tag.metadata_entries)
@@ -58,7 +72,7 @@ def get_tag_by_id(db: Session, tag_id: UUID, include_deleted: bool = False) -> O
         query = query.filter(Tag.deleted_at.is_(None))
     tag = query.first()
     if tag:
-        _attach_segment_ids(db=db, tags=[tag])
+        _attach_segment_ids(db=db, tags=[tag], language=language)
     return tag
 
 
@@ -81,6 +95,7 @@ def get_tags_paginated(
     search: Optional[str],
     skip: int,
     limit: int,
+    language: str = "EN",
 ) -> Tuple[List[Tag], int]:
     query = db.query(Tag).options(
         selectinload(Tag.plans),
@@ -97,7 +112,7 @@ def get_tags_paginated(
         .limit(limit)
         .all()
     )
-    _attach_segment_ids(db=db, tags=rows)
+    _attach_segment_ids(db=db, tags=rows, language=language)
     return rows, total
 
 
@@ -147,11 +162,29 @@ def set_tag_plans(db: Session, tag: Tag, plan_ids: List[UUID], commit: bool = Tr
     return tag
 
 
-def set_tag_segments(db: Session, tag: Tag, segment_ids: List[UUID], commit: bool = True) -> Tag:
+def set_tag_segments(
+    db: Session,
+    tag: Tag,
+    segment_ids: List[UUID],
+    language: str = "EN",
+    commit: bool = True,
+) -> Tag:
     unique_segment_ids = list(dict.fromkeys(segment_ids))
-    db.execute(delete(tag_segments).where(tag_segments.c.tag_id == tag.id))
+    db.execute(
+        delete(tag_segments).where(
+            tag_segments.c.tag_id == tag.id,
+            tag_segments.c.language == language,
+        )
+    )
     if unique_segment_ids:
-        rows = [{"tag_id": tag.id, "segment_id": segment_id} for segment_id in unique_segment_ids]
+        rows = [
+            {
+                "tag_id": tag.id,
+                "segment_id": segment_id,
+                "language": language,
+            }
+            for segment_id in unique_segment_ids
+        ]
         db.execute(tag_segments.insert(), rows)
     if commit:
         db.commit()

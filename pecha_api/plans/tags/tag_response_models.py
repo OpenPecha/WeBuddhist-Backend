@@ -30,6 +30,7 @@ class TagMetadataInput(BaseModel):
     language: str
     name: str
     description: Optional[str] = None
+    segment_ids: Optional[List[UUID]] = None
 
 
 class CreateTagRequest(BaseModel):
