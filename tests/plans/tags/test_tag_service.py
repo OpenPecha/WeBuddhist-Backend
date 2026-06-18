@@ -1005,6 +1005,9 @@ async def test_update_tag_metadata_replaces_all_entries():
         "pecha_api.plans.tags.tag_service.get_tag_by_id",
         side_effect=[existing, refreshed],
     ), patch(
+        "pecha_api.plans.tags.tag_service.get_tag_by_name",
+        return_value=None,
+    ), patch(
         "pecha_api.plans.tags.tag_service.update_tag_row",
         return_value=existing,
     ), patch(
