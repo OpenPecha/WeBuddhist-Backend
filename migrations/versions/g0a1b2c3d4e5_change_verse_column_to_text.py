@@ -20,14 +20,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # Convert JSONB to Text, stripping quotes from existing JSON string values
+    # Convert JSONB to Text, only if column is currently JSONB
+    # Check column type first to make migration idempotent
     op.execute("""
-        ALTER TABLE verse_metadata 
-        ALTER COLUMN verse TYPE TEXT 
-        USING CASE 
-            WHEN jsonb_typeof(verse) = 'string' THEN verse #>> '{}'
-            ELSE verse::text
-        END
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = 'verse_metadata' 
+                AND column_name = 'verse' 
+                AND data_type = 'jsonb'
+            ) THEN
+                ALTER TABLE verse_metadata 
+                ALTER COLUMN verse TYPE TEXT 
+                USING CASE 
+                    WHEN jsonb_typeof(verse) = 'string' THEN verse #>> '{}'
+                    ELSE verse::text
+                END;
+            END IF;
+        END $$;
     """)
 
 
