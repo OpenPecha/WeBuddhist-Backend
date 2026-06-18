@@ -101,16 +101,22 @@ def get_tags_paginated(
     return rows, total
 
 
-def save_tag(db: Session, tag: Tag) -> Tag:
+def save_tag(db: Session, tag: Tag, commit: bool = True) -> Tag:
     db.add(tag)
-    db.commit()
-    db.refresh(tag)
+    if commit:
+        db.commit()
+        db.refresh(tag)
+    else:
+        db.flush()
     return tag
 
 
-def update_tag_row(db: Session, tag: Tag) -> Tag:
-    db.commit()
-    db.refresh(tag)
+def update_tag_row(db: Session, tag: Tag, commit: bool = True) -> Tag:
+    if commit:
+        db.commit()
+        db.refresh(tag)
+    else:
+        db.flush()
     return tag
 
 
@@ -130,22 +136,28 @@ def get_tags_by_ids(db: Session, tag_ids: List[UUID]) -> List[Tag]:
     )
 
 
-def set_tag_plans(db: Session, tag: Tag, plan_ids: List[UUID]) -> Tag:
+def set_tag_plans(db: Session, tag: Tag, plan_ids: List[UUID], commit: bool = True) -> Tag:
     plans = db.query(Plan).filter(Plan.id.in_(plan_ids), Plan.deleted_at.is_(None)).all() if plan_ids else []
     tag.plans = plans
-    db.commit()
-    db.refresh(tag)
+    if commit:
+        db.commit()
+        db.refresh(tag)
+    else:
+        db.flush()
     return tag
 
 
-def set_tag_segments(db: Session, tag: Tag, segment_ids: List[UUID]) -> Tag:
+def set_tag_segments(db: Session, tag: Tag, segment_ids: List[UUID], commit: bool = True) -> Tag:
     unique_segment_ids = list(dict.fromkeys(segment_ids))
     db.execute(delete(tag_segments).where(tag_segments.c.tag_id == tag.id))
     if unique_segment_ids:
         rows = [{"tag_id": tag.id, "segment_id": segment_id} for segment_id in unique_segment_ids]
         db.execute(tag_segments.insert(), rows)
-    db.commit()
-    db.refresh(tag)
+    if commit:
+        db.commit()
+        db.refresh(tag)
+    else:
+        db.flush()
     tag.segment_ids = unique_segment_ids
     return tag
 
@@ -203,16 +215,20 @@ def get_all_tags_paginated(
     return rows, total
 
 
-def save_tag_metadata(db: Session, tag_metadata: TagMetadata) -> TagMetadata:
+def save_tag_metadata(db: Session, tag_metadata: TagMetadata, commit: bool = True) -> TagMetadata:
     db.add(tag_metadata)
-    db.commit()
-    db.refresh(tag_metadata)
+    if commit:
+        db.commit()
+        db.refresh(tag_metadata)
+    else:
+        db.flush()
     return tag_metadata
 
 
-def delete_tag_metadata_by_tag_id(db: Session, tag_id: UUID) -> None:
+def delete_tag_metadata_by_tag_id(db: Session, tag_id: UUID, commit: bool = True) -> None:
     db.execute(delete(TagMetadata).where(TagMetadata.tag_id == tag_id))
-    db.commit()
+    if commit:
+        db.commit()
 
 
 def get_tag_metadata_by_tag_and_language(db: Session, tag_id: UUID, language: str) -> Optional[TagMetadata]:

@@ -155,7 +155,8 @@ async def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> Ta
             updated_by=author.email,
         )
         try:
-            tag = save_tag(db=db_session, tag=tag)
+            # Use commit=False to defer commit until all operations complete
+            tag = save_tag(db=db_session, tag=tag, commit=False)
             
             # Create metadata entries
             for meta_input in create_tag_request.metadata:
@@ -165,12 +166,16 @@ async def create_new_tag(token: str, create_tag_request: CreateTagRequest) -> Ta
                     description=meta_input.description,
                     language=meta_input.language,
                 )
-                save_tag_metadata(db=db_session, tag_metadata=tag_metadata)
+                save_tag_metadata(db=db_session, tag_metadata=tag_metadata, commit=False)
             
             if plan_ids:
-                tag = set_tag_plans(db=db_session, tag=tag, plan_ids=plan_ids)
+                tag = set_tag_plans(db=db_session, tag=tag, plan_ids=plan_ids, commit=False)
             if segment_ids:
-                tag = set_tag_segments(db=db_session, tag=tag, segment_ids=segment_ids)
+                tag = set_tag_segments(db=db_session, tag=tag, segment_ids=segment_ids, commit=False)
+            
+            # Single commit for the entire transaction
+            db_session.commit()
+            
             tag = get_tag_by_id(db=db_session, tag_id=tag.id)
             return _tag_to_dto(tag)
         except IntegrityError:
@@ -202,8 +207,8 @@ async def update_existing_tag(token: str, tag_id: UUID, update_tag_request: Upda
                         detail=f"Tag with name '{meta_input.name}' in language '{meta_input.language}' already exists",
                     )
             
-            # Delete existing metadata and create new ones
-            delete_tag_metadata_by_tag_id(db=db_session, tag_id=tag_id)
+            # Delete existing metadata and create new ones (defer commit)
+            delete_tag_metadata_by_tag_id(db=db_session, tag_id=tag_id, commit=False)
             for meta_input in update_tag_request.metadata:
                 tag_metadata = TagMetadata(
                     tag_id=tag.id,
@@ -211,7 +216,7 @@ async def update_existing_tag(token: str, tag_id: UUID, update_tag_request: Upda
                     description=meta_input.description,
                     language=meta_input.language,
                 )
-                save_tag_metadata(db=db_session, tag_metadata=tag_metadata)
+                save_tag_metadata(db=db_session, tag_metadata=tag_metadata, commit=False)
 
         if update_tag_request.image_key is not None:
             tag.image_key = update_tag_request.image_key
@@ -225,14 +230,17 @@ async def update_existing_tag(token: str, tag_id: UUID, update_tag_request: Upda
 
         if update_tag_request.plan_ids is not None:
             _validate_plan_ids(db=db_session, plan_ids=update_tag_request.plan_ids)
-            tag = set_tag_plans(db=db_session, tag=tag, plan_ids=update_tag_request.plan_ids)
+            tag = set_tag_plans(db=db_session, tag=tag, plan_ids=update_tag_request.plan_ids, commit=False)
 
         if update_tag_request.segment_ids is not None:
             await _validate_segment_ids(segment_ids=update_tag_request.segment_ids)
-            tag = set_tag_segments(db=db_session, tag=tag, segment_ids=update_tag_request.segment_ids)
+            tag = set_tag_segments(db=db_session, tag=tag, segment_ids=update_tag_request.segment_ids, commit=False)
 
         try:
-            tag = update_tag_row(db=db_session, tag=tag)
+            # Single commit for the entire transaction
+            update_tag_row(db=db_session, tag=tag, commit=False)
+            db_session.commit()
+            
             tag = get_tag_by_id(db=db_session, tag_id=tag.id)
             return _tag_to_dto(tag)
         except IntegrityError:
