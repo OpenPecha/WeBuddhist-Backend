@@ -208,6 +208,24 @@ def get_sessions_by_time_block_ids(db: Session, time_block_ids: List[UUID], orde
     return query.all()
 
 
+def get_time_blocks_containing_series(
+    db: Session, user_id: UUID, series_id: UUID
+) -> List[RoutineTimeBlock]:
+    return (
+        db.query(RoutineTimeBlock)
+        .join(Routine, RoutineTimeBlock.routine_id == Routine.id)
+        .join(RoutineSession, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            Routine.user_id == user_id,
+            Routine.deleted_at.is_(None),
+            RoutineTimeBlock.deleted_at.is_(None),
+            RoutineSession.session_type == SessionType.SERIES,
+            RoutineSession.source_id == series_id,
+        )
+        .all()
+    )
+
+
 def get_time_blocks_containing_plan(db: Session, user_id: UUID, plan_id: UUID) -> List[RoutineTimeBlock]:
 
     return (
@@ -249,6 +267,51 @@ def add_plan_session_to_time_block(db: Session, time_block_id: UUID, plan_id: UU
     db.commit()
     db.refresh(session)
     return session
+
+
+def get_series_source_ids_by_time_block_id(
+    db: Session, time_block_id: UUID
+) -> List[UUID]:
+    sessions = (
+        db.query(RoutineSession.source_id)
+        .filter(
+            RoutineSession.time_block_id == time_block_id,
+            RoutineSession.session_type == SessionType.SERIES,
+        )
+        .all()
+    )
+    return [s.source_id for s in sessions]
+
+
+def get_existing_series_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
+    sessions = (
+        db.query(RoutineSession.source_id)
+        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            RoutineTimeBlock.routine_id == routine_id,
+            RoutineTimeBlock.deleted_at.is_(None),
+            RoutineSession.session_type == SessionType.SERIES,
+        )
+        .all()
+    )
+    return [s.source_id for s in sessions]
+
+
+def get_existing_series_source_ids_in_routine(
+    db: Session, routine_id: UUID, exclude_time_block_id: Optional[UUID] = None
+) -> List[UUID]:
+    query = (
+        db.query(RoutineSession.source_id)
+        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            RoutineTimeBlock.routine_id == routine_id,
+            RoutineTimeBlock.deleted_at.is_(None),
+            RoutineSession.session_type == SessionType.SERIES,
+        )
+    )
+    if exclude_time_block_id:
+        query = query.filter(RoutineTimeBlock.id != exclude_time_block_id)
+    return [row[0] for row in query.all()]
 
 
 def get_existing_plan_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
@@ -343,11 +406,16 @@ def get_routine_series_and_recitation_counts(
         .all()
     )
 
-    plan_ids = [
-        session.source_id
+    series_count = sum(
+        1
+        for session in sessions
+        if session.session_type == SessionType.SERIES and session.source_id is not None
+    )
+    standalone_plan_count = sum(
+        1
         for session in sessions
         if session.session_type == SessionType.PLAN and session.source_id is not None
-    ]
+    )
     recitation_count = sum(
         1
         for session in sessions
@@ -355,15 +423,4 @@ def get_routine_series_and_recitation_counts(
         in (SessionType.RECITATION, SessionType.RECITATION_COLLECTION)
     )
 
-    if not plan_ids:
-        return 0, recitation_count
-
-    plans = get_plans_by_ids(db=db, plan_ids=plan_ids)
-    series_keys = set()
-    for plan in plans:
-        if plan.series_id is not None:
-            series_keys.add(("series", plan.series_id))
-        else:
-            series_keys.add(("plan", plan.id))
-
-    return len(series_keys), recitation_count
+    return series_count + standalone_plan_count, recitation_count
