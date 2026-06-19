@@ -53,6 +53,9 @@ class SessionDTO(BaseModel):
         elif self.session_type == SessionType.RECITATION:
             for field in ("duration_ms", "start_date", "started_at", "item_count"):
                 data.pop(field, None)
+        elif self.session_type == SessionType.SERIES:
+            for field in ("duration_ms", "item_count", "start_date", "started_at"):
+                data.pop(field, None)
         else:  # PLAN
             for field in ("duration_ms", "item_count"):
                 data.pop(field, None)

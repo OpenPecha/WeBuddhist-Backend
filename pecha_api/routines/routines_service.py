@@ -15,6 +15,7 @@ from pecha_api.texts.texts_models import Text
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.users.recitation_collection.recitation_collection_models import RecitationCollection
 from pecha_api.plans.plans_enums import UserPlanStatus
+from datetime import datetime, timezone
 from pecha_api.plans.users.plan_users_progress_repository import (
     get_plan_progress_by_user_id_and_plan_ids,
 )
@@ -30,6 +31,9 @@ from .routines_repository import (
     time_block_exists_for_routine,
     get_time_block_by_id_and_routine,
     get_plan_source_ids_by_time_block_id,
+    get_series_source_ids_by_time_block_id,
+    get_existing_series_source_ids,
+    get_existing_series_source_ids_in_routine,
     get_plans_by_ids,
     get_time_block_by_routine_and_time,
     delete_sessions_by_time_block_id,
@@ -44,6 +48,7 @@ from .routines_repository import (
 )
 from .response_message import (
     DUPLICATE_PLAN,
+    DUPLICATE_SERIES,
     DUPLICATE_RECITATION_COLLECTION,
     INVALID_TIME_FORMAT,
     INVALID_TIMER_DURATION,
@@ -55,8 +60,10 @@ from .response_message import (
     TIME_BLOCK_NOT_FOUND,
     TIME_BLOCK_TIME_CONFLICT,
     NO_ROUTINE_CREATED_FOR_USER,
+    SERIES_NOT_FOUND,
 )
 from .routines_response_models import (
+    SessionRequest,
     CreateTimeBlockRequest,
     UpdateTimeBlockRequest,
     SessionDTO,
@@ -86,7 +93,7 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
             ).model_dump(),
         )
 
-    # TIMER sessions carry a positive duration_ms; PLAN/RECITATION carry a source_id
+    # TIMER sessions carry a positive duration_ms; PLAN/SERIES/RECITATION carry a source_id
     for session in request.sessions:
         if session.session_type == SessionType.TIMER:
             if session.duration_ms is None or session.duration_ms <= 0:
@@ -101,12 +108,16 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=ResponseError(
                     error=BAD_REQUEST, message=SOURCE_ID_REQUIRED
-                ).model_dump(),
-            )
+            ).model_dump(),
+        )
 
+    _validate_session_uniqueness(request.sessions)
+
+
+def _validate_session_uniqueness(sessions: List[SessionRequest]) -> None:
     plan_source_ids = [
         session.source_id
-        for session in request.sessions
+        for session in sessions
         if session.session_type == SessionType.PLAN
     ]
     if len(plan_source_ids) != len(set(plan_source_ids)):
@@ -117,10 +128,22 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
             ).model_dump(),
         )
 
-    # Duplicate recitation collection source_ids within the request
+    series_source_ids = [
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.SERIES
+    ]
+    if len(series_source_ids) != len(set(series_source_ids)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=DUPLICATE_SERIES
+            ).model_dump(),
+        )
+
     collection_source_ids = [
         session.source_id
-        for session in request.sessions
+        for session in sessions
         if session.session_type == SessionType.RECITATION_COLLECTION
     ]
     if len(collection_source_ids) != len(set(collection_source_ids)):
@@ -142,6 +165,38 @@ def _check_duplicate_collections(db, routine_id: UUID, sessions: List) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=ResponseError(
                 error=BAD_REQUEST, message=DUPLICATE_RECITATION_COLLECTION
+            ).model_dump(),
+        )
+
+
+def _check_duplicate_series(db, routine_id: UUID, sessions: List) -> None:
+    """Check for duplicate series when adding a new time block."""
+    existing_series_ids = get_existing_series_source_ids(db=db, routine_id=routine_id)
+    new_series_ids = [s.source_id for s in sessions if s.session_type == SessionType.SERIES]
+    overlap = set(new_series_ids) & set(existing_series_ids)
+    if overlap:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=DUPLICATE_SERIES
+            ).model_dump(),
+        )
+
+
+def _check_duplicate_series_on_update(
+    db, routine_id: UUID, time_block_id: UUID, sessions: List
+) -> None:
+    """Check for duplicate series when updating a time block."""
+    existing_series_ids = get_existing_series_source_ids_in_routine(
+        db=db, routine_id=routine_id, exclude_time_block_id=time_block_id
+    )
+    new_series_ids = [s.source_id for s in sessions if s.session_type == SessionType.SERIES]
+    overlap = set(new_series_ids) & set(existing_series_ids)
+    if overlap:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=DUPLICATE_SERIES
             ).model_dump(),
         )
 
@@ -178,6 +233,52 @@ def _extract_plan_ids(sessions: List) -> List[UUID]:
     return [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
 
 
+def _extract_series_ids(sessions: List) -> List[UUID]:
+    return [s.source_id for s in sessions if s.session_type == SessionType.SERIES]
+
+
+def _normalize_plan_sessions_to_series(db, sessions: List[SessionRequest]) -> List[SessionRequest]:
+    plan_ids = [
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.PLAN and session.source_id is not None
+    ]
+    if not plan_ids:
+        return sessions
+
+    plans = get_plans_by_ids(db=db, plan_ids=plan_ids)
+    plan_series_map = {
+        plan.id: plan.series_id
+        for plan in plans
+        if getattr(plan, "series_id", None) is not None
+    }
+    if not plan_series_map:
+        return sessions
+
+    normalized: List[SessionRequest] = []
+    for session in sessions:
+        if (
+            session.session_type == SessionType.PLAN
+            and session.source_id in plan_series_map
+        ):
+            normalized.append(
+                SessionRequest(
+                    session_type=SessionType.SERIES,
+                    source_id=plan_series_map[session.source_id],
+                    display_order=session.display_order,
+                )
+            )
+        else:
+            normalized.append(session)
+    return normalized
+
+
+def _prepare_sessions(db, sessions: List[SessionRequest]) -> List[SessionRequest]:
+    sessions = _normalize_plan_sessions_to_series(db=db, sessions=sessions)
+    _validate_session_uniqueness(sessions)
+    return sessions
+
+
 def _enroll_plans(db, user_id: UUID, plan_ids: List[UUID]) -> None:
     if not plan_ids:
         return
@@ -210,15 +311,76 @@ def _enroll_plans(db, user_id: UUID, plan_ids: List[UUID]) -> None:
         db.rollback()
 
 
-def _enroll_new_plans_on_update(
+def _enroll_series(db, user_id: UUID, series_ids: List[UUID]) -> None:
+    if not series_ids:
+        return
+
+    from pecha_api.plans.plans_enums import SeriesStatus
+    from pecha_api.plans.series.series_model import Series
+    from pecha_api.plans.users.plan_users_models import UserSeriesEnrollment
+    from pecha_api.plans.users.plan_user_series_repository import (
+        get_user_series_enrollment_by_user_and_series,
+        save_user_series_enrollment,
+        get_first_plan_in_series,
+    )
+    from pecha_api.plans.users.plan_users_service import auto_enroll_in_next_plan
+
+    for series_id in series_ids:
+        series = (
+            db.query(Series)
+            .filter(Series.id == series_id, Series.deleted_at.is_(None))
+            .first()
+        )
+        if not series:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=SERIES_NOT_FOUND
+                ).model_dump(),
+            )
+
+        existing_enrollment = get_user_series_enrollment_by_user_and_series(
+            db=db, user_id=user_id, series_id=series_id
+        )
+        if existing_enrollment:
+            continue
+
+        first_plan = get_first_plan_in_series(db=db, series_id=series_id)
+        enrollment = UserSeriesEnrollment(
+            user_id=user_id,
+            series_id=series_id,
+            status=SeriesStatus.ACTIVE,
+            auto_enroll_next=True,
+            current_plan_id=first_plan.id if first_plan else None,
+            enrolled_at=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
+            is_completed=False,
+        )
+        save_user_series_enrollment(db=db, enrollment=enrollment)
+
+        if first_plan:
+            auto_enroll_in_next_plan(
+                db=db,
+                user_id=user_id,
+                plan_id=first_plan.id,
+                series_enrollment_id=enrollment.id,
+            )
+
+
+def _enroll_new_sessions_on_update(
     db, user_id: UUID, time_block_id: UUID, new_sessions: List
 ) -> None:
     old_plan_ids = set(
         get_plan_source_ids_by_time_block_id(db=db, time_block_id=time_block_id)
     )
     new_plan_ids = set(_extract_plan_ids(new_sessions))
-    added_plans = list(new_plan_ids - old_plan_ids)
-    _enroll_plans(db=db, user_id=user_id, plan_ids=added_plans)
+    _enroll_plans(db=db, user_id=user_id, plan_ids=list(new_plan_ids - old_plan_ids))
+
+    old_series_ids = set(
+        get_series_source_ids_by_time_block_id(db=db, time_block_id=time_block_id)
+    )
+    new_series_ids = set(_extract_series_ids(new_sessions))
+    _enroll_series(db=db, user_id=user_id, series_ids=list(new_series_ids - old_series_ids))
 
 
 def _validate_and_sync_update(
@@ -226,12 +388,13 @@ def _validate_and_sync_update(
     user_id: UUID,
     routine_id: UUID,
     time_block_id: UUID,
-    request: UpdateTimeBlockRequest,
+    time: str,
+    sessions: List[SessionRequest],
 ) -> None:
     existing_time_block = get_time_block_by_routine_and_time(
         db=db,
         routine_id=routine_id,
-        time=request.time,
+        time=time,
         exclude_time_block_id=time_block_id,
     )
     if existing_time_block:
@@ -246,14 +409,21 @@ def _validate_and_sync_update(
         db=db,
         routine_id=routine_id,
         time_block_id=time_block_id,
-        sessions=request.sessions,
+        sessions=sessions,
     )
 
-    _enroll_new_plans_on_update(
+    _check_duplicate_series_on_update(
+        db=db,
+        routine_id=routine_id,
+        time_block_id=time_block_id,
+        sessions=sessions,
+    )
+
+    _enroll_new_sessions_on_update(
         db=db,
         user_id=user_id,
         time_block_id=time_block_id,
-        new_sessions=request.sessions,
+        new_sessions=sessions,
     )
 
 
@@ -417,9 +587,56 @@ def _resolve_recitation_collection_sessions(
     return resolved
 
 
+def _resolve_series_sessions(
+    db, series_sessions: List[RoutineSession]
+) -> List[SessionDTO]:
+    if not series_sessions:
+        return []
+
+    from pecha_api.plans.series.series_repository import get_series_by_ids
+
+    series_ids = [session.source_id for session in series_sessions]
+    series_list = get_series_by_ids(db=db, series_ids=series_ids)
+    series_map = {series.id: series for series in series_list}
+
+    resolved = []
+    for session in series_sessions:
+        series = series_map.get(session.source_id)
+        if series is None:
+            continue
+
+        metadata = series.metadata_entries[0] if series.metadata_entries else None
+        series_image = safe_get_image_url(
+            series.image, resource_id=series.id, resource_type="series"
+        )
+        language = None
+        if metadata is not None:
+            language = (
+                metadata.language.value
+                if hasattr(metadata.language, "value")
+                else str(metadata.language)
+            )
+
+        resolved.append(
+            SessionDTO(
+                id=session.id,
+                session_type=session.session_type,
+                source_id=session.source_id,
+                title=metadata.title if metadata else "Untitled Series",
+                language=language,
+                image=series_image,
+                display_order=session.display_order,
+            )
+        )
+    return resolved
+
+
 async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -> List[SessionDTO]:
     plan_sessions = [
         session for session in sessions if session.session_type == SessionType.PLAN
+    ]
+    series_sessions = [
+        session for session in sessions if session.session_type == SessionType.SERIES
     ]
     recitation_sessions = [
         session
@@ -436,6 +653,7 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -
     ]
 
     resolved_plans = _resolve_plan_sessions(db=db, plan_sessions=plan_sessions, user_id=user_id)
+    resolved_series = _resolve_series_sessions(db=db, series_sessions=series_sessions)
     resolved_recitations = await _resolve_recitation_sessions(
         recitation_sessions=recitation_sessions
     )
@@ -444,7 +662,13 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -
     )
     resolved_timers = _resolve_timer_sessions(timer_sessions=timer_sessions)
 
-    resolved = resolved_plans + resolved_recitations + resolved_collections + resolved_timers
+    resolved = (
+        resolved_plans
+        + resolved_series
+        + resolved_recitations
+        + resolved_collections
+        + resolved_timers
+    )
     resolved.sort(key=lambda session: session.display_order)
 
     return resolved
@@ -483,6 +707,8 @@ async def create_routine_with_time_block(
     _validate_time_block_request(request)
 
     with SessionLocal() as db:
+        prepared_sessions = _prepare_sessions(db=db, sessions=request.sessions)
+
         # Check routine doesn't already exist (business rule: exclude soft-deleted)
         existing_routine = get_routine_by_user_id(
             db=db, user_id=current_user.id, include_deleted=False
@@ -509,13 +735,15 @@ async def create_routine_with_time_block(
         saved_time_block = save_time_block(db=db, time_block=time_block)
 
         session_models = build_session_models(
-            time_block_id=saved_time_block.id, sessions=request.sessions
+            time_block_id=saved_time_block.id, sessions=prepared_sessions
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
-        # Auto-enroll plans
         _enroll_plans(
-            db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(request.sessions)
+            db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(prepared_sessions)
+        )
+        _enroll_series(
+            db=db, user_id=current_user.id, series_ids=_extract_series_ids(prepared_sessions)
         )
 
         time_block_dto = await build_time_block_dto(
@@ -637,6 +865,9 @@ async def add_time_block_to_routine(
         _check_duplicate_collections(db=db, routine_id=routine_id, sessions=request.sessions)
         _check_duplicate_time(db=db, routine_id=routine_id, time=request.time)
 
+        prepared_sessions = _prepare_sessions(db=db, sessions=request.sessions)
+        _check_duplicate_series(db=db, routine_id=routine_id, sessions=prepared_sessions)
+
         # Save time block
         time_block = RoutineTimeBlock(
             routine_id=routine_id,
@@ -647,13 +878,15 @@ async def add_time_block_to_routine(
         saved_time_block = save_time_block(db=db, time_block=time_block)
 
         session_models = build_session_models(
-            time_block_id=saved_time_block.id, sessions=request.sessions
+            time_block_id=saved_time_block.id, sessions=prepared_sessions
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
-        # Auto-enroll plans
         _enroll_plans(
-            db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(request.sessions)
+            db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(prepared_sessions)
+        )
+        _enroll_series(
+            db=db, user_id=current_user.id, series_ids=_extract_series_ids(prepared_sessions)
         )
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions, user_id=current_user.id)
@@ -729,12 +962,15 @@ async def update_time_block_service(
                 ).model_dump(),
             )
 
+        prepared_sessions = _prepare_sessions(db=db, sessions=request.sessions)
+
         _validate_and_sync_update(
             db=db,
             user_id=current_user.id,
             routine_id=routine_id,
             time_block_id=time_block_id,
-            request=request,
+            time=request.time,
+            sessions=prepared_sessions,
         )
 
         delete_sessions_by_time_block_id(db=db, time_block_id=time_block_id)
@@ -748,7 +984,7 @@ async def update_time_block_service(
         )
 
         session_models = build_session_models(
-            time_block_id=updated_time_block.id, sessions=request.sessions
+            time_block_id=updated_time_block.id, sessions=prepared_sessions
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
 

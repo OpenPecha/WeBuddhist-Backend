@@ -28,6 +28,7 @@ from pecha_api.plans.users.plan_users_progress_repository import get_plan_progre
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.routines.routines_repository import (
     get_time_blocks_containing_plan,
+    get_time_blocks_containing_series,
     get_max_display_order_in_time_block,
     add_plan_session_to_time_block,
 )
@@ -285,8 +286,17 @@ def add_plan_to_routine_time_blocks(
     """
     Add the new plan to all routine time blocks where the previous plan exists.
     The new plan is added after the previous plan in display_order.
+    Skips when the user already has a SERIES session for the plan's series.
     """
     try:
+        new_plan = get_plan_by_id(db=db, plan_id=new_plan_id)
+        if new_plan and new_plan.series_id:
+            series_time_blocks = get_time_blocks_containing_series(
+                db=db, user_id=user_id, series_id=new_plan.series_id
+            )
+            if series_time_blocks:
+                return
+
         time_blocks = get_time_blocks_containing_plan(
             db=db, user_id=user_id, plan_id=previous_plan_id
         )
