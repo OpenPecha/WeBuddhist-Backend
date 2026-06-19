@@ -1,7 +1,7 @@
 from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload, joinedload
-from sqlalchemy import func
+from sqlalchemy import desc, func
 from pecha_api.plans.users.plan_users_response_models import EnrolledUserPlan
 from .plan_users_models import UserPlanProgress, UserTaskCompletion, UserDayCompletion, UserSubTaskCompletion
 from pecha_api.plans.plans_models import Plan
@@ -25,12 +25,46 @@ def save_plan_progress(db: Session, plan_progress: EnrolledUserPlan):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ResponseError(error=BAD_REQUEST, message=e.orig).model_dump())
 
 def get_user_total_practice_days(db: Session, user_id: UUID) -> int:
-    """Number of unique calendar dates on which the user completed a plan day."""
-    return db.query(
-        func.count(func.distinct(func.date(UserDayCompletion.completed_at)))
-    ).filter(
+    """Total number of plan days the user has completed."""
+    return db.query(func.count(UserDayCompletion.id)).filter(
         UserDayCompletion.user_id == user_id,
     ).scalar() or 0
+
+
+def get_user_series_days_completed_paginated(
+    db: Session,
+    user_id: UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> Tuple[List[Tuple[UUID, int]], int]:
+    """Return (series_id, days_completed) rows and total series count for pagination."""
+    grouped = (
+        db.query(
+            Plan.series_id.label("series_id"),
+            func.count(UserDayCompletion.id).label("days_completed"),
+            func.max(UserDayCompletion.completed_at).label("last_completed_at"),
+        )
+        .join(PlanItem, UserDayCompletion.day_id == PlanItem.id)
+        .join(Plan, PlanItem.plan_id == Plan.id)
+        .filter(
+            UserDayCompletion.user_id == user_id,
+            Plan.series_id.isnot(None),
+        )
+        .group_by(Plan.series_id)
+        .subquery()
+    )
+
+    total = db.query(func.count()).select_from(grouped).scalar() or 0
+
+    rows = (
+        db.query(grouped.c.series_id, grouped.c.days_completed)
+        .order_by(desc(grouped.c.last_completed_at))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    return rows, total
 
 
 def get_plan_progress(db: Session, plan_id: UUID) -> List[UserPlanProgress]:
