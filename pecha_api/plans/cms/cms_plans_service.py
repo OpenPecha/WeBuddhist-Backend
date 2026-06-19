@@ -37,7 +37,8 @@ from pecha_api.plans.plans_enums import (
     MonlamVoiceName,
 )
 from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, CreatePlanRequest, TaskDTO, PlanDayDTO, \
-    PlanWithDays, UpdatePlanRequest, PlanStatusUpdate, PlansRepositoryResponse, PlanWithAggregates, AuthorDTO, SubTaskDTO
+    PlanWithDays, UpdatePlanRequest, PlanStatusUpdate, PlansRepositoryResponse, PlanWithAggregates, AuthorDTO, SubTaskDTO, \
+    DayVideoSummaryDTO
     
 from pecha_api.plans.tasks.plan_tasks_repository import get_tasks_by_item_ids
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
@@ -604,6 +605,12 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
         for row in get_plan_item_audio_by_plan_item_ids(db=db, plan_item_ids=plan_item_ids)
     }
 
+    from pecha_api.plans.videos.day_video_repository import get_day_videos_by_day_ids
+
+    videos_by_item: Dict[UUID, List] = {}
+    for video in get_day_videos_by_day_ids(db=db, day_ids=plan_item_ids):
+        videos_by_item.setdefault(video.day_id, []).append(video)
+
     day_dtos: List[PlanDayDTO] = []
     for item in items:
         audio_row = audio_by_item.get(item.id)
@@ -624,6 +631,17 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
                 audio_url=audio_url,
                 audio_duration_ms=audio_duration_ms,
                 has_audio=has_audio,
+                videos=[
+                    DayVideoSummaryDTO(
+                        id=video.id,
+                        url=video.url,
+                        video_id=video.video_id,
+                        title=video.title,
+                        duration_ms=video.duration_ms,
+                        display_order=video.display_order,
+                    )
+                    for video in videos_by_item.get(item.id, [])
+                ],
                 tasks=[
                     TaskDTO(
                         id=task.id,
@@ -846,6 +864,17 @@ async def get_plan_day_details(token:str,plan_id: UUID, day_number: int) -> Plan
             audio_duration_ms=audio_duration_ms,
             audio_key=audio_key,
             has_audio=has_audio,
+            videos=[
+                DayVideoSummaryDTO(
+                    id=video.id,
+                    url=video.url,
+                    video_id=video.video_id,
+                    title=video.title,
+                    duration_ms=video.duration_ms,
+                    display_order=video.display_order,
+                )
+                for video in plan_item.videos
+            ],
             tasks=[
                 TaskDTO(
                     id=task.id,
