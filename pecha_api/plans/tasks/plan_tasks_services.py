@@ -46,8 +46,6 @@ async def create_new_task(token: str, create_task_request: CreateTaskRequest, pl
             title=create_task_request.title,
             display_order=display_order,
             estimated_time=create_task_request.estimated_time,
-            youtube_url=create_task_request.youtube_url,
-            youtube_duration=create_task_request.youtube_duration,
             created_by=current_author.email,
         )
 
@@ -58,8 +56,6 @@ async def create_new_task(token: str, create_task_request: CreateTaskRequest, pl
         title=saved_task.title,
         display_order=saved_task.display_order,
         estimated_time=saved_task.estimated_time,
-        youtube_url=saved_task.youtube_url,
-        youtube_duration=saved_task.youtube_duration,
     )
 
 async def delete_task_by_id(task_id: UUID, token: str):
@@ -110,10 +106,6 @@ async def update_task_title_service(token: str, task_id: UUID, update_request: U
         fields_set = update_request.model_fields_set
         if "title" in fields_set:
             task.title = update_request.title
-        if "youtube_url" in fields_set:
-            task.youtube_url = update_request.youtube_url
-        if "youtube_duration" in fields_set:
-            task.youtube_duration = update_request.youtube_duration
         task.updated_by = current_author.email
 
         updated_task = update_task_title(db=db, updated_task=task)
@@ -121,8 +113,6 @@ async def update_task_title_service(token: str, task_id: UUID, update_request: U
         return UpdateTaskTitleResponse(
             task_id=updated_task.id,
             title=updated_task.title,
-            youtube_url=updated_task.youtube_url,
-            youtube_duration=updated_task.youtube_duration,
         )
 
 
@@ -175,8 +165,6 @@ async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskRespons
             title=task.title,
             display_order=task.display_order,
             estimated_time=task.estimated_time,
-            youtube_url=task.youtube_url,
-            youtube_duration=task.youtube_duration,
             subtasks=subtasks_dto,
         )
 

@@ -96,8 +96,6 @@ class TaskDTO(BaseModel):
     title: Optional[str] = None
     estimated_time: Optional[int] = None
     display_order: Optional[int] = None
-    youtube_url: Optional[str] = None
-    youtube_duration: Optional[str] = None
     subtasks: List[SubTaskDTO] = []
 
 class PlanDayDTO(BaseModel):

@@ -58,8 +58,6 @@ async def test_create_new_task_builds_and_saves_with_incremented_display_order()
         title=request.title,
         display_order=6,  # max(5) + 1
         estimated_time=request.estimated_time,
-        youtube_url=None,
-        youtube_duration=None,
     )
 
     with patch(
@@ -116,8 +114,6 @@ async def test_create_new_task_builds_and_saves_with_incremented_display_order()
             "title": request.title,
             "display_order": 6,
             "estimated_time": request.estimated_time,
-            "youtube_url": None,
-            "youtube_duration": None,
             "created_by": "author@example.com",
         }
 
@@ -134,8 +130,6 @@ async def test_create_new_task_builds_and_saves_with_incremented_display_order()
             title=saved.title,
             display_order=saved.display_order,
             estimated_time=saved.estimated_time,
-            youtube_url=None,
-            youtube_duration=None,
         )
         assert resp == expected
 
@@ -266,8 +260,6 @@ async def test_get_task_subtasks_service_image_content_uses_presigned_url():
         display_order=1,
         duration=None,
         estimated_time=5,
-        youtube_url=None,
-        youtube_duration=None,
         created_by="creator@example.com",
         sub_tasks=[subtask_image],
     )
@@ -588,8 +580,6 @@ async def test_get_task_subtasks_service_success():
         title="Sample Task",
         display_order=2,
         estimated_time=30,
-        youtube_url=None,
-        youtube_duration=None,
         created_by="creator@example.com",
         sub_tasks=[subtask1, subtask2],
     )
@@ -814,8 +804,6 @@ async def test_update_task_title_service_success():
         id=task_id,
         title=new_title,
         created_by=author_email,
-        youtube_url=None,
-        youtube_duration=None,
     )
 
     db_mock = MagicMock()
@@ -1216,8 +1204,6 @@ async def test_update_task_title_service_empty_title():
         id=task_id,
         title="",
         created_by=author_email,
-        youtube_url=None,
-        youtube_duration=None,
     )
     
     db_mock = MagicMock()
@@ -1408,320 +1394,3 @@ async def test_change_task_order_service_database_error():
 async def test_change_task_order_service_task_not_in_day():
     pytest.skip("change_task_order_service no longer validates day membership; condition not applicable")
 
-
-# ---------------------------------------------------------------------------
-# Task-level YouTube video coverage
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.asyncio
-async def test_create_new_task_persists_youtube_fields():
-    """Create accepts and persists youtube_url / youtube_duration."""
-    plan_id = uuid.uuid4()
-    day_id = uuid.uuid4()
-    youtube_url = "https://youtu.be/abc123"
-    youtube_duration = "212"
-
-    request = CreateTaskRequest(
-        plan_id=plan_id,
-        day_id=day_id,
-        title="Watch teaching",
-        estimated_time=15,
-        youtube_url=youtube_url,
-        youtube_duration=youtube_duration,
-    )
-
-    db_mock = MagicMock()
-    session_cm = MagicMock()
-    session_cm.__enter__.return_value = db_mock
-
-    plan_item = SimpleNamespace(id=uuid.uuid4())
-    saved = SimpleNamespace(
-        id=uuid.uuid4(),
-        title=request.title,
-        display_order=1,
-        estimated_time=request.estimated_time,
-        youtube_url=youtube_url,
-        youtube_duration=youtube_duration,
-    )
-
-    with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
-        return_value=SimpleNamespace(email="author@example.com"),
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
-        return_value=session_cm,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.get_plan_item",
-        return_value=plan_item,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.get_plan_by_id",
-        return_value=SimpleNamespace(group_id=uuid.uuid4(), status=PlanStatus.DRAFT),
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.require_can_edit_content",
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services._get_max_display_order",
-        return_value=0,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.PlanTask",
-    ) as MockPlanTask, patch(
-        "pecha_api.plans.tasks.plan_tasks_services.save_task",
-        return_value=saved,
-    ):
-        MockPlanTask.return_value = SimpleNamespace()
-        resp = await create_new_task(
-            token="token123",
-            create_task_request=request,
-            plan_id=plan_id,
-            day_id=day_id,
-        )
-
-        ctor_kwargs = MockPlanTask.call_args.kwargs
-        assert ctor_kwargs["youtube_url"] == youtube_url
-        assert ctor_kwargs["youtube_duration"] == youtube_duration
-
-        assert resp.youtube_url == youtube_url
-        assert resp.youtube_duration == youtube_duration
-
-
-@pytest.mark.asyncio
-async def test_update_task_title_service_youtube_only_leaves_title_untouched():
-    """PUT with only youtube fields updates them without touching title."""
-    task_id = uuid.uuid4()
-    author_email = "author@example.com"
-
-    request = UpdateTaskTitleRequest(
-        youtube_url="https://www.youtube.com/watch?v=xyz789",
-        youtube_duration="305",
-    )
-
-    mock_author = SimpleNamespace(id=uuid.uuid4(), email=author_email, platform_role=PlatformRole.CREATOR, is_active=True)
-    mock_task = SimpleNamespace(
-        id=task_id,
-        title="Original Title",
-        created_by=author_email,
-        youtube_url=None,
-        youtube_duration=None,
-    )
-
-    db_mock = MagicMock()
-    session_cm = MagicMock()
-    session_cm.__enter__.return_value = db_mock
-
-    with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
-        return_value=mock_author,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
-        return_value=session_cm,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services._get_author_task",
-        return_value=mock_task,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.update_task_title",
-        side_effect=lambda db, updated_task: updated_task,
-    ):
-        result = await update_task_title_service(
-            token="valid_token_123",
-            task_id=task_id,
-            update_request=request,
-        )
-
-        # title untouched, youtube fields applied
-        assert mock_task.title == "Original Title"
-        assert mock_task.youtube_url == "https://www.youtube.com/watch?v=xyz789"
-        assert mock_task.youtube_duration == "305"
-
-        assert result.title == "Original Title"
-        assert result.youtube_url == "https://www.youtube.com/watch?v=xyz789"
-        assert result.youtube_duration == "305"
-
-
-@pytest.mark.asyncio
-async def test_update_task_title_service_clears_youtube_with_explicit_null():
-    """PUT youtube_url=None clears the video."""
-    task_id = uuid.uuid4()
-    author_email = "author@example.com"
-
-    request = UpdateTaskTitleRequest(youtube_url=None, youtube_duration=None)
-
-    mock_author = SimpleNamespace(id=uuid.uuid4(), email=author_email, platform_role=PlatformRole.CREATOR, is_active=True)
-    mock_task = SimpleNamespace(
-        id=task_id,
-        title="Title",
-        created_by=author_email,
-        youtube_url="https://youtu.be/old",
-        youtube_duration="100",
-    )
-
-    db_mock = MagicMock()
-    session_cm = MagicMock()
-    session_cm.__enter__.return_value = db_mock
-
-    with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
-        return_value=mock_author,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
-        return_value=session_cm,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services._get_author_task",
-        return_value=mock_task,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.update_task_title",
-        side_effect=lambda db, updated_task: updated_task,
-    ):
-        result = await update_task_title_service(
-            token="valid_token_123",
-            task_id=task_id,
-            update_request=request,
-        )
-
-        assert mock_task.youtube_url is None
-        assert mock_task.youtube_duration is None
-        assert result.youtube_url is None
-        assert result.youtube_duration is None
-
-
-@pytest.mark.asyncio
-async def test_update_task_title_service_title_only_leaves_youtube_untouched():
-    """PUT with only title omitted youtube keys must not overwrite existing video."""
-    task_id = uuid.uuid4()
-    author_email = "author@example.com"
-
-    request = UpdateTaskTitleRequest(title="New Title")
-    assert "youtube_url" not in request.model_fields_set
-
-    mock_author = SimpleNamespace(id=uuid.uuid4(), email=author_email, platform_role=PlatformRole.CREATOR, is_active=True)
-    mock_task = SimpleNamespace(
-        id=task_id,
-        title="Old Title",
-        created_by=author_email,
-        youtube_url="https://youtu.be/keepme",
-        youtube_duration="99",
-    )
-
-    db_mock = MagicMock()
-    session_cm = MagicMock()
-    session_cm.__enter__.return_value = db_mock
-
-    with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
-        return_value=mock_author,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
-        return_value=session_cm,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services._get_author_task",
-        return_value=mock_task,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.update_task_title",
-        side_effect=lambda db, updated_task: updated_task,
-    ):
-        result = await update_task_title_service(
-            token="valid_token_123",
-            task_id=task_id,
-            update_request=request,
-        )
-
-        assert mock_task.title == "New Title"
-        # untouched
-        assert mock_task.youtube_url == "https://youtu.be/keepme"
-        assert mock_task.youtube_duration == "99"
-        assert result.youtube_url == "https://youtu.be/keepme"
-
-
-@pytest.mark.asyncio
-async def test_get_task_subtasks_service_includes_youtube_fields():
-    """GET /tasks/{id} surfaces the task-level youtube fields."""
-    task_id = uuid.uuid4()
-
-    mock_task = SimpleNamespace(
-        id=task_id,
-        title="Task with video",
-        display_order=1,
-        estimated_time=10,
-        created_by="creator@example.com",
-        youtube_url="https://youtu.be/vid",
-        youtube_duration="180",
-        sub_tasks=[],
-    )
-
-    db_mock = MagicMock()
-    session_cm = MagicMock()
-    session_cm.__enter__.return_value = db_mock
-
-    with patch(
-        "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
-        return_value=SimpleNamespace(id=uuid.uuid4(), email="creator@example.com", platform_role=PlatformRole.CREATOR, is_active=True),
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services.SessionLocal",
-        return_value=session_cm,
-    ), patch(
-        "pecha_api.plans.tasks.plan_tasks_services._get_author_task",
-        return_value=mock_task,
-    ):
-        resp = await get_task_subtasks_service(task_id=task_id, token="token789")
-
-        assert resp.youtube_url == "https://youtu.be/vid"
-        assert resp.youtube_duration == "180"
-        assert resp.subtasks == []
-
-
-@pytest.mark.parametrize(
-    "url",
-    [
-        "https://www.youtube.com/watch?v=abc_DEF-123",
-        "https://youtube.com/watch?v=abcd",
-        "http://youtu.be/abcd",
-        "https://youtu.be/abcd",
-        "https://youtube.com/shorts/xyz",
-        "https://www.youtube.com/embed/xyz",
-        "https://youtube.com/live/xyz",
-        None,
-        "",
-    ],
-)
-def test_create_task_request_accepts_valid_youtube_urls(url):
-    req = CreateTaskRequest(
-        plan_id=uuid.uuid4(), day_id=uuid.uuid4(), title="t", youtube_url=url
-    )
-    # empty / None preserved, valid urls trimmed but preserved
-    if url:
-        assert req.youtube_url == url
-
-
-@pytest.mark.parametrize(
-    "url",
-    [
-        "https://vimeo.com/12345",
-        "https://example.com/watch?v=abc",
-        "not a url",
-        "ftp://youtube.com/watch?v=abc",
-        "https://notyoutube.com/watch?v=abc",
-    ],
-)
-def test_create_task_request_rejects_non_youtube_urls(url):
-    from pydantic import ValidationError
-
-    with pytest.raises(ValidationError):
-        CreateTaskRequest(
-            plan_id=uuid.uuid4(), day_id=uuid.uuid4(), title="t", youtube_url=url
-        )
-
-
-def test_update_task_title_request_rejects_non_youtube_url():
-    from pydantic import ValidationError
-
-    with pytest.raises(ValidationError):
-        UpdateTaskTitleRequest(youtube_url="https://vimeo.com/1")
-
-
-def test_youtube_url_validator_strips_whitespace():
-    req = CreateTaskRequest(
-        plan_id=uuid.uuid4(),
-        day_id=uuid.uuid4(),
-        title="t",
-        youtube_url="  https://youtu.be/abcd  ",
-    )
-    assert req.youtube_url == "https://youtu.be/abcd"
