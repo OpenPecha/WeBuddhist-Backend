@@ -15,7 +15,8 @@ from pecha_api.plans.users.plan_users_response_models import (
     UserSeriesEnrollRequest,
     UserSeriesEnrollmentsResponse,
     UserSeriesProgressResponse,
-    UpdateSeriesEnrollmentRequest
+    UpdateSeriesEnrollmentRequest,
+    UserSeriesDaysCompletedResponse,
 )
 
 from pecha_api.plans.users.plan_users_service import (
@@ -31,6 +32,7 @@ from pecha_api.plans.users.plan_users_service import (
     enroll_user_in_series,
     get_user_series_enrollments,
     get_user_series_progress,
+    get_user_series_days_completed,
     update_user_series_enrollment_service,
     unenroll_user_from_series
 )
@@ -182,6 +184,29 @@ async def get_user_series_enrollments_endpoint(
         language=language,
         skip=skip,
         limit=limit
+    )
+
+
+@user_progress_router.get(
+    "/series/day-completed",
+    status_code=status.HTTP_200_OK,
+    response_model=UserSeriesDaysCompletedResponse,
+)
+async def get_user_series_days_completed_endpoint(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    language: Annotated[
+        Optional[str],
+        Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')"),
+    ] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+):
+    """Get paginated list of series with completed day counts for the current user."""
+    return get_user_series_days_completed(
+        token=authentication_credential.credentials,
+        language=language,
+        skip=skip,
+        limit=limit,
     )
 
 

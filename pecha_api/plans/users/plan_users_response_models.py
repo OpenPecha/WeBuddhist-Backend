@@ -156,3 +156,19 @@ class UserSeriesProgressResponse(BaseModel):
 class UpdateSeriesEnrollmentRequest(BaseModel):
     auto_enroll_next: Optional[bool] = None
     status: Optional[SeriesStatus] = None
+
+
+class UserSeriesDaysCompletedDTO(BaseModel):
+    series_id: UUID
+    series_title: str
+    series_description: Optional[str] = None
+    image: Optional[ImageUrlModel] = None
+    days_completed: int
+    group: Optional[AuthorGroupSummaryDTO] = None
+
+
+class UserSeriesDaysCompletedResponse(BaseModel):
+    series: List[UserSeriesDaysCompletedDTO]
+    skip: int
+    limit: int
+    total: int
