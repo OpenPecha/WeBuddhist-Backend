@@ -644,6 +644,91 @@ def test_get_user_series_days_completed_success():
     assert result.series[0].days_completed == 12
 
 
+def test_get_user_series_days_completed_skips_missing_series():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    missing_series_id = uuid.uuid4()
+    mock_user = SimpleNamespace(id=user_id)
+    db_mock, session_cm = _mock_session_with_db()
+
+    known_series = SimpleNamespace(
+        id=series_id,
+        image=None,
+        metadata_entries=[SimpleNamespace(title="Known Series", description=None)],
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_days_completed_paginated",
+        return_value=([(series_id, 4), (missing_series_id, 2)], 2),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_series_by_ids",
+        return_value=[known_series],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_ids_by_series_ids",
+        return_value={series_id: uuid.uuid4()},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_summaries_by_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
+    ):
+        result = get_user_series_days_completed(token="tok", skip=0, limit=20)
+
+    assert result.total == 2
+    assert len(result.series) == 1
+    assert result.series[0].series_id == series_id
+    assert result.series[0].days_completed == 4
+
+
+def test_get_user_series_days_completed_uses_untitled_when_metadata_missing():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    mock_user = SimpleNamespace(id=user_id)
+    db_mock, session_cm = _mock_session_with_db()
+
+    series = SimpleNamespace(
+        id=series_id,
+        image=None,
+        metadata_entries=[],
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_days_completed_paginated",
+        return_value=([(series_id, 3)], 1),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_series_by_ids",
+        return_value=[series],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_ids_by_series_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_summaries_by_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
+    ):
+        result = get_user_series_days_completed(token="tok", language="en", skip=2, limit=5)
+
+    assert result.skip == 2
+    assert result.limit == 5
+    assert result.series[0].series_title == "Untitled Series"
+    assert result.series[0].series_description is None
+
+
 def test_get_user_series_progress_success():
     user_id = uuid.uuid4()
     series_id = uuid.uuid4()
