@@ -10,6 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
+from migrations.idempotency import index_exists, table_exists
 
 # revision identifiers, used by Alembic.
 revision: str = '9913dcde55ca'
@@ -19,7 +20,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.create_table('bookmarks',
+    if not table_exists("bookmarks"):
+        op.create_table('bookmarks',
         sa.Column('id', sa.UUID(), nullable=False),
         sa.Column('user_id', sa.UUID(), nullable=False),
         sa.Column('text_id', sa.UUID(), nullable=False),
@@ -29,9 +31,11 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True),
         sa.PrimaryKeyConstraint('id'),
         sa.UniqueConstraint('user_id', 'text_id', 'verse_id', name='uq_bookmarks_user_text_verse')
-    )
-    op.create_index('idx_bookmarks_user_id', 'bookmarks', ['user_id'], unique=False)
-    op.create_index('idx_bookmarks_text_id', 'bookmarks', ['text_id'], unique=False)
+        )
+    if not index_exists("bookmarks", "idx_bookmarks_user_id"):
+        op.create_index('idx_bookmarks_user_id', 'bookmarks', ['user_id'], unique=False)
+    if not index_exists("bookmarks", "idx_bookmarks_text_id"):
+        op.create_index('idx_bookmarks_text_id', 'bookmarks', ['text_id'], unique=False)
 
 
 def downgrade() -> None:

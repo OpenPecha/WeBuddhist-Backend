@@ -13,6 +13,7 @@ DEFAULTS = dict(
     AWS_BUCKET_OWNER="",
     BASE_URL="https://webuddhist.com/",
     CLIENT_ID="",
+    AUTH0_AUDIENCE="webuddhist-backend",
     COMPRESSED_QUALITY=80,
     DATABASE_URL="postgresql://admin:pechaAdmin@localhost:5434/pecha",
     DEFAULT_LANGUAGE="en",
