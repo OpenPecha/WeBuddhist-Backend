@@ -1722,6 +1722,8 @@ def test_auto_enroll_plan_adds_to_routine_time_blocks(mock_plan_for_enrollment, 
          patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=True), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save, \
          patch("pecha_api.plans.public.plan_service.UserPlanProgress", return_value=mock_new_progress), \
+         patch("pecha_api.plans.public.plan_service.get_plan_by_id", return_value=mock_plan_for_enrollment), \
+         patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_series", return_value=[]), \
          patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_plan", return_value=[mock_time_block]) as mock_get_blocks, \
          patch("pecha_api.plans.public.plan_service.get_max_display_order_in_time_block", return_value=2) as mock_get_max_order, \
          patch("pecha_api.plans.public.plan_service.add_plan_session_to_time_block") as mock_add_session, \
@@ -1764,6 +1766,8 @@ def test_auto_enroll_plan_adds_to_multiple_time_blocks(mock_plan_for_enrollment,
          patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=True), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress"), \
          patch("pecha_api.plans.public.plan_service.UserPlanProgress", return_value=mock_new_progress), \
+         patch("pecha_api.plans.public.plan_service.get_plan_by_id", return_value=mock_plan_for_enrollment), \
+         patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_series", return_value=[]), \
          patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_plan", return_value=[mock_time_block_1, mock_time_block_2]), \
          patch("pecha_api.plans.public.plan_service.get_max_display_order_in_time_block", return_value=1), \
          patch("pecha_api.plans.public.plan_service.add_plan_session_to_time_block") as mock_add_session, \
@@ -1793,6 +1797,8 @@ def test_auto_enroll_plan_no_time_blocks_with_previous_plan(mock_plan_for_enroll
          patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=True), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save, \
          patch("pecha_api.plans.public.plan_service.UserPlanProgress", return_value=mock_new_progress), \
+         patch("pecha_api.plans.public.plan_service.get_plan_by_id", return_value=mock_plan_for_enrollment), \
+         patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_series", return_value=[]), \
          patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_plan", return_value=[]), \
          patch("pecha_api.plans.public.plan_service.add_plan_session_to_time_block") as mock_add_session, \
          patch("pecha_api.plans.public.plan_service.dt") as mock_dt:

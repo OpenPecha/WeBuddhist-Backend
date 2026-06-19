@@ -311,12 +311,27 @@ def _enroll_plans(db, user_id: UUID, plan_ids: List[UUID]) -> None:
         db.rollback()
 
 
+def _validate_series_exist(db, series_ids: List[UUID]) -> None:
+    if not series_ids:
+        return
+
+    from pecha_api.plans.series.series_repository import get_series_by_ids
+
+    found_ids = {series.id for series in get_series_by_ids(db=db, series_ids=series_ids)}
+    if set(series_ids) - found_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=SERIES_NOT_FOUND
+            ).model_dump(),
+        )
+
+
 def _enroll_series(db, user_id: UUID, series_ids: List[UUID]) -> None:
     if not series_ids:
         return
 
     from pecha_api.plans.plans_enums import SeriesStatus
-    from pecha_api.plans.series.series_model import Series
     from pecha_api.plans.users.plan_users_models import UserSeriesEnrollment
     from pecha_api.plans.users.plan_user_series_repository import (
         get_user_series_enrollment_by_user_and_series,
@@ -325,20 +340,9 @@ def _enroll_series(db, user_id: UUID, series_ids: List[UUID]) -> None:
     )
     from pecha_api.plans.users.plan_users_service import auto_enroll_in_next_plan
 
-    for series_id in series_ids:
-        series = (
-            db.query(Series)
-            .filter(Series.id == series_id, Series.deleted_at.is_(None))
-            .first()
-        )
-        if not series:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=ResponseError(
-                    error=BAD_REQUEST, message=SERIES_NOT_FOUND
-                ).model_dump(),
-            )
+    _validate_series_exist(db=db, series_ids=series_ids)
 
+    for series_id in series_ids:
         existing_enrollment = get_user_series_enrollment_by_user_and_series(
             db=db, user_id=user_id, series_id=series_id
         )
@@ -721,6 +725,13 @@ async def create_routine_with_time_block(
                 ).model_dump(),
             )
 
+        _enroll_plans(
+            db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(prepared_sessions)
+        )
+        _enroll_series(
+            db=db, user_id=current_user.id, series_ids=_extract_series_ids(prepared_sessions)
+        )
+
         # Create routine
         routine = Routine(user_id=current_user.id)
         saved_routine = save_routine(db=db, routine=routine)
@@ -738,13 +749,6 @@ async def create_routine_with_time_block(
             time_block_id=saved_time_block.id, sessions=prepared_sessions
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
-
-        _enroll_plans(
-            db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(prepared_sessions)
-        )
-        _enroll_series(
-            db=db, user_id=current_user.id, series_ids=_extract_series_ids(prepared_sessions)
-        )
 
         time_block_dto = await build_time_block_dto(
             db=db, time_block=saved_time_block, sessions=saved_sessions, user_id=current_user.id
@@ -868,6 +872,13 @@ async def add_time_block_to_routine(
         prepared_sessions = _prepare_sessions(db=db, sessions=request.sessions)
         _check_duplicate_series(db=db, routine_id=routine_id, sessions=prepared_sessions)
 
+        _enroll_plans(
+            db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(prepared_sessions)
+        )
+        _enroll_series(
+            db=db, user_id=current_user.id, series_ids=_extract_series_ids(prepared_sessions)
+        )
+
         # Save time block
         time_block = RoutineTimeBlock(
             routine_id=routine_id,
@@ -881,13 +892,6 @@ async def add_time_block_to_routine(
             time_block_id=saved_time_block.id, sessions=prepared_sessions
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
-
-        _enroll_plans(
-            db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(prepared_sessions)
-        )
-        _enroll_series(
-            db=db, user_id=current_user.id, series_ids=_extract_series_ids(prepared_sessions)
-        )
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions, user_id=current_user.id)
 

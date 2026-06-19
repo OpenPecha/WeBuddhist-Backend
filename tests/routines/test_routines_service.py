@@ -23,6 +23,8 @@ from pecha_api.routines.routines_service import (
     _resolve_series_sessions,
     _normalize_plan_sessions_to_series,
     _validate_session_uniqueness,
+    _validate_series_exist,
+    _enroll_series,
     build_session_models,
     group_sessions_by_block,
     build_time_block_dto,
@@ -50,6 +52,7 @@ from pecha_api.routines.response_message import (
     TIME_ALREADY_EXISTS,
     SOURCE_ID_REQUIRED,
     INVALID_TIMER_DURATION,
+    SERIES_NOT_FOUND,
 )
 
 def _mock_session_with_db():
@@ -383,6 +386,10 @@ async def test_create_routine_success():
     ), patch(
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
+    ), patch(
+        "pecha_api.routines.routines_service._enroll_plans",
+    ), patch(
+        "pecha_api.routines.routines_service._enroll_series",
     ):
         result = await create_routine_with_time_block(token="token123", request=request)
 
@@ -828,6 +835,10 @@ async def test_add_time_block_success():
     ), patch(
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
+    ), patch(
+        "pecha_api.routines.routines_service._enroll_plans",
+    ), patch(
+        "pecha_api.routines.routines_service._enroll_series",
     ):
         result = await add_time_block_to_routine(
             token="token123", routine_id=routine_id, request=request
@@ -1020,6 +1031,10 @@ async def test_add_time_block_allows_same_plan_in_different_time_block():
     ), patch(
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
+    ), patch(
+        "pecha_api.routines.routines_service._enroll_plans",
+    ), patch(
+        "pecha_api.routines.routines_service._enroll_series",
     ):
         result = await add_time_block_to_routine(
             token="token123", routine_id=routine_id, request=request
@@ -1221,6 +1236,113 @@ def test_enroll_new_sessions_on_update_does_not_unenroll_removed_plans():
         mock_enroll_series.assert_called_once_with(
             db=db_mock, user_id=user_id, series_ids=[]
         )
+
+
+def test_validate_series_exist_raises_for_missing_series():
+    series_id = uuid.uuid4()
+    db_mock = MagicMock()
+
+    with patch(
+        "pecha_api.plans.series.series_repository.get_series_by_ids",
+        return_value=[],
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_series_exist(db=db_mock, series_ids=[series_id])
+
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail["message"] == SERIES_NOT_FOUND
+
+
+def test_enroll_series_validates_all_series_before_enrolling():
+    user_id = uuid.uuid4()
+    valid_series_id = uuid.uuid4()
+    missing_series_id = uuid.uuid4()
+    db_mock = MagicMock()
+
+    with patch(
+        "pecha_api.routines.routines_service._validate_series_exist",
+    ) as mock_validate, patch(
+        "pecha_api.plans.users.plan_user_series_repository.get_user_series_enrollment_by_user_and_series",
+    ) as mock_get_enrollment, patch(
+        "pecha_api.plans.users.plan_user_series_repository.save_user_series_enrollment",
+    ) as mock_save_enrollment:
+        mock_validate.side_effect = HTTPException(
+            status_code=404,
+            detail={"error": "BAD_REQUEST", "message": SERIES_NOT_FOUND},
+        )
+
+        with pytest.raises(HTTPException):
+            _enroll_series(
+                db=db_mock,
+                user_id=user_id,
+                series_ids=[valid_series_id, missing_series_id],
+            )
+
+        mock_validate.assert_called_once_with(
+            db=db_mock, series_ids=[valid_series_id, missing_series_id]
+        )
+        mock_get_enrollment.assert_not_called()
+        mock_save_enrollment.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_add_time_block_invalid_series_does_not_persist_time_block():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+
+    request = CreateTimeBlockRequest(
+        time="08:00",
+        time_int=800,
+        notification_enabled=True,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.SERIES,
+                source_id=series_id,
+                display_order=0,
+            )
+        ],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.time_block_exists_for_routine",
+        return_value=False,
+    ), patch(
+        "pecha_api.routines.routines_service.get_existing_series_source_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.routines.routines_service._enroll_plans",
+    ), patch(
+        "pecha_api.routines.routines_service._validate_series_exist",
+        side_effect=HTTPException(
+            status_code=404,
+            detail={"error": "BAD_REQUEST", "message": SERIES_NOT_FOUND},
+        ),
+    ), patch(
+        "pecha_api.routines.routines_service.save_time_block",
+    ) as mock_save_time_block, patch(
+        "pecha_api.routines.routines_service.save_sessions",
+    ) as mock_save_sessions:
+        with pytest.raises(HTTPException) as exc_info:
+            await add_time_block_to_routine(
+                token="token123", routine_id=routine_id, request=request
+            )
+
+        assert exc_info.value.status_code == 404
+        assert exc_info.value.detail["message"] == SERIES_NOT_FOUND
+        mock_save_time_block.assert_not_called()
+        mock_save_sessions.assert_not_called()
 
 
 def test_delete_time_block_does_not_delete_plan_progress():

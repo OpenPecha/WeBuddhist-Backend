@@ -51,4 +51,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute("DELETE FROM routine_sessions WHERE session_type = 'SERIES'")
+    raise NotImplementedError(
+        "Downgrade is not supported: SERIES sessions cannot be reliably "
+        "restored to their original PLAN source_id values. Running downgrade "
+        "would permanently delete routine session data."
+    )
