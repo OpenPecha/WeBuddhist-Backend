@@ -14,7 +14,7 @@ from .subtask_preset_response_models import PresetRequest, PresetResponse
 
 oauth2_scheme = HTTPBearer()
 preset_router = APIRouter(
-    prefix="/sub-tasks",
+    prefix="/cms/sub-tasks",
     tags=["SubTask Presets"]
 )
 
