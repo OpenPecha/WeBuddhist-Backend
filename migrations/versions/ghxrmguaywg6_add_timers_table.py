@@ -11,24 +11,32 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from migrations.idempotency import enum_exists, index_exists, table_exists
+
 # revision identifiers, used by Alembic.
 revision: str = "ghxrmguaywg6"
 down_revision: Union[str, None] = "f1a2b3c4d5e6"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
+timer_type_enum = postgresql.ENUM(
+    "preset", "user_created", name="timertype", create_type=False
+)
+
 
 def upgrade() -> None:
+    if not enum_exists("timertype"):
+        op.execute("CREATE TYPE timertype AS ENUM ('preset', 'user_created')")
+
+    if table_exists("timers"):
+        return
+
     op.create_table(
         "timers",
         sa.Column("id", sa.UUID(), nullable=False, server_default=sa.text("gen_random_uuid()")),
         sa.Column("user_id", sa.UUID(), nullable=False),
         sa.Column("group_id", sa.UUID(), nullable=False),
-        sa.Column(
-            "type",
-            sa.Enum("preset", "user_created", name="timertype"),
-            nullable=False,
-        ),
+        sa.Column("type", timer_type_enum, nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("duration", sa.Integer(), nullable=False),
@@ -47,9 +55,11 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    
-    op.create_index("idx_timers_user_id", "timers", ["user_id"])
-    op.create_index("idx_timers_type", "timers", ["type"])
+
+    if not index_exists("timers", "idx_timers_user_id"):
+        op.create_index("idx_timers_user_id", "timers", ["user_id"])
+    if not index_exists("timers", "idx_timers_type"):
+        op.create_index("idx_timers_type", "timers", ["type"])
 
 
 def downgrade() -> None:

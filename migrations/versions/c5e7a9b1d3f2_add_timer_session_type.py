@@ -12,6 +12,7 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
 
 revision: str = "c5e7a9b1d3f2"
 down_revision: Union[str, None] = "f6a7b8c9d0e1"
@@ -19,21 +20,30 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _column_exists(table: str, column: str) -> bool:
+    columns = {col["name"] for col in inspect(op.get_bind()).get_columns(table)}
+    return column in columns
+
+
 def upgrade() -> None:
     # ADD VALUE cannot run inside a transaction block
     with op.get_context().autocommit_block():
         op.execute("ALTER TYPE sessiontype ADD VALUE IF NOT EXISTS 'TIMER'")
 
-    op.add_column(
-        "routine_sessions",
-        sa.Column("duration_ms", sa.Integer(), nullable=True),
-    )
-    op.alter_column(
-        "routine_sessions",
-        "source_id",
-        existing_type=sa.UUID(),
-        nullable=True,
-    )
+    if not _column_exists("routine_sessions", "duration_ms"):
+        op.add_column(
+            "routine_sessions",
+            sa.Column("duration_ms", sa.Integer(), nullable=True),
+        )
+
+    routine_columns = {col["name"]: col for col in inspect(op.get_bind()).get_columns("routine_sessions")}
+    if routine_columns.get("source_id", {}).get("nullable") is False:
+        op.alter_column(
+            "routine_sessions",
+            "source_id",
+            existing_type=sa.UUID(),
+            nullable=True,
+        )
 
 
 def downgrade() -> None:

@@ -37,7 +37,8 @@ from pecha_api.plans.plans_enums import (
     MonlamVoiceName,
 )
 from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, CreatePlanRequest, TaskDTO, PlanDayDTO, \
-    PlanWithDays, UpdatePlanRequest, PlanStatusUpdate, PlansRepositoryResponse, PlanWithAggregates, AuthorDTO, SubTaskDTO
+    PlanWithDays, UpdatePlanRequest, PlanStatusUpdate, PlansRepositoryResponse, PlanWithAggregates, AuthorDTO, SubTaskDTO, \
+    DayVideoSummaryDTO
     
 from pecha_api.plans.tasks.plan_tasks_repository import get_tasks_by_item_ids
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
@@ -120,6 +121,26 @@ DUMMY_DAYS = [
 WAV_CONTENT_TYPE = "audio/wav"
 
 
+def _generate_tts_wav(
+    content: str,
+    audio_type: PlanAudioType,
+    language: str,
+    voice_name: Optional[str] = None,
+) -> bytes:
+    try:
+        return generate_tts_audio(content, audio_type, language, voice_name=voice_name)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ResponseError(error=BAD_REQUEST, message=str(exc)).model_dump(),
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=ResponseError(error=BAD_REQUEST, message=str(exc)).model_dump(),
+        ) from exc
+
+
 def _generate_audio_segments(
     tasks,
     audio_type: PlanAudioType,
@@ -144,7 +165,7 @@ def _generate_audio_segments(
             )
             raw_pcm = existing_wav[wav_header_size:]
         else:
-            wav_bytes = generate_tts_audio(
+            wav_bytes = _generate_tts_wav(
                 subtask.content, audio_type, language, voice_name=voice_name
             )
             raw_pcm = wav_bytes[wav_header_size:]
@@ -310,7 +331,7 @@ async def _generate_subtask_audio(
                 ).model_dump(),
             )
 
-        wav_bytes = generate_tts_audio(
+        wav_bytes = _generate_tts_wav(
             subtask.content, audio_type, language, voice_name=voice_name
         )
         raw_pcm = wav_bytes[WAV_HEADER_SIZE:]
@@ -584,6 +605,12 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
         for row in get_plan_item_audio_by_plan_item_ids(db=db, plan_item_ids=plan_item_ids)
     }
 
+    from pecha_api.plans.videos.day_video_repository import get_day_videos_by_day_ids
+
+    videos_by_item: Dict[UUID, List] = {}
+    for video in get_day_videos_by_day_ids(db=db, day_ids=plan_item_ids):
+        videos_by_item.setdefault(video.day_id, []).append(video)
+
     day_dtos: List[PlanDayDTO] = []
     for item in items:
         audio_row = audio_by_item.get(item.id)
@@ -604,6 +631,16 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
                 audio_url=audio_url,
                 audio_duration_ms=audio_duration_ms,
                 has_audio=has_audio,
+                videos=[
+                    DayVideoSummaryDTO(
+                        id=video.id,
+                        url=video.url,
+                        video_id=video.video_id,
+                        title=video.title,
+                        display_order=video.display_order,
+                    )
+                    for video in videos_by_item.get(item.id, [])
+                ],
                 tasks=[
                     TaskDTO(
                         id=task.id,
@@ -826,6 +863,16 @@ async def get_plan_day_details(token:str,plan_id: UUID, day_number: int) -> Plan
             audio_duration_ms=audio_duration_ms,
             audio_key=audio_key,
             has_audio=has_audio,
+            videos=[
+                DayVideoSummaryDTO(
+                    id=video.id,
+                    url=video.url,
+                    video_id=video.video_id,
+                    title=video.title,
+                    display_order=video.display_order,
+                )
+                for video in plan_item.videos
+            ],
             tasks=[
                 TaskDTO(
                     id=task.id,

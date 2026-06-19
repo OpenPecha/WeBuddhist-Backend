@@ -103,12 +103,16 @@ async def update_task_title_service(token: str, task_id: UUID, update_request: U
     with SessionLocal() as db:
         task = _get_author_task(db=db, task_id=task_id, current_author=current_author)
 
-        task.title = update_request.title
+        fields_set = update_request.model_fields_set
+        if "title" in fields_set:
+            task.title = update_request.title
+        task.updated_by = current_author.email
+
         updated_task = update_task_title(db=db, updated_task=task)
-        
+
         return UpdateTaskTitleResponse(
             task_id=updated_task.id,
-            title=updated_task.title
+            title=updated_task.title,
         )
 
 

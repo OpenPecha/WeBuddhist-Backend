@@ -4,6 +4,7 @@ from uuid import UUID
 from typing import List
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_response_model import SubTaskDTO
 
+
 # Request/Response Models
 class CreateTaskRequest(BaseModel):
     plan_id: UUID
@@ -29,11 +30,11 @@ class UpdateTaskDayRequest(BaseModel):
     target_day_id: UUID
 
 class UpdateTaskTitleRequest(BaseModel):
-    title: str
+    title: Optional[str] = None
 
 class UpdateTaskTitleResponse(BaseModel):
     task_id: UUID
-    title: str
+    title: Optional[str] = None
 
 class TaskOrderItem(BaseModel):
     id: UUID

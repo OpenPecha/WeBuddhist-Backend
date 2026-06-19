@@ -1,4 +1,6 @@
 import uuid
+from datetime import datetime
+
 import pytest
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -17,7 +19,10 @@ from pecha_api.routines.routines_service import (
     _resolve_recitation_collection_sessions,
     _resolve_timer_sessions,
     _resolve_sessions,
-    _enroll_new_plans_on_update,
+    _enroll_new_sessions_on_update,
+    _resolve_series_sessions,
+    _normalize_plan_sessions_to_series,
+    _validate_session_uniqueness,
     build_session_models,
     group_sessions_by_block,
     build_time_block_dto,
@@ -40,6 +45,7 @@ from pecha_api.routines.response_message import (
     INVALID_TIME_FORMAT,
     SESSIONS_REQUIRED,
     DUPLICATE_PLAN,
+    DUPLICATE_SERIES,
     DUPLICATE_RECITATION_COLLECTION,
     TIME_ALREADY_EXISTS,
     SOURCE_ID_REQUIRED,
@@ -1068,7 +1074,130 @@ async def test_add_time_block_duplicate_collection_across_routine():
         assert exc_info.value.detail["message"] == DUPLICATE_RECITATION_COLLECTION
 
 
-def test_enroll_new_plans_on_update_does_not_unenroll_removed_plans():
+def test_session_dto_serializer_exposes_start_fields_for_series():
+    start_date = datetime.now()
+    started_at = datetime.now()
+    dto = SessionDTO(
+        id=uuid.uuid4(),
+        session_type=SessionType.SERIES,
+        source_id=uuid.uuid4(),
+        title="AIY Series",
+        language="EN",
+        duration_ms=900000,
+        start_date=start_date,
+        started_at=started_at,
+        display_order=0,
+    )
+    data = dto.model_dump()
+    assert data["session_type"] == SessionType.SERIES
+    assert data["source_id"] == dto.source_id
+    assert data["title"] == "AIY Series"
+    assert "duration_ms" not in data
+    assert data["start_date"] == start_date
+    assert data["started_at"] == started_at
+    assert "item_count" not in data
+
+
+def test_validate_duplicate_series_source_ids():
+    duplicate_id = uuid.uuid4()
+    sessions = [
+        SessionRequest(
+            session_type=SessionType.SERIES,
+            source_id=duplicate_id,
+            display_order=0,
+        ),
+        SessionRequest(
+            session_type=SessionType.SERIES,
+            source_id=duplicate_id,
+            display_order=1,
+        ),
+    ]
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_session_uniqueness(sessions)
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["message"] == DUPLICATE_SERIES
+
+
+def test_normalize_plan_sessions_to_series():
+    plan_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    db_mock = MagicMock()
+    plan = SimpleNamespace(id=plan_id, series_id=series_id)
+
+    with patch(
+        "pecha_api.routines.routines_service.get_plans_by_ids",
+        return_value=[plan],
+    ):
+        result = _normalize_plan_sessions_to_series(
+            db_mock,
+            [
+                SessionRequest(
+                    session_type=SessionType.PLAN,
+                    source_id=plan_id,
+                    display_order=0,
+                )
+            ],
+        )
+
+    assert len(result) == 1
+    assert result[0].session_type == SessionType.SERIES
+    assert result[0].source_id == series_id
+
+
+def test_resolve_series_sessions_uses_first_plan_start_fields():
+    series_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    first_plan_id = uuid.uuid4()
+    plan_start_date = datetime.now()
+    user_started_at = datetime.now()
+    metadata = SimpleNamespace(
+        title="Morning Series",
+        language=SimpleNamespace(value="EN"),
+    )
+    series = SimpleNamespace(
+        id=series_id,
+        image="series-image-key",
+        metadata_entries=[metadata],
+    )
+    session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.SERIES,
+        source_id=series_id,
+        display_order=0,
+    )
+    first_plan = SimpleNamespace(id=first_plan_id, start_date=plan_start_date)
+    progress = SimpleNamespace(started_at=user_started_at)
+
+    with patch(
+        "pecha_api.plans.series.series_repository.get_series_by_ids",
+        return_value=[series],
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_repository.get_first_plan_in_series",
+        return_value=first_plan,
+    ), patch(
+        "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={first_plan_id: progress},
+    ), patch(
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=ImageUrlModel(
+            thumbnail="https://example.com/t.jpg",
+            medium="https://example.com/m.jpg",
+            original="https://example.com/o.jpg",
+        ),
+    ):
+        result = _resolve_series_sessions(MagicMock(), [session], user_id=user_id)
+
+    assert len(result) == 1
+    assert result[0].session_type == SessionType.SERIES
+    assert result[0].source_id == series_id
+    assert result[0].title == "Morning Series"
+    assert result[0].language == "EN"
+    assert result[0].start_date == plan_start_date
+    assert result[0].started_at == user_started_at
+
+
+def test_enroll_new_sessions_on_update_does_not_unenroll_removed_plans():
     user_id = uuid.uuid4()
     time_block_id = uuid.uuid4()
     kept_plan_id = uuid.uuid4()
@@ -1086,9 +1215,14 @@ def test_enroll_new_plans_on_update_does_not_unenroll_removed_plans():
         "pecha_api.routines.routines_service.get_plan_source_ids_by_time_block_id",
         return_value=[kept_plan_id, removed_plan_id],
     ), patch(
+        "pecha_api.routines.routines_service.get_series_source_ids_by_time_block_id",
+        return_value=[],
+    ), patch(
         "pecha_api.routines.routines_service._enroll_plans",
-    ) as mock_enroll_plans:
-        _enroll_new_plans_on_update(
+    ) as mock_enroll_plans, patch(
+        "pecha_api.routines.routines_service._enroll_series",
+    ) as mock_enroll_series:
+        _enroll_new_sessions_on_update(
             db=db_mock,
             user_id=user_id,
             time_block_id=time_block_id,
@@ -1097,6 +1231,9 @@ def test_enroll_new_plans_on_update_does_not_unenroll_removed_plans():
 
         mock_enroll_plans.assert_called_once_with(
             db=db_mock, user_id=user_id, plan_ids=[added_plan_id]
+        )
+        mock_enroll_series.assert_called_once_with(
+            db=db_mock, user_id=user_id, series_ids=[]
         )
 
 

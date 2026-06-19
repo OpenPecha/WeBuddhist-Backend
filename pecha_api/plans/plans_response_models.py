@@ -93,10 +93,17 @@ class SubTaskDTO(BaseModel):
 
 class TaskDTO(BaseModel):
     id: UUID
-    title: Optional[str] = None 
+    title: Optional[str] = None
     estimated_time: Optional[int] = None
     display_order: Optional[int] = None
     subtasks: List[SubTaskDTO] = []
+
+class DayVideoSummaryDTO(BaseModel):
+    id: UUID
+    url: str
+    video_id: Optional[str] = None
+    title: Optional[str] = None
+    display_order: int
 
 class PlanDayDTO(BaseModel):
     id: UUID
@@ -106,6 +113,7 @@ class PlanDayDTO(BaseModel):
     audio_duration_ms: Optional[int] = None
     audio_key: Optional[str] = None
     has_audio: Optional[bool] = None
+    videos: List[DayVideoSummaryDTO] = []
 
 
 class PlanWithDays(BaseModel):

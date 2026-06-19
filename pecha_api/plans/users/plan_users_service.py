@@ -28,7 +28,9 @@ from pecha_api.plans.users.plan_users_response_models import (
     UserSeriesEnrollmentDTO,
     UserSeriesEnrollmentsResponse,
     UserSeriesProgressResponse,
-    UpdateSeriesEnrollmentRequest
+    UpdateSeriesEnrollmentRequest,
+    UserSeriesDaysCompletedDTO,
+    UserSeriesDaysCompletedResponse,
 )
 
 
@@ -77,7 +79,8 @@ from pecha_api.plans.users.plan_users_progress_repository import (
     get_plan_progress_by_user_id_and_plan_ids,
     save_plan_progress,
     get_user_enrolled_plans_with_details,
-    delete_user_plan_progress
+    delete_user_plan_progress,
+    get_user_series_days_completed_paginated,
 )
 from pecha_api.plans.users.plan_user_series_repository import (
     get_user_series_enrollment_by_user_and_series,
@@ -861,6 +864,68 @@ def get_user_series_enrollments(
             skip=skip,
             limit=limit,
             total=total
+        )
+
+
+def get_user_series_days_completed(
+    token: str,
+    language: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+) -> UserSeriesDaysCompletedResponse:
+    """Get paginated list of series with completed day counts for the current user."""
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        rows, total = get_user_series_days_completed_paginated(
+            db=db,
+            user_id=current_user.id,
+            skip=skip,
+            limit=limit,
+        )
+
+        if not rows:
+            return UserSeriesDaysCompletedResponse(
+                series=[],
+                skip=skip,
+                limit=limit,
+                total=total,
+            )
+
+        series_ids = [series_id for series_id, _ in rows]
+        series_by_id = {series.id: series for series in get_series_by_ids(db, series_ids)}
+        series_group_ids = get_group_ids_by_series_ids(db=db, series_ids=series_ids)
+        group_summaries = get_group_summaries_by_ids(
+            db=db, group_ids=list(series_group_ids.values()), language=language
+        )
+
+        series_dtos = []
+        for series_id, days_completed in rows:
+            series = series_by_id.get(series_id)
+            if not series:
+                continue
+            series_metadata = series.metadata_entries[0] if series.metadata_entries else None
+            series_dtos.append(
+                UserSeriesDaysCompletedDTO(
+                    series_id=series_id,
+                    series_title=series_metadata.title if series_metadata else "Untitled Series",
+                    series_description=series_metadata.description if series_metadata else None,
+                    image=safe_get_image_url(
+                        series.image, resource_id=series.id, resource_type="series"
+                    ),
+                    days_completed=days_completed,
+                    group=_group_summary_for_id(
+                        series_group_ids.get(series_id),
+                        group_summaries,
+                    ),
+                )
+            )
+
+        return UserSeriesDaysCompletedResponse(
+            series=series_dtos,
+            skip=skip,
+            limit=limit,
+            total=total,
         )
 
 

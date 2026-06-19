@@ -9,7 +9,7 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_day_with_tasks_and_subtasks
 from datetime import date as DateType, timedelta, datetime as dt, timezone
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO, SeriesMetadataDTO
+from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO, SeriesMetadataDTO, DayVideoSummaryDTO
 from pecha_api.plans.tags.tag_response_models import PublicTagDetailDTO, SegmentContentDTO
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.plans_enums import ContentType, UserPlanStatus
@@ -28,6 +28,7 @@ from pecha_api.plans.users.plan_users_progress_repository import get_plan_progre
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.routines.routines_repository import (
     get_time_blocks_containing_plan,
+    get_time_blocks_containing_series,
     get_max_display_order_in_time_block,
     add_plan_session_to_time_block,
 )
@@ -285,8 +286,17 @@ def add_plan_to_routine_time_blocks(
     """
     Add the new plan to all routine time blocks where the previous plan exists.
     The new plan is added after the previous plan in display_order.
+    Skips when the user already has a SERIES session for the plan's series.
     """
     try:
+        new_plan = get_plan_by_id(db=db, plan_id=new_plan_id)
+        if new_plan and new_plan.series_id:
+            series_time_blocks = get_time_blocks_containing_series(
+                db=db, user_id=user_id, series_id=new_plan.series_id
+            )
+            if series_time_blocks:
+                return
+
         time_blocks = get_time_blocks_containing_plan(
             db=db, user_id=user_id, plan_id=previous_plan_id
         )
@@ -373,6 +383,16 @@ def _build_plan_day_dto(plan_item) -> PlanDayDTO:
         tasks=[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)],
         audio_url=audio_url,
         audio_duration_ms=audio_duration_ms,
+        videos=[
+            DayVideoSummaryDTO(
+                id=video.id,
+                url=video.url,
+                video_id=video.video_id,
+                title=video.title,
+                display_order=video.display_order,
+            )
+            for video in sorted(plan_item.videos, key=lambda v: v.display_order)
+        ],
     )
 
 def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:

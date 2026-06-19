@@ -8,6 +8,7 @@ from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect, text
 from sqlalchemy.dialects import postgresql
 
 revision: str = "440953ec8a21"
@@ -32,63 +33,123 @@ content_transfer_status_enum = postgresql.ENUM(
 )
 
 
+def _enum_exists(name: str) -> bool:
+    result = op.get_bind().execute(
+        text("SELECT 1 FROM pg_type WHERE typname = :name"),
+        {"name": name},
+    )
+    return result.scalar() is not None
+
+
+def _create_enum_if_missing(name: str, values_sql: str) -> None:
+    if _enum_exists(name):
+        return
+    op.execute(f"CREATE TYPE {name} AS ENUM ({values_sql})")
+
+
+def _column_exists(table: str, column: str) -> bool:
+    inspector = inspect(op.get_bind())
+    return column in {col["name"] for col in inspector.get_columns(table)}
+
+
+def _table_exists(table: str) -> bool:
+    inspector = inspect(op.get_bind())
+    return table in set(inspector.get_table_names())
+
+
+def _fk_exists(table: str, fk_name: str) -> bool:
+    inspector = inspect(op.get_bind())
+    return fk_name in {fk["name"] for fk in inspector.get_foreign_keys(table) if fk.get("name")}
+
+
+def _index_exists(table: str, index_name: str) -> bool:
+    inspector = inspect(op.get_bind())
+    return index_name in {idx["name"] for idx in inspector.get_indexes(table)}
+
+
+def _upgrade_authors_platform_role() -> None:
+    if not _column_exists("authors", "platform_role"):
+        op.add_column(
+            "authors",
+            sa.Column("platform_role", platform_role_enum, nullable=True),
+        )
+
+    if _column_exists("authors", "is_admin"):
+        op.execute(
+            """
+            UPDATE authors
+            SET platform_role = CASE
+                WHEN is_admin = TRUE THEN 'SUPER_ADMIN'::platform_role
+                ELSE 'CREATOR'::platform_role
+            END
+            WHERE platform_role IS NULL
+            """
+        )
+    else:
+        op.execute(
+            """
+            UPDATE authors
+            SET platform_role = 'CREATOR'::platform_role
+            WHERE platform_role IS NULL
+            """
+        )
+
+    platform_role_nullable = next(
+        (
+            col.get("nullable", True)
+            for col in inspect(op.get_bind()).get_columns("authors")
+            if col["name"] == "platform_role"
+        ),
+        True,
+    )
+    if platform_role_nullable:
+        op.alter_column("authors", "platform_role", nullable=False, server_default="CREATOR")
+
+    if _column_exists("authors", "is_admin"):
+        op.drop_column("authors", "is_admin")
+
+
 def upgrade() -> None:
-    op.execute("CREATE TYPE platform_role AS ENUM ('SUPER_ADMIN', 'REVIEWER', 'CREATOR')")
-    op.execute("CREATE TYPE transfer_entity_type AS ENUM ('plan', 'series')")
-    op.execute(
-        "CREATE TYPE content_transfer_status AS ENUM "
-        "('PENDING', 'ACCEPTED', 'REJECTED', 'REVOKED', 'EXPIRED')"
+    _create_enum_if_missing("platform_role", "'SUPER_ADMIN', 'REVIEWER', 'CREATOR'")
+    _create_enum_if_missing("transfer_entity_type", "'plan', 'series'")
+    _create_enum_if_missing(
+        "content_transfer_status",
+        "'PENDING', 'ACCEPTED', 'REJECTED', 'REVOKED', 'EXPIRED'",
     )
 
-    op.add_column(
-        "authors",
-        sa.Column("platform_role", platform_role_enum, nullable=True),
-    )
-    op.execute(
-        """
-        UPDATE authors
-        SET platform_role = CASE
-            WHEN is_admin = TRUE THEN 'SUPER_ADMIN'::platform_role
-            ELSE 'CREATOR'::platform_role
-        END
-        """
-    )
-    op.alter_column("authors", "platform_role", nullable=False, server_default="CREATOR")
-    op.drop_column("authors", "is_admin")
+    _upgrade_authors_platform_role()
 
-    op.add_column(
-        "plans",
-        sa.Column("group_id", sa.UUID(), nullable=True),
-    )
-    op.add_column(
-        "series",
-        sa.Column("group_id", sa.UUID(), nullable=True),
-    )
+    if not _column_exists("plans", "group_id"):
+        op.add_column("plans", sa.Column("group_id", sa.UUID(), nullable=True))
+    if not _column_exists("series", "group_id"):
+        op.add_column("series", sa.Column("group_id", sa.UUID(), nullable=True))
 
-    op.execute(
-        """
-        UPDATE plans p
-        SET group_id = agp.group_id
-        FROM (
-            SELECT DISTINCT ON (plan_id) plan_id, group_id
-            FROM author_group_plans
-            ORDER BY plan_id, group_id
-        ) agp
-        WHERE p.id = agp.plan_id
-        """
-    )
-    op.execute(
-        """
-        UPDATE series s
-        SET group_id = ags.group_id
-        FROM (
-            SELECT DISTINCT ON (series_id) series_id, group_id
-            FROM author_group_series
-            ORDER BY series_id, group_id
-        ) ags
-        WHERE s.id = ags.series_id
-        """
-    )
+    if _table_exists("author_group_plans"):
+        op.execute(
+            """
+            UPDATE plans p
+            SET group_id = agp.group_id
+            FROM (
+                SELECT DISTINCT ON (plan_id) plan_id, group_id
+                FROM author_group_plans
+                ORDER BY plan_id, group_id
+            ) agp
+            WHERE p.id = agp.plan_id AND p.group_id IS NULL
+            """
+        )
+    if _table_exists("author_group_series"):
+        op.execute(
+            """
+            UPDATE series s
+            SET group_id = ags.group_id
+            FROM (
+                SELECT DISTINCT ON (series_id) series_id, group_id
+                FROM author_group_series
+                ORDER BY series_id, group_id
+            ) ags
+            WHERE s.id = ags.series_id AND s.group_id IS NULL
+            """
+        )
 
     op.execute(
         """
@@ -200,57 +261,84 @@ def upgrade() -> None:
         """
     )
 
-    op.create_foreign_key(
-        "fk_plans_group_id",
-        "plans",
-        "author_groups",
-        ["group_id"],
-        ["id"],
-        ondelete="RESTRICT",
-    )
-    op.create_foreign_key(
-        "fk_series_group_id",
-        "series",
-        "author_groups",
-        ["group_id"],
-        ["id"],
-        ondelete="RESTRICT",
-    )
-    op.alter_column("plans", "group_id", nullable=False)
-    op.alter_column("series", "group_id", nullable=False)
+    if not _fk_exists("plans", "fk_plans_group_id"):
+        op.create_foreign_key(
+            "fk_plans_group_id",
+            "plans",
+            "author_groups",
+            ["group_id"],
+            ["id"],
+            ondelete="RESTRICT",
+        )
+    if not _fk_exists("series", "fk_series_group_id"):
+        op.create_foreign_key(
+            "fk_series_group_id",
+            "series",
+            "author_groups",
+            ["group_id"],
+            ["id"],
+            ondelete="RESTRICT",
+        )
 
-    op.create_table(
-        "content_transfer_requests",
-        sa.Column("id", sa.UUID(), nullable=False),
-        sa.Column("entity_type", transfer_entity_type_enum, nullable=False),
-        sa.Column("entity_id", sa.UUID(), nullable=False),
-        sa.Column("from_group_id", sa.UUID(), nullable=False),
-        sa.Column("to_group_id", sa.UUID(), nullable=False),
-        sa.Column("status", content_transfer_status_enum, nullable=False),
-        sa.Column("requested_by", sa.String(length=255), nullable=False),
-        sa.Column("responded_by", sa.String(length=255), nullable=True),
-        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("accepted_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("rejected_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["from_group_id"], ["author_groups.id"], ondelete="CASCADE"),
-        sa.ForeignKeyConstraint(["to_group_id"], ["author_groups.id"], ondelete="CASCADE"),
-        sa.PrimaryKeyConstraint("id"),
+    plans_group_id_nullable = next(
+        (
+            col.get("nullable", True)
+            for col in inspect(op.get_bind()).get_columns("plans")
+            if col["name"] == "group_id"
+        ),
+        True,
     )
-    op.create_index(
-        "idx_content_transfer_to_group_status",
-        "content_transfer_requests",
-        ["to_group_id", "status"],
-    )
-    op.create_index(
-        "idx_content_transfer_entity_status",
-        "content_transfer_requests",
-        ["entity_type", "entity_id", "status"],
-    )
+    if plans_group_id_nullable:
+        op.alter_column("plans", "group_id", nullable=False)
 
-    op.drop_table("author_group_plans")
-    op.drop_table("author_group_series")
+    series_group_id_nullable = next(
+        (
+            col.get("nullable", True)
+            for col in inspect(op.get_bind()).get_columns("series")
+            if col["name"] == "group_id"
+        ),
+        True,
+    )
+    if series_group_id_nullable:
+        op.alter_column("series", "group_id", nullable=False)
+
+    if not _table_exists("content_transfer_requests"):
+        op.create_table(
+            "content_transfer_requests",
+            sa.Column("id", sa.UUID(), nullable=False),
+            sa.Column("entity_type", transfer_entity_type_enum, nullable=False),
+            sa.Column("entity_id", sa.UUID(), nullable=False),
+            sa.Column("from_group_id", sa.UUID(), nullable=False),
+            sa.Column("to_group_id", sa.UUID(), nullable=False),
+            sa.Column("status", content_transfer_status_enum, nullable=False),
+            sa.Column("requested_by", sa.String(length=255), nullable=False),
+            sa.Column("responded_by", sa.String(length=255), nullable=True),
+            sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+            sa.Column("accepted_at", sa.DateTime(timezone=True), nullable=True),
+            sa.Column("rejected_at", sa.DateTime(timezone=True), nullable=True),
+            sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+            sa.ForeignKeyConstraint(["from_group_id"], ["author_groups.id"], ondelete="CASCADE"),
+            sa.ForeignKeyConstraint(["to_group_id"], ["author_groups.id"], ondelete="CASCADE"),
+            sa.PrimaryKeyConstraint("id"),
+        )
+    if not _index_exists("content_transfer_requests", "idx_content_transfer_to_group_status"):
+        op.create_index(
+            "idx_content_transfer_to_group_status",
+            "content_transfer_requests",
+            ["to_group_id", "status"],
+        )
+    if not _index_exists("content_transfer_requests", "idx_content_transfer_entity_status"):
+        op.create_index(
+            "idx_content_transfer_entity_status",
+            "content_transfer_requests",
+            ["entity_type", "entity_id", "status"],
+        )
+
+    if _table_exists("author_group_plans"):
+        op.drop_table("author_group_plans")
+    if _table_exists("author_group_series"):
+        op.drop_table("author_group_series")
 
     op.execute(
         """
