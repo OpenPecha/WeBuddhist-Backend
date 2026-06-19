@@ -610,6 +610,8 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
                         title=task.title,
                         estimated_time=task.estimated_time,
                         display_order=task.display_order,
+                        youtube_url=task.youtube_url,
+                        youtube_duration=task.youtube_duration,
                     )
                     for task in tasks_by_item.get(item.id, [])
                 ],
@@ -832,6 +834,8 @@ async def get_plan_day_details(token:str,plan_id: UUID, day_number: int) -> Plan
                     title=task.title,
                     estimated_time=task.estimated_time,
                     display_order=task.display_order,
+                    youtube_url=task.youtube_url,
+                    youtube_duration=task.youtube_duration,
                     subtasks=_get_task_subtasks_dto(task.sub_tasks)
                 )
                 for task in plan_item.tasks

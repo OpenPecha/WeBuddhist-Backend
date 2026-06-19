@@ -18,6 +18,9 @@ class PlanTask(Base):
     estimated_time = Column(Integer, nullable=True)  # minutes
     is_required = Column(Boolean, default=True)
 
+    youtube_url = Column(String(255), nullable=True)
+    youtube_duration = Column(String(255), nullable=True)
+
     created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc),nullable=False)
     created_by = Column(String(255), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc))
