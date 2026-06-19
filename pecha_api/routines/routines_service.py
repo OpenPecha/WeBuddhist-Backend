@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from starlette import status
-from typing import List, Dict
+from typing import List, Dict, Optional
 from uuid import UUID
 
 from pecha_api.config import TIME_FORMAT_PATTERN, get
@@ -587,17 +587,56 @@ def _resolve_recitation_collection_sessions(
     return resolved
 
 
+def _series_metadata_language(metadata) -> Optional[str]:
+    if metadata is None:
+        return None
+    return (
+        metadata.language.value
+        if hasattr(metadata.language, "value")
+        else str(metadata.language)
+    )
+
+
+def _build_series_session_dto(session, series, first_plan, progress) -> SessionDTO:
+    metadata = series.metadata_entries[0] if series.metadata_entries else None
+    series_image = safe_get_image_url(
+        series.image, resource_id=series.id, resource_type="series"
+    )
+    return SessionDTO(
+        id=session.id,
+        session_type=session.session_type,
+        source_id=session.source_id,
+        title=metadata.title if metadata else "Untitled Series",
+        language=_series_metadata_language(metadata),
+        image=series_image,
+        display_order=session.display_order,
+        start_date=first_plan.start_date if first_plan else None,  # First plan's start_date
+        started_at=progress.started_at if progress else None,  # User's started_at for first plan
+    )
+
+
 def _resolve_series_sessions(
-    db, series_sessions: List[RoutineSession]
+    db, series_sessions: List[RoutineSession], user_id: UUID
 ) -> List[SessionDTO]:
     if not series_sessions:
         return []
 
     from pecha_api.plans.series.series_repository import get_series_by_ids
+    from pecha_api.plans.users.plan_user_series_repository import get_first_plan_in_series
 
     series_ids = [session.source_id for session in series_sessions]
     series_list = get_series_by_ids(db=db, series_ids=series_ids)
     series_map = {series.id: series for series in series_list}
+
+    # Resolve the first plan of each series; start_date/started_at follow that plan
+    first_plan_map = {
+        series_id: get_first_plan_in_series(db=db, series_id=series_id)
+        for series_id in series_ids
+    }
+    first_plan_ids = [plan.id for plan in first_plan_map.values() if plan is not None]
+    progress_map = get_plan_progress_by_user_id_and_plan_ids(
+        db=db, user_id=user_id, plan_ids=first_plan_ids
+    )
 
     resolved = []
     for session in series_sessions:
@@ -605,28 +644,10 @@ def _resolve_series_sessions(
         if series is None:
             continue
 
-        metadata = series.metadata_entries[0] if series.metadata_entries else None
-        series_image = safe_get_image_url(
-            series.image, resource_id=series.id, resource_type="series"
-        )
-        language = None
-        if metadata is not None:
-            language = (
-                metadata.language.value
-                if hasattr(metadata.language, "value")
-                else str(metadata.language)
-            )
-
+        first_plan = first_plan_map.get(session.source_id)
+        progress = progress_map.get(first_plan.id) if first_plan else None
         resolved.append(
-            SessionDTO(
-                id=session.id,
-                session_type=session.session_type,
-                source_id=session.source_id,
-                title=metadata.title if metadata else "Untitled Series",
-                language=language,
-                image=series_image,
-                display_order=session.display_order,
-            )
+            _build_series_session_dto(session, series, first_plan, progress)
         )
     return resolved
 
@@ -653,7 +674,7 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -
     ]
 
     resolved_plans = _resolve_plan_sessions(db=db, plan_sessions=plan_sessions, user_id=user_id)
-    resolved_series = _resolve_series_sessions(db=db, series_sessions=series_sessions)
+    resolved_series = _resolve_series_sessions(db=db, series_sessions=series_sessions, user_id=user_id)
     resolved_recitations = await _resolve_recitation_sessions(
         recitation_sessions=recitation_sessions
     )

@@ -1074,7 +1074,9 @@ async def test_add_time_block_duplicate_collection_across_routine():
         assert exc_info.value.detail["message"] == DUPLICATE_RECITATION_COLLECTION
 
 
-def test_session_dto_serializer_omits_plan_fields_for_series():
+def test_session_dto_serializer_exposes_start_fields_for_series():
+    start_date = datetime.now()
+    started_at = datetime.now()
     dto = SessionDTO(
         id=uuid.uuid4(),
         session_type=SessionType.SERIES,
@@ -1082,8 +1084,8 @@ def test_session_dto_serializer_omits_plan_fields_for_series():
         title="AIY Series",
         language="EN",
         duration_ms=900000,
-        start_date=datetime.now(),
-        started_at=datetime.now(),
+        start_date=start_date,
+        started_at=started_at,
         display_order=0,
     )
     data = dto.model_dump()
@@ -1091,8 +1093,8 @@ def test_session_dto_serializer_omits_plan_fields_for_series():
     assert data["source_id"] == dto.source_id
     assert data["title"] == "AIY Series"
     assert "duration_ms" not in data
-    assert "start_date" not in data
-    assert "started_at" not in data
+    assert data["start_date"] == start_date
+    assert data["started_at"] == started_at
     assert "item_count" not in data
 
 
@@ -1142,9 +1144,13 @@ def test_normalize_plan_sessions_to_series():
     assert result[0].source_id == series_id
 
 
-def test_resolve_series_sessions_returns_series_metadata_only():
+def test_resolve_series_sessions_uses_first_plan_start_fields():
     series_id = uuid.uuid4()
     session_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    first_plan_id = uuid.uuid4()
+    plan_start_date = datetime.now()
+    user_started_at = datetime.now()
     metadata = SimpleNamespace(
         title="Morning Series",
         language=SimpleNamespace(value="EN"),
@@ -1160,10 +1166,18 @@ def test_resolve_series_sessions_returns_series_metadata_only():
         source_id=series_id,
         display_order=0,
     )
+    first_plan = SimpleNamespace(id=first_plan_id, start_date=plan_start_date)
+    progress = SimpleNamespace(started_at=user_started_at)
 
     with patch(
         "pecha_api.plans.series.series_repository.get_series_by_ids",
         return_value=[series],
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_repository.get_first_plan_in_series",
+        return_value=first_plan,
+    ), patch(
+        "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
+        return_value={first_plan_id: progress},
     ), patch(
         "pecha_api.routines.routines_service.safe_get_image_url",
         return_value=ImageUrlModel(
@@ -1172,15 +1186,15 @@ def test_resolve_series_sessions_returns_series_metadata_only():
             original="https://example.com/o.jpg",
         ),
     ):
-        result = _resolve_series_sessions(MagicMock(), [session])
+        result = _resolve_series_sessions(MagicMock(), [session], user_id=user_id)
 
     assert len(result) == 1
     assert result[0].session_type == SessionType.SERIES
     assert result[0].source_id == series_id
     assert result[0].title == "Morning Series"
     assert result[0].language == "EN"
-    assert result[0].started_at is None
-    assert result[0].start_date is None
+    assert result[0].start_date == plan_start_date
+    assert result[0].started_at == user_started_at
 
 
 def test_enroll_new_sessions_on_update_does_not_unenroll_removed_plans():
