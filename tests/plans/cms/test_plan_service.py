@@ -600,6 +600,8 @@ async def test_get_details_plan_success():
         title="Morning Practice",
         display_order=1,
         estimated_time=10,
+        youtube_url="https://youtu.be/plan-detail",
+        youtube_duration="240",
         created_by="tester@example.com",
     )
     task2 = PlanTask(
@@ -653,12 +655,18 @@ async def test_get_details_plan_success():
         assert day1.tasks[0].id == task1.id
         assert day1.tasks[0].title == task1.title
         assert day1.tasks[0].estimated_time == task1.estimated_time
+        # task-level youtube fields surface in the plan detail payload
+        assert day1.tasks[0].youtube_url == "https://youtu.be/plan-detail"
+        assert day1.tasks[0].youtube_duration == "240"
 
         day2 = next(d for d in response.days if d.id == item2.id)
         assert day2.day_number == 2
         assert len(day2.tasks) == 1
         assert day2.tasks[0].id == task2.id
         assert day2.tasks[0].estimated_time == task2.estimated_time
+        # task without a video stays null
+        assert day2.tasks[0].youtube_url is None
+        assert day2.tasks[0].youtube_duration is None
         
         # Verify start_date is returned
         assert response.start_date == datetime(2025, 1, 1, tzinfo=timezone.utc)
@@ -687,6 +695,8 @@ async def test_get_plan_day_details_success():
     task.title = "Guided Meditation"
     task.estimated_time = 15
     task.display_order = 1
+    task.youtube_url = None
+    task.youtube_duration = None
     task.sub_tasks = [subtask1, subtask2]
 
     plan_item = MagicMock()
@@ -769,6 +779,8 @@ async def test_get_plan_day_details_no_subtasks():
     task.title = "Reading Practice"
     task.estimated_time = 5
     task.display_order = 1
+    task.youtube_url = None
+    task.youtube_duration = None
     task.sub_tasks = []
 
     plan_item = MagicMock()
