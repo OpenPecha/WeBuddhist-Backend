@@ -38,4 +38,5 @@ class PlanItem(Base):
 
 
 from pecha_api.plans.audio.plan_item_audio_models import PlanItemAudio  # noqa: F401, E402
+from pecha_api.plans.notifications.day_notification_models import DayNotification  # noqa: F401, E402
 
