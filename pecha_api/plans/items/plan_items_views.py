@@ -9,14 +9,12 @@ from pecha_api.plans.videos.day_video_service import (
     list_day_videos,
     remove_day_video,
     reorder_day_videos_entries,
-    update_day_video_entry,
 )
 from pecha_api.plans.videos.day_video_response_models import (
     CreateDayVideoRequest,
     DayVideoDTO,
     DayVideoListResponse,
     ReorderDayVideosRequest,
-    UpdateDayVideoRequest,
 )
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import Depends
@@ -124,21 +122,6 @@ async def reorder_day_videos(
         token=authentication_credential.credentials,
         day_id=day_id,
         request=reorder_videos_request,
-    )
-
-
-@items_router.patch("/days/{day_id}/videos/{video_id}", status_code=status.HTTP_200_OK, response_model=DayVideoDTO)
-async def patch_day_video(
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    day_id: UUID,
-    video_id: UUID,
-    update_video_request: UpdateDayVideoRequest,
-):
-    return update_day_video_entry(
-        token=authentication_credential.credentials,
-        day_id=day_id,
-        video_id=video_id,
-        request=update_video_request,
     )
 
 

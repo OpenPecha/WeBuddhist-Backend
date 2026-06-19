@@ -27,14 +27,12 @@ from pecha_api.plans.videos.day_video_repository import (
     get_day_videos_by_day_id,
     get_next_display_order,
     reorder_day_videos,
-    update_day_video,
 )
 from pecha_api.plans.videos.day_video_response_models import (
     CreateDayVideoRequest,
     DayVideoDTO,
     DayVideoListResponse,
     ReorderDayVideosRequest,
-    UpdateDayVideoRequest,
 )
 
 _YOUTUBE_HOSTS = {
@@ -130,41 +128,6 @@ def add_day_video(token: str, day_id: UUID, request: CreateDayVideoRequest) -> D
                 created_by=current_author.email,
             ),
         )
-        return _to_dto(video)
-
-
-def update_day_video_entry(
-    token: str, day_id: UUID, video_id: UUID, request: UpdateDayVideoRequest
-) -> DayVideoDTO:
-    parsed_video_id = None
-    new_url = request.url.strip() if request.url is not None else None
-    if new_url is not None:
-        parsed_video_id = _extract_youtube_video_id(new_url)
-        if not parsed_video_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=ResponseError(error=BAD_REQUEST, message=INVALID_YOUTUBE_URL).model_dump(),
-            )
-
-    with SessionLocal() as db:
-        current_author = validate_cms_author_details(token=token)
-        _get_author_plan_item_by_day_id(db=db, day_id=day_id, current_author=current_author)
-
-        video = get_day_video_by_id(db=db, day_id=day_id, video_id=video_id)
-        if not video:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=ResponseError(error=BAD_REQUEST, message=DAY_VIDEO_NOT_FOUND).model_dump(),
-            )
-
-        if new_url is not None:
-            video.url = new_url
-            video.video_id = parsed_video_id
-        if request.title is not None:
-            video.title = request.title
-        video.updated_by = current_author.email
-
-        update_day_video(db=db, day_video=video)
         return _to_dto(video)
 
 

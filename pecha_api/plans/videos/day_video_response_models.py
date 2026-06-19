@@ -24,11 +24,6 @@ class CreateDayVideoRequest(BaseModel):
     title: Optional[str] = None
 
 
-class UpdateDayVideoRequest(BaseModel):
-    url: Optional[str] = None
-    title: Optional[str] = None
-
-
 class DayVideoOrderItem(BaseModel):
     id: UUID
     display_order: int
