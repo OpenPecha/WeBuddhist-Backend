@@ -4,7 +4,7 @@ from starlette import status
 
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
-from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_repository import get_sub_task_by_id
+from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_repository import get_sub_task_by_subtask_id
 from pecha_api.plans.tasks.sub_tasks.subtask_preset_models import SubTaskPreset
 from pecha_api.plans.tasks.sub_tasks.subtask_preset_repository import (
     create_preset,
@@ -26,7 +26,7 @@ async def create_or_update_preset_service(
     current_author = validate_and_extract_author_details(token=token)
 
     with SessionLocal() as db:
-        subtask = get_sub_task_by_id(db=db, sub_task_id=subtask_id)
+        subtask = get_sub_task_by_subtask_id(db=db, id=subtask_id)
         if not subtask:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
