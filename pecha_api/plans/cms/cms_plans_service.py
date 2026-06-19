@@ -637,7 +637,6 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
                         url=video.url,
                         video_id=video.video_id,
                         title=video.title,
-                        duration_ms=video.duration_ms,
                         display_order=video.display_order,
                     )
                     for video in videos_by_item.get(item.id, [])
@@ -870,7 +869,6 @@ async def get_plan_day_details(token:str,plan_id: UUID, day_number: int) -> Plan
                     url=video.url,
                     video_id=video.video_id,
                     title=video.title,
-                    duration_ms=video.duration_ms,
                     display_order=video.display_order,
                 )
                 for video in plan_item.videos

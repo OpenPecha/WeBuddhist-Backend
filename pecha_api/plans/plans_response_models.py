@@ -103,7 +103,6 @@ class DayVideoSummaryDTO(BaseModel):
     url: str
     video_id: Optional[str] = None
     title: Optional[str] = None
-    duration_ms: Optional[int] = None
     display_order: int
 
 class PlanDayDTO(BaseModel):

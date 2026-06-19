@@ -18,7 +18,6 @@ class DayVideo(Base):
     url = Column(Text, nullable=False)
     video_id = Column(String(64), nullable=True)
     title = Column(String(500), nullable=True)
-    duration_ms = Column(Integer, nullable=True)
     display_order = Column(Integer, nullable=False, default=0)
 
     created_at = Column(

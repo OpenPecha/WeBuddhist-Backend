@@ -70,7 +70,6 @@ def _to_dto(video: DayVideo) -> DayVideoDTO:
         url=video.url,
         video_id=video.video_id,
         title=video.title,
-        duration_ms=video.duration_ms,
         display_order=video.display_order,
         created_at=video.created_at,
     )
@@ -127,7 +126,6 @@ def add_day_video(token: str, day_id: UUID, request: CreateDayVideoRequest) -> D
                 url=url,
                 video_id=video_id,
                 title=request.title,
-                duration_ms=request.duration_ms,
                 display_order=display_order,
                 created_by=current_author.email,
             ),
@@ -164,8 +162,6 @@ def update_day_video_entry(
             video.video_id = parsed_video_id
         if request.title is not None:
             video.title = request.title
-        if request.duration_ms is not None:
-            video.duration_ms = request.duration_ms
         video.updated_by = current_author.email
 
         update_day_video(db=db, day_video=video)

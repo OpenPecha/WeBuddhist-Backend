@@ -41,7 +41,6 @@ def upgrade() -> None:
         sa.Column('url', sa.Text(), nullable=False),
         sa.Column('video_id', sa.String(length=64), nullable=True),
         sa.Column('title', sa.String(length=500), nullable=True),
-        sa.Column('duration_ms', sa.Integer(), nullable=True),
         sa.Column('display_order', sa.Integer(), nullable=False, server_default='0'),
         sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
         sa.Column('created_by', sa.String(length=255), nullable=False),

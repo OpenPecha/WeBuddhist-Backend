@@ -11,7 +11,6 @@ class DayVideoDTO(BaseModel):
     url: str
     video_id: Optional[str] = None
     title: Optional[str] = None
-    duration_ms: Optional[int] = None
     display_order: int
     created_at: Optional[datetime] = None
 
@@ -23,13 +22,11 @@ class DayVideoListResponse(BaseModel):
 class CreateDayVideoRequest(BaseModel):
     url: str
     title: Optional[str] = None
-    duration_ms: Optional[int] = None
 
 
 class UpdateDayVideoRequest(BaseModel):
     url: Optional[str] = None
     title: Optional[str] = None
-    duration_ms: Optional[int] = None
 
 
 class DayVideoOrderItem(BaseModel):
