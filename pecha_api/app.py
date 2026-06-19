@@ -56,6 +56,7 @@ from pecha_api.timers import timer_router
 from pecha_api.accumulator import accumulator_router
 from pecha_api.daily_log import daily_log_views
 from pecha_api.mantra import mantra_views
+from pecha_api.mantra.mantra_count_views import user_mantra_count_router
 from pecha_api.events import events_router, cms_events_router
 from pecha_api.plans.admin.admin_views import cms_admin_router
 from pecha_api.plans.transfers.transfer_views import (
@@ -134,6 +135,7 @@ api.include_router(accumulator_router)
 api.include_router(daily_log_views.daily_log_router)
 api.include_router(mantra_views.mantra_router)
 api.include_router(mantra_views.cms_mantra_router)
+api.include_router(user_mantra_count_router)
 api.include_router(events_router)
 api.include_router(cms_events_router)
 
