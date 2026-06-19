@@ -18,6 +18,11 @@ preset_router = APIRouter(
     tags=["SubTask Presets"]
 )
 
+public_preset_router = APIRouter(
+    prefix="/sub-tasks",
+    tags=["Public SubTask Presets"]
+)
+
 
 @preset_router.post(
     "/{subtask_id}/preset",
@@ -61,3 +66,13 @@ async def delete_preset(
         token=authentication_credential.credentials,
         subtask_id=subtask_id
     )
+
+
+@public_preset_router.get(
+    "/{subtask_id}/preset",
+    status_code=status.HTTP_200_OK,
+    summary="Get preset for subtask (public)",
+    description="Get the version preset for a subtask - public endpoint for app usage"
+)
+async def get_public_preset(subtask_id: UUID) -> PresetResponse:
+    return await get_preset_service(subtask_id=subtask_id)
