@@ -1,6 +1,6 @@
 import logging
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from .plan_items_models import PlanItem
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
@@ -86,6 +86,7 @@ def get_plan_day_with_tasks_and_subtasks(db: Session, plan_id: UUID, day_number:
         db.query(PlanItem)
         .options(
             joinedload(PlanItem.audio),
+            selectinload(PlanItem.videos),
             joinedload(PlanItem.tasks).joinedload(PlanTask.sub_tasks).joinedload(PlanSubTask.timestamp),
         )
         .filter(PlanItem.plan_id == plan_id, PlanItem.day_number == day_number)
