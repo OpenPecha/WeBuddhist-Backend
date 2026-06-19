@@ -25,6 +25,7 @@ from pecha_api.plans.tags import tag_views as cms_tags_views
 from pecha_api.plans.series import public_series_view as public_series_views
 from pecha_api.plans.tasks import plan_tasks_views
 from pecha_api.plans.tasks.sub_tasks import plan_sub_tasks_views
+from pecha_api.plans.tasks.sub_tasks import subtask_preset_views
 from pecha_api.plans.public import plan_views as public_plans_views
 from pecha_api.plans.public import public_tags_views
 from pecha_api.plans.users import plan_users_views as user_plans_views
@@ -110,6 +111,8 @@ api.include_router(user_plans_views.user_progress_router)
 api.include_router(plan_items_views.items_router)
 api.include_router(plan_tasks_views.plans_router)
 api.include_router(plan_sub_tasks_views.sub_tasks_router)
+api.include_router(subtask_preset_views.preset_router)
+api.include_router(subtask_preset_views.public_preset_router)
 api.include_router(day_notification_views.notifications_router)
 api.include_router(plan_authors_views.author_router)
 api.include_router(featured_day_views.user_follow_router)
