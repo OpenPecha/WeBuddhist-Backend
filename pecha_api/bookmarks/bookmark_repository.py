@@ -21,7 +21,7 @@ def save_bookmark(db: Session, bookmark: Bookmark) -> None:
             status_code=status.HTTP_409_CONFLICT,
             detail=ResponseError(
                 error="CONFLICT",
-                message="Bookmark already exists for this verse"
+                message="Bookmark already exists for this item"
             ).model_dump()
         )
 
