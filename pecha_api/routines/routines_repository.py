@@ -283,37 +283,6 @@ def get_series_source_ids_by_time_block_id(
     return [s.source_id for s in sessions]
 
 
-def get_existing_series_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
-    sessions = (
-        db.query(RoutineSession.source_id)
-        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
-        .filter(
-            RoutineTimeBlock.routine_id == routine_id,
-            RoutineTimeBlock.deleted_at.is_(None),
-            RoutineSession.session_type == SessionType.SERIES,
-        )
-        .all()
-    )
-    return [s.source_id for s in sessions]
-
-
-def get_existing_series_source_ids_in_routine(
-    db: Session, routine_id: UUID, exclude_time_block_id: Optional[UUID] = None
-) -> List[UUID]:
-    query = (
-        db.query(RoutineSession.source_id)
-        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
-        .filter(
-            RoutineTimeBlock.routine_id == routine_id,
-            RoutineTimeBlock.deleted_at.is_(None),
-            RoutineSession.session_type == SessionType.SERIES,
-        )
-    )
-    if exclude_time_block_id:
-        query = query.filter(RoutineTimeBlock.id != exclude_time_block_id)
-    return [row[0] for row in query.all()]
-
-
 def get_existing_plan_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
     """Get all plan source_ids in a routine."""
     sessions = (

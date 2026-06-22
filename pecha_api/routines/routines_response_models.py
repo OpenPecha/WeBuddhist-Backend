@@ -40,20 +40,42 @@ class SessionDTO(BaseModel):
     start_date: Optional[datetime] = None  # Plan's start_date
     started_at: Optional[datetime] = None  # User's started_at from progress
     item_count: Optional[int] = None  # Recitation collection's item count
+    current_plan_id: Optional[UUID] = None  # SERIES: plan active for today's date
+    current_plan_title: Optional[str] = None  # SERIES: title of the active plan
 
     @model_serializer(mode="wrap")
     def _omit_inapplicable_fields(self, serializer):
         data = serializer(self)
         if self.session_type == SessionType.TIMER:
-            for field in ("source_id", "title", "language", "image", "start_date", "started_at", "item_count"):
+            for field in (
+                "source_id",
+                "title",
+                "language",
+                "image",
+                "start_date",
+                "started_at",
+                "item_count",
+                "current_plan_id",
+                "current_plan_title",
+            ):
                 data.pop(field, None)
         elif self.session_type == SessionType.RECITATION_COLLECTION:
-            for field in ("duration_ms", "language", "start_date", "started_at"):
+            for field in ("duration_ms", "language", "start_date", "started_at", "current_plan_id", "current_plan_title"):
                 data.pop(field, None)
         elif self.session_type == SessionType.RECITATION:
-            for field in ("duration_ms", "start_date", "started_at", "item_count"):
+            for field in (
+                "duration_ms",
+                "start_date",
+                "started_at",
+                "item_count",
+                "current_plan_id",
+                "current_plan_title",
+            ):
                 data.pop(field, None)
-        else:  # SERIES and PLAN both expose start_date / started_at
+        elif self.session_type == SessionType.PLAN:
+            for field in ("duration_ms", "item_count", "current_plan_id", "current_plan_title"):
+                data.pop(field, None)
+        else:  # SERIES exposes start_date / started_at and current plan fields
             for field in ("duration_ms", "item_count"):
                 data.pop(field, None)
         return data

@@ -32,8 +32,6 @@ from .routines_repository import (
     get_time_block_by_id_and_routine,
     get_plan_source_ids_by_time_block_id,
     get_series_source_ids_by_time_block_id,
-    get_existing_series_source_ids,
-    get_existing_series_source_ids_in_routine,
     get_plans_by_ids,
     get_time_block_by_routine_and_time,
     delete_sessions_by_time_block_id,
@@ -165,38 +163,6 @@ def _check_duplicate_collections(db, routine_id: UUID, sessions: List) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=ResponseError(
                 error=BAD_REQUEST, message=DUPLICATE_RECITATION_COLLECTION
-            ).model_dump(),
-        )
-
-
-def _check_duplicate_series(db, routine_id: UUID, sessions: List) -> None:
-    """Check for duplicate series when adding a new time block."""
-    existing_series_ids = get_existing_series_source_ids(db=db, routine_id=routine_id)
-    new_series_ids = [s.source_id for s in sessions if s.session_type == SessionType.SERIES]
-    overlap = set(new_series_ids) & set(existing_series_ids)
-    if overlap:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=DUPLICATE_SERIES
-            ).model_dump(),
-        )
-
-
-def _check_duplicate_series_on_update(
-    db, routine_id: UUID, time_block_id: UUID, sessions: List
-) -> None:
-    """Check for duplicate series when updating a time block."""
-    existing_series_ids = get_existing_series_source_ids_in_routine(
-        db=db, routine_id=routine_id, exclude_time_block_id=time_block_id
-    )
-    new_series_ids = [s.source_id for s in sessions if s.session_type == SessionType.SERIES]
-    overlap = set(new_series_ids) & set(existing_series_ids)
-    if overlap:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=DUPLICATE_SERIES
             ).model_dump(),
         )
 
@@ -412,13 +378,6 @@ def _validate_and_sync_update(
         sessions=sessions,
     )
 
-    _check_duplicate_series_on_update(
-        db=db,
-        routine_id=routine_id,
-        time_block_id=time_block_id,
-        sessions=sessions,
-    )
-
     _enroll_new_sessions_on_update(
         db=db,
         user_id=user_id,
@@ -597,7 +556,9 @@ def _series_metadata_language(metadata) -> Optional[str]:
     )
 
 
-def _build_series_session_dto(session, series, first_plan, progress) -> SessionDTO:
+def _build_series_session_dto(
+    session, series, first_plan, progress, current_plan
+) -> SessionDTO:
     metadata = series.metadata_entries[0] if series.metadata_entries else None
     series_image = safe_get_image_url(
         series.image, resource_id=series.id, resource_type="series"
@@ -612,6 +573,8 @@ def _build_series_session_dto(session, series, first_plan, progress) -> SessionD
         display_order=session.display_order,
         start_date=first_plan.start_date if first_plan else None,  # First plan's start_date
         started_at=progress.started_at if progress else None,  # User's started_at for first plan
+        current_plan_id=current_plan.id if current_plan else None,
+        current_plan_title=current_plan.title if current_plan else None,
     )
 
 
@@ -621,16 +584,22 @@ def _resolve_series_sessions(
     if not series_sessions:
         return []
 
+    from pecha_api.plans.public.plan_service import _resolve_plan_for_date_in_series
     from pecha_api.plans.series.series_repository import get_series_by_ids
-    from pecha_api.plans.users.plan_user_series_repository import get_first_plan_in_series
+    from pecha_api.plans.users.plan_user_series_repository import get_plans_by_series_ids
 
     series_ids = [session.source_id for session in series_sessions]
     series_list = get_series_by_ids(db=db, series_ids=series_ids)
     series_map = {series.id: series for series in series_list}
 
-    # Resolve the first plan of each series; start_date/started_at follow that plan
+    plans_by_series = get_plans_by_series_ids(db=db, series_ids=series_ids)
+    today = datetime.now(timezone.utc).date()
+    current_plan_map = {
+        series_id: _resolve_plan_for_date_in_series(plans, today)
+        for series_id, plans in plans_by_series.items()
+    }
     first_plan_map = {
-        series_id: get_first_plan_in_series(db=db, series_id=series_id)
+        series_id: plans[0] if (plans := plans_by_series.get(series_id)) else None
         for series_id in series_ids
     }
     first_plan_ids = [plan.id for plan in first_plan_map.values() if plan is not None]
@@ -646,8 +615,11 @@ def _resolve_series_sessions(
 
         first_plan = first_plan_map.get(session.source_id)
         progress = progress_map.get(first_plan.id) if first_plan else None
+        current_plan = current_plan_map.get(session.source_id)
         resolved.append(
-            _build_series_session_dto(session, series, first_plan, progress)
+            _build_series_session_dto(
+                session, series, first_plan, progress, current_plan
+            )
         )
     return resolved
 
@@ -887,7 +859,6 @@ async def add_time_block_to_routine(
         _check_duplicate_time(db=db, routine_id=routine_id, time=request.time)
 
         prepared_sessions = _prepare_sessions(db=db, sessions=request.sessions)
-        _check_duplicate_series(db=db, routine_id=routine_id, sessions=prepared_sessions)
 
         # Save time block
         time_block = RoutineTimeBlock(
