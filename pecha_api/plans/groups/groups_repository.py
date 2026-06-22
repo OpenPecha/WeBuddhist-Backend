@@ -163,6 +163,7 @@ def get_groups_paginated(
     language: Optional[str] = None,
     tag_id: Optional[UUID] = None,
     group_ids: Optional[Sequence[UUID]] = None,
+    exclude_group_ids: Optional[Sequence[UUID]] = None,
     is_public: Optional[bool] = None,
     group_type: Optional[AuthorGroupType] = None,
 ) -> Tuple[List[AuthorGroup], int]:
@@ -208,6 +209,8 @@ def get_groups_paginated(
         if not group_ids:
             return [], 0
         filters.append(AuthorGroup.id.in_(group_ids))
+    if exclude_group_ids:
+        filters.append(AuthorGroup.id.not_in(exclude_group_ids))
 
     query = (
         db.query(AuthorGroup)

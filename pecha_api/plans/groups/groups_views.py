@@ -55,6 +55,7 @@ from pecha_api.plans.groups.groups_service import (
 )
 
 oauth2_scheme = HTTPBearer()
+optional_oauth2_scheme = HTTPBearer(auto_error=False)
 
 cms_groups_router = APIRouter(prefix="/cms/author/groups", tags=["CMS Author Groups"])
 public_groups_router = APIRouter(prefix="/author/groups", tags=["Author Groups"])
@@ -322,6 +323,9 @@ def get_public_group(
 
 @public_groups_router.get("", status_code=status.HTTP_200_OK, response_model=PublicAuthorGroupListResponse)
 def get_public_groups(
+    authentication_credential: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(optional_oauth2_scheme)
+    ] = None,
     search: Annotated[Optional[str], Query()] = None,
     language: Annotated[Optional[str], Query()] = None,
     tag_id: Annotated[Optional[UUID], Query()] = None,
@@ -339,6 +343,7 @@ def get_public_groups(
         group_type=group_type,
         skip=skip,
         limit=limit,
+        token=authentication_credential.credentials if authentication_credential else None,
     )
 
 
