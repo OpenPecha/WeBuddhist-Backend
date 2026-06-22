@@ -1,7 +1,7 @@
 from uuid import uuid4
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, UUID, Index, String, ForeignKey
+from sqlalchemy import Column, DateTime, UUID, Index, String, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -62,6 +62,6 @@ class TraditionMetadata(Base):
     tradition = relationship("Tradition", back_populates="metadata_entries")
 
     __table_args__ = (
-        Index("idx_tradition_metadata_tradition_id", "tradition_id"),
+        UniqueConstraint("tradition_id", "language", name="uq_tradition_metadata_tradition_language"),
         Index("idx_tradition_metadata_language", "language"),
     )

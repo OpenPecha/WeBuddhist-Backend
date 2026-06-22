@@ -67,12 +67,14 @@ def upgrade() -> None:
                 name="fk_tradition_metadata_tradition_id",
                 ondelete="CASCADE",
             ),
+            sa.UniqueConstraint(
+                "tradition_id", "language",
+                name="uq_tradition_metadata_tradition_language",
+            ),
         )
 
     if not index_exists("tradition_list", "idx_tradition_list_parent_id"):
         op.create_index("idx_tradition_list_parent_id", "tradition_list", ["parent_id"], unique=False)
-    if not index_exists("tradition_metadata", "idx_tradition_metadata_tradition_id"):
-        op.create_index("idx_tradition_metadata_tradition_id", "tradition_metadata", ["tradition_id"], unique=False)
     if not index_exists("tradition_metadata", "idx_tradition_metadata_language"):
         op.create_index("idx_tradition_metadata_language", "tradition_metadata", ["language"], unique=False)
 
@@ -80,8 +82,6 @@ def upgrade() -> None:
 def downgrade() -> None:
     if index_exists("tradition_metadata", "idx_tradition_metadata_language"):
         op.drop_index("idx_tradition_metadata_language", table_name="tradition_metadata")
-    if index_exists("tradition_metadata", "idx_tradition_metadata_tradition_id"):
-        op.drop_index("idx_tradition_metadata_tradition_id", table_name="tradition_metadata")
     if index_exists("tradition_list", "idx_tradition_list_parent_id"):
         op.drop_index("idx_tradition_list_parent_id", table_name="tradition_list")
 
