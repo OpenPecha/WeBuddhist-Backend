@@ -762,9 +762,10 @@ def test_validate_username_returns_true_on_404():
 
 def test_retrieve_client_info():
     with patch('pecha_api.auth.auth_service.get') as mock_get:
-        mock_get.side_effect = ["test-client-id", "test-domain"]
+        mock_get.side_effect = ["test-client-id", "test-domain", "test-audience"]
 
         props = retrieve_client_info()
 
         assert props.client_id == "test-client-id"
         assert props.domain == "test-domain"
+        assert props.audience == "test-audience"

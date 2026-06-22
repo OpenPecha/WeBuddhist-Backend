@@ -210,6 +210,7 @@ def generate_and_validate_username(first_name: str, last_name: str) -> str:
 def retrieve_client_info():
     props_response = PropsResponse(
         client_id=get("CLIENT_ID"),
-        domain=get("DOMAIN_NAME")
+        domain=get("DOMAIN_NAME"),
+        audience=get("AUTH0_AUDIENCE"),
     )
     return props_response
