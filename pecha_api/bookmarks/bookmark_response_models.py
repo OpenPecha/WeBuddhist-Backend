@@ -1,19 +1,36 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from uuid import UUID
 from typing import List, Optional
 from datetime import datetime
 
+from pecha_api.bookmarks.bookmark_enums import BookmarkType
+
 
 class CreateBookmarkRequest(BaseModel):
-    text_id: UUID
-    verse_id: str
+    type: BookmarkType
+    source_id: str
     name: Optional[str] = None
+
+    @field_validator("source_id")
+    @classmethod
+    def _validate_source_id(cls, value: str, info) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("source_id must not be empty")
+
+        bookmark_type = info.data.get("type")
+        if bookmark_type is not None and bookmark_type != BookmarkType.VERSE:
+            try:
+                return str(UUID(value))
+            except ValueError:
+                raise ValueError(f"source_id must be a valid UUID for type {bookmark_type.value}")
+        return value
 
 
 class BookmarkDTO(BaseModel):
     id: UUID
-    text_id: UUID
-    verse_id: str
+    type: BookmarkType
+    source_id: str
     name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
