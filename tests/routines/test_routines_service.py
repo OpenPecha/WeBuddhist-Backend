@@ -1031,6 +1031,88 @@ async def test_add_time_block_allows_same_plan_in_different_time_block():
 
 
 @pytest.mark.asyncio
+async def test_add_time_block_allows_same_series_in_different_time_block():
+    user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    existing_series_id = uuid.uuid4()
+
+    request = CreateTimeBlockRequest(
+        time="08:00",
+        time_int=800,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.SERIES,
+                source_id=existing_series_id,
+                display_order=0,
+            )
+        ],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    saved_time_block = SimpleNamespace(
+        id=time_block_id,
+        time="08:00",
+        time_int=800,
+        notification_enabled=True,
+    )
+    saved_session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.SERIES,
+        source_id=existing_series_id,
+        display_order=0,
+    )
+    mock_series = SimpleNamespace(
+        id=existing_series_id,
+        image="series-image-key",
+        metadata_entries=[
+            SimpleNamespace(title="Morning Series", language=SimpleNamespace(value="EN"))
+        ],
+    )
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_id_and_user",
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.time_block_exists_for_routine",
+        return_value=False,
+    ), patch(
+        "pecha_api.routines.routines_service.RoutineTimeBlock",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.routines.routines_service.save_time_block",
+        return_value=saved_time_block,
+    ), patch(
+        "pecha_api.routines.routines_service.RoutineSession",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.routines.routines_service.save_sessions",
+        return_value=[saved_session],
+    ), patch(
+        "pecha_api.plans.series.series_repository.get_series_by_ids",
+        return_value=[mock_series],
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_repository.get_first_plan_in_series",
+        return_value=None,
+    ):
+        result = await add_time_block_to_routine(
+            token="token123", routine_id=routine_id, request=request
+        )
+
+        assert result.id == time_block_id
+        assert len(result.sessions) == 1
+        assert result.sessions[0].source_id == existing_series_id
+
+
+@pytest.mark.asyncio
 async def test_add_time_block_duplicate_collection_across_routine():
     user_id = uuid.uuid4()
     routine_id = uuid.uuid4()
@@ -1149,6 +1231,7 @@ def test_resolve_series_sessions_uses_first_plan_start_fields():
     session_id = uuid.uuid4()
     user_id = uuid.uuid4()
     first_plan_id = uuid.uuid4()
+    current_plan_id = uuid.uuid4()
     plan_start_date = datetime.now()
     user_started_at = datetime.now()
     metadata = SimpleNamespace(
@@ -1167,14 +1250,18 @@ def test_resolve_series_sessions_uses_first_plan_start_fields():
         display_order=0,
     )
     first_plan = SimpleNamespace(id=first_plan_id, start_date=plan_start_date)
+    current_plan = SimpleNamespace(id=current_plan_id, title="Week 2 Practice")
     progress = SimpleNamespace(started_at=user_started_at)
 
     with patch(
         "pecha_api.plans.series.series_repository.get_series_by_ids",
         return_value=[series],
     ), patch(
-        "pecha_api.plans.users.plan_user_series_repository.get_first_plan_in_series",
-        return_value=first_plan,
+        "pecha_api.plans.users.plan_user_series_repository.get_plans_by_series_ids",
+        return_value={series_id: [first_plan, current_plan]},
+    ), patch(
+        "pecha_api.plans.public.plan_service._resolve_plan_for_date_in_series",
+        return_value=current_plan,
     ), patch(
         "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
         return_value={first_plan_id: progress},
@@ -1195,6 +1282,8 @@ def test_resolve_series_sessions_uses_first_plan_start_fields():
     assert result[0].language == "EN"
     assert result[0].start_date == plan_start_date
     assert result[0].started_at == user_started_at
+    assert result[0].current_plan_id == current_plan_id
+    assert result[0].current_plan_title == "Week 2 Practice"
 
 
 def test_enroll_new_sessions_on_update_does_not_unenroll_removed_plans():
