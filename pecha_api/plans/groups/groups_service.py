@@ -678,8 +678,18 @@ def list_public_groups(
     language: Optional[str] = None,
     tag_id: Optional[UUID] = None,
     group_type: AuthorGroupType = AuthorGroupType.COMMUNITY,
+    token: Optional[str] = None,
 ) -> PublicAuthorGroupListResponse:
     with SessionLocal() as db:
+        exclude_group_ids = None
+        if token:
+            try:
+                user = validate_and_extract_user_details(token=token)
+                joined_ids = get_joined_group_ids_by_user(db=db, user_id=user.id)
+                if joined_ids:
+                    exclude_group_ids = joined_ids
+            except Exception:
+                pass
         groups, total = get_groups_paginated(
             db=db,
             skip=skip,
@@ -687,6 +697,7 @@ def list_public_groups(
             search=search,
             language=language,
             tag_id=tag_id,
+            exclude_group_ids=exclude_group_ids,
             is_public=True,
             group_type=group_type,
         )

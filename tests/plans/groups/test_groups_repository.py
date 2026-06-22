@@ -8,6 +8,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_group_id_for_series,
     get_group_ids_by_plan_ids,
     get_group_ids_by_series_ids,
+    get_groups_paginated,
     update_group,
 )
 
@@ -80,3 +81,26 @@ def test_update_group_commits_without_re_adding_instance():
     db.commit.assert_called_once()
     db.refresh.assert_called_once_with(group)
     assert result is group
+
+
+def test_get_groups_paginated_with_exclude_group_ids():
+    db = _make_session_mock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.options.return_value = query
+    query.filter.return_value = query
+    query.count.return_value = 0
+    query.order_by.return_value = query
+    query.offset.return_value = query
+    query.limit.return_value.all.return_value = []
+
+    groups, total = get_groups_paginated(
+        db=db,
+        skip=0,
+        limit=10,
+        exclude_group_ids=[uuid.uuid4()],
+    )
+
+    assert groups == []
+    assert total == 0
+    query.filter.assert_called_once()

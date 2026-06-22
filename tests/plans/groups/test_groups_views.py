@@ -1,6 +1,6 @@
 from datetime import datetime, timezone, timedelta
 from uuid import uuid4
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from fastapi.testclient import TestClient
 from starlette import status
@@ -90,9 +90,75 @@ def test_get_public_groups_success():
 
     assert response.status_code == status.HTTP_200_OK
     mock_service.assert_called_once_with(
-        search=None, language=None, tag_id=None, group_type=AuthorGroupType.COMMUNITY, skip=0, limit=20
+        search=None,
+        language=None,
+        tag_id=None,
+        group_type=AuthorGroupType.COMMUNITY,
+        skip=0,
+        limit=20,
+        token=None,
     )
     assert response.json()["total"] == 1
+
+
+def test_get_public_groups_with_auth_passes_token():
+    group_summary = AuthorGroupSummaryDTO(
+        id=uuid4(),
+        slug="bodhichitta-authors",
+        group_type=AuthorGroupType.PAGE,
+        is_public=True,
+        metadata=_metadata(),
+        tags=[],
+        follower_count=4,
+        member_count=2,
+    )
+    response_model = AuthorGroupListResponse(groups=[group_summary], skip=0, limit=20, total=1)
+    with patch(
+        "pecha_api.plans.groups.groups_views.list_public_groups",
+        return_value=response_model,
+    ) as mock_service:
+        response = client.get("/author/groups", headers={"Authorization": "Bearer dummy"})
+
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(
+        search=None,
+        language=None,
+        tag_id=None,
+        group_type=AuthorGroupType.COMMUNITY,
+        skip=0,
+        limit=20,
+        token="dummy",
+    )
+
+
+def test_get_public_groups_with_auth_excludes_joined_groups_through_service():
+    joined_group_id = uuid4()
+    user = MagicMock()
+    user.id = uuid4()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_ids_by_user",
+        return_value=[joined_group_id],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_paginated",
+        return_value=([], 0),
+    ) as mock_paginated, patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map",
+        return_value={},
+    ):
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_session.return_value.__exit__.return_value = False
+        response = client.get("/author/groups", headers={"Authorization": "Bearer dummy"})
+
+    assert response.status_code == status.HTTP_200_OK
+    assert mock_paginated.call_args.kwargs["exclude_group_ids"] == [joined_group_id]
+    assert response.json()["total"] == 0
 
 
 def test_create_group_invite_success():
