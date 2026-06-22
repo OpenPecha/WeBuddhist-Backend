@@ -104,7 +104,6 @@ def verify_auth0_token(token: str):
         jwks = get_auth0_public_key()
         unverified_header = jwt.get_unverified_header(token)
         rsa_key = jwks.get(unverified_header["kid"])
-
         if not rsa_key:
             raise ValueError("Unable to find appropriate key")
 

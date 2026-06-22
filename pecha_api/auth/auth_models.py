@@ -55,3 +55,4 @@ class ResetPasswordRequest(BaseModel):
 class PropsResponse(BaseModel):
     client_id: str
     domain: str
+    audience: str
