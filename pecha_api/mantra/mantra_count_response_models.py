@@ -8,6 +8,8 @@ from pydantic import BaseModel
 class MantraCountSummaryDTO(BaseModel):
     mantra_id: UUID
     mantra_title: Optional[str] = None
+    mala_image_id: Optional[UUID] = None
+    mala_image_url: Optional[str] = None
     private_count: int
     allocated_count: int
     total_count: int

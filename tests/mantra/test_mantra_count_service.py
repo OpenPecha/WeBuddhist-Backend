@@ -9,6 +9,7 @@ from starlette import status
 from pecha_api.mantra.mantra_count_service import (
     _build_count_fields,
     _resolve_mantra_title,
+    _resolve_mala_image_fields,
     get_user_mantra_count_detail_service,
     get_user_mantra_counts_service,
 )
@@ -23,7 +24,7 @@ class TestDataFactory:
         return user
 
     @staticmethod
-    def create_mantra(mantra_id=None, title="Medicine Buddha Mantra", metadata_entries=None):
+    def create_mantra(mantra_id=None, title="Medicine Buddha Mantra", metadata_entries=None, mala=None):
         mantra = MagicMock()
         mantra.id = mantra_id or uuid4()
         if metadata_entries is None:
@@ -32,6 +33,7 @@ class TestDataFactory:
             metadata.language = LanguageCode.EN
             metadata_entries = [metadata]
         mantra.metadata_entries = metadata_entries
+        mantra.mala = mala
         return mantra
 
     @staticmethod
@@ -69,21 +71,46 @@ class TestHelpers:
 
         assert _resolve_mantra_title(mantra, "bo") == "སྨན་བླའི་སྔགས"
 
+    def test_resolve_mala_image_fields_returns_none_when_mantra_missing(self):
+        assert _resolve_mala_image_fields(None) == (None, None)
+
+    def test_resolve_mala_image_fields_returns_none_when_mala_missing(self):
+        mantra = TestDataFactory.create_mantra(mala=None)
+        assert _resolve_mala_image_fields(mantra) == (None, None)
+
+    @patch("pecha_api.mantra.mantra_count_service.generate_mala_image_presigned_url")
+    def test_resolve_mala_image_fields_returns_id_and_url(self, mock_presign):
+        mala_id = uuid4()
+        mala = MagicMock()
+        mala.id = mala_id
+        mala.url = "mala-images/default.png"
+        mantra = TestDataFactory.create_mantra(mala=mala)
+        mock_presign.return_value = "https://signed-url"
+
+        assert _resolve_mala_image_fields(mantra) == (mala_id, "https://signed-url")
+        mock_presign.assert_called_once_with("mala-images/default.png")
+
 
 class TestGetUserMantraCountsService:
     @patch("pecha_api.mantra.mantra_count_service.get_mantras_by_ids")
     @patch("pecha_api.mantra.mantra_count_service.get_user_mantra_counts")
     @patch("pecha_api.mantra.mantra_count_service.SessionLocal")
     @patch("pecha_api.mantra.mantra_count_service.validate_and_extract_user_details")
+    @patch("pecha_api.mantra.mantra_count_service.generate_mala_image_presigned_url")
     def test_get_user_mantra_counts_success(
         self,
+        mock_presign,
         mock_validate_user,
         mock_session_local,
         mock_get_counts,
         mock_get_mantras,
     ):
         user = TestDataFactory.create_user()
-        mantra = TestDataFactory.create_mantra()
+        mala_id = uuid4()
+        mala = MagicMock()
+        mala.id = mala_id
+        mala.url = "mala-images/default.png"
+        mantra = TestDataFactory.create_mantra(mala=mala)
         row = TestDataFactory.create_count_row(mantra_id=mantra.id, total_count=500)
 
         mock_validate_user.return_value = user
@@ -91,6 +118,7 @@ class TestGetUserMantraCountsService:
         mock_session_local.return_value.__enter__.return_value = mock_db
         mock_get_counts.return_value = ([row], 1)
         mock_get_mantras.return_value = {mantra.id: mantra}
+        mock_presign.return_value = "https://signed-url"
 
         result = get_user_mantra_counts_service(token="valid_token", language="en")
 
@@ -98,6 +126,8 @@ class TestGetUserMantraCountsService:
         assert len(result.counts) == 1
         assert result.counts[0].mantra_id == mantra.id
         assert result.counts[0].mantra_title == "Medicine Buddha Mantra"
+        assert result.counts[0].mala_image_id == mala_id
+        assert result.counts[0].mala_image_url == "https://signed-url"
         assert result.counts[0].private_count == 500
         assert result.counts[0].allocated_count == 0
         assert result.counts[0].total_count == 500
