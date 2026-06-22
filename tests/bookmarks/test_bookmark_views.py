@@ -104,6 +104,19 @@ def test_create_bookmark_invalid_type():
     assert response.status_code == 422
 
 
+def test_create_bookmark_blank_source_id_verse():
+    response = client.post(
+        "/users/me/bookmarks",
+        json={
+            "type": "VERSE",
+            "source_id": "   "
+        },
+        headers={"Authorization": "Bearer test_token"}
+    )
+
+    assert response.status_code == 422
+
+
 def test_create_bookmark_unauthorized():
     response = client.post(
         "/users/me/bookmarks",

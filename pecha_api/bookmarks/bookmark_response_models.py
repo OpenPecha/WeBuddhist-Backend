@@ -13,15 +13,11 @@ class CreateBookmarkRequest(BaseModel):
 
     @field_validator("source_id")
     @classmethod
-    def _source_id_not_blank(cls, value: str) -> str:
+    def _validate_source_id(cls, value: str, info) -> str:
         value = value.strip()
         if not value:
             raise ValueError("source_id must not be empty")
-        return value
 
-    @field_validator("source_id")
-    @classmethod
-    def _normalize_uuid_source(cls, value: str, info) -> str:
         bookmark_type = info.data.get("type")
         if bookmark_type is not None and bookmark_type != BookmarkType.VERSE:
             try:
