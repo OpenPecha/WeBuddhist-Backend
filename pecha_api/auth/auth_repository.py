@@ -99,11 +99,26 @@ def _token_audiences(aud) -> list[str]:
     return [str(aud)]
 
 
+def _extract_email_from_auth0_payload(payload: Dict[str, Any]) -> str | None:
+    email = payload.get("email")
+    if isinstance(email, str) and email:
+        return email
+    for key, value in payload.items():
+        if isinstance(value, str) and value and key.endswith("/email"):
+            return value
+    return None
+
+
 def verify_auth0_token(token: str):
     try:
         jwks = get_auth0_public_key()
         unverified_header = jwt.get_unverified_header(token)
-        rsa_key = jwks.get(unverified_header["kid"])
+        kid = unverified_header.get("kid")
+        if not kid:
+            raise ValueError(
+                "Token header missing key id (kid); request an API access token with audience"
+            )
+        rsa_key = jwks.get(kid)
         if not rsa_key:
             raise ValueError("Unable to find appropriate key")
 
@@ -122,6 +137,10 @@ def verify_auth0_token(token: str):
                 f"Token audience {token_auds} not in allowed audiences {sorted(allowed)}"
             )
 
+        email = _extract_email_from_auth0_payload(payload)
+        if email and not payload.get("email"):
+            payload = {**payload, "email": email}
+
         return payload
-    except JWTError as e:
+    except (JWTError, KeyError) as e:
         raise ValueError(f"Token validation failed: {e}")
