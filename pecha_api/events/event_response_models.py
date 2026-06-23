@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from typing import Optional, List, Union
 from datetime import datetime
 from uuid import UUID
@@ -8,6 +8,8 @@ from pecha_api.plans.media.media_response_models import ImageUrlModel
 
 
 class EventMetadataDTO(BaseModel):
+    model_config = ConfigDict(ser_json_exclude_none=True)
+
     id: UUID
     name: str
     description: Optional[str] = None
@@ -36,6 +38,8 @@ def _validate_date_range(start_date: datetime, end_date: datetime) -> None:
 
 
 class EventDTO(BaseModel):
+    model_config = ConfigDict(ser_json_exclude_none=True)
+
     id: UUID
     plan_id: Optional[UUID] = None
     accumulator_id: Optional[UUID] = None

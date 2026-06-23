@@ -1,5 +1,5 @@
-from datetime import date, datetime, timezone
-from typing import Optional, Union
+from datetime import date, datetime, time, timezone
+from typing import Optional, Tuple, Union
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import HTTPException
@@ -15,6 +15,18 @@ def get_date_in_timezone(
     moment = at or datetime.now(timezone.utc)
     tz = _resolve_timezone(timezone_name)
     return moment.astimezone(tz).date()
+
+
+def get_day_bounds_in_timezone(
+    timezone_name: Optional[str],
+    at: Optional[datetime] = None,
+) -> Tuple[datetime, datetime]:
+    moment = at or datetime.now(timezone.utc)
+    tz = _resolve_timezone(timezone_name)
+    local_date = moment.astimezone(tz).date()
+    start = datetime.combine(local_date, time.min, tzinfo=tz)
+    end = datetime.combine(local_date, time.max, tzinfo=tz)
+    return start, end
 
 
 def _resolve_timezone(timezone_name: Optional[str]) -> TimezoneInfo:
