@@ -296,10 +296,11 @@ def _series_to_list_item_dto(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     total_days: int = 0,
+    fallback: bool = False,
 ) -> SeriesListItemDTO:
     return SeriesListItemDTO(
         id=row.id,
-        metadata=_metadata_response(row.metadata_entries, language=language),
+        metadata=_metadata_response(row.metadata_entries, language=language, fallback=fallback),
         image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
