@@ -191,6 +191,52 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
     assert dto.progress_percentage == 100.0
 
 
+def test_build_user_series_enrollment_dto_renders_language_with_en_fallback():
+    series_id = uuid.uuid4()
+    enrollment = SimpleNamespace(
+        id=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        series_id=series_id,
+        current_plan_id=None,
+        enrolled_at=datetime.now(timezone.utc),
+        status=SeriesStatus.ACTIVE,
+        auto_enroll_next=True,
+        is_completed=False,
+        completed_at=None,
+    )
+    series = SimpleNamespace(
+        id=series_id,
+        image=None,
+        metadata_entries=[
+            SimpleNamespace(
+                title="English Title",
+                description="English Desc",
+                language=SimpleNamespace(value="EN"),
+            ),
+            SimpleNamespace(
+                title="བོད་ཡིག",
+                description="Tibetan Desc",
+                language=SimpleNamespace(value="BO"),
+            ),
+        ],
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
+    ):
+        bo_dto = _build_user_series_enrollment_dto(
+            enrollment, series, {}, {series_id: []}, {}, language="bo"
+        )
+        # 'zh' is absent -> falls back to EN, never blank.
+        fallback_dto = _build_user_series_enrollment_dto(
+            enrollment, series, {}, {series_id: []}, {}, language="zh"
+        )
+
+    assert bo_dto.series_title == "བོད་ཡིག"
+    assert fallback_dto.series_title == "English Title"
+
+
 def test_build_user_series_enrollment_dto_without_metadata():
     series_id = uuid.uuid4()
     enrollment = SimpleNamespace(
@@ -792,6 +838,54 @@ def test_get_user_series_progress_success():
     assert len(result.plans) == 1
     assert result.plans[0].title == "Plan 1"
     assert result.plans[0].image is None
+
+
+def test_get_user_series_progress_falls_back_to_en_when_language_missing():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    enrollment_id = uuid.uuid4()
+
+    enrollment = SimpleNamespace(
+        id=enrollment_id,
+        enrolled_at=datetime.now(timezone.utc),
+        status=SeriesStatus.ACTIVE,
+        auto_enroll_next=True,
+        current_plan_id=None,
+        is_completed=False,
+        completed_at=None,
+    )
+    series = SimpleNamespace(
+        id=series_id,
+        metadata_entries=[
+            SimpleNamespace(
+                title="English title",
+                description="English desc",
+                language=SimpleNamespace(value="EN"),
+            )
+        ],
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+    _mock_series_query(db_mock, series)
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=enrollment,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_series_id",
+        return_value=[],
+    ):
+        # Requesting 'bo' which the series lacks -> falls back to EN metadata.
+        result = get_user_series_progress(token="tok", series_id=series_id, language="bo")
+
+    assert result.series_title == "English title"
+    assert result.series_description == "English desc"
 
 
 def test_get_user_series_progress_not_enrolled_raises_404():

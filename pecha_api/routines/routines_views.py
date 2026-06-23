@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from uuid import UUID
 from starlette import status
-from typing import Annotated
+from typing import Annotated, Optional
 from .routines_response_models import (
     CreateTimeBlockRequest,
     TimeBlockDTO,
@@ -98,11 +98,16 @@ async def get_routine(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    language: Annotated[
+        Optional[str],
+        Query(description="Render session titles in this language, falling back to 'en' (e.g. 'en', 'bo', 'zh')"),
+    ] = None,
 ):
     return await get_user_routine(
         token=authentication_credential.credentials,
         skip=skip,
         limit=limit,
+        language=language,
     )
 
 

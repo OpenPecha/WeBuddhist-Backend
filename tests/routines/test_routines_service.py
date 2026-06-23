@@ -1,4 +1,5 @@
 import uuid
+from contextlib import ExitStack
 from datetime import datetime
 
 import pytest
@@ -1284,6 +1285,105 @@ def test_resolve_series_sessions_uses_first_plan_start_fields():
     assert result[0].started_at == user_started_at
     assert result[0].current_plan_id == current_plan_id
     assert result[0].current_plan_title == "Week 2 Practice"
+
+
+def _series_with_metadata(series_id, metadata_entries):
+    return SimpleNamespace(
+        id=series_id,
+        image="series-image-key",
+        metadata_entries=metadata_entries,
+    )
+
+
+def _patch_series_resolution(series, first_plan, current_plan, progress):
+    series_id = series.id
+    return [
+        patch(
+            "pecha_api.plans.series.series_repository.get_series_by_ids",
+            return_value=[series],
+        ),
+        patch(
+            "pecha_api.plans.users.plan_user_series_repository.get_plans_by_series_ids",
+            return_value={series_id: [first_plan, current_plan]},
+        ),
+        patch(
+            "pecha_api.plans.public.plan_service._resolve_plan_for_date_in_series",
+            return_value=current_plan,
+        ),
+        patch(
+            "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
+            return_value={first_plan.id: progress},
+        ),
+        patch(
+            "pecha_api.routines.routines_service.safe_get_image_url",
+            return_value=ImageUrlModel(
+                thumbnail="https://example.com/t.jpg",
+                medium="https://example.com/m.jpg",
+                original="https://example.com/o.jpg",
+            ),
+        ),
+    ]
+
+
+def test_resolve_series_sessions_renders_requested_language():
+    series_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    series = _series_with_metadata(
+        series_id,
+        [
+            SimpleNamespace(title="English Series", language=SimpleNamespace(value="EN")),
+            SimpleNamespace(title="བོད་ཡིག", language=SimpleNamespace(value="BO")),
+        ],
+    )
+    session = SimpleNamespace(
+        id=uuid.uuid4(),
+        session_type=SessionType.SERIES,
+        source_id=series_id,
+        display_order=0,
+    )
+    first_plan = SimpleNamespace(id=uuid.uuid4(), start_date=datetime.now())
+    current_plan = SimpleNamespace(id=uuid.uuid4(), title="Week 2")
+    progress = SimpleNamespace(started_at=datetime.now())
+
+    with ExitStack() as stack:
+        for ctx in _patch_series_resolution(series, first_plan, current_plan, progress):
+            stack.enter_context(ctx)
+        result = _resolve_series_sessions(
+            MagicMock(), [session], user_id=user_id, language="bo"
+        )
+
+    assert result[0].title == "བོད་ཡིག"
+    assert result[0].language == "BO"
+
+
+def test_resolve_series_sessions_falls_back_to_en_when_language_missing():
+    series_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    series = _series_with_metadata(
+        series_id,
+        [SimpleNamespace(title="English Series", language=SimpleNamespace(value="EN"))],
+    )
+    session = SimpleNamespace(
+        id=uuid.uuid4(),
+        session_type=SessionType.SERIES,
+        source_id=series_id,
+        display_order=0,
+    )
+    first_plan = SimpleNamespace(id=uuid.uuid4(), start_date=datetime.now())
+    current_plan = SimpleNamespace(id=uuid.uuid4(), title="Week 2")
+    progress = SimpleNamespace(started_at=datetime.now())
+
+    with ExitStack() as stack:
+        for ctx in _patch_series_resolution(series, first_plan, current_plan, progress):
+            stack.enter_context(ctx)
+        # Requesting 'bo', which the series does not have -> falls back to EN.
+        result = _resolve_series_sessions(
+            MagicMock(), [session], user_id=user_id, language="bo"
+        )
+
+    assert len(result) == 1  # session is kept, never dropped
+    assert result[0].title == "English Series"
+    assert result[0].language == "EN"
 
 
 def test_enroll_new_sessions_on_update_does_not_unenroll_removed_plans():

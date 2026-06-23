@@ -779,6 +779,16 @@ def test_filter_series_metadata_without_language_returns_entries():
     assert _filter_series_metadata_by_language(None, "en") == []
 
 
+def test_filter_series_metadata_falls_back_to_en_when_language_missing():
+    entry_en = MagicMock()
+    entry_en.language = MagicMock(value="EN")
+
+    # Requesting 'bo' which is absent -> falls back to the EN entry.
+    filtered = _filter_series_metadata_by_language([entry_en], "bo")
+
+    assert filtered == [entry_en]
+
+
 def test_resolve_daily_plan_returns_entry_when_not_in_series():
     plan_id = uuid4()
     mock_plan = MagicMock()
