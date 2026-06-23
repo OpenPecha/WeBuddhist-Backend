@@ -610,6 +610,7 @@ def get_user_plan_day_details_service(token: str, plan_id: UUID, day_number: int
         from pecha_api.plans.audio.dto_helpers import build_plan_day_audio_fields
 
         audio_url, audio_duration_ms, _, _ = build_plan_day_audio_fields(plan_item)
+        from pecha_api.plans.public.plan_response_models import DayVideoSummaryDTO
         user_day_details = UserPlanDayDetailsResponse(
             id=plan_item.id,
             day_number=plan_item.day_number,
@@ -625,7 +626,17 @@ def get_user_plan_day_details_service(token: str, plan_id: UUID, day_number: int
                     is_completed=(task.id in completed_task_ids),
                     sub_tasks=_get_user_sub_tasks_dto_bulk(sub_tasks=task.sub_tasks, completed_subtask_ids=completed_subtask_ids)
                 ) for task in plan_item.tasks
-            ]
+            ],
+            videos=[
+                DayVideoSummaryDTO(
+                    id=video.id,
+                    url=video.url,
+                    video_id=video.video_id,
+                    title=video.title,
+                    display_order=video.display_order,
+                )
+                for video in sorted(plan_item.videos, key=lambda v: v.display_order)
+            ],
         )
         return user_day_details
 
