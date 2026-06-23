@@ -42,7 +42,7 @@ async def create_routine(
     return await create_routine_with_time_block(
         token=authentication_credential.credentials,
         request=request,
-        timezone=x_timezone,
+        timezone_name=x_timezone,
     )
 
 
@@ -66,7 +66,7 @@ async def create_time_block(
         token=authentication_credential.credentials,
         routine_id=routine_id,
         request=request,
-        timezone=x_timezone,
+        timezone_name=x_timezone,
     )
 
 
