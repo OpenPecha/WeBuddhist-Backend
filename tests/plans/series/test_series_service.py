@@ -479,6 +479,37 @@ def test_get_series_detail_returns_dto_without_plans():
     assert dto.group.id == group_id
 
 
+def test_get_series_detail_falls_back_to_en_metadata_when_language_missing():
+    series_id = uuid.uuid4()
+    row = MagicMock()
+    row.id = series_id
+    row.metadata_entries = [
+        _metadata_entry(title="English only", language=LanguageCode.EN),
+    ]
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.group_id = FIXTURE_GROUP_ID
+    row.featured = False
+    row.status = PlanStatus.PUBLISHED
+    row.plans = []
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=row,
+    ), patch(
+        "pecha_api.plans.series.series_service._group_summary_for_series",
+        return_value=None,
+    ):
+        _session_local_context(mock_session_local)
+
+        # Requesting 'bo' which the series does not have -> falls back to EN.
+        dto = get_series_detail(series_id=series_id, language="bo")
+
+    assert dto.metadata is not None
+    assert dto.metadata.title == "English only"
+    assert dto.metadata.language == "EN"
+
+
 def test_get_series_detail_includes_active_plans_sorted_and_presigns_images():
     series_id = uuid.uuid4()
     author_id = uuid.uuid4()

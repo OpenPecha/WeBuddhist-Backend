@@ -37,7 +37,10 @@ from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos, generate_tag_
 from pecha_api.plans.tags.tag_repository import get_published_tags_for_language, get_all_tags_paginated, get_tag_by_id
 from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
 from pecha_api.texts.segments.segments_repository import get_segments_by_ids
-from pecha_api.plans.shared.metadata_utils import format_metadata_response
+from pecha_api.plans.shared.metadata_utils import (
+    format_metadata_response,
+    filter_by_language_with_fallback,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -404,19 +407,17 @@ def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
 
 
 def _filter_series_metadata_by_language(metadata_entries, language: Optional[str]):
-    if not language or not metadata_entries:
+    if not metadata_entries:
         return metadata_entries or []
-    language_upper = language.upper()
-    return [
-        entry
-        for entry in metadata_entries
-        if (
+    return filter_by_language_with_fallback(
+        entries=list(metadata_entries),
+        language=language,
+        language_of=lambda entry: (
             entry.language.value
             if hasattr(entry.language, "value")
             else str(entry.language)
-        ).upper()
-        == language_upper
-    ]
+        ),
+    )
 
 
 def _to_plan_date(value) -> DateType:

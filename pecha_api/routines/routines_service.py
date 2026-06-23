@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from pecha_api.plans.users.plan_users_progress_repository import (
     get_plan_progress_by_user_id_and_plan_ids,
 )
+from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallback
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
@@ -556,10 +557,22 @@ def _series_metadata_language(metadata) -> Optional[str]:
     )
 
 
+def _select_series_metadata(metadata_entries, language: Optional[str]):
+    """Pick the metadata entry for ``language``, falling back to 'en', then first."""
+    if not metadata_entries:
+        return None
+    matched = filter_by_language_with_fallback(
+        entries=list(metadata_entries),
+        language=language,
+        language_of=_series_metadata_language,
+    )
+    return matched[0] if matched else metadata_entries[0]
+
+
 def _build_series_session_dto(
-    session, series, first_plan, progress, current_plan
+    session, series, first_plan, progress, current_plan, language: Optional[str] = None
 ) -> SessionDTO:
-    metadata = series.metadata_entries[0] if series.metadata_entries else None
+    metadata = _select_series_metadata(series.metadata_entries, language)
     series_image = safe_get_image_url(
         series.image, resource_id=series.id, resource_type="series"
     )
@@ -579,7 +592,7 @@ def _build_series_session_dto(
 
 
 def _resolve_series_sessions(
-    db, series_sessions: List[RoutineSession], user_id: UUID
+    db, series_sessions: List[RoutineSession], user_id: UUID, language: Optional[str] = None
 ) -> List[SessionDTO]:
     if not series_sessions:
         return []
@@ -618,13 +631,13 @@ def _resolve_series_sessions(
         current_plan = current_plan_map.get(session.source_id)
         resolved.append(
             _build_series_session_dto(
-                session, series, first_plan, progress, current_plan
+                session, series, first_plan, progress, current_plan, language=language
             )
         )
     return resolved
 
 
-async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -> List[SessionDTO]:
+async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID, language: Optional[str] = None) -> List[SessionDTO]:
     plan_sessions = [
         session for session in sessions if session.session_type == SessionType.PLAN
     ]
@@ -646,7 +659,7 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -
     ]
 
     resolved_plans = _resolve_plan_sessions(db=db, plan_sessions=plan_sessions, user_id=user_id)
-    resolved_series = _resolve_series_sessions(db=db, series_sessions=series_sessions, user_id=user_id)
+    resolved_series = _resolve_series_sessions(db=db, series_sessions=series_sessions, user_id=user_id, language=language)
     resolved_recitations = await _resolve_recitation_sessions(
         recitation_sessions=recitation_sessions
     )
@@ -679,9 +692,9 @@ def group_sessions_by_block(
 
 
 async def build_time_block_dto(
-    db, time_block: RoutineTimeBlock, sessions: List[RoutineSession], user_id: UUID
+    db, time_block: RoutineTimeBlock, sessions: List[RoutineSession], user_id: UUID, language: Optional[str] = None
 ) -> TimeBlockDTO:
-    resolved_sessions = await _resolve_sessions(db=db, sessions=sessions, user_id=user_id)
+    resolved_sessions = await _resolve_sessions(db=db, sessions=sessions, user_id=user_id, language=language)
     return TimeBlockDTO(
         id=time_block.id,
         time=time_block.time,
@@ -750,7 +763,7 @@ async def create_routine_with_time_block(
 
 
 async def get_user_routine(
-    token: str, skip: int = 0, limit: int = 20
+    token: str, skip: int = 0, limit: int = 20, language: Optional[str] = None
 ) -> RoutineResponse:
 
     current_user = validate_and_extract_user_details(token=token)
@@ -794,7 +807,7 @@ async def get_user_routine(
 
         time_block_dtos = [
             await build_time_block_dto(
-                db=db, time_block=tb, sessions=sessions_by_block.get(tb.id, []), user_id=current_user.id
+                db=db, time_block=tb, sessions=sessions_by_block.get(tb.id, []), user_id=current_user.id, language=language
             )
             for tb in time_blocks
         ]

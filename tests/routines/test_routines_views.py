@@ -912,6 +912,26 @@ def test_get_routine_with_pagination(authenticated_client):
         mock_get.assert_called_once()
 
 
+def test_get_routine_forwards_language_query_param(authenticated_client):
+    """The language query param is passed through to the service for fallback rendering."""
+    mock_response = RoutineResponse(
+        id=uuid.uuid4(), time_blocks=[], skip=0, limit=20, total=0
+    )
+
+    with patch(
+        "pecha_api.routines.routines_views.get_user_routine",
+        new_callable=AsyncMock,
+        return_value=mock_response,
+    ) as mock_get:
+        response = authenticated_client.get(
+            "/users/me/routine?language=bo",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert mock_get.call_args.kwargs["language"] == "bo"
+
+
 def test_get_routine_with_multiple_time_blocks(authenticated_client):
     """Test retrieval of routine with multiple time blocks sorted by time."""
     routine_id = uuid.uuid4()

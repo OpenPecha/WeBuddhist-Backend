@@ -7,7 +7,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from pecha_api.db.database import SessionLocal
-from pecha_api.plans.shared.metadata_utils import format_metadata_response
+from pecha_api.plans.shared.metadata_utils import (
+    format_metadata_response,
+    filter_by_language_with_fallback,
+)
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.groups.groups_repository import get_author_group_ids
@@ -77,10 +80,18 @@ def _optional_uuid(value) -> Optional[UUID]:
     return value if isinstance(value, UUID) else None
 
 
-def _metadata_to_dtos(entries, language: Optional[str] = None) -> List[SeriesMetadataDTO]:
+def _metadata_to_dtos(
+    entries, language: Optional[str] = None, fallback: bool = False
+) -> List[SeriesMetadataDTO]:
     if not entries:
         return []
-    if language:
+    if fallback:
+        entries = filter_by_language_with_fallback(
+            entries=list(entries),
+            language=language,
+            language_of=lambda entry: _language_value(entry.language),
+        )
+    elif language:
         language_upper = language.upper()
         entries = [
             entry for entry in entries
@@ -101,9 +112,9 @@ def _metadata_to_dtos(entries, language: Optional[str] = None) -> List[SeriesMet
     )
 
 
-def _metadata_response(entries, language: Optional[str] = None):
+def _metadata_response(entries, language: Optional[str] = None, fallback: bool = False):
     return format_metadata_response(
-        _metadata_to_dtos(entries, language=language),
+        _metadata_to_dtos(entries, language=language, fallback=fallback),
         language=language,
     )
 
@@ -182,6 +193,7 @@ def _get_sorted_active_plans(
     plans,
     published_only: bool = False,
     language: Optional[str] = None,
+    fallback: bool = False,
 ) -> List:
     if not plans:
         return []
@@ -191,7 +203,13 @@ def _get_sorted_active_plans(
             plan for plan in active_plans
             if _to_plan_status(plan.status) == PlanStatus.PUBLISHED
         ]
-    if language:
+    if fallback:
+        active_plans = filter_by_language_with_fallback(
+            entries=active_plans,
+            language=language,
+            language_of=lambda plan: _language_value(plan.language),
+        )
+    elif language:
         language_upper = language.upper()
         active_plans = [
             plan for plan in active_plans
@@ -314,6 +332,7 @@ def _series_to_dto(
             row.plans,
             published_only=published_only,
             language=plan_language,
+            fallback=True,
         )
         for plan in sorted_plans:
             plan_group_id = plan_group_ids.get(plan.id) if plan_group_ids else None
@@ -323,7 +342,7 @@ def _series_to_dto(
 
     return SeriesDTO(
         id=row.id,
-        metadata=_metadata_response(row.metadata_entries, language=metadata_language),
+        metadata=_metadata_response(row.metadata_entries, language=metadata_language, fallback=True),
         image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,

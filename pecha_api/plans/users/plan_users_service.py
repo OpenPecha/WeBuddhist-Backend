@@ -98,6 +98,7 @@ from pecha_api.plans.users.plan_user_series_repository import (
     get_paginated_plans_from_enrolled_series,
 )
 from pecha_api.plans.series.series_repository import get_series_by_ids, get_plans_by_ids
+from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallback
 from pecha_api.plans.groups.groups_repository import get_group_ids_by_plan_ids, get_group_ids_by_series_ids
 from pecha_api.plans.groups.groups_service import get_group_summaries_by_ids
 from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
@@ -681,6 +682,23 @@ def _compute_series_plan_progress(all_plans: list, progress_by_plan_id: dict) ->
     return total_plans, completed_plans, completed_plans / total_plans * 100
 
 
+def _series_metadata_language(metadata) -> str:
+    language = metadata.language
+    return language.value if hasattr(language, "value") else str(language)
+
+
+def _select_series_metadata(metadata_entries, language: Optional[str]):
+    """Pick a series metadata entry for ``language``, falling back to 'en', then first."""
+    if not metadata_entries:
+        return None
+    matched = filter_by_language_with_fallback(
+        entries=list(metadata_entries),
+        language=language,
+        language_of=_series_metadata_language,
+    )
+    return matched[0] if matched else metadata_entries[0]
+
+
 def _build_user_series_enrollment_dto(
     enrollment: UserSeriesEnrollment,
     series: Series,
@@ -688,8 +706,9 @@ def _build_user_series_enrollment_dto(
     plans_by_series_id: dict,
     progress_by_plan_id: dict,
     group: Optional[AuthorGroupSummaryDTO] = None,
+    language: Optional[str] = None,
 ) -> UserSeriesEnrollmentDTO:
-    series_metadata = series.metadata_entries[0] if series.metadata_entries else None
+    series_metadata = _select_series_metadata(series.metadata_entries, language)
     series_image = safe_get_image_url(
         series.image, resource_id=series.id, resource_type="series"
     )
@@ -854,6 +873,7 @@ def get_user_series_enrollments(
                     series_group_ids.get(enrollment.series_id),
                     group_summaries,
                 ),
+                language=language,
             )
             for enrollment in enrollments
             if (series := series_by_id.get(enrollment.series_id))
@@ -904,7 +924,7 @@ def get_user_series_days_completed(
             series = series_by_id.get(series_id)
             if not series:
                 continue
-            series_metadata = series.metadata_entries[0] if series.metadata_entries else None
+            series_metadata = _select_series_metadata(series.metadata_entries, language)
             series_dtos.append(
                 UserSeriesDaysCompletedDTO(
                     series_id=series_id,
@@ -954,7 +974,7 @@ def get_user_series_progress(
                 detail=ResponseError(error="NOT_FOUND", message="Series not found").model_dump()
             )
         
-        series_metadata = series.metadata_entries[0] if series.metadata_entries else None
+        series_metadata = _select_series_metadata(series.metadata_entries, language)
         all_plans = get_plans_by_series_id(db, series_id)
         group_summaries, plan_group_ids, series_group_ids = _load_group_summaries_for_plans(
             db, all_plans, extra_series_ids=[series_id], language=language

@@ -72,7 +72,10 @@ from pecha_api.plans.series.series_repository import (
 )
 from pecha_api.plans.series.series_response_models import SeriesListItemDTO
 from pecha_api.plans.series.series_service import _series_to_list_item_dto
-from pecha_api.plans.shared.metadata_utils import format_metadata_response
+from pecha_api.plans.shared.metadata_utils import (
+    format_metadata_response,
+    filter_by_language_with_fallback,
+)
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
     AuthorGroupListResponse,
@@ -153,12 +156,11 @@ def _optional_metadata_str(value) -> Optional[str]:
 
 
 def _metadata_to_dtos(metadata_entries, language: Optional[str] = None) -> List[GroupMetadataDTO]:
-    if language:
-        language_upper = language.upper()
-        metadata_entries = [
-            item for item in metadata_entries
-            if _language_value(item.language).upper() == language_upper
-        ]
+    metadata_entries = filter_by_language_with_fallback(
+        entries=list(metadata_entries or []),
+        language=language,
+        language_of=lambda item: _language_value(item.language),
+    )
     return [
         GroupMetadataDTO(
             id=item.id,

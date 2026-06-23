@@ -620,6 +620,49 @@ def test_group_summary_metadata_filtered_by_language():
     assert summary_bo.metadata.language == "BO"
 
 
+def test_group_summary_metadata_falls_back_to_en_when_language_missing():
+    from pecha_api.plans.groups.groups_service import _group_to_summary
+
+    group = _make_group()
+    meta_en = MagicMock()
+    meta_en.id = uuid4()
+    meta_en.title = "English Group"
+    meta_en.description = "EN desc"
+    meta_en.language = "EN"
+    group.metadata_entries = [meta_en]
+    group.tags = []
+    group.members = []
+
+    # Requesting 'bo' which is absent -> falls back to EN, never blank.
+    summary_bo = _group_to_summary(group, language="bo")
+
+    assert summary_bo.metadata is not None
+    assert summary_bo.metadata.title == "English Group"
+    assert summary_bo.metadata.language == "EN"
+
+
+def test_group_detail_metadata_falls_back_to_en_when_language_missing():
+    from pecha_api.plans.groups.groups_service import _group_to_detail
+
+    group = _make_group()
+    meta_en = MagicMock()
+    meta_en.id = uuid4()
+    meta_en.title = "English Group"
+    meta_en.description = "EN desc"
+    meta_en.language = "EN"
+    group.metadata_entries = [meta_en]
+    group.tags = []
+    group.members = []
+    group.social_links = []
+
+    # db=None skips series/plans loading; we only assert metadata fallback here.
+    detail_bo = _group_to_detail(group, language="bo")
+
+    assert detail_bo.metadata is not None
+    assert detail_bo.metadata.title == "English Group"
+    assert detail_bo.metadata.language == "EN"
+
+
 def test_list_cms_groups_scopes_to_member_groups_for_non_admin():
     author = _make_author(is_admin=False)
     group = _make_group()
