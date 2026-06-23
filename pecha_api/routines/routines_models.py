@@ -28,6 +28,7 @@ class Routine(Base):
         nullable=False,
         unique=True,
     )
+    timezone = Column(String(64), nullable=True)
 
     created_at = Column(
         DateTime(timezone=True),

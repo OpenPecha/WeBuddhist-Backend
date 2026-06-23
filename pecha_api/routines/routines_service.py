@@ -727,7 +727,7 @@ async def build_time_block_dto(
 
 
 async def create_routine_with_time_block(
-    token: str, request: CreateTimeBlockRequest
+    token: str, request: CreateTimeBlockRequest, timezone: Optional[str] = None
 ) -> RoutineWithTimeBlocksResponse:
 
     current_user = validate_and_extract_user_details(token=token)
@@ -750,7 +750,7 @@ async def create_routine_with_time_block(
             )
 
         # Create routine
-        routine = Routine(user_id=current_user.id)
+        routine = Routine(user_id=current_user.id, timezone=timezone)
         saved_routine = save_routine(db=db, routine=routine)
 
         # Create time block
