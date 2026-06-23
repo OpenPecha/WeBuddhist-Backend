@@ -510,7 +510,9 @@ def test_series_to_dtos_filters_metadata_by_language():
     assert bo_metadata[0].metadata.title == "Tibetan Series"
     assert bo_metadata[0].metadata.language == "BO"
     assert bo_metadata[0].plan_count == 2
-    assert missing_metadata[0].metadata is None
+    # No metadata for the requested language falls back to English.
+    assert missing_metadata[0].metadata.title == "English Series"
+    assert missing_metadata[0].metadata.language == "EN"
 
 
 def test_group_detail_series_metadata_filtered_by_language():
