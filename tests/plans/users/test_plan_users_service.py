@@ -1596,6 +1596,7 @@ def test_get_user_plan_day_details_service_success():
     plan_item = SimpleNamespace(
         id=day_id,
         day_number=3,
+        videos=[],
         tasks=[
             SimpleNamespace(
                 id=task1_id,
@@ -1753,6 +1754,7 @@ def test_get_user_plan_day_details_service_image_subtask_presigned():
     plan_item = SimpleNamespace(
         id=day_id,
         day_number=1,
+        videos=[],
         tasks=[
             SimpleNamespace(
                 id=task_id,
@@ -1826,6 +1828,7 @@ def test_get_user_plan_day_details_service_with_segment_fields():
     plan_item = SimpleNamespace(
         id=day_id,
         day_number=1,
+        videos=[],
         tasks=[
             SimpleNamespace(
                 id=task_id,

@@ -6,6 +6,7 @@ from datetime import datetime
 from pecha_api.plans.plans_enums import ContentType, SeriesStatus
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
+from pecha_api.plans.public.plan_response_models import DayVideoSummaryDTO
 
 
 
@@ -101,6 +102,7 @@ class UserPlanDayDetailsResponse(BaseModel):
     is_completed: bool
     audio_url: Optional[str] = None
     audio_duration_ms: Optional[int] = None
+    videos: List[DayVideoSummaryDTO] = []
 
 
 # Series Enrollment Models
