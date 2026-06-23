@@ -348,7 +348,7 @@ async def test_get_verse_of_day_today_success(sample_verse_public_response):
         assert "verses" in data["verse_of_day"]
         assert data["verse_of_day"]["ref_id"] == "text-123"
         
-        mock_service.assert_called_once_with(lang=None)
+        mock_service.assert_called_once_with(lang=None, timezone=None)
 
 
 @pytest.mark.asyncio
@@ -361,7 +361,7 @@ async def test_get_verse_of_day_today_not_found(sample_empty_response):
         data = response.json()
         
         assert data["verse_of_day"] is None
-        mock_service.assert_called_once_with(lang=None)
+        mock_service.assert_called_once_with(lang=None, timezone=None)
 
 
 @pytest.mark.asyncio
@@ -372,7 +372,67 @@ async def test_get_verse_of_day_today_database_error():
         
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert response.json()["detail"] == "Database connection error"
-        mock_service.assert_called_once_with(lang=None)
+        mock_service.assert_called_once_with(lang=None, timezone=None)
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_with_timezone_header_america(sample_verse_public_response):
+    """Test today's verse uses X-Timezone header with an American timezone."""
+    with patch(
+        "pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_today_service",
+        return_value=sample_verse_public_response,
+    ) as mock_service:
+        response = client.get(
+            "/verse-of-day/today",
+            headers={"X-Timezone": "America/New_York"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(lang=None, timezone="America/New_York")
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_with_timezone_header(sample_verse_public_response):
+    """Test today's verse uses X-Timezone header."""
+    with patch(
+        "pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_today_service",
+        return_value=sample_verse_public_response,
+    ) as mock_service:
+        response = client.get(
+            "/verse-of-day/today",
+            headers={"X-Timezone": "Asia/Kathmandu"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(lang=None, timezone="Asia/Kathmandu")
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_ignores_timezone_query_param(sample_verse_public_response):
+    """Test X-Timezone header is used when a timezone query param is also sent."""
+    with patch(
+        "pecha_api.verse_of_day.verse_of_day_views.get_verse_of_day_today_service",
+        return_value=sample_verse_public_response,
+    ) as mock_service:
+        response = client.get(
+            "/verse-of-day/today?timezone=America/New_York",
+            headers={"X-Timezone": "Asia/Kathmandu"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(lang=None, timezone="Asia/Kathmandu")
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_invalid_timezone():
+    """Test invalid timezone returns 422."""
+    response = client.get(
+        "/verse-of-day/today",
+        headers={"X-Timezone": "Not/A_Timezone"},
+    )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    assert "Invalid timezone" in response.json()["detail"]
 
 
 @pytest.mark.asyncio

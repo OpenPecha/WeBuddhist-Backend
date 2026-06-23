@@ -522,10 +522,8 @@ async def test_get_verse_of_day_today_service_success(sample_verse_model, mock_d
     today = date(2025, 6, 5)
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
-         patch("pecha_api.verse_of_day.verse_of_day_service.date") as mock_date, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_date_in_timezone", return_value=today) as mock_today, \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_today", return_value=sample_verse_model) as mock_repo:
-        
-        mock_date.today.return_value = today
         
         result = get_verse_of_day_today_service()
         
@@ -535,7 +533,7 @@ async def test_get_verse_of_day_today_service_success(sample_verse_model, mock_d
         assert "en" in result.verse_of_day.verses
         assert result.verse_of_day.ref_id == sample_verse_model.ref_id
         
-        mock_date.today.assert_called_once()
+        mock_today.assert_called_once_with(None)
         mock_repo.assert_called_once_with(
             mock_db_session.__enter__.return_value,
             today=today
@@ -548,10 +546,8 @@ async def test_get_verse_of_day_today_service_with_lang(sample_verse_model, mock
     today = date(2025, 6, 5)
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
-         patch("pecha_api.verse_of_day.verse_of_day_service.date") as mock_date, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_date_in_timezone", return_value=today), \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_today", return_value=sample_verse_model):
-        
-        mock_date.today.return_value = today
         
         result = get_verse_of_day_today_service(lang="en")
         
@@ -566,10 +562,8 @@ async def test_get_verse_of_day_today_service_not_found(mock_db_session):
     today = date(2025, 6, 5)
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
-         patch("pecha_api.verse_of_day.verse_of_day_service.date") as mock_date, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_date_in_timezone", return_value=today), \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_today", return_value=None) as mock_repo:
-        
-        mock_date.today.return_value = today
         
         result = get_verse_of_day_today_service()
         
@@ -585,10 +579,8 @@ async def test_get_verse_of_day_today_service_database_error(mock_db_session):
     today = date(2025, 6, 5)
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
-         patch("pecha_api.verse_of_day.verse_of_day_service.date") as mock_date, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_date_in_timezone", return_value=today), \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_today", side_effect=Exception("Database error")):
-        
-        mock_date.today.return_value = today
         
         with pytest.raises(Exception, match="Database error"):
             get_verse_of_day_today_service()
@@ -600,11 +592,9 @@ async def test_get_verse_of_day_today_with_group_info_all_languages(sample_verse
     today = date(2025, 6, 5)
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
-         patch("pecha_api.verse_of_day.verse_of_day_service.date") as mock_date, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_date_in_timezone", return_value=today), \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_today", return_value=sample_verse_with_group_id), \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_group_metadata_by_group_id", return_value=sample_group_metadata):
-        
-        mock_date.today.return_value = today
         
         result = get_verse_of_day_today_service()
         
@@ -619,11 +609,9 @@ async def test_get_verse_of_day_today_with_group_info_filtered(sample_verse_with
     today = date(2025, 6, 5)
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
-         patch("pecha_api.verse_of_day.verse_of_day_service.date") as mock_date, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_date_in_timezone", return_value=today), \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_today", return_value=sample_verse_with_group_id), \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_group_metadata_by_group_id", return_value=sample_group_metadata):
-        
-        mock_date.today.return_value = today
         
         result = get_verse_of_day_today_service(lang="BO")
         
@@ -639,15 +627,32 @@ async def test_get_verse_of_day_today_without_group_id(sample_verse_without_grou
     today = date(2025, 6, 5)
     
     with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
-         patch("pecha_api.verse_of_day.verse_of_day_service.date") as mock_date, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_date_in_timezone", return_value=today), \
          patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_today", return_value=sample_verse_without_group_id):
-        
-        mock_date.today.return_value = today
         
         result = get_verse_of_day_today_service()
         
         assert result.verse_of_day is not None
         assert result.verse_of_day.group_info is None
+
+
+@pytest.mark.asyncio
+async def test_get_verse_of_day_today_service_with_timezone(sample_verse_model, mock_db_session):
+    """Test today's verse uses the provided timezone."""
+    today = date(2025, 6, 4)
+
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_date_in_timezone", return_value=today) as mock_today, \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verse_of_day_today", return_value=sample_verse_model) as mock_repo:
+
+        result = get_verse_of_day_today_service(timezone="America/Los_Angeles")
+
+        assert result.verse_of_day is not None
+        mock_today.assert_called_once_with("America/Los_Angeles")
+        mock_repo.assert_called_once_with(
+            mock_db_session.__enter__.return_value,
+            today=today,
+        )
 
 
 # =============================================================================

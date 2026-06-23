@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, Depends
+from fastapi import APIRouter, Query, Depends, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated, Optional
 from uuid import UUID
@@ -43,9 +43,12 @@ def get_verse_of_day_endpoint(
 )
 def get_verse_of_day_today_endpoint(
     lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh, hi, ne, mn). Returns all languages if not specified.")] = None,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone for determining today's date."),
+    ] = None,
 ):
-
-    return get_verse_of_day_today_service(lang=lang)
+    return get_verse_of_day_today_service(lang=lang, timezone=x_timezone)
 
 
 @verse_of_day_router.get(
