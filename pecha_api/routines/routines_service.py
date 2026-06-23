@@ -569,6 +569,24 @@ def _select_series_metadata(metadata_entries, language: Optional[str]):
     return matched[0] if matched else metadata_entries[0]
 
 
+def _plan_language(plan) -> str:
+    return (
+        plan.language.value
+        if hasattr(plan.language, "value")
+        else str(plan.language)
+    )
+
+
+def _filter_plans_by_language(plans: List, language: Optional[str]) -> List:
+    if not plans:
+        return []
+    return filter_by_language_with_fallback(
+        entries=list(plans),
+        language=language,
+        language_of=_plan_language,
+    )
+
+
 def _build_series_session_dto(
     session, series, first_plan, progress, current_plan, language: Optional[str] = None
 ) -> SessionDTO:
@@ -607,13 +625,17 @@ def _resolve_series_sessions(
 
     plans_by_series = get_plans_by_series_ids(db=db, series_ids=series_ids)
     today = datetime.now(timezone.utc).date()
-    current_plan_map = {
-        series_id: _resolve_plan_for_date_in_series(plans, today)
+    language_plans_by_series = {
+        series_id: _filter_plans_by_language(plans, language)
         for series_id, plans in plans_by_series.items()
     }
+    current_plan_map = {
+        series_id: _resolve_plan_for_date_in_series(language_plans, today)
+        for series_id, language_plans in language_plans_by_series.items()
+    }
     first_plan_map = {
-        series_id: plans[0] if (plans := plans_by_series.get(series_id)) else None
-        for series_id in series_ids
+        series_id: language_plans[0] if language_plans else None
+        for series_id, language_plans in language_plans_by_series.items()
     }
     first_plan_ids = [plan.id for plan in first_plan_map.values() if plan is not None]
     progress_map = get_plan_progress_by_user_id_and_plan_ids(
