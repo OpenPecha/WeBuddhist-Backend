@@ -360,6 +360,7 @@ def _series_to_dtos(
             plan_count=plan_count_map.get(series.id, 0),
             enrolled_count=enrolled_count_map.get(series.id, 0),
             language=language,
+            fallback=True,
         )
         for series in series_list
     ]
