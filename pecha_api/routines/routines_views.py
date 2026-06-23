@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from uuid import UUID
 from starlette import status
@@ -34,10 +34,15 @@ user_routine_router = APIRouter(
 async def create_routine(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     request: CreateTimeBlockRequest,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone of the user (e.g. 'Asia/Kathmandu'). Stored on the routine; null if not provided."),
+    ] = None,
 ):
     return await create_routine_with_time_block(
         token=authentication_credential.credentials,
         request=request,
+        timezone_name=x_timezone,
     )
 
 
@@ -52,11 +57,16 @@ async def create_time_block(
         HTTPAuthorizationCredentials, Depends(oauth2_scheme)
     ],
     request: CreateTimeBlockRequest,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone of the user (e.g. 'Asia/Kathmandu'). When provided, refreshes the routine's stored timezone."),
+    ] = None,
 ):
     return await add_time_block_to_routine(
         token=authentication_credential.credentials,
         routine_id=routine_id,
         request=request,
+        timezone_name=x_timezone,
     )
 
 

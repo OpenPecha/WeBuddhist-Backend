@@ -29,6 +29,23 @@ def get_day_bounds_in_timezone(
     return start, end
 
 
+def normalize_timezone_name(timezone_name: Optional[str]) -> Optional[str]:
+    """Validate an IANA timezone name for storage.
+    """
+    if not timezone_name or not timezone_name.strip():
+        return None
+
+    cleaned = timezone_name.strip()
+    try:
+        ZoneInfo(cleaned)
+    except ZoneInfoNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid timezone: {timezone_name}",
+        ) from exc
+    return cleaned
+
+
 def _resolve_timezone(timezone_name: Optional[str]) -> TimezoneInfo:
     if not timezone_name or not timezone_name.strip():
         return timezone.utc

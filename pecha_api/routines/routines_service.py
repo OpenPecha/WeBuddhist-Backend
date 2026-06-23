@@ -20,6 +20,7 @@ from pecha_api.plans.users.plan_users_progress_repository import (
     get_plan_progress_by_user_id_and_plan_ids,
 )
 from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallback
+from pecha_api.timezone_utils import normalize_timezone_name
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
@@ -727,12 +728,13 @@ async def build_time_block_dto(
 
 
 async def create_routine_with_time_block(
-    token: str, request: CreateTimeBlockRequest
+    token: str, request: CreateTimeBlockRequest, timezone_name: Optional[str] = None
 ) -> RoutineWithTimeBlocksResponse:
 
     current_user = validate_and_extract_user_details(token=token)
 
     _validate_time_block_request(request)
+    timezone_name = normalize_timezone_name(timezone_name)
 
     with SessionLocal() as db:
         prepared_sessions = _prepare_sessions(db=db, sessions=request.sessions)
@@ -750,7 +752,7 @@ async def create_routine_with_time_block(
             )
 
         # Create routine
-        routine = Routine(user_id=current_user.id)
+        routine = Routine(user_id=current_user.id, timezone=timezone_name)
         saved_routine = save_routine(db=db, routine=routine)
 
         # Create time block
@@ -870,12 +872,13 @@ async def get_user_routine_info(token: str) -> RoutineInfoResponse:
 
 
 async def add_time_block_to_routine(
-    token: str, routine_id: UUID, request: CreateTimeBlockRequest
+    token: str, routine_id: UUID, request: CreateTimeBlockRequest, timezone_name: Optional[str] = None
 ) -> TimeBlockDTO:
 
     current_user = validate_and_extract_user_details(token=token)
 
     _validate_time_block_request(request)
+    timezone_name = normalize_timezone_name(timezone_name)
 
     with SessionLocal() as db:
         # Check routine exists and belongs to user
@@ -889,6 +892,10 @@ async def add_time_block_to_routine(
                     error=BAD_REQUEST, message=ROUTINE_NOT_FOUND
                 ).model_dump(),
             )
+
+        # Refresh the routine's stored timezone when the header is provided
+        if timezone_name is not None:
+            routine.timezone = timezone_name
 
         _check_duplicate_collections(db=db, routine_id=routine_id, sessions=request.sessions)
         _check_duplicate_time(db=db, routine_id=routine_id, time=request.time)
