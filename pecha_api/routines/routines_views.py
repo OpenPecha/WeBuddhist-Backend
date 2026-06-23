@@ -57,11 +57,16 @@ async def create_time_block(
         HTTPAuthorizationCredentials, Depends(oauth2_scheme)
     ],
     request: CreateTimeBlockRequest,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone of the user (e.g. 'Asia/Kathmandu'). When provided, refreshes the routine's stored timezone."),
+    ] = None,
 ):
     return await add_time_block_to_routine(
         token=authentication_credential.credentials,
         routine_id=routine_id,
         request=request,
+        timezone=x_timezone,
     )
 
 

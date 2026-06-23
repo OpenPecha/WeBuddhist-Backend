@@ -870,7 +870,7 @@ async def get_user_routine_info(token: str) -> RoutineInfoResponse:
 
 
 async def add_time_block_to_routine(
-    token: str, routine_id: UUID, request: CreateTimeBlockRequest
+    token: str, routine_id: UUID, request: CreateTimeBlockRequest, timezone: Optional[str] = None
 ) -> TimeBlockDTO:
 
     current_user = validate_and_extract_user_details(token=token)
@@ -889,6 +889,10 @@ async def add_time_block_to_routine(
                     error=BAD_REQUEST, message=ROUTINE_NOT_FOUND
                 ).model_dump(),
             )
+
+        # Refresh the routine's stored timezone when the header is provided
+        if timezone is not None:
+            routine.timezone = timezone
 
         _check_duplicate_collections(db=db, routine_id=routine_id, sessions=request.sessions)
         _check_duplicate_time(db=db, routine_id=routine_id, time=request.time)
