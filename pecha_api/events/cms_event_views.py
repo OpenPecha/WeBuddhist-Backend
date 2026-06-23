@@ -16,7 +16,7 @@ cms_events_router = APIRouter(
 )
 
 
-@cms_events_router.post("", status_code=status.HTTP_201_CREATED, response_model=EventDTO)
+@cms_events_router.post("", status_code=status.HTTP_201_CREATED, response_model=EventDTO, response_model_exclude_none=True)
 async def create_event_endpoint(
     request: CreateEventRequest,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
@@ -24,7 +24,7 @@ async def create_event_endpoint(
     return create_event_service(token=credentials.credentials, request=request)
 
 
-@cms_events_router.put("/{event_id}", status_code=status.HTTP_200_OK, response_model=EventDTO)
+@cms_events_router.put("/{event_id}", status_code=status.HTTP_200_OK, response_model=EventDTO, response_model_exclude_none=True)
 async def update_event_endpoint(
     event_id: UUID,
     request: UpdateEventRequest,

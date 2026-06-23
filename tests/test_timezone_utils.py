@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException
 from starlette import status
 
-from pecha_api.timezone_utils import get_date_in_timezone
+from pecha_api.timezone_utils import get_date_in_timezone, get_day_bounds_in_timezone
 
 
 def test_get_date_in_timezone_defaults_to_utc():
@@ -35,3 +35,22 @@ def test_get_date_in_timezone_rejects_invalid_timezone():
 
     assert exc_info.value.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
     assert "Invalid timezone" in exc_info.value.detail
+
+
+def test_get_day_bounds_in_timezone_defaults_to_utc():
+    moment = datetime(2026, 6, 23, 15, 30, tzinfo=timezone.utc)
+    start, end = get_day_bounds_in_timezone(None, at=moment)
+
+    assert start == datetime(2026, 6, 23, 0, 0, tzinfo=timezone.utc)
+    assert end == datetime(2026, 6, 23, 23, 59, 59, 999999, tzinfo=timezone.utc)
+
+
+def test_get_day_bounds_in_timezone_uses_client_timezone():
+    moment = datetime(2026, 6, 23, 2, 0, tzinfo=timezone.utc)
+    los_angeles = timezone(timedelta(hours=-7))
+
+    with patch("pecha_api.timezone_utils._resolve_timezone", return_value=los_angeles):
+        start, end = get_day_bounds_in_timezone("America/Los_Angeles", at=moment)
+
+    assert start == datetime(2026, 6, 22, 0, 0, tzinfo=los_angeles)
+    assert end == datetime(2026, 6, 22, 23, 59, 59, 999999, tzinfo=los_angeles)

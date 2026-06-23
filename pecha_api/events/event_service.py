@@ -6,6 +6,7 @@ from fastapi import HTTPException
 from starlette import status
 
 from pecha_api.db.database import SessionLocal
+from pecha_api.timezone_utils import get_day_bounds_in_timezone
 from pecha_api.plans.authors.plan_authors_service import (
     safe_get_image_url,
     validate_cms_author_details,
@@ -144,6 +145,24 @@ def get_events_service(
             skip=skip,
             limit=limit,
         )
+
+
+def get_events_today_service(
+    timezone: Optional[str] = None,
+    group_id: Optional[UUID] = None,
+    language: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+) -> EventsResponse:
+    from_date, to_date = get_day_bounds_in_timezone(timezone)
+    return get_events_service(
+        group_id=group_id,
+        from_date=from_date,
+        to_date=to_date,
+        language=language,
+        skip=skip,
+        limit=limit,
+    )
 
 
 def get_event_by_id_service(event_id: UUID, language: Optional[str] = None) -> EventDTO:
