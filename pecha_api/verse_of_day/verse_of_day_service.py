@@ -2,6 +2,8 @@ from typing import Optional, Dict, List
 from uuid import UUID
 from datetime import date
 import logging
+
+from pecha_api.timezone_utils import get_date_in_timezone
 from fastapi import HTTPException
 from starlette import status
 
@@ -223,11 +225,12 @@ def get_verse_of_day_by_id_service(
 
 
 def get_verse_of_day_today_service(
-    lang: Optional[str] = None
+    lang: Optional[str] = None,
+    timezone: Optional[str] = None,
 ) -> VerseOfDayPublicResponse:
 
     with SessionLocal() as db:
-        today = date.today()
+        today = get_date_in_timezone(timezone)
         verse = get_verse_of_day_today(db, today=today)
         
         if verse is None:
