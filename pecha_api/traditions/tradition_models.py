@@ -90,9 +90,11 @@ class UserTradition(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
+    user = relationship("Users")
     tradition = relationship("Tradition")
 
     __table_args__ = (
         UniqueConstraint("user_id", "tradition_id", name="uq_user_traditions_user_tradition"),
         Index("idx_user_traditions_user_id", "user_id"),
+        Index("idx_user_traditions_tradition_id", "tradition_id"),
     )
