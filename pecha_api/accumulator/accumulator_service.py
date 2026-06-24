@@ -296,9 +296,10 @@ def get_all_accumulators_service(
     skip: int = 0,
     limit: int = 20,
     language: Optional[str] = None,
+    search: Optional[str] = None,
 ) -> PublicAccumulatorsResponse:
     with SessionLocal() as db:
-        accumulators, total = get_all_accumulators(db, skip, limit)
+        accumulators, total = get_all_accumulators(db, skip, limit, search=search)
         mantra_ids = [a.mantra_id for a in accumulators if a.mantra_id is not None]
         mantras_by_id = get_mantras_by_ids(db, mantra_ids)
         return PublicAccumulatorsResponse(

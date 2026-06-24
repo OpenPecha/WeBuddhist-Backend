@@ -12,6 +12,7 @@ from .mala_image_model import MalaImage
 from .accumulator_history_model import AccumulatorHistory
 from .accumulator_enums import AccumulatorType
 from ..mantra.mantra_model import Mantra
+from ..mantra.mantra_metadata_model import MantraMetadata
 
 
 def mantra_exists(db: Session, mantra_id: UUID) -> bool:
@@ -99,9 +100,15 @@ def delete_accumulator(db: Session, accumulator: Accumulator) -> None:
 def get_all_accumulators(
     db: Session,
     skip: int = 0,
-    limit: int = 20
+    limit: int = 20,
+    search: Optional[str] = None,
 ) -> Tuple[List[Accumulator], int]:
-    """Public list: only group-defined presets, never users' own accumulators."""
+    """Public list: only group-defined presets, never users' own accumulators.
+
+    When `search` is provided, results are limited to presets whose mantra
+    metadata (mantra text, title, or pronunciation) matches the term
+    (case-insensitive substring), across any language.
+    """
     query = (
         db.query(Accumulator)
         .filter(
@@ -109,6 +116,18 @@ def get_all_accumulators(
             Accumulator.deleted_at.is_(None),
         )
     )
+
+    if search:
+        term = f"%{search.strip()}%"
+        matching_mantra_ids = (
+            db.query(MantraMetadata.mantra_id)
+            .filter(
+                func.coalesce(MantraMetadata.mantra, "").ilike(term)
+                | func.coalesce(MantraMetadata.title, "").ilike(term)
+                | func.coalesce(MantraMetadata.pronunciation, "").ilike(term)
+            )
+        )
+        query = query.filter(Accumulator.mantra_id.in_(matching_mantra_ids))
 
     total = query.count()
     accumulators = query.order_by(Accumulator.created_at.desc()).offset(skip).limit(limit).all()
