@@ -106,7 +106,7 @@ class TestGetAllAccumulators:
         assert isinstance(result, PublicAccumulatorsResponse)
         assert len(result.accumulators) == 2
         assert result.total == 2
-        mock_service.assert_called_once_with(skip=0, limit=20, language=None)
+        mock_service.assert_called_once_with(skip=0, limit=20, language=None, search=None)
 
     @patch('pecha_api.accumulator.accumulator_views.get_all_accumulators_service')
     @pytest.mark.asyncio
@@ -137,7 +137,7 @@ class TestGetAllAccumulators:
         assert result.skip == 5
         assert result.limit == 1
         assert result.total == 10
-        mock_service.assert_called_once_with(skip=5, limit=1, language=None)
+        mock_service.assert_called_once_with(skip=5, limit=1, language=None, search=None)
 
     @patch('pecha_api.accumulator.accumulator_views.get_all_accumulators_service')
     @pytest.mark.asyncio
@@ -149,7 +149,7 @@ class TestGetAllAccumulators:
 
         await get_all_preset_accumulators(skip=0, limit=20, language="bo")
 
-        mock_service.assert_called_once_with(skip=0, limit=20, language="bo")
+        mock_service.assert_called_once_with(skip=0, limit=20, language="bo", search=None)
 
 
 class TestGetUserAccumulators:

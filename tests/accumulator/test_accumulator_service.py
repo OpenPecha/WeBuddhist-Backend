@@ -199,7 +199,7 @@ class TestGetAllAccumulatorsService:
         assert isinstance(result.accumulators[0], PublicAccumulatorDTO)
         assert not hasattr(result.accumulators[0], "user_id")
 
-        mock_get_all.assert_called_once_with(mock_db, 0, 20)
+        mock_get_all.assert_called_once_with(mock_db, 0, 20, search=None)
         mock_get_mantras.assert_called_once_with(mock_db, [])
 
     @patch('pecha_api.accumulator.accumulator_service.get_mantras_by_ids')
@@ -286,7 +286,7 @@ class TestGetAllAccumulatorsService:
         assert result.limit == 1
         assert result.total == 10
 
-        mock_get_all.assert_called_once_with(mock_db, 5, 1)
+        mock_get_all.assert_called_once_with(mock_db, 5, 1, search=None)
 
 
 class TestGetUserAccumulatorsService:
