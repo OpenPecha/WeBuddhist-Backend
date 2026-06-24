@@ -51,6 +51,7 @@ DEFAULTS = dict(
     CACHE_USER_TIMEOUT=900,         # 15 minutes for users (not frequently changed)
     CACHE_TOPIC_TIMEOUT=1800,       # 30 minutes for topics (not frequently changed)
     CACHE_SHEET_TIMEOUT=60,         # 1 minute for sheets (frequently edited by users)
+    CACHE_USER_STATS_TIMEOUT=300,   # 5 minutes for user stats
 
     SHORT_URL_GENERATION_ENDPOINT="https://pech.as/api/v1",
     

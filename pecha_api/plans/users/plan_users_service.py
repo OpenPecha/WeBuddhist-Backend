@@ -67,6 +67,7 @@ from pecha_api.plans.response_message import (
 )
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.users.plan_user_day_repository import get_completed_day_ids_by_user_id_and_day_ids, save_user_day_completion, delete_user_day_completion, get_user_day_completion_by_user_id_and_day_id
+from pecha_api.daily_log.daily_log_cache_service import schedule_invalidate_user_stats_cache
 from pecha_api.plans.users.plan_user_series_day_sync_service import sync_series_day_completion
 from pecha_api.plans.users.plan_users_subtasks_repository import (
     save_user_sub_task_completions, 
@@ -312,7 +313,7 @@ async def get_user_enrolled_plans(
         
         for plan in plans:
             progress = progress_map.get(plan.id)
-            started_at = progress.started_at if progress else plan.created_at
+            started_at = progress.started_at if progress else None
             plan_group_id = _resolve_plan_group_id(plan, plan_group_ids, series_group_ids)
             
             user_plan = UserPlanDTO(
@@ -515,6 +516,7 @@ def check_day_completion(db:SessionLocal(), user_id: UUID, day_id: UUID) -> None
     
     if len(uncompleted_task_ids) == 0:
         save_user_day_completion(db=db, user_day_completion=UserDayCompletion(user_id=user_id, day_id=day_id))
+        schedule_invalidate_user_stats_cache(user_id=user_id)
 
         sibling_day_ids = sync_series_day_completion(db=db, user_id=user_id, completed_day_id=day_id)
 
@@ -557,6 +559,7 @@ def delete_task_service(token: str, task_id: UUID) -> None:
         delete_user_task_completion(db=db, user_id=current_user.id, task_id=task.id)
 
         delete_user_day_completion(db=db, user_id=current_user.id, day_id=task.plan_item_id)
+        schedule_invalidate_user_stats_cache(user_id=current_user.id)
 
         sub_tasks = get_sub_tasks_by_task_id(db=db, task_id=task.id)
         sub_tasks_ids = [sub_task.id for sub_task in sub_tasks]

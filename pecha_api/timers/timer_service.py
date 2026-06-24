@@ -10,6 +10,7 @@ from ..db.database import SessionLocal
 from ..uploads.S3_utils import generate_presigned_access_url
 from ..config import get
 from ..users.users_service import validate_and_extract_user_details
+from pecha_api.daily_log.daily_log_cache_service import schedule_invalidate_user_stats_cache
 from .timer_repository import (
     get_timers_by_group, 
     get_user_timers_by_group,
@@ -216,6 +217,8 @@ def record_timer_stop_service(token: str, request: RecordTimerStopRequest) -> No
         )
         
         save_timer_history(db, timer_history)
+
+    schedule_invalidate_user_stats_cache(user_id=current_user.id)
 
 
 def get_timer_history_service(

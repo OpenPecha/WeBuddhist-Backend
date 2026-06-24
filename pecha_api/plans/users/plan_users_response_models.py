@@ -55,7 +55,7 @@ class UserPlanDTO(BaseModel):
     language: str
     difficulty_level: str
     image: Optional[ImageUrlModel] = None
-    started_at: datetime
+    started_at: Optional[datetime] = None
     total_days: int
     tags: list[TagSummaryDTO] = []
     start_date: Optional[datetime] = None

@@ -306,6 +306,37 @@ def test_build_series_plan_dto_for_progress():
     assert dto.started_at == started_at
 
 
+def test_build_series_plan_dto_for_progress_without_started_plan():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    plan = SimpleNamespace(
+        id=plan_id,
+        title="Plan A",
+        description="Desc",
+        language=SimpleNamespace(value="EN"),
+        difficulty_level=SimpleNamespace(value="BEGINNER"),
+        image_url="images/plan.jpg",
+        tag_list=[],
+        start_date=None,
+        display_order=1,
+    )
+    db_mock = MagicMock()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.get_days_by_plan_id",
+        return_value=[SimpleNamespace()],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=None,
+    ):
+        dto = _build_series_plan_dto_for_progress(db_mock, plan, user_id)
+
+    assert dto.started_at is None
+
+
 def test_enroll_user_in_series_success():
     user_id = uuid.uuid4()
     series_id = uuid.uuid4()
@@ -838,6 +869,87 @@ def test_get_user_series_progress_success():
     assert len(result.plans) == 1
     assert result.plans[0].title == "Plan 1"
     assert result.plans[0].image is None
+
+
+def test_get_user_series_progress_includes_unstarted_plans():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    enrollment_id = uuid.uuid4()
+    started_plan_id = uuid.uuid4()
+    unstarted_plan_id = uuid.uuid4()
+    started_at = datetime.now(timezone.utc)
+
+    enrollment = SimpleNamespace(
+        id=enrollment_id,
+        enrolled_at=datetime.now(timezone.utc),
+        status=SeriesStatus.ACTIVE,
+        auto_enroll_next=True,
+        current_plan_id=started_plan_id,
+        is_completed=False,
+        completed_at=None,
+    )
+    series = SimpleNamespace(
+        id=series_id,
+        metadata_entries=[SimpleNamespace(title="Series", description="Desc")],
+    )
+    started_plan = SimpleNamespace(
+        id=started_plan_id,
+        title="Started Plan",
+        description="Started",
+        language=SimpleNamespace(value="EN"),
+        difficulty_level=SimpleNamespace(value="BEGINNER"),
+        image_url=None,
+        tag_list=[],
+        start_date=None,
+        display_order=1,
+    )
+    unstarted_plan = SimpleNamespace(
+        id=unstarted_plan_id,
+        title="Future Plan",
+        description="Not started",
+        language=SimpleNamespace(value="EN"),
+        difficulty_level=SimpleNamespace(value="BEGINNER"),
+        image_url=None,
+        tag_list=[],
+        start_date=None,
+        display_order=2,
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+    _mock_series_query(db_mock, series)
+
+    def progress_lookup(db, user_id_arg, plan_id):
+        if plan_id == started_plan_id:
+            return SimpleNamespace(started_at=started_at)
+        return None
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=enrollment,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_series_id",
+        return_value=[started_plan, unstarted_plan],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_days_by_plan_id",
+        return_value=[SimpleNamespace()],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        side_effect=progress_lookup,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
+    ):
+        result = get_user_series_progress(token="tok", series_id=series_id)
+
+    assert len(result.plans) == 2
+    assert result.plans[0].started_at == started_at
+    assert result.plans[1].started_at is None
 
 
 def test_get_user_series_progress_falls_back_to_en_when_language_missing():

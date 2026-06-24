@@ -25,6 +25,7 @@ class CacheType(Enum):
 
     USER_INFO = "user_info"
     USER_DAILY_LOG = "user_daily_log"
+    USER_STATS = "user_stats"
 
     TOPICS = "topics"
     

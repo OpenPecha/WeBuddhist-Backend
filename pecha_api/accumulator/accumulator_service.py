@@ -8,6 +8,7 @@ from ..db.database import SessionLocal
 from ..config import get
 from ..uploads.S3_utils import generate_presigned_access_url
 from ..users.users_service import validate_and_extract_user_details
+from pecha_api.daily_log.daily_log_cache_service import invalidate_user_stats_cache
 from ..texts.texts_utils import TextUtils
 from .accumulator_repository import (
     get_all_accumulators,
@@ -387,6 +388,7 @@ async def update_accumulator_service(token: str, accumulator_id: UUID, request: 
                     user_id=current_user.id,
                     count=delta
                 )
+                await invalidate_user_stats_cache(user_id=current_user.id)
 
         updated_accumulator = update_accumulator(db, accumulator)
         return convert_accumulator_to_dto(updated_accumulator)
