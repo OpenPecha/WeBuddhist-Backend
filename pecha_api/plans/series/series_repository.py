@@ -11,6 +11,8 @@ from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.users.plan_users_models import UserSeriesEnrollment
 
+_REFERENCE_START_DATE_UNSET = object()
+
 
 def _series_active_plans_count_subquery(published_only: bool = False):
     conditions = [Plan.series_id == Series.id, Plan.deleted_at.is_(None)]
@@ -408,6 +410,31 @@ def clone_series_with_plans(
     return new_series
 
 
+def _sorted_active_plans_by_display_order(plans) -> List[Plan]:
+    active_plans = [plan for plan in plans if plan.deleted_at is None]
+    return sorted(
+        active_plans,
+        key=lambda plan: (plan.display_order is None, plan.display_order or 0),
+    )
+
+
+def reference_start_date_for_series_plans(
+    plans,
+    *,
+    exclude_plan_ids: Optional[set] = None,
+):
+    """Return canonical start_date from the first plan in the series, or _REFERENCE_START_DATE_UNSET."""
+    exclude = exclude_plan_ids or set()
+    reference_plans = [
+        plan
+        for plan in (plans or [])
+        if plan.deleted_at is None and plan.id not in exclude
+    ]
+    if not reference_plans:
+        return _REFERENCE_START_DATE_UNSET
+    return _sorted_active_plans_by_display_order(reference_plans)[0].start_date
+
+
 def replace_series_metadata(
     db: Session,
     series_id: UUID,
@@ -429,6 +456,8 @@ def update_series_with_plans(
     plan_ids_to_detach: List[UUID],
     updated_at,
     metadata_entries: Optional[List] = None,
+    newly_attached_plan_ids: Optional[List[UUID]] = None,
+    reference_start_date=_REFERENCE_START_DATE_UNSET,
 ) -> Series:
     series.image = image
     series.featured = featured
@@ -455,6 +484,14 @@ def update_series_with_plans(
                 },
                 synchronize_session=False,
             )
+    if (
+        newly_attached_plan_ids
+        and reference_start_date is not _REFERENCE_START_DATE_UNSET
+    ):
+        db.query(Plan).filter(Plan.id.in_(newly_attached_plan_ids)).update(
+            {Plan.start_date: reference_start_date},
+            synchronize_session=False,
+        )
 
     db.commit()
     db.refresh(series)

@@ -24,6 +24,8 @@ from pecha_api.plans.series.series_repository import (
     clone_series_plans_for_language as clone_series_language_plans,
     get_series_for_clone,
     update_series_with_plans,
+    reference_start_date_for_series_plans,
+    _REFERENCE_START_DATE_UNSET,
     update_series_status,
     update_series_featured,
     soft_delete_series_with_plan_detach,
@@ -677,9 +679,23 @@ def update_existing_series(
                 # Every plan in the request gets its display_order (re)written,
                 # including ones already attached, since order may have changed.
                 plans_to_attach = plan_order_pairs
+                newly_attached = list(new_set - current_attached)
+                staying_ids = current_attached & new_set
+                reference_start_date = _REFERENCE_START_DATE_UNSET
+                if newly_attached and staying_ids:
+                    staying_plans = [
+                        plan
+                        for plan in (series.plans or [])
+                        if plan.deleted_at is None and plan.id in staying_ids
+                    ]
+                    reference_start_date = reference_start_date_for_series_plans(
+                        staying_plans
+                    )
             else:
                 to_detach = []
                 plans_to_attach = []
+                newly_attached = []
+                reference_start_date = _REFERENCE_START_DATE_UNSET
 
             _apply_series_field_updates(series, update_series_request)
 
@@ -693,6 +709,8 @@ def update_existing_series(
                 plan_ids_to_detach=to_detach,
                 updated_at=datetime.now(timezone.utc),
                 metadata_entries=update_series_request.metadata,
+                newly_attached_plan_ids=newly_attached or None,
+                reference_start_date=reference_start_date,
             )
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)

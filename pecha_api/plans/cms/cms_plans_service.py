@@ -11,7 +11,11 @@ from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.cms.cms_plans_repository import save_plan, get_plan_by_id, get_plans_by_author_id, update_plan
 from pecha_api.plans.groups.groups_repository import get_group_id_for_plan, get_group_ids_by_plan_ids
-from pecha_api.plans.series.series_repository import get_series_by_id
+from pecha_api.plans.series.series_repository import (
+    get_series_by_id,
+    reference_start_date_for_series_plans,
+    _REFERENCE_START_DATE_UNSET,
+)
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.tags.tag_repository import set_plan_tags
 from pecha_api.plans.tags.tag_service import validate_tag_ids
@@ -492,6 +496,16 @@ def _apply_create_plan_series_fields(
 ) -> None:
     if not create_plan_request.series_id:
         return
+
+    series = get_series_by_id(db=db, series_id=create_plan_request.series_id)
+    if series:
+        reference_start_date = reference_start_date_for_series_plans(
+            series.plans,
+            exclude_plan_ids={plan.id},
+        )
+        if reference_start_date is not _REFERENCE_START_DATE_UNSET:
+            plan.start_date = reference_start_date
+
     _apply_series_attachment_to_plan(
         db=db,
         plan=plan,
