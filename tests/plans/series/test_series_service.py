@@ -80,7 +80,10 @@ def test_get_filtered_series_maps_rows_to_response():
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
         "pecha_api.plans.series.series_service.get_series_paginated",
         return_value=([(row, 3, 0)], 1),
-    ) as mock_repo:
+    ) as mock_repo, patch(
+        "pecha_api.plans.series.series_service.get_series_with_plans_by_ids",
+        return_value=[],
+    ):
         _session_local_context(mock_session_local)
 
         result = get_filtered_series(search=None, skip=2, limit=5)

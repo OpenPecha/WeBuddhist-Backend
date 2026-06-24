@@ -2,12 +2,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 from starlette import status
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST, NOT_FOUND
 from pecha_api.bookmarks.bookmark_models import Bookmark
+from pecha_api.bookmarks.bookmark_enums import BookmarkType
 
 
 def save_bookmark(db: Session, bookmark: Bookmark) -> None:
@@ -26,10 +27,11 @@ def save_bookmark(db: Session, bookmark: Bookmark) -> None:
         )
 
 
-def get_bookmarks_by_user_id(db: Session, user_id: UUID) -> List[Bookmark]:
-    return db.query(Bookmark).filter(
-        Bookmark.user_id == user_id
-    ).order_by(Bookmark.created_at.desc()).all()
+def get_bookmarks_by_user_id(db: Session, user_id: UUID, type: Optional[BookmarkType] = None) -> List[Bookmark]:
+    query = db.query(Bookmark).filter(Bookmark.user_id == user_id)
+    if type is not None:
+        query = query.filter(Bookmark.type == type)
+    return query.order_by(Bookmark.created_at.desc()).all()
 
 
 def delete_bookmark(db: Session, user_id: UUID, bookmark_id: UUID) -> None:
