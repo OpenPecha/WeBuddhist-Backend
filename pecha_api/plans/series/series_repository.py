@@ -260,6 +260,12 @@ def _clone_item(db: Session, src_item, new_plan_id: UUID, created_by: str) -> No
             _clone_task(db, src_task, new_item.id, created_by)
 
 
+def _plan_language_value(language) -> str:
+    if hasattr(language, "value"):
+        return language.value
+    return str(language)
+
+
 def _clone_plan(
     db: Session,
     src_plan,
@@ -267,14 +273,15 @@ def _clone_plan(
     target_group_id: UUID,
     author_id: UUID,
     created_by: str,
-) -> None:
+    target_language: Optional[str] = None,
+) -> Plan:
     new_plan = Plan(
         title=src_plan.title,
         description=src_plan.description,
         author_id=author_id,
         group_id=target_group_id,
         series_id=new_series_id,
-        language=src_plan.language,
+        language=target_language if target_language is not None else src_plan.language,
         difficulty_level=src_plan.difficulty_level,
         featured=src_plan.featured,
         display_order=src_plan.display_order,
@@ -291,6 +298,58 @@ def _clone_plan(
 
     for src_item in src_plan.items or []:
         _clone_item(db, src_item, new_plan.id, created_by)
+
+    return new_plan
+
+
+def clone_series_plans_for_language(
+    db: Session,
+    series_id: UUID,
+    source_language: str,
+    target_language: str,
+    created_by: str,
+) -> List[Plan]:
+    """Deep-copy all active plans in source_language to target_language within the same series."""
+    series = get_series_for_clone(db, series_id)
+    if not series:
+        return []
+
+    source_upper = source_language.upper()
+    target_upper = target_language.upper()
+    active_plans = [plan for plan in (series.plans or []) if plan.deleted_at is None]
+
+    source_plans = sorted(
+        [
+            plan
+            for plan in active_plans
+            if _plan_language_value(plan.language).upper() == source_upper
+        ],
+        key=lambda plan: (plan.display_order is None, plan.display_order or 0),
+    )
+    target_plans = [
+        plan
+        for plan in active_plans
+        if _plan_language_value(plan.language).upper() == target_upper
+    ]
+    if not source_plans or target_plans:
+        return []
+
+    new_plans: List[Plan] = []
+    for src_plan in source_plans:
+        new_plans.append(
+            _clone_plan(
+                db,
+                src_plan,
+                series_id,
+                src_plan.group_id,
+                src_plan.author_id,
+                created_by,
+                target_language=target_upper,
+            )
+        )
+
+    db.commit()
+    return new_plans
 
 
 def clone_series_with_plans(

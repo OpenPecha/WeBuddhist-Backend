@@ -85,6 +85,17 @@ class UpdateSeriesRequest(BaseModel):
         return _validate_plan_language_keys(v)
 
 
+class CloneSeriesPlansRequest(BaseModel):
+    source_language: LanguageCode
+    target_language: LanguageCode
+
+    @model_validator(mode="after")
+    def _validate_languages(self):
+        if self.source_language == self.target_language:
+            raise ValueError("source_language and target_language must be different")
+        return self
+
+
 class UpdateSeriesStatusRequest(BaseModel):
     status: PlanStatus
 

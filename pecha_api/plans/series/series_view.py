@@ -6,8 +6,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette import status
 
 from pecha_api.plans.plans_enums import PlanStatus
-from pecha_api.plans.series.series_response_models import CreateSeriesRequest, UpdateSeriesRequest, UpdateSeriesStatusRequest, SeriesDTO, SeriesListResponse
-from pecha_api.plans.series.series_service import create_new_series, update_existing_series, update_existing_series_status, update_existing_series_featured, get_cms_filtered_series, get_cms_series_detail, delete_existing_series
+from pecha_api.plans.series.series_response_models import CreateSeriesRequest, UpdateSeriesRequest, UpdateSeriesStatusRequest, SeriesDTO, SeriesListResponse, CloneSeriesPlansRequest
+from pecha_api.plans.series.series_service import create_new_series, update_existing_series, update_existing_series_status, update_existing_series_featured, get_cms_filtered_series, get_cms_series_detail, delete_existing_series, clone_series_plans_for_language
 
 oauth2_scheme = HTTPBearer()
 
@@ -72,6 +72,23 @@ async def update_series_featured(
     return update_existing_series_featured(
         token=authentication_credential.credentials,
         series_id=series_id,
+    )
+
+
+@cms_series_router.post(
+    "/{series_id}/clone-plans",
+    status_code=status.HTTP_200_OK,
+    response_model=SeriesDTO,
+)
+async def clone_series_plans(
+    series_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    clone_request: CloneSeriesPlansRequest,
+):
+    return clone_series_plans_for_language(
+        token=authentication_credential.credentials,
+        series_id=series_id,
+        clone_request=clone_request,
     )
 
 
