@@ -95,6 +95,9 @@ DEFAULTS = dict(
     REQUEST_OBSERVABILITY_MEMORY_WARN_MB=50,
     REQUEST_OBSERVABILITY_SKIP_PATHS="/health",
 
+    # Worker API Configuration
+    WORKER_API_URL="http://127.0.0.1:8001/api/v1",
+
 )
 
 TIME_FORMAT_PATTERN = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
