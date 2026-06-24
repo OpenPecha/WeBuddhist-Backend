@@ -42,8 +42,12 @@ async def get_all_preset_accumulators(
         Optional[str],
         Query(description="Language code for mantra title, text, and pronunciation (e.g. 'en', 'bo', 'zh')"),
     ] = None,
+    search: Annotated[
+        Optional[str],
+        Query(description="Filter presets by mantra text, title, or pronunciation (case-insensitive, any language)"),
+    ] = None,
 ):
-    return get_all_accumulators_service(skip=skip, limit=limit, language=language)
+    return get_all_accumulators_service(skip=skip, limit=limit, language=language, search=search)
 
 
 @accumulator_router.get("/user", response_model=AccumulatorsResponse)

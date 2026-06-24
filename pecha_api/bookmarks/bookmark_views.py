@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends
 from starlette import status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 
+from pecha_api.bookmarks.bookmark_enums import BookmarkType
 from pecha_api.bookmarks.bookmark_response_models import (
     CreateBookmarkRequest,
     BookmarksResponse,
@@ -35,9 +36,10 @@ async def create_bookmark(
 
 @bookmark_router.get("/bookmarks", status_code=status.HTTP_200_OK, response_model=BookmarksResponse)
 async def get_bookmarks(
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    type: Optional[BookmarkType] = None
 ):
-    return await get_bookmarks_service(token=authentication_credential.credentials)
+    return await get_bookmarks_service(token=authentication_credential.credentials, type=type)
 
 
 @bookmark_router.delete("/bookmarks/{bookmark_id}", status_code=status.HTTP_204_NO_CONTENT)

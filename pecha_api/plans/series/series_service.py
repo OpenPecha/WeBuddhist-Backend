@@ -169,11 +169,13 @@ def _series_schedule_from_plans(
     plans,
     published_only: bool = False,
     language: Optional[str] = None,
+    fallback: bool = False,
 ) -> Tuple[Optional[datetime], Optional[datetime], int]:
     sorted_plans = _get_sorted_active_plans(
         plans,
         published_only=published_only,
         language=language,
+        fallback=fallback,
     )
     if not sorted_plans:
         return None, None, 0
@@ -385,17 +387,32 @@ def get_filtered_series(
             series_rows=[row for row, _, _ in rows],
             language=language,
         )
-
-    series_dtos: List[SeriesListItemDTO] = [
-        _series_to_list_item_dto(
-            row,
-            plan_count=plan_count,
-            enrolled_count=enrolled_count,
-            language=language,
-            group=group_summaries.get(row.group_id),
+        series_with_plans = get_series_with_plans_by_ids(
+            db=db_session,
+            series_ids=[row.id for row, _, _ in rows],
         )
-        for row, plan_count, enrolled_count in rows
-    ]
+        plans_by_series_id = {series.id: series.plans for series in series_with_plans}
+
+    series_dtos: List[SeriesListItemDTO] = []
+    for row, plan_count, enrolled_count in rows:
+        start_date, end_date, total_days = _series_schedule_from_plans(
+            plans_by_series_id.get(row.id, []),
+            published_only=True,
+            language=language,
+            fallback=True,
+        )
+        series_dtos.append(
+            _series_to_list_item_dto(
+                row,
+                plan_count=plan_count,
+                enrolled_count=enrolled_count,
+                language=language,
+                group=group_summaries.get(row.group_id),
+                start_date=start_date,
+                end_date=end_date,
+                total_days=total_days,
+            )
+        )
     return SeriesListResponse(
         series=series_dtos,
         skip=skip,
