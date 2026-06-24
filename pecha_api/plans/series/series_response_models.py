@@ -139,6 +139,7 @@ class SeriesDTO(BaseModel):
     image: Optional[ImageUrlModel] = None
     image_key: Optional[str] = None
     author_id: UUID
+    group_id: Optional[UUID] = None
     parent_series_id: Optional[UUID] = None
     featured: bool
     status: PlanStatus

@@ -353,6 +353,7 @@ def _series_to_dto(
         image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
+        group_id=row.group_id,
         parent_series_id=_optional_uuid(getattr(row, "parent_series_id", None)),
         featured=bool(row.featured),
         status=_to_plan_status(row.status),
