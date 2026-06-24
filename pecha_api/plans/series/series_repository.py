@@ -11,6 +11,8 @@ from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.users.plan_users_models import UserSeriesEnrollment
 
+_REFERENCE_START_DATE_UNSET = object()
+
 
 def _series_active_plans_count_subquery(published_only: bool = False):
     conditions = [Plan.series_id == Series.id, Plan.deleted_at.is_(None)]
@@ -260,6 +262,12 @@ def _clone_item(db: Session, src_item, new_plan_id: UUID, created_by: str) -> No
             _clone_task(db, src_task, new_item.id, created_by)
 
 
+def _plan_language_value(language) -> str:
+    if hasattr(language, "value"):
+        return language.value
+    return str(language)
+
+
 def _clone_plan(
     db: Session,
     src_plan,
@@ -267,14 +275,15 @@ def _clone_plan(
     target_group_id: UUID,
     author_id: UUID,
     created_by: str,
-) -> None:
+    target_language: Optional[str] = None,
+) -> Plan:
     new_plan = Plan(
         title=src_plan.title,
         description=src_plan.description,
         author_id=author_id,
         group_id=target_group_id,
         series_id=new_series_id,
-        language=src_plan.language,
+        language=target_language if target_language is not None else src_plan.language,
         difficulty_level=src_plan.difficulty_level,
         featured=src_plan.featured,
         display_order=src_plan.display_order,
@@ -291,6 +300,58 @@ def _clone_plan(
 
     for src_item in src_plan.items or []:
         _clone_item(db, src_item, new_plan.id, created_by)
+
+    return new_plan
+
+
+def clone_series_plans_for_language(
+    db: Session,
+    series_id: UUID,
+    source_language: str,
+    target_language: str,
+    created_by: str,
+) -> List[Plan]:
+    """Deep-copy all active plans in source_language to target_language within the same series."""
+    series = get_series_for_clone(db, series_id)
+    if not series:
+        return []
+
+    source_upper = source_language.upper()
+    target_upper = target_language.upper()
+    active_plans = [plan for plan in (series.plans or []) if plan.deleted_at is None]
+
+    source_plans = sorted(
+        [
+            plan
+            for plan in active_plans
+            if _plan_language_value(plan.language).upper() == source_upper
+        ],
+        key=lambda plan: (plan.display_order is None, plan.display_order or 0),
+    )
+    target_plans = [
+        plan
+        for plan in active_plans
+        if _plan_language_value(plan.language).upper() == target_upper
+    ]
+    if not source_plans or target_plans:
+        return []
+
+    new_plans: List[Plan] = []
+    for src_plan in source_plans:
+        new_plans.append(
+            _clone_plan(
+                db,
+                src_plan,
+                series_id,
+                src_plan.group_id,
+                src_plan.author_id,
+                created_by,
+                target_language=target_upper,
+            )
+        )
+
+    db.commit()
+    return new_plans
 
 
 def clone_series_with_plans(
@@ -349,6 +410,31 @@ def clone_series_with_plans(
     return new_series
 
 
+def _sorted_active_plans_by_display_order(plans) -> List[Plan]:
+    active_plans = [plan for plan in plans if plan.deleted_at is None]
+    return sorted(
+        active_plans,
+        key=lambda plan: (plan.display_order is None, plan.display_order or 0),
+    )
+
+
+def reference_start_date_for_series_plans(
+    plans,
+    *,
+    exclude_plan_ids: Optional[set] = None,
+):
+    """Return canonical start_date from the first plan in the series, or _REFERENCE_START_DATE_UNSET."""
+    exclude = exclude_plan_ids or set()
+    reference_plans = [
+        plan
+        for plan in (plans or [])
+        if plan.deleted_at is None and plan.id not in exclude
+    ]
+    if not reference_plans:
+        return _REFERENCE_START_DATE_UNSET
+    return _sorted_active_plans_by_display_order(reference_plans)[0].start_date
+
+
 def replace_series_metadata(
     db: Session,
     series_id: UUID,
@@ -370,6 +456,8 @@ def update_series_with_plans(
     plan_ids_to_detach: List[UUID],
     updated_at,
     metadata_entries: Optional[List] = None,
+    newly_attached_plan_ids: Optional[List[UUID]] = None,
+    reference_start_date=_REFERENCE_START_DATE_UNSET,
 ) -> Series:
     series.image = image
     series.featured = featured
@@ -396,6 +484,14 @@ def update_series_with_plans(
                 },
                 synchronize_session=False,
             )
+    if (
+        newly_attached_plan_ids
+        and reference_start_date is not _REFERENCE_START_DATE_UNSET
+    ):
+        db.query(Plan).filter(Plan.id.in_(newly_attached_plan_ids)).update(
+            {Plan.start_date: reference_start_date},
+            synchronize_session=False,
+        )
 
     db.commit()
     db.refresh(series)

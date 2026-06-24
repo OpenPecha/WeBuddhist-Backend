@@ -21,8 +21,11 @@ from pecha_api.plans.series.series_repository import (
     get_plans_by_ids,
     save_series_with_plans,
     clone_series_with_plans,
+    clone_series_plans_for_language as clone_series_language_plans,
     get_series_for_clone,
     update_series_with_plans,
+    reference_start_date_for_series_plans,
+    _REFERENCE_START_DATE_UNSET,
     update_series_status,
     update_series_featured,
     soft_delete_series_with_plan_detach,
@@ -38,6 +41,7 @@ from pecha_api.plans.series.series_response_models import (
     SeriesMetadataDTO,
     SeriesPlanDTO,
     SeriesListResponse,
+    CloneSeriesPlansRequest,
 )
 from pecha_api.plans.authors.plan_authors_service import (
     validate_cms_author_details,
@@ -349,6 +353,7 @@ def _series_to_dto(
         image=get_image_url(image_url=row.image),
         image_key=row.image,
         author_id=row.author_id,
+        group_id=row.group_id,
         parent_series_id=_optional_uuid(getattr(row, "parent_series_id", None)),
         featured=bool(row.featured),
         status=_to_plan_status(row.status),
@@ -675,9 +680,23 @@ def update_existing_series(
                 # Every plan in the request gets its display_order (re)written,
                 # including ones already attached, since order may have changed.
                 plans_to_attach = plan_order_pairs
+                newly_attached = list(new_set - current_attached)
+                staying_ids = current_attached & new_set
+                reference_start_date = _REFERENCE_START_DATE_UNSET
+                if newly_attached and staying_ids:
+                    staying_plans = [
+                        plan
+                        for plan in (series.plans or [])
+                        if plan.deleted_at is None and plan.id in staying_ids
+                    ]
+                    reference_start_date = reference_start_date_for_series_plans(
+                        staying_plans
+                    )
             else:
                 to_detach = []
                 plans_to_attach = []
+                newly_attached = []
+                reference_start_date = _REFERENCE_START_DATE_UNSET
 
             _apply_series_field_updates(series, update_series_request)
 
@@ -691,6 +710,8 @@ def update_existing_series(
                 plan_ids_to_detach=to_detach,
                 updated_at=datetime.now(timezone.utc),
                 metadata_entries=update_series_request.metadata,
+                newly_attached_plan_ids=newly_attached or None,
+                reference_start_date=reference_start_date,
             )
 
             refreshed = get_series_by_id(db=db_session, series_id=series_id)
@@ -861,6 +882,77 @@ def create_new_series(token: str, create_series_request: CreateSeriesRequest) ->
             saved = get_series_by_id(db=db_session, series_id=saved.id)
 
             return _series_detail_dto(db_session, saved, include_plans=bool(plan_ids))
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database integrity error: {exc.orig}",
+        ) from exc
+
+
+def clone_series_plans_for_language(
+    token: str,
+    series_id: UUID,
+    clone_request: CloneSeriesPlansRequest,
+) -> SeriesDTO:
+    current_author = validate_cms_author_details(token=token)
+    source_language = clone_request.source_language.value
+    target_language = clone_request.target_language.value
+
+    try:
+        with SessionLocal() as db_session:
+            series = get_series_by_id(db=db_session, series_id=series_id)
+            if not series:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Series with id '{series_id}' not found",
+                )
+            require_can_edit_content(
+                db=db_session,
+                group_id=series.group_id,
+                author=current_author,
+                content_status=series.status,
+            )
+
+            active_plans = [
+                plan for plan in (series.plans or []) if plan.deleted_at is None
+            ]
+            source_plans = [
+                plan
+                for plan in active_plans
+                if _language_value(plan.language).upper() == source_language
+            ]
+            target_plans = [
+                plan
+                for plan in active_plans
+                if _language_value(plan.language).upper() == target_language
+            ]
+
+            if not source_plans:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"No plans found in language '{source_language}' for this series",
+                )
+            if target_plans:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Plans already exist in language '{target_language}' for this series",
+                )
+
+            cloned_plans = clone_series_language_plans(
+                db=db_session,
+                series_id=series_id,
+                source_language=source_language,
+                target_language=target_language,
+                created_by=current_author.email,
+            )
+            if not cloned_plans:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Could not clone plans for the requested languages",
+                )
+
+            refreshed = get_series_by_id(db=db_session, series_id=series_id)
+            return _series_detail_dto(db_session, refreshed, include_plans=True)
     except IntegrityError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -25,6 +25,7 @@ from pecha_api.plans.series.series_service import (
     get_cms_filtered_series,
     get_cms_series_detail,
     delete_existing_series,
+    clone_series_plans_for_language,
 )
 from pecha_api.plans.platform_enums import PlatformRole
 
@@ -42,6 +43,7 @@ from pecha_api.plans.series.series_response_models import (
     UpdateSeriesStatusRequest,
     SeriesListResponse,
     SeriesMetadataInput,
+    CloneSeriesPlansRequest,
 )
 
 
@@ -3025,3 +3027,111 @@ def test_get_cms_filtered_series_count_maps_to_plan_count():
         result = get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10)
 
     assert result.series[0].plan_count == 9
+
+
+def _make_series_plan(language=LanguageCode.EN):
+    plan = MagicMock()
+    plan.id = uuid.uuid4()
+    plan.deleted_at = None
+    plan.language = language
+    plan.title = "Plan"
+    plan.description = None
+    plan.difficulty_level = DifficultyLevel.BEGINNER
+    plan.image_url = None
+    plan.tag_list = []
+    plan.status = PlanStatus.DRAFT
+    plan.featured = False
+    plan.display_order = 0
+    plan.start_date = None
+    plan.items = []
+    plan.group_id = FIXTURE_GROUP_ID
+    return plan
+
+
+def test_clone_series_plans_for_language_clones_and_returns_dto():
+    series_id = uuid.uuid4()
+    row = MagicMock()
+    row.id = series_id
+    row.group_id = FIXTURE_GROUP_ID
+    row.status = PlanStatus.DRAFT
+    row.plans = [_make_series_plan(LanguageCode.EN)]
+    row.metadata_entries = [_metadata_entry()]
+    row.image = None
+    row.author_id = uuid.uuid4()
+    row.featured = False
+
+    cloned_plan = MagicMock()
+    cloned_plan.id = uuid.uuid4()
+    mock_author = _make_mock_author(row.author_id, is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=mock_author,
+    ), patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=row,
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_edit_content",
+    ), patch(
+        "pecha_api.plans.series.series_service.clone_series_language_plans",
+        return_value=[cloned_plan],
+    ) as mock_clone, patch(
+        "pecha_api.plans.series.series_service.get_enrolled_count_map_by_series_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.series.series_service._group_summary_for_series",
+        return_value=None,
+    ):
+        _session_local_context(mock_session_local)
+
+        dto = clone_series_plans_for_language(
+            token="dummy",
+            series_id=series_id,
+            clone_request=CloneSeriesPlansRequest(
+                source_language=LanguageCode.EN,
+                target_language=LanguageCode.BO,
+            ),
+        )
+
+    mock_clone.assert_called_once()
+    assert dto.id == series_id
+
+
+def test_clone_series_plans_for_language_rejects_when_target_has_plans():
+    series_id = uuid.uuid4()
+    row = MagicMock()
+    row.id = series_id
+    row.group_id = FIXTURE_GROUP_ID
+    row.status = PlanStatus.DRAFT
+    row.plans = [
+        _make_series_plan(LanguageCode.EN),
+        _make_series_plan(LanguageCode.BO),
+    ]
+
+    mock_author = _make_mock_author(uuid.uuid4(), is_admin=False)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=mock_author,
+    ), patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=row,
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_edit_content",
+    ), patch(
+        "pecha_api.plans.series.series_service.clone_series_language_plans",
+    ) as mock_clone:
+        _session_local_context(mock_session_local)
+
+        with pytest.raises(HTTPException) as exc:
+            clone_series_plans_for_language(
+                token="dummy",
+                series_id=series_id,
+                clone_request=CloneSeriesPlansRequest(
+                    source_language=LanguageCode.EN,
+                    target_language=LanguageCode.BO,
+                ),
+            )
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    mock_clone.assert_not_called()

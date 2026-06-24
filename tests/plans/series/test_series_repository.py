@@ -14,6 +14,7 @@ from pecha_api.plans.series.series_repository import (
     get_random_featured_published_series,
     save_series_with_plans,
     clone_series_with_plans,
+    clone_series_plans_for_language,
     update_series_with_plans,
     update_series_status,
     update_series_featured,
@@ -777,3 +778,65 @@ def test_clone_series_with_plans_skips_soft_deleted_plans_and_tasks():
     assert len(_added_of_type(db, PlanItem)) == 0
     # Series + its metadata are still created even with no plans.
     assert len(_added_of_type(db, Series)) == 1
+
+
+def test_clone_series_plans_for_language_deep_copies_with_target_language():
+    from unittest.mock import patch
+
+    db = _make_session_mock()
+    parent = _build_parent_series_for_clone()
+    series_id = parent.id
+
+    with patch(
+        "pecha_api.plans.series.series_repository.get_series_for_clone",
+        return_value=parent,
+    ):
+        result = clone_series_plans_for_language(
+            db=db,
+            series_id=series_id,
+            source_language="EN",
+            target_language="BO",
+            created_by="user@example.com",
+        )
+
+    assert len(result) == 1
+    cloned_plans = _added_of_type(db, Plan)
+    assert len(cloned_plans) == 1
+    assert cloned_plans[0].language == "BO"
+    assert cloned_plans[0].series_id == series_id
+    assert cloned_plans[0] is not parent.plans[0]
+    assert len(_added_of_type(db, PlanItem)) == 1
+    assert len(_added_of_type(db, PlanTask)) == 1
+    assert len(_added_of_type(db, PlanSubTask)) == 1
+    db.commit.assert_called_once()
+
+
+def test_clone_series_plans_for_language_returns_empty_when_target_exists():
+    from unittest.mock import patch
+
+    db = _make_session_mock()
+    parent = _build_parent_series_for_clone()
+    bo_plan = Plan(
+        id=uuid.uuid4(),
+        title="Plan B",
+        language="BO",
+        group_id=parent.group_id,
+        deleted_at=None,
+    )
+    parent.plans.append(bo_plan)
+
+    with patch(
+        "pecha_api.plans.series.series_repository.get_series_for_clone",
+        return_value=parent,
+    ):
+        result = clone_series_plans_for_language(
+            db=db,
+            series_id=parent.id,
+            source_language="EN",
+            target_language="BO",
+            created_by="user@example.com",
+        )
+
+    assert result == []
+    assert len(_added_of_type(db, Plan)) == 0
+    db.commit.assert_not_called()
