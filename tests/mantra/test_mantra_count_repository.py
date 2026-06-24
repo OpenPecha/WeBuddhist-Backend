@@ -4,9 +4,30 @@ from uuid import uuid4
 
 from pecha_api.mantra.mantra_count_repository import (
     UserMantraCountRow,
+    _user_mantra_counts_query,
     get_user_mantra_count_for_mantra,
     get_user_mantra_counts,
 )
+
+
+class TestUserMantraCountsQuery:
+    def test_includes_soft_deleted_accumulators(self):
+        db = MagicMock()
+        user_id = uuid4()
+
+        base = MagicMock()
+        filtered = MagicMock()
+        grouped = MagicMock()
+
+        db.query.return_value = base
+        base.filter.return_value = filtered
+        filtered.group_by.return_value = grouped
+
+        result = _user_mantra_counts_query(db, user_id)
+
+        assert result is grouped
+        filter_expr = base.filter.call_args[0][0]
+        assert "deleted_at" not in str(filter_expr)
 
 
 class TestUserMantraCountRow:

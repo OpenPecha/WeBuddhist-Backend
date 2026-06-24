@@ -29,7 +29,6 @@ def _user_mantra_counts_query(db: Session, user_id: UUID):
         )
         .filter(
             Accumulator.user_id == user_id,
-            Accumulator.deleted_at.is_(None),
             Accumulator.mantra_id.isnot(None),
         )
         .group_by(Accumulator.mantra_id)
