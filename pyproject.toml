@@ -37,7 +37,6 @@ toml = "^0.10.2"
 mailtrap = "^2.3.0"
 google-genai = "^2.0"
 
-slowapi = "^0.1.10"
 [tool.poetry.scripts]
 start = "uvicorn:main"
 
