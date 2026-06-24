@@ -90,25 +90,13 @@ def test_get_week_active_days_empty_when_no_logs():
 
 def test_get_highest_streak_returns_zero_when_no_logs():
     db = MagicMock()
-    db.query.return_value.filter.return_value.all.return_value = []
+    db.execute.return_value.scalar_one.return_value = 0
 
     assert get_highest_streak(db=db, user_id=uuid4()) == 0
 
 
-def test_get_highest_streak_finds_longest_run():
+def test_get_highest_streak_returns_max_from_query():
     db = MagicMock()
-    anchor = date(2026, 6, 11)
-    # Two runs: a 2-day run, then a 4-day run after a gap.
-    dates = [
-        anchor,
-        anchor - timedelta(days=1),
-        anchor - timedelta(days=5),
-        anchor - timedelta(days=6),
-        anchor - timedelta(days=7),
-        anchor - timedelta(days=8),
-    ]
-    db.query.return_value.filter.return_value.all.return_value = [
-        MagicMock(log_date=d) for d in dates
-    ]
+    db.execute.return_value.scalar_one.return_value = 4
 
     assert get_highest_streak(db=db, user_id=uuid4()) == 4

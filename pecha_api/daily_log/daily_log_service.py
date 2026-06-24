@@ -2,6 +2,8 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Set
 from uuid import UUID
 
+from sqlalchemy.orm import Session
+
 from pecha_api.db.database import SessionLocal
 from pecha_api.daily_log.daily_log_cache_service import (
     is_user_logged_today_in_cache,
@@ -9,6 +11,7 @@ from pecha_api.daily_log.daily_log_cache_service import (
 )
 from pecha_api.daily_log.daily_log_repository import (
     get_highest_streak,
+    get_user_activity_totals,
     get_user_streak,
     get_week_active_days,
     has_log_for_date,
@@ -18,11 +21,6 @@ from pecha_api.daily_log.daily_log_response_models import (
     StreakStats,
     UserStatsResponse,
     UserStreakResponse,
-)
-from pecha_api.timers.timer_repository import get_user_total_duration
-from pecha_api.accumulator.accumulator_repository import get_user_total_count
-from pecha_api.plans.users.plan_users_progress_repository import (
-    get_user_total_practice_days,
 )
 from pecha_api.users.users_service import validate_and_extract_user_details
 
@@ -48,18 +46,27 @@ def calculate_streak(log_dates: Set[date]) -> int:
     return streak
 
 
-async def record_daily_log_if_needed(user_id: UUID) -> None:
+async def record_daily_log_if_needed(user_id: UUID, db: Session | None = None) -> None:
     today = _utc_today()
 
     if await is_user_logged_today_in_cache(user_id=user_id, log_date=today):
         return
 
-    with SessionLocal() as db:
+    if db is not None:
         if has_log_for_date(db=db, user_id=user_id, log_date=today):
             await set_user_daily_log_cache(user_id=user_id, log_date=today)
             return
 
         save_daily_log(db=db, user_id=user_id, log_date=today)
+        await set_user_daily_log_cache(user_id=user_id, log_date=today)
+        return
+
+    with SessionLocal() as session:
+        if has_log_for_date(db=session, user_id=user_id, log_date=today):
+            await set_user_daily_log_cache(user_id=user_id, log_date=today)
+            return
+
+        save_daily_log(db=session, user_id=user_id, log_date=today)
 
     await set_user_daily_log_cache(user_id=user_id, log_date=today)
 
@@ -80,16 +87,17 @@ async def get_user_stats_service(token: str) -> UserStatsResponse:
     current_user = validate_and_extract_user_details(token=token)
     today = _utc_today()
 
-    await record_daily_log_if_needed(user_id=current_user.id)
-
     user_id = current_user.id
     with SessionLocal() as db:
+        await record_daily_log_if_needed(user_id=user_id, db=db)
+
         current_streak = get_user_streak(db=db, user_id=user_id, today=today)
         highest_streak = get_highest_streak(db=db, user_id=user_id)
         week_active_days = get_week_active_days(db=db, user_id=user_id, today=today)
-        total_timer = get_user_total_duration(db=db, user_id=user_id)
-        total_accumulated = get_user_total_count(db=db, user_id=user_id)
-        total_practice_days = get_user_total_practice_days(db=db, user_id=user_id)
+        total_timer, total_accumulated, total_practice_days = get_user_activity_totals(
+            db=db,
+            user_id=user_id,
+        )
 
     return UserStatsResponse(
         streak=StreakStats(

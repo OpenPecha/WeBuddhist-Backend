@@ -1,10 +1,14 @@
 from datetime import date, timedelta
 from uuid import UUID
 
+from sqlalchemy import Integer, cast, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from pecha_api.accumulator.accumulator_history_model import AccumulatorHistory
 from pecha_api.daily_log.daily_log_models import UserDailyLog
+from pecha_api.plans.users.plan_users_models import UserDayCompletion
+from pecha_api.timers.timer_history_model import TimerHistory
 
 _STREAK_CHUNK_SIZE = 32
 
@@ -40,26 +44,51 @@ def get_week_active_days(db: Session, user_id: UUID, today: date) -> list[int]:
 
 def get_highest_streak(db: Session, user_id: UUID) -> int:
     """Longest run of consecutive daily logs across the user's full history."""
-    log_dates = sorted(
-        row.log_date
-        for row in db.query(UserDailyLog.log_date).filter(
-            UserDailyLog.user_id == user_id,
-        ).all()
+    row_number = func.row_number().over(order_by=UserDailyLog.log_date)
+    streak_group = (UserDailyLog.log_date - cast(row_number, Integer)).label("grp")
+
+    grouped = (
+        select(streak_group)
+        .where(UserDailyLog.user_id == user_id)
+        .subquery()
+    )
+    streak_lengths = (
+        select(func.count().label("streak_length"))
+        .select_from(grouped)
+        .group_by(grouped.c.grp)
+        .subquery()
     )
 
-    if not log_dates:
-        return 0
+    result = db.execute(
+        select(func.coalesce(func.max(streak_lengths.c.streak_length), 0))
+    ).scalar_one()
 
-    highest = 1
-    current = 1
-    for previous, current_date in zip(log_dates, log_dates[1:]):
-        if current_date == previous + timedelta(days=1):
-            current += 1
-        elif current_date != previous:
-            current = 1
-        highest = max(highest, current)
+    return int(result)
 
-    return highest
+
+def get_user_activity_totals(db: Session, user_id: UUID) -> tuple[int, int, int]:
+    """Timer ms, accumulated count, and completed plan days in one round trip."""
+    timer_total = (
+        select(func.coalesce(func.sum(TimerHistory.duration_ms), 0))
+        .where(TimerHistory.user_id == user_id)
+        .scalar_subquery()
+    )
+    accumulated_total = (
+        select(func.coalesce(func.sum(AccumulatorHistory.count), 0))
+        .where(AccumulatorHistory.user_id == user_id)
+        .scalar_subquery()
+    )
+    practice_days_total = (
+        select(func.coalesce(func.count(UserDayCompletion.id), 0))
+        .where(UserDayCompletion.user_id == user_id)
+        .scalar_subquery()
+    )
+
+    row = db.execute(
+        select(timer_total, accumulated_total, practice_days_total)
+    ).one()
+
+    return int(row[0]), int(row[1]), int(row[2])
 
 
 def get_user_streak(db: Session, user_id: UUID, today: date) -> int:

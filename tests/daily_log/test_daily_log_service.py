@@ -149,9 +149,7 @@ async def test_get_user_stats_service_aggregates_all_sources():
          patch("pecha_api.daily_log.daily_log_service.get_user_streak", return_value=3), \
          patch("pecha_api.daily_log.daily_log_service.get_highest_streak", return_value=7), \
          patch("pecha_api.daily_log.daily_log_service.get_week_active_days", return_value=[2, 3, 6]), \
-         patch("pecha_api.daily_log.daily_log_service.get_user_total_duration", return_value=1200), \
-         patch("pecha_api.daily_log.daily_log_service.get_user_total_count", return_value=10800), \
-         patch("pecha_api.daily_log.daily_log_service.get_user_total_practice_days", return_value=42):
+         patch("pecha_api.daily_log.daily_log_service.get_user_activity_totals", return_value=(1200, 10800, 42)):
         result = await get_user_stats_service(token="test_token")
 
         assert result.streak.current == 3
@@ -160,4 +158,4 @@ async def test_get_user_stats_service_aggregates_all_sources():
         assert result.total_timer == 1200
         assert result.total_accumulated == 10800
         assert result.total_practice_days == 42
-        mock_record.assert_awaited_once_with(user_id=user_id)
+        mock_record.assert_awaited_once_with(user_id=user_id, db=mock_db)
