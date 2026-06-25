@@ -127,42 +127,41 @@ async def _generate_audio_segments(
     voice_name: MonlamVoiceName = MonlamVoiceName.DOLKAR_LHASA_FEMALE,
 ) -> tuple[List[bytes], list]:
     from pecha_api.plans.audio.worker_client import generate_audio_from_text
-    
+
     wav_header_size = 44
     audio_segments: List[bytes] = []
     subtask_refs = []
     allowed_types = {ContentType.TEXT, ContentType.SOURCE_REFERENCE}
+
     for task in tasks:
-        subtask = task.sub_tasks[0] if task.sub_tasks else None
-        if not subtask:
-            continue
-        if subtask.content_type not in allowed_types:
-            continue
+        for subtask in task.sub_tasks:
+            if subtask.content_type not in allowed_types:
+                continue
 
-        if subtask.audio_url:
-            existing_wav = download_bytes(
-                bucket_name=get("AWS_BUCKET_NAME"),
-                s3_key=subtask.audio_url,
-            )
-            raw_pcm = existing_wav[wav_header_size:]
-        else:
-            s3_key_prefix = f"audio/plan_subtasks/{subtask.task_id}/{subtask.id}"
-            result = await generate_audio_from_text(
-                text=subtask.content,
-                language=language,
-                audio_type=audio_type,
-                voice_name=voice_name,
-                s3_key_prefix=s3_key_prefix,
-            )
-            
-            generated_wav = download_bytes(
-                bucket_name=get("AWS_BUCKET_NAME"),
-                s3_key=result["s3_key"],
-            )
-            raw_pcm = generated_wav[wav_header_size:]
+            if subtask.audio_url:
+                existing_wav = download_bytes(
+                    bucket_name=get("AWS_BUCKET_NAME"),
+                    s3_key=subtask.audio_url,
+                )
+                raw_pcm = existing_wav[wav_header_size:]
+            else:
+                s3_key_prefix = f"audio/plan_subtasks/{subtask.task_id}/{subtask.id}"
+                result = await generate_audio_from_text(
+                    text=subtask.content,
+                    language=language,
+                    audio_type=audio_type,
+                    voice_name=voice_name,
+                    s3_key_prefix=s3_key_prefix,
+                )
+                generated_wav = download_bytes(
+                    bucket_name=get("AWS_BUCKET_NAME"),
+                    s3_key=result["s3_key"],
+                )
+                raw_pcm = generated_wav[wav_header_size:]
 
-        audio_segments.append(raw_pcm)
-        subtask_refs.append(subtask)
+            audio_segments.append(raw_pcm)
+            subtask_refs.append(subtask)
+
     return audio_segments, subtask_refs
 
 
