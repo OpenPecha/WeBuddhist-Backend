@@ -345,7 +345,9 @@ def test_create_new_plan_with_series_id():
         created_plan_model = mock_save_plan.call_args.kwargs["plan"]
         assert created_plan_model.series_id == series_id
         assert created_plan_model.display_order == 2
-        mock_get_series.assert_called_once_with(db=db_session, series_id=series_id)
+        assert mock_get_series.call_count == 2
+        for call in mock_get_series.call_args_list:
+            assert call.kwargs == {"db": db_session, "series_id": series_id}
 
 
 def test_create_new_plan_with_series_id_auto_display_order():

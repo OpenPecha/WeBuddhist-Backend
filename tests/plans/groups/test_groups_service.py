@@ -467,6 +467,129 @@ def test_list_public_groups_with_invalid_token_does_not_exclude_joined_groups():
     assert mock_paginated.call_args.kwargs["exclude_group_ids"] is None
 
 
+def test_list_public_groups_does_not_filter_by_language_and_falls_back_metadata():
+    group = _make_group(group_type=AuthorGroupType.COMMUNITY)
+    meta_en = MagicMock()
+    meta_en.id = uuid4()
+    meta_en.title = "English Community"
+    meta_en.description = "EN desc"
+    meta_en.sub_title = None
+    meta_en.description_long = None
+    meta_en.language = "EN"
+    group.metadata_entries = [meta_en]
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_groups_paginated",
+        return_value=([group], 1),
+    ) as mock_paginated, patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={group.id: 0},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map",
+        return_value={group.id: 0},
+    ):
+        _session_local_context(mock_session)
+        result = list_public_groups(
+            skip=0,
+            limit=10,
+            language="bo",
+            group_type=AuthorGroupType.COMMUNITY,
+        )
+
+    assert "language" not in mock_paginated.call_args.kwargs
+    assert result.total == 1
+    assert result.groups[0].metadata.title == "English Community"
+    assert result.groups[0].metadata.language == "EN"
+
+
+def test_list_public_groups_returns_page_type_with_language_fallback():
+    group = _make_group(group_type=AuthorGroupType.PAGE)
+    meta_en = MagicMock()
+    meta_en.id = uuid4()
+    meta_en.title = "English Author Group"
+    meta_en.description = "EN desc"
+    meta_en.sub_title = None
+    meta_en.description_long = None
+    meta_en.language = "EN"
+    group.metadata_entries = [meta_en]
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_groups_paginated",
+        return_value=([group], 1),
+    ) as mock_paginated, patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={group.id: 2},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map",
+        return_value={group.id: 0},
+    ):
+        _session_local_context(mock_session)
+        result = list_public_groups(
+            skip=0,
+            limit=10,
+            language="bo",
+            group_type=AuthorGroupType.PAGE,
+        )
+
+    assert "language" not in mock_paginated.call_args.kwargs
+    assert mock_paginated.call_args.kwargs["group_type"] == AuthorGroupType.PAGE
+    assert result.groups[0].metadata.title == "English Author Group"
+    assert result.groups[0].metadata.language == "EN"
+
+
+def test_list_public_groups_mixed_metadata_uses_selected_language_then_en_fallback():
+    group_with_bo = _make_group(group_type=AuthorGroupType.COMMUNITY)
+    meta_en = MagicMock()
+    meta_en.id = uuid4()
+    meta_en.title = "English Community"
+    meta_en.description = None
+    meta_en.sub_title = None
+    meta_en.description_long = None
+    meta_en.language = "EN"
+    meta_bo = MagicMock()
+    meta_bo.id = uuid4()
+    meta_bo.title = "Tibetan Community"
+    meta_bo.description = None
+    meta_bo.sub_title = None
+    meta_bo.description_long = None
+    meta_bo.language = "BO"
+    group_with_bo.metadata_entries = [meta_en, meta_bo]
+
+    group_en_only = _make_group(group_type=AuthorGroupType.COMMUNITY)
+    meta_en_only = MagicMock()
+    meta_en_only.id = uuid4()
+    meta_en_only.title = "English Only Community"
+    meta_en_only.description = None
+    meta_en_only.sub_title = None
+    meta_en_only.description_long = None
+    meta_en_only.language = "EN"
+    group_en_only.metadata_entries = [meta_en_only]
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_groups_paginated",
+        return_value=([group_with_bo, group_en_only], 2),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={group_with_bo.id: 0, group_en_only.id: 0},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map",
+        return_value={group_with_bo.id: 0, group_en_only.id: 0},
+    ):
+        _session_local_context(mock_session)
+        result = list_public_groups(
+            skip=0,
+            limit=10,
+            language="bo",
+            group_type=AuthorGroupType.COMMUNITY,
+        )
+
+    assert result.total == 2
+    assert result.groups[0].metadata.title == "Tibetan Community"
+    assert result.groups[0].metadata.language == "BO"
+    assert result.groups[1].metadata.title == "English Only Community"
+    assert result.groups[1].metadata.language == "EN"
+
+
 def _make_series_with_metadata():
     meta_en = MagicMock()
     meta_en.id = uuid4()
