@@ -7,6 +7,7 @@ from starlette import status
 from pecha_api.recitations.recitations_services import (
     get_list_of_recitations_service,
     get_recitation_details_service,
+    get_recitations_with_first_segments,
     segments_mapping_by_toc,
     filter_by_type_and_language,
     _filter_and_map_segments,
@@ -41,9 +42,11 @@ class TestGetListOfRecitationsService:
     @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
     @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
+    @patch('pecha_api.recitations.recitations_services.get_recitations_with_first_segments')
     @pytest.mark.asyncio
     async def test_get_list_of_recitations_service_success(
         self,
+        mock_get_recitations_with_first_segments,
         mock_get_recitations_with_image_urls,
         mock_apply_search_filter,
         mock_get_root_text,
@@ -61,6 +64,7 @@ class TestGetListOfRecitationsService:
         mock_get_root_text.return_value = mock_recitations_response
         mock_apply_search_filter.return_value = [recitation_dto]
         mock_get_recitations_with_image_urls.return_value = [recitation_dto]
+        mock_get_recitations_with_first_segments.return_value = [recitation_dto]
         
         # Execute
         result = await get_list_of_recitations_service(language="en")
@@ -78,6 +82,7 @@ class TestGetListOfRecitationsService:
         mock_get_collection_id.assert_called_once_with(slug="Liturgy")
         mock_get_root_text.assert_called_once_with(collection_id=liturgy_collection_id, language="en")
         mock_apply_search_filter.assert_called_once_with(texts=[recitation_dto], search=None)
+        mock_get_recitations_with_first_segments.assert_awaited_once_with(recitations=[recitation_dto])
 
     @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
     @pytest.mark.asyncio
@@ -130,9 +135,11 @@ class TestGetListOfRecitationsService:
     @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
     @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
+    @patch('pecha_api.recitations.recitations_services.get_recitations_with_first_segments')
     @pytest.mark.asyncio
     async def test_get_list_of_recitations_service_with_search_match(
         self,
+        mock_get_recitations_with_first_segments,
         mock_get_recitations_with_image_urls,
         mock_apply_search_filter,
         mock_get_root_text,
@@ -149,6 +156,7 @@ class TestGetListOfRecitationsService:
         mock_get_root_text.return_value = mock_recitations_response
         mock_apply_search_filter.return_value = [recitation_dto]
         mock_get_recitations_with_image_urls.return_value = [recitation_dto]
+        mock_get_recitations_with_first_segments.return_value = [recitation_dto]
         result = await get_list_of_recitations_service(search="morning", language="en")
         
         assert isinstance(result, RecitationsResponse)
@@ -164,9 +172,11 @@ class TestGetListOfRecitationsService:
     @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
     @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
+    @patch('pecha_api.recitations.recitations_services.get_recitations_with_first_segments')
     @pytest.mark.asyncio
     async def test_get_list_of_recitations_service_different_languages(
         self,   
+        mock_get_recitations_with_first_segments,
         mock_get_recitations_with_image_urls,
         mock_apply_search_filter,
         mock_get_root_text,
@@ -183,6 +193,7 @@ class TestGetListOfRecitationsService:
         mock_get_root_text.return_value = mock_recitations_response
         mock_apply_search_filter.return_value = [recitation_dto]
         mock_get_recitations_with_image_urls.return_value = [recitation_dto]
+        mock_get_recitations_with_first_segments.return_value = [recitation_dto]
         result = await get_list_of_recitations_service(language="bo")
         
         assert isinstance(result, RecitationsResponse)
@@ -191,6 +202,70 @@ class TestGetListOfRecitationsService:
         
         # Verify language is passed correctly
         mock_get_root_text.assert_called_once_with(collection_id=liturgy_collection_id, language="bo")
+
+
+class TestGetRecitationsWithFirstSegments:
+    """Test cases for get_recitations_with_first_segments function."""
+
+    @patch('pecha_api.recitations.recitations_services.get_segment_contents_by_ids')
+    @patch('pecha_api.recitations.recitations_services.get_contents_by_text_ids')
+    @pytest.mark.asyncio
+    async def test_get_recitations_with_first_segments_success(
+        self,
+        mock_get_contents_by_text_ids,
+        mock_get_segment_contents_by_ids,
+    ):
+        text_id = str(uuid4())
+        segment_id = str(uuid4())
+        recitation_dto = RecitationDTO(text_id=UUID(text_id), title="Test Recitation")
+
+        mock_get_contents_by_text_ids.return_value = {
+            text_id: [
+                TableOfContent(
+                    text_id=text_id,
+                    type=TableOfContentType.TEXT,
+                    sections=[
+                        Section(
+                            id=str(uuid4()),
+                            section_number=1,
+                            segments=[
+                                TextSegment(segment_id=segment_id, segment_number=1),
+                            ],
+                        )
+                    ],
+                )
+            ]
+        }
+        mock_get_segment_contents_by_ids.return_value = {
+            segment_id: (text_id, "First segment content"),
+        }
+
+        result = await get_recitations_with_first_segments(recitations=[recitation_dto])
+
+        assert len(result) == 1
+        assert result[0].first_segment is not None
+        assert str(result[0].first_segment.id) == segment_id
+        assert result[0].first_segment.content == "First segment content"
+
+    @pytest.mark.asyncio
+    async def test_get_recitations_with_first_segments_empty_list(self):
+        result = await get_recitations_with_first_segments(recitations=[])
+        assert result == []
+
+    @patch('pecha_api.recitations.recitations_services.get_contents_by_text_ids')
+    @pytest.mark.asyncio
+    async def test_get_recitations_with_first_segments_no_toc(
+        self,
+        mock_get_contents_by_text_ids,
+    ):
+        text_id = str(uuid4())
+        recitation_dto = RecitationDTO(text_id=UUID(text_id), title="Test Recitation")
+        mock_get_contents_by_text_ids.return_value = {text_id: []}
+
+        result = await get_recitations_with_first_segments(recitations=[recitation_dto])
+
+        assert len(result) == 1
+        assert result[0].first_segment is None
 
 
 class TestGetRecitationDetailsService:

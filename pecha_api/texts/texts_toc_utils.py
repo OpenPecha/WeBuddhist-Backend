@@ -25,6 +25,19 @@ def find_first_segment_in_sections(sections: List[Section]) -> Optional[str]:
     return None
 
 
+def get_first_segment_ids_by_text_ids(
+    table_of_contents_by_text_id: Dict[str, List[TableOfContent]],
+) -> Dict[str, str]:
+    result: Dict[str, str] = {}
+    for text_id, table_of_contents in table_of_contents_by_text_id.items():
+        for table_of_content in table_of_contents:
+            segment_id = find_first_segment_in_sections(table_of_content.sections)
+            if segment_id:
+                result[text_id] = segment_id
+                break
+    return result
+
+
 def iter_segment_positions(table_of_content: TableOfContent) -> Iterator[Tuple[str, int]]:
     position = 1
 
