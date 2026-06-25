@@ -170,7 +170,16 @@ def _metadata_to_dtos(metadata_entries, language: Optional[str] = None) -> List[
             description_long=_optional_metadata_str(getattr(item, "description_long", None)),
             language=_language_value(item.language),
         )
-        for item in sorted(metadata_entries, key=lambda value: value.language)
+        for item in sorted(
+            metadata_entries,
+            key=lambda value: (
+                0
+                if language
+                and _language_value(value.language).upper() == language.upper()
+                else 1,
+                value.language,
+            ),
+        )
     ]
 
 
@@ -698,7 +707,6 @@ def list_public_groups(
             skip=skip,
             limit=limit,
             search=search,
-            language=language,
             tag_id=tag_id,
             exclude_group_ids=exclude_group_ids,
             is_public=True,

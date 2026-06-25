@@ -12,6 +12,7 @@ from pecha_api.plans.series.series_repository import (
     get_series_by_id,
     get_series_paginated,
     get_random_featured_published_series,
+    get_series_plan_schedule_by_series_ids,
     save_series_with_plans,
     clone_series_with_plans,
     clone_series_plans_for_language,
@@ -840,3 +841,42 @@ def test_clone_series_plans_for_language_returns_empty_when_target_exists():
     assert result == []
     assert len(_added_of_type(db, Plan)) == 0
     db.commit.assert_not_called()
+
+
+def test_get_series_plan_schedule_by_series_ids_returns_empty_for_no_ids():
+    db = _make_session_mock()
+
+    result = get_series_plan_schedule_by_series_ids(db=db, series_ids=[])
+
+    assert result == {}
+    db.query.assert_not_called()
+
+
+def test_get_series_plan_schedule_by_series_ids_groups_rows_by_series():
+    db = _make_session_mock()
+    series_id = uuid.uuid4()
+    query_mock = MagicMock()
+    outerjoin_mock = MagicMock()
+    filter_mock = MagicMock()
+    group_by_mock = MagicMock()
+    query_mock.outerjoin.return_value = outerjoin_mock
+    outerjoin_mock.filter.return_value = filter_mock
+    filter_mock.group_by.return_value = group_by_mock
+    group_by_mock.all.return_value = [
+        (
+            series_id,
+            PlanStatus.PUBLISHED,
+            "EN",
+            0,
+            None,
+            None,
+            3,
+        )
+    ]
+    db.query.return_value = query_mock
+
+    result = get_series_plan_schedule_by_series_ids(db=db, series_ids=[series_id])
+
+    assert len(result[series_id]) == 1
+    assert result[series_id][0].total_days == 3
+    assert result[series_id][0].status == PlanStatus.PUBLISHED

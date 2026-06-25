@@ -58,6 +58,10 @@ oauth2_scheme = HTTPBearer()
 optional_oauth2_scheme = HTTPBearer(auto_error=False)
 
 cms_groups_router = APIRouter(prefix="/cms/author/groups", tags=["CMS Author Groups"])
+_LANGUAGE_QUERY_DESCRIPTION = (
+    "Render group metadata in this language; falls back to English (en) per group when missing. "
+    "All groups are returned regardless of available metadata languages."
+)
 public_groups_router = APIRouter(prefix="/author/groups", tags=["Author Groups"])
 user_groups_router = APIRouter(
     prefix="/users/me/following/author/groups",
@@ -316,7 +320,7 @@ def delete_group_member_by_id(
 @public_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=PublicAuthorGroupDetailDTO)
 def get_public_group(
     group_id: UUID,
-    language: Annotated[Optional[str], Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')")] = None,
+    language: Annotated[Optional[str], Query(description=_LANGUAGE_QUERY_DESCRIPTION)] = None,
 ):
     return get_author_group_detail(group_id=group_id, require_public=True, language=language)
 
@@ -327,7 +331,7 @@ def get_public_groups(
         Optional[HTTPAuthorizationCredentials], Depends(optional_oauth2_scheme)
     ] = None,
     search: Annotated[Optional[str], Query()] = None,
-    language: Annotated[Optional[str], Query()] = None,
+    language: Annotated[Optional[str], Query(description=_LANGUAGE_QUERY_DESCRIPTION)] = None,
     tag_id: Annotated[Optional[UUID], Query()] = None,
     group_type: Annotated[
         AuthorGroupType,
@@ -391,7 +395,7 @@ def delete_join_group(
 def get_my_followed_groups(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     group_id: Annotated[Optional[UUID], Query(description="Return this group if the user is following it")] = None,
-    language: Annotated[Optional[str], Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')")] = None,
+    language: Annotated[Optional[str], Query(description=_LANGUAGE_QUERY_DESCRIPTION)] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
@@ -417,7 +421,7 @@ def get_my_followed_groups(
 def get_my_joined_groups(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     group_id: Annotated[Optional[UUID], Query(description="Return this group if the user has joined it")] = None,
-    language: Annotated[Optional[str], Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')")] = None,
+    language: Annotated[Optional[str], Query(description=_LANGUAGE_QUERY_DESCRIPTION)] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
