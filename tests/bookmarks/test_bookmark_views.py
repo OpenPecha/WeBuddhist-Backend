@@ -129,6 +129,15 @@ def test_create_bookmark_unauthorized():
     assert response.status_code == 403
 
 
+def test_get_bookmarks_rejects_verse_filter():
+    response = client.get(
+        "/users/me/bookmarks?type=VERSE",
+        headers={"Authorization": "Bearer test_token"}
+    )
+
+    assert response.status_code == 422
+
+
 def test_get_bookmarks_success():
     bookmark1_id = uuid4()
     bookmark2_id = uuid4()

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from uuid import uuid4
 from datetime import datetime, timezone
 
@@ -9,7 +9,7 @@ from pecha_api.bookmarks.bookmark_services import (
     delete_bookmark_service
 )
 from pecha_api.bookmarks.bookmark_response_models import CreateBookmarkRequest
-from pecha_api.bookmarks.bookmark_enums import BookmarkType
+from pecha_api.bookmarks.bookmark_enums import BookmarkType, BookmarkFilterType
 
 
 @pytest.mark.asyncio
@@ -146,6 +146,53 @@ async def test_get_bookmarks_service_success():
         assert result.bookmarks[0].type == BookmarkType.SERIES
         assert result.bookmarks[1].source_id == "segment-ref-002"
         assert result.bookmarks[1].name is None
+
+
+@pytest.mark.asyncio
+async def test_get_bookmarks_service_with_text_filter_enriches_bookmarks():
+    user_id = uuid4()
+    text_id = str(uuid4())
+    now = datetime.now(timezone.utc)
+
+    mock_user = MagicMock()
+    mock_user.id = user_id
+
+    mock_bookmark = MagicMock()
+    mock_bookmark.id = uuid4()
+    mock_bookmark.type = BookmarkType.TEXT
+    mock_bookmark.source_id = text_id
+    mock_bookmark.name = None
+    mock_bookmark.created_at = now
+    mock_bookmark.updated_at = now
+
+    mock_db = MagicMock()
+    mock_db.__enter__ = MagicMock(return_value=mock_db)
+    mock_db.__exit__ = MagicMock(return_value=False)
+
+    enrichment = {
+        "text_id": text_id,
+        "text_title": "Heart Sutra",
+        "segment_id": str(uuid4()),
+        "segment_content": "Introduction content",
+    }
+
+    with patch("pecha_api.bookmarks.bookmark_services.validate_and_extract_user_details") as mock_validate, \
+         patch("pecha_api.bookmarks.bookmark_services.SessionLocal") as mock_session, \
+         patch("pecha_api.bookmarks.bookmark_services.get_bookmarks_by_user_id") as mock_get, \
+         patch("pecha_api.bookmarks.bookmark_services.enrich_text_bookmark", new_callable=AsyncMock) as mock_enrich:
+
+        mock_validate.return_value = mock_user
+        mock_session.return_value = mock_db
+        mock_get.return_value = [mock_bookmark]
+        mock_enrich.return_value = enrichment
+
+        result = await get_bookmarks_service(token="test_token", type=BookmarkFilterType.TEXT)
+
+        mock_get.assert_called_once_with(db=mock_db, user_id=user_id, type=BookmarkFilterType.TEXT)
+        mock_enrich.assert_called_once_with(mock_bookmark)
+        assert len(result.bookmarks) == 1
+        assert result.bookmarks[0].text_title == "Heart Sutra"
+        assert result.bookmarks[0].segment_content == "Introduction content"
 
 
 @pytest.mark.asyncio

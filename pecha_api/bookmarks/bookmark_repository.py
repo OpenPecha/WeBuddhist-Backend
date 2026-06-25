@@ -8,7 +8,7 @@ from uuid import UUID
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST, NOT_FOUND
 from pecha_api.bookmarks.bookmark_models import Bookmark
-from pecha_api.bookmarks.bookmark_enums import BookmarkType
+from pecha_api.bookmarks.bookmark_enums import BookmarkType, BookmarkFilterType
 
 
 def save_bookmark(db: Session, bookmark: Bookmark) -> None:
@@ -27,10 +27,19 @@ def save_bookmark(db: Session, bookmark: Bookmark) -> None:
         )
 
 
-def get_bookmarks_by_user_id(db: Session, user_id: UUID, type: Optional[BookmarkType] = None) -> List[Bookmark]:
+def get_bookmarks_by_user_id(
+    db: Session,
+    user_id: UUID,
+    type: Optional[BookmarkFilterType] = None,
+) -> List[Bookmark]:
     query = db.query(Bookmark).filter(Bookmark.user_id == user_id)
     if type is not None:
-        query = query.filter(Bookmark.type == type)
+        if type == BookmarkFilterType.TEXT:
+            query = query.filter(
+                Bookmark.type.in_([BookmarkType.TEXT, BookmarkType.VERSE])
+            )
+        else:
+            query = query.filter(Bookmark.type == BookmarkType[type.name])
     return query.order_by(Bookmark.created_at.desc()).all()
 
 
