@@ -355,6 +355,9 @@ def test_create_new_plan_with_series_id():
             call_args.kwargs == {"db": db_session, "series_id": series_id}
             for call_args in series_lookup_calls
         )
+        assert mock_get_series.call_count == 2
+        for call in mock_get_series.call_args_list:
+            assert call.kwargs == {"db": db_session, "series_id": series_id}
 
 
 def test_create_new_plan_with_series_id_auto_display_order():

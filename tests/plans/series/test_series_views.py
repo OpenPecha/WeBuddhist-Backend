@@ -839,3 +839,29 @@ def test_update_series_featured_forbidden():
         )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_clone_series_plans_success(sample_series_dto):
+    series_id = uuid.uuid4()
+    payload = {
+        "source_language": "EN",
+        "target_language": "BO",
+    }
+
+    with patch(
+        "pecha_api.plans.series.series_view.clone_series_plans_for_language",
+        return_value=sample_series_dto,
+    ) as mock_clone:
+        response = client.post(
+            f"/cms/series/{series_id}/clone-plans",
+            json=payload,
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    mock_clone.assert_called_once_with(
+        token="dummy",
+        series_id=series_id,
+        clone_request=mock_clone.call_args.kwargs["clone_request"],
+    )
+    assert response.json()["id"] == str(sample_series_dto.id)

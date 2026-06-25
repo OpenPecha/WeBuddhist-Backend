@@ -30,7 +30,7 @@ from pecha_api.plans.series.series_repository import (
     update_series_featured,
     soft_delete_series_with_plan_detach,
     get_random_featured_published_series,
-    get_series_with_plans_by_ids,
+    get_series_plan_schedule_by_series_ids,
 )
 from pecha_api.plans.series.series_response_models import (
     CreateSeriesRequest,
@@ -164,7 +164,9 @@ def _plan_to_dto(plan, group_id: Optional[UUID] = None) -> SeriesPlanDTO:
 
 
 def _plan_total_days(plan) -> int:
-    return len(plan.items) if hasattr(plan, "items") and plan.items else 0
+    if hasattr(plan, "items"):
+        return len(plan.items) if plan.items else 0
+    return int(getattr(plan, "total_days", 0) or 0)
 
 
 def _series_schedule_from_plans(
@@ -182,16 +184,30 @@ def _series_schedule_from_plans(
     if not sorted_plans:
         return None, None, 0
 
+    schedule_plans = _get_sorted_active_plans(
+        plans,
+        published_only=True,
+        language=language,
+        fallback=fallback,
+    )
     series_total_days = sum(_plan_total_days(plan) for plan in sorted_plans)
-    first_plan = sorted_plans[0]
-    if not first_plan.start_date:
+    if not schedule_plans:
         return None, None, series_total_days
 
-    start_date = first_plan.start_date
-    if series_total_days <= 0:
-        return start_date, start_date, series_total_days
+    first_published = schedule_plans[0]
+    last_published = schedule_plans[-1]
+    if not first_published.start_date:
+        return None, None, series_total_days
 
-    end_date = start_date + timedelta(days=series_total_days - 1)
+    start_date = first_published.start_date
+    if not last_published.start_date:
+        return start_date, None, series_total_days
+
+    last_plan_days = _plan_total_days(last_published)
+    if last_plan_days <= 0:
+        end_date = last_published.start_date
+    else:
+        end_date = last_published.start_date + timedelta(days=last_plan_days - 1)
     return start_date, end_date, series_total_days
 
 
@@ -390,11 +406,10 @@ def get_filtered_series(
             series_rows=[row for row, _, _ in rows],
             language=language,
         )
-        series_with_plans = get_series_with_plans_by_ids(
+        plans_by_series_id = get_series_plan_schedule_by_series_ids(
             db=db_session,
             series_ids=[row.id for row, _, _ in rows],
         )
-        plans_by_series_id = {series.id: series.plans for series in series_with_plans}
 
     series_dtos: List[SeriesListItemDTO] = []
     for row, plan_count, enrolled_count in rows:
@@ -447,11 +462,10 @@ def get_random_featured_series(
             series_rows=[row for row, _, _ in rows],
             language=language,
         )
-        series_with_plans = get_series_with_plans_by_ids(
+        plans_by_series_id = get_series_plan_schedule_by_series_ids(
             db=db_session,
             series_ids=[row.id for row, _, _ in rows],
         )
-        plans_by_series_id = {series.id: series.plans for series in series_with_plans}
 
     series_dtos: List[SeriesListItemDTO] = []
     for row, plan_count, enrolled_count in rows:

@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, NamedTuple, Optional, Sequence, Tuple
 from uuid import UUID
 
 from sqlalchemy import String, cast, desc, asc, or_, exists, select, func
@@ -9,9 +9,20 @@ from pecha_api.plans.plans_enums import PlanStatus, SeriesStatus
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserSeriesEnrollment
 
 _REFERENCE_START_DATE_UNSET = object()
+
+
+class SeriesPlanScheduleRow(NamedTuple):
+    series_id: UUID
+    status: object
+    language: object
+    display_order: Optional[int]
+    start_date: Optional[datetime]
+    deleted_at: Optional[datetime]
+    total_days: int
 
 
 def _series_active_plans_count_subquery(published_only: bool = False):
@@ -106,6 +117,55 @@ def get_series_with_plans_by_ids(db: Session, series_ids: List[UUID]) -> List[Se
         .filter(Series.id.in_(series_ids), Series.deleted_at.is_(None))
         .all()
     )
+
+
+def get_series_plan_schedule_by_series_ids(
+    db: Session,
+    series_ids: Sequence[UUID],
+) -> Dict[UUID, List[SeriesPlanScheduleRow]]:
+    """Lightweight plan fields + item counts for series list schedule calculation."""
+    if not series_ids:
+        return {}
+    total_days_label = func.count(func.distinct(PlanItem.id)).label("total_days")
+    rows = (
+        db.query(
+            Plan.series_id,
+            Plan.status,
+            Plan.language,
+            Plan.display_order,
+            Plan.start_date,
+            Plan.deleted_at,
+            total_days_label,
+        )
+        .outerjoin(PlanItem, PlanItem.plan_id == Plan.id)
+        .filter(
+            Plan.series_id.in_(series_ids),
+            Plan.deleted_at.is_(None),
+        )
+        .group_by(Plan.id)
+        .all()
+    )
+    plans_by_series_id: Dict[UUID, List[SeriesPlanScheduleRow]] = {}
+    for (
+        series_id,
+        plan_status,
+        language,
+        display_order,
+        start_date,
+        deleted_at,
+        total_days,
+    ) in rows:
+        schedule_row = SeriesPlanScheduleRow(
+            series_id=series_id,
+            status=plan_status,
+            language=language,
+            display_order=display_order,
+            start_date=start_date,
+            deleted_at=deleted_at,
+            total_days=int(total_days or 0),
+        )
+        plans_by_series_id.setdefault(series_id, []).append(schedule_row)
+    return plans_by_series_id
 
 
 def get_plans_by_ids(db: Session, plan_ids: List[UUID]) -> List[Plan]:
