@@ -18,7 +18,8 @@ from pecha_api.plans.cms.cms_plans_service import (
     update_plan_details, update_selected_plan_status, delete_selected_plan, get_plan_day_details,
     DUMMY_PLANS, DUMMY_DAYS,
     _get_subscription_count, _validate_start_date_update, _apply_plan_field_updates, _generate_plan_image_url,
-    generate_plan_audio_service, _generate_subtask_audio,
+    generate_plan_audio_service, _generate_subtask_audio, _generate_audio_segments,
+    _build_combined_wav, _update_subtask_timestamps, _upload_and_persist_audio,
 )
 from pecha_api.plans.platform_enums import PlatformRole
 
@@ -1866,4 +1867,312 @@ async def test_generate_subtask_audio_invalid_content_type_raises_400():
 
         assert exc_info.value.status_code == 400
         assert "TEXT or SOURCE_REFERENCE" in str(exc_info.value.detail)
+
+
+# ============================================================================
+# Tests for helper functions
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_generate_audio_segments_uses_existing_audio():
+    """Test _generate_audio_segments downloads existing audio when audio_url is present"""
+    task_id = uuid.uuid4()
+    subtask_id = uuid.uuid4()
+
+    subtask = MagicMock()
+    subtask.id = subtask_id
+    subtask.task_id = task_id
+    subtask.content = "Test content"
+    subtask.content_type = ContentType.TEXT
+    subtask.audio_url = "audio/existing.wav"
+
+    task = MagicMock()
+    task.sub_tasks = [subtask]
+
+    wav_header = b"RIFF" + b"\x00" * 40
+    raw_pcm = b"\x00\x01\x02\x03" * 100
+    existing_wav = wav_header + raw_pcm
+
+    with patch("pecha_api.plans.cms.cms_plans_service.download_bytes", return_value=existing_wav) as mock_download, \
+         patch("pecha_api.plans.cms.cms_plans_service.get") as mock_get:
+        
+        mock_get.return_value = "test-bucket"
+
+        audio_segments, subtask_refs = await _generate_audio_segments(
+            tasks=[task],
+            audio_type=PlanAudioType.TEXT_READING,
+            language="bo",
+            voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE,
+        )
+
+        mock_download.assert_called_once_with(
+            bucket_name="test-bucket",
+            s3_key="audio/existing.wav",
+        )
+        assert len(audio_segments) == 1
+        assert audio_segments[0] == raw_pcm
+        assert len(subtask_refs) == 1
+        assert subtask_refs[0] == subtask
+
+
+@pytest.mark.asyncio
+async def test_generate_audio_segments_generates_new_audio():
+    """Test _generate_audio_segments calls worker API for new audio generation"""
+    task_id = uuid.uuid4()
+    subtask_id = uuid.uuid4()
+
+    subtask = MagicMock()
+    subtask.id = subtask_id
+    subtask.task_id = task_id
+    subtask.content = "New content"
+    subtask.content_type = ContentType.TEXT
+    subtask.audio_url = None
+
+    task = MagicMock()
+    task.sub_tasks = [subtask]
+
+    worker_response = {
+        "s3_key": "audio/plan_subtasks/new.wav",
+        "audio_url": "https://s3.example.com/new.wav",
+        "audio_duration_ms": 2000,
+    }
+
+    wav_header = b"RIFF" + b"\x00" * 40
+    raw_pcm = b"\x00\x01\x02\x03" * 50
+    generated_wav = wav_header + raw_pcm
+
+    with patch("pecha_api.plans.audio.worker_client.generate_audio_from_text", new_callable=AsyncMock, return_value=worker_response) as mock_worker, \
+         patch("pecha_api.plans.cms.cms_plans_service.download_bytes", return_value=generated_wav) as mock_download, \
+         patch("pecha_api.plans.cms.cms_plans_service.get") as mock_get:
+        
+        mock_get.return_value = "test-bucket"
+
+        audio_segments, subtask_refs = await _generate_audio_segments(
+            tasks=[task],
+            audio_type=PlanAudioType.RECITATION,
+            language="en",
+            voice_name=MonlamVoiceName.YANGCHEN_LHASA_FEMALE,
+        )
+
+        mock_worker.assert_called_once_with(
+            text="New content",
+            language="en",
+            audio_type=PlanAudioType.RECITATION,
+            voice_name=MonlamVoiceName.YANGCHEN_LHASA_FEMALE,
+            s3_key_prefix=f"audio/plan_subtasks/{task_id}/{subtask_id}",
+        )
+        mock_download.assert_called_once_with(
+            bucket_name="test-bucket",
+            s3_key="audio/plan_subtasks/new.wav",
+        )
+        assert len(audio_segments) == 1
+        assert audio_segments[0] == raw_pcm
+        assert len(subtask_refs) == 1
+        assert subtask_refs[0] == subtask
+
+
+@pytest.mark.asyncio
+async def test_generate_audio_segments_skips_non_text_content():
+    """Test _generate_audio_segments skips subtasks with non-text content types"""
+    task = MagicMock()
+    
+    text_subtask = MagicMock()
+    text_subtask.content_type = ContentType.TEXT
+    text_subtask.audio_url = "audio/text.wav"
+    
+    video_subtask = MagicMock()
+    video_subtask.content_type = ContentType.VIDEO
+    
+    image_subtask = MagicMock()
+    image_subtask.content_type = ContentType.IMAGE
+    
+    task.sub_tasks = [text_subtask, video_subtask, image_subtask]
+
+    wav_header = b"RIFF" + b"\x00" * 40
+    raw_pcm = b"\x00\x01" * 50
+    wav_data = wav_header + raw_pcm
+
+    with patch("pecha_api.plans.cms.cms_plans_service.download_bytes", return_value=wav_data), \
+         patch("pecha_api.plans.cms.cms_plans_service.get", return_value="test-bucket"):
+
+        audio_segments, subtask_refs = await _generate_audio_segments(
+            tasks=[task],
+            audio_type=PlanAudioType.TEXT_READING,
+            language="bo",
+        )
+
+        assert len(audio_segments) == 1
+        assert len(subtask_refs) == 1
+        assert subtask_refs[0] == text_subtask
+
+
+@pytest.mark.asyncio
+async def test_generate_audio_segments_handles_source_reference():
+    """Test _generate_audio_segments processes SOURCE_REFERENCE content type"""
+    subtask = MagicMock()
+    subtask.content_type = ContentType.SOURCE_REFERENCE
+    subtask.audio_url = "audio/source.wav"
+    
+    task = MagicMock()
+    task.sub_tasks = [subtask]
+
+    wav_header = b"RIFF" + b"\x00" * 40
+    raw_pcm = b"\x00\x01" * 30
+    wav_data = wav_header + raw_pcm
+
+    with patch("pecha_api.plans.cms.cms_plans_service.download_bytes", return_value=wav_data), \
+         patch("pecha_api.plans.cms.cms_plans_service.get", return_value="test-bucket"):
+
+        audio_segments, subtask_refs = await _generate_audio_segments(
+            tasks=[task],
+            audio_type=PlanAudioType.TEXT_READING,
+            language="bo",
+        )
+
+        assert len(audio_segments) == 1
+        assert len(subtask_refs) == 1
+
+
+def test_build_combined_wav_produces_valid_header():
+    """Test _build_combined_wav creates valid WAV file with correct header"""
+    segment1 = b"\x00\x01" * 100
+    segment2 = b"\x02\x03" * 150
+    segment3 = b"\x04\x05" * 200
+
+    combined_wav, data_size = _build_combined_wav([segment1, segment2, segment3])
+
+    assert len(combined_wav) > 44
+    assert combined_wav[:4] == b"RIFF"
+    assert combined_wav[8:12] == b"WAVE"
+    assert combined_wav[12:16] == b"fmt "
+    assert combined_wav[36:40] == b"data"
+    
+    expected_data_size = len(segment1) + len(segment2) + len(segment3)
+    assert data_size == expected_data_size
+    assert len(combined_wav) == 44 + expected_data_size
+
+
+def test_build_combined_wav_empty_segments():
+    """Test _build_combined_wav handles empty segments list"""
+    combined_wav, data_size = _build_combined_wav([])
+
+    assert len(combined_wav) == 44
+    assert data_size == 0
+    assert combined_wav[:4] == b"RIFF"
+
+
+def test_build_combined_wav_single_segment():
+    """Test _build_combined_wav handles single segment"""
+    segment = b"\x00\x01\x02\x03" * 50
+
+    combined_wav, data_size = _build_combined_wav([segment])
+
+    assert data_size == len(segment)
+    assert len(combined_wav) == 44 + len(segment)
+    assert combined_wav[44:] == segment
+
+
+def test_update_subtask_timestamps_calculates_offsets():
+    """Test _update_subtask_timestamps calculates correct timestamp offsets"""
+    mock_db = MagicMock()
+    
+    subtask1 = MagicMock()
+    subtask1.id = uuid.uuid4()
+    subtask2 = MagicMock()
+    subtask2.id = uuid.uuid4()
+    subtask3 = MagicMock()
+    subtask3.id = uuid.uuid4()
+
+    segment1 = b"\x00\x01" * 24000
+    segment2 = b"\x02\x03" * 48000
+    segment3 = b"\x04\x05" * 12000
+
+    with patch("pecha_api.plans.cms.cms_plans_service.upsert_sub_task_timestamp") as mock_upsert:
+        total_duration = _update_subtask_timestamps(
+            db=mock_db,
+            audio_segments=[segment1, segment2, segment3],
+            subtask_refs=[subtask1, subtask2, subtask3],
+            sample_rate=24000,
+            bytes_per_sample=2,
+        )
+
+        assert mock_upsert.call_count == 3
+        
+        call1 = mock_upsert.call_args_list[0]
+        assert call1.kwargs["sub_task_id"] == subtask1.id
+        assert call1.kwargs["start_ms"] == 0
+        assert call1.kwargs["end_ms"] == 1000
+        
+        call2 = mock_upsert.call_args_list[1]
+        assert call2.kwargs["sub_task_id"] == subtask2.id
+        assert call2.kwargs["start_ms"] == 1000
+        assert call2.kwargs["end_ms"] == 3000
+        
+        call3 = mock_upsert.call_args_list[2]
+        assert call3.kwargs["sub_task_id"] == subtask3.id
+        assert call3.kwargs["start_ms"] == 3000
+        assert call3.kwargs["end_ms"] == 3500
+        
+        assert total_duration == 3500
+
+
+def test_update_subtask_timestamps_empty_segments():
+    """Test _update_subtask_timestamps handles empty segments"""
+    mock_db = MagicMock()
+
+    with patch("pecha_api.plans.cms.cms_plans_service.upsert_sub_task_timestamp") as mock_upsert:
+        total_duration = _update_subtask_timestamps(
+            db=mock_db,
+            audio_segments=[],
+            subtask_refs=[],
+            sample_rate=24000,
+            bytes_per_sample=2,
+        )
+
+        mock_upsert.assert_not_called()
+        assert total_duration == 0
+
+
+def test_upload_and_persist_audio_uploads_to_s3():
+    """Test _upload_and_persist_audio uploads to S3 and persists to DB"""
+    mock_db = MagicMock()
+    plan_id = uuid.uuid4()
+    plan_item_id = uuid.uuid4()
+    combined_wav = b"RIFF" + b"\x00" * 100
+    duration_ms = 5000
+
+    mock_audio_row = MagicMock()
+    mock_audio_row.audio_key = "audio/plan_days/test.wav"
+    mock_audio_row.duration_ms = duration_ms
+
+    with patch("pecha_api.plans.cms.cms_plans_service.upload_bytes") as mock_upload, \
+         patch("pecha_api.plans.cms.cms_plans_service.upsert_plan_item_audio", return_value=mock_audio_row) as mock_upsert, \
+         patch("pecha_api.plans.cms.cms_plans_service.get", return_value="test-bucket"):
+
+        result = _upload_and_persist_audio(
+            db=mock_db,
+            combined_wav=combined_wav,
+            duration_ms=duration_ms,
+            plan_id=plan_id,
+            plan_item_id=plan_item_id,
+        )
+
+        mock_upload.assert_called_once()
+        upload_call = mock_upload.call_args
+        assert upload_call.kwargs["bucket_name"] == "test-bucket"
+        assert upload_call.kwargs["s3_key"].startswith(f"audio/plan_days/{plan_id}/{plan_item_id}/")
+        assert upload_call.kwargs["s3_key"].endswith(".wav")
+        assert upload_call.kwargs["content_type"] == "audio/wav"
+
+        mock_upsert.assert_called_once()
+        upsert_call = mock_upsert.call_args
+        assert upsert_call.kwargs["db"] == mock_db
+        audio_obj = upsert_call.kwargs["plan_item_audio"]
+        assert audio_obj.plan_item_id == plan_item_id
+        assert audio_obj.duration_ms == duration_ms
+        assert audio_obj.mime_type == "audio/wav"
+        assert audio_obj.file_size_bytes == len(combined_wav)
+        assert audio_obj.created_by == "system"
+
+        assert result == mock_audio_row
 
