@@ -68,13 +68,21 @@ def test_generate_tts_audio_rejects_empty_content():
         generate_tts_audio(content="   ", audio_type=PlanAudioType.RECITATION)
 
 
-def test_generate_tts_audio_rejects_unsupported_language():
-    with pytest.raises(ValueError, match="Unsupported language for TTS"):
-        generate_tts_audio(
-            content="Hello",
-            audio_type=PlanAudioType.RECITATION,
-            language="zh",
-        )
+@patch("google.genai.Client")
+@patch("pecha_api.plans.audio.tts_service.get", return_value="test-api-key")
+def test_generate_tts_audio_routes_non_tibetan_languages_to_gemini(mock_get, mock_client_cls):
+    audio_data = b"\x00\x01\x02\x03"
+    _configure_gemini_client(mock_client_cls, _build_gemini_audio_response(audio_data=audio_data))
+
+    result = generate_tts_audio(
+        content="你好",
+        audio_type=PlanAudioType.RECITATION,
+        language="zh",
+    )
+
+    assert result[:4] == b"RIFF"
+    assert result.endswith(audio_data)
+    mock_client_cls.assert_called_once()
 
 
 @patch("pecha_api.plans.audio.tts_service.generate_monlam_tts_audio")
