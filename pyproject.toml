@@ -40,6 +40,9 @@ google-genai = "^2.0"
 [tool.poetry.scripts]
 start = "uvicorn:main"
 
+[tool.poetry.plugins.pytest11]
+bookmark-cov = "pecha_api.bookmarks.pytest_cov_plugin"
+
 [tool.coverage.run]
 omit = [ "*/*_repository.py", "*/*_models.py", "*/*_init__.py", "*/db/*", "*/external_clients/*",]
 

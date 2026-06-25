@@ -345,6 +345,16 @@ def test_create_new_plan_with_series_id():
         created_plan_model = mock_save_plan.call_args.kwargs["plan"]
         assert created_plan_model.series_id == series_id
         assert created_plan_model.display_order == 2
+        series_lookup_calls = [
+            call_args
+            for call_args in mock_get_series.call_args_list
+            if call_args.kwargs.get("db") is not None
+        ]
+        assert len(series_lookup_calls) == 2
+        assert all(
+            call_args.kwargs == {"db": db_session, "series_id": series_id}
+            for call_args in series_lookup_calls
+        )
         assert mock_get_series.call_count == 2
         for call in mock_get_series.call_args_list:
             assert call.kwargs == {"db": db_session, "series_id": series_id}

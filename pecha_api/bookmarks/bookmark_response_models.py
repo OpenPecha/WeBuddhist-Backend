@@ -34,6 +34,11 @@ class BookmarkDTO(BaseModel):
     name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+    text_id: Optional[str] = None
+    text_title: Optional[str] = None
+    segment_id: Optional[str] = None
+    verse_id: Optional[str] = None
+    segment_content: Optional[str] = None
 
 
 class BookmarksResponse(BaseModel):

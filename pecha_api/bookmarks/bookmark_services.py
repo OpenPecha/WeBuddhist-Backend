@@ -2,7 +2,8 @@ from uuid import UUID
 from typing import Optional
 
 from pecha_api.db.database import SessionLocal
-from pecha_api.bookmarks.bookmark_enums import BookmarkType
+from pecha_api.bookmarks.bookmark_enums import BookmarkFilterType
+from pecha_api.bookmarks.bookmark_utils import enrich_text_bookmark
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.bookmarks.bookmark_models import Bookmark
 from pecha_api.bookmarks.bookmark_repository import (
@@ -39,23 +40,28 @@ async def create_bookmark_service(token: str, create_bookmark_request: CreateBoo
         )
 
 
-async def get_bookmarks_service(token: str, type: Optional[BookmarkType] = None) -> BookmarksResponse:
+async def get_bookmarks_service(
+    token: str,
+    type: Optional[BookmarkFilterType] = None,
+) -> BookmarksResponse:
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
         bookmarks = get_bookmarks_by_user_id(db=db, user_id=current_user.id, type=type)
 
-        bookmarks_dto = [
-            BookmarkDTO(
-                id=bookmark.id,
-                type=bookmark.type,
-                source_id=bookmark.source_id,
-                name=bookmark.name,
-                created_at=bookmark.created_at,
-                updated_at=bookmark.updated_at
-            )
-            for bookmark in bookmarks
-        ]
+        bookmarks_dto = []
+        for bookmark in bookmarks:
+            bookmark_data = {
+                "id": bookmark.id,
+                "type": bookmark.type,
+                "source_id": bookmark.source_id,
+                "name": bookmark.name,
+                "created_at": bookmark.created_at,
+                "updated_at": bookmark.updated_at,
+            }
+            if type == BookmarkFilterType.TEXT:
+                bookmark_data.update(await enrich_text_bookmark(bookmark))
+            bookmarks_dto.append(BookmarkDTO(**bookmark_data))
 
         return BookmarksResponse(bookmarks=bookmarks_dto)
 
