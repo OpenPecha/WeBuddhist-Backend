@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 from starlette import status
 
+from pecha_api.plans.language_constants import language_query_description
 from pecha_api.plans.public.plan_service import get_public_tags, get_public_tag_detail
 from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse, PublicTagDetailDTO
 
@@ -22,7 +23,7 @@ def get_tags(
     ] = None,
     language: Annotated[
         Optional[str],
-        Query(description="Language code (EN, BO, ZH, HI, NE, MN). Defaults to EN."),
+        Query(description=f"{language_query_description('Language code')}. Defaults to EN."),
     ] = "EN",
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
@@ -41,7 +42,7 @@ async def get_tag_detail(
     tag_id: UUID,
     language: Annotated[
         Optional[str],
-        Query(description="Language code (EN, BO, ZH, HI, NE, MN). Defaults to EN."),
+        Query(description=f"{language_query_description('Language code')}. Defaults to EN."),
     ] = "EN",
 ):
     return await get_public_tag_detail(

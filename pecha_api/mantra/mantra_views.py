@@ -3,6 +3,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from typing import Annotated, Optional
 from starlette import status
 
+from pecha_api.plans.language_constants import language_query_description
 from .mantra_response_models import CreateMantraRequest, MantraDTO, MantraResponse
 from .mantra_service import create_mantra_service, get_mantras_service
 
@@ -25,7 +26,7 @@ cms_mantra_router = APIRouter(
     response_model=MantraResponse
 )
 def get_mantras_endpoint(
-    language: Annotated[Optional[str], Query(description="Filter by language code (e.g. 'en', 'bo', 'zh')")] = None,
+    language: Annotated[Optional[str], Query(description=language_query_description("Filter by language code", lowercase_example=True))] = None,
 ):
 
     return get_mantras_service(language=language)

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette import status
 
+from pecha_api.plans.language_constants import language_query_description
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_response_models import CreateSeriesRequest, UpdateSeriesRequest, UpdateSeriesStatusRequest, SeriesDTO, SeriesListResponse, CloneSeriesPlansRequest
 from pecha_api.plans.series.series_service import create_new_series, update_existing_series, update_existing_series_status, update_existing_series_featured, get_cms_filtered_series, get_cms_series_detail, delete_existing_series, clone_series_plans_for_language
@@ -118,7 +119,7 @@ async def get_cms_series_list(
     ] = None,
     language: Annotated[
         Optional[str],
-        Query(description="Filter by series metadata language (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Filter by series metadata language", lowercase_example=True)),
     ] = None,
     status: Annotated[Optional[PlanStatus], Query()] = None,
     featured: Annotated[Optional[bool], Query()] = None,
@@ -151,7 +152,7 @@ async def get_cms_series(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     language: Annotated[
         Optional[str],
-        Query(description="Filter plans by language (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Filter plans by language", lowercase_example=True)),
     ] = None,
 ):
     return get_cms_series_detail(

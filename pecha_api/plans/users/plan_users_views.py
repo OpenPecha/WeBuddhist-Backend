@@ -5,6 +5,7 @@ from starlette import status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated
 
+from pecha_api.plans.language_constants import language_query_description
 from pecha_api.plans.plans_response_models import PlansResponse
 from pecha_api.plans.users.plan_users_response_models import (
     UserPlanEnrollRequest, 
@@ -53,7 +54,7 @@ async def get_user_plans(
     series_id: Optional[UUID] = Query(None, description="Filter by series ID to only get plans from that series"),
     language: Annotated[
         Optional[str],
-        Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Filter group metadata by language", lowercase_example=True)),
     ] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50)
@@ -172,7 +173,7 @@ async def get_user_series_enrollments_endpoint(
     status_filter: Annotated[Optional[str], Query(description="Filter by series enrollment status")] = None,
     language: Annotated[
         Optional[str],
-        Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Filter group metadata by language", lowercase_example=True)),
     ] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
@@ -196,7 +197,7 @@ async def get_user_series_days_completed_endpoint(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     language: Annotated[
         Optional[str],
-        Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Filter group metadata by language", lowercase_example=True)),
     ] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
@@ -216,7 +217,7 @@ async def get_user_series_progress_endpoint(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     language: Annotated[
         Optional[str],
-        Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Filter group metadata by language", lowercase_example=True)),
     ] = None,
 ):
     """Get detailed progress for a specific series"""

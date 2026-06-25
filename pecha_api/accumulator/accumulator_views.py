@@ -4,6 +4,7 @@ from typing import Annotated, Optional
 from uuid import UUID
 from starlette import status
 
+from pecha_api.plans.language_constants import language_query_description
 from .accumulator_service import (
     get_all_accumulators_service,
     get_user_accumulators_service,
@@ -40,7 +41,7 @@ async def get_all_preset_accumulators(
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
     language: Annotated[
         Optional[str],
-        Query(description="Language code for mantra title, text, and pronunciation (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Language code for mantra title, text, and pronunciation", lowercase_example=True)),
     ] = None,
     search: Annotated[
         Optional[str],

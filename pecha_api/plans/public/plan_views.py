@@ -5,6 +5,7 @@ from uuid import UUID
 from datetime import date as DateType
 from starlette import status
 
+from pecha_api.plans.language_constants import language_query_description
 from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO,PlanDaysResponse , PlanDayDTO, TagsResponse, DailyPlanResponse
 from pecha_api.plans.public.plan_service import (
     get_published_plans, 
@@ -79,7 +80,7 @@ async def get_plan_daily(
     ] = None,
     language: Annotated[
         Optional[str],
-        Query(description="Filter series navigation and metadata by language (e.g. 'en', 'bo', 'zh')."),
+        Query(description=language_query_description("Filter series navigation and metadata by language", lowercase_example=True)),
     ] = None,
 ):
     return await get_plan_daily_content(plan_id=plan_id, requested_date=date, language=language)

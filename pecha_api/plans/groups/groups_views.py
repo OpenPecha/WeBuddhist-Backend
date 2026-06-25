@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
+from pecha_api.plans.language_constants import language_query_description
 from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupType
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
@@ -122,7 +123,7 @@ def patch_cms_group(
 def get_cms_group(
     group_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    language: Annotated[Optional[str], Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')")] = None,
+    language: Annotated[Optional[str], Query(description=language_query_description("Filter group metadata by language", lowercase_example=True))] = None,
 ):
     return get_cms_group_detail(
         token=authentication_credential.credentials,
@@ -316,7 +317,7 @@ def delete_group_member_by_id(
 @public_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=PublicAuthorGroupDetailDTO)
 def get_public_group(
     group_id: UUID,
-    language: Annotated[Optional[str], Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')")] = None,
+    language: Annotated[Optional[str], Query(description=language_query_description("Filter group metadata by language", lowercase_example=True))] = None,
 ):
     return get_author_group_detail(group_id=group_id, require_public=True, language=language)
 
@@ -391,7 +392,7 @@ def delete_join_group(
 def get_my_followed_groups(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     group_id: Annotated[Optional[UUID], Query(description="Return this group if the user is following it")] = None,
-    language: Annotated[Optional[str], Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')")] = None,
+    language: Annotated[Optional[str], Query(description=language_query_description("Filter group metadata by language", lowercase_example=True))] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
@@ -417,7 +418,7 @@ def get_my_followed_groups(
 def get_my_joined_groups(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     group_id: Annotated[Optional[UUID], Query(description="Return this group if the user has joined it")] = None,
-    language: Annotated[Optional[str], Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')")] = None,
+    language: Annotated[Optional[str], Query(description=language_query_description("Filter group metadata by language", lowercase_example=True))] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
