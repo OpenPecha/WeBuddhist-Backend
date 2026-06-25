@@ -2,7 +2,6 @@ import struct
 from io import BytesIO
 from typing import Optional, List, Dict
 from starlette import status
-from pecha_api.plans.audio.tts_service import generate_tts_audio
 from pecha_api.plans.audio.plan_item_audio_models import PlanItemAudio
 from pecha_api.plans.audio.plan_item_audio_repository import upsert_plan_item_audio
 from pecha_api.plans.audio.sub_task_timestamps_repository import upsert_sub_task_timestamp
@@ -125,57 +124,48 @@ DUMMY_DAYS = [
 WAV_CONTENT_TYPE = "audio/wav"
 
 
-def _generate_tts_wav(
-    content: str,
-    audio_type: PlanAudioType,
-    language: str,
-    voice_name: Optional[str] = None,
-) -> bytes:
-    try:
-        return generate_tts_audio(content, audio_type, language, voice_name=voice_name)
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ResponseError(error=BAD_REQUEST, message=str(exc)).model_dump(),
-        ) from exc
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=ResponseError(error=BAD_REQUEST, message=str(exc)).model_dump(),
-        ) from exc
-
-
-def _generate_audio_segments(
+async def _generate_audio_segments(
     tasks,
     audio_type: PlanAudioType,
     language: str,
-    voice_name: Optional[str] = None,
+    voice_name: MonlamVoiceName = MonlamVoiceName.DOLKAR_LHASA_FEMALE,
 ) -> tuple[List[bytes], list]:
+    from pecha_api.plans.audio.worker_client import generate_audio_from_text
+
     wav_header_size = 44
     audio_segments: List[bytes] = []
     subtask_refs = []
     allowed_types = {ContentType.TEXT, ContentType.SOURCE_REFERENCE}
+
     for task in tasks:
-        subtask = task.sub_tasks[0] if task.sub_tasks else None
-        if not subtask:
-            continue
-        if subtask.content_type not in allowed_types:
-            continue
+        for subtask in task.sub_tasks:
+            if subtask.content_type not in allowed_types:
+                continue
 
-        if subtask.audio_url:
-            existing_wav = download_bytes(
-                bucket_name=get("AWS_BUCKET_NAME"),
-                s3_key=subtask.audio_url,
-            )
-            raw_pcm = existing_wav[wav_header_size:]
-        else:
-            wav_bytes = _generate_tts_wav(
-                subtask.content, audio_type, language, voice_name=voice_name
-            )
-            raw_pcm = wav_bytes[wav_header_size:]
+            if subtask.audio_url:
+                existing_wav = download_bytes(
+                    bucket_name=get("AWS_BUCKET_NAME"),
+                    s3_key=subtask.audio_url,
+                )
+                raw_pcm = existing_wav[wav_header_size:]
+            else:
+                s3_key_prefix = f"audio/plan_subtasks/{subtask.task_id}/{subtask.id}"
+                result = await generate_audio_from_text(
+                    text=subtask.content,
+                    language=language,
+                    audio_type=audio_type,
+                    voice_name=voice_name,
+                    s3_key_prefix=s3_key_prefix,
+                )
+                generated_wav = download_bytes(
+                    bucket_name=get("AWS_BUCKET_NAME"),
+                    s3_key=result["s3_key"],
+                )
+                raw_pcm = generated_wav[wav_header_size:]
 
-        audio_segments.append(raw_pcm)
-        subtask_refs.append(subtask)
+            audio_segments.append(raw_pcm)
+            subtask_refs.append(subtask)
+
     return audio_segments, subtask_refs
 
 
@@ -271,7 +261,7 @@ async def generate_plan_audio_service(
     with SessionLocal() as db:
         plan_item: PlanItem = get_plan_day_by_id_any_plan(db=db, day_id=day_id)
 
-        audio_segments, subtask_refs = _generate_audio_segments(
+        audio_segments, subtask_refs = await _generate_audio_segments(
             plan_item.tasks, audio_type, language, voice_name
         )
         if not audio_segments:
@@ -311,11 +301,9 @@ async def _generate_subtask_audio(
     sub_task_id: UUID,
     audio_type: PlanAudioType,
     language: str,
-    voice_name: Optional[str] = None,
+    voice_name: MonlamVoiceName = MonlamVoiceName.DOLKAR_LHASA_FEMALE,
 ):
-    SAMPLE_RATE = 24000
-    BYTES_PER_SAMPLE = 2
-    WAV_HEADER_SIZE = 44
+    from pecha_api.plans.audio.worker_client import generate_audio_from_text
 
     with SessionLocal() as db:
         subtask: PlanSubTask = get_sub_task_by_subtask_id(db=db, id=sub_task_id)
@@ -335,23 +323,19 @@ async def _generate_subtask_audio(
                 ).model_dump(),
             )
 
-        wav_bytes = _generate_tts_wav(
-            subtask.content, audio_type, language, voice_name=voice_name
+        s3_key_prefix = f"audio/plan_subtasks/{subtask.task_id}/{sub_task_id}"
+        
+        result = await generate_audio_from_text(
+            text=subtask.content,
+            language=language,
+            audio_type=audio_type,
+            voice_name=voice_name,
+            s3_key_prefix=s3_key_prefix,
         )
-        raw_pcm = wav_bytes[WAV_HEADER_SIZE:]
 
-        segment_samples = len(raw_pcm) // BYTES_PER_SAMPLE
-        duration_ms = int((segment_samples / SAMPLE_RATE) * 1000)
-
-        combined_wav, _ = _build_combined_wav([raw_pcm])
-
-        s3_key = f"audio/plan_subtasks/{subtask.task_id}/{sub_task_id}/{uuid4()}.wav"
-        upload_bytes(
-            bucket_name=get("AWS_BUCKET_NAME"),
-            s3_key=s3_key,
-            file=BytesIO(combined_wav),
-            content_type=WAV_CONTENT_TYPE,
-        )
+        s3_key = result["s3_key"]
+        duration_ms = result["audio_duration_ms"]
+        audio_url = result["audio_url"]
 
         subtask.audio_url = s3_key
         subtask.duration = str(duration_ms)
@@ -364,11 +348,6 @@ async def _generate_subtask_audio(
             end_ms=duration_ms,
             created_by="system",
         )
-
-    audio_url = generate_presigned_access_url(
-        bucket_name=get("AWS_BUCKET_NAME"),
-        s3_key=s3_key,
-    )
 
     return {
         "audio_url": audio_url,
