@@ -1,11 +1,11 @@
 import uuid
 import pytest
-from unittest.mock import patch, MagicMock, ANY
+from unittest.mock import patch, MagicMock, ANY, AsyncMock
 from fastapi import HTTPException
 from datetime import datetime, timezone
 
 import pecha_api.plans.cms.cms_plans_service as plans_service
-from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus, ContentType
+from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus, ContentType, PlanAudioType, MonlamVoiceName
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
@@ -17,7 +17,8 @@ from pecha_api.plans.cms.cms_plans_service import (
     create_new_plan, get_filtered_plans, get_details_plan,
     update_plan_details, update_selected_plan_status, delete_selected_plan, get_plan_day_details,
     DUMMY_PLANS, DUMMY_DAYS,
-    _get_subscription_count, _validate_start_date_update, _apply_plan_field_updates, _generate_plan_image_url
+    _get_subscription_count, _validate_start_date_update, _apply_plan_field_updates, _generate_plan_image_url,
+    generate_plan_audio_service, _generate_subtask_audio,
 )
 from pecha_api.plans.platform_enums import PlatformRole
 
@@ -1630,4 +1631,239 @@ async def test_delete_selected_plan_success():
         mock_validate_author.assert_called_once_with(token="dummy-token")
         mock_get_plan_by_id.assert_called_once_with(db=db_session, plan_id=plan_id)
         mock_soft_delete.assert_called_once_with(db=db_session, plan_id=plan_id, author=author)
+
+
+# ============================================================================
+# Tests for generate_plan_audio_service and _generate_subtask_audio
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_generate_plan_audio_service_routes_to_subtask_audio():
+    """Test generate_plan_audio_service routes to _generate_subtask_audio when sub_task_id provided"""
+    sub_task_id = uuid.uuid4()
+    expected_response = {
+        "audio_url": "https://s3.example.com/audio.wav",
+        "audio_duration_ms": 3000,
+        "s3_key": "audio/plan_subtasks/test.wav",
+    }
+
+    with patch(
+        "pecha_api.plans.cms.cms_plans_service._generate_subtask_audio",
+        new_callable=AsyncMock,
+        return_value=expected_response,
+    ) as mock_subtask_audio:
+        result = await generate_plan_audio_service(
+            language="bo",
+            sub_task_id=sub_task_id,
+            audio_type=PlanAudioType.TEXT_READING,
+            voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE,
+        )
+
+        mock_subtask_audio.assert_called_once_with(
+            sub_task_id=sub_task_id,
+            audio_type=PlanAudioType.TEXT_READING,
+            language="bo",
+            voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE,
+        )
+        assert result == expected_response
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_audio_service_generates_day_audio():
+    """Test generate_plan_audio_service generates combined audio for day_id"""
+    day_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    task_id = uuid.uuid4()
+    subtask_id = uuid.uuid4()
+
+    subtask = MagicMock()
+    subtask.id = subtask_id
+    subtask.task_id = task_id
+    subtask.content = "Test content"
+    subtask.content_type = ContentType.TEXT
+    subtask.audio_url = None
+
+    task = MagicMock()
+    task.sub_tasks = [subtask]
+
+    plan_item = MagicMock()
+    plan_item.id = day_id
+    plan_item.plan_id = plan_id
+    plan_item.tasks = [task]
+
+    worker_response = {
+        "s3_key": "audio/plan_subtasks/test.wav",
+        "audio_url": "https://s3.example.com/audio.wav",
+        "audio_duration_ms": 3000,
+    }
+
+    wav_header = b"RIFF" + b"\x00" * 40
+    raw_pcm = b"\x00\x01\x02\x03" * 100
+
+    with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_plan_day_by_id_any_plan", return_value=plan_item), \
+         patch("pecha_api.plans.audio.worker_client.generate_audio_from_text", new_callable=AsyncMock, return_value=worker_response), \
+         patch("pecha_api.plans.cms.cms_plans_service.download_bytes", return_value=wav_header + raw_pcm), \
+         patch("pecha_api.plans.cms.cms_plans_service.upload_bytes"), \
+         patch("pecha_api.plans.cms.cms_plans_service.upsert_sub_task_timestamp"), \
+         patch("pecha_api.plans.cms.cms_plans_service.upsert_plan_item_audio") as mock_upsert_audio, \
+         patch("pecha_api.plans.cms.cms_plans_service.generate_presigned_access_url", return_value="https://presigned.url"):
+
+        mock_db = MagicMock()
+        mock_session_local.return_value.__enter__.return_value = mock_db
+        mock_session_local.return_value.__exit__.return_value = False
+
+        audio_row = MagicMock()
+        audio_row.audio_key = "audio/plan_days/combined.wav"
+        audio_row.duration_ms = 5000
+        mock_upsert_audio.return_value = audio_row
+
+        result = await generate_plan_audio_service(
+            language="bo",
+            day_id=day_id,
+            audio_type=PlanAudioType.TEXT_READING,
+            voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE,
+        )
+
+        assert "audio_url" in result
+        assert "audio_duration_ms" in result
+        assert "s3_key" in result
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_audio_service_returns_empty_for_no_segments():
+    """Test generate_plan_audio_service returns empty list when no audio segments"""
+    day_id = uuid.uuid4()
+
+    plan_item = MagicMock()
+    plan_item.id = day_id
+    plan_item.plan_id = uuid.uuid4()
+    plan_item.tasks = []
+
+    with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_plan_day_by_id_any_plan", return_value=plan_item):
+
+        mock_db = MagicMock()
+        mock_session_local.return_value.__enter__.return_value = mock_db
+        mock_session_local.return_value.__exit__.return_value = False
+
+        result = await generate_plan_audio_service(
+            language="bo",
+            day_id=day_id,
+        )
+
+        assert result == []
+
+
+@pytest.mark.asyncio
+async def test_generate_subtask_audio_success():
+    """Test _generate_subtask_audio calls worker, updates DB, returns response"""
+    sub_task_id = uuid.uuid4()
+    task_id = uuid.uuid4()
+
+    subtask = MagicMock()
+    subtask.id = sub_task_id
+    subtask.task_id = task_id
+    subtask.content = "བཀྲ་ཤིས་བདེ་ལེགས"
+    subtask.content_type = ContentType.TEXT
+    subtask.audio_url = None
+
+    worker_response = {
+        "s3_key": "audio/plan_subtasks/test.wav",
+        "audio_url": "https://s3.example.com/audio.wav",
+        "audio_duration_ms": 3000,
+    }
+
+    with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_sub_task_by_subtask_id", return_value=subtask), \
+         patch("pecha_api.plans.audio.worker_client.generate_audio_from_text", new_callable=AsyncMock, return_value=worker_response) as mock_worker, \
+         patch("pecha_api.plans.cms.cms_plans_service.upsert_sub_task_timestamp") as mock_upsert_timestamp:
+
+        mock_db = MagicMock()
+        mock_session_local.return_value.__enter__.return_value = mock_db
+        mock_session_local.return_value.__exit__.return_value = False
+
+        result = await _generate_subtask_audio(
+            sub_task_id=sub_task_id,
+            audio_type=PlanAudioType.TEXT_READING,
+            language="bo",
+            voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE,
+        )
+
+        mock_worker.assert_called_once_with(
+            text="བཀྲ་ཤིས་བདེ་ལེགས",
+            language="bo",
+            audio_type=PlanAudioType.TEXT_READING,
+            voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE,
+            s3_key_prefix=f"audio/plan_subtasks/{task_id}/{sub_task_id}",
+        )
+
+        assert subtask.audio_url == "audio/plan_subtasks/test.wav"
+        assert subtask.duration == "3000"
+        mock_db.commit.assert_called()
+
+        mock_upsert_timestamp.assert_called_once_with(
+            db=mock_db,
+            sub_task_id=sub_task_id,
+            start_ms=0,
+            end_ms=3000,
+            created_by="system",
+        )
+
+        assert result == {
+            "audio_url": "https://s3.example.com/audio.wav",
+            "audio_duration_ms": 3000,
+            "s3_key": "audio/plan_subtasks/test.wav",
+        }
+
+
+@pytest.mark.asyncio
+async def test_generate_subtask_audio_not_found_raises_404():
+    """Test _generate_subtask_audio raises 404 for missing subtask"""
+    sub_task_id = uuid.uuid4()
+
+    with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_sub_task_by_subtask_id", return_value=None):
+
+        mock_db = MagicMock()
+        mock_session_local.return_value.__enter__.return_value = mock_db
+        mock_session_local.return_value.__exit__.return_value = False
+
+        with pytest.raises(HTTPException) as exc_info:
+            await _generate_subtask_audio(
+                sub_task_id=sub_task_id,
+                audio_type=PlanAudioType.TEXT_READING,
+                language="bo",
+            )
+
+        assert exc_info.value.status_code == 404
+        assert "Sub task not found" in str(exc_info.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_generate_subtask_audio_invalid_content_type_raises_400():
+    """Test _generate_subtask_audio raises 400 for non-text content type"""
+    sub_task_id = uuid.uuid4()
+
+    subtask = MagicMock()
+    subtask.id = sub_task_id
+    subtask.content = "video_url"
+    subtask.content_type = ContentType.VIDEO
+
+    with patch("pecha_api.plans.cms.cms_plans_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.cms.cms_plans_service.get_sub_task_by_subtask_id", return_value=subtask):
+
+        mock_db = MagicMock()
+        mock_session_local.return_value.__enter__.return_value = mock_db
+        mock_session_local.return_value.__exit__.return_value = False
+
+        with pytest.raises(HTTPException) as exc_info:
+            await _generate_subtask_audio(
+                sub_task_id=sub_task_id,
+                audio_type=PlanAudioType.TEXT_READING,
+                language="bo",
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "TEXT or SOURCE_REFERENCE" in str(exc_info.value.detail)
 
