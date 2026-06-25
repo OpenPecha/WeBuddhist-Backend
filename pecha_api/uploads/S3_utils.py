@@ -94,6 +94,13 @@ def delete_file(file_path: str):
         )
         return True
     except ClientError as e:
-        if e.response['Error']['Code'] != 'NoSuchKey':
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error deleting old image.")
-        return False
+        error_code = e.response.get('Error', {}).get('Code', '')
+        # NoSuchKey is fine - file already doesn't exist
+        # 404 and NotFound are also acceptable
+        if error_code in ('NoSuchKey', '404', 'NotFound'):
+            return False
+        logging.error(f"S3 delete error for {file_path}: {error_code} - {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error deleting file.")
+    except Exception as e:
+        logging.error(f"Unexpected error deleting {file_path}: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error deleting file.")
