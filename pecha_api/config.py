@@ -51,6 +51,7 @@ DEFAULTS = dict(
     CACHE_USER_TIMEOUT=900,         # 15 minutes for users (not frequently changed)
     CACHE_TOPIC_TIMEOUT=1800,       # 30 minutes for topics (not frequently changed)
     CACHE_SHEET_TIMEOUT=60,         # 1 minute for sheets (frequently edited by users)
+    CACHE_USER_STATS_TIMEOUT=300,   # 5 minutes for user stats
 
     SHORT_URL_GENERATION_ENDPOINT="https://pech.as/api/v1",
     
@@ -94,14 +95,6 @@ DEFAULTS = dict(
     REQUEST_OBSERVABILITY_ENABLED="true",
     REQUEST_OBSERVABILITY_MEMORY_WARN_MB=50,
     REQUEST_OBSERVABILITY_SKIP_PATHS="/health",
-
-    # Rate limiting (slowapi + Redis; falls back to in-memory if Redis is unavailable)
-    RATE_LIMIT_ENABLED="true",
-    RATE_LIMIT_AUTHENTICATED_PER_HOUR=2000,
-    RATE_LIMIT_UNAUTHENTICATED_PER_HOUR=500,
-    RATE_LIMIT_SKIP_PATHS="/health",
-    RATE_LIMIT_REDIS_URL="redis://localhost:6379",
-    RATE_LIMIT_KEY_PREFIX="pecha:ratelimit:",
 
 )
 

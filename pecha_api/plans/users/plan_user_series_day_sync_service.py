@@ -8,6 +8,7 @@ from pecha_api.plans.items.plan_items_repository import get_plan_item_by_id
 from pecha_api.plans.tasks.plan_tasks_repository import get_tasks_by_plan_item_id
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_repository import get_sub_tasks_by_task_id
 from pecha_api.plans.users.plan_user_day_repository import save_user_day_completion_if_not_exists
+from pecha_api.daily_log.daily_log_cache_service import schedule_invalidate_user_stats_cache
 from pecha_api.plans.users.plan_user_series_day_sync_repository import (
     get_plan_items_by_plan_ids_and_day_number,
     get_sibling_plans_in_series_slot,
@@ -89,7 +90,8 @@ def sync_series_day_completion(db: Session, user_id: UUID, completed_day_id: UUI
     synced_day_ids: List[UUID] = []
     for equivalent_day in equivalent_days:
         _complete_all_tasks_for_day(db, user_id, equivalent_day.id)
-        save_user_day_completion_if_not_exists(db, user_id, equivalent_day.id)
+        if save_user_day_completion_if_not_exists(db, user_id, equivalent_day.id):
+            schedule_invalidate_user_stats_cache(user_id=user_id)
         synced_day_ids.append(equivalent_day.id)
 
     return synced_day_ids

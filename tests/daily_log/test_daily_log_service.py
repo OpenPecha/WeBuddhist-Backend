@@ -82,12 +82,14 @@ async def test_record_daily_log_if_needed_saves_when_not_cached_or_logged():
          patch("pecha_api.daily_log.daily_log_service.SessionLocal", return_value=mock_db), \
          patch("pecha_api.daily_log.daily_log_service.has_log_for_date", return_value=False) as mock_has_log, \
          patch("pecha_api.daily_log.daily_log_service.save_daily_log") as mock_save, \
-         patch("pecha_api.daily_log.daily_log_service.set_user_daily_log_cache") as mock_set_cache:
+         patch("pecha_api.daily_log.daily_log_service.set_user_daily_log_cache") as mock_set_cache, \
+         patch("pecha_api.daily_log.daily_log_service.invalidate_user_stats_cache", new_callable=AsyncMock) as mock_invalidate:
         await record_daily_log_if_needed(user_id=user_id)
 
         mock_has_log.assert_called_once_with(db=mock_db, user_id=user_id, log_date=today)
         mock_save.assert_called_once_with(db=mock_db, user_id=user_id, log_date=today)
         mock_set_cache.assert_awaited_once_with(user_id=user_id, log_date=today)
+        mock_invalidate.assert_awaited_once_with(user_id=user_id)
 
 
 @pytest.mark.asyncio
@@ -145,6 +147,8 @@ async def test_get_user_stats_service_aggregates_all_sources():
     with patch("pecha_api.daily_log.daily_log_service.validate_and_extract_user_details", return_value=mock_user), \
          patch("pecha_api.daily_log.daily_log_service.record_daily_log_if_needed", new_callable=AsyncMock) as mock_record, \
          patch("pecha_api.daily_log.daily_log_service._utc_today", return_value=today), \
+         patch("pecha_api.daily_log.daily_log_service.get_user_stats_cache", new_callable=AsyncMock, return_value=None), \
+         patch("pecha_api.daily_log.daily_log_service.set_user_stats_cache", new_callable=AsyncMock) as mock_set_stats_cache, \
          patch("pecha_api.daily_log.daily_log_service.SessionLocal", return_value=mock_db), \
          patch("pecha_api.daily_log.daily_log_service.get_user_streak", return_value=3), \
          patch("pecha_api.daily_log.daily_log_service.get_highest_streak", return_value=7), \
@@ -159,3 +163,25 @@ async def test_get_user_stats_service_aggregates_all_sources():
         assert result.total_accumulated == 10800
         assert result.total_practice_days == 42
         mock_record.assert_awaited_once_with(user_id=user_id, db=mock_db)
+        mock_set_stats_cache.assert_awaited_once_with(user_id=user_id, data=result)
+
+
+@pytest.mark.asyncio
+async def test_get_user_stats_service_returns_cached_stats_without_db_queries():
+    user_id = uuid4()
+    mock_user = MagicMock()
+    mock_user.id = user_id
+    cached_stats = MagicMock()
+
+    from pecha_api.daily_log.daily_log_service import get_user_stats_service
+
+    with patch("pecha_api.daily_log.daily_log_service.validate_and_extract_user_details", return_value=mock_user), \
+         patch("pecha_api.daily_log.daily_log_service.record_daily_log_if_needed", new_callable=AsyncMock), \
+         patch("pecha_api.daily_log.daily_log_service.get_user_stats_cache", new_callable=AsyncMock, return_value=cached_stats), \
+         patch("pecha_api.daily_log.daily_log_service.get_user_streak") as mock_streak, \
+         patch("pecha_api.daily_log.daily_log_service.set_user_stats_cache", new_callable=AsyncMock) as mock_set_stats_cache:
+        result = await get_user_stats_service(token="test_token")
+
+        assert result is cached_stats
+        mock_streak.assert_not_called()
+        mock_set_stats_cache.assert_not_awaited()
