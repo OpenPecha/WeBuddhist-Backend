@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Query
 from starlette import status
 
+from pecha_api.plans.language_constants import language_query_description
 from .collections_response_models import CollectionsResponse
 from .collections_openpecha_service import get_collections_from_openpecha
 
@@ -22,7 +23,7 @@ collections_v2_router = APIRouter(
 )
 async def read_collections_v2(
     parent_id: Annotated[str | None, Query(description="Filter by parent category ID")] = None,
-    language: Annotated[str | None, Query(description="Language code (e.g., 'en', 'bo', 'zh')")] = None,
+    language: Annotated[str | None, Query(description=language_query_description("Language code", lowercase_example=True))] = None,
     skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10
 ) -> CollectionsResponse:

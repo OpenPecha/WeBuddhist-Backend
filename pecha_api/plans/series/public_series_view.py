@@ -3,6 +3,7 @@ from typing import Optional, Annotated
 from uuid import UUID
 from starlette import status
 
+from pecha_api.plans.language_constants import language_query_description
 from pecha_api.plans.series.series_response_models import SeriesDTO, SeriesListResponse
 from pecha_api.plans.series.series_service import get_filtered_series, get_series_detail, get_random_featured_series
 
@@ -19,7 +20,7 @@ async def get_series_list(
     ] = None,
     language: Annotated[
         Optional[str],
-        Query(description="Filter by series metadata language (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Filter by series metadata language", lowercase_example=True)),
     ] = None,
     group_id: Annotated[
         Optional[UUID],
@@ -39,7 +40,7 @@ async def get_series_list(
 async def get_featured_series(
     language: Annotated[
         Optional[str],
-        Query(description="Filter metadata by language (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Filter metadata by language", lowercase_example=True)),
     ] = None,
     limit: Annotated[int, Query()] = 10,
 ):
@@ -53,7 +54,7 @@ async def get_series(
     series_id: UUID,
     language: Annotated[
         Optional[str],
-        Query(description="Filter plans by language (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Filter plans by language", lowercase_example=True)),
     ] = None,
 ):
     return get_series_detail(series_id=series_id, language=language)

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
+from pecha_api.plans.language_constants import language_query_description
 from pecha_api.plans.tags.tag_response_models import CreateTagRequest, TagDTO, TagsListResponse, UpdateTagRequest
 from pecha_api.plans.tags.tag_service import (
     create_new_tag,
@@ -58,7 +59,7 @@ async def remove_tag(
 async def list_tags(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     search: Annotated[Optional[str], Query(description="Search by tag name")] = None,
-    language: Annotated[Optional[str], Query(description="Language code (EN, BO, ZH, HI, NE, MN). Defaults to EN.")] = "EN",
+    language: Annotated[Optional[str], Query(description=f"{language_query_description('Language code')}. Defaults to EN.")] = "EN",
     skip: Annotated[int, Query()] = 0,
     limit: Annotated[int, Query()] = 10,
 ):
@@ -75,7 +76,7 @@ async def list_tags(
 async def get_tag(
     tag_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    language: Annotated[Optional[str], Query(description="Language code (EN, BO, ZH, HI, NE, MN). Defaults to EN.")] = "EN",
+    language: Annotated[Optional[str], Query(description=f"{language_query_description('Language code')}. Defaults to EN.")] = "EN",
 ):
     return get_cms_tag_detail(
         token=authentication_credential.credentials,

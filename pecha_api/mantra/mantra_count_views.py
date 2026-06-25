@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
+from pecha_api.plans.language_constants import language_query_description
 from pecha_api.mantra.mantra_count_response_models import (
     MantraCountDetailDTO,
     MantraCountsResponse,
@@ -31,7 +32,7 @@ def get_user_mantra_counts(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     language: Annotated[
         Optional[str],
-        Query(description="Language code for mantra title (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Language code for mantra title", lowercase_example=True)),
     ] = None,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
@@ -54,7 +55,7 @@ def get_user_mantra_count_detail(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     language: Annotated[
         Optional[str],
-        Query(description="Language code for mantra title (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Language code for mantra title", lowercase_example=True)),
     ] = None,
 ) -> MantraCountDetailDTO:
     return get_user_mantra_count_detail_service(

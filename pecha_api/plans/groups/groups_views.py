@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
+from pecha_api.plans.language_constants import language_query_description
 from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupType
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
@@ -126,7 +127,7 @@ def patch_cms_group(
 def get_cms_group(
     group_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    language: Annotated[Optional[str], Query(description="Filter group metadata by language (e.g. 'en', 'bo', 'zh')")] = None,
+    language: Annotated[Optional[str], Query(description=language_query_description("Filter group metadata by language", lowercase_example=True))] = None,
 ):
     return get_cms_group_detail(
         token=authentication_credential.credentials,

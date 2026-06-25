@@ -3,6 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from uuid import UUID
 from starlette import status
 from typing import Annotated, Optional
+from pecha_api.plans.language_constants import language_query_description
 from .routines_response_models import (
     CreateTimeBlockRequest,
     TimeBlockDTO,
@@ -110,7 +111,7 @@ async def get_routine(
     limit: int = Query(20, ge=1, le=100),
     language: Annotated[
         Optional[str],
-        Query(description="Render session titles in this language, falling back to 'en' (e.g. 'en', 'bo', 'zh')"),
+        Query(description=language_query_description("Render session titles in this language, falling back to 'en'", lowercase_example=True)),
     ] = None,
 ):
     return await get_user_routine(
