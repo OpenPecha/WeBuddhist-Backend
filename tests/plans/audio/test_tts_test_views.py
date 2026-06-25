@@ -44,13 +44,25 @@ def test_preview_tts_returns_502_for_runtime_error(mock_generate):
 
 @patch(
     "pecha_api.plans.audio.tts_test_views.generate_tts_audio",
-    side_effect=ValueError("Unsupported language for TTS: zh"),
+    return_value=b"RIFF" + b"\x00" * 40,
+)
+def test_preview_tts_returns_wav_for_non_tibetan_language(mock_generate):
+    response = _post_tts_preview(language="zh", type="TEXT_READING")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/wav"
+    mock_generate.assert_called_once()
+
+
+@patch(
+    "pecha_api.plans.audio.tts_test_views.generate_tts_audio",
+    side_effect=ValueError("Content cannot be empty"),
 )
 def test_preview_tts_returns_400_for_validation_error(mock_generate):
-    response = _post_tts_preview(language="zh")
+    response = client.post("/preview", json={"text": "   ", "language": "en"})
 
     assert response.status_code == 400
-    assert "Unsupported language" in response.json()["detail"]
+    assert "Content cannot be empty" in response.json()["detail"]
 
 
 @patch(

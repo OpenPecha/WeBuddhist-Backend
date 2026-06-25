@@ -5,9 +5,6 @@ from pecha_api.plans.audio.audio_prompt import build_tts_prompt, DEFAULT_VOICE_N
 from pecha_api.plans.audio.monlam_tts_service import generate_monlam_tts_audio
 from pecha_api.plans.plans_enums import PlanAudioType
 
-SUPPORTED_TTS_LANGUAGES = {"en", "bo"}
-
-
 def _normalize_language(language: str) -> str:
     return (language or "en").strip().lower()
 
@@ -22,10 +19,6 @@ def generate_tts_audio(
         raise ValueError("Content cannot be empty")
 
     normalized_language = _normalize_language(language)
-    if normalized_language not in SUPPORTED_TTS_LANGUAGES:
-        raise ValueError(
-            f"Unsupported language for TTS: {language}. Supported: {', '.join(sorted(SUPPORTED_TTS_LANGUAGES))}"
-        )
 
     if normalized_language == "bo":
         return generate_monlam_tts_audio(content, voice_name=voice_name)
