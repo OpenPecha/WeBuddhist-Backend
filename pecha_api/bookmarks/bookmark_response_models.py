@@ -1,9 +1,13 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 from uuid import UUID
 from typing import List, Optional
 from datetime import datetime
 
 from pecha_api.bookmarks.bookmark_enums import BookmarkType
+from pecha_api.plans.public.plan_response_models import PublicPlanDTO
+from pecha_api.plans.series.series_response_models import SeriesListItemDTO
+from pecha_api.accumulator.accumulator_response_models import AccumulatorDTO
+from pecha_api.timers.timer_response_models import TimerDTO
 
 
 class CreateBookmarkRequest(BaseModel):
@@ -28,6 +32,8 @@ class CreateBookmarkRequest(BaseModel):
 
 
 class BookmarkDTO(BaseModel):
+    model_config = ConfigDict(ser_json_exclude_none=True)
+
     id: UUID
     type: BookmarkType
     source_id: str
@@ -39,7 +45,13 @@ class BookmarkDTO(BaseModel):
     segment_id: Optional[str] = None
     verse_id: Optional[str] = None
     segment_content: Optional[str] = None
+    plan: Optional[PublicPlanDTO] = None
+    series: Optional[SeriesListItemDTO] = None
+    accumulator: Optional[AccumulatorDTO] = None
+    timer: Optional[TimerDTO] = None
 
 
 class BookmarksResponse(BaseModel):
+    model_config = ConfigDict(ser_json_exclude_none=True)
+
     bookmarks: List[BookmarkDTO]

@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from starlette import status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated, Optional
 from uuid import UUID
 
 from pecha_api.bookmarks.bookmark_enums import BookmarkFilterType
+from pecha_api.plans.language_constants import language_query_description
 from pecha_api.bookmarks.bookmark_response_models import (
     CreateBookmarkRequest,
     BookmarksResponse,
@@ -23,7 +24,12 @@ bookmark_router = APIRouter(
 )
 
 
-@bookmark_router.post("/bookmarks", status_code=status.HTTP_201_CREATED, response_model=BookmarkDTO)
+@bookmark_router.post(
+    "/bookmarks",
+    status_code=status.HTTP_201_CREATED,
+    response_model=BookmarkDTO,
+    response_model_exclude_none=True,
+)
 async def create_bookmark(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     create_bookmark_request: CreateBookmarkRequest
@@ -34,12 +40,30 @@ async def create_bookmark(
     )
 
 
-@bookmark_router.get("/bookmarks", status_code=status.HTTP_200_OK, response_model=BookmarksResponse)
+@bookmark_router.get(
+    "/bookmarks",
+    status_code=status.HTTP_200_OK,
+    response_model=BookmarksResponse,
+    response_model_exclude_none=True,
+)
 async def get_bookmarks(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     type: Optional[BookmarkFilterType] = None,
+    language: Annotated[
+        Optional[str],
+        Query(
+            description=language_query_description(
+                "Localize enriched bookmark data",
+                lowercase_example=True,
+            )
+        ),
+    ] = None,
 ):
-    return await get_bookmarks_service(token=authentication_credential.credentials, type=type)
+    return await get_bookmarks_service(
+        token=authentication_credential.credentials,
+        type=type,
+        language=language,
+    )
 
 
 @bookmark_router.delete("/bookmarks/{bookmark_id}", status_code=status.HTTP_204_NO_CONTENT)
