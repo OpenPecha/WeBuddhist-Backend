@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from pecha_api.app import api
 from pecha_api.bookmarks.bookmark_response_models import BookmarkDTO, BookmarksResponse
-from pecha_api.bookmarks.bookmark_enums import BookmarkType
+from pecha_api.bookmarks.bookmark_enums import BookmarkType, BookmarkFilterType
 
 client = TestClient(api)
 
@@ -75,7 +75,7 @@ def test_create_bookmark_verse_type():
         data = response.json()
         assert data["type"] == "VERSE"
         assert data["source_id"] == verse_locator
-        assert data["name"] is None
+        assert "name" not in data
 
 
 def test_create_bookmark_invalid_uuid_for_non_verse_type():
@@ -177,7 +177,26 @@ def test_get_bookmarks_success():
         assert len(data["bookmarks"]) == 2
         assert data["bookmarks"][0]["type"] == "SERIES"
         assert data["bookmarks"][1]["source_id"] == "segment-ref-002"
-        assert data["bookmarks"][1]["name"] is None
+        assert "name" not in data["bookmarks"][1]
+
+
+def test_get_bookmarks_passes_language_to_service():
+    mock_response = BookmarksResponse(bookmarks=[])
+
+    with patch("pecha_api.bookmarks.bookmark_views.get_bookmarks_service") as mock_service:
+        mock_service.return_value = mock_response
+
+        response = client.get(
+            "/users/me/bookmarks?type=PLAN&language=bo",
+            headers={"Authorization": "Bearer test_token"},
+        )
+
+        assert response.status_code == 200
+        mock_service.assert_called_once_with(
+            token="test_token",
+            type=BookmarkFilterType.PLAN,
+            language="bo",
+        )
 
 
 def test_get_bookmarks_empty():

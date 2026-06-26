@@ -347,3 +347,96 @@ async def test_enrich_text_bookmark_handles_missing_text_details():
     assert result["text_id"] == text_id
     assert result["text_title"] is None
     assert result["segment_content"] == "Segment content"
+
+
+@pytest.mark.asyncio
+async def test_enrich_text_bookmark_with_language_uses_localized_text():
+    text_id = str(uuid4())
+    localized_text_id = str(uuid4())
+    segment_id = str(uuid4())
+
+    bookmark = MagicMock()
+    bookmark.type = BookmarkType.TEXT
+    bookmark.source_id = text_id
+    bookmark.name = None
+
+    mock_segment = MagicMock()
+    mock_segment.id = segment_id
+    mock_segment.text_id = text_id
+    mock_segment.content = "English content"
+
+    localized_text = MagicMock()
+    localized_text.id = localized_text_id
+    localized_text.title = "བོད་ཡིག་ཁ་བྱང་"
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils._resolve_text_segment",
+        new_callable=AsyncMock,
+        return_value=(segment_id, mock_segment),
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils._resolve_localized_text",
+        new_callable=AsyncMock,
+        return_value=localized_text,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils._resolve_localized_segment",
+        new_callable=AsyncMock,
+        return_value=mock_segment,
+    ):
+        result = await enrich_text_bookmark(bookmark, language="BO")
+
+    assert result["text_id"] == localized_text_id
+    assert result["text_title"] == "བོད་ཡིག་ཁ་བྱང་"
+
+
+def test_enrich_plan_bookmark_with_language_uses_matching_sibling():
+    from pecha_api.bookmarks.bookmark_utils import enrich_plan_bookmark
+
+    source_plan_id = uuid4()
+    bo_plan_id = uuid4()
+    mock_db = MagicMock()
+
+    source_plan = MagicMock()
+    source_plan.id = source_plan_id
+    source_plan.series_id = uuid4()
+    source_plan.display_order = 1
+    source_plan.language = MagicMock(value="EN")
+
+    bo_plan = MagicMock()
+    bo_plan.id = bo_plan_id
+    bo_plan.title = "བོད་ཡིག་ཐེངས་"
+    bo_plan.description = "བོད་ཡིག་ཞབས་ཞུ་"
+    bo_plan.language = MagicMock(value="BO")
+    bo_plan.difficulty_level = None
+    bo_plan.image_url = None
+    bo_plan.author = None
+    bo_plan.start_date = None
+    bo_plan.display_order = 1
+    bo_plan.tag_list = []
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_published_plan_by_id",
+        side_effect=lambda db, plan_id: source_plan if plan_id == source_plan_id else bo_plan,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_sibling_plans_in_series_slot",
+        return_value=[bo_plan],
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_id_for_plan",
+        return_value=None,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_image_url",
+        return_value=None,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.tags_to_summary_dtos",
+        return_value=[],
+    ):
+        mock_db.query.return_value.filter.return_value.count.return_value = 3
+        result = enrich_plan_bookmark(
+            db=mock_db,
+            source_id=str(source_plan_id),
+            language="BO",
+        )
+
+    assert result["plan"].id == bo_plan_id
+    assert result["plan"].title == "བོད་ཡིག་ཐེངས་"
+    assert result["plan"].language == "BO"
+
