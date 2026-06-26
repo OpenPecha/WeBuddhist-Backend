@@ -29,7 +29,7 @@ class PresetMantraDTO(BaseModel):
 
 class AccumulatorDTO(BaseModel):
     id: UUID
-    user_id: UUID
+    user_id: Optional[UUID] = None
     group_id: Optional[UUID] = None
     parent_id: Optional[UUID] = Field(None, description="The preset this accumulator was created from")
     type: AccumulatorType
