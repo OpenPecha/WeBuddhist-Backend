@@ -23,6 +23,31 @@ def build_plan_day_audio_fields(
     return audio_url, getattr(audio, "duration_ms", None), audio_key, True
 
 
+def build_plan_day_shareable_image_fields(
+    shareable_images,
+) -> tuple[Optional[str], Optional[str], Optional[str], Optional[str]]:
+    if shareable_images is None:
+        return None, None, None, None
+
+    thumbnail_key = getattr(shareable_images, "thumbnail_key", None)
+    shareable_image_key = getattr(shareable_images, "shareable_image_key", None)
+
+    thumbnail_url = (
+        generate_presigned_access_url(bucket_name=get("AWS_BUCKET_NAME"), s3_key=thumbnail_key)
+        if thumbnail_key
+        else None
+    )
+    shareable_image_url = (
+        generate_presigned_access_url(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=shareable_image_key,
+        )
+        if shareable_image_key
+        else None
+    )
+    return thumbnail_url, thumbnail_key, shareable_image_url, shareable_image_key
+
+
 def build_subtask_timestamp_fields(subtask: PlanSubTask) -> Tuple[Optional[int], Optional[int]]:
     return timestamp_fields_from_subtask(subtask)
 
