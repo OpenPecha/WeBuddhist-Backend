@@ -2,6 +2,8 @@ from fastapi import APIRouter
 from .plan_items_response_models import CreateDaysRequest, DeleteDaysRequest, ItemDTO, ReorderDaysRequest
 from .plan_items_services import create_plan_item, delete_plan_days, update_plans_day_number
 from pecha_api.plans.audio.plan_day_audio_service import delete_plan_day_audio,assign_plan_day_audio
+from pecha_api.plans.shareable_images.day_shareable_image_enums import DayShareableImageType
+from pecha_api.plans.shareable_images.day_shareable_image_service import delete_plan_day_shareable_image
 from pecha_api.plans.audio.plan_audio_response_models import AssignPlanDayAudioRequest
 from pecha_api.plans.media.media_response_models import PlanDayAudioUploadResponse
 from pecha_api.plans.videos.day_video_service import (
@@ -74,6 +76,22 @@ async def delete_day_audio(
     return delete_plan_day_audio(
         token=authentication_credential.credentials,
         day_id=day_id,
+    )
+
+
+@items_router.delete(
+    "/days/{day_id}/shareable-images/{image_type}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_day_shareable_image(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    day_id: UUID,
+    image_type: DayShareableImageType,
+):
+    return delete_plan_day_shareable_image(
+        token=authentication_credential.credentials,
+        day_id=day_id,
+        image_type=image_type,
     )
 
 

@@ -113,6 +113,10 @@ class PlanDayDTO(BaseModel):
     audio_duration_ms: Optional[int] = None
     audio_key: Optional[str] = None
     has_audio: Optional[bool] = None
+    thumbnail_url: Optional[str] = None
+    thumbnail_key: Optional[str] = None
+    shareable_image_url: Optional[str] = None
+    shareable_image_key: Optional[str] = None
     videos: List[DayVideoSummaryDTO] = []
 
 
