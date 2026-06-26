@@ -1,20 +1,24 @@
 from fastapi import APIRouter, Depends, Query
+from fastapi.exceptions import RequestValidationError
 from starlette import status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated, Optional
 from uuid import UUID
-
-from pecha_api.bookmarks.bookmark_enums import BookmarkFilterType
+from pydantic import ValidationError
+from pecha_api.bookmarks.bookmark_enums import BookmarkFilterType, BookmarkType
 from pecha_api.plans.language_constants import language_query_description
 from pecha_api.bookmarks.bookmark_response_models import (
     CreateBookmarkRequest,
     BookmarksResponse,
-    BookmarkDTO
+    BookmarkDTO,
+    BookmarkExistsResponse,
+    BookmarkExistsQuery,
 )
 from pecha_api.bookmarks.bookmark_services import (
     create_bookmark_service,
     get_bookmarks_service,
-    delete_bookmark_service
+    delete_bookmark_service,
+    bookmark_exists_service,
 )
 
 oauth2_scheme = HTTPBearer()
@@ -22,6 +26,16 @@ bookmark_router = APIRouter(
     prefix="/users/me",
     tags=["Bookmarks"]
 )
+
+
+def get_bookmark_exists_query(
+    source_id: Annotated[str, Query(min_length=1)],
+    type: Optional[BookmarkType] = None,
+) -> BookmarkExistsQuery:
+    try:
+        return BookmarkExistsQuery(type=type, source_id=source_id)
+    except ValidationError as exc:
+        raise RequestValidationError(exc.errors()) from exc
 
 
 @bookmark_router.post(
@@ -63,6 +77,22 @@ async def get_bookmarks(
         token=authentication_credential.credentials,
         type=type,
         language=language,
+    )
+
+
+@bookmark_router.get(
+    "/bookmarks/exists",
+    status_code=status.HTTP_200_OK,
+    response_model=BookmarkExistsResponse,
+    response_model_exclude_none=True,
+)
+async def bookmark_exists(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    bookmark_exists_query: Annotated[BookmarkExistsQuery, Depends(get_bookmark_exists_query)],
+):
+    return await bookmark_exists_service(
+        token=authentication_credential.credentials,
+        bookmark_exists_query=bookmark_exists_query,
     )
 
 

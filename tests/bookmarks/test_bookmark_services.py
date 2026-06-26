@@ -6,9 +6,10 @@ from datetime import datetime, timezone
 from pecha_api.bookmarks.bookmark_services import (
     create_bookmark_service,
     get_bookmarks_service,
-    delete_bookmark_service
+    delete_bookmark_service,
+    bookmark_exists_service,
 )
-from pecha_api.bookmarks.bookmark_response_models import CreateBookmarkRequest
+from pecha_api.bookmarks.bookmark_response_models import CreateBookmarkRequest, BookmarkExistsQuery
 from pecha_api.bookmarks.bookmark_enums import BookmarkType, BookmarkFilterType
 
 
@@ -287,3 +288,118 @@ async def test_delete_bookmark_service_success():
         await delete_bookmark_service(token="test_token", bookmark_id=bookmark_id)
 
         mock_delete.assert_called_once_with(db=mock_db, user_id=user_id, bookmark_id=bookmark_id)
+
+
+@pytest.mark.asyncio
+async def test_bookmark_exists_service_true():
+    user_id = uuid4()
+    source_id = str(uuid4())
+    bookmark_id = uuid4()
+
+    mock_user = MagicMock()
+    mock_user.id = user_id
+
+    mock_bookmark = MagicMock()
+    mock_bookmark.id = bookmark_id
+
+    mock_db = MagicMock()
+    mock_db.__enter__ = MagicMock(return_value=mock_db)
+    mock_db.__exit__ = MagicMock(return_value=False)
+
+    with patch("pecha_api.bookmarks.bookmark_services.validate_and_extract_user_details") as mock_validate, \
+         patch("pecha_api.bookmarks.bookmark_services.SessionLocal") as mock_session, \
+         patch("pecha_api.bookmarks.bookmark_services.get_bookmark_by_user_and_source") as mock_get:
+
+        mock_validate.return_value = mock_user
+        mock_session.return_value = mock_db
+        mock_get.return_value = mock_bookmark
+
+        result = await bookmark_exists_service(
+            token="test_token",
+            bookmark_exists_query=BookmarkExistsQuery(
+                type=BookmarkType.PLAN,
+                source_id=source_id,
+            ),
+        )
+
+        assert result.exists is True
+        assert result.id == bookmark_id
+        mock_get.assert_called_once_with(
+            db=mock_db,
+            user_id=user_id,
+            source_id=source_id,
+            type=BookmarkType.PLAN,
+        )
+
+
+@pytest.mark.asyncio
+async def test_bookmark_exists_service_false():
+    user_id = uuid4()
+    source_id = str(uuid4())
+
+    mock_user = MagicMock()
+    mock_user.id = user_id
+
+    mock_db = MagicMock()
+    mock_db.__enter__ = MagicMock(return_value=mock_db)
+    mock_db.__exit__ = MagicMock(return_value=False)
+
+    with patch("pecha_api.bookmarks.bookmark_services.validate_and_extract_user_details") as mock_validate, \
+         patch("pecha_api.bookmarks.bookmark_services.SessionLocal") as mock_session, \
+         patch("pecha_api.bookmarks.bookmark_services.get_bookmark_by_user_and_source") as mock_get:
+
+        mock_validate.return_value = mock_user
+        mock_session.return_value = mock_db
+        mock_get.return_value = None
+
+        result = await bookmark_exists_service(
+            token="test_token",
+            bookmark_exists_query=BookmarkExistsQuery(
+                type=BookmarkType.TIMER,
+                source_id=source_id,
+            ),
+        )
+
+        assert result.exists is False
+        assert result.id is None
+
+
+@pytest.mark.asyncio
+async def test_bookmark_exists_service_without_type():
+    user_id = uuid4()
+    source_id = str(uuid4())
+    bookmark_id = uuid4()
+
+    mock_user = MagicMock()
+    mock_user.id = user_id
+
+    mock_bookmark = MagicMock()
+    mock_bookmark.id = bookmark_id
+
+    mock_db = MagicMock()
+    mock_db.__enter__ = MagicMock(return_value=mock_db)
+    mock_db.__exit__ = MagicMock(return_value=False)
+
+    with patch("pecha_api.bookmarks.bookmark_services.validate_and_extract_user_details") as mock_validate, \
+         patch("pecha_api.bookmarks.bookmark_services.SessionLocal") as mock_session, \
+         patch("pecha_api.bookmarks.bookmark_services.get_bookmark_by_user_and_source") as mock_get:
+
+        mock_validate.return_value = mock_user
+        mock_session.return_value = mock_db
+        mock_get.return_value = mock_bookmark
+
+        result = await bookmark_exists_service(
+            token="test_token",
+            bookmark_exists_query=BookmarkExistsQuery(
+                source_id=source_id,
+            ),
+        )
+
+        assert result.exists is True
+        assert result.id == bookmark_id
+        mock_get.assert_called_once_with(
+            db=mock_db,
+            user_id=user_id,
+            source_id=source_id,
+            type=None,
+        )
