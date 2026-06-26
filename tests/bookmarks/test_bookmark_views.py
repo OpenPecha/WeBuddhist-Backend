@@ -161,7 +161,10 @@ def test_get_bookmarks_success():
                 created_at=now,
                 updated_at=now
             )
-        ]
+        ],
+        total=2,
+        skip=0,
+        limit=20,
     )
 
     with patch("pecha_api.bookmarks.bookmark_views.get_bookmarks_service") as mock_service:
@@ -180,14 +183,14 @@ def test_get_bookmarks_success():
         assert "name" not in data["bookmarks"][1]
 
 
-def test_get_bookmarks_passes_language_to_service():
-    mock_response = BookmarksResponse(bookmarks=[])
+def test_get_bookmarks_passes_pagination_and_language_to_service():
+    mock_response = BookmarksResponse(bookmarks=[], total=0, skip=10, limit=5)
 
     with patch("pecha_api.bookmarks.bookmark_views.get_bookmarks_service") as mock_service:
         mock_service.return_value = mock_response
 
         response = client.get(
-            "/users/me/bookmarks?type=PLAN&language=bo",
+            "/users/me/bookmarks?type=PLAN&language=bo&skip=10&limit=5",
             headers={"Authorization": "Bearer test_token"},
         )
 
@@ -196,11 +199,13 @@ def test_get_bookmarks_passes_language_to_service():
             token="test_token",
             type=BookmarkFilterType.PLAN,
             language="bo",
+            skip=10,
+            limit=5,
         )
 
 
 def test_get_bookmarks_empty():
-    mock_response = BookmarksResponse(bookmarks=[])
+    mock_response = BookmarksResponse(bookmarks=[], total=0, skip=0, limit=20)
 
     with patch("pecha_api.bookmarks.bookmark_views.get_bookmarks_service") as mock_service:
         mock_service.return_value = mock_response
