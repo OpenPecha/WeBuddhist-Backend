@@ -180,3 +180,29 @@ class UserSeriesEnrollment(Base):
         Index("idx_user_series_enrollment_series", "series_id"),
         Index("idx_user_series_enrollment_current_plan", "current_plan_id"),
     )
+
+
+class SeriesPartner(Base):
+    __tablename__ = "series_partner"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    series_id = Column(UUID(as_uuid=True), ForeignKey('series.id', ondelete='CASCADE'), nullable=False)
+    group_id = Column(UUID(as_uuid=True), ForeignKey('author_groups.id', ondelete='CASCADE'), nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(_datetime.timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(_datetime.timezone.utc),
+    )
+
+    series = relationship("Series", backref="series_partners")
+    group = relationship("AuthorGroup")
+
+    __table_args__ = (
+        UniqueConstraint("series_id", name="uq_series_partner_series"),
+        Index("idx_series_partner_group", "group_id"),
+    )

@@ -20,6 +20,7 @@ from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.tags.tag_model import Tag
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.users.plan_users_models import UserTaskCompletion
+from pecha_api.plans.users.plan_users_models import SeriesPartner
 from pecha_api.users.users_models import Users, SocialMediaAccount, PasswordReset
 from pecha_api.plans.users.recitation.user_recitations_models import UserRecitations
 from pecha_api.texts.text_images_models import TextImage
