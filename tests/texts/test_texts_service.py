@@ -2012,6 +2012,9 @@ async def test_get_root_text_by_collection_id_success_with_root_text():
         assert result is not None
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 1
+        assert result.skip == 0
+        assert result.limit == 1
+        assert result.total == 1
         assert isinstance(result.recitations[0], RecitationDTO)
         assert str(result.recitations[0].text_id) == text_id_1
         assert result.recitations[0].title == "བྱང་ཆུབ་སེམས་དཔའི་སྤྱོད་པ་ལ་འཇུག་པ།"
@@ -2060,6 +2063,9 @@ async def test_get_root_text_by_collection_id_no_root_text():
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 0
         assert result.recitations == []
+        assert result.skip == 0
+        assert result.limit == 0
+        assert result.total == 0
 
 @pytest.mark.asyncio
 async def test_get_root_text_by_collection_id_multiple_groups():
@@ -2156,6 +2162,9 @@ async def test_get_root_text_by_collection_id_multiple_groups():
         assert result is not None
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 2
+        assert result.skip == 0
+        assert result.limit == 2
+        assert result.total == 2
         assert isinstance(result.recitations[0], RecitationDTO)
         assert isinstance(result.recitations[1], RecitationDTO)
         # Check that we got both root texts

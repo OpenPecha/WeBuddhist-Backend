@@ -60,7 +60,7 @@ class TestGetListOfRecitationsService:
         text_id = str(uuid4())
         text_title = "Test Recitation"
         recitation_dto = RecitationDTO(text_id=UUID(text_id), title=text_title)
-        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto])
+        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto], skip=0, limit=1, total=1)
         mock_get_root_text.return_value = mock_recitations_response
         mock_apply_search_filter.return_value = [recitation_dto]
         mock_get_recitations_with_image_urls.return_value = [recitation_dto]
@@ -72,6 +72,9 @@ class TestGetListOfRecitationsService:
         # Verify
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 1
+        assert result.skip == 0
+        assert result.limit == 10
+        assert result.total == 1
         
         recitation = result.recitations[0]
         assert isinstance(recitation, RecitationDTO)
@@ -117,7 +120,7 @@ class TestGetListOfRecitationsService:
         text_id = str(uuid4())
         text_title = "Test Recitation"
         recitation_dto = RecitationDTO(text_id=UUID(text_id), title=text_title)
-        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto])
+        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto], skip=0, limit=1, total=1)
         mock_get_root_text.return_value = mock_recitations_response
         mock_apply_search_filter.return_value = []
         
@@ -126,6 +129,7 @@ class TestGetListOfRecitationsService:
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 0
         assert result.recitations == []
+        assert result.total == 0
         
         mock_get_collection_id.assert_called_once_with(slug="Liturgy")
         mock_get_root_text.assert_called_once_with(collection_id=liturgy_collection_id, language="en")
@@ -152,7 +156,7 @@ class TestGetListOfRecitationsService:
         text_id = str(uuid4())
         text_title = "Morning Prayer Recitation"
         recitation_dto = RecitationDTO(text_id=UUID(text_id), title=text_title)
-        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto])
+        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto], skip=0, limit=1, total=1)
         mock_get_root_text.return_value = mock_recitations_response
         mock_apply_search_filter.return_value = [recitation_dto]
         mock_get_recitations_with_image_urls.return_value = [recitation_dto]
@@ -189,7 +193,7 @@ class TestGetListOfRecitationsService:
         text_id = str(uuid4())
         text_title = "Tibetan Recitation"
         recitation_dto = RecitationDTO(text_id=UUID(text_id), title=text_title)
-        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto])
+        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto], skip=0, limit=1, total=1)
         mock_get_root_text.return_value = mock_recitations_response
         mock_apply_search_filter.return_value = [recitation_dto]
         mock_get_recitations_with_image_urls.return_value = [recitation_dto]

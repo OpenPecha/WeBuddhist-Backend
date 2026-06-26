@@ -94,7 +94,7 @@ async def get_recitations_with_first_segments(recitations: List[RecitationDTO]) 
         for recitation in recitations
     ]
 
-async def get_list_of_recitations_service(search: Optional[str] = None, language: str = "en") -> RecitationsResponse:
+async def get_list_of_recitations_service(search: Optional[str] = None, language: str = "en", skip: int = 0, limit: int = 10) -> RecitationsResponse:
     collection_id = await get_collection_id_by_slug(slug="Liturgy")
     if collection_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.COLLECTION_NOT_FOUND)
@@ -102,10 +102,13 @@ async def get_list_of_recitations_service(search: Optional[str] = None, language
     recitation_list_text_response: RecitationsResponse = await get_root_text_by_collection_id(collection_id=collection_id, language=language)
 
     serched_texts=apply_search_recitation_title_filter(texts=recitation_list_text_response.recitations, search=search)
-    recitations_with_images = get_recitations_with_image_urls(recitations=serched_texts)
+    total = len(serched_texts)
+    
+    paginated_texts = serched_texts[skip:skip + limit]
+    recitations_with_images = get_recitations_with_image_urls(recitations=paginated_texts)
     recitations_with_first_segments = await get_recitations_with_first_segments(recitations=recitations_with_images)
     
-    return RecitationsResponse(recitations=recitations_with_first_segments)
+    return RecitationsResponse(recitations=recitations_with_first_segments, skip=skip, limit=limit, total=total)
 
 
 async def get_recitation_details_service(text_id: str, recitation_details_request: RecitationDetailsRequest) -> RecitationDetailsResponse:

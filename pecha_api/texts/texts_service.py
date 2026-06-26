@@ -585,7 +585,7 @@ async def get_root_text_by_collection_id(collection_id: str, language: str) -> O
         if root_text is None:
             continue
         recitation_text_list.append(RecitationDTO(text_id=root_text.id, title=root_text.title))
-    return RecitationsResponse(recitations=recitation_text_list)
+    return RecitationsResponse(recitations=recitation_text_list, skip=0, limit=len(recitation_text_list), total=len(recitation_text_list))
 
 
 def _group_texts_by_group_id(texts: List[TextDTO], language: str|None = None) -> Dict[str, List[TextDTO]]:

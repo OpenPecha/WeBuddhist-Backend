@@ -14,6 +14,9 @@ class RecitationDTO(BaseModel):
 
 class RecitationsResponse(BaseModel):
     recitations: List[RecitationDTO]
+    skip: int
+    limit: int
+    total: int
 
 class RecitationDetailsRequest(BaseModel):
     language: str
