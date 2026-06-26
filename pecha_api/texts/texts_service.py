@@ -574,9 +574,21 @@ async def _validate_text_detail_request(text_id: str, text_details_request: Text
 
     await TextUtils.validate_text_exists(text_id=text_id)
 
-async def get_root_text_by_collection_id(collection_id: str, language: str) -> Optional[tuple[str, str]]:
+async def get_root_text_by_collection_id(
+    collection_id: str, 
+    language: str, 
+    search: Optional[str] = None, 
+    skip: int = 0, 
+    limit: int = 10
+) -> RecitationsResponse:
 
-    texts = await get_all_recitation_texts_by_collection(collection_id=collection_id, language=language)
+    texts, total = await get_all_recitation_texts_by_collection(
+        collection_id=collection_id, 
+        language=language, 
+        search=search, 
+        skip=skip, 
+        limit=limit
+    )
     grouped_texts = _group_texts_by_group_id(texts=texts, language=language)
     recitation_text_list = []
     for group_texts in grouped_texts.values():
@@ -585,7 +597,7 @@ async def get_root_text_by_collection_id(collection_id: str, language: str) -> O
         if root_text is None:
             continue
         recitation_text_list.append(RecitationDTO(text_id=root_text.id, title=root_text.title))
-    return RecitationsResponse(recitations=recitation_text_list)
+    return RecitationsResponse(recitations=recitation_text_list, skip=skip, limit=limit, total=total)
 
 
 def _group_texts_by_group_id(texts: List[TextDTO], language: str|None = None) -> Dict[str, List[TextDTO]]:

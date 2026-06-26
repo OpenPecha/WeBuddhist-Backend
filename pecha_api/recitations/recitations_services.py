@@ -3,7 +3,7 @@ from pecha_api.texts.texts_enums import TextType
 from typing import List, Dict, Union,Optional
 from pecha_api.collections.collections_repository import get_all_collections_by_parent, get_collection_id_by_slug
 from pecha_api.collections.collections_service import get_collection
-from pecha_api.recitations.recitations_repository import apply_search_recitation_title_filter, get_text_images_by_text_ids
+from pecha_api.recitations.recitations_repository import get_text_images_by_text_ids
 from pecha_api.recitations.recitations_response_models import RecitationDTO, RecitationsResponse, Segment
 from pecha_api.texts.texts_repository import get_all_texts_by_collection, get_contents_by_text_ids
 from pecha_api.texts.segments.segments_repository import get_segment_contents_by_ids
@@ -94,18 +94,28 @@ async def get_recitations_with_first_segments(recitations: List[RecitationDTO]) 
         for recitation in recitations
     ]
 
-async def get_list_of_recitations_service(search: Optional[str] = None, language: str = "en") -> RecitationsResponse:
+async def get_list_of_recitations_service(search: Optional[str] = None, language: str = "en", skip: int = 0, limit: int = 10) -> RecitationsResponse:
     collection_id = await get_collection_id_by_slug(slug="Liturgy")
     if collection_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.COLLECTION_NOT_FOUND)
     
-    recitation_list_text_response: RecitationsResponse = await get_root_text_by_collection_id(collection_id=collection_id, language=language)
+    recitation_list_text_response: RecitationsResponse = await get_root_text_by_collection_id(
+        collection_id=collection_id, 
+        language=language, 
+        search=search, 
+        skip=skip, 
+        limit=limit
+    )
 
-    serched_texts=apply_search_recitation_title_filter(texts=recitation_list_text_response.recitations, search=search)
-    recitations_with_images = get_recitations_with_image_urls(recitations=serched_texts)
+    recitations_with_images = get_recitations_with_image_urls(recitations=recitation_list_text_response.recitations)
     recitations_with_first_segments = await get_recitations_with_first_segments(recitations=recitations_with_images)
     
-    return RecitationsResponse(recitations=recitations_with_first_segments)
+    return RecitationsResponse(
+        recitations=recitations_with_first_segments, 
+        skip=skip, 
+        limit=limit, 
+        total=recitation_list_text_response.total
+    )
 
 
 async def get_recitation_details_service(text_id: str, recitation_details_request: RecitationDetailsRequest) -> RecitationDetailsResponse:

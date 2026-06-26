@@ -1,6 +1,6 @@
 import uuid
 from uuid import UUID
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .texts_response_models import Section
 
@@ -211,15 +211,28 @@ class Text(Document):
         ).to_list()
 
     @classmethod
-    async def get_all_recitation_texts_by_collection_id(cls, collection_id: str, language: str):
+    async def get_all_recitation_texts_by_collection_id(
+        cls, 
+        collection_id: str, 
+        language: str, 
+        search: Optional[str] = None, 
+        skip: int = 0, 
+        limit: int = 10
+    ) -> Tuple[List["Text"], int]:
         
         query = {
             "categories": collection_id,
             "language": language
         }
-        return await cls.find(
-            query
-        ).to_list()
+        
+        if search:
+            query["title"] = {"$regex": search, "$options": "i"}
+        
+        total = await cls.find(query).count()
+        
+        texts = await cls.find(query).skip(skip).limit(limit).to_list()
+        
+        return texts, total
 
     @classmethod
     async def get_texts_by_group_id(cls, group_id: str, skip: int, limit: int) -> List["Text"]:

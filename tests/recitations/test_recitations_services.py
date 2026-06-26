@@ -40,7 +40,6 @@ class TestGetListOfRecitationsService:
 
     @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
     @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
-    @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_first_segments')
     @pytest.mark.asyncio
@@ -48,7 +47,6 @@ class TestGetListOfRecitationsService:
         self,
         mock_get_recitations_with_first_segments,
         mock_get_recitations_with_image_urls,
-        mock_apply_search_filter,
         mock_get_root_text,
         mock_get_collection_id
     ):
@@ -60,9 +58,8 @@ class TestGetListOfRecitationsService:
         text_id = str(uuid4())
         text_title = "Test Recitation"
         recitation_dto = RecitationDTO(text_id=UUID(text_id), title=text_title)
-        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto])
+        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto], skip=0, limit=10, total=1)
         mock_get_root_text.return_value = mock_recitations_response
-        mock_apply_search_filter.return_value = [recitation_dto]
         mock_get_recitations_with_image_urls.return_value = [recitation_dto]
         mock_get_recitations_with_first_segments.return_value = [recitation_dto]
         
@@ -72,6 +69,9 @@ class TestGetListOfRecitationsService:
         # Verify
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 1
+        assert result.skip == 0
+        assert result.limit == 10
+        assert result.total == 1
         
         recitation = result.recitations[0]
         assert isinstance(recitation, RecitationDTO)
@@ -80,8 +80,13 @@ class TestGetListOfRecitationsService:
         
         # Verify mock calls
         mock_get_collection_id.assert_called_once_with(slug="Liturgy")
-        mock_get_root_text.assert_called_once_with(collection_id=liturgy_collection_id, language="en")
-        mock_apply_search_filter.assert_called_once_with(texts=[recitation_dto], search=None)
+        mock_get_root_text.assert_called_once_with(
+            collection_id=liturgy_collection_id, 
+            language="en", 
+            search=None, 
+            skip=0, 
+            limit=10
+        )
         mock_get_recitations_with_first_segments.assert_awaited_once_with(recitations=[recitation_dto])
 
     @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
@@ -102,11 +107,13 @@ class TestGetListOfRecitationsService:
 
     @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
     @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
-    @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
+    @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
+    @patch('pecha_api.recitations.recitations_services.get_recitations_with_first_segments')
     @pytest.mark.asyncio
     async def test_get_list_of_recitations_service_search_filter_no_match(
         self,
-        mock_apply_search_filter,
+        mock_get_recitations_with_first_segments,
+        mock_get_recitations_with_image_urls,
         mock_get_root_text,
         mock_get_collection_id
     ):
@@ -114,26 +121,30 @@ class TestGetListOfRecitationsService:
         liturgy_collection_id = str(uuid4())
         mock_get_collection_id.return_value = liturgy_collection_id
         
-        text_id = str(uuid4())
-        text_title = "Test Recitation"
-        recitation_dto = RecitationDTO(text_id=UUID(text_id), title=text_title)
-        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto])
+        # Search returns empty results from DB
+        mock_recitations_response = RecitationsResponse(recitations=[], skip=0, limit=10, total=0)
         mock_get_root_text.return_value = mock_recitations_response
-        mock_apply_search_filter.return_value = []
+        mock_get_recitations_with_image_urls.return_value = []
+        mock_get_recitations_with_first_segments.return_value = []
         
         result = await get_list_of_recitations_service(search="nonexistent", language="en")
         
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 0
         assert result.recitations == []
+        assert result.total == 0
         
         mock_get_collection_id.assert_called_once_with(slug="Liturgy")
-        mock_get_root_text.assert_called_once_with(collection_id=liturgy_collection_id, language="en")
-        mock_apply_search_filter.assert_called_once_with(texts=[recitation_dto], search="nonexistent")
+        mock_get_root_text.assert_called_once_with(
+            collection_id=liturgy_collection_id, 
+            language="en", 
+            search="nonexistent", 
+            skip=0, 
+            limit=10
+        )
 
     @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
     @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
-    @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_first_segments')
     @pytest.mark.asyncio
@@ -141,7 +152,6 @@ class TestGetListOfRecitationsService:
         self,
         mock_get_recitations_with_first_segments,
         mock_get_recitations_with_image_urls,
-        mock_apply_search_filter,
         mock_get_root_text,
         mock_get_collection_id
     ):
@@ -152,9 +162,8 @@ class TestGetListOfRecitationsService:
         text_id = str(uuid4())
         text_title = "Morning Prayer Recitation"
         recitation_dto = RecitationDTO(text_id=UUID(text_id), title=text_title)
-        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto])
+        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto], skip=0, limit=10, total=1)
         mock_get_root_text.return_value = mock_recitations_response
-        mock_apply_search_filter.return_value = [recitation_dto]
         mock_get_recitations_with_image_urls.return_value = [recitation_dto]
         mock_get_recitations_with_first_segments.return_value = [recitation_dto]
         result = await get_list_of_recitations_service(search="morning", language="en")
@@ -165,12 +174,16 @@ class TestGetListOfRecitationsService:
         assert str(result.recitations[0].text_id) == text_id
         
         mock_get_collection_id.assert_called_once_with(slug="Liturgy")
-        mock_get_root_text.assert_called_once_with(collection_id=liturgy_collection_id, language="en")
-        mock_apply_search_filter.assert_called_once_with(texts=[recitation_dto], search="morning")
+        mock_get_root_text.assert_called_once_with(
+            collection_id=liturgy_collection_id, 
+            language="en", 
+            search="morning", 
+            skip=0, 
+            limit=10
+        )
 
     @patch('pecha_api.recitations.recitations_services.get_collection_id_by_slug')
     @patch('pecha_api.recitations.recitations_services.get_root_text_by_collection_id')
-    @patch('pecha_api.recitations.recitations_services.apply_search_recitation_title_filter')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_first_segments')
     @pytest.mark.asyncio
@@ -178,7 +191,6 @@ class TestGetListOfRecitationsService:
         self,   
         mock_get_recitations_with_first_segments,
         mock_get_recitations_with_image_urls,
-        mock_apply_search_filter,
         mock_get_root_text,
         mock_get_collection_id
     ):
@@ -189,9 +201,8 @@ class TestGetListOfRecitationsService:
         text_id = str(uuid4())
         text_title = "Tibetan Recitation"
         recitation_dto = RecitationDTO(text_id=UUID(text_id), title=text_title)
-        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto])
+        mock_recitations_response = RecitationsResponse(recitations=[recitation_dto], skip=0, limit=10, total=1)
         mock_get_root_text.return_value = mock_recitations_response
-        mock_apply_search_filter.return_value = [recitation_dto]
         mock_get_recitations_with_image_urls.return_value = [recitation_dto]
         mock_get_recitations_with_first_segments.return_value = [recitation_dto]
         result = await get_list_of_recitations_service(language="bo")
@@ -201,7 +212,13 @@ class TestGetListOfRecitationsService:
         assert result.recitations[0].title == text_title
         
         # Verify language is passed correctly
-        mock_get_root_text.assert_called_once_with(collection_id=liturgy_collection_id, language="bo")
+        mock_get_root_text.assert_called_once_with(
+            collection_id=liturgy_collection_id, 
+            language="bo", 
+            search=None, 
+            skip=0, 
+            limit=10
+        )
 
 
 class TestGetRecitationsWithFirstSegments:

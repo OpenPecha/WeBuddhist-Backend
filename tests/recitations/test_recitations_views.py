@@ -21,7 +21,10 @@ async def test_get_list_of_recitations_success():
         recitations=[
             RecitationDTO(title="First Recitation", text_id=uuid.uuid4()),
             RecitationDTO(title="Second Recitation", text_id=uuid.uuid4())
-        ]
+        ],
+        skip=0,
+        limit=10,
+        total=2
     )
 
     with patch(
@@ -29,11 +32,14 @@ async def test_get_list_of_recitations_success():
         return_value=expected,
         new_callable=AsyncMock,
     ) as mock_service:
-        resp = await get_list_of_recitations(search=None, language="en")
+        resp = await get_list_of_recitations(search=None, language="en", skip=0, limit=10)
 
-        mock_service.assert_awaited_once_with(search=None, language="en")
+        mock_service.assert_awaited_once_with(search=None, language="en", skip=0, limit=10)
         assert resp == expected
         assert len(resp.recitations) == 2
+        assert resp.skip == 0
+        assert resp.limit == 10
+        assert resp.total == 2
         assert resp.recitations[0].title == "First Recitation"
         assert resp.recitations[1].title == "Second Recitation"
 
@@ -45,7 +51,10 @@ async def test_get_list_of_recitations_single_recitation():
     expected = RecitationsResponse(
         recitations=[
             RecitationDTO(title="Single Recitation", text_id=text_id)
-        ]
+        ],
+        skip=0,
+        limit=10,
+        total=1
     )
 
     with patch(
@@ -53,11 +62,12 @@ async def test_get_list_of_recitations_single_recitation():
         return_value=expected,
         new_callable=AsyncMock,
     ) as mock_service:
-        resp = await get_list_of_recitations(search=None, language="bo")
+        resp = await get_list_of_recitations(search=None, language="bo", skip=0, limit=10)
 
-        mock_service.assert_awaited_once_with(search=None, language="bo")
+        mock_service.assert_awaited_once_with(search=None, language="bo", skip=0, limit=10)
         assert resp == expected
         assert len(resp.recitations) == 1
+        assert resp.total == 1
         assert resp.recitations[0].title == "Single Recitation"
         assert resp.recitations[0].text_id == text_id
 
@@ -69,7 +79,10 @@ async def test_get_list_of_recitations_with_search():
     expected = RecitationsResponse(
         recitations=[
             RecitationDTO(title="Prayer Recitation", text_id=text_id)
-        ]
+        ],
+        skip=0,
+        limit=10,
+        total=1
     )
 
     with patch(
@@ -77,11 +90,12 @@ async def test_get_list_of_recitations_with_search():
         return_value=expected,
         new_callable=AsyncMock,
     ) as mock_service:
-        resp = await get_list_of_recitations(search="prayer", language="en")
+        resp = await get_list_of_recitations(search="prayer", language="en", skip=0, limit=10)
 
-        mock_service.assert_awaited_once_with(search="prayer", language="en")
+        mock_service.assert_awaited_once_with(search="prayer", language="en", skip=0, limit=10)
         assert resp == expected
         assert len(resp.recitations) == 1
+        assert resp.total == 1
         assert resp.recitations[0].title == "Prayer Recitation"
 
 
