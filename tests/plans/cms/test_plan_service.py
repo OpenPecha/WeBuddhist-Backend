@@ -708,6 +708,8 @@ async def test_get_plan_day_details_success():
     plan_item.day_number = day_number
     plan_item.tasks = [task]
     plan_item.audio = None
+    plan_item.shareable_images = None
+    plan_item.videos = []
 
     mock_plan_for_day = MagicMock()
     mock_plan_for_day.group_id = TEST_GROUP_ID
@@ -790,6 +792,8 @@ async def test_get_plan_day_details_no_subtasks():
     plan_item.day_number = day_number
     plan_item.tasks = [task]
     plan_item.audio = None
+    plan_item.shareable_images = None
+    plan_item.videos = []
 
     mock_plan_for_day = MagicMock()
     mock_plan_for_day.group_id = TEST_GROUP_ID
