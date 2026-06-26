@@ -3,7 +3,7 @@ from typing import Optional
 
 from pecha_api.db.database import SessionLocal
 from pecha_api.bookmarks.bookmark_enums import BookmarkFilterType
-from pecha_api.bookmarks.bookmark_utils import enrich_text_bookmark
+from pecha_api.bookmarks.bookmark_utils import enrich_bookmark
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.bookmarks.bookmark_models import Bookmark
 from pecha_api.bookmarks.bookmark_repository import (
@@ -43,6 +43,7 @@ async def create_bookmark_service(token: str, create_bookmark_request: CreateBoo
 async def get_bookmarks_service(
     token: str,
     type: Optional[BookmarkFilterType] = None,
+    language: Optional[str] = None,
 ) -> BookmarksResponse:
     current_user = validate_and_extract_user_details(token=token)
 
@@ -59,8 +60,9 @@ async def get_bookmarks_service(
                 "created_at": bookmark.created_at,
                 "updated_at": bookmark.updated_at,
             }
-            if type == BookmarkFilterType.TEXT:
-                bookmark_data.update(await enrich_text_bookmark(bookmark))
+            bookmark_data.update(
+                await enrich_bookmark(bookmark=bookmark, db=db, language=language)
+            )
             bookmarks_dto.append(BookmarkDTO(**bookmark_data))
 
         return BookmarksResponse(bookmarks=bookmarks_dto)

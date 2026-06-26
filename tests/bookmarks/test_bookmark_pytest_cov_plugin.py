@@ -27,6 +27,8 @@ def test_is_bookmark_only_run_detects_bookmark_test_paths():
     ) is True
     assert _is_bookmark_only_run(["tests/plans/", "--cov=pecha_api"]) is False
     assert _is_bookmark_only_run(["tests/bookmarks/", "tests/plans/"]) is False
+    assert _is_bookmark_only_run(["--cov=pecha_api"]) is False
+    assert _is_bookmark_only_run(["tests/bookmarks/test_bookmark_utils.py"]) is True
 
 
 def test_is_full_bookmarks_suite_detects_directory_run():
