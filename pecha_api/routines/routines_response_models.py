@@ -1,5 +1,5 @@
-from pydantic import BaseModel, model_serializer
-from typing import Optional, List
+from pydantic import BaseModel, Field, model_serializer, model_validator
+from typing import Optional, List, Self
 from uuid import UUID
 from datetime import datetime
 
@@ -9,9 +9,22 @@ from .routines_enums import SessionType
 
 class SessionRequest(BaseModel):
     session_type: SessionType
-    source_id: Optional[UUID] = None  
-    duration_ms: Optional[int] = None  
+    source_id: Optional[UUID] = None
+    accumulator_id: Optional[UUID] = Field(
+        None,
+        description="Preset accumulator id from GET /accumulators/presets (stored as source_id)",
+    )
+    duration_ms: Optional[int] = None
     display_order: int
+
+    @model_validator(mode="after")
+    def resolve_accumulator_fields(self) -> Self:
+        if self.session_type == SessionType.ACCUMULATOR:
+            if self.accumulator_id is not None and self.source_id is None:
+                self.source_id = self.accumulator_id
+            elif self.source_id is not None and self.accumulator_id is None:
+                self.accumulator_id = self.source_id
+        return self
 
 
 class CreateTimeBlockRequest(BaseModel):
@@ -31,8 +44,12 @@ class UpdateTimeBlockRequest(BaseModel):
 class SessionDTO(BaseModel):
     id: UUID
     session_type: SessionType
-    source_id: Optional[UUID] = None  
-    title: Optional[str] = None  
+    source_id: Optional[UUID] = None
+    accumulator_id: Optional[UUID] = Field(
+        None,
+        description="Preset accumulator id (same id returned by GET /accumulators/presets)",
+    )
+    title: Optional[str] = None
     language: Optional[str] = None  
     duration_ms: Optional[int] = None  
     image: Optional[ImageUrlModel] = None    
@@ -49,6 +66,7 @@ class SessionDTO(BaseModel):
         if self.session_type == SessionType.TIMER:
             for field in (
                 "source_id",
+                "accumulator_id",
                 "title",
                 "language",
                 "image",
@@ -60,9 +78,32 @@ class SessionDTO(BaseModel):
             ):
                 data.pop(field, None)
         elif self.session_type == SessionType.RECITATION_COLLECTION:
-            for field in ("duration_ms", "language", "start_date", "started_at", "current_plan_id", "current_plan_title"):
+            for field in (
+                "duration_ms",
+                "language",
+                "start_date",
+                "started_at",
+                "current_plan_id",
+                "current_plan_title",
+                "accumulator_id",
+            ):
                 data.pop(field, None)
         elif self.session_type == SessionType.RECITATION:
+            for field in (
+                "duration_ms",
+                "start_date",
+                "started_at",
+                "item_count",
+                "current_plan_id",
+                "current_plan_title",
+                "accumulator_id",
+            ):
+                data.pop(field, None)
+        elif self.session_type == SessionType.ACCUMULATOR:
+            accumulator_id = self.accumulator_id or self.source_id
+            if accumulator_id is not None:
+                data["accumulator_id"] = accumulator_id
+            data.pop("source_id", None)
             for field in (
                 "duration_ms",
                 "start_date",
@@ -73,10 +114,16 @@ class SessionDTO(BaseModel):
             ):
                 data.pop(field, None)
         elif self.session_type == SessionType.PLAN:
-            for field in ("duration_ms", "item_count", "current_plan_id", "current_plan_title"):
+            for field in (
+                "duration_ms",
+                "item_count",
+                "current_plan_id",
+                "current_plan_title",
+                "accumulator_id",
+            ):
                 data.pop(field, None)
         else:  # SERIES exposes start_date / started_at and current plan fields
-            for field in ("duration_ms", "item_count"):
+            for field in ("duration_ms", "item_count", "accumulator_id"):
                 data.pop(field, None)
         return data
 

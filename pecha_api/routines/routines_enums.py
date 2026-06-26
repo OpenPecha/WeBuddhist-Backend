@@ -8,5 +8,6 @@ class SessionType(enum.Enum):
     RECITATION = "RECITATION"
     RECITATION_COLLECTION = "RECITATION_COLLECTION"
     TIMER = "TIMER"
+    ACCUMULATOR = "ACCUMULATOR"
     
 SessionTypeEnum = Enum(SessionType)
