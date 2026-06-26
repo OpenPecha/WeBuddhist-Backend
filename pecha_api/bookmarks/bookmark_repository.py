@@ -43,6 +43,21 @@ def get_bookmarks_by_user_id(
     return query.order_by(Bookmark.created_at.desc()).all()
 
 
+def get_bookmark_by_user_and_source(
+    db: Session,
+    user_id: UUID,
+    source_id: str,
+    type: Optional[BookmarkType] = None,
+) -> Optional[Bookmark]:
+    query = db.query(Bookmark).filter(
+        Bookmark.user_id == user_id,
+        Bookmark.source_id == source_id,
+    )
+    if type is not None:
+        query = query.filter(Bookmark.type == type)
+    return query.first()
+
+
 def delete_bookmark(db: Session, user_id: UUID, bookmark_id: UUID) -> None:
     try:
         bookmark = db.query(Bookmark).filter(

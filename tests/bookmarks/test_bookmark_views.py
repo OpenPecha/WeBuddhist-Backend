@@ -4,7 +4,7 @@ from uuid import uuid4
 from datetime import datetime, timezone
 
 from pecha_api.app import api
-from pecha_api.bookmarks.bookmark_response_models import BookmarkDTO, BookmarksResponse
+from pecha_api.bookmarks.bookmark_response_models import BookmarkDTO, BookmarksResponse, BookmarkExistsResponse
 from pecha_api.bookmarks.bookmark_enums import BookmarkType, BookmarkFilterType
 
 client = TestClient(api)
@@ -249,3 +249,124 @@ def test_delete_bookmark_invalid_uuid():
     )
 
     assert response.status_code == 422
+
+
+def test_bookmark_exists_true():
+    bookmark_id = uuid4()
+    source_id = str(uuid4())
+
+    mock_response = BookmarkExistsResponse(exists=True, id=bookmark_id)
+
+    with patch("pecha_api.bookmarks.bookmark_views.bookmark_exists_service") as mock_service:
+        mock_service.return_value = mock_response
+
+        response = client.get(
+            f"/users/me/bookmarks/exists?type=PLAN&source_id={source_id}",
+            headers={"Authorization": "Bearer test_token"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["exists"] is True
+        assert data["id"] == str(bookmark_id)
+        mock_service.assert_called_once()
+        call_kwargs = mock_service.call_args.kwargs
+        assert call_kwargs["token"] == "test_token"
+        assert call_kwargs["bookmark_exists_query"].type == BookmarkType.PLAN
+        assert call_kwargs["bookmark_exists_query"].source_id == source_id
+
+
+def test_bookmark_exists_false():
+    mock_response = BookmarkExistsResponse(exists=False)
+
+    with patch("pecha_api.bookmarks.bookmark_views.bookmark_exists_service") as mock_service:
+        mock_service.return_value = mock_response
+
+        response = client.get(
+            f"/users/me/bookmarks/exists?type=SERIES&source_id={uuid4()}",
+            headers={"Authorization": "Bearer test_token"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["exists"] is False
+        assert "id" not in data
+
+
+def test_bookmark_exists_verse_type():
+    verse_locator = "segment-ref-abc-123"
+    bookmark_id = uuid4()
+
+    mock_response = BookmarkExistsResponse(exists=True, id=bookmark_id)
+
+    with patch("pecha_api.bookmarks.bookmark_views.bookmark_exists_service") as mock_service:
+        mock_service.return_value = mock_response
+
+        response = client.get(
+            f"/users/me/bookmarks/exists?type=VERSE&source_id={verse_locator}",
+            headers={"Authorization": "Bearer test_token"},
+        )
+
+        assert response.status_code == 200
+        mock_service.assert_called_once()
+        call_kwargs = mock_service.call_args.kwargs
+        assert call_kwargs["token"] == "test_token"
+        assert call_kwargs["bookmark_exists_query"].type == BookmarkType.VERSE
+        assert call_kwargs["bookmark_exists_query"].source_id == verse_locator
+
+
+def test_bookmark_exists_without_type():
+    source_id = str(uuid4())
+    bookmark_id = uuid4()
+
+    mock_response = BookmarkExistsResponse(exists=True, id=bookmark_id)
+
+    with patch("pecha_api.bookmarks.bookmark_views.bookmark_exists_service") as mock_service:
+        mock_service.return_value = mock_response
+
+        response = client.get(
+            f"/users/me/bookmarks/exists?source_id={source_id}",
+            headers={"Authorization": "Bearer test_token"},
+        )
+
+        assert response.status_code == 200
+        mock_service.assert_called_once()
+        call_kwargs = mock_service.call_args.kwargs
+        assert call_kwargs["bookmark_exists_query"].type is None
+        assert call_kwargs["bookmark_exists_query"].source_id == source_id
+
+
+def test_bookmark_exists_without_type_allows_non_uuid_source_id():
+    verse_locator = "segment-ref-abc-123"
+
+    mock_response = BookmarkExistsResponse(exists=False)
+
+    with patch("pecha_api.bookmarks.bookmark_views.bookmark_exists_service") as mock_service:
+        mock_service.return_value = mock_response
+
+        response = client.get(
+            f"/users/me/bookmarks/exists?source_id={verse_locator}",
+            headers={"Authorization": "Bearer test_token"},
+        )
+
+        assert response.status_code == 200
+        call_kwargs = mock_service.call_args.kwargs
+        assert call_kwargs["bookmark_exists_query"].type is None
+        assert call_kwargs["bookmark_exists_query"].source_id == verse_locator
+
+
+def test_bookmark_exists_invalid_uuid():
+    response = client.get(
+        "/users/me/bookmarks/exists?type=PLAN&source_id=not-a-uuid",
+        headers={"Authorization": "Bearer test_token"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_bookmark_exists_unauthorized():
+    response = client.get(
+        f"/users/me/bookmarks/exists?type=PLAN&source_id={uuid4()}",
+    )
+
+    assert response.status_code == 403

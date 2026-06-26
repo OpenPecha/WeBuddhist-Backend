@@ -55,3 +55,28 @@ class BookmarksResponse(BaseModel):
     model_config = ConfigDict(ser_json_exclude_none=True)
 
     bookmarks: List[BookmarkDTO]
+
+
+class BookmarkExistsQuery(BaseModel):
+    type: Optional[BookmarkType] = None
+    source_id: str
+
+    @field_validator("source_id")
+    @classmethod
+    def _validate_source_id(cls, value: str, info) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("source_id must not be empty")
+
+        bookmark_type = info.data.get("type")
+        if bookmark_type is not None and bookmark_type != BookmarkType.VERSE:
+            try:
+                return str(UUID(value))
+            except ValueError:
+                raise ValueError(f"source_id must be a valid UUID for type {bookmark_type.value}")
+        return value
+
+
+class BookmarkExistsResponse(BaseModel):
+    exists: bool
+    id: Optional[UUID] = None
