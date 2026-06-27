@@ -98,6 +98,7 @@ DEFAULTS = dict(
 
     # Worker API Configuration
     WORKER_API_URL="",
+    WORKER_LLM_MODEL="gemini-2.5-flash-lite",
 
 )
 
