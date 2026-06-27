@@ -48,6 +48,8 @@ from pecha_api.plans.groups.groups_repository import (
     get_plans_by_group_id,
     get_plans_by_ids,
     get_series_by_group_id,
+    get_series_partner_id_map_for_group,
+    get_user_series_enrollment_partner_map,
     has_pending_invite,
     list_invites_by_group,
     list_pending_invites_by_email,
@@ -70,7 +72,6 @@ from pecha_api.plans.series.series_repository import (
     get_active_plan_count_map_by_series_ids,
     get_enrolled_count_map_by_series_ids,
 )
-from pecha_api.plans.series.series_response_models import SeriesListItemDTO
 from pecha_api.plans.series.series_service import _series_to_list_item_dto
 from pecha_api.plans.shared.metadata_utils import (
     format_metadata_response,
@@ -78,6 +79,7 @@ from pecha_api.plans.shared.metadata_utils import (
 )
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
+    GroupSeriesListItemDTO,
     AuthorGroupListResponse,
     AuthorGroupMemberDTO,
     AuthorGroupSummaryDTO,
@@ -350,12 +352,25 @@ def _validate_group_links(db, tag_ids: Optional[List[UUID]], series_ids: Optiona
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="One or more plans do not exist")
 
 
+def _is_series_enrolled_for_group_context(
+    enrollment_partner_id: Optional[UUID],
+    expected_partner_id: Optional[UUID],
+    *,
+    is_enrolled_in_series: bool,
+) -> bool:
+    if not is_enrolled_in_series:
+        return False
+    return enrollment_partner_id == expected_partner_id
+
+
 def _series_to_dtos(
     db: Session,
     series_list: List[Series],
+    group_id: UUID,
     language: Optional[str] = None,
     published_only: bool = False,
-) -> List[SeriesListItemDTO]:
+    user_id: Optional[UUID] = None,
+) -> List[GroupSeriesListItemDTO]:
     if not series_list:
         return []
     series_ids = [series.id for series in series_list]
@@ -363,13 +378,29 @@ def _series_to_dtos(
         db=db, series_ids=series_ids, published_only=published_only
     )
     enrolled_count_map = get_enrolled_count_map_by_series_ids(db=db, series_ids=series_ids)
+    partner_id_map = get_series_partner_id_map_for_group(
+        db=db, group_id=group_id, series_ids=series_ids
+    )
+    enrollment_partner_map: Dict[UUID, Optional[UUID]] = {}
+    if user_id is not None:
+        enrollment_partner_map = get_user_series_enrollment_partner_map(
+            db=db, user_id=user_id, series_ids=series_ids
+        )
     return [
-        _series_to_list_item_dto(
-            series,
-            plan_count=plan_count_map.get(series.id, 0),
-            enrolled_count=enrolled_count_map.get(series.id, 0),
-            language=language,
-            fallback=True,
+        GroupSeriesListItemDTO(
+            **_series_to_list_item_dto(
+                series,
+                plan_count=plan_count_map.get(series.id, 0),
+                enrolled_count=enrolled_count_map.get(series.id, 0),
+                language=language,
+                fallback=True,
+            ).model_dump(),
+            series_partner_id=partner_id_map.get(series.id),
+            is_enrolled=_is_series_enrolled_for_group_context(
+                enrollment_partner_id=enrollment_partner_map.get(series.id),
+                expected_partner_id=partner_id_map.get(series.id),
+                is_enrolled_in_series=series.id in enrollment_partner_map,
+            ),
         )
         for series in series_list
     ]
@@ -515,11 +546,19 @@ def _group_to_detail(
     db: Optional[Session] = None,
     public: bool = False,
     language: Optional[str] = None,
+    user_id: Optional[UUID] = None,
 ) -> AuthorGroupDetailDTO:
     if db is not None:
         group_series = get_series_by_group_id(db=db, group_id=group.id)
         group_plans = get_plans_by_group_id(db=db, group_id=group.id)
-        series_dtos = _series_to_dtos(db=db, series_list=group_series, language=language, published_only=public)
+        series_dtos = _series_to_dtos(
+            db=db,
+            series_list=group_series,
+            group_id=group.id,
+            language=language,
+            published_only=public,
+            user_id=user_id,
+        )
         plans_dtos = _plans_to_dtos(db=db, plan_list=group_plans, group_id=group.id)
     else:
         series_dtos = []
@@ -642,7 +681,15 @@ def get_author_group_detail(
     group_id: UUID,
     require_public: bool = True,
     language: Optional[str] = None,
+    token: Optional[str] = None,
 ) -> PublicAuthorGroupDetailDTO:
+    user_id = None
+    if token:
+        try:
+            user = validate_and_extract_user_details(token=token)
+            user_id = user.id
+        except Exception:
+            pass
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
@@ -657,6 +704,7 @@ def get_author_group_detail(
             joiner_count=joiner_count,
             db=db, public=True,
             language=language,
+            user_id=user_id,
         )
 
 

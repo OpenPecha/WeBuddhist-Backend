@@ -13,6 +13,11 @@ from pecha_api.plans.groups.group_summary_models import (
 from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.plans.plans_response_models import PlanDTO
 from pecha_api.plans.series.series_response_models import SeriesListItemDTO
+
+
+class GroupSeriesListItemDTO(SeriesListItemDTO):
+    series_partner_id: Optional[UUID] = None
+    is_enrolled: bool = False
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 __all__ = [
@@ -28,6 +33,7 @@ __all__ = [
     "CreateAuthorGroupRequest",
     "UpdateAuthorGroupRequest",
     "ReplaceGroupTagsRequest",
+    "GroupSeriesListItemDTO",
     "ReplaceGroupSeriesRequest",
     "ReplaceGroupPlansRequest",
     "ReplaceGroupSocialLinksRequest",
@@ -80,7 +86,7 @@ class AuthorGroupDetailDTO(BaseModel):
     members: List[AuthorGroupMemberDTO] = []
     tags: List[TagSummaryDTO] = []
     social_links: List[GroupSocialLinkDTO] = []
-    series: List[SeriesListItemDTO] = []
+    series: List[GroupSeriesListItemDTO] = []
     plans: List[PlanDTO] = []
     follower_count: int = 0
     joiner_count: int = 0

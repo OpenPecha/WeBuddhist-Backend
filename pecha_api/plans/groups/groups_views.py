@@ -321,9 +321,17 @@ def delete_group_member_by_id(
 @public_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=PublicAuthorGroupDetailDTO)
 def get_public_group(
     group_id: UUID,
+    authentication_credential: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(optional_oauth2_scheme)
+    ] = None,
     language: Annotated[Optional[str], Query(description=_LANGUAGE_QUERY_DESCRIPTION)] = None,
 ):
-    return get_author_group_detail(group_id=group_id, require_public=True, language=language)
+    return get_author_group_detail(
+        group_id=group_id,
+        require_public=True,
+        language=language,
+        token=authentication_credential.credentials if authentication_credential else None,
+    )
 
 
 @public_groups_router.get("", status_code=status.HTTP_200_OK, response_model=PublicAuthorGroupListResponse)
