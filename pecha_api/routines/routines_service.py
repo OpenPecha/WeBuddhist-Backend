@@ -24,7 +24,9 @@ from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallba
 from pecha_api.timezone_utils import normalize_timezone_name
 from pecha_api.accumulator.accumulator_models import Accumulator
 from pecha_api.accumulator.accumulator_enums import AccumulatorType
-from pecha_api.accumulator.accumulator_service import resolve_mala_image_fields
+from pecha_api.accumulator.accumulator_service import (
+    resolve_accumulator_bookmark_mala_image_url,
+)
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
@@ -626,8 +628,10 @@ def _select_accumulator_metadata(metadata_entries, language: Optional[str]):
     return matched[0] if matched else metadata_entries[0]
 
 
-def _accumulator_mala_image(accumulator: Accumulator) -> Optional[ImageUrlModel]:
-    _, mala_image_url = resolve_mala_image_fields(accumulator)
+def _accumulator_mala_image(
+    db, accumulator: Accumulator
+) -> Optional[ImageUrlModel]:
+    mala_image_url = resolve_accumulator_bookmark_mala_image_url(db, accumulator)
     if not mala_image_url:
         return None
     return ImageUrlModel(
@@ -675,7 +679,7 @@ def _resolve_accumulator_sessions(
                 accumulator_id=session.source_id,
                 title=metadata.name if metadata else "Untitled",
                 language=_accumulator_metadata_language(metadata),
-                image=_accumulator_mala_image(preset),
+                image=_accumulator_mala_image(db, preset),
                 display_order=session.display_order,
             )
         )

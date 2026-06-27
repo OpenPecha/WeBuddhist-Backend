@@ -2720,10 +2720,7 @@ def test_resolve_accumulator_sessions_success():
     db.query.return_value = query_chain
 
     with patch(
-        "pecha_api.routines.routines_service.resolve_mala_image_fields",
-        return_value=(None, "mala.jpg"),
-    ), patch(
-        "pecha_api.routines.routines_service.generate_presigned_access_url",
+        "pecha_api.routines.routines_service.resolve_accumulator_bookmark_mala_image_url",
         return_value="https://example.com/mala.jpg",
     ):
         result = _resolve_accumulator_sessions(
