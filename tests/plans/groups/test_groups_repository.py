@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 from sqlalchemy.orm import Session
 
 from pecha_api.plans.groups.groups_repository import (
+    clear_user_series_partner_ids_for_group,
     get_group_id_for_plan,
     get_group_id_for_series,
     get_group_ids_by_plan_ids,
@@ -14,6 +15,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_user_series_enrollment_partner_map,
     update_group,
 )
+from pecha_api.plans.users.plan_users_models import UserSeriesEnrollment
 
 
 def _make_session_mock() -> Session:
@@ -168,3 +170,38 @@ def test_get_groups_paginated_with_exclude_group_ids():
     assert groups == []
     assert total == 0
     query.filter.assert_called_once()
+
+
+def test_clear_user_series_partner_ids_for_group_returns_zero_when_no_partners():
+    db = _make_session_mock()
+    db.execute.return_value.all.return_value = []
+
+    result = clear_user_series_partner_ids_for_group(
+        db=db, user_id=uuid.uuid4(), group_id=uuid.uuid4()
+    )
+
+    assert result == 0
+    db.query.assert_not_called()
+    db.commit.assert_not_called()
+
+
+def test_clear_user_series_partner_ids_for_group_clears_matching_enrollments():
+    db = _make_session_mock()
+    user_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+    partner_id = uuid.uuid4()
+    db.execute.return_value.all.return_value = [(partner_id,)]
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.update.return_value = 2
+
+    result = clear_user_series_partner_ids_for_group(
+        db=db, user_id=user_id, group_id=group_id
+    )
+
+    assert result == 2
+    query.update.assert_called_once()
+    update_values = query.update.call_args.args[0]
+    assert update_values[UserSeriesEnrollment.series_partner_id] is None
+    db.commit.assert_called_once()

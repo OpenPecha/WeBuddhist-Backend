@@ -122,6 +122,38 @@ def get_user_series_enrollment_partner_map(
     return dict(rows)
 
 
+def clear_user_series_partner_ids_for_group(
+    db: Session,
+    user_id: UUID,
+    group_id: UUID,
+) -> int:
+    partner_ids = [
+        row[0]
+        for row in db.execute(
+            select(SeriesPartner.id).where(SeriesPartner.group_id == group_id)
+        ).all()
+    ]
+    if not partner_ids:
+        return 0
+
+    updated_count = (
+        db.query(UserSeriesEnrollment)
+        .filter(
+            UserSeriesEnrollment.user_id == user_id,
+            UserSeriesEnrollment.series_partner_id.in_(partner_ids),
+        )
+        .update(
+            {
+                UserSeriesEnrollment.series_partner_id: None,
+                UserSeriesEnrollment.updated_at: datetime.now(timezone.utc),
+            },
+            synchronize_session=False,
+        )
+    )
+    db.commit()
+    return updated_count
+
+
 def get_series_by_group_id(db: Session, group_id: UUID) -> List[Series]:
     return (
         db.query(Series)
