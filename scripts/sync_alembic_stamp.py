@@ -57,6 +57,8 @@ SCHEMA_MARKERS: dict[str, list[tuple]] = {
     ],
     "s3t4u5v6w7x8": [("table", "day_videos")],
     "u5v6w7x8y9z0": [("table", "tradition_list")],
+    "866bdb766987": [("table", "series_partner")],
+    "f0eab4237ef7": [("column", "user_series_enrollment", "series_partner_id")],
     "z3a4b5c6d7e8": [("column", "users", "has_seen_onboarding")],
 }
 
@@ -136,17 +138,25 @@ def _marker_passes(conn, marker: tuple) -> bool:
     return False
 
 
-def _revision_markers_pass(conn, revision_id: str) -> bool:
+def _revision_markers_pass(conn, revision) -> bool:
+    revision_id = revision.revision
     markers = SCHEMA_MARKERS.get(revision_id)
-    if not markers:
+    if markers:
+        if markers[0] == "any_of":
+            option_groups: Iterable[Sequence[tuple]] = markers[1:]
+            return any(
+                all(_marker_passes(conn, marker) for marker in option_group)
+                for option_group in option_groups
+            )
+        return all(_marker_passes(conn, marker) for marker in markers)
+
+    parents = _normalize_parents(revision.down_revision)
+    if len(parents) > 1:
+        # Merge revisions have no DDL; parent chain is the source of truth.
         return True
-    if markers[0] == "any_of":
-        option_groups: Iterable[Sequence[tuple]] = markers[1:]
-        return any(
-            all(_marker_passes(conn, marker) for marker in option_group)
-            for option_group in option_groups
-        )
-    return all(_marker_passes(conn, marker) for marker in markers)
+
+    # Never assume a single-parent migration ran without explicit schema markers.
+    return False
 
 
 def _compute_applied(script: ScriptDirectory, conn) -> dict[str, bool]:
@@ -156,7 +166,7 @@ def _compute_applied(script: ScriptDirectory, conn) -> dict[str, bool]:
         parents = _normalize_parents(revision.down_revision)
         parents_applied = all(applied[parent] for parent in parents) if parents else True
         applied[revision_id] = (
-            _revision_markers_pass(conn, revision_id) and parents_applied
+            _revision_markers_pass(conn, revision) and parents_applied
         )
     return applied
 
@@ -175,29 +185,21 @@ def _highest_applied_revision(
     return None
 
 
-def _is_ancestor(script: ScriptDirectory, ancestor: str, descendant: str) -> bool:
-    if ancestor == descendant:
-        return False
-    for revision in script.walk_revisions(head=descendant):
-        if revision.revision == ancestor:
-            return True
-    return False
-
-
 def _should_stamp_forward(
-    script: ScriptDirectory,
     current: str,
     target: str,
     applied: dict[str, bool],
 ) -> bool:
     if current == target:
         return False
-    if applied.get(target) and not applied.get(current, False):
-        return True
-    return _is_ancestor(script, current, target)
+    return applied.get(target, False) and not applied.get(current, False)
 
 
 def sync_stamp() -> None:
+    if get("SYNC_ALEMBIC_STAMP").lower() not in ("true", "1", "yes"):
+        print("SYNC_ALEMBIC_STAMP is not enabled; skipping alembic stamp sync.")
+        return
+
     database_url = get("DATABASE_URL")
     if not database_url:
         print("DATABASE_URL is not set; skipping alembic stamp sync.")
@@ -226,7 +228,7 @@ def sync_stamp() -> None:
             print("Could not detect applied schema revision; leaving stamp unchanged.")
             return
 
-        if not _should_stamp_forward(script, current, target, applied):
+        if not _should_stamp_forward(current, target, applied):
             print(
                 f"Alembic stamp sync: current={current}, detected={target}; no change."
             )

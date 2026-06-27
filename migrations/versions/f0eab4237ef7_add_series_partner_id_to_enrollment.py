@@ -10,6 +10,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
+from migrations.idempotency import column_exists, fk_exists, index_exists
+
 # revision identifiers, used by Alembic.
 revision: str = 'f0eab4237ef7'
 down_revision: Union[str, None] = '866bdb766987'
@@ -18,24 +20,27 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        'user_series_enrollment',
-        sa.Column('series_partner_id', sa.UUID(), nullable=True),
-    )
-    op.create_foreign_key(
-        'fk_user_series_enrollment_series_partner',
-        'user_series_enrollment',
-        'series_partner',
-        ['series_partner_id'],
-        ['id'],
-        ondelete='SET NULL',
-    )
-    op.create_index(
-        'idx_user_series_enrollment_series_partner',
-        'user_series_enrollment',
-        ['series_partner_id'],
-        unique=False,
-    )
+    if not column_exists('user_series_enrollment', 'series_partner_id'):
+        op.add_column(
+            'user_series_enrollment',
+            sa.Column('series_partner_id', sa.UUID(), nullable=True),
+        )
+    if not fk_exists('user_series_enrollment', 'fk_user_series_enrollment_series_partner'):
+        op.create_foreign_key(
+            'fk_user_series_enrollment_series_partner',
+            'user_series_enrollment',
+            'series_partner',
+            ['series_partner_id'],
+            ['id'],
+            ondelete='SET NULL',
+        )
+    if not index_exists('user_series_enrollment', 'idx_user_series_enrollment_series_partner'):
+        op.create_index(
+            'idx_user_series_enrollment_series_partner',
+            'user_series_enrollment',
+            ['series_partner_id'],
+            unique=False,
+        )
 
 
 def downgrade() -> None:
