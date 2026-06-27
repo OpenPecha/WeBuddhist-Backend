@@ -19,6 +19,7 @@ from pecha_api.plans.groups.groups_models import (
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.tags.tag_model import Tag
+from pecha_api.plans.users.plan_users_models import SeriesPartner
 
 
 def get_group_ids_by_plan_ids(db: Session, plan_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
@@ -82,7 +83,15 @@ def get_plans_by_group_id(db: Session, group_id: UUID) -> List[Plan]:
 def get_series_by_group_id(db: Session, group_id: UUID) -> List[Series]:
     return (
         db.query(Series)
-        .filter(Series.group_id == group_id, Series.deleted_at.is_(None))
+        .outerjoin(SeriesPartner, SeriesPartner.series_id == Series.id)
+        .filter(
+            Series.deleted_at.is_(None),
+            or_(
+                Series.group_id == group_id,
+                SeriesPartner.group_id == group_id,
+            ),
+        )
+        .distinct()
         .all()
     )
 

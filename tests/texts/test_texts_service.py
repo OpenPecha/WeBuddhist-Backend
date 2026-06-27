@@ -2004,7 +2004,7 @@ async def test_get_root_text_by_collection_id_success_with_root_text():
         
         mock_get_all_texts.return_value = (mock_texts, 1)
         mock_filter.return_value = mock_filtered_result
-        
+
         result = await get_root_text_by_collection_id(collection_id=collection_id, language=language)
         
         mock_get_all_texts.assert_called_once_with(
@@ -2061,10 +2061,10 @@ async def test_get_root_text_by_collection_id_no_root_text():
         
         mock_get_all_texts.return_value = (mock_texts, 0)
         mock_filter.return_value = mock_filtered_result
-        
+
         result = await get_root_text_by_collection_id(collection_id=collection_id, language=language)
-        
-        # Verify the result - should return empty RecitationsResponse
+
+        # Verify the result - no root text found, so no recitations
         assert result is not None
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 0
@@ -2160,7 +2160,7 @@ async def test_get_root_text_by_collection_id_multiple_groups():
         
         mock_get_all_texts.return_value = (mock_texts, 2)
         mock_filter.side_effect = mock_filter_side_effect
-        
+
         result = await get_root_text_by_collection_id(collection_id=collection_id, language=language)
         
         mock_get_all_texts.assert_called_once_with(

@@ -1,6 +1,3 @@
-import re
-from typing import Optional
-from urllib.parse import parse_qs, urlparse
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -34,31 +31,7 @@ from pecha_api.plans.videos.day_video_response_models import (
     DayVideoListResponse,
     ReorderDayVideosRequest,
 )
-
-_YOUTUBE_HOSTS = {
-    "youtube.com",
-    "www.youtube.com",
-    "m.youtube.com",
-    "music.youtube.com",
-    "youtu.be",
-    "www.youtu.be",
-}
-
-
-def _extract_youtube_video_id(url: str) -> Optional[str]:
-    parsed = urlparse(url.strip())
-    host = (parsed.netloc or "").lower()
-    if host not in _YOUTUBE_HOSTS:
-        return None
-    if host in ("youtu.be", "www.youtu.be"):
-        candidate = parsed.path.lstrip("/").split("/")[0]
-    elif parsed.path.startswith(("/embed/", "/shorts/", "/v/")):
-        candidate = parsed.path.split("/")[2]
-    else:
-        candidate = parse_qs(parsed.query).get("v", [None])[0]
-    if candidate and re.fullmatch(r"[A-Za-z0-9_-]{11}", candidate):
-        return candidate
-    return None
+from pecha_api.plans.videos.youtube_utils import extract_youtube_video_id
 
 
 def _to_dto(video: DayVideo) -> DayVideoDTO:
@@ -105,7 +78,7 @@ def list_day_videos(token: str, day_id: UUID) -> DayVideoListResponse:
 
 def add_day_video(token: str, day_id: UUID, request: CreateDayVideoRequest) -> DayVideoDTO:
     url = request.url.strip()
-    video_id = _extract_youtube_video_id(url)
+    video_id = extract_youtube_video_id(url)
     if not video_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
