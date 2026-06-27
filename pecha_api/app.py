@@ -56,6 +56,7 @@ from pecha_api.verse_of_day import verse_of_day_views
 from pecha_api.calendar import calendar_views
 from pecha_api.timers import timer_router
 from pecha_api.accumulator import accumulator_router
+from pecha_api.group_accumulator import group_accumulator_router, group_accumulator_cms_router
 from pecha_api.daily_log import daily_log_views
 from pecha_api.mantra import mantra_views
 from pecha_api.mantra.mantra_count_views import user_mantra_count_router
@@ -138,6 +139,8 @@ api.include_router(verse_of_day_views.cms_verse_of_day_router)
 api.include_router(calendar_views.calendar_router)
 api.include_router(timer_router)
 api.include_router(accumulator_router)
+api.include_router(group_accumulator_router)
+api.include_router(group_accumulator_cms_router)
 api.include_router(daily_log_views.daily_log_router)
 api.include_router(mantra_views.mantra_router)
 api.include_router(mantra_views.cms_mantra_router)
