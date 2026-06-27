@@ -1216,6 +1216,19 @@ class TestHelperFunctions:
 
         assert result.current_count == 0
 
+    def test_convert_accumulator_to_dto_preset_allows_null_user_id(self):
+        """Preset accumulators have no user_id and should still convert."""
+        accumulator = TestDataFactory.create_mock_accumulator(
+            accumulator_type=AccumulatorType.PRESET,
+        )
+        accumulator.user_id = None
+
+        result = convert_accumulator_to_dto(accumulator)
+
+        assert isinstance(result, AccumulatorDTO)
+        assert result.user_id is None
+        assert result.type == AccumulatorType.PRESET
+
     def test_convert_accumulator_to_public_dto_omits_user_id(self):
         """Public DTO should not carry user_id and exposes the row id as id."""
         accumulator = TestDataFactory.create_mock_accumulator()

@@ -12,6 +12,7 @@ from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 from pecha_api.plans.audio.plan_item_audio_models import PlanItemAudio
 from pecha_api.plans.videos.day_video_models import DayVideo
+from pecha_api.plans.shareable_images.day_shareable_image_models import DayShareableImage
 from pecha_api.plans.audio.sub_task_timestamps_models import SubTaskTimestamp
 from pecha_api.plans.reviews.plan_reviews_models import PlanReview
 from pecha_api.plans.favorites.favorites_models import Favorite

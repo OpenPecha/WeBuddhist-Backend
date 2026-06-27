@@ -86,6 +86,7 @@ def get_plan_day_with_tasks_and_subtasks(db: Session, plan_id: UUID, day_number:
         db.query(PlanItem)
         .options(
             joinedload(PlanItem.audio),
+            joinedload(PlanItem.shareable_images),
             selectinload(PlanItem.videos),
             joinedload(PlanItem.tasks).joinedload(PlanTask.sub_tasks).joinedload(PlanSubTask.timestamp),
         )
