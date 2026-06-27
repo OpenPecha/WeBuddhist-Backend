@@ -1,13 +1,55 @@
 from pydantic import BaseModel, ConfigDict, field_validator
 from uuid import UUID
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime
 
 from pecha_api.bookmarks.bookmark_enums import BookmarkType
-from pecha_api.plans.public.plan_response_models import PublicPlanDTO
-from pecha_api.plans.series.series_response_models import SeriesListItemDTO
-from pecha_api.accumulator.accumulator_response_models import AccumulatorDTO
-from pecha_api.timers.timer_response_models import TimerDTO
+from pecha_api.plans.series.series_response_models import SeriesMetadataResponse
+
+
+class BookmarkSegmentDTO(BaseModel):
+    id: str
+    content: str
+
+
+class BookmarkTextDTO(BaseModel):
+    id: str
+    title: str
+    segment: Optional[BookmarkSegmentDTO] = None
+
+
+class PlanBookmarkMetadataDTO(BaseModel):
+    title: str
+    description: str
+    language: str
+
+
+class BookmarkPlanDTO(BaseModel):
+    id: UUID
+    metadata: Optional[PlanBookmarkMetadataDTO] = None
+    image: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
+
+class BookmarkSeriesDTO(BaseModel):
+    id: UUID
+    metadata: SeriesMetadataResponse = None
+    image: Optional[str] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
+
+class BookmarkAccumulatorDTO(BaseModel):
+    id: UUID
+    title: str
+    image: Optional[str] = None
+
+
+class BookmarkTimerDTO(BaseModel):
+    id: UUID
+    title: str
+    duration: int
 
 
 class CreateBookmarkRequest(BaseModel):
@@ -40,21 +82,20 @@ class BookmarkDTO(BaseModel):
     name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
-    text_id: Optional[str] = None
-    text_title: Optional[str] = None
-    segment_id: Optional[str] = None
-    verse_id: Optional[str] = None
-    segment_content: Optional[str] = None
-    plan: Optional[PublicPlanDTO] = None
-    series: Optional[SeriesListItemDTO] = None
-    accumulator: Optional[AccumulatorDTO] = None
-    timer: Optional[TimerDTO] = None
+    text: Optional[BookmarkTextDTO] = None
+    plan: Optional[BookmarkPlanDTO] = None
+    series: Optional[BookmarkSeriesDTO] = None
+    accumulator: Optional[BookmarkAccumulatorDTO] = None
+    timer: Optional[BookmarkTimerDTO] = None
 
 
 class BookmarksResponse(BaseModel):
     model_config = ConfigDict(ser_json_exclude_none=True)
 
     bookmarks: List[BookmarkDTO]
+    total: int
+    skip: int
+    limit: int
 
 
 class BookmarkExistsQuery(BaseModel):

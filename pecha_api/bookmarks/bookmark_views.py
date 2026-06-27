@@ -72,11 +72,15 @@ async def get_bookmarks(
             )
         ),
     ] = None,
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
 ):
     return await get_bookmarks_service(
         token=authentication_credential.credentials,
         type=type,
         language=language,
+        skip=skip,
+        limit=limit,
     )
 
 

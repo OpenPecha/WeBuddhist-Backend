@@ -46,11 +46,19 @@ async def get_bookmarks_service(
     token: str,
     type: Optional[BookmarkFilterType] = None,
     language: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
 ) -> BookmarksResponse:
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
-        bookmarks = get_bookmarks_by_user_id(db=db, user_id=current_user.id, type=type)
+        bookmarks, total = get_bookmarks_by_user_id(
+            db=db,
+            user_id=current_user.id,
+            type=type,
+            skip=skip,
+            limit=limit,
+        )
 
         bookmarks_dto = []
         for bookmark in bookmarks:
@@ -67,7 +75,12 @@ async def get_bookmarks_service(
             )
             bookmarks_dto.append(BookmarkDTO(**bookmark_data))
 
-        return BookmarksResponse(bookmarks=bookmarks_dto)
+        return BookmarksResponse(
+            bookmarks=bookmarks_dto,
+            total=total,
+            skip=skip,
+            limit=limit,
+        )
 
 
 async def delete_bookmark_service(token: str, bookmark_id: UUID) -> None:

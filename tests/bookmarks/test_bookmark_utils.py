@@ -194,11 +194,10 @@ async def test_enrich_text_bookmark_without_verse_uses_first_segment():
     ):
         result = await enrich_text_bookmark(bookmark)
 
-    assert result["text_id"] == text_id
-    assert result["text_title"] == "Heart Sutra"
-    assert result["segment_id"] == segment_id
-    assert result["segment_content"] == "Segment content"
-    assert "verse_id" not in result
+    assert result["text"].id == text_id
+    assert result["text"].title == "Heart Sutra"
+    assert result["text"].segment.id == segment_id
+    assert result["text"].segment.content == "Segment content"
 
 
 @pytest.mark.asyncio
@@ -231,8 +230,7 @@ async def test_enrich_text_bookmark_with_name_as_segment_ref():
     ):
         result = await enrich_text_bookmark(bookmark)
 
-    assert result["verse_id"] == verse_locator
-    assert result["segment_content"] == "Named segment content"
+    assert result["text"].segment.content == "Named segment content"
 
 
 @pytest.mark.asyncio
@@ -284,11 +282,10 @@ async def test_enrich_verse_bookmark_includes_segment_content():
     ):
         result = await enrich_text_bookmark(bookmark)
 
-    assert result["text_id"] == text_id
-    assert result["text_title"] == "Lotus Sutra"
-    assert result["segment_id"] == segment_id
-    assert result["segment_content"] == "Verse segment content"
-    assert result["verse_id"] == verse_locator
+    assert result["text"].id == text_id
+    assert result["text"].title == "Lotus Sutra"
+    assert result["text"].segment.id == segment_id
+    assert result["text"].segment.content == "Verse segment content"
 
 
 @pytest.mark.asyncio
@@ -344,9 +341,9 @@ async def test_enrich_text_bookmark_handles_missing_text_details():
     ):
         result = await enrich_text_bookmark(bookmark)
 
-    assert result["text_id"] == text_id
-    assert result["text_title"] is None
-    assert result["segment_content"] == "Segment content"
+    assert result["text"].id == text_id
+    assert result["text"].title == ""
+    assert result["text"].segment.content == "Segment content"
 
 
 @pytest.mark.asyncio
@@ -384,8 +381,8 @@ async def test_enrich_text_bookmark_with_language_uses_localized_text():
     ):
         result = await enrich_text_bookmark(bookmark, language="BO")
 
-    assert result["text_id"] == localized_text_id
-    assert result["text_title"] == "བོད་ཡིག་ཁ་བྱང་"
+    assert result["text"].id == localized_text_id
+    assert result["text"].title == "བོད་ཡིག་ཁ་བྱང་"
 
 
 def test_enrich_plan_bookmark_with_language_uses_matching_sibling():
@@ -419,15 +416,6 @@ def test_enrich_plan_bookmark_with_language_uses_matching_sibling():
     ), patch(
         "pecha_api.bookmarks.bookmark_utils.get_sibling_plans_in_series_slot",
         return_value=[bo_plan],
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils.get_group_id_for_plan",
-        return_value=None,
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils.get_image_url",
-        return_value=None,
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils.tags_to_summary_dtos",
-        return_value=[],
     ):
         mock_db.query.return_value.filter.return_value.count.return_value = 3
         result = enrich_plan_bookmark(
@@ -437,8 +425,8 @@ def test_enrich_plan_bookmark_with_language_uses_matching_sibling():
         )
 
     assert result["plan"].id == bo_plan_id
-    assert result["plan"].title == "བོད་ཡིག་ཐེངས་"
-    assert result["plan"].language == "BO"
+    assert result["plan"].metadata.title == "བོད་ཡིག་ཐེངས་"
+    assert result["plan"].metadata.language == "BO"
 
 
 def test_enrich_plan_bookmark_returns_empty_for_invalid_source_id():
@@ -464,60 +452,59 @@ def test_enrich_plan_bookmark_returns_empty_when_plan_not_found():
     assert result == {}
 
 
-def test_enrich_plan_bookmark_includes_author_details():
+def test_enrich_plan_bookmark_includes_dates_and_image():
+    from datetime import datetime, timedelta, timezone
     from pecha_api.bookmarks.bookmark_utils import enrich_plan_bookmark
 
     plan_id = uuid4()
-    author_id = uuid4()
     mock_db = MagicMock()
+    start_date = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
     mock_plan = MagicMock()
     mock_plan.id = plan_id
     mock_plan.title = "Morning Practice"
     mock_plan.description = "Daily practice"
     mock_plan.language = "EN"
-    mock_plan.difficulty_level = None
-    mock_plan.image_url = "plan.png"
-    mock_plan.start_date = None
-    mock_plan.display_order = None
-    mock_plan.tag_list = []
-    mock_plan.author = MagicMock()
-    mock_plan.author.id = author_id
-    mock_plan.author.first_name = "Tenzin"
-    mock_plan.author.last_name = "Gyatso"
-    mock_plan.author.image_url = "author.png"
+    mock_plan.image_url = "plans/original/plan.png"
+    mock_plan.start_date = start_date
 
     with patch(
         "pecha_api.bookmarks.bookmark_utils.get_published_plan_by_id",
         return_value=mock_plan,
     ), patch(
-        "pecha_api.bookmarks.bookmark_utils.get_group_id_for_plan",
-        return_value=None,
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils.get_image_url",
-        return_value=None,
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils.tags_to_summary_dtos",
-        return_value=[],
+        "pecha_api.bookmarks.bookmark_utils._bookmark_image_url",
+        return_value="https://example.com/plan.png",
     ):
         mock_db.query.return_value.filter.return_value.count.return_value = 7
         result = enrich_plan_bookmark(db=mock_db, source_id=str(plan_id))
 
     assert result["plan"].id == plan_id
-    assert result["plan"].author.firstname == "Tenzin"
-    assert result["plan"].author.lastname == "Gyatso"
-    assert result["plan"].total_days == 7
+    assert result["plan"].metadata.title == "Morning Practice"
+    assert result["plan"].image == "https://example.com/plan.png"
+    assert result["plan"].start_date == start_date
+    assert result["plan"].end_date == start_date + timedelta(days=6)
 
 
 def test_enrich_series_bookmark_success():
+    from datetime import datetime, timezone
     from pecha_api.bookmarks.bookmark_utils import enrich_series_bookmark
+    from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
 
     series_id = uuid4()
     mock_db = MagicMock()
     mock_series = MagicMock()
+    mock_series.id = series_id
     mock_series.status = "PUBLISHED"
     mock_series.plans = []
-    mock_dto = MagicMock()
+    mock_series.metadata_entries = []
+    mock_series.image = "series/original/series.png"
+    start_date = datetime.now(timezone.utc)
+    end_date = datetime.now(timezone.utc)
+    metadata = SeriesMetadataDTO(
+        id=uuid4(),
+        title="Series title",
+        language="BO",
+    )
 
     with patch(
         "pecha_api.bookmarks.bookmark_utils.get_series_by_id",
@@ -528,28 +515,36 @@ def test_enrich_series_bookmark_success():
             "pecha_api.plans.plans_enums", fromlist=["PlanStatus"]
         ).PlanStatus.PUBLISHED,
     ), patch(
-        "pecha_api.bookmarks.bookmark_utils.get_active_plan_count_map_by_series_ids",
-        return_value={series_id: 2},
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils.get_enrolled_count_map_by_series_ids",
-        return_value={series_id: 5},
-    ), patch(
         "pecha_api.bookmarks.bookmark_utils._series_schedule_from_plans",
-        return_value=(None, None, 10),
+        return_value=(start_date, end_date, 10),
     ), patch(
-        "pecha_api.bookmarks.bookmark_utils._group_summary_for_series",
-        return_value=None,
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils._series_to_list_item_dto",
-        return_value=mock_dto,
-    ):
+        "pecha_api.bookmarks.bookmark_utils._metadata_response",
+        return_value=metadata,
+    ) as mock_metadata_response, patch(
+        "pecha_api.bookmarks.bookmark_utils._bookmark_image_url",
+        return_value="https://example.com/series.png",
+    ) as mock_image_url:
         result = enrich_series_bookmark(
             db=mock_db,
             source_id=str(series_id),
             language="BO",
         )
 
-    assert result == {"series": mock_dto}
+    mock_metadata_response.assert_called_once_with(
+        [],
+        language="BO",
+        fallback=True,
+    )
+    mock_image_url.assert_called_once_with(
+        "series/original/series.png",
+        resource_id=series_id,
+        resource_type="series",
+    )
+    assert result["series"].id == series_id
+    assert result["series"].metadata == metadata
+    assert result["series"].image == "https://example.com/series.png"
+    assert result["series"].start_date == start_date
+    assert result["series"].end_date == end_date
 
 
 def test_enrich_series_bookmark_returns_empty_when_unpublished():
@@ -576,23 +571,27 @@ def test_enrich_accumulator_bookmark_success():
     accumulator_id = uuid4()
     mock_db = MagicMock()
     mock_accumulator = MagicMock()
-    mock_accumulator.metadata_entries = []
-    mock_dto = MagicMock()
+    mock_accumulator.id = accumulator_id
+    metadata_entry = MagicMock()
+    metadata_entry.name = "Mala Practice"
+    mock_accumulator.metadata_entries = [metadata_entry]
 
     mock_db.query.return_value.options.return_value.filter.return_value.first.return_value = (
         mock_accumulator
     )
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.convert_accumulator_to_dto",
-        return_value=mock_dto,
+        "pecha_api.bookmarks.bookmark_utils.resolve_mala_image_fields",
+        return_value=(uuid4(), "https://example.com/mala.png"),
     ):
         result = enrich_accumulator_bookmark(
             db=mock_db,
             source_id=str(accumulator_id),
         )
 
-    assert result == {"accumulator": mock_dto}
+    assert result["accumulator"].id == accumulator_id
+    assert result["accumulator"].title == "Mala Practice"
+    assert result["accumulator"].image == "https://example.com/mala.png"
 
 
 def test_enrich_accumulator_bookmark_filters_metadata_by_language():
@@ -601,24 +600,22 @@ def test_enrich_accumulator_bookmark_filters_metadata_by_language():
     accumulator_id = uuid4()
     mock_db = MagicMock()
     mock_accumulator = MagicMock()
+    mock_accumulator.id = accumulator_id
     metadata_entry = MagicMock()
+    metadata_entry.name = "བོད་ཡིག་མཚན་"
     mock_accumulator.metadata_entries = [metadata_entry]
-    mock_dto = MagicMock()
 
     mock_db.query.return_value.options.return_value.filter.return_value.first.return_value = (
         mock_accumulator
     )
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.convert_accumulator_to_dto",
-        return_value=mock_dto,
+        "pecha_api.bookmarks.bookmark_utils.resolve_mala_image_fields",
+        return_value=(None, None),
     ), patch(
         "pecha_api.bookmarks.bookmark_utils.filter_by_language_with_fallback",
         return_value=[metadata_entry],
-    ) as mock_filter, patch(
-        "pecha_api.bookmarks.bookmark_utils.convert_metadata_to_dto",
-        return_value=MagicMock(),
-    ) as mock_metadata_dto:
+    ) as mock_filter:
         result = enrich_accumulator_bookmark(
             db=mock_db,
             source_id=str(accumulator_id),
@@ -626,9 +623,7 @@ def test_enrich_accumulator_bookmark_filters_metadata_by_language():
         )
 
     mock_filter.assert_called_once()
-    mock_metadata_dto.assert_called_once_with(metadata_entry)
-    assert result == {"accumulator": mock_dto}
-    assert mock_dto.metadata == [mock_metadata_dto.return_value]
+    assert result["accumulator"].title == "བོད་ཡིག་མཚན་"
 
 
 def test_enrich_timer_bookmark_success():
@@ -636,18 +631,19 @@ def test_enrich_timer_bookmark_success():
 
     timer_id = uuid4()
     mock_timer = MagicMock()
-    mock_dto = MagicMock()
+    mock_timer.id = timer_id
+    mock_timer.name = "Meditation Timer"
+    mock_timer.duration = 600
 
     with patch(
         "pecha_api.bookmarks.bookmark_utils.get_timer_by_id",
         return_value=mock_timer,
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils.convert_timer_to_dto",
-        return_value=mock_dto,
     ):
         result = enrich_timer_bookmark(db=MagicMock(), source_id=str(timer_id))
 
-    assert result == {"timer": mock_dto}
+    assert result["timer"].id == timer_id
+    assert result["timer"].title == "Meditation Timer"
+    assert result["timer"].duration == 600
 
 
 def test_enrich_timer_bookmark_returns_empty_when_not_found():
@@ -754,7 +750,7 @@ async def test_enrich_text_bookmark_falls_back_when_localized_text_missing():
     ):
         result = await enrich_text_bookmark(bookmark, language="BO")
 
-    assert result["text_title"] == "Original title"
+    assert result["text"].title == "Original title"
 
 
 @pytest.mark.asyncio

@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Optional
 from uuid import UUID
 
@@ -5,6 +6,15 @@ from sqlalchemy.orm import Session, selectinload
 
 from pecha_api.bookmarks.bookmark_enums import BookmarkType
 from pecha_api.bookmarks.bookmark_models import Bookmark
+from pecha_api.bookmarks.bookmark_response_models import (
+    BookmarkAccumulatorDTO,
+    BookmarkPlanDTO,
+    BookmarkSegmentDTO,
+    BookmarkSeriesDTO,
+    BookmarkTextDTO,
+    BookmarkTimerDTO,
+    PlanBookmarkMetadataDTO,
+)
 from pecha_api.texts.segments.segments_models import Segment
 from pecha_api.texts.segments.segments_repository import (
     get_related_mapped_segments,
@@ -15,35 +25,23 @@ from pecha_api.texts.texts_repository import (
     get_first_segment_table_of_content,
     get_texts_by_id,
 )
-from pecha_api.plans.public.plan_response_models import PublicPlanDTO, AuthorDTO
 from pecha_api.plans.public.plan_repository import get_published_plan_by_id
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.items.plan_items_models import PlanItem
-from pecha_api.plans.groups.groups_repository import get_group_id_for_plan
-from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
-from pecha_api.plans.authors.plan_authors_service import get_image_url
+from pecha_api.plans.authors.plan_authors_service import safe_get_image_url
 from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallback
 from pecha_api.plans.users.plan_user_series_day_sync_repository import (
     get_sibling_plans_in_series_slot,
 )
-from pecha_api.plans.series.series_repository import (
-    get_series_by_id,
-    get_active_plan_count_map_by_series_ids,
-    get_enrolled_count_map_by_series_ids,
-)
+from pecha_api.plans.series.series_repository import get_series_by_id
 from pecha_api.plans.series.series_service import (
-    _group_summary_for_series,
+    _metadata_response,
     _series_schedule_from_plans,
-    _series_to_list_item_dto,
     _to_plan_status,
 )
 from pecha_api.accumulator.accumulator_models import Accumulator
-from pecha_api.accumulator.accumulator_service import (
-    convert_accumulator_to_dto,
-    convert_metadata_to_dto,
-)
+from pecha_api.accumulator.accumulator_service import resolve_mala_image_fields
 from pecha_api.timers.timer_repository import get_timer_by_id
-from pecha_api.timers.timer_service import convert_timer_to_dto
 
 DEFAULT_FALLBACK_LANGUAGE = "EN"
 
@@ -61,6 +59,22 @@ def _plan_language_code(plan) -> str:
 
 def _accumulator_metadata_language(entry) -> str:
     return entry.language.value if hasattr(entry.language, "value") else str(entry.language)
+
+
+def _bookmark_image_url(
+    image_key: Optional[str],
+    *,
+    resource_id: UUID,
+    resource_type: str,
+) -> Optional[str]:
+    image = safe_get_image_url(
+        image_key,
+        resource_id=resource_id,
+        resource_type=resource_type,
+    )
+    if not image:
+        return None
+    return image.medium or image.original
 
 
 def _text_language_code(text) -> str:
@@ -143,17 +157,20 @@ async def enrich_text_bookmark(
             segment = localized_segment
             segment_id = str(segment.id)
 
-    result = {
-        "text_id": text_id,
-        "text_title": text.title if text else None,
-        "segment_id": segment_id,
-        "segment_content": segment.content if segment else None,
+    segment_dto = None
+    if segment_id and segment:
+        segment_dto = BookmarkSegmentDTO(
+            id=segment_id,
+            content=segment.content,
+        )
+
+    return {
+        "text": BookmarkTextDTO(
+            id=text_id,
+            title=text.title if text else "",
+            segment=segment_dto,
+        )
     }
-
-    if verse_id:
-        result["verse_id"] = verse_id
-
-    return result
 
 
 async def _resolve_localized_text(text_id: str, language: Optional[str]):
@@ -230,35 +247,26 @@ def enrich_plan_bookmark(
     if not plan:
         return {}
 
-    tag_language = _normalize_language(language) or DEFAULT_FALLBACK_LANGUAGE
-    plan_image = get_image_url(image_url=plan.image_url)
-    author_dto = None
-    if plan.author:
-        author_image = get_image_url(image_url=plan.author.image_url)
-        author_dto = AuthorDTO(
-            id=plan.author.id,
-            firstname=plan.author.first_name,
-            lastname=plan.author.last_name,
-            image=author_image,
-        )
-
     total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan.id).count()
-    group_id = get_group_id_for_plan(db=db, plan_id=plan.id)
+    end_date = None
+    if plan.start_date and total_days > 0:
+        end_date = plan.start_date + timedelta(days=total_days - 1)
 
     return {
-        "plan": PublicPlanDTO(
+        "plan": BookmarkPlanDTO(
             id=plan.id,
-            title=plan.title,
-            description=plan.description,
-            language=_plan_language_code(plan),
-            difficulty_level=plan.difficulty_level,
-            image=plan_image,
-            total_days=total_days,
-            tags=tags_to_summary_dtos(plan.tag_list, language=tag_language),
-            author=author_dto,
+            metadata=PlanBookmarkMetadataDTO(
+                title=plan.title,
+                description=plan.description,
+                language=_plan_language_code(plan),
+            ),
+            image=_bookmark_image_url(
+                plan.image_url,
+                resource_id=plan.id,
+                resource_type="plan",
+            ),
             start_date=plan.start_date,
-            display_order=plan.display_order,
-            group_id=group_id,
+            end_date=end_date,
         )
     }
 
@@ -276,28 +284,29 @@ def enrich_series_bookmark(
     if not series or _to_plan_status(series.status) != PlanStatus.PUBLISHED:
         return {}
 
-    plan_count = get_active_plan_count_map_by_series_ids(
-        db, [series_id], published_only=True
-    ).get(series_id, 0)
-    enrolled_count = get_enrolled_count_map_by_series_ids(db, [series_id]).get(series_id, 0)
-    start_date, end_date, total_days = _series_schedule_from_plans(
+    start_date, end_date, _ = _series_schedule_from_plans(
         series.plans,
         published_only=True,
         language=language,
         fallback=True,
     )
+    metadata_entries = getattr(series, "metadata_entries", None) or []
 
     return {
-        "series": _series_to_list_item_dto(
-            series,
-            plan_count=plan_count,
-            enrolled_count=enrolled_count,
-            language=language,
-            group=_group_summary_for_series(db=db, series=series, language=language),
+        "series": BookmarkSeriesDTO(
+            id=series.id,
+            metadata=_metadata_response(
+                metadata_entries,
+                language=language,
+                fallback=True,
+            ),
+            image=_bookmark_image_url(
+                series.image,
+                resource_id=series.id,
+                resource_type="series",
+            ),
             start_date=start_date,
             end_date=end_date,
-            total_days=total_days,
-            fallback=True,
         )
     }
 
@@ -326,17 +335,27 @@ def enrich_accumulator_bookmark(
     if not accumulator:
         return {}
 
-    dto = convert_accumulator_to_dto(accumulator)
+    _, mala_image_url = resolve_mala_image_fields(accumulator)
+    metadata_entries = list(accumulator.metadata_entries)
     if language:
-        matched_metadata = filter_by_language_with_fallback(
-            entries=list(accumulator.metadata_entries),
+        metadata_entries = filter_by_language_with_fallback(
+            entries=metadata_entries,
             language=language,
             language_of=_accumulator_metadata_language,
             fallback_language=DEFAULT_FALLBACK_LANGUAGE,
         )
-        dto.metadata = [convert_metadata_to_dto(entry) for entry in matched_metadata]
 
-    return {"accumulator": dto}
+    title = ""
+    if metadata_entries:
+        title = metadata_entries[0].name
+
+    return {
+        "accumulator": BookmarkAccumulatorDTO(
+            id=accumulator.id,
+            title=title,
+            image=mala_image_url,
+        )
+    }
 
 
 def enrich_timer_bookmark(db: Session, source_id: str) -> dict:
@@ -348,7 +367,13 @@ def enrich_timer_bookmark(db: Session, source_id: str) -> dict:
     if not timer:
         return {}
 
-    return {"timer": convert_timer_to_dto(timer)}
+    return {
+        "timer": BookmarkTimerDTO(
+            id=timer.id,
+            title=timer.name,
+            duration=timer.duration,
+        )
+    }
 
 
 def _parse_source_uuid(source_id: str) -> Optional[UUID]:
