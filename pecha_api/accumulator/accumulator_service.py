@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 import logging
 
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 from starlette import status
 from ..db.database import SessionLocal
 from ..config import get
@@ -29,7 +30,7 @@ from .accumulator_repository import (
 )
 from ..mantra.mantra_model import Mantra
 from ..mantra.mantra_metadata_model import MantraMetadata
-from ..mantra.mantra_repository import get_mantras_by_ids
+from ..mantra.mantra_repository import get_mantra_by_id, get_mantras_by_ids
 from .accumulator_response_models import (
     AccumulatorsResponse,
     AccumulatorDTO,
@@ -98,6 +99,32 @@ def resolve_mala_image_fields(accumulator: Accumulator) -> tuple[Optional[UUID],
     if mala is None:
         return None, None
     return mala.id, generate_mala_image_presigned_url(mala.url)
+
+
+def resolve_accumulator_bookmark_mala_image_url(
+    db: Session,
+    accumulator: Accumulator,
+) -> Optional[str]:
+    """Presigned mala image URL for bookmark display.
+
+    Preset accumulators prefer the linked mantra's default mala image over
+    the mala image stored on the accumulator row itself.
+    """
+    accumulator_type = (
+        accumulator.type.value
+        if hasattr(accumulator.type, "value")
+        else accumulator.type
+    )
+    if (
+        accumulator_type == AccumulatorType.PRESET.value
+        and accumulator.mantra_id is not None
+    ):
+        mantra = get_mantra_by_id(db, accumulator.mantra_id)
+        if mantra is not None and mantra.mala is not None:
+            return generate_mala_image_presigned_url(mantra.mala.url)
+
+    _, mala_image_url = resolve_mala_image_fields(accumulator)
+    return mala_image_url
 
 
 def convert_accumulator_to_dto(accumulator: Accumulator) -> AccumulatorDTO:
