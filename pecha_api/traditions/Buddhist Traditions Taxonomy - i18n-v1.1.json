@@ -1,0 +1,4367 @@
+{
+  "_meta": {
+    "version": "1.1",
+    "languages": [
+      "en",
+      "zh",
+      "bo",
+      "hi",
+      "ne",
+      "mn"
+    ],
+    "schema": "traditions[]: { id, names{ lang: { name, aliases[] } }, regions[], level(1-4), parent(id|null) }",
+    "review_needed": {
+      "zh": "High confidence — Chinese Buddhist terminology is well-standardized. Spot-check sub-school names.",
+      "bo": "High confidence for Tibetan schools (canonical Wylie/script names). Non-Tibetan schools fall back to English — needs native review for any Tibetan-script transliterations.",
+      "hi": "Medium confidence — major branches and Navayana are reliable. Sub-school transliterations need native Buddhist speaker review.",
+      "ne": "Medium confidence — mostly mirrors Hindi (shared Devanagari). Newar Buddhism entries are locally reviewed. Sub-schools need review.",
+      "mn": "Medium confidence — Mongolian Tibetan-school names are standard. Non-Tibetan-tradition Cyrillic transliterations need native review."
+    }
+  },
+  "traditions": [
+    {
+      "id": "theravada",
+      "names": {
+        "en": {
+          "name": "Theravāda",
+          "aliases": [
+            "Theravada",
+            "Southern Buddhism",
+            "Pali Buddhism",
+            "Hinayana"
+          ]
+        },
+        "zh": {
+          "name": "上座部佛教",
+          "aliases": [
+            "南传佛教",
+            "巴利语佛教",
+            "小乘"
+          ]
+        },
+        "bo": {
+          "name": "ཐེར་བ་ད།",
+          "aliases": [
+            "གནས་བརྟན་པའི་སྡེ་པ།",
+            "Theravada"
+          ]
+        },
+        "hi": {
+          "name": "थेरवाद",
+          "aliases": [
+            "दक्षिणी बौद्ध धर्म",
+            "पाली बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "थेरवाद",
+          "aliases": [
+            "दक्षिणी बौद्ध धर्म",
+            "पाली बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Тхеравад",
+          "aliases": [
+            "Тхэравада",
+            "Өмнөд Буддизм"
+          ]
+        }
+      },
+      "regions": [
+        "Sri Lanka",
+        "Thailand",
+        "Myanmar",
+        "Cambodia",
+        "Laos",
+        "Bangladesh",
+        "India"
+      ],
+      "level": 1,
+      "parent": null
+    },
+    {
+      "id": "thai-buddhism",
+      "names": {
+        "en": {
+          "name": "Thai Buddhism",
+          "aliases": [
+            "Thai Theravada",
+            "Thai Theravāda"
+          ]
+        },
+        "zh": {
+          "name": "泰国佛教",
+          "aliases": [
+            "泰国上座部"
+          ]
+        },
+        "bo": {
+          "name": "Thai Buddhism",
+          "aliases": [
+            "ཐཱའི་ཕྱོགས་ཀྱི་ནང་ཆོས།"
+          ]
+        },
+        "hi": {
+          "name": "थाई बौद्ध धर्म",
+          "aliases": [
+            "थाईलैंड बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "थाई बौद्ध धर्म",
+          "aliases": [
+            "थाइल्याण्ड बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Тайландын Буддизм",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Thailand"
+      ],
+      "level": 2,
+      "parent": "theravada"
+    },
+    {
+      "id": "dhammayut",
+      "names": {
+        "en": {
+          "name": "Dhammayuttika Nikāya",
+          "aliases": [
+            "Dhammayut",
+            "Dhammayuttika",
+            "Thammayut",
+            "Dhammayut Order"
+          ]
+        },
+        "zh": {
+          "name": "法宗派",
+          "aliases": [
+            "达摩友派",
+            "法宗"
+          ]
+        },
+        "bo": {
+          "name": "Dhammayut",
+          "aliases": [
+            "དྷམ་མ་ཡུད།"
+          ]
+        },
+        "hi": {
+          "name": "धम्मयुत निकाय",
+          "aliases": [
+            "धम्मयुत्त"
+          ]
+        },
+        "ne": {
+          "name": "धम्मयुत निकाय",
+          "aliases": [
+            "धम्मयुत्त"
+          ]
+        },
+        "mn": {
+          "name": "Дхаммаютт",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Thailand",
+        "Cambodia",
+        "Laos"
+      ],
+      "level": 3,
+      "parent": "thai-buddhism"
+    },
+    {
+      "id": "maha-nikaya-th",
+      "names": {
+        "en": {
+          "name": "Mahā Nikāya",
+          "aliases": [
+            "Maha Nikaya",
+            "Mahanikaya"
+          ]
+        },
+        "zh": {
+          "name": "大宗派",
+          "aliases": [
+            "摩诃尼迦耶"
+          ]
+        },
+        "bo": {
+          "name": "Maha Nikaya",
+          "aliases": []
+        },
+        "hi": {
+          "name": "महानिकाय",
+          "aliases": []
+        },
+        "ne": {
+          "name": "महानिकाय",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Маха Никаяа",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Thailand"
+      ],
+      "level": 3,
+      "parent": "thai-buddhism"
+    },
+    {
+      "id": "thai-forest",
+      "names": {
+        "en": {
+          "name": "Thai Forest Tradition",
+          "aliases": [
+            "Forest Tradition",
+            "Forest Sangha",
+            "Kammatthana",
+            "Ajahn Chah lineage",
+            "Ajahn Mun lineage"
+          ]
+        },
+        "zh": {
+          "name": "泰国森林传统",
+          "aliases": [
+            "林居传统",
+            "阿姜查传承",
+            "阿姜曼传承"
+          ]
+        },
+        "bo": {
+          "name": "Thai Forest Tradition",
+          "aliases": []
+        },
+        "hi": {
+          "name": "थाई वन परंपरा",
+          "aliases": [
+            "वन संघ",
+            "अज्ञान चाह परंपरा"
+          ]
+        },
+        "ne": {
+          "name": "थाई वन परम्परा",
+          "aliases": [
+            "वन संघ"
+          ]
+        },
+        "mn": {
+          "name": "Тайландын Ойн Уламжлал",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Thailand",
+        "International"
+      ],
+      "level": 3,
+      "parent": "thai-buddhism"
+    },
+    {
+      "id": "burmese-buddhism",
+      "names": {
+        "en": {
+          "name": "Burmese Buddhism",
+          "aliases": [
+            "Myanmar Buddhism",
+            "Burmese Theravada"
+          ]
+        },
+        "zh": {
+          "name": "缅甸佛教",
+          "aliases": [
+            "缅甸上座部"
+          ]
+        },
+        "bo": {
+          "name": "Burmese Buddhism",
+          "aliases": []
+        },
+        "hi": {
+          "name": "बर्मी बौद्ध धर्म",
+          "aliases": [
+            "म्यांमार बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "बर्मी बौद्ध धर्म",
+          "aliases": [
+            "म्यानमार बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Мьянмарын Буддизм",
+          "aliases": [
+            "Бирмийн Буддизм"
+          ]
+        }
+      },
+      "regions": [
+        "Myanmar"
+      ],
+      "level": 2,
+      "parent": "theravada"
+    },
+    {
+      "id": "thudhamma",
+      "names": {
+        "en": {
+          "name": "Thudhamma Nikāya",
+          "aliases": [
+            "Thudhamma",
+            "Sudhamma"
+          ]
+        },
+        "zh": {
+          "name": "杜达玛派",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Thudhamma",
+          "aliases": []
+        },
+        "hi": {
+          "name": "तुधम्म निकाय",
+          "aliases": []
+        },
+        "ne": {
+          "name": "तुधम्म निकाय",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Тудхамма",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Myanmar"
+      ],
+      "level": 3,
+      "parent": "burmese-buddhism"
+    },
+    {
+      "id": "shwekyin",
+      "names": {
+        "en": {
+          "name": "Shwekyin Nikāya",
+          "aliases": [
+            "Shwekyin"
+          ]
+        },
+        "zh": {
+          "name": "瑞基因派",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Shwekyin",
+          "aliases": []
+        },
+        "hi": {
+          "name": "श्वेकिन निकाय",
+          "aliases": []
+        },
+        "ne": {
+          "name": "श्वेकिन निकाय",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Швекин",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Myanmar"
+      ],
+      "level": 3,
+      "parent": "burmese-buddhism"
+    },
+    {
+      "id": "mahasi",
+      "names": {
+        "en": {
+          "name": "Mahasi Tradition",
+          "aliases": [
+            "Mahasi Sayadaw",
+            "Mahasi Vipassana",
+            "Satipatthana Vipassana"
+          ]
+        },
+        "zh": {
+          "name": "马哈希传统",
+          "aliases": [
+            "马哈希内观",
+            "马哈希长老"
+          ]
+        },
+        "bo": {
+          "name": "Mahasi Tradition",
+          "aliases": []
+        },
+        "hi": {
+          "name": "महासी परंपरा",
+          "aliases": [
+            "महासी सयाडो",
+            "महासी विपश्यना"
+          ]
+        },
+        "ne": {
+          "name": "महासी परम्परा",
+          "aliases": [
+            "महासी सयाडो"
+          ]
+        },
+        "mn": {
+          "name": "Махасийн Уламжлал",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Myanmar",
+        "International"
+      ],
+      "level": 3,
+      "parent": "burmese-buddhism"
+    },
+    {
+      "id": "pa-auk",
+      "names": {
+        "en": {
+          "name": "Pa-Auk Tradition",
+          "aliases": [
+            "Pa Auk",
+            "Pa-Auk Sayadaw",
+            "Pa-Auk Tawya"
+          ]
+        },
+        "zh": {
+          "name": "帕奥传统",
+          "aliases": [
+            "帕奥禅师"
+          ]
+        },
+        "bo": {
+          "name": "Pa-Auk Tradition",
+          "aliases": []
+        },
+        "hi": {
+          "name": "पा-ओक परंपरा",
+          "aliases": [
+            "पा-ओक सयाडो"
+          ]
+        },
+        "ne": {
+          "name": "पा-आउक परम्परा",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Па-Аукийн Уламжлал",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Myanmar",
+        "International"
+      ],
+      "level": 3,
+      "parent": "burmese-buddhism"
+    },
+    {
+      "id": "sri-lankan-buddhism",
+      "names": {
+        "en": {
+          "name": "Sri Lankan Buddhism",
+          "aliases": [
+            "Sinhalese Buddhism",
+            "Ceylon Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "斯里兰卡佛教",
+          "aliases": [
+            "僧伽罗佛教"
+          ]
+        },
+        "bo": {
+          "name": "Sri Lankan Buddhism",
+          "aliases": []
+        },
+        "hi": {
+          "name": "श्रीलंकाई बौद्ध धर्म",
+          "aliases": [
+            "सिंहल बौद्ध धर्म",
+            "सीलोन बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "श्रीलंकाली बौद्ध धर्म",
+          "aliases": [
+            "सिंहाली बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Шри Ланкийн Буддизм",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Sri Lanka"
+      ],
+      "level": 2,
+      "parent": "theravada"
+    },
+    {
+      "id": "siam-nikaya",
+      "names": {
+        "en": {
+          "name": "Siam Nikāya",
+          "aliases": [
+            "Siam Nikaya",
+            "Siamese Nikaya"
+          ]
+        },
+        "zh": {
+          "name": "暹罗派",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Siam Nikaya",
+          "aliases": []
+        },
+        "hi": {
+          "name": "स्याम निकाय",
+          "aliases": [
+            "सियाम निकाय"
+          ]
+        },
+        "ne": {
+          "name": "स्याम निकाय",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Сиамын Никаяа",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Sri Lanka"
+      ],
+      "level": 3,
+      "parent": "sri-lankan-buddhism"
+    },
+    {
+      "id": "amarapura-nikaya",
+      "names": {
+        "en": {
+          "name": "Amarapura Nikāya",
+          "aliases": [
+            "Amarapura Nikaya"
+          ]
+        },
+        "zh": {
+          "name": "阿摩罗补罗派",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Amarapura Nikaya",
+          "aliases": []
+        },
+        "hi": {
+          "name": "अमरपुर निकाय",
+          "aliases": []
+        },
+        "ne": {
+          "name": "अमरपुर निकाय",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Амарапура Никаяа",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Sri Lanka"
+      ],
+      "level": 3,
+      "parent": "sri-lankan-buddhism"
+    },
+    {
+      "id": "ramanna-nikaya",
+      "names": {
+        "en": {
+          "name": "Rāmañña Nikāya",
+          "aliases": [
+            "Ramanna Nikaya",
+            "Ramanna"
+          ]
+        },
+        "zh": {
+          "name": "罗曼纽派",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Ramanna Nikaya",
+          "aliases": []
+        },
+        "hi": {
+          "name": "रमञ्ञ निकाय",
+          "aliases": []
+        },
+        "ne": {
+          "name": "रमञ्ञ निकाय",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Рамання Никаяа",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Sri Lanka"
+      ],
+      "level": 3,
+      "parent": "sri-lankan-buddhism"
+    },
+    {
+      "id": "cambodian-buddhism",
+      "names": {
+        "en": {
+          "name": "Cambodian Buddhism",
+          "aliases": [
+            "Khmer Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "柬埔寨佛教",
+          "aliases": [
+            "高棉佛教"
+          ]
+        },
+        "bo": {
+          "name": "Cambodian Buddhism",
+          "aliases": []
+        },
+        "hi": {
+          "name": "कंबोडियाई बौद्ध धर्म",
+          "aliases": [
+            "खमेर बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "कम्बोडियाली बौद्ध धर्म",
+          "aliases": [
+            "खमेर बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Камбожийн Буддизм",
+          "aliases": [
+            "Кхмерийн Буддизм"
+          ]
+        }
+      },
+      "regions": [
+        "Cambodia"
+      ],
+      "level": 2,
+      "parent": "theravada"
+    },
+    {
+      "id": "mohanikay",
+      "names": {
+        "en": {
+          "name": "Mohanikay",
+          "aliases": [
+            "Mahanikay",
+            "Maha Nikaya Cambodia"
+          ]
+        },
+        "zh": {
+          "name": "摩诃尼迦耶（柬）",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Mohanikay",
+          "aliases": []
+        },
+        "hi": {
+          "name": "मोहनिकाय",
+          "aliases": []
+        },
+        "ne": {
+          "name": "मोहनिकाय",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Мохaникaяa",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Cambodia"
+      ],
+      "level": 3,
+      "parent": "cambodian-buddhism"
+    },
+    {
+      "id": "lao-buddhism",
+      "names": {
+        "en": {
+          "name": "Lao Buddhism",
+          "aliases": [
+            "Laotian Buddhism",
+            "Laos Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "老挝佛教",
+          "aliases": [
+            "寮国佛教"
+          ]
+        },
+        "bo": {
+          "name": "Lao Buddhism",
+          "aliases": []
+        },
+        "hi": {
+          "name": "लाओ बौद्ध धर्म",
+          "aliases": [
+            "लाओस बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "लाओ बौद्ध धर्म",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Лаосын Буддизм",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Laos"
+      ],
+      "level": 2,
+      "parent": "theravada"
+    },
+    {
+      "id": "vipassana-goenka",
+      "names": {
+        "en": {
+          "name": "Vipassana (Goenka Tradition)",
+          "aliases": [
+            "Vipassana",
+            "S.N. Goenka",
+            "Goenka",
+            "Dhamma.org"
+          ]
+        },
+        "zh": {
+          "name": "内观禅修（葛印卡传统）",
+          "aliases": [
+            "葛印卡内观",
+            "葛印卡",
+            "内观"
+          ]
+        },
+        "bo": {
+          "name": "Vipassana (Goenka)",
+          "aliases": [
+            "བི་པཤྱ་ན།"
+          ]
+        },
+        "hi": {
+          "name": "विपश्यना (गोयनका परंपरा)",
+          "aliases": [
+            "गोयनका",
+            "एस.एन. गोयनका",
+            "विपश्यना"
+          ]
+        },
+        "ne": {
+          "name": "विपश्यना (गोयंका परम्परा)",
+          "aliases": [
+            "गोयंका",
+            "विपश्यना"
+          ]
+        },
+        "mn": {
+          "name": "Гоенкийн Випассана",
+          "aliases": [
+            "Випасана"
+          ]
+        }
+      },
+      "regions": [
+        "International"
+      ],
+      "level": 2,
+      "parent": "theravada"
+    },
+    {
+      "id": "insight-meditation",
+      "names": {
+        "en": {
+          "name": "Insight Meditation",
+          "aliases": [
+            "IMS",
+            "Spirit Rock",
+            "Insight Meditation Society"
+          ]
+        },
+        "zh": {
+          "name": "内观禅修",
+          "aliases": [
+            "正念禅修",
+            "IMS"
+          ]
+        },
+        "bo": {
+          "name": "Insight Meditation",
+          "aliases": [
+            "ལྷག་མཐོང་བསམ་གཏན།"
+          ]
+        },
+        "hi": {
+          "name": "इनसाइट मेडिटेशन",
+          "aliases": [
+            "आईएमएस",
+            "स्पिरिट रॉक",
+            "विपश्यना"
+          ]
+        },
+        "ne": {
+          "name": "इनसाइट मेडिटेशन",
+          "aliases": [
+            "आईएमएस"
+          ]
+        },
+        "mn": {
+          "name": "Ухаарлын Дялан",
+          "aliases": [
+            "IMS"
+          ]
+        }
+      },
+      "regions": [
+        "International"
+      ],
+      "level": 2,
+      "parent": "theravada"
+    },
+    {
+      "id": "navayana",
+      "names": {
+        "en": {
+          "name": "Navayana / Ambedkarite Buddhism",
+          "aliases": [
+            "Navayana",
+            "Ambedkarite Buddhism",
+            "Neo-Buddhism",
+            "Dalit Buddhism",
+            "Jai Bhim",
+            "Bhimayana"
+          ]
+        },
+        "zh": {
+          "name": "新乘佛教",
+          "aliases": [
+            "安贝德卡佛教",
+            "达利特佛教"
+          ]
+        },
+        "bo": {
+          "name": "Navayana",
+          "aliases": []
+        },
+        "hi": {
+          "name": "नवयान",
+          "aliases": [
+            "आंबेडकर बौद्ध धर्म",
+            "दलित बौद्ध धर्म",
+            "नव-बौद्ध धर्म",
+            "बाबासाहेब बौद्ध धर्म",
+            "जय भीम"
+          ]
+        },
+        "ne": {
+          "name": "नवयान",
+          "aliases": [
+            "आंबेडकर बौद्ध धर्म",
+            "नव-बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Навааян",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "India"
+      ],
+      "level": 2,
+      "parent": "theravada"
+    },
+    {
+      "id": "mahayana",
+      "names": {
+        "en": {
+          "name": "Mahāyāna",
+          "aliases": [
+            "Mahayana",
+            "Northern Buddhism",
+            "Great Vehicle"
+          ]
+        },
+        "zh": {
+          "name": "大乘佛教",
+          "aliases": [
+            "大乘",
+            "北传佛教"
+          ]
+        },
+        "bo": {
+          "name": "ཐེག་པ་ཆེན་པོ།",
+          "aliases": [
+            "ཐེག་ཆེན།",
+            "Mahayana"
+          ]
+        },
+        "hi": {
+          "name": "महायान",
+          "aliases": [
+            "महायान बौद्ध धर्म",
+            "उत्तरी बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "महायान",
+          "aliases": [
+            "महायान बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Махаяан",
+          "aliases": [
+            "Махаяна",
+            "Их хөлгөний шашин"
+          ]
+        }
+      },
+      "regions": [
+        "China",
+        "Japan",
+        "Korea",
+        "Vietnam",
+        "Taiwan"
+      ],
+      "level": 1,
+      "parent": null
+    },
+    {
+      "id": "chinese-buddhism",
+      "names": {
+        "en": {
+          "name": "Chinese Buddhism",
+          "aliases": [
+            "Han Buddhism",
+            "Chinese Mahayana"
+          ]
+        },
+        "zh": {
+          "name": "汉传佛教",
+          "aliases": [
+            "中国佛教",
+            "汉佛教"
+          ]
+        },
+        "bo": {
+          "name": "རྒྱ་ནག་གི་ནང་ཆོས།",
+          "aliases": [
+            "Chinese Buddhism"
+          ]
+        },
+        "hi": {
+          "name": "चीनी बौद्ध धर्म",
+          "aliases": [
+            "हान बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "चिनियाँ बौद्ध धर्म",
+          "aliases": [
+            "हान बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Хятадын Буддизм",
+          "aliases": [
+            "Ханы Буддизм"
+          ]
+        }
+      },
+      "regions": [
+        "China",
+        "Taiwan",
+        "Singapore",
+        "Malaysia"
+      ],
+      "level": 2,
+      "parent": "mahayana"
+    },
+    {
+      "id": "pure-land-chinese",
+      "names": {
+        "en": {
+          "name": "Pure Land (Chinese)",
+          "aliases": [
+            "Jingtu",
+            "Jìngtǔ Zōng",
+            "Amitabha Buddhism",
+            "Chinese Pure Land"
+          ]
+        },
+        "zh": {
+          "name": "净土宗",
+          "aliases": [
+            "净土",
+            "念佛",
+            "阿弥陀佛信仰"
+          ]
+        },
+        "bo": {
+          "name": "གཙང་ཞིང་སྡེ་པ།",
+          "aliases": [
+            "Pure Land",
+            "Jingtu"
+          ]
+        },
+        "hi": {
+          "name": "शुद्ध भूमि (चीनी)",
+          "aliases": [
+            "जिंगतु",
+            "अमिताभ बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "शुद्ध भूमि (चिनियाँ)",
+          "aliases": [
+            "जिन्गतु"
+          ]
+        },
+        "mn": {
+          "name": "Цэвэр Газрын Сургаал (Хятад)",
+          "aliases": [
+            "Жинту"
+          ]
+        }
+      },
+      "regions": [
+        "China",
+        "Taiwan"
+      ],
+      "level": 3,
+      "parent": "chinese-buddhism"
+    },
+    {
+      "id": "chan",
+      "names": {
+        "en": {
+          "name": "Chan",
+          "aliases": [
+            "Chán",
+            "Chinese Zen",
+            "Chan Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "禅宗",
+          "aliases": [
+            "禅",
+            "中国禅"
+          ]
+        },
+        "bo": {
+          "name": "Chan",
+          "aliases": [
+            "禅宗"
+          ]
+        },
+        "hi": {
+          "name": "चान",
+          "aliases": [
+            "चीनी ज़ेन",
+            "चान बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "चान",
+          "aliases": [
+            "चिनियाँ जेन"
+          ]
+        },
+        "mn": {
+          "name": "Чань",
+          "aliases": [
+            "Хятадын Зен"
+          ]
+        }
+      },
+      "regions": [
+        "China",
+        "Taiwan"
+      ],
+      "level": 3,
+      "parent": "chinese-buddhism"
+    },
+    {
+      "id": "tiantai",
+      "names": {
+        "en": {
+          "name": "Tiantai",
+          "aliases": [
+            "T'ien-t'ai",
+            "Tien-tai"
+          ]
+        },
+        "zh": {
+          "name": "天台宗",
+          "aliases": [
+            "天台"
+          ]
+        },
+        "bo": {
+          "name": "Tiantai",
+          "aliases": []
+        },
+        "hi": {
+          "name": "तियानताई",
+          "aliases": []
+        },
+        "ne": {
+          "name": "तियानताई",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Тяньтай",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "China"
+      ],
+      "level": 3,
+      "parent": "chinese-buddhism"
+    },
+    {
+      "id": "huayan",
+      "names": {
+        "en": {
+          "name": "Huayan",
+          "aliases": [
+            "Hua-yen",
+            "Flower Garland School",
+            "Avatamsaka"
+          ]
+        },
+        "zh": {
+          "name": "华严宗",
+          "aliases": [
+            "华严",
+            "花严宗"
+          ]
+        },
+        "bo": {
+          "name": "Huayan",
+          "aliases": []
+        },
+        "hi": {
+          "name": "हुआयान",
+          "aliases": [
+            "अवतंसक"
+          ]
+        },
+        "ne": {
+          "name": "हुआयान",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Хуаян",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "China"
+      ],
+      "level": 3,
+      "parent": "chinese-buddhism"
+    },
+    {
+      "id": "chinese-esoteric",
+      "names": {
+        "en": {
+          "name": "Chinese Esoteric Buddhism",
+          "aliases": [
+            "Mizong",
+            "Mìzōng",
+            "Zhenyan",
+            "Chinese Vajrayana"
+          ]
+        },
+        "zh": {
+          "name": "密宗",
+          "aliases": [
+            "真言宗",
+            "汉传密教",
+            "东密"
+          ]
+        },
+        "bo": {
+          "name": "Chinese Esoteric Buddhism",
+          "aliases": []
+        },
+        "hi": {
+          "name": "चीनी तांत्रिक बौद्ध धर्म",
+          "aliases": [
+            "मिज़ोंग",
+            "चीनी वज्रयान"
+          ]
+        },
+        "ne": {
+          "name": "चिनियाँ तान्त्रिक बौद्ध धर्म",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Хятадын Нууц Уламжлал",
+          "aliases": [
+            "Мицзун"
+          ]
+        }
+      },
+      "regions": [
+        "China",
+        "Taiwan"
+      ],
+      "level": 3,
+      "parent": "chinese-buddhism"
+    },
+    {
+      "id": "dharma-drum",
+      "names": {
+        "en": {
+          "name": "Dharma Drum Mountain",
+          "aliases": [
+            "DDM",
+            "Master Shengyen"
+          ]
+        },
+        "zh": {
+          "name": "法鼓山",
+          "aliases": [
+            "法鼓",
+            "圣严法师"
+          ]
+        },
+        "bo": {
+          "name": "Dharma Drum Mountain",
+          "aliases": []
+        },
+        "hi": {
+          "name": "धर्म ड्रम माउंटेन",
+          "aliases": [
+            "DDM"
+          ]
+        },
+        "ne": {
+          "name": "धर्म ड्रम माउन्टेन",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Дхарма Драм Маунтейн",
+          "aliases": [
+            "法鼓山"
+          ]
+        }
+      },
+      "regions": [
+        "Taiwan",
+        "International"
+      ],
+      "level": 3,
+      "parent": "chinese-buddhism"
+    },
+    {
+      "id": "fo-guang-shan",
+      "names": {
+        "en": {
+          "name": "Fo Guang Shan",
+          "aliases": [
+            "Buddha's Light Mountain",
+            "Master Hsing Yun",
+            "BLIA"
+          ]
+        },
+        "zh": {
+          "name": "佛光山",
+          "aliases": [
+            "佛光",
+            "星云法师",
+            "国际佛光会"
+          ]
+        },
+        "bo": {
+          "name": "Fo Guang Shan",
+          "aliases": []
+        },
+        "hi": {
+          "name": "फो गुआंग शान",
+          "aliases": [
+            "BLIA"
+          ]
+        },
+        "ne": {
+          "name": "फो गुआंग शान",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Фо Гуан Шань",
+          "aliases": [
+            "佛光山"
+          ]
+        }
+      },
+      "regions": [
+        "Taiwan",
+        "International"
+      ],
+      "level": 3,
+      "parent": "chinese-buddhism"
+    },
+    {
+      "id": "chung-tai-shan",
+      "names": {
+        "en": {
+          "name": "Chung Tai Shan",
+          "aliases": [
+            "Zhongtaishan"
+          ]
+        },
+        "zh": {
+          "name": "中台山",
+          "aliases": [
+            "中台禅寺"
+          ]
+        },
+        "bo": {
+          "name": "Chung Tai Shan",
+          "aliases": []
+        },
+        "hi": {
+          "name": "चुंग ताई शान",
+          "aliases": []
+        },
+        "ne": {
+          "name": "चुंग ताई शान",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Чун Тай Шань",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Taiwan"
+      ],
+      "level": 3,
+      "parent": "chinese-buddhism"
+    },
+    {
+      "id": "japanese-buddhism",
+      "names": {
+        "en": {
+          "name": "Japanese Buddhism",
+          "aliases": [
+            "Japanese Mahayana"
+          ]
+        },
+        "zh": {
+          "name": "日本佛教",
+          "aliases": []
+        },
+        "bo": {
+          "name": "ཇ་པན་གྱི་ནང་ཆོས།",
+          "aliases": [
+            "Japanese Buddhism"
+          ]
+        },
+        "hi": {
+          "name": "जापानी बौद्ध धर्म",
+          "aliases": []
+        },
+        "ne": {
+          "name": "जापानी बौद्ध धर्म",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Японы Буддизм",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan"
+      ],
+      "level": 2,
+      "parent": "mahayana"
+    },
+    {
+      "id": "zen",
+      "names": {
+        "en": {
+          "name": "Zen",
+          "aliases": [
+            "Zen Buddhism",
+            "Japanese Zen",
+            "Zazen"
+          ]
+        },
+        "zh": {
+          "name": "禅（日本）",
+          "aliases": [
+            "日本禅",
+            "禅宗"
+          ]
+        },
+        "bo": {
+          "name": "Zen",
+          "aliases": [
+            "གཟན།"
+          ]
+        },
+        "hi": {
+          "name": "ज़ेन",
+          "aliases": [
+            "जापानी ज़ेन",
+            "ज़ेन बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "जेन",
+          "aliases": [
+            "जापानी जेन"
+          ]
+        },
+        "mn": {
+          "name": "Зен",
+          "aliases": [
+            "Японы Зен"
+          ]
+        }
+      },
+      "regions": [
+        "Japan",
+        "International"
+      ],
+      "level": 3,
+      "parent": "japanese-buddhism"
+    },
+    {
+      "id": "rinzai",
+      "names": {
+        "en": {
+          "name": "Rinzai",
+          "aliases": [
+            "Rinzai Zen",
+            "Rinzaishū"
+          ]
+        },
+        "zh": {
+          "name": "临济宗",
+          "aliases": [
+            "临济"
+          ]
+        },
+        "bo": {
+          "name": "Rinzai",
+          "aliases": []
+        },
+        "hi": {
+          "name": "रिनज़ाई",
+          "aliases": [
+            "रिंज़ाई ज़ेन"
+          ]
+        },
+        "ne": {
+          "name": "रिन्जाई",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Ринзай",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan",
+        "International"
+      ],
+      "level": 4,
+      "parent": "zen"
+    },
+    {
+      "id": "soto",
+      "names": {
+        "en": {
+          "name": "Sōtō",
+          "aliases": [
+            "Soto",
+            "Soto Zen",
+            "Sōtō Zen",
+            "Sōtō-shū"
+          ]
+        },
+        "zh": {
+          "name": "曹洞宗",
+          "aliases": [
+            "曹洞"
+          ]
+        },
+        "bo": {
+          "name": "Soto",
+          "aliases": []
+        },
+        "hi": {
+          "name": "सोटो",
+          "aliases": [
+            "सोटो ज़ेन"
+          ]
+        },
+        "ne": {
+          "name": "सोतो",
+          "aliases": [
+            "सोतो जेन"
+          ]
+        },
+        "mn": {
+          "name": "Сото",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan",
+        "International"
+      ],
+      "level": 4,
+      "parent": "zen"
+    },
+    {
+      "id": "obaku",
+      "names": {
+        "en": {
+          "name": "Ōbaku",
+          "aliases": [
+            "Obaku",
+            "Ōbaku Zen"
+          ]
+        },
+        "zh": {
+          "name": "黄檗宗",
+          "aliases": [
+            "黄檗"
+          ]
+        },
+        "bo": {
+          "name": "Obaku",
+          "aliases": []
+        },
+        "hi": {
+          "name": "ओबाकु",
+          "aliases": []
+        },
+        "ne": {
+          "name": "ओबाकु",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Обаку",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan"
+      ],
+      "level": 4,
+      "parent": "zen"
+    },
+    {
+      "id": "sanbo-zen",
+      "names": {
+        "en": {
+          "name": "Sanbo Zen",
+          "aliases": [
+            "Sanbo Kyodan",
+            "Three Treasures Zen"
+          ]
+        },
+        "zh": {
+          "name": "三宝禅",
+          "aliases": [
+            "三宝教团"
+          ]
+        },
+        "bo": {
+          "name": "Sanbo Zen",
+          "aliases": []
+        },
+        "hi": {
+          "name": "सानबो ज़ेन",
+          "aliases": [
+            "सानबो क्योदान"
+          ]
+        },
+        "ne": {
+          "name": "सानबो जेन",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Санбо Зен",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan",
+        "International"
+      ],
+      "level": 4,
+      "parent": "zen"
+    },
+    {
+      "id": "jodo-shu",
+      "names": {
+        "en": {
+          "name": "Jōdo-shū",
+          "aliases": [
+            "Jodo-shu",
+            "Jodo Shu",
+            "Pure Land Japan",
+            "Honen lineage"
+          ]
+        },
+        "zh": {
+          "name": "净土宗（日本）",
+          "aliases": [
+            "法然净土宗"
+          ]
+        },
+        "bo": {
+          "name": "Jodo-shu",
+          "aliases": []
+        },
+        "hi": {
+          "name": "जोडो-शू",
+          "aliases": [
+            "जापानी शुद्ध भूमि"
+          ]
+        },
+        "ne": {
+          "name": "जोडो-शू",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Жодо Шю",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan"
+      ],
+      "level": 3,
+      "parent": "japanese-buddhism"
+    },
+    {
+      "id": "jodo-shinshu",
+      "names": {
+        "en": {
+          "name": "Jōdo Shinshū",
+          "aliases": [
+            "Jodo Shinshu",
+            "Shin Buddhism",
+            "True Pure Land",
+            "Shin",
+            "Shinshu"
+          ]
+        },
+        "zh": {
+          "name": "净土真宗",
+          "aliases": [
+            "真宗",
+            "本愿寺派",
+            "亲鸾净土"
+          ]
+        },
+        "bo": {
+          "name": "Jodo Shinshu",
+          "aliases": [
+            "Shin Buddhism"
+          ]
+        },
+        "hi": {
+          "name": "जोडो शिनशू",
+          "aliases": [
+            "शिन बौद्ध धर्म",
+            "सच्ची शुद्ध भूमि"
+          ]
+        },
+        "ne": {
+          "name": "जोडो शिन्शू",
+          "aliases": [
+            "शिन बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Жодо Шиншү",
+          "aliases": [
+            "Шин Буддизм"
+          ]
+        }
+      },
+      "regions": [
+        "Japan",
+        "International"
+      ],
+      "level": 3,
+      "parent": "japanese-buddhism"
+    },
+    {
+      "id": "nishi-honganji",
+      "names": {
+        "en": {
+          "name": "Nishi Honganji",
+          "aliases": [
+            "West Honganji",
+            "Hongwanji",
+            "Honpa Hongwanji"
+          ]
+        },
+        "zh": {
+          "name": "西本愿寺",
+          "aliases": [
+            "本愿寺派"
+          ]
+        },
+        "bo": {
+          "name": "Nishi Honganji",
+          "aliases": []
+        },
+        "hi": {
+          "name": "निशी होनगांजी",
+          "aliases": []
+        },
+        "ne": {
+          "name": "निशी होन्गान्जी",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Ниши Хонганжи",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan",
+        "International"
+      ],
+      "level": 4,
+      "parent": "jodo-shinshu"
+    },
+    {
+      "id": "higashi-honganji",
+      "names": {
+        "en": {
+          "name": "Higashi Honganji",
+          "aliases": [
+            "East Honganji",
+            "Otani"
+          ]
+        },
+        "zh": {
+          "name": "东本愿寺",
+          "aliases": [
+            "大谷派"
+          ]
+        },
+        "bo": {
+          "name": "Higashi Honganji",
+          "aliases": []
+        },
+        "hi": {
+          "name": "हिगाशी होनगांजी",
+          "aliases": []
+        },
+        "ne": {
+          "name": "हिगाशी होन्गान्जी",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Хигаши Хонганжи",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan"
+      ],
+      "level": 4,
+      "parent": "jodo-shinshu"
+    },
+    {
+      "id": "bca",
+      "names": {
+        "en": {
+          "name": "Buddhist Churches of America",
+          "aliases": [
+            "BCA",
+            "American Jodo Shinshu"
+          ]
+        },
+        "zh": {
+          "name": "美国佛教会",
+          "aliases": [
+            "美国净土真宗"
+          ]
+        },
+        "bo": {
+          "name": "Buddhist Churches of America",
+          "aliases": [
+            "BCA"
+          ]
+        },
+        "hi": {
+          "name": "बौद्ध चर्च ऑफ अमेरिका",
+          "aliases": [
+            "BCA"
+          ]
+        },
+        "ne": {
+          "name": "बौद्ध चर्च अफ अमेरिका",
+          "aliases": [
+            "BCA"
+          ]
+        },
+        "mn": {
+          "name": "Америкийн Буддын Сүмүүд",
+          "aliases": [
+            "BCA"
+          ]
+        }
+      },
+      "regions": [
+        "United States"
+      ],
+      "level": 4,
+      "parent": "jodo-shinshu"
+    },
+    {
+      "id": "nichiren",
+      "names": {
+        "en": {
+          "name": "Nichiren Buddhism",
+          "aliases": [
+            "Nichiren",
+            "Lotus Sutra Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "日莲佛法",
+          "aliases": [
+            "日莲宗",
+            "法华宗"
+          ]
+        },
+        "bo": {
+          "name": "Nichiren",
+          "aliases": []
+        },
+        "hi": {
+          "name": "निचिरेन बौद्ध धर्म",
+          "aliases": [
+            "लोटस सूत्र बौद्ध धर्म",
+            "निचिरेन"
+          ]
+        },
+        "ne": {
+          "name": "निचिरेन बौद्ध धर्म",
+          "aliases": [
+            "निचिरेन"
+          ]
+        },
+        "mn": {
+          "name": "Ничирен Буддизм",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan",
+        "International"
+      ],
+      "level": 3,
+      "parent": "japanese-buddhism"
+    },
+    {
+      "id": "nichiren-shu",
+      "names": {
+        "en": {
+          "name": "Nichiren Shū",
+          "aliases": [
+            "Nichiren Shu",
+            "Nichirenshu"
+          ]
+        },
+        "zh": {
+          "name": "日莲宗",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Nichiren Shu",
+          "aliases": []
+        },
+        "hi": {
+          "name": "निचिरेन शू",
+          "aliases": []
+        },
+        "ne": {
+          "name": "निचिरेन शू",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Ничирен Шю",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan"
+      ],
+      "level": 4,
+      "parent": "nichiren"
+    },
+    {
+      "id": "nichiren-shoshu",
+      "names": {
+        "en": {
+          "name": "Nichiren Shōshū",
+          "aliases": [
+            "Nichiren Shoshu"
+          ]
+        },
+        "zh": {
+          "name": "日莲正宗",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Nichiren Shoshu",
+          "aliases": []
+        },
+        "hi": {
+          "name": "निचिरेन शोशू",
+          "aliases": []
+        },
+        "ne": {
+          "name": "निचिरेन शोशू",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Ничирен Шошү",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan",
+        "International"
+      ],
+      "level": 4,
+      "parent": "nichiren"
+    },
+    {
+      "id": "sgi",
+      "names": {
+        "en": {
+          "name": "Sōka Gakkai International",
+          "aliases": [
+            "SGI",
+            "Soka Gakkai",
+            "Sōka Gakkai",
+            "Value Creation Society"
+          ]
+        },
+        "zh": {
+          "name": "创价学会",
+          "aliases": [
+            "国际创价学会",
+            "SGI"
+          ]
+        },
+        "bo": {
+          "name": "SGI",
+          "aliases": [
+            "Soka Gakkai"
+          ]
+        },
+        "hi": {
+          "name": "सोका गक्कई इंटरनेशनल",
+          "aliases": [
+            "एसजीआई",
+            "सोका गक्कई"
+          ]
+        },
+        "ne": {
+          "name": "सोका गक्काई इन्टरनेशनल",
+          "aliases": [
+            "एसजीआई",
+            "सोका गक्काई"
+          ]
+        },
+        "mn": {
+          "name": "Сока Гаккай Интернэшнл",
+          "aliases": [
+            "СГИ"
+          ]
+        }
+      },
+      "regions": [
+        "Japan",
+        "International"
+      ],
+      "level": 4,
+      "parent": "nichiren"
+    },
+    {
+      "id": "kempon-hokke",
+      "names": {
+        "en": {
+          "name": "Kempon Hokke",
+          "aliases": []
+        },
+        "zh": {
+          "name": "顕本法华宗",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Kempon Hokke",
+          "aliases": []
+        },
+        "hi": {
+          "name": "केम्पोन होक्के",
+          "aliases": []
+        },
+        "ne": {
+          "name": "केम्पोन होक्के",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Кемпон Хокке",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan"
+      ],
+      "level": 4,
+      "parent": "nichiren"
+    },
+    {
+      "id": "tendai",
+      "names": {
+        "en": {
+          "name": "Tendai",
+          "aliases": [
+            "Tendaishū",
+            "Japanese Tiantai"
+          ]
+        },
+        "zh": {
+          "name": "天台宗（日本）",
+          "aliases": [
+            "延历寺",
+            "日本天台"
+          ]
+        },
+        "bo": {
+          "name": "Tendai",
+          "aliases": []
+        },
+        "hi": {
+          "name": "तेंदाई",
+          "aliases": [
+            "जापानी तियानताई"
+          ]
+        },
+        "ne": {
+          "name": "तेन्दाई",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Тэндай",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan"
+      ],
+      "level": 3,
+      "parent": "japanese-buddhism"
+    },
+    {
+      "id": "shingon",
+      "names": {
+        "en": {
+          "name": "Shingon",
+          "aliases": [
+            "Shingon Buddhism",
+            "Japanese Vajrayana",
+            "Japanese Esoteric Buddhism",
+            "Mikkyō"
+          ]
+        },
+        "zh": {
+          "name": "真言宗",
+          "aliases": [
+            "日本密宗",
+            "东密"
+          ]
+        },
+        "bo": {
+          "name": "Shingon",
+          "aliases": [
+            "གཤིང་གོན།"
+          ]
+        },
+        "hi": {
+          "name": "शिंगोन",
+          "aliases": [
+            "जापानी वज्रयान",
+            "जापानी तांत्रिक बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "शिन्गोन",
+          "aliases": [
+            "जापानी वज्रयान"
+          ]
+        },
+        "mn": {
+          "name": "Шингон",
+          "aliases": [
+            "Японы Тантрын Буддизм"
+          ]
+        }
+      },
+      "regions": [
+        "Japan"
+      ],
+      "level": 3,
+      "parent": "japanese-buddhism"
+    },
+    {
+      "id": "koyasan-shingon",
+      "names": {
+        "en": {
+          "name": "Koyasan Shingon",
+          "aliases": [
+            "Koyasan",
+            "Kōyasan",
+            "Mt. Koya"
+          ]
+        },
+        "zh": {
+          "name": "高野山真言宗",
+          "aliases": [
+            "高野山"
+          ]
+        },
+        "bo": {
+          "name": "Koyasan Shingon",
+          "aliases": []
+        },
+        "hi": {
+          "name": "कोयासान शिंगोन",
+          "aliases": [
+            "कोया पर्वत"
+          ]
+        },
+        "ne": {
+          "name": "कोयासान शिन्गोन",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Коясан Шингон",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan"
+      ],
+      "level": 4,
+      "parent": "shingon"
+    },
+    {
+      "id": "rissho-koseikai",
+      "names": {
+        "en": {
+          "name": "Risshō Kōsei-kai",
+          "aliases": [
+            "Rissho Koseikai",
+            "RKK"
+          ]
+        },
+        "zh": {
+          "name": "立正佼成会",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Rissho Koseikai",
+          "aliases": []
+        },
+        "hi": {
+          "name": "रिश्शो कोसेई-काई",
+          "aliases": [
+            "RKK"
+          ]
+        },
+        "ne": {
+          "name": "रिश्शो कोसेई-काई",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Риссхо Косеикай",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Japan",
+        "International"
+      ],
+      "level": 3,
+      "parent": "japanese-buddhism"
+    },
+    {
+      "id": "korean-buddhism",
+      "names": {
+        "en": {
+          "name": "Korean Buddhism",
+          "aliases": [
+            "Korean Mahayana"
+          ]
+        },
+        "zh": {
+          "name": "韩国佛教",
+          "aliases": [
+            "朝鲜佛教",
+            "韩国大乘"
+          ]
+        },
+        "bo": {
+          "name": "ཀོ་རི་ཡའི་ནང་ཆོས།",
+          "aliases": [
+            "Korean Buddhism"
+          ]
+        },
+        "hi": {
+          "name": "कोरियाई बौद्ध धर्म",
+          "aliases": []
+        },
+        "ne": {
+          "name": "कोरियाली बौद्ध धर्म",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Солонгосын Буддизм",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "South Korea"
+      ],
+      "level": 2,
+      "parent": "mahayana"
+    },
+    {
+      "id": "jogye",
+      "names": {
+        "en": {
+          "name": "Jogye Order",
+          "aliases": [
+            "Chogye",
+            "Jogye-jong",
+            "Korean Seon",
+            "Korean Zen"
+          ]
+        },
+        "zh": {
+          "name": "曹溪宗",
+          "aliases": [
+            "韩国禅宗",
+            "朝鲜禅宗"
+          ]
+        },
+        "bo": {
+          "name": "Jogye",
+          "aliases": []
+        },
+        "hi": {
+          "name": "जोग्ये ऑर्डर",
+          "aliases": [
+            "कोरियाई सेओन",
+            "कोरियाई ज़ेन"
+          ]
+        },
+        "ne": {
+          "name": "जोग्ये आर्डर",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Жогьё Орден",
+          "aliases": [
+            "Солонгосын Зен"
+          ]
+        }
+      },
+      "regions": [
+        "South Korea"
+      ],
+      "level": 3,
+      "parent": "korean-buddhism"
+    },
+    {
+      "id": "taego",
+      "names": {
+        "en": {
+          "name": "Taego Order",
+          "aliases": [
+            "Taego-jong"
+          ]
+        },
+        "zh": {
+          "name": "太古宗",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Taego",
+          "aliases": []
+        },
+        "hi": {
+          "name": "तेगो ऑर्डर",
+          "aliases": []
+        },
+        "ne": {
+          "name": "तेगो आर्डर",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Тэго Орден",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "South Korea"
+      ],
+      "level": 3,
+      "parent": "korean-buddhism"
+    },
+    {
+      "id": "cheontae",
+      "names": {
+        "en": {
+          "name": "Cheontae Order",
+          "aliases": [
+            "Chontae",
+            "Korean Tendai",
+            "Cheontae-jong"
+          ]
+        },
+        "zh": {
+          "name": "天台宗（韩国）",
+          "aliases": [
+            "韩国天台"
+          ]
+        },
+        "bo": {
+          "name": "Cheontae",
+          "aliases": []
+        },
+        "hi": {
+          "name": "चेओंताए ऑर्डर",
+          "aliases": [
+            "कोरियाई तेंदाई"
+          ]
+        },
+        "ne": {
+          "name": "चेओन्ताए आर्डर",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Чёнтэ Орден",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "South Korea"
+      ],
+      "level": 3,
+      "parent": "korean-buddhism"
+    },
+    {
+      "id": "won-buddhism",
+      "names": {
+        "en": {
+          "name": "Won Buddhism",
+          "aliases": [
+            "Wonbulgyo",
+            "Circle Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "圆佛教",
+          "aliases": [
+            "圆佛",
+            "园佛教"
+          ]
+        },
+        "bo": {
+          "name": "Won Buddhism",
+          "aliases": []
+        },
+        "hi": {
+          "name": "वोन बौद्ध धर्म",
+          "aliases": [
+            "वृत्त बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "वोन बौद्ध धर्म",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Вон Буддизм",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "South Korea",
+        "International"
+      ],
+      "level": 3,
+      "parent": "korean-buddhism"
+    },
+    {
+      "id": "jingak",
+      "names": {
+        "en": {
+          "name": "Jingak Order",
+          "aliases": [
+            "Jingak-jong",
+            "Korean Vajrayana"
+          ]
+        },
+        "zh": {
+          "name": "真觉宗",
+          "aliases": [
+            "韩国密宗"
+          ]
+        },
+        "bo": {
+          "name": "Jingak",
+          "aliases": []
+        },
+        "hi": {
+          "name": "जिंगाक ऑर्डर",
+          "aliases": [
+            "कोरियाई वज्रयान"
+          ]
+        },
+        "ne": {
+          "name": "जिन्गाक आर्डर",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Жингак Орден",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "South Korea"
+      ],
+      "level": 3,
+      "parent": "korean-buddhism"
+    },
+    {
+      "id": "vietnamese-buddhism",
+      "names": {
+        "en": {
+          "name": "Vietnamese Buddhism",
+          "aliases": [
+            "Vietnamese Mahayana"
+          ]
+        },
+        "zh": {
+          "name": "越南佛教",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Vietnamese Buddhism",
+          "aliases": []
+        },
+        "hi": {
+          "name": "वियतनामी बौद्ध धर्म",
+          "aliases": []
+        },
+        "ne": {
+          "name": "भियतनामी बौद्ध धर्म",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Вьетнамын Буддизм",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Vietnam"
+      ],
+      "level": 2,
+      "parent": "mahayana"
+    },
+    {
+      "id": "thien",
+      "names": {
+        "en": {
+          "name": "Thiền",
+          "aliases": [
+            "Thien",
+            "Vietnamese Zen"
+          ]
+        },
+        "zh": {
+          "name": "禅宗（越南）",
+          "aliases": [
+            "越南禅"
+          ]
+        },
+        "bo": {
+          "name": "Thien",
+          "aliases": []
+        },
+        "hi": {
+          "name": "थिएन",
+          "aliases": [
+            "वियतनामी ज़ेन"
+          ]
+        },
+        "ne": {
+          "name": "थिएन",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Тхиен",
+          "aliases": [
+            "Вьетнамын Зен"
+          ]
+        }
+      },
+      "regions": [
+        "Vietnam",
+        "International"
+      ],
+      "level": 3,
+      "parent": "vietnamese-buddhism"
+    },
+    {
+      "id": "truc-lam",
+      "names": {
+        "en": {
+          "name": "Trúc Lâm",
+          "aliases": [
+            "Truc Lam",
+            "Bamboo Forest School"
+          ]
+        },
+        "zh": {
+          "name": "竹林禅派",
+          "aliases": [
+            "竹林派"
+          ]
+        },
+        "bo": {
+          "name": "Truc Lam",
+          "aliases": []
+        },
+        "hi": {
+          "name": "त्रुक लाम",
+          "aliases": [
+            "बांस वन विद्यालय"
+          ]
+        },
+        "ne": {
+          "name": "त्रुक लाम",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Трук Лам",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Vietnam"
+      ],
+      "level": 4,
+      "parent": "thien"
+    },
+    {
+      "id": "lam-te",
+      "names": {
+        "en": {
+          "name": "Lâm Tế",
+          "aliases": [
+            "Lam Te",
+            "Vietnamese Linji"
+          ]
+        },
+        "zh": {
+          "name": "临济宗（越南）",
+          "aliases": [
+            "越南临济"
+          ]
+        },
+        "bo": {
+          "name": "Lam Te",
+          "aliases": []
+        },
+        "hi": {
+          "name": "लाम ते",
+          "aliases": [
+            "वियतनामी रिनज़ाई"
+          ]
+        },
+        "ne": {
+          "name": "लाम ते",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Лам Тэ",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Vietnam"
+      ],
+      "level": 4,
+      "parent": "thien"
+    },
+    {
+      "id": "tinh-do",
+      "names": {
+        "en": {
+          "name": "Tịnh Độ",
+          "aliases": [
+            "Tinh Do",
+            "Vietnamese Pure Land"
+          ]
+        },
+        "zh": {
+          "name": "净土宗（越南）",
+          "aliases": [
+            "越南净土"
+          ]
+        },
+        "bo": {
+          "name": "Tinh Do",
+          "aliases": []
+        },
+        "hi": {
+          "name": "तिन्ह दो",
+          "aliases": [
+            "वियतनामी शुद्ध भूमि"
+          ]
+        },
+        "ne": {
+          "name": "तिन्ह दो",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Тинь До",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Vietnam"
+      ],
+      "level": 3,
+      "parent": "vietnamese-buddhism"
+    },
+    {
+      "id": "khat-si",
+      "names": {
+        "en": {
+          "name": "Khất Sĩ Order",
+          "aliases": [
+            "Khat Si",
+            "Mendicant Order"
+          ]
+        },
+        "zh": {
+          "name": "越南比丘团",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Khat Si",
+          "aliases": []
+        },
+        "hi": {
+          "name": "खात सी ऑर्डर",
+          "aliases": []
+        },
+        "ne": {
+          "name": "खात सी आर्डर",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Кхат Си Орден",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Vietnam"
+      ],
+      "level": 3,
+      "parent": "vietnamese-buddhism"
+    },
+    {
+      "id": "plum-village",
+      "names": {
+        "en": {
+          "name": "Plum Village Community",
+          "aliases": [
+            "Plum Village",
+            "Thich Nhat Hanh lineage",
+            "Order of Interbeing",
+            "Engaged Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "梅村",
+          "aliases": [
+            "一行禅师传统",
+            "相即共同体",
+            "入世佛教"
+          ]
+        },
+        "bo": {
+          "name": "Plum Village",
+          "aliases": [
+            "ཤིང་ཏོག་གྲོང་འདུས།"
+          ]
+        },
+        "hi": {
+          "name": "प्लम विलेज",
+          "aliases": [
+            "थिच नात हान परंपरा",
+            "इंटरबीइंग ऑर्डर",
+            "एंगेज्ड बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "प्लम भिलेज",
+          "aliases": [
+            "थिच न्हात हान परम्परा"
+          ]
+        },
+        "mn": {
+          "name": "Плам Виллаж",
+          "aliases": [
+            "Тик Нат Ханы Уламжлал"
+          ]
+        }
+      },
+      "regions": [
+        "Vietnam",
+        "International"
+      ],
+      "level": 3,
+      "parent": "vietnamese-buddhism"
+    },
+    {
+      "id": "vajrayana",
+      "names": {
+        "en": {
+          "name": "Vajrayāna",
+          "aliases": [
+            "Vajrayana",
+            "Tibetan Buddhism",
+            "Tantric Buddhism",
+            "Diamond Vehicle"
+          ]
+        },
+        "zh": {
+          "name": "金刚乘",
+          "aliases": [
+            "密乘",
+            "密教",
+            "藏密"
+          ]
+        },
+        "bo": {
+          "name": "རྡོ་རྗེའི་ཐེག་པ།",
+          "aliases": [
+            "གསང་སྔགས་ཐེག་པ།",
+            "Vajrayana"
+          ]
+        },
+        "hi": {
+          "name": "वज्रयान",
+          "aliases": [
+            "तांत्रिक बौद्ध धर्म",
+            "वज्र मार्ग",
+            "हीरा मार्ग"
+          ]
+        },
+        "ne": {
+          "name": "वज्रयान",
+          "aliases": [
+            "तान्त्रिक बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Ваажраяан",
+          "aliases": [
+            "Важраяна",
+            "Тантрын Буддизм",
+            "Алмазан Тэрэг"
+          ]
+        }
+      },
+      "regions": [
+        "Tibet",
+        "Bhutan",
+        "Mongolia",
+        "Nepal",
+        "India",
+        "International"
+      ],
+      "level": 1,
+      "parent": null
+    },
+    {
+      "id": "tibetan-buddhism",
+      "names": {
+        "en": {
+          "name": "Tibetan Buddhism",
+          "aliases": [
+            "Tibetan",
+            "Himalayan Buddhism",
+            "Lamaism"
+          ]
+        },
+        "zh": {
+          "name": "藏传佛教",
+          "aliases": [
+            "西藏佛教",
+            "喇嘛教"
+          ]
+        },
+        "bo": {
+          "name": "བོད་ཀྱི་ནང་ཆོས།",
+          "aliases": [
+            "བོད་ཆོས།",
+            "Tibetan Buddhism"
+          ]
+        },
+        "hi": {
+          "name": "तिब्बती बौद्ध धर्म",
+          "aliases": [
+            "हिमालयी बौद्ध धर्म",
+            "लामावाद"
+          ]
+        },
+        "ne": {
+          "name": "तिब्बती बौद्ध धर्म",
+          "aliases": [
+            "हिमालयी बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Төвдийн Буддизм",
+          "aliases": [
+            "Ламаизм",
+            "Ламын шашин"
+          ]
+        }
+      },
+      "regions": [
+        "Tibet",
+        "Bhutan",
+        "Nepal",
+        "India"
+      ],
+      "level": 2,
+      "parent": "vajrayana"
+    },
+    {
+      "id": "nyingma",
+      "names": {
+        "en": {
+          "name": "Nyingma",
+          "aliases": [
+            "Nyingmapa",
+            "Ancient School",
+            "Old School",
+            "Red Hat (Nyingma)",
+            "Dzogchen",
+            "Great Perfection",
+            "Dzogpa Chenpo"
+          ]
+        },
+        "zh": {
+          "name": "宁玛派",
+          "aliases": [
+            "宁玛",
+            "古派",
+            "红教"
+          ]
+        },
+        "bo": {
+          "name": "རྙིང་མ་པ།",
+          "aliases": [
+            "རྙིང་མ།",
+            "སྔ་འགྱུར།"
+          ]
+        },
+        "hi": {
+          "name": "न्यिंगमा",
+          "aliases": [
+            "न्यिंगमापा",
+            "पुरानी परंपरा",
+            "लाल टोपी"
+          ]
+        },
+        "ne": {
+          "name": "न्यिङ्गमा",
+          "aliases": [
+            "न्यिङ्गमापा"
+          ]
+        },
+        "mn": {
+          "name": "Нингма",
+          "aliases": [
+            "Нингмапа",
+            "Хуучин Сургуул"
+          ]
+        }
+      },
+      "regions": [
+        "Tibet",
+        "Bhutan",
+        "Nepal",
+        "India",
+        "International"
+      ],
+      "level": 3,
+      "parent": "tibetan-buddhism"
+    },
+    {
+      "id": "katok",
+      "names": {
+        "en": {
+          "name": "Katok",
+          "aliases": [
+            "Kathok",
+            "Katok Monastery"
+          ]
+        },
+        "zh": {
+          "name": "噶陀寺",
+          "aliases": [
+            "噶陀"
+          ]
+        },
+        "bo": {
+          "name": "ཀ་ཐོག",
+          "aliases": [
+            "ཀ་ཐོག་དགོན་པ།"
+          ]
+        },
+        "hi": {
+          "name": "कातोक",
+          "aliases": []
+        },
+        "ne": {
+          "name": "कातोक",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Катог",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Tibet"
+      ],
+      "level": 4,
+      "parent": "nyingma"
+    },
+    {
+      "id": "palyul",
+      "names": {
+        "en": {
+          "name": "Palyul",
+          "aliases": [
+            "Palyul Monastery"
+          ]
+        },
+        "zh": {
+          "name": "白玉寺",
+          "aliases": [
+            "白玉"
+          ]
+        },
+        "bo": {
+          "name": "དཔལ་ཡུལ།",
+          "aliases": [
+            "དཔལ་ཡུལ་དགོན་པ།"
+          ]
+        },
+        "hi": {
+          "name": "पाल्युल",
+          "aliases": []
+        },
+        "ne": {
+          "name": "पाल्युल",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Палюл",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Tibet",
+        "International"
+      ],
+      "level": 4,
+      "parent": "nyingma"
+    },
+    {
+      "id": "mindrolling",
+      "names": {
+        "en": {
+          "name": "Mindrolling",
+          "aliases": [
+            "Mindroling",
+            "Mindrolling Monastery"
+          ]
+        },
+        "zh": {
+          "name": "敏珠林寺",
+          "aliases": [
+            "敏珠林"
+          ]
+        },
+        "bo": {
+          "name": "སྨིན་གྲོལ་གླིང་།",
+          "aliases": [
+            "སྨིན་གྲོལ།"
+          ]
+        },
+        "hi": {
+          "name": "मिनद्रोलिंग",
+          "aliases": []
+        },
+        "ne": {
+          "name": "मिनद्रोलिङ",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Миндролинг",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Tibet",
+        "India",
+        "International"
+      ],
+      "level": 4,
+      "parent": "nyingma"
+    },
+    {
+      "id": "shechen",
+      "names": {
+        "en": {
+          "name": "Shechen",
+          "aliases": [
+            "Shechen Monastery"
+          ]
+        },
+        "zh": {
+          "name": "雪谦寺",
+          "aliases": [
+            "雪谦"
+          ]
+        },
+        "bo": {
+          "name": "ཞེ་ཆེན།",
+          "aliases": [
+            "ཞེ་ཆེན་དགོན་པ།"
+          ]
+        },
+        "hi": {
+          "name": "शेचेन",
+          "aliases": []
+        },
+        "ne": {
+          "name": "शेचेन",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Шечен",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Tibet",
+        "Nepal",
+        "International"
+      ],
+      "level": 4,
+      "parent": "nyingma"
+    },
+    {
+      "id": "dorje-drag",
+      "names": {
+        "en": {
+          "name": "Dorje Drak",
+          "aliases": [
+            "Dorje Drag",
+            "Dorjé Drak"
+          ]
+        },
+        "zh": {
+          "name": "多吉扎寺",
+          "aliases": [
+            "多吉扎"
+          ]
+        },
+        "bo": {
+          "name": "རྡོ་རྗེ་བྲག",
+          "aliases": [
+            "རྡོ་རྗེ་བྲག་དགོན།"
+          ]
+        },
+        "hi": {
+          "name": "दोर्जे ड्राग",
+          "aliases": []
+        },
+        "ne": {
+          "name": "दोर्जे ड्राग",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Дорже Драг",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Tibet"
+      ],
+      "level": 4,
+      "parent": "nyingma"
+    },
+    {
+      "id": "dzogchen-monastery",
+      "names": {
+        "en": {
+          "name": "Dzogchen Monastery",
+          "aliases": [
+            "Dzogchen Gompa",
+            "Rudam",
+            "Ru-Dam Orgyen Samten Choling"
+          ]
+        },
+        "zh": {
+          "name": "佐钦寺",
+          "aliases": [
+            "佐钦"
+          ]
+        },
+        "bo": {
+          "name": "རྫོགས་ཆེན་དགོན་པ།",
+          "aliases": [
+            "རྫོགས་ཆེན།"
+          ]
+        },
+        "hi": {
+          "name": "ज़ोगचेन",
+          "aliases": []
+        },
+        "ne": {
+          "name": "ज़ोगचेन",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Дзогчен",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Tibet"
+      ],
+      "level": 4,
+      "parent": "nyingma"
+    },
+    {
+      "id": "kagyu",
+      "names": {
+        "en": {
+          "name": "Kagyu",
+          "aliases": [
+            "Kagyupa",
+            "Kagyu School",
+            "Oral Transmission School"
+          ]
+        },
+        "zh": {
+          "name": "噶举派",
+          "aliases": [
+            "噶举",
+            "白教"
+          ]
+        },
+        "bo": {
+          "name": "བཀའ་བརྒྱུད།",
+          "aliases": [
+            "བཀའ་བརྒྱུད་པ།"
+          ]
+        },
+        "hi": {
+          "name": "काग्यू",
+          "aliases": [
+            "काग्यूपा"
+          ]
+        },
+        "ne": {
+          "name": "काग्यु",
+          "aliases": [
+            "काग्युपा"
+          ]
+        },
+        "mn": {
+          "name": "Кагью",
+          "aliases": [
+            "Кагьюпа"
+          ]
+        }
+      },
+      "regions": [
+        "Tibet",
+        "Bhutan",
+        "Nepal",
+        "India",
+        "International"
+      ],
+      "level": 3,
+      "parent": "tibetan-buddhism"
+    },
+    {
+      "id": "karma-kagyu",
+      "names": {
+        "en": {
+          "name": "Karma Kagyu",
+          "aliases": [
+            "Karma Kagyü",
+            "Black Hat Kagyu",
+            "Karmapa lineage",
+            "Kamtsang Kagyu"
+          ]
+        },
+        "zh": {
+          "name": "噶玛噶举",
+          "aliases": [
+            "噶玛巴传承",
+            "黑帽噶举"
+          ]
+        },
+        "bo": {
+          "name": "ཀར་མ་བཀའ་བརྒྱུད།",
+          "aliases": [
+            "ཀར་མ་པའི་བརྒྱུད་འཛིན།"
+          ]
+        },
+        "hi": {
+          "name": "कर्मा काग्यू",
+          "aliases": [
+            "कर्मापा परंपरा",
+            "काले टोपी काग्यू"
+          ]
+        },
+        "ne": {
+          "name": "कर्म काग्यु",
+          "aliases": [
+            "कर्मापा परम्परा"
+          ]
+        },
+        "mn": {
+          "name": "Карма Кагью",
+          "aliases": [
+            "Кармапа",
+            "Хар малгайтан"
+          ]
+        }
+      },
+      "regions": [
+        "Tibet",
+        "International"
+      ],
+      "level": 4,
+      "parent": "kagyu"
+    },
+    {
+      "id": "drikung-kagyu",
+      "names": {
+        "en": {
+          "name": "Drikung Kagyu",
+          "aliases": [
+            "Drigung Kagyu",
+            "Drikung Kagyü"
+          ]
+        },
+        "zh": {
+          "name": "直贡噶举",
+          "aliases": [
+            "直贡"
+          ]
+        },
+        "bo": {
+          "name": "འབྲི་གུང་བཀའ་བརྒྱུད།",
+          "aliases": [
+            "འབྲི་གུང་།"
+          ]
+        },
+        "hi": {
+          "name": "द्रिकुंग काग्यू",
+          "aliases": [
+            "दृग्गुंग काग्यू"
+          ]
+        },
+        "ne": {
+          "name": "द्रिकुङ काग्यु",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Дрикунг Кагью",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Tibet",
+        "International"
+      ],
+      "level": 4,
+      "parent": "kagyu"
+    },
+    {
+      "id": "drukpa-kagyu",
+      "names": {
+        "en": {
+          "name": "Drukpa Kagyu",
+          "aliases": [
+            "Drukpa Kagyü",
+            "Dragon School",
+            "Bhutan Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "竹巴噶举",
+          "aliases": [
+            "竹巴",
+            "不丹佛教"
+          ]
+        },
+        "bo": {
+          "name": "འབྲུག་པ་བཀའ་བརྒྱུད།",
+          "aliases": [
+            "འབྲུག་པ།"
+          ]
+        },
+        "hi": {
+          "name": "द्रुकपा काग्यू",
+          "aliases": [
+            "भूटान बौद्ध धर्म",
+            "ड्रैगन विद्यालय"
+          ]
+        },
+        "ne": {
+          "name": "द्रुक्पा काग्यु",
+          "aliases": [
+            "भुटानी बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Друкпа Кагью",
+          "aliases": [
+            "Бутаны Буддизм"
+          ]
+        }
+      },
+      "regions": [
+        "Bhutan",
+        "Tibet",
+        "Nepal",
+        "International"
+      ],
+      "level": 4,
+      "parent": "kagyu"
+    },
+    {
+      "id": "shangpa-kagyu",
+      "names": {
+        "en": {
+          "name": "Shangpa Kagyu",
+          "aliases": [
+            "Shangpa Kagyü"
+          ]
+        },
+        "zh": {
+          "name": "香巴噶举",
+          "aliases": [
+            "香巴"
+          ]
+        },
+        "bo": {
+          "name": "ཤངས་པ་བཀའ་བརྒྱུད།",
+          "aliases": [
+            "ཤངས་པ།"
+          ]
+        },
+        "hi": {
+          "name": "शांगपा काग्यू",
+          "aliases": []
+        },
+        "ne": {
+          "name": "शांग्पा काग्यु",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Шангпа Кагью",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Tibet",
+        "International"
+      ],
+      "level": 4,
+      "parent": "kagyu"
+    },
+    {
+      "id": "taklung-kagyu",
+      "names": {
+        "en": {
+          "name": "Taklung Kagyu",
+          "aliases": [
+            "Taklungpa"
+          ]
+        },
+        "zh": {
+          "name": "达隆噶举",
+          "aliases": [
+            "达隆"
+          ]
+        },
+        "bo": {
+          "name": "སྟག་ལུང་བཀའ་བརྒྱུད།",
+          "aliases": [
+            "སྟག་ལུང་།"
+          ]
+        },
+        "hi": {
+          "name": "तकलुंग काग्यू",
+          "aliases": []
+        },
+        "ne": {
+          "name": "ताकलुङ काग्यु",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Таклунг Кагью",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Tibet"
+      ],
+      "level": 4,
+      "parent": "kagyu"
+    },
+    {
+      "id": "sakya",
+      "names": {
+        "en": {
+          "name": "Sakya",
+          "aliases": [
+            "Sakyapa",
+            "Sakya School",
+            "Grey Earth School"
+          ]
+        },
+        "zh": {
+          "name": "萨迦派",
+          "aliases": [
+            "萨迦",
+            "花教"
+          ]
+        },
+        "bo": {
+          "name": "ས་སྐྱ་པ།",
+          "aliases": [
+            "ས་སྐྱ།"
+          ]
+        },
+        "hi": {
+          "name": "साक्य",
+          "aliases": [
+            "साक्यपा"
+          ]
+        },
+        "ne": {
+          "name": "साक्य",
+          "aliases": [
+            "साक्यपा"
+          ]
+        },
+        "mn": {
+          "name": "Сакья",
+          "aliases": [
+            "Сакьяпа"
+          ]
+        }
+      },
+      "regions": [
+        "Tibet",
+        "Nepal",
+        "International"
+      ],
+      "level": 3,
+      "parent": "tibetan-buddhism"
+    },
+    {
+      "id": "ngorpa",
+      "names": {
+        "en": {
+          "name": "Ngorpa",
+          "aliases": [
+            "Ngor",
+            "Ngor Monastery"
+          ]
+        },
+        "zh": {
+          "name": "俄尔派",
+          "aliases": [
+            "俄尔巴"
+          ]
+        },
+        "bo": {
+          "name": "ངོར་པ།",
+          "aliases": [
+            "ངོར་ཆོས་སྡེ།"
+          ]
+        },
+        "hi": {
+          "name": "न्गोरपा",
+          "aliases": [
+            "न्गोर"
+          ]
+        },
+        "ne": {
+          "name": "न्गोरपा",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Нгорпа",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Tibet"
+      ],
+      "level": 4,
+      "parent": "sakya"
+    },
+    {
+      "id": "tsarpa",
+      "names": {
+        "en": {
+          "name": "Tsarpa",
+          "aliases": [
+            "Tsar",
+            "Tsarchen lineage"
+          ]
+        },
+        "zh": {
+          "name": "察尔派",
+          "aliases": []
+        },
+        "bo": {
+          "name": "ཚར་པ།",
+          "aliases": [
+            "ཚར་ཆེན་བརྒྱུད་འཛིན།"
+          ]
+        },
+        "hi": {
+          "name": "त्सारपा",
+          "aliases": []
+        },
+        "ne": {
+          "name": "त्सारपा",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Царпа",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Tibet"
+      ],
+      "level": 4,
+      "parent": "sakya"
+    },
+    {
+      "id": "dzongsar",
+      "names": {
+        "en": {
+          "name": "Dzongsar",
+          "aliases": [
+            "Khyentse lineage",
+            "Dzongsar Khyentse"
+          ]
+        },
+        "zh": {
+          "name": "宗萨",
+          "aliases": [
+            "宗萨钦哲传承"
+          ]
+        },
+        "bo": {
+          "name": "རྫོང་གསར།",
+          "aliases": [
+            "མཁྱེན་བརྩེའི་བརྒྱུད་འཛིན།"
+          ]
+        },
+        "hi": {
+          "name": "दोंगसार",
+          "aliases": [
+            "ख्येंत्से परंपरा"
+          ]
+        },
+        "ne": {
+          "name": "दोन्गसार",
+          "aliases": [
+            "ख्येन्त्से परम्परा"
+          ]
+        },
+        "mn": {
+          "name": "Дзонгсар",
+          "aliases": [
+            "Кхьенце"
+          ]
+        }
+      },
+      "regions": [
+        "Tibet",
+        "International"
+      ],
+      "level": 4,
+      "parent": "sakya"
+    },
+    {
+      "id": "gelug",
+      "names": {
+        "en": {
+          "name": "Gelug",
+          "aliases": [
+            "Gelugpa",
+            "Yellow Hat",
+            "Ganden Tradition",
+            "Dalai Lama lineage"
+          ]
+        },
+        "zh": {
+          "name": "格鲁派",
+          "aliases": [
+            "格鲁",
+            "黄教",
+            "达赖喇嘛传承"
+          ]
+        },
+        "bo": {
+          "name": "དགེ་ལུགས་པ།",
+          "aliases": [
+            "དགེ་ལུགས།",
+            "དགའ་ལྡན་ལུགས།"
+          ]
+        },
+        "hi": {
+          "name": "गेलुग",
+          "aliases": [
+            "गेलुगपा",
+            "पीली टोपी",
+            "दलाई लामा परंपरा"
+          ]
+        },
+        "ne": {
+          "name": "गेलुग",
+          "aliases": [
+            "गेलुगपा",
+            "दलाई लामा परम्परा"
+          ]
+        },
+        "mn": {
+          "name": "Гэлүг",
+          "aliases": [
+            "Гэлугпа",
+            "Шар малгайтан",
+            "Далай Ламын уламжлал"
+          ]
+        }
+      },
+      "regions": [
+        "Tibet",
+        "Mongolia",
+        "India",
+        "International"
+      ],
+      "level": 3,
+      "parent": "tibetan-buddhism"
+    },
+    {
+      "id": "jonang",
+      "names": {
+        "en": {
+          "name": "Jonang",
+          "aliases": [
+            "Jonangpa",
+            "Jonang School",
+            "Kalachakra lineage"
+          ]
+        },
+        "zh": {
+          "name": "觉囊派",
+          "aliases": [
+            "觉囊",
+            "时轮金刚传承"
+          ]
+        },
+        "bo": {
+          "name": "ཇོ་ནང་པ།",
+          "aliases": [
+            "ཇོ་ནང།",
+            "དུས་འཁོར་བརྒྱུད་འཛིན།"
+          ]
+        },
+        "hi": {
+          "name": "जोनांग",
+          "aliases": [
+            "जोनांगपा",
+            "कालचक्र परंपरा"
+          ]
+        },
+        "ne": {
+          "name": "जोनाङ",
+          "aliases": [
+            "जोनाङपा"
+          ]
+        },
+        "mn": {
+          "name": "Жонанг",
+          "aliases": [
+            "Жонангпа",
+            "Калачакра"
+          ]
+        }
+      },
+      "regions": [
+        "Tibet",
+        "International"
+      ],
+      "level": 3,
+      "parent": "tibetan-buddhism"
+    },
+    {
+      "id": "rime",
+      "names": {
+        "en": {
+          "name": "Rimé",
+          "aliases": [
+            "Rime",
+            "Non-sectarian",
+            "Eclectic movement"
+          ]
+        },
+        "zh": {
+          "name": "利美运动",
+          "aliases": [
+            "不分派",
+            "无宗派主义",
+            "利美"
+          ]
+        },
+        "bo": {
+          "name": "རིས་མེད།",
+          "aliases": [
+            "རིས་མེད་ཆོས་སྡེ།"
+          ]
+        },
+        "hi": {
+          "name": "रिमे",
+          "aliases": [
+            "गैर-सांप्रदायिक",
+            "रिमे आंदोलन"
+          ]
+        },
+        "ne": {
+          "name": "रिमे",
+          "aliases": [
+            "गैर-सम्प्रदायवादी"
+          ]
+        },
+        "mn": {
+          "name": "Риме",
+          "aliases": [
+            "Тэнцвэрт Буддизм",
+            "Бүлгийн бус"
+          ]
+        }
+      },
+      "regions": [
+        "Tibet",
+        "International"
+      ],
+      "level": 3,
+      "parent": "tibetan-buddhism"
+    },
+    {
+      "id": "mongolian-buddhism",
+      "names": {
+        "en": {
+          "name": "Mongolian Buddhism",
+          "aliases": [
+            "Mongolian Vajrayana",
+            "Mongolian Lamaism"
+          ]
+        },
+        "zh": {
+          "name": "蒙古佛教",
+          "aliases": [
+            "蒙古喇嘛教"
+          ]
+        },
+        "bo": {
+          "name": "སོག་ཀྱི་ནང་ཆོས།",
+          "aliases": [
+            "Mongolian Buddhism"
+          ]
+        },
+        "hi": {
+          "name": "मंगोलियाई बौद्ध धर्म",
+          "aliases": []
+        },
+        "ne": {
+          "name": "मंगोलियाली बौद्ध धर्म",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Монгол Буддизм",
+          "aliases": [
+            "Монголын Буддын шашин",
+            "Монгол лам ын шашин"
+          ]
+        }
+      },
+      "regions": [
+        "Mongolia"
+      ],
+      "level": 2,
+      "parent": "vajrayana"
+    },
+    {
+      "id": "buryat-buddhism",
+      "names": {
+        "en": {
+          "name": "Buryat Buddhism",
+          "aliases": [
+            "Buryatia Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "布里亚特佛教",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Buryat Buddhism",
+          "aliases": []
+        },
+        "hi": {
+          "name": "बुर्यात बौद्ध धर्म",
+          "aliases": []
+        },
+        "ne": {
+          "name": "बुर्यात बौद्ध धर्म",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Буриадын Буддизм",
+          "aliases": [
+            "Буриад Буддизм"
+          ]
+        }
+      },
+      "regions": [
+        "Russia"
+      ],
+      "level": 2,
+      "parent": "vajrayana"
+    },
+    {
+      "id": "kalmyk-buddhism",
+      "names": {
+        "en": {
+          "name": "Kalmyk Buddhism",
+          "aliases": [
+            "Kalmykia Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "卡尔梅克佛教",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Kalmyk Buddhism",
+          "aliases": []
+        },
+        "hi": {
+          "name": "कालमिक बौद्ध धर्म",
+          "aliases": []
+        },
+        "ne": {
+          "name": "कालमिक बौद्ध धर्म",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Халимгийн Буддизм",
+          "aliases": [
+            "Халимаг Буддизм"
+          ]
+        }
+      },
+      "regions": [
+        "Russia"
+      ],
+      "level": 2,
+      "parent": "vajrayana"
+    },
+    {
+      "id": "tuvan-buddhism",
+      "names": {
+        "en": {
+          "name": "Tuvan Buddhism",
+          "aliases": [
+            "Tuvinian Buddhism",
+            "Tuva Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "图瓦佛教",
+          "aliases": []
+        },
+        "bo": {
+          "name": "Tuvan Buddhism",
+          "aliases": []
+        },
+        "hi": {
+          "name": "तुवान बौद्ध धर्म",
+          "aliases": []
+        },
+        "ne": {
+          "name": "तुवान बौद्ध धर्म",
+          "aliases": []
+        },
+        "mn": {
+          "name": "Тувагийн Буддизм",
+          "aliases": [
+            "Тувa Буддизм"
+          ]
+        }
+      },
+      "regions": [
+        "Russia"
+      ],
+      "level": 2,
+      "parent": "vajrayana"
+    },
+    {
+      "id": "newar-buddhism",
+      "names": {
+        "en": {
+          "name": "Newar Buddhism",
+          "aliases": [
+            "Newari Buddhism",
+            "Nepal Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "尼瓦尔佛教",
+          "aliases": [
+            "尼泊尔佛教"
+          ]
+        },
+        "bo": {
+          "name": "Newar Buddhism",
+          "aliases": []
+        },
+        "hi": {
+          "name": "नेवार बौद्ध धर्म",
+          "aliases": [
+            "नेवारी बौद्ध धर्म",
+            "नेपाल बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "नेवार बौद्ध धर्म",
+          "aliases": [
+            "नेवारी बौद्ध धर्म",
+            "नेपाली बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Неварын Буддизм",
+          "aliases": []
+        }
+      },
+      "regions": [
+        "Nepal"
+      ],
+      "level": 2,
+      "parent": "vajrayana"
+    },
+    {
+      "id": "bon",
+      "names": {
+        "en": {
+          "name": "Bön",
+          "aliases": [
+            "Bon",
+            "Bonpo",
+            "Tibetan Bon",
+            "Yungdrung Bon"
+          ]
+        },
+        "zh": {
+          "name": "苯教",
+          "aliases": [
+            "苯",
+            "本教",
+            "西藏苯教",
+            "雍仲苯教"
+          ]
+        },
+        "bo": {
+          "name": "བོན།",
+          "aliases": [
+            "གཡུང་དྲུང་བོན།",
+            "བོན་པོ།"
+          ]
+        },
+        "hi": {
+          "name": "बोन",
+          "aliases": [
+            "बोनपो",
+            "तिब्बती बोन",
+            "युंगद्रुंग बोन"
+          ]
+        },
+        "ne": {
+          "name": "बोन",
+          "aliases": [
+            "बोनपो",
+            "तिब्बती बोन"
+          ]
+        },
+        "mn": {
+          "name": "Бөн",
+          "aliases": [
+            "Бөнпо",
+            "Төвдийн Бөн"
+          ]
+        }
+      },
+      "regions": [
+        "Tibet",
+        "Nepal",
+        "International"
+      ],
+      "level": 1,
+      "parent": null
+    },
+    {
+      "id": "western-contemporary",
+      "names": {
+        "en": {
+          "name": "Western / Contemporary Buddhism",
+          "aliases": [
+            "Western Buddhism",
+            "Modern Buddhism",
+            "Convert Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "西方佛教",
+          "aliases": [
+            "现代佛教",
+            "当代佛教"
+          ]
+        },
+        "bo": {
+          "name": "ནུབ་ཕྱོགས་ཀྱི་ནང་ཆོས།",
+          "aliases": [
+            "Western Buddhism"
+          ]
+        },
+        "hi": {
+          "name": "पश्चिमी बौद्ध धर्म",
+          "aliases": [
+            "आधुनिक बौद्ध धर्म",
+            "समकालीन बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "पश्चिमी बौद्ध धर्म",
+          "aliases": [
+            "आधुनिक बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Баруун Буддизм",
+          "aliases": [
+            "Орчин үеийн Буддизм"
+          ]
+        }
+      },
+      "regions": [
+        "International"
+      ],
+      "level": 1,
+      "parent": null
+    },
+    {
+      "id": "secular-buddhism",
+      "names": {
+        "en": {
+          "name": "Secular Buddhism",
+          "aliases": [
+            "Secular",
+            "Pragmatic Buddhism",
+            "Naturalistic Buddhism"
+          ]
+        },
+        "zh": {
+          "name": "世俗佛教",
+          "aliases": [
+            "非宗教性佛教",
+            "自然主义佛教"
+          ]
+        },
+        "bo": {
+          "name": "Secular Buddhism",
+          "aliases": []
+        },
+        "hi": {
+          "name": "धर्मनिरपेक्ष बौद्ध धर्म",
+          "aliases": [
+            "व्यावहारिक बौद्ध धर्म",
+            "नैसर्गिक बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "धर्मनिरपेक्ष बौद्ध धर्म",
+          "aliases": [
+            "व्यावहारिक बौद्ध धर्म"
+          ]
+        },
+        "mn": {
+          "name": "Шашингүй Буддизм",
+          "aliases": [
+            "Практик Буддизм"
+          ]
+        }
+      },
+      "regions": [
+        "International"
+      ],
+      "level": 2,
+      "parent": "western-contemporary"
+    },
+    {
+      "id": "triratna",
+      "names": {
+        "en": {
+          "name": "Triratna Buddhist Community",
+          "aliases": [
+            "Triratna",
+            "FWBO",
+            "Friends of the Western Buddhist Order",
+            "Western Buddhist Order"
+          ]
+        },
+        "zh": {
+          "name": "三宝佛教社区",
+          "aliases": [
+            "西方佛教友团",
+            "FWBO"
+          ]
+        },
+        "bo": {
+          "name": "Triratna",
+          "aliases": [
+            "FWBO"
+          ]
+        },
+        "hi": {
+          "name": "त्रिरत्न बौद्ध समुदाय",
+          "aliases": [
+            "FWBO",
+            "पश्चिमी बौद्ध आदेश के मित्र",
+            "त्रिरत्न"
+          ]
+        },
+        "ne": {
+          "name": "त्रिरत्न बौद्ध समुदाय",
+          "aliases": [
+            "FWBO",
+            "त्रिरत्न"
+          ]
+        },
+        "mn": {
+          "name": "Тригратна",
+          "aliases": [
+            "FWBO",
+            "Гурван Эрдэнийн Буддын Нийгэмлэг"
+          ]
+        }
+      },
+      "regions": [
+        "International"
+      ],
+      "level": 2,
+      "parent": "western-contemporary"
+    },
+    {
+      "id": "nkt",
+      "names": {
+        "en": {
+          "name": "New Kadampa Tradition",
+          "aliases": [
+            "NKT",
+            "Kadampa Buddhism",
+            "Modern Kadampa"
+          ]
+        },
+        "zh": {
+          "name": "新噶当派",
+          "aliases": [
+            "NKT",
+            "噶当派"
+          ]
+        },
+        "bo": {
+          "name": "གདམས་ངག་གསར་པ།",
+          "aliases": [
+            "NKT"
+          ]
+        },
+        "hi": {
+          "name": "न्यू कादम्पा ट्रेडिशन",
+          "aliases": [
+            "एनकेटी",
+            "कदम्पा बौद्ध धर्म"
+          ]
+        },
+        "ne": {
+          "name": "न्यू काडम्पा ट्रेडिसन",
+          "aliases": [
+            "एनकेटी"
+          ]
+        },
+        "mn": {
+          "name": "Шинэ Кадампа Уламжлал",
+          "aliases": [
+            "НКТ"
+          ]
+        }
+      },
+      "regions": [
+        "International"
+      ],
+      "level": 2,
+      "parent": "western-contemporary"
+    },
+    {
+      "id": "shambhala",
+      "names": {
+        "en": {
+          "name": "Shambhala Buddhism",
+          "aliases": [
+            "Shambhala",
+            "Shambhala International",
+            "Chogyam Trungpa lineage"
+          ]
+        },
+        "zh": {
+          "name": "香巴拉佛教",
+          "aliases": [
+            "香巴拉国际",
+            "创巴仁波切传承"
+          ]
+        },
+        "bo": {
+          "name": "ཤམ་བྷ་ལའི་ནང་ཆོས།",
+          "aliases": [
+            "Shambhala"
+          ]
+        },
+        "hi": {
+          "name": "शंभाला बौद्ध धर्म",
+          "aliases": [
+            "शंभाला इंटरनेशनल",
+            "चोग्यम त्रुंगपा परंपरा"
+          ]
+        },
+        "ne": {
+          "name": "शम्भाला बौद्ध धर्म",
+          "aliases": [
+            "शम्भाला"
+          ]
+        },
+        "mn": {
+          "name": "Шамбала Буддизм",
+          "aliases": [
+            "Шамбала Интернэшнл"
+          ]
+        }
+      },
+      "regions": [
+        "International"
+      ],
+      "level": 2,
+      "parent": "western-contemporary"
+    }
+  ]
+}
