@@ -2002,19 +2002,21 @@ async def test_get_root_text_by_collection_id_success_with_root_text():
     with patch("pecha_api.texts.texts_service.get_all_recitation_texts_by_collection", new_callable=AsyncMock) as mock_get_all_texts, \
          patch("pecha_api.texts.texts_service.TextUtils.filter_text_base_on_group_id_type_and_language_preference", new_callable=AsyncMock) as mock_filter:
         
-        mock_get_all_texts.return_value = mock_texts
+        mock_get_all_texts.return_value = (mock_texts, len(mock_texts))
         mock_filter.return_value = mock_filtered_result
-        
+
         result = await get_root_text_by_collection_id(collection_id=collection_id, language=language)
-        
-        mock_get_all_texts.assert_called_once_with(collection_id=collection_id, language=language)
-        
+
+        mock_get_all_texts.assert_called_once_with(
+            collection_id=collection_id, language=language, search=None, skip=0, limit=10
+        )
+
         assert result is not None
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 1
         assert result.skip == 0
-        assert result.limit == 1
-        assert result.total == 1
+        assert result.limit == 10
+        assert result.total == len(mock_texts)
         assert isinstance(result.recitations[0], RecitationDTO)
         assert str(result.recitations[0].text_id) == text_id_1
         assert result.recitations[0].title == "བྱང་ཆུབ་སེམས་དཔའི་སྤྱོད་པ་ལ་འཇུག་པ།"
@@ -2053,19 +2055,19 @@ async def test_get_root_text_by_collection_id_no_root_text():
     with patch("pecha_api.texts.texts_service.get_all_recitation_texts_by_collection", new_callable=AsyncMock) as mock_get_all_texts, \
          patch("pecha_api.texts.texts_service.TextUtils.filter_text_base_on_group_id_type_and_language_preference", new_callable=AsyncMock) as mock_filter:
         
-        mock_get_all_texts.return_value = mock_texts
+        mock_get_all_texts.return_value = (mock_texts, len(mock_texts))
         mock_filter.return_value = mock_filtered_result
-        
+
         result = await get_root_text_by_collection_id(collection_id=collection_id, language=language)
-        
-        # Verify the result - should return empty RecitationsResponse
+
+        # Verify the result - no root text found, so no recitations
         assert result is not None
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 0
         assert result.recitations == []
         assert result.skip == 0
-        assert result.limit == 0
-        assert result.total == 0
+        assert result.limit == 10
+        assert result.total == len(mock_texts)
 
 @pytest.mark.asyncio
 async def test_get_root_text_by_collection_id_multiple_groups():
@@ -2152,19 +2154,21 @@ async def test_get_root_text_by_collection_id_multiple_groups():
     with patch("pecha_api.texts.texts_service.get_all_recitation_texts_by_collection", new_callable=AsyncMock) as mock_get_all_texts, \
          patch("pecha_api.texts.texts_service.TextUtils.filter_text_base_on_group_id_type_and_language_preference", new_callable=AsyncMock) as mock_filter:
         
-        mock_get_all_texts.return_value = mock_texts
+        mock_get_all_texts.return_value = (mock_texts, len(mock_texts))
         mock_filter.side_effect = mock_filter_side_effect
-        
+
         result = await get_root_text_by_collection_id(collection_id=collection_id, language=language)
-        
-        mock_get_all_texts.assert_called_once_with(collection_id=collection_id, language=language)
-        
+
+        mock_get_all_texts.assert_called_once_with(
+            collection_id=collection_id, language=language, search=None, skip=0, limit=10
+        )
+
         assert result is not None
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 2
         assert result.skip == 0
-        assert result.limit == 2
-        assert result.total == 2
+        assert result.limit == 10
+        assert result.total == len(mock_texts)
         assert isinstance(result.recitations[0], RecitationDTO)
         assert isinstance(result.recitations[1], RecitationDTO)
         # Check that we got both root texts
