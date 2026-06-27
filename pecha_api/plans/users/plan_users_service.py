@@ -97,10 +97,11 @@ from pecha_api.plans.users.plan_user_series_repository import (
     get_plans_by_series_id,
     get_plans_by_series_ids,
     get_paginated_plans_from_enrolled_series,
+    get_series_partner,
 )
 from pecha_api.plans.series.series_repository import get_series_by_ids, get_plans_by_ids
 from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallback
-from pecha_api.plans.groups.groups_repository import get_group_ids_by_plan_ids, get_group_ids_by_series_ids
+from pecha_api.plans.groups.groups_repository import get_group_ids_by_plan_ids, get_group_ids_by_series_ids, upsert_group_join
 from pecha_api.plans.groups.groups_service import get_group_summaries_by_ids
 from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
@@ -802,7 +803,22 @@ def enroll_user_in_series(token: str, enroll_request: UserSeriesEnrollRequest) -
                 status_code=status.HTTP_409_CONFLICT,
                 detail=ResponseError(error=BAD_REQUEST, message="Already enrolled in series").model_dump()
             )
-        
+
+        # If a group is provided, it must be the registered partner of the series.
+        series_partner = None
+        if enroll_request.group_id is not None:
+            series_partner = get_series_partner(
+                db, enroll_request.series_id, enroll_request.group_id
+            )
+            if series_partner is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=ResponseError(
+                        error=BAD_REQUEST,
+                        message="Group is not a partner of this series",
+                    ).model_dump(),
+                )
+
         # Get first plan in series if starting immediately
         first_plan = None
         if enroll_request.start_immediately:
@@ -815,12 +831,17 @@ def enroll_user_in_series(token: str, enroll_request: UserSeriesEnrollRequest) -
             status=SeriesStatus.ACTIVE,
             auto_enroll_next=enroll_request.auto_enroll_next,
             current_plan_id=first_plan.id if first_plan else None,
+            series_partner_id=series_partner.id if series_partner else None,
             enrolled_at=datetime.now(timezone.utc),
             created_at=datetime.now(timezone.utc),
             is_completed=False,
         )
         save_user_series_enrollment(db, new_enrollment)
-        
+
+        # Enrolling through a partner group also joins the user to that group.
+        if enroll_request.group_id is not None:
+            upsert_group_join(db, enroll_request.group_id, current_user.id)
+
         # Auto-enroll in first plan if requested
         if enroll_request.start_immediately and first_plan:
             auto_enroll_in_next_plan(db, current_user.id, first_plan.id, new_enrollment.id)

@@ -153,6 +153,8 @@ class UserSeriesEnrollment(Base):
     status = Column(SeriesStatusEnum, default='ACTIVE', nullable=False)
     auto_enroll_next = Column(Boolean, default=True, nullable=False)
     current_plan_id = Column(UUID(as_uuid=True), ForeignKey('plans.id', ondelete='SET NULL'), nullable=True)
+    # Partner group the user enrolled through (when enrolled via a partner group page).
+    series_partner_id = Column(UUID(as_uuid=True), ForeignKey('series_partner.id', ondelete='SET NULL'), nullable=True)
     
     # Completion tracking
     is_completed = Column(Boolean, default=False, nullable=False)
@@ -173,12 +175,14 @@ class UserSeriesEnrollment(Base):
     series = relationship("Series", backref="user_enrollments")
     current_plan = relationship("Plan", foreign_keys=[current_plan_id])
     plan_progress_records = relationship("UserPlanProgress", back_populates="series_enrollment")
+    series_partner = relationship("SeriesPartner")
 
     __table_args__ = (
         UniqueConstraint("user_id", "series_id", name="uq_user_series_enrollment"),
         Index("idx_user_series_enrollment_user_status", "user_id", "status"),
         Index("idx_user_series_enrollment_series", "series_id"),
         Index("idx_user_series_enrollment_current_plan", "current_plan_id"),
+        Index("idx_user_series_enrollment_series_partner", "series_partner_id"),
     )
 
 

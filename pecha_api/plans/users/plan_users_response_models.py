@@ -109,6 +109,7 @@ class UserPlanDayDetailsResponse(BaseModel):
 
 class UserSeriesEnrollRequest(BaseModel):
     series_id: UUID
+    group_id: Optional[UUID] = None
     auto_enroll_next: Optional[bool] = True
     start_immediately: Optional[bool] = False
 
