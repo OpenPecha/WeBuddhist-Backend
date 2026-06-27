@@ -31,7 +31,7 @@ def upgrade() -> None:
             sa.ForeignKeyConstraint(['series_id'], ['series.id'], ondelete='CASCADE'),
             sa.ForeignKeyConstraint(['group_id'], ['author_groups.id'], ondelete='CASCADE'),
             sa.PrimaryKeyConstraint('id'),
-            sa.UniqueConstraint('series_id', name='uq_series_partner_series'),
+            sa.UniqueConstraint('series_id', 'group_id', name='uq_series_partner_series_group'),
         )
     if not index_exists('series_partner', 'idx_series_partner_group'):
         op.create_index('idx_series_partner_group', 'series_partner', ['group_id'], unique=False)

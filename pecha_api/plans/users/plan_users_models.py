@@ -207,6 +207,6 @@ class SeriesPartner(Base):
     group = relationship("AuthorGroup")
 
     __table_args__ = (
-        UniqueConstraint("series_id", name="uq_series_partner_series"),
+        UniqueConstraint("series_id", "group_id", name="uq_series_partner_series_group"),
         Index("idx_series_partner_group", "group_id"),
     )
