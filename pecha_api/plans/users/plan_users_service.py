@@ -754,6 +754,7 @@ def _build_user_series_enrollment_dto(
         completed_plans=completed_plans,
         progress_percentage=progress_percentage,
         group=group,
+        series_partner_id=getattr(enrollment, "series_partner_id", None),
     )
 
 

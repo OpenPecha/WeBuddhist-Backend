@@ -144,6 +144,7 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
     series_id = uuid.uuid4()
     current_plan_id = uuid.uuid4()
     plan_id = uuid.uuid4()
+    series_partner_id = uuid.uuid4()
 
     enrollment = SimpleNamespace(
         id=enrollment_id,
@@ -155,6 +156,7 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
         auto_enroll_next=True,
         is_completed=False,
         completed_at=None,
+        series_partner_id=series_partner_id,
     )
     series = SimpleNamespace(
         id=series_id,
@@ -189,6 +191,7 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
     assert dto.total_plans == 1
     assert dto.completed_plans == 1
     assert dto.progress_percentage == 100.0
+    assert dto.series_partner_id == series_partner_id
 
 
 def test_build_user_series_enrollment_dto_renders_language_with_en_fallback():
