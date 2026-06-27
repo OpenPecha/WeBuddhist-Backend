@@ -51,6 +51,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_series_partner_id_map_for_group,
     get_user_series_enrollment_partner_map,
     has_pending_invite,
+    leave_group_membership,
     list_invites_by_group,
     list_group_joiners_paginated,
     list_pending_invites_by_email,
@@ -58,7 +59,6 @@ from pecha_api.plans.groups.groups_repository import (
     get_tags_by_ids,
     save_invite,
     remove_group_follow,
-    remove_group_join,
     remove_group_member,
     replace_group_metadata,
     replace_group_relation_ids,
@@ -998,7 +998,7 @@ def join_group(token: str, group_id: UUID) -> None:
 def leave_group(token: str, group_id: UUID) -> None:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
-        remove_group_join(db=db, group_id=group_id, user_id=user.id)
+        leave_group_membership(db=db, user_id=user.id, group_id=group_id)
 
 
 def get_joined_group(

@@ -40,7 +40,9 @@ from pecha_api.plans.series.series_service import (
     _to_plan_status,
 )
 from pecha_api.accumulator.accumulator_models import Accumulator
-from pecha_api.accumulator.accumulator_service import resolve_mala_image_fields
+from pecha_api.accumulator.accumulator_service import (
+    resolve_accumulator_bookmark_mala_image_url,
+)
 from pecha_api.timers.timer_repository import get_timer_by_id
 
 DEFAULT_FALLBACK_LANGUAGE = "EN"
@@ -335,7 +337,7 @@ def enrich_accumulator_bookmark(
     if not accumulator:
         return {}
 
-    _, mala_image_url = resolve_mala_image_fields(accumulator)
+    mala_image_url = resolve_accumulator_bookmark_mala_image_url(db, accumulator)
     metadata_entries = list(accumulator.metadata_entries)
     if language:
         metadata_entries = filter_by_language_with_fallback(

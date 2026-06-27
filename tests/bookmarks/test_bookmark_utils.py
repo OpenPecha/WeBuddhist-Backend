@@ -581,8 +581,8 @@ def test_enrich_accumulator_bookmark_success():
     )
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.resolve_mala_image_fields",
-        return_value=(uuid4(), "https://example.com/mala.png"),
+        "pecha_api.bookmarks.bookmark_utils.resolve_accumulator_bookmark_mala_image_url",
+        return_value="https://example.com/mala.png",
     ):
         result = enrich_accumulator_bookmark(
             db=mock_db,
@@ -610,8 +610,8 @@ def test_enrich_accumulator_bookmark_filters_metadata_by_language():
     )
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.resolve_mala_image_fields",
-        return_value=(None, None),
+        "pecha_api.bookmarks.bookmark_utils.resolve_accumulator_bookmark_mala_image_url",
+        return_value=None,
     ), patch(
         "pecha_api.bookmarks.bookmark_utils.filter_by_language_with_fallback",
         return_value=[metadata_entry],

@@ -1154,15 +1154,20 @@ def test_join_group_success():
 def test_leave_group_calls_repository():
     user = MagicMock()
     user.id = uuid4()
+    group_id = uuid4()
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         return_value=user,
     ), patch(
-        "pecha_api.plans.groups.groups_service.remove_group_join",
-    ) as mock_leave:
-        _session_local_context(mock_session)
-        leave_group(token="t", group_id=uuid4())
-    mock_leave.assert_called_once()
+        "pecha_api.plans.groups.groups_service.leave_group_membership",
+    ) as mock_leave_membership:
+        mock_db = _session_local_context(mock_session)
+        leave_group(token="t", group_id=group_id)
+    mock_leave_membership.assert_called_once_with(
+        db=mock_db,
+        user_id=user.id,
+        group_id=group_id,
+    )
 
 
 def test_list_joined_groups():
