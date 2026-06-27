@@ -38,6 +38,7 @@ from pecha_api.plans.groups.groups_service import (
     get_author_group_detail,
     get_cms_group_detail,
     list_cms_groups,
+    list_group_members,
     list_followed_groups,
     list_joined_groups,
     list_public_groups,
@@ -321,6 +322,46 @@ def test_get_author_group_detail_private_group_hidden():
         with pytest.raises(HTTPException) as exc:
             get_author_group_detail(group_id=private_group.id, require_public=True)
     assert exc.value.detail == GROUP_NOT_FOUND
+
+
+def test_list_group_members_not_found():
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            list_group_members(group_id=uuid4(), skip=0, limit=20)
+    assert exc.value.detail == GROUP_NOT_FOUND
+
+
+def test_list_group_members_returns_paginated_profiles():
+    group = _make_group()
+    user = MagicMock()
+    user.username = "alice"
+    user.firstname = "Alice"
+    user.lastname = "Smith"
+    user.avatar_url = "images/profile_images/alice.webp"
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_group_joiners_paginated",
+        return_value=([user], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service._user_avatar_url",
+        return_value="https://example.com/avatar.webp",
+    ):
+        _session_local_context(mock_session)
+        result = list_group_members(group_id=group.id, skip=0, limit=20)
+
+    assert result.total_members == 1
+    assert result.skip == 0
+    assert result.limit == 20
+    assert len(result.list) == 1
+    assert result.list[0].username == "alice"
+    assert result.list[0].fullname == "Alice Smith"
+    assert result.list[0].avatar_url == "https://example.com/avatar.webp"
 
 
 def test_list_public_groups_defaults_to_community_type():

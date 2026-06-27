@@ -20,6 +20,7 @@ from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.tags.tag_model import Tag
 from pecha_api.plans.users.plan_users_models import SeriesPartner
+from pecha_api.users.users_models import Users
 
 
 def get_group_ids_by_plan_ids(db: Session, plan_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
@@ -543,6 +544,27 @@ def is_user_joined_group(
         )
     ).first()
     return row is not None
+
+
+def list_group_joiners_paginated(
+    db: Session,
+    group_id: UUID,
+    skip: int,
+    limit: int,
+) -> Tuple[List[Users], int]:
+    query = (
+        db.query(Users)
+        .join(author_group_joins, Users.id == author_group_joins.c.user_id)
+        .filter(author_group_joins.c.group_id == group_id)
+    )
+    total = query.count()
+    users = (
+        query.order_by(author_group_joins.c.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return users, total
 
 
 def get_joiners_count_map(db: Session, group_ids: Sequence[UUID]) -> dict[UUID, int]:
