@@ -52,6 +52,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_user_series_enrollment_partner_map,
     has_pending_invite,
     list_invites_by_group,
+    list_group_joiners_paginated,
     list_pending_invites_by_email,
     get_series_by_ids,
     get_tags_by_ids,
@@ -82,6 +83,8 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupSeriesListItemDTO,
     AuthorGroupListResponse,
     AuthorGroupMemberDTO,
+    AuthorGroupMemberProfileDTO,
+    AuthorGroupMembersListResponse,
     AuthorGroupSummaryDTO,
     CreateAuthorGroupRequest,
     CreateGroupInviteRequest,
@@ -107,6 +110,7 @@ from pecha_api.plans.groups.groups_response_models import (
 from pecha_api.plans.groups.groups_models import author_group_tags
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
+from pecha_api.users.users_models import Users
 
 GROUP_NOT_FOUND = "Group not found"
 INVITE_NOT_FOUND = "Invite not found"
@@ -150,6 +154,20 @@ def _generate_group_asset_url(asset_key: Optional[str]) -> Optional[str]:
     return generate_presigned_access_url(
         bucket_name=get("AWS_BUCKET_NAME"),
         s3_key=asset_key,
+    )
+
+
+def _user_fullname(user: Users) -> str:
+    parts = [user.firstname, user.lastname]
+    return " ".join(part for part in parts if part).strip()
+
+
+def _user_avatar_url(user: Users) -> Optional[str]:
+    if not user.avatar_url:
+        return None
+    return generate_presigned_access_url(
+        bucket_name=get("AWS_BUCKET_NAME"),
+        s3_key=user.avatar_url,
     )
 
 
@@ -705,6 +723,36 @@ def get_author_group_detail(
             db=db, public=True,
             language=language,
             user_id=user_id,
+        )
+
+
+def list_group_members(
+    group_id: UUID,
+    skip: int,
+    limit: int,
+) -> AuthorGroupMembersListResponse:
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group or not group.is_public:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        users, total = list_group_joiners_paginated(
+            db=db,
+            group_id=group_id,
+            skip=skip,
+            limit=limit,
+        )
+        return AuthorGroupMembersListResponse(
+            total_members=total,
+            list=[
+                AuthorGroupMemberProfileDTO(
+                    username=user.username,
+                    fullname=_user_fullname(user),
+                    avatar_url=_user_avatar_url(user),
+                )
+                for user in users
+            ],
+            skip=skip,
+            limit=limit,
         )
 
 
