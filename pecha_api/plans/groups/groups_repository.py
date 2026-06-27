@@ -122,7 +122,7 @@ def get_user_series_enrollment_partner_map(
     return dict(rows)
 
 
-def clear_user_series_partner_ids_for_group(
+def _clear_user_series_partner_ids_for_group(
     db: Session,
     user_id: UUID,
     group_id: UUID,
@@ -136,7 +136,7 @@ def clear_user_series_partner_ids_for_group(
     if not partner_ids:
         return 0
 
-    updated_count = (
+    return (
         db.query(UserSeriesEnrollment)
         .filter(
             UserSeriesEnrollment.user_id == user_id,
@@ -150,8 +150,35 @@ def clear_user_series_partner_ids_for_group(
             synchronize_session=False,
         )
     )
+
+
+def clear_user_series_partner_ids_for_group(
+    db: Session,
+    user_id: UUID,
+    group_id: UUID,
+) -> int:
+    updated_count = _clear_user_series_partner_ids_for_group(
+        db=db, user_id=user_id, group_id=group_id
+    )
     db.commit()
     return updated_count
+
+
+def leave_group_membership(
+    db: Session,
+    user_id: UUID,
+    group_id: UUID,
+) -> None:
+    db.execute(
+        delete(author_group_joins).where(
+            author_group_joins.c.group_id == group_id,
+            author_group_joins.c.user_id == user_id,
+        )
+    )
+    _clear_user_series_partner_ids_for_group(
+        db=db, user_id=user_id, group_id=group_id
+    )
+    db.commit()
 
 
 def get_series_by_group_id(db: Session, group_id: UUID) -> List[Series]:

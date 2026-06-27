@@ -1,6 +1,7 @@
 import uuid
 from unittest.mock import MagicMock
 
+import pytest
 from sqlalchemy.orm import Session
 
 from pecha_api.plans.groups.groups_repository import (
@@ -13,6 +14,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_series_by_group_id,
     get_series_partner_id_map_for_group,
     get_user_series_enrollment_partner_map,
+    leave_group_membership,
     update_group,
 )
 from pecha_api.plans.users.plan_users_models import UserSeriesEnrollment
@@ -182,7 +184,7 @@ def test_clear_user_series_partner_ids_for_group_returns_zero_when_no_partners()
 
     assert result == 0
     db.query.assert_not_called()
-    db.commit.assert_not_called()
+    db.commit.assert_called_once()
 
 
 def test_clear_user_series_partner_ids_for_group_clears_matching_enrollments():
@@ -205,3 +207,51 @@ def test_clear_user_series_partner_ids_for_group_clears_matching_enrollments():
     update_values = query.update.call_args.args[0]
     assert update_values[UserSeriesEnrollment.series_partner_id] is None
     db.commit.assert_called_once()
+
+
+def test_leave_group_membership_commits_once_after_join_removal_and_partner_cleanup():
+    db = _make_session_mock()
+    user_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+    partner_id = uuid.uuid4()
+    db.execute.return_value.all.return_value = [(partner_id,)]
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.update.return_value = 1
+
+    leave_group_membership(db=db, user_id=user_id, group_id=group_id)
+
+    assert db.execute.call_count == 2
+    query.update.assert_called_once()
+    db.commit.assert_called_once()
+
+
+def test_leave_group_membership_commits_once_when_group_has_no_partner_series():
+    db = _make_session_mock()
+    user_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+    db.execute.return_value.all.return_value = []
+
+    leave_group_membership(db=db, user_id=user_id, group_id=group_id)
+
+    assert db.execute.call_count == 2
+    db.query.assert_not_called()
+    db.commit.assert_called_once()
+
+
+def test_leave_group_membership_does_not_commit_when_partner_cleanup_fails():
+    db = _make_session_mock()
+    user_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+    partner_id = uuid.uuid4()
+    db.execute.return_value.all.return_value = [(partner_id,)]
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.update.side_effect = RuntimeError("db error")
+
+    with pytest.raises(RuntimeError, match="db error"):
+        leave_group_membership(db=db, user_id=user_id, group_id=group_id)
+
+    db.commit.assert_not_called()
