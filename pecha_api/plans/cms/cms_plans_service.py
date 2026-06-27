@@ -41,7 +41,7 @@ from pecha_api.plans.plans_enums import (
 )
 from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, CreatePlanRequest, TaskDTO, PlanDayDTO, \
     PlanWithDays, UpdatePlanRequest, PlanStatusUpdate, PlansRepositoryResponse, PlanWithAggregates, AuthorDTO, SubTaskDTO, \
-    DayVideoSummaryDTO
+    DayVideoSummaryDTO, PlanVideoSummaryDTO
     
 from pecha_api.plans.tasks.plan_tasks_repository import get_tasks_by_item_ids
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
@@ -669,6 +669,10 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
 
     group_id = plan.group_id
 
+    from pecha_api.plans.videos.plan_video_repository import get_plan_videos_by_plan_id
+
+    plan_videos = get_plan_videos_by_plan_id(db=db, plan_id=plan.id)
+
     return PlanWithDays(
         id=plan.id,
         title=plan.title,
@@ -681,6 +685,16 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
         tags=tags_to_summary_dtos(plan.tag_list),
         status=plan.status,
         days=day_dtos,
+        videos=[
+            PlanVideoSummaryDTO(
+                id=video.id,
+                url=video.url,
+                video_id=video.video_id,
+                title=video.title,
+                display_order=video.display_order,
+            )
+            for video in plan_videos
+        ],
         start_date=plan.start_date,
         series_id=plan.series_id,
         display_order=plan.display_order,

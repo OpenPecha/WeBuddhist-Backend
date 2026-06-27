@@ -120,6 +120,14 @@ class PlanDayDTO(BaseModel):
     videos: List[DayVideoSummaryDTO] = []
 
 
+class PlanVideoSummaryDTO(BaseModel):
+    id: UUID
+    url: str
+    video_id: Optional[str] = None
+    title: Optional[str] = None
+    display_order: int
+
+
 class PlanWithDays(BaseModel):
     id: UUID
     title: str
@@ -132,6 +140,7 @@ class PlanWithDays(BaseModel):
     tags: List[TagSummaryDTO] = []
     status: PlanStatus
     days: List[PlanDayDTO]
+    videos: List[PlanVideoSummaryDTO] = []
     start_date: Optional[datetime] = None
     series_id: Optional[UUID] = None
     display_order: Optional[int] = None
