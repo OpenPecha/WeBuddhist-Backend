@@ -17,6 +17,8 @@ from pecha_api.plans.groups.groups_response_models import (
     UserFollowedAuthorGroupListResponse,
     UserJoinedAuthorGroupDTO,
     UserJoinedAuthorGroupListResponse,
+    AuthorGroupMemberProfileDTO,
+    AuthorGroupMembersListResponse,
 )
 client = TestClient(api)
 
@@ -415,6 +417,34 @@ def test_get_public_group_by_id_with_language():
         response = client.get(f"/author/groups/{group_id}?language=bo")
     assert response.status_code == status.HTTP_200_OK
     mock_service.assert_called_once_with(group_id=group_id, require_public=True, language="bo")
+
+
+def test_get_public_group_members():
+    group_id = uuid4()
+    response_model = AuthorGroupMembersListResponse(
+        total_members=1,
+        list=[
+            AuthorGroupMemberProfileDTO(
+                username="alice",
+                fullname="Alice Smith",
+                avatar_url="https://example.com/avatar.webp",
+            )
+        ],
+        skip=0,
+        limit=20,
+    )
+    with patch(
+        "pecha_api.plans.groups.groups_views.list_group_members",
+        return_value=response_model,
+    ) as mock_service:
+        response = client.get(f"/author/groups/{group_id}/members?skip=0&limit=20")
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(group_id=group_id, skip=0, limit=20)
+    body = response.json()
+    assert body["total_members"] == 1
+    assert body["list"][0]["username"] == "alice"
+    assert body["list"][0]["fullname"] == "Alice Smith"
+    assert body["list"][0]["avatar_url"] == "https://example.com/avatar.webp"
 
 
 def test_follow_and_unfollow_group():

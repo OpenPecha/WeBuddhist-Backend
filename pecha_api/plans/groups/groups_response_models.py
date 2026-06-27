@@ -37,6 +37,8 @@ __all__ = [
     "GroupInviteCreatedResponse",
     "UpdateGroupMemberRoleRequest",
     "TransferGroupOwnershipRequest",
+    "AuthorGroupMemberProfileDTO",
+    "AuthorGroupMembersListResponse",
 ]
 
 
@@ -218,3 +220,16 @@ class UpdateGroupMemberRoleRequest(BaseModel):
 
 class TransferGroupOwnershipRequest(BaseModel):
     new_owner_author_id: UUID
+
+
+class AuthorGroupMemberProfileDTO(BaseModel):
+    username: Optional[str] = None
+    fullname: str
+    avatar_url: Optional[str] = None
+
+
+class AuthorGroupMembersListResponse(BaseModel):
+    total_members: int
+    list: List[AuthorGroupMemberProfileDTO]
+    skip: int
+    limit: int
