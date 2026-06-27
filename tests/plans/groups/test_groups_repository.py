@@ -10,6 +10,8 @@ from pecha_api.plans.groups.groups_repository import (
     get_group_ids_by_series_ids,
     get_groups_paginated,
     get_series_by_group_id,
+    get_series_partner_id_map_for_group,
+    get_user_series_enrollment_partner_map,
     update_group,
 )
 
@@ -70,6 +72,46 @@ def test_get_group_ids_by_series_ids_empty_input():
 
     assert get_group_ids_by_series_ids(db=db, series_ids=[]) == {}
     db.execute.assert_not_called()
+
+
+def test_get_series_partner_id_map_for_group_empty_input():
+    db = _make_session_mock()
+    assert get_series_partner_id_map_for_group(db=db, group_id=uuid.uuid4(), series_ids=[]) == {}
+
+
+def test_get_series_partner_id_map_for_group():
+    db = _make_session_mock()
+    group_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    partner_id = uuid.uuid4()
+    db.execute.return_value.all.return_value = [(series_id, partner_id)]
+
+    result = get_series_partner_id_map_for_group(
+        db=db, group_id=group_id, series_ids=[series_id]
+    )
+
+    assert result == {series_id: partner_id}
+
+
+def test_get_user_series_enrollment_partner_map_empty_input():
+    db = _make_session_mock()
+    assert get_user_series_enrollment_partner_map(
+        db=db, user_id=uuid.uuid4(), series_ids=[]
+    ) == {}
+
+
+def test_get_user_series_enrollment_partner_map():
+    db = _make_session_mock()
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    partner_id = uuid.uuid4()
+    db.execute.return_value.all.return_value = [(series_id, partner_id)]
+
+    result = get_user_series_enrollment_partner_map(
+        db=db, user_id=user_id, series_ids=[series_id]
+    )
+
+    assert result == {series_id: partner_id}
 
 
 def test_get_series_by_group_id_includes_owned_and_partner_series():

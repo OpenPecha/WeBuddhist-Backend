@@ -23,6 +23,7 @@ from pecha_api.plans.groups.groups_service import (
     _generate_group_asset_url,
     _get_member_or_403,
     _group_to_detail,
+    _is_series_enrolled_for_group_context,
     _series_to_dtos,
     _to_role_value,
     accept_group_invite_by_id,
@@ -655,20 +656,101 @@ def _make_series_with_metadata():
 
 def test_series_to_dtos_returns_empty_for_empty_series_list():
     mock_db = MagicMock()
-    assert _series_to_dtos(db=mock_db, series_list=[]) == []
+    assert _series_to_dtos(db=mock_db, series_list=[], group_id=uuid4()) == []
     mock_db.assert_not_called()
 
 
+def test_is_series_enrolled_for_group_context():
+    partner_id = uuid4()
+    assert _is_series_enrolled_for_group_context(
+        partner_id, partner_id, is_enrolled_in_series=True
+    )
+    assert not _is_series_enrolled_for_group_context(
+        partner_id, uuid4(), is_enrolled_in_series=True
+    )
+    assert _is_series_enrolled_for_group_context(
+        None, None, is_enrolled_in_series=True
+    )
+    assert not _is_series_enrolled_for_group_context(
+        partner_id, None, is_enrolled_in_series=True
+    )
+    assert not _is_series_enrolled_for_group_context(
+        None, None, is_enrolled_in_series=False
+    )
+
+
+def test_series_to_dtos_sets_partner_enrollment_for_authenticated_user():
+    group_id = uuid4()
+    series = _make_series_with_metadata()
+    partner_id = uuid4()
+    user_id = uuid4()
+    mock_db = MagicMock()
+    with patch(
+        "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
+        return_value={series.id: 2},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_enrolled_count_map_by_series_ids",
+        return_value={series.id: 5},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
+        return_value={series.id: partner_id},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_user_series_enrollment_partner_map",
+        return_value={series.id: partner_id},
+    ):
+        dtos = _series_to_dtos(
+            db=mock_db,
+            series_list=[series],
+            group_id=group_id,
+            user_id=user_id,
+        )
+
+    assert dtos[0].series_partner_id == partner_id
+    assert dtos[0].is_enrolled is True
+
+
+def test_series_to_dtos_is_not_enrolled_without_user():
+    group_id = uuid4()
+    series = _make_series_with_metadata()
+    partner_id = uuid4()
+    mock_db = MagicMock()
+    with patch(
+        "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
+        return_value={series.id: 2},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_enrolled_count_map_by_series_ids",
+        return_value={series.id: 5},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
+        return_value={series.id: partner_id},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_user_series_enrollment_partner_map",
+    ) as mock_enrollment_map:
+        dtos = _series_to_dtos(
+            db=mock_db,
+            series_list=[series],
+            group_id=group_id,
+        )
+
+    mock_enrollment_map.assert_not_called()
+    assert dtos[0].series_partner_id == partner_id
+    assert dtos[0].is_enrolled is False
+
+
 def test_series_to_dtos_filters_metadata_by_language():
+    group_id = uuid4()
     series = _make_series_with_metadata()
     mock_db = MagicMock()
     with patch(
         "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
         return_value={series.id: 2},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
+        return_value={},
     ):
-        all_metadata = _series_to_dtos(db=mock_db, series_list=[series])
-        bo_metadata = _series_to_dtos(db=mock_db, series_list=[series], language="bo")
-        missing_metadata = _series_to_dtos(db=mock_db, series_list=[series], language="zh")
+        all_metadata = _series_to_dtos(db=mock_db, series_list=[series], group_id=group_id)
+        bo_metadata = _series_to_dtos(db=mock_db, series_list=[series], group_id=group_id, language="bo")
+        missing_metadata = _series_to_dtos(db=mock_db, series_list=[series], group_id=group_id, language="zh")
 
     assert len(all_metadata[0].metadata) == 2
     assert bo_metadata[0].metadata.title == "Tibetan Series"
@@ -693,6 +775,9 @@ def test_group_detail_series_metadata_filtered_by_language():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
         return_value={series.id: 0},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
+        return_value={},
     ):
         detail_all = _group_to_detail(group, db=mock_db)
         detail_bo = _group_to_detail(group, db=mock_db, language="bo")

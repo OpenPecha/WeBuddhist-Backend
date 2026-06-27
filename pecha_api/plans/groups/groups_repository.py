@@ -19,7 +19,7 @@ from pecha_api.plans.groups.groups_models import (
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.tags.tag_model import Tag
-from pecha_api.plans.users.plan_users_models import SeriesPartner
+from pecha_api.plans.users.plan_users_models import SeriesPartner, UserSeriesEnrollment
 from pecha_api.users.users_models import Users
 
 
@@ -79,6 +79,47 @@ def get_plans_by_group_id(db: Session, group_id: UUID) -> List[Plan]:
         .filter(Plan.group_id == group_id, Plan.deleted_at.is_(None))
         .all()
     )
+
+
+def get_series_partner_id_map_for_group(
+    db: Session,
+    group_id: UUID,
+    series_ids: Sequence[UUID],
+) -> Dict[UUID, UUID]:
+    if not series_ids:
+        return {}
+    rows = (
+        db.execute(
+            select(SeriesPartner.series_id, SeriesPartner.id).where(
+                SeriesPartner.group_id == group_id,
+                SeriesPartner.series_id.in_(series_ids),
+            )
+        )
+        .all()
+    )
+    return dict(rows)
+
+
+def get_user_series_enrollment_partner_map(
+    db: Session,
+    user_id: UUID,
+    series_ids: Sequence[UUID],
+) -> Dict[UUID, Optional[UUID]]:
+    if not series_ids:
+        return {}
+    rows = (
+        db.execute(
+            select(
+                UserSeriesEnrollment.series_id,
+                UserSeriesEnrollment.series_partner_id,
+            ).where(
+                UserSeriesEnrollment.user_id == user_id,
+                UserSeriesEnrollment.series_id.in_(series_ids),
+            )
+        )
+        .all()
+    )
+    return dict(rows)
 
 
 def get_series_by_group_id(db: Session, group_id: UUID) -> List[Series]:
