@@ -71,3 +71,11 @@ class UpdateUsernameResponse(BaseModel):
     message: str
     username: Optional[str] = None
     suggestions: Optional[List[str]] = None
+
+
+class OnboardingStatusResponse(BaseModel):
+    has_seen_onboarding: bool
+
+
+class UpdateOnboardingStatusRequest(BaseModel):
+    has_seen_onboarding: bool
