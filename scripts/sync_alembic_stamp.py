@@ -57,6 +57,7 @@ SCHEMA_MARKERS: dict[str, list[tuple]] = {
     ],
     "s3t4u5v6w7x8": [("table", "day_videos")],
     "u5v6w7x8y9z0": [("table", "tradition_list")],
+    "z3a4b5c6d7e8": [("column", "users", "has_seen_onboarding")],
 }
 
 

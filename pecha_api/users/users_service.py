@@ -10,7 +10,16 @@ from jose.exceptions import JWTClaimsError
 from jwt import ExpiredSignatureError
 
 from pecha_api.error_contants import ErrorConstants
-from .user_response_models import UserInfoRequest, UserInfoResponse, SocialMediaProfile, PublisherInfoResponse, UpdateUsernameRequest, UpdateUsernameResponse
+from .user_response_models import (
+    UserInfoRequest,
+    UserInfoResponse,
+    SocialMediaProfile,
+    PublisherInfoResponse,
+    UpdateUsernameRequest,
+    UpdateUsernameResponse,
+    OnboardingStatusResponse,
+    UpdateOnboardingStatusRequest,
+)
 from .users_enums import SocialProfile
 from .users_models import Users, SocialMediaAccount
 from ..auth.auth_repository import validate_token
@@ -233,6 +242,23 @@ def _generate_username_suggestions(base: str, count: int = 3) -> List[str]:
                 suggestions.append(candidate)
             attempts += 1
     return suggestions
+
+
+def get_onboarding_status(token: str) -> OnboardingStatusResponse:
+    current_user = validate_and_extract_user_details(token=token)
+    return OnboardingStatusResponse(has_seen_onboarding=current_user.has_seen_onboarding)
+
+
+def update_onboarding_status(token: str, request: UpdateOnboardingStatusRequest) -> OnboardingStatusResponse:
+    current_user = validate_and_extract_user_details(token=token)
+    current_user.has_seen_onboarding = request.has_seen_onboarding
+    with SessionLocal() as db_session:
+        try:
+            updated_user = update_user(db=db_session, user=current_user)
+            return OnboardingStatusResponse(has_seen_onboarding=updated_user.has_seen_onboarding)
+        except Exception as e:
+            logging.exception(f"Failed to update onboarding status: {e}")
+            raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 def update_username(token: str, request: UpdateUsernameRequest) -> UpdateUsernameResponse:
