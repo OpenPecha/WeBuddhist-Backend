@@ -46,6 +46,24 @@ async def submit_group_count(
     )
 
 
+@group_accumulator_router.put(
+    "/{group_accumulator_id}/count",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupAccumulatorHistoryItemDTO
+)
+async def update_group_count(
+    group_accumulator_id: UUID,
+    request: SubmitGroupCountRequest,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Update user's count contribution to a group accumulator."""
+    return submit_group_count_service(
+        token=credentials.credentials,
+        group_accumulator_id=group_accumulator_id,
+        request=request,
+    )
+
+
 @group_accumulator_router.get(
     "/{group_accumulator_id}/count",
     response_model=GroupAccumulatorHistoryResponse
