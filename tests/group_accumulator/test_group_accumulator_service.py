@@ -321,6 +321,28 @@ class TestDeleteGroupAccumulatorService:
 
         assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.delete_group_accumulator')
+    def test_delete_group_accumulator_soft_delete(self, mock_delete, mock_get, mock_session):
+        """Test that delete performs soft delete (sets deleted_at)."""
+        group_id = uuid4()
+        accumulator_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_accumulator = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
+        mock_get.return_value = mock_accumulator
+
+        delete_group_accumulator_service(
+            group_id=group_id,
+            group_accumulator_id=accumulator_id,
+        )
+
+        # Verify delete_group_accumulator was called (which sets deleted_at)
+        mock_delete.assert_called_once_with(mock_db, mock_accumulator)
+        # Verify the accumulator object was passed to delete function
+        assert mock_delete.call_args[0][1] == mock_accumulator
+
 
 class TestSubmitGroupCountService:
     """Test cases for submit_group_count_service."""
