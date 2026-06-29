@@ -1247,6 +1247,8 @@ async def test_get_plan_day_details_success():
     mock_plan_item.id = uuid4()
     mock_plan_item.day_number = day_number
     mock_plan_item.tasks = [mock_task]
+    mock_plan_item.shareable_images = None
+    mock_plan_item.videos = []
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks") as mock_get_plan_day, \
@@ -1278,6 +1280,46 @@ async def test_get_plan_day_details_success():
         assert task.subtasks[0].content_type == ContentType.TEXT
         assert task.subtasks[0].content == "Subtask content 1"
         assert task.subtasks[0].display_order == 1
+        assert response.thumbnail_url is None
+        assert response.shareable_image_url is None
+
+
+@pytest.mark.asyncio
+async def test_get_plan_day_details_includes_shareable_image_urls():
+    plan_id = uuid4()
+    day_number = 1
+
+    mock_shareable_images = MagicMock()
+    mock_shareable_images.thumbnail_key = "images/day_shareable/thumb.webp"
+    mock_shareable_images.shareable_image_key = "images/day_shareable/share.webp"
+
+    mock_plan_item = MagicMock()
+    mock_plan_item.id = uuid4()
+    mock_plan_item.day_number = day_number
+    mock_plan_item.tasks = []
+    mock_plan_item.shareable_images = mock_shareable_images
+    mock_plan_item.videos = []
+
+    with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks") as mock_get_plan_day, \
+         patch("pecha_api.plans.public.plan_service.get_plan_day_detail_cache", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.set_plan_day_detail_cache"), \
+         patch(
+             "pecha_api.plans.public.plan_service.build_plan_day_shareable_image_fields",
+             return_value=(
+                 "https://bucket.s3.amazonaws.com/thumb",
+                 "images/day_shareable/thumb.webp",
+                 "https://bucket.s3.amazonaws.com/share",
+                 "images/day_shareable/share.webp",
+             ),
+         ):
+        _mock_session_local(mock_session_local)
+        mock_get_plan_day.return_value = mock_plan_item
+
+        response = await get_plan_day_details(plan_id=plan_id, day_number=day_number)
+
+        assert response.thumbnail_url == "https://bucket.s3.amazonaws.com/thumb"
+        assert response.shareable_image_url == "https://bucket.s3.amazonaws.com/share"
 
 def test_get_tags_success(mock_db_session):
     """Test successful retrieval of tags."""

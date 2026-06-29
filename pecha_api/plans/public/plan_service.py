@@ -357,6 +357,7 @@ async def get_plan_days(plan_id: UUID) -> PlanDaysResponse:
 
 from pecha_api.plans.audio.dto_helpers import (
     build_plan_day_audio_fields,
+    build_plan_day_shareable_image_fields,
     build_subtask_timestamp_fields,
     generate_subtask_content_url,
 )
@@ -398,12 +399,17 @@ def build_task_dto(task) -> TaskDTO:
 
 def _build_plan_day_dto(plan_item) -> PlanDayDTO:
     audio_url, audio_duration_ms, _, _ = build_plan_day_audio_fields(plan_item)
+    thumbnail_url, _, shareable_image_url, _ = build_plan_day_shareable_image_fields(
+        getattr(plan_item, "shareable_images", None)
+    )
     return PlanDayDTO(
         id=plan_item.id,
         day_number=plan_item.day_number,
         tasks=[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)],
         audio_url=audio_url,
         audio_duration_ms=audio_duration_ms,
+        thumbnail_url=thumbnail_url,
+        shareable_image_url=shareable_image_url,
         videos=[
             DayVideoSummaryDTO(
                 id=video.id,
