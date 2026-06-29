@@ -23,6 +23,7 @@ from pecha_api.plans.groups.groups_service import (
     _generate_group_asset_url,
     _get_member_or_403,
     _group_to_detail,
+    _is_series_enrolled_for_group_context,
     _series_to_dtos,
     _to_role_value,
     accept_group_invite_by_id,
@@ -40,6 +41,7 @@ from pecha_api.plans.groups.groups_service import (
     get_author_group_detail,
     get_cms_group_detail,
     list_cms_groups,
+    list_group_members,
     list_followed_groups,
     list_joined_groups,
     list_public_groups,
@@ -323,6 +325,46 @@ def test_get_author_group_detail_private_group_hidden():
         with pytest.raises(HTTPException) as exc:
             get_author_group_detail(group_id=private_group.id, require_public=True)
     assert exc.value.detail == GROUP_NOT_FOUND
+
+
+def test_list_group_members_not_found():
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            list_group_members(group_id=uuid4(), skip=0, limit=20)
+    assert exc.value.detail == GROUP_NOT_FOUND
+
+
+def test_list_group_members_returns_paginated_profiles():
+    group = _make_group()
+    user = MagicMock()
+    user.username = "alice"
+    user.firstname = "Alice"
+    user.lastname = "Smith"
+    user.avatar_url = "images/profile_images/alice.webp"
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_group_joiners_paginated",
+        return_value=([user], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service._user_avatar_url",
+        return_value="https://example.com/avatar.webp",
+    ):
+        _session_local_context(mock_session)
+        result = list_group_members(group_id=group.id, skip=0, limit=20)
+
+    assert result.total_members == 1
+    assert result.skip == 0
+    assert result.limit == 20
+    assert len(result.list) == 1
+    assert result.list[0].username == "alice"
+    assert result.list[0].fullname == "Alice Smith"
+    assert result.list[0].avatar_url == "https://example.com/avatar.webp"
 
 
 def test_list_public_groups_defaults_to_community_type():
@@ -616,20 +658,101 @@ def _make_series_with_metadata():
 
 def test_series_to_dtos_returns_empty_for_empty_series_list():
     mock_db = MagicMock()
-    assert _series_to_dtos(db=mock_db, series_list=[]) == []
+    assert _series_to_dtos(db=mock_db, series_list=[], group_id=uuid4()) == []
     mock_db.assert_not_called()
 
 
+def test_is_series_enrolled_for_group_context():
+    partner_id = uuid4()
+    assert _is_series_enrolled_for_group_context(
+        partner_id, partner_id, is_enrolled_in_series=True
+    )
+    assert not _is_series_enrolled_for_group_context(
+        partner_id, uuid4(), is_enrolled_in_series=True
+    )
+    assert _is_series_enrolled_for_group_context(
+        None, None, is_enrolled_in_series=True
+    )
+    assert not _is_series_enrolled_for_group_context(
+        partner_id, None, is_enrolled_in_series=True
+    )
+    assert not _is_series_enrolled_for_group_context(
+        None, None, is_enrolled_in_series=False
+    )
+
+
+def test_series_to_dtos_sets_partner_enrollment_for_authenticated_user():
+    group_id = uuid4()
+    series = _make_series_with_metadata()
+    partner_id = uuid4()
+    user_id = uuid4()
+    mock_db = MagicMock()
+    with patch(
+        "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
+        return_value={series.id: 2},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_enrolled_count_map_by_series_ids",
+        return_value={series.id: 5},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
+        return_value={series.id: partner_id},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_user_series_enrollment_partner_map",
+        return_value={series.id: partner_id},
+    ):
+        dtos = _series_to_dtos(
+            db=mock_db,
+            series_list=[series],
+            group_id=group_id,
+            user_id=user_id,
+        )
+
+    assert dtos[0].series_partner_id == partner_id
+    assert dtos[0].is_enrolled is True
+
+
+def test_series_to_dtos_is_not_enrolled_without_user():
+    group_id = uuid4()
+    series = _make_series_with_metadata()
+    partner_id = uuid4()
+    mock_db = MagicMock()
+    with patch(
+        "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
+        return_value={series.id: 2},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_enrolled_count_map_by_series_ids",
+        return_value={series.id: 5},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
+        return_value={series.id: partner_id},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_user_series_enrollment_partner_map",
+    ) as mock_enrollment_map:
+        dtos = _series_to_dtos(
+            db=mock_db,
+            series_list=[series],
+            group_id=group_id,
+        )
+
+    mock_enrollment_map.assert_not_called()
+    assert dtos[0].series_partner_id == partner_id
+    assert dtos[0].is_enrolled is False
+
+
 def test_series_to_dtos_filters_metadata_by_language():
+    group_id = uuid4()
     series = _make_series_with_metadata()
     mock_db = MagicMock()
     with patch(
         "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
         return_value={series.id: 2},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
+        return_value={},
     ):
-        all_metadata = _series_to_dtos(db=mock_db, series_list=[series])
-        bo_metadata = _series_to_dtos(db=mock_db, series_list=[series], language="bo")
-        missing_metadata = _series_to_dtos(db=mock_db, series_list=[series], language="zh")
+        all_metadata = _series_to_dtos(db=mock_db, series_list=[series], group_id=group_id)
+        bo_metadata = _series_to_dtos(db=mock_db, series_list=[series], group_id=group_id, language="bo")
+        missing_metadata = _series_to_dtos(db=mock_db, series_list=[series], group_id=group_id, language="zh")
 
     assert len(all_metadata[0].metadata) == 2
     assert bo_metadata[0].metadata.title == "Tibetan Series"
@@ -654,6 +777,9 @@ def test_group_detail_series_metadata_filtered_by_language():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
         return_value={series.id: 0},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
+        return_value={},
     ):
         detail_all = _group_to_detail(group, db=mock_db)
         detail_bo = _group_to_detail(group, db=mock_db, language="bo")
@@ -1030,15 +1156,20 @@ def test_join_group_success():
 def test_leave_group_calls_repository():
     user = MagicMock()
     user.id = uuid4()
+    group_id = uuid4()
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         return_value=user,
     ), patch(
-        "pecha_api.plans.groups.groups_service.remove_group_join",
-    ) as mock_leave:
-        _session_local_context(mock_session)
-        leave_group(token="t", group_id=uuid4())
-    mock_leave.assert_called_once()
+        "pecha_api.plans.groups.groups_service.leave_group_membership",
+    ) as mock_leave_membership:
+        mock_db = _session_local_context(mock_session)
+        leave_group(token="t", group_id=group_id)
+    mock_leave_membership.assert_called_once_with(
+        db=mock_db,
+        user_id=user.id,
+        group_id=group_id,
+    )
 
 
 def test_list_joined_groups():

@@ -18,6 +18,7 @@ from pecha_api.accumulator.accumulator_service import (
     convert_accumulator_to_public_dto,
     build_preset_mantra_dto,
     generate_mala_image_presigned_url,
+    resolve_accumulator_bookmark_mala_image_url,
     _create_accumulator_from_preset,
     is_user_created_accumulator,
     validate_mantra_exists,
@@ -1216,6 +1217,19 @@ class TestHelperFunctions:
 
         assert result.current_count == 0
 
+    def test_convert_accumulator_to_dto_preset_allows_null_user_id(self):
+        """Preset accumulators have no user_id and should still convert."""
+        accumulator = TestDataFactory.create_mock_accumulator(
+            accumulator_type=AccumulatorType.PRESET,
+        )
+        accumulator.user_id = None
+
+        result = convert_accumulator_to_dto(accumulator)
+
+        assert isinstance(result, AccumulatorDTO)
+        assert result.user_id is None
+        assert result.type == AccumulatorType.PRESET
+
     def test_convert_accumulator_to_public_dto_omits_user_id(self):
         """Public DTO should not carry user_id and exposes the row id as id."""
         accumulator = TestDataFactory.create_mock_accumulator()
@@ -1312,6 +1326,56 @@ class TestHelperFunctions:
     def test_generate_mala_image_presigned_url_handles_errors(self, _mock_get, _mock_presign):
         """S3 failures are swallowed and return None."""
         assert generate_mala_image_presigned_url("mala-images/default.png") is None
+
+    @patch(
+        "pecha_api.accumulator.accumulator_service.generate_mala_image_presigned_url",
+        side_effect=lambda url: f"https://signed/{url}",
+    )
+    @patch("pecha_api.accumulator.accumulator_service.get_mantra_by_id")
+    def test_resolve_accumulator_bookmark_mala_image_url_preset_uses_mantra(
+        self, mock_get_mantra, _mock_presign
+    ):
+        """Preset bookmark images prefer the mantra mala over the accumulator mala."""
+        mantra_id = uuid4()
+        mantra_mala = MagicMock()
+        mantra_mala.url = "mantra-mala.png"
+        accumulator_mala = MagicMock()
+        accumulator_mala.url = "accumulator-mala.png"
+
+        preset = TestDataFactory.create_mock_accumulator(
+            accumulator_type=AccumulatorType.PRESET,
+            mantra_id=mantra_id,
+            mala=accumulator_mala,
+        )
+        mock_get_mantra.return_value = TestDataFactory.create_mock_mantra(
+            mantra_id=mantra_id,
+            mala=mantra_mala,
+        )
+        mock_db = MagicMock()
+
+        result = resolve_accumulator_bookmark_mala_image_url(mock_db, preset)
+
+        assert result == "https://signed/mantra-mala.png"
+        mock_get_mantra.assert_called_once_with(mock_db, mantra_id)
+
+    @patch(
+        "pecha_api.accumulator.accumulator_service.generate_mala_image_presigned_url",
+        side_effect=lambda url: f"https://signed/{url}",
+    )
+    def test_resolve_accumulator_bookmark_mala_image_url_user_uses_accumulator(
+        self, _mock_presign
+    ):
+        """User accumulator bookmark images use the accumulator's chosen mala."""
+        accumulator_mala = MagicMock()
+        accumulator_mala.url = "user-mala.png"
+        accumulator = TestDataFactory.create_mock_accumulator(
+            accumulator_type=AccumulatorType.USER,
+            mala=accumulator_mala,
+        )
+
+        result = resolve_accumulator_bookmark_mala_image_url(MagicMock(), accumulator)
+
+        assert result == "https://signed/user-mala.png"
 
     @patch('pecha_api.accumulator.accumulator_service.commit_accumulator')
     @patch('pecha_api.accumulator.accumulator_service.add_accumulator')

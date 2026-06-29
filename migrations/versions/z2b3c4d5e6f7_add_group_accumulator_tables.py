@@ -1,6 +1,6 @@
 """add group_accumulator tables
 
-Revision ID: z1a2b3c4d5e6
+Revision ID: z2b3c4d5e6f7
 Revises: ffca36f72f3f
 Create Date: 2026-06-26 16:18:00.000000
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = "z1a2b3c4d5e6"
+revision: str = "z2b3c4d5e6f7"
 down_revision: Union[str, None] = "ffca36f72f3f"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

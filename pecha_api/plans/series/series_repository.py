@@ -10,7 +10,7 @@ from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.items.plan_items_models import PlanItem
-from pecha_api.plans.users.plan_users_models import UserSeriesEnrollment
+from pecha_api.plans.users.plan_users_models import SeriesPartner, UserSeriesEnrollment
 
 _REFERENCE_START_DATE_UNSET = object()
 
@@ -658,7 +658,17 @@ def get_series_paginated(
     if group_ids is not None:
         if not group_ids:
             return [], 0
-        filters.append(Series.group_id.in_(group_ids))
+        filters.append(
+            or_(
+                Series.group_id.in_(group_ids),
+                exists(
+                    select(1).where(
+                        SeriesPartner.series_id == Series.id,
+                        SeriesPartner.group_id.in_(group_ids),
+                    )
+                ),
+            )
+        )
 
     plan_count = _series_active_plans_count_subquery(published_only=published_only).label("plan_count")
     query = db.query(Series, plan_count).options(

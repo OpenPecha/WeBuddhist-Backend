@@ -24,6 +24,8 @@ from pecha_api.routines.routines_service import (
     _resolve_series_sessions,
     _normalize_plan_sessions_to_series,
     _validate_session_uniqueness,
+    _validate_accumulators,
+    _resolve_accumulator_sessions,
     build_session_models,
     group_sessions_by_block,
     build_time_block_dto,
@@ -51,6 +53,9 @@ from pecha_api.routines.response_message import (
     TIME_ALREADY_EXISTS,
     SOURCE_ID_REQUIRED,
     INVALID_TIMER_DURATION,
+    DUPLICATE_ACCUMULATOR,
+    ACCUMULATOR_ID_REQUIRED,
+    PRESET_ACCUMULATOR_NOT_FOUND,
 )
 
 def _mock_session_with_db():
@@ -2603,3 +2608,155 @@ def test_resolve_recitation_collection_sessions_defaults_item_count_to_zero():
     assert len(result) == 1
     assert result[0].item_count == 0
     assert result[0].image is None
+
+
+def test_session_request_accepts_accumulator_id():
+    """ACCUMULATOR sessions accept preset accumulator_id and map it to source_id."""
+    preset_id = uuid.uuid4()
+    session = SessionRequest(
+        session_type=SessionType.ACCUMULATOR,
+        accumulator_id=preset_id,
+        display_order=0,
+    )
+    assert session.source_id == preset_id
+    assert session.accumulator_id == preset_id
+
+
+def test_session_dto_serializer_exposes_accumulator_id_for_accumulator():
+    accumulator_id = uuid.uuid4()
+    dto = SessionDTO(
+        id=uuid.uuid4(),
+        session_type=SessionType.ACCUMULATOR,
+        source_id=accumulator_id,
+        accumulator_id=accumulator_id,
+        title="Mani Counter",
+        language="en",
+        display_order=0,
+    )
+    data = dto.model_dump()
+    assert data["session_type"] == SessionType.ACCUMULATOR
+    assert data["accumulator_id"] == accumulator_id
+    assert "source_id" not in data
+    assert "duration_ms" not in data
+
+
+def test_validate_accumulator_session_requires_id():
+    request = CreateTimeBlockRequest(
+        time="08:00",
+        time_int=800,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.ACCUMULATOR,
+                display_order=0,
+            )
+        ],
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_time_block_request(request)
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["message"] == ACCUMULATOR_ID_REQUIRED
+
+
+def test_validate_duplicate_accumulator_in_time_block():
+    accumulator_id = uuid.uuid4()
+    sessions = [
+        SessionRequest(
+            session_type=SessionType.ACCUMULATOR,
+            accumulator_id=accumulator_id,
+            display_order=0,
+        ),
+        SessionRequest(
+            session_type=SessionType.ACCUMULATOR,
+            accumulator_id=accumulator_id,
+            display_order=1,
+        ),
+    ]
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_session_uniqueness(sessions)
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["message"] == DUPLICATE_ACCUMULATOR
+
+
+def test_validate_accumulators_not_found():
+    preset_id = uuid.uuid4()
+    sessions = [
+        SessionRequest(
+            session_type=SessionType.ACCUMULATOR,
+            accumulator_id=preset_id,
+            display_order=0,
+        )
+    ]
+    db = MagicMock()
+    query_chain = MagicMock()
+    query_chain.filter.return_value = query_chain
+    query_chain.all.return_value = []
+    db.query.return_value = query_chain
+
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_accumulators(db=db, sessions=sessions)
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail["message"] == PRESET_ACCUMULATOR_NOT_FOUND
+
+
+def test_resolve_accumulator_sessions_success():
+    user_id = uuid.uuid4()
+    preset_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.ACCUMULATOR,
+        source_id=preset_id,
+        display_order=2,
+    )
+    metadata = SimpleNamespace(name="Mani Preset", language="en")
+    preset = SimpleNamespace(
+        id=preset_id,
+        metadata_entries=[metadata],
+    )
+    db = MagicMock()
+    query_chain = MagicMock()
+    query_chain.filter.return_value = query_chain
+    query_chain.all.return_value = [preset]
+    db.query.return_value = query_chain
+
+    with patch(
+        "pecha_api.routines.routines_service.resolve_accumulator_bookmark_mala_image_url",
+        return_value="https://example.com/mala.jpg",
+    ):
+        result = _resolve_accumulator_sessions(
+            db=db,
+            accumulator_sessions=[session],
+            user_id=user_id,
+        )
+
+    assert len(result) == 1
+    dto = result[0]
+    assert dto.id == session_id
+    assert dto.session_type == SessionType.ACCUMULATOR
+    assert dto.accumulator_id == preset_id
+    assert dto.title == "Mani Preset"
+    assert dto.language == "en"
+    assert dto.display_order == 2
+    serialized = dto.model_dump()
+    assert serialized["accumulator_id"] == preset_id
+    assert "source_id" not in serialized
+
+
+def test_resolve_accumulator_sessions_missing_preset_skipped():
+    user_id = uuid.uuid4()
+    session = SimpleNamespace(
+        id=uuid.uuid4(),
+        session_type=SessionType.ACCUMULATOR,
+        source_id=uuid.uuid4(),
+        display_order=0,
+    )
+    db = MagicMock()
+    query_chain = MagicMock()
+    query_chain.filter.return_value = query_chain
+    query_chain.all.return_value = []
+    db.query.return_value = query_chain
+
+    result = _resolve_accumulator_sessions(
+        db=db, accumulator_sessions=[session], user_id=user_id
+    )
+    assert result == []

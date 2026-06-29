@@ -9,7 +9,7 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_day_with_tasks_and_subtasks
 from datetime import date as DateType, timedelta, datetime as dt, timezone
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO, SeriesMetadataDTO, DayVideoSummaryDTO
+from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO, SeriesMetadataDTO, DayVideoSummaryDTO, PlanVideoSummaryDTO
 from pecha_api.plans.tags.tag_response_models import PublicTagDetailDTO, SegmentContentDTO
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.plans_enums import ContentType, UserPlanStatus
@@ -161,6 +161,10 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
             total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan_id).count()
             group_id = get_group_id_for_plan(db=db, plan_id=plan.id)
 
+            from pecha_api.plans.videos.plan_video_repository import get_plan_videos_by_plan_id
+
+            plan_videos = get_plan_videos_by_plan_id(db=db, plan_id=plan_id)
+
             return PublicPlanDTO(
                 id=plan.id,
                 title=plan.title,
@@ -171,6 +175,16 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
                 total_days=total_days,
                 tags=tags_to_summary_dtos(plan.tag_list),
                 author=author_dto,
+                videos=[
+                    PlanVideoSummaryDTO(
+                        id=video.id,
+                        url=video.url,
+                        video_id=video.video_id,
+                        title=video.title,
+                        display_order=video.display_order,
+                    )
+                    for video in plan_videos
+                ],
                 start_date=plan.start_date,
                 display_order=plan.display_order,
                 group_id=group_id,

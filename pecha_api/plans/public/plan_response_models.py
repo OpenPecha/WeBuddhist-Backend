@@ -26,6 +26,14 @@ class AuthorDTO(BaseModel):
 
 
     
+class PlanVideoSummaryDTO(BaseModel):
+    id: UUID
+    url: str
+    video_id: Optional[str] = None
+    title: Optional[str] = None
+    display_order: int
+
+
 class PublicPlanDTO(BaseModel):
     id: UUID
     title: str
@@ -36,6 +44,7 @@ class PublicPlanDTO(BaseModel):
     total_days: int
     tags: list[TagSummaryDTO] = []
     author: Optional[AuthorDTO] = None
+    videos: List[PlanVideoSummaryDTO] = []
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
     group_id: Optional[UUID] = None

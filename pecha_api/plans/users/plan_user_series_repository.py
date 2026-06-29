@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc, asc
 from datetime import datetime, timezone
 
-from .plan_users_models import UserSeriesEnrollment
+from .plan_users_models import UserSeriesEnrollment, SeriesPartner
 from ..plans_models import Plan
 from ..plans_enums import SeriesStatus
 from ..public.plan_repository import get_next_plan_in_series as get_next_plan_by_display_order
@@ -27,6 +27,16 @@ def get_user_series_enrollment_by_user_and_series(
         and_(
             UserSeriesEnrollment.user_id == user_id,
             UserSeriesEnrollment.series_id == series_id
+        )
+    ).first()
+
+
+def get_series_partner(db: Session, series_id: UUID, group_id: UUID) -> Optional[SeriesPartner]:
+    """Return the series_partner row for the given series and group, if the group is its partner."""
+    return db.query(SeriesPartner).filter(
+        and_(
+            SeriesPartner.series_id == series_id,
+            SeriesPartner.group_id == group_id,
         )
     ).first()
 

@@ -41,7 +41,7 @@ from pecha_api.plans.plans_enums import (
 )
 from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, CreatePlanRequest, TaskDTO, PlanDayDTO, \
     PlanWithDays, UpdatePlanRequest, PlanStatusUpdate, PlansRepositoryResponse, PlanWithAggregates, AuthorDTO, SubTaskDTO, \
-    DayVideoSummaryDTO
+    DayVideoSummaryDTO, PlanVideoSummaryDTO
     
 from pecha_api.plans.tasks.plan_tasks_repository import get_tasks_by_item_ids
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
@@ -604,6 +604,18 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
     for video in get_day_videos_by_day_ids(db=db, day_ids=plan_item_ids):
         videos_by_item.setdefault(video.day_id, []).append(video)
 
+    from pecha_api.plans.shareable_images.day_shareable_image_repository import (
+        get_day_shareable_images_by_plan_item_ids,
+    )
+    from pecha_api.plans.audio.dto_helpers import build_plan_day_shareable_image_fields
+
+    shareable_images_by_item = {
+        row.plan_item_id: row
+        for row in get_day_shareable_images_by_plan_item_ids(
+            db=db, plan_item_ids=plan_item_ids
+        )
+    }
+
     day_dtos: List[PlanDayDTO] = []
     for item in items:
         audio_row = audio_by_item.get(item.id)
@@ -617,6 +629,11 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
                 s3_key=audio_row.audio_key,
             )
             audio_duration_ms = audio_row.duration_ms
+        thumbnail_url, thumbnail_key, shareable_image_url, shareable_image_key = (
+            build_plan_day_shareable_image_fields(
+                shareable_images_by_item.get(item.id)
+            )
+        )
         day_dtos.append(
             PlanDayDTO(
                 id=item.id,
@@ -624,6 +641,10 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
                 audio_url=audio_url,
                 audio_duration_ms=audio_duration_ms,
                 has_audio=has_audio,
+                thumbnail_url=thumbnail_url,
+                thumbnail_key=thumbnail_key,
+                shareable_image_url=shareable_image_url,
+                shareable_image_key=shareable_image_key,
                 videos=[
                     DayVideoSummaryDTO(
                         id=video.id,
@@ -648,6 +669,10 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
 
     group_id = plan.group_id
 
+    from pecha_api.plans.videos.plan_video_repository import get_plan_videos_by_plan_id
+
+    plan_videos = get_plan_videos_by_plan_id(db=db, plan_id=plan.id)
+
     return PlanWithDays(
         id=plan.id,
         title=plan.title,
@@ -660,6 +685,16 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
         tags=tags_to_summary_dtos(plan.tag_list),
         status=plan.status,
         days=day_dtos,
+        videos=[
+            PlanVideoSummaryDTO(
+                id=video.id,
+                url=video.url,
+                video_id=video.video_id,
+                title=video.title,
+                display_order=video.display_order,
+            )
+            for video in plan_videos
+        ],
         start_date=plan.start_date,
         series_id=plan.series_id,
         display_order=plan.display_order,
@@ -846,9 +881,15 @@ async def get_plan_day_details(token:str,plan_id: UUID, day_number: int) -> Plan
         plan = _get_plan_or_404(db=db, plan_id=plan_id)
         require_can_read_group_content(db=db, group_id=plan.group_id, author=current_author)
         plan_item: PlanItem = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
-        from pecha_api.plans.audio.dto_helpers import build_plan_day_audio_fields
+        from pecha_api.plans.audio.dto_helpers import (
+            build_plan_day_audio_fields,
+            build_plan_day_shareable_image_fields,
+        )
 
         audio_url, audio_duration_ms, audio_key, has_audio = build_plan_day_audio_fields(plan_item)
+        thumbnail_url, thumbnail_key, shareable_image_url, shareable_image_key = (
+            build_plan_day_shareable_image_fields(plan_item.shareable_images)
+        )
         plan_day_dto: PlanDayDTO = PlanDayDTO(
             id=plan_item.id,
             day_number=plan_item.day_number,
@@ -856,6 +897,10 @@ async def get_plan_day_details(token:str,plan_id: UUID, day_number: int) -> Plan
             audio_duration_ms=audio_duration_ms,
             audio_key=audio_key,
             has_audio=has_audio,
+            thumbnail_url=thumbnail_url,
+            thumbnail_key=thumbnail_key,
+            shareable_image_url=shareable_image_url,
+            shareable_image_key=shareable_image_key,
             videos=[
                 DayVideoSummaryDTO(
                     id=video.id,

@@ -12,6 +12,8 @@ from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 from pecha_api.plans.audio.plan_item_audio_models import PlanItemAudio
 from pecha_api.plans.videos.day_video_models import DayVideo
+from pecha_api.plans.videos.plan_video_models import PlanVideo
+from pecha_api.plans.shareable_images.day_shareable_image_models import DayShareableImage
 from pecha_api.plans.audio.sub_task_timestamps_models import SubTaskTimestamp
 from pecha_api.plans.reviews.plan_reviews_models import PlanReview
 from pecha_api.plans.favorites.favorites_models import Favorite
@@ -20,6 +22,7 @@ from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.tags.tag_model import Tag
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.users.plan_users_models import UserTaskCompletion
+from pecha_api.plans.users.plan_users_models import SeriesPartner
 from pecha_api.users.users_models import Users, SocialMediaAccount, PasswordReset
 from pecha_api.plans.users.recitation.user_recitations_models import UserRecitations
 from pecha_api.texts.text_images_models import TextImage

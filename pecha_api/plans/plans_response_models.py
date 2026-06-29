@@ -113,7 +113,19 @@ class PlanDayDTO(BaseModel):
     audio_duration_ms: Optional[int] = None
     audio_key: Optional[str] = None
     has_audio: Optional[bool] = None
+    thumbnail_url: Optional[str] = None
+    thumbnail_key: Optional[str] = None
+    shareable_image_url: Optional[str] = None
+    shareable_image_key: Optional[str] = None
     videos: List[DayVideoSummaryDTO] = []
+
+
+class PlanVideoSummaryDTO(BaseModel):
+    id: UUID
+    url: str
+    video_id: Optional[str] = None
+    title: Optional[str] = None
+    display_order: int
 
 
 class PlanWithDays(BaseModel):
@@ -128,6 +140,7 @@ class PlanWithDays(BaseModel):
     tags: List[TagSummaryDTO] = []
     status: PlanStatus
     days: List[PlanDayDTO]
+    videos: List[PlanVideoSummaryDTO] = []
     start_date: Optional[datetime] = None
     series_id: Optional[UUID] = None
     display_order: Optional[int] = None

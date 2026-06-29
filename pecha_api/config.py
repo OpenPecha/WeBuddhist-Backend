@@ -91,6 +91,10 @@ DEFAULTS = dict(
     GROUP_INVITE_EXPIRY_MINUTES=30,
     WEBUDDHIST_EMAIL_LOGO_URL="https://studio.webuddhist.com/assets/pecha_icon-DkKJLXuA.png",
 
+    # When true, sync_alembic_stamp.py may advance alembic_version to match detected
+    # schema markers. Intended for legacy local databases only; keep false in production.
+    SYNC_ALEMBIC_STAMP="false",
+
     # Request observability (per-endpoint memory and latency logging)
     REQUEST_OBSERVABILITY_ENABLED="true",
     REQUEST_OBSERVABILITY_MEMORY_WARN_MB=50,
@@ -98,6 +102,7 @@ DEFAULTS = dict(
 
     # Worker API Configuration
     WORKER_API_URL="",
+    WORKER_LLM_MODEL="gemini-2.5-flash-lite",
 
 )
 

@@ -109,6 +109,7 @@ class UserPlanDayDetailsResponse(BaseModel):
 
 class UserSeriesEnrollRequest(BaseModel):
     series_id: UUID
+    group_id: Optional[UUID] = None
     auto_enroll_next: Optional[bool] = True
     start_immediately: Optional[bool] = False
 
@@ -131,6 +132,7 @@ class UserSeriesEnrollmentDTO(BaseModel):
     completed_plans: int
     progress_percentage: float
     group: Optional[AuthorGroupSummaryDTO] = None
+    series_partner_id: Optional[UUID] = None
 
 
 class UserSeriesEnrollmentsResponse(BaseModel):

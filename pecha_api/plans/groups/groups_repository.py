@@ -19,6 +19,8 @@ from pecha_api.plans.groups.groups_models import (
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.tags.tag_model import Tag
+from pecha_api.plans.users.plan_users_models import SeriesPartner, UserSeriesEnrollment
+from pecha_api.users.users_models import Users
 
 
 def get_group_ids_by_plan_ids(db: Session, plan_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
@@ -79,10 +81,118 @@ def get_plans_by_group_id(db: Session, group_id: UUID) -> List[Plan]:
     )
 
 
+def get_series_partner_id_map_for_group(
+    db: Session,
+    group_id: UUID,
+    series_ids: Sequence[UUID],
+) -> Dict[UUID, UUID]:
+    if not series_ids:
+        return {}
+    rows = (
+        db.execute(
+            select(SeriesPartner.series_id, SeriesPartner.id).where(
+                SeriesPartner.group_id == group_id,
+                SeriesPartner.series_id.in_(series_ids),
+            )
+        )
+        .all()
+    )
+    return dict(rows)
+
+
+def get_user_series_enrollment_partner_map(
+    db: Session,
+    user_id: UUID,
+    series_ids: Sequence[UUID],
+) -> Dict[UUID, Optional[UUID]]:
+    if not series_ids:
+        return {}
+    rows = (
+        db.execute(
+            select(
+                UserSeriesEnrollment.series_id,
+                UserSeriesEnrollment.series_partner_id,
+            ).where(
+                UserSeriesEnrollment.user_id == user_id,
+                UserSeriesEnrollment.series_id.in_(series_ids),
+            )
+        )
+        .all()
+    )
+    return dict(rows)
+
+
+def _clear_user_series_partner_ids_for_group(
+    db: Session,
+    user_id: UUID,
+    group_id: UUID,
+) -> int:
+    partner_ids = [
+        row[0]
+        for row in db.execute(
+            select(SeriesPartner.id).where(SeriesPartner.group_id == group_id)
+        ).all()
+    ]
+    if not partner_ids:
+        return 0
+
+    return (
+        db.query(UserSeriesEnrollment)
+        .filter(
+            UserSeriesEnrollment.user_id == user_id,
+            UserSeriesEnrollment.series_partner_id.in_(partner_ids),
+        )
+        .update(
+            {
+                UserSeriesEnrollment.series_partner_id: None,
+                UserSeriesEnrollment.updated_at: datetime.now(timezone.utc),
+            },
+            synchronize_session=False,
+        )
+    )
+
+
+def clear_user_series_partner_ids_for_group(
+    db: Session,
+    user_id: UUID,
+    group_id: UUID,
+) -> int:
+    updated_count = _clear_user_series_partner_ids_for_group(
+        db=db, user_id=user_id, group_id=group_id
+    )
+    db.commit()
+    return updated_count
+
+
+def leave_group_membership(
+    db: Session,
+    user_id: UUID,
+    group_id: UUID,
+) -> None:
+    db.execute(
+        delete(author_group_joins).where(
+            author_group_joins.c.group_id == group_id,
+            author_group_joins.c.user_id == user_id,
+        )
+    )
+    _clear_user_series_partner_ids_for_group(
+        db=db, user_id=user_id, group_id=group_id
+    )
+    db.commit()
+
+
 def get_series_by_group_id(db: Session, group_id: UUID) -> List[Series]:
     return (
         db.query(Series)
-        .filter(Series.group_id == group_id, Series.deleted_at.is_(None))
+        .outerjoin(SeriesPartner, SeriesPartner.series_id == Series.id)
+        .filter(
+            Series.deleted_at.is_(None),
+            or_(
+                Series.group_id == group_id,
+                SeriesPartner.group_id == group_id,
+            ),
+        )
+        .distinct()
         .all()
     )
 
@@ -534,6 +644,27 @@ def is_user_joined_group(
         )
     ).first()
     return row is not None
+
+
+def list_group_joiners_paginated(
+    db: Session,
+    group_id: UUID,
+    skip: int,
+    limit: int,
+) -> Tuple[List[Users], int]:
+    query = (
+        db.query(Users)
+        .join(author_group_joins, Users.id == author_group_joins.c.user_id)
+        .filter(author_group_joins.c.group_id == group_id)
+    )
+    total = query.count()
+    users = (
+        query.order_by(author_group_joins.c.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return users, total
 
 
 def get_joiners_count_map(db: Session, group_ids: Sequence[UUID]) -> dict[UUID, int]:

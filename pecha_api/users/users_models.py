@@ -24,6 +24,7 @@ class Users(Base):
     avatar_url = Column(String(255),nullable=True)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, server_default="FALSE", default=False,nullable=False)
+    has_seen_onboarding = Column(Boolean, server_default="FALSE", default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.now(_datetime.timezone.utc))
     updated_at = Column(DateTime, default=datetime.now(_datetime.timezone.utc))
 

@@ -28,6 +28,8 @@ from pecha_api.plans.groups.groups_response_models import (
     UserFollowedAuthorGroupListResponse,
     UserJoinedAuthorGroupDTO,
     UserJoinedAuthorGroupListResponse,
+    AuthorGroupMemberProfileDTO,
+    AuthorGroupMembersListResponse,
 )
 from pecha_api.plans.groups.groups_service import (
     accept_group_invite_by_id,
@@ -46,6 +48,7 @@ from pecha_api.plans.groups.groups_service import (
     list_cms_groups,
     list_followed_groups,
     list_joined_groups,
+    list_group_members,
     list_group_invites,
     list_my_pending_group_invites,
     list_public_groups,
@@ -325,9 +328,30 @@ def delete_group_member_by_id(
 @public_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=PublicAuthorGroupDetailDTO)
 def get_public_group(
     group_id: UUID,
+    authentication_credential: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(optional_oauth2_scheme)
+    ] = None,
     language: Annotated[Optional[str], Query(description=_LANGUAGE_QUERY_DESCRIPTION)] = None,
 ):
-    return get_author_group_detail(group_id=group_id, require_public=True, language=language)
+    return get_author_group_detail(
+        group_id=group_id,
+        require_public=True,
+        language=language,
+        token=authentication_credential.credentials if authentication_credential else None,
+    )
+
+
+@public_groups_router.get(
+    "/{group_id}/members",
+    status_code=status.HTTP_200_OK,
+    response_model=AuthorGroupMembersListResponse,
+)
+def get_public_group_members(
+    group_id: UUID,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    return list_group_members(group_id=group_id, skip=skip, limit=limit)
 
 
 @public_groups_router.get("", status_code=status.HTTP_200_OK, response_model=PublicAuthorGroupListResponse)

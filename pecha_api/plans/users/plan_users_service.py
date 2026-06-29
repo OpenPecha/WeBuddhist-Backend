@@ -97,10 +97,11 @@ from pecha_api.plans.users.plan_user_series_repository import (
     get_plans_by_series_id,
     get_plans_by_series_ids,
     get_paginated_plans_from_enrolled_series,
+    get_series_partner,
 )
 from pecha_api.plans.series.series_repository import get_series_by_ids, get_plans_by_ids
 from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallback
-from pecha_api.plans.groups.groups_repository import get_group_ids_by_plan_ids, get_group_ids_by_series_ids
+from pecha_api.plans.groups.groups_repository import get_group_ids_by_plan_ids, get_group_ids_by_series_ids, upsert_group_join
 from pecha_api.plans.groups.groups_service import get_group_summaries_by_ids
 from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
@@ -415,6 +416,11 @@ def get_user_plan_progress(token: str, plan_id: UUID) -> UserPlanProgressRespons
         plan_image = safe_get_image_url(
             plan.image_url, resource_id=plan.id, resource_type="plan"
         )
+
+        from pecha_api.plans.videos.plan_video_repository import get_plan_videos_by_plan_id
+        from pecha_api.plans.public.plan_response_models import PlanVideoSummaryDTO
+
+        plan_videos = get_plan_videos_by_plan_id(db=db, plan_id=plan_id)
         
         # Build plan details dict
         plan_details = {
@@ -424,7 +430,17 @@ def get_user_plan_progress(token: str, plan_id: UUID) -> UserPlanProgressRespons
             "language": plan.language.value if plan.language else None,
             "difficulty_level": plan.difficulty_level.value if plan.difficulty_level else None,
             "image": plan_image.model_dump() if plan_image else None,
-            "tags": [t.model_dump() for t in tags_to_summary_dtos(plan.tag_list)]
+            "tags": [t.model_dump() for t in tags_to_summary_dtos(plan.tag_list)],
+            "videos": [
+                PlanVideoSummaryDTO(
+                    id=video.id,
+                    url=video.url,
+                    video_id=video.video_id,
+                    title=video.title,
+                    display_order=video.display_order,
+                ).model_dump()
+                for video in plan_videos
+            ],
         }
         
         return UserPlanProgressResponse(
@@ -753,6 +769,7 @@ def _build_user_series_enrollment_dto(
         completed_plans=completed_plans,
         progress_percentage=progress_percentage,
         group=group,
+        series_partner_id=getattr(enrollment, "series_partner_id", None),
     )
 
 
@@ -781,47 +798,78 @@ def _build_series_plan_dto_for_progress(
     )
 
 
+def _resolve_series_partner_id(
+    db,
+    series_id: UUID,
+    group_id: Optional[UUID],
+) -> Optional[UUID]:
+    if group_id is None:
+        return None
+    series_partner = get_series_partner(db, series_id, group_id)
+    if series_partner is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ResponseError(
+                error=BAD_REQUEST,
+                message="Group is not a partner of this series",
+            ).model_dump(),
+        )
+    return series_partner.id
+
+
 def enroll_user_in_series(token: str, enroll_request: UserSeriesEnrollRequest) -> None:
-    """Enroll user in a series"""
+    """Enroll user in a series, or update partner group when already enrolled."""
     current_user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
-        # Check if series exists
         series = db.query(Series).filter(Series.id == enroll_request.series_id).first()
         if not series:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=ResponseError(error=BAD_REQUEST, message="Series not found").model_dump()
             )
-        
-        # Check if already enrolled
+
         existing_enrollment = get_user_series_enrollment_by_user_and_series(
             db, current_user.id, enroll_request.series_id
         )
         if existing_enrollment:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=ResponseError(error=BAD_REQUEST, message="Already enrolled in series").model_dump()
+            if "group_id" not in enroll_request.model_fields_set:
+                return
+
+            new_partner_id = _resolve_series_partner_id(
+                db, enroll_request.series_id, enroll_request.group_id
             )
-        
-        # Get first plan in series if starting immediately
+            if existing_enrollment.series_partner_id != new_partner_id:
+                existing_enrollment.series_partner_id = new_partner_id
+                update_user_series_enrollment(db, existing_enrollment)
+
+            if enroll_request.group_id is not None:
+                upsert_group_join(db, enroll_request.group_id, current_user.id)
+            return
+
+        new_partner_id = _resolve_series_partner_id(
+            db, enroll_request.series_id, enroll_request.group_id
+        )
+
         first_plan = None
         if enroll_request.start_immediately:
             first_plan = get_first_plan_in_series(db, enroll_request.series_id)
-        
-        # Create series enrollment
+
         new_enrollment = UserSeriesEnrollment(
             user_id=current_user.id,
             series_id=enroll_request.series_id,
             status=SeriesStatus.ACTIVE,
             auto_enroll_next=enroll_request.auto_enroll_next,
             current_plan_id=first_plan.id if first_plan else None,
+            series_partner_id=new_partner_id,
             enrolled_at=datetime.now(timezone.utc),
             created_at=datetime.now(timezone.utc),
             is_completed=False,
         )
         save_user_series_enrollment(db, new_enrollment)
-        
-        # Auto-enroll in first plan if requested
+
+        if enroll_request.group_id is not None:
+            upsert_group_join(db, enroll_request.group_id, current_user.id)
+
         if enroll_request.start_immediately and first_plan:
             auto_enroll_in_next_plan(db, current_user.id, first_plan.id, new_enrollment.id)
 

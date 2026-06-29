@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pecha_api.config import TIME_FORMAT_PATTERN, get
 from pecha_api.plans.authors.plan_authors_service import safe_get_image_url
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.db.database import SessionLocal
 from pecha_api.users.users_service import validate_and_extract_user_details
@@ -21,6 +22,11 @@ from pecha_api.plans.users.plan_users_progress_repository import (
 )
 from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallback
 from pecha_api.timezone_utils import normalize_timezone_name
+from pecha_api.accumulator.accumulator_models import Accumulator
+from pecha_api.accumulator.accumulator_enums import AccumulatorType
+from pecha_api.accumulator.accumulator_service import (
+    resolve_accumulator_bookmark_mala_image_url,
+)
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
@@ -50,6 +56,7 @@ from .response_message import (
     DUPLICATE_PLAN,
     DUPLICATE_SERIES,
     DUPLICATE_RECITATION_COLLECTION,
+    DUPLICATE_ACCUMULATOR,
     INVALID_TIME_FORMAT,
     INVALID_TIMER_DURATION,
     ROUTINE_ALREADY_EXISTS,
@@ -61,6 +68,8 @@ from .response_message import (
     TIME_BLOCK_TIME_CONFLICT,
     NO_ROUTINE_CREATED_FOR_USER,
     SERIES_NOT_FOUND,
+    PRESET_ACCUMULATOR_NOT_FOUND,
+    ACCUMULATOR_ID_REQUIRED,
 )
 from .routines_response_models import (
     SessionRequest,
@@ -101,6 +110,14 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=ResponseError(
                         error=BAD_REQUEST, message=INVALID_TIMER_DURATION
+                    ).model_dump(),
+                )
+        elif session.session_type == SessionType.ACCUMULATOR:
+            if session.source_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=ResponseError(
+                        error=BAD_REQUEST, message=ACCUMULATOR_ID_REQUIRED
                     ).model_dump(),
                 )
         elif session.source_id is None:
@@ -151,6 +168,19 @@ def _validate_session_uniqueness(sessions: List[SessionRequest]) -> None:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=ResponseError(
                 error=BAD_REQUEST, message=DUPLICATE_RECITATION_COLLECTION
+            ).model_dump(),
+        )
+
+    accumulator_source_ids = [
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.ACCUMULATOR
+    ]
+    if len(accumulator_source_ids) != len(set(accumulator_source_ids)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=DUPLICATE_ACCUMULATOR
             ).model_dump(),
         )
 
@@ -241,9 +271,38 @@ def _normalize_plan_sessions_to_series(db, sessions: List[SessionRequest]) -> Li
     return normalized
 
 
+def _validate_accumulators(db, sessions: List[SessionRequest]) -> None:
+    preset_ids = [
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.ACCUMULATOR and session.source_id is not None
+    ]
+    if not preset_ids:
+        return
+
+    found_ids = {
+        row.id
+        for row in db.query(Accumulator.id)
+        .filter(
+            Accumulator.id.in_(preset_ids),
+            Accumulator.type == AccumulatorType.PRESET,
+            Accumulator.deleted_at.is_(None),
+        )
+        .all()
+    }
+    if set(preset_ids) - found_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=PRESET_ACCUMULATOR_NOT_FOUND
+            ).model_dump(),
+        )
+
+
 def _prepare_sessions(db, sessions: List[SessionRequest]) -> List[SessionRequest]:
     sessions = _normalize_plan_sessions_to_series(db=db, sessions=sessions)
     _validate_session_uniqueness(sessions)
+    _validate_accumulators(db=db, sessions=sessions)
     return sessions
 
 
@@ -548,6 +607,85 @@ def _resolve_recitation_collection_sessions(
     return resolved
 
 
+def _accumulator_metadata_language(metadata) -> Optional[str]:
+    if metadata is None:
+        return None
+    return (
+        metadata.language.value
+        if hasattr(metadata.language, "value")
+        else str(metadata.language)
+    )
+
+
+def _select_accumulator_metadata(metadata_entries, language: Optional[str]):
+    if not metadata_entries:
+        return None
+    matched = filter_by_language_with_fallback(
+        entries=list(metadata_entries),
+        language=language,
+        language_of=_accumulator_metadata_language,
+    )
+    return matched[0] if matched else metadata_entries[0]
+
+
+def _accumulator_mala_image(
+    db, accumulator: Accumulator
+) -> Optional[ImageUrlModel]:
+    mala_image_url = resolve_accumulator_bookmark_mala_image_url(db, accumulator)
+    if not mala_image_url:
+        return None
+    return ImageUrlModel(
+        thumbnail=mala_image_url,
+        medium=mala_image_url,
+        original=mala_image_url,
+    )
+
+
+def _resolve_accumulator_sessions(
+    db,
+    accumulator_sessions: List[RoutineSession],
+    user_id: UUID,
+    language: Optional[str] = None,
+) -> List[SessionDTO]:
+    if not accumulator_sessions:
+        return []
+
+    preset_ids = [session.source_id for session in accumulator_sessions]
+    presets = (
+        db.query(Accumulator)
+        .filter(
+            Accumulator.id.in_(preset_ids),
+            Accumulator.type == AccumulatorType.PRESET,
+            Accumulator.deleted_at.is_(None),
+        )
+        .all()
+    )
+    preset_map = {preset.id: preset for preset in presets}
+
+    resolved = []
+    for session in accumulator_sessions:
+        preset = preset_map.get(session.source_id)
+        if preset is None:
+            continue
+
+        metadata = _select_accumulator_metadata(
+            preset.metadata_entries, language
+        )
+        resolved.append(
+            SessionDTO(
+                id=session.id,
+                session_type=session.session_type,
+                source_id=session.source_id,
+                accumulator_id=session.source_id,
+                title=metadata.name if metadata else "Untitled",
+                language=_accumulator_metadata_language(metadata),
+                image=_accumulator_mala_image(db, preset),
+                display_order=session.display_order,
+            )
+        )
+    return resolved
+
+
 def _series_metadata_language(metadata) -> Optional[str]:
     if metadata is None:
         return None
@@ -680,6 +818,11 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID, l
     timer_sessions = [
         session for session in sessions if session.session_type == SessionType.TIMER
     ]
+    accumulator_sessions = [
+        session
+        for session in sessions
+        if session.session_type == SessionType.ACCUMULATOR
+    ]
 
     resolved_plans = _resolve_plan_sessions(db=db, plan_sessions=plan_sessions, user_id=user_id)
     resolved_series = _resolve_series_sessions(db=db, series_sessions=series_sessions, user_id=user_id, language=language)
@@ -690,6 +833,12 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID, l
         db=db, collection_sessions=recitation_collection_sessions, user_id=user_id
     )
     resolved_timers = _resolve_timer_sessions(timer_sessions=timer_sessions)
+    resolved_accumulators = _resolve_accumulator_sessions(
+        db=db,
+        accumulator_sessions=accumulator_sessions,
+        user_id=user_id,
+        language=language,
+    )
 
     resolved = (
         resolved_plans
@@ -697,6 +846,7 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID, l
         + resolved_recitations
         + resolved_collections
         + resolved_timers
+        + resolved_accumulators
     )
     resolved.sort(key=lambda session: session.display_order)
 
