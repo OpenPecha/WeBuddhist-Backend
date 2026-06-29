@@ -14,6 +14,7 @@ from .group_accumulator_repository import (
     add_group_history_row,
     get_group_accumulator_history,
     get_group_accumulator_total_count,
+    get_user_group_accumulator_count,
     verify_group_exists,
 )
 from .group_accumulator_response_models import (
@@ -172,18 +173,38 @@ def submit_group_count_service(
                 detail={"error": "NOT_FOUND", "message": "Group accumulator not found"}
             )
         
-        history = add_group_history_row(
+        # Get user's current total count
+        user_current_count = get_user_group_accumulator_count(
             db=db,
             group_accumulator_id=group_accumulator_id,
-            user_id=current_user.id,
-            count=request.count,
+            user_id=current_user.id
         )
         
+        # Calculate delta
+        delta = request.current_count - user_current_count
+        
+        # Only record history if delta is positive
+        if delta > 0:
+            history = add_group_history_row(
+                db=db,
+                group_accumulator_id=group_accumulator_id,
+                user_id=current_user.id,
+                count=delta,
+            )
+            
+            return GroupAccumulatorHistoryItemDTO(
+                id=history.id,
+                user_id=history.user_id,
+                count=history.count,
+                created_at=history.created_at,
+            )
+        
+        # Return a response with zero count if no change or decrease
         return GroupAccumulatorHistoryItemDTO(
-            id=history.id,
-            user_id=history.user_id,
-            count=history.count,
-            created_at=history.created_at,
+            id=group_accumulator_id,
+            user_id=current_user.id,
+            count=0,
+            created_at=group_accumulator.created_at,
         )
 
 

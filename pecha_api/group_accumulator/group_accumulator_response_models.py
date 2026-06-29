@@ -37,7 +37,7 @@ class GroupAccumulatorsResponse(BaseModel):
 
 
 class SubmitGroupCountRequest(BaseModel):
-    count: int = Field(..., ge=1, description="Number of mantras counted")
+    current_count: int = Field(..., ge=0, description="User's new absolute current count")
 
 
 class GroupAccumulatorHistoryItemDTO(BaseModel):

@@ -106,6 +106,23 @@ def get_group_accumulator_total_count(
     return total or 0
 
 
+def get_user_group_accumulator_count(
+    db: Session,
+    group_accumulator_id: UUID,
+    user_id: UUID,
+) -> int:
+    """Get a specific user's current count for a group accumulator by summing their history rows."""
+    total = (
+        db.query(func.sum(GroupAccumulatorHistory.count))
+        .filter(
+            GroupAccumulatorHistory.group_accumulator_id == group_accumulator_id,
+            GroupAccumulatorHistory.user_id == user_id
+        )
+        .scalar()
+    )
+    return total or 0
+
+
 def verify_group_exists(db: Session, group_id: UUID) -> bool:
     from pecha_api.plans.groups.groups_models import AuthorGroup
     return db.query(AuthorGroup).filter(AuthorGroup.id == group_id).first() is not None
