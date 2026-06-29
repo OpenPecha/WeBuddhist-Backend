@@ -1,8 +1,8 @@
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc, asc
+from sqlalchemy import and_, desc, asc, select
 from datetime import datetime, timezone
 
 from .plan_users_models import UserSeriesEnrollment, SeriesPartner
@@ -29,6 +29,24 @@ def get_user_series_enrollment_by_user_and_series(
             UserSeriesEnrollment.series_id == series_id
         )
     ).first()
+
+
+def get_group_ids_by_series_partner_ids(
+    db: Session,
+    series_partner_ids: Sequence[UUID],
+) -> Dict[UUID, UUID]:
+    """Map series_partner row IDs to the partner group ID for each enrollment."""
+    if not series_partner_ids:
+        return {}
+    rows = (
+        db.execute(
+            select(SeriesPartner.id, SeriesPartner.group_id).where(
+                SeriesPartner.id.in_(series_partner_ids),
+            )
+        )
+        .all()
+    )
+    return dict(rows)
 
 
 def get_series_partner(db: Session, series_id: UUID, group_id: UUID) -> Optional[SeriesPartner]:

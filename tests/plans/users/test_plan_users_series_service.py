@@ -152,6 +152,7 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
     current_plan_id = uuid.uuid4()
     plan_id = uuid.uuid4()
     series_partner_id = uuid.uuid4()
+    partner_group_id = uuid.uuid4()
 
     enrollment = SimpleNamespace(
         id=enrollment_id,
@@ -188,6 +189,7 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
             {current_plan_id: "Current Plan"},
             {series_id: [SimpleNamespace(id=plan_id)]},
             {plan_id: SimpleNamespace(is_completed=True)},
+            partner_group_id=partner_group_id,
         )
 
     assert dto.id == enrollment_id
@@ -198,7 +200,7 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
     assert dto.total_plans == 1
     assert dto.completed_plans == 1
     assert dto.progress_percentage == 100.0
-    assert dto.series_partner_id == series_partner_id
+    assert dto.series_partner_id == partner_group_id
 
 
 def test_build_user_series_enrollment_dto_renders_language_with_en_fallback():
@@ -786,6 +788,8 @@ def test_get_user_series_enrollments_success():
     enrollment_id = uuid.uuid4()
     current_plan_id = uuid.uuid4()
     plan_id = current_plan_id
+    series_partner_id = uuid.uuid4()
+    partner_group_id = uuid.uuid4()
 
     enrollment = SimpleNamespace(
         id=enrollment_id,
@@ -797,6 +801,7 @@ def test_get_user_series_enrollments_success():
         auto_enroll_next=True,
         is_completed=False,
         completed_at=None,
+        series_partner_id=series_partner_id,
     )
     series = SimpleNamespace(
         id=series_id,
@@ -829,6 +834,15 @@ def test_get_user_series_enrollments_success():
         "pecha_api.plans.users.plan_users_service.get_plans_by_ids",
         return_value=[plan],
     ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_ids_by_series_ids",
+        return_value={series_id: uuid.uuid4()},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_ids_by_series_partner_ids",
+        return_value={series_partner_id: partner_group_id},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_summaries_by_ids",
+        return_value={},
+    ), patch(
         "pecha_api.plans.users.plan_users_service.safe_get_image_url",
         return_value=ImageUrlModel(
             thumbnail="https://signed.example.com/series-thumb.jpg",
@@ -849,6 +863,7 @@ def test_get_user_series_enrollments_success():
     assert dto.progress_percentage == 100.0
     assert dto.image is not None
     assert dto.image.original == "https://signed.example.com/series.jpg"
+    assert dto.series_partner_id == partner_group_id
 
 
 def test_get_user_series_enrollments_skips_missing_series():

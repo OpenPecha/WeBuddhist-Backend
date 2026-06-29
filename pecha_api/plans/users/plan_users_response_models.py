@@ -132,7 +132,7 @@ class UserSeriesEnrollmentDTO(BaseModel):
     completed_plans: int
     progress_percentage: float
     group: Optional[AuthorGroupSummaryDTO] = None
-    series_partner_id: Optional[UUID] = None
+    series_partner_id: Optional[UUID] = None  # Partner group ID when enrolled via a partner group
 
 
 class UserSeriesEnrollmentsResponse(BaseModel):

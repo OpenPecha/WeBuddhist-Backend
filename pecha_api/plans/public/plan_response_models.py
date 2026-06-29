@@ -88,6 +88,12 @@ class PlanDayDTO(BaseModel):
     videos: List[DayVideoSummaryDTO] = []
 
 
+class PlanDayCacheCleanupResponse(BaseModel):
+    plan_id: UUID
+    day_number: Optional[int] = None
+    keys_deleted: int
+
+
 class PlanWithDays(BaseModel):
     id: UUID
     title: str

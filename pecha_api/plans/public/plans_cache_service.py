@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from pecha_api import config
 from pecha_api.cache.cache_enums import CacheType
 from pecha_api.cache.cache_repository import delete_cache, get_cache_data, set_cache
-from pecha_api.plans.items.plan_items_repository import get_plan_item_by_id
+from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_item_by_id
 from pecha_api.plans.public.plan_response_models import PlanDayDTO
 from pecha_api.plans.tasks.plan_tasks_repository import get_task_by_id
 from pecha_api.utils import Utils
@@ -39,9 +39,22 @@ async def set_plan_day_detail_cache(plan_id: UUID, day_number: int, data: PlanDa
     await set_cache(hash_key=hashed_key, value=data, cache_time_out=_plan_timeout())
 
 
-async def invalidate_plan_day_detail_cache(plan_id: UUID, day_number: int) -> None:
-    for hashed_key in _plan_day_detail_cache_keys(plan_id=plan_id, day_number=day_number):
+async def invalidate_plan_day_detail_cache(plan_id: UUID, day_number: int) -> int:
+    keys = _plan_day_detail_cache_keys(plan_id=plan_id, day_number=day_number)
+    for hashed_key in keys:
         await delete_cache(hash_key=hashed_key)
+    return len(keys)
+
+
+async def invalidate_all_plan_day_detail_caches_for_plan(db: Session, plan_id: UUID) -> int:
+    days = get_days_by_plan_id(db=db, plan_id=plan_id)
+    keys_deleted = 0
+    for day in days:
+        keys_deleted += await invalidate_plan_day_detail_cache(
+            plan_id=plan_id,
+            day_number=day.day_number,
+        )
+    return keys_deleted
 
 
 def _resolve_plan_day_for_task(db: Session, task_id: UUID) -> Optional[tuple[UUID, int]]:

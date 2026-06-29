@@ -6,6 +6,7 @@ import pytest
 from pecha_api.cache.cache_enums import CacheType
 from pecha_api.plans.public.plans_cache_service import (
     _plan_day_detail_cache_keys,
+    invalidate_all_plan_day_detail_caches_for_plan,
     invalidate_plan_day_detail_cache,
     schedule_invalidate_plan_day_cache_for_task,
 )
@@ -22,8 +23,9 @@ async def test_invalidate_plan_day_detail_cache_deletes_legacy_and_current_keys(
         "pecha_api.plans.public.plans_cache_service.delete_cache",
         new_callable=AsyncMock,
     ) as mock_delete:
-        await invalidate_plan_day_detail_cache(plan_id=plan_id, day_number=day_number)
+        keys_deleted = await invalidate_plan_day_detail_cache(plan_id=plan_id, day_number=day_number)
 
+    assert keys_deleted == len(expected_keys)
     assert mock_delete.await_count == len(expected_keys)
     deleted_keys = [call.kwargs["hash_key"] for call in mock_delete.await_args_list]
     assert deleted_keys == expected_keys
@@ -59,3 +61,22 @@ def test_schedule_invalidate_plan_day_cache_for_task_resolves_plan_day():
         schedule_invalidate_plan_day_cache_for_task(db=db, task_id=task_id)
 
     mock_schedule.assert_called_once_with(plan_id=plan_id, day_number=2)
+
+
+@pytest.mark.asyncio
+async def test_invalidate_all_plan_day_detail_caches_for_plan():
+    plan_id = uuid.uuid4()
+    db = MagicMock()
+
+    with patch(
+        "pecha_api.plans.public.plans_cache_service.get_days_by_plan_id",
+        return_value=[MagicMock(day_number=1), MagicMock(day_number=2)],
+    ), patch(
+        "pecha_api.plans.public.plans_cache_service.invalidate_plan_day_detail_cache",
+        new_callable=AsyncMock,
+        side_effect=[2, 2],
+    ) as mock_invalidate:
+        keys_deleted = await invalidate_all_plan_day_detail_caches_for_plan(db=db, plan_id=plan_id)
+
+    assert keys_deleted == 4
+    assert mock_invalidate.await_count == 2

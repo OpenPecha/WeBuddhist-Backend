@@ -98,6 +98,7 @@ from pecha_api.plans.users.plan_user_series_repository import (
     get_plans_by_series_ids,
     get_paginated_plans_from_enrolled_series,
     get_series_partner,
+    get_group_ids_by_series_partner_ids,
 )
 from pecha_api.plans.series.series_repository import get_series_by_ids, get_plans_by_ids
 from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallback
@@ -737,6 +738,7 @@ def _build_user_series_enrollment_dto(
     progress_by_plan_id: dict,
     group: Optional[AuthorGroupSummaryDTO] = None,
     language: Optional[str] = None,
+    partner_group_id: Optional[UUID] = None,
 ) -> UserSeriesEnrollmentDTO:
     series_metadata = _select_series_metadata(series.metadata_entries, language)
     series_image = safe_get_image_url(
@@ -769,7 +771,7 @@ def _build_user_series_enrollment_dto(
         completed_plans=completed_plans,
         progress_percentage=progress_percentage,
         group=group,
-        series_partner_id=getattr(enrollment, "series_partner_id", None),
+        series_partner_id=partner_group_id,
     )
 
 
@@ -920,8 +922,18 @@ def get_user_series_enrollments(
             for plan in get_plans_by_ids(db, current_plan_ids)
         }
         series_group_ids = get_group_ids_by_series_ids(db=db, series_ids=series_ids)
+        series_partner_ids = [
+            enrollment.series_partner_id
+            for enrollment in enrollments
+            if getattr(enrollment, "series_partner_id", None)
+        ]
+        partner_group_id_by_series_partner_id = get_group_ids_by_series_partner_ids(
+            db=db, series_partner_ids=series_partner_ids
+        )
+        group_ids_for_summaries = set(series_group_ids.values())
+        group_ids_for_summaries.update(partner_group_id_by_series_partner_id.values())
         group_summaries = get_group_summaries_by_ids(
-            db=db, group_ids=list(series_group_ids.values()), language=language
+            db=db, group_ids=list(group_ids_for_summaries), language=language
         )
 
         enrollment_dtos = [
@@ -932,10 +944,17 @@ def get_user_series_enrollments(
                 plans_by_series_id,
                 progress_by_plan_id,
                 group=_group_summary_for_id(
-                    series_group_ids.get(enrollment.series_id),
+                    partner_group_id_by_series_partner_id.get(enrollment.series_partner_id)
+                    if getattr(enrollment, "series_partner_id", None)
+                    else series_group_ids.get(enrollment.series_id),
                     group_summaries,
                 ),
                 language=language,
+                partner_group_id=(
+                    partner_group_id_by_series_partner_id.get(enrollment.series_partner_id)
+                    if getattr(enrollment, "series_partner_id", None)
+                    else None
+                ),
             )
             for enrollment in enrollments
             if (series := series_by_id.get(enrollment.series_id))
