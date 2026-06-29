@@ -30,7 +30,7 @@ async def get_group_accumulator(
 
 
 @group_accumulator_router.post(
-    "/{group_accumulator_id}/count",
+    "/{group_accumulator_id}",
     status_code=status.HTTP_201_CREATED,
     response_model=GroupAccumulatorHistoryItemDTO
 )
@@ -48,7 +48,7 @@ async def submit_group_count(
 
 
 @group_accumulator_router.put(
-    "/{group_accumulator_id}/count",
+    "/{group_accumulator_id}",
     status_code=status.HTTP_200_OK,
     response_model=GroupAccumulatorHistoryItemDTO
 )
@@ -66,7 +66,7 @@ async def update_group_count(
 
 
 @group_accumulator_router.get(
-    "/{group_accumulator_id}/count",
+    "/{group_accumulator_id}/history",
     response_model=GroupAccumulatorHistoryResponse
 )
 async def get_group_accumulator_history(

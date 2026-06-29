@@ -118,7 +118,7 @@ class TestSubmitGroupCount:
 
         payload = {"current_count": 100}
         response = client.post(
-            f"/group-accumulators/{accumulator_id}/count",
+            f"/group-accumulators/{accumulator_id}",
             json=payload,
             headers={"Authorization": "Bearer valid_token"},
         )
@@ -136,7 +136,7 @@ class TestSubmitGroupCount:
         payload = {"current_count": 100}
 
         response = client.post(
-            f"/group-accumulators/{accumulator_id}/count",
+            f"/group-accumulators/{accumulator_id}",
             json=payload,
         )
 
@@ -150,7 +150,7 @@ class TestSubmitGroupCount:
         payload = {"current_count": -10}
 
         response = client.post(
-            f"/group-accumulators/{accumulator_id}/count",
+            f"/group-accumulators/{accumulator_id}",
             json=payload,
             headers={"Authorization": "Bearer valid_token"},
         )
@@ -170,7 +170,7 @@ class TestSubmitGroupCount:
 
         payload = {"current_count": 50}
         response = client.post(
-            f"/group-accumulators/{accumulator_id}/count",
+            f"/group-accumulators/{accumulator_id}",
             json=payload,
             headers={"Authorization": "Bearer valid_token"},
         )
@@ -195,7 +195,7 @@ class TestUpdateGroupCount:
 
         payload = {"current_count": 150}
         response = client.put(
-            f"/group-accumulators/{accumulator_id}/count",
+            f"/group-accumulators/{accumulator_id}",
             json=payload,
             headers={"Authorization": "Bearer valid_token"},
         )
@@ -212,7 +212,7 @@ class TestUpdateGroupCount:
         payload = {"current_count": 150}
 
         response = client.put(
-            f"/group-accumulators/{accumulator_id}/count",
+            f"/group-accumulators/{accumulator_id}",
             json=payload,
         )
 
@@ -236,7 +236,7 @@ class TestGetGroupAccumulatorHistory:
             total=2,
         )
 
-        response = client.get(f"/group-accumulators/{accumulator_id}/count")
+        response = client.get(f"/group-accumulators/{accumulator_id}/history")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -260,7 +260,7 @@ class TestGetGroupAccumulatorHistory:
         )
 
         response = client.get(
-            f"/group-accumulators/{accumulator_id}/count",
+            f"/group-accumulators/{accumulator_id}/history",
             params={"skip": 5, "limit": 5}
         )
 
@@ -280,7 +280,7 @@ class TestGetGroupAccumulatorHistory:
             total=0,
         )
 
-        response = client.get(f"/group-accumulators/{accumulator_id}/count")
+        response = client.get(f"/group-accumulators/{accumulator_id}/history")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -297,7 +297,7 @@ class TestGetGroupAccumulatorHistory:
             detail={"error": "NOT_FOUND", "message": "Group accumulator not found"}
         )
 
-        response = client.get(f"/group-accumulators/{accumulator_id}/count")
+        response = client.get(f"/group-accumulators/{accumulator_id}/history")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
