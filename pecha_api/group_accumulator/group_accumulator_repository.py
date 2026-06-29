@@ -2,6 +2,8 @@ from typing import List, Optional, Tuple
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import _datetime
+from _datetime import datetime
 
 from pecha_api.accumulator import GroupAccumulator, GroupAccumulatorHistory
 
@@ -33,7 +35,10 @@ def get_group_accumulators(
     skip: int = 0,
     limit: int = 20,
 ) -> Tuple[List[GroupAccumulator], int]:
-    query = db.query(GroupAccumulator).filter(GroupAccumulator.group_id == group_id)
+    query = db.query(GroupAccumulator).filter(
+        GroupAccumulator.group_id == group_id,
+        GroupAccumulator.deleted_at.is_(None)
+    )
     total = query.count()
     accumulators = query.order_by(GroupAccumulator.created_at.desc()).offset(skip).limit(limit).all()
     return accumulators, total
@@ -43,7 +48,10 @@ def get_group_accumulator_by_id(
     db: Session,
     group_accumulator_id: UUID,
 ) -> Optional[GroupAccumulator]:
-    return db.query(GroupAccumulator).filter(GroupAccumulator.id == group_accumulator_id).first()
+    return db.query(GroupAccumulator).filter(
+        GroupAccumulator.id == group_accumulator_id,
+        GroupAccumulator.deleted_at.is_(None)
+    ).first()
 
 
 def update_group_accumulator(
@@ -59,7 +67,9 @@ def delete_group_accumulator(
     db: Session,
     group_accumulator: GroupAccumulator,
 ) -> None:
-    db.delete(group_accumulator)
+    """Soft-delete: mark deleted_at so the group accumulator drops out of active
+    lists while its history rows are preserved."""
+    group_accumulator.deleted_at = datetime.now(_datetime.timezone.utc)
     db.commit()
 
 

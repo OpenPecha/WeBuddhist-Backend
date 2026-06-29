@@ -8,6 +8,7 @@ from .group_accumulator_service import (
     get_group_accumulator_service,
     submit_group_count_service,
     get_group_accumulator_history_service,
+    delete_group_accumulator_service,
 )
 from .group_accumulator_response_models import (
     SubmitGroupCountRequest,
@@ -79,3 +80,20 @@ async def get_group_accumulator_history(
         skip=skip,
         limit=limit,
     )
+
+
+@group_accumulator_router.delete(
+    "/{group_id}/{accumulator_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_group_accumulator(
+    group_id: UUID,
+    accumulator_id: UUID,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Soft delete a group accumulator."""
+    delete_group_accumulator_service(
+        group_id=group_id,
+        group_accumulator_id=accumulator_id,
+    )
+    return None
