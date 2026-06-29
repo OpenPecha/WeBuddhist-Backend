@@ -30,6 +30,7 @@ from pecha_api.plans.groups.groups_service import (
     create_group_member_invite,
     delete_group_member,
     get_group_accumulations,
+    get_group_member_accumulations,
     list_group_invites,
     list_my_pending_group_invites,
     reject_group_invite_by_id,
@@ -2385,3 +2386,221 @@ def test_get_group_accumulations_pagination():
     assert result.limit == 1
     assert result.total == 10
     assert result.total_count == 5000
+
+
+def test_get_group_member_accumulations_success():
+    """Test getting member contributions for a group accumulator"""
+    group = _make_group()
+    group_accumulator_id = uuid4()
+    user_id_1 = uuid4()
+    user_id_2 = uuid4()
+    
+    # Mock group accumulator
+    mock_group_accumulator = MagicMock()
+    mock_group_accumulator.id = group_accumulator_id
+    mock_group_accumulator.group_id = group.id
+    
+    # Mock member contribution rows
+    mock_row_1 = MagicMock()
+    mock_row_1.user_id = user_id_1
+    mock_row_1.total_count = 500
+    
+    mock_row_2 = MagicMock()
+    mock_row_2.user_id = user_id_2
+    mock_row_2.total_count = 300
+    
+    # Mock users
+    mock_user_1 = MagicMock()
+    mock_user_1.id = user_id_1
+    mock_user_1.username = "user1"
+    mock_user_1.firstname = "John"
+    mock_user_1.lastname = "Doe"
+    mock_user_1.avatar_url = "https://example.com/avatar1.jpg"
+    
+    mock_user_2 = MagicMock()
+    mock_user_2.id = user_id_2
+    mock_user_2.username = "user2"
+    mock_user_2.firstname = "Jane"
+    mock_user_2.lastname = "Smith"
+    mock_user_2.avatar_url = None
+    
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_by_id",
+        return_value=mock_group_accumulator,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_member_contributions",
+        return_value=([mock_row_1, mock_row_2], 2),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_users_by_ids",
+        return_value={user_id_1: mock_user_1, user_id_2: mock_user_2},
+    ):
+        _session_local_context(mock_session)
+        result = get_group_member_accumulations(
+            group_id=group.id,
+            accumulation_id=group_accumulator_id,
+            skip=0,
+            limit=20,
+        )
+    
+    assert result.total_members == 2
+    assert len(result.list) == 2
+    assert result.list[0].username == "user1"
+    assert result.list[0].fullname == "John Doe"
+    assert result.list[0].avatar_url == "https://example.com/avatar1.jpg"
+    assert result.list[0].count == 500
+    assert result.list[1].username == "user2"
+    assert result.list[1].fullname == "Jane Smith"
+    assert result.list[1].avatar_url is None
+    assert result.list[1].count == 300
+
+
+def test_get_group_member_accumulations_group_not_found():
+    """Test error when group doesn't exist"""
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_group_member_accumulations(
+                group_id=uuid4(),
+                accumulation_id=uuid4(),
+                skip=0,
+                limit=20,
+            )
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.value.detail == GROUP_NOT_FOUND
+
+
+def test_get_group_member_accumulations_accumulator_not_found():
+    """Test error when group accumulator doesn't exist"""
+    group = _make_group()
+    
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_by_id",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_group_member_accumulations(
+                group_id=group.id,
+                accumulation_id=uuid4(),
+                skip=0,
+                limit=20,
+            )
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.value.detail == "Group accumulator not found"
+
+
+def test_get_group_member_accumulations_wrong_group():
+    """Test error when accumulator doesn't belong to the group"""
+    group = _make_group()
+    other_group_id = uuid4()
+    accumulator_id = uuid4()
+    
+    mock_group_accumulator = MagicMock()
+    mock_group_accumulator.id = accumulator_id
+    mock_group_accumulator.group_id = other_group_id
+    
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_by_id",
+        return_value=mock_group_accumulator,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_group_member_accumulations(
+                group_id=group.id,
+                accumulation_id=accumulator_id,
+                skip=0,
+                limit=20,
+            )
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.value.detail == "Group accumulator does not belong to this group"
+
+
+def test_get_group_member_accumulations_empty():
+    """Test when no members have contributed"""
+    group = _make_group()
+    group_accumulator_id = uuid4()
+    
+    mock_group_accumulator = MagicMock()
+    mock_group_accumulator.id = group_accumulator_id
+    mock_group_accumulator.group_id = group.id
+    
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_by_id",
+        return_value=mock_group_accumulator,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_member_contributions",
+        return_value=([], 0),
+    ):
+        _session_local_context(mock_session)
+        result = get_group_member_accumulations(
+            group_id=group.id,
+            accumulation_id=group_accumulator_id,
+            skip=0,
+            limit=20,
+        )
+    
+    assert result.total_members == 0
+    assert len(result.list) == 0
+    assert result.skip == 0
+    assert result.limit == 20
+
+
+def test_get_group_member_accumulations_fullname_fallback():
+    """Test fullname falls back to email when name is empty"""
+    group = _make_group()
+    group_accumulator_id = uuid4()
+    user_id = uuid4()
+    
+    mock_group_accumulator = MagicMock()
+    mock_group_accumulator.id = group_accumulator_id
+    mock_group_accumulator.group_id = group.id
+    
+    mock_row = MagicMock()
+    mock_row.user_id = user_id
+    mock_row.total_count = 100
+    
+    mock_user = MagicMock()
+    mock_user.id = user_id
+    mock_user.username = "user123"
+    mock_user.firstname = ""
+    mock_user.lastname = ""
+    mock_user.email = "user@example.com"
+    mock_user.avatar_url = None
+    
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_by_id",
+        return_value=mock_group_accumulator,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_member_contributions",
+        return_value=([mock_row], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_users_by_ids",
+        return_value={user_id: mock_user},
+    ):
+        _session_local_context(mock_session)
+        result = get_group_member_accumulations(
+            group_id=group.id,
+            accumulation_id=group_accumulator_id,
+            skip=0,
+            limit=20,
+        )
+    
+    assert result.list[0].fullname == "user@example.com"

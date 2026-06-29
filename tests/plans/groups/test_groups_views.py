@@ -14,6 +14,8 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupAccumulationsResponse,
     GroupInviteCreatedResponse,
     GroupMantraAccumulationDTO,
+    GroupMemberAccumulationDTO,
+    GroupMemberAccumulationsResponse,
     GroupMetadataDTO,
     UserFollowedAuthorGroupDTO,
     UserFollowedAuthorGroupListResponse,
@@ -663,5 +665,121 @@ def test_get_group_accumulations_with_pagination():
         group_id=group_id,
         language=None,
         skip=5,
+        limit=1,
+    )
+
+
+def test_get_group_member_accumulations_success():
+    """Test getting member contributions for a group accumulator"""
+    group_id = uuid4()
+    accumulation_id = uuid4()
+    
+    response_model = GroupMemberAccumulationsResponse(
+        total_members=3,
+        list=[
+            GroupMemberAccumulationDTO(
+                username="user1",
+                fullname="John Doe",
+                avatar_url="https://example.com/avatar1.jpg",
+                count=500,
+            ),
+            GroupMemberAccumulationDTO(
+                username="user2",
+                fullname="Jane Smith",
+                avatar_url="https://example.com/avatar2.jpg",
+                count=300,
+            ),
+            GroupMemberAccumulationDTO(
+                username=None,
+                fullname="Bob Wilson",
+                avatar_url=None,
+                count=200,
+            ),
+        ],
+        skip=0,
+        limit=20,
+    )
+    
+    with patch(
+        "pecha_api.plans.groups.groups_views.get_group_member_accumulations",
+        return_value=response_model,
+    ) as mock_service:
+        response = client.get(f"/author/groups/{group_id}/accumulations/{accumulation_id}/members")
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["total_members"] == 3
+    assert len(data["list"]) == 3
+    assert data["list"][0]["username"] == "user1"
+    assert data["list"][0]["fullname"] == "John Doe"
+    assert data["list"][0]["count"] == 500
+    assert data["list"][2]["username"] is None
+    mock_service.assert_called_once_with(
+        group_id=group_id,
+        accumulation_id=accumulation_id,
+        skip=0,
+        limit=20,
+    )
+
+
+def test_get_group_member_accumulations_empty():
+    """Test getting member contributions when no members have contributed"""
+    group_id = uuid4()
+    accumulation_id = uuid4()
+    
+    response_model = GroupMemberAccumulationsResponse(
+        total_members=0,
+        list=[],
+        skip=0,
+        limit=20,
+    )
+    
+    with patch(
+        "pecha_api.plans.groups.groups_views.get_group_member_accumulations",
+        return_value=response_model,
+    ) as mock_service:
+        response = client.get(f"/author/groups/{group_id}/accumulations/{accumulation_id}/members")
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["total_members"] == 0
+    assert len(data["list"]) == 0
+
+
+def test_get_group_member_accumulations_with_pagination():
+    """Test getting member contributions with pagination"""
+    group_id = uuid4()
+    accumulation_id = uuid4()
+    
+    response_model = GroupMemberAccumulationsResponse(
+        total_members=100,
+        list=[
+            GroupMemberAccumulationDTO(
+                username="user10",
+                fullname="Member Ten",
+                avatar_url="https://example.com/avatar10.jpg",
+                count=150,
+            ),
+        ],
+        skip=10,
+        limit=1,
+    )
+    
+    with patch(
+        "pecha_api.plans.groups.groups_views.get_group_member_accumulations",
+        return_value=response_model,
+    ) as mock_service:
+        response = client.get(f"/author/groups/{group_id}/accumulations/{accumulation_id}/members?skip=10&limit=1")
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["total_members"] == 100
+    assert data["skip"] == 10
+    assert data["limit"] == 1
+    assert len(data["list"]) == 1
+    mock_service.assert_called_once_with(
+        group_id=group_id,
+        accumulation_id=accumulation_id,
+        skip=10,
         limit=1,
     )
