@@ -22,14 +22,14 @@ class TestDataFactory:
 
     @staticmethod
     def create_group_accumulator_dto(
-        accumulator_id=None,
+        id=None,
         group_id=None,
-        mantra_id=None,
+        accumulator_id=None,
         target_count=108000,
     ) -> GroupAccumulatorDTO:
         return GroupAccumulatorDTO(
-            id=accumulator_id or uuid4(),
-            mantra_id=mantra_id,
+            id=id or uuid4(),
+            accumulator_id=accumulator_id,
             group_id=group_id or uuid4(),
             target_count=target_count,
             start_date=datetime.utcnow(),
@@ -40,15 +40,15 @@ class TestDataFactory:
 
     @staticmethod
     def create_group_accumulator_detail(
-        accumulator_id=None,
+        id=None,
         group_id=None,
-        mantra_id=None,
+        accumulator_id=None,
         target_count=108000,
         total_count=5000,
     ) -> GroupAccumulatorDetailDTO:
         return GroupAccumulatorDetailDTO(
-            id=accumulator_id or uuid4(),
-            mantra_id=mantra_id,
+            id=id or uuid4(),
+            accumulator_id=accumulator_id,
             group_id=group_id or uuid4(),
             target_count=target_count,
             start_date=datetime.utcnow(),
@@ -78,18 +78,18 @@ class TestCreateGroupAccumulator:
     def test_create_group_accumulator_success(self, mock_service):
         """Test successful creation of group accumulator."""
         group_id = uuid4()
-        mantra_id = uuid4()
         accumulator_id = uuid4()
+        group_accumulator_id = uuid4()
         
         mock_service.return_value = TestDataFactory.create_group_accumulator_dto(
-            accumulator_id=accumulator_id,
+            id=group_accumulator_id,
             group_id=group_id,
-            mantra_id=mantra_id,
+            accumulator_id=accumulator_id,
             target_count=108000,
         )
 
         payload = {
-            "mantra_id": str(mantra_id),
+            "accumulator_id": str(accumulator_id),
             "target_count": 108000,
             "start_date": datetime.utcnow().isoformat(),
             "end_date": None,
@@ -103,9 +103,9 @@ class TestCreateGroupAccumulator:
 
         assert response.status_code == status.HTTP_201_CREATED
         data = response.json()
-        assert data["id"] == str(accumulator_id)
+        assert data["id"] == str(group_accumulator_id)
         assert data["group_id"] == str(group_id)
-        assert data["mantra_id"] == str(mantra_id)
+        assert data["accumulator_id"] == str(accumulator_id)
         assert data["target_count"] == 108000
         mock_service.assert_called_once()
 
@@ -250,24 +250,24 @@ class TestGetSingleGroupAccumulator:
     def test_get_single_group_accumulator_success(self, mock_service):
         """Test successful retrieval of single group accumulator."""
         group_id = uuid4()
-        accumulator_id = uuid4()
+        group_accumulator_id = uuid4()
         mock_service.return_value = TestDataFactory.create_group_accumulator_detail(
-            accumulator_id=accumulator_id,
+            id=group_accumulator_id,
             group_id=group_id,
             total_count=5000,
         )
 
         response = client.get(
-            f"/cms/groups/{group_id}/accumulators/{accumulator_id}",
+            f"/cms/groups/{group_id}/accumulators/{group_accumulator_id}",
             headers={"Authorization": "Bearer admin_token"},
         )
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["id"] == str(accumulator_id)
+        assert data["id"] == str(group_accumulator_id)
         assert data["group_id"] == str(group_id)
         assert data["total_count"] == 5000
-        mock_service.assert_called_once_with(group_accumulator_id=accumulator_id)
+        mock_service.assert_called_once_with(group_accumulator_id=group_accumulator_id)
 
     @patch('pecha_api.group_accumulator.group_accumulator_cms_views.get_group_accumulator_service')
     def test_get_single_group_accumulator_not_found(self, mock_service):
@@ -309,9 +309,9 @@ class TestUpdateGroupAccumulator:
     def test_update_group_accumulator_success(self, mock_service):
         """Test successful update of group accumulator."""
         group_id = uuid4()
-        accumulator_id = uuid4()
+        group_accumulator_id = uuid4()
         mock_service.return_value = TestDataFactory.create_group_accumulator_dto(
-            accumulator_id=accumulator_id,
+            id=group_accumulator_id,
             group_id=group_id,
             target_count=216000,
         )
@@ -321,14 +321,14 @@ class TestUpdateGroupAccumulator:
         }
 
         response = client.put(
-            f"/cms/groups/{group_id}/accumulators/{accumulator_id}",
+            f"/cms/groups/{group_id}/accumulators/{group_accumulator_id}",
             json=payload,
             headers={"Authorization": "Bearer admin_token"},
         )
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["id"] == str(accumulator_id)
+        assert data["id"] == str(group_accumulator_id)
         assert data["target_count"] == 216000
         mock_service.assert_called_once()
 
@@ -401,27 +401,27 @@ class TestUpdateGroupAccumulator:
     def test_update_group_accumulator_partial_update(self, mock_service):
         """Test partial update of group accumulator."""
         group_id = uuid4()
+        group_accumulator_id = uuid4()
         accumulator_id = uuid4()
-        mantra_id = uuid4()
         mock_service.return_value = TestDataFactory.create_group_accumulator_dto(
-            accumulator_id=accumulator_id,
+            id=group_accumulator_id,
             group_id=group_id,
-            mantra_id=mantra_id,
+            accumulator_id=accumulator_id,
         )
 
         payload = {
-            "mantra_id": str(mantra_id),
+            "accumulator_id": str(accumulator_id),
         }
 
         response = client.put(
-            f"/cms/groups/{group_id}/accumulators/{accumulator_id}",
+            f"/cms/groups/{group_id}/accumulators/{group_accumulator_id}",
             json=payload,
             headers={"Authorization": "Bearer admin_token"},
         )
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["mantra_id"] == str(mantra_id)
+        assert data["accumulator_id"] == str(accumulator_id)
 
 
 class TestDeleteGroupAccumulator:

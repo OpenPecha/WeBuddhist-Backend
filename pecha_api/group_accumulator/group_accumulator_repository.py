@@ -9,14 +9,14 @@ from pecha_api.accumulator import GroupAccumulator, GroupAccumulatorHistory
 def create_group_accumulator(
     db: Session,
     group_id: UUID,
-    mantra_id: Optional[UUID],
+    accumulator_id: Optional[UUID],
     target_count: Optional[int],
     start_date,
     end_date,
 ) -> GroupAccumulator:
     group_accumulator = GroupAccumulator(
         group_id=group_id,
-        mantra_id=mantra_id,
+        accumulator_id=accumulator_id,
         target_count=target_count,
         start_date=start_date,
         end_date=end_date,

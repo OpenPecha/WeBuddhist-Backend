@@ -32,7 +32,7 @@ from .group_accumulator_response_models import (
 def _convert_to_dto(group_accumulator) -> GroupAccumulatorDTO:
     return GroupAccumulatorDTO(
         id=group_accumulator.id,
-        mantra_id=group_accumulator.mantra_id,
+        accumulator_id=group_accumulator.accumulator_id,
         group_id=group_accumulator.group_id,
         target_count=group_accumulator.target_count,
         start_date=group_accumulator.start_date,
@@ -56,7 +56,7 @@ def create_group_accumulator_service(
         group_accumulator = create_group_accumulator(
             db=db,
             group_id=group_id,
-            mantra_id=request.mantra_id,
+            accumulator_id=request.accumulator_id,
             target_count=request.target_count,
             start_date=request.start_date,
             end_date=request.end_date,
@@ -94,7 +94,7 @@ def get_group_accumulator_service(
         
         return GroupAccumulatorDetailDTO(
             id=group_accumulator.id,
-            mantra_id=group_accumulator.mantra_id,
+            accumulator_id=group_accumulator.accumulator_id,
             group_id=group_accumulator.group_id,
             target_count=group_accumulator.target_count,
             start_date=group_accumulator.start_date,
@@ -124,8 +124,8 @@ def update_group_accumulator_service(
                 detail={"error": "FORBIDDEN", "message": "Group accumulator does not belong to this group"}
             )
         
-        if request.mantra_id is not None:
-            group_accumulator.mantra_id = request.mantra_id
+        if request.accumulator_id is not None:
+            group_accumulator.accumulator_id = request.accumulator_id
         if request.target_count is not None:
             group_accumulator.target_count = request.target_count
         if request.start_date is not None:
@@ -227,7 +227,7 @@ def get_group_accumulator_history_service(
         return GroupAccumulatorHistoryResponse(
             group_accumulator=GroupAccumulatorDetailDTO(
                 id=group_accumulator.id,
-                mantra_id=group_accumulator.mantra_id,
+                accumulator_id=group_accumulator.accumulator_id,
                 group_id=group_accumulator.group_id,
                 target_count=group_accumulator.target_count,
                 start_date=group_accumulator.start_date,

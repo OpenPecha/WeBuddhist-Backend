@@ -23,10 +23,10 @@ from pecha_api.group_accumulator.group_accumulator_response_models import (
 
 class MockGroupAccumulator:
     """Mock GroupAccumulator model."""
-    def __init__(self, id=None, group_id=None, mantra_id=None, target_count=108000):
+    def __init__(self, id=None, group_id=None, accumulator_id=None, target_count=108000):
         self.id = id or uuid4()
         self.group_id = group_id or uuid4()
-        self.mantra_id = mantra_id
+        self.accumulator_id = accumulator_id
         self.target_count = target_count
         self.start_date = datetime.utcnow()
         self.end_date = None
@@ -60,15 +60,15 @@ class TestCreateGroupAccumulatorService:
     def test_create_group_accumulator_success(self, mock_create, mock_verify, mock_session):
         """Test successful creation of group accumulator."""
         group_id = uuid4()
-        mantra_id = uuid4()
+        accumulator_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_verify.return_value = True
-        mock_accumulator = MockGroupAccumulator(group_id=group_id, mantra_id=mantra_id)
+        mock_accumulator = MockGroupAccumulator(group_id=group_id, accumulator_id=accumulator_id)
         mock_create.return_value = mock_accumulator
 
         request = CreateGroupAccumulatorRequest(
-            mantra_id=mantra_id,
+            accumulator_id=accumulator_id,
             target_count=108000,
             start_date=datetime.utcnow(),
             end_date=None,
@@ -78,7 +78,7 @@ class TestCreateGroupAccumulatorService:
 
         assert result.id == mock_accumulator.id
         assert result.group_id == group_id
-        assert result.mantra_id == mantra_id
+        assert result.accumulator_id == accumulator_id
         assert result.target_count == 108000
         mock_verify.assert_called_once_with(mock_db, group_id)
         mock_create.assert_called_once()

@@ -5,14 +5,14 @@ from uuid import UUID
 
 
 class CreateGroupAccumulatorRequest(BaseModel):
-    mantra_id: Optional[UUID] = None
+    accumulator_id: Optional[UUID] = None
     target_count: Optional[int] = Field(None, ge=1)
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
 
 
 class UpdateGroupAccumulatorRequest(BaseModel):
-    mantra_id: Optional[UUID] = None
+    accumulator_id: Optional[UUID] = None
     target_count: Optional[int] = Field(None, ge=1)
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -20,7 +20,7 @@ class UpdateGroupAccumulatorRequest(BaseModel):
 
 class GroupAccumulatorDTO(BaseModel):
     id: UUID
-    mantra_id: Optional[UUID] = None
+    accumulator_id: Optional[UUID] = None
     group_id: UUID
     target_count: Optional[int] = None
     start_date: Optional[datetime] = None
@@ -49,7 +49,7 @@ class GroupAccumulatorHistoryItemDTO(BaseModel):
 
 class GroupAccumulatorDetailDTO(BaseModel):
     id: UUID
-    mantra_id: Optional[UUID] = None
+    accumulator_id: Optional[UUID] = None
     group_id: UUID
     target_count: Optional[int] = None
     start_date: Optional[datetime] = None

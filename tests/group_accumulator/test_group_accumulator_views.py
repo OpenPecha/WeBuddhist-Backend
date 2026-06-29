@@ -21,15 +21,15 @@ class TestDataFactory:
 
     @staticmethod
     def create_group_accumulator_detail(
-        accumulator_id=None,
+        id=None,
         group_id=None,
-        mantra_id=None,
+        accumulator_id=None,
         target_count=108000,
         total_count=5000,
     ) -> GroupAccumulatorDetailDTO:
         return GroupAccumulatorDetailDTO(
-            id=accumulator_id or uuid4(),
-            mantra_id=mantra_id,
+            id=id or uuid4(),
+            accumulator_id=accumulator_id,
             group_id=group_id or uuid4(),
             target_count=target_count,
             start_date=datetime.utcnow(),
@@ -73,19 +73,19 @@ class TestGetGroupAccumulator:
     @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulator_service')
     def test_get_group_accumulator_success(self, mock_service):
         """Test successful retrieval of group accumulator details."""
-        accumulator_id = uuid4()
+        group_accumulator_id = uuid4()
         mock_service.return_value = TestDataFactory.create_group_accumulator_detail(
-            accumulator_id=accumulator_id,
+            id=group_accumulator_id,
             total_count=5000,
         )
 
-        response = client.get(f"/group-accumulators/{accumulator_id}")
+        response = client.get(f"/group-accumulators/{group_accumulator_id}")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["id"] == str(accumulator_id)
+        assert data["id"] == str(group_accumulator_id)
         assert data["total_count"] == 5000
-        mock_service.assert_called_once_with(group_accumulator_id=accumulator_id)
+        mock_service.assert_called_once_with(group_accumulator_id=group_accumulator_id)
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulator_service')
     def test_get_group_accumulator_not_found(self, mock_service):
