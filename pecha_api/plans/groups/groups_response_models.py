@@ -39,6 +39,8 @@ __all__ = [
     "TransferGroupOwnershipRequest",
     "GroupMantraAccumulationDTO",
     "GroupAccumulationsResponse",
+    "GroupMemberAccumulationDTO",
+    "GroupMemberAccumulationsResponse",
 ]
 
 
@@ -234,5 +236,19 @@ class GroupAccumulationsResponse(BaseModel):
     mantras: List[GroupMantraAccumulationDTO]
     total_count: int
     total: int
+    skip: int
+    limit: int
+
+
+class GroupMemberAccumulationDTO(BaseModel):
+    username: Optional[str] = None
+    fullname: str
+    avatar_url: Optional[str] = None
+    count: int
+
+
+class GroupMemberAccumulationsResponse(BaseModel):
+    total_members: int
+    list: List[GroupMemberAccumulationDTO]
     skip: int
     limit: int

@@ -16,6 +16,7 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupInviteCreatedResponse,
     GroupInviteDTO,
     GroupInviteListResponse,
+    GroupMemberAccumulationsResponse,
     PublicAuthorGroupDetailDTO,
     PublicAuthorGroupListResponse,
     ReplaceGroupSocialLinksRequest,
@@ -38,6 +39,7 @@ from pecha_api.plans.groups.groups_service import (
     get_cms_group_detail,
     get_followed_group,
     get_group_accumulations,
+    get_group_member_accumulations,
     get_joined_group,
     join_group,
     leave_group,
@@ -442,6 +444,7 @@ def get_my_joined_groups(
     )
 
 
+
 @public_groups_router.get("/{group_id}/accumulations", status_code=status.HTTP_200_OK, response_model=GroupAccumulationsResponse)
 def get_group_accumulations_endpoint(
     group_id: UUID,
@@ -452,6 +455,21 @@ def get_group_accumulations_endpoint(
     return get_group_accumulations(
         group_id=group_id,
         language=language,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@public_groups_router.get("/{group_id}/accumulations/{accumulation_id}/members", status_code=status.HTTP_200_OK, response_model=GroupMemberAccumulationsResponse)
+def get_group_member_accumulations_endpoint(
+    group_id: UUID,
+    accumulation_id: UUID,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    return get_group_member_accumulations(
+        group_id=group_id,
+        accumulation_id=accumulation_id,
         skip=skip,
         limit=limit,
     )

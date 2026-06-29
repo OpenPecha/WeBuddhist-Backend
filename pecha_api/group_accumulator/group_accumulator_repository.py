@@ -126,3 +126,51 @@ def get_user_group_accumulator_count(
 def verify_group_exists(db: Session, group_id: UUID) -> bool:
     from pecha_api.plans.groups.groups_models import AuthorGroup
     return db.query(AuthorGroup).filter(AuthorGroup.id == group_id).first() is not None
+
+
+class GroupAccumulatorMemberRow:
+    def __init__(self, user_id: UUID, total_count: int):
+        self.user_id = user_id
+        self.total_count = total_count
+
+
+def get_group_accumulator_member_contributions(
+    db: Session,
+    group_accumulator_id: UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> Tuple[List[GroupAccumulatorMemberRow], int]:
+    """
+    Get member contributions for a specific group accumulator.
+    Returns: (rows, total_member_count)
+    """
+    grouped = (
+        db.query(
+            GroupAccumulatorHistory.user_id.label("user_id"),
+            func.coalesce(func.sum(GroupAccumulatorHistory.count), 0).label("total_count"),
+        )
+        .filter(
+            GroupAccumulatorHistory.group_accumulator_id == group_accumulator_id,
+            GroupAccumulatorHistory.count > 0,
+        )
+        .group_by(GroupAccumulatorHistory.user_id)
+        .subquery()
+    )
+    
+    total_member_count = db.query(func.count()).select_from(grouped).scalar() or 0
+    
+    rows = (
+        db.query(grouped)
+        .order_by(grouped.c.total_count.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    
+    return [
+        GroupAccumulatorMemberRow(
+            user_id=row.user_id,
+            total_count=int(row.total_count or 0),
+        )
+        for row in rows
+    ], total_member_count

@@ -68,6 +68,10 @@ from pecha_api.plans.groups.groups_repository import (
 )
 from pecha_api.mantra.mantra_count_repository import get_group_mantra_accumulations
 from pecha_api.mantra.mantra_repository import get_mantras_by_ids
+from pecha_api.group_accumulator.group_accumulator_repository import (
+    get_group_accumulator_by_id,
+    get_group_accumulator_member_contributions,
+)
 from pecha_api.plans.series.series_repository import (
     get_active_plan_count_map_by_series_ids,
     get_enrolled_count_map_by_series_ids,
@@ -90,6 +94,8 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupInviteDTO,
     GroupInviteListResponse,
     GroupMantraAccumulationDTO,
+    GroupMemberAccumulationDTO,
+    GroupMemberAccumulationsResponse,
     GroupMetadataDTO,
     GroupSocialLinkDTO,
     PublicAuthorGroupDetailDTO,
@@ -109,6 +115,7 @@ from pecha_api.plans.groups.groups_response_models import (
 from pecha_api.plans.groups.groups_models import author_group_tags
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
+from pecha_api.users.users_repository import get_users_by_ids
 
 GROUP_NOT_FOUND = "Group not found"
 INVITE_NOT_FOUND = "Invite not found"
@@ -1479,6 +1486,67 @@ def get_group_accumulations(
             mantras=mantra_dtos,
             total_count=grand_total_count,
             total=total,
+            skip=skip,
+            limit=limit,
+        )
+
+
+def get_group_member_accumulations(
+    group_id: UUID,
+    accumulation_id: UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> GroupMemberAccumulationsResponse:
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        
+        group_accumulator = get_group_accumulator_by_id(db=db, group_accumulator_id=accumulation_id)
+        if not group_accumulator:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group accumulator not found")
+        
+        if group_accumulator.group_id != group_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group accumulator does not belong to this group")
+        
+        rows, total = get_group_accumulator_member_contributions(
+            db=db,
+            group_accumulator_id=accumulation_id,
+            skip=skip,
+            limit=limit,
+        )
+        
+        if not rows:
+            return GroupMemberAccumulationsResponse(
+                total_members=0,
+                list=[],
+                skip=skip,
+                limit=limit,
+            )
+        
+        user_ids = [row.user_id for row in rows]
+        users_map = get_users_by_ids(db=db, user_ids=user_ids)
+        
+        member_dtos = []
+        for row in rows:
+            user = users_map.get(row.user_id)
+            if user:
+                fullname = f"{user.firstname} {user.lastname}".strip()
+                if not fullname:
+                    fullname = user.email
+                
+                member_dtos.append(
+                    GroupMemberAccumulationDTO(
+                        username=user.username,
+                        fullname=fullname,
+                        avatar_url=user.avatar_url,
+                        count=row.total_count,
+                    )
+                )
+        
+        return GroupMemberAccumulationsResponse(
+            total_members=total,
+            list=member_dtos,
             skip=skip,
             limit=limit,
         )

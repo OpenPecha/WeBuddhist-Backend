@@ -1,5 +1,6 @@
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional
+from uuid import UUID
 from sqlalchemy.exc import InvalidRequestError, IntegrityError
 from sqlalchemy.orm import Session
 from .users_models import Users, SocialMediaAccount
@@ -67,3 +68,11 @@ def delete_user(db: Session, user: Users) -> None:
         db.rollback()
         logging.exception(f"Failed to delete user {user.id}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorConstants.USER_DELETE_FAILED)
+
+
+def get_users_by_ids(db: Session, user_ids: List[UUID]) -> Dict[UUID, Users]:
+    """Get users by list of IDs and return as a dictionary keyed by user ID"""
+    if not user_ids:
+        return {}
+    users = db.query(Users).filter(Users.id.in_(user_ids)).all()
+    return {user.id: user for user in users}
