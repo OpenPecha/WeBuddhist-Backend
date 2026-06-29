@@ -682,7 +682,8 @@ def test_is_series_enrolled_for_group_context():
 def test_series_to_dtos_sets_partner_enrollment_for_authenticated_user():
     group_id = uuid4()
     series = _make_series_with_metadata()
-    partner_id = uuid4()
+    series.group_id = uuid4()
+    series_partner_row_id = uuid4()
     user_id = uuid4()
     mock_db = MagicMock()
     with patch(
@@ -693,10 +694,10 @@ def test_series_to_dtos_sets_partner_enrollment_for_authenticated_user():
         return_value={series.id: 5},
     ), patch(
         "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
-        return_value={series.id: partner_id},
+        return_value={series.id: series_partner_row_id},
     ), patch(
         "pecha_api.plans.groups.groups_service.get_user_series_enrollment_partner_map",
-        return_value={series.id: partner_id},
+        return_value={series.id: series_partner_row_id},
     ):
         dtos = _series_to_dtos(
             db=mock_db,
@@ -705,14 +706,15 @@ def test_series_to_dtos_sets_partner_enrollment_for_authenticated_user():
             user_id=user_id,
         )
 
-    assert dtos[0].series_partner_id == partner_id
+    assert dtos[0].series_partner_id == group_id
     assert dtos[0].is_enrolled is True
 
 
 def test_series_to_dtos_is_not_enrolled_without_user():
     group_id = uuid4()
     series = _make_series_with_metadata()
-    partner_id = uuid4()
+    series.group_id = uuid4()
+    series_partner_row_id = uuid4()
     mock_db = MagicMock()
     with patch(
         "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
@@ -722,7 +724,7 @@ def test_series_to_dtos_is_not_enrolled_without_user():
         return_value={series.id: 5},
     ), patch(
         "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
-        return_value={series.id: partner_id},
+        return_value={series.id: series_partner_row_id},
     ), patch(
         "pecha_api.plans.groups.groups_service.get_user_series_enrollment_partner_map",
     ) as mock_enrollment_map:
@@ -733,8 +735,29 @@ def test_series_to_dtos_is_not_enrolled_without_user():
         )
 
     mock_enrollment_map.assert_not_called()
-    assert dtos[0].series_partner_id == partner_id
+    assert dtos[0].series_partner_id == group_id
     assert dtos[0].is_enrolled is False
+
+
+def test_series_to_dtos_omits_series_partner_id_for_owned_series():
+    group_id = uuid4()
+    series = _make_series_with_metadata()
+    series.group_id = group_id
+    series_partner_row_id = uuid4()
+    mock_db = MagicMock()
+    with patch(
+        "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
+        return_value={series.id: 2},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_enrolled_count_map_by_series_ids",
+        return_value={series.id: 5},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
+        return_value={series.id: series_partner_row_id},
+    ):
+        dtos = _series_to_dtos(db=mock_db, series_list=[series], group_id=group_id)
+
+    assert dtos[0].series_partner_id is None
 
 
 def test_series_to_dtos_filters_metadata_by_language():

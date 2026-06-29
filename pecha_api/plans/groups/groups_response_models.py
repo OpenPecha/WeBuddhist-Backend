@@ -16,7 +16,7 @@ from pecha_api.plans.series.series_response_models import SeriesListItemDTO
 
 
 class GroupSeriesListItemDTO(SeriesListItemDTO):
-    series_partner_id: Optional[UUID] = None
+    series_partner_id: Optional[UUID] = None  # Partner group ID when series is partnered via this group
     is_enrolled: bool = False
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
