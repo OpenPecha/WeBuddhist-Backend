@@ -627,9 +627,15 @@ def get_user_plan_day_details_service(token: str, plan_id: UUID, day_number: int
             user_subtask_completions = get_user_subtask_completions_by_user_id_and_sub_task_ids(db=db, user_id=current_user.id, sub_task_ids=sub_task_ids)
             completed_subtask_ids = [completion.sub_task_id for completion in user_subtask_completions]
 
-        from pecha_api.plans.audio.dto_helpers import build_plan_day_audio_fields
+        from pecha_api.plans.audio.dto_helpers import (
+            build_plan_day_audio_fields,
+            build_plan_day_shareable_image_fields,
+        )
 
         audio_url, audio_duration_ms, _, _ = build_plan_day_audio_fields(plan_item)
+        thumbnail_url, _, shareable_image_url, _ = build_plan_day_shareable_image_fields(
+            getattr(plan_item, "shareable_images", None)
+        )
         from pecha_api.plans.public.plan_response_models import DayVideoSummaryDTO
         user_day_details = UserPlanDayDetailsResponse(
             id=plan_item.id,
@@ -637,6 +643,8 @@ def get_user_plan_day_details_service(token: str, plan_id: UUID, day_number: int
             is_completed=is_day_completed(db=db, user_id=current_user.id, day_id=plan_item.id),
             audio_url=audio_url,
             audio_duration_ms=audio_duration_ms,
+            thumbnail_url=thumbnail_url,
+            shareable_image_url=shareable_image_url,
             tasks=[
                 UserTaskDTO(
                     id=task.id,

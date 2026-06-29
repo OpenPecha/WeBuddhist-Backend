@@ -102,6 +102,8 @@ class UserPlanDayDetailsResponse(BaseModel):
     is_completed: bool
     audio_url: Optional[str] = None
     audio_duration_ms: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+    shareable_image_url: Optional[str] = None
     videos: List[DayVideoSummaryDTO] = []
 
 
