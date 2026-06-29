@@ -1220,7 +1220,8 @@ def test_resolve_daily_plan_raises_when_date_resolution_fails():
     assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
-def test_get_plan_day_details_success():
+@pytest.mark.asyncio
+async def test_get_plan_day_details_success():
     """Test successful retrieval of plan day details with tasks and subtasks"""
     plan_id = uuid4()
     day_number = 1
@@ -1248,14 +1249,18 @@ def test_get_plan_day_details_success():
     mock_plan_item.tasks = [mock_task]
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks") as mock_get_plan_day:
+         patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks") as mock_get_plan_day, \
+         patch("pecha_api.plans.public.plan_service.get_plan_day_detail_cache", return_value=None) as mock_get_cache, \
+         patch("pecha_api.plans.public.plan_service.set_plan_day_detail_cache") as mock_set_cache:
         
         db_session = _mock_session_local(mock_session_local)
         mock_get_plan_day.return_value = mock_plan_item
 
-        response = get_plan_day_details(plan_id=plan_id, day_number=day_number)
+        response = await get_plan_day_details(plan_id=plan_id, day_number=day_number)
 
+        mock_get_cache.assert_awaited_once_with(plan_id=plan_id, day_number=day_number)
         mock_get_plan_day.assert_called_once_with(db=db_session, plan_id=plan_id, day_number=day_number)
+        mock_set_cache.assert_awaited_once()
 
         assert isinstance(response, PlanDayDTO)
         assert response.id == mock_plan_item.id

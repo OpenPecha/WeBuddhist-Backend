@@ -41,6 +41,10 @@ from pecha_api.plans.shared.metadata_utils import (
     format_metadata_response,
     filter_by_language_with_fallback,
 )
+from pecha_api.plans.public.plans_cache_service import (
+    get_plan_day_detail_cache,
+    set_plan_day_detail_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -412,12 +416,19 @@ def _build_plan_day_dto(plan_item) -> PlanDayDTO:
         ],
     )
 
-def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
+async def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
     """Get specific day's content with tasks"""
+
+    cached = await get_plan_day_detail_cache(plan_id=plan_id, day_number=day_number)
+    if cached is not None:
+        return cached
 
     with SessionLocal() as db:
         plan_item = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
-        return _build_plan_day_dto(plan_item)
+        response = _build_plan_day_dto(plan_item)
+
+    await set_plan_day_detail_cache(plan_id=plan_id, day_number=day_number, data=response)
+    return response
 
 
 def _filter_series_metadata_by_language(metadata_entries, language: Optional[str]):

@@ -26,6 +26,7 @@ from pecha_api.plans.shared.permissions import require_can_edit_content
 from pecha_api.plans.tasks.plan_tasks_repository import get_task_by_id
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_repository import get_sub_task_by_subtask_id
+from pecha_api.plans.public.plans_cache_service import schedule_invalidate_plan_day_cache_for_task
 from pecha_api.uploads.S3_utils import delete_file, generate_presigned_access_url, upload_file
 
 
@@ -102,6 +103,7 @@ def upload_plan_subtask_audio(
         sub_task_id_str = str(sub_task_id)
         audio_key = s3_key
         stored_duration_ms = duration_ms
+        schedule_invalidate_plan_day_cache_for_task(db=db, task_id=subtask.task_id)
 
     audio_url = generate_presigned_access_url(
         bucket_name=get("AWS_BUCKET_NAME"),
@@ -127,3 +129,4 @@ def delete_plan_subtask_audio(token: str, sub_task_id: UUID) -> None:
         subtask.duration = None
         subtask.updated_by = current_author.email
         db.commit()
+        schedule_invalidate_plan_day_cache_for_task(db=db, task_id=subtask.task_id)

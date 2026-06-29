@@ -41,6 +41,17 @@ def get_series_partner(db: Session, series_id: UUID, group_id: UUID) -> Optional
     ).first()
 
 
+def ensure_series_partner(db: Session, series_id: UUID, group_id: UUID) -> SeriesPartner:
+    """Create the series_partner row when missing (idempotent)."""
+    partner = get_series_partner(db, series_id, group_id)
+    if partner is not None:
+        return partner
+    partner = SeriesPartner(series_id=series_id, group_id=group_id)
+    db.add(partner)
+    db.flush()
+    return partner
+
+
 def get_user_series_enrollments_by_user_id(
     db: Session,
     user_id: UUID,
