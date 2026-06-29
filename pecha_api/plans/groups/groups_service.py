@@ -413,7 +413,6 @@ def _series_to_dtos(
                 language=language,
                 fallback=True,
             ).model_dump(),
-            series_partner_id=partner_id_map.get(series.id),
             is_enrolled=_is_series_enrolled_for_group_context(
                 enrollment_partner_id=enrollment_partner_map.get(series.id),
                 expected_partner_id=partner_id_map.get(series.id),

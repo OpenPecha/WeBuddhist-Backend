@@ -1676,6 +1676,58 @@ def test_get_user_plan_day_details_service_success():
         assert set(mock_subtask_completions.call_args.kwargs["sub_task_ids"]) == {sub1_id, sub2_id}
 
 
+def test_get_user_plan_day_details_service_includes_shareable_image_urls():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    day_id = uuid.uuid4()
+
+    mock_shareable_images = SimpleNamespace(
+        thumbnail_key="images/day_shareable/thumb.webp",
+        shareable_image_key="images/day_shareable/share.webp",
+    )
+    plan_item = SimpleNamespace(
+        id=day_id,
+        day_number=1,
+        videos=[],
+        shareable_images=mock_shareable_images,
+        tasks=[],
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_day_with_tasks_and_subtasks",
+        return_value=plan_item,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.is_day_completed",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_task_completions_by_user_id_and_task_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_subtask_completions_by_user_id_and_sub_task_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.audio.dto_helpers.build_plan_day_shareable_image_fields",
+        return_value=(
+            "https://bucket.s3.amazonaws.com/thumb",
+            "images/day_shareable/thumb.webp",
+            "https://bucket.s3.amazonaws.com/share",
+            "images/day_shareable/share.webp",
+        ),
+    ):
+        result = get_user_plan_day_details_service(token="tok", plan_id=plan_id, day_number=1)
+
+        assert result.thumbnail_url == "https://bucket.s3.amazonaws.com/thumb"
+        assert result.shareable_image_url == "https://bucket.s3.amazonaws.com/share"
+
+
 def test_is_completion_helpers_boolean_gateways():
     from pecha_api.plans.users.plan_users_service import is_day_completed
 

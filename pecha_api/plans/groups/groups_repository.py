@@ -76,7 +76,11 @@ def get_author_group_ids(db: Session, author_id: UUID) -> List[UUID]:
 def get_plans_by_group_id(db: Session, group_id: UUID) -> List[Plan]:
     return (
         db.query(Plan)
-        .filter(Plan.group_id == group_id, Plan.deleted_at.is_(None))
+        .filter(
+            Plan.group_id == group_id,
+            Plan.deleted_at.is_(None),
+            Plan.series_id.is_(None),
+        )
         .all()
     )
 

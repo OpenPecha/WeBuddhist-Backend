@@ -19,6 +19,10 @@ from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.config import get
 from pecha_api.plans.plans_enums import ContentType
+from pecha_api.plans.public.plans_cache_service import (
+    schedule_invalidate_plan_day_cache_for_day,
+    schedule_invalidate_plan_day_cache_for_task,
+)
 
 def _get_max_display_order(plan_item_id: UUID) -> int:
     with SessionLocal() as db:
@@ -51,6 +55,7 @@ async def create_new_task(token: str, create_task_request: CreateTaskRequest, pl
 
     saved_task = save_task(db=db,new_task=new_task)
 
+    schedule_invalidate_plan_day_cache_for_day(db=db, day_id=plan_item.id)
     return TaskDTO(
         id=saved_task.id,
         title=saved_task.title,
@@ -68,6 +73,7 @@ async def delete_task_by_id(task_id: UUID, token: str):
         tasks = get_tasks_by_plan_item_id(db=db, plan_item_id=task.plan_item_id)
         if tasks:
             _reorder_sequentially(db=db, tasks=tasks)
+        schedule_invalidate_plan_day_cache_for_task(db=db, task_id=task_id)
 
 async def change_task_day_service(token: str, task_id: UUID, update_task_request: UpdateTaskDayRequest) -> UpdatedTaskDayResponse:
     current_author = validate_cms_author_details(token=token)
@@ -81,6 +87,7 @@ async def change_task_day_service(token: str, task_id: UUID, update_task_request
             raise HTTPException(status_code=404, detail=ResponseError(error=BAD_REQUEST, message=PLAN_DAY_NOT_FOUND).model_dump())
         
         task = _get_author_task(db=db, task_id=task_id, current_author=current_author)
+        source_day_id = task.plan_item_id
         task.plan_item_id = update_task_request.target_day_id
         task.display_order = display_order
 
@@ -88,6 +95,9 @@ async def change_task_day_service(token: str, task_id: UUID, update_task_request
             db=db, 
             updated_task=task
         )
+
+        schedule_invalidate_plan_day_cache_for_day(db=db, day_id=source_day_id)
+        schedule_invalidate_plan_day_cache_for_day(db=db, day_id=task.plan_item_id)
 
         return UpdatedTaskDayResponse(
             task_id=task.id, 
@@ -110,6 +120,7 @@ async def update_task_title_service(token: str, task_id: UUID, update_request: U
 
         updated_task = update_task_title(db=db, updated_task=task)
 
+        schedule_invalidate_plan_day_cache_for_task(db=db, task_id=task_id)
         return UpdateTaskTitleResponse(
             task_id=updated_task.id,
             title=updated_task.title,
@@ -122,6 +133,7 @@ async def change_task_order_service(token: str, day_id: UUID, update_task_order_
     with SessionLocal() as db:
         _check_duplicate_task_order(update_task_orders=update_task_order_request.tasks)
         update_task_order(db=db, day_id=day_id, update_task_orders=update_task_order_request.tasks)
+        schedule_invalidate_plan_day_cache_for_day(db=db, day_id=day_id)
 
 
 async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskResponse:

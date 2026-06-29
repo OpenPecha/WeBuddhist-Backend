@@ -11,6 +11,7 @@ from pecha_api.plans.groups.groups_response_models import (
     CreateAuthorGroupRequest,
     CreateGroupInviteRequest,
     GroupMetadataInput,
+    GroupSeriesListItemDTO,
     GroupSocialLinkInput,
     ReplaceGroupSocialLinksRequest,
     ReplaceGroupTagsRequest,
@@ -660,6 +661,11 @@ def test_series_to_dtos_returns_empty_for_empty_series_list():
     mock_db.assert_not_called()
 
 
+def test_group_series_list_item_dto_excludes_series_partner_id():
+    assert "series_partner_id" not in GroupSeriesListItemDTO.model_fields
+    assert "is_enrolled" in GroupSeriesListItemDTO.model_fields
+
+
 def test_is_series_enrolled_for_group_context():
     partner_id = uuid4()
     assert _is_series_enrolled_for_group_context(
@@ -705,7 +711,6 @@ def test_series_to_dtos_sets_partner_enrollment_for_authenticated_user():
             user_id=user_id,
         )
 
-    assert dtos[0].series_partner_id == partner_id
     assert dtos[0].is_enrolled is True
 
 
@@ -733,7 +738,6 @@ def test_series_to_dtos_is_not_enrolled_without_user():
         )
 
     mock_enrollment_map.assert_not_called()
-    assert dtos[0].series_partner_id == partner_id
     assert dtos[0].is_enrolled is False
 
 

@@ -83,7 +83,15 @@ class PlanDayDTO(BaseModel):
     tasks: List[TaskDTO]
     audio_url: Optional[str] = None
     audio_duration_ms: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+    shareable_image_url: Optional[str] = None
     videos: List[DayVideoSummaryDTO] = []
+
+
+class PlanDayCacheCleanupResponse(BaseModel):
+    plan_id: UUID
+    day_number: Optional[int] = None
+    keys_deleted: int
 
 
 class PlanWithDays(BaseModel):

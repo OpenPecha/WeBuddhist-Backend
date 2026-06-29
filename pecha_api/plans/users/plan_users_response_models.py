@@ -102,6 +102,8 @@ class UserPlanDayDetailsResponse(BaseModel):
     is_completed: bool
     audio_url: Optional[str] = None
     audio_duration_ms: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+    shareable_image_url: Optional[str] = None
     videos: List[DayVideoSummaryDTO] = []
 
 
@@ -132,7 +134,7 @@ class UserSeriesEnrollmentDTO(BaseModel):
     completed_plans: int
     progress_percentage: float
     group: Optional[AuthorGroupSummaryDTO] = None
-    series_partner_id: Optional[UUID] = None
+    series_partner_id: Optional[UUID] = None  # Partner group ID when enrolled via a partner group
 
 
 class UserSeriesEnrollmentsResponse(BaseModel):

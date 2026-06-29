@@ -27,6 +27,7 @@ from pecha_api.plans.shareable_images.day_shareable_image_repository import (
 from pecha_api.plans.shareable_images.day_shareable_image_response_models import (
     PlanDayShareableImageUploadResponse,
 )
+from pecha_api.plans.public.plans_cache_service import schedule_invalidate_plan_day_cache_for_day
 from pecha_api.plans.shared.permissions import require_can_edit_content
 from pecha_api.uploads.S3_utils import delete_file, generate_presigned_access_url, upload_bytes
 
@@ -119,6 +120,8 @@ def upload_plan_day_shareable_image(
         else:
             image_key = image_row.shareable_image_key
 
+        schedule_invalidate_plan_day_cache_for_day(db=db, day_id=day_id)
+
     image_url = generate_presigned_access_url(
         bucket_name=get("AWS_BUCKET_NAME"),
         s3_key=image_key,
@@ -162,3 +165,4 @@ def delete_plan_day_shareable_image(
             shareable_image_key=image_type == DayShareableImageType.SHAREABLE_IMAGE,
             updated_by=current_author.email,
         )
+        schedule_invalidate_plan_day_cache_for_day(db=db, day_id=day_id)
