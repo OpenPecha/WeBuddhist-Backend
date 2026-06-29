@@ -40,9 +40,8 @@
           ]
         },
         "bo": {
-          "name": "ཐེར་བ་ད།",
+          "name": " གནས་བརྟན་པའི་སྡེ་པ།",
           "aliases": [
-            "གནས་བརྟན་པའི་སྡེ་པ།",
             "Theravada"
           ]
         },
@@ -2810,7 +2809,7 @@
           ]
         },
         "bo": {
-          "name": "རྡོ་རྗེའི་ཐེག་པ།",
+          "name": "རྡོ་རྗེ་ཐེག་པ།",
           "aliases": [
             "གསང་སྔགས་ཐེག་པ།",
             "Vajrayana"
@@ -2902,7 +2901,7 @@
         "Nepal",
         "India"
       ],
-      "level": 2,
+      "level": 1,
       "parent": "vajrayana"
     },
     {
@@ -4254,56 +4253,6 @@
           "aliases": [
             "FWBO",
             "Гурван Эрдэнийн Буддын Нийгэмлэг"
-          ]
-        }
-      },
-      "regions": [
-        "International"
-      ],
-      "level": 2,
-      "parent": "western-contemporary"
-    },
-    {
-      "id": "nkt",
-      "names": {
-        "en": {
-          "name": "New Kadampa Tradition",
-          "aliases": [
-            "NKT",
-            "Kadampa Buddhism",
-            "Modern Kadampa"
-          ]
-        },
-        "zh": {
-          "name": "新噶当派",
-          "aliases": [
-            "NKT",
-            "噶当派"
-          ]
-        },
-        "bo": {
-          "name": "གདམས་ངག་གསར་པ།",
-          "aliases": [
-            "NKT"
-          ]
-        },
-        "hi": {
-          "name": "न्यू कादम्पा ट्रेडिशन",
-          "aliases": [
-            "एनकेटी",
-            "कदम्पा बौद्ध धर्म"
-          ]
-        },
-        "ne": {
-          "name": "न्यू काडम्पा ट्रेडिसन",
-          "aliases": [
-            "एनकेटी"
-          ]
-        },
-        "mn": {
-          "name": "Шинэ Кадампа Уламжлал",
-          "aliases": [
-            "НКТ"
           ]
         }
       },

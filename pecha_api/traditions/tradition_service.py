@@ -30,6 +30,7 @@ from pecha_api.traditions.tradition_response_models import (
 from pecha_api.traditions.tradition_taxonomy import (
     get_tradition_display_name,
     get_tradition_entry,
+    language_code_to_taxonomy_key,
     list_tradition_codes,
     load_tradition_taxonomy,
     tradition_id_from_code,
@@ -90,13 +91,8 @@ def _normalize_selected_tradition_code(selected_code: object) -> str | None:
     return normalized
 
 
-async def tradition_chat_service(
-    token: str,
-    chat_request: TraditionChatRequest,
-) -> TraditionChatResponse:
-    validate_and_extract_user_details(token=token)
-
-    language = chat_request.language.lower() if chat_request.language else DEFAULT_CHAT_LANGUAGE
+async def tradition_chat_core(chat_request: TraditionChatRequest) -> TraditionChatResponse:
+    language = language_code_to_taxonomy_key(chat_request.language)
     system_prompt = build_tradition_chat_system_prompt(language=language)
     prompt = _build_conversation_prompt(chat_request.messages)
 
@@ -146,6 +142,14 @@ async def tradition_chat_service(
         selected_tradition_code=selected_tradition_code if is_complete else None,
         model=worker_response.get("model", ""),
     )
+
+
+async def tradition_chat_service(
+    token: str,
+    chat_request: TraditionChatRequest,
+) -> TraditionChatResponse:
+    validate_and_extract_user_details(token=token)
+    return await tradition_chat_core(chat_request=chat_request)
 
 
 async def save_user_tradition_service(

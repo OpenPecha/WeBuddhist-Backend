@@ -3,6 +3,7 @@ from functools import lru_cache
 from typing import Any
 from uuid import UUID, uuid5
 
+from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.traditions.tradition_constants import (
     DEFAULT_CHAT_LANGUAGE,
     TRADITION_ID_NAMESPACE,
@@ -44,3 +45,7 @@ def build_tradition_catalog(language: str = DEFAULT_CHAT_LANGUAGE) -> str:
 
 def list_tradition_codes() -> set[str]:
     return {entry["id"] for entry in load_tradition_taxonomy()["traditions"]}
+
+
+def language_code_to_taxonomy_key(language: LanguageCode) -> str:
+    return language.value.lower()

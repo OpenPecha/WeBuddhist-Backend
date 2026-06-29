@@ -5,3 +5,12 @@ TRADITION_TAXONOMY_PATH = Path(__file__).resolve().parent / "Buddhist Traditions
 TRADITION_ID_NAMESPACE = UUID("f47ac10b-58cc-4372-a567-0e02b2c3d479")
 DEFAULT_LLM_MODEL = "gemini-2.5-flash-lite"
 DEFAULT_CHAT_LANGUAGE = "en"
+
+LANGUAGE_LABELS: dict[str, str] = {
+    "en": "English",
+    "bo": "Tibetan",
+    "zh": "Chinese",
+    "hi": "Hindi",
+    "ne": "Nepali",
+    "mn": "Mongolian",
+}

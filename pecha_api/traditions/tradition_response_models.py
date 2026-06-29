@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.traditions.tradition_taxonomy import list_tradition_codes
 
 
@@ -14,7 +15,7 @@ class TraditionChatMessage(BaseModel):
 
 class TraditionChatRequest(BaseModel):
     messages: List[TraditionChatMessage] = Field(min_length=1)
-    language: str = "en"
+    language: LanguageCode = LanguageCode.EN
 
 
 class SuggestedTradition(BaseModel):
