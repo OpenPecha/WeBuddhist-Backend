@@ -19,6 +19,7 @@ from pecha_api.plans.videos.plan_video_repository import (
     create_plan_video,
     delete_plan_video,
     get_next_display_order,
+    get_plan_id_by_segment_id,
     get_plan_video_by_id,
     get_plan_videos_by_plan_id,
     reorder_plan_videos,
@@ -58,6 +59,20 @@ def _get_author_plan(db, plan_id: UUID, current_author):
         content_status=plan.status,
     )
     return plan
+
+
+def get_public_plan_videos_by_segment_id(segment_id: UUID) -> PlanVideoListResponse:
+    """Public, unauthenticated read of the videos for the plan a segment belongs to.
+
+    The plan is resolved from the segment via its sub-task source. A segment is
+    assumed to belong to a single plan; if none is found, an empty list is returned.
+    """
+    with SessionLocal() as db:
+        plan_id = get_plan_id_by_segment_id(db=db, segment_id=segment_id)
+        if plan_id is None:
+            return PlanVideoListResponse(videos=[])
+        videos = get_plan_videos_by_plan_id(db=db, plan_id=plan_id)
+        return PlanVideoListResponse(videos=[_to_dto(video) for video in videos])
 
 
 def list_plan_videos(token: str, plan_id: UUID) -> PlanVideoListResponse:

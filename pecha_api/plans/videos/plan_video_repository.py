@@ -4,7 +4,28 @@ from uuid import UUID
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from pecha_api.plans.items.plan_items_models import PlanItem
+from pecha_api.plans.tasks.plan_tasks_models import PlanTask
+from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 from pecha_api.plans.videos.plan_video_models import PlanVideo
+
+
+def get_plan_id_by_segment_id(db: Session, segment_id: UUID) -> Optional[UUID]:
+    """Resolve the plan a segment belongs to via its sub-task source.
+
+    Chain: sub_tasks.segment_ids -> tasks -> items -> plan_id.
+    Assumes a segment belongs to a single plan; returns the first match.
+    """
+    return (
+        db.query(PlanItem.plan_id)
+        .join(PlanTask, PlanTask.plan_item_id == PlanItem.id)
+        .join(PlanSubTask, PlanSubTask.task_id == PlanTask.id)
+        .filter(PlanSubTask.segment_ids.any(segment_id))
+        .filter(PlanSubTask.deleted_at.is_(None))
+        .order_by(PlanItem.day_number.asc(), PlanTask.display_order.asc())
+        .limit(1)
+        .scalar()
+    )
 
 
 def get_plan_videos_by_plan_id(db: Session, plan_id: UUID) -> List[PlanVideo]:

@@ -45,6 +45,7 @@ from pecha_api.texts.texts_response_models import TextDTO
 
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.cache.cache_enums import CacheType
+from pecha_api.plans.videos.plan_video_response_models import PlanVideoDTO, PlanVideoListResponse
 
 
 def _mock_source_segment(*, segment_id="seg_1", text_id="text_id_1", content="content"):
@@ -603,9 +604,10 @@ async def test_get_infos_by_segment_id_success():
         patch("pecha_api.texts.segments.segments_service.get_related_mapped_segments", new_callable=AsyncMock) as mock_get_related_mapped_segment, \
         patch("pecha_api.texts.segments.segments_service.SegmentUtils.get_count_of_each_commentary_and_version", new_callable=AsyncMock, return_value={"version": 1, "commentary": 2}), \
         patch("pecha_api.texts.segments.segments_service.SegmentUtils.get_root_mapping_count", new_callable=AsyncMock, return_value=3), \
-        patch("pecha_api.texts.segments.segments_service.set_segment_info_by_id_cache", new_callable=AsyncMock):
+        patch("pecha_api.texts.segments.segments_service.set_segment_info_by_id_cache", new_callable=AsyncMock), \
+        patch("pecha_api.texts.segments.segments_service.get_public_plan_videos_by_segment_id", return_value=PlanVideoListResponse(videos=[])):
         mock_get_related_mapped_segment.return_value = related_mapped_segments
-        
+
         response = await get_info_by_segment_id(segment_id=segment_id)
         assert isinstance(response, SegmentInfoResponse)
         assert isinstance(response.segment_info, SegmentInfo)
@@ -615,6 +617,64 @@ async def test_get_infos_by_segment_id_success():
         assert response.segment_info.translations == 1
         assert response.segment_info.related_text.commentaries == 2
         assert response.segment_info.related_text.root_text == 3
+        assert response.segment_info.videos == []
+
+
+@pytest.mark.asyncio
+async def test_get_info_by_segment_id_includes_plan_videos():
+    from pecha_api.plans.videos.plan_video_response_models import PlanVideoDTO, PlanVideoListResponse
+
+    segment_id = "efb26a06-f373-450b-ba57-e7a8d4dd5b64"
+    plan_id = "11111111-1111-1111-1111-111111111111"
+    text_id = "22222222-2222-2222-2222-222222222222"
+
+    mock_text_detail = TextDTO(
+        id=text_id,
+        title="title",
+        language="en",
+        group_id="group_id",
+        type="version",
+        is_published=True,
+        created_date="2024-01-01",
+        updated_date="2024-01-01",
+        published_date="2024-01-01",
+        published_by="author",
+        categories=[],
+        views=0,
+    )
+    mock_segment = SegmentDTO(
+        id=segment_id,
+        text_id=text_id,
+        content="segment_content",
+        mapping=[],
+        type=SegmentType.SOURCE,
+    )
+    plan_videos = PlanVideoListResponse(videos=[
+        PlanVideoDTO(
+            id=uuid.UUID("33333333-3333-3333-3333-333333333333"),
+            plan_id=uuid.UUID(plan_id),
+            url="https://youtu.be/abc",
+            video_id="abc",
+            title="Intro",
+            display_order=0,
+        )
+    ])
+
+    with patch("pecha_api.texts.segments.segments_service.SegmentUtils.validate_segment_exists", new_callable=AsyncMock, return_value=True), \
+        patch("pecha_api.texts.segments.segments_service.get_segment_info_by_id_cache", new_callable=AsyncMock, return_value=None), \
+        patch("pecha_api.texts.segments.segments_service.get_segment_by_id", new_callable=AsyncMock, return_value=mock_segment), \
+        patch("pecha_api.texts.segments.segments_service.TextUtils.get_text_details_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+        patch("pecha_api.texts.segments.segments_service.get_related_mapped_segments", new_callable=AsyncMock, return_value=[]), \
+        patch("pecha_api.texts.segments.segments_service.SegmentUtils.get_count_of_each_commentary_and_version", new_callable=AsyncMock, return_value={"version": 0, "commentary": 0}), \
+        patch("pecha_api.texts.segments.segments_service.SegmentUtils.get_root_mapping_count", new_callable=AsyncMock, return_value=0), \
+        patch("pecha_api.texts.segments.segments_service.set_segment_info_by_id_cache", new_callable=AsyncMock), \
+        patch("pecha_api.texts.segments.segments_service.get_public_plan_videos_by_segment_id", return_value=plan_videos) as mock_get_videos:
+
+        response = await get_info_by_segment_id(segment_id=segment_id)
+
+        mock_get_videos.assert_called_once_with(segment_id=segment_id)
+        assert len(response.segment_info.videos) == 1
+        assert response.segment_info.videos[0].title == "Intro"
 
 
 @pytest.mark.asyncio
@@ -803,6 +863,17 @@ async def test_get_info_by_segment_id_cache_hit():
         )
     )
 
+    live_videos = PlanVideoListResponse(videos=[
+        PlanVideoDTO(
+            id=uuid.UUID("33333333-3333-3333-3333-333333333333"),
+            plan_id=uuid.UUID("11111111-1111-1111-1111-111111111111"),
+            url="https://youtu.be/fresh",
+            video_id="fresh",
+            title="Fresh",
+            display_order=0,
+        )
+    ])
+
     with patch(
         "pecha_api.texts.segments.segments_service.SegmentUtils.validate_segment_exists",
         new_callable=AsyncMock,
@@ -814,10 +885,16 @@ async def test_get_info_by_segment_id_cache_hit():
     ), patch(
         "pecha_api.texts.segments.segments_service.get_segment_by_id",
         new_callable=AsyncMock,
-    ) as mock_get_segment:
+    ) as mock_get_segment, patch(
+        "pecha_api.texts.segments.segments_service.get_public_plan_videos_by_segment_id",
+        return_value=live_videos,
+    ) as mock_get_videos:
         result = await get_info_by_segment_id(segment_id)
         assert result == cached_response
         mock_get_segment.assert_not_awaited()
+        # videos are attached live even on a cache hit (not served from cache)
+        mock_get_videos.assert_called_once_with(segment_id=segment_id)
+        assert result.segment_info.videos[0].title == "Fresh"
 
 
 @pytest.mark.asyncio
@@ -875,9 +952,30 @@ async def test_get_info_by_segment_id_sets_cache_on_miss():
     ) as mock_root_count, patch(
         "pecha_api.texts.segments.segments_service.set_segment_info_by_id_cache",
         new_callable=AsyncMock,
-    ) as mock_set:
+    ) as mock_set, patch(
+        "pecha_api.texts.segments.segments_service.get_public_plan_videos_by_segment_id",
+        return_value=PlanVideoListResponse(videos=[
+            PlanVideoDTO(
+                id=uuid.UUID("33333333-3333-3333-3333-333333333333"),
+                plan_id=uuid.UUID("11111111-1111-1111-1111-111111111111"),
+                url="https://youtu.be/x",
+                video_id="x",
+                title="X",
+                display_order=0,
+            )
+        ]),
+    ):
         mock_count.return_value = {"version": 0, "commentary": 0}
         mock_root_count.return_value = 0
+
+        # Real set_cache serializes immediately; capture videos at call time so the
+        # later in-place attach on the same object can't leak into this snapshot.
+        videos_at_cache_time = {}
+
+        async def _capture(**kwargs):
+            videos_at_cache_time["count"] = len(kwargs["data"].segment_info.videos)
+        mock_set.side_effect = _capture
+
         result = await get_info_by_segment_id(segment_id)
         assert isinstance(result, SegmentInfoResponse)
         # ensure cache set was called with the built response
@@ -885,6 +983,9 @@ async def test_get_info_by_segment_id_sets_cache_on_miss():
         called_kwargs = mock_set.await_args.kwargs
         assert called_kwargs["segment_id"] == segment_id
         assert called_kwargs["cache_type"] == CacheType.SEGMENT_INFO
+        # core option-2 guarantee: videos are NOT in the cached object, but ARE on the response
+        assert videos_at_cache_time["count"] == 0
+        assert len(result.segment_info.videos) == 1
 
 
 @pytest.mark.asyncio
