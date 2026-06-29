@@ -20,6 +20,16 @@ class UserMantraCountRow:
         self.updated_at = updated_at
 
 
+class GroupMantraCountRow:
+    def __init__(
+        self,
+        mantra_id: UUID,
+        total_count: int,
+    ):
+        self.mantra_id = mantra_id
+        self.total_count = total_count
+
+
 def _user_mantra_counts_query(db: Session, user_id: UUID):
     return (
         db.query(
@@ -75,3 +85,49 @@ def get_user_mantra_count_for_mantra(
     if row is None:
         return 0, None
     return int(row.total_count or 0), row.updated_at
+
+
+def get_group_mantra_accumulations(
+    db: Session,
+    group_id: UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> Tuple[List[GroupMantraCountRow], int, int]:
+    """
+    Returns: (rows, total_mantra_count, grand_total_count)
+    - rows: paginated list of mantras with their counts
+    - total_mantra_count: total number of distinct mantras
+    - grand_total_count: sum of all mantra counts for the group
+    """
+    grouped = (
+        db.query(
+            Accumulator.mantra_id.label("mantra_id"),
+            func.coalesce(func.sum(Accumulator.current_count), 0).label("total_count"),
+        )
+        .filter(
+            Accumulator.group_id == group_id,
+            Accumulator.mantra_id.isnot(None),
+            Accumulator.current_count > 0,
+        )
+        .group_by(Accumulator.mantra_id)
+        .subquery()
+    )
+    
+    total_mantra_count = db.query(func.count()).select_from(grouped).scalar() or 0
+    grand_total_count = db.query(func.coalesce(func.sum(grouped.c.total_count), 0)).scalar() or 0
+    
+    rows = (
+        db.query(grouped)
+        .order_by(grouped.c.total_count.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    
+    return [
+        GroupMantraCountRow(
+            mantra_id=row.mantra_id,
+            total_count=int(row.total_count or 0),
+        )
+        for row in rows
+    ], total_mantra_count, int(grand_total_count)

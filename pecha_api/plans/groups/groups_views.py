@@ -12,6 +12,7 @@ from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupListResponse,
     CreateAuthorGroupRequest,
     CreateGroupInviteRequest,
+    GroupAccumulationsResponse,
     GroupInviteCreatedResponse,
     GroupInviteDTO,
     GroupInviteListResponse,
@@ -36,6 +37,7 @@ from pecha_api.plans.groups.groups_service import (
     get_author_group_detail,
     get_cms_group_detail,
     get_followed_group,
+    get_group_accumulations,
     get_joined_group,
     join_group,
     leave_group,
@@ -437,4 +439,19 @@ def get_my_joined_groups(
         skip=skip,
         limit=limit,
         language=language,
+    )
+
+
+@public_groups_router.get("/{group_id}/accumulations", status_code=status.HTTP_200_OK, response_model=GroupAccumulationsResponse)
+def get_group_accumulations_endpoint(
+    group_id: UUID,
+    language: Annotated[Optional[str], Query(description=language_query_description("Language code for mantra titles", lowercase_example=True))] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    return get_group_accumulations(
+        group_id=group_id,
+        language=language,
+        skip=skip,
+        limit=limit,
     )

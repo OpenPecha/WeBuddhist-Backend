@@ -37,6 +37,8 @@ __all__ = [
     "GroupInviteCreatedResponse",
     "UpdateGroupMemberRoleRequest",
     "TransferGroupOwnershipRequest",
+    "GroupMantraAccumulationDTO",
+    "GroupAccumulationsResponse",
 ]
 
 
@@ -218,3 +220,19 @@ class UpdateGroupMemberRoleRequest(BaseModel):
 
 class TransferGroupOwnershipRequest(BaseModel):
     new_owner_author_id: UUID
+
+
+class GroupMantraAccumulationDTO(BaseModel):
+    mantra_id: UUID
+    mantra_slug: Optional[str] = None
+    mantra_title: Optional[str] = None
+    count: int
+
+
+class GroupAccumulationsResponse(BaseModel):
+    group_id: UUID
+    mantras: List[GroupMantraAccumulationDTO]
+    total_count: int
+    total: int
+    skip: int
+    limit: int
