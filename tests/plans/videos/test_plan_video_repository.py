@@ -1,42 +1,39 @@
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from pecha_api.plans.videos.plan_video_repository import get_plan_id_by_segment_id
+from pecha_api.plans.videos.plan_video_repository import get_plan_videos_by_segment_id
 
 
-def _chain_query_returning(scalar_value):
-    """Build a MagicMock db whose query(...).join().join().filter()... .scalar()
-    returns the given value. Every chained call returns the same mock so the
-    builder methods can be invoked in any order."""
+def _chain_query_returning(rows):
+    """Build a MagicMock db whose query(...).join()...filter()...order_by().all()
+    returns the given rows. Every chained builder returns the same mock."""
     query = MagicMock()
-    # all chainable methods return the query mock itself
-    for method in ("join", "filter", "order_by", "limit"):
+    for method in ("join", "filter", "order_by"):
         getattr(query, method).return_value = query
-    query.scalar.return_value = scalar_value
+    query.all.return_value = rows
 
     db = MagicMock()
     db.query.return_value = query
     return db, query
 
 
-def test_get_plan_id_by_segment_id_returns_plan_id():
-    plan_id = uuid4()
-    db, query = _chain_query_returning(plan_id)
+def test_get_plan_videos_by_segment_id_returns_rows():
+    rows = [MagicMock(), MagicMock()]
+    db, query = _chain_query_returning(rows)
 
-    result = get_plan_id_by_segment_id(db=db, segment_id=uuid4())
+    result = get_plan_videos_by_segment_id(db=db, segment_id=uuid4())
 
-    assert result == plan_id
+    assert result == rows
     db.query.assert_called_once()
-    # two joins (tasks, sub_tasks), and the result is limited to one row
-    assert query.join.call_count == 2
-    query.limit.assert_called_once_with(1)
-    query.scalar.assert_called_once()
+    # three joins: plan_videos -> items -> tasks -> sub_tasks
+    assert query.join.call_count == 3
+    query.all.assert_called_once()
 
 
-def test_get_plan_id_by_segment_id_returns_none_when_no_match():
-    db, query = _chain_query_returning(None)
+def test_get_plan_videos_by_segment_id_returns_empty_when_no_match():
+    db, query = _chain_query_returning([])
 
-    result = get_plan_id_by_segment_id(db=db, segment_id=uuid4())
+    result = get_plan_videos_by_segment_id(db=db, segment_id=uuid4())
 
-    assert result is None
-    query.scalar.assert_called_once()
+    assert result == []
+    query.all.assert_called_once()

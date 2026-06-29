@@ -19,9 +19,9 @@ from pecha_api.plans.videos.plan_video_repository import (
     create_plan_video,
     delete_plan_video,
     get_next_display_order,
-    get_plan_id_by_segment_id,
     get_plan_video_by_id,
     get_plan_videos_by_plan_id,
+    get_plan_videos_by_segment_id,
     reorder_plan_videos,
 )
 from pecha_api.plans.videos.plan_video_response_models import (
@@ -62,17 +62,26 @@ def _get_author_plan(db, plan_id: UUID, current_author):
 
 
 def get_public_plan_videos_by_segment_id(segment_id: UUID) -> PlanVideoListResponse:
-    """Public, unauthenticated read of the videos for the plan a segment belongs to.
+    """Public, unauthenticated read of the videos for the plan(s) a segment belongs to.
 
-    The plan is resolved from the segment via its sub-task source. A segment is
-    assumed to belong to a single plan; if none is found, an empty list is returned.
+    A segment may belong to multiple plans (its id can appear in sub-tasks across
+    plans). Videos from all matching plans are returned as a single flat list,
+    de-duplicated so a video shared across plans is shown once. If the segment
+    belongs to no plan, an empty list is returned.
     """
     with SessionLocal() as db:
-        plan_id = get_plan_id_by_segment_id(db=db, segment_id=segment_id)
-        if plan_id is None:
-            return PlanVideoListResponse(videos=[])
-        videos = get_plan_videos_by_plan_id(db=db, plan_id=plan_id)
-        return PlanVideoListResponse(videos=[_to_dto(video) for video in videos])
+        videos = get_plan_videos_by_segment_id(db=db, segment_id=segment_id)
+
+    deduped: list[PlanVideoDTO] = []
+    seen: set[str] = set()
+    for video in videos:
+        # collapse the same video shared across plans: prefer video_id, fall back to url
+        key = video.video_id or video.url
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(_to_dto(video))
+    return PlanVideoListResponse(videos=deduped)
 
 
 def list_plan_videos(token: str, plan_id: UUID) -> PlanVideoListResponse:

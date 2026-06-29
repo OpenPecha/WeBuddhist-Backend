@@ -10,21 +10,28 @@ from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 from pecha_api.plans.videos.plan_video_models import PlanVideo
 
 
-def get_plan_id_by_segment_id(db: Session, segment_id: UUID) -> Optional[UUID]:
-    """Resolve the plan a segment belongs to via its sub-task source.
+def get_plan_videos_by_segment_id(db: Session, segment_id: UUID) -> List[PlanVideo]:
+    """Return videos for every plan a segment belongs to, via its sub-task source.
 
-    Chain: sub_tasks.segment_ids -> tasks -> items -> plan_id.
-    Assumes a segment belongs to a single plan; returns the first match.
+    Chain: sub_tasks.segment_ids -> tasks -> items -> plan_id -> plan_videos.
+    A segment may belong to multiple plans; videos from all of them are returned
+    in a single query, ordered by plan then display order. De-duplication of
+    videos shared across plans is handled by the caller.
     """
     return (
-        db.query(PlanItem.plan_id)
+        db.query(PlanVideo)
+        .join(PlanItem, PlanItem.plan_id == PlanVideo.plan_id)
         .join(PlanTask, PlanTask.plan_item_id == PlanItem.id)
         .join(PlanSubTask, PlanSubTask.task_id == PlanTask.id)
         .filter(PlanSubTask.segment_ids.any(segment_id))
         .filter(PlanSubTask.deleted_at.is_(None))
-        .order_by(PlanItem.day_number.asc(), PlanTask.display_order.asc())
-        .limit(1)
-        .scalar()
+        .order_by(
+            PlanItem.day_number.asc(),
+            PlanTask.display_order.asc(),
+            PlanVideo.display_order.asc(),
+            PlanVideo.created_at.asc(),
+        )
+        .all()
     )
 
 
