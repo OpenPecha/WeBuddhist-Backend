@@ -29,6 +29,7 @@ from pecha_api.plans.groups.groups_service import (
     create_author_group,
     create_group_member_invite,
     delete_group_member,
+    get_group_accumulations,
     list_group_invites,
     list_my_pending_group_invites,
     reject_group_invite_by_id,
@@ -2222,3 +2223,165 @@ def test_transfer_group_ownership_requires_current_owner():
                 new_owner_author_id=uuid4(),
             )
     assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_group_accumulations_success():
+    """Test successful retrieval of group accumulations"""
+    group = _make_group()
+    mantra_id_1 = uuid4()
+    mantra_id_2 = uuid4()
+    
+    # Mock repository row
+    mock_row_1 = MagicMock()
+    mock_row_1.mantra_id = mantra_id_1
+    mock_row_1.total_count = 1200
+    
+    mock_row_2 = MagicMock()
+    mock_row_2.mantra_id = mantra_id_2
+    mock_row_2.total_count = 800
+    
+    # Mock mantra with metadata
+    mock_mantra_1 = MagicMock()
+    mock_metadata_1 = MagicMock()
+    mock_metadata_1.language.value = "EN"
+    mock_metadata_1.title = "Medicine Buddha Mantra"
+    mock_mantra_1.metadata_entries = [mock_metadata_1]
+    
+    mock_mantra_2 = MagicMock()
+    mock_metadata_2 = MagicMock()
+    mock_metadata_2.language.value = "EN"
+    mock_metadata_2.title = "Chenrezig Mantra"
+    mock_mantra_2.metadata_entries = [mock_metadata_2]
+    
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_mantra_accumulations",
+        return_value=([mock_row_1, mock_row_2], 2, 2000),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_mantras_by_ids",
+        return_value={mantra_id_1: mock_mantra_1, mantra_id_2: mock_mantra_2},
+    ):
+        _session_local_context(mock_session)
+        result = get_group_accumulations(group_id=group.id, language="en", skip=0, limit=20)
+    
+    assert result.group_id == group.id
+    assert result.total_count == 2000
+    assert result.total == 2
+    assert len(result.mantras) == 2
+    assert result.mantras[0].mantra_id == mantra_id_1
+    assert result.mantras[0].count == 1200
+    assert result.mantras[0].mantra_title == "Medicine Buddha Mantra"
+    assert result.mantras[1].mantra_id == mantra_id_2
+    assert result.mantras[1].count == 800
+
+
+def test_get_group_accumulations_empty():
+    """Test group accumulations when no mantras exist"""
+    group = _make_group()
+    
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_mantra_accumulations",
+        return_value=([], 0, 0),
+    ):
+        _session_local_context(mock_session)
+        result = get_group_accumulations(group_id=group.id)
+    
+    assert result.group_id == group.id
+    assert result.total_count == 0
+    assert result.total == 0
+    assert len(result.mantras) == 0
+
+
+def test_get_group_accumulations_group_not_found():
+    """Test 404 when group doesn't exist"""
+    group_id = uuid4()
+    
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_group_accumulations(group_id=group_id)
+    
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.value.detail == GROUP_NOT_FOUND
+
+
+def test_get_group_accumulations_with_language_fallback():
+    """Test language fallback when requested language not available"""
+    group = _make_group()
+    mantra_id = uuid4()
+    
+    mock_row = MagicMock()
+    mock_row.mantra_id = mantra_id
+    mock_row.total_count = 500
+    
+    # Mock mantra with only EN metadata
+    mock_mantra = MagicMock()
+    mock_metadata_en = MagicMock()
+    mock_metadata_en.language.value = "EN"
+    mock_metadata_en.title = "Tara Mantra"
+    mock_mantra.metadata_entries = [mock_metadata_en]
+    
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_mantra_accumulations",
+        return_value=([mock_row], 1, 500),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_mantras_by_ids",
+        return_value={mantra_id: mock_mantra},
+    ):
+        _session_local_context(mock_session)
+        # Request BO language but only EN available
+        result = get_group_accumulations(group_id=group.id, language="bo")
+    
+    assert result.mantras[0].mantra_title == "Tara Mantra"  # Falls back to EN
+
+
+def test_get_group_accumulations_pagination():
+    """Test pagination parameters are passed correctly"""
+    group = _make_group()
+    mantra_id = uuid4()
+    
+    mock_row = MagicMock()
+    mock_row.mantra_id = mantra_id
+    mock_row.total_count = 300
+    
+    mock_mantra = MagicMock()
+    mock_metadata = MagicMock()
+    mock_metadata.language.value = "EN"
+    mock_metadata.title = "Manjushri Mantra"
+    mock_mantra.metadata_entries = [mock_metadata]
+    
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_mantra_accumulations",
+        return_value=([mock_row], 10, 5000),
+    ) as mock_get_accumulations, patch(
+        "pecha_api.plans.groups.groups_service.get_mantras_by_ids",
+        return_value={mantra_id: mock_mantra},
+    ):
+        _session_local_context(mock_session)
+        result = get_group_accumulations(group_id=group.id, skip=5, limit=1)
+    
+    # Verify pagination params passed to repository
+    mock_get_accumulations.assert_called_once()
+    call_kwargs = mock_get_accumulations.call_args[1]
+    assert call_kwargs["skip"] == 5
+    assert call_kwargs["limit"] == 1
+    
+    # Verify response
+    assert result.skip == 5
+    assert result.limit == 1
+    assert result.total == 10
+    assert result.total_count == 5000

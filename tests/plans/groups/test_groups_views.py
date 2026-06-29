@@ -11,7 +11,9 @@ from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
     AuthorGroupListResponse,
     AuthorGroupSummaryDTO,
+    GroupAccumulationsResponse,
     GroupInviteCreatedResponse,
+    GroupMantraAccumulationDTO,
     GroupMetadataDTO,
     UserFollowedAuthorGroupDTO,
     UserFollowedAuthorGroupListResponse,
@@ -507,3 +509,159 @@ def test_get_my_joined_group_by_id():
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["id"] == str(group_id)
     mock_service.assert_called_once_with(token="dummy", group_id=group_id, language="bo")
+
+
+def test_get_group_accumulations_success():
+    """Test getting group accumulations with mantras"""
+    group_id = uuid4()
+    mantra_id_1 = uuid4()
+    mantra_id_2 = uuid4()
+    
+    response_model = GroupAccumulationsResponse(
+        group_id=group_id,
+        mantras=[
+            GroupMantraAccumulationDTO(
+                mantra_id=mantra_id_1,
+                mantra_slug="medicine-buddha",
+                mantra_title="Medicine Buddha Mantra",
+                count=1200,
+            ),
+            GroupMantraAccumulationDTO(
+                mantra_id=mantra_id_2,
+                mantra_slug="chenrezig",
+                mantra_title="Chenrezig Mantra",
+                count=800,
+            ),
+        ],
+        total_count=2000,
+        total=2,
+        skip=0,
+        limit=20,
+    )
+    
+    with patch(
+        "pecha_api.plans.groups.groups_views.get_group_accumulations",
+        return_value=response_model,
+    ) as mock_service:
+        response = client.get(f"/author/groups/{group_id}/accumulations")
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["group_id"] == str(group_id)
+    assert data["total_count"] == 2000
+    assert data["total"] == 2
+    assert len(data["mantras"]) == 2
+    assert data["mantras"][0]["count"] == 1200
+    assert data["mantras"][0]["mantra_title"] == "Medicine Buddha Mantra"
+    mock_service.assert_called_once_with(
+        group_id=group_id,
+        language=None,
+        skip=0,
+        limit=20,
+    )
+
+
+def test_get_group_accumulations_with_language():
+    """Test getting group accumulations with language parameter"""
+    group_id = uuid4()
+    mantra_id = uuid4()
+    
+    response_model = GroupAccumulationsResponse(
+        group_id=group_id,
+        mantras=[
+            GroupMantraAccumulationDTO(
+                mantra_id=mantra_id,
+                mantra_slug="tara",
+                mantra_title="སྒྲོལ་མའི་སྔགས།",
+                count=500,
+            ),
+        ],
+        total_count=500,
+        total=1,
+        skip=0,
+        limit=20,
+    )
+    
+    with patch(
+        "pecha_api.plans.groups.groups_views.get_group_accumulations",
+        return_value=response_model,
+    ) as mock_service:
+        response = client.get(f"/author/groups/{group_id}/accumulations?language=bo")
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["mantras"][0]["mantra_title"] == "སྒྲོལ་མའི་སྔགས།"
+    mock_service.assert_called_once_with(
+        group_id=group_id,
+        language="bo",
+        skip=0,
+        limit=20,
+    )
+
+
+def test_get_group_accumulations_empty():
+    """Test getting group accumulations when group has no mantras"""
+    group_id = uuid4()
+    
+    response_model = GroupAccumulationsResponse(
+        group_id=group_id,
+        mantras=[],
+        total_count=0,
+        total=0,
+        skip=0,
+        limit=20,
+    )
+    
+    with patch(
+        "pecha_api.plans.groups.groups_views.get_group_accumulations",
+        return_value=response_model,
+    ) as mock_service:
+        response = client.get(f"/author/groups/{group_id}/accumulations")
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["total_count"] == 0
+    assert data["total"] == 0
+    assert len(data["mantras"]) == 0
+
+
+def test_get_group_accumulations_with_pagination():
+    """Test getting group accumulations with pagination"""
+    group_id = uuid4()
+    mantra_id = uuid4()
+    
+    response_model = GroupAccumulationsResponse(
+        group_id=group_id,
+        mantras=[
+            GroupMantraAccumulationDTO(
+                mantra_id=mantra_id,
+                mantra_slug="manjushri",
+                mantra_title="Manjushri Mantra",
+                count=300,
+            ),
+        ],
+        total_count=5000,
+        total=10,
+        skip=5,
+        limit=1,
+    )
+    
+    with patch(
+        "pecha_api.plans.groups.groups_views.get_group_accumulations",
+        return_value=response_model,
+    ) as mock_service:
+        response = client.get(f"/author/groups/{group_id}/accumulations?skip=5&limit=1")
+    
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert data["skip"] == 5
+    assert data["limit"] == 1
+    assert data["total"] == 10
+    assert data["total_count"] == 5000
+    assert len(data["mantras"]) == 1
+    mock_service.assert_called_once_with(
+        group_id=group_id,
+        language=None,
+        skip=5,
+        limit=1,
+    )
