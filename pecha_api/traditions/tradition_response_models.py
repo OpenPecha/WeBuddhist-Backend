@@ -38,7 +38,7 @@ class SaveUserTraditionRequest(BaseModel):
 
     @field_validator("tradition_code")
     @classmethod
-    def validate_tradition_code(cls, value: str) -> str:
+    def normalize_tradition_code(cls, value: str) -> str:
         normalized = value.strip()
         if normalized not in list_tradition_path_codes():
             raise ValueError("tradition_code must be one of: pali, chinese, tibetan")

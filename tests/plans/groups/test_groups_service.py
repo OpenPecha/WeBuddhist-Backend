@@ -676,13 +676,13 @@ def test_is_series_enrolled_for_group_context():
     )
     assert _is_series_enrolled_for_group_context(
         None, None, is_enrolled_in_series=True
-    )
+    ) is None
     assert not _is_series_enrolled_for_group_context(
         partner_id, None, is_enrolled_in_series=True
     )
-    assert not _is_series_enrolled_for_group_context(
+    assert _is_series_enrolled_for_group_context(
         None, None, is_enrolled_in_series=False
-    )
+    ) is None
 
 
 def test_series_to_dtos_sets_partner_enrollment_for_authenticated_user():
@@ -738,7 +738,7 @@ def test_series_to_dtos_is_not_enrolled_without_user():
         )
 
     mock_enrollment_map.assert_not_called()
-    assert dtos[0].is_group_enrolled is False
+    assert dtos[0].is_group_enrolled is None
 
 
 def test_series_to_dtos_filters_metadata_by_language():
