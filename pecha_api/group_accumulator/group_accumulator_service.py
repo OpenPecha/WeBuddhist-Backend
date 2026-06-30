@@ -172,20 +172,12 @@ def delete_group_accumulator_service(
 
 def delete_group_accumulator_user_service(
     token: str,
-    group_id: UUID,
     group_accumulator_id: UUID,
 ) -> None:
     """Delete a group accumulator (User - requires group membership)."""
     current_user = validate_and_extract_user_details(token=token)
     
     with SessionLocal() as db:
-        # Verify user is a member of the group
-        if not is_user_joined_group(db=db, group_id=group_id, user_id=current_user.id):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={"error": "FORBIDDEN", "message": "You must be a member of this group"}
-            )
-        
         group_accumulator = get_group_accumulator_by_id(db, group_accumulator_id)
         if not group_accumulator:
             raise HTTPException(
@@ -193,10 +185,11 @@ def delete_group_accumulator_user_service(
                 detail={"error": "NOT_FOUND", "message": "Group accumulator not found"}
             )
         
-        if group_accumulator.group_id != group_id:
+        # Verify user is a member of the group
+        if not is_user_joined_group(db=db, group_id=group_accumulator.group_id, user_id=current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={"error": "FORBIDDEN", "message": "Group accumulator does not belong to this group"}
+                detail={"error": "FORBIDDEN", "message": "You must be a member of this group"}
             )
         
         delete_group_accumulator(db, group_accumulator)

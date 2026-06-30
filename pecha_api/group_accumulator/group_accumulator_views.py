@@ -92,18 +92,16 @@ async def get_group_accumulator_history(
 
 
 @group_accumulator_router.delete(
-    "/{group_id}/{accumulator_id}",
+    "/{group_accumulator_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_group_accumulator(
-    group_id: UUID,
-    accumulator_id: UUID,
+    group_accumulator_id: UUID,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
     """Soft delete (reset) a group accumulator. Requires user to be a member of the group."""
     delete_group_accumulator_user_service(
         token=credentials.credentials,
-        group_id=group_id,
-        group_accumulator_id=accumulator_id,
+        group_accumulator_id=group_accumulator_id,
     )
     return None
