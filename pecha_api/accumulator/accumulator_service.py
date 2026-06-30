@@ -26,7 +26,8 @@ from .accumulator_repository import (
     get_user_accumulator_history,
     mantra_exists,
     get_mantra_mala_image_id,
-    get_mala_image_by_id
+    get_mala_image_by_id,
+    get_groups_by_accumulator_id
 )
 from ..mantra.mantra_model import Mantra
 from ..mantra.mantra_metadata_model import MantraMetadata
@@ -43,7 +44,9 @@ from .accumulator_response_models import (
     UpdateMalaImageRequest,
     AccumulatorHistoryResponse,
     AccumulatorHistoryDTO,
-    AccumulatorSessionDTO
+    AccumulatorSessionDTO,
+    AccumulatorGroupDTO,
+    AccumulatorGroupsResponse
 )
 from .accumulator_models import Accumulator
 from .accumulator_metadata_model import AccumulatorMetadata
@@ -544,3 +547,49 @@ def update_mala_image_service(
         accumulator.mala_image = mala.id
         updated_accumulator = update_accumulator(db, accumulator)
         return convert_accumulator_to_dto(updated_accumulator)
+
+
+def get_accumulator_groups_service(
+    token: str,
+    accumulator_id: UUID,
+    skip: int = 0,
+    limit: int = 20
+) -> AccumulatorGroupsResponse:
+    """Get all groups using a specific accumulator with the authenticated user's total count for each."""
+    current_user = validate_and_extract_user_details(token=token)
+    
+    with SessionLocal() as db:
+        # Verify accumulator exists
+        accumulator = get_accumulator_by_id(db, accumulator_id)
+        if not accumulator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": NOT_FOUND, "message": ACCUMULATOR_NOT_FOUND}
+            )
+        
+        groups_with_counts, total = get_groups_by_accumulator_id(
+            db=db,
+            accumulator_id=accumulator_id,
+            user_id=current_user.id,
+            skip=skip,
+            limit=limit
+        )
+        
+        return AccumulatorGroupsResponse(
+            groups=[
+                AccumulatorGroupDTO(
+                    group_accumulator_id=item.group_accumulator.id,
+                    group_id=item.group_accumulator.group_id,
+                    title=item.group_accumulator.title,
+                    target_count=item.group_accumulator.target_count,
+                    user_total_count=item.user_total_count,
+                    start_date=item.group_accumulator.start_date,
+                    end_date=item.group_accumulator.end_date,
+                    created_at=item.group_accumulator.created_at
+                )
+                for item in groups_with_counts
+            ],
+            total=total,
+            skip=skip,
+            limit=limit
+        )

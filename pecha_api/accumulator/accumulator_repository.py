@@ -11,6 +11,8 @@ from .accumulator_models import Accumulator
 from .mala_image_model import MalaImage
 from .accumulator_history_model import AccumulatorHistory
 from .accumulator_enums import AccumulatorType
+from .group_accumulator_models import GroupAccumulator
+from .group_accumulator_history_model import GroupAccumulatorHistory
 from ..mantra.mantra_model import Mantra
 from ..mantra.mantra_metadata_model import MantraMetadata
 
@@ -307,4 +309,62 @@ def get_user_accumulator_history(
         sessions = sessions_map.get(accumulator.id, [])
         result.append((accumulator, total_count, sessions))
 
+    return result, total
+
+
+class GroupAccumulatorWithUserCount:
+    """Data class for group accumulator with user's total count."""
+    def __init__(self, group_accumulator: GroupAccumulator, user_total_count: int):
+        self.group_accumulator = group_accumulator
+        self.user_total_count = user_total_count
+
+
+def get_groups_by_accumulator_id(
+    db: Session,
+    accumulator_id: UUID,
+    user_id: UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> Tuple[List[GroupAccumulatorWithUserCount], int]:
+    """Get all groups using a specific accumulator with the user's total count for each.
+    
+    Returns a list of GroupAccumulatorWithUserCount objects and total count.
+    """
+    query = db.query(GroupAccumulator).filter(
+        GroupAccumulator.accumulator_id == accumulator_id,
+        GroupAccumulator.deleted_at.is_(None)
+    )
+    
+    total = query.count()
+    group_accumulators = query.order_by(GroupAccumulator.created_at.desc()).offset(skip).limit(limit).all()
+    
+    if not group_accumulators:
+        return [], 0
+    
+    group_accumulator_ids = [ga.id for ga in group_accumulators]
+    
+    # Get user's total count for each group accumulator
+    user_counts_query = (
+        db.query(
+            GroupAccumulatorHistory.group_accumulator_id,
+            func.sum(GroupAccumulatorHistory.count).label('total_count')
+        )
+        .filter(
+            GroupAccumulatorHistory.group_accumulator_id.in_(group_accumulator_ids),
+            GroupAccumulatorHistory.user_id == user_id
+        )
+        .group_by(GroupAccumulatorHistory.group_accumulator_id)
+        .all()
+    )
+    
+    user_counts_map = {row.group_accumulator_id: int(row.total_count or 0) for row in user_counts_query}
+    
+    result = [
+        GroupAccumulatorWithUserCount(
+            group_accumulator=ga,
+            user_total_count=user_counts_map.get(ga.id, 0)
+        )
+        for ga in group_accumulators
+    ]
+    
     return result, total

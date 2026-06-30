@@ -114,3 +114,23 @@ class AccumulatorHistoryResponse(BaseModel):
     total: int
     skip: int
     limit: int
+
+
+class AccumulatorGroupDTO(BaseModel):
+    """Group accumulator information with user's total count."""
+    group_accumulator_id: UUID
+    group_id: UUID
+    title: Optional[str] = None
+    target_count: Optional[int] = None
+    user_total_count: int = Field(..., description="Authenticated user's total count for this group accumulator")
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    created_at: datetime
+
+
+class AccumulatorGroupsResponse(BaseModel):
+    """Response for groups using a specific accumulator."""
+    groups: List[AccumulatorGroupDTO]
+    total: int
+    skip: int
+    limit: int
