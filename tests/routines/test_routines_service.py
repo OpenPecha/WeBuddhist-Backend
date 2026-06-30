@@ -1,6 +1,6 @@
 import uuid
 from contextlib import ExitStack
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 
 import pytest
 from types import SimpleNamespace
@@ -51,7 +51,6 @@ from pecha_api.routines.response_message import (
     DUPLICATE_SERIES,
     DUPLICATE_RECITATION_COLLECTION,
     TIME_ALREADY_EXISTS,
-    TIMEZONE_REQUIRED,
     SOURCE_ID_REQUIRED,
     INVALID_TIMER_DURATION,
     DUPLICATE_ACCUMULATOR,
@@ -443,34 +442,93 @@ async def test_create_routine_already_exists():
 
 
 @pytest.mark.asyncio
-async def test_create_routine_requires_timezone_header():
+async def test_create_routine_without_timezone_defaults_to_utc():
     user_id = uuid.uuid4()
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    source_id = uuid.uuid4()
 
     request = CreateTimeBlockRequest(
         time="12:00",
         time_int=1200,
+        notification_enabled=True,
         sessions=[
             SessionRequest(
                 session_type=SessionType.PLAN,
-                source_id=uuid.uuid4(),
+                source_id=source_id,
                 display_order=0,
             )
         ],
     )
 
-    _, session_cm = _mock_session_with_db()
+    _db_mock, session_cm = _mock_session_with_db()
+
+    saved_routine = SimpleNamespace(id=routine_id, user_id=user_id)
+    saved_time_block = SimpleNamespace(
+        id=time_block_id,
+        time="12:00",
+        time_int=1200,
+        notification_enabled=True,
+        time_utc=time(12, 0, tzinfo=timezone.utc),
+    )
+    saved_session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.PLAN,
+        source_id=source_id,
+        display_order=0,
+    )
+    mock_plan = SimpleNamespace(
+        id=source_id,
+        title="Daily Routine",
+        language=SimpleNamespace(value="EN"),
+        image_url="images/plan/original/cover.jpg",
+        start_date=None,
+    )
+    plan_image = ImageUrlModel(
+        thumbnail="https://example.com/image-thumb.jpg",
+        medium="https://example.com/image-medium.jpg",
+        original="https://example.com/image.jpg",
+    )
 
     with patch(
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=plan_image,
+    ), patch(
         "pecha_api.routines.routines_service.validate_and_extract_user_details",
         return_value=SimpleNamespace(id=user_id),
     ), patch(
         "pecha_api.routines.routines_service.SessionLocal",
         return_value=session_cm,
+    ), patch(
+        "pecha_api.routines.routines_service.get_routine_by_user_id",
+        return_value=None,
+    ), patch(
+        "pecha_api.routines.routines_service.Routine",
+        return_value=saved_routine,
+    ), patch(
+        "pecha_api.routines.routines_service.save_routine",
+        return_value=saved_routine,
+    ), patch(
+        "pecha_api.routines.routines_service.RoutineTimeBlock",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.routines.routines_service.save_time_block",
+        return_value=saved_time_block,
+    ), patch(
+        "pecha_api.routines.routines_service.RoutineSession",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.routines.routines_service.save_sessions",
+        return_value=[saved_session],
+    ), patch(
+        "pecha_api.routines.routines_service.get_plans_by_ids",
+        return_value=[mock_plan],
     ):
-        with pytest.raises(HTTPException) as exc_info:
-            await create_routine_with_time_block(token="token123", request=request)
-        assert exc_info.value.status_code == 422
-        assert exc_info.value.detail["message"] == TIMEZONE_REQUIRED
+        result = await create_routine_with_time_block(token="token123", request=request)
+
+        assert result.id == routine_id
+        assert result.time_blocks[0].time == "12:00"
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,5 @@
 ROUTINE_ALREADY_EXISTS = "Routine already exists for this user"
 INVALID_TIME_FORMAT = "Time must be in HH:MM 24-hour format (00:00 to 23:59)"
-TIMEZONE_REQUIRED = "X-Timezone header is required (IANA timezone, e.g. Asia/Kathmandu)"
 SESSIONS_REQUIRED = "At least one session is required"
 DUPLICATE_PLAN = "A plan can only appear once in a time block"
 DUPLICATE_SERIES = "A series can only appear once in a time block"

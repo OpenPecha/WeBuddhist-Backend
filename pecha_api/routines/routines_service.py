@@ -25,6 +25,7 @@ from pecha_api.timezone_utils import (
     hhmm_to_time_int,
     local_hhmm_to_utc_time,
     normalize_timezone_name,
+    utc_time_to_hhmm,
     utc_time_to_local_hhmm,
 )
 from pecha_api.accumulator.accumulator_models import Accumulator
@@ -71,7 +72,6 @@ from .response_message import (
     TIME_ALREADY_EXISTS,
     TIME_BLOCK_NOT_FOUND,
     TIME_BLOCK_TIME_CONFLICT,
-    TIMEZONE_REQUIRED,
     NO_ROUTINE_CREATED_FOR_USER,
     SERIES_NOT_FOUND,
     PRESET_ACCUMULATOR_NOT_FOUND,
@@ -89,42 +89,23 @@ from .routines_response_models import (
 )
 
 
-def _require_timezone_name(timezone_name: Optional[str]) -> str:
-    normalized = normalize_timezone_name(timezone_name)
-    if normalized is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=TIMEZONE_REQUIRED
-            ).model_dump(),
-        )
-    return normalized
+DEFAULT_ROUTINE_TIMEZONE = "UTC"
 
 
 def _resolve_effective_timezone(
     timezone_name: Optional[str],
-    routine: Optional[Routine],
-    *,
-    required: bool = False,
+    routine: Optional[Routine] = None,
 ) -> str:
     normalized = normalize_timezone_name(timezone_name)
     if normalized is not None:
         return normalized
     if routine is not None and routine.timezone:
         return routine.timezone
-    if required:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=TIMEZONE_REQUIRED
-            ).model_dump(),
-        )
-    raise HTTPException(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        detail=ResponseError(
-            error=BAD_REQUEST, message=TIMEZONE_REQUIRED
-        ).model_dump(),
-    )
+    return DEFAULT_ROUTINE_TIMEZONE
+
+
+def _stored_timezone_name(timezone_name: Optional[str]) -> Optional[str]:
+    return normalize_timezone_name(timezone_name)
 
 
 def _build_time_block_storage(
@@ -143,8 +124,11 @@ def _resolve_time_block_display(
     routine_timezone: Optional[str],
 ) -> tuple[str, int]:
     time_utc = getattr(time_block, "time_utc", None)
-    if time_utc is not None and routine_timezone:
-        local_hhmm = utc_time_to_local_hhmm(time_utc, routine_timezone)
+    if time_utc is not None:
+        if routine_timezone:
+            local_hhmm = utc_time_to_local_hhmm(time_utc, routine_timezone)
+        else:
+            local_hhmm = utc_time_to_hhmm(time_utc)
         return local_hhmm, hhmm_to_time_int(local_hhmm)
     return time_block.time, time_block.time_int
 
@@ -956,7 +940,8 @@ async def create_routine_with_time_block(
     current_user = validate_and_extract_user_details(token=token)
 
     _validate_time_block_request(request)
-    timezone_name = _require_timezone_name(timezone_name)
+    stored_timezone = _stored_timezone_name(timezone_name)
+    effective_timezone = _resolve_effective_timezone(timezone_name)
 
     with SessionLocal() as db:
         prepared_sessions = _prepare_sessions(db=db, sessions=request.sessions)
@@ -975,12 +960,12 @@ async def create_routine_with_time_block(
 
         local_time, time_int, time_utc = _build_time_block_storage(
             local_time=request.time,
-            timezone_name=timezone_name,
+            timezone_name=effective_timezone,
             time_int=request.time_int,
         )
 
         # Create routine
-        routine = Routine(user_id=current_user.id, timezone=timezone_name)
+        routine = Routine(user_id=current_user.id, timezone=stored_timezone)
         saved_routine = save_routine(db=db, routine=routine)
 
         # Create time block
@@ -1010,7 +995,7 @@ async def create_routine_with_time_block(
             time_block=saved_time_block,
             sessions=saved_sessions,
             user_id=current_user.id,
-            routine_timezone=timezone_name,
+            routine_timezone=stored_timezone,
         )
 
         return RoutineWithTimeBlocksResponse(
@@ -1116,7 +1101,6 @@ async def add_time_block_to_routine(
     current_user = validate_and_extract_user_details(token=token)
 
     _validate_time_block_request(request)
-    timezone_name = normalize_timezone_name(timezone_name)
 
     with SessionLocal() as db:
         # Check routine exists and belongs to user
@@ -1134,8 +1118,9 @@ async def add_time_block_to_routine(
         effective_timezone = _resolve_effective_timezone(timezone_name, routine)
 
         # Refresh the routine's stored timezone when the header is provided
-        if timezone_name is not None:
-            routine.timezone = timezone_name
+        stored_timezone = _stored_timezone_name(timezone_name)
+        if stored_timezone is not None:
+            routine.timezone = stored_timezone
 
         local_time, time_int, time_utc = _build_time_block_storage(
             local_time=request.time,
@@ -1240,8 +1225,9 @@ async def update_time_block_service(
             )
 
         effective_timezone = _resolve_effective_timezone(timezone_name, routine)
-        if timezone_name is not None:
-            routine.timezone = normalize_timezone_name(timezone_name)
+        stored_timezone = _stored_timezone_name(timezone_name)
+        if stored_timezone is not None:
+            routine.timezone = stored_timezone
 
         local_time, time_int, time_utc = _build_time_block_storage(
             local_time=request.time,
