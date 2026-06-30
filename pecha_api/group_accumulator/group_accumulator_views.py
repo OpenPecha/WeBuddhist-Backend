@@ -52,29 +52,6 @@ async def submit_group_count(
     return result
 
 
-@group_accumulator_router.put(
-    "/{group_accumulator_id}",
-    response_model=GroupAccumulatorHistoryItemDTO,
-    responses={
-        201: {"description": "New history entry created"},
-        200: {"description": "No change (delta <= 0)"},
-    }
-)
-async def update_group_count(
-    group_accumulator_id: UUID,
-    request: SubmitGroupCountRequest,
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    response: Response,
-):
-    result, is_created = submit_group_count_service(
-        token=credentials.credentials,
-        group_accumulator_id=group_accumulator_id,
-        request=request,
-    )
-    response.status_code = status.HTTP_201_CREATED if is_created else status.HTTP_200_OK
-    return result
-
-
 @group_accumulator_router.get(
     "/{group_accumulator_id}/history",
     response_model=GroupAccumulatorHistoryResponse

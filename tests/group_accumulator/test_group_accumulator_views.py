@@ -206,49 +206,6 @@ class TestSubmitGroupCount:
         assert "member" in response.json()["detail"]["message"]
 
 
-class TestUpdateGroupCount:
-    """Test cases for PUT /group-accumulators/{group_accumulator_id}/count endpoint."""
-
-    @patch('pecha_api.group_accumulator.group_accumulator_views.submit_group_count_service')
-    def test_update_group_count_success(self, mock_service):
-        """Test successful update of group count."""
-        accumulator_id = uuid4()
-        user_id = uuid4()
-        mock_service.return_value = (
-            TestDataFactory.create_history_item(
-                user_id=user_id,
-                count=50,
-            ),
-            True,  # is_created
-        )
-
-        payload = {"current_count": 150}
-        response = client.put(
-            f"/group-accumulators/{accumulator_id}",
-            json=payload,
-            headers={"Authorization": "Bearer valid_token"},
-        )
-
-        assert response.status_code == status.HTTP_201_CREATED  # 201 when created
-        data = response.json()
-        assert data["count"] == 50
-        mock_service.assert_called_once()
-
-    @patch('pecha_api.group_accumulator.group_accumulator_views.submit_group_count_service')
-    def test_update_group_count_unauthorized(self, mock_service):
-        """Test update group count without authorization."""
-        accumulator_id = uuid4()
-        payload = {"current_count": 150}
-
-        response = client.put(
-            f"/group-accumulators/{accumulator_id}",
-            json=payload,
-        )
-
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-        mock_service.assert_not_called()
-
-
 class TestGetGroupAccumulatorHistory:
     """Test cases for GET /group-accumulators/{group_accumulator_id}/count endpoint."""
 
