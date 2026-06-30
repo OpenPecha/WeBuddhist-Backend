@@ -235,6 +235,7 @@ def get_series_for_clone(db: Session, series_id) -> Optional[Series]:
             .selectinload(PlanItem.tasks)
             .selectinload(PlanTask.sub_tasks)
             .selectinload(PlanSubTask.timestamp),
+            selectinload(Series.plans).selectinload(Plan.videos),
         )
         .filter(Series.id == series_id, Series.deleted_at.is_(None))
         .first()
@@ -324,6 +325,22 @@ def _clone_item(db: Session, src_item, new_plan_id: UUID, created_by: str) -> No
             _clone_task(db, src_task, new_item.id, created_by)
 
 
+def _clone_video(db: Session, src_video, new_plan_id: UUID, created_by: str) -> None:
+    from pecha_api.plans.videos.plan_video_models import PlanVideo
+
+    db.add(
+        PlanVideo(
+            plan_id=new_plan_id,
+            url=src_video.url,
+            video_id=src_video.video_id,
+            title=src_video.title,
+            display_order=src_video.display_order,
+            created_by=created_by,
+            updated_by=created_by,
+        )
+    )
+
+
 def _plan_language_value(language) -> str:
     if hasattr(language, "value"):
         return language.value
@@ -362,6 +379,9 @@ def _clone_plan(
 
     for src_item in src_plan.items or []:
         _clone_item(db, src_item, new_plan.id, created_by)
+
+    for src_video in src_plan.videos or []:
+        _clone_video(db, src_video, new_plan.id, created_by)
 
     return new_plan
 
