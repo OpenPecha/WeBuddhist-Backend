@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timezone
 from uuid import UUID
 
 from pecha_api.config import get
@@ -17,6 +17,7 @@ from pecha_api.routines.routine_notifications.routine_notification_response_mode
     RoutineNotificationTargetsResponse,
     RoutineNotificationUserTargetDTO,
 )
+from pecha_api.timezone_utils import utc_time_to_hhmm
 
 SESSION_TYPE_PLAN = "PLAN"
 SESSION_TYPE_SERIES = "SERIES"
@@ -31,7 +32,7 @@ def get_routine_notification_targets() -> RoutineNotificationTargetsResponse:
     utc_now = datetime.now(timezone.utc)
     with SessionLocal() as db:
         rows = repo.get_users_with_matching_timeblocks(db)
-        filtered_rows = _filter_by_local_time(rows, utc_now)
+        filtered_rows = _filter_by_utc_time(rows, utc_now)
         groups = _build_groups(filtered_rows, db, utc_now)
 
     return RoutineNotificationTargetsResponse(
@@ -41,7 +42,7 @@ def get_routine_notification_targets() -> RoutineNotificationTargetsResponse:
     )
 
 
-def _filter_by_local_time(
+def _filter_by_utc_time(
     rows: list[RoutineNotificationRow],
     utc_now: datetime,
 ) -> list[RoutineNotificationRow]:
@@ -49,7 +50,7 @@ def _filter_by_local_time(
     seen: set[tuple] = set()
 
     for row in rows:
-        if not _local_time_matches(row.routine_timezone, row.time_block_created_at, row.time_block_time, utc_now):
+        if not _utc_time_matches(row.time_block_time_utc, utc_now):
             continue
 
         dedupe_key = (
@@ -67,38 +68,10 @@ def _filter_by_local_time(
     return matched
 
 
-def _local_time_matches(
-    routine_timezone: str | None,
-    time_block_created_at: datetime,
-    time_block_time: str,
-    utc_now: datetime,
-) -> bool:
-    local_hhmm = _local_hhmm(routine_timezone, time_block_created_at, utc_now)
-    if local_hhmm is None:
+def _utc_time_matches(time_block_time_utc: time | None, utc_now: datetime) -> bool:
+    if time_block_time_utc is None:
         return False
-    return time_block_time == local_hhmm
-
-
-def _local_hhmm(
-    routine_timezone: str | None,
-    time_block_created_at: datetime,
-    utc_now: datetime,
-) -> str | None:
-    if routine_timezone:
-        try:
-            from pecha_api.timezone_utils import _resolve_timezone
-
-            local_now = utc_now.astimezone(_resolve_timezone(routine_timezone))
-            return local_now.strftime("%H:%M")
-        except Exception:
-            pass
-
-    offset = time_block_created_at.utcoffset()
-    if offset is None:
-        return None
-
-    local_now = utc_now + offset
-    return local_now.strftime("%H:%M")
+    return utc_time_to_hhmm(time_block_time_utc) == utc_now.strftime("%H:%M")
 
 
 def _build_groups(

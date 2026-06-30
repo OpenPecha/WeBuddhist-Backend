@@ -2,6 +2,7 @@ from sqlalchemy import (
     Column,
     String,
     DateTime,
+    Time,
     Boolean,
     Integer,
     UUID,
@@ -58,6 +59,7 @@ class RoutineTimeBlock(Base):
         nullable=False,
     )
     time = Column(String(5), nullable=False)
+    time_utc = Column(Time(timezone=True), nullable=False)
     time_int = Column(Integer, nullable=False)
     notification_enabled = Column(Boolean, default=True)
 

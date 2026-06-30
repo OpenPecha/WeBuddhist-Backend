@@ -51,6 +51,7 @@ from pecha_api.routines.response_message import (
     DUPLICATE_SERIES,
     DUPLICATE_RECITATION_COLLECTION,
     TIME_ALREADY_EXISTS,
+    TIMEZONE_REQUIRED,
     SOURCE_ID_REQUIRED,
     INVALID_TIMER_DURATION,
     DUPLICATE_ACCUMULATOR,
@@ -390,7 +391,9 @@ async def test_create_routine_success():
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
     ):
-        result = await create_routine_with_time_block(token="token123", request=request)
+        result = await create_routine_with_time_block(
+            token="token123", request=request, timezone_name="UTC"
+        )
 
         assert result.id == routine_id
         assert len(result.time_blocks) == 1
@@ -432,9 +435,42 @@ async def test_create_routine_already_exists():
         return_value=SimpleNamespace(id=uuid.uuid4()),
     ):
         with pytest.raises(HTTPException) as exc_info:
-            await create_routine_with_time_block(token="token123", request=request)
+            await create_routine_with_time_block(
+                token="token123", request=request, timezone_name="UTC"
+            )
         assert exc_info.value.status_code == 409
         assert exc_info.value.detail["message"] == ROUTINE_ALREADY_EXISTS
+
+
+@pytest.mark.asyncio
+async def test_create_routine_requires_timezone_header():
+    user_id = uuid.uuid4()
+
+    request = CreateTimeBlockRequest(
+        time="12:00",
+        time_int=1200,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.PLAN,
+                source_id=uuid.uuid4(),
+                display_order=0,
+            )
+        ],
+    )
+
+    _, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.routines.routines_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.routines.routines_service.SessionLocal",
+        return_value=session_cm,
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await create_routine_with_time_block(token="token123", request=request)
+        assert exc_info.value.status_code == 422
+        assert exc_info.value.detail["message"] == TIMEZONE_REQUIRED
 
 
 @pytest.mark.asyncio
@@ -502,7 +538,9 @@ async def test_create_routine_with_timer_session():
         "pecha_api.routines.routines_service.save_sessions",
         return_value=[saved_session],
     ):
-        result = await create_routine_with_time_block(token="token123", request=request)
+        result = await create_routine_with_time_block(
+            token="token123", request=request, timezone_name="UTC"
+        )
 
         assert result.id == routine_id
         assert len(result.time_blocks) == 1
@@ -815,7 +853,7 @@ async def test_add_time_block_success():
         return_value=session_cm,
     ), patch(
         "pecha_api.routines.routines_service.get_routine_by_id_and_user",
-        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC"),
     ), patch(
         "pecha_api.routines.routines_service.time_block_exists_for_routine",
         return_value=False,
@@ -944,7 +982,7 @@ async def test_add_time_block_duplicate_time():
         return_value=session_cm,
     ), patch(
         "pecha_api.routines.routines_service.get_routine_by_id_and_user",
-        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC"),
     ), patch(
         "pecha_api.routines.routines_service.time_block_exists_for_routine",
         return_value=True,
@@ -1007,7 +1045,7 @@ async def test_add_time_block_allows_same_plan_in_different_time_block():
         return_value=session_cm,
     ), patch(
         "pecha_api.routines.routines_service.get_routine_by_id_and_user",
-        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC"),
     ), patch(
         "pecha_api.routines.routines_service.time_block_exists_for_routine",
         return_value=False,
@@ -1086,7 +1124,7 @@ async def test_add_time_block_allows_same_series_in_different_time_block():
         return_value=session_cm,
     ), patch(
         "pecha_api.routines.routines_service.get_routine_by_id_and_user",
-        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC"),
     ), patch(
         "pecha_api.routines.routines_service.time_block_exists_for_routine",
         return_value=False,
@@ -1146,7 +1184,7 @@ async def test_add_time_block_duplicate_collection_across_routine():
         return_value=session_cm,
     ), patch(
         "pecha_api.routines.routines_service.get_routine_by_id_and_user",
-        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC"),
     ), patch(
         "pecha_api.routines.routines_service.time_block_exists_for_routine",
         return_value=False,
@@ -1537,7 +1575,7 @@ def test_delete_time_block_does_not_delete_plan_progress():
         return_value=session_cm,
     ), patch(
         "pecha_api.routines.routines_service.get_routine_by_id_and_user",
-        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC"),
     ), patch(
         "pecha_api.routines.routines_service.get_time_block_by_id_and_routine",
         return_value=SimpleNamespace(id=time_block_id, routine_id=routine_id),
@@ -1566,7 +1604,7 @@ def test_delete_time_block_success():
         return_value=session_cm,
     ), patch(
         "pecha_api.routines.routines_service.get_routine_by_id_and_user",
-        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC"),
     ), patch(
         "pecha_api.routines.routines_service.get_time_block_by_id_and_routine",
         return_value=SimpleNamespace(id=time_block_id, routine_id=routine_id),
@@ -1643,7 +1681,7 @@ def test_delete_time_block_not_found():
         return_value=session_cm,
     ), patch(
         "pecha_api.routines.routines_service.get_routine_by_id_and_user",
-        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC"),
     ), patch(
         "pecha_api.routines.routines_service.get_time_block_by_id_and_routine",
         return_value=None,
@@ -1684,7 +1722,7 @@ async def test_update_time_block_service_success():
 
     _db_mock, session_cm = _mock_session_with_db()
 
-    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id)
+    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC")
     mock_time_block = SimpleNamespace(
         id=time_block_id,
         routine_id=routine_id,
@@ -1817,7 +1855,7 @@ async def test_update_time_block_service_time_block_not_found():
     )
 
     _, session_cm = _mock_session_with_db()
-    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id)
+    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC")
 
     with patch(
         "pecha_api.routines.routines_service.validate_and_extract_user_details",
@@ -1863,7 +1901,7 @@ async def test_update_time_block_service_time_conflict():
     )
 
     _, session_cm = _mock_session_with_db()
-    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id)
+    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC")
     mock_time_block = SimpleNamespace(
         id=time_block_id,
         routine_id=routine_id,
@@ -1961,7 +1999,7 @@ async def test_update_time_block_service_allows_same_plan_in_different_time_bloc
         return_value=session_cm,
     ), patch(
         "pecha_api.routines.routines_service.get_routine_by_id_and_user",
-        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC"),
     ), patch(
         "pecha_api.routines.routines_service.get_time_block_by_id_and_routine",
         return_value=mock_time_block,
@@ -2024,7 +2062,7 @@ async def test_update_time_block_service_duplicate_collection_across_routine():
         return_value=session_cm,
     ), patch(
         "pecha_api.routines.routines_service.get_routine_by_id_and_user",
-        return_value=SimpleNamespace(id=routine_id, user_id=user_id),
+        return_value=SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC"),
     ), patch(
         "pecha_api.routines.routines_service.get_time_block_by_id_and_routine",
         return_value=SimpleNamespace(id=time_block_id, routine_id=routine_id),
@@ -2062,7 +2100,7 @@ async def test_get_user_routine_success():
 
     _db_mock, session_cm = _mock_session_with_db()
 
-    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id)
+    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC")
     mock_time_block = SimpleNamespace(
         id=time_block_id,
         routine_id=routine_id,
@@ -2148,7 +2186,7 @@ async def test_get_user_routine_empty_time_blocks():
 
     _db_mock, session_cm = _mock_session_with_db()
 
-    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id)
+    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC")
 
     with patch(
         "pecha_api.routines.routines_service.validate_and_extract_user_details",
@@ -2179,7 +2217,7 @@ async def test_get_user_routine_with_pagination():
 
     _db_mock, session_cm = _mock_session_with_db()
 
-    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id)
+    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC")
     mock_time_block = SimpleNamespace(
         id=time_block_id,
         routine_id=routine_id,
@@ -2225,7 +2263,7 @@ async def test_get_user_routine_with_multiple_time_blocks():
 
     _db_mock, session_cm = _mock_session_with_db()
 
-    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id)
+    mock_routine = SimpleNamespace(id=routine_id, user_id=user_id, timezone="UTC")
     mock_time_blocks = [
         SimpleNamespace(
             id=time_block_id_1,

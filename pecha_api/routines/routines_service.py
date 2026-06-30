@@ -16,12 +16,17 @@ from pecha_api.texts.texts_models import Text
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.users.recitation_collection.recitation_collection_models import RecitationCollection
 from pecha_api.plans.plans_enums import UserPlanStatus
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 from pecha_api.plans.users.plan_users_progress_repository import (
     get_plan_progress_by_user_id_and_plan_ids,
 )
 from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallback
-from pecha_api.timezone_utils import normalize_timezone_name
+from pecha_api.timezone_utils import (
+    hhmm_to_time_int,
+    local_hhmm_to_utc_time,
+    normalize_timezone_name,
+    utc_time_to_local_hhmm,
+)
 from pecha_api.accumulator.accumulator_models import Accumulator
 from pecha_api.accumulator.accumulator_enums import AccumulatorType
 from pecha_api.accumulator.accumulator_service import (
@@ -66,6 +71,7 @@ from .response_message import (
     TIME_ALREADY_EXISTS,
     TIME_BLOCK_NOT_FOUND,
     TIME_BLOCK_TIME_CONFLICT,
+    TIMEZONE_REQUIRED,
     NO_ROUTINE_CREATED_FOR_USER,
     SERIES_NOT_FOUND,
     PRESET_ACCUMULATOR_NOT_FOUND,
@@ -81,6 +87,66 @@ from .routines_response_models import (
     RoutineResponse,
     RoutineInfoResponse,
 )
+
+
+def _require_timezone_name(timezone_name: Optional[str]) -> str:
+    normalized = normalize_timezone_name(timezone_name)
+    if normalized is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=TIMEZONE_REQUIRED
+            ).model_dump(),
+        )
+    return normalized
+
+
+def _resolve_effective_timezone(
+    timezone_name: Optional[str],
+    routine: Optional[Routine],
+    *,
+    required: bool = False,
+) -> str:
+    normalized = normalize_timezone_name(timezone_name)
+    if normalized is not None:
+        return normalized
+    if routine is not None and routine.timezone:
+        return routine.timezone
+    if required:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=TIMEZONE_REQUIRED
+            ).model_dump(),
+        )
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=ResponseError(
+            error=BAD_REQUEST, message=TIMEZONE_REQUIRED
+        ).model_dump(),
+    )
+
+
+def _build_time_block_storage(
+    *,
+    local_time: str,
+    timezone_name: str,
+    time_int: Optional[int] = None,
+) -> tuple[str, int, time]:
+    resolved_time_int = time_int if time_int is not None else hhmm_to_time_int(local_time)
+    time_utc = local_hhmm_to_utc_time(local_time, timezone_name)
+    return local_time, resolved_time_int, time_utc
+
+
+def _resolve_time_block_display(
+    time_block: RoutineTimeBlock,
+    routine_timezone: Optional[str],
+) -> tuple[str, int]:
+    time_utc = getattr(time_block, "time_utc", None)
+    if time_utc is not None and routine_timezone:
+        local_hhmm = utc_time_to_local_hhmm(time_utc, routine_timezone)
+        return local_hhmm, hhmm_to_time_int(local_hhmm)
+    return time_block.time, time_block.time_int
 
 
 def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
@@ -865,13 +931,19 @@ def group_sessions_by_block(
 
 
 async def build_time_block_dto(
-    db, time_block: RoutineTimeBlock, sessions: List[RoutineSession], user_id: UUID, language: Optional[str] = None
+    db,
+    time_block: RoutineTimeBlock,
+    sessions: List[RoutineSession],
+    user_id: UUID,
+    language: Optional[str] = None,
+    routine_timezone: Optional[str] = None,
 ) -> TimeBlockDTO:
     resolved_sessions = await _resolve_sessions(db=db, sessions=sessions, user_id=user_id, language=language)
+    display_time, display_time_int = _resolve_time_block_display(time_block, routine_timezone)
     return TimeBlockDTO(
         id=time_block.id,
-        time=time_block.time,
-        time_int=time_block.time_int,
+        time=display_time,
+        time_int=display_time_int,
         notification_enabled=time_block.notification_enabled,
         sessions=resolved_sessions,
     )
@@ -884,7 +956,7 @@ async def create_routine_with_time_block(
     current_user = validate_and_extract_user_details(token=token)
 
     _validate_time_block_request(request)
-    timezone_name = normalize_timezone_name(timezone_name)
+    timezone_name = _require_timezone_name(timezone_name)
 
     with SessionLocal() as db:
         prepared_sessions = _prepare_sessions(db=db, sessions=request.sessions)
@@ -901,6 +973,12 @@ async def create_routine_with_time_block(
                 ).model_dump(),
             )
 
+        local_time, time_int, time_utc = _build_time_block_storage(
+            local_time=request.time,
+            timezone_name=timezone_name,
+            time_int=request.time_int,
+        )
+
         # Create routine
         routine = Routine(user_id=current_user.id, timezone=timezone_name)
         saved_routine = save_routine(db=db, routine=routine)
@@ -908,8 +986,9 @@ async def create_routine_with_time_block(
         # Create time block
         time_block = RoutineTimeBlock(
             routine_id=saved_routine.id,
-            time=request.time,
-            time_int=request.time_int,
+            time=local_time,
+            time_utc=time_utc,
+            time_int=time_int,
             notification_enabled=request.notification_enabled,
         )
         saved_time_block = save_time_block(db=db, time_block=time_block)
@@ -927,7 +1006,11 @@ async def create_routine_with_time_block(
         )
 
         time_block_dto = await build_time_block_dto(
-            db=db, time_block=saved_time_block, sessions=saved_sessions, user_id=current_user.id
+            db=db,
+            time_block=saved_time_block,
+            sessions=saved_sessions,
+            user_id=current_user.id,
+            routine_timezone=timezone_name,
         )
 
         return RoutineWithTimeBlocksResponse(
@@ -981,7 +1064,12 @@ async def get_user_routine(
 
         time_block_dtos = [
             await build_time_block_dto(
-                db=db, time_block=tb, sessions=sessions_by_block.get(tb.id, []), user_id=current_user.id, language=language
+                db=db,
+                time_block=tb,
+                sessions=sessions_by_block.get(tb.id, []),
+                user_id=current_user.id,
+                language=language,
+                routine_timezone=routine.timezone,
             )
             for tb in time_blocks
         ]
@@ -1043,20 +1131,29 @@ async def add_time_block_to_routine(
                 ).model_dump(),
             )
 
+        effective_timezone = _resolve_effective_timezone(timezone_name, routine)
+
         # Refresh the routine's stored timezone when the header is provided
         if timezone_name is not None:
             routine.timezone = timezone_name
 
+        local_time, time_int, time_utc = _build_time_block_storage(
+            local_time=request.time,
+            timezone_name=effective_timezone,
+            time_int=request.time_int,
+        )
+
         _check_duplicate_collections(db=db, routine_id=routine_id, sessions=request.sessions)
-        _check_duplicate_time(db=db, routine_id=routine_id, time=request.time)
+        _check_duplicate_time(db=db, routine_id=routine_id, time=local_time)
 
         prepared_sessions = _prepare_sessions(db=db, sessions=request.sessions)
 
         # Save time block
         time_block = RoutineTimeBlock(
             routine_id=routine_id,
-            time=request.time,
-            time_int=request.time_int,
+            time=local_time,
+            time_utc=time_utc,
+            time_int=time_int,
             notification_enabled=request.notification_enabled,
         )
         saved_time_block = save_time_block(db=db, time_block=time_block)
@@ -1074,11 +1171,14 @@ async def add_time_block_to_routine(
         )
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions, user_id=current_user.id)
+        display_time, display_time_int = _resolve_time_block_display(
+            saved_time_block, effective_timezone
+        )
 
         return TimeBlockDTO(
             id=saved_time_block.id,
-            time=saved_time_block.time,
-            time_int=saved_time_block.time_int,
+            time=display_time,
+            time_int=display_time_int,
             notification_enabled=saved_time_block.notification_enabled,
             sessions=resolved_sessions,
         )
@@ -1116,7 +1216,11 @@ def delete_time_block(token: str, routine_id: UUID, time_block_id: UUID) -> None
 
 
 async def update_time_block_service(
-    token: str, routine_id: UUID, time_block_id: UUID, request: UpdateTimeBlockRequest
+    token: str,
+    routine_id: UUID,
+    time_block_id: UUID,
+    request: UpdateTimeBlockRequest,
+    timezone_name: Optional[str] = None,
 ) -> TimeBlockDTO:
 
     current_user = validate_and_extract_user_details(token=token)
@@ -1134,6 +1238,16 @@ async def update_time_block_service(
                     error=BAD_REQUEST, message=ROUTINE_NOT_FOUND
                 ).model_dump(),
             )
+
+        effective_timezone = _resolve_effective_timezone(timezone_name, routine)
+        if timezone_name is not None:
+            routine.timezone = normalize_timezone_name(timezone_name)
+
+        local_time, time_int, time_utc = _build_time_block_storage(
+            local_time=request.time,
+            timezone_name=effective_timezone,
+            time_int=request.time_int,
+        )
 
         time_block = get_time_block_by_id_and_routine(
             db=db, time_block_id=time_block_id, routine_id=routine_id
@@ -1153,7 +1267,7 @@ async def update_time_block_service(
             user_id=current_user.id,
             routine_id=routine_id,
             time_block_id=time_block_id,
-            time=request.time,
+            time=local_time,
             sessions=prepared_sessions,
         )
 
@@ -1162,8 +1276,9 @@ async def update_time_block_service(
         updated_time_block = update_time_block_repo(
             db=db,
             time_block=time_block,
-            time=request.time,
-            time_int=request.time_int,
+            time=local_time,
+            time_utc=time_utc,
+            time_int=time_int,
             notification_enabled=request.notification_enabled,
         )
 
@@ -1173,11 +1288,14 @@ async def update_time_block_service(
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions, user_id=current_user.id)
+        display_time, display_time_int = _resolve_time_block_display(
+            updated_time_block, effective_timezone
+        )
 
         return TimeBlockDTO(
             id=updated_time_block.id,
-            time=updated_time_block.time,
-            time_int=updated_time_block.time_int,
+            time=display_time,
+            time_int=display_time_int,
             notification_enabled=updated_time_block.notification_enabled,
             sessions=resolved_sessions,
         )

@@ -95,12 +95,17 @@ async def update_time_block(
     time_block_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     request: UpdateTimeBlockRequest,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone of the user (e.g. 'Asia/Kathmandu'). When provided, refreshes the routine's stored timezone."),
+    ] = None,
 ):
     return await update_time_block_service(
         token=authentication_credential.credentials,
         routine_id=routine_id,
         time_block_id=time_block_id,
         request=request,
+        timezone_name=x_timezone,
     )
 
 
