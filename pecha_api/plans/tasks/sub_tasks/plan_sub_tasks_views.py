@@ -11,7 +11,7 @@ from pecha_api.plans.audio.timestamp_service import delete_plan_subtask_timestam
 
 sub_tasks_router = APIRouter(
     prefix="/cms/sub-tasks",
-    tags=["Sub Tasks"]
+    tags=["CMS Sub Tasks"]
 )
 
 oauth2_scheme = HTTPBearer()

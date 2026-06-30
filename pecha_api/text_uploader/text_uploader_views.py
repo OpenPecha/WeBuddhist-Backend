@@ -9,7 +9,7 @@ oauth2_scheme = HTTPBearer()
 
 text_uploader_router = APIRouter(
     prefix="/text-uploader",
-    tags=["Text Uploader"]
+    tags=["CMS Text Uploader"]
 )
 
 @text_uploader_router.post("")

@@ -14,7 +14,7 @@ oauth2_scheme = HTTPBearer()
 
 media_router = APIRouter(
     prefix="/cms/media",
-    tags=["Media"]
+    tags=["CMS Media"]
 )
 
 

@@ -8,7 +8,7 @@ from pecha_api.texts.texts_service import get_text_by_pecha_text_ids_service
 
 text_metadata_router = APIRouter(
     prefix="/text-uploader",
-    tags=["Text Uploader"]
+    tags=["CMS Text Uploader"]
 )
 
 @text_metadata_router.post("/list", status_code=status.HTTP_200_OK)

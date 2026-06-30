@@ -8,7 +8,7 @@ from starlette import status
 from pecha_api.plans.audio.tts_service import generate_tts_audio
 from pecha_api.plans.plans_enums import MonlamVoiceName, PlanAudioType
 
-tts_test_router = APIRouter(tags=["TTS Test"])
+tts_test_router = APIRouter(tags=["CMS TTS Test"])
 
 _TTS_TEST_HTML = Path(__file__).resolve().parent / "static" / "tts_test.html"
 
