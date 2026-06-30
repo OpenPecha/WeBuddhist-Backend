@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated
 from uuid import UUID
@@ -31,38 +31,48 @@ async def get_group_accumulator(
 
 @group_accumulator_router.post(
     "/{group_accumulator_id}",
-    status_code=status.HTTP_201_CREATED,
-    response_model=GroupAccumulatorHistoryItemDTO
+    response_model=GroupAccumulatorHistoryItemDTO,
+    responses={
+        201: {"description": "New history entry created"},
+        200: {"description": "No change (delta <= 0)"},
+    }
 )
 async def submit_group_count(
     group_accumulator_id: UUID,
     request: SubmitGroupCountRequest,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    response: Response,
 ):
-    """Submit user's count contribution to a group accumulator."""
-    return submit_group_count_service(
+    result, is_created = submit_group_count_service(
         token=credentials.credentials,
         group_accumulator_id=group_accumulator_id,
         request=request,
     )
+    response.status_code = status.HTTP_201_CREATED if is_created else status.HTTP_200_OK
+    return result
 
 
 @group_accumulator_router.put(
     "/{group_accumulator_id}",
-    status_code=status.HTTP_200_OK,
-    response_model=GroupAccumulatorHistoryItemDTO
+    response_model=GroupAccumulatorHistoryItemDTO,
+    responses={
+        201: {"description": "New history entry created"},
+        200: {"description": "No change (delta <= 0)"},
+    }
 )
 async def update_group_count(
     group_accumulator_id: UUID,
     request: SubmitGroupCountRequest,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    response: Response,
 ):
-    """Update user's count contribution to a group accumulator."""
-    return submit_group_count_service(
+    result, is_created = submit_group_count_service(
         token=credentials.credentials,
         group_accumulator_id=group_accumulator_id,
         request=request,
     )
+    response.status_code = status.HTTP_201_CREATED if is_created else status.HTTP_200_OK
+    return result
 
 
 @group_accumulator_router.get(

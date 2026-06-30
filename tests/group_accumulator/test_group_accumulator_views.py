@@ -111,9 +111,12 @@ class TestSubmitGroupCount:
         """Test successful submission of group count."""
         accumulator_id = uuid4()
         user_id = uuid4()
-        mock_service.return_value = TestDataFactory.create_history_item(
-            user_id=user_id,
-            count=100,
+        mock_service.return_value = (
+            TestDataFactory.create_history_item(
+                user_id=user_id,
+                count=100,
+            ),
+            True,  # is_created
         )
 
         payload = {"current_count": 100}
@@ -160,12 +163,15 @@ class TestSubmitGroupCount:
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.submit_group_count_service')
     def test_submit_group_count_zero_delta(self, mock_service):
-        """Test submit group count when delta is zero (no change)."""
+        """Test submit group count when delta is zero (no change) returns 200 OK."""
         accumulator_id = uuid4()
         user_id = uuid4()
-        mock_service.return_value = TestDataFactory.create_history_item(
-            user_id=user_id,
-            count=0,
+        mock_service.return_value = (
+            TestDataFactory.create_history_item(
+                user_id=user_id,
+                count=0,
+            ),
+            False,  # is_created = False for no-op
         )
 
         payload = {"current_count": 50}
@@ -175,9 +181,29 @@ class TestSubmitGroupCount:
             headers={"Authorization": "Bearer valid_token"},
         )
 
-        assert response.status_code == status.HTTP_201_CREATED
+        assert response.status_code == status.HTTP_200_OK  # 200 for no-op, not 201
         data = response.json()
         assert data["count"] == 0
+
+    @patch('pecha_api.group_accumulator.group_accumulator_views.submit_group_count_service')
+    def test_submit_group_count_not_member(self, mock_service):
+        """Test submit group count when user is not a group member."""
+        from fastapi import HTTPException
+        accumulator_id = uuid4()
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "FORBIDDEN", "message": "You must be a member of this group"}
+        )
+
+        payload = {"current_count": 100}
+        response = client.post(
+            f"/group-accumulators/{accumulator_id}",
+            json=payload,
+            headers={"Authorization": "Bearer valid_token"},
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert "member" in response.json()["detail"]["message"]
 
 
 class TestUpdateGroupCount:
@@ -188,9 +214,12 @@ class TestUpdateGroupCount:
         """Test successful update of group count."""
         accumulator_id = uuid4()
         user_id = uuid4()
-        mock_service.return_value = TestDataFactory.create_history_item(
-            user_id=user_id,
-            count=50,
+        mock_service.return_value = (
+            TestDataFactory.create_history_item(
+                user_id=user_id,
+                count=50,
+            ),
+            True,  # is_created
         )
 
         payload = {"current_count": 150}
@@ -200,7 +229,7 @@ class TestUpdateGroupCount:
             headers={"Authorization": "Bearer valid_token"},
         )
 
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_201_CREATED  # 201 when created
         data = response.json()
         assert data["count"] == 50
         mock_service.assert_called_once()

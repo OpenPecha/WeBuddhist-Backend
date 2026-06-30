@@ -201,7 +201,13 @@ def submit_group_count_service(
     token: str,
     group_accumulator_id: UUID,
     request: SubmitGroupCountRequest,
-) -> GroupAccumulatorHistoryItemDTO:
+) -> tuple[GroupAccumulatorHistoryItemDTO, bool]:
+    """
+    Submit a count contribution to a group accumulator.
+    
+    Returns:
+        tuple: (history_item_dto, is_created) where is_created indicates if a new history entry was created
+    """
     current_user = validate_and_extract_user_details(token=token)
     
     with SessionLocal() as db:
@@ -210,6 +216,13 @@ def submit_group_count_service(
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"error": "NOT_FOUND", "message": "Group accumulator not found"}
+            )
+        
+        # Verify user is a member of the group
+        if not is_user_joined_group(db=db, group_id=group_accumulator.group_id, user_id=current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"error": "FORBIDDEN", "message": "You must be a member of this group"}
             )
         
         # Get user's current total count
@@ -231,20 +244,26 @@ def submit_group_count_service(
                 count=delta,
             )
             
-            return GroupAccumulatorHistoryItemDTO(
-                id=history.id,
-                user_id=history.user_id,
-                count=history.count,
-                created_at=history.created_at,
+            return (
+                GroupAccumulatorHistoryItemDTO(
+                    id=history.id,
+                    user_id=history.user_id,
+                    count=history.count,
+                    created_at=history.created_at,
+                ),
+                True,  # is_created
             )
         
         # Return a response with zero count if no change or decrease
         # id is None to indicate no history entry was created
-        return GroupAccumulatorHistoryItemDTO(
-            id=None,
-            user_id=current_user.id,
-            count=0,
-            created_at=group_accumulator.created_at,
+        return (
+            GroupAccumulatorHistoryItemDTO(
+                id=None,
+                user_id=current_user.id,
+                count=0,
+                created_at=group_accumulator.created_at,
+            ),
+            False,  # is_created
         )
 
 
