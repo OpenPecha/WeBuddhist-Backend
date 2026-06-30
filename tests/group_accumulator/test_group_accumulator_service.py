@@ -13,6 +13,12 @@ from pecha_api.group_accumulator.group_accumulator_service import (
     delete_group_accumulator_service,
     submit_group_count_service,
     get_group_accumulator_history_service,
+    create_group_accumulator_cms_service,
+    get_group_accumulators_cms_service,
+    get_group_accumulator_cms_service,
+    update_group_accumulator_cms_service,
+    delete_group_accumulator_cms_service,
+    delete_group_accumulator_user_service,
 )
 from pecha_api.group_accumulator.group_accumulator_response_models import (
     CreateGroupAccumulatorRequest,
@@ -523,3 +529,335 @@ class TestGetGroupAccumulatorHistoryService:
             )
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+class MockAuthor:
+    """Mock Author model for CMS tests."""
+    def __init__(self, id=None, user_id=None):
+        self.id = id or uuid4()
+        self.user_id = user_id or uuid4()
+
+
+class TestCreateGroupAccumulatorCmsService:
+    """Test cases for create_group_accumulator_cms_service."""
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_cms_author_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.require_can_create_content')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.verify_group_exists')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.create_group_accumulator')
+    def test_create_cms_success(self, mock_create, mock_verify, mock_perm, mock_auth, mock_session):
+        """Test successful CMS creation with proper authorization."""
+        group_id = uuid4()
+        accumulator_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockAuthor()
+        mock_verify.return_value = True
+        mock_create.return_value = MockGroupAccumulator(
+            group_id=group_id,
+            accumulator_id=accumulator_id,
+        )
+
+        request = CreateGroupAccumulatorRequest(
+            accumulator_id=accumulator_id,
+            target_count=108000,
+        )
+
+        result = create_group_accumulator_cms_service(
+            token="valid_token",
+            group_id=group_id,
+            request=request,
+        )
+
+        assert result.group_id == group_id
+        mock_auth.assert_called_once_with(token="valid_token")
+        mock_perm.assert_called_once()
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_cms_author_details')
+    def test_create_cms_invalid_token(self, mock_auth):
+        """Test CMS creation with invalid token."""
+        mock_auth.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
+        request = CreateGroupAccumulatorRequest(target_count=108000)
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_group_accumulator_cms_service(
+                token="invalid_token",
+                group_id=uuid4(),
+                request=request,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+class TestGetGroupAccumulatorsCmsService:
+    """Test cases for get_group_accumulators_cms_service."""
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_cms_author_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.require_can_read_group_content')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulators')
+    def test_get_accumulators_cms_success(self, mock_get, mock_perm, mock_auth, mock_session):
+        """Test successful CMS list with proper authorization."""
+        group_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockAuthor()
+        mock_get.return_value = ([MockGroupAccumulator(group_id=group_id)], 1)
+
+        result = get_group_accumulators_cms_service(
+            token="valid_token",
+            group_id=group_id,
+            skip=0,
+            limit=20,
+        )
+
+        assert result.total == 1
+        mock_auth.assert_called_once_with(token="valid_token")
+        mock_perm.assert_called_once()
+
+
+class TestGetGroupAccumulatorCmsService:
+    """Test cases for get_group_accumulator_cms_service."""
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_cms_author_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.require_can_read_group_content')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_total_count')
+    def test_get_single_cms_success(self, mock_total, mock_get, mock_perm, mock_auth, mock_session):
+        """Test successful CMS get single with proper authorization."""
+        group_id = uuid4()
+        accumulator_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockAuthor()
+        mock_get.return_value = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
+        mock_total.return_value = 5000
+
+        result = get_group_accumulator_cms_service(
+            token="valid_token",
+            group_id=group_id,
+            group_accumulator_id=accumulator_id,
+        )
+
+        assert result.id == accumulator_id
+        assert result.total_count == 5000
+        mock_auth.assert_called_once_with(token="valid_token")
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_cms_author_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.require_can_read_group_content')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    def test_get_single_cms_not_found(self, mock_get, mock_perm, mock_auth, mock_session):
+        """Test CMS get single when accumulator not found."""
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockAuthor()
+        mock_get.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_group_accumulator_cms_service(
+                token="valid_token",
+                group_id=uuid4(),
+                group_accumulator_id=uuid4(),
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_cms_author_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.require_can_read_group_content')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    def test_get_single_cms_wrong_group(self, mock_get, mock_perm, mock_auth, mock_session):
+        """Test CMS get single when accumulator belongs to different group."""
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockAuthor()
+        mock_get.return_value = MockGroupAccumulator(group_id=uuid4())
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_group_accumulator_cms_service(
+                token="valid_token",
+                group_id=uuid4(),
+                group_accumulator_id=uuid4(),
+            )
+
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestUpdateGroupAccumulatorCmsService:
+    """Test cases for update_group_accumulator_cms_service."""
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_cms_author_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.require_can_change_status')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.update_group_accumulator')
+    def test_update_cms_success(self, mock_update, mock_get, mock_perm, mock_auth, mock_session):
+        """Test successful CMS update with proper authorization."""
+        group_id = uuid4()
+        accumulator_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockAuthor()
+        mock_acc = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
+        mock_get.return_value = mock_acc
+        mock_update.return_value = mock_acc
+
+        request = UpdateGroupAccumulatorRequest(target_count=216000)
+
+        result = update_group_accumulator_cms_service(
+            token="valid_token",
+            group_id=group_id,
+            group_accumulator_id=accumulator_id,
+            request=request,
+        )
+
+        assert result.id == accumulator_id
+        mock_auth.assert_called_once_with(token="valid_token")
+        mock_perm.assert_called_once()
+
+
+class TestDeleteGroupAccumulatorCmsService:
+    """Test cases for delete_group_accumulator_cms_service."""
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_cms_author_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.require_can_change_status')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.delete_group_accumulator')
+    def test_delete_cms_success(self, mock_delete, mock_get, mock_perm, mock_auth, mock_session):
+        """Test successful CMS delete with proper authorization."""
+        group_id = uuid4()
+        accumulator_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockAuthor()
+        mock_get.return_value = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
+
+        delete_group_accumulator_cms_service(
+            token="valid_token",
+            group_id=group_id,
+            group_accumulator_id=accumulator_id,
+        )
+
+        mock_auth.assert_called_once_with(token="valid_token")
+        mock_perm.assert_called_once()
+        mock_delete.assert_called_once()
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_cms_author_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.require_can_change_status')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    def test_delete_cms_not_found(self, mock_get, mock_perm, mock_auth, mock_session):
+        """Test CMS delete when accumulator not found."""
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockAuthor()
+        mock_get.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            delete_group_accumulator_cms_service(
+                token="valid_token",
+                group_id=uuid4(),
+                group_accumulator_id=uuid4(),
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestDeleteGroupAccumulatorUserService:
+    """Test cases for delete_group_accumulator_user_service."""
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.delete_group_accumulator')
+    def test_delete_user_success(self, mock_delete, mock_get, mock_joined, mock_auth, mock_session):
+        """Test successful user delete with group membership."""
+        group_id = uuid4()
+        accumulator_id = uuid4()
+        user_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockUser(id=user_id)
+        mock_joined.return_value = True
+        mock_get.return_value = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
+
+        delete_group_accumulator_user_service(
+            token="valid_token",
+            group_id=group_id,
+            group_accumulator_id=accumulator_id,
+        )
+
+        mock_auth.assert_called_once_with(token="valid_token")
+        mock_joined.assert_called_once_with(db=mock_db, group_id=group_id, user_id=user_id)
+        mock_delete.assert_called_once()
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group')
+    def test_delete_user_not_member(self, mock_joined, mock_auth, mock_session):
+        """Test user delete when not a group member."""
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockUser()
+        mock_joined.return_value = False
+
+        with pytest.raises(HTTPException) as exc_info:
+            delete_group_accumulator_user_service(
+                token="valid_token",
+                group_id=uuid4(),
+                group_accumulator_id=uuid4(),
+            )
+
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
+        assert "member" in exc_info.value.detail["message"]
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    def test_delete_user_not_found(self, mock_get, mock_joined, mock_auth, mock_session):
+        """Test user delete when accumulator not found."""
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockUser()
+        mock_joined.return_value = True
+        mock_get.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            delete_group_accumulator_user_service(
+                token="valid_token",
+                group_id=uuid4(),
+                group_accumulator_id=uuid4(),
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    def test_delete_user_wrong_group(self, mock_get, mock_joined, mock_auth, mock_session):
+        """Test user delete when accumulator belongs to different group."""
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockUser()
+        mock_joined.return_value = True
+        mock_get.return_value = MockGroupAccumulator(group_id=uuid4())
+
+        with pytest.raises(HTTPException) as exc_info:
+            delete_group_accumulator_user_service(
+                token="valid_token",
+                group_id=uuid4(),
+                group_accumulator_id=uuid4(),
+            )
+
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
