@@ -3,10 +3,19 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
-import pytest
-
 from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.routines.routine_notifications import routine_notification_service as service
+
+
+def _mock_notification_config():
+    return patch.object(
+        service,
+        "get",
+        side_effect=lambda key: {
+            "NOTIFICATION_DEFAULT_TITLE": "Default title",
+            "NOTIFICATION_DEFAULT_BODY": "Default body",
+        }[key],
+    )
 
 
 def test_resolve_plan_notification_uses_day_copy_and_custom_image():
@@ -52,14 +61,9 @@ def test_resolve_plan_notification_falls_back_to_plan_defaults_without_day_notif
 
     with patch.object(service.repo, "get_plan_by_id", return_value=plan), patch.object(
         service.repo, "get_user_plan_progress", return_value=None
-    ), patch.object(service.repo, "get_plan_item_by_day_number", return_value=None    ), patch.object(
-        service,
-        "get",
-        side_effect=lambda key: {
-            "NOTIFICATION_DEFAULT_TITLE": "Default title",
-            "NOTIFICATION_DEFAULT_BODY": "Default body",
-        }[key],
-    ), patch.object(service, "_resolve_plan_image_url", return_value="https://example.com/plan.png"):
+    ), patch.object(service.repo, "get_plan_item_by_day_number", return_value=None), _mock_notification_config(), patch.object(
+        service, "_resolve_plan_image_url", return_value="https://example.com/plan.png"
+    ):
         content = service._resolve_plan_notification(
             MagicMock(),
             user_id=user_id,
@@ -111,14 +115,9 @@ def test_resolve_series_notification_uses_series_defaults():
 
     with patch.object(service.repo, "get_series_by_id", return_value=series), patch.object(
         service.repo, "get_series_metadata", return_value=metadata
-    ), patch.object(
-        service,
-        "get",
-        side_effect=lambda key: {
-            "NOTIFICATION_DEFAULT_TITLE": "Default title",
-            "NOTIFICATION_DEFAULT_BODY": "Default body",
-        }[key],
-    ), patch.object(service, "_resolve_series_image_url", return_value="https://example.com/series.png"):
+    ), _mock_notification_config(), patch.object(
+        service, "_resolve_series_image_url", return_value="https://example.com/series.png"
+    ):
         content = service._resolve_series_notification(MagicMock(), series_id=series_id)
 
     assert content.title == "Morning Series"

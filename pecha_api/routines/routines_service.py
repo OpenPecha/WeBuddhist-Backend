@@ -104,8 +104,14 @@ def _resolve_effective_timezone(
     return DEFAULT_ROUTINE_TIMEZONE
 
 
-def _stored_timezone_name(timezone_name: Optional[str]) -> Optional[str]:
-    return normalize_timezone_name(timezone_name)
+def _sync_routine_timezone(
+    routine: Routine,
+    timezone_name: Optional[str],
+) -> str:
+    stored_timezone = normalize_timezone_name(timezone_name)
+    if stored_timezone is not None:
+        routine.timezone = stored_timezone
+    return _resolve_effective_timezone(timezone_name, routine)
 
 
 def _build_time_block_storage(
@@ -131,6 +137,22 @@ def _resolve_time_block_display(
             local_hhmm = utc_time_to_hhmm(time_utc)
         return local_hhmm, hhmm_to_time_int(local_hhmm)
     return time_block.time, time_block.time_int
+
+
+def _time_block_dto(
+    time_block: RoutineTimeBlock,
+    *,
+    effective_timezone: str,
+    sessions: List[SessionDTO],
+) -> TimeBlockDTO:
+    display_time, display_time_int = _resolve_time_block_display(time_block, effective_timezone)
+    return TimeBlockDTO(
+        id=time_block.id,
+        time=display_time,
+        time_int=display_time_int,
+        notification_enabled=time_block.notification_enabled,
+        sessions=sessions,
+    )
 
 
 def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
@@ -940,7 +962,7 @@ async def create_routine_with_time_block(
     current_user = validate_and_extract_user_details(token=token)
 
     _validate_time_block_request(request)
-    stored_timezone = _stored_timezone_name(timezone_name)
+    stored_timezone = normalize_timezone_name(timezone_name)
     effective_timezone = _resolve_effective_timezone(timezone_name)
 
     with SessionLocal() as db:
@@ -1115,12 +1137,7 @@ async def add_time_block_to_routine(
                 ).model_dump(),
             )
 
-        effective_timezone = _resolve_effective_timezone(timezone_name, routine)
-
-        # Refresh the routine's stored timezone when the header is provided
-        stored_timezone = _stored_timezone_name(timezone_name)
-        if stored_timezone is not None:
-            routine.timezone = stored_timezone
+        effective_timezone = _sync_routine_timezone(routine, timezone_name)
 
         local_time, time_int, time_utc = _build_time_block_storage(
             local_time=request.time,
@@ -1156,15 +1173,9 @@ async def add_time_block_to_routine(
         )
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions, user_id=current_user.id)
-        display_time, display_time_int = _resolve_time_block_display(
-            saved_time_block, effective_timezone
-        )
-
-        return TimeBlockDTO(
-            id=saved_time_block.id,
-            time=display_time,
-            time_int=display_time_int,
-            notification_enabled=saved_time_block.notification_enabled,
+        return _time_block_dto(
+            saved_time_block,
+            effective_timezone=effective_timezone,
             sessions=resolved_sessions,
         )
 
@@ -1224,10 +1235,7 @@ async def update_time_block_service(
                 ).model_dump(),
             )
 
-        effective_timezone = _resolve_effective_timezone(timezone_name, routine)
-        stored_timezone = _stored_timezone_name(timezone_name)
-        if stored_timezone is not None:
-            routine.timezone = stored_timezone
+        effective_timezone = _sync_routine_timezone(routine, timezone_name)
 
         local_time, time_int, time_utc = _build_time_block_storage(
             local_time=request.time,
@@ -1274,14 +1282,8 @@ async def update_time_block_service(
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions, user_id=current_user.id)
-        display_time, display_time_int = _resolve_time_block_display(
-            updated_time_block, effective_timezone
-        )
-
-        return TimeBlockDTO(
-            id=updated_time_block.id,
-            time=display_time,
-            time_int=display_time_int,
-            notification_enabled=updated_time_block.notification_enabled,
+        return _time_block_dto(
+            updated_time_block,
+            effective_timezone=effective_timezone,
             sessions=resolved_sessions,
         )

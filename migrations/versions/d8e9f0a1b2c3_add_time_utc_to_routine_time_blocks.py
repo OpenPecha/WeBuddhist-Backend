@@ -7,15 +7,14 @@ Create Date: 2026-06-30 12:00:00.000000
 """
 from __future__ import annotations
 
-from datetime import datetime, time, timezone
 from typing import Sequence, Union
-from zoneinfo import ZoneInfo
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import text
 
 from migrations.idempotency import column_exists, index_exists
+from pecha_api.timezone_utils import local_hhmm_to_utc_time
 
 # revision identifiers, used by Alembic.
 revision: str = "d8e9f0a1b2c3"
@@ -24,20 +23,12 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-def _local_hhmm_to_utc_time(local_hhmm: str, timezone_name: str | None) -> time:
-    hour_str, minute_str = local_hhmm.split(":")
-    hour, minute = int(hour_str), int(minute_str)
-    reference_date = datetime.now(timezone.utc).date()
-
-    if timezone_name and timezone_name.strip():
-        try:
-            tz = ZoneInfo(timezone_name.strip())
-            local_dt = datetime.combine(reference_date, time(hour, minute), tzinfo=tz)
-            return local_dt.astimezone(timezone.utc).timetz()
-        except Exception:
-            pass
-
-    return time(hour, minute, tzinfo=timezone.utc)
+def _write_time_utc(connection, row_id, local_hhmm: str, timezone_name: str | None) -> None:
+    time_utc = local_hhmm_to_utc_time(local_hhmm, timezone_name or "UTC")
+    connection.execute(
+        text("UPDATE routine_time_blocks SET time_utc = :time_utc WHERE id = :id"),
+        {"time_utc": time_utc, "id": row_id},
+    )
 
 
 def _backfill_time_utc(connection) -> None:
@@ -52,21 +43,13 @@ def _backfill_time_utc(connection) -> None:
     ).fetchall()
 
     for row in rows:
-        time_utc = _local_hhmm_to_utc_time(row.time, row.timezone)
-        connection.execute(
-            text("UPDATE routine_time_blocks SET time_utc = :time_utc WHERE id = :id"),
-            {"time_utc": time_utc, "id": row.id},
-        )
+        _write_time_utc(connection, row.id, row.time, row.timezone)
 
     remaining = connection.execute(
         text("SELECT id, time FROM routine_time_blocks WHERE time_utc IS NULL")
     ).fetchall()
     for row in remaining:
-        time_utc = _local_hhmm_to_utc_time(row.time, None)
-        connection.execute(
-            text("UPDATE routine_time_blocks SET time_utc = :time_utc WHERE id = :id"),
-            {"time_utc": time_utc, "id": row.id},
-        )
+        _write_time_utc(connection, row.id, row.time, "UTC")
 
 
 def upgrade() -> None:
@@ -76,8 +59,7 @@ def upgrade() -> None:
             sa.Column("time_utc", sa.Time(timezone=True), nullable=True),
         )
 
-    connection = op.get_bind()
-    _backfill_time_utc(connection)
+    _backfill_time_utc(op.get_bind())
 
     op.alter_column("routine_time_blocks", "time_utc", nullable=False)
 

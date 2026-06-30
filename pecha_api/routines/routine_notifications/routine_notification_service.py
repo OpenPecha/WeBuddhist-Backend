@@ -31,6 +31,31 @@ IMAGE_TYPE_PLAN = "PLAN"
 IMAGE_TYPE_CUSTOM = "CUSTOM"
 
 
+def _default_notification_copy() -> tuple[str, str]:
+    return get("NOTIFICATION_DEFAULT_TITLE"), get("NOTIFICATION_DEFAULT_BODY")
+
+
+def _notification_content(
+    title: str,
+    body: str,
+    image_url: str | None = None,
+) -> NotificationContentDTO:
+    return NotificationContentDTO(title=title, body=body, image_url=image_url)
+
+
+def _resolve_resource_image_url(
+    image_key: str | None,
+    *,
+    resource_id: UUID,
+    resource_type: str,
+) -> str | None:
+    if not image_key:
+        return None
+    return _image_model_to_url(
+        safe_get_image_url(image_key, resource_id=resource_id, resource_type=resource_type)
+    )
+
+
 def get_routine_notification_targets() -> RoutineNotificationTargetsResponse:
     utc_now = datetime.now(timezone.utc)
     with SessionLocal() as db:
@@ -174,16 +199,16 @@ def _presign_s3_key(s3_key: str | None) -> str | None:
 def _resolve_plan_image_url(plan: Plan | None) -> str | None:
     if plan is None:
         return None
-    return _image_model_to_url(
-        safe_get_image_url(plan.image_url, resource_id=plan.id, resource_type="plan")
+    return _resolve_resource_image_url(
+        plan.image_url, resource_id=plan.id, resource_type="plan"
     )
 
 
 def _resolve_series_image_url(series: Series | None) -> str | None:
     if series is None:
         return None
-    return _image_model_to_url(
-        safe_get_image_url(series.image, resource_id=series.id, resource_type="series")
+    return _resolve_resource_image_url(
+        series.image, resource_id=series.id, resource_type="series"
     )
 
 
@@ -218,20 +243,14 @@ def _resolve_notification_content(
     user_id: UUID,
     utc_now: datetime,
 ) -> NotificationContentDTO:
-    default_title = get("NOTIFICATION_DEFAULT_TITLE")
-    default_body = get("NOTIFICATION_DEFAULT_BODY")
-
     if session_type == SESSION_TYPE_PLAN and source_id is not None:
         return _resolve_plan_notification(db, user_id=user_id, plan_id=source_id, utc_now=utc_now)
 
     if session_type == SESSION_TYPE_SERIES and source_id is not None:
         return _resolve_series_notification(db, series_id=source_id)
 
-    return NotificationContentDTO(
-        title=default_title,
-        body=default_body,
-        image_url=None,
-    )
+    default_title, default_body = _default_notification_copy()
+    return _notification_content(default_title, default_body)
 
 
 def _resolve_plan_notification(
@@ -241,16 +260,13 @@ def _resolve_plan_notification(
     plan_id: UUID,
     utc_now: datetime,
 ) -> NotificationContentDTO:
-    default_title = get("NOTIFICATION_DEFAULT_TITLE")
-    default_body = get("NOTIFICATION_DEFAULT_BODY")
+    default_title, default_body = _default_notification_copy()
 
     plan = repo.get_plan_by_id(db, plan_id)
-    plan_title = plan.title if plan else default_title
-    plan_image_url = _resolve_plan_image_url(plan)
-    default_content = NotificationContentDTO(
-        title=plan_title,
-        body=default_body,
-        image_url=plan_image_url,
+    default_content = _notification_content(
+        plan.title if plan else default_title,
+        default_body,
+        _resolve_plan_image_url(plan),
     )
 
     day_number = _compute_current_day_number(
@@ -265,25 +281,22 @@ def _resolve_plan_notification(
     if day_notification is None:
         return default_content
 
-    return NotificationContentDTO(
-        title=day_notification.title,
-        body=day_notification.body,
-        image_url=_resolve_day_notification_image_url(day_notification, plan),
+    return _notification_content(
+        day_notification.title,
+        day_notification.body,
+        _resolve_day_notification_image_url(day_notification, plan),
     )
 
 
 def _resolve_series_notification(db, *, series_id: UUID) -> NotificationContentDTO:
-    default_title = get("NOTIFICATION_DEFAULT_TITLE")
-    default_body = get("NOTIFICATION_DEFAULT_BODY")
-
+    default_title, default_body = _default_notification_copy()
     series = repo.get_series_by_id(db, series_id)
     metadata = repo.get_series_metadata(db, series_id)
-    title = metadata.title if metadata else default_title
 
-    return NotificationContentDTO(
-        title=title,
-        body=default_body,
-        image_url=_resolve_series_image_url(series),
+    return _notification_content(
+        metadata.title if metadata else default_title,
+        default_body,
+        _resolve_series_image_url(series),
     )
 
 
