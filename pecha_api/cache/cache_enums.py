@@ -32,4 +32,7 @@ class CacheType(Enum):
     # Collection-specific cache types
     COLLECTIONS = "collections"
     COLLECTION_DETAIL = "collection_detail"
+
+    # Plan-specific cache types
+    PLAN_DAY_DETAIL = "plan_day_detail"
     

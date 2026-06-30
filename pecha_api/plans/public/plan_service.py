@@ -41,6 +41,10 @@ from pecha_api.plans.shared.metadata_utils import (
     format_metadata_response,
     filter_by_language_with_fallback,
 )
+from pecha_api.plans.public.plans_cache_service import (
+    get_plan_day_detail_cache,
+    set_plan_day_detail_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -353,6 +357,7 @@ async def get_plan_days(plan_id: UUID) -> PlanDaysResponse:
 
 from pecha_api.plans.audio.dto_helpers import (
     build_plan_day_audio_fields,
+    build_plan_day_shareable_image_fields,
     build_subtask_timestamp_fields,
     generate_subtask_content_url,
 )
@@ -394,12 +399,17 @@ def build_task_dto(task) -> TaskDTO:
 
 def _build_plan_day_dto(plan_item) -> PlanDayDTO:
     audio_url, audio_duration_ms, _, _ = build_plan_day_audio_fields(plan_item)
+    thumbnail_url, _, shareable_image_url, _ = build_plan_day_shareable_image_fields(
+        getattr(plan_item, "shareable_images", None)
+    )
     return PlanDayDTO(
         id=plan_item.id,
         day_number=plan_item.day_number,
         tasks=[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)],
         audio_url=audio_url,
         audio_duration_ms=audio_duration_ms,
+        thumbnail_url=thumbnail_url,
+        shareable_image_url=shareable_image_url,
         videos=[
             DayVideoSummaryDTO(
                 id=video.id,
@@ -412,12 +422,19 @@ def _build_plan_day_dto(plan_item) -> PlanDayDTO:
         ],
     )
 
-def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
+async def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
     """Get specific day's content with tasks"""
+
+    cached = await get_plan_day_detail_cache(plan_id=plan_id, day_number=day_number)
+    if cached is not None:
+        return cached
 
     with SessionLocal() as db:
         plan_item = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
-        return _build_plan_day_dto(plan_item)
+        response = _build_plan_day_dto(plan_item)
+
+    await set_plan_day_detail_cache(plan_id=plan_id, day_number=day_number, data=response)
+    return response
 
 
 def _filter_series_metadata_by_language(metadata_entries, language: Optional[str]):

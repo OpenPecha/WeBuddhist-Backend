@@ -1,7 +1,7 @@
 import uuid
 import pytest
 from types import SimpleNamespace
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_response_model import (
     SubTaskDTO,
@@ -221,7 +221,10 @@ async def test_update_sub_task_by_task_id_deletes_missing_and_updates_existing_a
         "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services.delete_sub_tasks_bulk",
     ) as mock_delete_bulk, patch(
         "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services.update_sub_tasks_bulk",
-    ) as mock_update_bulk:
+    ) as mock_update_bulk, patch(
+        "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services.invalidate_plan_day_cache_for_task",
+        new_callable=AsyncMock,
+    ) as mock_invalidate:
         resp = await update_sub_task_by_task_id(
             token="token123",
             update_sub_task_request=request,
@@ -246,6 +249,7 @@ async def test_update_sub_task_by_task_id_deletes_missing_and_updates_existing_a
         assert update_kwargs["db"] is db_mock
         assert update_kwargs["sub_tasks"] == request.sub_tasks
 
+        mock_invalidate.assert_awaited_once_with(db=db_mock, task_id=task_id)
         assert resp is None
 
 

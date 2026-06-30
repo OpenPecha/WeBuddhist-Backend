@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from starlette import status
 from fastapi.middleware.cors import CORSMiddleware
-
+from scalar_fastapi import get_scalar_api_reference
+from pecha_api.openapi_config import configure_openapi_tag_groups
 from pecha_api.auth.auth_service import retrieve_client_info
 from pecha_api.middleware.request_observability import RequestObservabilityMiddleware
 
@@ -75,7 +76,9 @@ api = FastAPI(
     title="Pecha API",
     description="This is the API documentation for Pecha application",
     root_path="/api/v1",
-    redoc_url="/docs",
+    docs_url="/doc",
+    openapi_url="/openapi.json",
+    redoc_url="/redoc",
     lifespan=lifespan
 )
 api.include_router(auth_views.auth_router)
@@ -160,6 +163,14 @@ api.add_middleware(
     allow_headers=["*"],
 )
 api.add_middleware(RequestObservabilityMiddleware)
+configure_openapi_tag_groups(api)
+
+@api.get("/docs", include_in_schema=False)
+async def scalar_docs():
+    return get_scalar_api_reference(
+        openapi_url=api.openapi_url,
+        title="WeBuddhist API Documentation",
+    )
 
 @api.get("/props", status_code=status.HTTP_200_OK)
 async def get_props():

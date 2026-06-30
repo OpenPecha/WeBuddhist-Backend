@@ -29,6 +29,7 @@ from starlette import status
 
 from .segments_utils import SegmentUtils
 from ..texts_utils import TextUtils
+from pecha_api.plans.videos.plan_video_service import get_public_plan_videos_by_segment_id
 
 from typing import List, Dict
 
@@ -186,13 +187,18 @@ async def get_commentaries_by_segment_id(
     return response
 
 async def get_info_by_segment_id(segment_id: str) -> SegmentInfoResponse:
-    
+
     is_valid_segment = await SegmentUtils.validate_segment_exists(segment_id=segment_id)
     if not is_valid_segment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE)
-    
+
+    # Videos are author-editable and change more often than the rest of the
+    # segment info, so they are intentionally NOT cached: the cached response
+    # always holds an empty video list, and live videos are attached on every
+    # request (both cache hit and miss) so edits are reflected immediately.
     cache_data = await get_segment_info_by_id_cache(segment_id=segment_id, cache_type=CacheType.SEGMENT_INFO)
     if cache_data:
+        cache_data.segment_info.videos = get_public_plan_videos_by_segment_id(segment_id=segment_id).videos
         return cache_data
     segment = await get_segment_by_id(segment_id=segment_id)
     text_detail=await TextUtils.get_text_details_by_id(text_id=segment.text_id)
@@ -212,12 +218,14 @@ async def get_info_by_segment_id(segment_id: str) -> SegmentInfoResponse:
                 sheets=0
             )
         )
-    ) 
+    )
+    # Cache the response WITHOUT videos, then attach live videos before returning.
     await set_segment_info_by_id_cache(
         segment_id = segment_id,
         cache_type = CacheType.SEGMENT_INFO,
         data = response
     )
+    response.segment_info.videos = get_public_plan_videos_by_segment_id(segment_id=segment_id).videos
     return response
 
 async def get_root_text_mapping_by_segment_id(segment_id: str) -> SegmentRootMappingResponse:

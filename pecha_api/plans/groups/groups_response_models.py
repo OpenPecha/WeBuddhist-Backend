@@ -13,12 +13,11 @@ from pecha_api.plans.groups.group_summary_models import (
 from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.plans.plans_response_models import PlanDTO
 from pecha_api.plans.series.series_response_models import SeriesListItemDTO
+from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 
 class GroupSeriesListItemDTO(SeriesListItemDTO):
-    series_partner_id: Optional[UUID] = None
-    is_enrolled: bool = False
-from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
+    is_group_enrolled: Optional[bool] = None
 
 __all__ = [
     "AuthorGroupSummaryDTO",

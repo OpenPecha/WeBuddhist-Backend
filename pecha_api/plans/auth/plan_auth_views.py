@@ -28,7 +28,7 @@ from .plan_auth_services import (
 
 plan_auth_router = APIRouter(
     prefix="/cms/auth",
-    tags=["Plan Authentications"],
+    tags=["CMS Plan Authentications"],
 )
 
 

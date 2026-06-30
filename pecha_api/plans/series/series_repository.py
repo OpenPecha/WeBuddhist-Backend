@@ -10,6 +10,7 @@ from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.items.plan_items_models import PlanItem
+from pecha_api.plans.users.plan_user_series_repository import ensure_series_partner
 from pecha_api.plans.users.plan_users_models import SeriesPartner, UserSeriesEnrollment
 
 _REFERENCE_START_DATE_UNSET = object()
@@ -199,6 +200,7 @@ def save_series_with_plans(
 ) -> Series:
     db.add(series)
     db.flush()
+    ensure_series_partner(db, series.id, series.group_id)
     _persist_metadata_entries(db, series.id, metadata_entries)
     if plans_to_attach:
         for plan_id, display_order in plans_to_attach:
@@ -442,6 +444,7 @@ def clone_series_with_plans(
     )
     db.add(new_series)
     db.flush()
+    ensure_series_partner(db, new_series.id, target_group_id)
 
     for entry in parent_series.metadata_entries or []:
         db.add(

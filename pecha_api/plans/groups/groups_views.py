@@ -1,7 +1,7 @@
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
@@ -70,14 +70,14 @@ _LANGUAGE_QUERY_DESCRIPTION = (
     "Render group metadata in this language; falls back to English (en) per group when missing. "
     "All groups are returned regardless of available metadata languages."
 )
-public_groups_router = APIRouter(prefix="/author/groups", tags=["Author Groups"])
+public_groups_router = APIRouter(prefix="/author/groups", tags=["Public Author Groups"])
 user_groups_router = APIRouter(
     prefix="/users/me/following/author/groups",
-    tags=["Author Groups"],
+    tags=["User Author Groups"],
 )
 user_joined_groups_router = APIRouter(
     prefix="/users/me/joined/author/groups",
-    tags=["Author Groups"],
+    tags=["User Author Groups"],
 )
 
 
@@ -328,11 +328,13 @@ def delete_group_member_by_id(
 @public_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=PublicAuthorGroupDetailDTO)
 def get_public_group(
     group_id: UUID,
+    response: Response,
     authentication_credential: Annotated[
         Optional[HTTPAuthorizationCredentials], Depends(optional_oauth2_scheme)
     ] = None,
     language: Annotated[Optional[str], Query(description=_LANGUAGE_QUERY_DESCRIPTION)] = None,
 ):
+    response.headers["Cache-Control"] = "no-store"
     return get_author_group_detail(
         group_id=group_id,
         require_public=True,

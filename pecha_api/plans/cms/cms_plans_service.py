@@ -19,6 +19,10 @@ from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.tags.tag_repository import set_plan_tags
 from pecha_api.plans.tags.tag_service import validate_tag_ids
 from pecha_api.plans.items.plan_items_repository import save_plan_items, get_plan_items_by_plan_id, get_plan_day_with_tasks_and_subtasks, get_plan_day_by_id_any_plan
+from pecha_api.plans.public.plans_cache_service import (
+    schedule_invalidate_plan_day_cache_for_day,
+    schedule_invalidate_plan_day_cache_for_task,
+)
 from pecha_api.plans.users.plan_users_progress_repository import get_plan_progress
 from pecha_api.plans.authors.plan_authors_model import Author
 from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
@@ -284,6 +288,7 @@ async def generate_plan_audio_service(
             plan_id=plan_item.plan_id,
             plan_item_id=plan_item.id,
         )
+        schedule_invalidate_plan_day_cache_for_day(db=db, day_id=plan_item.id)
 
     audio_url = generate_presigned_access_url(
         bucket_name=get("AWS_BUCKET_NAME"),
@@ -348,6 +353,7 @@ async def _generate_subtask_audio(
             end_ms=duration_ms,
             created_by="system",
         )
+        schedule_invalidate_plan_day_cache_for_task(db=db, task_id=subtask.task_id)
 
     return {
         "audio_url": audio_url,

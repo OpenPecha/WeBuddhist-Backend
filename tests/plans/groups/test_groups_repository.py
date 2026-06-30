@@ -11,6 +11,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_group_ids_by_plan_ids,
     get_group_ids_by_series_ids,
     get_groups_paginated,
+    get_plans_by_group_id,
     get_series_by_group_id,
     get_series_partner_id_map_for_group,
     get_user_series_enrollment_partner_map,
@@ -116,6 +117,22 @@ def test_get_user_series_enrollment_partner_map():
     )
 
     assert result == {series_id: partner_id}
+
+
+def test_get_plans_by_group_id_excludes_series_plans():
+    db = _make_session_mock()
+    group_id = uuid.uuid4()
+    standalone_plan = MagicMock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.filter.return_value.all.return_value = [standalone_plan]
+
+    result = get_plans_by_group_id(db=db, group_id=group_id)
+
+    assert result == [standalone_plan]
+    db.query.assert_called_once()
+    query.filter.assert_called_once()
 
 
 def test_get_series_by_group_id_includes_owned_and_partner_series():

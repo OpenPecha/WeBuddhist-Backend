@@ -11,7 +11,7 @@ from pecha_api.cataloger.cataloger_response_model import CatalogedTextsDetailsRe
 
 
 oauth2_scheme = HTTPBearer()
-cataloger_router = APIRouter(prefix="/cataloger", tags=["cataloger"])
+cataloger_router = APIRouter(prefix="/cataloger", tags=["CMS Cataloger"])
 
 
 @cataloger_router.get("/texts", status_code=status.HTTP_200_OK)

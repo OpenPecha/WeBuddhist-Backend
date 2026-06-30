@@ -46,6 +46,13 @@ def _mock_series_query(db_mock, series):
     db_mock.query.return_value = mock_query
 
 
+def _enroll_series(series_id, *, creator_group_id=None):
+    return SimpleNamespace(
+        id=series_id,
+        group_id=creator_group_id if creator_group_id is not None else uuid.uuid4(),
+    )
+
+
 def _plan_for_date_filter(*, plan_id, series_id, display_order, start_date):
     return SimpleNamespace(
         id=plan_id,
@@ -145,6 +152,7 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
     current_plan_id = uuid.uuid4()
     plan_id = uuid.uuid4()
     series_partner_id = uuid.uuid4()
+    partner_group_id = uuid.uuid4()
 
     enrollment = SimpleNamespace(
         id=enrollment_id,
@@ -181,6 +189,7 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
             {current_plan_id: "Current Plan"},
             {series_id: [SimpleNamespace(id=plan_id)]},
             {plan_id: SimpleNamespace(is_completed=True)},
+            partner_group_id=partner_group_id,
         )
 
     assert dto.id == enrollment_id
@@ -191,7 +200,7 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
     assert dto.total_plans == 1
     assert dto.completed_plans == 1
     assert dto.progress_percentage == 100.0
-    assert dto.series_partner_id == series_partner_id
+    assert dto.series_partner_id == partner_group_id
 
 
 def test_build_user_series_enrollment_dto_renders_language_with_en_fallback():
@@ -346,7 +355,7 @@ def test_enroll_user_in_series_success():
     enroll_request = UserSeriesEnrollRequest(series_id=series_id)
 
     db_mock, session_cm = _mock_session_with_db()
-    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+    _mock_series_query(db_mock, _enroll_series(series_id))
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
@@ -381,7 +390,7 @@ def test_enroll_user_in_series_start_immediately_auto_enrolls_first_plan():
     )
 
     db_mock, session_cm = _mock_session_with_db()
-    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+    _mock_series_query(db_mock, _enroll_series(series_id))
     first_plan = SimpleNamespace(id=plan_id)
 
     with patch(
@@ -439,7 +448,7 @@ def test_enroll_user_in_series_already_enrolled_without_group_id_is_noop():
     enroll_request = UserSeriesEnrollRequest(series_id=series_id)
 
     db_mock, session_cm = _mock_session_with_db()
-    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+    _mock_series_query(db_mock, _enroll_series(series_id))
     existing = SimpleNamespace(id=uuid.uuid4(), series_partner_id=uuid.uuid4())
 
     with patch(
@@ -471,7 +480,7 @@ def test_enroll_user_in_series_already_enrolled_updates_partner_when_group_chang
     enroll_request = UserSeriesEnrollRequest(series_id=series_id, group_id=group_id)
 
     db_mock, session_cm = _mock_session_with_db()
-    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+    _mock_series_query(db_mock, _enroll_series(series_id))
     existing = SimpleNamespace(id=uuid.uuid4(), series_partner_id=old_partner_id)
 
     with patch(
@@ -504,7 +513,7 @@ def test_enroll_user_in_series_already_enrolled_clears_partner_when_group_id_nul
     enroll_request = UserSeriesEnrollRequest(series_id=series_id, group_id=None)
 
     db_mock, session_cm = _mock_session_with_db()
-    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+    _mock_series_query(db_mock, _enroll_series(series_id))
     existing = SimpleNamespace(id=uuid.uuid4(), series_partner_id=uuid.uuid4())
 
     with patch(
@@ -539,7 +548,7 @@ def test_enroll_user_in_series_already_enrolled_same_partner_is_noop():
     enroll_request = UserSeriesEnrollRequest(series_id=series_id, group_id=group_id)
 
     db_mock, session_cm = _mock_session_with_db()
-    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+    _mock_series_query(db_mock, _enroll_series(series_id))
     existing = SimpleNamespace(id=uuid.uuid4(), series_partner_id=partner_id)
 
     with patch(
@@ -572,7 +581,7 @@ def test_enroll_user_in_series_already_enrolled_invalid_group_raises_400():
     enroll_request = UserSeriesEnrollRequest(series_id=series_id, group_id=group_id)
 
     db_mock, session_cm = _mock_session_with_db()
-    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+    _mock_series_query(db_mock, _enroll_series(series_id))
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
@@ -605,7 +614,7 @@ def test_enroll_user_in_series_with_partner_group_stores_partner_and_joins_group
     enroll_request = UserSeriesEnrollRequest(series_id=series_id, group_id=group_id)
 
     db_mock, session_cm = _mock_session_with_db()
-    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+    _mock_series_query(db_mock, _enroll_series(series_id))
     series_partner = SimpleNamespace(id=partner_id, series_id=series_id, group_id=group_id)
 
     with patch(
@@ -638,6 +647,47 @@ def test_enroll_user_in_series_with_partner_group_stores_partner_and_joins_group
         mock_join.assert_called_once_with(db_mock, group_id, user_id)
 
 
+def test_enroll_user_in_series_with_creator_group_stores_partner_and_joins_group():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    creator_group_id = uuid.uuid4()
+    partner_id = uuid.uuid4()
+    enroll_request = UserSeriesEnrollRequest(series_id=series_id, group_id=creator_group_id)
+
+    db_mock, session_cm = _mock_session_with_db()
+    _mock_series_query(db_mock, _enroll_series(series_id, creator_group_id=creator_group_id))
+    series_partner = SimpleNamespace(
+        id=partner_id, series_id=series_id, group_id=creator_group_id
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_series_partner",
+        return_value=series_partner,
+    ) as mock_get_partner, patch(
+        "pecha_api.plans.users.plan_users_service.UserSeriesEnrollment",
+    ) as MockEnrollment, patch(
+        "pecha_api.plans.users.plan_users_service.save_user_series_enrollment",
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.upsert_group_join",
+    ) as mock_join:
+        MockEnrollment.return_value = SimpleNamespace(id=uuid.uuid4())
+
+        enroll_user_in_series(token="tok", enroll_request=enroll_request)
+
+        mock_get_partner.assert_called_once_with(db_mock, series_id, creator_group_id)
+        assert MockEnrollment.call_args.kwargs["series_partner_id"] == partner_id
+        mock_join.assert_called_once_with(db_mock, creator_group_id, user_id)
+
+
 def test_enroll_user_in_series_with_non_partner_group_raises_400():
     user_id = uuid.uuid4()
     series_id = uuid.uuid4()
@@ -645,7 +695,7 @@ def test_enroll_user_in_series_with_non_partner_group_raises_400():
     enroll_request = UserSeriesEnrollRequest(series_id=series_id, group_id=group_id)
 
     db_mock, session_cm = _mock_session_with_db()
-    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+    _mock_series_query(db_mock, _enroll_series(series_id))
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
@@ -681,7 +731,7 @@ def test_enroll_user_in_series_without_group_skips_partner_and_join():
     enroll_request = UserSeriesEnrollRequest(series_id=series_id)
 
     db_mock, session_cm = _mock_session_with_db()
-    _mock_series_query(db_mock, SimpleNamespace(id=series_id))
+    _mock_series_query(db_mock, _enroll_series(series_id))
 
     with patch(
         "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
@@ -738,6 +788,8 @@ def test_get_user_series_enrollments_success():
     enrollment_id = uuid.uuid4()
     current_plan_id = uuid.uuid4()
     plan_id = current_plan_id
+    series_partner_id = uuid.uuid4()
+    partner_group_id = uuid.uuid4()
 
     enrollment = SimpleNamespace(
         id=enrollment_id,
@@ -749,6 +801,7 @@ def test_get_user_series_enrollments_success():
         auto_enroll_next=True,
         is_completed=False,
         completed_at=None,
+        series_partner_id=series_partner_id,
     )
     series = SimpleNamespace(
         id=series_id,
@@ -781,6 +834,15 @@ def test_get_user_series_enrollments_success():
         "pecha_api.plans.users.plan_users_service.get_plans_by_ids",
         return_value=[plan],
     ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_ids_by_series_ids",
+        return_value={series_id: uuid.uuid4()},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_ids_by_series_partner_ids",
+        return_value={series_partner_id: partner_group_id},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_summaries_by_ids",
+        return_value={},
+    ), patch(
         "pecha_api.plans.users.plan_users_service.safe_get_image_url",
         return_value=ImageUrlModel(
             thumbnail="https://signed.example.com/series-thumb.jpg",
@@ -801,6 +863,7 @@ def test_get_user_series_enrollments_success():
     assert dto.progress_percentage == 100.0
     assert dto.image is not None
     assert dto.image.original == "https://signed.example.com/series.jpg"
+    assert dto.series_partner_id == partner_group_id
 
 
 def test_get_user_series_enrollments_skips_missing_series():
