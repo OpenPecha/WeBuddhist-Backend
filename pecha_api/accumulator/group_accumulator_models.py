@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, UUID, Integer, ForeignKey, Index
+from sqlalchemy import Column, DateTime, UUID, Integer, String, ForeignKey, Index
 from sqlalchemy.orm import relationship
 from ..db.database import Base
 from uuid import uuid4
@@ -20,6 +20,7 @@ class GroupAccumulator(Base):
         ForeignKey("author_groups.id", ondelete="CASCADE"),
         nullable=False,
     )
+    title = Column(String, nullable=True)
     target_count = Column(Integer, nullable=True)
     start_date = Column(DateTime(timezone=True), nullable=True)
     end_date = Column(DateTime(timezone=True), nullable=True)

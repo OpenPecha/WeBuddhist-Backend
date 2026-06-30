@@ -6,6 +6,7 @@ from uuid import UUID
 
 class CreateGroupAccumulatorRequest(BaseModel):
     accumulator_id: Optional[UUID] = None
+    title: Optional[str] = None
     target_count: Optional[int] = Field(None, ge=1)
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -13,6 +14,7 @@ class CreateGroupAccumulatorRequest(BaseModel):
 
 class UpdateGroupAccumulatorRequest(BaseModel):
     accumulator_id: Optional[UUID] = None
+    title: Optional[str] = None
     target_count: Optional[int] = Field(None, ge=1)
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -22,6 +24,7 @@ class GroupAccumulatorDTO(BaseModel):
     id: UUID
     accumulator_id: Optional[UUID] = None
     group_id: UUID
+    title: Optional[str] = None
     target_count: Optional[int] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -51,6 +54,7 @@ class GroupAccumulatorDetailDTO(BaseModel):
     id: UUID
     accumulator_id: Optional[UUID] = None
     group_id: UUID
+    title: Optional[str] = None
     target_count: Optional[int] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
