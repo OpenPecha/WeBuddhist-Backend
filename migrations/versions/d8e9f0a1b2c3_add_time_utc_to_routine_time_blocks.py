@@ -46,14 +46,23 @@ def _backfill_time_utc(connection) -> None:
             """
             SELECT rtb.id, rtb.time, r.timezone
             FROM routine_time_blocks rtb
-            JOIN routines r ON r.id = rtb.routine_id
-            WHERE rtb.deleted_at IS NULL
+            LEFT JOIN routines r ON r.id = rtb.routine_id
             """
         )
     ).fetchall()
 
     for row in rows:
         time_utc = _local_hhmm_to_utc_time(row.time, row.timezone)
+        connection.execute(
+            text("UPDATE routine_time_blocks SET time_utc = :time_utc WHERE id = :id"),
+            {"time_utc": time_utc, "id": row.id},
+        )
+
+    remaining = connection.execute(
+        text("SELECT id, time FROM routine_time_blocks WHERE time_utc IS NULL")
+    ).fetchall()
+    for row in remaining:
+        time_utc = _local_hhmm_to_utc_time(row.time, None)
         connection.execute(
             text("UPDATE routine_time_blocks SET time_utc = :time_utc WHERE id = :id"),
             {"time_utc": time_utc, "id": row.id},
