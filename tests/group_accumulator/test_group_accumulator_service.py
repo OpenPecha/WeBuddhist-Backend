@@ -830,34 +830,37 @@ class TestDeleteGroupAccumulatorUserService:
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_auth.return_value = MockUser(id=user_id)
-        mock_joined.return_value = True
         mock_get.return_value = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
+        mock_joined.return_value = True
 
         delete_group_accumulator_user_service(
             token="valid_token",
-            group_id=group_id,
             group_accumulator_id=accumulator_id,
         )
 
         mock_auth.assert_called_once_with(token="valid_token")
+        mock_get.assert_called_once_with(mock_db, accumulator_id)
         mock_joined.assert_called_once_with(db=mock_db, group_id=group_id, user_id=user_id)
         mock_delete.assert_called_once()
 
     @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
     @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
     @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group')
-    def test_delete_user_not_member(self, mock_joined, mock_auth, mock_session):
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    def test_delete_user_not_member(self, mock_get, mock_joined, mock_auth, mock_session):
         """Test user delete when not a group member."""
+        group_id = uuid4()
+        accumulator_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_auth.return_value = MockUser()
+        mock_get.return_value = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
         mock_joined.return_value = False
 
         with pytest.raises(HTTPException) as exc_info:
             delete_group_accumulator_user_service(
                 token="valid_token",
-                group_id=uuid4(),
-                group_accumulator_id=uuid4(),
+                group_accumulator_id=accumulator_id,
             )
 
         assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
@@ -865,20 +868,17 @@ class TestDeleteGroupAccumulatorUserService:
 
     @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
     @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
-    @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
-    def test_delete_user_not_found(self, mock_get, mock_joined, mock_auth, mock_session):
+    def test_delete_user_not_found(self, mock_get, mock_auth, mock_session):
         """Test user delete when accumulator not found."""
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_auth.return_value = MockUser()
-        mock_joined.return_value = True
         mock_get.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
             delete_group_accumulator_user_service(
                 token="valid_token",
-                group_id=uuid4(),
                 group_accumulator_id=uuid4(),
             )
 
@@ -889,18 +889,20 @@ class TestDeleteGroupAccumulatorUserService:
     @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
     def test_delete_user_wrong_group(self, mock_get, mock_joined, mock_auth, mock_session):
-        """Test user delete when accumulator belongs to different group."""
+        """Test user delete when user is not a member of the group."""
+        group_id = uuid4()
+        accumulator_id = uuid4()
+        user_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
-        mock_auth.return_value = MockUser()
-        mock_joined.return_value = True
-        mock_get.return_value = MockGroupAccumulator(group_id=uuid4())
+        mock_auth.return_value = MockUser(id=user_id)
+        mock_get.return_value = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
+        mock_joined.return_value = False
 
         with pytest.raises(HTTPException) as exc_info:
             delete_group_accumulator_user_service(
                 token="valid_token",
-                group_id=uuid4(),
-                group_accumulator_id=uuid4(),
+                group_accumulator_id=accumulator_id,
             )
 
         assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN

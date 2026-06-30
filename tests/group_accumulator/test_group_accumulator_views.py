@@ -332,35 +332,32 @@ class TestGetGroupAccumulatorHistory:
 
 
 class TestDeleteGroupAccumulator:
-    """Test cases for DELETE /group-accumulators/{group_id}/{accumulator_id} endpoint."""
+    """Test cases for DELETE /group-accumulators/{group_accumulator_id} endpoint."""
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.delete_group_accumulator_user_service')
     def test_delete_group_accumulator_success(self, mock_service):
         """Test successful soft deletion of group accumulator."""
-        group_id = uuid4()
-        accumulator_id = uuid4()
+        group_accumulator_id = uuid4()
         mock_service.return_value = None
 
         response = client.delete(
-            f"/group-accumulators/{group_id}/{accumulator_id}",
+            f"/group-accumulators/{group_accumulator_id}",
             headers={"Authorization": "Bearer valid_token"},
         )
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_service.assert_called_once_with(
             token="valid_token",
-            group_id=group_id,
-            group_accumulator_id=accumulator_id,
+            group_accumulator_id=group_accumulator_id,
         )
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.delete_group_accumulator_user_service')
     def test_delete_group_accumulator_unauthorized(self, mock_service):
         """Test delete group accumulator without authorization."""
-        group_id = uuid4()
-        accumulator_id = uuid4()
+        group_accumulator_id = uuid4()
 
         response = client.delete(
-            f"/group-accumulators/{group_id}/{accumulator_id}"
+            f"/group-accumulators/{group_accumulator_id}"
         )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -370,15 +367,14 @@ class TestDeleteGroupAccumulator:
     def test_delete_group_accumulator_not_member(self, mock_service):
         """Test delete group accumulator when user is not a group member."""
         from fastapi import HTTPException
-        group_id = uuid4()
-        accumulator_id = uuid4()
+        group_accumulator_id = uuid4()
         mock_service.side_effect = HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"error": "FORBIDDEN", "message": "You must be a member of this group"}
         )
 
         response = client.delete(
-            f"/group-accumulators/{group_id}/{accumulator_id}",
+            f"/group-accumulators/{group_accumulator_id}",
             headers={"Authorization": "Bearer valid_token"},
         )
 
@@ -389,15 +385,14 @@ class TestDeleteGroupAccumulator:
     def test_delete_group_accumulator_not_found(self, mock_service):
         """Test delete group accumulator when it doesn't exist."""
         from fastapi import HTTPException
-        group_id = uuid4()
-        accumulator_id = uuid4()
+        group_accumulator_id = uuid4()
         mock_service.side_effect = HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": "NOT_FOUND", "message": "Group accumulator not found"}
         )
 
         response = client.delete(
-            f"/group-accumulators/{group_id}/{accumulator_id}",
+            f"/group-accumulators/{group_accumulator_id}",
             headers={"Authorization": "Bearer valid_token"},
         )
 
@@ -408,15 +403,14 @@ class TestDeleteGroupAccumulator:
     def test_delete_group_accumulator_wrong_group(self, mock_service):
         """Test delete group accumulator when it belongs to different group."""
         from fastapi import HTTPException
-        group_id = uuid4()
-        accumulator_id = uuid4()
+        group_accumulator_id = uuid4()
         mock_service.side_effect = HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"error": "FORBIDDEN", "message": "Group accumulator does not belong to this group"}
         )
 
         response = client.delete(
-            f"/group-accumulators/{group_id}/{accumulator_id}",
+            f"/group-accumulators/{group_accumulator_id}",
             headers={"Authorization": "Bearer valid_token"},
         )
 
