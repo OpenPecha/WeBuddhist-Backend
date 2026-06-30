@@ -5,13 +5,16 @@ from uuid import UUID
 from starlette import status
 
 from .group_accumulator_service import (
+    create_group_accumulator_service,
     get_group_accumulator_service,
     submit_group_count_service,
     get_group_accumulator_history_service,
     delete_group_accumulator_user_service,
 )
 from .group_accumulator_response_models import (
+    CreateGroupAccumulatorRequest,
     SubmitGroupCountRequest,
+    GroupAccumulatorDTO,
     GroupAccumulatorDetailDTO,
     GroupAccumulatorHistoryResponse,
     GroupAccumulatorHistoryItemDTO,
@@ -19,6 +22,22 @@ from .group_accumulator_response_models import (
 
 group_accumulator_router = APIRouter(prefix="/group-accumulators", tags=["Group Accumulators"])
 oauth2_scheme = HTTPBearer()
+
+
+@group_accumulator_router.post(
+    "/{group_id}/accumulators",
+    status_code=status.HTTP_201_CREATED,
+    response_model=GroupAccumulatorDTO
+)
+async def create_group_accumulator(
+    group_id: UUID,
+    request: CreateGroupAccumulatorRequest,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return create_group_accumulator_service(
+        group_id=group_id,
+        request=request,
+    )
 
 
 @group_accumulator_router.get("/{group_accumulator_id}", response_model=GroupAccumulatorDetailDTO)
