@@ -3,10 +3,13 @@ from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
 
+from pecha_api.plans.media.media_response_models import ImageUrlModel
+
 
 class CreateGroupAccumulatorRequest(BaseModel):
     accumulator_id: Optional[UUID] = None
     title: Optional[str] = None
+    image_key: Optional[str] = None
     target_count: Optional[int] = Field(None, ge=1)
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -15,6 +18,7 @@ class CreateGroupAccumulatorRequest(BaseModel):
 class UpdateGroupAccumulatorRequest(BaseModel):
     accumulator_id: Optional[UUID] = None
     title: Optional[str] = None
+    image_key: Optional[str] = None
     target_count: Optional[int] = Field(None, ge=1)
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -25,6 +29,8 @@ class GroupAccumulatorDTO(BaseModel):
     accumulator_id: Optional[UUID] = None
     group_id: UUID
     title: Optional[str] = None
+    image: Optional[ImageUrlModel] = None
+    image_key: Optional[str] = None
     target_count: Optional[int] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
@@ -55,10 +61,13 @@ class GroupAccumulatorDetailDTO(BaseModel):
     accumulator_id: Optional[UUID] = None
     group_id: UUID
     title: Optional[str] = None
+    image: Optional[ImageUrlModel] = None
+    image_key: Optional[str] = None
     target_count: Optional[int] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     total_count: int = Field(..., description="Total count from all users")
+    member_count: int = Field(0, description="Number of users who joined this group accumulator")
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -66,6 +75,21 @@ class GroupAccumulatorDetailDTO(BaseModel):
 class GroupAccumulatorHistoryResponse(BaseModel):
     group_accumulator: GroupAccumulatorDetailDTO
     history: List[GroupAccumulatorHistoryItemDTO]
+    total: int
+    skip: int
+    limit: int
+
+
+class GroupAccumulatorMemberDTO(BaseModel):
+    user_id: UUID
+    username: Optional[str] = None
+    fullname: str
+    avatar_url: Optional[str] = None
+    joined_at: datetime
+
+
+class GroupAccumulatorMembersResponse(BaseModel):
+    members: List[GroupAccumulatorMemberDTO]
     total: int
     skip: int
     limit: int

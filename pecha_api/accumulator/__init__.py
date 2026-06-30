@@ -4,6 +4,7 @@ from .mala_image_model import MalaImage
 from .accumulator_history_model import AccumulatorHistory
 from .group_accumulator_models import GroupAccumulator
 from .group_accumulator_history_model import GroupAccumulatorHistory
+from .group_accumulator_join_model import group_accumulator_joins
 from .accumulator_enums import AccumulatorType, AccumulatorTypeEnum
 from .accumulator_views import accumulator_router
 
@@ -14,6 +15,7 @@ __all__ = [
     "AccumulatorHistory",
     "GroupAccumulator",
     "GroupAccumulatorHistory",
+    "group_accumulator_joins",
     "AccumulatorType",
     "AccumulatorTypeEnum",
     "accumulator_router",

@@ -480,3 +480,95 @@ class TestDeleteGroupAccumulator:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
         assert response.json()["detail"]["error"] == "FORBIDDEN"
+
+
+class TestJoinGroupAccumulatorView:
+    @patch('pecha_api.group_accumulator.group_accumulator_views.join_group_accumulator_service')
+    def test_join_success(self, mock_service):
+        group_accumulator_id = uuid4()
+        response = client.post(
+            f"/group-accumulators/{group_accumulator_id}/join",
+            headers={"Authorization": "Bearer valid_token"},
+        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_service.assert_called_once_with(
+            token="valid_token",
+            group_accumulator_id=group_accumulator_id,
+        )
+
+
+class TestGetGroupAccumulatorMembersView:
+    @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulator_members_service')
+    def test_get_members_success(self, mock_service):
+        from pecha_api.group_accumulator.group_accumulator_response_models import (
+            GroupAccumulatorMembersResponse,
+            GroupAccumulatorMemberDTO,
+        )
+
+        group_accumulator_id = uuid4()
+        mock_service.return_value = GroupAccumulatorMembersResponse(
+            members=[
+                GroupAccumulatorMemberDTO(
+                    user_id=uuid4(),
+                    username="testuser",
+                    fullname="Test User",
+                    avatar_url=None,
+                    joined_at=datetime.utcnow(),
+                )
+            ],
+            total=1,
+            skip=0,
+            limit=20,
+        )
+
+        response = client.get(f"/group-accumulators/{group_accumulator_id}/members")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total"] == 1
+        assert len(response.json()["members"]) == 1
+
+
+class TestJoinGroupAccumulatorView:
+    @patch('pecha_api.group_accumulator.group_accumulator_views.join_group_accumulator_service')
+    def test_join_success(self, mock_service):
+        group_accumulator_id = uuid4()
+        response = client.post(
+            f"/group-accumulators/{group_accumulator_id}/join",
+            headers={"Authorization": "Bearer valid_token"},
+        )
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_service.assert_called_once_with(
+            token="valid_token",
+            group_accumulator_id=group_accumulator_id,
+        )
+
+
+class TestGetGroupAccumulatorMembersView:
+    @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulator_members_service')
+    def test_get_members_success(self, mock_service):
+        from pecha_api.group_accumulator.group_accumulator_response_models import (
+            GroupAccumulatorMembersResponse,
+            GroupAccumulatorMemberDTO,
+        )
+
+        group_accumulator_id = uuid4()
+        mock_service.return_value = GroupAccumulatorMembersResponse(
+            members=[
+                GroupAccumulatorMemberDTO(
+                    user_id=uuid4(),
+                    username="testuser",
+                    fullname="Test User",
+                    avatar_url=None,
+                    joined_at=datetime.utcnow(),
+                )
+            ],
+            total=1,
+            skip=0,
+            limit=20,
+        )
+
+        response = client.get(f"/group-accumulators/{group_accumulator_id}/members")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total"] == 1
+        assert len(response.json()["members"]) == 1

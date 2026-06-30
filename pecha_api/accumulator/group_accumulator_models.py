@@ -21,6 +21,7 @@ class GroupAccumulator(Base):
         nullable=False,
     )
     title = Column(String, nullable=True)
+    image_key = Column(String(1000), nullable=True)
     target_count = Column(Integer, nullable=True)
     start_date = Column(DateTime(timezone=True), nullable=True)
     end_date = Column(DateTime(timezone=True), nullable=True)

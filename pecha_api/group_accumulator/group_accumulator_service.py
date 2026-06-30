@@ -11,7 +11,16 @@ from pecha_api.plans.shared.permissions import (
     require_can_read_group_content,
     require_can_change_status,
 )
-from pecha_api.plans.groups.groups_repository import is_user_joined_group
+from pecha_api.config import get
+from pecha_api.plans.authors.plan_authors_service import get_image_url
+from pecha_api.plans.groups.groups_enums import AuthorGroupType
+from pecha_api.plans.groups.groups_repository import (
+    get_group_by_id,
+    is_user_joined_group,
+    upsert_group_join,
+)
+from pecha_api.uploads.S3_utils import generate_presigned_access_url
+from pecha_api.users.users_models import Users
 from .group_accumulator_repository import (
     create_group_accumulator,
     get_group_accumulators,
@@ -23,6 +32,10 @@ from .group_accumulator_repository import (
     get_group_accumulator_total_count,
     get_user_group_accumulator_count,
     verify_group_exists,
+    upsert_group_accumulator_join,
+    is_user_joined_group_accumulator,
+    get_group_accumulator_joiners_count,
+    list_group_accumulator_joiners_paginated,
 )
 from .group_accumulator_response_models import (
     CreateGroupAccumulatorRequest,
@@ -33,7 +46,37 @@ from .group_accumulator_response_models import (
     GroupAccumulatorDetailDTO,
     GroupAccumulatorHistoryResponse,
     GroupAccumulatorHistoryItemDTO,
+    GroupAccumulatorMemberDTO,
+    GroupAccumulatorMembersResponse,
 )
+
+
+def _to_group_type(value) -> AuthorGroupType:
+    if hasattr(value, "value"):
+        return AuthorGroupType(value.value)
+    return AuthorGroupType(value)
+
+
+def _assert_group_allows_join(group) -> None:
+    if _to_group_type(group.group_type) != AuthorGroupType.COMMUNITY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "FORBIDDEN", "message": "This group does not support joining"},
+        )
+
+
+def _user_fullname(user: Users) -> str:
+    parts = [user.firstname, user.lastname]
+    return " ".join(part for part in parts if part).strip()
+
+
+def _user_avatar_url(user: Users) -> str | None:
+    if not user.avatar_url:
+        return None
+    return generate_presigned_access_url(
+        bucket_name=get("AWS_BUCKET_NAME"),
+        s3_key=user.avatar_url,
+    )
 
 
 def _convert_to_dto(group_accumulator) -> GroupAccumulatorDTO:
@@ -42,9 +85,34 @@ def _convert_to_dto(group_accumulator) -> GroupAccumulatorDTO:
         accumulator_id=group_accumulator.accumulator_id,
         group_id=group_accumulator.group_id,
         title=group_accumulator.title,
+        image=get_image_url(group_accumulator.image_key),
+        image_key=group_accumulator.image_key,
         target_count=group_accumulator.target_count,
         start_date=group_accumulator.start_date,
         end_date=group_accumulator.end_date,
+        created_at=group_accumulator.created_at,
+        updated_at=group_accumulator.updated_at,
+    )
+
+
+def _convert_to_detail_dto(
+    group_accumulator,
+    *,
+    total_count: int,
+    member_count: int,
+) -> GroupAccumulatorDetailDTO:
+    return GroupAccumulatorDetailDTO(
+        id=group_accumulator.id,
+        accumulator_id=group_accumulator.accumulator_id,
+        group_id=group_accumulator.group_id,
+        title=group_accumulator.title,
+        image=get_image_url(group_accumulator.image_key),
+        image_key=group_accumulator.image_key,
+        target_count=group_accumulator.target_count,
+        start_date=group_accumulator.start_date,
+        end_date=group_accumulator.end_date,
+        total_count=total_count,
+        member_count=member_count,
         created_at=group_accumulator.created_at,
         updated_at=group_accumulator.updated_at,
     )
@@ -66,6 +134,7 @@ def create_group_accumulator_service(
             group_id=group_id,
             accumulator_id=request.accumulator_id,
             title=request.title,
+            image_key=request.image_key,
             target_count=request.target_count,
             start_date=request.start_date,
             end_date=request.end_date,
@@ -100,18 +169,12 @@ def get_group_accumulator_service(
             )
         
         total_count = get_group_accumulator_total_count(db, group_accumulator_id)
-        
-        return GroupAccumulatorDetailDTO(
-            id=group_accumulator.id,
-            accumulator_id=group_accumulator.accumulator_id,
-            group_id=group_accumulator.group_id,
-            title=group_accumulator.title,
-            target_count=group_accumulator.target_count,
-            start_date=group_accumulator.start_date,
-            end_date=group_accumulator.end_date,
+        member_count = get_group_accumulator_joiners_count(db, group_accumulator_id)
+
+        return _convert_to_detail_dto(
+            group_accumulator,
             total_count=total_count,
-            created_at=group_accumulator.created_at,
-            updated_at=group_accumulator.updated_at,
+            member_count=member_count,
         )
 
 
@@ -138,6 +201,8 @@ def update_group_accumulator_service(
             group_accumulator.accumulator_id = request.accumulator_id
         if request.title is not None:
             group_accumulator.title = request.title
+        if request.image_key is not None:
+            group_accumulator.image_key = request.image_key
         if request.target_count is not None:
             group_accumulator.target_count = request.target_count
         if request.start_date is not None:
@@ -168,6 +233,74 @@ def delete_group_accumulator_service(
             )
         
         delete_group_accumulator(db, group_accumulator)
+
+
+def join_group_accumulator_service(
+    token: str,
+    group_accumulator_id: UUID,
+) -> None:
+    """Join a group accumulator and automatically join the parent group."""
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        group_accumulator = get_group_accumulator_by_id(db, group_accumulator_id)
+        if not group_accumulator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "NOT_FOUND", "message": "Group accumulator not found"},
+            )
+
+        group = get_group_by_id(db=db, group_id=group_accumulator.group_id)
+        if not group or not group.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "NOT_FOUND", "message": "Group not found"},
+            )
+
+        _assert_group_allows_join(group)
+        upsert_group_join(db=db, group_id=group_accumulator.group_id, user_id=current_user.id)
+        upsert_group_accumulator_join(
+            db=db,
+            group_accumulator_id=group_accumulator_id,
+            user_id=current_user.id,
+        )
+
+
+def get_group_accumulator_members_service(
+    group_accumulator_id: UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> GroupAccumulatorMembersResponse:
+    with SessionLocal() as db:
+        group_accumulator = get_group_accumulator_by_id(db, group_accumulator_id)
+        if not group_accumulator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "NOT_FOUND", "message": "Group accumulator not found"},
+            )
+
+        rows, total = list_group_accumulator_joiners_paginated(
+            db=db,
+            group_accumulator_id=group_accumulator_id,
+            skip=skip,
+            limit=limit,
+        )
+
+        return GroupAccumulatorMembersResponse(
+            members=[
+                GroupAccumulatorMemberDTO(
+                    user_id=user.id,
+                    username=user.username,
+                    fullname=_user_fullname(user),
+                    avatar_url=_user_avatar_url(user),
+                    joined_at=joined_at,
+                )
+                for user, joined_at in rows
+            ],
+            total=total,
+            skip=skip,
+            limit=limit,
+        )
 
 
 def delete_group_accumulator_user_service(
@@ -216,11 +349,15 @@ def submit_group_count_service(
                 detail={"error": "NOT_FOUND", "message": "Group accumulator not found"}
             )
         
-        # Verify user is a member of the group
-        if not is_user_joined_group(db=db, group_id=group_accumulator.group_id, user_id=current_user.id):
+        # Verify user has joined this group accumulator
+        if not is_user_joined_group_accumulator(
+            db=db,
+            group_accumulator_id=group_accumulator_id,
+            user_id=current_user.id,
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={"error": "FORBIDDEN", "message": "You must be a member of this group"}
+                detail={"error": "FORBIDDEN", "message": "You must join this group accumulator first"},
             )
         
         # Get user's current total count
@@ -280,19 +417,13 @@ def get_group_accumulator_history_service(
         
         history, total = get_group_accumulator_history(db, group_accumulator_id, skip, limit)
         total_count = get_group_accumulator_total_count(db, group_accumulator_id)
-        
+        member_count = get_group_accumulator_joiners_count(db, group_accumulator_id)
+
         return GroupAccumulatorHistoryResponse(
-            group_accumulator=GroupAccumulatorDetailDTO(
-                id=group_accumulator.id,
-                accumulator_id=group_accumulator.accumulator_id,
-                group_id=group_accumulator.group_id,
-                title=group_accumulator.title,
-                target_count=group_accumulator.target_count,
-                start_date=group_accumulator.start_date,
-                end_date=group_accumulator.end_date,
+            group_accumulator=_convert_to_detail_dto(
+                group_accumulator,
                 total_count=total_count,
-                created_at=group_accumulator.created_at,
-                updated_at=group_accumulator.updated_at,
+                member_count=member_count,
             ),
             history=[
                 GroupAccumulatorHistoryItemDTO(
@@ -334,6 +465,7 @@ def create_group_accumulator_cms_service(
             group_id=group_id,
             accumulator_id=request.accumulator_id,
             title=request.title,
+            image_key=request.image_key,
             target_count=request.target_count,
             start_date=request.start_date,
             end_date=request.end_date,
@@ -384,18 +516,12 @@ def get_group_accumulator_cms_service(
             )
         
         total_count = get_group_accumulator_total_count(db, group_accumulator_id)
-        
-        return GroupAccumulatorDetailDTO(
-            id=group_accumulator.id,
-            accumulator_id=group_accumulator.accumulator_id,
-            group_id=group_accumulator.group_id,
-            title=group_accumulator.title,
-            target_count=group_accumulator.target_count,
-            start_date=group_accumulator.start_date,
-            end_date=group_accumulator.end_date,
+        member_count = get_group_accumulator_joiners_count(db, group_accumulator_id)
+
+        return _convert_to_detail_dto(
+            group_accumulator,
             total_count=total_count,
-            created_at=group_accumulator.created_at,
-            updated_at=group_accumulator.updated_at,
+            member_count=member_count,
         )
 
 
@@ -427,6 +553,8 @@ def update_group_accumulator_cms_service(
             group_accumulator.accumulator_id = request.accumulator_id
         if request.title is not None:
             group_accumulator.title = request.title
+        if request.image_key is not None:
+            group_accumulator.image_key = request.image_key
         if request.target_count is not None:
             group_accumulator.target_count = request.target_count
         if request.start_date is not None:

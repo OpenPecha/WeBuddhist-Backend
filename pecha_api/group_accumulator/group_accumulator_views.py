@@ -10,6 +10,8 @@ from .group_accumulator_service import (
     submit_group_count_service,
     get_group_accumulator_history_service,
     delete_group_accumulator_user_service,
+    join_group_accumulator_service,
+    get_group_accumulator_members_service,
 )
 from .group_accumulator_response_models import (
     SubmitGroupCountRequest,
@@ -17,6 +19,7 @@ from .group_accumulator_response_models import (
     GroupAccumulatorsResponse,
     GroupAccumulatorHistoryResponse,
     GroupAccumulatorHistoryItemDTO,
+    GroupAccumulatorMembersResponse,
 )
 
 group_accumulator_router = APIRouter(prefix="/group-accumulators", tags=["Group Accumulators"])
@@ -80,6 +83,39 @@ async def get_group_accumulator_history(
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
 ):
     return get_group_accumulator_history_service(
+        group_accumulator_id=group_accumulator_id,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@group_accumulator_router.post(
+    "/{group_accumulator_id}/join",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def join_group_accumulator(
+    group_accumulator_id: UUID,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Join a group accumulator. Also joins the parent group automatically."""
+    join_group_accumulator_service(
+        token=credentials.credentials,
+        group_accumulator_id=group_accumulator_id,
+    )
+    return None
+
+
+@group_accumulator_router.get(
+    "/{group_accumulator_id}/members",
+    response_model=GroupAccumulatorMembersResponse,
+)
+async def get_group_accumulator_members(
+    group_accumulator_id: UUID,
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
+):
+    """List users who joined this group accumulator."""
+    return get_group_accumulator_members_service(
         group_accumulator_id=group_accumulator_id,
         skip=skip,
         limit=limit,

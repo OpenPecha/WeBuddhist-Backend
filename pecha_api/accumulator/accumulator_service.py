@@ -581,6 +581,7 @@ def get_accumulator_groups_service(
                     group_accumulator_id=item.group_accumulator.id,
                     group_id=item.group_accumulator.group_id,
                     title=item.group_accumulator.title,
+                    image_key=item.group_accumulator.image_key,
                     target_count=item.group_accumulator.target_count,
                     user_total_count=item.user_total_count,
                     start_date=item.group_accumulator.start_date,

@@ -1,11 +1,12 @@
 from typing import List, Optional, Tuple
 from uuid import UUID
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, select
 import _datetime
-from _datetime import datetime
+from _datetime import datetime, timezone
 
-from pecha_api.accumulator import GroupAccumulator, GroupAccumulatorHistory
+from pecha_api.accumulator import GroupAccumulator, GroupAccumulatorHistory, group_accumulator_joins
+from pecha_api.users.users_models import Users
 
 
 def create_group_accumulator(
@@ -13,6 +14,7 @@ def create_group_accumulator(
     group_id: UUID,
     accumulator_id: Optional[UUID],
     title: Optional[str],
+    image_key: Optional[str],
     target_count: Optional[int],
     start_date,
     end_date,
@@ -21,6 +23,7 @@ def create_group_accumulator(
         group_id=group_id,
         accumulator_id=accumulator_id,
         title=title,
+        image_key=image_key,
         target_count=target_count,
         start_date=start_date,
         end_date=end_date,
@@ -186,3 +189,77 @@ def get_group_accumulator_member_contributions(
         )
         for row in rows
     ], total_member_count
+
+
+def upsert_group_accumulator_join(
+    db: Session,
+    group_accumulator_id: UUID,
+    user_id: UUID,
+) -> None:
+    exists_row = db.execute(
+        select(group_accumulator_joins.c.group_accumulator_id).where(
+            group_accumulator_joins.c.group_accumulator_id == group_accumulator_id,
+            group_accumulator_joins.c.user_id == user_id,
+        )
+    ).first()
+    if exists_row:
+        return
+    db.execute(
+        group_accumulator_joins.insert().values(
+            group_accumulator_id=group_accumulator_id,
+            user_id=user_id,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    db.commit()
+
+
+def is_user_joined_group_accumulator(
+    db: Session,
+    group_accumulator_id: UUID,
+    user_id: UUID,
+) -> bool:
+    row = db.execute(
+        select(group_accumulator_joins.c.group_accumulator_id).where(
+            group_accumulator_joins.c.group_accumulator_id == group_accumulator_id,
+            group_accumulator_joins.c.user_id == user_id,
+        )
+    ).first()
+    return row is not None
+
+
+def get_group_accumulator_joiners_count(
+    db: Session,
+    group_accumulator_id: UUID,
+) -> int:
+    return (
+        db.query(func.count())
+        .select_from(group_accumulator_joins)
+        .filter(group_accumulator_joins.c.group_accumulator_id == group_accumulator_id)
+        .scalar()
+        or 0
+    )
+
+
+def list_group_accumulator_joiners_paginated(
+    db: Session,
+    group_accumulator_id: UUID,
+    skip: int,
+    limit: int,
+) -> Tuple[List[Tuple[Users, datetime]], int]:
+    query = (
+        db.query(Users, group_accumulator_joins.c.created_at)
+        .join(
+            group_accumulator_joins,
+            Users.id == group_accumulator_joins.c.user_id,
+        )
+        .filter(group_accumulator_joins.c.group_accumulator_id == group_accumulator_id)
+    )
+    total = query.count()
+    rows = (
+        query.order_by(group_accumulator_joins.c.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return rows, total
