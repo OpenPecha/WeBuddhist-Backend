@@ -89,12 +89,34 @@ def ensure_tradition_exists(db: Session, tradition_code: str) -> UUID:
     return tradition_id
 
 
-def save_user_tradition(db: Session, user_id: UUID, tradition_code: str) -> UserTradition:
-    tradition_entry = get_tradition_entry(tradition_code)
-    if tradition_entry is None:
-        raise ValueError(f"Unknown tradition code: {tradition_code}")
+def ensure_custom_tradition_exists(db: Session, tradition_label: str) -> UUID:
+    tradition_id = tradition_id_from_code(tradition_label)
+    existing = db.query(Tradition).filter(Tradition.id == tradition_id).first()
+    if existing is not None:
+        return tradition_id
 
-    tradition_id = ensure_tradition_exists(db=db, tradition_code=tradition_code)
+    tradition = Tradition(
+        id=tradition_id,
+        parent_id=None,
+        regions=None,
+    )
+    db.add(tradition)
+    metadata = TraditionMetadata(
+        tradition_id=tradition_id,
+        language=LanguageCode.EN,
+        name=tradition_label,
+        other_names=None,
+    )
+    db.add(metadata)
+    db.commit()
+    return tradition_id
+
+
+def save_user_tradition(db: Session, user_id: UUID, tradition_code: str) -> UserTradition:
+    if get_tradition_entry(tradition_code) is not None:
+        tradition_id = ensure_tradition_exists(db=db, tradition_code=tradition_code)
+    else:
+        tradition_id = ensure_custom_tradition_exists(db=db, tradition_label=tradition_code)
 
     existing = (
         db.query(UserTradition)

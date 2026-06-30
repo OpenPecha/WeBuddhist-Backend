@@ -4,8 +4,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from pecha_api.traditions.tradition_taxonomy import list_tradition_codes
-
 
 class TraditionChatMessage(BaseModel):
     role: Literal["user", "assistant"]
@@ -38,10 +36,10 @@ class SaveUserTraditionRequest(BaseModel):
 
     @field_validator("tradition_code")
     @classmethod
-    def validate_tradition_code(cls, value: str) -> str:
+    def normalize_tradition_code(cls, value: str) -> str:
         normalized = value.strip()
-        if normalized not in list_tradition_codes():
-            raise ValueError("tradition_code must match a known tradition from the taxonomy")
+        if not normalized:
+            raise ValueError("tradition_code must not be empty")
         return normalized
 
 
