@@ -16,7 +16,7 @@ from pecha_api.plans.series.series_response_models import SeriesListItemDTO
 
 
 class GroupSeriesListItemDTO(SeriesListItemDTO):
-    is_enrolled: bool = False
+    is_group_enrolled: bool = False
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 __all__ = [
