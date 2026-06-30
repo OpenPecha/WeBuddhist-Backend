@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from starlette import status
 
 from pecha_api.db.database import SessionLocal
+from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.traditions.llm_client import chat_with_worker
 from pecha_api.traditions.tradition_constants import DEFAULT_CHAT_LANGUAGE
 from pecha_api.traditions.tradition_llm_utils import parse_llm_json_response
@@ -155,17 +156,11 @@ async def save_user_tradition_service(
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
-        try:
-            user_tradition = save_user_tradition(
-                db=db,
-                user_id=current_user.id,
-                tradition_code=save_request.tradition_code,
-            )
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(exc),
-            ) from exc
+        user_tradition = save_user_tradition(
+            db=db,
+            user_id=current_user.id,
+            tradition_code=save_request.tradition_code,
+        )
 
         return _build_user_tradition_dto(
             user_tradition=user_tradition,
@@ -213,7 +208,7 @@ async def list_traditions_service(language: str = DEFAULT_CHAT_LANGUAGE) -> Trad
 
 
 def _build_user_tradition_dto_from_record(user_tradition, language: str) -> UserTraditionDTO:
-    tradition_code = _resolve_tradition_code(user_tradition.tradition_id)
+    tradition_code = _resolve_tradition_code(user_tradition)
     return _build_user_tradition_dto(
         user_tradition=user_tradition,
         tradition_code=tradition_code,
@@ -221,10 +216,18 @@ def _build_user_tradition_dto_from_record(user_tradition, language: str) -> User
     )
 
 
-def _resolve_tradition_code(tradition_id) -> str:
+def _resolve_tradition_code(user_tradition) -> str:
+    tradition_id = user_tradition.tradition_id
     for entry in load_tradition_taxonomy()["traditions"]:
         if tradition_id_from_code(entry["id"]) == tradition_id:
             return entry["id"]
+
+    if user_tradition.tradition and user_tradition.tradition.metadata_entries:
+        for metadata in user_tradition.tradition.metadata_entries:
+            if metadata.language == LanguageCode.EN:
+                return metadata.name
+        return user_tradition.tradition.metadata_entries[0].name
+
     return str(tradition_id)
 
 

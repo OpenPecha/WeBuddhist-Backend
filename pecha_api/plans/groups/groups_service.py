@@ -375,9 +375,11 @@ def _is_series_enrolled_for_group_context(
     expected_partner_id: Optional[UUID],
     *,
     is_enrolled_in_series: bool,
-) -> bool:
+) -> Optional[bool]:
     if not is_enrolled_in_series:
-        return False
+        return None
+    if enrollment_partner_id is None:
+        return None
     return enrollment_partner_id == expected_partner_id
 
 
