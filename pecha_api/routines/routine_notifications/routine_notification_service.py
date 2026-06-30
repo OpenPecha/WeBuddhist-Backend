@@ -6,6 +6,11 @@ from uuid import UUID
 
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
+from pecha_api.plans.authors.plan_authors_service import safe_get_image_url
+from pecha_api.plans.media.media_response_models import ImageUrlModel
+from pecha_api.plans.notifications.day_notification_models import DayNotification
+from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.series.series_model import Series
 from pecha_api.routines.routine_notifications import routine_notification_repository as repo
 from pecha_api.routines.routine_notifications.routine_notification_repository import (
     RoutineNotificationRow,
@@ -18,13 +23,11 @@ from pecha_api.routines.routine_notifications.routine_notification_response_mode
     RoutineNotificationUserTargetDTO,
 )
 from pecha_api.timezone_utils import utc_time_to_hhmm
+from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 SESSION_TYPE_PLAN = "PLAN"
 SESSION_TYPE_SERIES = "SERIES"
-SESSION_TYPE_RECITATION = "RECITATION"
-SESSION_TYPE_RECITATION_COLLECTION = "RECITATION_COLLECTION"
-SESSION_TYPE_ACCUMULATION = "ACCUMULATION"
-SESSION_TYPE_TIMER = "TIMER"
+IMAGE_TYPE_PLAN = "PLAN"
 IMAGE_TYPE_CUSTOM = "CUSTOM"
 
 
@@ -150,21 +153,59 @@ def _collect_push_devices(rows: list[RoutineNotificationRow]) -> list[PushDevice
     return devices
 
 
+def _image_model_to_url(image: ImageUrlModel | None) -> str | None:
+    if image is None:
+        return None
+    return image.original or image.medium or image.thumbnail
+
+
+def _presign_s3_key(s3_key: str | None) -> str | None:
+    if not s3_key:
+        return None
+    try:
+        return generate_presigned_access_url(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=s3_key,
+        )
+    except Exception:
+        return None
+
+
+def _resolve_plan_image_url(plan: Plan | None) -> str | None:
+    if plan is None:
+        return None
+    return _image_model_to_url(
+        safe_get_image_url(plan.image_url, resource_id=plan.id, resource_type="plan")
+    )
+
+
+def _resolve_series_image_url(series: Series | None) -> str | None:
+    if series is None:
+        return None
+    return _image_model_to_url(
+        safe_get_image_url(series.image, resource_id=series.id, resource_type="series")
+    )
+
+
+def _resolve_day_notification_image_url(
+    day_notification: DayNotification,
+    plan: Plan | None,
+) -> str | None:
+    image_type = day_notification.image_type.value if day_notification.image_type else None
+    if image_type == IMAGE_TYPE_CUSTOM:
+        return _presign_s3_key(day_notification.image_url)
+    return _resolve_plan_image_url(plan)
+
+
 def _resolve_source_image_url(db, session_type: str, source_id: UUID | None) -> str | None:
     if source_id is None:
         return None
 
     if session_type == SESSION_TYPE_PLAN:
-        plan = repo.get_plan_by_id(db, source_id)
-        return plan.image_url if plan else None
+        return _resolve_plan_image_url(repo.get_plan_by_id(db, source_id))
 
     if session_type == SESSION_TYPE_SERIES:
-        series = repo.get_series_by_id(db, source_id)
-        return series.image if series else None
-
-    if session_type == SESSION_TYPE_RECITATION_COLLECTION:
-        collection = repo.get_recitation_collection(db, source_id)
-        return collection.img_url if collection else None
+        return _resolve_series_image_url(repo.get_series_by_id(db, source_id))
 
     return None
 
@@ -186,30 +227,10 @@ def _resolve_notification_content(
     if session_type == SESSION_TYPE_SERIES and source_id is not None:
         return _resolve_series_notification(db, series_id=source_id)
 
-    if session_type == SESSION_TYPE_RECITATION_COLLECTION and source_id is not None:
-        collection = repo.get_recitation_collection(db, source_id)
-        if collection:
-            return NotificationContentDTO(
-                title=collection.name,
-                body=default_body,
-                custom_image_url=collection.img_url,
-            )
-
-    if session_type in {
-        SESSION_TYPE_RECITATION,
-        SESSION_TYPE_ACCUMULATION,
-        SESSION_TYPE_TIMER,
-    }:
-        return NotificationContentDTO(
-            title=default_title,
-            body=default_body,
-            custom_image_url=None,
-        )
-
     return NotificationContentDTO(
         title=default_title,
         body=default_body,
-        custom_image_url=None,
+        image_url=None,
     )
 
 
@@ -225,6 +246,12 @@ def _resolve_plan_notification(
 
     plan = repo.get_plan_by_id(db, plan_id)
     plan_title = plan.title if plan else default_title
+    plan_image_url = _resolve_plan_image_url(plan)
+    default_content = NotificationContentDTO(
+        title=plan_title,
+        body=default_body,
+        image_url=plan_image_url,
+    )
 
     day_number = _compute_current_day_number(
         repo.get_user_plan_progress(db, user_id=user_id, plan_id=plan_id),
@@ -232,29 +259,32 @@ def _resolve_plan_notification(
     )
     plan_item = repo.get_plan_item_by_day_number(db, plan_id=plan_id, day_number=day_number)
     if plan_item is None:
-        return NotificationContentDTO(title=plan_title, body=default_body, custom_image_url=None)
+        return default_content
 
     day_notification = repo.get_day_notification(db, day_id=plan_item.id)
     if day_notification is None:
-        return NotificationContentDTO(title=plan_title, body=default_body, custom_image_url=None)
-
-    custom_image_url = None
-    image_type = day_notification.image_type.value if day_notification.image_type else None
-    if image_type == IMAGE_TYPE_CUSTOM:
-        custom_image_url = day_notification.image_url
+        return default_content
 
     return NotificationContentDTO(
         title=day_notification.title,
         body=day_notification.body,
-        custom_image_url=custom_image_url,
+        image_url=_resolve_day_notification_image_url(day_notification, plan),
     )
 
 
 def _resolve_series_notification(db, *, series_id: UUID) -> NotificationContentDTO:
+    default_title = get("NOTIFICATION_DEFAULT_TITLE")
     default_body = get("NOTIFICATION_DEFAULT_BODY")
+
+    series = repo.get_series_by_id(db, series_id)
     metadata = repo.get_series_metadata(db, series_id)
-    title = metadata.title if metadata else get("NOTIFICATION_DEFAULT_TITLE")
-    return NotificationContentDTO(title=title, body=default_body, custom_image_url=None)
+    title = metadata.title if metadata else default_title
+
+    return NotificationContentDTO(
+        title=title,
+        body=default_body,
+        image_url=_resolve_series_image_url(series),
+    )
 
 
 def _compute_current_day_number(progress, utc_now: datetime) -> int:

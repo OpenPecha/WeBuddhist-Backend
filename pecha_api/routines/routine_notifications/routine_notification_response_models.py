@@ -12,7 +12,7 @@ class PushDeviceTargetDTO(BaseModel):
 class NotificationContentDTO(BaseModel):
     title: str
     body: str
-    custom_image_url: str | None = None
+    image_url: str | None = None
 
 
 class RoutineNotificationUserTargetDTO(BaseModel):
