@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from pecha_api.traditions.tradition_onboarding import list_tradition_path_codes
+
 
 class TraditionChatMessage(BaseModel):
     role: Literal["user", "assistant"]
@@ -38,8 +40,8 @@ class SaveUserTraditionRequest(BaseModel):
     @classmethod
     def normalize_tradition_code(cls, value: str) -> str:
         normalized = value.strip()
-        if not normalized:
-            raise ValueError("tradition_code must not be empty")
+        if normalized not in list_tradition_path_codes():
+            raise ValueError("tradition_code must be one of: pali, chinese, tibetan")
         return normalized
 
 
@@ -69,3 +71,22 @@ class TraditionListItemDTO(BaseModel):
 
 class TraditionListResponse(BaseModel):
     traditions: List[TraditionListItemDTO]
+
+
+class TraditionOnboardingPathDTO(BaseModel):
+    title: str
+    description: str
+
+
+class TraditionOnboardingPathsDTO(BaseModel):
+    pali: TraditionOnboardingPathDTO
+    chinese: TraditionOnboardingPathDTO
+    tibetan: TraditionOnboardingPathDTO
+
+
+class TraditionOnboardingResponse(BaseModel):
+    title: str
+    subtitle: str
+    option_intro: str
+    paths: TraditionOnboardingPathsDTO
+    footer: str
