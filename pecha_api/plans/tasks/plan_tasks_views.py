@@ -10,7 +10,7 @@ oauth2_scheme = HTTPBearer()
 # Create router for plan endpoints
 plans_router = APIRouter(
     prefix="/cms/tasks",
-    tags=["Task"]
+    tags=["CMS Tasks"]
 )
 
 

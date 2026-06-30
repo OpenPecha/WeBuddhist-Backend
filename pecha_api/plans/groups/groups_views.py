@@ -66,14 +66,14 @@ _LANGUAGE_QUERY_DESCRIPTION = (
     "Render group metadata in this language; falls back to English (en) per group when missing. "
     "All groups are returned regardless of available metadata languages."
 )
-public_groups_router = APIRouter(prefix="/author/groups", tags=["Author Groups"])
+public_groups_router = APIRouter(prefix="/author/groups", tags=["Public Author Groups"])
 user_groups_router = APIRouter(
     prefix="/users/me/following/author/groups",
-    tags=["Author Groups"],
+    tags=["User Author Groups"],
 )
 user_joined_groups_router = APIRouter(
     prefix="/users/me/joined/author/groups",
-    tags=["Author Groups"],
+    tags=["User Author Groups"],
 )
 
 

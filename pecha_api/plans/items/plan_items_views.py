@@ -27,7 +27,7 @@ oauth2_scheme = HTTPBearer()
 
 items_router = APIRouter(
     prefix="/cms/plans",
-    tags=["Items"],
+    tags=["CMS Items"],
 )
 
 @items_router.post("/{plan_id}/days", status_code=status.HTTP_201_CREATED, response_model=List[ItemDTO])

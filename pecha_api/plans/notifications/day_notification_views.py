@@ -21,7 +21,7 @@ oauth2_scheme = HTTPBearer()
 
 notifications_router = APIRouter(
     prefix="/cms/notifications",
-    tags=["Notifications"],
+    tags=["CMS Day Notifications"],
 )
 
 
