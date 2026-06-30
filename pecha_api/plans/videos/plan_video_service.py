@@ -16,13 +16,14 @@ from pecha_api.plans.response_message import (
 )
 from pecha_api.plans.videos.plan_video_models import PlanVideo
 from pecha_api.plans.videos.plan_video_repository import (
-    create_plan_video,
-    delete_plan_video,
+    add_plan_video_no_commit,
+    delete_plan_video_across_plans,
     get_next_display_order,
     get_plan_video_by_id,
     get_plan_videos_by_plan_id,
     get_plan_videos_by_segment_id,
-    reorder_plan_videos,
+    get_sibling_language_plan_ids,
+    reorder_plan_videos_across_plans,
 )
 from pecha_api.plans.videos.plan_video_response_models import (
     CreatePlanVideoRequest,
@@ -105,19 +106,28 @@ def add_plan_video(token: str, plan_id: UUID, request: CreatePlanVideoRequest) -
         current_author = validate_cms_author_details(token=token)
         _get_author_plan(db=db, plan_id=plan_id, current_author=current_author)
 
-        display_order = get_next_display_order(db=db, plan_id=plan_id)
-        video = create_plan_video(
-            db=db,
-            plan_video=PlanVideo(
-                plan_id=plan_id,
-                url=url,
-                video_id=video_id,
-                title=request.title,
-                display_order=display_order,
-                created_by=current_author.email,
-            ),
-        )
-        return _to_dto(video)
+        sibling_plan_ids = get_sibling_language_plan_ids(db=db, plan_id=plan_id)
+
+        requested_video: PlanVideo | None = None
+        for sibling_id in sibling_plan_ids:
+            display_order = get_next_display_order(db=db, plan_id=sibling_id)
+            created = add_plan_video_no_commit(
+                db=db,
+                plan_video=PlanVideo(
+                    plan_id=sibling_id,
+                    url=url,
+                    video_id=video_id,
+                    title=request.title,
+                    display_order=display_order,
+                    created_by=current_author.email,
+                ),
+            )
+            if sibling_id == plan_id:
+                requested_video = created
+
+        db.commit()
+        db.refresh(requested_video)
+        return _to_dto(requested_video)
 
 
 def remove_plan_video(token: str, plan_id: UUID, video_id: UUID) -> None:
@@ -131,7 +141,13 @@ def remove_plan_video(token: str, plan_id: UUID, video_id: UUID) -> None:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=ResponseError(error=BAD_REQUEST, message=PLAN_VIDEO_NOT_FOUND).model_dump(),
             )
-        delete_plan_video(db=db, plan_id=plan_id, video_id=video_id)
+        sibling_plan_ids = get_sibling_language_plan_ids(db=db, plan_id=plan_id)
+        delete_plan_video_across_plans(
+            db=db,
+            plan_ids=sibling_plan_ids,
+            video_identity_id=video.video_id,
+            url=video.url,
+        )
 
 
 def reorder_plan_videos_entries(
@@ -142,7 +158,20 @@ def reorder_plan_videos_entries(
         _get_author_plan(db=db, plan_id=plan_id, current_author=current_author)
 
         order_by_id = {item.id: item.display_order for item in request.videos}
-        reorder_plan_videos(db=db, plan_id=plan_id, order_by_id=order_by_id)
+
+        current_videos = get_plan_videos_by_plan_id(db=db, plan_id=plan_id)
+        order_by_identity = {
+            (video.video_id or video.url): order_by_id[video.id]
+            for video in current_videos
+            if video.id in order_by_id
+        }
+
+        sibling_plan_ids = get_sibling_language_plan_ids(db=db, plan_id=plan_id)
+        reorder_plan_videos_across_plans(
+            db=db,
+            plan_ids=sibling_plan_ids,
+            order_by_identity=order_by_identity,
+        )
 
         videos = get_plan_videos_by_plan_id(db=db, plan_id=plan_id)
         return PlanVideoListResponse(videos=[_to_dto(video) for video in videos])
