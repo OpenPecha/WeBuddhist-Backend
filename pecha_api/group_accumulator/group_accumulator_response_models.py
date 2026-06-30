@@ -41,7 +41,7 @@ class SubmitGroupCountRequest(BaseModel):
 
 
 class GroupAccumulatorHistoryItemDTO(BaseModel):
-    id: UUID
+    id: Optional[UUID] = Field(None, description="History entry ID. None if no history was created (e.g., zero delta)")
     user_id: UUID
     count: int
     created_at: datetime

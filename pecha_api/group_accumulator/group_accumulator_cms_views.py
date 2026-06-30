@@ -5,11 +5,11 @@ from uuid import UUID
 from starlette import status
 
 from .group_accumulator_service import (
-    create_group_accumulator_service,
-    get_group_accumulators_service,
-    get_group_accumulator_service,
-    update_group_accumulator_service,
-    delete_group_accumulator_service,
+    create_group_accumulator_cms_service,
+    get_group_accumulators_cms_service,
+    get_group_accumulator_cms_service,
+    update_group_accumulator_cms_service,
+    delete_group_accumulator_cms_service,
 )
 from .group_accumulator_response_models import (
     CreateGroupAccumulatorRequest,
@@ -33,8 +33,11 @@ async def create_group_accumulator(
     request: CreateGroupAccumulatorRequest,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
-    """Create a new group accumulator (admin only)."""
-    return create_group_accumulator_service(group_id=group_id, request=request)
+    return create_group_accumulator_cms_service(
+        token=credentials.credentials,
+        group_id=group_id,
+        request=request,
+    )
 
 
 @group_accumulator_cms_router.get(
@@ -47,8 +50,12 @@ async def get_group_accumulators(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
 ):
-    """List all group accumulators for a group (admin only)."""
-    return get_group_accumulators_service(group_id=group_id, skip=skip, limit=limit)
+    return get_group_accumulators_cms_service(
+        token=credentials.credentials,
+        group_id=group_id,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @group_accumulator_cms_router.get(
@@ -60,8 +67,11 @@ async def get_single_group_accumulator(
     group_accumulator_id: UUID,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
-    """Get a single group accumulator (admin only)."""
-    return get_group_accumulator_service(group_accumulator_id=group_accumulator_id)
+    return get_group_accumulator_cms_service(
+        token=credentials.credentials,
+        group_id=group_id,
+        group_accumulator_id=group_accumulator_id,
+    )
 
 
 @group_accumulator_cms_router.put(
@@ -74,8 +84,8 @@ async def update_group_accumulator(
     request: UpdateGroupAccumulatorRequest,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
-    """Update a group accumulator (admin only)."""
-    return update_group_accumulator_service(
+    return update_group_accumulator_cms_service(
+        token=credentials.credentials,
         group_id=group_id,
         group_accumulator_id=group_accumulator_id,
         request=request,
@@ -91,5 +101,8 @@ async def delete_group_accumulator(
     group_accumulator_id: UUID,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
-    """Delete a group accumulator (admin only)."""
-    delete_group_accumulator_service(group_id=group_id, group_accumulator_id=group_accumulator_id)
+    delete_group_accumulator_cms_service(
+        token=credentials.credentials,
+        group_id=group_id,
+        group_accumulator_id=group_accumulator_id,
+    )

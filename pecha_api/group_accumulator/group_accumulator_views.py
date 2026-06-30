@@ -8,7 +8,7 @@ from .group_accumulator_service import (
     get_group_accumulator_service,
     submit_group_count_service,
     get_group_accumulator_history_service,
-    delete_group_accumulator_service,
+    delete_group_accumulator_user_service,
 )
 from .group_accumulator_response_models import (
     SubmitGroupCountRequest,
@@ -74,7 +74,6 @@ async def get_group_accumulator_history(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
 ):
-    """Get history of all user contributions to a group accumulator."""
     return get_group_accumulator_history_service(
         group_accumulator_id=group_accumulator_id,
         skip=skip,
@@ -91,8 +90,9 @@ async def delete_group_accumulator(
     accumulator_id: UUID,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
-    """Soft delete a group accumulator."""
-    delete_group_accumulator_service(
+    """Soft delete (reset) a group accumulator. Requires user to be a member of the group."""
+    delete_group_accumulator_user_service(
+        token=credentials.credentials,
         group_id=group_id,
         group_accumulator_id=accumulator_id,
     )
