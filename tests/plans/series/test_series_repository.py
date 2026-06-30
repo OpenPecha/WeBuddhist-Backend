@@ -27,6 +27,7 @@ from pecha_api.plans.audio.plan_item_audio_models import PlanItemAudio
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 from pecha_api.plans.audio.sub_task_timestamps_models import SubTaskTimestamp
+from pecha_api.plans.videos.plan_video_models import PlanVideo
 
 
 def _make_session_mock() -> Session:
@@ -695,6 +696,14 @@ def _build_parent_series_for_clone():
     )
     plan.items = [item]
     plan.tag_list = [tag]
+    plan.videos = [
+        PlanVideo(
+            url="https://youtu.be/yt123",
+            video_id="yt123",
+            title="Intro",
+            display_order=0,
+        )
+    ]
 
     parent = Series(
         id=parent_id,
@@ -757,6 +766,15 @@ def test_clone_series_with_plans_deep_copies_tree_into_target_group():
     assert len(_added_of_type(db, PlanSubTask)) == 1
     assert len(_added_of_type(db, SubTaskTimestamp)) == 1
 
+    # Plan-level videos are copied onto the cloned plan.
+    cloned_videos = _added_of_type(db, PlanVideo)
+    assert len(cloned_videos) == 1
+    assert cloned_videos[0].url == "https://youtu.be/yt123"
+    assert cloned_videos[0].video_id == "yt123"
+    assert cloned_videos[0].display_order == 0
+    assert cloned_videos[0].plan_id == cloned_plan.id
+    assert cloned_videos[0] is not parent.plans[0].videos[0]
+
     db.commit.assert_called_once()
 
 
@@ -809,6 +827,11 @@ def test_clone_series_plans_for_language_deep_copies_with_target_language():
     assert len(_added_of_type(db, PlanItem)) == 1
     assert len(_added_of_type(db, PlanTask)) == 1
     assert len(_added_of_type(db, PlanSubTask)) == 1
+    # The new language version inherits the source plan's videos.
+    cloned_videos = _added_of_type(db, PlanVideo)
+    assert len(cloned_videos) == 1
+    assert cloned_videos[0].video_id == "yt123"
+    assert cloned_videos[0].plan_id == cloned_plans[0].id
     db.commit.assert_called_once()
 
 

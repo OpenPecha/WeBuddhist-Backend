@@ -37,7 +37,7 @@ async def create_routine(
     request: CreateTimeBlockRequest,
     x_timezone: Annotated[
         Optional[str],
-        Header(alias="X-Timezone", description="IANA timezone of the user (e.g. 'Asia/Kathmandu'). Stored on the routine; null if not provided."),
+        Header(alias="X-Timezone", description="Optional IANA timezone (e.g. 'Asia/Kathmandu'). Stored on the routine when provided; otherwise UTC is used for time conversion."),
     ] = None,
 ):
     return await create_routine_with_time_block(
@@ -60,7 +60,7 @@ async def create_time_block(
     request: CreateTimeBlockRequest,
     x_timezone: Annotated[
         Optional[str],
-        Header(alias="X-Timezone", description="IANA timezone of the user (e.g. 'Asia/Kathmandu'). When provided, refreshes the routine's stored timezone."),
+        Header(alias="X-Timezone", description="Optional IANA timezone (e.g. 'Asia/Kathmandu'). When provided, refreshes the routine's stored timezone; otherwise the routine's timezone or UTC is used."),
     ] = None,
 ):
     return await add_time_block_to_routine(
@@ -95,12 +95,17 @@ async def update_time_block(
     time_block_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     request: UpdateTimeBlockRequest,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="Optional IANA timezone (e.g. 'Asia/Kathmandu'). When provided, refreshes the routine's stored timezone; otherwise the routine's timezone or UTC is used."),
+    ] = None,
 ):
     return await update_time_block_service(
         token=authentication_credential.credentials,
         routine_id=routine_id,
         time_block_id=time_block_id,
         request=request,
+        timezone_name=x_timezone,
     )
 
 

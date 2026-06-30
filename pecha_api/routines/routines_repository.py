@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from starlette import status
 from uuid import UUID
 from typing import Optional, List, Tuple
+from datetime import time
 import _datetime
 from _datetime import datetime
 
@@ -164,9 +165,17 @@ def delete_sessions_by_time_block_id(db: Session, time_block_id: UUID) -> None:
     db.commit()
 
 
-def update_time_block(db: Session,time_block: RoutineTimeBlock,time: str,time_int: int,notification_enabled: bool) -> RoutineTimeBlock:
+def update_time_block(
+    db: Session,
+    time_block: RoutineTimeBlock,
+    time: str,
+    time_utc: time,
+    time_int: int,
+    notification_enabled: bool,
+) -> RoutineTimeBlock:
     try:
         time_block.time = time
+        time_block.time_utc = time_utc
         time_block.time_int = time_int
         time_block.notification_enabled = notification_enabled
         db.commit()
