@@ -29,10 +29,11 @@ from pecha_api.group_accumulator.group_accumulator_response_models import (
 
 class MockGroupAccumulator:
     """Mock GroupAccumulator model."""
-    def __init__(self, id=None, group_id=None, accumulator_id=None, target_count=108000):
+    def __init__(self, id=None, group_id=None, accumulator_id=None, title=None, target_count=108000):
         self.id = id or uuid4()
         self.group_id = group_id or uuid4()
         self.accumulator_id = accumulator_id
+        self.title = title
         self.target_count = target_count
         self.start_date = datetime.utcnow()
         self.end_date = None

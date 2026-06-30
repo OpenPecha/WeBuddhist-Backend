@@ -41,6 +41,7 @@ def _convert_to_dto(group_accumulator) -> GroupAccumulatorDTO:
         id=group_accumulator.id,
         accumulator_id=group_accumulator.accumulator_id,
         group_id=group_accumulator.group_id,
+        title=group_accumulator.title,
         target_count=group_accumulator.target_count,
         start_date=group_accumulator.start_date,
         end_date=group_accumulator.end_date,
@@ -64,6 +65,7 @@ def create_group_accumulator_service(
             db=db,
             group_id=group_id,
             accumulator_id=request.accumulator_id,
+            title=request.title,
             target_count=request.target_count,
             start_date=request.start_date,
             end_date=request.end_date,
@@ -103,6 +105,7 @@ def get_group_accumulator_service(
             id=group_accumulator.id,
             accumulator_id=group_accumulator.accumulator_id,
             group_id=group_accumulator.group_id,
+            title=group_accumulator.title,
             target_count=group_accumulator.target_count,
             start_date=group_accumulator.start_date,
             end_date=group_accumulator.end_date,
@@ -133,6 +136,8 @@ def update_group_accumulator_service(
         
         if request.accumulator_id is not None:
             group_accumulator.accumulator_id = request.accumulator_id
+        if request.title is not None:
+            group_accumulator.title = request.title
         if request.target_count is not None:
             group_accumulator.target_count = request.target_count
         if request.start_date is not None:
@@ -288,6 +293,7 @@ def get_group_accumulator_history_service(
                 id=group_accumulator.id,
                 accumulator_id=group_accumulator.accumulator_id,
                 group_id=group_accumulator.group_id,
+                title=group_accumulator.title,
                 target_count=group_accumulator.target_count,
                 start_date=group_accumulator.start_date,
                 end_date=group_accumulator.end_date,
@@ -334,6 +340,7 @@ def create_group_accumulator_cms_service(
             db=db,
             group_id=group_id,
             accumulator_id=request.accumulator_id,
+            title=request.title,
             target_count=request.target_count,
             start_date=request.start_date,
             end_date=request.end_date,
@@ -389,6 +396,7 @@ def get_group_accumulator_cms_service(
             id=group_accumulator.id,
             accumulator_id=group_accumulator.accumulator_id,
             group_id=group_accumulator.group_id,
+            title=group_accumulator.title,
             target_count=group_accumulator.target_count,
             start_date=group_accumulator.start_date,
             end_date=group_accumulator.end_date,
@@ -424,6 +432,8 @@ def update_group_accumulator_cms_service(
         
         if request.accumulator_id is not None:
             group_accumulator.accumulator_id = request.accumulator_id
+        if request.title is not None:
+            group_accumulator.title = request.title
         if request.target_count is not None:
             group_accumulator.target_count = request.target_count
         if request.start_date is not None:

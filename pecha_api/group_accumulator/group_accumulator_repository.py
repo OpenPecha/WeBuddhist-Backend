@@ -12,6 +12,7 @@ def create_group_accumulator(
     db: Session,
     group_id: UUID,
     accumulator_id: Optional[UUID],
+    title: Optional[str],
     target_count: Optional[int],
     start_date,
     end_date,
@@ -19,6 +20,7 @@ def create_group_accumulator(
     group_accumulator = GroupAccumulator(
         group_id=group_id,
         accumulator_id=accumulator_id,
+        title=title,
         target_count=target_count,
         start_date=start_date,
         end_date=end_date,
