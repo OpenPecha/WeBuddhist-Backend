@@ -45,7 +45,7 @@ def _video(*, row_id=None, video_id, url, title="T", plan_id=None, display_order
 # --------------------------------------------------------------------------- add
 
 
-@patch("pecha_api.plans.videos.plan_video_service.create_plan_video")
+@patch("pecha_api.plans.videos.plan_video_service.add_plan_video_no_commit")
 @patch("pecha_api.plans.videos.plan_video_service.get_next_display_order")
 @patch("pecha_api.plans.videos.plan_video_service.get_sibling_language_plan_ids")
 @patch("pecha_api.plans.videos.plan_video_service._get_author_plan")
@@ -99,7 +99,7 @@ def test_add_video_mirrors_to_all_language_siblings(
     assert result.plan_id == en_plan
 
 
-@patch("pecha_api.plans.videos.plan_video_service.create_plan_video")
+@patch("pecha_api.plans.videos.plan_video_service.add_plan_video_no_commit")
 @patch("pecha_api.plans.videos.plan_video_service.get_next_display_order")
 @patch("pecha_api.plans.videos.plan_video_service.get_sibling_language_plan_ids")
 @patch("pecha_api.plans.videos.plan_video_service._get_author_plan")
@@ -137,6 +137,49 @@ def test_add_video_standalone_plan_inserts_once(
     )
 
     assert mock_create.call_count == 1
+
+
+@patch("pecha_api.plans.videos.plan_video_service.add_plan_video_no_commit")
+@patch("pecha_api.plans.videos.plan_video_service.get_next_display_order")
+@patch("pecha_api.plans.videos.plan_video_service.get_sibling_language_plan_ids")
+@patch("pecha_api.plans.videos.plan_video_service._get_author_plan")
+@patch("pecha_api.plans.videos.plan_video_service.validate_cms_author_details")
+@patch("pecha_api.plans.videos.plan_video_service.extract_youtube_video_id")
+@patch("pecha_api.plans.videos.plan_video_service.SessionLocal")
+def test_add_video_commits_once_for_whole_fanout(
+    mock_session,
+    mock_extract,
+    mock_validate,
+    mock_get_author_plan,
+    mock_siblings,
+    mock_next_order,
+    mock_create,
+):
+    # The fan-out must be atomic: rows are staged without committing, then a
+    # single commit finalizes all language siblings together.
+    db = _patch_session(mock_session)
+    mock_validate.return_value = MagicMock(email="author@example.com")
+    mock_extract.return_value = "yt123"
+
+    en_plan, bo_plan, zh_plan = uuid4(), uuid4(), uuid4()
+    mock_siblings.return_value = [en_plan, bo_plan, zh_plan]
+    mock_next_order.return_value = 0
+
+    def _persist(db, plan_video):
+        plan_video.id = uuid4()
+        return plan_video
+
+    mock_create.side_effect = _persist
+
+    add_plan_video(
+        token="t",
+        plan_id=en_plan,
+        request=CreatePlanVideoRequest(url="https://youtu.be/yt123", title="Intro"),
+    )
+
+    # three inserts but exactly one commit for the whole fan-out
+    assert mock_create.call_count == 3
+    db.commit.assert_called_once()
 
 
 @patch("pecha_api.plans.videos.plan_video_service.extract_youtube_video_id")

@@ -16,7 +16,7 @@ from pecha_api.plans.response_message import (
 )
 from pecha_api.plans.videos.plan_video_models import PlanVideo
 from pecha_api.plans.videos.plan_video_repository import (
-    create_plan_video,
+    add_plan_video_no_commit,
     delete_plan_video_across_plans,
     get_next_display_order,
     get_plan_video_by_id,
@@ -111,7 +111,7 @@ def add_plan_video(token: str, plan_id: UUID, request: CreatePlanVideoRequest) -
         requested_video: PlanVideo | None = None
         for sibling_id in sibling_plan_ids:
             display_order = get_next_display_order(db=db, plan_id=sibling_id)
-            created = create_plan_video(
+            created = add_plan_video_no_commit(
                 db=db,
                 plan_video=PlanVideo(
                     plan_id=sibling_id,
@@ -125,6 +125,8 @@ def add_plan_video(token: str, plan_id: UUID, request: CreatePlanVideoRequest) -
             if sibling_id == plan_id:
                 requested_video = created
 
+        db.commit()
+        db.refresh(requested_video)
         return _to_dto(requested_video)
 
 

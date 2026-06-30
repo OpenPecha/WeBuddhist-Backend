@@ -17,7 +17,8 @@ def get_sibling_language_plan_ids(db: Session, plan_id: UUID) -> List[UUID]:
     plan = db.query(Plan).filter(Plan.id == plan_id).first()
     if plan is None:
         return [plan_id]
-    if plan.series_id is None:
+
+    if plan.series_id is None or plan.display_order is None:
         return [plan.id]
 
     siblings = (
@@ -90,6 +91,18 @@ def create_plan_video(db: Session, plan_video: PlanVideo) -> PlanVideo:
     db.add(plan_video)
     db.commit()
     db.refresh(plan_video)
+    return plan_video
+
+
+def add_plan_video_no_commit(db: Session, plan_video: PlanVideo) -> PlanVideo:
+    """Stage a video insert without committing.
+
+    Used when several sibling videos must be inserted as one atomic unit; the
+    caller is responsible for the single commit so a mid-loop failure rolls the
+    whole fan-out back instead of leaving languages half-synced.
+    """
+    db.add(plan_video)
+    db.flush()
     return plan_video
 
 
