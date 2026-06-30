@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, time
 from uuid import UUID
 
 from sqlalchemy import select
@@ -14,30 +14,27 @@ from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.users.recitation_collection.recitation_collection_models import RecitationCollection
 from pecha_api.push_devices.push_device_models import PushDeviceToken
+from pecha_api.routines.routines_enums import SessionType
 from pecha_api.routines.routines_models import Routine, RoutineSession, RoutineTimeBlock
 
 
 @dataclass(frozen=True)
 class RoutineNotificationRow:
     user_id: UUID
-    routine_timezone: str | None
     time_block_id: UUID
-    time_block_time: str
-    time_block_created_at: datetime
     session_type: str
     source_id: UUID | None
     device_token: str
     platform: str
+    time_block_time_utc: time
 
 
 def get_users_with_matching_timeblocks(db: Session) -> list[RoutineNotificationRow]:
     stmt = (
         select(
             Routine.user_id,
-            Routine.timezone,
             RoutineTimeBlock.id,
-            RoutineTimeBlock.time,
-            RoutineTimeBlock.created_at,
+            RoutineTimeBlock.time_utc,
             RoutineSession.session_type,
             RoutineSession.source_id,
             PushDeviceToken.token,
@@ -51,6 +48,7 @@ def get_users_with_matching_timeblocks(db: Session) -> list[RoutineNotificationR
             RoutineTimeBlock.deleted_at.is_(None),
             Routine.deleted_at.is_(None),
             PushDeviceToken.is_active.is_(True),
+            RoutineSession.session_type.in_([SessionType.PLAN, SessionType.SERIES]),
         )
     )
 
@@ -58,10 +56,8 @@ def get_users_with_matching_timeblocks(db: Session) -> list[RoutineNotificationR
     return [
         RoutineNotificationRow(
             user_id=row.user_id,
-            routine_timezone=row.timezone,
             time_block_id=row.id,
-            time_block_time=row.time,
-            time_block_created_at=row.created_at,
+            time_block_time_utc=row.time_utc,
             session_type=str(row.session_type),
             source_id=row.source_id,
             device_token=row.token,
