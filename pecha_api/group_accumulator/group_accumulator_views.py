@@ -5,17 +5,16 @@ from uuid import UUID
 from starlette import status
 
 from .group_accumulator_service import (
-    create_group_accumulator_service,
     get_group_accumulator_service,
+    get_group_accumulators_service,
     submit_group_count_service,
     get_group_accumulator_history_service,
     delete_group_accumulator_user_service,
 )
 from .group_accumulator_response_models import (
-    CreateGroupAccumulatorRequest,
     SubmitGroupCountRequest,
-    GroupAccumulatorDTO,
     GroupAccumulatorDetailDTO,
+    GroupAccumulatorsResponse,
     GroupAccumulatorHistoryResponse,
     GroupAccumulatorHistoryItemDTO,
 )
@@ -24,19 +23,19 @@ group_accumulator_router = APIRouter(prefix="/group-accumulators", tags=["Group 
 oauth2_scheme = HTTPBearer()
 
 
-@group_accumulator_router.post(
+@group_accumulator_router.get(
     "/{group_id}/accumulators",
-    status_code=status.HTTP_201_CREATED,
-    response_model=GroupAccumulatorDTO
+    response_model=GroupAccumulatorsResponse
 )
-async def create_group_accumulator(
+async def get_group_accumulators(
     group_id: UUID,
-    request: CreateGroupAccumulatorRequest,
-    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
 ):
-    return create_group_accumulator_service(
+    return get_group_accumulators_service(
         group_id=group_id,
-        request=request,
+        skip=skip,
+        limit=limit,
     )
 
 

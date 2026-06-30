@@ -7,9 +7,9 @@ from starlette import status
 
 from pecha_api.app import api
 from pecha_api.group_accumulator.group_accumulator_response_models import (
-    CreateGroupAccumulatorRequest,
     GroupAccumulatorDTO,
     GroupAccumulatorDetailDTO,
+    GroupAccumulatorsResponse,
     GroupAccumulatorHistoryResponse,
     GroupAccumulatorHistoryItemDTO,
     SubmitGroupCountRequest,
@@ -73,6 +73,18 @@ class TestDataFactory:
         )
 
     @staticmethod
+    def create_accumulators_response(
+        accumulators=None,
+        total=0,
+    ) -> GroupAccumulatorsResponse:
+        return GroupAccumulatorsResponse(
+            accumulators=accumulators or [],
+            total=total,
+            skip=0,
+            limit=20,
+        )
+
+    @staticmethod
     def create_history_response(
         accumulator_detail=None,
         history_items=None,
@@ -87,63 +99,68 @@ class TestDataFactory:
         )
 
 
-class TestCreateGroupAccumulator:
-    """Test cases for POST /group-accumulators/{group_id}/accumulators endpoint."""
+class TestGetGroupAccumulators:
+    """Test cases for GET /group-accumulators/{group_id}/accumulators endpoint."""
 
-    @patch('pecha_api.group_accumulator.group_accumulator_views.create_group_accumulator_service')
-    def test_create_group_accumulator_success(self, mock_service):
-        """Test successful creation of group accumulator."""
+    @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulators_service')
+    def test_get_group_accumulators_success(self, mock_service):
+        """Test successful retrieval of group accumulators."""
         group_id = uuid4()
-        accumulator_id = uuid4()
-        group_accumulator_id = uuid4()
-        
-        mock_service.return_value = TestDataFactory.create_group_accumulator_dto(
-            id=group_accumulator_id,
-            group_id=group_id,
-            accumulator_id=accumulator_id,
-            target_count=108000,
+        accumulators = [
+            TestDataFactory.create_group_accumulator_dto(group_id=group_id),
+            TestDataFactory.create_group_accumulator_dto(group_id=group_id),
+        ]
+        mock_service.return_value = TestDataFactory.create_accumulators_response(
+            accumulators=accumulators,
+            total=2,
         )
 
-        payload = {
-            "accumulator_id": str(accumulator_id),
-            "target_count": 108000,
-            "start_date": datetime.utcnow().isoformat(),
-            "end_date": None,
-        }
+        response = client.get(f"/group-accumulators/{group_id}/accumulators")
 
-        response = client.post(
-            f"/group-accumulators/{group_id}/accumulators",
-            json=payload,
-            headers={"Authorization": "Bearer valid_token"},
-        )
-
-        assert response.status_code == status.HTTP_201_CREATED
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["id"] == str(group_accumulator_id)
-        assert data["group_id"] == str(group_id)
-        assert data["accumulator_id"] == str(accumulator_id)
-        assert data["target_count"] == 108000
-        mock_service.assert_called_once()
+        assert len(data["accumulators"]) == 2
+        assert data["total"] == 2
+        assert data["skip"] == 0
+        assert data["limit"] == 20
+        mock_service.assert_called_once_with(group_id=group_id, skip=0, limit=20)
 
-    @patch('pecha_api.group_accumulator.group_accumulator_views.create_group_accumulator_service')
-    def test_create_group_accumulator_unauthorized(self, mock_service):
-        """Test create group accumulator without authorization."""
+    @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulators_service')
+    def test_get_group_accumulators_with_pagination(self, mock_service):
+        """Test get group accumulators with custom pagination."""
         group_id = uuid4()
-        payload = {
-            "target_count": 108000,
-        }
-
-        response = client.post(
-            f"/group-accumulators/{group_id}/accumulators",
-            json=payload,
+        mock_service.return_value = TestDataFactory.create_accumulators_response(
+            accumulators=[TestDataFactory.create_group_accumulator_dto()],
+            total=10,
         )
 
-        assert response.status_code == status.HTTP_403_FORBIDDEN
-        mock_service.assert_not_called()
+        response = client.get(
+            f"/group-accumulators/{group_id}/accumulators",
+            params={"skip": 5, "limit": 5}
+        )
 
-    @patch('pecha_api.group_accumulator.group_accumulator_views.create_group_accumulator_service')
-    def test_create_group_accumulator_group_not_found(self, mock_service):
-        """Test create group accumulator when group doesn't exist."""
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(group_id=group_id, skip=5, limit=5)
+
+    @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulators_service')
+    def test_get_group_accumulators_empty(self, mock_service):
+        """Test get group accumulators when no accumulators exist."""
+        group_id = uuid4()
+        mock_service.return_value = TestDataFactory.create_accumulators_response(
+            accumulators=[],
+            total=0,
+        )
+
+        response = client.get(f"/group-accumulators/{group_id}/accumulators")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert len(data["accumulators"]) == 0
+        assert data["total"] == 0
+
+    @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulators_service')
+    def test_get_group_accumulators_group_not_found(self, mock_service):
+        """Test get group accumulators when group doesn't exist."""
         from fastapi import HTTPException
         group_id = uuid4()
         mock_service.side_effect = HTTPException(
@@ -151,35 +168,10 @@ class TestCreateGroupAccumulator:
             detail={"error": "NOT_FOUND", "message": "Group not found"}
         )
 
-        payload = {
-            "target_count": 108000,
-        }
-
-        response = client.post(
-            f"/group-accumulators/{group_id}/accumulators",
-            json=payload,
-            headers={"Authorization": "Bearer valid_token"},
-        )
+        response = client.get(f"/group-accumulators/{group_id}/accumulators")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
         assert response.json()["detail"]["error"] == "NOT_FOUND"
-
-    @patch('pecha_api.group_accumulator.group_accumulator_views.create_group_accumulator_service')
-    def test_create_group_accumulator_invalid_target_count(self, mock_service):
-        """Test create group accumulator with invalid target count."""
-        group_id = uuid4()
-        payload = {
-            "target_count": 0,
-        }
-
-        response = client.post(
-            f"/group-accumulators/{group_id}/accumulators",
-            json=payload,
-            headers={"Authorization": "Bearer valid_token"},
-        )
-
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        mock_service.assert_not_called()
 
 
 class TestGetGroupAccumulator:
