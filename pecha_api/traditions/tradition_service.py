@@ -9,12 +9,18 @@ from starlette import status
 from pecha_api.db.database import SessionLocal
 from pecha_api.traditions.llm_client import chat_with_worker
 from pecha_api.traditions.tradition_constants import DEFAULT_CHAT_LANGUAGE
+from pecha_api.traditions.tradition_onboarding import (
+    get_tradition_onboarding_content,
+    get_tradition_path_entry,
+    list_tradition_path_codes,
+)
 from pecha_api.traditions.tradition_llm_utils import parse_llm_json_response
 from pecha_api.traditions.tradition_prompt import build_tradition_chat_system_prompt
 from pecha_api.traditions.tradition_repository import (
     delete_user_tradition,
     get_user_traditions,
     save_user_tradition,
+    update_user_tradition,
 )
 from pecha_api.traditions.tradition_response_models import (
     SaveUserTraditionRequest,
@@ -24,6 +30,9 @@ from pecha_api.traditions.tradition_response_models import (
     TraditionChatResponse,
     TraditionListItemDTO,
     TraditionListResponse,
+    TraditionOnboardingPathsDTO,
+    TraditionOnboardingPathDTO,
+    TraditionOnboardingResponse,
     UserTraditionDTO,
     UserTraditionsResponse,
 )
@@ -174,6 +183,34 @@ async def save_user_tradition_service(
         )
 
 
+async def update_user_tradition_service(
+    token: str,
+    user_tradition_id: UUID,
+    update_request: SaveUserTraditionRequest,
+) -> UserTraditionDTO:
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        try:
+            user_tradition = update_user_tradition(
+                db=db,
+                user_id=current_user.id,
+                user_tradition_id=user_tradition_id,
+                tradition_code=update_request.tradition_code,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(exc),
+            ) from exc
+
+        return _build_user_tradition_dto(
+            user_tradition=user_tradition,
+            tradition_code=update_request.tradition_code,
+            language=DEFAULT_CHAT_LANGUAGE,
+        )
+
+
 async def delete_user_tradition_service(token: str, user_tradition_id: UUID) -> None:
     current_user = validate_and_extract_user_details(token=token)
 
@@ -212,6 +249,24 @@ async def list_traditions_service(language: str = DEFAULT_CHAT_LANGUAGE) -> Trad
     return TraditionListResponse(traditions=traditions)
 
 
+async def get_tradition_onboarding_service(
+    language: str = DEFAULT_CHAT_LANGUAGE,
+) -> TraditionOnboardingResponse:
+    content = get_tradition_onboarding_content(language=language)
+    paths = content["paths"]
+    return TraditionOnboardingResponse(
+        title=content["title"],
+        subtitle=content["subtitle"],
+        option_intro=content["option_intro"],
+        paths=TraditionOnboardingPathsDTO(
+            pali=TraditionOnboardingPathDTO(**paths["pali"]),
+            chinese=TraditionOnboardingPathDTO(**paths["chinese"]),
+            tibetan=TraditionOnboardingPathDTO(**paths["tibetan"]),
+        ),
+        footer=content["footer"],
+    )
+
+
 def _build_user_tradition_dto_from_record(user_tradition, language: str) -> UserTraditionDTO:
     tradition_code = _resolve_tradition_code(user_tradition.tradition_id)
     return _build_user_tradition_dto(
@@ -222,6 +277,9 @@ def _build_user_tradition_dto_from_record(user_tradition, language: str) -> User
 
 
 def _resolve_tradition_code(tradition_id) -> str:
+    for code in list_tradition_path_codes():
+        if tradition_id_from_code(code) == tradition_id:
+            return code
     for entry in load_tradition_taxonomy()["traditions"]:
         if tradition_id_from_code(entry["id"]) == tradition_id:
             return entry["id"]
@@ -229,6 +287,18 @@ def _resolve_tradition_code(tradition_id) -> str:
 
 
 def _build_user_tradition_dto(user_tradition, tradition_code: str, language: str) -> UserTraditionDTO:
+    path_entry = get_tradition_path_entry(tradition_code, language=language)
+    if path_entry is not None:
+        return UserTraditionDTO(
+            id=user_tradition.id,
+            tradition_code=tradition_code,
+            tradition_name=path_entry["title"],
+            level=0,
+            parent_code=None,
+            created_at=user_tradition.created_at,
+            updated_at=user_tradition.updated_at,
+        )
+
     entry = get_tradition_entry(tradition_code)
     return UserTraditionDTO(
         id=user_tradition.id,
