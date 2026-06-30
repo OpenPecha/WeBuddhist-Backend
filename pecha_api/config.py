@@ -104,6 +104,11 @@ DEFAULTS = dict(
     WORKER_API_URL="",
     WORKER_LLM_MODEL="gemini-2.5-flash-lite",
 
+    # Internal routine notification dispatch (worker -> backend)
+    NOTIFICATION_DISPATCH_SECRET_TOKEN="",
+    NOTIFICATION_DEFAULT_TITLE="WebBuddhist",
+    NOTIFICATION_DEFAULT_BODY="Time for your daily practice.",
+
 )
 
 TIME_FORMAT_PATTERN = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
