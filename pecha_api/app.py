@@ -167,11 +167,19 @@ api.add_middleware(
 api.add_middleware(RequestObservabilityMiddleware)
 configure_openapi_tag_groups(api)
 
+def _scalar_openapi_url() -> str:
+    root = (api.root_path or "").rstrip("/")
+    spec = (api.openapi_url or "/openapi.json").lstrip("/")
+    return f"{root}/{spec}" if root else f"/{spec}"
+
+
 @api.get("/docs", include_in_schema=False)
 async def scalar_docs():
     return get_scalar_api_reference(
-        openapi_url=api.openapi_url,
+        openapi_url=_scalar_openapi_url(),
         title="WeBuddhist API Documentation",
+        persist_auth=True,
+        authentication={},
     )
 
 @api.get("/props", status_code=status.HTTP_200_OK)

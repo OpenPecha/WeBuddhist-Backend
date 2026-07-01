@@ -35,6 +35,7 @@ from .group_accumulator_repository import (
     get_user_group_accumulator_count,
     verify_group_exists,
     upsert_group_accumulator_join,
+    is_user_joined_group_accumulator,
     get_joined_group_accumulator_ids_by_user,
     get_group_accumulator_joiners_count,
     get_group_accumulator_joiners_counts,

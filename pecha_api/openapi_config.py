@@ -38,6 +38,65 @@ USER_TAGS = frozenset(
 )
 
 
+BEARER_SECURITY_SCHEME = "BearerAuth"
+
+
+def normalize_openapi_security_schemes(schema: dict) -> None:
+    """Collapse HTTP bearer schemes into a single documented BearerAuth entry."""
+    components = schema.setdefault("components", {})
+    schemes = components.get("securitySchemes", {})
+    bearer_keys = [
+        name
+        for name, scheme in schemes.items()
+        if scheme.get("type") == "http" and scheme.get("scheme") == "bearer"
+    ]
+    if not bearer_keys:
+        components["securitySchemes"] = {
+            BEARER_SECURITY_SCHEME: {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Auth0 access token for the WeBuddhist API.",
+            }
+        }
+        return
+
+    components["securitySchemes"] = {
+        BEARER_SECURITY_SCHEME: {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Auth0 access token for the WeBuddhist API.",
+        }
+    }
+
+    def _replace_security(node) -> None:
+        if isinstance(node, dict):
+            security = node.get("security")
+            if isinstance(security, list):
+                updated_requirements = []
+                for requirement in security:
+                    if not isinstance(requirement, dict):
+                        updated_requirements.append(requirement)
+                        continue
+                    if any(key in bearer_keys for key in requirement):
+                        scopes = next(
+                            (requirement[key] for key in bearer_keys if key in requirement),
+                            [],
+                        )
+                        updated_requirements.append({BEARER_SECURITY_SCHEME: scopes})
+                    else:
+                        updated_requirements.append(requirement)
+                node["security"] = updated_requirements
+            for value in node.values():
+                _replace_security(value)
+        elif isinstance(node, list):
+            for item in node:
+                _replace_security(item)
+
+    _replace_security(schema.get("paths", {}))
+
+
 def classify_openapi_tag(tag: str) -> str:
     if tag.startswith("User "):
         return "User"
@@ -87,6 +146,7 @@ def configure_openapi_tag_groups(app: FastAPI) -> None:
             routes=app.routes,
         )
         openapi_schema["x-tagGroups"] = build_x_tag_groups(openapi_schema)
+        normalize_openapi_security_schemes(openapi_schema)
         app.openapi_schema = openapi_schema
         return app.openapi_schema
 
