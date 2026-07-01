@@ -572,6 +572,7 @@ def test_enrich_accumulator_bookmark_success():
     mock_db = MagicMock()
     mock_accumulator = MagicMock()
     mock_accumulator.id = accumulator_id
+    mock_accumulator.mantra_id = None
     metadata_entry = MagicMock()
     metadata_entry.name = "Mala Practice"
     mock_accumulator.metadata_entries = [metadata_entry]
@@ -594,6 +595,47 @@ def test_enrich_accumulator_bookmark_success():
     assert result["accumulator"].image == "https://example.com/mala.png"
 
 
+def test_enrich_accumulator_bookmark_uses_mantra_title_and_image():
+    from pecha_api.bookmarks.bookmark_utils import enrich_accumulator_bookmark
+
+    accumulator_id = uuid4()
+    mantra_id = uuid4()
+    mock_db = MagicMock()
+    mock_accumulator = MagicMock()
+    mock_accumulator.id = accumulator_id
+    mock_accumulator.mantra_id = mantra_id
+    # Accumulator's own metadata should be ignored in favour of the mantra's.
+    accumulator_metadata = MagicMock()
+    accumulator_metadata.name = "Accumulator Title"
+    mock_accumulator.metadata_entries = [accumulator_metadata]
+
+    mock_db.query.return_value.options.return_value.filter.return_value.first.return_value = (
+        mock_accumulator
+    )
+
+    mock_mantra = MagicMock()
+    mock_mantra.mala.url = "s3://bucket/mantra.png"
+    mantra_metadata = MagicMock()
+    mantra_metadata.title = "Mantra Title"
+    mock_mantra.metadata_entries = [mantra_metadata]
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_mantra_by_id",
+        return_value=mock_mantra,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.generate_mala_image_presigned_url",
+        return_value="https://example.com/mantra.png",
+    ):
+        result = enrich_accumulator_bookmark(
+            db=mock_db,
+            source_id=str(accumulator_id),
+        )
+
+    assert result["accumulator"].id == accumulator_id
+    assert result["accumulator"].title == "Mantra Title"
+    assert result["accumulator"].image == "https://example.com/mantra.png"
+
+
 def test_enrich_accumulator_bookmark_filters_metadata_by_language():
     from pecha_api.bookmarks.bookmark_utils import enrich_accumulator_bookmark
 
@@ -601,6 +643,7 @@ def test_enrich_accumulator_bookmark_filters_metadata_by_language():
     mock_db = MagicMock()
     mock_accumulator = MagicMock()
     mock_accumulator.id = accumulator_id
+    mock_accumulator.mantra_id = None
     metadata_entry = MagicMock()
     metadata_entry.name = "བོད་ཡིག་མཚན་"
     mock_accumulator.metadata_entries = [metadata_entry]
