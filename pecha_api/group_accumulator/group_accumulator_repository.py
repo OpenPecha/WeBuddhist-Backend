@@ -281,11 +281,13 @@ def is_user_joined_group_accumulator(
     group_accumulator_id: UUID,
     user_id: UUID,
 ) -> bool:
-    return get_active_user_group_accumulator(
-        db=db,
-        group_accumulator_id=group_accumulator_id,
-        user_id=user_id,
-    ) is not None
+    row = db.execute(
+        select(group_accumulator_joins.c.group_accumulator_id).where(
+            group_accumulator_joins.c.group_accumulator_id == group_accumulator_id,
+            group_accumulator_joins.c.user_id == user_id,
+        )
+    ).first()
+    return row is not None
 
 
 def get_active_user_group_accumulator(
@@ -415,15 +417,14 @@ def get_joined_group_accumulator_ids_by_user(
     user_id: UUID,
     group_accumulator_ids: Optional[List[UUID]] = None,
 ) -> List[UUID]:
-    query = db.query(UserGroupAccumulator.group_accumulator_id).filter(
-        UserGroupAccumulator.user_id == user_id,
-        UserGroupAccumulator.deleted_at.is_(None),
+    query = db.query(group_accumulator_joins.c.group_accumulator_id).filter(
+        group_accumulator_joins.c.user_id == user_id,
     )
     if group_accumulator_ids is not None:
         if not group_accumulator_ids:
             return []
         query = query.filter(
-            UserGroupAccumulator.group_accumulator_id.in_(group_accumulator_ids)
+            group_accumulator_joins.c.group_accumulator_id.in_(group_accumulator_ids)
         )
     rows = query.all()
     return [row.group_accumulator_id for row in rows]
