@@ -100,7 +100,11 @@ from pecha_api.plans.users.plan_user_series_repository import (
     get_series_partner,
     get_group_ids_by_series_partner_ids,
 )
-from pecha_api.plans.series.series_repository import get_series_by_ids, get_plans_by_ids
+from pecha_api.plans.series.series_repository import (
+    get_series_by_ids,
+    get_plans_by_ids,
+    get_enrolled_count_map_by_series_ids,
+)
 from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallback
 from pecha_api.plans.groups.groups_repository import get_group_ids_by_plan_ids, get_group_ids_by_series_ids, upsert_group_join
 from pecha_api.plans.groups.groups_service import get_group_summaries_by_ids
@@ -747,6 +751,7 @@ def _build_user_series_enrollment_dto(
     group: Optional[AuthorGroupSummaryDTO] = None,
     language: Optional[str] = None,
     partner_group_id: Optional[UUID] = None,
+    enrolled_count: int = 0,
 ) -> UserSeriesEnrollmentDTO:
     series_metadata = _select_series_metadata(series.metadata_entries, language)
     series_image = safe_get_image_url(
@@ -778,6 +783,7 @@ def _build_user_series_enrollment_dto(
         total_plans=total_plans,
         completed_plans=completed_plans,
         progress_percentage=progress_percentage,
+        enrolled_count=enrolled_count,
         group=group,
         series_partner_id=partner_group_id,
     )
@@ -943,6 +949,9 @@ def get_user_series_enrollments(
         group_summaries = get_group_summaries_by_ids(
             db=db, group_ids=list(group_ids_for_summaries), language=language
         )
+        enrolled_count_map = get_enrolled_count_map_by_series_ids(
+            db=db, series_ids=series_ids
+        )
 
         enrollment_dtos = [
             _build_user_series_enrollment_dto(
@@ -963,6 +972,7 @@ def get_user_series_enrollments(
                     if getattr(enrollment, "series_partner_id", None)
                     else None
                 ),
+                enrolled_count=enrolled_count_map.get(enrollment.series_id, 0),
             )
             for enrollment in enrollments
             if (series := series_by_id.get(enrollment.series_id))
@@ -1007,6 +1017,9 @@ def get_user_series_days_completed(
         group_summaries = get_group_summaries_by_ids(
             db=db, group_ids=list(series_group_ids.values()), language=language
         )
+        enrolled_count_map = get_enrolled_count_map_by_series_ids(
+            db=db, series_ids=series_ids
+        )
 
         series_dtos = []
         for series_id, days_completed in rows:
@@ -1023,6 +1036,7 @@ def get_user_series_days_completed(
                         series.image, resource_id=series.id, resource_type="series"
                     ),
                     days_completed=days_completed,
+                    enrolled_count=enrolled_count_map.get(series_id, 0),
                     group=_group_summary_for_id(
                         series_group_ids.get(series_id),
                         group_summaries,
@@ -1082,6 +1096,9 @@ def get_user_series_progress(
             )
             for plan in all_plans
         ]
+        enrolled_count = get_enrolled_count_map_by_series_ids(
+            db=db, series_ids=[series_id]
+        ).get(series_id, 0)
 
         return UserSeriesProgressResponse(
             id=enrollment.id,
@@ -1095,6 +1112,7 @@ def get_user_series_progress(
             is_completed=enrollment.is_completed,
             completed_at=enrollment.completed_at,
             plans=plan_dtos,
+            enrolled_count=enrolled_count,
             group=series_group,
         )
 

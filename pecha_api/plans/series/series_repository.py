@@ -60,6 +60,49 @@ def get_enrolled_count_map_by_series_ids(
     return {series_id: int(count or 0) for series_id, count in rows}
 
 
+def get_enrolled_count_map_by_group_and_series_ids(
+    db: Session,
+    group_id: UUID,
+    series_ids: Sequence[UUID],
+) -> Dict[UUID, int]:
+    """Map series_id -> distinct ACTIVE enrollments attributed to the given group."""
+    if not series_ids:
+        return {}
+    partner_rows = (
+        db.execute(
+            select(SeriesPartner.series_id, SeriesPartner.id).where(
+                SeriesPartner.group_id == group_id,
+                SeriesPartner.series_id.in_(series_ids),
+            )
+        )
+        .all()
+    )
+    if not partner_rows:
+        return dict.fromkeys(series_ids, 0)
+
+    partner_id_to_series_id = {
+        partner_id: series_id for series_id, partner_id in partner_rows
+    }
+    rows = (
+        db.query(
+            UserSeriesEnrollment.series_partner_id,
+            func.count(func.distinct(UserSeriesEnrollment.user_id)),
+        )
+        .filter(
+            UserSeriesEnrollment.series_partner_id.in_(partner_id_to_series_id.keys()),
+            UserSeriesEnrollment.status == SeriesStatus.ACTIVE,
+        )
+        .group_by(UserSeriesEnrollment.series_partner_id)
+        .all()
+    )
+    counts = dict.fromkeys(series_ids, 0)
+    for partner_id, count in rows:
+        series_id = partner_id_to_series_id.get(partner_id)
+        if series_id is not None:
+            counts[series_id] = int(count or 0)
+    return counts
+
+
 def get_series_by_id(db: Session, series_id) -> Optional[Series]:
     return (
         db.query(Series)

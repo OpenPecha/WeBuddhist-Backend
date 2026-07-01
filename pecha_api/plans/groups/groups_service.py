@@ -77,7 +77,7 @@ from pecha_api.group_accumulator.group_accumulator_repository import (
 )
 from pecha_api.plans.series.series_repository import (
     get_active_plan_count_map_by_series_ids,
-    get_enrolled_count_map_by_series_ids,
+    get_enrolled_count_map_by_group_and_series_ids,
 )
 from pecha_api.plans.series.series_service import _series_to_list_item_dto
 from pecha_api.plans.shared.metadata_utils import (
@@ -408,7 +408,9 @@ def _series_to_dtos(
     plan_count_map = get_active_plan_count_map_by_series_ids(
         db=db, series_ids=series_ids, published_only=published_only
     )
-    enrolled_count_map = get_enrolled_count_map_by_series_ids(db=db, series_ids=series_ids)
+    enrolled_count_map = get_enrolled_count_map_by_group_and_series_ids(
+        db=db, group_id=group_id, series_ids=series_ids
+    )
     partner_id_map = get_series_partner_id_map_for_group(
         db=db, group_id=group_id, series_ids=series_ids
     )

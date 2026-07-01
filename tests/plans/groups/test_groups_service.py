@@ -697,7 +697,7 @@ def test_series_to_dtos_sets_partner_enrollment_for_authenticated_user():
         "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
         return_value={series.id: 2},
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_enrolled_count_map_by_series_ids",
+        "pecha_api.plans.groups.groups_service.get_enrolled_count_map_by_group_and_series_ids",
         return_value={series.id: 5},
     ), patch(
         "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
@@ -714,6 +714,7 @@ def test_series_to_dtos_sets_partner_enrollment_for_authenticated_user():
         )
 
     assert dtos[0].is_group_enrolled is True
+    assert dtos[0].enrolled_count == 5
 
 
 def test_series_to_dtos_is_not_enrolled_without_user():
@@ -725,7 +726,7 @@ def test_series_to_dtos_is_not_enrolled_without_user():
         "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
         return_value={series.id: 2},
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_enrolled_count_map_by_series_ids",
+        "pecha_api.plans.groups.groups_service.get_enrolled_count_map_by_group_and_series_ids",
         return_value={series.id: 5},
     ), patch(
         "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
