@@ -1166,10 +1166,17 @@ def test_leave_group_calls_repository():
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         return_value=user,
     ), patch(
+        "pecha_api.plans.groups.groups_service.remove_group_accumulator_joins_for_group",
+    ) as mock_remove_accumulator_joins, patch(
         "pecha_api.plans.groups.groups_service.leave_group_membership",
     ) as mock_leave_membership:
         mock_db = _session_local_context(mock_session)
         leave_group(token="t", group_id=group_id)
+    mock_remove_accumulator_joins.assert_called_once_with(
+        db=mock_db,
+        user_id=user.id,
+        group_id=group_id,
+    )
     mock_leave_membership.assert_called_once_with(
         db=mock_db,
         user_id=user.id,

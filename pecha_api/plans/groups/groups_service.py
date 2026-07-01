@@ -28,6 +28,9 @@ from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.cms.cms_plans_repository import get_plans_with_aggregates_by_ids
 from pecha_api.plans.plans_response_models import AuthorDTO, PlanDTO, PlanWithAggregates
 from pecha_api.plans.series.series_model import Series
+from pecha_api.group_accumulator.group_accumulator_repository import (
+    remove_group_accumulator_joins_for_group,
+)
 from pecha_api.plans.groups.groups_repository import (
     add_group_member,
     create_group,
@@ -1012,6 +1015,11 @@ def join_group(token: str, group_id: UUID) -> None:
 def leave_group(token: str, group_id: UUID) -> None:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
+        remove_group_accumulator_joins_for_group(
+            db=db,
+            user_id=user.id,
+            group_id=group_id,
+        )
         leave_group_membership(db=db, user_id=user.id, group_id=group_id)
 
 

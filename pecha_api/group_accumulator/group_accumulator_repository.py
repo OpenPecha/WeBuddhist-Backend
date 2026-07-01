@@ -1,7 +1,7 @@
 from typing import List, Optional, Tuple, Dict
 from uuid import UUID
 from sqlalchemy.orm import Session
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 import _datetime
 from _datetime import datetime, timezone
 
@@ -251,6 +251,26 @@ def get_group_accumulator_member_contributions(
         )
         for row in rows
     ], total_member_count
+
+
+def remove_group_accumulator_joins_for_group(
+    db: Session,
+    user_id: UUID,
+    group_id: UUID,
+) -> None:
+    """Remove join rows for all group accumulators in a group.
+
+    Preserves user_group_accumulators sessions and history so counts are kept.
+    """
+    accumulator_ids_subq = select(GroupAccumulator.id).where(
+        GroupAccumulator.group_id == group_id,
+    )
+    db.execute(
+        delete(group_accumulator_joins).where(
+            group_accumulator_joins.c.user_id == user_id,
+            group_accumulator_joins.c.group_accumulator_id.in_(accumulator_ids_subq),
+        )
+    )
 
 
 def upsert_group_accumulator_join(

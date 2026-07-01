@@ -4,6 +4,7 @@ from uuid import uuid4
 from pecha_api.group_accumulator.group_accumulator_repository import (
     get_joined_group_accumulator_ids_by_user,
     is_user_joined_group_accumulator,
+    remove_group_accumulator_joins_for_group,
 )
 
 
@@ -47,3 +48,18 @@ def test_get_joined_group_accumulator_ids_by_user_reads_join_table():
 
     assert result == [joined_id]
     db.query.assert_called_once()
+
+
+def test_remove_group_accumulator_joins_for_group_deletes_join_rows_only():
+    db = MagicMock()
+    user_id = uuid4()
+    group_id = uuid4()
+
+    remove_group_accumulator_joins_for_group(
+        db=db,
+        user_id=user_id,
+        group_id=group_id,
+    )
+
+    db.execute.assert_called_once()
+    db.commit.assert_not_called()
