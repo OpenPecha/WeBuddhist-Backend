@@ -39,9 +39,14 @@ async def get_series_list(
 )
 async def get_featured_series(
     language: Annotated[
-        Optional[str],
-        Query(description=language_query_description("Filter metadata by language", lowercase_example=True)),
-    ] = None,
+        str,
+        Query(
+            description=(
+                f"{language_query_description('Filter metadata by language', lowercase_example=True)}. "
+                "Defaults to 'en'."
+            ),
+        ),
+    ] = "en",
     limit: Annotated[int, Query()] = 10,
 ):
     return get_random_featured_series(language=language, limit=limit)

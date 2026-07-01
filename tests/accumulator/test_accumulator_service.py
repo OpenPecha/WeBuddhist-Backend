@@ -1503,6 +1503,7 @@ class TestGetAccumulatorGroupsService:
         assert result.groups[0].target_count == 100000
         assert result.groups[0].user_total_count == 1234
         assert result.groups[0].is_joined is True
+        assert result.groups[0].image is None
 
         # Verify second group
         assert result.groups[1].group_id == group_id_2
@@ -1510,6 +1511,7 @@ class TestGetAccumulatorGroupsService:
         assert result.groups[1].target_count == 50000
         assert result.groups[1].user_total_count == 567
         assert result.groups[1].is_joined is False
+        assert result.groups[1].image is None
 
         mock_validate.assert_called_once_with(token=token)
         mock_get_accumulator.assert_called_once_with(mock_db, accumulator_id)
@@ -1521,6 +1523,63 @@ class TestGetAccumulatorGroupsService:
             limit=20,
             joined_only=False,
         )
+
+    @patch('pecha_api.accumulator.accumulator_service.get_image_url')
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_groups_by_accumulator_id')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_groups_service_returns_image_url(
+        self, mock_validate, mock_get_accumulator, mock_get_groups, mock_session, mock_get_image_url
+    ):
+        """Test group accumulator image is returned as presigned URL, not raw key."""
+        from pecha_api.accumulator.accumulator_repository import GroupAccumulatorWithUserCount
+        from pecha_api.plans.media.media_response_models import ImageUrlModel
+
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        group_id = uuid4()
+        token = "valid_token"
+        image_key = "groups/abc123/cover.jpg"
+        image_model = ImageUrlModel(
+            thumbnail="https://example.com/thumb.jpg",
+            medium="https://example.com/medium.jpg",
+            original="https://example.com/original.jpg",
+        )
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_accumulator.return_value = TestDataFactory.create_mock_accumulator(
+            accumulator_id=accumulator_id
+        )
+        mock_get_image_url.return_value = image_model
+
+        group_acc = MagicMock()
+        group_acc.id = uuid4()
+        group_acc.group_id = group_id
+        group_acc.title = "Group Practice"
+        group_acc.target_count = 100000
+        group_acc.start_date = None
+        group_acc.end_date = None
+        group_acc.created_at = datetime.utcnow()
+        group_acc.image_key = image_key
+
+        mock_get_groups.return_value = (
+            [GroupAccumulatorWithUserCount(group_acc, 100, is_joined=True)],
+            1,
+        )
+
+        result = get_accumulator_groups_service(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=0,
+            limit=20,
+        )
+
+        mock_get_image_url.assert_called_once_with(image_key)
+        assert result.groups[0].image == image_model
+        assert "image_key" not in AccumulatorGroupDTO.model_fields
 
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.get_groups_by_accumulator_id')

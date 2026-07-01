@@ -127,7 +127,7 @@ def test_get_featured_series_success(sample_series_list_response):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(language=None, limit=10)
+        mock_service.assert_called_once_with(language="en", limit=10)
         assert len(data["series"]) == 1
         item = data["series"][0]
         assert item["id"] == str(featured_item.id)
