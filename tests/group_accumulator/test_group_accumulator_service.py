@@ -891,17 +891,19 @@ class TestDeleteGroupAccumulatorUserService:
     @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_active_user_group_accumulator')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_or_create_active_user_group_accumulator')
     @patch('pecha_api.group_accumulator.group_accumulator_service.soft_delete_user_group_accumulator')
     def test_delete_user_success(
         self,
         mock_soft_delete,
+        mock_get_or_create,
         mock_get_active,
         mock_get,
         mock_joined,
         mock_auth,
         mock_session,
     ):
-        """Test successful user reset of active participation session."""
+        """Test successful user reset starts a fresh participation session."""
         group_id = uuid4()
         accumulator_id = uuid4()
         user_id = uuid4()
@@ -928,6 +930,11 @@ class TestDeleteGroupAccumulatorUserService:
             user_id=user_id,
         )
         mock_soft_delete.assert_called_once_with(mock_db, active_session)
+        mock_get_or_create.assert_called_once_with(
+            db=mock_db,
+            group_accumulator_id=accumulator_id,
+            user_id=user_id,
+        )
 
     @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
     @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')

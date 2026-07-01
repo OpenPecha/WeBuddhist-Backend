@@ -192,7 +192,7 @@ async def delete_group_accumulator(
     group_accumulator_id: UUID,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
-    """Soft delete (reset) the user's active participation in a group accumulator."""
+    """Reset the user's active participation in a group accumulator (counts go to zero)."""
     delete_group_accumulator_user_service(
         token=credentials.credentials,
         group_accumulator_id=group_accumulator_id,

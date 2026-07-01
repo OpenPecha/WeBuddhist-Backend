@@ -419,8 +419,9 @@ def delete_group_accumulator_user_service(
 ) -> None:
     """Reset the user's active participation in a group accumulator.
 
-    Soft-deletes the user's current session so their progress resets to zero.
-    The group accumulator and all historical contribution rows are preserved.
+    Soft-deletes the user's current session so their progress resets to zero,
+    then starts a new active session so they remain joined and can count again.
+    The group accumulator, join row, and all historical contribution rows are preserved.
     """
     current_user = validate_and_extract_user_details(token=token)
     
@@ -453,6 +454,11 @@ def delete_group_accumulator_user_service(
             )
 
         soft_delete_user_group_accumulator(db, active_session)
+        get_or_create_active_user_group_accumulator(
+            db=db,
+            group_accumulator_id=group_accumulator_id,
+            user_id=current_user.id,
+        )
 
 
 def submit_group_count_service(
