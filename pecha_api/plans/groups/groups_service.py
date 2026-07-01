@@ -81,8 +81,12 @@ from pecha_api.group_accumulator.group_accumulator_repository import (
 from pecha_api.plans.series.series_repository import (
     get_active_plan_count_map_by_series_ids,
     get_enrolled_count_map_by_group_and_series_ids,
+    get_series_plan_schedule_by_series_ids,
 )
-from pecha_api.plans.series.series_service import _series_to_list_item_dto
+from pecha_api.plans.series.series_service import (
+    _series_schedule_from_plans,
+    _series_to_list_item_dto,
+)
 from pecha_api.plans.shared.metadata_utils import (
     format_metadata_response,
     filter_by_language_with_fallback,
@@ -422,23 +426,38 @@ def _series_to_dtos(
         enrollment_partner_map = get_user_series_enrollment_partner_map(
             db=db, user_id=user_id, series_ids=series_ids
         )
-    return [
-        GroupSeriesListItemDTO(
-            **_series_to_list_item_dto(
-                series,
-                plan_count=plan_count_map.get(series.id, 0),
-                enrolled_count=enrolled_count_map.get(series.id, 0),
-                language=language,
-                fallback=True,
-            ).model_dump(),
-            is_group_enrolled=_is_series_enrolled_for_group_context(
-                enrollment_partner_id=enrollment_partner_map.get(series.id),
-                expected_partner_id=partner_id_map.get(series.id),
-                is_enrolled_in_series=series.id in enrollment_partner_map,
-            ),
+    plans_by_series_id = get_series_plan_schedule_by_series_ids(
+        db=db,
+        series_ids=series_ids,
+    )
+    series_dtos: List[GroupSeriesListItemDTO] = []
+    for series in series_list:
+        start_date, end_date, total_days = _series_schedule_from_plans(
+            plans_by_series_id.get(series.id, []),
+            published_only=published_only,
+            language=language,
+            fallback=True,
         )
-        for series in series_list
-    ]
+        series_dtos.append(
+            GroupSeriesListItemDTO(
+                **_series_to_list_item_dto(
+                    series,
+                    plan_count=plan_count_map.get(series.id, 0),
+                    enrolled_count=enrolled_count_map.get(series.id, 0),
+                    language=language,
+                    start_date=start_date,
+                    end_date=end_date,
+                    total_days=total_days,
+                    fallback=True,
+                ).model_dump(),
+                is_group_enrolled=_is_series_enrolled_for_group_context(
+                    enrollment_partner_id=enrollment_partner_map.get(series.id),
+                    expected_partner_id=partner_id_map.get(series.id),
+                    is_enrolled_in_series=series.id in enrollment_partner_map,
+                ),
+            )
+        )
+    return series_dtos
 
 
 def _language_value(language) -> str:
