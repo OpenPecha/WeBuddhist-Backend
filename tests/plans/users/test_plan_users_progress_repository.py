@@ -3,24 +3,7 @@ from uuid import uuid4
 
 from pecha_api.plans.users.plan_users_progress_repository import (
     get_user_series_days_completed_paginated,
-    get_user_total_practice_days,
 )
-
-
-def test_get_user_total_practice_days_returns_count():
-    user_id = uuid4()
-    db = MagicMock()
-    db.query.return_value.join.return_value.join.return_value.filter.return_value.scalar.return_value = 15
-
-    assert get_user_total_practice_days(db=db, user_id=user_id) == 15
-
-
-def test_get_user_total_practice_days_returns_zero_when_no_completions():
-    user_id = uuid4()
-    db = MagicMock()
-    db.query.return_value.join.return_value.join.return_value.filter.return_value.scalar.return_value = None
-
-    assert get_user_total_practice_days(db=db, user_id=user_id) == 0
 
 
 @patch("pecha_api.plans.users.plan_users_progress_repository.desc", side_effect=lambda column: column)

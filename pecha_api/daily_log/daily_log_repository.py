@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from pecha_api.accumulator.accumulator_history_model import AccumulatorHistory
 from pecha_api.daily_log.daily_log_models import UserDailyLog
 from pecha_api.plans.users.plan_users_models import UserDayCompletion
+from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.timers.timer_history_model import TimerHistory
 
 _STREAK_CHUNK_SIZE = 32
@@ -78,8 +80,16 @@ def get_user_activity_totals(db: Session, user_id: UUID) -> tuple[int, int, int]
         .where(AccumulatorHistory.user_id == user_id)
         .scalar_subquery()
     )
+    # A logical day is mirrored across sibling language plans in the same series
+    # (same series_id + day_number), producing one UserDayCompletion row per
+    # language. Count each logical day once by grouping siblings on
+    # (series_id, day_number), falling back to day_id for standalone plans.
+    logical_day_key = func.coalesce(Plan.series_id, UserDayCompletion.day_id)
     practice_days_total = (
-        select(func.coalesce(func.count(UserDayCompletion.id), 0))
+        select(func.count(func.distinct(func.row(logical_day_key, PlanItem.day_number))))
+        .select_from(UserDayCompletion)
+        .join(PlanItem, UserDayCompletion.day_id == PlanItem.id)
+        .join(Plan, PlanItem.plan_id == Plan.id)
         .where(UserDayCompletion.user_id == user_id)
         .scalar_subquery()
     )
