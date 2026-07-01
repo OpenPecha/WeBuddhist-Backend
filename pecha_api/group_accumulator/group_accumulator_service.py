@@ -52,6 +52,7 @@ from .group_accumulator_response_models import (
     GroupAccumulatorsResponse,
     SubmitGroupCountRequest,
     GroupAccumulatorDetailDTO,
+    GroupAccumulatorDetailUserDTO,
     GroupAccumulatorHistoryResponse,
     GroupAccumulatorHistoryItemDTO,
     GroupAccumulatorMemberDTO,
@@ -91,6 +92,21 @@ def _user_avatar_url(user: Users) -> str | None:
     )
 
 
+def _build_detail_user_dto(
+    user: Users,
+    *,
+    total_count: int,
+    today_count: int,
+) -> GroupAccumulatorDetailUserDTO:
+    return GroupAccumulatorDetailUserDTO(
+        total_count=total_count,
+        today_count=today_count,
+        username=user.username,
+        image=_user_avatar_url(user),
+        fullname=_user_fullname(user),
+    )
+
+
 def _convert_to_dto(
     group_accumulator,
     *,
@@ -125,8 +141,7 @@ def _convert_to_detail_dto(
     total_count: int,
     total_today_count: int,
     member_count: int,
-    user_total_count: Optional[int] = None,
-    user_today_count: Optional[int] = None,
+    user: Optional[GroupAccumulatorDetailUserDTO] = None,
     is_joined: Optional[bool] = None,
 ) -> GroupAccumulatorDetailDTO:
     return GroupAccumulatorDetailDTO(
@@ -141,8 +156,7 @@ def _convert_to_detail_dto(
         end_date=group_accumulator.end_date,
         total_count=total_count,
         total_today_count=total_today_count,
-        user_total_count=user_total_count,
-        user_today_count=user_today_count,
+        user=user,
         is_joined=is_joined,
         member_count=member_count,
         created_at=group_accumulator.created_at,
@@ -237,8 +251,7 @@ def get_group_accumulator_service(
             range_end=day_end,
         )
 
-        user_total_count = None
-        user_today_count = None
+        user = None
         is_joined = None
         if token:
             current_user = validate_and_extract_user_details(token=token)
@@ -247,18 +260,21 @@ def get_group_accumulator_service(
                 group_accumulator_id=group_accumulator_id,
                 user_id=current_user.id,
             )
-            user_total_count = get_user_group_accumulator_count(
-                db=db,
-                group_accumulator_id=group_accumulator_id,
-                user_id=current_user.id,
-            )
-            user_today_count = get_group_accumulator_count_in_range(
-                db=db,
-                group_accumulator_id=group_accumulator_id,
-                range_start=day_start,
-                range_end=day_end,
-                user_id=current_user.id,
-                active_session_only=True,
+            user = _build_detail_user_dto(
+                current_user,
+                total_count=get_user_group_accumulator_count(
+                    db=db,
+                    group_accumulator_id=group_accumulator_id,
+                    user_id=current_user.id,
+                ),
+                today_count=get_group_accumulator_count_in_range(
+                    db=db,
+                    group_accumulator_id=group_accumulator_id,
+                    range_start=day_start,
+                    range_end=day_end,
+                    user_id=current_user.id,
+                    active_session_only=True,
+                ),
             )
 
         return _convert_to_detail_dto(
@@ -266,8 +282,7 @@ def get_group_accumulator_service(
             total_count=total_count,
             total_today_count=total_today_count,
             member_count=member_count,
-            user_total_count=user_total_count,
-            user_today_count=user_today_count,
+            user=user,
             is_joined=is_joined,
         )
 

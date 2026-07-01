@@ -73,6 +73,14 @@ class GroupAccumulatorHistoryItemDTO(BaseModel):
     created_at: datetime
 
 
+class GroupAccumulatorDetailUserDTO(BaseModel):
+    total_count: int = Field(..., description="Authenticated user's count for the active session")
+    today_count: int = Field(..., description="Authenticated user's count for today in the request timezone")
+    username: Optional[str] = None
+    image: Optional[str] = Field(None, description="Presigned URL for the user's avatar")
+    fullname: str = Field(..., description="User's display name")
+
+
 class GroupAccumulatorDetailDTO(BaseModel):
     id: UUID
     preset_accumulator_id: Optional[UUID] = Field(
@@ -88,8 +96,10 @@ class GroupAccumulatorDetailDTO(BaseModel):
     end_date: Optional[datetime] = None
     total_count: int = Field(..., description="Total lifetime count from all users")
     total_today_count: int = Field(0, description="Total count from all users for today in the request timezone")
-    user_total_count: Optional[int] = Field(None, description="Authenticated user's lifetime count (detail endpoint only)")
-    user_today_count: Optional[int] = Field(None, description="Authenticated user's count for today (detail endpoint only)")
+    user: Optional[GroupAccumulatorDetailUserDTO] = Field(
+        None,
+        description="Authenticated user's profile and counts (null when unauthenticated)",
+    )
     is_joined: Optional[bool] = Field(
         None,
         description="Whether the authenticated user has joined (null when unauthenticated)",

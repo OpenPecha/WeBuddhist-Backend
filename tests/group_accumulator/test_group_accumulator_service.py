@@ -56,10 +56,21 @@ class MockGroupAccumulatorHistory:
 
 class MockUser:
     """Mock User model."""
-    def __init__(self, id=None, email="test@example.com", username="testuser"):
+    def __init__(
+        self,
+        id=None,
+        email="test@example.com",
+        username="testuser",
+        firstname="Test",
+        lastname="User",
+        avatar_url="avatars/test.jpg",
+    ):
         self.id = id or uuid4()
         self.email = email
         self.username = username
+        self.firstname = firstname
+        self.lastname = lastname
+        self.avatar_url = avatar_url
 
 
 class TestCreateGroupAccumulatorService:
@@ -231,6 +242,53 @@ class TestGetGroupAccumulatorService:
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert exc_info.value.detail["error"] == "NOT_FOUND"
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group_accumulator')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_user_group_accumulator_count')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_joiners_count')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_count_in_range')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_total_count')
+    @patch('pecha_api.group_accumulator.group_accumulator_service._user_avatar_url')
+    def test_get_group_accumulator_with_user_object(
+        self,
+        mock_avatar,
+        mock_total,
+        mock_today,
+        mock_joiners_count,
+        mock_get,
+        mock_user_count,
+        mock_is_joined,
+        mock_auth,
+        mock_session,
+    ):
+        """Test detail response includes nested user object when authenticated."""
+        accumulator_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockUser(username="mani_user", firstname="Mani", lastname="Practitioner")
+        mock_get.return_value = MockGroupAccumulator(id=accumulator_id)
+        mock_total.return_value = 5000
+        mock_today.side_effect = [108, 216]
+        mock_joiners_count.return_value = 12
+        mock_user_count.return_value = 1080
+        mock_is_joined.return_value = True
+        mock_avatar.return_value = "https://example.com/avatar.jpg"
+
+        result = get_group_accumulator_service(
+            group_accumulator_id=accumulator_id,
+            token="valid_token",
+        )
+
+        assert result.user is not None
+        assert result.user.total_count == 1080
+        assert result.user.today_count == 216
+        assert result.user.username == "mani_user"
+        assert result.user.fullname == "Mani Practitioner"
+        assert result.user.image == "https://example.com/avatar.jpg"
+        assert result.is_joined is True
 
 
 class TestUpdateGroupAccumulatorService:
