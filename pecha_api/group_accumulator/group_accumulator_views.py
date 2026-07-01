@@ -12,6 +12,7 @@ from .group_accumulator_service import (
     delete_group_accumulator_user_service,
     join_group_accumulator_service,
     get_group_accumulator_members_service,
+    get_group_accumulator_user_sessions_service,
 )
 from .group_accumulator_response_models import (
     SubmitGroupCountRequest,
@@ -20,6 +21,8 @@ from .group_accumulator_response_models import (
     GroupAccumulatorHistoryResponse,
     GroupAccumulatorHistoryItemDTO,
     GroupAccumulatorMembersResponse,
+    GroupAccumulatorUserSessionsResponse,
+    GroupAccumulatorMemberSortBy,
 )
 
 group_accumulator_router = APIRouter(prefix="/group-accumulators", tags=["Group Accumulators"])
@@ -35,11 +38,17 @@ async def get_group_accumulators(
     group_id: UUID,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
+    credentials: Annotated[
+        Optional[HTTPAuthorizationCredentials],
+        Depends(optional_oauth2_scheme),
+    ] = None,
 ):
+    token = credentials.credentials if credentials else None
     return get_group_accumulators_service(
         group_id=group_id,
         skip=skip,
         limit=limit,
+        token=token,
     )
 
 
@@ -137,17 +146,41 @@ async def get_group_accumulator_members(
     group_accumulator_id: UUID,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
+    sort_by: GroupAccumulatorMemberSortBy = Query(
+        GroupAccumulatorMemberSortBy.TOTAL,
+        description="Sort members by lifetime total (`total`) or today's count (`today`), highest first",
+    ),
     x_timezone: Annotated[
         Optional[str],
         Header(alias="X-Timezone", description="IANA timezone for today counts (e.g. Asia/Kathmandu). Defaults to UTC."),
     ] = None,
 ):
-    """List users who joined this group accumulator with lifetime and today counts."""
+    """List users who joined this group accumulator, sorted by contribution count."""
     return get_group_accumulator_members_service(
         group_accumulator_id=group_accumulator_id,
         skip=skip,
         limit=limit,
         timezone_name=x_timezone,
+        sort_by=sort_by,
+    )
+
+
+@group_accumulator_router.get(
+    "/{group_accumulator_id}/user-sessions",
+    response_model=GroupAccumulatorUserSessionsResponse,
+)
+async def get_group_accumulator_user_sessions(
+    group_accumulator_id: UUID,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
+):
+    """List the authenticated user's participation sessions for a group accumulator."""
+    return get_group_accumulator_user_sessions_service(
+        token=credentials.credentials,
+        group_accumulator_id=group_accumulator_id,
+        skip=skip,
+        limit=limit,
     )
 
 
@@ -159,7 +192,7 @@ async def delete_group_accumulator(
     group_accumulator_id: UUID,
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
-    """Soft delete (reset) a group accumulator. Requires user to be a member of the group."""
+    """Soft delete (reset) the user's active participation in a group accumulator."""
     delete_group_accumulator_user_service(
         token=credentials.credentials,
         group_accumulator_id=group_accumulator_id,

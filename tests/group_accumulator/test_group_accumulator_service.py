@@ -89,7 +89,7 @@ class TestCreateGroupAccumulatorService:
 
         assert result.id == mock_accumulator.id
         assert result.group_id == group_id
-        assert result.accumulator_id == accumulator_id
+        assert result.preset_accumulator_id == accumulator_id
         assert result.target_count == 108000
         mock_verify.assert_called_once_with(mock_db, group_id)
         mock_create.assert_called_once()
@@ -151,6 +151,40 @@ class TestGetGroupAccumulatorsService:
 
         assert len(result.accumulators) == 0
         assert result.total == 0
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_joined_group_accumulator_ids_by_user')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulators')
+    def test_get_group_accumulators_with_token_sets_is_joined(
+        self, mock_get, mock_validate, mock_joined_ids, mock_session
+    ):
+        """Test is_joined is populated when an auth token is provided."""
+        group_id = uuid4()
+        user_id = uuid4()
+        joined_acc_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_validate.return_value = MagicMock(id=user_id)
+        mock_accumulators = [
+            MockGroupAccumulator(id=joined_acc_id, group_id=group_id),
+            MockGroupAccumulator(group_id=group_id),
+        ]
+        mock_get.return_value = (mock_accumulators, 2)
+        mock_joined_ids.return_value = [joined_acc_id]
+
+        result = get_group_accumulators_service(
+            group_id=group_id,
+            token="valid_token",
+        )
+
+        assert result.accumulators[0].is_joined is True
+        assert result.accumulators[1].is_joined is False
+        mock_joined_ids.assert_called_once_with(
+            db=mock_db,
+            user_id=user_id,
+            group_accumulator_ids=[joined_acc_id, mock_accumulators[1].id],
+        )
 
 
 class TestGetGroupAccumulatorService:
@@ -369,21 +403,23 @@ class TestSubmitGroupCountService:
     @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
     @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
-    @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group_accumulator')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_active_user_group_accumulator')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_user_group_accumulator_count')
     @patch('pecha_api.group_accumulator.group_accumulator_service.add_group_history_row')
-    def test_submit_group_count_success(self, mock_add_history, mock_get_count, mock_joined, mock_get_acc, mock_validate, mock_session):
+    def test_submit_group_count_success(self, mock_add_history, mock_get_count, mock_get_active, mock_get_acc, mock_validate, mock_session):
         """Test successful submission of group count."""
         accumulator_id = uuid4()
         user_id = uuid4()
         group_id = uuid4()
+        session_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_user = MockUser(id=user_id)
         mock_validate.return_value = mock_user
         mock_accumulator = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
         mock_get_acc.return_value = mock_accumulator
-        mock_joined.return_value = True
+        active_session = MagicMock(id=session_id)
+        mock_get_active.return_value = active_session
         mock_get_count.return_value = 50
         mock_history = MockGroupAccumulatorHistory(
             group_accumulator_id=accumulator_id,
@@ -405,7 +441,7 @@ class TestSubmitGroupCountService:
         assert is_created is True
         mock_validate.assert_called_once_with(token="valid_token")
         mock_get_acc.assert_called_once_with(mock_db, accumulator_id)
-        mock_joined.assert_called_once_with(
+        mock_get_active.assert_called_once_with(
             db=mock_db,
             group_accumulator_id=accumulator_id,
             user_id=user_id,
@@ -414,20 +450,22 @@ class TestSubmitGroupCountService:
             db=mock_db,
             group_accumulator_id=accumulator_id,
             user_id=user_id,
+            active_session_only=True,
         )
         mock_add_history.assert_called_once_with(
             db=mock_db,
             group_accumulator_id=accumulator_id,
             user_id=user_id,
             count=50,
+            user_group_accumulator_id=session_id,
         )
 
     @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
     @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
-    @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group_accumulator')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_active_user_group_accumulator')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_user_group_accumulator_count')
-    def test_submit_group_count_zero_delta(self, mock_get_count, mock_joined, mock_get_acc, mock_validate, mock_session):
+    def test_submit_group_count_zero_delta(self, mock_get_count, mock_get_active, mock_get_acc, mock_validate, mock_session):
         """Test submit group count when delta is zero returns is_created=False."""
         accumulator_id = uuid4()
         user_id = uuid4()
@@ -438,7 +476,7 @@ class TestSubmitGroupCountService:
         mock_validate.return_value = mock_user
         mock_accumulator = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
         mock_get_acc.return_value = mock_accumulator
-        mock_joined.return_value = True
+        mock_get_active.return_value = MagicMock(id=uuid4())
         mock_get_count.return_value = 100
 
         request = SubmitGroupCountRequest(current_count=100)
@@ -456,9 +494,9 @@ class TestSubmitGroupCountService:
     @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
     @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
-    @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group_accumulator')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_active_user_group_accumulator')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_user_group_accumulator_count')
-    def test_submit_group_count_negative_delta(self, mock_get_count, mock_joined, mock_get_acc, mock_validate, mock_session):
+    def test_submit_group_count_negative_delta(self, mock_get_count, mock_get_active, mock_get_acc, mock_validate, mock_session):
         """Test submit group count when delta is negative returns is_created=False."""
         accumulator_id = uuid4()
         user_id = uuid4()
@@ -469,7 +507,7 @@ class TestSubmitGroupCountService:
         mock_validate.return_value = mock_user
         mock_accumulator = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
         mock_get_acc.return_value = mock_accumulator
-        mock_joined.return_value = True
+        mock_get_active.return_value = MagicMock(id=uuid4())
         mock_get_count.return_value = 150
 
         request = SubmitGroupCountRequest(current_count=100)
@@ -486,9 +524,9 @@ class TestSubmitGroupCountService:
     @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
     @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
-    @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group_accumulator')
-    def test_submit_group_count_not_member(self, mock_joined, mock_get_acc, mock_validate, mock_session):
-        """Test submit group count when user has not joined the group accumulator."""
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_active_user_group_accumulator')
+    def test_submit_group_count_not_member(self, mock_get_active, mock_get_acc, mock_validate, mock_session):
+        """Test submit group count when user has no active participation session."""
         accumulator_id = uuid4()
         user_id = uuid4()
         group_id = uuid4()
@@ -498,7 +536,7 @@ class TestSubmitGroupCountService:
         mock_validate.return_value = mock_user
         mock_accumulator = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
         mock_get_acc.return_value = mock_accumulator
-        mock_joined.return_value = False
+        mock_get_active.return_value = None
 
         request = SubmitGroupCountRequest(current_count=100)
 
@@ -852,17 +890,29 @@ class TestDeleteGroupAccumulatorUserService:
     @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
     @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
-    @patch('pecha_api.group_accumulator.group_accumulator_service.delete_group_accumulator')
-    def test_delete_user_success(self, mock_delete, mock_get, mock_joined, mock_auth, mock_session):
-        """Test successful user delete with group membership."""
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_active_user_group_accumulator')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.soft_delete_user_group_accumulator')
+    def test_delete_user_success(
+        self,
+        mock_soft_delete,
+        mock_get_active,
+        mock_get,
+        mock_joined,
+        mock_auth,
+        mock_session,
+    ):
+        """Test successful user reset of active participation session."""
         group_id = uuid4()
         accumulator_id = uuid4()
         user_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_auth.return_value = MockUser(id=user_id)
-        mock_get.return_value = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
+        mock_accumulator = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
+        mock_get.return_value = mock_accumulator
         mock_joined.return_value = True
+        active_session = MagicMock()
+        mock_get_active.return_value = active_session
 
         delete_group_accumulator_user_service(
             token="valid_token",
@@ -872,7 +922,12 @@ class TestDeleteGroupAccumulatorUserService:
         mock_auth.assert_called_once_with(token="valid_token")
         mock_get.assert_called_once_with(mock_db, accumulator_id)
         mock_joined.assert_called_once_with(db=mock_db, group_id=group_id, user_id=user_id)
-        mock_delete.assert_called_once()
+        mock_get_active.assert_called_once_with(
+            db=mock_db,
+            group_accumulator_id=accumulator_id,
+            user_id=user_id,
+        )
+        mock_soft_delete.assert_called_once_with(mock_db, active_session)
 
     @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
     @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
@@ -947,8 +1002,10 @@ class TestJoinGroupAccumulatorService:
     @patch('pecha_api.group_accumulator.group_accumulator_service._assert_group_allows_join')
     @patch('pecha_api.group_accumulator.group_accumulator_service.upsert_group_join')
     @patch('pecha_api.group_accumulator.group_accumulator_service.upsert_group_accumulator_join')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_or_create_active_user_group_accumulator')
     def test_join_success(
         self,
+        mock_create_session,
         mock_accumulator_join,
         mock_group_join,
         mock_assert_join,
@@ -970,6 +1027,11 @@ class TestJoinGroupAccumulatorService:
 
         mock_group_join.assert_called_once_with(db=mock_db, group_id=group_id, user_id=user_id)
         mock_accumulator_join.assert_called_once_with(
+            db=mock_db,
+            group_accumulator_id=accumulator_id,
+            user_id=user_id,
+        )
+        mock_create_session.assert_called_once_with(
             db=mock_db,
             group_accumulator_id=accumulator_id,
             user_id=user_id,
@@ -1001,6 +1063,10 @@ class TestGetGroupAccumulatorMembersService:
         mock_fullname.return_value = "Test User"
         mock_avatar.return_value = "https://example.com/avatar.jpg"
 
+        from pecha_api.group_accumulator.group_accumulator_response_models import (
+            GroupAccumulatorMemberSortBy,
+        )
+
         result = get_group_accumulator_members_service(group_accumulator_id=accumulator_id)
 
         assert result.member_count == 1
@@ -1010,3 +1076,86 @@ class TestGetGroupAccumulatorMembersService:
         assert result.members[0].joined_at == joined_at
         assert result.members[0].total_count == 500
         assert result.members[0].today_count == 108
+        mock_list_joiners.assert_called_once()
+        assert mock_list_joiners.call_args.kwargs["sort_by"] == "total"
+
+        get_group_accumulator_members_service(
+            group_accumulator_id=accumulator_id,
+            sort_by=GroupAccumulatorMemberSortBy.TODAY,
+        )
+        assert mock_list_joiners.call_args.kwargs["sort_by"] == "today"
+
+
+class TestGetGroupAccumulatorUserSessionsService:
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_user_group_accumulator_sessions')
+    def test_get_user_sessions_success(
+        self,
+        mock_get_sessions,
+        mock_joined,
+        mock_get_acc,
+        mock_auth,
+        mock_session,
+    ):
+        from pecha_api.group_accumulator.group_accumulator_service import (
+            get_group_accumulator_user_sessions_service,
+        )
+
+        accumulator_id = uuid4()
+        group_id = uuid4()
+        user_id = uuid4()
+        session_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockUser(id=user_id)
+        mock_get_acc.return_value = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
+        mock_joined.return_value = True
+
+        participation = MagicMock(
+            id=session_id,
+            deleted_at=None,
+            created_at=datetime.utcnow(),
+        )
+        history_row = MagicMock(id=uuid4(), count=108, created_at=datetime.utcnow())
+        mock_get_sessions.return_value = ([(participation, 108, [history_row])], 1)
+
+        result = get_group_accumulator_user_sessions_service(
+            token="valid_token",
+            group_accumulator_id=accumulator_id,
+        )
+
+        assert result.total == 1
+        assert len(result.sessions) == 1
+        assert result.sessions[0].id == session_id
+        assert result.sessions[0].is_active is True
+        assert result.sessions[0].total_counted == 108
+        assert len(result.sessions[0].contributions) == 1
+        assert result.sessions[0].contributions[0].count == 108
+
+    @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.validate_and_extract_user_details')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.is_user_joined_group')
+    def test_get_user_sessions_not_member(self, mock_joined, mock_get_acc, mock_auth, mock_session):
+        from pecha_api.group_accumulator.group_accumulator_service import (
+            get_group_accumulator_user_sessions_service,
+        )
+
+        accumulator_id = uuid4()
+        group_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_auth.return_value = MockUser()
+        mock_get_acc.return_value = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
+        mock_joined.return_value = False
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_group_accumulator_user_sessions_service(
+                token="valid_token",
+                group_accumulator_id=accumulator_id,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN

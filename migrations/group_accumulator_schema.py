@@ -22,6 +22,11 @@ def ensure_group_accumulator_tables() -> None:
     if not table_exists("group_accumulator_history"):
         _create_group_accumulator_history()
 
+    if not table_exists("user_group_accumulators"):
+        _create_user_group_accumulators()
+    elif not column_exists("group_accumulator_history", "user_group_accumulator_id"):
+        _upgrade_group_accumulator_history_user_session()
+
 
 def _create_group_accumulators() -> None:
     op.create_table(
@@ -154,5 +159,67 @@ def _create_group_accumulator_history() -> None:
         "idx_group_accumulator_history_user_id",
         "group_accumulator_history",
         ["user_id"],
+        unique=False,
+    )
+
+
+def _create_user_group_accumulators() -> None:
+    op.create_table(
+        "user_group_accumulators",
+        sa.Column("id", sa.UUID(), nullable=False, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("group_accumulator_id", sa.UUID(), nullable=False),
+        sa.Column("user_id", sa.UUID(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=True,
+            server_default=sa.text("CURRENT_TIMESTAMP"),
+        ),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["group_accumulator_id"],
+            ["group_accumulators.id"],
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(
+        "idx_user_group_accumulators_group_user",
+        "user_group_accumulators",
+        ["group_accumulator_id", "user_id"],
+        unique=False,
+    )
+    op.create_index(
+        "idx_user_group_accumulators_user",
+        "user_group_accumulators",
+        ["user_id"],
+        unique=False,
+    )
+
+
+def _upgrade_group_accumulator_history_user_session() -> None:
+    op.add_column(
+        "group_accumulator_history",
+        sa.Column("user_group_accumulator_id", sa.UUID(), nullable=True),
+    )
+    op.create_foreign_key(
+        "group_accumulator_history_user_group_accumulator_id_fkey",
+        "group_accumulator_history",
+        "user_group_accumulators",
+        ["user_group_accumulator_id"],
+        ["id"],
+        ondelete="SET NULL",
+    )
+    op.create_index(
+        "idx_group_accumulator_history_user_group_accumulator_id",
+        "group_accumulator_history",
+        ["user_group_accumulator_id"],
         unique=False,
     )

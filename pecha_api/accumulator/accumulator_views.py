@@ -136,7 +136,7 @@ async def get_accumulator_groups(
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
     joined_only: bool = Query(
         False,
-        description="When true, return only group accumulators in groups the authenticated user has joined",
+        description="When true, return only group accumulators the authenticated user has joined",
     ),
 ):
     """Get groups using this accumulator with the authenticated user's total count for each group."""

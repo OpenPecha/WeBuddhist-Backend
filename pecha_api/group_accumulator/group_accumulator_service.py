@@ -35,9 +35,14 @@ from .group_accumulator_repository import (
     get_user_group_accumulator_count,
     verify_group_exists,
     upsert_group_accumulator_join,
-    is_user_joined_group_accumulator,
+    get_joined_group_accumulator_ids_by_user,
     get_group_accumulator_joiners_count,
+    get_group_accumulator_joiners_counts,
     list_group_accumulator_joiners_paginated,
+    get_active_user_group_accumulator,
+    get_or_create_active_user_group_accumulator,
+    soft_delete_user_group_accumulator,
+    get_user_group_accumulator_sessions,
 )
 from .group_accumulator_response_models import (
     CreateGroupAccumulatorRequest,
@@ -50,6 +55,10 @@ from .group_accumulator_response_models import (
     GroupAccumulatorHistoryItemDTO,
     GroupAccumulatorMemberDTO,
     GroupAccumulatorMembersResponse,
+    GroupAccumulatorContributionDTO,
+    GroupAccumulatorUserSessionDTO,
+    GroupAccumulatorUserSessionsResponse,
+    GroupAccumulatorMemberSortBy,
 )
 
 
@@ -81,10 +90,15 @@ def _user_avatar_url(user: Users) -> str | None:
     )
 
 
-def _convert_to_dto(group_accumulator) -> GroupAccumulatorDTO:
+def _convert_to_dto(
+    group_accumulator,
+    *,
+    is_joined: Optional[bool] = None,
+    member_count: int = 0,
+) -> GroupAccumulatorDTO:
     return GroupAccumulatorDTO(
         id=group_accumulator.id,
-        accumulator_id=group_accumulator.accumulator_id,
+        preset_accumulator_id=group_accumulator.accumulator_id,
         group_id=group_accumulator.group_id,
         title=group_accumulator.title,
         image=get_image_url(group_accumulator.image_key),
@@ -92,6 +106,8 @@ def _convert_to_dto(group_accumulator) -> GroupAccumulatorDTO:
         target_count=group_accumulator.target_count,
         start_date=group_accumulator.start_date,
         end_date=group_accumulator.end_date,
+        is_joined=is_joined,
+        member_count=member_count,
         created_at=group_accumulator.created_at,
         updated_at=group_accumulator.updated_at,
     )
@@ -110,10 +126,11 @@ def _convert_to_detail_dto(
     member_count: int,
     user_total_count: Optional[int] = None,
     user_today_count: Optional[int] = None,
+    is_joined: Optional[bool] = None,
 ) -> GroupAccumulatorDetailDTO:
     return GroupAccumulatorDetailDTO(
         id=group_accumulator.id,
-        accumulator_id=group_accumulator.accumulator_id,
+        preset_accumulator_id=group_accumulator.accumulator_id,
         group_id=group_accumulator.group_id,
         title=group_accumulator.title,
         image=get_image_url(group_accumulator.image_key),
@@ -125,6 +142,7 @@ def _convert_to_detail_dto(
         total_today_count=total_today_count,
         user_total_count=user_total_count,
         user_today_count=user_today_count,
+        is_joined=is_joined,
         member_count=member_count,
         created_at=group_accumulator.created_at,
         updated_at=group_accumulator.updated_at,
@@ -159,11 +177,36 @@ def get_group_accumulators_service(
     group_id: UUID,
     skip: int = 0,
     limit: int = 20,
+    token: Optional[str] = None,
 ) -> GroupAccumulatorsResponse:
     with SessionLocal() as db:
         accumulators, total = get_group_accumulators(db, group_id, skip, limit)
+
+        joined_ids: set[UUID] = set()
+        if token:
+            current_user = validate_and_extract_user_details(token=token)
+            joined_ids = set(
+                get_joined_group_accumulator_ids_by_user(
+                    db=db,
+                    user_id=current_user.id,
+                    group_accumulator_ids=[acc.id for acc in accumulators],
+                )
+            )
+
+        member_counts = get_group_accumulator_joiners_counts(
+            db=db,
+            group_accumulator_ids=[acc.id for acc in accumulators],
+        )
+
         return GroupAccumulatorsResponse(
-            accumulators=[_convert_to_dto(acc) for acc in accumulators],
+            accumulators=[
+                _convert_to_dto(
+                    acc,
+                    is_joined=acc.id in joined_ids if token else None,
+                    member_count=member_counts.get(acc.id, 0),
+                )
+                for acc in accumulators
+            ],
             total=total,
             skip=skip,
             limit=limit,
@@ -195,8 +238,14 @@ def get_group_accumulator_service(
 
         user_total_count = None
         user_today_count = None
+        is_joined = None
         if token:
             current_user = validate_and_extract_user_details(token=token)
+            is_joined = is_user_joined_group_accumulator(
+                db=db,
+                group_accumulator_id=group_accumulator_id,
+                user_id=current_user.id,
+            )
             user_total_count = get_user_group_accumulator_count(
                 db=db,
                 group_accumulator_id=group_accumulator_id,
@@ -208,6 +257,7 @@ def get_group_accumulator_service(
                 range_start=day_start,
                 range_end=day_end,
                 user_id=current_user.id,
+                active_session_only=True,
             )
 
         return _convert_to_detail_dto(
@@ -217,6 +267,7 @@ def get_group_accumulator_service(
             member_count=member_count,
             user_total_count=user_total_count,
             user_today_count=user_today_count,
+            is_joined=is_joined,
         )
 
 
@@ -306,6 +357,11 @@ def join_group_accumulator_service(
             group_accumulator_id=group_accumulator_id,
             user_id=current_user.id,
         )
+        get_or_create_active_user_group_accumulator(
+            db=db,
+            group_accumulator_id=group_accumulator_id,
+            user_id=current_user.id,
+        )
 
 
 def get_group_accumulator_members_service(
@@ -313,6 +369,7 @@ def get_group_accumulator_members_service(
     skip: int = 0,
     limit: int = 20,
     timezone_name: Optional[str] = None,
+    sort_by: GroupAccumulatorMemberSortBy = GroupAccumulatorMemberSortBy.TOTAL,
 ) -> GroupAccumulatorMembersResponse:
     with SessionLocal() as db:
         group_accumulator = get_group_accumulator_by_id(db, group_accumulator_id)
@@ -332,6 +389,7 @@ def get_group_accumulator_members_service(
             limit=limit,
             range_start=range_start,
             range_end=range_end,
+            sort_by=sort_by.value,
         )
 
         return GroupAccumulatorMembersResponse(
@@ -358,7 +416,11 @@ def delete_group_accumulator_user_service(
     token: str,
     group_accumulator_id: UUID,
 ) -> None:
-    """Delete a group accumulator (User - requires group membership)."""
+    """Reset the user's active participation in a group accumulator.
+
+    Soft-deletes the user's current session so their progress resets to zero.
+    The group accumulator and all historical contribution rows are preserved.
+    """
     current_user = validate_and_extract_user_details(token=token)
     
     with SessionLocal() as db:
@@ -369,14 +431,27 @@ def delete_group_accumulator_user_service(
                 detail={"error": "NOT_FOUND", "message": "Group accumulator not found"}
             )
         
-        # Verify user is a member of the group
         if not is_user_joined_group(db=db, group_id=group_accumulator.group_id, user_id=current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "FORBIDDEN", "message": "You must be a member of this group"}
             )
-        
-        delete_group_accumulator(db, group_accumulator)
+
+        active_session = get_active_user_group_accumulator(
+            db=db,
+            group_accumulator_id=group_accumulator_id,
+            user_id=current_user.id,
+        )
+        if not active_session:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error": "NOT_FOUND",
+                    "message": "No active group accumulation to reset",
+                },
+            )
+
+        soft_delete_user_group_accumulator(db, active_session)
 
 
 def submit_group_count_service(
@@ -400,22 +475,24 @@ def submit_group_count_service(
                 detail={"error": "NOT_FOUND", "message": "Group accumulator not found"}
             )
         
-        # Verify user has joined this group accumulator
-        if not is_user_joined_group_accumulator(
+        # Verify user has an active participation session
+        active_session = get_active_user_group_accumulator(
             db=db,
             group_accumulator_id=group_accumulator_id,
             user_id=current_user.id,
-        ):
+        )
+        if not active_session:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "FORBIDDEN", "message": "You must join this group accumulator first"},
             )
         
-        # Get user's current total count
+        # Get user's current total for the active session
         user_current_count = get_user_group_accumulator_count(
             db=db,
             group_accumulator_id=group_accumulator_id,
-            user_id=current_user.id
+            user_id=current_user.id,
+            active_session_only=True,
         )
         
         # Calculate delta
@@ -428,6 +505,7 @@ def submit_group_count_service(
                 group_accumulator_id=group_accumulator_id,
                 user_id=current_user.id,
                 count=delta,
+                user_group_accumulator_id=active_session.id,
             )
             
             return (
@@ -511,6 +589,67 @@ def get_group_accumulator_history_service(
         )
 
 
+def get_group_accumulator_user_sessions_service(
+    token: str,
+    group_accumulator_id: UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> GroupAccumulatorUserSessionsResponse:
+    """List the authenticated user's participation sessions for a group accumulator."""
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        group_accumulator = get_group_accumulator_by_id(db, group_accumulator_id)
+        if not group_accumulator:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": "NOT_FOUND", "message": "Group accumulator not found"},
+            )
+
+        if not is_user_joined_group(
+            db=db,
+            group_id=group_accumulator.group_id,
+            user_id=current_user.id,
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"error": "FORBIDDEN", "message": "You must be a member of this group"},
+            )
+
+        session_rows, total = get_user_group_accumulator_sessions(
+            db=db,
+            group_accumulator_id=group_accumulator_id,
+            user_id=current_user.id,
+            skip=skip,
+            limit=limit,
+        )
+
+        return GroupAccumulatorUserSessionsResponse(
+            group_accumulator=_convert_to_dto(group_accumulator),
+            sessions=[
+                GroupAccumulatorUserSessionDTO(
+                    id=session.id,
+                    is_active=session.deleted_at is None,
+                    total_counted=total_counted,
+                    created_at=session.created_at,
+                    deleted_at=session.deleted_at,
+                    contributions=[
+                        GroupAccumulatorContributionDTO(
+                            id=row.id,
+                            count=row.count,
+                            created_at=row.created_at,
+                        )
+                        for row in history_rows
+                    ],
+                )
+                for session, total_counted, history_rows in session_rows
+            ],
+            total=total,
+            skip=skip,
+            limit=limit,
+        )
+
+
 # =============================================================================
 # CMS Service Functions (with authorization)
 # =============================================================================
@@ -555,8 +694,15 @@ def get_group_accumulators_cms_service(
     with SessionLocal() as db:
         require_can_read_group_content(db=db, group_id=group_id, author=author)
         accumulators, total = get_group_accumulators(db, group_id, skip, limit)
+        member_counts = get_group_accumulator_joiners_counts(
+            db=db,
+            group_accumulator_ids=[acc.id for acc in accumulators],
+        )
         return GroupAccumulatorsResponse(
-            accumulators=[_convert_to_dto(acc) for acc in accumulators],
+            accumulators=[
+                _convert_to_dto(acc, member_count=member_counts.get(acc.id, 0))
+                for acc in accumulators
+            ],
             total=total,
             skip=skip,
             limit=limit,

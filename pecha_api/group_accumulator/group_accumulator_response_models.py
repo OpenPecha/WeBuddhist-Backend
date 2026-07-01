@@ -2,8 +2,14 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
+from enum import Enum
 
 from pecha_api.plans.media.media_response_models import ImageUrlModel
+
+
+class GroupAccumulatorMemberSortBy(str, Enum):
+    TOTAL = "total"
+    TODAY = "today"
 
 
 class CreateGroupAccumulatorRequest(BaseModel):
@@ -26,7 +32,10 @@ class UpdateGroupAccumulatorRequest(BaseModel):
 
 class GroupAccumulatorDTO(BaseModel):
     id: UUID
-    accumulator_id: Optional[UUID] = None
+    preset_accumulator_id: Optional[UUID] = Field(
+        None,
+        description="ID of the linked preset accumulator, if any",
+    )
     group_id: UUID
     title: Optional[str] = None
     image: Optional[ImageUrlModel] = None
@@ -34,6 +43,14 @@ class GroupAccumulatorDTO(BaseModel):
     target_count: Optional[int] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    is_joined: Optional[bool] = Field(
+        None,
+        description="Whether the authenticated user has joined (null when unauthenticated)",
+    )
+    member_count: int = Field(
+        0,
+        description="Number of users who joined this group accumulator",
+    )
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -58,7 +75,10 @@ class GroupAccumulatorHistoryItemDTO(BaseModel):
 
 class GroupAccumulatorDetailDTO(BaseModel):
     id: UUID
-    accumulator_id: Optional[UUID] = None
+    preset_accumulator_id: Optional[UUID] = Field(
+        None,
+        description="ID of the linked preset accumulator, if any",
+    )
     group_id: UUID
     title: Optional[str] = None
     image: Optional[ImageUrlModel] = None
@@ -70,6 +90,10 @@ class GroupAccumulatorDetailDTO(BaseModel):
     total_today_count: int = Field(0, description="Total count from all users for today in the request timezone")
     user_total_count: Optional[int] = Field(None, description="Authenticated user's lifetime count (detail endpoint only)")
     user_today_count: Optional[int] = Field(None, description="Authenticated user's count for today (detail endpoint only)")
+    is_joined: Optional[bool] = Field(
+        None,
+        description="Whether the authenticated user has joined (null when unauthenticated)",
+    )
     member_count: int = Field(0, description="Number of users who joined this group accumulator")
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -96,6 +120,32 @@ class GroupAccumulatorMemberDTO(BaseModel):
 class GroupAccumulatorMembersResponse(BaseModel):
     members: List[GroupAccumulatorMemberDTO]
     member_count: int = Field(..., description="Total number of users who joined this group accumulator")
+    total: int
+    skip: int
+    limit: int
+
+
+class GroupAccumulatorContributionDTO(BaseModel):
+    id: UUID
+    count: int
+    created_at: datetime
+
+
+class GroupAccumulatorUserSessionDTO(BaseModel):
+    id: UUID = Field(..., description="User participation session ID")
+    is_active: bool = Field(..., description="True when this is the user's current non-reset session")
+    total_counted: int = Field(..., description="Total count contributed during this session")
+    created_at: datetime
+    deleted_at: Optional[datetime] = Field(None, description="When the user reset this session")
+    contributions: List[GroupAccumulatorContributionDTO] = Field(
+        default_factory=list,
+        description="Individual count submissions during this session",
+    )
+
+
+class GroupAccumulatorUserSessionsResponse(BaseModel):
+    group_accumulator: GroupAccumulatorDTO
+    sessions: List[GroupAccumulatorUserSessionDTO]
     total: int
     skip: int
     limit: int

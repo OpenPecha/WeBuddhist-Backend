@@ -582,6 +582,7 @@ class TestGetAccumulatorGroups:
                     title="Group Practice 1",
                     target_count=100000,
                     user_total_count=1234,
+                    is_joined=True,
                     start_date=datetime(2024, 1, 1),
                     end_date=datetime(2024, 12, 31),
                     created_at=datetime.utcnow(),
@@ -592,6 +593,7 @@ class TestGetAccumulatorGroups:
                     title="Group Practice 2",
                     target_count=50000,
                     user_total_count=567,
+                    is_joined=False,
                     start_date=datetime(2024, 6, 1),
                     end_date=datetime(2024, 11, 30),
                     created_at=datetime.utcnow(),
@@ -666,6 +668,7 @@ class TestGetAccumulatorGroups:
                     title="Group Practice",
                     target_count=100000,
                     user_total_count=0,  # User hasn't contributed yet
+                    is_joined=True,
                     start_date=datetime(2024, 1, 1),
                     end_date=datetime(2024, 12, 31),
                     created_at=datetime.utcnow(),
@@ -702,6 +705,7 @@ class TestGetAccumulatorGroups:
                     title="Group Practice",
                     target_count=100000,
                     user_total_count=500,
+                    is_joined=True,
                     start_date=datetime(2024, 1, 1),
                     end_date=datetime(2024, 12, 31),
                     created_at=datetime.utcnow(),
@@ -820,6 +824,7 @@ class TestGetAccumulatorGroups:
                     title=None,  # Optional field
                     target_count=None,  # Optional field
                     user_total_count=100,
+                    is_joined=False,
                     start_date=None,  # Optional field
                     end_date=None,  # Optional field
                     created_at=datetime.utcnow(),
@@ -860,6 +865,7 @@ class TestGetAccumulatorGroups:
                     title="High Volume Practice",
                     target_count=1000000,
                     user_total_count=999999,  # Large count
+                    is_joined=True,
                     start_date=datetime(2024, 1, 1),
                     end_date=datetime(2024, 12, 31),
                     created_at=datetime.utcnow(),

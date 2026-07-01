@@ -30,7 +30,7 @@ class TestDataFactory:
     ) -> GroupAccumulatorDTO:
         return GroupAccumulatorDTO(
             id=id or uuid4(),
-            accumulator_id=accumulator_id,
+            preset_accumulator_id=accumulator_id,
             group_id=group_id or uuid4(),
             target_count=target_count,
             start_date=datetime.utcnow(),
@@ -49,7 +49,7 @@ class TestDataFactory:
     ) -> GroupAccumulatorDetailDTO:
         return GroupAccumulatorDetailDTO(
             id=id or uuid4(),
-            accumulator_id=accumulator_id,
+            preset_accumulator_id=accumulator_id,
             group_id=group_id or uuid4(),
             target_count=target_count,
             start_date=datetime.utcnow(),
@@ -123,7 +123,7 @@ class TestGetGroupAccumulators:
         assert data["total"] == 2
         assert data["skip"] == 0
         assert data["limit"] == 20
-        mock_service.assert_called_once_with(group_id=group_id, skip=0, limit=20)
+        mock_service.assert_called_once_with(group_id=group_id, skip=0, limit=20, token=None)
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulators_service')
     def test_get_group_accumulators_with_pagination(self, mock_service):
@@ -140,7 +140,7 @@ class TestGetGroupAccumulators:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        mock_service.assert_called_once_with(group_id=group_id, skip=5, limit=5)
+        mock_service.assert_called_once_with(group_id=group_id, skip=5, limit=5, token=None)
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulators_service')
     def test_get_group_accumulators_empty(self, mock_service):
@@ -408,7 +408,7 @@ class TestDeleteGroupAccumulator:
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.delete_group_accumulator_user_service')
     def test_delete_group_accumulator_success(self, mock_service):
-        """Test successful soft deletion of group accumulator."""
+        """Test successful reset of user's active participation session."""
         group_accumulator_id = uuid4()
         mock_service.return_value = None
 
@@ -540,6 +540,32 @@ class TestGetGroupAccumulatorMembersView:
         assert response.json()["members"][0]["total_count"] == 500
         assert response.json()["members"][0]["today_count"] == 108
         assert len(response.json()["members"]) == 1
+        mock_service.assert_called_once()
+        call_kwargs = mock_service.call_args.kwargs
+        assert call_kwargs["sort_by"].value == "total"
+
+    @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulator_members_service')
+    def test_get_members_sort_by_today(self, mock_service):
+        from pecha_api.group_accumulator.group_accumulator_response_models import (
+            GroupAccumulatorMembersResponse,
+        )
+
+        group_accumulator_id = uuid4()
+        mock_service.return_value = GroupAccumulatorMembersResponse(
+            members=[],
+            member_count=0,
+            total=0,
+            skip=0,
+            limit=20,
+        )
+
+        response = client.get(
+            f"/group-accumulators/{group_accumulator_id}/members?sort_by=today",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once()
+        assert mock_service.call_args.kwargs["sort_by"].value == "today"
 
 
 class TestJoinGroupAccumulatorView:
@@ -555,3 +581,74 @@ class TestJoinGroupAccumulatorView:
             token="valid_token",
             group_accumulator_id=group_accumulator_id,
         )
+
+
+class TestGetGroupAccumulatorUserSessionsView:
+    @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulator_user_sessions_service')
+    def test_get_user_sessions_success(self, mock_service):
+        from pecha_api.group_accumulator.group_accumulator_response_models import (
+            GroupAccumulatorUserSessionsResponse,
+            GroupAccumulatorUserSessionDTO,
+            GroupAccumulatorContributionDTO,
+            GroupAccumulatorDTO,
+        )
+
+        group_accumulator_id = uuid4()
+        group_id = uuid4()
+        session_id = uuid4()
+        created_at = datetime.utcnow()
+        mock_service.return_value = GroupAccumulatorUserSessionsResponse(
+            group_accumulator=GroupAccumulatorDTO(
+                id=group_accumulator_id,
+                group_id=group_id,
+                preset_accumulator_id=None,
+                title="Group Practice",
+                image=None,
+                image_key=None,
+                target_count=100000,
+                start_date=None,
+                end_date=None,
+                is_joined=None,
+                created_at=created_at,
+                updated_at=None,
+            ),
+            sessions=[
+                GroupAccumulatorUserSessionDTO(
+                    id=session_id,
+                    is_active=True,
+                    total_counted=108,
+                    created_at=created_at,
+                    deleted_at=None,
+                    contributions=[
+                        GroupAccumulatorContributionDTO(
+                            id=uuid4(),
+                            count=108,
+                            created_at=created_at,
+                        )
+                    ],
+                )
+            ],
+            total=1,
+            skip=0,
+            limit=20,
+        )
+
+        response = client.get(
+            f"/group-accumulators/{group_accumulator_id}/user-sessions",
+            headers={"Authorization": "Bearer valid_token"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total"] == 1
+        assert response.json()["sessions"][0]["is_active"] is True
+        assert response.json()["sessions"][0]["total_counted"] == 108
+        mock_service.assert_called_once_with(
+            token="valid_token",
+            group_accumulator_id=group_accumulator_id,
+            skip=0,
+            limit=20,
+        )
+
+    def test_get_user_sessions_unauthorized(self):
+        response = client.get(f"/group-accumulators/{uuid4()}/user-sessions")
+        assert response.status_code == status.HTTP_403_FORBIDDEN

@@ -1,11 +1,16 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import func, select
 import _datetime
 from _datetime import datetime, timezone
 
-from pecha_api.accumulator import GroupAccumulator, GroupAccumulatorHistory, group_accumulator_joins
+from pecha_api.accumulator import (
+    GroupAccumulator,
+    GroupAccumulatorHistory,
+    UserGroupAccumulator,
+    group_accumulator_joins,
+)
 from pecha_api.users.users_models import Users
 
 
@@ -90,11 +95,13 @@ def add_group_history_row(
     group_accumulator_id: UUID,
     user_id: UUID,
     count: int,
+    user_group_accumulator_id: UUID,
 ) -> GroupAccumulatorHistory:
     history = GroupAccumulatorHistory(
         group_accumulator_id=group_accumulator_id,
         user_id=user_id,
         count=count,
+        user_group_accumulator_id=user_group_accumulator_id,
     )
     db.add(history)
     db.commit()
@@ -126,6 +133,8 @@ def get_group_accumulator_count_in_range(
     range_start: datetime,
     range_end: datetime,
     user_id: Optional[UUID] = None,
+    *,
+    active_session_only: bool = False,
 ) -> int:
     query = db.query(func.sum(GroupAccumulatorHistory.count)).filter(
         GroupAccumulatorHistory.group_accumulator_id == group_accumulator_id,
@@ -133,6 +142,17 @@ def get_group_accumulator_count_in_range(
     query = _apply_created_at_range(query, range_start, range_end)
     if user_id is not None:
         query = query.filter(GroupAccumulatorHistory.user_id == user_id)
+        if active_session_only:
+            active_session = get_active_user_group_accumulator(
+                db=db,
+                group_accumulator_id=group_accumulator_id,
+                user_id=user_id,
+            )
+            if not active_session:
+                return 0
+            query = query.filter(
+                GroupAccumulatorHistory.user_group_accumulator_id == active_session.id
+            )
     total = query.scalar()
     return int(total or 0)
 
@@ -153,16 +173,30 @@ def get_user_group_accumulator_count(
     db: Session,
     group_accumulator_id: UUID,
     user_id: UUID,
+    *,
+    active_session_only: bool = True,
 ) -> int:
-    """Get a specific user's current count for a group accumulator by summing their history rows."""
-    total = (
-        db.query(func.sum(GroupAccumulatorHistory.count))
-        .filter(
-            GroupAccumulatorHistory.group_accumulator_id == group_accumulator_id,
-            GroupAccumulatorHistory.user_id == user_id
-        )
-        .scalar()
+    """Get a user's count for a group accumulator.
+
+    When active_session_only is True (default), only the current non-deleted
+    participation session is counted. When False, all sessions are included.
+    """
+    query = db.query(func.sum(GroupAccumulatorHistory.count)).filter(
+        GroupAccumulatorHistory.group_accumulator_id == group_accumulator_id,
+        GroupAccumulatorHistory.user_id == user_id,
     )
+    if active_session_only:
+        active_session = get_active_user_group_accumulator(
+            db=db,
+            group_accumulator_id=group_accumulator_id,
+            user_id=user_id,
+        )
+        if not active_session:
+            return 0
+        query = query.filter(
+            GroupAccumulatorHistory.user_group_accumulator_id == active_session.id
+        )
+    total = query.scalar()
     return total or 0
 
 
@@ -247,13 +281,152 @@ def is_user_joined_group_accumulator(
     group_accumulator_id: UUID,
     user_id: UUID,
 ) -> bool:
-    row = db.execute(
-        select(group_accumulator_joins.c.group_accumulator_id).where(
-            group_accumulator_joins.c.group_accumulator_id == group_accumulator_id,
-            group_accumulator_joins.c.user_id == user_id,
+    return get_active_user_group_accumulator(
+        db=db,
+        group_accumulator_id=group_accumulator_id,
+        user_id=user_id,
+    ) is not None
+
+
+def get_active_user_group_accumulator(
+    db: Session,
+    group_accumulator_id: UUID,
+    user_id: UUID,
+) -> Optional[UserGroupAccumulator]:
+    return (
+        db.query(UserGroupAccumulator)
+        .filter(
+            UserGroupAccumulator.group_accumulator_id == group_accumulator_id,
+            UserGroupAccumulator.user_id == user_id,
+            UserGroupAccumulator.deleted_at.is_(None),
         )
-    ).first()
-    return row is not None
+        .order_by(UserGroupAccumulator.created_at.desc())
+        .first()
+    )
+
+
+def create_user_group_accumulator(
+    db: Session,
+    group_accumulator_id: UUID,
+    user_id: UUID,
+) -> UserGroupAccumulator:
+    user_group_accumulator = UserGroupAccumulator(
+        group_accumulator_id=group_accumulator_id,
+        user_id=user_id,
+    )
+    db.add(user_group_accumulator)
+    db.commit()
+    db.refresh(user_group_accumulator)
+    return user_group_accumulator
+
+
+def get_or_create_active_user_group_accumulator(
+    db: Session,
+    group_accumulator_id: UUID,
+    user_id: UUID,
+) -> UserGroupAccumulator:
+    active = get_active_user_group_accumulator(
+        db=db,
+        group_accumulator_id=group_accumulator_id,
+        user_id=user_id,
+    )
+    if active:
+        return active
+    return create_user_group_accumulator(
+        db=db,
+        group_accumulator_id=group_accumulator_id,
+        user_id=user_id,
+    )
+
+
+def soft_delete_user_group_accumulator(
+    db: Session,
+    user_group_accumulator: UserGroupAccumulator,
+) -> None:
+    user_group_accumulator.deleted_at = datetime.now(_datetime.timezone.utc)
+    db.commit()
+
+
+def get_user_group_accumulator_sessions(
+    db: Session,
+    group_accumulator_id: UUID,
+    user_id: UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> Tuple[List[Tuple[UserGroupAccumulator, int, List[GroupAccumulatorHistory]]], int]:
+    """Return a user's participation sessions for a group accumulator with totals and history."""
+    query = db.query(UserGroupAccumulator).filter(
+        UserGroupAccumulator.group_accumulator_id == group_accumulator_id,
+        UserGroupAccumulator.user_id == user_id,
+    )
+    total = query.count()
+    participation_sessions = (
+        query.order_by(UserGroupAccumulator.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    if not participation_sessions:
+        return [], total
+
+    session_ids = [session.id for session in participation_sessions]
+
+    totals_query = (
+        db.query(
+            GroupAccumulatorHistory.user_group_accumulator_id,
+            func.coalesce(func.sum(GroupAccumulatorHistory.count), 0).label("total_count"),
+        )
+        .filter(GroupAccumulatorHistory.user_group_accumulator_id.in_(session_ids))
+        .group_by(GroupAccumulatorHistory.user_group_accumulator_id)
+        .all()
+    )
+    totals_map = {
+        row.user_group_accumulator_id: int(row.total_count or 0)
+        for row in totals_query
+    }
+
+    history_rows = (
+        db.query(GroupAccumulatorHistory)
+        .filter(GroupAccumulatorHistory.user_group_accumulator_id.in_(session_ids))
+        .order_by(GroupAccumulatorHistory.created_at.desc())
+        .all()
+    )
+
+    history_map: Dict[UUID, List[GroupAccumulatorHistory]] = {}
+    for row in history_rows:
+        if row.user_group_accumulator_id not in history_map:
+            history_map[row.user_group_accumulator_id] = []
+        history_map[row.user_group_accumulator_id].append(row)
+
+    result = [
+        (
+            session,
+            totals_map.get(session.id, 0),
+            history_map.get(session.id, []),
+        )
+        for session in participation_sessions
+    ]
+    return result, total
+
+
+def get_joined_group_accumulator_ids_by_user(
+    db: Session,
+    user_id: UUID,
+    group_accumulator_ids: Optional[List[UUID]] = None,
+) -> List[UUID]:
+    query = db.query(UserGroupAccumulator.group_accumulator_id).filter(
+        UserGroupAccumulator.user_id == user_id,
+        UserGroupAccumulator.deleted_at.is_(None),
+    )
+    if group_accumulator_ids is not None:
+        if not group_accumulator_ids:
+            return []
+        query = query.filter(
+            UserGroupAccumulator.group_accumulator_id.in_(group_accumulator_ids)
+        )
+    rows = query.all()
+    return [row.group_accumulator_id for row in rows]
 
 
 def get_group_accumulator_joiners_count(
@@ -269,6 +442,24 @@ def get_group_accumulator_joiners_count(
     )
 
 
+def get_group_accumulator_joiners_counts(
+    db: Session,
+    group_accumulator_ids: List[UUID],
+) -> dict[UUID, int]:
+    if not group_accumulator_ids:
+        return {}
+    rows = (
+        db.query(
+            group_accumulator_joins.c.group_accumulator_id,
+            func.count().label("member_count"),
+        )
+        .filter(group_accumulator_joins.c.group_accumulator_id.in_(group_accumulator_ids))
+        .group_by(group_accumulator_joins.c.group_accumulator_id)
+        .all()
+    )
+    return {row.group_accumulator_id: int(row.member_count) for row in rows}
+
+
 def list_group_accumulator_joiners_paginated(
     db: Session,
     group_accumulator_id: UUID,
@@ -276,6 +467,7 @@ def list_group_accumulator_joiners_paginated(
     limit: int,
     range_start: datetime,
     range_end: datetime,
+    sort_by: str = "total",
 ) -> Tuple[List[Tuple[Users, datetime, int, int]], int]:
     total_subq = (
         db.query(
@@ -299,12 +491,14 @@ def list_group_accumulator_joiners_paginated(
         .group_by(GroupAccumulatorHistory.user_id)
         .subquery()
     )
+    total_count_col = func.coalesce(total_subq.c.total_count, 0)
+    today_count_col = func.coalesce(today_subq.c.today_count, 0)
     query = (
         db.query(
             Users,
             group_accumulator_joins.c.created_at,
-            func.coalesce(total_subq.c.total_count, 0).label("total_count"),
-            func.coalesce(today_subq.c.today_count, 0).label("today_count"),
+            total_count_col.label("total_count"),
+            today_count_col.label("today_count"),
         )
         .join(
             group_accumulator_joins,
@@ -315,8 +509,12 @@ def list_group_accumulator_joiners_paginated(
         .filter(group_accumulator_joins.c.group_accumulator_id == group_accumulator_id)
     )
     total = query.count()
+    order_by_col = today_count_col if sort_by == "today" else total_count_col
     rows = (
-        query.order_by(group_accumulator_joins.c.created_at.desc())
+        query.order_by(
+            order_by_col.desc(),
+            group_accumulator_joins.c.created_at.desc(),
+        )
         .offset(skip)
         .limit(limit)
         .all()

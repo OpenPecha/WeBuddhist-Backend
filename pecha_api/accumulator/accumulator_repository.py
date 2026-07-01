@@ -13,6 +13,7 @@ from .accumulator_history_model import AccumulatorHistory
 from .accumulator_enums import AccumulatorType
 from .group_accumulator_models import GroupAccumulator
 from .group_accumulator_history_model import GroupAccumulatorHistory
+from .group_accumulator_join_model import group_accumulator_joins
 from ..mantra.mantra_model import Mantra
 from ..mantra.mantra_metadata_model import MantraMetadata
 
@@ -314,9 +315,15 @@ def get_user_accumulator_history(
 
 class GroupAccumulatorWithUserCount:
     """Data class for group accumulator with user's total count."""
-    def __init__(self, group_accumulator: GroupAccumulator, user_total_count: int):
+    def __init__(
+        self,
+        group_accumulator: GroupAccumulator,
+        user_total_count: int,
+        is_joined: bool = False,
+    ):
         self.group_accumulator = group_accumulator
         self.user_total_count = user_total_count
+        self.is_joined = is_joined
 
 
 def get_groups_by_accumulator_id(
@@ -329,7 +336,7 @@ def get_groups_by_accumulator_id(
 ) -> Tuple[List[GroupAccumulatorWithUserCount], int]:
     """Get all groups using a specific accumulator with the user's total count for each.
 
-    When joined_only is True, return only group accumulators in groups the user has joined.
+    When joined_only is True, return only group accumulators the user has joined.
     """
     query = db.query(GroupAccumulator).filter(
         GroupAccumulator.accumulator_id == accumulator_id,
@@ -337,12 +344,11 @@ def get_groups_by_accumulator_id(
     )
 
     if joined_only:
-        from pecha_api.plans.groups.groups_repository import get_joined_group_ids_by_user
-
-        joined_group_ids = get_joined_group_ids_by_user(db=db, user_id=user_id)
-        if not joined_group_ids:
-            return [], 0
-        query = query.filter(GroupAccumulator.group_id.in_(joined_group_ids))
+        query = query.join(
+            group_accumulator_joins,
+            (GroupAccumulator.id == group_accumulator_joins.c.group_accumulator_id)
+            & (group_accumulator_joins.c.user_id == user_id),
+        )
 
     total = query.count()
     group_accumulators = query.order_by(GroupAccumulator.created_at.desc()).offset(skip).limit(limit).all()
@@ -367,11 +373,24 @@ def get_groups_by_accumulator_id(
     )
     
     user_counts_map = {row.group_accumulator_id: int(row.total_count or 0) for row in user_counts_query}
-    
+
+    from pecha_api.group_accumulator.group_accumulator_repository import (
+        get_joined_group_accumulator_ids_by_user,
+    )
+
+    joined_ids = set(
+        get_joined_group_accumulator_ids_by_user(
+            db=db,
+            user_id=user_id,
+            group_accumulator_ids=group_accumulator_ids,
+        )
+    )
+
     result = [
         GroupAccumulatorWithUserCount(
             group_accumulator=ga,
-            user_total_count=user_counts_map.get(ga.id, 0)
+            user_total_count=user_counts_map.get(ga.id, 0),
+            is_joined=ga.id in joined_ids,
         )
         for ga in group_accumulators
     ]

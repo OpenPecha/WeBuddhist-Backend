@@ -124,6 +124,10 @@ class AccumulatorGroupDTO(BaseModel):
     image_key: Optional[str] = None
     target_count: Optional[int] = None
     user_total_count: int = Field(..., description="Authenticated user's total count for this group accumulator")
+    is_joined: bool = Field(
+        ...,
+        description="Whether the authenticated user has joined this group accumulator",
+    )
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     created_at: datetime

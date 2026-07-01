@@ -29,7 +29,7 @@ class TestDataFactory:
     ) -> GroupAccumulatorDTO:
         return GroupAccumulatorDTO(
             id=id or uuid4(),
-            accumulator_id=accumulator_id,
+            preset_accumulator_id=accumulator_id,
             group_id=group_id or uuid4(),
             target_count=target_count,
             start_date=datetime.utcnow(),
@@ -48,7 +48,7 @@ class TestDataFactory:
     ) -> GroupAccumulatorDetailDTO:
         return GroupAccumulatorDetailDTO(
             id=id or uuid4(),
-            accumulator_id=accumulator_id,
+            preset_accumulator_id=accumulator_id,
             group_id=group_id or uuid4(),
             target_count=target_count,
             start_date=datetime.utcnow(),
@@ -105,7 +105,7 @@ class TestCreateGroupAccumulator:
         data = response.json()
         assert data["id"] == str(group_accumulator_id)
         assert data["group_id"] == str(group_id)
-        assert data["accumulator_id"] == str(accumulator_id)
+        assert data["preset_accumulator_id"] == str(accumulator_id)
         assert data["target_count"] == 108000
         mock_service.assert_called_once()
 
@@ -421,7 +421,7 @@ class TestUpdateGroupAccumulator:
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["accumulator_id"] == str(accumulator_id)
+        assert data["preset_accumulator_id"] == str(accumulator_id)
 
 
 class TestDeleteGroupAccumulator:
