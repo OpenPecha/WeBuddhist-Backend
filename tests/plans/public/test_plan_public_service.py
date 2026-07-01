@@ -2,7 +2,7 @@ import pytest
 from uuid import uuid4
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock, Mock, AsyncMock
-from datetime import date as DateType, datetime, timezone
+from datetime import date as DateType, datetime, timezone, timedelta
 from fastapi import HTTPException
 from starlette import status
 
@@ -1154,16 +1154,16 @@ async def test_get_plan_daily_content_filters_series_metadata_by_navigation_lang
 
 @pytest.mark.asyncio
 async def test_get_plan_daily_content_defaults_date_to_today_when_in_window():
-    from pecha_api.plans.public import plan_service
-
     plan_id = uuid4()
+    today = datetime.now(timezone.utc).date()
+    start = today - timedelta(days=14)
     mock_plan = _standalone_daily_plan(
-        plan_id, start_date=datetime(2026, 6, 1, tzinfo=timezone.utc)
+        plan_id,
+        start_date=datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc),
     )
     mock_plan_item = MagicMock()
     mock_plan_item.tasks = []
     mock_db = _daily_content_mock_db_session(total_days=30)
-    today = plan_service.dt.now(timezone.utc).date()
 
     with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db), \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan), \
@@ -1173,7 +1173,7 @@ async def test_get_plan_daily_content_defaults_date_to_today_when_in_window():
         result = await get_plan_daily_content(plan_id=plan_id)
 
     assert result.date == today
-    assert result.day_number == (today - DateType(2026, 6, 1)).days + 1
+    assert result.day_number == (today - start).days + 1
 
 
 @pytest.mark.asyncio
