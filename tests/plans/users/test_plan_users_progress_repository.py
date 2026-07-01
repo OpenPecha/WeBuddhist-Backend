@@ -10,7 +10,7 @@ from pecha_api.plans.users.plan_users_progress_repository import (
 def test_get_user_total_practice_days_returns_count():
     user_id = uuid4()
     db = MagicMock()
-    db.query.return_value.filter.return_value.scalar.return_value = 15
+    db.query.return_value.join.return_value.join.return_value.filter.return_value.scalar.return_value = 15
 
     assert get_user_total_practice_days(db=db, user_id=user_id) == 15
 
@@ -18,7 +18,7 @@ def test_get_user_total_practice_days_returns_count():
 def test_get_user_total_practice_days_returns_zero_when_no_completions():
     user_id = uuid4()
     db = MagicMock()
-    db.query.return_value.filter.return_value.scalar.return_value = None
+    db.query.return_value.join.return_value.join.return_value.filter.return_value.scalar.return_value = None
 
     assert get_user_total_practice_days(db=db, user_id=user_id) == 0
 

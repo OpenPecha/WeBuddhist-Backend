@@ -25,10 +25,17 @@ def save_plan_progress(db: Session, plan_progress: EnrolledUserPlan):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ResponseError(error=BAD_REQUEST, message=e.orig).model_dump())
 
 def get_user_total_practice_days(db: Session, user_id: UUID) -> int:
-    """Total number of plan days the user has completed."""
-    return db.query(func.count(UserDayCompletion.id)).filter(
-        UserDayCompletion.user_id == user_id,
-    ).scalar() or 0
+    """Total number of logical plan days the user has completed.
+    """
+    series_key = func.coalesce(Plan.series_id, UserDayCompletion.day_id)
+    return (
+        db.query(func.count(func.distinct(func.row(series_key, PlanItem.day_number))))
+        .join(PlanItem, UserDayCompletion.day_id == PlanItem.id)
+        .join(Plan, PlanItem.plan_id == Plan.id)
+        .filter(UserDayCompletion.user_id == user_id)
+        .scalar()
+        or 0
+    )
 
 
 def get_user_series_days_completed_paginated(
