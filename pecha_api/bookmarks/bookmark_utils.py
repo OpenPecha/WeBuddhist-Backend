@@ -320,7 +320,12 @@ def enrich_series_bookmark(
 
 
 def _mantra_bookmark_title_image(mantra, language: Optional[str]) -> tuple[str, Optional[str]]:
-    """Bookmark (title, image) derived from the linked mantra."""
+    """Bookmark (title, image) derived from the linked mantra.
+
+    Either field may be empty when the mantra is only partially populated
+    (no default mala image, or no metadata title); callers should fall back
+    to the accumulator's own values in that case.
+    """
     image = (
         generate_mala_image_presigned_url(mantra.mala.url)
         if mantra.mala is not None
@@ -338,11 +343,8 @@ def _mantra_bookmark_title_image(mantra, language: Optional[str]) -> tuple[str, 
     return title or "", image
 
 
-def _accumulator_bookmark_title_image(
-    db: Session, accumulator: Accumulator, language: Optional[str]
-) -> tuple[str, Optional[str]]:
-    """Bookmark (title, image) derived from the accumulator itself."""
-    image = resolve_accumulator_bookmark_mala_image_url(db, accumulator)
+def _accumulator_bookmark_title(accumulator: Accumulator, language: Optional[str]) -> str:
+    """Bookmark title derived from the accumulator's own metadata."""
     entries = list(accumulator.metadata_entries)
     if language:
         entries = filter_by_language_with_fallback(
@@ -351,8 +353,7 @@ def _accumulator_bookmark_title_image(
             language_of=_accumulator_metadata_language,
             fallback_language=DEFAULT_FALLBACK_LANGUAGE,
         )
-    title = entries[0].name if entries else ""
-    return title or "", image
+    return (entries[0].name if entries else "") or ""
 
 
 def enrich_accumulator_bookmark(
@@ -379,6 +380,9 @@ def enrich_accumulator_bookmark(
     if not accumulator:
         return {}
 
+    # Prefer the linked mantra's title/image. Fall back per-field to the
+    # accumulator's own values only when the mantra is missing or lacks that
+    # field (no default mala image, or no metadata title).
     mantra = (
         get_mantra_by_id(db, accumulator.mantra_id)
         if accumulator.mantra_id is not None
@@ -387,7 +391,12 @@ def enrich_accumulator_bookmark(
     if mantra is not None:
         title, image = _mantra_bookmark_title_image(mantra, language)
     else:
-        title, image = _accumulator_bookmark_title_image(db, accumulator, language)
+        title, image = "", None
+
+    if not title:
+        title = _accumulator_bookmark_title(accumulator, language)
+    if image is None:
+        image = resolve_accumulator_bookmark_mala_image_url(db, accumulator)
 
     return {
         "accumulator": BookmarkAccumulatorDTO(

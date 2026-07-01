@@ -623,6 +623,9 @@ def test_enrich_accumulator_bookmark_uses_mantra_title_and_image():
         "pecha_api.bookmarks.bookmark_utils.get_mantra_by_id",
         return_value=mock_mantra,
     ), patch(
+        "pecha_api.bookmarks.bookmark_utils.resolve_accumulator_bookmark_mala_image_url",
+        return_value="https://example.com/accumulator.png",
+    ), patch(
         "pecha_api.bookmarks.bookmark_utils.generate_mala_image_presigned_url",
         return_value="https://example.com/mantra.png",
     ):
@@ -634,6 +637,45 @@ def test_enrich_accumulator_bookmark_uses_mantra_title_and_image():
     assert result["accumulator"].id == accumulator_id
     assert result["accumulator"].title == "Mantra Title"
     assert result["accumulator"].image == "https://example.com/mantra.png"
+
+
+def test_enrich_accumulator_bookmark_falls_back_when_mantra_incomplete():
+    from pecha_api.bookmarks.bookmark_utils import enrich_accumulator_bookmark
+
+    accumulator_id = uuid4()
+    mantra_id = uuid4()
+    mock_db = MagicMock()
+    mock_accumulator = MagicMock()
+    mock_accumulator.id = accumulator_id
+    mock_accumulator.mantra_id = mantra_id
+    accumulator_metadata = MagicMock()
+    accumulator_metadata.name = "Accumulator Title"
+    mock_accumulator.metadata_entries = [accumulator_metadata]
+
+    mock_db.query.return_value.options.return_value.filter.return_value.first.return_value = (
+        mock_accumulator
+    )
+
+    # Mantra exists but has no mala image and no metadata title.
+    mock_mantra = MagicMock()
+    mock_mantra.mala = None
+    mock_mantra.metadata_entries = []
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_mantra_by_id",
+        return_value=mock_mantra,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.resolve_accumulator_bookmark_mala_image_url",
+        return_value="https://example.com/accumulator.png",
+    ):
+        result = enrich_accumulator_bookmark(
+            db=mock_db,
+            source_id=str(accumulator_id),
+        )
+
+    # Falls back per-field to the accumulator's own title/image.
+    assert result["accumulator"].title == "Accumulator Title"
+    assert result["accumulator"].image == "https://example.com/accumulator.png"
 
 
 def test_enrich_accumulator_bookmark_filters_metadata_by_language():
