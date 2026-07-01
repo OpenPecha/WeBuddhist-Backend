@@ -14,6 +14,7 @@ from pecha_api.accumulator.accumulator_service import (
     get_accumulator_history_service,
     get_accumulator_detail_service,
     update_mala_image_service,
+    get_accumulator_groups_service,
     convert_accumulator_to_dto,
     convert_accumulator_to_public_dto,
     build_preset_mantra_dto,
@@ -34,6 +35,8 @@ from pecha_api.accumulator.accumulator_response_models import (
     UpdateMalaImageRequest,
     AccumulatorHistoryResponse,
     AccumulatorHistoryDTO,
+    AccumulatorGroupDTO,
+    AccumulatorGroupsResponse,
 )
 from pecha_api.accumulator.accumulator_models import Accumulator
 from pecha_api.accumulator.accumulator_history_model import AccumulatorHistory
@@ -1426,3 +1429,404 @@ class TestHelperFunctions:
             validate_mantra_exists(MagicMock(), uuid4())
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestGetAccumulatorGroupsService:
+    """Test cases for get_accumulator_groups_service function."""
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_groups_by_accumulator_id')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_groups_service_success(
+        self, mock_validate, mock_get_accumulator, mock_get_groups, mock_session
+    ):
+        """Test successful retrieval of groups associated with an accumulator."""
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        group_id_1 = uuid4()
+        group_id_2 = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        # Mock accumulator exists
+        accumulator = TestDataFactory.create_mock_accumulator(accumulator_id=accumulator_id)
+        mock_get_accumulator.return_value = accumulator
+
+        # Mock group accumulators with user counts
+        from pecha_api.accumulator.accumulator_repository import GroupAccumulatorWithUserCount
+        
+        group_acc_1 = MagicMock()
+        group_acc_1.id = uuid4()
+        group_acc_1.group_id = group_id_1
+        group_acc_1.title = "Group Practice 1"
+        group_acc_1.target_count = 100000
+        group_acc_1.start_date = datetime(2024, 1, 1)
+        group_acc_1.end_date = datetime(2024, 12, 31)
+        group_acc_1.created_at = datetime.utcnow()
+        group_acc_1.image_key = None
+
+        group_acc_2 = MagicMock()
+        group_acc_2.id = uuid4()
+        group_acc_2.group_id = group_id_2
+        group_acc_2.title = "Group Practice 2"
+        group_acc_2.target_count = 50000
+        group_acc_2.start_date = datetime(2024, 6, 1)
+        group_acc_2.end_date = datetime(2024, 11, 30)
+        group_acc_2.created_at = datetime.utcnow()
+        group_acc_2.image_key = None
+
+        item_1 = GroupAccumulatorWithUserCount(group_acc_1, 1234, is_joined=True)
+        item_2 = GroupAccumulatorWithUserCount(group_acc_2, 567, is_joined=False)
+
+        mock_get_groups.return_value = ([item_1, item_2], 2)
+
+        result = get_accumulator_groups_service(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=0,
+            limit=20
+        )
+
+        assert isinstance(result, AccumulatorGroupsResponse)
+        assert len(result.groups) == 2
+        assert result.total == 2
+        assert result.skip == 0
+        assert result.limit == 20
+
+        # Verify first group
+        assert result.groups[0].group_id == group_id_1
+        assert result.groups[0].title == "Group Practice 1"
+        assert result.groups[0].target_count == 100000
+        assert result.groups[0].user_total_count == 1234
+        assert result.groups[0].is_joined is True
+
+        # Verify second group
+        assert result.groups[1].group_id == group_id_2
+        assert result.groups[1].title == "Group Practice 2"
+        assert result.groups[1].target_count == 50000
+        assert result.groups[1].user_total_count == 567
+        assert result.groups[1].is_joined is False
+
+        mock_validate.assert_called_once_with(token=token)
+        mock_get_accumulator.assert_called_once_with(mock_db, accumulator_id)
+        mock_get_groups.assert_called_once_with(
+            db=mock_db,
+            accumulator_id=accumulator_id,
+            user_id=user_id,
+            skip=0,
+            limit=20,
+            joined_only=False,
+        )
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_groups_by_accumulator_id')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_groups_service_empty(
+        self, mock_validate, mock_get_accumulator, mock_get_groups, mock_session
+    ):
+        """Test get_accumulator_groups_service when no groups use the accumulator."""
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        accumulator = TestDataFactory.create_mock_accumulator(accumulator_id=accumulator_id)
+        mock_get_accumulator.return_value = accumulator
+        mock_get_groups.return_value = ([], 0)
+
+        result = get_accumulator_groups_service(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=0,
+            limit=20
+        )
+
+        assert isinstance(result, AccumulatorGroupsResponse)
+        assert len(result.groups) == 0
+        assert result.total == 0
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_groups_by_accumulator_id')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_groups_service_user_with_zero_count(
+        self, mock_validate, mock_get_accumulator, mock_get_groups, mock_session
+    ):
+        """Test when user has not contributed to any group yet."""
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        accumulator = TestDataFactory.create_mock_accumulator(accumulator_id=accumulator_id)
+        mock_get_accumulator.return_value = accumulator
+
+        from pecha_api.accumulator.accumulator_repository import GroupAccumulatorWithUserCount
+        
+        group_acc = MagicMock()
+        group_acc.id = uuid4()
+        group_acc.group_id = uuid4()
+        group_acc.title = "Group Practice"
+        group_acc.target_count = 100000
+        group_acc.start_date = datetime(2024, 1, 1)
+        group_acc.end_date = datetime(2024, 12, 31)
+        group_acc.created_at = datetime.utcnow()
+        group_acc.image_key = None
+
+        item = GroupAccumulatorWithUserCount(group_acc, 0)  # Zero count
+        mock_get_groups.return_value = ([item], 1)
+
+        result = get_accumulator_groups_service(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=0,
+            limit=20
+        )
+
+        assert len(result.groups) == 1
+        assert result.groups[0].user_total_count == 0
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_groups_by_accumulator_id')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_groups_service_pagination(
+        self, mock_validate, mock_get_accumulator, mock_get_groups, mock_session
+    ):
+        """Test get_accumulator_groups_service with custom pagination."""
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        accumulator = TestDataFactory.create_mock_accumulator(accumulator_id=accumulator_id)
+        mock_get_accumulator.return_value = accumulator
+
+        from pecha_api.accumulator.accumulator_repository import GroupAccumulatorWithUserCount
+        
+        group_acc = MagicMock()
+        group_acc.id = uuid4()
+        group_acc.group_id = uuid4()
+        group_acc.title = "Group Practice"
+        group_acc.target_count = 100000
+        group_acc.start_date = datetime(2024, 1, 1)
+        group_acc.end_date = datetime(2024, 12, 31)
+        group_acc.created_at = datetime.utcnow()
+        group_acc.image_key = None
+
+        item = GroupAccumulatorWithUserCount(group_acc, 500)
+        mock_get_groups.return_value = ([item], 10)
+
+        result = get_accumulator_groups_service(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=5,
+            limit=1
+        )
+
+        assert result.skip == 5
+        assert result.limit == 1
+        assert result.total == 10
+        assert len(result.groups) == 1
+
+        mock_get_groups.assert_called_once_with(
+            db=mock_db,
+            accumulator_id=accumulator_id,
+            user_id=user_id,
+            skip=5,
+            limit=1,
+            joined_only=False,
+        )
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_groups_by_accumulator_id')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_groups_service_joined_only(
+        self, mock_validate, mock_get_accumulator, mock_get_groups, mock_session
+    ):
+        """Test get_accumulator_groups_service passes joined_only to repository."""
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        accumulator = TestDataFactory.create_mock_accumulator(accumulator_id=accumulator_id)
+        mock_get_accumulator.return_value = accumulator
+        mock_get_groups.return_value = ([], 0)
+
+        get_accumulator_groups_service(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=0,
+            limit=20,
+            joined_only=True,
+        )
+
+        mock_get_groups.assert_called_once_with(
+            db=mock_db,
+            accumulator_id=accumulator_id,
+            user_id=user_id,
+            skip=0,
+            limit=20,
+            joined_only=True,
+        )
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_groups_service_accumulator_not_found(
+        self, mock_validate, mock_get_accumulator, mock_session
+    ):
+        """Test get_accumulator_groups_service when accumulator doesn't exist."""
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        mock_get_accumulator.return_value = None  # Accumulator not found
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_accumulator_groups_service(
+                token=token,
+                accumulator_id=accumulator_id,
+                skip=0,
+                limit=20
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        mock_get_accumulator.assert_called_once_with(mock_db, accumulator_id)
+
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_groups_service_invalid_token(self, mock_validate):
+        """Test get_accumulator_groups_service with invalid authentication token."""
+        token = "invalid_token"
+        accumulator_id = uuid4()
+
+        mock_validate.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            get_accumulator_groups_service(
+                token=token,
+                accumulator_id=accumulator_id,
+                skip=0,
+                limit=20
+            )
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        mock_validate.assert_called_once_with(token=token)
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_groups_by_accumulator_id')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_groups_service_with_optional_fields_none(
+        self, mock_validate, mock_get_accumulator, mock_get_groups, mock_session
+    ):
+        """Test with groups having optional fields as None."""
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        accumulator = TestDataFactory.create_mock_accumulator(accumulator_id=accumulator_id)
+        mock_get_accumulator.return_value = accumulator
+
+        from pecha_api.accumulator.accumulator_repository import GroupAccumulatorWithUserCount
+        
+        group_acc = MagicMock()
+        group_acc.id = uuid4()
+        group_acc.group_id = uuid4()
+        group_acc.title = None  # Optional
+        group_acc.target_count = None  # Optional
+        group_acc.start_date = None  # Optional
+        group_acc.end_date = None  # Optional
+        group_acc.created_at = datetime.utcnow()
+        group_acc.image_key = None
+
+        item = GroupAccumulatorWithUserCount(group_acc, 100)
+        mock_get_groups.return_value = ([item], 1)
+
+        result = get_accumulator_groups_service(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=0,
+            limit=20
+        )
+
+        assert len(result.groups) == 1
+        assert result.groups[0].title is None
+        assert result.groups[0].target_count is None
+        assert result.groups[0].start_date is None
+        assert result.groups[0].end_date is None
+        assert result.groups[0].user_total_count == 100
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_groups_by_accumulator_id')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_groups_service_large_user_count(
+        self, mock_validate, mock_get_accumulator, mock_get_groups, mock_session
+    ):
+        """Test with large user contribution counts."""
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        accumulator = TestDataFactory.create_mock_accumulator(accumulator_id=accumulator_id)
+        mock_get_accumulator.return_value = accumulator
+
+        from pecha_api.accumulator.accumulator_repository import GroupAccumulatorWithUserCount
+        
+        group_acc = MagicMock()
+        group_acc.id = uuid4()
+        group_acc.group_id = uuid4()
+        group_acc.title = "High Volume Practice"
+        group_acc.target_count = 1000000
+        group_acc.start_date = datetime(2024, 1, 1)
+        group_acc.end_date = datetime(2024, 12, 31)
+        group_acc.created_at = datetime.utcnow()
+        group_acc.image_key = None
+
+        item = GroupAccumulatorWithUserCount(group_acc, 999999)  # Large count
+        mock_get_groups.return_value = ([item], 1)
+
+        result = get_accumulator_groups_service(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=0,
+            limit=20
+        )
+
+        assert result.groups[0].user_total_count == 999999
+        assert result.groups[0].target_count == 1000000

@@ -58,6 +58,7 @@ from pecha_api.verse_of_day import verse_of_day_views
 from pecha_api.calendar import calendar_views
 from pecha_api.timers import timer_router
 from pecha_api.accumulator import accumulator_router
+from pecha_api.group_accumulator import group_accumulator_router, group_accumulator_cms_router
 from pecha_api.daily_log import daily_log_views
 from pecha_api.mantra import mantra_views
 from pecha_api.mantra.mantra_count_views import user_mantra_count_router
@@ -144,6 +145,8 @@ api.include_router(verse_of_day_views.cms_verse_of_day_router)
 api.include_router(calendar_views.calendar_router)
 api.include_router(timer_router)
 api.include_router(accumulator_router)
+api.include_router(group_accumulator_router)
+api.include_router(group_accumulator_cms_router)
 api.include_router(daily_log_views.daily_log_router)
 api.include_router(mantra_views.mantra_router)
 api.include_router(mantra_views.cms_mantra_router)
@@ -164,11 +167,19 @@ api.add_middleware(
 api.add_middleware(RequestObservabilityMiddleware)
 configure_openapi_tag_groups(api)
 
+def _scalar_openapi_url() -> str:
+    root = (api.root_path or "").rstrip("/")
+    spec = (api.openapi_url or "/openapi.json").lstrip("/")
+    return f"{root}/{spec}" if root else f"/{spec}"
+
+
 @api.get("/docs", include_in_schema=False)
 async def scalar_docs():
     return get_scalar_api_reference(
-        openapi_url=api.openapi_url,
+        openapi_url=_scalar_openapi_url(),
         title="WeBuddhist API Documentation",
+        persist_auth=True,
+        authentication={},
     )
 
 @api.get("/props", status_code=status.HTTP_200_OK)

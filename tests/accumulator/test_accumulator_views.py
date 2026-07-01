@@ -15,6 +15,7 @@ from pecha_api.accumulator.accumulator_views import (
     get_user_accumulator_history,
     get_accumulator_detail,
     update_accumulator_mala_image,
+    get_accumulator_groups,
 )
 from pecha_api.accumulator.accumulator_response_models import (
     AccumulatorsResponse,
@@ -28,6 +29,8 @@ from pecha_api.accumulator.accumulator_response_models import (
     AccumulatorHistoryResponse,
     AccumulatorHistoryDTO,
     AccumulatorSessionDTO,
+    AccumulatorGroupDTO,
+    AccumulatorGroupsResponse,
 )
 from pecha_api.accumulator.accumulator_enums import AccumulatorType
 
@@ -557,3 +560,329 @@ class TestUpdateAccumulatorMalaImage:
             accumulator_id=accumulator_id,
             request=request,
         )
+
+
+class TestGetAccumulatorGroups:
+    """Test cases for get_accumulator_groups endpoint."""
+
+    @patch('pecha_api.accumulator.accumulator_views.get_accumulator_groups_service')
+    @pytest.mark.asyncio
+    async def test_get_accumulator_groups_success(self, mock_service):
+        """Test successful retrieval of groups associated with an accumulator."""
+        token = "valid_token"
+        accumulator_id = uuid4()
+        group_id_1 = uuid4()
+        group_id_2 = uuid4()
+
+        mock_service.return_value = AccumulatorGroupsResponse(
+            groups=[
+                AccumulatorGroupDTO(
+                    group_accumulator_id=uuid4(),
+                    group_id=group_id_1,
+                    title="Group Practice 1",
+                    target_count=100000,
+                    user_total_count=1234,
+                    is_joined=True,
+                    start_date=datetime(2024, 1, 1),
+                    end_date=datetime(2024, 12, 31),
+                    created_at=datetime.utcnow(),
+                ),
+                AccumulatorGroupDTO(
+                    group_accumulator_id=uuid4(),
+                    group_id=group_id_2,
+                    title="Group Practice 2",
+                    target_count=50000,
+                    user_total_count=567,
+                    is_joined=False,
+                    start_date=datetime(2024, 6, 1),
+                    end_date=datetime(2024, 11, 30),
+                    created_at=datetime.utcnow(),
+                ),
+            ],
+            total=2,
+            skip=0,
+            limit=20,
+        )
+
+        result = await get_accumulator_groups(
+            accumulator_id=accumulator_id,
+            credentials=TestDataFactory.create_auth_credentials(token=token),
+            skip=0,
+            limit=20,
+            joined_only=False,
+        )
+
+        assert isinstance(result, AccumulatorGroupsResponse)
+        assert len(result.groups) == 2
+        assert result.total == 2
+        assert result.groups[0].title == "Group Practice 1"
+        assert result.groups[0].user_total_count == 1234
+        assert result.groups[1].title == "Group Practice 2"
+        assert result.groups[1].user_total_count == 567
+        mock_service.assert_called_once_with(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=0,
+            limit=20,
+            joined_only=False,
+        )
+
+    @patch('pecha_api.accumulator.accumulator_views.get_accumulator_groups_service')
+    @pytest.mark.asyncio
+    async def test_get_accumulator_groups_empty(self, mock_service):
+        """Test get_accumulator_groups when no groups use the accumulator."""
+        token = "valid_token"
+        accumulator_id = uuid4()
+
+        mock_service.return_value = AccumulatorGroupsResponse(
+            groups=[],
+            total=0,
+            skip=0,
+            limit=20,
+        )
+
+        result = await get_accumulator_groups(
+            accumulator_id=accumulator_id,
+            credentials=TestDataFactory.create_auth_credentials(token=token),
+            skip=0,
+            limit=20,
+            joined_only=False,
+        )
+
+        assert isinstance(result, AccumulatorGroupsResponse)
+        assert len(result.groups) == 0
+        assert result.total == 0
+
+    @patch('pecha_api.accumulator.accumulator_views.get_accumulator_groups_service')
+    @pytest.mark.asyncio
+    async def test_get_accumulator_groups_user_with_zero_count(self, mock_service):
+        """Test get_accumulator_groups when user has not contributed to any group."""
+        token = "valid_token"
+        accumulator_id = uuid4()
+
+        mock_service.return_value = AccumulatorGroupsResponse(
+            groups=[
+                AccumulatorGroupDTO(
+                    group_accumulator_id=uuid4(),
+                    group_id=uuid4(),
+                    title="Group Practice",
+                    target_count=100000,
+                    user_total_count=0,  # User hasn't contributed yet
+                    is_joined=True,
+                    start_date=datetime(2024, 1, 1),
+                    end_date=datetime(2024, 12, 31),
+                    created_at=datetime.utcnow(),
+                ),
+            ],
+            total=1,
+            skip=0,
+            limit=20,
+        )
+
+        result = await get_accumulator_groups(
+            accumulator_id=accumulator_id,
+            credentials=TestDataFactory.create_auth_credentials(token=token),
+            skip=0,
+            limit=20,
+            joined_only=False,
+        )
+
+        assert len(result.groups) == 1
+        assert result.groups[0].user_total_count == 0
+
+    @patch('pecha_api.accumulator.accumulator_views.get_accumulator_groups_service')
+    @pytest.mark.asyncio
+    async def test_get_accumulator_groups_pagination(self, mock_service):
+        """Test get_accumulator_groups with custom pagination parameters."""
+        token = "valid_token"
+        accumulator_id = uuid4()
+
+        mock_service.return_value = AccumulatorGroupsResponse(
+            groups=[
+                AccumulatorGroupDTO(
+                    group_accumulator_id=uuid4(),
+                    group_id=uuid4(),
+                    title="Group Practice",
+                    target_count=100000,
+                    user_total_count=500,
+                    is_joined=True,
+                    start_date=datetime(2024, 1, 1),
+                    end_date=datetime(2024, 12, 31),
+                    created_at=datetime.utcnow(),
+                ),
+            ],
+            total=10,
+            skip=5,
+            limit=1,
+        )
+
+        result = await get_accumulator_groups(
+            accumulator_id=accumulator_id,
+            credentials=TestDataFactory.create_auth_credentials(token=token),
+            skip=5,
+            limit=1,
+            joined_only=False,
+        )
+
+        assert result.skip == 5
+        assert result.limit == 1
+        assert result.total == 10
+        assert len(result.groups) == 1
+        mock_service.assert_called_once_with(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=5,
+            limit=1,
+            joined_only=False,
+        )
+
+    @patch('pecha_api.accumulator.accumulator_views.get_accumulator_groups_service')
+    @pytest.mark.asyncio
+    async def test_get_accumulator_groups_joined_only(self, mock_service):
+        """Test get_accumulator_groups with joined_only filter."""
+        token = "valid_token"
+        accumulator_id = uuid4()
+
+        mock_service.return_value = AccumulatorGroupsResponse(
+            groups=[],
+            total=0,
+            skip=0,
+            limit=20,
+        )
+
+        await get_accumulator_groups(
+            accumulator_id=accumulator_id,
+            credentials=TestDataFactory.create_auth_credentials(token=token),
+            skip=0,
+            limit=20,
+            joined_only=True,
+        )
+
+        mock_service.assert_called_once_with(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=0,
+            limit=20,
+            joined_only=True,
+        )
+
+    @patch('pecha_api.accumulator.accumulator_views.get_accumulator_groups_service')
+    @pytest.mark.asyncio
+    async def test_get_accumulator_groups_accumulator_not_found(self, mock_service):
+        """Test get_accumulator_groups when accumulator doesn't exist."""
+        token = "valid_token"
+        accumulator_id = uuid4()
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "NOT_FOUND", "message": "Accumulator not found"},
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_accumulator_groups(
+                accumulator_id=accumulator_id,
+                credentials=TestDataFactory.create_auth_credentials(token=token),
+                skip=0,
+                limit=20,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.accumulator.accumulator_views.get_accumulator_groups_service')
+    @pytest.mark.asyncio
+    async def test_get_accumulator_groups_invalid_token(self, mock_service):
+        """Test get_accumulator_groups with invalid authentication token."""
+        accumulator_id = uuid4()
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_accumulator_groups(
+                accumulator_id=accumulator_id,
+                credentials=TestDataFactory.create_auth_credentials(token="invalid_token"),
+                skip=0,
+                limit=20,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+    @patch('pecha_api.accumulator.accumulator_views.get_accumulator_groups_service')
+    @pytest.mark.asyncio
+    async def test_get_accumulator_groups_with_optional_fields(self, mock_service):
+        """Test get_accumulator_groups with groups having optional fields as None."""
+        token = "valid_token"
+        accumulator_id = uuid4()
+
+        mock_service.return_value = AccumulatorGroupsResponse(
+            groups=[
+                AccumulatorGroupDTO(
+                    group_accumulator_id=uuid4(),
+                    group_id=uuid4(),
+                    title=None,  # Optional field
+                    target_count=None,  # Optional field
+                    user_total_count=100,
+                    is_joined=False,
+                    start_date=None,  # Optional field
+                    end_date=None,  # Optional field
+                    created_at=datetime.utcnow(),
+                ),
+            ],
+            total=1,
+            skip=0,
+            limit=20,
+        )
+
+        result = await get_accumulator_groups(
+            accumulator_id=accumulator_id,
+            credentials=TestDataFactory.create_auth_credentials(token=token),
+            skip=0,
+            limit=20,
+            joined_only=False,
+        )
+
+        assert len(result.groups) == 1
+        assert result.groups[0].title is None
+        assert result.groups[0].target_count is None
+        assert result.groups[0].start_date is None
+        assert result.groups[0].end_date is None
+        assert result.groups[0].user_total_count == 100
+
+    @patch('pecha_api.accumulator.accumulator_views.get_accumulator_groups_service')
+    @pytest.mark.asyncio
+    async def test_get_accumulator_groups_large_user_count(self, mock_service):
+        """Test get_accumulator_groups with large user contribution counts."""
+        token = "valid_token"
+        accumulator_id = uuid4()
+
+        mock_service.return_value = AccumulatorGroupsResponse(
+            groups=[
+                AccumulatorGroupDTO(
+                    group_accumulator_id=uuid4(),
+                    group_id=uuid4(),
+                    title="High Volume Practice",
+                    target_count=1000000,
+                    user_total_count=999999,  # Large count
+                    is_joined=True,
+                    start_date=datetime(2024, 1, 1),
+                    end_date=datetime(2024, 12, 31),
+                    created_at=datetime.utcnow(),
+                ),
+            ],
+            total=1,
+            skip=0,
+            limit=20,
+        )
+
+        result = await get_accumulator_groups(
+            accumulator_id=accumulator_id,
+            credentials=TestDataFactory.create_auth_credentials(token=token),
+            skip=0,
+            limit=20,
+            joined_only=False,
+        )
+
+        assert result.groups[0].user_total_count == 999999
+        assert result.groups[0].target_count == 1000000

@@ -133,6 +133,7 @@ class UserSeriesEnrollmentDTO(BaseModel):
     total_plans: int
     completed_plans: int
     progress_percentage: float
+    enrolled_count: int = 0
     group: Optional[AuthorGroupSummaryDTO] = None
     series_partner_id: Optional[UUID] = None  # Partner group ID when enrolled via a partner group
 
@@ -156,6 +157,7 @@ class UserSeriesProgressResponse(BaseModel):
     is_completed: bool
     completed_at: Optional[datetime] = None
     plans: List[UserPlanDTO]  # All plans in series with completion status
+    enrolled_count: int = 0
     group: Optional[AuthorGroupSummaryDTO] = None
 
 
@@ -170,6 +172,7 @@ class UserSeriesDaysCompletedDTO(BaseModel):
     series_description: Optional[str] = None
     image: Optional[ImageUrlModel] = None
     days_completed: int
+    enrolled_count: int = 0
     group: Optional[AuthorGroupSummaryDTO] = None
 
 

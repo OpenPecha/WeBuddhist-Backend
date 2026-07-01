@@ -62,6 +62,9 @@ SCHEMA_MARKERS: dict[str, list[tuple]] = {
     "f0eab4237ef7": [("column", "user_series_enrollment", "series_partner_id")],
     "z0a1b2c3d4e5": [("enum", "sessiontype", "ACCUMULATOR")],
     "z3a4b5c6d7e8": [("column", "users", "has_seen_onboarding")],
+    "d8e9f0a1b2c3": [("column", "routine_time_blocks", "time_utc")],
+    "e9f0a1b2c3d4": [("table", "group_accumulator_joins")],
+    "z2b3c4d5e6f7": [("table", "group_accumulators")],
 }
 
 

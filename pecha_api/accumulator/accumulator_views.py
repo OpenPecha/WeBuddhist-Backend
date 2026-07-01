@@ -13,7 +13,8 @@ from .accumulator_service import (
     delete_accumulator_service,
     get_accumulator_history_service,
     get_accumulator_detail_service,
-    update_mala_image_service
+    update_mala_image_service,
+    get_accumulator_groups_service
 )
 from .accumulator_response_models import (
     AccumulatorsResponse,
@@ -23,7 +24,8 @@ from .accumulator_response_models import (
     UpdateAccumulatorRequest,
     UpdateMalaImageRequest,
     AccumulatorHistoryResponse,
-    AccumulatorHistoryDTO
+    AccumulatorHistoryDTO,
+    AccumulatorGroupsResponse
 )
 from ..users.users_service import validate_and_extract_user_details
 
@@ -123,6 +125,27 @@ async def get_user_accumulator_history(
         token=credentials.credentials,
         skip=skip,
         limit=limit
+    )
+
+
+@accumulator_router.get("/{accumulator_id}/groups", response_model=AccumulatorGroupsResponse)
+async def get_accumulator_groups(
+    accumulator_id: UUID,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
+    joined_only: bool = Query(
+        False,
+        description="When true, return only group accumulators the authenticated user has joined",
+    ),
+):
+    """Get groups using this accumulator with the authenticated user's total count for each group."""
+    return get_accumulator_groups_service(
+        token=credentials.credentials,
+        accumulator_id=accumulator_id,
+        skip=skip,
+        limit=limit,
+        joined_only=joined_only,
     )
 
 

@@ -843,6 +843,9 @@ def test_get_user_series_enrollments_success():
         "pecha_api.plans.users.plan_users_service.get_group_summaries_by_ids",
         return_value={},
     ), patch(
+        "pecha_api.plans.users.plan_users_service.get_enrolled_count_map_by_series_ids",
+        return_value={series_id: 12},
+    ), patch(
         "pecha_api.plans.users.plan_users_service.safe_get_image_url",
         return_value=ImageUrlModel(
             thumbnail="https://signed.example.com/series-thumb.jpg",
@@ -864,6 +867,7 @@ def test_get_user_series_enrollments_success():
     assert dto.image is not None
     assert dto.image.original == "https://signed.example.com/series.jpg"
     assert dto.series_partner_id == partner_group_id
+    assert dto.enrolled_count == 12
 
 
 def test_get_user_series_enrollments_skips_missing_series():
@@ -1017,6 +1021,9 @@ def test_get_user_series_days_completed_success():
         "pecha_api.plans.users.plan_users_service.get_group_summaries_by_ids",
         return_value={},
     ), patch(
+        "pecha_api.plans.users.plan_users_service.get_enrolled_count_map_by_series_ids",
+        return_value={series_id: 7},
+    ), patch(
         "pecha_api.plans.users.plan_users_service.safe_get_image_url",
         return_value=ImageUrlModel(
             thumbnail="https://signed.example.com/thumb.jpg",
@@ -1037,6 +1044,7 @@ def test_get_user_series_days_completed_success():
     assert result.series[0].series_id == series_id
     assert result.series[0].series_title == "Morning Practice"
     assert result.series[0].days_completed == 12
+    assert result.series[0].enrolled_count == 7
 
 
 def test_get_user_series_days_completed_skips_missing_series():
@@ -1177,6 +1185,9 @@ def test_get_user_series_progress_success():
         "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
         return_value=SimpleNamespace(started_at=datetime.now(timezone.utc)),
     ), patch(
+        "pecha_api.plans.users.plan_users_service.get_enrolled_count_map_by_series_ids",
+        return_value={series_id: 25},
+    ), patch(
         "pecha_api.plans.users.plan_users_service.safe_get_image_url",
         return_value=None,
     ):
@@ -1184,6 +1195,7 @@ def test_get_user_series_progress_success():
 
     assert result.id == enrollment_id
     assert result.series_title == "Series"
+    assert result.enrolled_count == 25
     assert len(result.plans) == 1
     assert result.plans[0].title == "Plan 1"
     assert result.plans[0].image is None
