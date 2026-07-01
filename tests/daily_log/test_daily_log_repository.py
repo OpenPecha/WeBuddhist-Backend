@@ -4,6 +4,7 @@ from uuid import uuid4
 
 from pecha_api.daily_log.daily_log_repository import (
     get_highest_streak,
+    get_user_activity_totals,
     get_user_streak,
     get_week_active_days,
 )
@@ -100,3 +101,15 @@ def test_get_highest_streak_returns_max_from_query():
     db.execute.return_value.scalar_one.return_value = 4
 
     assert get_highest_streak(db=db, user_id=uuid4()) == 4
+
+
+def test_get_user_activity_totals_returns_timer_accumulated_and_practice_days():
+    db = MagicMock()
+    # (timer_ms, accumulated_count, distinct_logical_practice_days)
+    db.execute.return_value.one.return_value = (1200, 10800, 3)
+
+    timer_total, accumulated_total, practice_days = get_user_activity_totals(
+        db=db, user_id=uuid4()
+    )
+
+    assert (timer_total, accumulated_total, practice_days) == (1200, 10800, 3)

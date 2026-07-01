@@ -2,7 +2,7 @@ import pytest
 from uuid import uuid4
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock, Mock, AsyncMock
-from datetime import date as DateType, datetime, timezone, timedelta
+from datetime import date as DateType, datetime, timedelta, timezone
 from fastapi import HTTPException
 from starlette import status
 
@@ -1154,12 +1154,16 @@ async def test_get_plan_daily_content_filters_series_metadata_by_navigation_lang
 
 @pytest.mark.asyncio
 async def test_get_plan_daily_content_defaults_date_to_today_when_in_window():
+    from pecha_api.plans.public import plan_service
+
     plan_id = uuid4()
-    today = datetime.now(timezone.utc).date()
-    start = today - timedelta(days=14)
+    today = plan_service.dt.now(timezone.utc).date()
+    # Anchor the window relative to today so the test stays stable on any date:
+    # start 5 days ago with a 30-day window keeps today inside the window.
+    start = today - timedelta(days=5)
     mock_plan = _standalone_daily_plan(
         plan_id,
-        start_date=datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc),
+        start_date=datetime(start.year, start.month, start.day, tzinfo=timezone.utc),
     )
     mock_plan_item = MagicMock()
     mock_plan_item.tasks = []

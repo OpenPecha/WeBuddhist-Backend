@@ -41,8 +41,10 @@ from pecha_api.plans.series.series_service import (
 )
 from pecha_api.accumulator.accumulator_models import Accumulator
 from pecha_api.accumulator.accumulator_service import (
+    generate_mala_image_presigned_url,
     resolve_accumulator_bookmark_mala_image_url,
 )
+from pecha_api.mantra.mantra_repository import get_mantra_by_id
 from pecha_api.timers.timer_repository import get_timer_by_id
 
 DEFAULT_FALLBACK_LANGUAGE = "EN"
@@ -60,6 +62,10 @@ def _plan_language_code(plan) -> str:
 
 
 def _accumulator_metadata_language(entry) -> str:
+    return entry.language.value if hasattr(entry.language, "value") else str(entry.language)
+
+
+def _mantra_metadata_language(entry) -> str:
     return entry.language.value if hasattr(entry.language, "value") else str(entry.language)
 
 
@@ -313,6 +319,43 @@ def enrich_series_bookmark(
     }
 
 
+def _mantra_bookmark_title_image(mantra, language: Optional[str]) -> tuple[str, Optional[str]]:
+    """Bookmark (title, image) derived from the linked mantra.
+
+    Either field may be empty when the mantra is only partially populated
+    (no default mala image, or no metadata title); callers should fall back
+    to the accumulator's own values in that case.
+    """
+    image = (
+        generate_mala_image_presigned_url(mantra.mala.url)
+        if mantra.mala is not None
+        else None
+    )
+    entries = list(mantra.metadata_entries)
+    if language:
+        entries = filter_by_language_with_fallback(
+            entries=entries,
+            language=language,
+            language_of=_mantra_metadata_language,
+            fallback_language=DEFAULT_FALLBACK_LANGUAGE,
+        )
+    title = entries[0].title if entries else ""
+    return title or "", image
+
+
+def _accumulator_bookmark_title(accumulator: Accumulator, language: Optional[str]) -> str:
+    """Bookmark title derived from the accumulator's own metadata."""
+    entries = list(accumulator.metadata_entries)
+    if language:
+        entries = filter_by_language_with_fallback(
+            entries=entries,
+            language=language,
+            language_of=_accumulator_metadata_language,
+            fallback_language=DEFAULT_FALLBACK_LANGUAGE,
+        )
+    return (entries[0].name if entries else "") or ""
+
+
 def enrich_accumulator_bookmark(
     db: Session,
     source_id: str,
@@ -337,25 +380,29 @@ def enrich_accumulator_bookmark(
     if not accumulator:
         return {}
 
-    mala_image_url = resolve_accumulator_bookmark_mala_image_url(db, accumulator)
-    metadata_entries = list(accumulator.metadata_entries)
-    if language:
-        metadata_entries = filter_by_language_with_fallback(
-            entries=metadata_entries,
-            language=language,
-            language_of=_accumulator_metadata_language,
-            fallback_language=DEFAULT_FALLBACK_LANGUAGE,
-        )
+    # Prefer the linked mantra's title/image. Fall back per-field to the
+    # accumulator's own values only when the mantra is missing or lacks that
+    # field (no default mala image, or no metadata title).
+    mantra = (
+        get_mantra_by_id(db, accumulator.mantra_id)
+        if accumulator.mantra_id is not None
+        else None
+    )
+    if mantra is not None:
+        title, image = _mantra_bookmark_title_image(mantra, language)
+    else:
+        title, image = "", None
 
-    title = ""
-    if metadata_entries:
-        title = metadata_entries[0].name
+    if not title:
+        title = _accumulator_bookmark_title(accumulator, language)
+    if image is None:
+        image = resolve_accumulator_bookmark_mala_image_url(db, accumulator)
 
     return {
         "accumulator": BookmarkAccumulatorDTO(
             id=accumulator.id,
             title=title,
-            image=mala_image_url,
+            image=image,
         )
     }
 
