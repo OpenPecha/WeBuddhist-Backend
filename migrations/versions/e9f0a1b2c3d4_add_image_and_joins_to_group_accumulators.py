@@ -13,7 +13,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-from migrations.idempotency import column_exists, index_exists, table_exists
+from migrations.idempotency import column_exists, fk_exists, index_exists, table_exists
+from migrations.group_accumulator_schema import ensure_group_accumulator_tables
 
 # revision identifiers, used by Alembic.
 revision: str = "e9f0a1b2c3d4"
@@ -23,6 +24,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    ensure_group_accumulator_tables()
+
     if not column_exists("group_accumulators", "image_key"):
         op.add_column(
             "group_accumulators",
