@@ -312,6 +312,7 @@ def get_group_accumulator_members_service(
     group_accumulator_id: UUID,
     skip: int = 0,
     limit: int = 20,
+    timezone_name: Optional[str] = None,
 ) -> GroupAccumulatorMembersResponse:
     with SessionLocal() as db:
         group_accumulator = get_group_accumulator_by_id(db, group_accumulator_id)
@@ -321,11 +322,16 @@ def get_group_accumulator_members_service(
                 detail={"error": "NOT_FOUND", "message": "Group accumulator not found"},
             )
 
+        tz = normalize_timezone_name(timezone_name)
+        range_start, range_end = get_day_bounds_in_timezone(tz)
+
         rows, total = list_group_accumulator_joiners_paginated(
             db=db,
             group_accumulator_id=group_accumulator_id,
             skip=skip,
             limit=limit,
+            range_start=range_start,
+            range_end=range_end,
         )
 
         return GroupAccumulatorMembersResponse(
@@ -336,9 +342,12 @@ def get_group_accumulator_members_service(
                     fullname=_user_fullname(user),
                     avatar_url=_user_avatar_url(user),
                     joined_at=joined_at,
+                    total_count=total_count,
+                    today_count=today_count,
                 )
-                for user, joined_at in rows
+                for user, joined_at, total_count, today_count in rows
             ],
+            member_count=total,
             total=total,
             skip=skip,
             limit=limit,

@@ -274,13 +274,44 @@ def list_group_accumulator_joiners_paginated(
     group_accumulator_id: UUID,
     skip: int,
     limit: int,
-) -> Tuple[List[Tuple[Users, datetime]], int]:
+    range_start: datetime,
+    range_end: datetime,
+) -> Tuple[List[Tuple[Users, datetime, int, int]], int]:
+    total_subq = (
+        db.query(
+            GroupAccumulatorHistory.user_id.label("user_id"),
+            func.coalesce(func.sum(GroupAccumulatorHistory.count), 0).label("total_count"),
+        )
+        .filter(GroupAccumulatorHistory.group_accumulator_id == group_accumulator_id)
+        .group_by(GroupAccumulatorHistory.user_id)
+        .subquery()
+    )
+    today_subq = (
+        db.query(
+            GroupAccumulatorHistory.user_id.label("user_id"),
+            func.coalesce(func.sum(GroupAccumulatorHistory.count), 0).label("today_count"),
+        )
+        .filter(GroupAccumulatorHistory.group_accumulator_id == group_accumulator_id)
+        .filter(
+            GroupAccumulatorHistory.created_at >= range_start,
+            GroupAccumulatorHistory.created_at <= range_end,
+        )
+        .group_by(GroupAccumulatorHistory.user_id)
+        .subquery()
+    )
     query = (
-        db.query(Users, group_accumulator_joins.c.created_at)
+        db.query(
+            Users,
+            group_accumulator_joins.c.created_at,
+            func.coalesce(total_subq.c.total_count, 0).label("total_count"),
+            func.coalesce(today_subq.c.today_count, 0).label("today_count"),
+        )
         .join(
             group_accumulator_joins,
             Users.id == group_accumulator_joins.c.user_id,
         )
+        .outerjoin(total_subq, Users.id == total_subq.c.user_id)
+        .outerjoin(today_subq, Users.id == today_subq.c.user_id)
         .filter(group_accumulator_joins.c.group_accumulator_id == group_accumulator_id)
     )
     total = query.count()
@@ -290,4 +321,7 @@ def list_group_accumulator_joiners_paginated(
         .limit(limit)
         .all()
     )
-    return rows, total
+    return [
+        (user, joined_at, int(total_count or 0), int(today_count or 0))
+        for user, joined_at, total_count, today_count in rows
+    ], total

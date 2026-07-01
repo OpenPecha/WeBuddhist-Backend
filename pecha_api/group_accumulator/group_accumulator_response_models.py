@@ -89,10 +89,13 @@ class GroupAccumulatorMemberDTO(BaseModel):
     fullname: str
     avatar_url: Optional[str] = None
     joined_at: datetime
+    total_count: int = Field(0, description="Member's lifetime contribution count")
+    today_count: int = Field(0, description="Member's contribution count for today in the request timezone")
 
 
 class GroupAccumulatorMembersResponse(BaseModel):
     members: List[GroupAccumulatorMemberDTO]
+    member_count: int = Field(..., description="Total number of users who joined this group accumulator")
     total: int
     skip: int
     limit: int

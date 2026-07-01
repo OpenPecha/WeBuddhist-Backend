@@ -137,12 +137,17 @@ async def get_group_accumulator_members(
     group_accumulator_id: UUID,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone for today counts (e.g. Asia/Kathmandu). Defaults to UTC."),
+    ] = None,
 ):
-    """List users who joined this group accumulator."""
+    """List users who joined this group accumulator with lifetime and today counts."""
     return get_group_accumulator_members_service(
         group_accumulator_id=group_accumulator_id,
         skip=skip,
         limit=limit,
+        timezone_name=x_timezone,
     )
 
 

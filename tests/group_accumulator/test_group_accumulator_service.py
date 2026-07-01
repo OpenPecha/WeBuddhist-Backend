@@ -997,13 +997,16 @@ class TestGetGroupAccumulatorMembersService:
         mock_session.return_value.__enter__.return_value = mock_db
         mock_get_acc.return_value = MockGroupAccumulator(id=accumulator_id)
         mock_user = MockUser(id=user_id)
-        mock_list_joiners.return_value = ([(mock_user, joined_at)], 1)
+        mock_list_joiners.return_value = ([(mock_user, joined_at, 500, 108)], 1)
         mock_fullname.return_value = "Test User"
         mock_avatar.return_value = "https://example.com/avatar.jpg"
 
         result = get_group_accumulator_members_service(group_accumulator_id=accumulator_id)
 
+        assert result.member_count == 1
         assert result.total == 1
         assert result.members[0].user_id == user_id
         assert result.members[0].fullname == "Test User"
         assert result.members[0].joined_at == joined_at
+        assert result.members[0].total_count == 500
+        assert result.members[0].today_count == 108

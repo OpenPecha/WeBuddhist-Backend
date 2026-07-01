@@ -819,7 +819,7 @@ When `today_only=true`:
 
 ### GET /group-accumulators/{group_accumulator_id}/members
 
-List users who joined this group accumulator.
+List users who joined this group accumulator, including each member's lifetime and today contribution counts.
 
 **Authentication**: Not required
 
@@ -834,6 +834,11 @@ List users who joined this group accumulator.
 | `skip` | int | 0 | Pagination offset |
 | `limit` | int | 20 | Max records (1-100) |
 
+**Headers**:
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Timezone` | No | IANA timezone for `today_count` (e.g. `Asia/Kathmandu`). Defaults to UTC. |
+
 **Response**: `GroupAccumulatorMembersResponse`
 
 ```json
@@ -844,14 +849,26 @@ List users who joined this group accumulator.
       "username": "practitioner",
       "fullname": "Jane Doe",
       "avatar_url": "https://presigned-s3-url...",
-      "joined_at": "2024-01-10T08:00:00Z"
+      "joined_at": "2024-01-10T08:00:00Z",
+      "total_count": 5000,
+      "today_count": 108
     }
   ],
+  "member_count": 128,
   "total": 128,
   "skip": 0,
   "limit": 20
 }
 ```
+
+| Field | Description |
+|-------|-------------|
+| `members[].total_count` | Member's lifetime contribution total |
+| `members[].today_count` | Member's contribution total for today in `X-Timezone` |
+| `member_count` | Total number of users who joined this group accumulator |
+| `total` | Pagination total (same as `member_count` for this endpoint) |
+
+Members who joined but have not contributed yet appear with `total_count: 0` and `today_count: 0`.
 
 ---
 
@@ -1305,6 +1322,8 @@ interface GroupAccumulatorMemberDTO {
   fullname: string;
   avatar_url: string | null;     // Presigned S3 URL
   joined_at: string;             // ISO datetime
+  total_count: number;           // Lifetime contribution count
+  today_count: number;           // Today's contribution count in request timezone
 }
 ```
 
@@ -1313,7 +1332,8 @@ interface GroupAccumulatorMemberDTO {
 ```typescript
 interface GroupAccumulatorMembersResponse {
   members: GroupAccumulatorMemberDTO[];
-  total: number;
+  member_count: number;          // Total users who joined
+  total: number;                 // Pagination total (same as member_count)
   skip: number;
   limit: number;
 }

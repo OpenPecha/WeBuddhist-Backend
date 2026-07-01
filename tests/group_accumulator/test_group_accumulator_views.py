@@ -522,8 +522,11 @@ class TestGetGroupAccumulatorMembersView:
                     fullname="Test User",
                     avatar_url=None,
                     joined_at=datetime.utcnow(),
+                    total_count=500,
+                    today_count=108,
                 )
             ],
+            member_count=1,
             total=1,
             skip=0,
             limit=20,
@@ -532,7 +535,10 @@ class TestGetGroupAccumulatorMembersView:
         response = client.get(f"/group-accumulators/{group_accumulator_id}/members")
 
         assert response.status_code == status.HTTP_200_OK
+        assert response.json()["member_count"] == 1
         assert response.json()["total"] == 1
+        assert response.json()["members"][0]["total_count"] == 500
+        assert response.json()["members"][0]["today_count"] == 108
         assert len(response.json()["members"]) == 1
 
 
@@ -549,34 +555,3 @@ class TestJoinGroupAccumulatorView:
             token="valid_token",
             group_accumulator_id=group_accumulator_id,
         )
-
-
-class TestGetGroupAccumulatorMembersView:
-    @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulator_members_service')
-    def test_get_members_success(self, mock_service):
-        from pecha_api.group_accumulator.group_accumulator_response_models import (
-            GroupAccumulatorMembersResponse,
-            GroupAccumulatorMemberDTO,
-        )
-
-        group_accumulator_id = uuid4()
-        mock_service.return_value = GroupAccumulatorMembersResponse(
-            members=[
-                GroupAccumulatorMemberDTO(
-                    user_id=uuid4(),
-                    username="testuser",
-                    fullname="Test User",
-                    avatar_url=None,
-                    joined_at=datetime.utcnow(),
-                )
-            ],
-            total=1,
-            skip=0,
-            limit=20,
-        )
-
-        response = client.get(f"/group-accumulators/{group_accumulator_id}/members")
-
-        assert response.status_code == status.HTTP_200_OK
-        assert response.json()["total"] == 1
-        assert len(response.json()["members"]) == 1
