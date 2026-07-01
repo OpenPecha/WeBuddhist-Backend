@@ -66,7 +66,10 @@ class GroupAccumulatorDetailDTO(BaseModel):
     target_count: Optional[int] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
-    total_count: int = Field(..., description="Total count from all users")
+    total_count: int = Field(..., description="Total lifetime count from all users")
+    total_today_count: int = Field(0, description="Total count from all users for today in the request timezone")
+    user_total_count: Optional[int] = Field(None, description="Authenticated user's lifetime count (detail endpoint only)")
+    user_today_count: Optional[int] = Field(None, description="Authenticated user's count for today (detail endpoint only)")
     member_count: int = Field(0, description="Number of users who joined this group accumulator")
     created_at: datetime
     updated_at: Optional[datetime] = None

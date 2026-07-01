@@ -192,7 +192,11 @@ class TestGetGroupAccumulator:
         data = response.json()
         assert data["id"] == str(group_accumulator_id)
         assert data["total_count"] == 5000
-        mock_service.assert_called_once_with(group_accumulator_id=group_accumulator_id)
+        mock_service.assert_called_once_with(
+            group_accumulator_id=group_accumulator_id,
+            timezone_name=None,
+            token=None,
+        )
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulator_service')
     def test_get_group_accumulator_not_found(self, mock_service):
@@ -341,6 +345,8 @@ class TestGetGroupAccumulatorHistory:
             group_accumulator_id=accumulator_id,
             skip=0,
             limit=20,
+            today_only=False,
+            timezone_name=None,
         )
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulator_history_service')
@@ -362,6 +368,8 @@ class TestGetGroupAccumulatorHistory:
             group_accumulator_id=accumulator_id,
             skip=5,
             limit=5,
+            today_only=False,
+            timezone_name=None,
         )
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulator_history_service')

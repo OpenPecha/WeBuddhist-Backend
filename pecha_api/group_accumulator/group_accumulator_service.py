@@ -1,10 +1,11 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import UUID
 from fastapi import HTTPException
 from starlette import status
 
 from pecha_api.db.database import SessionLocal
 from pecha_api.users.users_service import validate_and_extract_user_details
+from pecha_api.timezone_utils import get_day_bounds_in_timezone, normalize_timezone_name
 from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
 from pecha_api.plans.shared.permissions import (
     require_can_create_content,
@@ -30,6 +31,7 @@ from .group_accumulator_repository import (
     add_group_history_row,
     get_group_accumulator_history,
     get_group_accumulator_total_count,
+    get_group_accumulator_count_in_range,
     get_user_group_accumulator_count,
     verify_group_exists,
     upsert_group_accumulator_join,
@@ -95,11 +97,19 @@ def _convert_to_dto(group_accumulator) -> GroupAccumulatorDTO:
     )
 
 
+def _today_bounds(timezone_name: Optional[str]) -> Tuple:
+    normalized = normalize_timezone_name(timezone_name)
+    return get_day_bounds_in_timezone(normalized)
+
+
 def _convert_to_detail_dto(
     group_accumulator,
     *,
     total_count: int,
+    total_today_count: int,
     member_count: int,
+    user_total_count: Optional[int] = None,
+    user_today_count: Optional[int] = None,
 ) -> GroupAccumulatorDetailDTO:
     return GroupAccumulatorDetailDTO(
         id=group_accumulator.id,
@@ -112,6 +122,9 @@ def _convert_to_detail_dto(
         start_date=group_accumulator.start_date,
         end_date=group_accumulator.end_date,
         total_count=total_count,
+        total_today_count=total_today_count,
+        user_total_count=user_total_count,
+        user_today_count=user_today_count,
         member_count=member_count,
         created_at=group_accumulator.created_at,
         updated_at=group_accumulator.updated_at,
@@ -159,6 +172,8 @@ def get_group_accumulators_service(
 
 def get_group_accumulator_service(
     group_accumulator_id: UUID,
+    timezone_name: Optional[str] = None,
+    token: Optional[str] = None,
 ) -> GroupAccumulatorDetailDTO:
     with SessionLocal() as db:
         group_accumulator = get_group_accumulator_by_id(db, group_accumulator_id)
@@ -170,11 +185,38 @@ def get_group_accumulator_service(
         
         total_count = get_group_accumulator_total_count(db, group_accumulator_id)
         member_count = get_group_accumulator_joiners_count(db, group_accumulator_id)
+        day_start, day_end = _today_bounds(timezone_name)
+        total_today_count = get_group_accumulator_count_in_range(
+            db=db,
+            group_accumulator_id=group_accumulator_id,
+            range_start=day_start,
+            range_end=day_end,
+        )
+
+        user_total_count = None
+        user_today_count = None
+        if token:
+            current_user = validate_and_extract_user_details(token=token)
+            user_total_count = get_user_group_accumulator_count(
+                db=db,
+                group_accumulator_id=group_accumulator_id,
+                user_id=current_user.id,
+            )
+            user_today_count = get_group_accumulator_count_in_range(
+                db=db,
+                group_accumulator_id=group_accumulator_id,
+                range_start=day_start,
+                range_end=day_end,
+                user_id=current_user.id,
+            )
 
         return _convert_to_detail_dto(
             group_accumulator,
             total_count=total_count,
+            total_today_count=total_today_count,
             member_count=member_count,
+            user_total_count=user_total_count,
+            user_today_count=user_today_count,
         )
 
 
@@ -406,6 +448,8 @@ def get_group_accumulator_history_service(
     group_accumulator_id: UUID,
     skip: int = 0,
     limit: int = 20,
+    today_only: bool = False,
+    timezone_name: Optional[str] = None,
 ) -> GroupAccumulatorHistoryResponse:
     with SessionLocal() as db:
         group_accumulator = get_group_accumulator_by_id(db, group_accumulator_id)
@@ -414,15 +458,33 @@ def get_group_accumulator_history_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"error": "NOT_FOUND", "message": "Group accumulator not found"}
             )
-        
-        history, total = get_group_accumulator_history(db, group_accumulator_id, skip, limit)
+
+        day_start, day_end = _today_bounds(timezone_name)
+        range_start = day_start if today_only else None
+        range_end = day_end if today_only else None
+
+        history, total = get_group_accumulator_history(
+            db,
+            group_accumulator_id,
+            skip,
+            limit,
+            range_start=range_start,
+            range_end=range_end,
+        )
         total_count = get_group_accumulator_total_count(db, group_accumulator_id)
+        total_today_count = get_group_accumulator_count_in_range(
+            db=db,
+            group_accumulator_id=group_accumulator_id,
+            range_start=day_start,
+            range_end=day_end,
+        )
         member_count = get_group_accumulator_joiners_count(db, group_accumulator_id)
 
         return GroupAccumulatorHistoryResponse(
             group_accumulator=_convert_to_detail_dto(
                 group_accumulator,
                 total_count=total_count,
+                total_today_count=total_today_count,
                 member_count=member_count,
             ),
             history=[
@@ -517,10 +579,18 @@ def get_group_accumulator_cms_service(
         
         total_count = get_group_accumulator_total_count(db, group_accumulator_id)
         member_count = get_group_accumulator_joiners_count(db, group_accumulator_id)
+        day_start, day_end = _today_bounds(timezone_name=None)
+        total_today_count = get_group_accumulator_count_in_range(
+            db=db,
+            group_accumulator_id=group_accumulator_id,
+            range_start=day_start,
+            range_end=day_end,
+        )
 
         return _convert_to_detail_dto(
             group_accumulator,
             total_count=total_count,
+            total_today_count=total_today_count,
             member_count=member_count,
         )
 

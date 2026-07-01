@@ -1467,6 +1467,7 @@ class TestGetAccumulatorGroupsService:
         group_acc_1.start_date = datetime(2024, 1, 1)
         group_acc_1.end_date = datetime(2024, 12, 31)
         group_acc_1.created_at = datetime.utcnow()
+        group_acc_1.image_key = None
 
         group_acc_2 = MagicMock()
         group_acc_2.id = uuid4()
@@ -1476,6 +1477,7 @@ class TestGetAccumulatorGroupsService:
         group_acc_2.start_date = datetime(2024, 6, 1)
         group_acc_2.end_date = datetime(2024, 11, 30)
         group_acc_2.created_at = datetime.utcnow()
+        group_acc_2.image_key = None
 
         item_1 = GroupAccumulatorWithUserCount(group_acc_1, 1234)
         item_2 = GroupAccumulatorWithUserCount(group_acc_2, 567)
@@ -1514,7 +1516,8 @@ class TestGetAccumulatorGroupsService:
             accumulator_id=accumulator_id,
             user_id=user_id,
             skip=0,
-            limit=20
+            limit=20,
+            joined_only=False,
         )
 
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
@@ -1577,6 +1580,7 @@ class TestGetAccumulatorGroupsService:
         group_acc.start_date = datetime(2024, 1, 1)
         group_acc.end_date = datetime(2024, 12, 31)
         group_acc.created_at = datetime.utcnow()
+        group_acc.image_key = None
 
         item = GroupAccumulatorWithUserCount(group_acc, 0)  # Zero count
         mock_get_groups.return_value = ([item], 1)
@@ -1620,6 +1624,7 @@ class TestGetAccumulatorGroupsService:
         group_acc.start_date = datetime(2024, 1, 1)
         group_acc.end_date = datetime(2024, 12, 31)
         group_acc.created_at = datetime.utcnow()
+        group_acc.image_key = None
 
         item = GroupAccumulatorWithUserCount(group_acc, 500)
         mock_get_groups.return_value = ([item], 10)
@@ -1641,7 +1646,45 @@ class TestGetAccumulatorGroupsService:
             accumulator_id=accumulator_id,
             user_id=user_id,
             skip=5,
-            limit=1
+            limit=1,
+            joined_only=False,
+        )
+
+    @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
+    @patch('pecha_api.accumulator.accumulator_service.get_groups_by_accumulator_id')
+    @patch('pecha_api.accumulator.accumulator_service.get_accumulator_by_id')
+    @patch('pecha_api.accumulator.accumulator_service.validate_and_extract_user_details')
+    def test_get_accumulator_groups_service_joined_only(
+        self, mock_validate, mock_get_accumulator, mock_get_groups, mock_session
+    ):
+        """Test get_accumulator_groups_service passes joined_only to repository."""
+        user_id = uuid4()
+        accumulator_id = uuid4()
+        token = "valid_token"
+
+        mock_validate.return_value = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+
+        accumulator = TestDataFactory.create_mock_accumulator(accumulator_id=accumulator_id)
+        mock_get_accumulator.return_value = accumulator
+        mock_get_groups.return_value = ([], 0)
+
+        get_accumulator_groups_service(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=0,
+            limit=20,
+            joined_only=True,
+        )
+
+        mock_get_groups.assert_called_once_with(
+            db=mock_db,
+            accumulator_id=accumulator_id,
+            user_id=user_id,
+            skip=0,
+            limit=20,
+            joined_only=True,
         )
 
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
@@ -1723,6 +1766,7 @@ class TestGetAccumulatorGroupsService:
         group_acc.start_date = None  # Optional
         group_acc.end_date = None  # Optional
         group_acc.created_at = datetime.utcnow()
+        group_acc.image_key = None
 
         item = GroupAccumulatorWithUserCount(group_acc, 100)
         mock_get_groups.return_value = ([item], 1)
@@ -1770,6 +1814,7 @@ class TestGetAccumulatorGroupsService:
         group_acc.start_date = datetime(2024, 1, 1)
         group_acc.end_date = datetime(2024, 12, 31)
         group_acc.created_at = datetime.utcnow()
+        group_acc.image_key = None
 
         item = GroupAccumulatorWithUserCount(group_acc, 999999)  # Large count
         mock_get_groups.return_value = ([item], 1)

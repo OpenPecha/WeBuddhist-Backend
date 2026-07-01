@@ -553,9 +553,10 @@ def get_accumulator_groups_service(
     token: str,
     accumulator_id: UUID,
     skip: int = 0,
-    limit: int = 20
+    limit: int = 20,
+    joined_only: bool = False,
 ) -> AccumulatorGroupsResponse:
-    """Get all groups using a specific accumulator with the authenticated user's total count for each."""
+    """Get groups using a specific accumulator with the authenticated user's total count for each."""
     current_user = validate_and_extract_user_details(token=token)
     
     with SessionLocal() as db:
@@ -572,7 +573,8 @@ def get_accumulator_groups_service(
             accumulator_id=accumulator_id,
             user_id=current_user.id,
             skip=skip,
-            limit=limit
+            limit=limit,
+            joined_only=joined_only,
         )
         
         return AccumulatorGroupsResponse(

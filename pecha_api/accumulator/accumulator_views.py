@@ -134,13 +134,18 @@ async def get_accumulator_groups(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
+    joined_only: bool = Query(
+        False,
+        description="When true, return only group accumulators in groups the authenticated user has joined",
+    ),
 ):
-    """Get all groups using this accumulator with the authenticated user's total count for each group."""
+    """Get groups using this accumulator with the authenticated user's total count for each group."""
     return get_accumulator_groups_service(
         token=credentials.credentials,
         accumulator_id=accumulator_id,
         skip=skip,
-        limit=limit
+        limit=limit,
+        joined_only=joined_only,
     )
 
 

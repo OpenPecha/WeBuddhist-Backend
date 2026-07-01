@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Response, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 from starlette import status
 
@@ -24,6 +24,7 @@ from .group_accumulator_response_models import (
 
 group_accumulator_router = APIRouter(prefix="/group-accumulators", tags=["Group Accumulators"])
 oauth2_scheme = HTTPBearer()
+optional_oauth2_scheme = HTTPBearer(auto_error=False)
 
 
 @group_accumulator_router.get(
@@ -45,9 +46,22 @@ async def get_group_accumulators(
 @group_accumulator_router.get("/{group_accumulator_id}", response_model=GroupAccumulatorDetailDTO)
 async def get_group_accumulator(
     group_accumulator_id: UUID,
+    credentials: Annotated[
+        Optional[HTTPAuthorizationCredentials],
+        Depends(optional_oauth2_scheme),
+    ] = None,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone for today counts (e.g. Asia/Kathmandu). Defaults to UTC."),
+    ] = None,
 ):
-    """Get group accumulator details including total count from all users."""
-    return get_group_accumulator_service(group_accumulator_id=group_accumulator_id)
+    """Get group accumulator details including lifetime and today totals."""
+    token = credentials.credentials if credentials else None
+    return get_group_accumulator_service(
+        group_accumulator_id=group_accumulator_id,
+        timezone_name=x_timezone,
+        token=token,
+    )
 
 
 @group_accumulator_router.post(
@@ -81,11 +95,21 @@ async def get_group_accumulator_history(
     group_accumulator_id: UUID,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum number of records to return"),
+    today_only: bool = Query(
+        False,
+        description="When true, return only history entries from today in the request timezone",
+    ),
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone for today filter (e.g. Asia/Kathmandu). Defaults to UTC."),
+    ] = None,
 ):
     return get_group_accumulator_history_service(
         group_accumulator_id=group_accumulator_id,
         skip=skip,
         limit=limit,
+        today_only=today_only,
+        timezone_name=x_timezone,
     )
 
 

@@ -158,9 +158,12 @@ class TestGetGroupAccumulatorService:
 
     @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
-    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_total_count')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_joiners_count')
-    def test_get_group_accumulator_success(self, mock_joiners_count, mock_total, mock_get, mock_session):
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_count_in_range')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_total_count')
+    def test_get_group_accumulator_success(
+        self, mock_total, mock_today, mock_joiners_count, mock_get, mock_session
+    ):
         """Test successful retrieval of group accumulator."""
         accumulator_id = uuid4()
         mock_db = MagicMock()
@@ -168,12 +171,14 @@ class TestGetGroupAccumulatorService:
         mock_accumulator = MockGroupAccumulator(id=accumulator_id)
         mock_get.return_value = mock_accumulator
         mock_total.return_value = 5000
+        mock_today.return_value = 108
         mock_joiners_count.return_value = 12
 
         result = get_group_accumulator_service(group_accumulator_id=accumulator_id)
 
         assert result.id == accumulator_id
         assert result.total_count == 5000
+        assert result.total_today_count == 108
         assert result.member_count == 12
         mock_get.assert_called_once_with(mock_db, accumulator_id)
         mock_total.assert_called_once_with(mock_db, accumulator_id)
@@ -539,8 +544,11 @@ class TestGetGroupAccumulatorHistoryService:
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_history')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_total_count')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_count_in_range')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_joiners_count')
-    def test_get_history_success(self, mock_joiners_count, mock_total, mock_history, mock_get_acc, mock_session):
+    def test_get_history_success(
+        self, mock_joiners_count, mock_today, mock_total, mock_history, mock_get_acc, mock_session
+    ):
         """Test successful retrieval of group accumulator history."""
         accumulator_id = uuid4()
         mock_db = MagicMock()
@@ -553,6 +561,7 @@ class TestGetGroupAccumulatorHistoryService:
         ]
         mock_history.return_value = (mock_history_items, 2)
         mock_total.return_value = 150
+        mock_today.return_value = 150
         mock_joiners_count.return_value = 4
 
         result = get_group_accumulator_history_service(
@@ -564,8 +573,11 @@ class TestGetGroupAccumulatorHistoryService:
         assert len(result.history) == 2
         assert result.total == 2
         assert result.group_accumulator.total_count == 150
+        assert result.group_accumulator.total_today_count == 150
         mock_get_acc.assert_called_once_with(mock_db, accumulator_id)
-        mock_history.assert_called_once_with(mock_db, accumulator_id, 0, 20)
+        mock_history.assert_called_once_with(
+            mock_db, accumulator_id, 0, 20, range_start=None, range_end=None
+        )
         mock_total.assert_called_once_with(mock_db, accumulator_id)
 
     @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
@@ -684,8 +696,12 @@ class TestGetGroupAccumulatorCmsService:
     @patch('pecha_api.group_accumulator.group_accumulator_service.validate_cms_author_details')
     @patch('pecha_api.group_accumulator.group_accumulator_service.require_can_read_group_content')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_by_id')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_joiners_count')
+    @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_count_in_range')
     @patch('pecha_api.group_accumulator.group_accumulator_service.get_group_accumulator_total_count')
-    def test_get_single_cms_success(self, mock_total, mock_get, mock_perm, mock_auth, mock_session):
+    def test_get_single_cms_success(
+        self, mock_total, mock_today, mock_joiners, mock_get, mock_perm, mock_auth, mock_session
+    ):
         """Test successful CMS get single with proper authorization."""
         group_id = uuid4()
         accumulator_id = uuid4()
@@ -694,6 +710,8 @@ class TestGetGroupAccumulatorCmsService:
         mock_auth.return_value = MockAuthor()
         mock_get.return_value = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
         mock_total.return_value = 5000
+        mock_today.return_value = 0
+        mock_joiners.return_value = 0
 
         result = get_group_accumulator_cms_service(
             token="valid_token",

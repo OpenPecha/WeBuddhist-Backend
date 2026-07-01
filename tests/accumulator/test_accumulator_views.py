@@ -607,6 +607,7 @@ class TestGetAccumulatorGroups:
             credentials=TestDataFactory.create_auth_credentials(token=token),
             skip=0,
             limit=20,
+            joined_only=False,
         )
 
         assert isinstance(result, AccumulatorGroupsResponse)
@@ -621,6 +622,7 @@ class TestGetAccumulatorGroups:
             accumulator_id=accumulator_id,
             skip=0,
             limit=20,
+            joined_only=False,
         )
 
     @patch('pecha_api.accumulator.accumulator_views.get_accumulator_groups_service')
@@ -642,6 +644,7 @@ class TestGetAccumulatorGroups:
             credentials=TestDataFactory.create_auth_credentials(token=token),
             skip=0,
             limit=20,
+            joined_only=False,
         )
 
         assert isinstance(result, AccumulatorGroupsResponse)
@@ -678,6 +681,7 @@ class TestGetAccumulatorGroups:
             credentials=TestDataFactory.create_auth_credentials(token=token),
             skip=0,
             limit=20,
+            joined_only=False,
         )
 
         assert len(result.groups) == 1
@@ -713,6 +717,7 @@ class TestGetAccumulatorGroups:
             credentials=TestDataFactory.create_auth_credentials(token=token),
             skip=5,
             limit=1,
+            joined_only=False,
         )
 
         assert result.skip == 5
@@ -724,6 +729,37 @@ class TestGetAccumulatorGroups:
             accumulator_id=accumulator_id,
             skip=5,
             limit=1,
+            joined_only=False,
+        )
+
+    @patch('pecha_api.accumulator.accumulator_views.get_accumulator_groups_service')
+    @pytest.mark.asyncio
+    async def test_get_accumulator_groups_joined_only(self, mock_service):
+        """Test get_accumulator_groups with joined_only filter."""
+        token = "valid_token"
+        accumulator_id = uuid4()
+
+        mock_service.return_value = AccumulatorGroupsResponse(
+            groups=[],
+            total=0,
+            skip=0,
+            limit=20,
+        )
+
+        await get_accumulator_groups(
+            accumulator_id=accumulator_id,
+            credentials=TestDataFactory.create_auth_credentials(token=token),
+            skip=0,
+            limit=20,
+            joined_only=True,
+        )
+
+        mock_service.assert_called_once_with(
+            token=token,
+            accumulator_id=accumulator_id,
+            skip=0,
+            limit=20,
+            joined_only=True,
         )
 
     @patch('pecha_api.accumulator.accumulator_views.get_accumulator_groups_service')
@@ -799,6 +835,7 @@ class TestGetAccumulatorGroups:
             credentials=TestDataFactory.create_auth_credentials(token=token),
             skip=0,
             limit=20,
+            joined_only=False,
         )
 
         assert len(result.groups) == 1
@@ -838,6 +875,7 @@ class TestGetAccumulatorGroups:
             credentials=TestDataFactory.create_auth_credentials(token=token),
             skip=0,
             limit=20,
+            joined_only=False,
         )
 
         assert result.groups[0].user_total_count == 999999

@@ -10,10 +10,11 @@ Complete API reference for the Accumulator system, enabling individual and group
 2. [Data Models](#data-models)
 3. [Individual Accumulator APIs](#individual-accumulator-apis)
 4. [Group Accumulator APIs (User)](#group-accumulator-apis-user)
-5. [CMS Group Accumulator APIs](#cms-group-accumulator-apis)
-6. [Request/Response Schemas](#requestresponse-schemas)
-7. [Common Workflows](#common-workflows)
-8. [Error Handling](#error-handling)
+5. [App Integration Guide: Group Accumulation](#app-integration-guide-group-accumulation)
+6. [CMS Group Accumulator APIs](#cms-group-accumulator-apis)
+7. [Request/Response Schemas](#requestresponse-schemas)
+8. [Common Workflows](#common-workflows)
+9. [Error Handling](#error-handling)
 
 ---
 
@@ -86,6 +87,15 @@ An **Accumulator** is a counter that tracks cumulative counts (e.g., mantra reci
 │  - user_id → contributor                                    │
 │  - count → delta contributed                                │
 └─────────────────────────────────────────────────────────────┘
+                              │
+                              │ User explicitly joins
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│              GROUP ACCUMULATOR JOIN                          │
+│  (Tracks who opted in to a group accumulator)               │
+│  - user_id → participant                                    │
+│  - created_at → join timestamp                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ### Mala Images
@@ -136,12 +146,21 @@ Accumulators support **multi-language metadata** with `name` and `description` f
 | `accumulator_id` | UUID? | Linked preset (optional) |
 | `group_id` | UUID | Owning group |
 | `title` | string? | Display title |
+| `image_key` | string? | S3 key for cover image |
 | `target_count` | int? | Group goal |
 | `start_date` | datetime? | Practice period start |
 | `end_date` | datetime? | Practice period end |
 | `created_at` | datetime | Creation timestamp |
 | `updated_at` | datetime | Last update timestamp |
 | `deleted_at` | datetime? | Soft delete timestamp |
+
+### GroupAccumulatorJoin
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `group_accumulator_id` | UUID | Group accumulator the user joined |
+| `user_id` | UUID | Joined user |
+| `created_at` | datetime | When the user joined |
 
 ### GroupAccumulatorHistory
 
@@ -479,7 +498,7 @@ Get the user's accumulator for a specific preset, with full session history. **C
 
 ### GET /accumulators/{accumulator_id}/groups
 
-Get all group accumulators that use a specific accumulator (preset), with the authenticated user's contribution count for each.
+Get all active group accumulators linked to a preset accumulator, with the authenticated user's **lifetime** contribution count for each.
 
 **Authentication**: Required (Bearer token)
 
@@ -493,6 +512,7 @@ Get all group accumulators that use a specific accumulator (preset), with the au
 |-----------|------|---------|-------------|
 | `skip` | int | 0 | Pagination offset |
 | `limit` | int | 20 | Max records (1-100) |
+| `joined_only` | bool | `false` | When `true`, return only group accumulators in groups the authenticated user has joined |
 
 **Response**: `AccumulatorGroupsResponse`
 
@@ -503,6 +523,7 @@ Get all group accumulators that use a specific accumulator (preset), with the au
       "group_accumulator_id": "uuid",
       "group_id": "uuid",
       "title": "100 Million Mani Retreat",
+      "image_key": "groups/abc123/cover.jpg",
       "target_count": 100000000,
       "user_total_count": 5400,
       "start_date": "2024-01-01T00:00:00Z",
@@ -516,6 +537,18 @@ Get all group accumulators that use a specific accumulator (preset), with the au
 }
 ```
 
+**Notes**:
+- By default returns every active group accumulator that uses this preset.
+- Pass `joined_only=true` to return only group accumulators in groups the user has joined (single call — no need to fetch `/users/me/joined/author/groups` separately).
+- `user_total_count` is the sum of that user's history rows for each group accumulator (0 if they never contributed).
+
+**Example — user's joined group practices only**:
+
+```
+GET /accumulators/{accumulator_id}/groups?joined_only=true
+Authorization: Bearer {token}
+```
+
 ---
 
 ## Group Accumulator APIs (User)
@@ -526,7 +559,7 @@ These endpoints are for regular users participating in group practices.
 
 ### GET /group-accumulators/{group_id}/accumulators
 
-List all accumulators for a specific group.
+List all active group accumulators for a specific group.
 
 **Authentication**: Not required
 
@@ -551,6 +584,12 @@ List all accumulators for a specific group.
       "accumulator_id": "preset-uuid",
       "group_id": "uuid",
       "title": "100 Million Mani Retreat",
+      "image": {
+        "thumbnail": "https://presigned-s3-url.../thumb.jpg",
+        "medium": "https://presigned-s3-url.../medium.jpg",
+        "original": "https://presigned-s3-url.../original.jpg"
+      },
+      "image_key": "groups/abc123/cover.jpg",
       "target_count": 100000000,
       "start_date": "2024-01-01T00:00:00Z",
       "end_date": "2024-12-31T23:59:59Z",
@@ -564,13 +603,20 @@ List all accumulators for a specific group.
 }
 ```
 
+**App usage**: Call this when opening a group page to populate the list of group accumulations/practices available in that group.
+
 ---
 
 ### GET /group-accumulators/{group_accumulator_id}
 
-Get details of a specific group accumulator, including total count from all contributors.
+Get details of a specific group accumulator, including lifetime and today totals.
 
-**Authentication**: Not required
+**Authentication**: Optional (Bearer token — when provided, includes `user_total_count` and `user_today_count`)
+
+**Headers**:
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Timezone` | No | IANA timezone for today counts (e.g. `Asia/Kathmandu`). Defaults to UTC. |
 
 **Path Parameters**:
 | Parameter | Type | Description |
@@ -585,20 +631,65 @@ Get details of a specific group accumulator, including total count from all cont
   "accumulator_id": "preset-uuid",
   "group_id": "uuid",
   "title": "100 Million Mani Retreat",
+  "image": {
+    "thumbnail": "https://presigned-s3-url.../thumb.jpg",
+    "medium": "https://presigned-s3-url.../medium.jpg",
+    "original": "https://presigned-s3-url.../original.jpg"
+  },
+  "image_key": "groups/abc123/cover.jpg",
   "target_count": 100000000,
   "start_date": "2024-01-01T00:00:00Z",
   "end_date": "2024-12-31T23:59:59Z",
   "total_count": 45678900,
+  "total_today_count": 5400,
+  "user_total_count": 1080,
+  "user_today_count": 216,
+  "member_count": 128,
   "created_at": "2024-01-01T00:00:00Z",
   "updated_at": "2024-06-15T10:00:00Z"
 }
 ```
 
+| Field | Description |
+|-------|-------------|
+| `total_count` | Overall **lifetime** count — sum of all history deltas from every user |
+| `total_today_count` | Overall **today** count in the request timezone |
+| `user_total_count` | Authenticated user's lifetime count (`null` when unauthenticated) |
+| `user_today_count` | Authenticated user's today count (`null` when unauthenticated) |
+| `member_count` | Number of users who joined this group accumulator |
+| `image` | Presigned URLs for thumbnail, medium, and original sizes (`null` when no image) |
+
+---
+
+### POST /group-accumulators/{group_accumulator_id}/join
+
+Join a group accumulator. Also joins the parent community group automatically if the user is not already a member.
+
+**Authentication**: Required (Bearer token)
+
+**Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `group_accumulator_id` | UUID | Group accumulator ID |
+
+**Response**: `204 No Content`
+
+**Behavior**:
+- Creates a row in `group_accumulator_joins` (idempotent — safe to call again).
+- Calls `upsert_group_join` on the parent group so the user becomes a group member.
+- Only allowed for **public community groups** (`group_type = COMMUNITY`).
+
+**Errors**:
+- `404 NOT_FOUND` - Group accumulator or group not found
+- `403 FORBIDDEN` - Group does not support joining (non-community group)
+
+**App usage**: Call this before submitting counts. Users must join the group accumulator first.
+
 ---
 
 ### POST /group-accumulators/{group_accumulator_id}
 
-Submit a count contribution to a group accumulator. User must be a member of the group.
+Submit a count contribution to a group accumulator. User must have **joined the group accumulator** first.
 
 **Authentication**: Required (Bearer token)
 
@@ -617,7 +708,7 @@ Submit a count contribution to a group accumulator. User must be a member of the
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `current_count` | int | Yes | User's new absolute total count (>= 0) |
+| `current_count` | int | Yes | User's new absolute total count for this group accumulator (>= 0) |
 
 **Response**: `GroupAccumulatorHistoryItemDTO`
 
@@ -635,19 +726,100 @@ Submit a count contribution to a group accumulator. User must be a member of the
 ```
 
 **Behavior**:
-- Calculates delta from user's previous total for this group accumulator
-- Only creates history entry if delta > 0
-- Returns `id: null` if no history was created
+- Calculates delta from the user's previous lifetime total for this group accumulator.
+- Only creates a history entry if delta > 0.
+- Returns `id: null` and `count: 0` if no history was created.
+- Send the user's **absolute** running total (same pattern as personal accumulators), not the delta.
 
 **Errors**:
 - `404 NOT_FOUND` - Group accumulator not found
-- `403 FORBIDDEN` - User is not a member of the group
+- `403 FORBIDDEN` - User has not joined this group accumulator (`"You must join this group accumulator first"`)
+
+**App usage**: After each counting session, POST the user's new absolute total. The backend records only the positive delta.
 
 ---
 
 ### GET /group-accumulators/{group_accumulator_id}/history
 
-Get the contribution history for a group accumulator.
+Get paginated contribution history for a group accumulator.
+
+**Authentication**: Not required
+
+**Headers**:
+| Header | Required | Description |
+|--------|----------|-------------|
+| `X-Timezone` | No | IANA timezone used for `today_only` filtering and `total_today_count`. Defaults to UTC. |
+
+**Path Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `group_accumulator_id` | UUID | Group accumulator ID |
+
+**Query Parameters**:
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `skip` | int | 0 | Pagination offset |
+| `limit` | int | 20 | Max records (1-100) |
+| `today_only` | bool | `false` | When `true`, return only history entries from today in the request timezone |
+
+**Response**: `GroupAccumulatorHistoryResponse`
+
+```json
+{
+  "group_accumulator": {
+    "id": "uuid",
+    "accumulator_id": "preset-uuid",
+    "group_id": "uuid",
+    "title": "100 Million Mani Retreat",
+    "image": {
+      "thumbnail": "https://presigned-s3-url.../thumb.jpg",
+      "medium": "https://presigned-s3-url.../medium.jpg",
+      "original": "https://presigned-s3-url.../original.jpg"
+    },
+    "image_key": "groups/abc123/cover.jpg",
+    "target_count": 100000000,
+    "start_date": "2024-01-01T00:00:00Z",
+    "end_date": "2024-12-31T23:59:59Z",
+    "total_count": 45678900,
+    "total_today_count": 5400,
+    "member_count": 128,
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-06-15T10:00:00Z"
+  },
+  "history": [
+    {
+      "id": "uuid",
+      "user_id": "uuid",
+      "count": 108,
+      "created_at": "2024-01-25T14:30:00Z"
+    }
+  ],
+  "total": 42,
+  "skip": 0,
+  "limit": 20
+}
+```
+
+**Example — today's history only**:
+
+```
+GET /group-accumulators/{group_accumulator_id}/history?today_only=true
+X-Timezone: Asia/Kathmandu
+```
+
+When `today_only=true`:
+- `history` contains only entries from the current calendar day in `X-Timezone`
+- `total` is the count of today's history rows (for pagination)
+- `group_accumulator.total_today_count` is the full sum of today's contributions (not limited by pagination)
+- `group_accumulator.total_count` remains the lifetime total
+
+**App usage**: Use `today_only=true` instead of client-side date filtering. Use the detail endpoint for today totals without fetching history.
+
+---
+
+### GET /group-accumulators/{group_accumulator_id}/members
+
+List users who joined this group accumulator.
 
 **Authentication**: Not required
 
@@ -662,37 +834,20 @@ Get the contribution history for a group accumulator.
 | `skip` | int | 0 | Pagination offset |
 | `limit` | int | 20 | Max records (1-100) |
 
-**Response**: `GroupAccumulatorHistoryResponse`
+**Response**: `GroupAccumulatorMembersResponse`
 
 ```json
 {
-  "group_accumulator": {
-    "id": "uuid",
-    "accumulator_id": "preset-uuid",
-    "group_id": "uuid",
-    "title": "100 Million Mani Retreat",
-    "target_count": 100000000,
-    "start_date": "2024-01-01T00:00:00Z",
-    "end_date": "2024-12-31T23:59:59Z",
-    "total_count": 45678900,
-    "created_at": "2024-01-01T00:00:00Z",
-    "updated_at": "2024-06-15T10:00:00Z"
-  },
-  "history": [
+  "members": [
     {
-      "id": "uuid",
       "user_id": "uuid",
-      "count": 108,
-      "created_at": "2024-01-25T14:30:00Z"
-    },
-    {
-      "id": "uuid",
-      "user_id": "uuid",
-      "count": 216,
-      "created_at": "2024-01-25T12:00:00Z"
+      "username": "practitioner",
+      "fullname": "Jane Doe",
+      "avatar_url": "https://presigned-s3-url...",
+      "joined_at": "2024-01-10T08:00:00Z"
     }
   ],
-  "total": 1500,
+  "total": 128,
   "skip": 0,
   "limit": 20
 }
@@ -702,7 +857,7 @@ Get the contribution history for a group accumulator.
 
 ### DELETE /group-accumulators/{group_accumulator_id}
 
-Soft-delete a group accumulator. Requires user to be a member of the group.
+Soft-delete (reset) a group accumulator. Requires the user to be a member of the parent group.
 
 **Authentication**: Required (Bearer token)
 
@@ -713,9 +868,154 @@ Soft-delete a group accumulator. Requires user to be a member of the group.
 
 **Response**: `204 No Content`
 
+**Behavior**:
+- Sets `deleted_at` on the group accumulator — it disappears from active lists.
+- **History rows are preserved** in the database so per-user and overall lifetime totals can still be calculated from history when needed.
+- This is a reset/hide of the active practice, not a hard delete of contribution data.
+
 **Errors**:
 - `404 NOT_FOUND` - Group accumulator not found
 - `403 FORBIDDEN` - User is not a member of the group
+
+---
+
+## App Integration Guide: Group Accumulation
+
+Step-by-step guide for mobile/web clients implementing group accumulation features.
+
+All paths below are relative to `/api/v1`.
+
+### 1. Load group accumulations for a group page
+
+When the user opens a group, fetch its active practices:
+
+```
+GET /group-accumulators/{group_id}/accumulators
+```
+
+Use each item's `id`, `title`, `image`, `target_count`, `start_date`, and `end_date` to render the list.
+
+---
+
+### 2. Display a single group accumulator detail page
+
+The detail page should show **image**, **title**, user counts, and overall counts in a single authenticated call:
+
+```
+GET /group-accumulators/{group_accumulator_id}
+Authorization: Bearer {token}
+X-Timezone: Asia/Kathmandu
+```
+
+| UI label | Response field |
+|----------|----------------|
+| Cover image | `image.medium` |
+| Title | `title` |
+| My count today | `user_today_count` |
+| My count lifetime | `user_total_count` |
+| Group count today | `total_today_count` |
+| Group count lifetime | `total_count` |
+| Participants | `member_count` |
+
+Send `X-Timezone` with the user's IANA timezone so today counts match their local calendar day. Omit the auth header for public view (user counts will be `null`).
+
+To list today's individual contributions:
+
+```
+GET /group-accumulators/{group_accumulator_id}/history?today_only=true
+X-Timezone: Asia/Kathmandu
+```
+
+---
+
+### 3. List groups for a preset — show only joined groups
+
+When viewing a personal accumulator/preset, show which group practices the user participates in with a single call:
+
+```
+GET /accumulators/{accumulator_id}/groups?joined_only=true
+Authorization: Bearer {token}
+```
+
+Returns only group accumulators whose parent group the user has joined, each with `user_total_count` (lifetime).
+
+Each item includes `group_accumulator_id`, `group_id`, `title`, `image_key`, and `user_total_count`.
+
+To list **all** groups using the preset (including ones the user has not joined), omit the parameter or pass `joined_only=false`.
+
+---
+
+### 4. Join a group accumulation
+
+Before a user can push counts, they must join the group accumulator:
+
+```
+POST /group-accumulators/{group_accumulator_id}/join
+Authorization: Bearer {token}
+```
+
+- Returns `204 No Content` on success.
+- Idempotent — safe to call if already joined.
+- Automatically joins the parent community group when needed.
+- After joining, enable the counting UI and call `POST /group-accumulators/{id}` to submit counts.
+
+**Suggested UX flow**
+
+1. User taps "Join practice" → `POST .../join`
+2. On `204`, show counting screen
+3. On `403`, show "This group does not support joining"
+
+---
+
+### 5. Push a user's count to the group
+
+After each counting session, send the user's new **absolute** total:
+
+```
+POST /group-accumulators/{group_accumulator_id}
+Authorization: Bearer {token}
+Content-Type: application/json
+
+{ "current_count": 5508 }
+```
+
+| Response | Meaning |
+|----------|---------|
+| `201 Created` | Delta recorded; response includes the new history row |
+| `200 OK` | No increase (`id: null`, `count: 0`) — count unchanged or decreased |
+| `403 Forbidden` | User has not joined — call `POST .../join` first |
+
+**Example session flow**
+
+```
+User's previous group total: 5400
+User completes 108 more:       5508
+
+POST { "current_count": 5508 }
+→ 201 { "count": 108, ... }     // backend stored delta = 108
+```
+
+Keep the running total locally and always POST the absolute value, same as personal accumulators.
+
+---
+
+### 6. Reset a group accumulation (soft delete)
+
+To reset/hide an active group practice while **keeping contribution history** for totals:
+
+```
+DELETE /group-accumulators/{group_accumulator_id}
+Authorization: Bearer {token}
+```
+
+| Effect | Detail |
+|--------|--------|
+| Active list | Accumulator removed from `GET /group-accumulators/{group_id}/accumulators` |
+| History | All `group_accumulator_history` rows remain in the database |
+| Totals | Lifetime totals can still be computed by summing history rows |
+| Re-create | CMS authors can create a new group accumulator for the same group/preset |
+
+Requires the caller to be a member of the parent group. CMS authors can also reset via `DELETE /cms/groups/{group_id}/accumulators/{group_accumulator_id}`.
 
 ---
 
@@ -742,6 +1042,7 @@ Create a new group accumulator.
 {
   "accumulator_id": "preset-uuid",
   "title": "100 Million Mani Retreat 2024",
+  "image_key": "groups/abc123/cover.jpg",
   "target_count": 100000000,
   "start_date": "2024-01-01T00:00:00Z",
   "end_date": "2024-12-31T23:59:59Z"
@@ -752,6 +1053,7 @@ Create a new group accumulator.
 |-------|------|----------|-------------|
 | `accumulator_id` | UUID | No | Link to a preset accumulator |
 | `title` | string | No | Display title |
+| `image_key` | string | No | S3 key for cover image (upload via CMS media flow) |
 | `target_count` | int | No | Group goal (>= 1) |
 | `start_date` | datetime | No | Practice period start |
 | `end_date` | datetime | No | Practice period end |
@@ -822,6 +1124,7 @@ Update a group accumulator.
 ```json
 {
   "title": "Updated Title",
+  "image_key": "groups/abc123/new-cover.jpg",
   "target_count": 200000000,
   "end_date": "2025-12-31T23:59:59Z"
 }
@@ -949,11 +1252,19 @@ interface AccumulatorSessionDTO {
 ### GroupAccumulatorDTO
 
 ```typescript
+interface ImageUrlModel {
+  thumbnail: string;
+  medium: string;
+  original: string;
+}
+
 interface GroupAccumulatorDTO {
   id: string;                    // UUID
   accumulator_id: string | null; // UUID - linked preset
   group_id: string;              // UUID - owning group
   title: string | null;          // Display title
+  image: ImageUrlModel | null;   // Presigned cover image URLs
+  image_key: string | null;      // S3 key for cover image
   target_count: number | null;   // Group goal
   start_date: string | null;     // ISO datetime
   end_date: string | null;       // ISO datetime
@@ -966,7 +1277,11 @@ interface GroupAccumulatorDTO {
 
 ```typescript
 interface GroupAccumulatorDetailDTO extends GroupAccumulatorDTO {
-  total_count: number;           // Sum of all contributions
+  total_count: number;           // Overall lifetime sum of all contributions
+  total_today_count: number;     // Overall today sum in request timezone
+  user_total_count: number | null; // Authenticated user's lifetime count
+  user_today_count: number | null; // Authenticated user's today count
+  member_count: number;          // Users who joined this group accumulator
 }
 ```
 
@@ -981,6 +1296,29 @@ interface GroupAccumulatorHistoryItemDTO {
 }
 ```
 
+### GroupAccumulatorMemberDTO
+
+```typescript
+interface GroupAccumulatorMemberDTO {
+  user_id: string;               // UUID
+  username: string | null;
+  fullname: string;
+  avatar_url: string | null;     // Presigned S3 URL
+  joined_at: string;             // ISO datetime
+}
+```
+
+### GroupAccumulatorMembersResponse
+
+```typescript
+interface GroupAccumulatorMembersResponse {
+  members: GroupAccumulatorMemberDTO[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+```
+
 ### AccumulatorGroupDTO
 
 ```typescript
@@ -988,8 +1326,9 @@ interface AccumulatorGroupDTO {
   group_accumulator_id: string;  // UUID
   group_id: string;              // UUID
   title: string | null;
+  image_key: string | null;      // S3 key for cover image
   target_count: number | null;
-  user_total_count: number;      // Authenticated user's contribution
+  user_total_count: number;      // Authenticated user's lifetime contribution
   start_date: string | null;     // ISO datetime
   end_date: string | null;       // ISO datetime
   created_at: string;            // ISO datetime
@@ -1025,17 +1364,21 @@ interface AccumulatorGroupDTO {
    GET /accumulators/user/history
 ```
 
-### Workflow 2: User Joins Group Practice
+### Workflow 2: User Joins and Contributes to Group Practice
 
 ```
-1. User joins a group (separate API)
-
-2. App displays group's accumulators
+1. App displays group's accumulators
    GET /group-accumulators/{group_id}/accumulators
 
-3. User views group accumulator details
+2. User joins a group accumulator
+   POST /group-accumulators/{group_accumulator_id}/join
+   → Also joins parent community group if needed
+
+3. User views detail page (authenticated)
    GET /group-accumulators/{group_accumulator_id}
-   → Shows total_count from all contributors
+   GET /accumulators/{accumulator_id}/groups
+   GET /group-accumulators/{group_accumulator_id}/history
+   → Show title, image, user lifetime/today, overall lifetime/today
 
 4. User contributes their count
    POST /group-accumulators/{group_accumulator_id}
@@ -1074,12 +1417,27 @@ interface AccumulatorGroupDTO {
 ### Workflow 4: User Checks Groups Using Their Preset
 
 ```
-1. User has been practicing a specific mantra
+1. User has been practicing a specific mantra/preset
 
-2. User wants to see which groups are doing the same practice
-   GET /accumulators/{accumulator_id}/groups
-   → Returns list of group accumulators using this preset
-   → Includes user's contribution count for each group
+2. Fetch group practices linked to this preset (joined groups only)
+   GET /accumulators/{accumulator_id}/groups?joined_only=true
+   → Includes user_total_count (lifetime) per group
+
+3. Optionally open a group accumulator detail
+   GET /group-accumulators/{group_accumulator_id}
+```
+
+### Workflow 5: Reset a Group Accumulator
+
+```
+1. User (group member) or CMS author resets the practice
+   DELETE /group-accumulators/{group_accumulator_id}
+   — or —
+   DELETE /cms/groups/{group_id}/accumulators/{group_accumulator_id}
+
+2. Accumulator disappears from active lists
+
+3. History rows remain — lifetime totals can still be calculated from history
 ```
 
 ---
@@ -1122,22 +1480,28 @@ All errors follow this structure:
 | Not user accumulator | "Only user-created accumulators can be updated" |
 | Duplicate accumulator | "Accumulator already exists for this preset" |
 | Not group member | "You must be a member of this group" |
+| Not joined group accumulator | "You must join this group accumulator first" |
+| Group join not allowed | "This group does not support joining" |
 | Wrong group | "Group accumulator does not belong to this group" |
 
 ---
 
 ## Notes for Frontend Developers
 
-1. **Presigned URLs**: `mala_image_url` fields contain presigned S3 URLs that expire. Cache images locally but be prepared to refetch if loading fails.
+1. **Presigned URLs**: `mala_image_url`, `image`, and `avatar_url` fields contain presigned S3 URLs that expire. Cache images locally but be prepared to refetch if loading fails.
 
 2. **Count Updates**: Always send the absolute `current_count`, not the delta. The backend calculates the delta and creates history entries automatically.
 
 3. **Auto-creation**: `GET /accumulators/{parent_id}` auto-creates a user accumulator if none exists. Use this for the "tap to start" flow.
 
-4. **Group Membership**: Group accumulator contribution (`POST /group-accumulators/{id}`) requires the user to be a member of the group. Handle 403 errors appropriately.
+4. **Group Accumulator Join**: Submitting counts (`POST /group-accumulators/{id}`) requires the user to join the group accumulator first (`POST /group-accumulators/{id}/join`). Handle 403 with a join prompt.
 
-5. **Pagination**: All list endpoints support `skip` and `limit` parameters. Default limit is 20, max is 100.
+5. **Today vs Lifetime Counts**: Today totals are returned as `total_today_count` and `user_today_count` on the detail endpoint. Pass `X-Timezone` for the user's local calendar day. Use `GET /group-accumulators/{id}/history?today_only=true` to fetch only today's history rows (no client-side date filtering needed).
 
-6. **Language Parameter**: Use `language` query param on `/accumulators/presets` to get mantra content in the user's preferred language.
+6. **Joined Groups Filter**: Use `GET /accumulators/{id}/groups?joined_only=true` to return only group accumulators in groups the user has joined. No separate call to `/users/me/joined/author/groups` is needed.
 
-7. **Soft Deletes**: Deleted accumulators are soft-deleted (`deleted_at` is set). History is preserved for the user's history page.
+7. **Pagination**: All list endpoints support `skip` and `limit` parameters. Default limit is 20, max is 100.
+
+8. **Language Parameter**: Use `language` query param on `/accumulators/presets` to get mantra content in the user's preferred language.
+
+9. **Soft Deletes / Reset**: Deleting a group accumulator sets `deleted_at` and hides it from active lists. History rows are preserved so per-user and overall lifetime totals remain calculable.

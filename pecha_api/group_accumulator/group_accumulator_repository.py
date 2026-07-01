@@ -9,6 +9,13 @@ from pecha_api.accumulator import GroupAccumulator, GroupAccumulatorHistory, gro
 from pecha_api.users.users_models import Users
 
 
+def _apply_created_at_range(query, range_start: datetime, range_end: datetime):
+    return query.filter(
+        GroupAccumulatorHistory.created_at >= range_start,
+        GroupAccumulatorHistory.created_at <= range_end,
+    )
+
+
 def create_group_accumulator(
     db: Session,
     group_id: UUID,
@@ -100,13 +107,34 @@ def get_group_accumulator_history(
     group_accumulator_id: UUID,
     skip: int = 0,
     limit: int = 20,
+    range_start: Optional[datetime] = None,
+    range_end: Optional[datetime] = None,
 ) -> Tuple[List[GroupAccumulatorHistory], int]:
     query = db.query(GroupAccumulatorHistory).filter(
         GroupAccumulatorHistory.group_accumulator_id == group_accumulator_id
     )
+    if range_start is not None and range_end is not None:
+        query = _apply_created_at_range(query, range_start, range_end)
     total = query.count()
     history = query.order_by(GroupAccumulatorHistory.created_at.desc()).offset(skip).limit(limit).all()
     return history, total
+
+
+def get_group_accumulator_count_in_range(
+    db: Session,
+    group_accumulator_id: UUID,
+    range_start: datetime,
+    range_end: datetime,
+    user_id: Optional[UUID] = None,
+) -> int:
+    query = db.query(func.sum(GroupAccumulatorHistory.count)).filter(
+        GroupAccumulatorHistory.group_accumulator_id == group_accumulator_id,
+    )
+    query = _apply_created_at_range(query, range_start, range_end)
+    if user_id is not None:
+        query = query.filter(GroupAccumulatorHistory.user_id == user_id)
+    total = query.scalar()
+    return int(total or 0)
 
 
 def get_group_accumulator_total_count(
