@@ -34,7 +34,7 @@ def get_user_series_days_completed_paginated(
     grouped = (
         db.query(
             Plan.series_id.label("series_id"),
-            func.count(UserDayCompletion.id).label("days_completed"),
+            func.count(func.distinct(PlanItem.day_number)).label("days_completed"),
             func.max(UserDayCompletion.completed_at).label("last_completed_at"),
         )
         .join(PlanItem, UserDayCompletion.day_id == PlanItem.id)
