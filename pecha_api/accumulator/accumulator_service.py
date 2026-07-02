@@ -11,6 +11,7 @@ from ..uploads.S3_utils import generate_presigned_access_url
 from ..users.users_service import validate_and_extract_user_details
 from pecha_api.daily_log.daily_log_cache_service import invalidate_user_stats_cache
 from ..texts.texts_utils import TextUtils
+from ..plans.authors.plan_authors_service import get_image_url
 from .accumulator_repository import (
     get_all_accumulators,
     get_user_accumulators,
@@ -583,7 +584,7 @@ def get_accumulator_groups_service(
                     group_accumulator_id=item.group_accumulator.id,
                     group_id=item.group_accumulator.group_id,
                     title=item.group_accumulator.title,
-                    image_key=item.group_accumulator.image_key,
+                    image=get_image_url(item.group_accumulator.image_key),
                     target_count=item.group_accumulator.target_count,
                     user_total_count=item.user_total_count,
                     is_joined=item.is_joined,

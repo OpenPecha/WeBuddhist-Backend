@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import UUID
 from .accumulator_enums import AccumulatorType
 from ..plans.plans_enums import LanguageCode
+from ..plans.media.media_response_models import ImageUrlModel
 
 
 class AccumulatorMetadataDTO(BaseModel):
@@ -121,7 +122,7 @@ class AccumulatorGroupDTO(BaseModel):
     group_accumulator_id: UUID
     group_id: UUID
     title: Optional[str] = None
-    image_key: Optional[str] = None
+    image: Optional[ImageUrlModel] = None
     target_count: Optional[int] = None
     user_total_count: int = Field(..., description="Authenticated user's total count for this group accumulator")
     is_joined: bool = Field(

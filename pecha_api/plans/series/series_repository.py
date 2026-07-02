@@ -768,7 +768,6 @@ def get_series_paginated(
 def get_random_featured_published_series(
     db: Session,
     limit: int = 10,
-    language: Optional[str] = None,
 ) -> Tuple[List[Tuple[Series, int, int]], int]:
     plan_count = _series_active_plans_count_subquery(published_only=True).label("plan_count")
     filters = [
@@ -776,16 +775,6 @@ def get_random_featured_published_series(
         Series.featured.is_(True),
         Series.status == PlanStatus.PUBLISHED,
     ]
-    if language:
-        language_upper = language.upper()
-        filters.append(
-            exists(
-                select(1).where(
-                    SeriesMetadata.series_id == Series.id,
-                    SeriesMetadata.language == language_upper,
-                )
-            )
-        )
     query = (
         db.query(Series, plan_count)
         .options(selectinload(Series.metadata_entries))

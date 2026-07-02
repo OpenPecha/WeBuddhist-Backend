@@ -605,19 +605,20 @@ def test_get_series_paginated_published_only_does_not_add_series_filter():
     assert total == 0
 
 
-def test_get_random_featured_published_series_with_language_applies_metadata_filter():
+def test_get_random_featured_published_series_ignores_language_parameter():
     db = _make_session_mock()
+    row = MagicMock(spec=Series)
 
-    db.query.return_value = _random_featured_query_chain([], 0)
+    db.query.return_value = _random_featured_query_chain([row], 1)
 
-    rows, total = get_random_featured_published_series(db=db, limit=10, language="bo")
+    rows, total = get_random_featured_published_series(db=db, limit=10)
 
-    assert rows == []
-    assert total == 0
+    assert total == 1
+    assert rows == [(row, 0, 0)]
     filtered = db.query.return_value.options.return_value.filter
     assert filtered.call_count == 1
     filter_args = filtered.call_args[0]
-    assert len(filter_args) == 4
+    assert len(filter_args) == 3
 
 
 def test_get_random_featured_published_series_without_language_uses_base_filters():

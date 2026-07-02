@@ -1768,7 +1768,7 @@ def test_get_filtered_series_passes_language_to_repository():
     assert call_kwargs["status"] == PlanStatus.PUBLISHED
 
 
-def test_get_random_featured_series_returns_featured_series_without_language_filter():
+def test_get_random_featured_series_defaults_to_english_when_language_not_provided():
     row = MagicMock()
     row.id = uuid.uuid4()
     row.metadata_entries = [
@@ -1783,22 +1783,24 @@ def test_get_random_featured_series_returns_featured_series_without_language_fil
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
-               return_value=([(row, 4, 2)], 1)), \
+               return_value=([(row, 4, 2)], 1)) as mock_repo, \
          patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
                return_value={}):
         _session_local_context(mock_session_local)
 
         result = get_random_featured_series(limit=10)
 
+    assert mock_repo.call_args.kwargs["limit"] == 10
     assert len(result.series) == 1
     assert result.total == 1
     assert result.series[0].featured is True
     assert result.series[0].plan_count == 4
     assert result.series[0].enrolled_count == 2
-    assert len(result.series[0].metadata) == 2
+    assert result.series[0].metadata.title == "Featured"
+    assert result.series[0].metadata.language == "EN"
 
 
-def test_get_random_featured_series_passes_language_to_repository():
+def test_get_random_featured_series_passes_limit_to_repository():
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
                return_value=([], 0)) as mock_repo:
@@ -1809,11 +1811,10 @@ def test_get_random_featured_series_passes_language_to_repository():
 
     assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
     call_kwargs = mock_repo.call_args.kwargs
-    assert call_kwargs["language"] == "bo"
     assert call_kwargs["limit"] == 10
 
 
-def test_get_random_featured_series_excludes_series_without_requested_language_metadata():
+def test_get_random_featured_series_falls_back_to_en_metadata_when_requested_language_missing():
     row_with_bo = MagicMock()
     row_with_bo.id = uuid.uuid4()
     row_with_bo.metadata_entries = [_metadata_entry(title="བོད་", language=LanguageCode.BO)]
@@ -1841,25 +1842,28 @@ def test_get_random_featured_series_excludes_series_without_requested_language_m
 
         result = get_random_featured_series(language="bo", limit=10)
 
-    assert len(result.series) == 1
+    assert len(result.series) == 2
     assert result.series[0].id == row_with_bo.id
     assert result.series[0].metadata.title == "བོད་"
     assert result.series[0].metadata.language == "BO"
+    assert result.series[1].id == row_en_only.id
+    assert result.series[1].metadata.title == "English only"
+    assert result.series[1].metadata.language == "EN"
 
 
-def test_get_random_featured_series_returns_404_when_no_metadata_for_language():
-    row_en_only = MagicMock()
-    row_en_only.id = uuid.uuid4()
-    row_en_only.metadata_entries = [_metadata_entry(title="English only", language=LanguageCode.EN)]
-    row_en_only.image = None
-    row_en_only.author_id = uuid.uuid4()
-    row_en_only.group_id = None
-    row_en_only.featured = True
-    row_en_only.status = PlanStatus.PUBLISHED
+def test_get_random_featured_series_returns_404_when_no_metadata_available():
+    row_no_metadata = MagicMock()
+    row_no_metadata.id = uuid.uuid4()
+    row_no_metadata.metadata_entries = []
+    row_no_metadata.image = None
+    row_no_metadata.author_id = uuid.uuid4()
+    row_no_metadata.group_id = None
+    row_no_metadata.featured = True
+    row_no_metadata.status = PlanStatus.PUBLISHED
 
     with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
          patch("pecha_api.plans.series.series_service.get_random_featured_published_series",
-               return_value=([(row_en_only, 1, 0)], 1)), \
+               return_value=([(row_no_metadata, 1, 0)], 1)), \
          patch("pecha_api.plans.series.series_service._group_summaries_for_series_rows",
                return_value={}):
         _session_local_context(mock_session_local)

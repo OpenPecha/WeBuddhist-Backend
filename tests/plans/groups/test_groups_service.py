@@ -705,6 +705,9 @@ def test_series_to_dtos_sets_partner_enrollment_for_authenticated_user():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_user_series_enrollment_partner_map",
         return_value={series.id: partner_id},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_plan_schedule_by_series_ids",
+        return_value={},
     ):
         dtos = _series_to_dtos(
             db=mock_db,
@@ -733,7 +736,10 @@ def test_series_to_dtos_is_not_enrolled_without_user():
         return_value={series.id: partner_id},
     ), patch(
         "pecha_api.plans.groups.groups_service.get_user_series_enrollment_partner_map",
-    ) as mock_enrollment_map:
+    ) as mock_enrollment_map, patch(
+        "pecha_api.plans.groups.groups_service.get_series_plan_schedule_by_series_ids",
+        return_value={},
+    ):
         dtos = _series_to_dtos(
             db=mock_db,
             series_list=[series],
@@ -754,6 +760,9 @@ def test_series_to_dtos_filters_metadata_by_language():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
         return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_plan_schedule_by_series_ids",
+        return_value={},
     ):
         all_metadata = _series_to_dtos(db=mock_db, series_list=[series], group_id=group_id)
         bo_metadata = _series_to_dtos(db=mock_db, series_list=[series], group_id=group_id, language="bo")
@@ -766,6 +775,63 @@ def test_series_to_dtos_filters_metadata_by_language():
     # No metadata for the requested language falls back to English.
     assert missing_metadata[0].metadata.title == "English Series"
     assert missing_metadata[0].metadata.language == "EN"
+
+
+def test_series_to_dtos_includes_schedule_from_plans():
+    from pecha_api.plans.plans_enums import PlanStatus
+    from pecha_api.plans.series.series_repository import SeriesPlanScheduleRow
+
+    group_id = uuid4()
+    series = _make_series_with_metadata()
+    series_start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    last_plan_start = datetime(2026, 6, 10, tzinfo=timezone.utc)
+    mock_db = MagicMock()
+    schedule_rows = {
+        series.id: [
+            SeriesPlanScheduleRow(
+                series_id=series.id,
+                status=PlanStatus.PUBLISHED,
+                language=LanguageCode.BO,
+                display_order=0,
+                start_date=series_start,
+                deleted_at=None,
+                total_days=3,
+            ),
+            SeriesPlanScheduleRow(
+                series_id=series.id,
+                status=PlanStatus.PUBLISHED,
+                language=LanguageCode.BO,
+                display_order=1,
+                start_date=last_plan_start,
+                deleted_at=None,
+                total_days=2,
+            ),
+        ]
+    }
+    with patch(
+        "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
+        return_value={series.id: 2},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_enrolled_count_map_by_group_and_series_ids",
+        return_value={series.id: 0},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_plan_schedule_by_series_ids",
+        return_value=schedule_rows,
+    ):
+        dtos = _series_to_dtos(
+            db=mock_db,
+            series_list=[series],
+            group_id=group_id,
+            language="bo",
+            published_only=True,
+        )
+
+    assert dtos[0].start_date == series_start
+    assert dtos[0].end_date == datetime(2026, 6, 11, tzinfo=timezone.utc)
+    assert dtos[0].total_days == 5
 
 
 def test_group_detail_series_metadata_filtered_by_language():
@@ -784,6 +850,9 @@ def test_group_detail_series_metadata_filtered_by_language():
         return_value={series.id: 0},
     ), patch(
         "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_plan_schedule_by_series_ids",
         return_value={},
     ):
         detail_all = _group_to_detail(group, db=mock_db)
@@ -813,6 +882,9 @@ def test_get_author_group_detail_series_metadata_filtered_by_language():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
         return_value={series.id: 0},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_plan_schedule_by_series_ids",
+        return_value={},
     ):
         _session_local_context(mock_session)
         result = get_author_group_detail(group_id=group.id, language="bo")
@@ -844,6 +916,9 @@ def test_get_cms_group_detail_series_metadata_filtered_by_language():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
         return_value={series.id: 0},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_plan_schedule_by_series_ids",
+        return_value={},
     ):
         _session_local_context(mock_session)
         result = get_cms_group_detail(token="t", group_id=group.id, language="bo")

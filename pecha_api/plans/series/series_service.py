@@ -445,11 +445,12 @@ def get_random_featured_series(
 ) -> SeriesListResponse:
     from pecha_api.plans.response_message import NO_FEATURED_SERIES_FOUND
 
+    language = language or "en"
+
     with SessionLocal() as db_session:
         rows, total = get_random_featured_published_series(
             db=db_session,
             limit=limit,
-            language=language,
         )
         if total == 0:
             raise HTTPException(
@@ -473,6 +474,7 @@ def get_random_featured_series(
             plans_by_series_id.get(row.id, []),
             published_only=True,
             language=language,
+            fallback=True,
         )
         series_dtos.append(
             _series_to_list_item_dto(
@@ -484,20 +486,20 @@ def get_random_featured_series(
                 start_date=start_date,
                 end_date=end_date,
                 total_days=total_days,
+                fallback=True,
             )
         )
-    if language:
-        series_dtos = [dto for dto in series_dtos if dto.metadata is not None]
-        if not series_dtos:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=NO_FEATURED_SERIES_FOUND,
-            )
+    series_dtos = [dto for dto in series_dtos if dto.metadata is not None]
+    if not series_dtos:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=NO_FEATURED_SERIES_FOUND,
+        )
     return SeriesListResponse(
         series=series_dtos,
         skip=0,
         limit=limit,
-        total=total,
+        total=len(series_dtos),
     )
 
 
