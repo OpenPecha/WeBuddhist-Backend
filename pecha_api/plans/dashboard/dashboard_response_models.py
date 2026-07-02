@@ -10,6 +10,7 @@ from pecha_api.plans.series.series_response_models import (
     SeriesMetadataDTO,
     SeriesMetadataResponse,
     SeriesPlanDTO,
+    SeriesProgressDTO,
 )
 
 DashboardTab = Literal["all", "series", "plans"]
@@ -30,6 +31,7 @@ class DashboardItemDTO(BaseModel):
     languages: List[str] = Field(default_factory=list)
     enrolled_count: int = 0
     plans_count: Optional[int] = None
+    progress: Optional[SeriesProgressDTO] = None
     updated_at: Optional[datetime] = None
     created_at: datetime
 
@@ -38,6 +40,8 @@ class DashboardItemDTO(BaseModel):
         data = serializer(self)
         if self.type == "series":
             data.pop("title", None)
+        else:
+            data.pop("progress", None)
         if self.plans is None:
             data.pop("plans", None)
         return data

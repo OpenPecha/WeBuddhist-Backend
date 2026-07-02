@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Tuple
+from datetime import datetime, timedelta, timezone, date
+from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -42,13 +42,15 @@ from pecha_api.plans.series.series_response_models import (
     SeriesPlanDTO,
     SeriesListResponse,
     CloneSeriesPlansRequest,
+    SeriesProgressDTO,
+    SeriesPartnerDTO,
 )
+from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 from pecha_api.plans.authors.plan_authors_service import (
     validate_cms_author_details,
     get_image_url,
     safe_get_image_url,
 )
-from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 from pecha_api.plans.shared.permissions import (
     is_reviewer,
     is_super_admin,
@@ -163,6 +165,150 @@ def _plan_to_dto(plan, group_id: Optional[UUID] = None) -> SeriesPlanDTO:
     )
 
 
+def _to_series_date(value) -> Optional[date]:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    return value
+
+
+def compute_series_progress(
+    *,
+    start_date: Optional[datetime],
+    total_days: int,
+    reference_date: Optional[date] = None,
+) -> SeriesProgressDTO:
+    total_day_count = max(int(total_days or 0), 0)
+    if total_day_count == 0:
+        return SeriesProgressDTO(total_day_count=0, current_day_number=None)
+
+    series_start = _to_series_date(start_date)
+    if series_start is None:
+        return SeriesProgressDTO(
+            total_day_count=total_day_count,
+            current_day_number=None,
+        )
+
+    ref = reference_date or datetime.now(timezone.utc).date()
+    current_day_number = (ref - series_start).days + 1
+    if current_day_number < 1:
+        current_day_number = 0
+    elif current_day_number > total_day_count:
+        current_day_number = total_day_count
+
+    return SeriesProgressDTO(
+        total_day_count=total_day_count,
+        current_day_number=current_day_number,
+    )
+
+
+def _group_metadata_language(metadata) -> str:
+    language = metadata.language
+    return language.value if hasattr(language, "value") else str(language)
+
+
+def build_series_partner_dto(
+    group: Optional[AuthorGroupSummaryDTO],
+    language: Optional[str] = None,
+) -> Optional[SeriesPartnerDTO]:
+    if group is None:
+        return None
+
+    metadata_entries = group.metadata
+    if metadata_entries is None:
+        title = "Group"
+    elif isinstance(metadata_entries, list):
+        if not metadata_entries:
+            title = "Group"
+        else:
+            matched = filter_by_language_with_fallback(
+                entries=metadata_entries,
+                language=language,
+                language_of=_group_metadata_language,
+            )
+            title = matched[0].title if matched else metadata_entries[0].title
+    else:
+        title = metadata_entries.title
+
+    return SeriesPartnerDTO(
+        group_name=title,
+        group_image=group.avatar_url,
+    )
+
+
+def resolve_user_id_from_token(token: Optional[str]) -> Optional[UUID]:
+    if not token:
+        return None
+    try:
+        from pecha_api.users.users_service import validate_and_extract_user_details
+
+        user = validate_and_extract_user_details(token=token)
+        return user.id
+    except Exception:
+        return None
+
+
+def get_series_partner_dtos_by_series_ids(
+    db: Session,
+    user_id: Optional[UUID],
+    series_ids: Sequence[UUID],
+    language: Optional[str] = None,
+) -> Dict[UUID, SeriesPartnerDTO]:
+    if user_id is None or not series_ids:
+        return {}
+
+    from pecha_api.plans.groups.groups_repository import get_user_series_enrollment_partner_map
+    from pecha_api.plans.groups.groups_service import get_group_summaries_by_ids
+    from pecha_api.plans.users.plan_user_series_repository import get_group_ids_by_series_partner_ids
+
+    enrollment_partner_map = get_user_series_enrollment_partner_map(
+        db=db,
+        user_id=user_id,
+        series_ids=list(series_ids),
+    )
+    if not enrollment_partner_map:
+        return {}
+
+    series_partner_ids = [
+        partner_id
+        for partner_id in enrollment_partner_map.values()
+        if partner_id is not None
+    ]
+    if not series_partner_ids:
+        return {}
+
+    partner_id_to_group_id = get_group_ids_by_series_partner_ids(
+        db=db,
+        series_partner_ids=series_partner_ids,
+    )
+    enrollment_partner_group_ids: Dict[UUID, UUID] = {}
+    for series_id, series_partner_id in enrollment_partner_map.items():
+        if series_partner_id is None:
+            continue
+        partner_group_id = partner_id_to_group_id.get(series_partner_id)
+        if partner_group_id is not None:
+            enrollment_partner_group_ids[series_id] = partner_group_id
+
+    if not enrollment_partner_group_ids:
+        return {}
+
+    group_summaries = get_group_summaries_by_ids(
+        db=db,
+        group_ids=list(set(enrollment_partner_group_ids.values())),
+        language=language,
+    )
+    partner_dtos: Dict[UUID, SeriesPartnerDTO] = {}
+    for series_id, partner_group_id in enrollment_partner_group_ids.items():
+        partner_dto = build_series_partner_dto(
+            group_summaries.get(partner_group_id),
+            language=language,
+        )
+        if partner_dto is not None:
+            partner_dtos[series_id] = partner_dto
+    return partner_dtos
+
+
 def _plan_total_days(plan) -> int:
     if hasattr(plan, "items"):
         return len(plan.items) if plan.items else 0
@@ -219,11 +365,12 @@ def _get_sorted_active_plans(
 ) -> List:
     if not plans:
         return []
-    active_plans = [plan for plan in plans if plan.deleted_at is None]
+    active_plans = [plan for plan in plans if getattr(plan, "deleted_at", None) is None]
     if published_only:
         active_plans = [
             plan for plan in active_plans
-            if _to_plan_status(plan.status) == PlanStatus.PUBLISHED
+            if hasattr(plan, "status")
+            and _to_plan_status(plan.status) == PlanStatus.PUBLISHED
         ]
     if fallback:
         active_plans = filter_by_language_with_fallback(
@@ -319,6 +466,7 @@ def _series_to_list_item_dto(
     end_date: Optional[datetime] = None,
     total_days: int = 0,
     fallback: bool = False,
+    partner: Optional[SeriesPartnerDTO] = None,
 ) -> SeriesListItemDTO:
     return SeriesListItemDTO(
         id=row.id,
@@ -334,6 +482,8 @@ def _series_to_list_item_dto(
         end_date=end_date,
         enrolled_count=enrolled_count,
         group=group,
+        progress=compute_series_progress(start_date=start_date, total_days=total_days),
+        partner=partner,
     )
 
 
@@ -346,9 +496,11 @@ def _series_to_dto(
     group: Optional[AuthorGroupSummaryDTO] = None,
     plan_group_ids: Optional[Dict[UUID, UUID]] = None,
     enrolled_count: int = 0,
+    partner: Optional[SeriesPartnerDTO] = None,
 ) -> SeriesDTO:
     plans_dtos = []
     series_total_days = 0
+    series_start_date = None
 
     if include_plans:
         sorted_plans = _get_sorted_active_plans(
@@ -362,6 +514,12 @@ def _series_to_dto(
             plan_dto = _plan_to_dto(plan, group_id=plan_group_id)
             plans_dtos.append(plan_dto)
             series_total_days += plan_dto.total_days
+        series_start_date, _, _ = _series_schedule_from_plans(
+            row.plans,
+            published_only=published_only,
+            language=plan_language,
+            fallback=True,
+        )
 
     return SeriesDTO(
         id=row.id,
@@ -377,6 +535,11 @@ def _series_to_dto(
         total_days=series_total_days,
         enrolled_count=enrolled_count,
         group=group,
+        progress=compute_series_progress(
+            start_date=series_start_date,
+            total_days=series_total_days,
+        ),
+        partner=partner,
     )
 
 
@@ -386,6 +549,7 @@ def get_filtered_series(
     limit: int,
     language: Optional[str] = None,
     group_id: Optional[UUID] = None,
+    token: Optional[str] = None,
 ) -> SeriesListResponse:
     with SessionLocal() as db_session:
         rows, total = get_series_paginated(
@@ -410,6 +574,13 @@ def get_filtered_series(
             db=db_session,
             series_ids=[row.id for row, _, _ in rows],
         )
+        user_id = resolve_user_id_from_token(token)
+        partner_by_series_id = get_series_partner_dtos_by_series_ids(
+            db=db_session,
+            user_id=user_id,
+            series_ids=[row.id for row, _, _ in rows],
+            language=language,
+        )
 
     series_dtos: List[SeriesListItemDTO] = []
     for row, plan_count, enrolled_count in rows:
@@ -429,6 +600,7 @@ def get_filtered_series(
                 start_date=start_date,
                 end_date=end_date,
                 total_days=total_days,
+                partner=partner_by_series_id.get(row.id),
             )
         )
     return SeriesListResponse(
@@ -442,6 +614,7 @@ def get_filtered_series(
 def get_random_featured_series(
     language: Optional[str] = None,
     limit: int = 10,
+    token: Optional[str] = None,
 ) -> SeriesListResponse:
     from pecha_api.plans.response_message import NO_FEATURED_SERIES_FOUND
 
@@ -467,6 +640,13 @@ def get_random_featured_series(
             db=db_session,
             series_ids=[row.id for row, _, _ in rows],
         )
+        user_id = resolve_user_id_from_token(token)
+        partner_by_series_id = get_series_partner_dtos_by_series_ids(
+            db=db_session,
+            user_id=user_id,
+            series_ids=[row.id for row, _, _ in rows],
+            language=language,
+        )
 
     series_dtos: List[SeriesListItemDTO] = []
     for row, plan_count, enrolled_count in rows:
@@ -487,6 +667,7 @@ def get_random_featured_series(
                 end_date=end_date,
                 total_days=total_days,
                 fallback=True,
+                partner=partner_by_series_id.get(row.id),
             )
         )
     series_dtos = [dto for dto in series_dtos if dto.metadata is not None]
@@ -503,7 +684,11 @@ def get_random_featured_series(
     )
 
 
-def get_series_detail(series_id: UUID, language: Optional[str] = None) -> SeriesDTO:
+def get_series_detail(
+    series_id: UUID,
+    language: Optional[str] = None,
+    token: Optional[str] = None,
+) -> SeriesDTO:
     with SessionLocal() as db_session:
         row = get_series_by_id(db=db_session, series_id=series_id)
         if not row or _to_plan_status(row.status) != PlanStatus.PUBLISHED:
@@ -511,6 +696,13 @@ def get_series_detail(series_id: UUID, language: Optional[str] = None) -> Series
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Series with id '{series_id}' not found",
             )
+        user_id = resolve_user_id_from_token(token)
+        partner_by_series_id = get_series_partner_dtos_by_series_ids(
+            db=db_session,
+            user_id=user_id,
+            series_ids=[series_id],
+            language=language,
+        )
         return _series_detail_dto(
             db_session,
             row,
@@ -518,6 +710,7 @@ def get_series_detail(series_id: UUID, language: Optional[str] = None) -> Series
             published_only=True,
             plan_language=language,
             metadata_language=language,
+            partner=partner_by_series_id.get(series_id),
         )
 
 def get_cms_filtered_series(
@@ -559,17 +752,32 @@ def get_cms_filtered_series(
             series_rows=[row for row, _, _ in rows],
             language=language,
         )
-
-    series_dtos: List[SeriesListItemDTO] = [
-        _series_to_list_item_dto(
-            row,
-            plan_count=plan_count,
-            enrolled_count=enrolled_count,
-            language=language,
-            group=group_summaries.get(row.group_id),
+        plans_by_series_id = get_series_plan_schedule_by_series_ids(
+            db=db_session,
+            series_ids=[row.id for row, _, _ in rows],
         )
-        for row, plan_count, enrolled_count in rows
-    ]
+
+    series_dtos: List[SeriesListItemDTO] = []
+    for row, plan_count, enrolled_count in rows:
+        start_date, end_date, total_days = _series_schedule_from_plans(
+            plans_by_series_id.get(row.id, []),
+            published_only=False,
+            language=language,
+            fallback=True,
+        )
+        series_dtos.append(
+            _series_to_list_item_dto(
+                row,
+                plan_count=plan_count,
+                enrolled_count=enrolled_count,
+                language=language,
+                group=group_summaries.get(row.group_id),
+                start_date=start_date,
+                end_date=end_date,
+                total_days=total_days,
+                fallback=True,
+            )
+        )
     return SeriesListResponse(
         series=series_dtos,
         skip=skip,

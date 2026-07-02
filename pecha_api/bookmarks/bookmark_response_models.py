@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 from datetime import datetime
 
 from pecha_api.bookmarks.bookmark_enums import BookmarkType
-from pecha_api.plans.series.series_response_models import SeriesMetadataResponse
+from pecha_api.plans.series.series_response_models import SeriesMetadataResponse, SeriesProgressDTO
 
 
 class BookmarkSegmentDTO(BaseModel):
@@ -38,6 +38,7 @@ class BookmarkSeriesDTO(BaseModel):
     image: Optional[str] = None
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
+    progress: Optional[SeriesProgressDTO] = None
 
 
 class BookmarkAccumulatorDTO(BaseModel):

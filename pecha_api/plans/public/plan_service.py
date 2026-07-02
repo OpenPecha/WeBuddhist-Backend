@@ -24,6 +24,10 @@ from pecha_api.plans.public.plan_repository import (
     get_next_plan_in_series,
     get_previous_plan_in_series,
 )
+from pecha_api.plans.series.series_service import (
+    _series_schedule_from_plans,
+    compute_series_progress,
+)
 from pecha_api.plans.users.plan_users_progress_repository import get_plan_progress_by_user_id_and_plan_id, save_plan_progress
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.routines.routines_repository import (
@@ -615,10 +619,25 @@ async def get_plan_daily_content(
                     else str(item.language),
                 )
             ]
+            series_plans = get_published_plans_in_series(
+                db=db,
+                series_id=plan.series_id,
+                language=navigation_language,
+            )
+            series_start, _, series_total_days = _series_schedule_from_plans(
+                series_plans,
+                published_only=True,
+                language=navigation_language,
+            )
             series_dto = SeriesDTO(
                 id=plan.series.id,
                 metadata=format_metadata_response(series_metadata, language=language),
                 image=series_image,
+                progress=compute_series_progress(
+                    start_date=series_start,
+                    total_days=series_total_days,
+                    reference_date=requested_date,
+                ),
             )
 
         previous_date = requested_date - timedelta(days=1) if day_number > 1 else None

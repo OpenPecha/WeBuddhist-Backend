@@ -97,7 +97,7 @@ def test_get_series_list_success(sample_series_list_response):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=None)
+        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=None, token=None)
 
         assert "series" in data
         assert data["skip"] == 0
@@ -127,7 +127,7 @@ def test_get_featured_series_success(sample_series_list_response):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(language="en", limit=10)
+        mock_service.assert_called_once_with(language="en", limit=10, token=None)
         assert len(data["series"]) == 1
         item = data["series"][0]
         assert item["id"] == str(featured_item.id)
@@ -184,7 +184,7 @@ def test_get_featured_series_with_language(sample_series_list_response):
         response = client.get("/series/featured", params={"language": "en"})
 
         assert response.status_code == status.HTTP_200_OK
-        mock_service.assert_called_once_with(language="en", limit=10)
+        mock_service.assert_called_once_with(language="en", limit=10, token=None)
 
 
 def test_get_featured_series_not_found():
@@ -212,7 +212,7 @@ def test_get_series_list_with_search_pagination(sample_series_dto):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(search="meditation", skip=2, limit=5, language=None, group_id=None)
+        mock_service.assert_called_once_with(search="meditation", skip=2, limit=5, language=None, group_id=None, token=None)
 
         assert data["series"] == []
         assert data["skip"] == 2
@@ -307,7 +307,7 @@ def test_get_series_by_id_success(sample_series_dto):
         response = client.get(f"/series/{series_id}")
 
         assert response.status_code == status.HTTP_200_OK
-        mock_detail.assert_called_once_with(series_id=series_id, language=None)
+        mock_detail.assert_called_once_with(series_id=series_id, language=None, token=None)
 
         data = response.json()
         assert data["id"] == str(sample_series_dto.id)
@@ -387,7 +387,7 @@ def test_get_series_by_id_includes_total_days_in_response():
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_detail.assert_called_once_with(series_id=series_id, language=None)
+        mock_detail.assert_called_once_with(series_id=series_id, language=None, token=None)
 
         assert data["total_days"] == 8
         assert len(data["plans"]) == 2
@@ -426,7 +426,7 @@ def test_get_series_list_returns_plan_count_not_plans():
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=None)
+        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=None, token=None)
 
         assert len(data["series"]) == 1
         assert data["series"][0]["plan_count"] == 0
@@ -444,7 +444,7 @@ def test_get_series_list_with_group_filter():
         response = client.get("/series", params={"group_id": str(group_id)})
 
     assert response.status_code == status.HTTP_200_OK
-    mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=group_id)
+    mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=group_id, token=None)
 
 
 def test_update_series_accepts_empty_body():
@@ -631,7 +631,7 @@ def test_get_series_by_id_passes_language_param(sample_series_dto):
         response = client.get(f"/series/{series_id}", params={"language": "bo"})
 
         assert response.status_code == status.HTTP_200_OK
-        mock_detail.assert_called_once_with(series_id=series_id, language="bo")
+        mock_detail.assert_called_once_with(series_id=series_id, language="bo", token=None)
 
 
 def test_get_cms_series_by_id_passes_language_param(sample_series_dto):

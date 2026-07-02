@@ -187,7 +187,15 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
             enrollment,
             series,
             {current_plan_id: "Current Plan"},
-            {series_id: [SimpleNamespace(id=plan_id)]},
+            {series_id: [SimpleNamespace(
+                id=plan_id,
+                deleted_at=None,
+                status=SimpleNamespace(value="PUBLISHED"),
+                display_order=0,
+                start_date=None,
+                language=SimpleNamespace(value="EN"),
+                items=[],
+            )]},
             {plan_id: SimpleNamespace(is_completed=True)},
             partner_group_id=partner_group_id,
         )
@@ -201,6 +209,8 @@ def test_build_user_series_enrollment_dto_with_metadata_and_progress():
     assert dto.completed_plans == 1
     assert dto.progress_percentage == 100.0
     assert dto.series_partner_id == partner_group_id
+    assert dto.progress is not None
+    assert dto.progress.total_day_count == 0
 
 
 def test_build_user_series_enrollment_dto_renders_language_with_en_fallback():

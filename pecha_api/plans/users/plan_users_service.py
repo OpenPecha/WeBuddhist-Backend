@@ -109,6 +109,11 @@ from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallba
 from pecha_api.plans.groups.groups_repository import get_group_ids_by_plan_ids, get_group_ids_by_series_ids, upsert_group_join
 from pecha_api.plans.groups.groups_service import get_group_summaries_by_ids
 from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
+from pecha_api.plans.series.series_service import (
+    _series_schedule_from_plans,
+    build_series_partner_dto,
+    compute_series_progress,
+)
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.config import get
 import logging
@@ -137,6 +142,19 @@ def _group_summary_for_id(
     if not group_id:
         return None
     return group_summaries.get(group_id)
+
+
+def _series_progress_from_plans(
+    plans: list,
+    language: Optional[str] = None,
+):
+    start_date, _, total_days = _series_schedule_from_plans(
+        plans,
+        published_only=True,
+        language=language,
+        fallback=True,
+    )
+    return compute_series_progress(start_date=start_date, total_days=total_days)
 
 
 def _load_group_summaries_for_plans(
@@ -766,6 +784,12 @@ def _build_user_series_enrollment_dto(
     total_plans, completed_plans, progress_percentage = _compute_series_plan_progress(
         all_plans, progress_by_plan_id
     )
+    series_progress = _series_progress_from_plans(all_plans, language=language)
+    partner = (
+        build_series_partner_dto(group, language=language)
+        if partner_group_id
+        else None
+    )
     return UserSeriesEnrollmentDTO(
         id=enrollment.id,
         user_id=enrollment.user_id,
@@ -786,6 +810,8 @@ def _build_user_series_enrollment_dto(
         enrolled_count=enrolled_count,
         group=group,
         series_partner_id=partner_group_id,
+        progress=series_progress,
+        partner=partner,
     )
 
 
@@ -1013,6 +1039,7 @@ def get_user_series_days_completed(
 
         series_ids = [series_id for series_id, _ in rows]
         series_by_id = {series.id: series for series in get_series_by_ids(db, series_ids)}
+        plans_by_series_id = get_plans_by_series_ids(db, series_ids)
         series_group_ids = get_group_ids_by_series_ids(db=db, series_ids=series_ids)
         group_summaries = get_group_summaries_by_ids(
             db=db, group_ids=list(series_group_ids.values()), language=language
@@ -1040,6 +1067,10 @@ def get_user_series_days_completed(
                     group=_group_summary_for_id(
                         series_group_ids.get(series_id),
                         group_summaries,
+                    ),
+                    progress=_series_progress_from_plans(
+                        plans_by_series_id.get(series_id, []),
+                        language=language,
                     ),
                 )
             )
@@ -1099,6 +1130,17 @@ def get_user_series_progress(
         enrolled_count = get_enrolled_count_map_by_series_ids(
             db=db, series_ids=[series_id]
         ).get(series_id, 0)
+        series_progress = _series_progress_from_plans(all_plans, language=language)
+        partner_group = None
+        if getattr(enrollment, "series_partner_id", None):
+            partner_group_id = get_group_ids_by_series_partner_ids(
+                db=db, series_partner_ids=[enrollment.series_partner_id]
+            ).get(enrollment.series_partner_id)
+            if partner_group_id:
+                partner_summaries = get_group_summaries_by_ids(
+                    db=db, group_ids=[partner_group_id], language=language
+                )
+                partner_group = partner_summaries.get(partner_group_id)
 
         return UserSeriesProgressResponse(
             id=enrollment.id,
@@ -1114,6 +1156,8 @@ def get_user_series_progress(
             plans=plan_dtos,
             enrolled_count=enrolled_count,
             group=series_group,
+            progress=series_progress,
+            partner=build_series_partner_dto(partner_group, language=language),
         )
 
 

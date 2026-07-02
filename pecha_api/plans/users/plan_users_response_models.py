@@ -7,6 +7,7 @@ from pecha_api.plans.plans_enums import ContentType, SeriesStatus
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 from pecha_api.plans.public.plan_response_models import DayVideoSummaryDTO
+from pecha_api.plans.series.series_response_models import SeriesProgressDTO, SeriesPartnerDTO
 
 
 
@@ -136,6 +137,8 @@ class UserSeriesEnrollmentDTO(BaseModel):
     enrolled_count: int = 0
     group: Optional[AuthorGroupSummaryDTO] = None
     series_partner_id: Optional[UUID] = None  # Partner group ID when enrolled via a partner group
+    progress: Optional[SeriesProgressDTO] = None
+    partner: Optional[SeriesPartnerDTO] = None
 
 
 class UserSeriesEnrollmentsResponse(BaseModel):
@@ -159,6 +162,8 @@ class UserSeriesProgressResponse(BaseModel):
     plans: List[UserPlanDTO]  # All plans in series with completion status
     enrolled_count: int = 0
     group: Optional[AuthorGroupSummaryDTO] = None
+    progress: Optional[SeriesProgressDTO] = None
+    partner: Optional[SeriesPartnerDTO] = None
 
 
 class UpdateSeriesEnrollmentRequest(BaseModel):
@@ -174,6 +179,8 @@ class UserSeriesDaysCompletedDTO(BaseModel):
     days_completed: int
     enrolled_count: int = 0
     group: Optional[AuthorGroupSummaryDTO] = None
+    progress: Optional[SeriesProgressDTO] = None
+    partner: Optional[SeriesPartnerDTO] = None
 
 
 class UserSeriesDaysCompletedResponse(BaseModel):

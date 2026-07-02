@@ -27,7 +27,12 @@ from pecha_api.plans.dashboard.dashboard_response_models import (
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_repository import get_series_with_plans_by_ids
 from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
-from pecha_api.plans.series.series_service import _get_sorted_active_plans, _plan_to_dto
+from pecha_api.plans.series.series_service import (
+    _get_sorted_active_plans,
+    _plan_to_dto,
+    _series_schedule_from_plans,
+    compute_series_progress,
+)
 from pecha_api.plans.shared.metadata_utils import format_metadata_response
 def _parse_languages(item_type: str, languages_raw: Optional[str]) -> List[str]:
     if not languages_raw:
@@ -187,6 +192,25 @@ def _published_plans_by_series(
     }
 
 
+def _series_progress_by_ids(
+    db_session,
+    series_ids: List[UUID],
+    language: Optional[str] = None,
+) -> dict:
+    progress_map = {}
+    for series in get_series_with_plans_by_ids(db_session, series_ids):
+        start_date, _, total_days = _series_schedule_from_plans(
+            series.plans,
+            published_only=True,
+            language=language,
+        )
+        progress_map[series.id] = compute_series_progress(
+            start_date=start_date,
+            total_days=total_days,
+        )
+    return progress_map
+
+
 def get_practice_items_list(
     tab: DashboardTab,
     page: int,
@@ -217,10 +241,16 @@ def get_practice_items_list(
             series_ids,
             language=language,
         )
+        progress_by_series = _series_progress_by_ids(
+            db_session,
+            series_ids,
+            language=language,
+        )
 
     for item in items:
         if item.type == "series":
             item.plans = plans_by_series.get(item.id, [])
+            item.progress = progress_by_series.get(item.id)
 
     return DashboardItemsResponse(
         items=items,
