@@ -18,6 +18,7 @@ from pecha_api.plans.cms.cms_plans_service import (
     update_plan_details, update_selected_plan_status, delete_selected_plan, get_plan_day_details,
     DUMMY_PLANS, DUMMY_DAYS,
     _get_subscription_count, _validate_start_date_update, _apply_plan_field_updates, _generate_plan_image_url,
+    _validate_plan_schedule_within_series,
     generate_plan_audio_service, _generate_subtask_audio, _generate_audio_segments,
     _build_combined_wav, _update_subtask_timestamps, _upload_and_persist_audio,
 )
@@ -120,6 +121,76 @@ def test_validate_start_date_update_allows_same_date_for_published_with_subscrib
     
     # This should not raise because the date is not actually changing
     _validate_start_date_update(mock_db, mock_plan, plan_id, same_start_date)
+
+
+def _mock_series_plan_for_schedule(start_date, display_order=2):
+    mock_plan = MagicMock()
+    mock_plan.id = uuid.uuid4()
+    mock_plan.series_id = uuid.uuid4()
+    mock_plan.display_order = display_order
+    mock_plan.start_date = start_date
+    return mock_plan
+
+
+def test_validate_plan_schedule_raises_when_plan_runs_into_next_plan():
+    """Moving start_date later makes the plan's 26 days spill past the next plan's start"""
+    mock_db = MagicMock()
+    # Plan starts Jul 1 with 26 days -> ends Jul 26; next plan starts Jul 10
+    mock_plan = _mock_series_plan_for_schedule(datetime(2026, 7, 1, tzinfo=timezone.utc))
+
+    with patch("pecha_api.plans.cms.cms_plans_service.get_last_day_number", return_value=26), \
+         patch("pecha_api.plans.cms.cms_plans_service.get_next_series_plan_start_date",
+               return_value=datetime(2026, 7, 10, tzinfo=timezone.utc)), \
+         patch("pecha_api.plans.cms.cms_plans_service.get_previous_series_plans_schedule", return_value=[]):
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_plan_schedule_within_series(db=mock_db, plan=mock_plan)
+
+    assert exc_info.value.status_code == 400
+    assert "2026-07-26" in exc_info.value.detail["message"]
+    assert "2026-07-10" in exc_info.value.detail["message"]
+
+
+def test_validate_plan_schedule_raises_when_previous_plan_overlaps_new_start():
+    """Moving start_date earlier lands inside the previous plan's span"""
+    mock_db = MagicMock()
+    # Previous plan starts Jun 14 with 26 days -> ends Jul 9; this plan moved to Jul 5
+    mock_plan = _mock_series_plan_for_schedule(datetime(2026, 7, 5, tzinfo=timezone.utc))
+
+    with patch("pecha_api.plans.cms.cms_plans_service.get_last_day_number", return_value=0), \
+         patch("pecha_api.plans.cms.cms_plans_service.get_next_series_plan_start_date", return_value=None), \
+         patch("pecha_api.plans.cms.cms_plans_service.get_previous_series_plans_schedule",
+               return_value=[(datetime(2026, 6, 14, tzinfo=timezone.utc), 26)]):
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_plan_schedule_within_series(db=mock_db, plan=mock_plan)
+
+    assert exc_info.value.status_code == 400
+    assert "2026-07-09" in exc_info.value.detail["message"]
+
+
+def test_validate_plan_schedule_allows_non_overlapping_schedule():
+    """Plan ends the day before the next plan starts and starts after the previous plan ends"""
+    mock_db = MagicMock()
+    # Previous ends Jul 9, this plan runs Jul 10 - Jul 23 (14 days), next starts Jul 24
+    mock_plan = _mock_series_plan_for_schedule(datetime(2026, 7, 10, tzinfo=timezone.utc))
+
+    with patch("pecha_api.plans.cms.cms_plans_service.get_last_day_number", return_value=14), \
+         patch("pecha_api.plans.cms.cms_plans_service.get_next_series_plan_start_date",
+               return_value=datetime(2026, 7, 24, tzinfo=timezone.utc)), \
+         patch("pecha_api.plans.cms.cms_plans_service.get_previous_series_plans_schedule",
+               return_value=[(datetime(2026, 6, 14, tzinfo=timezone.utc), 26)]):
+        _validate_plan_schedule_within_series(db=mock_db, plan=mock_plan)
+
+
+def test_validate_plan_schedule_skips_plans_outside_series():
+    """No series, no start_date, or no display_order -> validation is a no-op"""
+    mock_db = MagicMock()
+    mock_plan = _mock_series_plan_for_schedule(datetime(2026, 7, 1, tzinfo=timezone.utc))
+    mock_plan.series_id = None
+
+    with patch("pecha_api.plans.cms.cms_plans_service.get_last_day_number") as mock_last_day:
+        _validate_plan_schedule_within_series(db=mock_db, plan=mock_plan)
+
+    mock_last_day.assert_not_called()
 
 
 def test_apply_plan_field_updates_updates_all_fields():

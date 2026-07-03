@@ -8,7 +8,8 @@ from pecha_api.plans.audio.sub_task_timestamps_repository import upsert_sub_task
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
-from pecha_api.plans.cms.cms_plans_repository import save_plan, get_plan_by_id, get_plans_by_author_id, update_plan
+from pecha_api.plans.cms.cms_plans_repository import save_plan, get_plan_by_id, get_plans_by_author_id, update_plan, \
+    get_next_series_plan_start_date, get_previous_series_plans_schedule
 from pecha_api.plans.groups.groups_repository import get_group_id_for_plan, get_group_ids_by_plan_ids
 from pecha_api.plans.series.series_repository import (
     get_series_by_id,
@@ -18,7 +19,7 @@ from pecha_api.plans.series.series_repository import (
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.tags.tag_repository import set_plan_tags
 from pecha_api.plans.tags.tag_service import validate_tag_ids
-from pecha_api.plans.items.plan_items_repository import save_plan_items, get_plan_items_by_plan_id, get_plan_day_with_tasks_and_subtasks, get_plan_day_by_id_any_plan
+from pecha_api.plans.items.plan_items_repository import save_plan_items, get_plan_items_by_plan_id, get_plan_day_with_tasks_and_subtasks, get_plan_day_by_id_any_plan, get_last_day_number
 from pecha_api.plans.public.plans_cache_service import (
     schedule_invalidate_plan_day_cache_for_day,
     schedule_invalidate_plan_day_cache_for_task,
@@ -59,8 +60,9 @@ from pecha_api.uploads.S3_utils import generate_presigned_access_url, upload_byt
 from uuid import uuid4, UUID
 from fastapi import HTTPException
 from pecha_api.plans.auth.plan_auth_models import ResponseError
-from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, FORBIDDEN, UNAUTHORIZED_PLAN_DELETE, PLAN_AUTHOR_MISMATCH, PLAN_MUST_HAVE_AT_LEAST_ONE_DAY_WITH_CONTENT_TO_BE_PUBLISHED, PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS
-from datetime import datetime, timezone
+from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, FORBIDDEN, UNAUTHORIZED_PLAN_DELETE, PLAN_AUTHOR_MISMATCH, PLAN_MUST_HAVE_AT_LEAST_ONE_DAY_WITH_CONTENT_TO_BE_PUBLISHED, PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS, \
+    PLAN_SCHEDULE_OVERLAPS_NEXT_PLAN, PLAN_SCHEDULE_OVERLAPS_PREVIOUS_PLAN
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import func
 
 DUMMY_PLANS = [
@@ -727,6 +729,50 @@ def _validate_start_date_update(db: Session, plan: Plan, plan_id: UUID, new_star
             )
 
 
+def _validate_plan_schedule_within_series(db: Session, plan: Plan) -> None:
+    if plan.series_id is None or plan.start_date is None or plan.display_order is None:
+        return
+
+    last_day_number = get_last_day_number(db=db, plan_id=plan.id)
+    if last_day_number > 0:
+        next_plan_start_date = get_next_series_plan_start_date(
+            db=db,
+            series_id=plan.series_id,
+            display_order=plan.display_order,
+        )
+        if next_plan_start_date is not None:
+            plan_end_date = plan.start_date.date() + timedelta(days=last_day_number - 1)
+            if plan_end_date >= next_plan_start_date.date():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=ResponseError(
+                        error=BAD_REQUEST,
+                        message=PLAN_SCHEDULE_OVERLAPS_NEXT_PLAN.format(
+                            plan_end_date=plan_end_date.isoformat(),
+                            next_start_date=next_plan_start_date.date().isoformat(),
+                        ),
+                    ).model_dump(),
+                )
+
+    previous_schedules = get_previous_series_plans_schedule(
+        db=db,
+        series_id=plan.series_id,
+        display_order=plan.display_order,
+    )
+    for previous_start_date, previous_last_day_number in previous_schedules:
+        previous_end_date = previous_start_date.date() + timedelta(days=previous_last_day_number - 1)
+        if previous_end_date >= plan.start_date.date():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ResponseError(
+                    error=BAD_REQUEST,
+                    message=PLAN_SCHEDULE_OVERLAPS_PREVIOUS_PLAN.format(
+                        previous_end_date=previous_end_date.isoformat(),
+                    ),
+                ).model_dump(),
+            )
+
+
 def _apply_plan_field_updates(plan: Plan, update_plan_request: UpdatePlanRequest):
     field_mappings = [
         ('title', 'title'),
@@ -793,7 +839,10 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
             and plan.series_id is not None
         ):
             plan.display_order = update_plan_request.display_order
-        
+
+        if {"start_date", "series_id", "display_order"} & update_plan_request.model_fields_set:
+            _validate_plan_schedule_within_series(db=db, plan=plan)
+
         plan.updated_at = datetime.now(timezone.utc)
         plan.updated_by = author_details.email
         plan = update_plan(db, plan)

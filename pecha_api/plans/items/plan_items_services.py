@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
 from pecha_api.plans.auth.plan_auth_models import ResponseError
-from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, DUPLICATE_DAY_NUMBERS, PLAN_DAY_NOT_FOUND, PLAN_AUTHOR_MISMATCH
+from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, DUPLICATE_DAY_NUMBERS, PLAN_DAY_NOT_FOUND, PLAN_AUTHOR_MISMATCH, PLAN_DAYS_OVERLAP_NEXT_PLAN
 from .plan_items_repository import (
     save_plan_item,
     save_plan_items,
@@ -16,7 +16,7 @@ from .plan_items_repository import (
     get_plan_day_by_id_with_tasks_and_subtasks,
     get_plan_day_by_id_any_plan,
 )
-from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
+from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id, get_next_series_plan_start_date
 from .plan_items_models import PlanItem
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.authors.plan_authors_model import Author
@@ -29,12 +29,45 @@ from pecha_api.plans.audio.sub_task_timestamps_models import SubTaskTimestamp
 from pecha_api.db.database import SessionLocal
 
 
+def _validate_days_within_series_schedule(db: Session, plan: Plan, last_day_number: int, number_of_days: int) -> None:
+    if plan.series_id is None or plan.start_date is None or plan.display_order is None:
+        return
+
+    next_plan_start_date = get_next_series_plan_start_date(
+        db=db,
+        series_id=plan.series_id,
+        display_order=plan.display_order,
+    )
+    if next_plan_start_date is None:
+        return
+
+    available_days = (next_plan_start_date.date() - plan.start_date.date()).days - last_day_number
+    if number_of_days > available_days:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ResponseError(
+                error=BAD_REQUEST,
+                message=PLAN_DAYS_OVERLAP_NEXT_PLAN.format(
+                    next_start_date=next_plan_start_date.date().isoformat(),
+                    available_days=max(available_days, 0),
+                ),
+            ).model_dump(),
+        )
+
+
 def create_plan_item(token: str, plan_id: UUID, create_days_request: CreateDaysRequest) -> List[ItemDTO]:
     current_author = validate_cms_author_details(token=token)
 
     with SessionLocal() as db_session:
         plan = _get_author_plan(db=db_session, plan_id=plan_id, current_author=current_author)
         last_day_number = get_last_day_number(db=db_session, plan_id=plan.id)
+
+        _validate_days_within_series_schedule(
+            db=db_session,
+            plan=plan,
+            last_day_number=last_day_number,
+            number_of_days=create_days_request.number_of_days,
+        )
 
         new_plan_items = [
             PlanItem(
