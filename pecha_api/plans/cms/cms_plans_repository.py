@@ -1,7 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func, asc, desc
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
 from uuid import UUID
 from datetime import datetime, timezone
 from pecha_api.plans.authors.plan_authors_model import Author
@@ -146,6 +146,49 @@ def get_plan_by_id(db: Session, plan_id: UUID) -> Plan:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get plan by id: {str(e)}"
+        )
+
+def get_next_series_plan_start_date(db: Session, series_id: UUID, display_order: int) -> Optional[datetime]:
+    try:
+        return (
+            db.query(func.min(Plan.start_date))
+            .filter(
+                Plan.series_id == series_id,
+                Plan.display_order > display_order,
+                Plan.start_date.isnot(None),
+                Plan.deleted_at.is_(None),
+            )
+            .scalar()
+        )
+    except Exception as e:
+        db.rollback()
+        print(f"Error getting next series plan start date: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get next series plan start date: {str(e)}"
+        )
+
+def get_previous_series_plans_schedule(db: Session, series_id: UUID, display_order: int) -> List[Tuple[datetime, int]]:
+    """Return (start_date, last_day_number) for active earlier plans in the series that have days."""
+    try:
+        return (
+            db.query(Plan.start_date, func.max(PlanItem.day_number))
+            .join(PlanItem, PlanItem.plan_id == Plan.id)
+            .filter(
+                Plan.series_id == series_id,
+                Plan.display_order < display_order,
+                Plan.start_date.isnot(None),
+                Plan.deleted_at.is_(None),
+            )
+            .group_by(Plan.id, Plan.start_date)
+            .all()
+        )
+    except Exception as e:
+        db.rollback()
+        print(f"Error getting previous series plans schedule: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get previous series plans schedule: {str(e)}"
         )
 
 def get_plan_by_id_and_created_by(db: Session, plan_id: UUID, author: Author) -> Optional[Plan]:

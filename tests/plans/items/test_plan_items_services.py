@@ -1,6 +1,7 @@
 from pecha_api.plans.platform_enums import PlatformRole
 import uuid
 import pytest
+from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock, call
 from fastapi import HTTPException
 
@@ -30,8 +31,7 @@ def test_create_plan_item_success():
     plan.id = plan_id
     plan.deleted_at = None
     plan.group_id = uuid.uuid4()
-    plan.deleted_at = None
-    plan.group_id = uuid.uuid4()
+    plan.series_id = None
 
     author = MagicMock()
     author.id = uuid.uuid4()
@@ -91,8 +91,7 @@ def test_create_plan_item_propagates_repository_error():
     plan.id = plan_id
     plan.deleted_at = None
     plan.group_id = uuid.uuid4()
-    plan.deleted_at = None
-    plan.group_id = uuid.uuid4()
+    plan.series_id = None
 
     author = MagicMock()
     author.id = uuid.uuid4()
@@ -125,6 +124,140 @@ def test_create_plan_item_propagates_repository_error():
         assert exc_info.value.detail == {"error": "Bad request", "message": "duplicate"}
 
 
+def _mock_series_plan(plan_id, author, start_date, display_order=1):
+    plan = MagicMock()
+    plan.id = plan_id
+    plan.deleted_at = None
+    plan.group_id = uuid.uuid4()
+    plan.series_id = uuid.uuid4()
+    plan.display_order = display_order
+    plan.start_date = start_date
+    plan.author_id = author.id
+    return plan
+
+
+def test_create_plan_item_rejects_days_overlapping_next_series_plan():
+    plan_id = uuid.uuid4()
+
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.platform_role = PlatformRole.CREATOR
+
+    # Plan starts Jun 14 and already has 25 days (last day Jul 8); next plan starts Jul 10
+    plan = _mock_series_plan(plan_id, author, start_date=datetime(2026, 6, 14, tzinfo=timezone.utc))
+
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_cms_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_get_last_day_number, \
+         patch("pecha_api.plans.items.plan_items_services.get_next_series_plan_start_date") as mock_next_start, \
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save_plan_items:
+        db_session = _mock_session_local(mock_session_local)
+
+        mock_validate_author.return_value = author
+        mock_get_plan_by_id.return_value = plan
+        mock_get_last_day_number.return_value = 25
+        mock_next_start.return_value = datetime(2026, 7, 10, tzinfo=timezone.utc)
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_plan_item(
+                token="dummy-token",
+                plan_id=plan_id,
+                create_days_request=CreateDaysRequest(number_of_days=2),
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "2026-07-10" in exc_info.value.detail["message"]
+        assert "1 more day(s)" in exc_info.value.detail["message"]
+        mock_next_start.assert_called_once_with(
+            db=db_session,
+            series_id=plan.series_id,
+            display_order=plan.display_order,
+        )
+        mock_save_plan_items.assert_not_called()
+
+
+def test_create_plan_item_allows_days_up_to_next_series_plan_start():
+    plan_id = uuid.uuid4()
+
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.platform_role = PlatformRole.CREATOR
+
+    # Plan starts Jun 14 with 25 days; one more day (Jul 9) still ends before Jul 10
+    plan = _mock_series_plan(plan_id, author, start_date=datetime(2026, 6, 14, tzinfo=timezone.utc))
+
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_cms_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_get_last_day_number, \
+         patch("pecha_api.plans.items.plan_items_services.get_next_series_plan_start_date") as mock_next_start, \
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save_plan_items:
+        _mock_session_local(mock_session_local)
+
+        mock_validate_author.return_value = author
+        mock_get_plan_by_id.return_value = plan
+        mock_get_last_day_number.return_value = 25
+        mock_next_start.return_value = datetime(2026, 7, 10, tzinfo=timezone.utc)
+
+        saved_item = MagicMock()
+        saved_item.id = uuid.uuid4()
+        saved_item.plan_id = plan_id
+        saved_item.day_number = 26
+        mock_save_plan_items.return_value = [saved_item]
+
+        resp = create_plan_item(
+            token="dummy-token",
+            plan_id=plan_id,
+            create_days_request=CreateDaysRequest(number_of_days=1),
+        )
+
+        assert len(resp) == 1
+        assert resp[0].day_number == 26
+        mock_save_plan_items.assert_called_once()
+
+
+def test_create_plan_item_skips_series_check_when_no_next_plan():
+    plan_id = uuid.uuid4()
+
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.platform_role = PlatformRole.CREATOR
+
+    plan = _mock_series_plan(plan_id, author, start_date=datetime(2026, 6, 14, tzinfo=timezone.utc))
+
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_cms_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_get_last_day_number, \
+         patch("pecha_api.plans.items.plan_items_services.get_next_series_plan_start_date") as mock_next_start, \
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save_plan_items:
+        _mock_session_local(mock_session_local)
+
+        mock_validate_author.return_value = author
+        mock_get_plan_by_id.return_value = plan
+        mock_get_last_day_number.return_value = 100
+        mock_next_start.return_value = None
+
+        saved_item = MagicMock()
+        saved_item.id = uuid.uuid4()
+        saved_item.plan_id = plan_id
+        saved_item.day_number = 101
+        mock_save_plan_items.return_value = [saved_item]
+
+        resp = create_plan_item(
+            token="dummy-token",
+            plan_id=plan_id,
+            create_days_request=CreateDaysRequest(number_of_days=1),
+        )
+
+        assert len(resp) == 1
+        mock_save_plan_items.assert_called_once()
+
+
 def test_delete_plan_days_success_reorders():
     plan_id = uuid.uuid4()
     day_id = uuid.uuid4()
@@ -133,8 +266,7 @@ def test_delete_plan_days_success_reorders():
     plan.id = plan_id
     plan.deleted_at = None
     plan.group_id = uuid.uuid4()
-    plan.deleted_at = None
-    plan.group_id = uuid.uuid4()
+    plan.series_id = None
 
     item_to_delete = MagicMock()
     item_to_delete.id = day_id
@@ -245,8 +377,7 @@ def test_delete_plan_days_not_found():
     plan.id = plan_id
     plan.deleted_at = None
     plan.group_id = uuid.uuid4()
-    plan.deleted_at = None
-    plan.group_id = uuid.uuid4()
+    plan.series_id = None
 
     author = MagicMock()
     author.id = uuid.uuid4()
@@ -300,8 +431,7 @@ def test_delete_plan_days_repository_error():
     plan.id = plan_id
     plan.deleted_at = None
     plan.group_id = uuid.uuid4()
-    plan.deleted_at = None
-    plan.group_id = uuid.uuid4()
+    plan.series_id = None
 
     item_to_delete = MagicMock()
     item_to_delete.id = day_id
@@ -437,8 +567,7 @@ def test_update_plans_day_number_success_calls_bulk_update():
     plan.id = plan_id
     plan.deleted_at = None
     plan.group_id = uuid.uuid4()
-    plan.deleted_at = None
-    plan.group_id = uuid.uuid4()
+    plan.series_id = None
 
     author = MagicMock()
     author.id = uuid.uuid4()
@@ -482,8 +611,7 @@ def test_create_plan_item_with_source_day_copies_tasks():
     plan.id = plan_id
     plan.deleted_at = None
     plan.group_id = uuid.uuid4()
-    plan.deleted_at = None
-    plan.group_id = uuid.uuid4()
+    plan.series_id = None
 
     author = MagicMock()
     author.id = uuid.uuid4()
@@ -708,8 +836,7 @@ def test_update_plans_day_number_duplicate_payload_raises_400():
     plan.id = plan_id
     plan.deleted_at = None
     plan.group_id = uuid.uuid4()
-    plan.deleted_at = None
-    plan.group_id = uuid.uuid4()
+    plan.series_id = None
     author_id = uuid.uuid4()
     plan.author_id = author_id
 
@@ -739,6 +866,7 @@ def test_create_plan_item_cross_plan_copy_success():
     target_plan.id = target_plan_id
     target_plan.deleted_at = None
     target_plan.group_id = uuid.uuid4()
+    target_plan.series_id = None
     
     source_plan = MagicMock()
     source_plan.id = source_plan_id
@@ -804,6 +932,7 @@ def test_create_plan_item_cross_plan_copy_forbidden():
     target_plan.id = target_plan_id
     target_plan.deleted_at = None
     target_plan.group_id = uuid.uuid4()
+    target_plan.series_id = None
     
     source_plan = MagicMock()
     source_plan.id = source_plan_id
@@ -866,6 +995,7 @@ def test_create_plan_item_cross_plan_copy_admin_success():
     target_plan.id = target_plan_id
     target_plan.deleted_at = None
     target_plan.group_id = uuid.uuid4()
+    target_plan.series_id = None
     
     source_plan = MagicMock()
     source_plan.id = source_plan_id
