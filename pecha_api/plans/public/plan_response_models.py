@@ -5,6 +5,7 @@ from uuid import UUID
 from datetime import datetime, date as DateType
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
+from pecha_api.plans.series.series_response_models import SeriesProgressDTO
 
 class PlanDayBasic(BaseModel):
     id: str
@@ -137,6 +138,7 @@ class SeriesDTO(BaseModel):
     id: UUID
     metadata: SeriesMetadataResponse = []
     image: Optional[ImageUrlModel] = None
+    progress: Optional[SeriesProgressDTO] = None
 
 class DailyPlanResponse(BaseModel):
     plan_id: UUID

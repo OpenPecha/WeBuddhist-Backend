@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from typing import Optional, Annotated
 from uuid import UUID
 from starlette import status
@@ -9,6 +10,13 @@ from pecha_api.plans.series.series_service import get_filtered_series, get_serie
 
 
 public_series_router = APIRouter(prefix="/series", tags=["Public Series"])
+optional_oauth2_scheme = HTTPBearer(auto_error=False)
+
+
+def _token_from_credentials(
+    credentials: Optional[HTTPAuthorizationCredentials],
+) -> Optional[str]:
+    return credentials.credentials if credentials else None
 
 
 @public_series_router.get(
@@ -28,8 +36,18 @@ async def get_series_list(
     ] = None,
     skip: Annotated[int, Query()] = 0,
     limit: Annotated[int, Query()] = 10,
+    credentials: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(optional_oauth2_scheme)
+    ] = None,
 ):
-    return get_filtered_series(search=search, skip=skip, limit=limit, language=language, group_id=group_id)
+    return get_filtered_series(
+        search=search,
+        skip=skip,
+        limit=limit,
+        language=language,
+        group_id=group_id,
+        token=_token_from_credentials(credentials),
+    )
 
 
 @public_series_router.get(
@@ -48,8 +66,15 @@ async def get_featured_series(
         ),
     ] = "en",
     limit: Annotated[int, Query()] = 10,
+    credentials: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(optional_oauth2_scheme)
+    ] = None,
 ):
-    return get_random_featured_series(language=language, limit=limit)
+    return get_random_featured_series(
+        language=language,
+        limit=limit,
+        token=_token_from_credentials(credentials),
+    )
 
 
 @public_series_router.get(
@@ -61,5 +86,12 @@ async def get_series(
         Optional[str],
         Query(description=language_query_description("Filter plans by language", lowercase_example=True)),
     ] = None,
+    credentials: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(optional_oauth2_scheme)
+    ] = None,
 ):
-    return get_series_detail(series_id=series_id, language=language)
+    return get_series_detail(
+        series_id=series_id,
+        language=language,
+        token=_token_from_credentials(credentials),
+    )

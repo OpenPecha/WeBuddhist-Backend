@@ -86,6 +86,7 @@ from pecha_api.plans.series.series_repository import (
 from pecha_api.plans.series.series_service import (
     _series_schedule_from_plans,
     _series_to_list_item_dto,
+    get_series_partner_dtos_by_series_ids,
 )
 from pecha_api.plans.shared.metadata_utils import (
     format_metadata_response,
@@ -430,6 +431,12 @@ def _series_to_dtos(
         db=db,
         series_ids=series_ids,
     )
+    partner_by_series_id = get_series_partner_dtos_by_series_ids(
+        db=db,
+        user_id=user_id,
+        series_ids=series_ids,
+        language=language,
+    )
     series_dtos: List[GroupSeriesListItemDTO] = []
     for series in series_list:
         start_date, end_date, total_days = _series_schedule_from_plans(
@@ -449,6 +456,7 @@ def _series_to_dtos(
                     end_date=end_date,
                     total_days=total_days,
                     fallback=True,
+                    partner=partner_by_series_id.get(series.id),
                 ).model_dump(),
                 is_group_enrolled=_is_series_enrolled_for_group_context(
                     enrollment_partner_id=enrollment_partner_map.get(series.id),

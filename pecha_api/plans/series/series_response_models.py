@@ -23,6 +23,16 @@ def _validate_plan_language_keys(v):
     return v
 
 
+class SeriesProgressDTO(BaseModel):
+    total_day_count: int = 0
+    current_day_number: Optional[int] = None
+
+
+class SeriesPartnerDTO(BaseModel):
+    group_name: str
+    group_image: Optional[str] = None
+
+
 class SeriesMetadataDTO(BaseModel):
     id: UUID
     title: str
@@ -131,6 +141,8 @@ class SeriesListItemDTO(BaseModel):
     end_date: Optional[datetime] = None
     enrolled_count: int = 0
     group: Optional[AuthorGroupSummaryDTO] = None
+    progress: Optional[SeriesProgressDTO] = None
+    partner: Optional[SeriesPartnerDTO] = None
 
 
 class SeriesDTO(BaseModel):
@@ -147,6 +159,8 @@ class SeriesDTO(BaseModel):
     total_days: int = 0
     enrolled_count: int = 0
     group: Optional[AuthorGroupSummaryDTO] = None
+    progress: Optional[SeriesProgressDTO] = None
+    partner: Optional[SeriesPartnerDTO] = None
 
 
 class SeriesListResponse(BaseModel):

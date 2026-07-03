@@ -70,6 +70,21 @@ def get_routine_notification_targets() -> RoutineNotificationTargetsResponse:
     )
 
 
+def resolve_plan_notification_content(
+    *,
+    user_id: UUID,
+    plan_id: UUID,
+) -> NotificationContentDTO:
+    utc_now = datetime.now(timezone.utc)
+    with SessionLocal() as db:
+        return _resolve_plan_notification(
+            db,
+            user_id=user_id,
+            plan_id=plan_id,
+            utc_now=utc_now,
+        )
+
+
 def _filter_by_utc_time(
     rows: list[RoutineNotificationRow],
     utc_now: datetime,
@@ -187,6 +202,8 @@ def _image_model_to_url(image: ImageUrlModel | None) -> str | None:
 def _presign_s3_key(s3_key: str | None) -> str | None:
     if not s3_key:
         return None
+    if s3_key.startswith(("http://", "https://")):
+        return s3_key
     try:
         return generate_presigned_access_url(
             bucket_name=get("AWS_BUCKET_NAME"),
@@ -196,30 +213,52 @@ def _presign_s3_key(s3_key: str | None) -> str | None:
         return None
 
 
+def _resolve_direct_image_url(image_key: str | None) -> str | None:
+    return _presign_s3_key(image_key)
+
+
 def _resolve_plan_image_url(plan: Plan | None) -> str | None:
-    if plan is None:
+    if plan is None or not plan.image_url:
         return None
-    return _resolve_resource_image_url(
+    resolved = _resolve_resource_image_url(
         plan.image_url, resource_id=plan.id, resource_type="plan"
     )
+    if resolved:
+        return resolved
+    return _resolve_direct_image_url(plan.image_url)
 
 
 def _resolve_series_image_url(series: Series | None) -> str | None:
-    if series is None:
+    if series is None or not series.image:
         return None
-    return _resolve_resource_image_url(
+    resolved = _resolve_resource_image_url(
         series.image, resource_id=series.id, resource_type="series"
     )
+    if resolved:
+        return resolved
+    return _resolve_direct_image_url(series.image)
+
+
+def _normalize_image_type(image_type) -> str | None:
+    if image_type is None:
+        return None
+    value = image_type.value if hasattr(image_type, "value") else str(image_type)
+    return value.upper()
 
 
 def _resolve_day_notification_image_url(
     day_notification: DayNotification,
     plan: Plan | None,
 ) -> str | None:
-    image_type = day_notification.image_type.value if day_notification.image_type else None
-    if image_type == IMAGE_TYPE_CUSTOM:
-        return _presign_s3_key(day_notification.image_url)
-    return _resolve_plan_image_url(plan)
+    plan_image = _resolve_plan_image_url(plan)
+    image_type = _normalize_image_type(day_notification.image_type)
+
+    if image_type == IMAGE_TYPE_CUSTOM and day_notification.image_url:
+        custom_image = _resolve_direct_image_url(day_notification.image_url)
+        if custom_image:
+            return custom_image
+
+    return plan_image
 
 
 def _resolve_source_image_url(db, session_type: str, source_id: UUID | None) -> str | None:

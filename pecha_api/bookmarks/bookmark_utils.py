@@ -38,6 +38,7 @@ from pecha_api.plans.series.series_service import (
     _metadata_response,
     _series_schedule_from_plans,
     _to_plan_status,
+    compute_series_progress,
 )
 from pecha_api.accumulator.accumulator_models import Accumulator
 from pecha_api.accumulator.accumulator_service import (
@@ -292,7 +293,7 @@ def enrich_series_bookmark(
     if not series or _to_plan_status(series.status) != PlanStatus.PUBLISHED:
         return {}
 
-    start_date, end_date, _ = _series_schedule_from_plans(
+    start_date, end_date, total_days = _series_schedule_from_plans(
         series.plans,
         published_only=True,
         language=language,
@@ -315,6 +316,7 @@ def enrich_series_bookmark(
             ),
             start_date=start_date,
             end_date=end_date,
+            progress=compute_series_progress(start_date=start_date, total_days=total_days),
         )
     }
 

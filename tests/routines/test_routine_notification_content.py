@@ -125,6 +125,53 @@ def test_resolve_series_notification_uses_series_defaults():
     assert content.image_url == "https://example.com/series.png"
 
 
+def test_resolve_plan_notification_falls_back_to_plan_image_when_custom_presign_fails():
+    plan_id = uuid4()
+    user_id = uuid4()
+    day_id = uuid4()
+    utc_now = datetime.now(timezone.utc)
+
+    plan = MagicMock(id=plan_id, title="My Plan", image_url="plans/cover.jpg")
+    plan_item = MagicMock(id=day_id)
+    day_notification = SimpleNamespace(
+        title="Day 2",
+        body="Keep going",
+        image_type=SimpleNamespace(value=service.IMAGE_TYPE_CUSTOM),
+        image_url="notifications/missing.jpg",
+    )
+
+    with patch.object(service.repo, "get_plan_by_id", return_value=plan), patch.object(
+        service.repo, "get_user_plan_progress", return_value=None
+    ), patch.object(service.repo, "get_plan_item_by_day_number", return_value=plan_item), patch.object(
+        service.repo, "get_day_notification", return_value=day_notification
+    ), patch.object(service, "_resolve_direct_image_url", side_effect=lambda key: None), patch.object(
+        service, "_resolve_plan_image_url", return_value="https://example.com/plan.png"
+    ):
+        content = service._resolve_plan_notification(
+            MagicMock(),
+            user_id=user_id,
+            plan_id=plan_id,
+            utc_now=utc_now,
+        )
+
+    assert content.image_url == "https://example.com/plan.png"
+
+
+def test_resolve_plan_image_url_falls_back_to_direct_presign():
+    plan_id = uuid4()
+    plan = MagicMock(id=plan_id, image_url="uploads/plan-cover.jpg")
+
+    with patch.object(service, "_resolve_resource_image_url", return_value=None), patch.object(
+        service, "_resolve_direct_image_url", return_value="https://example.com/direct.png"
+    ):
+        assert service._resolve_plan_image_url(plan) == "https://example.com/direct.png"
+
+
+def test_presign_s3_key_returns_http_urls_unchanged():
+    url = "https://cdn.example.com/image.jpg"
+    assert service._presign_s3_key(url) == url
+
+
 def test_image_model_to_url_prefers_original():
     image = ImageUrlModel(
         thumbnail="https://example.com/thumb.jpg",

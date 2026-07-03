@@ -18,6 +18,7 @@ from pecha_api.plans.groups.groups_response_models import (
     UpdateAuthorGroupRequest,
     UpdateGroupMemberRoleRequest,
 )
+from pecha_api.plans.series.series_response_models import SeriesPartnerDTO
 from pecha_api.plans.groups.groups_service import (
     GROUP_NOT_FOUND,
     _assert_metadata_valid,
@@ -666,6 +667,7 @@ def test_series_to_dtos_returns_empty_for_empty_series_list():
 def test_group_series_list_item_dto_excludes_series_partner_id():
     assert "series_partner_id" not in GroupSeriesListItemDTO.model_fields
     assert "is_group_enrolled" in GroupSeriesListItemDTO.model_fields
+    assert "partner" in GroupSeriesListItemDTO.model_fields
 
 
 def test_is_series_enrolled_for_group_context():
@@ -708,6 +710,14 @@ def test_series_to_dtos_sets_partner_enrollment_for_authenticated_user():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_series_plan_schedule_by_series_ids",
         return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_dtos_by_series_ids",
+        return_value={
+            series.id: SeriesPartnerDTO(
+                group_name="Partner Group",
+                group_image="https://example.com/avatar.png",
+            )
+        },
     ):
         dtos = _series_to_dtos(
             db=mock_db,
@@ -718,6 +728,52 @@ def test_series_to_dtos_sets_partner_enrollment_for_authenticated_user():
 
     assert dtos[0].is_group_enrolled is True
     assert dtos[0].enrolled_count == 5
+    assert dtos[0].partner is not None
+    assert dtos[0].partner.group_name == "Partner Group"
+
+
+def test_series_to_dtos_partner_reflects_enrollment_partner_not_viewing_group():
+    viewing_group_id = uuid4()
+    enrolled_from_group_id = uuid4()
+    series = _make_series_with_metadata()
+    series_partner_row_id = uuid4()
+    user_id = uuid4()
+    mock_db = MagicMock()
+    with patch(
+        "pecha_api.plans.groups.groups_service.get_active_plan_count_map_by_series_ids",
+        return_value={series.id: 1},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_enrolled_count_map_by_group_and_series_ids",
+        return_value={series.id: 0},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_id_map_for_group",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_user_series_enrollment_partner_map",
+        return_value={series.id: series_partner_row_id},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_plan_schedule_by_series_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_partner_dtos_by_series_ids",
+        return_value={
+            series.id: SeriesPartnerDTO(
+                group_name="Enrolled From Group",
+                group_image="https://example.com/enrolled-from.png",
+            )
+        },
+    ):
+        dtos = _series_to_dtos(
+            db=mock_db,
+            series_list=[series],
+            group_id=viewing_group_id,
+            user_id=user_id,
+        )
+
+    assert dtos[0].is_group_enrolled is False
+    assert dtos[0].partner is not None
+    assert dtos[0].partner.group_name == "Enrolled From Group"
+    assert dtos[0].partner.group_image == "https://example.com/enrolled-from.png"
 
 
 def test_series_to_dtos_is_not_enrolled_without_user():
@@ -748,6 +804,7 @@ def test_series_to_dtos_is_not_enrolled_without_user():
 
     mock_enrollment_map.assert_not_called()
     assert dtos[0].is_group_enrolled is None
+    assert dtos[0].partner is None
 
 
 def test_series_to_dtos_filters_metadata_by_language():
