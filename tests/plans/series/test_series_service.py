@@ -17,6 +17,8 @@ from pecha_api.plans.series.series_service import (
     _plan_total_days,
     _active_plan_ids,
     _group_summary_for_series,
+    compute_user_series_progress,
+    get_language_filtered_series_plan_ids,
     create_new_series,
     get_filtered_series,
     get_random_featured_series,
@@ -2122,6 +2124,140 @@ def test_series_schedule_from_plans_filters_by_language():
     assert start_date == datetime(2026, 7, 10, tzinfo=timezone.utc)
     assert total_days == 5
     assert end_date == datetime(2026, 7, 14, tzinfo=timezone.utc)
+
+
+def test_compute_user_series_progress_uses_completed_day_count_for_language():
+    series_start = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    en_plan = _featured_series_plan(
+        display_order=0,
+        start_date=series_start,
+        item_count=3,
+        language=LanguageCode.EN,
+    )
+    bo_plan = _featured_series_plan(
+        display_order=1,
+        start_date=datetime(2026, 7, 10, tzinfo=timezone.utc),
+        item_count=5,
+        language=LanguageCode.BO,
+    )
+
+    progress = compute_user_series_progress(
+        plans=[en_plan, bo_plan],
+        language="en",
+        completed_day_count=2,
+    )
+
+    assert progress.total_day_count == 3
+    assert progress.current_day_number == 2
+
+
+def test_compute_user_series_progress_caps_completed_at_total_days():
+    plan = _featured_series_plan(
+        display_order=0,
+        start_date=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        item_count=4,
+        language=LanguageCode.EN,
+    )
+
+    progress = compute_user_series_progress(
+        plans=[plan],
+        language="en",
+        completed_day_count=9,
+    )
+
+    assert progress.total_day_count == 4
+    assert progress.current_day_number == 4
+
+
+def test_compute_user_series_progress_returns_none_when_no_start_date():
+    plan = _featured_series_plan(
+        display_order=0,
+        start_date=None,
+        item_count=4,
+        language=LanguageCode.EN,
+    )
+
+    progress = compute_user_series_progress(
+        plans=[plan],
+        language="en",
+        completed_day_count=0,
+    )
+
+    assert progress.total_day_count == 4
+    assert progress.current_day_number is None
+
+
+def test_compute_user_series_progress_returns_none_for_upcoming_series():
+    future_start = datetime(2099, 1, 1, tzinfo=timezone.utc)
+    plan = _featured_series_plan(
+        display_order=0,
+        start_date=future_start,
+        item_count=4,
+        language=LanguageCode.EN,
+    )
+
+    progress = compute_user_series_progress(
+        plans=[plan],
+        language="en",
+        completed_day_count=0,
+        reference_date=datetime(2026, 7, 1, tzinfo=timezone.utc).date(),
+    )
+
+    assert progress.total_day_count == 4
+    assert progress.current_day_number is None
+
+
+def test_compute_user_series_progress_returns_zero_when_series_started_but_no_completions():
+    past_start = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    plan = _featured_series_plan(
+        display_order=0,
+        start_date=past_start,
+        item_count=4,
+        language=LanguageCode.EN,
+    )
+
+    progress = compute_user_series_progress(
+        plans=[plan],
+        language="en",
+        completed_day_count=0,
+        reference_date=datetime(2026, 7, 1, tzinfo=timezone.utc).date(),
+    )
+
+    assert progress.total_day_count == 4
+    assert progress.current_day_number == 0
+
+
+def test_compute_user_series_progress_returns_none_when_total_days_zero():
+    progress = compute_user_series_progress(
+        plans=[],
+        language="en",
+        completed_day_count=0,
+    )
+
+    assert progress.total_day_count == 0
+    assert progress.current_day_number is None
+
+
+def test_get_language_filtered_series_plan_ids_respects_language_fallback():
+    en_plan = _featured_series_plan(
+        display_order=0,
+        start_date=datetime(2026, 7, 1, tzinfo=timezone.utc),
+        item_count=2,
+        language=LanguageCode.EN,
+    )
+    bo_plan = _featured_series_plan(
+        display_order=1,
+        start_date=datetime(2026, 7, 10, tzinfo=timezone.utc),
+        item_count=5,
+        language=LanguageCode.BO,
+    )
+
+    plan_ids = get_language_filtered_series_plan_ids(
+        [en_plan, bo_plan],
+        language="bo",
+    )
+
+    assert plan_ids == [bo_plan.id]
 
 
 def test_plan_total_days_returns_zero_when_plan_has_no_items():

@@ -173,6 +173,59 @@ def _to_series_date(value) -> Optional[date]:
     return value
 
 
+def get_language_filtered_series_plan_ids(
+    plans,
+    language: Optional[str] = None,
+) -> List[UUID]:
+    filtered_plans = _get_sorted_active_plans(
+        plans,
+        published_only=True,
+        language=language,
+        fallback=True,
+    )
+    return [plan.id for plan in filtered_plans]
+
+
+def compute_user_series_progress(
+    *,
+    plans: list,
+    language: Optional[str] = None,
+    completed_day_count: int = 0,
+    reference_date: Optional[date] = None,
+) -> SeriesProgressDTO:
+    start_date, _, total_days = _series_schedule_from_plans(
+        plans,
+        published_only=True,
+        language=language,
+        fallback=True,
+    )
+    total_day_count = max(int(total_days or 0), 0)
+    completed = max(int(completed_day_count or 0), 0)
+    if total_day_count == 0:
+        return SeriesProgressDTO(total_day_count=0, current_day_number=None)
+
+    series_start = _to_series_date(start_date)
+    if series_start is None:
+        return SeriesProgressDTO(
+            total_day_count=total_day_count,
+            current_day_number=None,
+        )
+
+    if completed == 0:
+        ref = reference_date or datetime.now(timezone.utc).date()
+        if series_start > ref:
+            return SeriesProgressDTO(
+                total_day_count=total_day_count,
+                current_day_number=None,
+            )
+        return SeriesProgressDTO(total_day_count=total_day_count, current_day_number=0)
+
+    return SeriesProgressDTO(
+        total_day_count=total_day_count,
+        current_day_number=min(completed, total_day_count),
+    )
+
+
 def compute_series_progress(
     *,
     start_date: Optional[datetime],

@@ -10,6 +10,9 @@ from pecha_api.plans.plans_enums import EnrollmentSource, SeriesStatus, UserPlan
 from pecha_api.plans.users.plan_user_series_repository import _filter_plans_by_date_availability
 from pecha_api.plans.response_message import BAD_REQUEST
 from pecha_api.plans.media.media_response_models import ImageUrlModel
+from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
+from pecha_api.plans.groups.groups_enums import AuthorGroupType
+from pecha_api.plans.series.series_response_models import SeriesPartnerDTO
 from pecha_api.plans.users.plan_users_response_models import (
     UserSeriesEnrollRequest,
     UpdateSeriesEnrollmentRequest,
@@ -818,7 +821,16 @@ def test_get_user_series_enrollments_success():
         image="images/series.jpg",
         metadata_entries=[SimpleNamespace(title="My Series", description="Desc")],
     )
-    plan = SimpleNamespace(id=plan_id, title="Plan 1")
+    plan = SimpleNamespace(
+        id=plan_id,
+        title="Plan 1",
+        deleted_at=None,
+        status=SimpleNamespace(value="PUBLISHED"),
+        display_order=0,
+        start_date=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        language=SimpleNamespace(value="EN"),
+        items=[SimpleNamespace(), SimpleNamespace()],
+    )
 
     db_mock, session_cm = _mock_session_with_db()
 
@@ -856,6 +868,9 @@ def test_get_user_series_enrollments_success():
         "pecha_api.plans.users.plan_users_service.get_enrolled_count_map_by_series_ids",
         return_value={series_id: 12},
     ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_completed_days_count_by_series_ids",
+        return_value={series_id: 2},
+    ), patch(
         "pecha_api.plans.users.plan_users_service.safe_get_image_url",
         return_value=ImageUrlModel(
             thumbnail="https://signed.example.com/series-thumb.jpg",
@@ -878,6 +893,9 @@ def test_get_user_series_enrollments_success():
     assert dto.image.original == "https://signed.example.com/series.jpg"
     assert dto.series_partner_id == partner_group_id
     assert dto.enrolled_count == 12
+    assert dto.progress is not None
+    assert dto.progress.total_day_count == 2
+    assert dto.progress.current_day_number == 2
 
 
 def test_get_user_series_enrollments_skips_missing_series():
@@ -1034,6 +1052,18 @@ def test_get_user_series_days_completed_success():
         "pecha_api.plans.users.plan_users_service.get_enrolled_count_map_by_series_ids",
         return_value={series_id: 7},
     ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_series_ids",
+        return_value={series_id: []},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_partner_map",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service._load_series_partner_context",
+        return_value=({}, {}),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.count_user_completed_days_for_plan_ids",
+        return_value=12,
+    ), patch(
         "pecha_api.plans.users.plan_users_service.safe_get_image_url",
         return_value=ImageUrlModel(
             thumbnail="https://signed.example.com/thumb.jpg",
@@ -1054,6 +1084,7 @@ def test_get_user_series_days_completed_success():
     assert result.series[0].series_id == series_id
     assert result.series[0].series_title == "Morning Practice"
     assert result.series[0].days_completed == 12
+    assert result.series[0].partner is None
     assert result.series[0].enrolled_count == 7
 
 
@@ -1089,6 +1120,18 @@ def test_get_user_series_days_completed_skips_missing_series():
         "pecha_api.plans.users.plan_users_service.get_group_summaries_by_ids",
         return_value={},
     ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_series_ids",
+        return_value={series_id: []},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_partner_map",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service._load_series_partner_context",
+        return_value=({}, {}),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.count_user_completed_days_for_plan_ids",
+        return_value=4,
+    ), patch(
         "pecha_api.plans.users.plan_users_service.safe_get_image_url",
         return_value=None,
     ):
@@ -1098,6 +1141,165 @@ def test_get_user_series_days_completed_skips_missing_series():
     assert len(result.series) == 1
     assert result.series[0].series_id == series_id
     assert result.series[0].days_completed == 4
+    assert result.series[0].partner is None
+
+
+def test_get_user_series_days_completed_includes_partner_when_enrolled_via_partner():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    series_partner_row_id = uuid.uuid4()
+    partner_group_id = uuid.uuid4()
+    mock_user = SimpleNamespace(id=user_id)
+    db_mock, session_cm = _mock_session_with_db()
+
+    series = SimpleNamespace(
+        id=series_id,
+        image=None,
+        metadata_entries=[
+            SimpleNamespace(
+                title="Partner Series",
+                description="Desc",
+                language=SimpleNamespace(value="EN"),
+            )
+        ],
+    )
+    partner_group = AuthorGroupSummaryDTO(
+        id=partner_group_id,
+        slug="partner-group",
+        group_type=AuthorGroupType.COMMUNITY,
+        is_public=True,
+        avatar_url="https://partner.example/avatar.jpg",
+    )
+    partner_dto = SeriesPartnerDTO(
+        group_name="Partner Group",
+        group_image="https://partner.example/avatar.jpg",
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_days_completed_paginated",
+        return_value=([(series_id, 3)], 1),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_series_by_ids",
+        return_value=[series],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_series_ids",
+        return_value={series_id: []},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_ids_by_series_ids",
+        return_value={series_id: uuid.uuid4()},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_summaries_by_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_enrolled_count_map_by_series_ids",
+        return_value={series_id: 5},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_partner_map",
+        return_value={series_id: series_partner_row_id},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service._load_series_partner_context",
+        return_value=({series_id: partner_group}, {series_id: partner_dto}),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.count_user_completed_days_for_plan_ids",
+        return_value=3,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
+    ):
+        result = get_user_series_days_completed(token="tok", language="en", skip=0, limit=20)
+
+    assert len(result.series) == 1
+    assert result.series[0].partner == partner_dto
+    assert result.series[0].group == partner_group
+
+
+def test_get_user_series_days_completed_wires_partner_context_end_to_end():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    series_partner_row_id = uuid.uuid4()
+    partner_group_id = uuid.uuid4()
+    mock_user = SimpleNamespace(id=user_id)
+    db_mock, session_cm = _mock_session_with_db()
+
+    series = SimpleNamespace(
+        id=series_id,
+        image=None,
+        metadata_entries=[
+            SimpleNamespace(
+                title="Partner Series",
+                description="Desc",
+                language=SimpleNamespace(value="EN"),
+            )
+        ],
+    )
+    partner_group = AuthorGroupSummaryDTO(
+        id=partner_group_id,
+        slug="partner-group",
+        group_type=AuthorGroupType.COMMUNITY,
+        is_public=True,
+        avatar_url="https://partner.example/avatar.jpg",
+    )
+    partner_dto = SeriesPartnerDTO(
+        group_name="Partner Group",
+        group_image="https://partner.example/avatar.jpg",
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=mock_user,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_days_completed_paginated",
+        return_value=([(series_id, 3)], 1),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_series_by_ids",
+        return_value=[series],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_series_ids",
+        return_value={series_id: []},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_ids_by_series_ids",
+        return_value={series_id: uuid.uuid4()},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_summaries_by_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_enrolled_count_map_by_series_ids",
+        return_value={series_id: 5},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_partner_map",
+        return_value={series_id: series_partner_row_id},
+    ), patch(
+        "pecha_api.plans.users.series_user_progress.get_user_series_enrollment_partner_map",
+        return_value={series_id: series_partner_row_id},
+    ), patch(
+        "pecha_api.plans.users.series_user_progress.get_group_ids_by_series_partner_ids",
+        return_value={series_partner_row_id: partner_group_id},
+    ), patch(
+        "pecha_api.plans.users.series_user_progress.get_group_summaries_by_ids",
+        return_value={partner_group_id: partner_group},
+    ), patch(
+        "pecha_api.plans.users.series_user_progress.build_series_partner_dto",
+        return_value=partner_dto,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.count_user_completed_days_for_plan_ids",
+        return_value=3,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
+    ):
+        result = get_user_series_days_completed(token="tok", language="en", skip=0, limit=20)
+
+    assert result.series[0].partner == partner_dto
+    assert result.series[0].group == partner_group
 
 
 def test_get_user_series_days_completed_uses_untitled_when_metadata_missing():
@@ -1130,6 +1332,21 @@ def test_get_user_series_days_completed_uses_untitled_when_metadata_missing():
     ), patch(
         "pecha_api.plans.users.plan_users_service.get_group_summaries_by_ids",
         return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_series_ids",
+        return_value={series_id: []},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_enrolled_count_map_by_series_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_partner_map",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service._load_series_partner_context",
+        return_value=({}, {}),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.count_user_completed_days_for_plan_ids",
+        return_value=3,
     ), patch(
         "pecha_api.plans.users.plan_users_service.safe_get_image_url",
         return_value=None,
@@ -1209,6 +1426,108 @@ def test_get_user_series_progress_success():
     assert len(result.plans) == 1
     assert result.plans[0].title == "Plan 1"
     assert result.plans[0].image is None
+
+
+def test_get_user_series_progress_includes_partner_when_enrolled_via_partner():
+    user_id = uuid.uuid4()
+    series_id = uuid.uuid4()
+    enrollment_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    series_partner_row_id = uuid.uuid4()
+    partner_group_id = uuid.uuid4()
+
+    enrollment = SimpleNamespace(
+        id=enrollment_id,
+        enrolled_at=datetime.now(timezone.utc),
+        status=SeriesStatus.ACTIVE,
+        auto_enroll_next=True,
+        current_plan_id=plan_id,
+        is_completed=False,
+        completed_at=None,
+        series_partner_id=series_partner_row_id,
+    )
+    series = SimpleNamespace(
+        id=series_id,
+        metadata_entries=[
+            SimpleNamespace(
+                title="Series",
+                description="Desc",
+                language=SimpleNamespace(value="EN"),
+            )
+        ],
+    )
+    plan = SimpleNamespace(
+        id=plan_id,
+        title="Plan 1",
+        description="Plan desc",
+        language=SimpleNamespace(value="EN"),
+        difficulty_level=SimpleNamespace(value="BEGINNER"),
+        image_url=None,
+        tag_list=[],
+        start_date=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        display_order=1,
+        deleted_at=None,
+        status=SimpleNamespace(value="PUBLISHED"),
+        items=[SimpleNamespace()],
+    )
+    partner_group = AuthorGroupSummaryDTO(
+        id=partner_group_id,
+        slug="partner-group",
+        group_type=AuthorGroupType.COMMUNITY,
+        is_public=True,
+        avatar_url="https://partner.example/avatar.jpg",
+    )
+    partner_dto = SeriesPartnerDTO(
+        group_name="Partner Group",
+        group_image="https://partner.example/avatar.jpg",
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+    _mock_series_query(db_mock, series)
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_series_enrollment_by_user_and_series",
+        return_value=enrollment,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plans_by_series_id",
+        return_value=[plan],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_days_by_plan_id",
+        return_value=[SimpleNamespace()],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_progress_by_user_id_and_plan_id",
+        return_value=SimpleNamespace(started_at=datetime.now(timezone.utc)),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_enrolled_count_map_by_series_ids",
+        return_value={series_id: 25},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_ids_by_series_partner_ids",
+        return_value={series_partner_row_id: partner_group_id},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_group_summaries_by_ids",
+        return_value={partner_group_id: partner_group},
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.build_series_partner_dto",
+        return_value=partner_dto,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.count_user_completed_days_for_plan_ids",
+        return_value=1,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.safe_get_image_url",
+        return_value=None,
+    ):
+        result = get_user_series_progress(token="tok", series_id=series_id, language="en")
+
+    assert result.partner == partner_dto
+    assert result.progress is not None
+    assert result.progress.total_day_count == 1
+    assert result.progress.current_day_number == 1
 
 
 def test_get_user_series_progress_includes_unstarted_plans():
