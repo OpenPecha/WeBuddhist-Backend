@@ -18,6 +18,21 @@ from pecha_api.routines.routines_enums import SessionType
 from pecha_api.routines.routines_models import Routine, RoutineSession, RoutineTimeBlock
 
 
+def _enum_value(value) -> str:
+    if value is None:
+        return ""
+    if hasattr(value, "value"):
+        return str(value.value)
+    raw = str(value)
+    if "." in raw:
+        return raw.rsplit(".", 1)[-1]
+    return raw
+
+
+def _normalize_platform(value) -> str:
+    return _enum_value(value).lower()
+
+
 @dataclass(frozen=True)
 class RoutineNotificationRow:
     user_id: UUID
@@ -58,10 +73,10 @@ def get_users_with_matching_timeblocks(db: Session) -> list[RoutineNotificationR
             user_id=row.user_id,
             time_block_id=row.id,
             time_block_time_utc=row.time_utc,
-            session_type=str(row.session_type),
+            session_type=_enum_value(row.session_type),
             source_id=row.source_id,
             device_token=row.token,
-            platform=str(row.platform).lower(),
+            platform=_normalize_platform(row.platform),
         )
         for row in rows
     ]
