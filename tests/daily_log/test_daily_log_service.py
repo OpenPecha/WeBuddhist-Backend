@@ -61,11 +61,7 @@ async def test_record_daily_log_if_needed_skips_when_cache_hit():
          patch("pecha_api.daily_log.daily_log_service.SessionLocal") as mock_session:
         await record_daily_log_if_needed(user_id=user_id, timezone_name="Asia/Kathmandu")
 
-        mock_cache.assert_awaited_once_with(
-            user_id=user_id,
-            log_date=today,
-            timezone_name="Asia/Kathmandu",
-        )
+        mock_cache.assert_awaited_once_with(user_id=user_id, log_date=today)
         mock_session.assert_not_called()
 
 

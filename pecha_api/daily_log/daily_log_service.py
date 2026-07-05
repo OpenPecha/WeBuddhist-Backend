@@ -56,11 +56,7 @@ async def record_daily_log_if_needed(
 ) -> None:
     today = _today_for_timezone(timezone_name=timezone_name)
 
-    if await is_user_logged_today_in_cache(
-        user_id=user_id,
-        log_date=today,
-        timezone_name=timezone_name,
-    ):
+    if await is_user_logged_today_in_cache(user_id=user_id, log_date=today):
         return
 
     if db is not None:
