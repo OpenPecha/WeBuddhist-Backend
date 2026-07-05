@@ -3,6 +3,8 @@ from typing import Dict, Iterator, List, Optional, Tuple
 from pecha_api.texts.texts_enums import PaginationDirection
 from pecha_api.texts.texts_response_models import Section, TableOfContent
 
+FIRST_SEGMENT_PREVIEW_COUNT = 3
+
 
 def section_contains_segment(sections: List[Section], segment_id: str) -> bool:
     for section in sections:
@@ -15,14 +17,52 @@ def section_contains_segment(sections: List[Section], segment_id: str) -> bool:
 
 
 def find_first_segment_in_sections(sections: List[Section]) -> Optional[str]:
+    refs = get_first_n_segment_refs_from_sections(sections, count=1)
+    return refs[0] if refs else None
+
+
+def iter_segment_refs_in_sections(sections: List[Section]):
     for section in sections:
-        if section.segments:
-            return section.segments[0].segment_id
+        for segment in section.segments:
+            segment_ref = segment.segment_id or segment.pecha_segment_id
+            if segment_ref:
+                yield segment_ref
         if section.sections:
-            segment_id = find_first_segment_in_sections(section.sections)
-            if segment_id:
-                return segment_id
-    return None
+            yield from iter_segment_refs_in_sections(section.sections)
+
+
+def get_first_n_segment_refs_from_sections(
+    sections: List[Section],
+    *,
+    count: int = FIRST_SEGMENT_PREVIEW_COUNT,
+) -> List[str]:
+    refs: List[str] = []
+    for segment_ref in iter_segment_refs_in_sections(sections):
+        refs.append(segment_ref)
+        if len(refs) >= count:
+            break
+    return refs
+
+
+def get_first_n_segment_refs_from_table_of_contents(
+    table_of_contents: List[TableOfContent],
+    count: int = FIRST_SEGMENT_PREVIEW_COUNT,
+) -> List[str]:
+    refs: List[str] = []
+    for table_of_content in table_of_contents:
+        for segment_ref in iter_segment_refs_in_sections(table_of_content.sections):
+            refs.append(segment_ref)
+            if len(refs) >= count:
+                return refs
+    return refs
+
+
+def combine_segment_preview_contents(contents: List[str]) -> str:
+    return "\n".join(
+        content.strip()
+        for content in contents
+        if content and content.strip()
+    )
 
 
 def get_first_segment_ids_by_text_ids(

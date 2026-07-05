@@ -45,6 +45,11 @@ from pecha_api.accumulator.accumulator_service import (
     generate_mala_image_presigned_url,
     resolve_accumulator_bookmark_mala_image_url,
 )
+from pecha_api.texts.first_segment_preview_service import (
+    build_first_segment_preview_for_text,
+    build_first_segment_previews_for_texts,
+    resolve_segment_by_ref,
+)
 from pecha_api.mantra.mantra_repository import get_mantra_by_id
 from pecha_api.timers.timer_repository import get_timer_by_id
 
@@ -90,23 +95,12 @@ def _text_language_code(text) -> str:
     return text.language if isinstance(text.language, str) else str(text.language)
 
 
-async def _resolve_segment_by_ref(segment_ref: str) -> Optional[Segment]:
-    try:
-        UUID(segment_ref)
-        segment = await get_segment_by_id(segment_id=segment_ref)
-        if segment:
-            return segment
-    except ValueError:
-        pass
-    return await Segment.get_segment_by_pecha_segment_id(pecha_segment_id=segment_ref)
-
-
 async def _resolve_text_segment(
     text_id: str,
     verse_id: Optional[str],
 ) -> tuple[Optional[str], Optional[Segment]]:
     if verse_id:
-        segment = await _resolve_segment_by_ref(verse_id)
+        segment = await resolve_segment_by_ref(verse_id)
         if segment and segment.text_id == text_id:
             return str(segment.id), segment
 
@@ -128,10 +122,13 @@ async def enrich_text_bookmark(
 ) -> dict:
     verse_id: Optional[str] = None
     text_id: Optional[str] = None
+    segment: Optional[Segment] = None
+    segment_id: Optional[str] = None
+    use_first_segment_preview = False
 
     if bookmark.type == BookmarkType.VERSE:
         verse_id = bookmark.source_id
-        segment = await _resolve_segment_by_ref(verse_id)
+        segment = await resolve_segment_by_ref(verse_id)
         if not segment:
             return {}
         text_id = segment.text_id
@@ -139,12 +136,18 @@ async def enrich_text_bookmark(
     elif bookmark.type == BookmarkType.TEXT:
         text_id = bookmark.source_id
         if bookmark.name:
-            candidate = await _resolve_segment_by_ref(bookmark.name)
+            candidate = await resolve_segment_by_ref(bookmark.name)
             if candidate and candidate.text_id == text_id:
                 verse_id = bookmark.name
-        segment_id, segment = await _resolve_text_segment(text_id=text_id, verse_id=verse_id)
-        if not segment_id:
-            return {}
+        if verse_id:
+            segment_id, segment = await _resolve_text_segment(
+                text_id=text_id,
+                verse_id=verse_id,
+            )
+            if not segment_id:
+                return {}
+        else:
+            use_first_segment_preview = True
     else:
         return {}
 
@@ -157,7 +160,7 @@ async def enrich_text_bookmark(
     else:
         text = await get_texts_by_id(text_id=text_id)
 
-    if language and segment and text_id != segment.text_id:
+    if not use_first_segment_preview and language and segment and text_id != segment.text_id:
         localized_segment = await _resolve_localized_segment(
             segment=segment,
             target_text_id=text_id,
@@ -167,7 +170,16 @@ async def enrich_text_bookmark(
             segment_id = str(segment.id)
 
     segment_dto = None
-    if segment_id and segment:
+    if use_first_segment_preview:
+        preview = await build_first_segment_preview_for_text(text_id)
+        if not preview:
+            return {}
+        segment_id, preview_content = preview
+        segment_dto = BookmarkSegmentDTO(
+            id=segment_id,
+            content=preview_content,
+        )
+    elif segment_id and segment:
         segment_dto = BookmarkSegmentDTO(
             id=segment_id,
             content=segment.content,

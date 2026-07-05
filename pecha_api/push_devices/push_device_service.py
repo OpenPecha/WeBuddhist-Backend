@@ -1,7 +1,9 @@
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 from starlette import status
 
 from pecha_api.db.database import SessionLocal
@@ -11,9 +13,12 @@ from pecha_api.push_devices.push_device_models import PushDeviceToken
 from pecha_api.push_devices.push_device_repository import (
     count_push_device_tokens,
     delete_push_device_token,
+    delete_push_device_token_by_token,
     get_active_push_device_tokens_by_user_id,
     get_all_push_device_tokens,
-    upsert_push_device_token,
+    get_push_device_token_by_token,
+    get_push_device_token_by_user_and_device_id,
+    save_push_device_token,
 )
 from pecha_api.push_devices.push_device_response_models import (
     AdminPushDeviceTokenDTO,
@@ -36,6 +41,61 @@ def _to_dto(push_device_token: PushDeviceToken) -> PushDeviceTokenDTO:
     )
 
 
+def _upsert_push_device_token(
+    db: Session,
+    user_id: UUID,
+    token: str,
+    platform: PushPlatform,
+    device_id: Optional[str] = None,
+) -> PushDeviceToken:
+    now = datetime.now(timezone.utc)
+
+    if device_id is not None:
+        existing_installation = get_push_device_token_by_user_and_device_id(
+            db=db,
+            user_id=user_id,
+            device_id=device_id,
+        )
+        if existing_installation is not None:
+            if existing_installation.token == token:
+                existing_installation.is_active = True
+                existing_installation.updated_at = now
+                return save_push_device_token(db=db, push_device_token=existing_installation)
+
+            delete_push_device_token_by_token(
+                db=db,
+                token=token,
+                exclude_id=existing_installation.id,
+            )
+            existing_installation.token = token
+            existing_installation.platform = platform
+            existing_installation.is_active = True
+            existing_installation.updated_at = now
+            return save_push_device_token(db=db, push_device_token=existing_installation)
+
+    existing_by_token = get_push_device_token_by_token(db=db, token=token)
+    if existing_by_token is not None and existing_by_token.user_id == user_id:
+        existing_by_token.platform = platform
+        if device_id is not None:
+            existing_by_token.device_id = device_id
+        existing_by_token.is_active = True
+        existing_by_token.updated_at = now
+        return save_push_device_token(db=db, push_device_token=existing_by_token)
+
+    delete_push_device_token_by_token(db=db, token=token)
+
+    push_device_token = PushDeviceToken(
+        user_id=user_id,
+        token=token,
+        platform=platform,
+        device_id=device_id,
+        is_active=True,
+        created_at=now,
+        updated_at=now,
+    )
+    return save_push_device_token(db=db, push_device_token=push_device_token, is_new=True)
+
+
 async def register_push_device_service(
     token: str,
     register_request: RegisterPushDeviceRequest,
@@ -43,7 +103,7 @@ async def register_push_device_service(
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
-        push_device_token = upsert_push_device_token(
+        push_device_token = _upsert_push_device_token(
             db=db,
             user_id=current_user.id,
             token=register_request.token,

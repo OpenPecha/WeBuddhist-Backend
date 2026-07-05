@@ -224,37 +224,18 @@ class TestGetListOfRecitationsService:
 class TestGetRecitationsWithFirstSegments:
     """Test cases for get_recitations_with_first_segments function."""
 
-    @patch('pecha_api.recitations.recitations_services.get_segment_contents_by_ids')
-    @patch('pecha_api.recitations.recitations_services.get_contents_by_text_ids')
+    @patch('pecha_api.recitations.recitations_services.build_first_segment_previews_for_texts')
     @pytest.mark.asyncio
     async def test_get_recitations_with_first_segments_success(
         self,
-        mock_get_contents_by_text_ids,
-        mock_get_segment_contents_by_ids,
+        mock_build_first_segment_previews_for_texts,
     ):
         text_id = str(uuid4())
         segment_id = str(uuid4())
         recitation_dto = RecitationDTO(text_id=UUID(text_id), title="Test Recitation")
 
-        mock_get_contents_by_text_ids.return_value = {
-            text_id: [
-                TableOfContent(
-                    text_id=text_id,
-                    type=TableOfContentType.TEXT,
-                    sections=[
-                        Section(
-                            id=str(uuid4()),
-                            section_number=1,
-                            segments=[
-                                TextSegment(segment_id=segment_id, segment_number=1),
-                            ],
-                        )
-                    ],
-                )
-            ]
-        }
-        mock_get_segment_contents_by_ids.return_value = {
-            segment_id: (text_id, "First segment content"),
+        mock_build_first_segment_previews_for_texts.return_value = {
+            text_id: (segment_id, "Verse 1\nVerse 2\nVerse 3"),
         }
 
         result = await get_recitations_with_first_segments(recitations=[recitation_dto])
@@ -262,22 +243,22 @@ class TestGetRecitationsWithFirstSegments:
         assert len(result) == 1
         assert result[0].first_segment is not None
         assert str(result[0].first_segment.id) == segment_id
-        assert result[0].first_segment.content == "First segment content"
+        assert result[0].first_segment.content == "Verse 1\nVerse 2\nVerse 3"
 
     @pytest.mark.asyncio
     async def test_get_recitations_with_first_segments_empty_list(self):
         result = await get_recitations_with_first_segments(recitations=[])
         assert result == []
 
-    @patch('pecha_api.recitations.recitations_services.get_contents_by_text_ids')
+    @patch('pecha_api.recitations.recitations_services.build_first_segment_previews_for_texts')
     @pytest.mark.asyncio
     async def test_get_recitations_with_first_segments_no_toc(
         self,
-        mock_get_contents_by_text_ids,
+        mock_build_first_segment_previews_for_texts,
     ):
         text_id = str(uuid4())
         recitation_dto = RecitationDTO(text_id=UUID(text_id), title="Test Recitation")
-        mock_get_contents_by_text_ids.return_value = {text_id: []}
+        mock_build_first_segment_previews_for_texts.return_value = {}
 
         result = await get_recitations_with_first_segments(recitations=[recitation_dto])
 

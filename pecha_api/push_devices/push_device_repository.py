@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -83,48 +82,34 @@ def get_active_push_device_tokens_by_user_id(db: Session, user_id: UUID) -> List
     )
 
 
-def upsert_push_device_token(
+def delete_push_device_token_by_token(
     db: Session,
-    user_id: UUID,
     token: str,
-    platform: PushPlatform,
-    device_id: Optional[str] = None,
+    exclude_id: Optional[UUID] = None,
+) -> None:
+    query = db.query(PushDeviceToken).filter(PushDeviceToken.token == token)
+    if exclude_id is not None:
+        query = query.filter(PushDeviceToken.id != exclude_id)
+
+    conflicting_records = query.all()
+    if not conflicting_records:
+        return
+
+    for conflicting in conflicting_records:
+        db.delete(conflicting)
+    db.flush()
+
+
+def save_push_device_token(
+    db: Session,
+    push_device_token: PushDeviceToken,
+    is_new: bool = False,
 ) -> PushDeviceToken:
-    now = datetime.now(timezone.utc)
-
-    existing_by_token = get_push_device_token_by_token(db=db, token=token)
-    if existing_by_token:
-        existing_by_token.user_id = user_id
-        existing_by_token.platform = platform
-        if device_id is not None:
-            existing_by_token.device_id = device_id
-        existing_by_token.is_active = True
-        existing_by_token.updated_at = now
-        return _commit_push_device_token(db=db, push_device_token=existing_by_token)
-
-    if device_id is not None:
-        existing_by_device = get_push_device_token_by_user_and_device_id(
-            db=db,
-            user_id=user_id,
-            device_id=device_id,
-        )
-        if existing_by_device:
-            existing_by_device.token = token
-            existing_by_device.platform = platform
-            existing_by_device.is_active = True
-            existing_by_device.updated_at = now
-            return _commit_push_device_token(db=db, push_device_token=existing_by_device)
-
-    push_device_token = PushDeviceToken(
-        user_id=user_id,
-        token=token,
-        platform=platform,
-        device_id=device_id,
-        is_active=True,
-        created_at=now,
-        updated_at=now,
+    return _commit_push_device_token(
+        db=db,
+        push_device_token=push_device_token,
+        is_new=is_new,
     )
-    return _commit_push_device_token(db=db, push_device_token=push_device_token, is_new=True)
 
 
 def delete_push_device_token(db: Session, user_id: UUID, push_device_token_id: UUID) -> None:

@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 from pecha_api.bookmarks.bookmark_enums import BookmarkType
+from pecha_api.texts.first_segment_preview_service import resolve_segment_by_ref
 from pecha_api.bookmarks.bookmark_utils import (
-    _resolve_segment_by_ref,
     _resolve_text_segment,
     enrich_text_bookmark,
 )
@@ -16,11 +16,11 @@ async def test_resolve_segment_by_ref_with_uuid():
     mock_segment = MagicMock()
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.get_segment_by_id",
+        "pecha_api.texts.first_segment_preview_service.Segment.get_segment_by_id",
         new_callable=AsyncMock,
         return_value=mock_segment,
     ):
-        result = await _resolve_segment_by_ref(segment_id)
+        result = await resolve_segment_by_ref(segment_id)
 
     assert result is mock_segment
 
@@ -30,15 +30,15 @@ async def test_resolve_segment_by_ref_with_pecha_id_when_uuid_lookup_fails():
     mock_segment = MagicMock()
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.get_segment_by_id",
+        "pecha_api.texts.first_segment_preview_service.Segment.get_segment_by_id",
         new_callable=AsyncMock,
         return_value=None,
     ), patch(
-        "pecha_api.bookmarks.bookmark_utils.Segment.get_segment_by_pecha_segment_id",
+        "pecha_api.texts.first_segment_preview_service.Segment.get_segment_by_pecha_segment_id",
         new_callable=AsyncMock,
         return_value=mock_segment,
     ) as mock_pecha_lookup:
-        result = await _resolve_segment_by_ref(str(uuid4()))
+        result = await resolve_segment_by_ref(str(uuid4()))
 
     mock_pecha_lookup.assert_awaited_once()
     assert result is mock_segment
@@ -50,11 +50,11 @@ async def test_resolve_segment_by_ref_with_non_uuid_uses_pecha_lookup():
     mock_segment = MagicMock()
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.Segment.get_segment_by_pecha_segment_id",
+        "pecha_api.texts.first_segment_preview_service.Segment.get_segment_by_pecha_segment_id",
         new_callable=AsyncMock,
         return_value=mock_segment,
     ) as mock_pecha_lookup:
-        result = await _resolve_segment_by_ref(verse_locator)
+        result = await resolve_segment_by_ref(verse_locator)
 
     mock_pecha_lookup.assert_awaited_once_with(pecha_segment_id=verse_locator)
     assert result is mock_segment
@@ -69,7 +69,7 @@ async def test_resolve_text_segment_with_matching_verse_id():
     mock_segment.text_id = text_id
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils._resolve_segment_by_ref",
+        "pecha_api.bookmarks.bookmark_utils.resolve_segment_by_ref",
         new_callable=AsyncMock,
         return_value=mock_segment,
     ):
@@ -94,7 +94,7 @@ async def test_resolve_text_segment_ignores_verse_from_other_text():
     fallback_segment.id = str(uuid4())
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils._resolve_segment_by_ref",
+        "pecha_api.bookmarks.bookmark_utils.resolve_segment_by_ref",
         new_callable=AsyncMock,
         return_value=mock_segment,
     ), patch(
@@ -180,13 +180,9 @@ async def test_enrich_text_bookmark_without_verse_uses_first_segment():
     mock_segment.content = "Segment content"
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.get_first_segment_table_of_content",
+        "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
         new_callable=AsyncMock,
-        return_value=(segment_id, None),
-    ), patch(
-        "pecha_api.bookmarks.bookmark_utils.get_segment_by_id",
-        new_callable=AsyncMock,
-        return_value=mock_segment,
+        return_value=(segment_id, "Segment content"),
     ), patch(
         "pecha_api.bookmarks.bookmark_utils.get_texts_by_id",
         new_callable=AsyncMock,
@@ -220,7 +216,7 @@ async def test_enrich_text_bookmark_with_name_as_segment_ref():
     mock_segment.content = "Named segment content"
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils._resolve_segment_by_ref",
+        "pecha_api.bookmarks.bookmark_utils.resolve_segment_by_ref",
         new_callable=AsyncMock,
         return_value=mock_segment,
     ), patch(
@@ -272,7 +268,7 @@ async def test_enrich_verse_bookmark_includes_segment_content():
     mock_segment.content = "Verse segment content"
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils._resolve_segment_by_ref",
+        "pecha_api.bookmarks.bookmark_utils.resolve_segment_by_ref",
         new_callable=AsyncMock,
         return_value=mock_segment,
     ), patch(
@@ -296,7 +292,7 @@ async def test_enrich_verse_bookmark_returns_empty_when_segment_not_found():
     bookmark.name = None
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils._resolve_segment_by_ref",
+        "pecha_api.bookmarks.bookmark_utils.resolve_segment_by_ref",
         new_callable=AsyncMock,
         return_value=None,
     ):

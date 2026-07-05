@@ -735,45 +735,67 @@ def test_resolve_plan_sessions_with_user_progress():
 @pytest.mark.asyncio
 async def test_resolve_recitation_sessions_success():
     session_id = uuid.uuid4()
-    source_id = uuid.uuid4()
+    text_id = uuid.uuid4()
+    segment_id = uuid.uuid4()
 
     session = SimpleNamespace(
         id=session_id,
         session_type=SessionType.RECITATION,
-        source_id=source_id,
+        source_id=text_id,
         display_order=0,
     )
 
     mock_text = SimpleNamespace(
-        id=source_id,
+        id=text_id,
         title="Heart Sutra",
         language="bo",
+    )
+    mock_segment = SimpleNamespace(
+        id=segment_id,
+        content="Om gate gate paragate parasamgate bodhi svaha",
     )
 
     with patch(
         "pecha_api.routines.routines_service.Text.get_texts_by_ids",
         new_callable=AsyncMock,
         return_value=[mock_text],
+    ), patch(
+        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        new_callable=AsyncMock,
+        return_value={
+            str(text_id): (
+                str(segment_id),
+                "Verse one\nVerse two\nVerse three",
+            )
+        },
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
         assert len(result) == 1
+        assert result[0].source_id == segment_id
         assert result[0].title == "Heart Sutra"
         assert result[0].language == "bo"
         assert result[0].image is None
+        assert result[0].first_segment.id == str(segment_id)
+        assert result[0].first_segment.content == "Verse one\nVerse two\nVerse three"
+        serialized = result[0].model_dump()
+        assert serialized["first_segment"]["id"] == str(segment_id)
+        assert serialized["first_segment"]["content"] == "Verse one\nVerse two\nVerse three"
 
 
 @pytest.mark.asyncio
 async def test_resolve_recitation_sessions_null_language():
+    text_id = uuid.uuid4()
+    segment_id = uuid.uuid4()
     session = SimpleNamespace(
         id=uuid.uuid4(),
         session_type=SessionType.RECITATION,
-        source_id=uuid.uuid4(),
+        source_id=text_id,
         display_order=0,
     )
 
     mock_text = SimpleNamespace(
-        id=session.source_id,
+        id=text_id,
         title="Test Text",
         language=None,
     )
@@ -782,6 +804,10 @@ async def test_resolve_recitation_sessions_null_language():
         "pecha_api.routines.routines_service.Text.get_texts_by_ids",
         new_callable=AsyncMock,
         return_value=[mock_text],
+    ), patch(
+        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        new_callable=AsyncMock,
+        return_value={str(text_id): (str(segment_id), "Test content")},
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
@@ -802,10 +828,43 @@ async def test_resolve_recitation_sessions_missing_text():
         "pecha_api.routines.routines_service.Text.get_texts_by_ids",
         new_callable=AsyncMock,
         return_value=[],
+    ), patch(
+        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        new_callable=AsyncMock,
+        return_value={},
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
         assert len(result) == 0
+
+
+@pytest.mark.asyncio
+async def test_resolve_recitation_sessions_skips_when_first_segment_missing():
+    text_id = uuid.uuid4()
+    session = SimpleNamespace(
+        id=uuid.uuid4(),
+        session_type=SessionType.RECITATION,
+        source_id=text_id,
+        display_order=0,
+    )
+    mock_text = SimpleNamespace(
+        id=text_id,
+        title="Heart Sutra",
+        language="bo",
+    )
+
+    with patch(
+        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        new_callable=AsyncMock,
+        return_value=[mock_text],
+    ), patch(
+        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        new_callable=AsyncMock,
+        return_value={},
+    ):
+        result = await _resolve_recitation_sessions(recitation_sessions=[session])
+
+        assert result == []
 
 
 def test_resolve_timer_sessions_success():
@@ -2389,6 +2448,12 @@ async def test_get_user_routine_with_multiple_time_blocks():
         "pecha_api.routines.routines_service.Text.get_texts_by_ids",
         new_callable=AsyncMock,
         return_value=[mock_text],
+    ), patch(
+        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        new_callable=AsyncMock,
+        return_value={
+            str(source_id_2): (str(uuid.uuid4()), "Evening opening verse"),
+        },
     ):
         result = await get_user_routine(token="token123", skip=0, limit=20)
 
@@ -2513,6 +2578,7 @@ async def test_resolve_sessions_mixed_types():
     timer_session_id = uuid.uuid4()
     plan_source_id = uuid.uuid4()
     recitation_source_id = uuid.uuid4()
+    recitation_segment_id = uuid.uuid4()
 
     sessions = [
         SimpleNamespace(
@@ -2557,6 +2623,15 @@ async def test_resolve_sessions_mixed_types():
         new_callable=AsyncMock,
         return_value=[mock_text],
     ), patch(
+        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        new_callable=AsyncMock,
+        return_value={
+            str(recitation_source_id): (
+                str(recitation_segment_id),
+                "Recitation opening verse",
+            )
+        },
+    ), patch(
         "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
         return_value={},
     ):
@@ -2567,7 +2642,9 @@ async def test_resolve_sessions_mixed_types():
         assert result[0].display_order == 0  # Recitation first
         assert result[1].display_order == 1  # Plan second
         assert result[2].display_order == 2  # Timer last
+        assert result[0].source_id == recitation_segment_id
         assert result[0].title == "Recitation Title"
+        assert result[0].first_segment.content == "Recitation opening verse"
         assert result[1].title == "Plan Title"
         assert result[2].session_type == SessionType.TIMER
         assert result[2].duration_ms == 600000
@@ -2797,6 +2874,7 @@ def test_validate_accumulators_not_found():
 def test_resolve_accumulator_sessions_success():
     user_id = uuid.uuid4()
     preset_id = uuid.uuid4()
+    mantra_id = uuid.uuid4()
     session_id = uuid.uuid4()
     session = SimpleNamespace(
         id=session_id,
@@ -2804,10 +2882,13 @@ def test_resolve_accumulator_sessions_success():
         source_id=preset_id,
         display_order=2,
     )
-    metadata = SimpleNamespace(name="Mani Preset", language="en")
+    accumulator_metadata = SimpleNamespace(name="Mani Preset", language="en")
+    mantra_metadata = SimpleNamespace(title="Om Mani Padme Hum", language="en")
+    mantra = SimpleNamespace(id=mantra_id, metadata_entries=[mantra_metadata])
     preset = SimpleNamespace(
         id=preset_id,
-        metadata_entries=[metadata],
+        mantra_id=mantra_id,
+        metadata_entries=[accumulator_metadata],
     )
     db = MagicMock()
     query_chain = MagicMock()
@@ -2816,6 +2897,9 @@ def test_resolve_accumulator_sessions_success():
     db.query.return_value = query_chain
 
     with patch(
+        "pecha_api.routines.routines_service.get_mantras_by_ids",
+        return_value={mantra_id: mantra},
+    ), patch(
         "pecha_api.routines.routines_service.resolve_accumulator_bookmark_mala_image_url",
         return_value="https://example.com/mala.jpg",
     ):
@@ -2830,12 +2914,51 @@ def test_resolve_accumulator_sessions_success():
     assert dto.id == session_id
     assert dto.session_type == SessionType.ACCUMULATOR
     assert dto.accumulator_id == preset_id
-    assert dto.title == "Mani Preset"
+    assert dto.title == "Om Mani Padme Hum"
     assert dto.language == "en"
     assert dto.display_order == 2
     serialized = dto.model_dump()
     assert serialized["accumulator_id"] == preset_id
     assert "source_id" not in serialized
+
+
+def test_resolve_accumulator_sessions_without_mantra_returns_untitled():
+    user_id = uuid.uuid4()
+    preset_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.ACCUMULATOR,
+        source_id=preset_id,
+        display_order=0,
+    )
+    accumulator_metadata = SimpleNamespace(name="Mani Preset", language="en")
+    preset = SimpleNamespace(
+        id=preset_id,
+        mantra_id=None,
+        metadata_entries=[accumulator_metadata],
+    )
+    db = MagicMock()
+    query_chain = MagicMock()
+    query_chain.filter.return_value = query_chain
+    query_chain.all.return_value = [preset]
+    db.query.return_value = query_chain
+
+    with patch(
+        "pecha_api.routines.routines_service.get_mantras_by_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.routines.routines_service.resolve_accumulator_bookmark_mala_image_url",
+        return_value=None,
+    ):
+        result = _resolve_accumulator_sessions(
+            db=db,
+            accumulator_sessions=[session],
+            user_id=user_id,
+        )
+
+    assert len(result) == 1
+    assert result[0].title == "Untitled"
 
 
 def test_resolve_accumulator_sessions_missing_preset_skipped():
