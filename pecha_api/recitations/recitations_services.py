@@ -34,6 +34,11 @@ from uuid import UUID
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.texts.texts_utils import TextUtils
 from pecha_api.texts.texts_response_models import TextDTO, TableOfContent
+from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
+from pecha_api.region_restrictions.region_restriction_service import (
+    assert_visible_for_timezone,
+    filter_items_for_timezone,
+)
 
 def get_recitations_with_image_urls(recitations: List[RecitationDTO]) -> List[RecitationDTO]:
     text_ids = [str(recitation.text_id) for recitation in recitations]
@@ -87,7 +92,13 @@ async def get_recitations_with_first_segments(recitations: List[RecitationDTO]) 
         )
     return result
 
-async def get_list_of_recitations_service(search: Optional[str] = None, language: str = "en", skip: int = 0, limit: int = 10) -> RecitationsResponse:
+async def get_list_of_recitations_service(
+    search: Optional[str] = None,
+    language: str = "en",
+    skip: int = 0,
+    limit: int = 10,
+    timezone_name: Optional[str] = None,
+) -> RecitationsResponse:
     collection_id = await get_collection_id_by_slug(slug="Liturgy")
     if collection_id is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.COLLECTION_NOT_FOUND)
@@ -102,16 +113,32 @@ async def get_list_of_recitations_service(search: Optional[str] = None, language
 
     recitations_with_images = get_recitations_with_image_urls(recitations=recitation_list_text_response.recitations)
     recitations_with_first_segments = await get_recitations_with_first_segments(recitations=recitations_with_images)
+    visible_recitations = filter_items_for_timezone(
+        recitations_with_first_segments,
+        timezone_name=timezone_name,
+        item_type=RestrictedItemType.RECITATION,
+        id_of=lambda recitation: recitation.text_id,
+    )
     
     return RecitationsResponse(
-        recitations=recitations_with_first_segments, 
+        recitations=visible_recitations,
         skip=skip, 
         limit=limit, 
         total=recitation_list_text_response.total
     )
 
 
-async def get_recitation_details_service(text_id: str, recitation_details_request: RecitationDetailsRequest) -> RecitationDetailsResponse:
+async def get_recitation_details_service(
+    text_id: str,
+    recitation_details_request: RecitationDetailsRequest,
+    timezone_name: Optional[str] = None,
+) -> RecitationDetailsResponse:
+    assert_visible_for_timezone(
+        timezone_name=timezone_name,
+        item_type=RestrictedItemType.RECITATION,
+        item_id=UUID(text_id),
+        not_found_detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE,
+    )
     is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
     if not is_valid_text:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)

@@ -53,6 +53,11 @@ from .accumulator_models import Accumulator
 from .accumulator_metadata_model import AccumulatorMetadata
 from .accumulator_history_model import AccumulatorHistory
 from .accumulator_enums import AccumulatorType
+from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
+from pecha_api.region_restrictions.region_restriction_service import (
+    assert_visible_for_timezone,
+    filter_items_for_timezone,
+)
 from .response_message import (
     NOT_FOUND,
     FORBIDDEN,
@@ -329,15 +334,22 @@ def get_all_accumulators_service(
     limit: int = 20,
     language: Optional[str] = None,
     search: Optional[str] = None,
+    timezone_name: Optional[str] = None,
 ) -> PublicAccumulatorsResponse:
     with SessionLocal() as db:
         accumulators, total = get_all_accumulators(db, skip, limit, search=search)
-        mantra_ids = [a.mantra_id for a in accumulators if a.mantra_id is not None]
+        visible_accumulators = filter_items_for_timezone(
+            accumulators,
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.ACCUMULATOR,
+            id_of=lambda accumulator: accumulator.id,
+        )
+        mantra_ids = [a.mantra_id for a in visible_accumulators if a.mantra_id is not None]
         mantras_by_id = get_mantras_by_ids(db, mantra_ids)
         return PublicAccumulatorsResponse(
             accumulators=[
                 convert_accumulator_to_public_dto(a, mantras_by_id, language)
-                for a in accumulators
+                for a in visible_accumulators
             ],
             total=total,
             skip=skip,

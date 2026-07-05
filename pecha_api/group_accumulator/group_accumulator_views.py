@@ -42,6 +42,10 @@ async def get_group_accumulators(
         Optional[HTTPAuthorizationCredentials],
         Depends(optional_oauth2_scheme),
     ] = None,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted group accumulators are hidden for Chinese timezones."),
+    ] = None,
 ):
     token = credentials.credentials if credentials else None
     return get_group_accumulators_service(
@@ -49,6 +53,7 @@ async def get_group_accumulators(
         skip=skip,
         limit=limit,
         token=token,
+        timezone_name=x_timezone,
     )
 
 

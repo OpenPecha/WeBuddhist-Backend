@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from typing import Optional, Annotated
 from uuid import UUID
@@ -39,6 +39,10 @@ async def get_series_list(
     credentials: Annotated[
         Optional[HTTPAuthorizationCredentials], Depends(optional_oauth2_scheme)
     ] = None,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted series are hidden for Chinese timezones."),
+    ] = None,
 ):
     return get_filtered_series(
         search=search,
@@ -47,6 +51,7 @@ async def get_series_list(
         language=language,
         group_id=group_id,
         token=_token_from_credentials(credentials),
+        timezone_name=x_timezone,
     )
 
 
@@ -89,9 +94,14 @@ async def get_series(
     credentials: Annotated[
         Optional[HTTPAuthorizationCredentials], Depends(optional_oauth2_scheme)
     ] = None,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted series are hidden for Chinese timezones."),
+    ] = None,
 ):
     return get_series_detail(
         series_id=series_id,
         language=language,
         token=_token_from_credentials(credentials),
+        timezone_name=x_timezone,
     )

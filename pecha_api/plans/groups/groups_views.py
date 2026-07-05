@@ -1,7 +1,7 @@
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Header, Query, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
@@ -370,6 +370,10 @@ def get_public_groups(
     ] = AuthorGroupType.COMMUNITY,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted groups are hidden for Chinese timezones."),
+    ] = None,
 ):
     return list_public_groups(
         search=search,
@@ -379,6 +383,7 @@ def get_public_groups(
         skip=skip,
         limit=limit,
         token=authentication_credential.credentials if authentication_credential else None,
+        timezone_name=x_timezone,
     )
 
 
