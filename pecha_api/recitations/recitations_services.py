@@ -5,18 +5,11 @@ from pecha_api.collections.collections_repository import get_all_collections_by_
 from pecha_api.collections.collections_service import get_collection
 from pecha_api.recitations.recitations_repository import get_text_images_by_text_ids
 from pecha_api.recitations.recitations_response_models import RecitationDTO, RecitationsResponse, Segment
-from pecha_api.texts.texts_repository import get_all_texts_by_collection, get_contents_by_text_ids
-from pecha_api.texts.segments.segments_repository import get_segment_contents_by_ids
-from pecha_api.texts.texts_toc_utils import get_first_segment_ids_by_text_ids
+from pecha_api.texts.first_segment_preview_service import (
+    build_first_segment_previews_for_texts,
+)
+from pecha_api.texts.texts_repository import get_all_texts_by_group_id, get_contents_by_id
 from pecha_api.texts.texts_service import get_root_text_by_collection_id
-from fastapi import HTTPException
-from starlette import status
-from uuid import UUID
-
-from pecha_api.error_contants import ErrorConstants
-from pecha_api.texts.texts_utils import TextUtils
-from pecha_api.texts.texts_response_models import TextDTO, TableOfContent
-from pecha_api.texts.texts_repository import get_contents_by_id, get_all_texts_by_group_id
 from pecha_api.texts.segments.segments_service import get_segment_by_id, get_related_mapped_segments, get_segment_details_by_id, get_related_mapped_segments_batch, get_segments_details_by_ids
 from pecha_api.texts.segments.segments_utils import SegmentUtils
 from pecha_api.texts.segments.segments_response_models import SegmentTranslation, SegmentTransliteration, SegmentAdaptation, SegmentRecitation
@@ -34,6 +27,13 @@ from pecha_api.recitations.recication_cache_services import set_recitation_by_te
 from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.config import get
+from fastapi import HTTPException
+from starlette import status
+from uuid import UUID
+
+from pecha_api.error_contants import ErrorConstants
+from pecha_api.texts.texts_utils import TextUtils
+from pecha_api.texts.texts_response_models import TextDTO, TableOfContent
 
 def get_recitations_with_image_urls(recitations: List[RecitationDTO]) -> List[RecitationDTO]:
     text_ids = [str(recitation.text_id) for recitation in recitations]
@@ -65,34 +65,27 @@ async def get_recitations_with_first_segments(recitations: List[RecitationDTO]) 
     if not text_ids:
         return recitations
 
-    table_of_contents_by_text_id = await get_contents_by_text_ids(text_ids=text_ids)
-    first_segment_ids = get_first_segment_ids_by_text_ids(table_of_contents_by_text_id)
+    previews_by_text_id = await build_first_segment_previews_for_texts(text_ids)
 
-    if not first_segment_ids:
-        return recitations
-
-    segment_contents = await get_segment_contents_by_ids(
-        segment_ids=list(first_segment_ids.values())
-    )
-
-    first_segments_by_text_id: Dict[str, Segment] = {}
-    for text_id, segment_id in first_segment_ids.items():
-        content_data = segment_contents.get(segment_id)
-        if content_data:
-            first_segments_by_text_id[text_id] = Segment(
-                id=UUID(segment_id),
-                content=content_data[1],
+    result: List[RecitationDTO] = []
+    for recitation in recitations:
+        preview = previews_by_text_id.get(str(recitation.text_id))
+        first_segment = None
+        if preview is not None:
+            first_segment_id, preview_content = preview
+            first_segment = Segment(
+                id=UUID(first_segment_id),
+                content=preview_content,
             )
-
-    return [
-        RecitationDTO(
-            title=recitation.title,
-            text_id=recitation.text_id,
-            image_url=recitation.image_url,
-            first_segment=first_segments_by_text_id.get(str(recitation.text_id)),
+        result.append(
+            RecitationDTO(
+                title=recitation.title,
+                text_id=recitation.text_id,
+                image_url=recitation.image_url,
+                first_segment=first_segment,
+            )
         )
-        for recitation in recitations
-    ]
+    return result
 
 async def get_list_of_recitations_service(search: Optional[str] = None, language: str = "en", skip: int = 0, limit: int = 10) -> RecitationsResponse:
     collection_id = await get_collection_id_by_slug(slug="Liturgy")

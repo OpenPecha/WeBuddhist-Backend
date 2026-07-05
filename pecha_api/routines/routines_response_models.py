@@ -41,6 +41,11 @@ class UpdateTimeBlockRequest(BaseModel):
     sessions: List[SessionRequest]
 
 
+class RoutineFirstSegmentDTO(BaseModel):
+    id: str
+    content: str
+
+
 class SessionDTO(BaseModel):
     id: UUID
     session_type: SessionType
@@ -59,6 +64,7 @@ class SessionDTO(BaseModel):
     item_count: Optional[int] = None  # Recitation collection's item count
     current_plan_id: Optional[UUID] = None  # SERIES: plan active for today's date
     current_plan_title: Optional[str] = None  # SERIES: title of the active plan
+    first_segment: Optional[RoutineFirstSegmentDTO] = None
 
     @model_serializer(mode="wrap")
     def _omit_inapplicable_fields(self, serializer):
@@ -75,6 +81,7 @@ class SessionDTO(BaseModel):
                 "item_count",
                 "current_plan_id",
                 "current_plan_title",
+                "first_segment",
             ):
                 data.pop(field, None)
         elif self.session_type == SessionType.RECITATION_COLLECTION:
@@ -86,6 +93,7 @@ class SessionDTO(BaseModel):
                 "current_plan_id",
                 "current_plan_title",
                 "accumulator_id",
+                "first_segment",
             ):
                 data.pop(field, None)
         elif self.session_type == SessionType.RECITATION:
@@ -111,6 +119,7 @@ class SessionDTO(BaseModel):
                 "item_count",
                 "current_plan_id",
                 "current_plan_title",
+                "first_segment",
             ):
                 data.pop(field, None)
         elif self.session_type == SessionType.PLAN:
@@ -120,10 +129,11 @@ class SessionDTO(BaseModel):
                 "current_plan_id",
                 "current_plan_title",
                 "accumulator_id",
+                "first_segment",
             ):
                 data.pop(field, None)
         else:  # SERIES exposes start_date / started_at and current plan fields
-            for field in ("duration_ms", "item_count", "accumulator_id"):
+            for field in ("duration_ms", "item_count", "accumulator_id", "first_segment"):
                 data.pop(field, None)
         return data
 

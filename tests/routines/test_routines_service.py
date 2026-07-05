@@ -750,15 +750,24 @@ async def test_resolve_recitation_sessions_success():
         title="Heart Sutra",
         language="bo",
     )
+    mock_segment = SimpleNamespace(
+        id=segment_id,
+        content="Om gate gate paragate parasamgate bodhi svaha",
+    )
 
     with patch(
         "pecha_api.routines.routines_service.Text.get_texts_by_ids",
         new_callable=AsyncMock,
         return_value=[mock_text],
     ), patch(
-        "pecha_api.routines.routines_service._resolve_first_segment_ids_for_texts",
+        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
         new_callable=AsyncMock,
-        return_value={str(text_id): segment_id},
+        return_value={
+            str(text_id): (
+                str(segment_id),
+                "Verse one\nVerse two\nVerse three",
+            )
+        },
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
@@ -767,6 +776,11 @@ async def test_resolve_recitation_sessions_success():
         assert result[0].title == "Heart Sutra"
         assert result[0].language == "bo"
         assert result[0].image is None
+        assert result[0].first_segment.id == str(segment_id)
+        assert result[0].first_segment.content == "Verse one\nVerse two\nVerse three"
+        serialized = result[0].model_dump()
+        assert serialized["first_segment"]["id"] == str(segment_id)
+        assert serialized["first_segment"]["content"] == "Verse one\nVerse two\nVerse three"
 
 
 @pytest.mark.asyncio
@@ -791,9 +805,9 @@ async def test_resolve_recitation_sessions_null_language():
         new_callable=AsyncMock,
         return_value=[mock_text],
     ), patch(
-        "pecha_api.routines.routines_service._resolve_first_segment_ids_for_texts",
+        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
         new_callable=AsyncMock,
-        return_value={str(text_id): segment_id},
+        return_value={str(text_id): (str(segment_id), "Test content")},
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
@@ -815,7 +829,7 @@ async def test_resolve_recitation_sessions_missing_text():
         new_callable=AsyncMock,
         return_value=[],
     ), patch(
-        "pecha_api.routines.routines_service._resolve_first_segment_ids_for_texts",
+        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
         new_callable=AsyncMock,
         return_value={},
     ):
@@ -844,7 +858,7 @@ async def test_resolve_recitation_sessions_skips_when_first_segment_missing():
         new_callable=AsyncMock,
         return_value=[mock_text],
     ), patch(
-        "pecha_api.routines.routines_service._resolve_first_segment_ids_for_texts",
+        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
         new_callable=AsyncMock,
         return_value={},
     ):
@@ -2435,9 +2449,11 @@ async def test_get_user_routine_with_multiple_time_blocks():
         new_callable=AsyncMock,
         return_value=[mock_text],
     ), patch(
-        "pecha_api.routines.routines_service._resolve_first_segment_ids_for_texts",
+        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
         new_callable=AsyncMock,
-        return_value={str(source_id_2): uuid.uuid4()},
+        return_value={
+            str(source_id_2): (str(uuid.uuid4()), "Evening opening verse"),
+        },
     ):
         result = await get_user_routine(token="token123", skip=0, limit=20)
 
@@ -2607,9 +2623,14 @@ async def test_resolve_sessions_mixed_types():
         new_callable=AsyncMock,
         return_value=[mock_text],
     ), patch(
-        "pecha_api.routines.routines_service._resolve_first_segment_ids_for_texts",
+        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
         new_callable=AsyncMock,
-        return_value={str(recitation_source_id): recitation_segment_id},
+        return_value={
+            str(recitation_source_id): (
+                str(recitation_segment_id),
+                "Recitation opening verse",
+            )
+        },
     ), patch(
         "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
         return_value={},
@@ -2623,6 +2644,7 @@ async def test_resolve_sessions_mixed_types():
         assert result[2].display_order == 2  # Timer last
         assert result[0].source_id == recitation_segment_id
         assert result[0].title == "Recitation Title"
+        assert result[0].first_segment.content == "Recitation opening verse"
         assert result[1].title == "Plan Title"
         assert result[2].session_type == SessionType.TIMER
         assert result[2].duration_ms == 600000

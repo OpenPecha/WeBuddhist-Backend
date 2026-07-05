@@ -34,9 +34,9 @@ from pecha_api.accumulator.accumulator_service import (
     resolve_accumulator_bookmark_mala_image_url,
 )
 from pecha_api.mantra.mantra_repository import get_mantras_by_ids
-from pecha_api.texts.segments.segments_models import Segment
-from pecha_api.texts.texts_repository import get_contents_by_text_ids
-from pecha_api.texts.texts_toc_utils import get_first_segment_ids_by_text_ids
+from pecha_api.texts.first_segment_preview_service import (
+    build_first_segment_previews_for_texts,
+)
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
@@ -86,6 +86,7 @@ from .routines_response_models import (
     CreateTimeBlockRequest,
     UpdateTimeBlockRequest,
     SessionDTO,
+    RoutineFirstSegmentDTO,
     TimeBlockDTO,
     RoutineWithTimeBlocksResponse,
     RoutineResponse,
@@ -582,28 +583,11 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
     return resolved
 
 
-async def _resolve_first_segment_ids_for_texts(
-    text_ids: List[str],
-) -> Dict[str, UUID]:
-    if not text_ids:
-        return {}
-
-    table_of_contents_by_text_id = await get_contents_by_text_ids(text_ids=text_ids)
-    first_segment_ids = get_first_segment_ids_by_text_ids(table_of_contents_by_text_id)
-
-    result: Dict[str, UUID] = {
-        text_id: UUID(segment_id)
-        for text_id, segment_id in first_segment_ids.items()
-    }
-
-    for text_id in text_ids:
-        if text_id in result:
-            continue
-        segment = await Segment.get_first_segment_by_text_id(text_id=text_id)
-        if segment is not None:
-            result[text_id] = segment.id
-
-    return result
+def _normalize_text_id(text_id) -> str:
+    try:
+        return str(UUID(str(text_id)))
+    except (ValueError, TypeError):
+        return str(text_id)
 
 
 async def _resolve_recitation_sessions(
@@ -612,31 +596,36 @@ async def _resolve_recitation_sessions(
     if not recitation_sessions:
         return []
 
-    text_ids = [str(session.source_id) for session in recitation_sessions]
+    text_ids = [_normalize_text_id(session.source_id) for session in recitation_sessions]
     texts = await Text.get_texts_by_ids(text_ids)
-    text_map = {str(text.id): text for text in texts}
-    first_segment_by_text_id = await _resolve_first_segment_ids_for_texts(text_ids)
+    text_map = {_normalize_text_id(text.id): text for text in texts}
+    previews_by_text_id = await build_first_segment_previews_for_texts(text_ids)
 
     resolved = []
     for session in recitation_sessions:
-        text_id = str(session.source_id)
+        text_id = _normalize_text_id(session.source_id)
         text = text_map.get(text_id)
         if text is None:
             continue
 
-        first_segment_id = first_segment_by_text_id.get(text_id)
-        if first_segment_id is None:
+        preview = previews_by_text_id.get(text_id)
+        if preview is None:
             continue
 
+        first_segment_id, preview_content = preview
         resolved.append(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=first_segment_id,
+                source_id=UUID(first_segment_id),
                 title=text.title,
                 language=text.language or "en",
                 image=None,
                 display_order=session.display_order,
+                first_segment=RoutineFirstSegmentDTO(
+                    id=first_segment_id,
+                    content=preview_content,
+                ),
             )
         )
     return resolved
