@@ -9,7 +9,7 @@ from starlette import status
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.traditions.llm_client import chat_with_worker
-from pecha_api.traditions.tradition_constants import DEFAULT_CHAT_LANGUAGE
+from pecha_api.traditions.tradition_constants import DEFAULT_CHAT_LANGUAGE, tradition_id_from_code
 from pecha_api.traditions.tradition_onboarding import (
     get_tradition_onboarding_content,
     get_tradition_path_entry,
@@ -37,13 +37,6 @@ from pecha_api.traditions.tradition_response_models import (
     UserTraditionDTO,
     UserTraditionsResponse,
 )
-from pecha_api.traditions.tradition_taxonomy import (
-    get_tradition_display_name,
-    get_tradition_entry,
-    list_tradition_codes,
-    load_tradition_taxonomy,
-    tradition_id_from_code,
-)
 from pecha_api.users.users_service import validate_and_extract_user_details
 
 
@@ -59,7 +52,7 @@ def _normalize_suggested_traditions(
     suggested_traditions: list,
     language: str,
 ) -> List[SuggestedTradition]:
-    allowed_codes = list_tradition_codes()
+    allowed_codes = list_tradition_path_codes()
     normalized: list[SuggestedTradition] = []
     seen_codes: set[str] = set()
 
@@ -71,8 +64,8 @@ def _normalize_suggested_traditions(
         if not code or code not in allowed_codes or code in seen_codes:
             continue
 
-        entry = get_tradition_entry(code)
-        name = item.get("name") or (get_tradition_display_name(entry, language) if entry else code)
+        path_entry = get_tradition_path_entry(code, language=language)
+        name = item.get("name") or (path_entry["title"] if path_entry else code)
         normalized.append(SuggestedTradition(code=code, name=name))
         seen_codes.add(code)
 
@@ -95,7 +88,7 @@ def _normalize_selected_tradition_code(selected_code: object) -> str | None:
         return None
 
     normalized = str(selected_code).strip()
-    if normalized not in list_tradition_codes():
+    if normalized not in list_tradition_path_codes():
         return None
     return normalized
 
@@ -231,14 +224,17 @@ async def get_user_traditions_service(token: str) -> UserTraditionsResponse:
 
 async def list_traditions_service(language: str = DEFAULT_CHAT_LANGUAGE) -> TraditionListResponse:
     traditions: list[TraditionListItemDTO] = []
-    for entry in load_tradition_taxonomy()["traditions"]:
+    for code in sorted(list_tradition_path_codes()):
+        path_entry = get_tradition_path_entry(code, language=language)
+        if path_entry is None:
+            continue
         traditions.append(
             TraditionListItemDTO(
-                code=entry["id"],
-                name=get_tradition_display_name(entry, language),
-                level=entry["level"],
-                parent_code=entry.get("parent"),
-                regions=entry.get("regions") or [],
+                code=code,
+                name=path_entry["title"],
+                level=0,
+                parent_code=None,
+                regions=[],
             )
         )
     return TraditionListResponse(traditions=traditions)
@@ -276,9 +272,6 @@ def _resolve_tradition_code(user_tradition) -> str:
     for code in list_tradition_path_codes():
         if tradition_id_from_code(code) == tradition_id:
             return code
-    for entry in load_tradition_taxonomy()["traditions"]:
-        if tradition_id_from_code(entry["id"]) == tradition_id:
-            return entry["id"]
 
     if user_tradition.tradition and user_tradition.tradition.metadata_entries:
         for metadata in user_tradition.tradition.metadata_entries:
@@ -291,24 +284,13 @@ def _resolve_tradition_code(user_tradition) -> str:
 
 def _build_user_tradition_dto(user_tradition, tradition_code: str, language: str) -> UserTraditionDTO:
     path_entry = get_tradition_path_entry(tradition_code, language=language)
-    if path_entry is not None:
-        return UserTraditionDTO(
-            id=user_tradition.id,
-            tradition_code=tradition_code,
-            tradition_name=path_entry["title"],
-            level=0,
-            parent_code=None,
-            created_at=user_tradition.created_at,
-            updated_at=user_tradition.updated_at,
-        )
-
-    entry = get_tradition_entry(tradition_code)
+    tradition_name = path_entry["title"] if path_entry else tradition_code
     return UserTraditionDTO(
         id=user_tradition.id,
         tradition_code=tradition_code,
-        tradition_name=get_tradition_display_name(entry, language) if entry else tradition_code,
-        level=entry["level"] if entry else 0,
-        parent_code=entry.get("parent") if entry else None,
+        tradition_name=tradition_name,
+        level=0,
+        parent_code=None,
         created_at=user_tradition.created_at,
         updated_at=user_tradition.updated_at,
     )
