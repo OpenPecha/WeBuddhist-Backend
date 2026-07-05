@@ -617,7 +617,7 @@ async def _resolve_recitation_sessions(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=UUID(first_segment_id),
+                source_id=UUID(text_id),
                 title=text.title,
                 language=text.language or "en",
                 image=None,

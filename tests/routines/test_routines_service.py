@@ -772,7 +772,7 @@ async def test_resolve_recitation_sessions_success():
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
         assert len(result) == 1
-        assert result[0].source_id == segment_id
+        assert result[0].source_id == text_id
         assert result[0].title == "Heart Sutra"
         assert result[0].language == "bo"
         assert result[0].image is None
@@ -2642,7 +2642,7 @@ async def test_resolve_sessions_mixed_types():
         assert result[0].display_order == 0  # Recitation first
         assert result[1].display_order == 1  # Plan second
         assert result[2].display_order == 2  # Timer last
-        assert result[0].source_id == recitation_segment_id
+        assert result[0].source_id == recitation_source_id
         assert result[0].title == "Recitation Title"
         assert result[0].first_segment.content == "Recitation opening verse"
         assert result[1].title == "Plan Title"
