@@ -33,6 +33,10 @@ from pecha_api.accumulator.accumulator_enums import AccumulatorType
 from pecha_api.accumulator.accumulator_service import (
     resolve_accumulator_bookmark_mala_image_url,
 )
+from pecha_api.mantra.mantra_repository import get_mantras_by_ids
+from pecha_api.texts.segments.segments_models import Segment
+from pecha_api.texts.texts_repository import get_contents_by_text_ids
+from pecha_api.texts.texts_toc_utils import get_first_segment_ids_by_text_ids
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
@@ -578,6 +582,30 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
     return resolved
 
 
+async def _resolve_first_segment_ids_for_texts(
+    text_ids: List[str],
+) -> Dict[str, UUID]:
+    if not text_ids:
+        return {}
+
+    table_of_contents_by_text_id = await get_contents_by_text_ids(text_ids=text_ids)
+    first_segment_ids = get_first_segment_ids_by_text_ids(table_of_contents_by_text_id)
+
+    result: Dict[str, UUID] = {
+        text_id: UUID(segment_id)
+        for text_id, segment_id in first_segment_ids.items()
+    }
+
+    for text_id in text_ids:
+        if text_id in result:
+            continue
+        segment = await Segment.get_first_segment_by_text_id(text_id=text_id)
+        if segment is not None:
+            result[text_id] = segment.id
+
+    return result
+
+
 async def _resolve_recitation_sessions(
     recitation_sessions: List[RoutineSession],
 ) -> List[SessionDTO]:
@@ -587,17 +615,24 @@ async def _resolve_recitation_sessions(
     text_ids = [str(session.source_id) for session in recitation_sessions]
     texts = await Text.get_texts_by_ids(text_ids)
     text_map = {str(text.id): text for text in texts}
+    first_segment_by_text_id = await _resolve_first_segment_ids_for_texts(text_ids)
 
     resolved = []
     for session in recitation_sessions:
-        text = text_map.get(str(session.source_id))
+        text_id = str(session.source_id)
+        text = text_map.get(text_id)
         if text is None:
             continue
+
+        first_segment_id = first_segment_by_text_id.get(text_id)
+        if first_segment_id is None:
+            continue
+
         resolved.append(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=session.source_id,
+                source_id=first_segment_id,
                 title=text.title,
                 language=text.language or "en",
                 image=None,
@@ -679,27 +714,6 @@ def _resolve_recitation_collection_sessions(
     return resolved
 
 
-def _accumulator_metadata_language(metadata) -> Optional[str]:
-    if metadata is None:
-        return None
-    return (
-        metadata.language.value
-        if hasattr(metadata.language, "value")
-        else str(metadata.language)
-    )
-
-
-def _select_accumulator_metadata(metadata_entries, language: Optional[str]):
-    if not metadata_entries:
-        return None
-    matched = filter_by_language_with_fallback(
-        entries=list(metadata_entries),
-        language=language,
-        language_of=_accumulator_metadata_language,
-    )
-    return matched[0] if matched else metadata_entries[0]
-
-
 def _accumulator_mala_image(
     db, accumulator: Accumulator
 ) -> Optional[ImageUrlModel]:
@@ -711,6 +725,42 @@ def _accumulator_mala_image(
         medium=mala_image_url,
         original=mala_image_url,
     )
+
+
+def _mantra_metadata_language(metadata) -> Optional[str]:
+    if metadata is None:
+        return None
+    return (
+        metadata.language.value
+        if hasattr(metadata.language, "value")
+        else str(metadata.language)
+    )
+
+
+def _select_mantra_metadata(metadata_entries, language: Optional[str]):
+    if not metadata_entries:
+        return None
+    matched = filter_by_language_with_fallback(
+        entries=list(metadata_entries),
+        language=language,
+        language_of=_mantra_metadata_language,
+    )
+    return matched[0] if matched else metadata_entries[0]
+
+
+def _preset_session_title_and_language(
+    mantra,
+    language: Optional[str] = None,
+) -> tuple[str, Optional[str]]:
+    if mantra is not None and mantra.metadata_entries:
+        mantra_metadata = _select_mantra_metadata(mantra.metadata_entries, language)
+        if mantra_metadata and mantra_metadata.title:
+            return (
+                mantra_metadata.title,
+                _mantra_metadata_language(mantra_metadata),
+            )
+
+    return "Untitled", None
 
 
 def _resolve_accumulator_sessions(
@@ -734,14 +784,26 @@ def _resolve_accumulator_sessions(
     )
     preset_map = {preset.id: preset for preset in presets}
 
+    mantra_ids = [
+        preset.mantra_id
+        for preset in presets
+        if preset.mantra_id is not None
+    ]
+    mantras_by_id = get_mantras_by_ids(db, mantra_ids)
+
     resolved = []
     for session in accumulator_sessions:
         preset = preset_map.get(session.source_id)
         if preset is None:
             continue
 
-        metadata = _select_accumulator_metadata(
-            preset.metadata_entries, language
+        mantra = (
+            mantras_by_id.get(preset.mantra_id)
+            if preset.mantra_id is not None
+            else None
+        )
+        title, session_language = _preset_session_title_and_language(
+            mantra, language
         )
         resolved.append(
             SessionDTO(
@@ -749,8 +811,8 @@ def _resolve_accumulator_sessions(
                 session_type=session.session_type,
                 source_id=session.source_id,
                 accumulator_id=session.source_id,
-                title=metadata.name if metadata else "Untitled",
-                language=_accumulator_metadata_language(metadata),
+                title=title,
+                language=session_language,
                 image=_accumulator_mala_image(db, preset),
                 display_order=session.display_order,
             )

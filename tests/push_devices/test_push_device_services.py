@@ -6,8 +6,10 @@ import pytest
 from fastapi import HTTPException
 
 from pecha_api.push_devices.push_device_enums import PushPlatform
+from pecha_api.push_devices.push_device_models import PushDeviceToken
 from pecha_api.push_devices.push_device_response_models import RegisterPushDeviceRequest
 from pecha_api.push_devices.push_device_service import (
+    _upsert_push_device_token,
     delete_push_device_service,
     get_push_devices_service,
     list_all_push_devices_service,
@@ -47,7 +49,7 @@ async def test_register_push_device_service_success():
     ) as mock_validate, patch(
         "pecha_api.push_devices.push_device_service.SessionLocal"
     ) as mock_session, patch(
-        "pecha_api.push_devices.push_device_service.upsert_push_device_token"
+        "pecha_api.push_devices.push_device_service._upsert_push_device_token"
     ) as mock_upsert:
         mock_validate.return_value = mock_user
         mock_session.return_value = mock_db
@@ -189,3 +191,116 @@ async def test_list_all_push_devices_service_forbidden():
             await list_all_push_devices_service(token="user_token")
 
         assert exc_info.value.status_code == 403
+
+
+def test_upsert_push_device_token_creates_new_installation():
+    user_id = uuid4()
+    db = MagicMock()
+    db.query.return_value.filter.return_value.first.return_value = None
+
+    with patch(
+        "pecha_api.push_devices.push_device_service.get_push_device_token_by_user_and_device_id",
+        return_value=None,
+    ), patch(
+        "pecha_api.push_devices.push_device_service.get_push_device_token_by_token",
+        return_value=None,
+    ), patch(
+        "pecha_api.push_devices.push_device_service.delete_push_device_token_by_token",
+    ) as mock_delete_by_token, patch(
+        "pecha_api.push_devices.push_device_service.save_push_device_token",
+    ) as mock_save:
+        mock_save.return_value = MagicMock()
+
+        _upsert_push_device_token(
+            db=db,
+            user_id=user_id,
+            token="new-token",
+            platform=PushPlatform.ANDROID,
+            device_id="device-1",
+        )
+
+        mock_delete_by_token.assert_called_once_with(db=db, token="new-token")
+        saved_token = mock_save.call_args.kwargs["push_device_token"]
+        assert saved_token.user_id == user_id
+        assert saved_token.token == "new-token"
+        assert saved_token.device_id == "device-1"
+        assert mock_save.call_args.kwargs["is_new"] is True
+
+
+def test_upsert_push_device_token_same_installation_same_token_updates_last_seen():
+    user_id = uuid4()
+    now = datetime.now(timezone.utc)
+    existing = PushDeviceToken(
+        id=uuid4(),
+        user_id=user_id,
+        token="same-token",
+        platform=PushPlatform.ANDROID,
+        device_id="device-1",
+        is_active=True,
+        created_at=now,
+        updated_at=now,
+    )
+
+    with patch(
+        "pecha_api.push_devices.push_device_service.get_push_device_token_by_user_and_device_id",
+        return_value=existing,
+    ), patch(
+        "pecha_api.push_devices.push_device_service.save_push_device_token",
+    ) as mock_save:
+        mock_save.return_value = existing
+
+        result = _upsert_push_device_token(
+            db=MagicMock(),
+            user_id=user_id,
+            token="same-token",
+            platform=PushPlatform.ANDROID,
+            device_id="device-1",
+        )
+
+        assert result is existing
+        assert result.is_active is True
+        assert result.updated_at >= now
+        mock_save.assert_called_once_with(db=mock_save.call_args.kwargs["db"], push_device_token=existing)
+
+
+def test_upsert_push_device_token_same_installation_different_token_replaces_token():
+    user_id = uuid4()
+    now = datetime.now(timezone.utc)
+    existing = PushDeviceToken(
+        id=uuid4(),
+        user_id=user_id,
+        token="old-token",
+        platform=PushPlatform.IOS,
+        device_id="device-1",
+        is_active=True,
+        created_at=now,
+        updated_at=now,
+    )
+    db = MagicMock()
+
+    with patch(
+        "pecha_api.push_devices.push_device_service.get_push_device_token_by_user_and_device_id",
+        return_value=existing,
+    ), patch(
+        "pecha_api.push_devices.push_device_service.delete_push_device_token_by_token",
+    ) as mock_delete_by_token, patch(
+        "pecha_api.push_devices.push_device_service.save_push_device_token",
+    ) as mock_save:
+        mock_save.return_value = existing
+
+        result = _upsert_push_device_token(
+            db=db,
+            user_id=user_id,
+            token="new-token",
+            platform=PushPlatform.ANDROID,
+            device_id="device-1",
+        )
+
+        mock_delete_by_token.assert_called_once_with(
+            db=db,
+            token="new-token",
+            exclude_id=existing.id,
+        )
+        assert result.token == "new-token"
+        assert result.platform == PushPlatform.ANDROID
+        assert result.is_active is True
