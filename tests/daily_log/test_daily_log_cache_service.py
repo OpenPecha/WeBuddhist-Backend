@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 
 from pecha_api.daily_log.daily_log_cache_service import (
-    _seconds_until_end_of_utc_day,
+    _seconds_until_end_of_day_in_timezone,
     get_user_stats_cache,
     invalidate_user_stats_cache,
     is_user_logged_today_in_cache,
@@ -15,16 +15,16 @@ from pecha_api.daily_log.daily_log_cache_service import (
 from pecha_api.daily_log.daily_log_response_models import StreakStats, UserStatsResponse
 
 
-def test_seconds_until_end_of_utc_day_returns_positive_value():
+def test_seconds_until_end_of_day_in_timezone_returns_positive_value():
     fixed_now = datetime(2026, 6, 11, 12, 0, 0, tzinfo=timezone.utc)
 
     with patch("pecha_api.daily_log.daily_log_cache_service.datetime") as mock_datetime:
         mock_datetime.now.return_value = fixed_now
         mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
 
-        seconds = _seconds_until_end_of_utc_day()
+        seconds = _seconds_until_end_of_day_in_timezone("UTC")
 
-    assert seconds == 12 * 60 * 60
+    assert seconds == (12 * 60 * 60) - 1
 
 
 @pytest.mark.asyncio
@@ -64,7 +64,7 @@ async def test_set_user_daily_log_cache_stores_until_end_of_day():
     log_date = date(2026, 6, 11)
 
     with patch(
-        "pecha_api.daily_log.daily_log_cache_service._seconds_until_end_of_utc_day",
+        "pecha_api.daily_log.daily_log_cache_service._seconds_until_end_of_day_in_timezone",
         return_value=3600,
     ), patch(
         "pecha_api.daily_log.daily_log_cache_service.set_cache",
@@ -93,7 +93,10 @@ async def test_get_user_stats_cache_returns_parsed_response():
         new_callable=AsyncMock,
         return_value=stats_payload,
     ):
-        result = await get_user_stats_cache(user_id=user_id)
+        result = await get_user_stats_cache(
+            user_id=user_id,
+            timezone_name="Asia/Kathmandu",
+        )
 
     assert isinstance(result, UserStatsResponse)
     assert result.streak.current == 2
@@ -117,7 +120,11 @@ async def test_set_user_stats_cache_uses_five_minute_timeout():
         "pecha_api.daily_log.daily_log_cache_service.set_cache",
         new_callable=AsyncMock,
     ) as mock_set_cache:
-        await set_user_stats_cache(user_id=user_id, data=stats)
+        await set_user_stats_cache(
+            user_id=user_id,
+            data=stats,
+            timezone_name="Asia/Kathmandu",
+        )
 
         mock_set_cache.assert_awaited_once()
         _, kwargs = mock_set_cache.await_args
@@ -133,6 +140,9 @@ async def test_invalidate_user_stats_cache_deletes_key():
         "pecha_api.daily_log.daily_log_cache_service.delete_cache",
         new_callable=AsyncMock,
     ) as mock_delete_cache:
-        await invalidate_user_stats_cache(user_id=user_id)
+        await invalidate_user_stats_cache(
+            user_id=user_id,
+            timezone_name="Asia/Kathmandu",
+        )
 
         mock_delete_cache.assert_awaited_once()
