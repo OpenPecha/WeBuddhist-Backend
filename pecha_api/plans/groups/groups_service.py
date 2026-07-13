@@ -741,6 +741,27 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
         )
 
 
+def delete_author_group(token: str, group_id: UUID) -> None:
+    author = validate_and_extract_author_details(token=token)
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        if not is_super_admin(author):
+            member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
+            _assert_role_allowed(
+                member=member,
+                allowed_roles=[AuthorGroupMemberRole.OWNER],
+            )
+
+        now = datetime.now(timezone.utc)
+        group.deleted_at = now
+        group.deleted_by = author.email
+        group.updated_at = now
+        group.updated_by = author.email
+        update_group(db=db, group=group)
+
+
 def get_author_group_detail(
     group_id: UUID,
     require_public: bool = True,

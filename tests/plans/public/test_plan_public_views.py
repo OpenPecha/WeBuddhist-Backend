@@ -110,7 +110,8 @@ async def test_get_plans_success(sample_plans_response):
             sort_by="title",
             sort_order="asc",
             skip=0,
-            limit=20
+            limit=20,
+            timezone_name=None,
         )
 
 
@@ -132,7 +133,8 @@ async def test_get_plans_with_search_filter(sample_plans_response):
             sort_by="title",
             sort_order="asc",
             skip=0,
-            limit=20
+            limit=20,
+            timezone_name=None,
         )
 
 
@@ -154,7 +156,8 @@ async def test_get_plans_with_language_filter(sample_plans_response):
             sort_by="title",
             sort_order="asc",
             skip=0,
-            limit=20
+            limit=20,
+            timezone_name=None,
         )
 
 
@@ -176,7 +179,8 @@ async def test_get_plans_with_sorting(sample_plans_response):
             sort_by="subscription_count",
             sort_order="desc",
             skip=0,
-            limit=20
+            limit=20,
+            timezone_name=None,
         )
 
 
@@ -196,7 +200,8 @@ async def test_get_plans_with_pagination(sample_plans_response):
             sort_by="title",
             sort_order="asc",
             skip=10,
-            limit=5
+            limit=5,
+            timezone_name=None,
         )
 
 
@@ -218,7 +223,8 @@ async def test_get_plans_with_all_filters(sample_plans_response):
             sort_by="total_days",
             sort_order="desc",
             skip=5,
-            limit=10
+            limit=10,
+            timezone_name=None,
         )
 
 
@@ -310,7 +316,7 @@ async def test_get_plan_details_success(sample_plan_dto):
         assert "image" in data
         assert "image" in data["author"]
         
-        mock_service.assert_called_once_with(plan_id=plan_id)
+        mock_service.assert_called_once_with(plan_id=plan_id, timezone_name=None)
 
 
 @pytest.mark.asyncio
@@ -769,6 +775,7 @@ async def test_get_plans_with_tag_filter(sample_plans_response):
             sort_order="asc",
             skip=0,
             limit=20,
+            timezone_name=None,
         )
 
 
@@ -792,6 +799,7 @@ async def test_get_plans_with_group_filter(sample_plans_response):
             sort_order="asc",
             skip=0,
             limit=20,
+            timezone_name=None,
         )
 
 

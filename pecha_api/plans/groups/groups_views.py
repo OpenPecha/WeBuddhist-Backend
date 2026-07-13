@@ -35,6 +35,7 @@ from pecha_api.plans.groups.groups_service import (
     accept_group_invite_by_id,
     create_author_group,
     create_group_member_invite,
+    delete_author_group,
     delete_group_member,
     follow_group,
     get_author_group_detail,
@@ -128,6 +129,18 @@ def patch_cms_group(
         update_group_request=update_group_request,
         token=authentication_credential.credentials,
     )
+
+
+@cms_groups_router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_cms_group(
+    group_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    delete_author_group(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @cms_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)

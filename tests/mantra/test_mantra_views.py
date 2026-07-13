@@ -50,7 +50,7 @@ class TestGetMantrasEndpoint:
 
         assert isinstance(result, MantraResponse)
         assert len(result.mantras) == 2
-        mock_service.assert_called_once_with(language=None)
+        mock_service.assert_called_once_with(language=None, timezone_name=None)
 
     @patch('pecha_api.mantra.mantra_views.get_mantras_service')
     def test_get_mantras_endpoint_empty(self, mock_service):
@@ -76,4 +76,4 @@ class TestGetMantrasEndpoint:
 
         assert len(result.mantras) == 1
         assert result.mantras[0].metadata[0].language == LanguageCode.BO
-        mock_service.assert_called_once_with(language="bo")
+        mock_service.assert_called_once_with(language="bo", timezone_name=None)

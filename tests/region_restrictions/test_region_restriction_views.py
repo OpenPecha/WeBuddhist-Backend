@@ -5,10 +5,13 @@ from pecha_api.region_restrictions.region_restriction_enums import RestrictedIte
 from pecha_api.region_restrictions.region_restriction_response_models import (
     ChinaRestrictedItemDTO,
     ChinaRestrictedItemListResponse,
+    ChinaRestrictionCandidateDTO,
+    ChinaRestrictionCandidateListResponse,
     CreateChinaRestrictedItemRequest,
 )
 from pecha_api.region_restrictions.region_restriction_views import (
     delete_cms_china_restricted_item,
+    get_cms_china_restriction_candidates,
     get_cms_china_restricted_items,
     post_cms_china_restricted_item,
 )
@@ -37,6 +40,41 @@ def test_get_cms_china_restricted_items_delegates_to_service():
     )
 
 
+def test_get_cms_china_restriction_candidates_delegates_to_service():
+    expected = ChinaRestrictionCandidateListResponse(
+        items=[
+            ChinaRestrictionCandidateDTO(
+                id=uuid.uuid4(),
+                title="Morning Practice",
+            )
+        ],
+        skip=0,
+        limit=20,
+        total=1,
+    )
+
+    with patch(
+        "pecha_api.region_restrictions.region_restriction_views.search_admin_china_restriction_candidates",
+        return_value=expected,
+    ) as mock_service:
+        resp = get_cms_china_restriction_candidates(
+            item_type=RestrictedItemType.PLAN,
+            search="morning",
+            skip=0,
+            limit=20,
+            token="token123",
+        )
+
+    assert resp == expected
+    mock_service.assert_called_once_with(
+        token="token123",
+        item_type=RestrictedItemType.PLAN,
+        search="morning",
+        skip=0,
+        limit=20,
+    )
+
+
 def test_post_cms_china_restricted_item_delegates_to_service():
     item_id = uuid.uuid4()
     row_id = uuid.uuid4()
@@ -48,6 +86,7 @@ def test_post_cms_china_restricted_item_delegates_to_service():
         id=row_id,
         item_type=RestrictedItemType.PLAN,
         item_id=item_id,
+        title="Morning Practice",
         created_at="2026-07-05T00:00:00+00:00",
     )
 
