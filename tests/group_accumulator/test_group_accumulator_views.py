@@ -123,7 +123,7 @@ class TestGetGroupAccumulators:
         assert data["total"] == 2
         assert data["skip"] == 0
         assert data["limit"] == 20
-        mock_service.assert_called_once_with(group_id=group_id, skip=0, limit=20, token=None)
+        mock_service.assert_called_once_with(group_id=group_id, skip=0, limit=20, token=None, timezone_name=None)
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulators_service')
     def test_get_group_accumulators_with_pagination(self, mock_service):
@@ -140,7 +140,7 @@ class TestGetGroupAccumulators:
         )
 
         assert response.status_code == status.HTTP_200_OK
-        mock_service.assert_called_once_with(group_id=group_id, skip=5, limit=5, token=None)
+        mock_service.assert_called_once_with(group_id=group_id, skip=5, limit=5, token=None, timezone_name=None)
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulators_service')
     def test_get_group_accumulators_empty(self, mock_service):

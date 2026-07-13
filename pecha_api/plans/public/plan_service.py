@@ -38,6 +38,11 @@ from pecha_api.routines.routines_repository import (
 )
 from pecha_api.plans.groups.groups_repository import get_group_id_for_plan, get_group_ids_by_plan_ids
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos, generate_tag_image_url
+from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
+from pecha_api.region_restrictions.region_restriction_service import (
+    assert_visible_for_timezone,
+    filter_items_for_timezone,
+)
 from pecha_api.plans.tags.tag_repository import get_published_tags_for_language, get_all_tags_paginated, get_tag_by_id
 from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
 from pecha_api.texts.segments.segments_repository import get_segments_by_ids
@@ -73,7 +78,8 @@ async def get_published_plans(
     sort_by: str = "title", 
     sort_order: str = "asc", 
     skip: int = 0, 
-    limit: int = 20
+    limit: int = 20,
+    timezone_name: Optional[str] = None,
     ) -> PublicPlansResponse:
     
     try:
@@ -89,6 +95,12 @@ async def get_published_plans(
                 sort_order=sort_order,
                 tag=tag,
                 group_id=group_id,
+            )
+            plan_aggregates = filter_items_for_timezone(
+                plan_aggregates,
+                timezone_name=timezone_name,
+                item_type=RestrictedItemType.PLAN,
+                id_of=lambda aggregate: aggregate.plan.id,
             )
             
             plan_ids = [plan_aggregate.plan.id for plan_aggregate in plan_aggregates]
@@ -144,9 +156,18 @@ async def get_published_plans(
         )
 
 
-async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
+async def get_published_plan(
+    plan_id: UUID,
+    timezone_name: Optional[str] = None,
+) -> PublicPlanDTO:
 
     try:
+        assert_visible_for_timezone(
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.PLAN,
+            item_id=plan_id,
+            not_found_detail=ErrorConstants.PLAN_NOT_FOUND,
+        )
         with SessionLocal() as db:
             plan = get_published_plan_by_id(db=db, plan_id=plan_id)
             

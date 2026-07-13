@@ -15,10 +15,13 @@ async def test_get_user_streak_endpoint_success():
         "pecha_api.daily_log.daily_log_views.get_user_streak_service",
         return_value=UserStreakResponse(streak=5),
     ) as mock_service:
-        result = await get_user_streak(authentication_credential=mock_credentials)
+        result = await get_user_streak(authentication_credential=mock_credentials, x_timezone="Asia/Kathmandu")
 
         assert result.streak == 5
-        mock_service.assert_awaited_once_with(token="test_token")
+        mock_service.assert_awaited_once_with(
+            token="test_token",
+            timezone_name="Asia/Kathmandu",
+        )
 
 
 @pytest.mark.asyncio
@@ -52,8 +55,11 @@ async def test_get_user_stats_endpoint_success():
         "pecha_api.daily_log.daily_log_views.get_user_stats_service",
         return_value=response,
     ) as mock_service:
-        result = await get_user_stats(authentication_credential=mock_credentials)
+        result = await get_user_stats(authentication_credential=mock_credentials, x_timezone="Asia/Kathmandu")
 
         assert result.streak.highest == 7
         assert result.total_practice_days == 42
-        mock_service.assert_awaited_once_with(token="test_token")
+        mock_service.assert_awaited_once_with(
+            token="test_token",
+            timezone_name="Asia/Kathmandu",
+        )

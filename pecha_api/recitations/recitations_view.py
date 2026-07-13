@@ -1,5 +1,5 @@
-from typing import Optional
-from fastapi import APIRouter, Query
+from typing import Annotated, Optional
+from fastapi import APIRouter, Header, Query
 from starlette import status
 
 
@@ -19,9 +19,35 @@ recitation_router=APIRouter(
 )
 
 @recitation_router.get("",status_code=status.HTTP_200_OK,response_model=RecitationsResponse)
-async def get_list_of_recitations(search: Optional[str] = Query(None, description="Search by Recitation title"),language: str = Query(), skip: int = Query(0, ge=0), limit: int = Query(10, ge=1)):
-    return await get_list_of_recitations_service(search=search, language=language, skip=skip, limit=limit)
+async def get_list_of_recitations(
+    search: Optional[str] = Query(None, description="Search by Recitation title"),
+    language: str = Query(),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(10, ge=1),
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted recitations are hidden for Chinese timezones."),
+    ] = None,
+):
+    return await get_list_of_recitations_service(
+        search=search,
+        language=language,
+        skip=skip,
+        limit=limit,
+        timezone_name=x_timezone,
+    )
 
 @recitation_router.post("/{text_id}",status_code=status.HTTP_200_OK,response_model=RecitationDetailsResponse)
-async def get_recitation_details(text_id: str, recitation_details_request: RecitationDetailsRequest):
-    return await get_recitation_details_service(text_id=text_id, recitation_details_request=recitation_details_request)
+async def get_recitation_details(
+    text_id: str,
+    recitation_details_request: RecitationDetailsRequest,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted recitations are hidden for Chinese timezones."),
+    ] = None,
+):
+    return await get_recitation_details_service(
+        text_id=text_id,
+        recitation_details_request=recitation_details_request,
+        timezone_name=x_timezone,
+    )

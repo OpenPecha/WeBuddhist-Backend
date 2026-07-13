@@ -60,6 +60,11 @@ from pecha_api.plans.shared.permissions import (
     require_can_read_group_content,
 )
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
+from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
+from pecha_api.region_restrictions.region_restriction_service import (
+    assert_visible_for_timezone,
+    filter_items_for_timezone,
+)
 from starlette import status
 
 
@@ -603,6 +608,7 @@ def get_filtered_series(
     language: Optional[str] = None,
     group_id: Optional[UUID] = None,
     token: Optional[str] = None,
+    timezone_name: Optional[str] = None,
 ) -> SeriesListResponse:
     with SessionLocal() as db_session:
         rows, total = get_series_paginated(
@@ -617,6 +623,12 @@ def get_filtered_series(
             status=PlanStatus.PUBLISHED,
             published_only=True,
             group_ids=[group_id] if group_id is not None else None,
+        )
+        rows = filter_items_for_timezone(
+            rows,
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.SERIES,
+            id_of=lambda row: row[0].id,
         )
         group_summaries = _group_summaries_for_series_rows(
             db=db_session,
@@ -741,7 +753,14 @@ def get_series_detail(
     series_id: UUID,
     language: Optional[str] = None,
     token: Optional[str] = None,
+    timezone_name: Optional[str] = None,
 ) -> SeriesDTO:
+    assert_visible_for_timezone(
+        timezone_name=timezone_name,
+        item_type=RestrictedItemType.SERIES,
+        item_id=series_id,
+        not_found_detail=f"Series with id '{series_id}' not found",
+    )
     with SessionLocal() as db_session:
         row = get_series_by_id(db=db_session, series_id=series_id)
         if not row or _to_plan_status(row.status) != PlanStatus.PUBLISHED:

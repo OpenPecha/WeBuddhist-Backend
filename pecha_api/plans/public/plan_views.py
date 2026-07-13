@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, Depends, Request
+from fastapi import APIRouter, HTTPException, Query, Depends, Request, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated, Optional
 from uuid import UUID
@@ -63,6 +63,10 @@ async def get_plans(
     sort_order: Annotated[str, Query(enum=["asc", "desc"])] = "asc",
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted plans are hidden for Chinese timezones."),
+    ] = None,
 ):
     return await get_published_plans(
         tag=tag,
@@ -73,6 +77,7 @@ async def get_plans(
         sort_order=sort_order,
         skip=skip,
         limit=limit,
+        timezone_name=x_timezone,
     )
 
 
@@ -89,8 +94,14 @@ def get_plan_tags(
 
 
 @public_plans_router.get("/{plan_id}", status_code=status.HTTP_200_OK, response_model=PublicPlanDTO)
-async def get_plan_details(plan_id: UUID):
-    return await get_published_plan(plan_id=plan_id)
+async def get_plan_details(
+    plan_id: UUID,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted plans are hidden for Chinese timezones."),
+    ] = None,
+):
+    return await get_published_plan(plan_id=plan_id, timezone_name=x_timezone)
 
 
 @public_plans_router.get("/{plan_id}/daily", status_code=status.HTTP_200_OK, response_model=DailyPlanResponse)
