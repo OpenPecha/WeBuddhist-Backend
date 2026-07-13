@@ -16,6 +16,7 @@ from pecha_api.verse_of_day.verse_of_day_response_models import (
     VerseOfDayListResponse,
     GroupInfoDTO,
 )
+from pecha_api.verse_of_day.verse_of_day_enums import SortOrder
 
 
 client = TestClient(api)
@@ -819,7 +820,7 @@ async def test_cms_get_verse_of_day_list_success(sample_verse_list_response):
         assert len(data["verses"]) == 1
         
         mock_validate.assert_called_once_with("valid-token")
-        mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None, skip=0, limit=100)
+        mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None, search=None, sort_order=SortOrder.DESC, skip=0, limit=100)
 
 
 @pytest.mark.asyncio
@@ -838,7 +839,7 @@ async def test_cms_get_verse_of_day_list_with_pagination(sample_verse_list_respo
         
         assert response.status_code == status.HTTP_200_OK
         mock_validate.assert_called_once_with("valid-token")
-        mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None, skip=10, limit=20)
+        mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None, search=None, sort_order=SortOrder.DESC, skip=10, limit=20)
 
 
 @pytest.mark.asyncio
@@ -859,7 +860,41 @@ async def test_cms_get_verse_of_day_list_with_filters(sample_verse_list_response
         
         assert response.status_code == status.HTTP_200_OK
         mock_validate.assert_called_once_with("valid-token")
-        mock_service.assert_called_once_with(group_id=group_id, filter_date=filter_date, lang="en", skip=0, limit=100)
+        mock_service.assert_called_once_with(group_id=group_id, filter_date=filter_date, lang="en", search=None, sort_order=SortOrder.DESC, skip=0, limit=100)
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_list_with_search_and_sort_order(sample_verse_list_response):
+    """Test retrieval with search and ascending sort order."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user) as mock_validate, \
+         patch("pecha_api.verse_of_day.verse_of_day_views.get_verses_of_day_list_service", return_value=sample_verse_list_response) as mock_service:
+
+        response = client.get(
+            "/cms/verse-of-day?search=compassion&sort_order=asc",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_validate.assert_called_once_with("valid-token")
+        mock_service.assert_called_once_with(group_id=None, filter_date=None, lang=None, search="compassion", sort_order=SortOrder.ASC, skip=0, limit=100)
+
+
+@pytest.mark.asyncio
+async def test_cms_get_verse_of_day_list_invalid_sort_order():
+    """Test that an invalid sort_order value is rejected."""
+    mock_user = MagicMock()
+    mock_user.email = "test@example.com"
+
+    with patch("pecha_api.verse_of_day.verse_of_day_views.validate_and_extract_user_details", return_value=mock_user):
+        response = client.get(
+            "/cms/verse-of-day?sort_order=sideways",
+            headers={"Authorization": "Bearer valid-token"}
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
 @pytest.mark.asyncio
