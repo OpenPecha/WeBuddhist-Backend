@@ -1002,9 +1002,10 @@ async def test_get_plan_daily_content_resolves_plan_by_date_in_series():
         )
 
     assert result.plan_id == plan_one_id
-    mock_series_plans.assert_called_once_with(
+    mock_series_plans.assert_called_with(
         db=mock_db, series_id=series_id, language="en"
     )
+    assert mock_series_plans.call_count == 2
     mock_day_fn.assert_called_once_with(db=mock_db, plan_id=plan_one_id, day_number=3)
 
 

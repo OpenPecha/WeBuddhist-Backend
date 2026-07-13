@@ -37,6 +37,7 @@ from pecha_api.events.event_model import Event
 from pecha_api.events.event_metadata_model import EventMetadata
 from pecha_api.mantra.mantra_metadata_model import MantraMetadata
 from pecha_api.traditions.tradition_models import Tradition, TraditionMetadata, UserTradition
+from pecha_api.region_restrictions.region_restriction_models import ChinaRestrictedItem
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

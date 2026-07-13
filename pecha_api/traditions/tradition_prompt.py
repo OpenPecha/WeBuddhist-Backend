@@ -1,4 +1,14 @@
-from pecha_api.traditions.tradition_taxonomy import build_tradition_catalog
+from pecha_api.traditions.tradition_onboarding import get_tradition_path_entry, list_tradition_path_codes
+
+
+def build_tradition_catalog(language: str = "en") -> str:
+    lines: list[str] = []
+    for code in sorted(list_tradition_path_codes()):
+        path_entry = get_tradition_path_entry(code, language=language)
+        if path_entry is None:
+            continue
+        lines.append(f'{code}|{path_entry["title"]}|0|')
+    return "\n".join(lines)
 
 
 def build_tradition_chat_system_prompt(language: str = "en") -> str:

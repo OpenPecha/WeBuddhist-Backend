@@ -22,6 +22,11 @@ from pecha_api.plans.groups.groups_repository import (
 )
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.users.users_models import Users
+from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
+from pecha_api.region_restrictions.region_restriction_service import (
+    assert_visible_for_timezone,
+    filter_items_for_timezone,
+)
 from .group_accumulator_repository import (
     create_group_accumulator,
     get_group_accumulators,
@@ -193,9 +198,16 @@ def get_group_accumulators_service(
     skip: int = 0,
     limit: int = 20,
     token: Optional[str] = None,
+    timezone_name: Optional[str] = None,
 ) -> GroupAccumulatorsResponse:
     with SessionLocal() as db:
         accumulators, total = get_group_accumulators(db, group_id, skip, limit)
+        accumulators = filter_items_for_timezone(
+            accumulators,
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.GROUP_ACCUMULATOR,
+            id_of=lambda accumulator: accumulator.id,
+        )
 
         joined_ids: set[UUID] = set()
         if token:
@@ -233,6 +245,12 @@ def get_group_accumulator_service(
     timezone_name: Optional[str] = None,
     token: Optional[str] = None,
 ) -> GroupAccumulatorDetailDTO:
+    assert_visible_for_timezone(
+        timezone_name=timezone_name,
+        item_type=RestrictedItemType.GROUP_ACCUMULATOR,
+        item_id=group_accumulator_id,
+        not_found_detail="Group accumulator not found",
+    )
     with SessionLocal() as db:
         group_accumulator = get_group_accumulator_by_id(db, group_accumulator_id)
         if not group_accumulator:

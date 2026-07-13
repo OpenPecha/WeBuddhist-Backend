@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated, Optional
 from uuid import UUID
@@ -49,8 +49,18 @@ async def get_all_preset_accumulators(
         Optional[str],
         Query(description="Filter presets by mantra text, title, or pronunciation (case-insensitive, any language)"),
     ] = None,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted accumulators are hidden for Chinese timezones."),
+    ] = None,
 ):
-    return get_all_accumulators_service(skip=skip, limit=limit, language=language, search=search)
+    return get_all_accumulators_service(
+        skip=skip,
+        limit=limit,
+        language=language,
+        search=search,
+        timezone_name=x_timezone,
+    )
 
 
 @accumulator_router.get("/user", response_model=AccumulatorsResponse)
