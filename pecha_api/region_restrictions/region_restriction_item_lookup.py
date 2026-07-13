@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -206,7 +207,7 @@ def _resolve_recitation_titles(*, item_ids: Sequence[UUID]) -> Dict[UUID, str]:
                 skip=0,
                 limit=10_000,
             )
-        except Exception:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, HTTPException):
             continue
         for recitation in response.recitations:
             try:
@@ -458,7 +459,7 @@ def _search_recitations(
             skip=skip,
             limit=limit,
         )
-    except Exception:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, HTTPException):
         return [], 0
 
     items: List[ChinaRestrictionCandidateDTO] = []

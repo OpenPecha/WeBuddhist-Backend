@@ -23,11 +23,11 @@ class ChinaRestrictedItem(Base):
     item_id = Column(UUID(as_uuid=True), nullable=False)
     created_at = Column(
         DateTime(timezone=True),
-        default=_datetime.datetime.now(_datetime.timezone.utc),
+        default=lambda: _datetime.datetime.now(_datetime.timezone.utc),
         nullable=False,
     )
     updated_at = Column(
         DateTime(timezone=True),
-        default=_datetime.datetime.now(_datetime.timezone.utc),
-        onupdate=_datetime.datetime.now(_datetime.timezone.utc),
+        default=lambda: _datetime.datetime.now(_datetime.timezone.utc),
+        onupdate=lambda: _datetime.datetime.now(_datetime.timezone.utc),
     )

@@ -11,7 +11,6 @@ from pecha_api.region_restrictions.china_timezone import is_china_timezone
 from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
 from pecha_api.region_restrictions.region_restriction_repository import (
     get_all_china_restricted_items,
-    is_item_restricted_in_china,
 )
 
 T = TypeVar("T")
@@ -78,23 +77,6 @@ def assert_visible_for_timezone(
     not_found_detail: str = "Not found",
 ) -> None:
     if should_hide_for_timezone(timezone_name, item_type, item_id):
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=not_found_detail,
-        )
-
-
-def assert_visible_for_timezone_db(
-    db,
-    *,
-    timezone_name: Optional[str],
-    item_type: RestrictedItemType,
-    item_id: UUID,
-    not_found_detail: str = "Not found",
-) -> None:
-    if not is_china_timezone(timezone_name):
-        return
-    if is_item_restricted_in_china(db=db, item_type=item_type, item_id=item_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=not_found_detail,

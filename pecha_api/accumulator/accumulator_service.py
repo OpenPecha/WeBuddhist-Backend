@@ -55,7 +55,6 @@ from .accumulator_history_model import AccumulatorHistory
 from .accumulator_enums import AccumulatorType
 from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
 from pecha_api.region_restrictions.region_restriction_service import (
-    assert_visible_for_timezone,
     filter_items_for_timezone,
 )
 from .response_message import (
