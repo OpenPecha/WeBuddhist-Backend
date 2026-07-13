@@ -31,6 +31,7 @@ from .verse_of_day_response_models import (
     GroupInfoDTO
 )
 from .verse_of_day_model import VerseOfDay
+from .verse_of_day_enums import SortOrder
 from ..uploads.S3_utils import generate_presigned_access_url
 from ..config import get
 
@@ -148,12 +149,14 @@ def get_verses_of_day_list_service(
     group_id: Optional[UUID] = None,
     filter_date: Optional[date] = None,
     lang: Optional[str] = None,
+    search: Optional[str] = None,
+    sort_order: SortOrder = SortOrder.DESC,
     skip: int = 0,
     limit: int = 100
 ) -> VerseOfDayListResponse:
-    """Get list of verses with pagination."""
+    """Get list of verses with search, sorting, and pagination."""
     with SessionLocal() as db:
-        verses, total = get_verses_of_day_list(db, group_id=group_id, filter_date=filter_date, skip=skip, limit=limit)
+        verses, total = get_verses_of_day_list(db, group_id=group_id, filter_date=filter_date, search=search, sort_order=sort_order, skip=skip, limit=limit)
         
         verse_dtos = []
         for verse in verses:
