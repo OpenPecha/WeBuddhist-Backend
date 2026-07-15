@@ -89,7 +89,10 @@ def _apply_event_filters(
     timer_id: Optional[UUID] = None,
     from_date: Optional = None,
     to_date: Optional = None,
+    restrict_group_ids: Optional[List[UUID]] = None,
 ):
+    if restrict_group_ids is not None:
+        query = query.filter(Event.group_id.in_(restrict_group_ids))
     if group_id:
         query = query.filter(Event.group_id == group_id)
     if plan_id:
@@ -116,6 +119,7 @@ def get_events(
     timer_id: Optional[UUID] = None,
     from_date: Optional = None,
     to_date: Optional = None,
+    restrict_group_ids: Optional[List[UUID]] = None,
     skip: int = 0,
     limit: int = 20,
 ) -> Tuple[List[Event], int]:
@@ -128,6 +132,7 @@ def get_events(
         timer_id=timer_id,
         from_date=from_date,
         to_date=to_date,
+        restrict_group_ids=restrict_group_ids,
     )
     total = count_query.scalar()
 
@@ -140,6 +145,7 @@ def get_events(
         timer_id=timer_id,
         from_date=from_date,
         to_date=to_date,
+        restrict_group_ids=restrict_group_ids,
     )
     events = (
         events_query.order_by(Event.start_date.asc())
