@@ -1,7 +1,7 @@
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Header, Query, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
@@ -35,6 +35,7 @@ from pecha_api.plans.groups.groups_service import (
     accept_group_invite_by_id,
     create_author_group,
     create_group_member_invite,
+    delete_author_group,
     delete_group_member,
     follow_group,
     get_author_group_detail,
@@ -128,6 +129,18 @@ def patch_cms_group(
         update_group_request=update_group_request,
         token=authentication_credential.credentials,
     )
+
+
+@cms_groups_router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_cms_group(
+    group_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    delete_author_group(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @cms_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
@@ -370,6 +383,10 @@ def get_public_groups(
     ] = AuthorGroupType.COMMUNITY,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted groups are hidden for Chinese timezones."),
+    ] = None,
 ):
     return list_public_groups(
         search=search,
@@ -379,6 +396,7 @@ def get_public_groups(
         skip=skip,
         limit=limit,
         token=authentication_credential.credentials if authentication_credential else None,
+        timezone_name=x_timezone,
     )
 
 

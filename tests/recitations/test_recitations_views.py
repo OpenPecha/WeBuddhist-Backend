@@ -34,7 +34,9 @@ async def test_get_list_of_recitations_success():
     ) as mock_service:
         resp = await get_list_of_recitations(search=None, language="en", skip=0, limit=10)
 
-        mock_service.assert_awaited_once_with(search=None, language="en", skip=0, limit=10)
+        mock_service.assert_awaited_once_with(
+            search=None, language="en", skip=0, limit=10, timezone_name=None
+        )
         assert resp == expected
         assert len(resp.recitations) == 2
         assert resp.skip == 0
@@ -64,7 +66,9 @@ async def test_get_list_of_recitations_single_recitation():
     ) as mock_service:
         resp = await get_list_of_recitations(search=None, language="bo", skip=0, limit=10)
 
-        mock_service.assert_awaited_once_with(search=None, language="bo", skip=0, limit=10)
+        mock_service.assert_awaited_once_with(
+            search=None, language="bo", skip=0, limit=10, timezone_name=None
+        )
         assert resp == expected
         assert len(resp.recitations) == 1
         assert resp.total == 1
@@ -92,7 +96,9 @@ async def test_get_list_of_recitations_with_search():
     ) as mock_service:
         resp = await get_list_of_recitations(search="prayer", language="en", skip=0, limit=10)
 
-        mock_service.assert_awaited_once_with(search="prayer", language="en", skip=0, limit=10)
+        mock_service.assert_awaited_once_with(
+            search="prayer", language="en", skip=0, limit=10, timezone_name=None
+        )
         assert resp == expected
         assert len(resp.recitations) == 1
         assert resp.total == 1
@@ -131,7 +137,9 @@ async def test_get_recitation_details_success():
     ) as mock_service:
         resp = await get_recitation_details(text_id=text_id, recitation_details_request=request)
         
-        mock_service.assert_awaited_once_with(text_id=text_id, recitation_details_request=request)
+        mock_service.assert_awaited_once_with(
+            text_id=text_id, recitation_details_request=request, timezone_name=None
+        )
         assert resp == expected_response
         assert resp.text_id == UUID(text_id)
         assert resp.title == "Test Recitation"
@@ -176,7 +184,9 @@ async def test_get_recitation_details_with_multiple_segments():
     ) as mock_service:
         resp = await get_recitation_details(text_id=text_id, recitation_details_request=request)
         
-        mock_service.assert_awaited_once_with(text_id=text_id, recitation_details_request=request)
+        mock_service.assert_awaited_once_with(
+            text_id=text_id, recitation_details_request=request, timezone_name=None
+        )
         assert resp == expected_response
         assert len(resp.segments) == 2
 
@@ -216,7 +226,9 @@ async def test_get_recitation_details_with_all_types():
     ) as mock_service:
         resp = await get_recitation_details(text_id=text_id, recitation_details_request=request)
         
-        mock_service.assert_awaited_once_with(text_id=text_id, recitation_details_request=request)
+        mock_service.assert_awaited_once_with(
+            text_id=text_id, recitation_details_request=request, timezone_name=None
+        )
         assert resp == expected_response
         assert len(resp.segments[0].recitation) == 1
         assert len(resp.segments[0].translations) == 2

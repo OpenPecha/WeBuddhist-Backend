@@ -208,28 +208,41 @@ def add_history_row(db: Session, accumulator_id: UUID, user_id: UUID, count: int
     )
 
 
+def get_user_total_counted_by_parent(
+    db: Session,
+    user_id: UUID,
+    parent_id: UUID,
+) -> int:
+    """Sum of all history counts across every accumulator the user has had
+    for this preset, including soft-deleted instances."""
+    total = (
+        db.query(func.sum(AccumulatorHistory.count))
+        .join(Accumulator, AccumulatorHistory.accumulator_id == Accumulator.id)
+        .filter(
+            Accumulator.user_id == user_id,
+            Accumulator.parent_id == parent_id,
+            AccumulatorHistory.user_id == user_id,
+        )
+        .scalar()
+    )
+    return total or 0
+
+
 def get_accumulator_with_history(
     db: Session,
     user_id: UUID,
     parent_id: UUID,
 ) -> Optional[Tuple[Accumulator, int, List[AccumulatorHistory]]]:
     """Fetch the user's active accumulator created from a given preset
-    (parent_id), along with their total counted and ordered session rows.
+    (parent_id), along with their lifetime total counted for that preset and
+    ordered session rows for the active accumulator.
     Returns None if the user has no accumulator for that preset."""
     accumulator = get_user_accumulator_by_parent(db, user_id, parent_id)
     if not accumulator:
         return None
 
     accumulator_id = accumulator.id
-
-    total_counted = (
-        db.query(func.sum(AccumulatorHistory.count))
-        .filter(
-            AccumulatorHistory.accumulator_id == accumulator_id,
-            AccumulatorHistory.user_id == user_id
-        )
-        .scalar()
-    ) or 0
+    total_counted = get_user_total_counted_by_parent(db, user_id, parent_id)
 
     sessions = (
         db.query(AccumulatorHistory)

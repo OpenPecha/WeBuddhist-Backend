@@ -241,7 +241,7 @@ async def test_enrich_text_bookmark_returns_empty_when_segment_missing():
     with patch(
         "pecha_api.bookmarks.bookmark_utils.get_texts_by_id",
         new_callable=AsyncMock,
-        return_value=MagicMock(title="Sample text"),
+        return_value=MagicMock(title="Unused"),
     ), patch(
         "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
         new_callable=AsyncMock,

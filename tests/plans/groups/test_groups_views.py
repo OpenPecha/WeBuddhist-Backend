@@ -103,6 +103,7 @@ def test_get_public_groups_success():
         skip=0,
         limit=20,
         token=None,
+        timezone_name=None,
     )
     assert response.json()["total"] == 1
 
@@ -134,6 +135,7 @@ def test_get_public_groups_with_auth_passes_token():
         skip=0,
         limit=20,
         token="dummy",
+        timezone_name=None,
     )
 
 
@@ -296,6 +298,19 @@ def test_patch_cms_group_delegates_to_service():
         )
     assert response.status_code == status.HTTP_200_OK
     mock_service.assert_called_once()
+
+
+def test_delete_cms_group_delegates_to_service():
+    group_id = uuid4()
+    with patch(
+        "pecha_api.plans.groups.groups_views.delete_author_group",
+    ) as mock_service:
+        response = client.delete(
+            f"/cms/author/groups/{group_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    mock_service.assert_called_once_with(token="dummy", group_id=group_id)
 
 
 def test_get_cms_group_by_id():

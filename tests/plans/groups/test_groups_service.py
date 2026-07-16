@@ -54,6 +54,7 @@ from pecha_api.plans.groups.groups_service import (
     leave_group,
     unfollow_group,
     update_author_group,
+    delete_author_group,
     transfer_group_ownership,
     update_group_member_role,
     OWNER_ROLE_NOT_ASSIGNABLE,
@@ -1922,6 +1923,71 @@ def test_update_author_group_forbidden_for_viewer():
                 request=UpdateAuthorGroupRequest(slug="updated"),
             )
     assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_delete_author_group_success_as_owner():
+    author = _make_author()
+    group = _make_group()
+    owner = MagicMock()
+    owner.role = AuthorGroupMemberRole.OWNER
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=owner,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.update_group",
+    ) as mock_update:
+        _session_local_context(mock_session)
+        delete_author_group(token="t", group_id=group.id)
+
+    assert group.deleted_at is not None
+    assert group.deleted_by == author.email
+    mock_update.assert_called_once()
+
+
+def test_delete_author_group_forbidden_for_admin_member():
+    author = _make_author()
+    group = _make_group()
+    admin = MagicMock()
+    admin.role = AuthorGroupMemberRole.ADMIN
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=admin,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            delete_author_group(token="t", group_id=group.id)
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_delete_author_group_not_found():
+    author = _make_author()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            delete_author_group(token="t", group_id=uuid4())
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.value.detail == GROUP_NOT_FOUND
 
 
 def test_revoke_group_invite_not_found():
