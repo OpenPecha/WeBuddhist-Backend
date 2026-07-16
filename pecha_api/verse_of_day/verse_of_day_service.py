@@ -1,6 +1,6 @@
 from typing import Optional, Dict, List
 from uuid import UUID
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 import logging
 
 from pecha_api.timezone_utils import get_date_in_timezone
@@ -18,7 +18,8 @@ from .verse_of_day_repository import (
     get_group_metadata_by_group_id,
     update_verse_of_day,
     delete_verse_metadata_by_verse_id,
-    delete_verse_of_day
+    delete_verse_of_day,
+    delete_verses_of_day_older_than,
 )
 from .verse_of_day_response_models import (
     VerseOfDayPublicDTO, 
@@ -364,3 +365,15 @@ def delete_verse_of_day_service(verse_id: UUID) -> None:
             )
         
         delete_verse_of_day(db, verse_id)
+
+
+def cleanup_expired_verses_of_day(expiry_days: int) -> int:
+    cutoff_date = datetime.now(timezone.utc).date() - timedelta(days=expiry_days)
+    with SessionLocal() as db:
+        deleted_count = delete_verses_of_day_older_than(db, cutoff_date)
+        logger.info(
+            "Deleted %s verse(s) of the day older than %s",
+            deleted_count,
+            cutoff_date,
+        )
+        return deleted_count

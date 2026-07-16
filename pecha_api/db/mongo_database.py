@@ -13,6 +13,7 @@ from ..texts.segments.segments_models import Segment
 from ..texts.texts_models import TableOfContent
 from ..texts.groups.groups_models import Group
 from ..config import get
+from ..scheduler import setup_scheduler, shutdown_scheduler
 
 mongodb_client = None
 mongodb = None
@@ -35,7 +36,10 @@ async def lifespan(api: FastAPI):
         logging.error(f"Error during collection initialization: {e}")
         raise
 
+    setup_scheduler()
+
     yield
 
+    shutdown_scheduler()
     if mongodb_client:
         mongodb_client.close()

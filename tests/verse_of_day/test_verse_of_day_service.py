@@ -11,6 +11,7 @@ from pecha_api.verse_of_day.verse_of_day_service import (
     create_verse_of_day_service,
     update_verse_of_day_service,
     delete_verse_of_day_service,
+    cleanup_expired_verses_of_day,
     build_verses_dict,
     build_public_dto,
     _generate_verse_image_url,
@@ -1534,3 +1535,19 @@ def test_generate_verse_image_url_all_fail_returns_none():
         result = _generate_verse_image_url(s3_keys)
         
         assert result is None  # No valid URLs generated
+
+
+def test_cleanup_expired_verses_of_day(mock_db_session):
+    """Test cleanup deletes verses older than the expiry window."""
+    from datetime import datetime, timedelta, timezone
+
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.delete_verses_of_day_older_than", return_value=3) as mock_delete:
+
+        result = cleanup_expired_verses_of_day(expiry_days=7)
+
+        assert result == 3
+        mock_delete.assert_called_once()
+        cutoff_date = mock_delete.call_args[0][1]
+        expected_cutoff = datetime.now(timezone.utc).date() - timedelta(days=7)
+        assert cutoff_date == expected_cutoff

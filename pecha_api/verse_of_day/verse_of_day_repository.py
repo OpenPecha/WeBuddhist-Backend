@@ -176,3 +176,13 @@ def delete_verse_of_day(db: Session, verse_id: UUID) -> bool:
     db.delete(verse)
     db.commit()
     return True
+
+
+def delete_verses_of_day_older_than(db: Session, cutoff_date: date) -> int:
+    deleted_count = (
+        db.query(VerseOfDay)
+        .filter(VerseOfDay.date < cutoff_date)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return deleted_count
