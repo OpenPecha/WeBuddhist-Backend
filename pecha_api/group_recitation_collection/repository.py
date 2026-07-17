@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional, Tuple
@@ -86,3 +87,110 @@ def get_collection_item_counts(
     )
 
     return {row[0]: row[1] for row in counts}
+
+
+def create_collection(
+    db: Session,
+    collection: GroupRecitationCollection,
+) -> GroupRecitationCollection:
+    """Create a new collection."""
+    db.add(collection)
+    db.commit()
+    db.refresh(collection)
+    return collection
+
+
+def update_collection(
+    db: Session,
+    collection: GroupRecitationCollection,
+) -> GroupRecitationCollection:
+    """Update an existing collection."""
+    db.commit()
+    db.refresh(collection)
+    return collection
+
+
+def soft_delete_collection(
+    db: Session,
+    collection: GroupRecitationCollection,
+) -> None:
+    """Soft delete a collection by setting deleted_at."""
+    collection.deleted_at = datetime.now(timezone.utc)
+    db.commit()
+
+
+def get_max_display_order(
+    db: Session,
+    collection_id: UUID,
+) -> int:
+    """Get the maximum display_order for items in a collection."""
+    result = (
+        db.query(func.max(GroupRecitationCollectionItem.display_order))
+        .filter(
+            GroupRecitationCollectionItem.group_recitation_collection_id == collection_id,
+            GroupRecitationCollectionItem.deleted_at.is_(None),
+        )
+        .scalar()
+    )
+    return result or 0
+
+
+def create_collection_items(
+    db: Session,
+    items: List[GroupRecitationCollectionItem],
+) -> List[GroupRecitationCollectionItem]:
+    """Create multiple collection items."""
+    db.add_all(items)
+    db.commit()
+    for item in items:
+        db.refresh(item)
+    return items
+
+
+def soft_delete_collection_item(
+    db: Session,
+    item: GroupRecitationCollectionItem,
+) -> None:
+    """Soft delete a collection item."""
+    item.deleted_at = datetime.now(timezone.utc)
+    db.commit()
+
+
+def get_collection_item_by_id(
+    db: Session,
+    item_id: UUID,
+    collection_id: UUID,
+) -> Optional[GroupRecitationCollectionItem]:
+    """Get a single item by ID and collection_id, excluding soft-deleted."""
+    return (
+        db.query(GroupRecitationCollectionItem)
+        .filter(
+            GroupRecitationCollectionItem.id == item_id,
+            GroupRecitationCollectionItem.group_recitation_collection_id == collection_id,
+            GroupRecitationCollectionItem.deleted_at.is_(None),
+        )
+        .first()
+    )
+
+
+def update_item_display_orders(
+    db: Session,
+    items: List[GroupRecitationCollectionItem],
+) -> None:
+    """Update display_order for multiple items."""
+    db.commit()
+
+
+def get_collection_without_group_filter(
+    db: Session,
+    collection_id: UUID,
+) -> Optional[GroupRecitationCollection]:
+    """Get a collection by ID only (for ownership validation)."""
+    return (
+        db.query(GroupRecitationCollection)
+        .filter(
+            GroupRecitationCollection.id == collection_id,
+            GroupRecitationCollection.deleted_at.is_(None),
+        )
+        .first()
+    )

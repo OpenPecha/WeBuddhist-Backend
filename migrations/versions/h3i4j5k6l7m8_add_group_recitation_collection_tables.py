@@ -62,12 +62,15 @@ def upgrade() -> None:
                 ondelete="CASCADE",
             ),
             sa.PrimaryKeyConstraint("id"),
-            sa.UniqueConstraint(
-                "group_recitation_collection_id",
-                "text_id",
-                name="uq_group_recitation_collection_items_collection_text",
-                postgresql_where=sa.text("deleted_at IS NULL"),
-            ),
+        )
+
+    if not index_exists("group_recitation_collection_items", "uq_group_recitation_collection_items_collection_text"):
+        op.create_index(
+            "uq_group_recitation_collection_items_collection_text",
+            "group_recitation_collection_items",
+            ["group_recitation_collection_id", "text_id"],
+            unique=True,
+            postgresql_where=sa.text("deleted_at IS NULL"),
         )
 
     if not index_exists("group_recitation_collection_items", "idx_group_recitation_collection_items_collection_id"):
@@ -82,6 +85,10 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index(
         "idx_group_recitation_collection_items_collection_id",
+        table_name="group_recitation_collection_items",
+    )
+    op.drop_index(
+        "uq_group_recitation_collection_items_collection_text",
         table_name="group_recitation_collection_items",
     )
     op.drop_table("group_recitation_collection_items")

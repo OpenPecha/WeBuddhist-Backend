@@ -9,7 +9,6 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
-    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import UUID
@@ -80,10 +79,11 @@ class GroupRecitationCollectionItem(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
+        Index(
+            "uq_group_recitation_collection_items_collection_text",
             "group_recitation_collection_id",
             "text_id",
-            name="uq_group_recitation_collection_items_collection_text",
+            unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
         Index(

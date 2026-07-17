@@ -39,3 +39,32 @@ class GroupRecitationCollectionsResponse(BaseModel):
     skip: int
     limit: int
     total: int
+
+
+class CreateGroupRecitationCollectionRequest(BaseModel):
+    """Request to create a new collection"""
+    name: str
+    img_url: Optional[str] = None
+
+
+class UpdateGroupRecitationCollectionRequest(BaseModel):
+    """Request to update a collection"""
+    name: Optional[str] = None
+    img_url: Optional[str] = None
+
+
+class AddGroupRecitationCollectionItemsRequest(BaseModel):
+    """Request to add items to a collection"""
+    text_ids: List[UUID]
+
+
+class AddGroupRecitationCollectionItemsResponse(BaseModel):
+    """Response after adding items"""
+    collection_id: UUID
+    added_count: int
+    items: List[GroupRecitationCollectionItemDTO]
+
+
+class ReorderGroupRecitationCollectionItemsRequest(BaseModel):
+    """Request to reorder items in a collection"""
+    item_ids: List[UUID]

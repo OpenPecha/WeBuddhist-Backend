@@ -43,6 +43,7 @@ from pecha_api.user_follows import user_follow_views
 from pecha_api.plans.users.recitation import user_recitations_views
 from pecha_api.plans.users.recitation_collection import recitation_collection_views
 from pecha_api.group_recitation_collection import views as group_recitation_collection_views
+from pecha_api.group_recitation_collection import cms_views as cms_group_recitation_collection_views
 from pecha_api.bookmarks import bookmark_views
 from pecha_api.push_devices import push_device_views
 from pecha_api.text_uploader import text_uploader_views
@@ -132,6 +133,7 @@ api.include_router(user_follow_views.user_follow_router)
 api.include_router(user_recitations_views.user_recitation_router)
 api.include_router(recitation_collection_views.recitation_collection_router)
 api.include_router(group_recitation_collection_views.public_group_recitation_collection_router)
+api.include_router(cms_group_recitation_collection_views.cms_group_recitation_collection_router)
 api.include_router(bookmark_views.bookmark_router)
 api.include_router(push_device_views.push_device_router)
 api.include_router(push_device_views.cms_push_device_router)
