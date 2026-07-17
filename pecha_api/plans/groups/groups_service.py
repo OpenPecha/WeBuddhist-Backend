@@ -130,6 +130,8 @@ from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.users.users_repository import get_users_by_ids
 from pecha_api.users.users_models import Users
+from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
+from pecha_api.region_restrictions.region_restriction_service import filter_items_for_timezone
 
 GROUP_NOT_FOUND = "Group not found"
 INVITE_NOT_FOUND = "Invite not found"
@@ -739,6 +741,27 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
         )
 
 
+def delete_author_group(token: str, group_id: UUID) -> None:
+    author = validate_and_extract_author_details(token=token)
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        if not is_super_admin(author):
+            member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
+            _assert_role_allowed(
+                member=member,
+                allowed_roles=[AuthorGroupMemberRole.OWNER],
+            )
+
+        now = datetime.now(timezone.utc)
+        group.deleted_at = now
+        group.deleted_by = author.email
+        group.updated_at = now
+        group.updated_by = author.email
+        update_group(db=db, group=group)
+
+
 def get_author_group_detail(
     group_id: UUID,
     require_public: bool = True,
@@ -831,6 +854,7 @@ def list_public_groups(
     tag_id: Optional[UUID] = None,
     group_type: AuthorGroupType = AuthorGroupType.COMMUNITY,
     token: Optional[str] = None,
+    timezone_name: Optional[str] = None,
 ) -> PublicAuthorGroupListResponse:
     with SessionLocal() as db:
         exclude_group_ids = None
@@ -851,6 +875,12 @@ def list_public_groups(
             exclude_group_ids=exclude_group_ids,
             is_public=True,
             group_type=group_type,
+        )
+        groups = filter_items_for_timezone(
+            groups,
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.GROUP,
+            id_of=lambda group: group.id,
         )
         group_ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=group_ids)

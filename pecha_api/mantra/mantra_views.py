@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from typing import Annotated, Optional
 from starlette import status
@@ -27,9 +27,13 @@ cms_mantra_router = APIRouter(
 )
 def get_mantras_endpoint(
     language: Annotated[Optional[str], Query(description=language_query_description("Filter by language code", lowercase_example=True))] = None,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted mantras are hidden for Chinese timezones."),
+    ] = None,
 ):
 
-    return get_mantras_service(language=language)
+    return get_mantras_service(language=language, timezone_name=x_timezone)
 
 
 @cms_mantra_router.post(

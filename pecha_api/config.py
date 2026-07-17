@@ -110,6 +110,9 @@ DEFAULTS = dict(
     NOTIFICATION_DEFAULT_TITLE="WebBuddhist",
     NOTIFICATION_DEFAULT_BODY="Time for your daily practice.",
 
+    # Verse of the day retention (days); scheduler deletes older rows daily
+    VERSE_OF_DAY_EXPIRY_DAYS=7,
+
 )
 
 TIME_FORMAT_PATTERN = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")

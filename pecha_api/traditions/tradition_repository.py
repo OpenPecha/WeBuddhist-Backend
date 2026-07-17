@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -9,69 +9,12 @@ from starlette import status
 from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import NOT_FOUND
+from pecha_api.traditions.tradition_constants import tradition_id_from_code
 from pecha_api.traditions.tradition_models import Tradition, TraditionMetadata, UserTradition
 from pecha_api.traditions.tradition_onboarding import (
     get_tradition_path_entry,
     list_tradition_path_codes,
 )
-from pecha_api.traditions.tradition_taxonomy import (
-    load_tradition_taxonomy,
-    tradition_id_from_code,
-)
-
-
-def get_tradition_by_code(db: Session, code: str) -> Optional[Tradition]:
-    tradition_id = tradition_id_from_code(code)
-    return db.query(Tradition).filter(Tradition.id == tradition_id).first()
-
-
-def sync_traditions_from_taxonomy(db: Session) -> None:
-    taxonomy = load_tradition_taxonomy()
-    code_to_uuid = {
-        entry["id"]: tradition_id_from_code(entry["id"])
-        for entry in taxonomy["traditions"]
-    }
-
-    for entry in taxonomy["traditions"]:
-        tradition_id = code_to_uuid[entry["id"]]
-        parent_code = entry.get("parent")
-        parent_id = code_to_uuid.get(parent_code) if parent_code else None
-
-        tradition = db.query(Tradition).filter(Tradition.id == tradition_id).first()
-        if tradition is None:
-            tradition = Tradition(
-                id=tradition_id,
-                parent_id=parent_id,
-                regions=entry.get("regions"),
-            )
-            db.add(tradition)
-        else:
-            tradition.parent_id = parent_id
-            tradition.regions = entry.get("regions")
-
-        for language_code, localized_names in entry.get("names", {}).items():
-            language = LanguageCode[language_code.upper()]
-            metadata = (
-                db.query(TraditionMetadata)
-                .filter(
-                    TraditionMetadata.tradition_id == tradition_id,
-                    TraditionMetadata.language == language,
-                )
-                .first()
-            )
-            if metadata is None:
-                metadata = TraditionMetadata(
-                    tradition_id=tradition_id,
-                    language=language,
-                    name=localized_names.get("name", entry["id"]),
-                    other_names=localized_names.get("aliases"),
-                )
-                db.add(metadata)
-            else:
-                metadata.name = localized_names.get("name", entry["id"])
-                metadata.other_names = localized_names.get("aliases")
-
-    db.commit()
 
 
 def get_user_traditions(db: Session, user_id: UUID) -> List[UserTradition]:
@@ -82,14 +25,6 @@ def get_user_traditions(db: Session, user_id: UUID) -> List[UserTradition]:
         .order_by(UserTradition.created_at.desc())
         .all()
     )
-
-
-def ensure_tradition_exists(db: Session, tradition_code: str) -> UUID:
-    tradition_id = tradition_id_from_code(tradition_code)
-    existing = db.query(Tradition).filter(Tradition.id == tradition_id).first()
-    if existing is None:
-        sync_traditions_from_taxonomy(db)
-    return tradition_id
 
 
 def ensure_path_tradition_exists(db: Session, tradition_code: str) -> UUID:

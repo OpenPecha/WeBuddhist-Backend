@@ -9,6 +9,8 @@ from ..db.database import SessionLocal
 from ..plans.authors.plan_authors_service import validate_cms_author_details
 from .mantra_model import Mantra
 from .mantra_repository import get_all_mantras, save_mantra
+from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
+from pecha_api.region_restrictions.region_restriction_service import filter_items_for_timezone
 from .mantra_response_models import (
     CreateMantraRequest,
     MantraDTO,
@@ -35,13 +37,22 @@ def _build_mantra_dto(mantra, language: Optional[str]) -> MantraDTO:
     )
 
 
-def get_mantras_service(language: Optional[str] = None) -> MantraResponse:
+def get_mantras_service(
+    language: Optional[str] = None,
+    timezone_name: Optional[str] = None,
+) -> MantraResponse:
 
     with SessionLocal() as db:
         mantras = get_all_mantras(db, language=language)
+        visible_mantras = filter_items_for_timezone(
+            mantras,
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.MANTRA,
+            id_of=lambda mantra: mantra.id,
+        )
 
         return MantraResponse(
-            mantras=[_build_mantra_dto(mantra, language) for mantra in mantras]
+            mantras=[_build_mantra_dto(mantra, language) for mantra in visible_mantras]
         )
 
 

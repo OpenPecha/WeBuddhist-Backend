@@ -6,6 +6,7 @@ import _datetime
 
 from .verse_of_day_model import VerseOfDay
 from .verse_metadata_model import VerseMetadata
+from .verse_of_day_enums import SortOrder
 from pecha_api.plans.groups.groups_models import AuthorGroupMetadata
 
 
@@ -30,21 +31,30 @@ def get_verses_of_day_list(
     db: Session,
     group_id: Optional[UUID] = None,
     filter_date: Optional[date] = None,
+    search: Optional[str] = None,
+    sort_order: SortOrder = SortOrder.DESC,
     skip: int = 0,
     limit: int = 100
 ) -> tuple[List[VerseOfDay], int]:
-    """Get list of verses with pagination."""
+    """Get list of verses with search, sorting, and pagination."""
     query = db.query(VerseOfDay).options(joinedload(VerseOfDay.verse_metadata))
-    
+
     if group_id is not None:
         query = query.filter(VerseOfDay.group_id == group_id)
-    
+
     if filter_date is not None:
         query = query.filter(VerseOfDay.date == filter_date)
-    
+
+    if search:
+        query = query.filter(
+            VerseOfDay.verse_metadata.any(VerseMetadata.verse.ilike(f"%{search}%"))
+        )
+
     total = query.count()
-    verses = query.order_by(VerseOfDay.date.desc()).offset(skip).limit(limit).all()
-    
+
+    order_by = VerseOfDay.date.asc() if sort_order == SortOrder.ASC else VerseOfDay.date.desc()
+    verses = query.order_by(order_by).offset(skip).limit(limit).all()
+
     return verses, total
 
 
@@ -176,3 +186,13 @@ def delete_verse_of_day(db: Session, verse_id: UUID) -> bool:
     db.delete(verse)
     db.commit()
     return True
+
+
+def delete_verses_of_day_older_than(db: Session, cutoff_date: date) -> int:
+    deleted_count = (
+        db.query(VerseOfDay)
+        .filter(VerseOfDay.date < cutoff_date)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return deleted_count

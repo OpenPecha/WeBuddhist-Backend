@@ -239,11 +239,11 @@ async def test_enrich_text_bookmark_returns_empty_when_segment_missing():
     bookmark.name = None
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
-        new_callable=AsyncMock,
-        return_value=None,
-    ), patch(
         "pecha_api.bookmarks.bookmark_utils.get_texts_by_id",
+        new_callable=AsyncMock,
+        return_value=MagicMock(title="Unused"),
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
         new_callable=AsyncMock,
         return_value=None,
     ):
@@ -327,13 +327,13 @@ async def test_enrich_text_bookmark_handles_missing_text_details():
     bookmark.name = None
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
-        new_callable=AsyncMock,
-        return_value=(segment_id, "Segment content"),
-    ), patch(
         "pecha_api.bookmarks.bookmark_utils.get_texts_by_id",
         new_callable=AsyncMock,
         return_value=None,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
+        new_callable=AsyncMock,
+        return_value=(segment_id, "Segment content"),
     ):
         result = await enrich_text_bookmark(bookmark)
 

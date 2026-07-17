@@ -11,6 +11,7 @@ from pecha_api.verse_of_day.verse_of_day_service import (
     create_verse_of_day_service,
     update_verse_of_day_service,
     delete_verse_of_day_service,
+    cleanup_expired_verses_of_day,
     build_verses_dict,
     build_public_dto,
     _generate_verse_image_url,
@@ -23,6 +24,7 @@ from pecha_api.verse_of_day.verse_of_day_response_models import (
     CreateVerseOfDayRequest,
     UpdateVerseOfDayRequest,
 )
+from pecha_api.verse_of_day.verse_of_day_enums import SortOrder
 from fastapi import HTTPException
 
 
@@ -813,6 +815,8 @@ async def test_get_verses_of_day_list_service_success(sample_verse_list, mock_db
             mock_db_session.__enter__.return_value,
             group_id=None,
             filter_date=None,
+            search=None,
+            sort_order=SortOrder.DESC,
             skip=0,
             limit=100
         )
@@ -833,6 +837,8 @@ async def test_get_verses_of_day_list_service_with_pagination(sample_verse_list,
             mock_db_session.__enter__.return_value,
             group_id=None,
             filter_date=None,
+            search=None,
+            sort_order=SortOrder.DESC,
             skip=5,
             limit=20
         )
@@ -855,6 +861,8 @@ async def test_get_verses_of_day_list_service_with_group_id_filter(sample_verse_
             mock_db_session.__enter__.return_value,
             group_id=group_id,
             filter_date=None,
+            search=None,
+            sort_order=SortOrder.DESC,
             skip=0,
             limit=100
         )
@@ -876,6 +884,28 @@ async def test_get_verses_of_day_list_service_with_date_filter(sample_verse_list
             mock_db_session.__enter__.return_value,
             group_id=None,
             filter_date=filter_date,
+            search=None,
+            sort_order=SortOrder.DESC,
+            skip=0,
+            limit=100
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_verses_of_day_list_service_with_search_and_sort_order(sample_verse_list, mock_db_session):
+    """Test that search and sort_order are forwarded to the repository."""
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.get_verses_of_day_list", return_value=(sample_verse_list, 2)) as mock_repo:
+
+        result = get_verses_of_day_list_service(search="compassion", sort_order=SortOrder.ASC)
+
+        assert isinstance(result, VerseOfDayListResponse)
+        mock_repo.assert_called_once_with(
+            mock_db_session.__enter__.return_value,
+            group_id=None,
+            filter_date=None,
+            search="compassion",
+            sort_order=SortOrder.ASC,
             skip=0,
             limit=100
         )
@@ -1534,3 +1564,32 @@ def test_generate_verse_image_url_all_fail_returns_none():
         result = _generate_verse_image_url(s3_keys)
         
         assert result is None  # No valid URLs generated
+
+
+def test_cleanup_expired_verses_of_day(mock_db_session):
+    """Test cleanup deletes verses older than the expiry window."""
+    from datetime import datetime, timedelta, timezone
+
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.delete_verses_of_day_older_than", return_value=3) as mock_delete:
+
+        result = cleanup_expired_verses_of_day(expiry_days=7)
+
+        assert result == 3
+        mock_delete.assert_called_once()
+        cutoff_date = mock_delete.call_args[0][1]
+        expected_cutoff = datetime.now(timezone.utc).date() - timedelta(days=7)
+        assert cutoff_date == expected_cutoff
+
+
+def test_cleanup_expired_verses_of_day_rejects_non_positive_expiry(mock_db_session):
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.delete_verses_of_day_older_than") as mock_delete:
+
+        with pytest.raises(ValueError, match="positive integer"):
+            cleanup_expired_verses_of_day(expiry_days=0)
+
+        with pytest.raises(ValueError, match="positive integer"):
+            cleanup_expired_verses_of_day(expiry_days=-1)
+
+        mock_delete.assert_not_called()
