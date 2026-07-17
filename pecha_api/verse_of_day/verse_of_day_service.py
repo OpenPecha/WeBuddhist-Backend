@@ -371,6 +371,8 @@ def delete_verse_of_day_service(verse_id: UUID) -> None:
 
 
 def cleanup_expired_verses_of_day(expiry_days: int) -> int:
+    if expiry_days < 1:
+        raise ValueError(f"expiry_days must be a positive integer, got {expiry_days}")
     cutoff_date = datetime.now(timezone.utc).date() - timedelta(days=expiry_days)
     with SessionLocal() as db:
         deleted_count = delete_verses_of_day_older_than(db, cutoff_date)

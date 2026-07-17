@@ -1580,3 +1580,16 @@ def test_cleanup_expired_verses_of_day(mock_db_session):
         cutoff_date = mock_delete.call_args[0][1]
         expected_cutoff = datetime.now(timezone.utc).date() - timedelta(days=7)
         assert cutoff_date == expected_cutoff
+
+
+def test_cleanup_expired_verses_of_day_rejects_non_positive_expiry(mock_db_session):
+    with patch("pecha_api.verse_of_day.verse_of_day_service.SessionLocal", return_value=mock_db_session), \
+         patch("pecha_api.verse_of_day.verse_of_day_service.delete_verses_of_day_older_than") as mock_delete:
+
+        with pytest.raises(ValueError, match="positive integer"):
+            cleanup_expired_verses_of_day(expiry_days=0)
+
+        with pytest.raises(ValueError, match="positive integer"):
+            cleanup_expired_verses_of_day(expiry_days=-1)
+
+        mock_delete.assert_not_called()

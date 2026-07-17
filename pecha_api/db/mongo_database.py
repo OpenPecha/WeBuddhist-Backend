@@ -27,19 +27,29 @@ async def lifespan(api: FastAPI):
     mongodb = mongodb_client[get("MONGO_DATABASE_NAME")]
     api.mongodb = mongodb  # Attach the database instance to the FastAPI app
 
-    # Initialize collections and indexes if necessary
     try:
-        await init_beanie(database=mongodb,document_models=[Collection, Term, Topic, Text, Segment, TableOfContent, Group])
-        logging.info("Beanie initialized with the 'terms' collection.")
-        
-    except Exception as e:
-        logging.error(f"Error during collection initialization: {e}")
-        raise
+        # Initialize collections and indexes if necessary
+        try:
+            await init_beanie(
+                database=mongodb,
+                document_models=[
+                    Collection,
+                    Term,
+                    Topic,
+                    Text,
+                    Segment,
+                    TableOfContent,
+                    Group,
+                ],
+            )
+            logging.info("Beanie initialized with the 'terms' collection.")
+        except Exception as e:
+            logging.error(f"Error during collection initialization: {e}")
+            raise
 
-    setup_scheduler()
-
-    yield
-
-    shutdown_scheduler()
-    if mongodb_client:
-        mongodb_client.close()
+        setup_scheduler()
+        yield
+    finally:
+        shutdown_scheduler()
+        if mongodb_client:
+            mongodb_client.close()

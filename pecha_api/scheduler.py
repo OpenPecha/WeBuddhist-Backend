@@ -13,6 +13,10 @@ scheduler = AsyncIOScheduler()
 
 def setup_scheduler() -> None:
     expiry_days = get_int("VERSE_OF_DAY_EXPIRY_DAYS")
+    if expiry_days < 1:
+        raise ValueError(
+            f"VERSE_OF_DAY_EXPIRY_DAYS must be a positive integer, got {expiry_days}"
+        )
     scheduler.add_job(
         cleanup_expired_verses_of_day,
         CronTrigger(hour=0, minute=0),
