@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date
 from typing import Any, Dict, List, Optional
 
@@ -5,11 +6,15 @@ from fastapi import HTTPException
 from starlette import status
 
 from .calendar_parser import (
+    CalendarType,
     MAX_CALENDAR_YEAR,
     MIN_CALENDAR_YEAR,
-    find_calendar_day_for_gregorian_date,
-    get_days_for_gregorian_month,
-    parse_calendar_year,
+    load_calendar_year,
+    to_tibetan_year,
+)
+from .calendar_cache_service import (
+    get_calendar_year_cache,
+    set_calendar_year_cache,
 )
 from .calendar_response_models import (
     CalendarDay,
@@ -23,16 +28,24 @@ from .calendar_response_models import (
 )
 
 
+def _to_new_year_info(new_year: Optional[Dict[str, Any]]) -> Optional[NewYearInfo]:
+    if not new_year:
+        return None
+    return NewYearInfo(
+        year=str(to_tibetan_year(new_year["year"])),
+        designation=new_year["designation"],
+    )
+
+
 def _to_calendar_day(day_data: Dict[str, Any]) -> CalendarDay:
     lunar_month = day_data.get("lunar_month")
-    new_year = day_data.get("new_year")
     solar = day_data.get("solar")
 
     return CalendarDay(
         gregorian_date=day_data.get("gregorian_date"),
         lunar_day=day_data["lunar_day"],
         lunar_month=LunarMonthInfo(**lunar_month) if lunar_month else None,
-        new_year=NewYearInfo(**new_year) if new_year else None,
+        new_year=_to_new_year_info(day_data.get("new_year")),
         day_summary=day_data["day_summary"],
         lunar_qualities=day_data.get("lunar_qualities"),
         lunar_times=day_data.get("lunar_times"),
@@ -70,6 +83,68 @@ def _validate_gregorian_month(month: int) -> None:
         )
 
 
+async def _get_calendar_year_data(
+    year: int,
+    calendar_type: CalendarType,
+) -> Dict[str, Dict[str, Any]]:
+    cached_data = await get_calendar_year_cache(year, calendar_type)
+    if cached_data is not None:
+        return cached_data
+
+    year_data = await asyncio.to_thread(load_calendar_year, year, calendar_type)
+    await set_calendar_year_cache(year, calendar_type, year_data)
+    return year_data
+
+
+async def _find_calendar_day_for_gregorian_date(
+    gregorian_date: date,
+    calendar_type: CalendarType,
+) -> Optional[tuple[int, Dict[str, Any]]]:
+    gregorian_key = gregorian_date.isoformat()
+    for western_year in (
+        gregorian_date.year - 1,
+        gregorian_date.year,
+        gregorian_date.year + 1,
+    ):
+        if western_year < MIN_CALENDAR_YEAR or western_year > MAX_CALENDAR_YEAR:
+            continue
+        try:
+            year_data = await _get_calendar_year_data(western_year, calendar_type)
+        except FileNotFoundError:
+            continue
+        day_data = year_data.get(gregorian_key)
+        if day_data is not None:
+            return western_year, day_data
+    return None
+
+
+async def _get_days_for_gregorian_month(
+    gregorian_year: int,
+    gregorian_month: int,
+    calendar_type: CalendarType,
+) -> List[Dict[str, Any]]:
+    month_prefix = f"{gregorian_year}-{gregorian_month:02d}"
+    days_by_date: Dict[str, Dict[str, Any]] = {}
+
+    for western_year in (
+        gregorian_year - 1,
+        gregorian_year,
+        gregorian_year + 1,
+    ):
+        if western_year < MIN_CALENDAR_YEAR or western_year > MAX_CALENDAR_YEAR:
+            continue
+        try:
+            year_data = await _get_calendar_year_data(western_year, calendar_type)
+        except FileNotFoundError:
+            continue
+        for day_data in year_data.values():
+            gregorian_date = day_data.get("gregorian_date")
+            if gregorian_date and gregorian_date.startswith(month_prefix):
+                days_by_date[gregorian_date] = day_data
+
+    return [days_by_date[day_key] for day_key in sorted(days_by_date)]
+
+
 def _group_days_by_month(year_data: Dict[str, Dict[str, Any]]) -> Dict[int, List[CalendarDay]]:
     months: Dict[int, List[CalendarDay]] = {}
     for day_data in year_data.values():
@@ -90,27 +165,32 @@ def _group_days_by_month(year_data: Dict[str, Dict[str, Any]]) -> Dict[int, List
     return months
 
 
-def get_calendar_today_service() -> CalendarTodayResponse:
+async def get_calendar_today_service(
+    calendar_type: CalendarType = CalendarType.PHUGPA,
+) -> CalendarTodayResponse:
     today = date.today()
-    result = find_calendar_day_for_gregorian_date(today)
+    result = await _find_calendar_day_for_gregorian_date(today, calendar_type)
     if result is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"No calendar data found for {today.isoformat()}.",
         )
 
-    tibetan_year, day_data = result
+    western_year, day_data = result
     return CalendarTodayResponse(
         gregorian_date=today,
-        tibetan_year=tibetan_year,
+        tibetan_year=to_tibetan_year(western_year),
         day=_to_calendar_day(day_data),
     )
 
 
-def get_calendar_year_service(year: int) -> CalendarYearResponse:
+async def get_calendar_year_service(
+    year: int,
+    calendar_type: CalendarType = CalendarType.PHUGPA,
+) -> CalendarYearResponse:
     _validate_year(year)
     try:
-        year_data = parse_calendar_year(year)
+        year_data = await _get_calendar_year_data(year, calendar_type)
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -121,7 +201,7 @@ def get_calendar_year_service(year: int) -> CalendarYearResponse:
     new_year_info: Optional[NewYearInfo] = None
     for day_data in year_data.values():
         if day_data.get("new_year"):
-            new_year_info = NewYearInfo(**day_data["new_year"])
+            new_year_info = _to_new_year_info(day_data["new_year"])
             break
 
     months = {
@@ -133,14 +213,27 @@ def get_calendar_year_service(year: int) -> CalendarYearResponse:
         for month_number, days in sorted(grouped_months.items())
     }
 
-    return CalendarYearResponse(year=year, new_year=new_year_info, months=months)
+    return CalendarYearResponse(
+        year=year,
+        tibetan_year=to_tibetan_year(year),
+        new_year=new_year_info,
+        months=months,
+    )
 
 
-def get_calendar_month_service(year: int, month: int) -> CalendarMonthResponse:
+async def get_calendar_month_service(
+    year: int,
+    month: int,
+    calendar_type: CalendarType = CalendarType.PHUGPA,
+) -> CalendarMonthResponse:
     _validate_gregorian_year(year)
     _validate_gregorian_month(month)
 
-    month_days_data = get_days_for_gregorian_month(year, month)
+    month_days_data = await _get_days_for_gregorian_month(
+        year,
+        month,
+        calendar_type,
+    )
     if not month_days_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

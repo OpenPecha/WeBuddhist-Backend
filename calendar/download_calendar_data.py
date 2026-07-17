@@ -1,8 +1,8 @@
 import requests
 from pathlib import Path
 
-URL_TEMPLATE = "http://www.kalacakra.org/calendar/tdata/pl_{year}.txt"
-
+# URL_TEMPLATE = "http://www.kalacakra.org/calendar/tdata/pl_{year}.txt"
+URL_TEMPLATE = "http://www.kalacakra.org/calendar/tdata/ts_{year}.txt"
 
 def download_calendar_data(out_dir: str, years: range) -> None:
     """

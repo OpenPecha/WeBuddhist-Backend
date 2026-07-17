@@ -239,9 +239,13 @@ async def test_enrich_text_bookmark_returns_empty_when_segment_missing():
     bookmark.name = None
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils._resolve_text_segment",
+        "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
         new_callable=AsyncMock,
-        return_value=(None, None),
+        return_value=None,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_texts_by_id",
+        new_callable=AsyncMock,
+        return_value=None,
     ):
         result = await enrich_text_bookmark(bookmark)
 
@@ -322,14 +326,10 @@ async def test_enrich_text_bookmark_handles_missing_text_details():
     bookmark.source_id = text_id
     bookmark.name = None
 
-    mock_segment = MagicMock()
-    mock_segment.id = segment_id
-    mock_segment.content = "Segment content"
-
     with patch(
-        "pecha_api.bookmarks.bookmark_utils._resolve_text_segment",
+        "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
         new_callable=AsyncMock,
-        return_value=(segment_id, mock_segment),
+        return_value=(segment_id, "Segment content"),
     ), patch(
         "pecha_api.bookmarks.bookmark_utils.get_texts_by_id",
         new_callable=AsyncMock,
@@ -353,30 +353,22 @@ async def test_enrich_text_bookmark_with_language_uses_localized_text():
     bookmark.source_id = text_id
     bookmark.name = None
 
-    mock_segment = MagicMock()
-    mock_segment.id = segment_id
-    mock_segment.text_id = text_id
-    mock_segment.content = "English content"
-
     localized_text = MagicMock()
     localized_text.id = localized_text_id
     localized_text.title = "བོད་ཡིག་ཁ་བྱང་"
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils._resolve_text_segment",
-        new_callable=AsyncMock,
-        return_value=(segment_id, mock_segment),
-    ), patch(
         "pecha_api.bookmarks.bookmark_utils._resolve_localized_text",
         new_callable=AsyncMock,
         return_value=localized_text,
     ), patch(
-        "pecha_api.bookmarks.bookmark_utils._resolve_localized_segment",
+        "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
         new_callable=AsyncMock,
-        return_value=mock_segment,
-    ):
+        return_value=(segment_id, "English content"),
+    ) as mock_preview:
         result = await enrich_text_bookmark(bookmark, language="BO")
 
+    mock_preview.assert_awaited_once_with(localized_text_id)
     assert result["text"].id == localized_text_id
     assert result["text"].title == "བོད་ཡིག་ཁ་བྱང་"
 
@@ -808,19 +800,10 @@ async def test_enrich_text_bookmark_falls_back_when_localized_text_missing():
     bookmark.source_id = text_id
     bookmark.name = None
 
-    mock_segment = MagicMock()
-    mock_segment.id = segment_id
-    mock_segment.text_id = text_id
-    mock_segment.content = "Fallback content"
-
     mock_text = MagicMock()
     mock_text.title = "Original title"
 
     with patch(
-        "pecha_api.bookmarks.bookmark_utils._resolve_text_segment",
-        new_callable=AsyncMock,
-        return_value=(segment_id, mock_segment),
-    ), patch(
         "pecha_api.bookmarks.bookmark_utils._resolve_localized_text",
         new_callable=AsyncMock,
         return_value=None,
@@ -828,6 +811,10 @@ async def test_enrich_text_bookmark_falls_back_when_localized_text_missing():
         "pecha_api.bookmarks.bookmark_utils.get_texts_by_id",
         new_callable=AsyncMock,
         return_value=mock_text,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
+        new_callable=AsyncMock,
+        return_value=(segment_id, "Fallback content"),
     ):
         result = await enrich_text_bookmark(bookmark, language="BO")
 
