@@ -1,0 +1,1852 @@
+New Year: 1952, Water-male-Dragon
+
+Tibetan Lunar Month: 1 - Water-male-Tiger
+
+Month: 14173;5
+Anomaly: 16;47
+Mean Weekday: 2;25,54,0,638
+Mean Sun: 23;17,35,2,4
+
+1: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 26 Feb 1952
+  Siddha/grub pa, Vava/gdab pa, Tiger, li 1
+  Solar: Water-Tiger. Shi
+  3;16,0 24;7,29 23;29,29 20;36,58 10;13,13
+  From 1st to 15th, Demonstration of Miracles.
+    zin phung
+2: Wed. Uttarabhadrapada/khrums smad. Water-Water; 27 Feb 1952
+  Sadhya/bsgrub bya, Kaulava/rigs can, Rabbit, khon 2
+  Solar: Water-Rabbit. Bi
+  4;11,34 25;10,24 23;33,59 21;44,24 10;14,13
+3: Thu. Revati/nam gru. Wind-Water; 28 Feb 1952
+  Shubha/dge ba, Gara/khyim skyes, Dragon, dwa 3
+  Solar: Wood-Dragon. Kui
+  5;8,8 26;12,20 23;38,29 22;50,49 10;15,13
+4: Fri. Ashvini/tha skar. Earth-Wind; 29 Feb 1952
+  Shukla/dkar po, Vishti/viSTi, Snake, khen 4
+  Solar: Wood-Snake. Lou
+  6;5,42 0;13,16 23;42,58 23;56,15 10;16,13
+5: Sat. Bharani/bra nye. Earth-Fire; 1 Mar 1952
+  Indra/dbang po, Valava/byis pa, Horse, kham 5
+  Solar: Fire-Horse. Wei
+  0;4,38 1;12,50 23;47,28 25;0,18 10;17,13
+    klu bzlog
+6: Sun. Krittika/smin drug. Fire-Fire; 2 Mar 1952
+  Vaidhriti/'khon 'dzin, Taitila/til rdung, Sheep, gin 6
+  Solar: Fire-Sheep. Mao
+  1;5,12 2;10,45 23;51,58 26;2,44 10;18,12
+7: Mon. Rohini/snar ma. Water-Earth; 3 Mar 1952
+  Vishkambha/rnam sel, Vanija/tshong ba, Monkey, zin 7
+  Solar: Earth-Monkey. Bi
+  2;6,46 3;7,41 23;56,27 0;4,9 10;19,12
+    zin phung, nyi nag ngan pa dgu 'dzom
+8: Tue. Mrigashiras/mgo. Fire-Wind; 4 Mar 1952
+  Priti/mdza' bo, Vava/gdab pa, Bird, zon 8
+  Solar: Earth-Bird. Zui
+  3;9,20 4;3,37 24;0,57 1;4,35 10;20,12
+9: Wed. Mrigashiras/mgo. Water-Wind; 5 Mar 1952
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Dog, li 9
+  Solar: Iron-Dog. Can
+  4;12,54 4;58,33 24;5,27 2;4,0 10;21,12
+10: Thu. Ardra/lag. Wind-Water; 6 Mar 1952
+  Saubhagya/skal bzang, Gara/khyim skyes, Pig, khon 1
+  Solar: Iron-Pig. Jing
+  5;17,5 5;52,51 24;9,57 3;2,48 10;22,12
+    klu bzlog
+11: Fri. Punarvasu/nabs so. Earth-Wind; 7 Mar 1952
+  Shobhana/dge byed, Vishti/viSTi, Mouse, dwa 2
+  Solar: Water-Mouse. Gui
+  6;21,17 6;47,9 24;14,26 4;1,36 10;23,12
+12: Sat. Pushya/rgyal. Earth-Fire; 8 Mar 1952
+  Atiganda/shin tu 'grams, Valava/byis pa, Ox, khen 3
+  Solar: Water-Ox. Liu
+  0;25,28 7;41,27 24;18,56 5;0,24 10;24,12
+13: Sun. Ashlesha/skag. Fire-Water; 9 Mar 1952
+  Atiganda/shin tu 'grams, Kaulava/rigs can, Tiger, kham 4
+  Solar: Wood-Tiger. Xing
+  1;29,40 8;35,45 24;23,26 5;59,12 10;25,12
+    yan kwong, zin phung
+14: Mon. Magha/mchu. Water-Fire; 10 Mar 1952
+  Sukarman/las bzang, Gara/khyim skyes, Rabbit, gin 5
+  Solar: Wood-Rabbit. Zhang
+  2;33,51 9;30,4 24;27,55 6;57,59 10;26,12
+    klu thebs
+15: Tue. Purvaphalguni/gre. Fire-Fire; 11 Mar 1952
+  Dhriti/'dzin byed, Vishti/viSTi, Dragon, zin 6
+  Solar: Fire-Dragon. Yi
+  3;37,40 10;24,44 24;32,25 7;57,10 10;27,12
+    klu bzlog
+
+Mars, slow: 12;35,40,2,22 - fast: 14;56,38,5,202 South 6;19,15
+Jupiter, slow: 0;39,41,1,233 - fast: 0;8,28,2,114 North 0;1,52
+Saturn, slow: 12;17,51,5,4927 - fast: 12;28,10,1,4369 South 5;16,15
+Mercury, slow: 2;17,44,4,7964 - fast: 25;21,0,0,1042 East 11;8,0
+Venus, slow: 18;17,18,1,79 - fast: 22;1,46,0,59 North 9;23,43
+Rahu, head: 22;49,57,2,8
+
+16: Wed. Uttaraphalguni/dbo. Water-Wind; 12 Mar 1952
+  Shula/zug rngu, Valava/byis pa, Snake, zon 7
+  Solar: Fire-Snake. Zhen
+  4;40,29 11;20,25 24;36,55 8;57,21 10;28,12
+17: Thu. Hasta/me bzhi. Wind-Wind; 13 Mar 1952
+  Ganda/'grams, Taitila/til rdung, Horse, li 8
+  Solar: Earth-Horse. Jiao
+  5;42,18 12;17,6 24;41,25 9;58,31 10;29,12
+18: Fri. Citra/nag pa. Earth-Wind; 14 Mar 1952
+  Dhruva/brtan pa, Vanija/tshong ba, Sheep, khon 9
+  Solar: Earth-Sheep. Kang
+  6;43,7 13;14,47 24;45,54 11;0,42 11;0,12
+19: Sat. Svati/sa ri. Earth-Wind; 15 Mar 1952
+  Vyaghata/yongs bsnun, Vava/gdab pa, Monkey, dwa 1
+  Solar: Iron-Monkey. Di
+  0;42,33 14;13,51 24;50,24 12;4,15 11;1,12
+    zin phung
+20: Sun. Vishakha/sa ga. Fire-Fire; 16 Mar 1952
+  Harshana/dga' ba, Kaulava/rigs can, Bird, khen 2
+  Solar: Iron-Bird. Fang
+  1;40,21 15;14,32 24;54,54 13;9,26 11;2,12
+21: Mon. Anuradha/lha mtshams. Water-Earth; 17 Mar 1952
+  Vajra/rdo rje, Gara/khyim skyes, Dog, kham 3
+  Solar: Water-Dog. Xin
+  2;37,4 16;16,13 24;59,18 14;15,31 11;3,10
+22: Tue. Jyeshtha/snron. Fire-Earth; 18 Mar 1952
+  Siddhi/dngos grub, Vishti/viSTi, Pig, gin 4
+  Solar: Water-Pig. Wei
+  3;32,47 17;18,54 25;3,42 15;22,36 11;4,9
+23: Wed. Mula/snrubs. Water-Water; 19 Mar 1952
+  Vyatipata/phan tshun, Valava/byis pa, Mouse, zin 5
+  Solar: Wood-Mouse. Ji
+  4;27,30 18;22,35 25;8,5 16;30,41 11;5,7
+24: Thu. Purvashadha/chu stod. Wind-Water; 20 Mar 1952
+  Variyas/mchog can, Gara/khyim skyes, Ox, zon 6
+  Solar: Wood-Ox. Dou
+  5;21,36 19;26,53 25;12,29 17;39,23 11;6,6
+25: Fri. Uttarashadha/chu smad. Earth-Earth; 21 Mar 1952
+  Parigha/yongs 'joms, Vishti/viSTi, Tiger, li 7
+  Solar: Fire-Tiger. Niu
+  6;15,41 20;31,12 25;16,53 18;48,5 11;7,5
+    zin phung
+26: Sat. Abhijit/gro zhin. Earth-Earth; 22 Mar 1952
+  Shiva/zhi ba, Valava/byis pa, Rabbit, khon 8
+  Solar: Fire-Rabbit. Nu
+  0;9,47 21;35,30 25;21,17 19;56,47 11;8,3
+27: Sun. Dhanishtha/mon gre. Fire-Water; 23 Mar 1952
+  Sadhya/bsgrub bya, Taitila/til rdung, Dragon, dwa 9
+  Solar: Earth-Dragon. Xu
+  1;3,52 22;39,48 25;25,41 21;5,30 11;9,2
+28. Omitted.
+  1;57,58 25;30,5
+29: Mon. Shatabhishaj/mon gru. Water-Earth; 24 Mar 1952
+  Shubha/dge ba, Vishti/viSTi, Horse, kham 2
+  Solar: Earth-Snake. Wei
+  2;52,26 23;48,2 25;34,29 22;22,31 11;10,59
+30: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 25 Mar 1952
+  Shukla/dkar po, Catushpada/rkang bzhi, Sheep, gin 3
+  Solar: Iron-Horse. Shi
+  3;47,55 24;50,58 25;38,53 23;29,51 11;11,58
+
+Mars, slow: 13;4,17,0,42 - fast: 14;44,54,3,150 South 6;16,38
+Jupiter, slow: 0;45,20,5,355 - fast: 0;22,49,5,197 North 0;5,4
+Saturn, slow: 12;19,52,4,3212 - fast: 12;22,0,3,5106 South 5;14,53
+Mercury, slow: 6;35,33,4,3206 - fast: 26;48,31,5,4060 East 11;27,27
+Venus, slow: 19;58,14,1,415 - fast: 23;20,33,3,374 North 10;11,14
+Rahu, head: 22;46,26,0,12
+
+Tibetan Lunar Month: 2 - Water-female-Rabbit
+
+Month: 14174;7
+Anomaly: 18;48
+Mean Weekday: 3;57,44,1,411
+Mean Sun: 25;28,33,5,1
+
+1: Wed. Uttarabhadrapada/khrums smad. Water-Water; 26 Mar 1952
+  Brahman/tshangs pa, Kintughna/mi sdug pa, Monkey, zin 4
+  Solar: Iron-Sheep. Bi
+  4;44,23 25;52,53 25;43,17 24;36,10 11;12,57
+    zin phung
+2: Thu. Revati/nam gru. Wind-Water; 27 Mar 1952
+  Indra/dbang po, Valava/byis pa, Bird, zon 5
+  Solar: Water-Monkey. Kui
+  5;41,51 26;53,48 25;47,40 25;41,29 11;13,55
+3: Fri. Ashvini/tha skar. Earth-Wind; 28 Mar 1952
+  Vaidhriti/'khon 'dzin, Taitila/til rdung, Dog, li 6
+  Solar: Water-Bird. Lou
+  6;40,43 0;53,21 25;52,4 26;45,26 11;14,54
+4: Sat. Bharani/bra nye. Earth-Fire; 29 Mar 1952
+  Vishkambha/rnam sel, Vanija/tshong ba, Pig, khon 7
+  Solar: Wood-Dog. Wei
+  0;41,11 1;51,16 25;56,28 0;47,45 11;15,53
+5: Sun. Krittika/smin drug. Fire-Fire; 30 Mar 1952
+  Priti/mdza' bo, Vava/gdab pa, Mouse, dwa 8
+  Solar: Wood-Pig. Mao
+  1;42,40 2;48,12 26;0,52 1;49,4 11;16,51
+6: Mon. Rohini/snar ma. Water-Earth; 31 Mar 1952
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Ox, khen 9
+  Solar: Fire-Mouse. Bi
+  2;45,9 3;44,7 26;5,16 2;49,23 11;17,50
+7: Tue. Mrigashiras/mgo. Fire-Wind; 1 Apr 1952
+  Saubhagya/skal bzang, Gara/khyim skyes, Tiger, kham 1
+  Solar: Fire-Ox. Zui
+  3;48,37 4;39,2 26;9,40 3;48,42 11;18,48
+    zin phung
+8: Wed. Ardra/lag. Water-Water; 2 Apr 1952
+  Shobhana/dge byed, Vishti/viSTi, Rabbit, gin 2
+  Solar: Earth-Tiger. Can
+  4;52,43 5;33,20 26;14,4 4;47,24 11;19,47
+    klu bzlog
+9: Thu. Punarvasu/nabs so. Wind-Wind; 3 Apr 1952
+  Atiganda/shin tu 'grams, Vava/gdab pa, Dragon, zin 3
+  Solar: Earth-Rabbit. Jing
+  5;56,49 6;27,39 26;18,28 5;46,7 11;20,46
+10: Fri. Pushya/rgyal. Earth-Fire; 4 Apr 1952
+  Sukarman/las bzang, Kaulava/rigs can, Snake, zon 4
+  Solar: Iron-Dragon. Gui
+  6;60,0 7;27,39 26;22,52 6;50,31 11;21,44
+    klu thebs
+10: Sat. Ashlesha/skag. Earth-Water; 5 Apr 1952
+  Dhriti/'dzin byed, Gara/khyim skyes, Snake, zon 4
+  Solar: Iron-Snake. Liu
+  0;0,54 8;21,57 26;22,52 7;44,49 11;21,44
+11: Sun. Magha/mchu. Fire-Fire; 6 Apr 1952
+  Shula/zug rngu, Vishti/viSTi, Horse, li 5
+  Solar: Water-Horse. Xing
+  1;5,0 9;16,15 26;27,15 8;43,31 11;22,43
+    yan kwong
+12: Mon. Purvaphalguni/gre. Water-Fire; 7 Apr 1952
+  Ganda/'grams, Valava/byis pa, Sheep, khon 6
+  Solar: Water-Sheep. Zhang
+  2;9,6 10;10,33 26;31,39 9;42,13 11;23,42
+13: Tue. Uttaraphalguni/dbo. Fire-Wind; 8 Apr 1952
+  Vriddhi/'phel, Taitila/til rdung, Monkey, dwa 7
+  Solar: Wood-Monkey. Yi
+  3;12,48 11;5,14 26;36,3 10;41,18 11;24,40
+    zin phung
+14: Wed. Hasta/me bzhi. Water-Wind; 9 Apr 1952
+  Dhruva/brtan pa, Vanija/tshong ba, Bird, khen 8
+  Solar: Wood-Bird. Zhen
+  4;15,31 12;0,56 26;40,27 11;41,23 11;25,39
+    nyi nag
+15: Thu. Hasta/me bzhi. Wind-Wind; 10 Apr 1952
+  Vyaghata/yongs bsnun, Vava/gdab pa, Dog, kham 9
+  Solar: Fire-Dog. Jiao
+  5;17,13 12;57,37 26;44,51 12;42,29 11;26,38
+
+Mars, slow: 13;38,51,4,10 - fast: 14;38,16,2,187 South 6;15,10
+Jupiter, slow: 0;51,49,1,185 - fast: 0;38,51,3,121 North 0;8,38
+Saturn, slow: 12;22,10,4,4328 - fast: 12;17,35,4,5291 West 5;13,54
+Mercury, slow: 11;30,12,2,7822 - fast: 0;17,46,5,184 South 0;3,57
+Venus, slow: 21;53,35,2,692 - fast: 24;44,46,5,415 North 10;29,57
+Rahu, head: 22;42,54,4,16
+
+16: Fri. Citra/nag pa. Earth-Wind; 11 Apr 1952
+  Harshana/dga' ba, Kaulava/rigs can, Pig, gin 1
+  Solar: Fire-Pig. Kang
+  6;17,56 13;55,18 26;49,15 13;44,34 11;27,36
+17: Sat. Svati/sa ri. Earth-Wind; 12 Apr 1952
+  Vajra/rdo rje, Gara/khyim skyes, Mouse, zin 2
+  Solar: Earth-Mouse. Di
+  0;17,15 14;54,23 26;53,39 14;48,2 11;28,35
+18: Sun. Vishakha/sa ga. Fire-Fire; 13 Apr 1952
+  Siddhi/dngos grub, Vishti/viSTi, Ox, zon 3
+  Solar: Earth-Ox. Fang
+  1;14,58 15;55,4 26;58,3 15;53,8 11;29,34
+    klu bzlog
+19: Mon. Anuradha/lha mtshams. Water-Earth; 14 Apr 1952
+  Vyatipata/phan tshun, Valava/byis pa, Tiger, li 4
+  Solar: Iron-Tiger. Xin
+  2;11,40 16;56,46 0;2,27 16;59,13 0;0,32
+    zin phung
+20: Tue. Jyeshtha/snron. Fire-Earth; 15 Apr 1952
+  Parigha/yongs 'joms, Taitila/til rdung, Rabbit, khon 5
+  Solar: Iron-Rabbit. Wei
+  3;7,23 17;59,27 0;6,50 18;6,18 0;1,31
+    klu bzlog
+21: Wed. Purvashadha/chu stod. Water-Water; 16 Apr 1952
+  Shiva/zhi ba, Vanija/tshong ba, Dragon, dwa 6
+  Solar: Water-Dragon. Ji
+  4;2,5 19;3,9 0;11,14 19;14,24 0;2,29
+22. Omitted.
+  4;56,6 0;15,34
+23: Thu. Uttarashadha/chu smad. Wind-Earth; 17 Apr 1952
+  Siddha/grub pa, Valava/byis pa, Horse, kham 8
+  Solar: Water-Snake. Dou
+  5;50,8 20;11,46 0;19,54 20;31,40 0;4,25
+24: Fri. Abhijit/gro zhin. Earth-Earth; 18 Apr 1952
+  Sadhya/bsgrub bya, Taitila/til rdung, Sheep, gin 9
+  Solar: Wood-Horse. Niu
+  6;44,10 21;16,4 0;24,14 21;40,19 0;5,23
+25: Sat. Dhanishtha/mon gre. Earth-Water; 19 Apr 1952
+  Shubha/dge ba, Vanija/tshong ba, Monkey, zin 1
+  Solar: Wood-Sheep. Nu
+  0;38,11 22;20,22 0;28,34 22;48,57 0;6,21
+    zin phung
+26: Sun. Shatabhishaj/mon gru. Fire-Earth; 20 Apr 1952
+  Shukla/dkar po, Vava/gdab pa, Bird, zon 2
+  Solar: Fire-Monkey. Xu
+  1;32,13 23;24,41 0;32,54 23;57,35 0;7,18
+27: Mon. Purvabhadrapada/khrums stod. Water-Fire; 21 Apr 1952
+  Indra/dbang po, Taitila/til rdung, Dog, li 3
+  Solar: Fire-Bird. Wei
+  2;26,38 24;28,36 0;37,14 25;5,50 0;8,16
+28: Tue. Uttarabhadrapada/khrums smad. Fire-Water; 22 Apr 1952
+  Vaidhriti/'khon 'dzin, Vanija/tshong ba, Pig, khon 4
+  Solar: Earth-Dog. Shi
+  3;22,3 25;31,31 0;41,34 26;13,5 0;9,14
+    klu bzlog
+29: Wed. Revati/nam gru. Water-Water; 23 Apr 1952
+  Vishkambha/rnam sel, Shakuni/bkra shis, Mouse, dwa 5
+  Solar: Earth-Pig. Bi
+  4;18,28 26;33,26 0;45,54 0;19,20 0;10,12
+30: Thu. Ashvini/tha skar. Wind-Wind; 24 Apr 1952
+  Priti/mdza' bo, Naga/klu, Ox, khen 6
+  Solar: Iron-Mouse. Kui
+  5;15,53 0;34,21 0;50,14 1;24,35 0;11,9
+
+Mars, slow: 14;10,9,4,118 - fast: 14;11,15,5,98 South 6;9,10
+Jupiter, slow: 0;57,27,4,194 - fast: 0;54,28,3,32 North 0;12,6
+Saturn, slow: 12;24,11,3,2613 - fast: 12;11,39,3,265 West 5;12,35
+Mercury, slow: 15;48,1,2,3064 - fast: 26;20,59,4,6647 West 11;21,19
+Venus, slow: 23;34,31,3,279 - fast: 26;4,9,2,307 North 11;17,35
+Rahu, head: 22;39,23,2,20
+
+Tibetan Lunar Month: 3 - Wood-male-Dragon
+
+Month: 14175;9
+Anomaly: 20;49
+Mean Weekday: 5;29,34,2,184
+Mean Sun: 0;39,32,1,11
+
+1: Fri. Bharani/bra nye. Earth-Fire; 25 Apr 1952
+  Ayushmat/tshe dang ldan pa, Vava/gdab pa, Tiger, kham 7
+  Solar: Iron-Ox. Lou
+  6;14,41 1;33,52 0;54,34 2;28,27 0;12,7
+    zin phung
+2: Sat. Krittika/smin drug. Earth-Fire; 26 Apr 1952
+  Saubhagya/skal bzang, Kaulava/rigs can, Rabbit, gin 8
+  Solar: Water-Tiger. Wei
+  0;15,6 2;31,47 0;58,54 3;30,42 0;13,5
+3: Sun. Rohini/snar ma. Fire-Earth; 27 Apr 1952
+  Shobhana/dge byed, Gara/khyim skyes, Dragon, zin 9
+  Solar: Water-Rabbit. Mao
+  1;16,32 3;28,42 1;3,14 4;31,57 0;14,3
+4: Mon. Mrigashiras/mgo. Water-Wind; 28 Apr 1952
+  Atiganda/shin tu 'grams, Vishti/viSTi, Snake, zon 1
+  Solar: Wood-Dragon. Bi
+  2;18,57 4;24,37 1;7,34 5;32,12 0;15,1
+5: Tue. Ardra/lag. Fire-Water; 29 Apr 1952
+  Sukarman/las bzang, Valava/byis pa, Horse, li 2
+  Solar: Wood-Snake. Zui
+  3;22,22 5;19,32 1;11,54 6;31,26 0;15,58
+6: Wed. Punarvasu/nabs so. Water-Wind; 30 Apr 1952
+  Dhriti/'dzin byed, Taitila/til rdung, Sheep, khon 3
+  Solar: Fire-Horse. Can
+  4;26,24 6;13,50 1;16,14 7;30,5 0;16,56
+7: Thu. Pushya/rgyal. Wind-Fire; 1 May 1952
+  Shula/zug rngu, Gara/khyim skyes, Monkey, dwa 4
+  Solar: Fire-Sheep. Jing
+  5;30,26 7;8,8 1;20,34 8;28,43 0;17,54
+    zin phung
+8: Fri. Ashlesha/skag. Earth-Water; 2 May 1952
+  Ganda/'grams, Vishti/viSTi, Bird, khen 5
+  Solar: Earth-Monkey. Gui
+  6;34,27 8;2,26 1;24,54 9;27,21 0;18,52
+9: Sat. Ashlesha/skag. Earth-Water; 3 May 1952
+  Vriddhi/'phel, Valava/byis pa, Dog, kham 6
+  Solar: Earth-Bird. Liu
+  0;38,29 8;56,44 1;29,14 10;25,59 0;19,49
+    yan kwong
+10: Sun. Magha/mchu. Fire-Fire; 4 May 1952
+  Dhruva/brtan pa, Taitila/til rdung, Pig, gin 7
+  Solar: Iron-Dog. Xing
+  1;42,31 9;51,3 1;33,34 11;24,37 0;20,47
+11: Mon. Purvaphalguni/gre. Water-Fire; 5 May 1952
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Mouse, zin 8
+  Solar: Iron-Pig. Zhang
+  2;46,9 10;45,44 1;37,54 12;23,39 0;21,45
+12: Tue. Uttaraphalguni/dbo. Fire-Wind; 6 May 1952
+  Harshana/dga' ba, Vava/gdab pa, Ox, zon 9
+  Solar: Water-Mouse. Yi
+  3;48,48 11;41,26 1;42,14 13;23,41 0;22,43
+13: Wed. Hasta/me bzhi. Water-Wind; 7 May 1952
+  Vajra/rdo rje, Kaulava/rigs can, Tiger, li 1
+  Solar: Water-Ox. Zhen
+  4;50,26 12;38,8 1;46,34 14;24,43 0;23,41
+    zin phung
+14: Thu. Citra/nag pa. Wind-Wind; 8 May 1952
+  Siddhi/dngos grub, Gara/khyim skyes, Rabbit, khon 2
+  Solar: Wood-Tiger. Jiao
+  5;51,4 13;35,50 1;50,54 15;26,45 0;24,38
+15: Fri. Svati/sa ri. Earth-Wind; 9 May 1952
+  Vyatipata/phan tshun, Vishti/viSTi, Dragon, dwa 3
+  Solar: Wood-Rabbit. Kang
+  6;50,19 14;34,55 1;55,14 16;30,10 0;25,36
+  Revelation of the Kalacakra Tantra.
+
+Mars, slow: 14;43,41,5,201 - fast: 13;48,55,5,93 West 6;4,12
+Jupiter, slow: 1;3,26,4,200 - fast: 1;10,22,3,120 East 0;15,38
+Saturn, slow: 12;26,20,5,5005 - fast: 12;7,47,3,3524 West 5;11,43
+Mercury, slow: 20;24,15,1,2993 - fast: 0;2,28,1,5413 North 0;0,32
+Venus, slow: 25;22,40,1,211 - fast: 0;26,12,5,579 North 0;5,49
+Rahu, head: 22;35,52,1,1
+
+16: Sat. Vishakha/sa ga. Earth-Fire; 10 May 1952
+  Variyas/mchog can, Valava/byis pa, Snake, khen 4
+  Solar: Fire-Dragon. Di
+  0;47,57 15;35,37 1;59,34 17;35,12 0;26,34
+17: Sun. Anuradha/lha mtshams. Fire-Earth; 11 May 1952
+  Parigha/yongs 'joms, Taitila/til rdung, Horse, kham 5
+  Solar: Fire-Snake. Fang
+  1;44,35 16;37,19 2;3,54 18;41,14 0;27,32
+18: Mon. Jyeshtha/snron. Water-Earth; 12 May 1952
+  Shiva/zhi ba, Vanija/tshong ba, Sheep, gin 6
+  Solar: Earth-Horse. Xin
+  2;40,13 17;40,1 2;8,14 19;48,16 0;28,29
+19: Tue. Mula/snrubs. Fire-Water; 13 May 1952
+  Siddha/grub pa, Vava/gdab pa, Monkey, zin 7
+  Solar: Earth-Sheep. Wei
+  3;34,51 18;43,43 2;12,34 20;56,18 0;29,27
+    zin phung
+20: Wed. Purvashadha/chu stod. Water-Water; 14 May 1952
+  Shubha/dge ba, Kaulava/rigs can, Bird, zon 8
+  Solar: Iron-Monkey. Ji
+  4;28,53 19;48,1 2;16,54 22;4,56 1;0,25
+21: Thu. Uttarashadha/chu smad. Wind-Earth; 15 May 1952
+  Shukla/dkar po, Vanija/tshong ba, Dog, li 9
+  Solar: Iron-Bird. Dou
+  5;22,54 20;52,20 2;21,14 23;13,34 1;1,23
+    nyi nag
+22: Fri. Abhijit/gro zhin. Earth-Earth; 16 May 1952
+  Brahman/tshangs pa, Vava/gdab pa, Pig, khon 1
+  Solar: Water-Dog. Niu
+  6;16,55 21;56,38 2;25,34 24;22,12 1;2,20
+23: Sat. Shatabhishaj/mon gru. Earth-Earth; 17 May 1952
+  Indra/dbang po, Kaulava/rigs can, Mouse, dwa 2
+  Solar: Water-Pig. Nu
+  0;10,51 23;0,56 2;29,48 25;30,45 1;3,17
+24: Sun. Purvabhadrapada/khrums stod. Fire-Fire; 18 May 1952
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Ox, khen 3
+  Solar: Wood-Mouse. Xu
+  1;4,47 24;5,15 2;34,2 26;39,17 1;4,13
+25. Omitted.
+  1;59,6 2;38,16
+26: Mon. Uttarabhadrapada/khrums smad. Water-Water; 19 May 1952
+  Vishkambha/rnam sel, Vishti/viSTi, Rabbit, gin 5
+  Solar: Wood-Ox. Wei
+  2;54,26 25;12,4 2;42,30 0;54,35 1;6,6
+27: Tue. Revati/nam gru. Fire-Water; 20 May 1952
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Dragon, zin 6
+  Solar: Fire-Tiger. Shi
+  3;50,46 26;13,58 2;46,45 2;0,43 1;7,3
+28: Wed. Ashvini/tha skar. Water-Wind; 21 May 1952
+  Saubhagya/skal bzang, Gara/khyim skyes, Snake, zon 7
+  Solar: Fire-Rabbit. Bi
+  4;48,5 0;14,53 2;50,59 3;5,52 1;7,59
+29: Thu. Bharani/bra nye. Wind-Fire; 22 May 1952
+  Shobhana/dge byed, Vishti/viSTi, Horse, li 8
+  Solar: Earth-Dragon. Kui
+  5;46,49 1;14,24 2;55,13 4;9,37 1;8,56
+30: Fri. Krittika/smin drug. Earth-Fire; 23 May 1952
+  Atiganda/shin tu 'grams, Catushpada/rkang bzhi, Sheep, khon 9
+  Solar: Earth-Snake. Lou
+  6;47,8 2;12,18 2;59,27 5;11,46 1;9,52
+
+Mars, slow: 15;15,0,0,80 - fast: 13;34,39,0,151 West 6;1,2
+Jupiter, slow: 1;9,1,4,350 - fast: 1;25,56,3,328 East 0;19,5
+Saturn, slow: 12;28,21,4,3290 - fast: 12;4,53,1,58 West 5;11,5
+Mercury, slow: 24;42,4,0,7032 - fast: 1;34,23,2,1729 North 0;20,58
+Venus, slow: 0;3,36,1,547 - fast: 1;44,49,3,112 North 0;23,17
+Rahu, head: 22;32,20,5,5
+
+Tibetan Lunar Month: 4 - Wood-female-Snake
+
+Month: 14176;11
+Anomaly: 22;50
+Mean Weekday: 0;1,24,2,664
+Mean Sun: 2;50,30,4,8
+
+1: Sat. Rohini/snar ma. Earth-Earth; 24 May 1952
+  Sukarman/las bzang, Kintughna/mi sdug pa, Monkey, dwa 1
+  Solar: Iron-Horse. Wei
+  0;48,28 3;9,13 3;3,41 6;12,54 1;10,49
+2: Sun. Mrigashiras/mgo. Fire-Wind; 25 May 1952
+  Dhriti/'dzin byed, Valava/byis pa, Bird, khen 2
+  Solar: Iron-Sheep. Mao
+  1;50,48 4;5,7 3;7,56 7;13,3 1;11,45
+3: Mon. Ardra/lag. Water-Water; 26 May 1952
+  Shula/zug rngu, Kaulava/rigs can, Dog, kham 3
+  Solar: Water-Monkey. Bi
+  2;54,8 5;0,1 3;12,10 8;12,11 1;12,42
+4: Tue. Ardra/lag. Fire-Water; 27 May 1952
+  Ganda/'grams, Gara/khyim skyes, Pig, gin 4
+  Solar: Water-Bird. Zui
+  3;58,4 5;54,19 3;16,24 9;10,44 1;13,38
+5: Wed. Punarvasu/nabs so. Water-Wind; 28 May 1952
+  Vriddhi/'phel, Vishti/viSTi, Mouse, zin 5
+  Solar: Wood-Dog. Can
+  4;60,0 6;54,19 3;20,38 10;14,58 1;14,35
+5: Thu. Pushya/rgyal. Wind-Fire; 29 May 1952
+  Dhruva/brtan pa, Valava/byis pa, Mouse, zin 5
+  Solar: Wood-Pig. Jing
+  5;2,0 7;48,38 3;20,38 11;9,16 1;14,35
+6: Fri. Ashlesha/skag. Earth-Water; 30 May 1952
+  Vyaghata/yongs bsnun, Taitila/til rdung, Ox, zon 6
+  Solar: Fire-Mouse. Gui
+  6;5,56 8;42,56 3;24,52 12;7,49 1;15,31
+    zin phung
+7: Sat. Magha/mchu. Earth-Fire; 31 May 1952
+  Harshana/dga' ba, Vanija/tshong ba, Tiger, li 7
+  Solar: Fire-Ox. Liu
+  0;9,52 9;37,14 3;29,6 13;6,21 1;16,28
+    yan kwong
+8: Sun. Purvaphalguni/gre. Fire-Fire; 1 Jun 1952
+  Vajra/rdo rje, Vava/gdab pa, Rabbit, khon 8
+  Solar: Earth-Tiger. Xing
+  1;13,48 10;31,32 3;33,21 14;4,53 1;17,24
+  Birth of the Buddha.
+    klu thebs, nyi nag
+9: Mon. Uttaraphalguni/dbo. Water-Wind; 2 Jun 1952
+  Siddhi/dngos grub, Kaulava/rigs can, Dragon, dwa 9
+  Solar: Earth-Rabbit. Zhang
+  2;17,20 11;26,14 3;37,35 15;3,50 1;18,21
+10: Tue. Hasta/me bzhi. Fire-Wind; 3 Jun 1952
+  Vyatipata/phan tshun, Gara/khyim skyes, Snake, khen 1
+  Solar: Iron-Dragon. Yi
+  3;19,52 12;21,57 3;41,49 16;3,46 1;19,17
+11: Wed. Citra/nag pa. Water-Wind; 4 Jun 1952
+  Variyas/mchog can, Vishti/viSTi, Horse, kham 2
+  Solar: Iron-Snake. Zhen
+  4;21,24 13;18,39 3;46,3 17;4,43 1;20,14
+12: Thu. Svati/sa ri. Wind-Wind; 5 Jun 1952
+  Parigha/yongs 'joms, Valava/byis pa, Sheep, gin 3
+  Solar: Water-Horse. Jiao
+  5;21,56 14;16,21 3;50,17 18;6,39 1;21,10
+    zin phung
+13: Fri. Vishakha/sa ga. Earth-Fire; 6 Jun 1952
+  Shiva/zhi ba, Taitila/til rdung, Monkey, zin 4
+  Solar: Water-Sheep. Kang
+  6;21,4 15;15,27 3;54,32 19;9,59 1;22,7
+14: Sat. Anuradha/lha mtshams. Earth-Earth; 7 Jun 1952
+  Siddha/grub pa, Vanija/tshong ba, Bird, zon 5
+  Solar: Wood-Monkey. Di
+  0;18,36 16;16,10 3;58,46 20;14,56 1;23,3
+15: Sun. Jyeshtha/snron. Fire-Earth; 8 Jun 1952
+  Sadhya/bsgrub bya, Vava/gdab pa, Dog, li 6
+  Solar: Wood-Bird. Fang
+  1;15,7 17;17,52 4;3,0 21;20,52 1;24,0
+  Enlightenment and Parinirvana of the Buddha.
+    klu thebs
+
+Mars, slow: 15;53,35,3,103 - fast: 13;39,4,0,145 West 6;2,0
+Jupiter, slow: 1;15,24,4,212 - fast: 1;41,30,0,108 East 0;22,33
+Saturn, slow: 12;30,39,4,4406 - fast: 12;3,49,0,4194 West 5;10,50
+Mercury, slow: 2;36,42,5,2851 - fast: 3;37,53,5,6264 North 1;18,25
+Venus, slow: 1;58,57,3,75 - fast: 3;9,54,4,199 North 1;12,12
+Rahu, head: 22;28,49,3,9
+
+16: Mon. Mula/snrubs. Water-Water; 9 Jun 1952
+  Shubha/dge ba, Kaulava/rigs can, Pig, khon 7
+  Solar: Fire-Dog. Xin
+  2;10,39 18;20,34 4;7,14 22;27,49 1;24,56
+17: Tue. Purvashadha/chu stod. Fire-Water; 10 Jun 1952
+  Shukla/dkar po, Gara/khyim skyes, Mouse, dwa 8
+  Solar: Fire-Pig. Wei
+  3;5,11 19;24,17 4;11,28 23;35,45 1;25,53
+18. Omitted.
+  3;59,7 4;15,43
+19: Wed. Uttarashadha/chu smad. Water-Earth; 11 Jun 1952
+  Brahman/tshangs pa, Vava/gdab pa, Tiger, kham 1
+  Solar: Earth-Mouse. Ji
+  4;53,3 20;32,54 4;19,57 24;52,51 1;27,46
+20: Thu. Abhijit/gro zhin. Wind-Earth; 12 Jun 1952
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Rabbit, gin 2
+  Solar: Earth-Ox. Dou
+  5;46,58 21;37,12 4;24,11 26;1,23 1;28,42
+    klu bzlog
+21: Fri. Dhanishtha/mon gre. Earth-Water; 13 Jun 1952
+  Vishkambha/rnam sel, Gara/khyim skyes, Dragon, zin 3
+  Solar: Iron-Tiger. Niu
+  6;40,54 22;41,30 4;28,25 0;9,56 1;29,39
+22: Sat. Shatabhishaj/mon gru. Earth-Earth; 14 Jun 1952
+  Priti/mdza' bo, Vishti/viSTi, Snake, zon 4
+  Solar: Iron-Rabbit. Nu
+  0;34,50 23;45,49 4;32,39 1;18,28 2;0,35
+23: Sun. Purvabhadrapada/khrums stod. Fire-Fire; 15 Jun 1952
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Horse, li 5
+  Solar: Water-Dragon. Xu
+  1;29,9 24;49,43 4;36,53 2;26,36 2;1,31
+24: Mon. Uttarabhadrapada/khrums smad. Water-Water; 16 Jun 1952
+  Saubhagya/skal bzang, Gara/khyim skyes, Sheep, khon 6
+  Solar: Water-Snake. Wei
+  2;24,25 25;52,37 4;41,3 3;33,40 2;2,27
+    zin phung
+25: Tue. Revati/nam gru. Fire-Water; 17 Jun 1952
+  Shobhana/dge byed, Vishti/viSTi, Monkey, dwa 7
+  Solar: Wood-Horse. Shi
+  3;20,42 26;54,31 4;45,13 4;39,45 2;3,23
+    klu bzlog
+26: Wed. Ashvini/tha skar. Water-Wind; 18 Jun 1952
+  Atiganda/shin tu 'grams, Valava/byis pa, Bird, khen 8
+  Solar: Wood-Sheep. Bi
+  4;17,58 0;55,25 4;49,24 5;44,49 2;4,18
+27: Thu. Bharani/bra nye. Wind-Fire; 19 Jun 1952
+  Sukarman/las bzang, Taitila/til rdung, Dog, kham 9
+  Solar: Fire-Monkey. Kui
+  5;16,38 1;54,55 4;53,34 6;48,29 2;5,14
+28: Fri. Krittika/smin drug. Earth-Fire; 20 Jun 1952
+  Dhriti/'dzin byed, Vanija/tshong ba, Pig, gin 1
+  Solar: Fire-Bird. Lou
+  6;16,55 2;52,49 4;57,44 7;50,33 2;6,9
+29: Sat. Rohini/snar ma. Earth-Earth; 21 Jun 1952
+  Shula/zug rngu, Shakuni/bkra shis, Mouse, zin 2
+  Solar: Earth-Dog. Wei
+  0;18,11 3;49,43 5;1,54 8;51,38 2;7,5
+30: Sun. Mrigashiras/mgo. Fire-Wind; 22 Jun 1952
+  Ganda/'grams, Naga/klu, Ox, zon 3
+  Solar: Earth-Pig. Mao
+  1;20,27 4;45,37 5;6,5 9;51,42 2;8,1
+    zin phung
+
+Mars, slow: 16;28,19,0,94 - fast: 13;54,18,3,181 West 6;5,24
+Jupiter, slow: 1;20,59,5,1 - fast: 1;55,23,4,187 East 0;25,38
+Saturn, slow: 12;32,40,3,2691 - fast: 12;4,40,3,2691 North 5;11,2
+Mercury, slow: 6;54,31,4,6890 - fast: 5;38,13,4,8153 East 2;15,9
+Venus, slow: 3;39,53,3,411 - fast: 4;28,45,1,147 North 1;29,43
+Rahu, head: 22;25,18,1,13
+
+Tibetan Lunar Month: 5 - Fire-male-Horse
+
+Month: 14177;13
+Anomaly: 24;51
+Mean Weekday: 1;33,14,3,437
+Mean Sun: 5;1,29,1,5
+
+1: Mon. Ardra/lag. Water-Water; 23 Jun 1952
+  Vriddhi/'phel, Vava/gdab pa, Tiger, li 4
+  Solar: Iron-Mouse. Bi
+  2;23,44 5;40,31 5;10,15 10;50,46 2;8,56
+2: Tue. Punarvasu/nabs so. Fire-Wind; 24 Jun 1952
+  Dhruva/brtan pa, Valava/byis pa, Rabbit, khon 5
+  Solar: Iron-Ox. Zui
+  3;27,36 6;34,49 5;14,25 11;49,15 2;9,52
+3: Wed. Pushya/rgyal. Water-Fire; 25 Jun 1952
+  Vyaghata/yongs bsnun, Taitila/til rdung, Dragon, dwa 6
+  Solar: Water-Tiger. Can
+  4;31,28 7;29,7 5;18,36 12;47,43 2;10,48
+4: Thu. Ashlesha/skag. Wind-Water; 26 Jun 1952
+  Harshana/dga' ba, Vanija/tshong ba, Snake, khen 7
+  Solar: Water-Rabbit. Jing
+  5;35,20 8;23,26 5;22,46 13;46,12 2;11,43
+5: Fri. Magha/mchu. Earth-Fire; 27 Jun 1952
+  Vajra/rdo rje, Vava/gdab pa, Horse, kham 8
+  Solar: Wood-Dragon. Gui
+  6;39,12 9;17,44 5;26,56 14;44,40 2;12,39
+    yan kwong
+6: Sat. Purvaphalguni/gre. Earth-Fire; 28 Jun 1952
+  Siddhi/dngos grub, Kaulava/rigs can, Sheep, gin 9
+  Solar: Wood-Snake. Liu
+  0;43,4 10;12,2 5;31,7 15;43,9 2;13,34
+    zin phung
+7: Sun. Uttaraphalguni/dbo. Fire-Wind; 29 Jun 1952
+  Vyatipata/phan tshun, Gara/khyim skyes, Monkey, zin 1
+  Solar: Fire-Horse. Xing
+  1;46,32 11;6,44 5;35,17 16;42,2 2;14,30
+8: Mon. Hasta/me bzhi. Water-Wind; 30 Jun 1952
+  Variyas/mchog can, Vishti/viSTi, Bird, zon 2
+  Solar: Fire-Sheep. Zhang
+  2;49,0 12;2,27 5;39,27 17;41,55 2;15,26
+    klu bzlog
+9: Tue. Hasta/me bzhi. Fire-Wind; 1 Jul 1952
+  Parigha/yongs 'joms, Valava/byis pa, Dog, li 3
+  Solar: Earth-Monkey. Yi
+  3;50,27 12;59,10 5;43,38 18;42,48 2;16,21
+10: Wed. Citra/nag pa. Water-Wind; 2 Jul 1952
+  Shiva/zhi ba, Taitila/til rdung, Pig, khon 4
+  Solar: Earth-Bird. Zhen
+  4;50,55 13;56,52 5;47,48 19;44,41 2;17,17
+11: Thu. Svati/sa ri. Wind-Wind; 3 Jul 1952
+  Siddha/grub pa, Vanija/tshong ba, Mouse, dwa 5
+  Solar: Iron-Dog. Jiao
+  5;49,58 14;56,0 5;51,58 20;47,58 2;18,13
+12: Fri. Vishakha/sa ga. Earth-Fire; 4 Jul 1952
+  Sadhya/bsgrub bya, Vava/gdab pa, Ox, khen 6
+  Solar: Iron-Pig. Kang
+  6;47,26 15;56,42 5;56,8 21;52,51 2;19,8
+    zin phung
+13: Sat. Anuradha/lha mtshams. Earth-Earth; 5 Jul 1952
+  Shubha/dge ba, Kaulava/rigs can, Tiger, kham 7
+  Solar: Water-Mouse. Di
+  0;43,53 16;58,25 6;0,19 22;58,44 2;20,4
+14: Sun. Mula/snrubs. Fire-Water; 6 Jul 1952
+  Brahman/tshangs pa, Gara/khyim skyes, Rabbit, gin 8
+  Solar: Water-Ox. Fang
+  1;39,21 18;1,8 6;4,29 24;5,38 2;20,59
+15: Mon. Purvashadha/chu stod. Water-Water; 7 Jul 1952
+  Indra/dbang po, Vishti/viSTi, Dragon, zin 9
+  Solar: Wood-Tiger. Xin
+  2;33,48 19;4,51 6;8,39 25;13,31 2;21,55
+    klu bzlog
+
+Mars, slow: 17;5,31,2,68 - fast: 14;14,15,2,116 West 6;9,50
+Jupiter, slow: 1;26,58,5,7 - fast: 2;7,58,4,286 East 0;28,26
+Saturn, slow: 12;34,49,5,5083 - fast: 12;7,54,1,3436 North 5;11,45
+Mercury, slow: 11;30,45,3,6819 - fast: 7;35,42,0,2795 East 3;11,16
+Venus, slow: 5;28,2,1,343 - fast: 5;50,35,5,459 North 2;17,54
+Rahu, head: 22;21,46,5,17
+
+16: Tue. Uttarashadha/chu smad. Fire-Earth; 8 Jul 1952
+  Vaidhriti/'khon 'dzin, Valava/byis pa, Snake, zon 1
+  Solar: Wood-Rabbit. Wei
+  3;27,40 20;9,9 6;12,50 26;21,59 2;22,51
+    nyi nag
+17: Wed. Abhijit/gro zhin. Water-Earth; 9 Jul 1952
+  Vishkambha/rnam sel, Gara/khyim skyes, Horse, li 2
+  Solar: Fire-Dragon. Ji
+  4;21,32 21;13,28 6;17,0 0;30,28 2;23,46
+18: Thu. Dhanishtha/mon gre. Wind-Water; 10 Jul 1952
+  Priti/mdza' bo, Vishti/viSTi, Sheep, khon 3
+  Solar: Fire-Snake. Dou
+  5;15,24 22;17,46 6;21,10 1;38,57 2;24,42
+    zin phung
+19: Fri. Shatabhishaj/mon gru. Earth-Earth; 11 Jul 1952
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Monkey, dwa 4
+  Solar: Earth-Horse. Niu
+  6;9,16 23;22,4 6;25,21 2;47,25 2;25,38
+20: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 12 Jul 1952
+  Saubhagya/skal bzang, Taitila/til rdung, Bird, khen 5
+  Solar: Earth-Sheep. Nu
+  0;3,8 24;26,23 6;29,31 3;55,54 2;26,33
+    klu thebs
+21. Omitted.
+  0;57,24 6;33,41
+22: Sun. Uttarabhadrapada/khrums smad. Fire-Water; 13 Jul 1952
+  Atiganda/shin tu 'grams, Vishti/viSTi, Pig, gin 7
+  Solar: Iron-Monkey. Xu
+  1;52,41 25;33,10 6;37,52 5;11,2 2;28,24
+    klu thebs
+23: Mon. Revati/nam gru. Water-Water; 14 Jul 1952
+  Sukarman/las bzang, Valava/byis pa, Mouse, zin 8
+  Solar: Iron-Bird. Wei
+  2;48,57 26;35,4 6;42,2 6;17,6 2;29,20
+24: Tue. Ashvini/tha skar. Fire-Wind; 15 Jul 1952
+  Dhriti/'dzin byed, Taitila/til rdung, Ox, zon 9
+  Solar: Water-Dog. Shi
+  3;46,14 0;35,57 6;46,12 7;22,10 3;0,16
+    zin phung
+25: Wed. Bharani/bra nye. Water-Fire; 16 Jul 1952
+  Shula/zug rngu, Vanija/tshong ba, Tiger, li 1
+  Solar: Water-Pig. Bi
+  4;44,56 1;35,26 6;50,22 8;25,49 3;1,11
+26: Thu. Krittika/smin drug. Wind-Fire; 17 Jul 1952
+  Ganda/'grams, Vava/gdab pa, Rabbit, khon 2
+  Solar: Wood-Mouse. Kui
+  5;45,12 2;33,20 6;54,33 9;27,53 3;2,7
+27: Fri. Rohini/snar ma. Earth-Earth; 18 Jul 1952
+  Vriddhi/'phel, Kaulava/rigs can, Dragon, dwa 3
+  Solar: Wood-Ox. Lou
+  6;46,29 3;30,13 6;58,43 10;28,57 3;3,3
+28: Sat. Mrigashiras/mgo. Earth-Wind; 19 Jul 1952
+  Dhruva/brtan pa, Gara/khyim skyes, Snake, khen 4
+  Solar: Fire-Tiger. Wei
+  0;48,46 4;26,7 7;2,53 11;29,1 3;3,58
+29: Sun. Ardra/lag. Fire-Water; 20 Jul 1952
+  Vyaghata/yongs bsnun, Vishti/viSTi, Horse, kham 5
+  Solar: Fire-Rabbit. Mao
+  1;52,3 5;21,0 7;7,4 12;28,5 3;4,54
+30: Mon. Punarvasu/nabs so. Water-Wind; 21 Jul 1952
+  Harshana/dga' ba, Shakuni/bkra shis, Sheep, gin 6
+  Solar: Earth-Dragon. Bi
+  2;55,55 6;15,19 7;11,14 13;26,33 3;5,49
+    zin phung
+
+Mars, slow: 17;40,14,5,59 - fast: 14;43,20,3,36 West 6;16,17
+Jupiter, slow: 1;32,33,5,157 - fast: 2;19,33,1,255 East 1;1,0
+Saturn, slow: 12;36,50,4,3368 - fast: 12;12,2,0,53 North 5;12,40
+Mercury, slow: 15;48,34,3,2061 - fast: 9;5,33,0,4736 East 4;1,14
+Venus, slow: 7;8,58,1,679 - fast: 7;9,26,3,62 North 3;5,25
+Rahu, head: 22;18,15,3,21
+
+Tibetan Lunar Month: 6 - Fire-female-Sheep
+
+Month: 14178;15
+Anomaly: 26;52
+Mean Weekday: 3;5,4,4,210
+Mean Sun: 7;12,27,4,2
+
+1: Tue. Pushya/rgyal. Fire-Fire; 22 Jul 1952
+  Vajra/rdo rje, Naga/klu, Monkey, zin 7
+  Solar: Earth-Snake. Zui
+  3;59,47 7;9,37 7;15,24 14;25,1 3;6,45
+2: Wed. Ashlesha/skag. Water-Water; 23 Jul 1952
+  Siddhi/dngos grub, Vava/gdab pa, Bird, zon 8
+  Solar: Iron-Horse. Can
+  4;60,0 8;9,37 7;19,35 15;29,12 3;7,41
+2: Thu. Magha/mchu. Wind-Fire; 24 Jul 1952
+  Vyatipata/phan tshun, Kaulava/rigs can, Bird, zon 8
+  Solar: Iron-Sheep. Jing
+  5;3,39 9;3,55 7;19,35 16;23,30 3;7,41
+3: Fri. Magha/mchu. Earth-Fire; 25 Jul 1952
+  Variyas/mchog can, Gara/khyim skyes, Dog, li 9
+  Solar: Water-Monkey. Gui
+  6;7,31 9;58,13 7;23,45 17;21,59 3;8,36
+    yan kwong
+4: Sat. Purvaphalguni/gre. Earth-Fire; 26 Jul 1952
+  Parigha/yongs 'joms, Vishti/viSTi, Pig, khon 1
+  Solar: Water-Bird. Liu
+  0;11,23 10;52,31 7;27,55 18;20,27 3;9,32
+  Turning of the Wheel of the Dharma.
+5: Sun. Uttaraphalguni/dbo. Fire-Wind; 27 Jul 1952
+  Shiva/zhi ba, Valava/byis pa, Mouse, dwa 2
+  Solar: Wood-Dog. Xing
+  1;14,50 11;47,15 7;32,6 19;19,21 3;10,28
+    klu thebs
+6: Mon. Hasta/me bzhi. Water-Wind; 28 Jul 1952
+  Siddha/grub pa, Taitila/til rdung, Ox, khen 3
+  Solar: Wood-Pig. Zhang
+  2;17,18 12;42,57 7;36,16 20;19,14 3;11,23
+    zin phung
+7: Tue. Citra/nag pa. Fire-Wind; 29 Jul 1952
+  Sadhya/bsgrub bya, Vanija/tshong ba, Tiger, kham 4
+  Solar: Fire-Mouse. Yi
+  3;18,45 13;39,41 7;40,26 21;20,7 3;12,19
+8: Wed. Svati/sa ri. Water-Wind; 30 Jul 1952
+  Shubha/dge ba, Vava/gdab pa, Rabbit, gin 5
+  Solar: Fire-Ox. Zhen
+  4;19,12 14;37,24 7;44,36 22;22,1 3;13,14
+9: Thu. Vishakha/sa ga. Wind-Fire; 31 Jul 1952
+  Shukla/dkar po, Kaulava/rigs can, Dragon, zin 6
+  Solar: Earth-Tiger. Jiao
+  5;18,14 15;36,32 7;48,47 23;25,19 3;14,10
+10: Fri. Anuradha/lha mtshams. Earth-Earth; 1 Aug 1952
+  Brahman/tshangs pa, Gara/khyim skyes, Snake, zon 7
+  Solar: Earth-Rabbit. Kang
+  6;15,41 16;37,15 7;52,57 24;30,13 3;15,6
+11: Sat. Jyeshtha/snron. Earth-Earth; 2 Aug 1952
+  Indra/dbang po, Vishti/viSTi, Horse, li 8
+  Solar: Iron-Dragon. Di
+  0;12,8 17;38,58 7;57,7 25;36,6 3;16,1
+    klu bzlog
+12: Sun. Mula/snrubs. Fire-Water; 3 Aug 1952
+  Vaidhriti/'khon 'dzin, Valava/byis pa, Sheep, khon 9
+  Solar: Iron-Snake. Fang
+  1;7,36 18;41,42 8;1,18 26;43,0 3;16,57
+    zin phung
+13: Mon. Purvashadha/chu stod. Water-Water; 4 Aug 1952
+  Vishkambha/rnam sel, Taitila/til rdung, Monkey, dwa 1
+  Solar: Water-Horse. Xin
+  2;2,3 19;45,25 8;5,28 0;50,53 3;17,52
+    klu bzlog
+14. Omitted.
+  2;55,54 8;9,38
+15: Tue. Uttarashadha/chu smad. Fire-Earth; 5 Aug 1952
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Dog, kham 3
+  Solar: Water-Sheep. Wei
+  3;49,46 20;54,2 8;13,49 2;7,51 3;19,44
+  The Buddha's entry into the womb of his mother.
+    klu bzlog
+
+Mars, slow: 18;19,48,4,92 - fast: 15;18,9,1,90 West 6;24,2
+Jupiter, slow: 1;38,32,5,163 - fast: 2;28,51,4,91 East 1;3,4
+Saturn, slow: 12;39,0,1,377 - fast: 12;17,35,5,4133 North 5;13,54
+Mercury, slow: 20;24,48,2,1990 - fast: 9;41,44,5,3622 South 4;9,16
+Venus, slow: 8;57,6,5,611 - fast: 8;31,18,0,57 East 3;23,37
+Rahu, head: 22;14,44,2,2
+
+16: Wed. Abhijit/gro zhin. Water-Earth; 6 Aug 1952
+  Saubhagya/skal bzang, Valava/byis pa, Pig, gin 4
+  Solar: Wood-Monkey. Ji
+  4;43,38 21;58,20 8;17,59 3;16,19 3;20,39
+17: Thu. Shatabhishaj/mon gru. Wind-Earth; 7 Aug 1952
+  Shobhana/dge byed, Taitila/til rdung, Mouse, zin 5
+  Solar: Wood-Bird. Dou
+  5;37,30 23;2,38 8;22,9 4;24,48 3;21,35
+18: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 8 Aug 1952
+  Atiganda/shin tu 'grams, Vanija/tshong ba, Ox, zon 6
+  Solar: Fire-Dog. Niu
+  6;31,22 24;6,57 8;26,19 5;33,16 3;22,31
+    zin phung
+19: Sat. Uttarabhadrapada/khrums smad. Earth-Water; 9 Aug 1952
+  Sukarman/las bzang, Valava/byis pa, Tiger, li 7
+  Solar: Fire-Pig. Nu
+  0;25,39 25;10,50 8;30,30 6;41,20 3;23,26
+20: Sun. Revati/nam gru. Fire-Water; 10 Aug 1952
+  Dhriti/'dzin byed, Taitila/til rdung, Rabbit, khon 8
+  Solar: Earth-Mouse. Xu
+  1;20,56 26;13,43 8;34,40 7;48,24 3;24,22
+    klu thebs
+21: Mon. Ashvini/tha skar. Water-Wind; 11 Aug 1952
+  Shula/zug rngu, Vanija/tshong ba, Dragon, dwa 9
+  Solar: Earth-Ox. Wei
+  2;17,13 0;15,36 8;38,50 8;54,27 3;25,17
+22: Tue. Bharani/bra nye. Fire-Fire; 12 Aug 1952
+  Ganda/'grams, Vava/gdab pa, Snake, khen 1
+  Solar: Iron-Tiger. Shi
+  3;14,31 1;16,30 8;43,1 9;59,31 3;26,13
+23: Wed. Krittika/smin drug. Water-Fire; 13 Aug 1952
+  Dhruva/brtan pa, Kaulava/rigs can, Horse, kham 2
+  Solar: Iron-Rabbit. Bi
+  4;13,13 2;15,58 8;47,11 11;3,9 3;27,9
+    klu bzlog
+24: Thu. Rohini/snar ma. Wind-Earth; 14 Aug 1952
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Sheep, gin 3
+  Solar: Water-Dragon. Kui
+  5;13,30 3;13,51 8;51,21 12;5,12 3;28,4
+    zin phung, nyi nag
+25: Fri. Mrigashiras/mgo. Earth-Wind; 15 Aug 1952
+  Harshana/dga' ba, Vishti/viSTi, Monkey, zin 4
+  Solar: Water-Snake. Lou
+  6;14,49 4;10,44 8;55,33 13;6,17 3;29,0
+    klu thebs
+26: Sat. Ardra/lag. Earth-Water; 16 Aug 1952
+  Vajra/rdo rje, Valava/byis pa, Bird, zon 5
+  Solar: Wood-Horse. Wei
+  0;17,10 5;6,37 8;59,47 14;6,25 3;29,57
+27: Sun. Punarvasu/nabs so. Fire-Wind; 17 Aug 1952
+  Siddhi/dngos grub, Taitila/til rdung, Dog, li 6
+  Solar: Wood-Sheep. Mao
+  1;20,31 6;1,30 9;4,1 15;5,32 4;0,53
+28: Mon. Punarvasu/nabs so. Water-Wind; 18 Aug 1952
+  Vyatipata/phan tshun, Vanija/tshong ba, Pig, khon 7
+  Solar: Fire-Monkey. Bi
+  2;24,27 6;55,48 9;8,16 16;4,4 4;1,50
+29: Tue. Pushya/rgyal. Fire-Fire; 19 Aug 1952
+  Variyas/mchog can, Vishti/viSTi, Mouse, dwa 8
+  Solar: Fire-Bird. Zui
+  3;28,23 7;50,6 9;12,30 17;2,37 4;2,46
+30: Wed. Ashlesha/skag. Water-Water; 20 Aug 1952
+  Parigha/yongs 'joms, Catushpada/rkang bzhi, Ox, khen 9
+  Solar: Earth-Dog. Can
+  4;32,19 8;44,25 9;16,44 18;1,9 4;3,43
+    zin phung
+
+Mars, slow: 18;59,53,5,193 - fast: 15;59,4,3,113 North 7;3,7
+Jupiter, slow: 1;44,31,5,169 - fast: 2;36,10,4,322 East 1;4,42
+Saturn, slow: 12;41,9,3,2769 - fast: 12;23,58,4,762 North 5;15,19
+Mercury, slow: 25;1,2,1,1919 - fast: 8;34,55,3,6578 West 3;24,25
+Venus, slow: 10;45,15,3,543 - fast: 9;53,25,4,264 East 4;11,52
+Rahu, head: 22;11,13,0,6
+
+Tibetan Lunar Month: 7 - Earth-male-Monkey
+
+Month: 14179;17
+Anomaly: 0;53
+Mean Weekday: 4;36,54,4,690
+Mean Sun: 9;23,26,0,12
+
+1: Thu. Magha/mchu. Wind-Fire; 21 Aug 1952
+  Parigha/yongs 'joms, Kintughna/mi sdug pa, Tiger, kham 1
+  Solar: Earth-Pig. Jing
+  5;36,15 9;38,43 9;20,58 18;59,41 4;4,39
+    yan kwong
+2: Fri. Purvaphalguni/gre. Earth-Fire; 22 Aug 1952
+  Shiva/zhi ba, Valava/byis pa, Rabbit, gin 2
+  Solar: Iron-Mouse. Gui
+  6;40,11 10;33,1 9;25,12 19;58,14 4;5,36
+3: Sat. Uttaraphalguni/dbo. Earth-Wind; 23 Aug 1952
+  Siddha/grub pa, Taitila/til rdung, Dragon, zin 3
+  Solar: Iron-Ox. Liu
+  0;43,42 11;27,44 9;29,27 20;57,11 4;6,32
+    zin phung
+4: Sun. Hasta/me bzhi. Fire-Wind; 24 Aug 1952
+  Sadhya/bsgrub bya, Vanija/tshong ba, Snake, zon 4
+  Solar: Water-Tiger. Xing
+  1;46,12 12;23,28 9;33,41 21;57,9 4;7,29
+5: Mon. Citra/nag pa. Water-Wind; 25 Aug 1952
+  Shubha/dge ba, Vava/gdab pa, Horse, li 5
+  Solar: Water-Rabbit. Zhang
+  2;47,43 13;20,12 9;37,55 22;58,7 4;8,25
+    klu bzlog
+6: Tue. Svati/sa ri. Fire-Wind; 26 Aug 1952
+  Brahman/tshangs pa, Kaulava/rigs can, Sheep, khon 6
+  Solar: Wood-Dragon. Yi
+  3;48,13 14;17,55 9;42,9 24;0,5 4;9,22
+    klu bzlog
+7: Wed. Vishakha/sa ga. Water-Fire; 27 Aug 1952
+  Indra/dbang po, Gara/khyim skyes, Monkey, dwa 7
+  Solar: Wood-Snake. Zhen
+  4;47,19 15;17,4 9;46,23 25;3,28 4;10,18
+8: Thu. Anuradha/lha mtshams. Wind-Earth; 28 Aug 1952
+  Vaidhriti/'khon 'dzin, Vishti/viSTi, Bird, khen 8
+  Solar: Fire-Horse. Jiao
+  5;44,49 16;17,48 9;50,38 26;8,26 4;11,15
+9: Fri. Jyeshtha/snron. Earth-Earth; 29 Aug 1952
+  Vishkambha/rnam sel, Valava/byis pa, Dog, kham 9
+  Solar: Fire-Sheep. Kang
+  6;41,20 17;19,31 9;54,52 0;14,24 4;12,11
+    klu thebs, zin phung, nyi nag
+10: Sat. Mula/snrubs. Earth-Water; 30 Aug 1952
+  Priti/mdza' bo, Taitila/til rdung, Pig, gin 1
+  Solar: Earth-Monkey. Di
+  0;36,50 18;22,15 9;59,6 1;21,22 4;13,8
+11: Sun. Purvashadha/chu stod. Fire-Water; 31 Aug 1952
+  Ayushmat/tshe dang ldan pa, Vanija/tshong ba, Mouse, zin 2
+  Solar: Earth-Bird. Fang
+  1;31,21 19;25,59 10;3,20 2;29,19 4;14,4
+12: Mon. Uttarashadha/chu smad. Water-Earth; 1 Sep 1952
+  Saubhagya/skal bzang, Valava/byis pa, Ox, zon 3
+  Solar: Iron-Dog. Xin
+  2;25,16 20;30,17 10;7,34 3;37,52 4;15,1
+13: Tue. Abhijit/gro zhin. Fire-Earth; 2 Sep 1952
+  Shobhana/dge byed, Taitila/til rdung, Tiger, li 4
+  Solar: Iron-Pig. Wei
+  3;19,12 21;34,36 10;11,48 4;46,24 4;15,57
+14: Wed. Dhanishtha/mon gre. Water-Water; 3 Sep 1952
+  Atiganda/shin tu 'grams, Vanija/tshong ba, Rabbit, khon 5
+  Solar: Water-Mouse. Ji
+  4;13,8 22;38,54 10;16,3 5;54,57 4;16,54
+15: Thu. Shatabhishaj/mon gru. Wind-Earth; 4 Sep 1952
+  Dhriti/'dzin byed, Vava/gdab pa, Dragon, dwa 6
+  Solar: Water-Ox. Dou
+  5;7,4 23;43,12 10;20,17 7;3,29 4;17,50
+    zin phung
+
+Mars, slow: 19;39,59,1,65 - fast: 16;40,26,0,30 North 7;12,19
+Jupiter, slow: 1;50,30,5,175 - fast: 2;40,35,4,51 South 1;5,41
+Saturn, slow: 12;43,18,5,5161 - fast: 12;31,7,0,831 North 5;16,54
+Mercury, slow: 2;37,16,0,1848 - fast: 9;10,56,4,6090 North 4;2,25
+Venus, slow: 12;33,24,1,475 - fast: 11;15,33,3,58 East 5;0,7
+Rahu, head: 22;7,41,4,10
+
+16: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 5 Sep 1952
+  Shula/zug rngu, Kaulava/rigs can, Snake, khen 7
+  Solar: Wood-Tiger. Niu
+  6;1,0 24;47,31 10;24,31 8;12,2 4;18,46
+17. Omitted.
+  6;55,21 10;28,45
+18: Sat. Uttarabhadrapada/khrums smad. Earth-Water; 6 Sep 1952
+  Ganda/'grams, Vanija/tshong ba, Sheep, gin 9
+  Solar: Wood-Rabbit. Nu
+  0;50,42 25;54,16 10;32,59 9;27,16 4;20,39
+19: Sun. Revati/nam gru. Fire-Water; 7 Sep 1952
+  Vriddhi/'phel, Vava/gdab pa, Monkey, zin 1
+  Solar: Fire-Dragon. Xu
+  1;47,4 26;56,9 10;37,14 10;33,23 4;21,36
+    klu thebs
+20: Mon. Ashvini/tha skar. Water-Wind; 8 Sep 1952
+  Dhruva/brtan pa, Kaulava/rigs can, Bird, zon 2
+  Solar: Fire-Snake. Wei
+  2;44,25 0;57,2 10;41,28 11;38,30 4;22,32
+21: Tue. Bharani/bra nye. Fire-Fire; 9 Sep 1952
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Dog, li 3
+  Solar: Earth-Horse. Shi
+  3;43,12 1;56,29 10;45,42 12;42,11 4;23,29
+    zin phung
+22: Wed. Krittika/smin drug. Water-Fire; 10 Sep 1952
+  Harshana/dga' ba, Vishti/viSTi, Pig, khon 4
+  Solar: Earth-Sheep. Bi
+  4;43,34 2;54,22 10;49,56 13;44,18 4;24,25
+23: Thu. Rohini/snar ma. Wind-Earth; 11 Sep 1952
+  Vajra/rdo rje, Valava/byis pa, Mouse, dwa 5
+  Solar: Iron-Monkey. Kui
+  5;44,55 3;51,14 10;54,10 14;45,25 4;25,22
+24: Fri. Mrigashiras/mgo. Earth-Wind; 12 Sep 1952
+  Siddhi/dngos grub, Taitila/til rdung, Ox, khen 6
+  Solar: Iron-Bird. Lou
+  6;47,17 4;47,7 10;58,24 15;45,32 4;26,18
+25: Sat. Ardra/lag. Earth-Water; 13 Sep 1952
+  Vyatipata/phan tshun, Vanija/tshong ba, Tiger, kham 7
+  Solar: Water-Dog. Wei
+  0;50,39 5;42,0 11;2,39 16;44,39 4;27,15
+26: Sun. Punarvasu/nabs so. Fire-Wind; 14 Sep 1952
+  Variyas/mchog can, Vishti/viSTi, Rabbit, gin 8
+  Solar: Water-Pig. Mao
+  1;54,37 6;36,18 11;6,55 17;43,14 4;28,12
+27: Mon. Pushya/rgyal. Water-Fire; 15 Sep 1952
+  Parigha/yongs 'joms, Valava/byis pa, Dragon, zin 9
+  Solar: Wood-Mouse. Bi
+  2;58,39 7;30,36 11;11,15 18;41,52 4;29,10
+    zin phung
+28: Tue. Ashlesha/skag. Fire-Water; 16 Sep 1952
+  Shiva/zhi ba, Taitila/til rdung, Snake, zon 1
+  Solar: Wood-Ox. Zui
+  3;60,0 8;30,36 11;15,35 19;46,12 5;0,7
+28: Wed. Magha/mchu. Water-Fire; 17 Sep 1952
+  Siddha/grub pa, Vanija/tshong ba, Snake, zon 1
+  Solar: Fire-Tiger. Can
+  4;2,41 9;24,54 11;15,35 20;40,30 5;0,7
+29: Thu. Purvaphalguni/gre. Wind-Fire; 18 Sep 1952
+  Sadhya/bsgrub bya, Shakuni/bkra shis, Horse, li 2
+  Solar: Fire-Rabbit. Jing
+  5;6,43 10;19,12 11;19,55 21;39,8 5;1,5
+    yan kwong
+30: Fri. Uttaraphalguni/dbo. Earth-Wind; 19 Sep 1952
+  Shubha/dge ba, Naga/klu, Sheep, khon 3
+  Solar: Earth-Dragon. Gui
+  6;10,44 11;13,31 11;24,16 22;37,47 5;2,3
+
+Mars, slow: 20;20,4,3,217 - fast: 17;23,42,1,206 North 7;21,56
+Jupiter, slow: 1;56,29,5,181 - fast: 2;41,42,2,246 South 1;5,56
+Saturn, slow: 12;45,28,2,2170 - fast: 12;38,33,0,2748 North 5;18,34
+Mercury, slow: 7;13,29,5,1777 - fast: 10;42,38,2,3869 North 4;22,48
+Venus, slow: 14;21,32,5,407 - fast: 12;38,31,1,712 East 5;18,33
+Rahu, head: 22;4,10,2,14
+
+Tibetan Lunar Month: 8 - Earth-female-Bird
+
+Month: 14180;19
+Anomaly: 2;54
+Mean Weekday: 6;8,44,5,463
+Mean Sun: 11;34,24,3,9
+
+1: Sat. Hasta/me bzhi. Earth-Wind; 20 Sep 1952
+  Shukla/dkar po, Vava/gdab pa, Monkey, dwa 4
+  Solar: Earth-Snake. Liu
+  0;14,20 12;8,15 11;28,36 23;36,51 5;3,1
+2: Sun. Citra/nag pa. Fire-Wind; 21 Sep 1952
+  Brahman/tshangs pa, Kaulava/rigs can, Bird, khen 5
+  Solar: Iron-Horse. Xing
+  1;16,57 13;3,58 11;32,56 24;36,54 5;3,59
+3: Mon. Svati/sa ri. Water-Wind; 22 Sep 1952
+  Indra/dbang po, Gara/khyim skyes, Dog, kham 6
+  Solar: Iron-Sheep. Zhang
+  2;18,33 14;0,42 11;37,16 25;37,58 5;4,56
+    klu bzlog, zin phung
+4: Tue. Svati/sa ri. Fire-Wind; 23 Sep 1952
+  Vaidhriti/'khon 'dzin, Vishti/viSTi, Pig, gin 7
+  Solar: Water-Monkey. Yi
+  3;19,9 14;58,26 11;41,36 26;40,2 5;5,54
+5: Wed. Vishakha/sa ga. Water-Fire; 24 Sep 1952
+  Vishkambha/rnam sel, Valava/byis pa, Mouse, zin 8
+  Solar: Water-Bird. Zhen
+  4;18,19 15;57,36 11;45,56 0;43,32 5;6,52
+    klu thebs
+6: Thu. Anuradha/lha mtshams. Wind-Earth; 25 Sep 1952
+  Priti/mdza' bo, Taitila/til rdung, Ox, zon 9
+  Solar: Wood-Dog. Jiao
+  5;15,55 16;58,20 11;50,16 1;48,36 5;7,50
+    klu bzlog
+7: Fri. Mula/snrubs. Earth-Water; 26 Sep 1952
+  Ayushmat/tshe dang ldan pa, Vanija/tshong ba, Tiger, li 1
+  Solar: Wood-Pig. Kang
+  6;12,30 18;0,5 11;54,36 2;54,41 5;8,48
+8: Sat. Purvashadha/chu stod. Earth-Water; 27 Sep 1952
+  Shobhana/dge byed, Vava/gdab pa, Rabbit, khon 2
+  Solar: Fire-Mouse. Di
+  0;8,6 19;2,49 11;58,56 4;1,45 5;9,45
+9: Sun. Uttarashadha/chu smad. Fire-Earth; 28 Sep 1952
+  Atiganda/shin tu 'grams, Kaulava/rigs can, Dragon, dwa 3
+  Solar: Fire-Ox. Fang
+  1;2,42 20;6,33 12;3,16 5;9,49 5;10,43
+    klu bzlog, zin phung
+10. Omitted.
+  1;56,44 12;7,36
+11: Mon. Abhijit/gro zhin. Water-Earth; 29 Sep 1952
+  Sukarman/las bzang, Vanija/tshong ba, Horse, kham 5
+  Solar: Earth-Tiger. Xin
+  2;50,45 21;15,10 12;11,56 6;27,6 5;12,39
+12: Tue. Dhanishtha/mon gre. Fire-Water; 30 Sep 1952
+  Dhriti/'dzin byed, Vava/gdab pa, Sheep, gin 6
+  Solar: Earth-Rabbit. Wei
+  3;44,47 22;19,28 12;16,16 7;35,44 5;13,36
+13: Wed. Shatabhishaj/mon gru. Water-Earth; 1 Oct 1952
+  Shula/zug rngu, Kaulava/rigs can, Monkey, zin 7
+  Solar: Iron-Dragon. Ji
+  4;38,49 23;23,46 12;20,36 8;44,22 5;14,34
+    klu bzlog
+14: Thu. Purvabhadrapada/khrums stod. Wind-Fire; 2 Oct 1952
+  Ganda/'grams, Gara/khyim skyes, Bird, zon 8
+  Solar: Iron-Snake. Dou
+  5;32,50 24;28,5 12;24,56 9;53,1 5;15,32
+15: Fri. Uttarabhadrapada/khrums smad. Earth-Water; 3 Oct 1952
+  Dhruva/brtan pa, Vishti/viSTi, Dog, li 9
+  Solar: Water-Horse. Niu
+  6;27,18 25;31,57 12;29,16 11;1,13 5;16,30
+    klu thebs, zin phung
+
+Mars, slow: 20;59,12,1,123 - fast: 18;7,39,5,65 North 8;1,42
+Jupiter, slow: 2;2,4,5,331 - fast: 2;39,24,3,340 South 1;5,25
+Saturn, slow: 12;47,29,1,455 - fast: 12;46,43,3,4757 North 5;20,23
+Mercury, slow: 11;31,18,4,5816 - fast: 12;32,33,2,7054 North 5;17,14
+Venus, slow: 16;2,28,5,743 - fast: 13;57,57,1,423 East 6;6,12
+Rahu, head: 22;0,39,0,18
+
+16: Sat. Revati/nam gru. Earth-Water; 4 Oct 1952
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Pig, khon 1
+  Solar: Water-Sheep. Nu
+  0;22,46 26;34,49 12;33,36 12;8,25 5;17,28
+    klu bzlog
+17: Sun. Ashvini/tha skar. Fire-Wind; 5 Oct 1952
+  Harshana/dga' ba, Gara/khyim skyes, Mouse, dwa 2
+  Solar: Wood-Monkey. Xu
+  1;19,13 0;36,42 12;37,56 13;14,38 5;18,25
+18: Mon. Bharani/bra nye. Water-Fire; 6 Oct 1952
+  Vajra/rdo rje, Vishti/viSTi, Ox, khen 3
+  Solar: Wood-Bird. Wei
+  2;16,41 1;37,34 12;42,16 14;19,50 5;19,23
+    nyi nag
+19: Tue. Krittika/smin drug. Fire-Fire; 7 Oct 1952
+  Siddhi/dngos grub, Valava/byis pa, Tiger, kham 4
+  Solar: Fire-Dog. Shi
+  3;15,35 2;37,0 12;46,36 15;23,36 5;20,21
+20: Wed. Rohini/snar ma. Water-Earth; 8 Oct 1952
+  Vyatipata/phan tshun, Taitila/til rdung, Rabbit, gin 5
+  Solar: Fire-Pig. Bi
+  4;16,2 3;34,53 12;50,56 16;25,49 5;21,19
+21: Thu. Mrigashiras/mgo. Wind-Wind; 9 Oct 1952
+  Variyas/mchog can, Vanija/tshong ba, Dragon, zin 6
+  Solar: Earth-Mouse. Kui
+  5;17,30 4;31,45 12;55,16 17;27,1 5;22,16
+    zin phung
+22: Fri. Ardra/lag. Earth-Water; 10 Oct 1952
+  Parigha/yongs 'joms, Vava/gdab pa, Snake, zon 7
+  Solar: Earth-Ox. Lou
+  6;19,58 5;27,37 12;59,36 18;27,13 5;23,14
+23: Sat. Punarvasu/nabs so. Earth-Wind; 11 Oct 1952
+  Shiva/zhi ba, Kaulava/rigs can, Horse, li 8
+  Solar: Iron-Tiger. Wei
+  0;23,26 6;22,29 13;3,56 19;26,25 5;24,12
+24: Sun. Pushya/rgyal. Fire-Fire; 12 Oct 1952
+  Siddha/grub pa, Taitila/til rdung, Sheep, khon 9
+  Solar: Iron-Rabbit. Mao
+  1;27,28 7;16,47 13;8,16 20;25,4 5;25,10
+25: Mon. Ashlesha/skag. Water-Water; 13 Oct 1952
+  Sadhya/bsgrub bya, Vanija/tshong ba, Monkey, dwa 1
+  Solar: Water-Dragon. Bi
+  2;31,30 8;11,6 13;12,36 21;23,42 5;26,8
+26: Tue. Magha/mchu. Fire-Fire; 14 Oct 1952
+  Shubha/dge ba, Vava/gdab pa, Bird, khen 2
+  Solar: Water-Snake. Zui
+  3;35,31 9;5,24 13;16,56 22;22,20 5;27,5
+27: Wed. Magha/mchu. Water-Fire; 15 Oct 1952
+  Shukla/dkar po, Kaulava/rigs can, Dog, kham 3
+  Solar: Wood-Horse. Can
+  4;39,35 9;59,42 13;21,18 23;21,0 5;28,4
+    yan kwong, zin phung
+28: Thu. Purvaphalguni/gre. Wind-Fire; 16 Oct 1952
+  Brahman/tshangs pa, Gara/khyim skyes, Pig, gin 4
+  Solar: Wood-Sheep. Jing
+  5;43,41 10;54,0 13;25,42 24;19,42 5;29,2
+29: Fri. Uttaraphalguni/dbo. Earth-Wind; 17 Oct 1952
+  Indra/dbang po, Vishti/viSTi, Mouse, zin 5
+  Solar: Fire-Monkey. Gui
+  6;47,20 11;48,45 13;30,6 25;18,51 6;0,1
+30: Sat. Hasta/me bzhi. Earth-Wind; 18 Oct 1952
+  Vaidhriti/'khon 'dzin, Catushpada/rkang bzhi, Ox, zon 6
+  Solar: Fire-Bird. Liu
+  0;50,0 12;44,29 13;34,29 26;18,59 6;0,59
+
+Mars, slow: 21;41,7,3,55 - fast: 18;54,11,2,124 North 8;12,2
+Jupiter, slow: 2;8,3,5,337 - fast: 2;35,13,2,338 South 1;4,29
+Saturn, slow: 12;49,38,3,2847 - fast: 12;55,13,0,1195 East 5;22,16
+Mercury, slow: 16;7,32,3,5745 - fast: 14;31,34,3,928 East 6;13,41
+Venus, slow: 17;50,37,3,675 - fast: 15;20,44,5,604 East 6;24,36
+Rahu, head: 21;57,7,4,22
+
+Tibetan Lunar Month: 9 - Iron-male-Dog
+
+Month: 14181;21
+Anomaly: 4;55
+Mean Weekday: 0;40,35,0,236
+Mean Sun: 13;45,23,0,6
+
+1: Sun. Citra/nag pa. Fire-Wind; 19 Oct 1952
+  Vishkambha/rnam sel, Kintughna/mi sdug pa, Tiger, li 7
+  Solar: Earth-Dog. Xing
+  1;51,39 13;41,13 13;38,53 0;20,7 6;1,58
+    klu thebs
+2: Mon. Svati/sa ri. Water-Wind; 20 Oct 1952
+  Priti/mdza' bo, Valava/byis pa, Rabbit, khon 8
+  Solar: Earth-Pig. Zhang
+  2;52,19 14;38,58 13;43,17 1;22,16 6;2,57
+3: Tue. Vishakha/sa ga. Fire-Fire; 21 Oct 1952
+  Ayushmat/tshe dang ldan pa, Taitila/til rdung, Dragon, dwa 9
+  Solar: Iron-Mouse. Yi
+  3;51,32 15;38,9 13;47,41 2;25,50 6;3,55
+    zin phung
+4: Wed. Anuradha/lha mtshams. Water-Earth; 22 Oct 1952
+  Saubhagya/skal bzang, Vanija/tshong ba, Snake, khen 1
+  Solar: Iron-Ox. Zhen
+  4;49,11 16;38,53 13;52,5 3;30,58 6;4,54
+5: Thu. Jyeshtha/snron. Wind-Earth; 23 Oct 1952
+  Shobhana/dge byed, Vava/gdab pa, Horse, kham 2
+  Solar: Water-Tiger. Jiao
+  5;45,51 17;40,38 13;56,29 4;37,7 6;5,53
+6: Fri. Mula/snrubs. Earth-Water; 24 Oct 1952
+  Atiganda/shin tu 'grams, Kaulava/rigs can, Sheep, gin 3
+  Solar: Water-Rabbit. Kang
+  6;41,30 18;43,22 14;0,53 5;44,15 6;6,51
+7: Sat. Purvashadha/chu stod. Earth-Water; 25 Oct 1952
+  Sukarman/las bzang, Gara/khyim skyes, Monkey, zin 4
+  Solar: Wood-Dragon. Di
+  0;36,9 19;47,7 14;5,17 6;52,24 6;7,50
+8: Sun. Uttarashadha/chu smad. Fire-Earth; 26 Oct 1952
+  Shula/zug rngu, Vishti/viSTi, Bird, zon 5
+  Solar: Wood-Snake. Fang
+  1;30,15 20;51,25 14;9,41 8;1,6 6;8,49
+9: Mon. Abhijit/gro zhin. Water-Earth; 27 Oct 1952
+  Ganda/'grams, Kaulava/rigs can, Dog, li 6
+  Solar: Fire-Horse. Xin
+  2;24,20 21;55,44 14;14,4 9;9,48 6;9,47
+    klu bzlog, zin phung
+10: Tue. Shatabhishaj/mon gru. Fire-Earth; 28 Oct 1952
+  Vriddhi/'phel, Gara/khyim skyes, Pig, khon 7
+  Solar: Fire-Sheep. Wei
+  3;18,26 23;0,2 14;18,28 10;18,31 6;10,46
+    klu bzlog
+11: Wed. Purvabhadrapada/khrums stod. Water-Fire; 29 Oct 1952
+  Dhruva/brtan pa, Vishti/viSTi, Mouse, dwa 8
+  Solar: Earth-Monkey. Ji
+  4;12,31 24;4,20 14;22,52 11;27,13 6;11,45
+    klu thebs
+12: Thu. Uttarabhadrapada/khrums smad. Wind-Water; 30 Oct 1952
+  Vyaghata/yongs bsnun, Valava/byis pa, Ox, khen 9
+  Solar: Earth-Bird. Dou
+  5;6,37 25;8,39 14;27,16 12;35,55 6;12,43
+13: Fri. Revati/nam gru. Earth-Water; 31 Oct 1952
+  Harshana/dga' ba, Taitila/til rdung, Tiger, kham 1
+  Solar: Iron-Dog. Niu
+  6;1,9 26;12,31 14;31,40 13;44,11 6;13,42
+14. Omitted.
+  6;56,41 14;36,4
+15: Sat. Ashvini/tha skar. Earth-Wind; 1 Nov 1952
+  Vajra/rdo rje, Vishti/viSTi, Dragon, zin 3
+  Solar: Iron-Pig. Nu
+  0;53,13 0;17,15 14;40,28 14;57,43 6;15,39
+    zin phung
+
+Mars, slow: 22;20,15,0,190 - fast: 19;39,54,2,133 North 8;22,12
+Jupiter, slow: 2;13,39,0,126 - fast: 2;26,43,3,54 South 1;2,36
+Saturn, slow: 12;51,39,2,1132 - fast: 13;2,35,2,3660 East 5;23,54
+Mercury, slow: 20;25,21,3,987 - fast: 16;17,11,2,2662 East 7;7,9
+Venus, slow: 19;31,33,4,262 - fast: 16;40,42,2,150 East 7;12,22
+Rahu, head: 21;53,36,3,3
+
+16: Sun. Bharani/bra nye. Fire-Fire; 2 Nov 1952
+  Vyatipata/phan tshun, Valava/byis pa, Snake, zon 4
+  Solar: Water-Mouse. Xu
+  1;50,45 1;18,6 14;44,52 16;2,58 6;16,38
+17: Mon. Krittika/smin drug. Water-Fire; 3 Nov 1952
+  Variyas/mchog can, Taitila/til rdung, Horse, li 5
+  Solar: Water-Ox. Wei
+  2;49,43 2;17,32 14;49,16 17;6,48 6;17,36
+18: Tue. Rohini/snar ma. Fire-Earth; 4 Nov 1952
+  Parigha/yongs 'joms, Vanija/tshong ba, Sheep, khon 6
+  Solar: Wood-Tiger. Shi
+  3;50,15 3;15,24 14;53,39 18;9,3 6;18,35
+19: Wed. Mrigashiras/mgo. Water-Wind; 5 Nov 1952
+  Shiva/zhi ba, Vava/gdab pa, Monkey, dwa 7
+  Solar: Wood-Rabbit. Bi
+  4;51,47 4;12,15 14;58,3 19;10,19 6;19,34
+    klu bzlog
+20: Thu. Ardra/lag. Wind-Water; 6 Nov 1952
+  Siddha/grub pa, Valava/byis pa, Bird, khen 8
+  Solar: Fire-Dragon. Kui
+  5;54,20 5;8,7 15;2,27 20;10,35 6;20,32
+21: Fri. Punarvasu/nabs so. Earth-Wind; 7 Nov 1952
+  Sadhya/bsgrub bya, Taitila/til rdung, Dog, kham 9
+  Solar: Fire-Snake. Lou
+  6;57,52 6;2,59 15;6,51 21;9,50 6;21,31
+    klu thebs, zin phung
+22: Sat. Pushya/rgyal. Earth-Fire; 8 Nov 1952
+  Shubha/dge ba, Vanija/tshong ba, Pig, gin 1
+  Solar: Earth-Horse. Wei
+  0;60,0 7;2,59 15;11,15 22;14,14 6;22,30
+  Descent of the Buddha from the realm of the gods.
+    klu thebs
+22: Sun. Pushya/rgyal. Fire-Fire; 9 Nov 1952
+  Shukla/dkar po, Vava/gdab pa, Pig, gin 1
+  Solar: Earth-Sheep. Mao
+  1;1,58 7;57,17 15;11,15 23;8,32 6;22,30
+23: Mon. Ashlesha/skag. Water-Water; 10 Nov 1952
+  Brahman/tshangs pa, Kaulava/rigs can, Mouse, zin 2
+  Solar: Iron-Monkey. Bi
+  2;6,3 8;51,35 15;15,39 24;7,14 6;23,28
+    klu thebs
+24: Tue. Magha/mchu. Fire-Fire; 11 Nov 1952
+  Indra/dbang po, Gara/khyim skyes, Ox, zon 3
+  Solar: Iron-Bird. Zui
+  3;10,9 9;45,53 15;20,3 25;5,56 6;24,27
+25: Wed. Purvaphalguni/gre. Water-Fire; 12 Nov 1952
+  Vaidhriti/'khon 'dzin, Vishti/viSTi, Tiger, li 4
+  Solar: Water-Dog. Can
+  4;14,15 10;40,11 15;24,27 26;4,38 6;25,26
+    yan kwong
+26: Thu. Uttaraphalguni/dbo. Wind-Wind; 13 Nov 1952
+  Vishkambha/rnam sel, Valava/byis pa, Rabbit, khon 5
+  Solar: Water-Pig. Jing
+  5;18,20 11;34,30 15;28,51 0;3,21 6;26,24
+27: Fri. Hasta/me bzhi. Earth-Wind; 14 Nov 1952
+  Priti/mdza' bo, Taitila/til rdung, Dragon, dwa 6
+  Solar: Wood-Mouse. Gui
+  6;21,59 12;29,15 15;33,14 1;2,29 6;27,23
+    zin phung, nyi nag
+28: Sat. Citra/nag pa. Earth-Wind; 15 Nov 1952
+  Ayushmat/tshe dang ldan pa, Vanija/tshong ba, Snake, khen 7
+  Solar: Wood-Ox. Liu
+  0;24,42 13;24,59 15;37,42 2;2,41 6;28,22
+29: Sun. Svati/sa ri. Fire-Wind; 16 Nov 1952
+  Saubhagya/skal bzang, Shakuni/bkra shis, Horse, kham 8
+  Solar: Fire-Tiger. Xing
+  1;26,27 14;21,44 15;42,12 3;3,56 6;29,22
+30: Mon. Vishakha/sa ga. Water-Fire; 17 Nov 1952
+  Shobhana/dge byed, Catushpada/rkang bzhi, Sheep, gin 9
+  Solar: Fire-Rabbit. Zhang
+  2;27,12 15;19,29 15;46,41 4;6,11 7;0,22
+
+Mars, slow: 23;4,58,0,148 - fast: 20;29,48,5,181 North 9;3,17
+Jupiter, slow: 2;20,1,5,349 - fast: 2;18,33,2,218 West 1;0,47
+Saturn, slow: 12;53,57,2,2248 - fast: 13;10,7,0,386 East 5;25,34
+Mercury, slow: 25;20,0,1,5603 - fast: 17;34,26,2,4002 South 7;24,19
+Venus, slow: 21;26,54,5,539 - fast: 18;5,55,1,245 East 8;1,18
+Rahu, head: 21;50,5,1,7
+
+Tibetan Lunar Month: 10 - Iron-female-Pig
+
+Month: 14182;23
+Anomaly: 6;56
+Mean Weekday: 2;12,25,1,9
+Mean Sun: 15;56,21,3,3
+
+1: Tue. Anuradha/lha mtshams. Fire-Earth; 18 Nov 1952
+  Atiganda/shin tu 'grams, Vava/gdab pa, Monkey, zin 1
+  Solar: Earth-Dragon. Yi
+  3;26,30 16;18,41 15;51,11 5;9,52 7;1,22
+2: Wed. Jyeshtha/snron. Water-Earth; 19 Nov 1952
+  Sukarman/las bzang, Kaulava/rigs can, Bird, zon 2
+  Solar: Earth-Snake. Zhen
+  4;24,14 17;19,26 15;55,41 6;15,7 7;2,22
+3: Thu. Mula/snrubs. Wind-Water; 20 Nov 1952
+  Dhriti/'dzin byed, Gara/khyim skyes, Dog, li 3
+  Solar: Iron-Horse. Jiao
+  5;20,59 18;21,11 16;0,10 7;21,22 7;3,22
+4: Fri. Purvashadha/chu stod. Earth-Water; 21 Nov 1952
+  Shula/zug rngu, Vishti/viSTi, Pig, khon 4
+  Solar: Iron-Sheep. Kang
+  6;16,44 19;23,56 16;4,40 8;28,36 7;4,22
+    zin phung
+5: Sat. Uttarashadha/chu smad. Earth-Earth; 22 Nov 1952
+  Ganda/'grams, Valava/byis pa, Mouse, dwa 5
+  Solar: Water-Monkey. Di
+  0;11,28 20;27,41 16;9,10 9;36,51 7;5,22
+6: Sun. Abhijit/gro zhin. Fire-Earth; 23 Nov 1952
+  Vriddhi/'phel, Taitila/til rdung, Ox, khen 6
+  Solar: Water-Bird. Fang
+  1;5,40 21;31,59 16;13,39 10;45,39 7;6,22
+7. Omitted.
+  1;59,51 16;18,9
+8: Mon. Dhanishtha/mon gre. Water-Water; 24 Nov 1952
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Rabbit, gin 8
+  Solar: Wood-Dog. Xin
+  2;54,2 22;40,36 16;22,39 12;3,15 7;8,22
+    klu thebs
+9: Tue. Shatabhishaj/mon gru. Fire-Earth; 25 Nov 1952
+  Harshana/dga' ba, Valava/byis pa, Dragon, zin 9
+  Solar: Wood-Pig. Wei
+  3;48,14 23;44,54 16;27,9 13;12,3 7;9,22
+    klu bzlog
+10: Wed. Purvabhadrapada/khrums stod. Water-Fire; 26 Nov 1952
+  Vajra/rdo rje, Taitila/til rdung, Snake, zon 1
+  Solar: Fire-Mouse. Ji
+  4;42,25 24;49,13 16;31,38 14;20,52 7;10,21
+    klu bzlog, zin phung, nyi nag
+11: Thu. Uttarabhadrapada/khrums smad. Wind-Water; 27 Nov 1952
+  Siddhi/dngos grub, Vanija/tshong ba, Horse, li 2
+  Solar: Fire-Ox. Dou
+  5;37,3 25;53,4 16;36,8 15;29,13 7;11,21
+12: Fri. Revati/nam gru. Earth-Water; 28 Nov 1952
+  Vyatipata/phan tshun, Vava/gdab pa, Sheep, khon 3
+  Solar: Earth-Tiger. Niu
+  6;32,41 26;55,56 16;40,38 16;36,34 7;12,21
+13: Sat. Ashvini/tha skar. Earth-Wind; 29 Nov 1952
+  Variyas/mchog can, Kaulava/rigs can, Monkey, dwa 4
+  Solar: Earth-Rabbit. Nu
+  0;29,20 0;57,47 16;45,7 17;42,55 7;13,21
+14: Sun. Bharani/bra nye. Fire-Fire; 30 Nov 1952
+  Parigha/yongs 'joms, Vanija/tshong ba, Bird, khen 5
+  Solar: Iron-Dragon. Xu
+  1;26,58 1;58,39 16;49,37 18;48,16 7;14,21
+15: Mon. Krittika/smin drug. Water-Fire; 1 Dec 1952
+  Shiva/zhi ba, Vava/gdab pa, Dog, kham 6
+  Solar: Iron-Snake. Wei
+  2;26,3 2;58,3 16;54,7 19;52,10 7;15,21
+    klu thebs
+
+Mars, slow: 23;44,5,4,54 - fast: 21;16,25,1,80 North 9;13,38
+Jupiter, slow: 2;25,37,0,138 - fast: 2;8,57,2,163 West 0;28,39
+Saturn, slow: 12;55,58,1,533 - fast: 13;16,21,4,718 East 5;26,58
+Mercury, slow: 2;37,49,1,845 - fast: 17;43,35,4,7410 South 7;26,21
+Venus, slow: 23;7,51,0,126 - fast: 19;25,37,5,699 East 8;19,1
+Rahu, head: 21;46,33,5,11
+
+16: Tue. Rohini/snar ma. Fire-Earth; 2 Dec 1952
+  Siddha/grub pa, Kaulava/rigs can, Pig, gin 7
+  Solar: Water-Horse. Shi
+  3;26,42 3;55,54 16;58,37 20;54,31 7;16,21
+    zin phung
+17: Wed. Mrigashiras/mgo. Water-Wind; 3 Dec 1952
+  Sadhya/bsgrub bya, Taitila/til rdung, Mouse, zin 8
+  Solar: Water-Sheep. Bi
+  4;28,20 4;52,46 17;3,6 21;55,52 7;17,21
+18: Thu. Ardra/lag. Wind-Water; 4 Dec 1952
+  Shubha/dge ba, Vanija/tshong ba, Ox, zon 9
+  Solar: Wood-Monkey. Kui
+  5;30,58 5;48,37 17;7,36 22;56,14 7;18,21
+    klu thebs
+19: Fri. Punarvasu/nabs so. Earth-Wind; 5 Dec 1952
+  Shukla/dkar po, Vava/gdab pa, Tiger, li 1
+  Solar: Wood-Bird. Lou
+  6;34,37 6;43,28 17;12,6 23;55,34 7;19,21
+    klu bzlog
+20: Sat. Pushya/rgyal. Earth-Fire; 6 Dec 1952
+  Brahman/tshangs pa, Kaulava/rigs can, Rabbit, khon 2
+  Solar: Fire-Dog. Wei
+  0;38,48 7;37,46 17;16,35 24;54,22 7;20,21
+21: Sun. Ashlesha/skag. Fire-Water; 7 Dec 1952
+  Indra/dbang po, Gara/khyim skyes, Dragon, dwa 3
+  Solar: Fire-Pig. Mao
+  1;43,0 8;32,5 17;21,5 25;53,10 7;21,21
+22: Mon. Magha/mchu. Water-Fire; 8 Dec 1952
+  Vaidhriti/'khon 'dzin, Vishti/viSTi, Snake, khen 4
+  Solar: Earth-Mouse. Bi
+  2;47,11 9;26,23 17;25,35 26;51,58 7;22,21
+    zin phung
+23: Tue. Purvaphalguni/gre. Fire-Fire; 9 Dec 1952
+  Vishkambha/rnam sel, Valava/byis pa, Horse, kham 5
+  Solar: Earth-Ox. Zui
+  3;51,23 10;20,41 17;30,5 0;50,46 7;23,21
+    yan kwong
+24: Wed. Uttaraphalguni/dbo. Water-Wind; 10 Dec 1952
+  Priti/mdza' bo, Kaulava/rigs can, Sheep, gin 6
+  Solar: Iron-Tiger. Can
+  4;55,34 11;14,59 17;34,34 1;49,34 7;24,21
+25: Thu. Hasta/me bzhi. Wind-Wind; 11 Dec 1952
+  Ayushmat/tshe dang ldan pa, Gara/khyim skyes, Monkey, zin 7
+  Solar: Iron-Rabbit. Jing
+  5;59,19 12;9,44 17;39,4 2;48,49 7;25,20
+26: Fri. Citra/nag pa. Earth-Wind; 12 Dec 1952
+  Saubhagya/skal bzang, Vishti/viSTi, Bird, zon 8
+  Solar: Water-Dragon. Gui
+  6;60,0 13;9,44 17;43,34 3;53,19 7;26,20
+    klu bzlog
+26: Sat. Svati/sa ri. Earth-Wind; 13 Dec 1952
+  Shobhana/dge byed, Valava/byis pa, Bird, zon 8
+  Solar: Water-Snake. Liu
+  0;2,3 14;5,30 17;43,34 4;49,4 7;26,20
+27: Sun. Vishakha/sa ga. Fire-Fire; 14 Dec 1952
+  Atiganda/shin tu 'grams, Taitila/til rdung, Dog, li 9
+  Solar: Wood-Horse. Xing
+  1;3,48 15;2,15 17;48,3 5;50,19 7;27,20
+28: Mon. Anuradha/lha mtshams. Water-Earth; 15 Dec 1952
+  Sukarman/las bzang, Vanija/tshong ba, Pig, khon 1
+  Solar: Wood-Sheep. Zhang
+  2;4,32 16;0,0 17;52,33 6;52,34 7;28,20
+    zin phung
+29: Tue. Anuradha/lha mtshams. Fire-Earth; 16 Dec 1952
+  Dhriti/'dzin byed, Shakuni/bkra shis, Mouse, dwa 2
+  Solar: Fire-Monkey. Yi
+  3;3,52 16;59,13 17;57,5 7;56,19 7;29,21
+30: Wed. Jyeshtha/snron. Water-Earth; 17 Dec 1952
+  Ganda/'grams, Naga/klu, Ox, khen 3
+  Solar: Fire-Bird. Zhen
+  4;1,40 17;59,58 18;1,39 9;1,38 8;0,22
+
+Mars, slow: 24;28,48,4,12 - fast: 22;7,22,0,100 North 9;24,58
+Jupiter, slow: 2;32,0,0,0 - fast: 2;2,31,2,0 West 0;27,13
+Saturn, slow: 12;58,16,1,1649 - fast: 13;22,34,2,338 East 5;28,20
+Mercury, slow: 7;32,27,5,5461 - fast: 16;32,11,3,7762 West 7;10,29
+Venus, slow: 25;3,12,1,403 - fast: 20;50,52,4,662 East 9;7,58
+Rahu, head: 21;43,2,3,15
+
+Tibetan Lunar Month: 11 - Wood-male-Mouse
+
+Month: 14183;25
+Anomaly: 8;57
+Mean Weekday: 3;44,15,1,489
+Mean Sun: 18;7,20,0,0
+
+1. Omitted.
+  4;58,28 18;6,13
+2: Thu. Purvashadha/chu stod. Wind-Water; 18 Dec 1952
+  Vriddhi/'phel, Vava/gdab pa, Rabbit, gin 5
+  Solar: Earth-Dog. Jiao
+  5;54,16 19;4,29 18;10,46 10;15,16 8;2,23
+    klu bzlog
+3: Fri. Uttarashadha/chu smad. Earth-Earth; 19 Dec 1952
+  Dhruva/brtan pa, Taitila/til rdung, Dragon, zin 6
+  Solar: Earth-Pig. Kang
+  6;49,4 20;8,15 18;15,20 11;23,35 8;3,24
+4: Sat. Abhijit/gro zhin. Earth-Earth; 20 Dec 1952
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Snake, zon 7
+  Solar: Iron-Mouse. Di
+  0;43,20 21;12,33 18;19,53 12;32,27 8;4,25
+    zin phung
+5: Sun. Dhanishtha/mon gre. Fire-Water; 21 Dec 1952
+  Harshana/dga' ba, Vava/gdab pa, Horse, li 8
+  Solar: Iron-Ox. Fang
+  1;37,35 22;16,52 18;24,27 13;41,19 8;5,26
+6: Mon. Shatabhishaj/mon gru. Water-Earth; 22 Dec 1952
+  Vajra/rdo rje, Kaulava/rigs can, Sheep, khon 9
+  Solar: Water-Tiger. Xin
+  2;31,50 23;21,10 18;29,1 14;50,11 8;6,26
+    klu bzlog
+7: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 23 Dec 1952
+  Siddhi/dngos grub, Vanija/tshong ba, Monkey, dwa 1
+  Solar: Water-Rabbit. Wei
+  3;26,5 24;25,28 18;33,34 15;59,3 8;7,27
+    klu thebs
+8: Wed. Uttarabhadrapada/khrums smad. Water-Water; 24 Dec 1952
+  Variyas/mchog can, Vava/gdab pa, Bird, khen 2
+  Solar: Wood-Dragon. Ji
+  4;20,20 25;29,47 18;38,8 17;7,55 8;8,28
+9: Thu. Revati/nam gru. Wind-Water; 25 Dec 1952
+  Parigha/yongs 'joms, Kaulava/rigs can, Dog, kham 3
+  Solar: Wood-Snake. Dou
+  5;15,3 26;33,38 18;42,41 18;16,20 8;9,29
+10: Fri. Ashvini/tha skar. Earth-Wind; 26 Dec 1952
+  Shiva/zhi ba, Gara/khyim skyes, Pig, gin 4
+  Solar: Fire-Horse. Niu
+  6;10,46 0;36,29 18;47,15 19;23,44 8;10,30
+    zin phung
+11: Sat. Bharani/bra nye. Earth-Fire; 27 Dec 1952
+  Siddha/grub pa, Vishti/viSTi, Mouse, zin 5
+  Solar: Fire-Sheep. Nu
+  0;7,28 1;38,20 18;51,49 20;30,9 8;11,30
+12: Sun. Krittika/smin drug. Fire-Fire; 28 Dec 1952
+  Sadhya/bsgrub bya, Valava/byis pa, Ox, zon 6
+  Solar: Earth-Monkey. Xu
+  1;5,11 2;39,11 18;56,22 21;35,33 8;12,31
+13: Mon. Rohini/snar ma. Water-Earth; 29 Dec 1952
+  Shubha/dge ba, Taitila/til rdung, Tiger, li 7
+  Solar: Earth-Bird. Wei
+  2;4,21 3;38,34 19;0,56 22;39,31 8;13,32
+14: Tue. Mrigashiras/mgo. Fire-Wind; 30 Dec 1952
+  Shukla/dkar po, Vanija/tshong ba, Rabbit, khon 8
+  Solar: Iron-Dog. Shi
+  3;5,3 4;36,25 19;5,29 23;41,55 8;14,33
+15: Wed. Ardra/lag. Water-Water; 31 Dec 1952
+  Brahman/tshangs pa, Vava/gdab pa, Dragon, dwa 9
+  Solar: Iron-Pig. Bi
+  4;6,46 5;33,16 19;10,3 24;43,20 8;15,34
+    klu thebs
+
+Mars, slow: 25;7,56,1,147 - fast: 22;54,38,4,195 North 10;5,28
+Jupiter, slow: 2;37,35,0,150 - fast: 1;58,17,5,241 West 0;26,17
+Saturn, slow: 13;0,16,5,5317 - fast: 13;26,42,0,2337 East 5;29,16
+Mercury, slow: 11;50,16,5,703 - fast: 17;28,27,0,7727 North 7;22,59
+Venus, slow: 26;44,8,1,739 - fast: 22;8,46,1,106 East 9;25,16
+Rahu, head: 21;39,31,1,19
+
+16: Thu. Punarvasu/nabs so. Wind-Wind; 1 Jan 1953
+  Indra/dbang po, Kaulava/rigs can, Snake, khen 1
+  Solar: Water-Mouse. Kui
+  5;9,29 6;29,7 19;14,37 25;43,44 8;16,34
+    klu bzlog, zin phung
+17: Fri. Pushya/rgyal. Earth-Fire; 2 Jan 1953
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Horse, kham 2
+  Solar: Water-Ox. Lou
+  6;13,12 7;23,58 19;19,10 26;43,8 8;17,35
+18: Sat. Ashlesha/skag. Earth-Water; 3 Jan 1953
+  Vishkambha/rnam sel, Vishti/viSTi, Sheep, gin 3
+  Solar: Wood-Tiger. Wei
+  0;17,27 8;18,16 19;23,44 0;42,0 8;18,36
+19: Sun. Magha/mchu. Fire-Fire; 4 Jan 1953
+  Priti/mdza' bo, Valava/byis pa, Monkey, zin 4
+  Solar: Wood-Rabbit. Mao
+  1;21,42 9;12,34 19;28,17 1;40,52 8;19,37
+20: Mon. Purvaphalguni/gre. Water-Fire; 5 Jan 1953
+  Ayushmat/tshe dang ldan pa, Taitila/til rdung, Bird, zon 5
+  Solar: Fire-Dragon. Bi
+  2;25,58 10;6,52 19;32,51 2;39,44 8;20,38
+    klu bzlog, nyi nag
+21: Tue. Uttaraphalguni/dbo. Fire-Wind; 6 Jan 1953
+  Saubhagya/skal bzang, Gara/khyim skyes, Dog, li 6
+  Solar: Fire-Snake. Zui
+  3;30,13 11;1,11 19;37,24 3;38,35 8;21,38
+    yan kwong, klu thebs
+22: Wed. Uttaraphalguni/dbo. Water-Wind; 7 Jan 1953
+  Shobhana/dge byed, Vishti/viSTi, Pig, khon 7
+  Solar: Earth-Horse. Can
+  4;34,29 11;55,29 19;41,58 4;37,27 8;22,39
+    zin phung
+23: Thu. Hasta/me bzhi. Wind-Wind; 8 Jan 1953
+  Atiganda/shin tu 'grams, Valava/byis pa, Mouse, dwa 8
+  Solar: Earth-Sheep. Jing
+  5;38,17 12;50,14 19;46,32 5;36,47 8;23,40
+24: Fri. Citra/nag pa. Earth-Wind; 9 Jan 1953
+  Sukarman/las bzang, Taitila/til rdung, Ox, khen 9
+  Solar: Iron-Monkey. Gui
+  6;41,4 13;46,0 19;51,5 6;37,6 8;24,41
+25: Sat. Svati/sa ri. Earth-Wind; 10 Jan 1953
+  Dhriti/'dzin byed, Vanija/tshong ba, Tiger, kham 1
+  Solar: Iron-Bird. Liu
+  0;42,52 14;42,46 19;55,39 7;38,25 8;25,42
+26: Sun. Vishakha/sa ga. Fire-Fire; 11 Jan 1953
+  Shula/zug rngu, Vava/gdab pa, Rabbit, gin 2
+  Solar: Water-Dog. Xing
+  1;43,40 15;40,32 20;0,12 8;40,45 8;26,42
+    klu bzlog
+27: Mon. Anuradha/lha mtshams. Water-Earth; 12 Jan 1953
+  Ganda/'grams, Kaulava/rigs can, Dragon, zin 3
+  Solar: Water-Pig. Zhang
+  2;43,0 16;39,45 20;4,46 9;44,32 8;27,43
+28: Tue. Jyeshtha/snron. Fire-Earth; 13 Jan 1953
+  Vriddhi/'phel, Gara/khyim skyes, Snake, zon 4
+  Solar: Wood-Mouse. Yi
+  3;40,48 17;40,31 20;9,20 10;49,51 8;28,44
+    zin phung
+29: Wed. Mula/snrubs. Water-Water; 14 Jan 1953
+  Dhruva/brtan pa, Vishti/viSTi, Horse, li 5
+  Solar: Wood-Ox. Zhen
+  4;37,36 18;42,17 20;13,53 11;56,11 8;29,45
+30: Thu. Purvashadha/chu stod. Wind-Water; 15 Jan 1953
+  Harshana/dga' ba, Catushpada/rkang bzhi, Sheep, khon 6
+  Solar: Fire-Tiger. Jiao
+  5;33,23 19;45,3 20;18,27 13;3,30 9;0,46
+
+Mars, slow: 25;49,25,4,14 - fast: 23;44,32,0,208 North 10;16,33
+Jupiter, slow: 2;43,34,0,156 - fast: 1;57,5,3,288 West 0;26,1
+Saturn, slow: 13;2,26,2,2326 - fast: 13;30,26,2,2326 East 6;0,5
+Mercury, slow: 16;26,30,4,632 - fast: 19;7,50,4,395 North 8;15,4
+Venus, slow: 1;32,16,5,671 - fast: 23;28,8,3,66 East 10;12,55
+Rahu, head: 21;36,0,0,0
+
+Tibetan Lunar Month: 12 - Wood-female-Ox
+
+Month: 14184;27
+Anomaly: 10;58
+Mean Weekday: 5;16,5,2,262
+Mean Sun: 20;18,18,2,10
+
+1: Fri. Uttarashadha/chu smad. Earth-Earth; 16 Jan 1953
+  Vajra/rdo rje, Kintughna/mi sdug pa, Monkey, dwa 7
+  Solar: Fire-Rabbit. Kang
+  6;28,11 20;48,49 20;23,0 14;11,50 9;1,46
+2: Sat. Abhijit/gro zhin. Earth-Earth; 17 Jan 1953
+  Siddhi/dngos grub, Kaulava/rigs can, Bird, khen 8
+  Solar: Earth-Dragon. Di
+  0;22,26 21;53,7 20;27,34 15;20,42 9;2,47
+3: Sun. Dhanishtha/mon gre. Fire-Water; 18 Jan 1953
+  Vyatipata/phan tshun, Gara/khyim skyes, Dog, kham 9
+  Solar: Earth-Snake. Fang
+  1;16,41 22;57,26 20;32,8 16;29,34 9;3,48
+4: Mon. Purvabhadrapada/khrums stod. Water-Fire; 19 Jan 1953
+  Variyas/mchog can, Vishti/viSTi, Pig, gin 1
+  Solar: Iron-Horse. Xin
+  2;10,57 24;1,44 20;36,41 17;38,26 9;4,49
+    zin phung
+5: Tue. Uttarabhadrapada/khrums smad. Fire-Water; 20 Jan 1953
+  Parigha/yongs 'joms, Valava/byis pa, Mouse, zin 2
+  Solar: Iron-Sheep. Wei
+  3;5,12 25;6,2 20;41,15 18;47,18 9;5,50
+6. Omitted.
+  3;59,27 20;45,48
+7: Wed. Revati/nam gru. Water-Water; 21 Jan 1953
+  Siddha/grub pa, Taitila/til rdung, Tiger, li 4
+  Solar: Water-Monkey. Ji
+  4;54,10 26;14,11 20;50,22 20;4,34 9;7,51
+8: Thu. Ashvini/tha skar. Wind-Wind; 22 Jan 1953
+  Sadhya/bsgrub bya, Vishti/viSTi, Rabbit, khon 5
+  Solar: Water-Bird. Dou
+  5;49,53 0;17,2 20;54,56 21;11,58 9;8,52
+9: Fri. Bharani/bra nye. Earth-Fire; 23 Jan 1953
+  Shubha/dge ba, Valava/byis pa, Dragon, dwa 6
+  Solar: Wood-Dog. Niu
+  6;46,36 1;18,53 20;59,29 22;18,22 9;9,53
+10: Sat. Krittika/smin drug. Earth-Fire; 24 Jan 1953
+  Shukla/dkar po, Taitila/til rdung, Snake, khen 7
+  Solar: Wood-Pig. Nu
+  0;44,19 2;19,43 21;4,3 23;23,46 9;10,54
+    zin phung
+11: Sun. Rohini/snar ma. Fire-Earth; 25 Jan 1953
+  Brahman/tshangs pa, Vanija/tshong ba, Horse, kham 8
+  Solar: Fire-Mouse. Xu
+  1;43,30 3;19,6 21;8,36 24;27,42 9;11,54
+12: Mon. Mrigashiras/mgo. Water-Wind; 26 Jan 1953
+  Indra/dbang po, Vava/gdab pa, Sheep, gin 9
+  Solar: Fire-Ox. Wei
+  2;44,13 4;16,56 21;13,10 25;30,7 9;12,55
+13: Tue. Ardra/lag. Fire-Water; 27 Jan 1953
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Monkey, zin 1
+  Solar: Earth-Tiger. Shi
+  3;45,56 5;13,47 21;17,43 26;31,30 9;13,56
+14: Wed. Punarvasu/nabs so. Water-Wind; 28 Jan 1953
+  Vishkambha/rnam sel, Gara/khyim skyes, Bird, zon 2
+  Solar: Earth-Rabbit. Bi
+  4;48,39 6;9,37 21;22,17 0;31,55 9;14,57
+15: Thu. Pushya/rgyal. Wind-Fire; 29 Jan 1953
+  Priti/mdza' bo, Vishti/viSTi, Dog, li 3
+  Solar: Iron-Dragon. Kui
+  5;52,23 7;4,27 21;26,51 1;31,18 9;15,58
+
+Mars, slow: 26;26,50,3,93 - fast: 24;31,46,3,84 North 10;27,3
+Jupiter, slow: 2;49,9,0,306 - fast: 1;58,25,1,101 West 0;26,18
+Saturn, slow: 13;4,27,1,611 - fast: 13;31,48,3,65 South 6;0,24
+Mercury, slow: 20;44,19,3,4671 - fast: 21;0,24,5,4538 North 9;10,5
+Venus, slow: 3;13,13,0,258 - fast: 24;44,18,4,6 East 10;29,50
+Rahu, head: 21;32,28,4,4
+
+16: Fri. Pushya/rgyal. Earth-Fire; 30 Jan 1953
+  Ayushmat/tshe dang ldan pa, Vava/gdab pa, Pig, khon 4
+  Solar: Iron-Snake. Lou
+  6;56,38 7;58,46 21;31,24 2;30,10 9;16,58
+    zin phung
+17: Sat. Ashlesha/skag. Earth-Water; 31 Jan 1953
+  Saubhagya/skal bzang, Kaulava/rigs can, Mouse, dwa 5
+  Solar: Water-Horse. Wei
+  0;60,0 8;58,46 21;35,58 3;34,44 9;17,59
+17: Sun. Magha/mchu. Fire-Fire; 1 Feb 1953
+  Shobhana/dge byed, Gara/khyim skyes, Mouse, dwa 5
+  Solar: Water-Sheep. Mao
+  1;0,53 9;53,4 21;35,58 4;29,2 9;17,59
+18: Mon. Purvaphalguni/gre. Water-Fire; 2 Feb 1953
+  Atiganda/shin tu 'grams, Vishti/viSTi, Ox, khen 6
+  Solar: Wood-Monkey. Bi
+  2;5,9 10;47,22 21;40,31 5;27,54 9;19,0
+19: Tue. Uttaraphalguni/dbo. Fire-Wind; 3 Feb 1953
+  Sukarman/las bzang, Valava/byis pa, Tiger, kham 7
+  Solar: Wood-Bird. Zui
+  3;9,24 11;41,40 21;45,5 6;26,46 9;20,1
+    yan kwong
+20: Wed. Hasta/me bzhi. Water-Wind; 4 Feb 1953
+  Dhriti/'dzin byed, Taitila/til rdung, Rabbit, gin 8
+  Solar: Fire-Dog. Can
+  4;13,40 12;35,58 21;49,39 7;25,37 9;21,2
+21: Thu. Citra/nag pa. Wind-Wind; 5 Feb 1953
+  Shula/zug rngu, Vanija/tshong ba, Dragon, zin 9
+  Solar: Fire-Pig. Jing
+  5;17,27 13;30,45 21;54,12 8;24,57 9;22,2
+22: Fri. Svati/sa ri. Earth-Wind; 6 Feb 1953
+  Ganda/'grams, Vava/gdab pa, Snake, zon 1
+  Solar: Earth-Mouse. Gui
+  6;20,14 14;26,31 21;58,46 9;25,17 9;23,3
+    zin phung
+23: Sat. Vishakha/sa ga. Earth-Fire; 7 Feb 1953
+  Vriddhi/'phel, Kaulava/rigs can, Horse, li 2
+  Solar: Earth-Ox. Liu
+  0;22,2 15;23,17 22;3,19 10;26,37 9;24,4
+24: Sun. Anuradha/lha mtshams. Fire-Earth; 8 Feb 1953
+  Dhruva/brtan pa, Gara/khyim skyes, Sheep, khon 3
+  Solar: Iron-Tiger. Xing
+  1;22,49 16;21,3 22;7,53 11;28,57 9;25,5
+25: Mon. Jyeshtha/snron. Water-Earth; 9 Feb 1953
+  Vyaghata/yongs bsnun, Vishti/viSTi, Monkey, dwa 4
+  Solar: Iron-Rabbit. Zhang
+  2;22,9 17;20,18 22;12,27 12;32,45 9;26,6
+26: Tue. Mula/snrubs. Fire-Water; 10 Feb 1953
+  Harshana/dga' ba, Valava/byis pa, Bird, khen 5
+  Solar: Water-Dragon. Yi
+  3;19,56 18;21,4 22;17,0 13;38,4 9;27,6
+27: Wed. Purvashadha/chu stod. Water-Water; 11 Feb 1953
+  Vajra/rdo rje, Taitila/til rdung, Dog, kham 6
+  Solar: Water-Snake. Zhen
+  4;16,43 19;22,50 22;21,34 14;44,24 9;28,7
+28: Thu. Uttarashadha/chu smad. Wind-Earth; 12 Feb 1953
+  Siddhi/dngos grub, Vanija/tshong ba, Pig, gin 7
+  Solar: Wood-Horse. Jiao
+  5;12,30 20;25,36 22;26,7 15;51,44 9;29,8
+    zin phung
+29: Fri. Abhijit/gro zhin. Earth-Earth; 13 Feb 1953
+  Variyas/mchog can, Shakuni/bkra shis, Mouse, zin 8
+  Solar: Wood-Sheep. Kang
+  6;7,17 21;29,23 22;30,41 17;0,4 10;0,9
+30: Sat. Dhanishtha/mon gre. Earth-Water; 14 Feb 1953
+  Parigha/yongs 'joms, Naga/klu, Ox, zon 9
+  Solar: Fire-Monkey. Di
+  0;1,33 22;33,41 22;35,15 18;8,56 10;1,10
+    nyi nag
+
+Mars, slow: 0;9,36,0,216 - fast: 25;22,29,2,126 North 11;8,19
+Jupiter, slow: 2;55,32,0,168 - fast: 2;4,5,4,342 North 0;27,34
+Saturn, slow: 13;6,45,1,1727 - fast: 13;31,15,0,3443 South 6;0,16
+Mercury, slow: 25;38,58,2,490 - fast: 23;3,59,1,5234 East 10;7,33
+Venus, slow: 5;8,34,1,535 - fast: 25;59,59,2,271 East 11;16,39
+Rahu, head: 21;28,57,2,8
+

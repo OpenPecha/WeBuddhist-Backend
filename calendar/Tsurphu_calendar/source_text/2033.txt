@@ -1,0 +1,2006 @@
+New Year: 2033, Water-female-Ox
+
+Tibetan Lunar Month: 1 - Wood-male-Tiger
+
+Month: 15174;64
+Anomaly: 10;40
+Mean Weekday: 1;32,57,2,358
+Mean Sun: 21;22,55,2,4
+
+1: Mon. Abhijit/gro zhin. Water-Earth; 31 Jan 2033
+  Vyatipata/phan tshun, Kintughna/mi sdug pa, Tiger, li 1
+  Solar: Water-Horse. Xin
+  2;48,38 21;35,51 21;30,30 16;6,21 9;16,46
+  From 1st to 15th, Demonstration of Miracles.
+    zin phung
+2: Tue. Dhanishtha/mon gre. Fire-Water; 1 Feb 2033
+  Variyas/mchog can, Valava/byis pa, Rabbit, khon 2
+  Solar: Water-Sheep. Wei
+  3;42,53 22;40,9 21;35,3 17;15,13 9;17,47
+3: Wed. Shatabhishaj/mon gru. Water-Earth; 2 Feb 2033
+  Parigha/yongs 'joms, Taitila/til rdung, Dragon, dwa 3
+  Solar: Wood-Monkey. Ji
+  4;37,9 23;44,28 21;39,37 18;24,5 9;18,48
+4: Thu. Purvabhadrapada/khrums stod. Wind-Fire; 3 Feb 2033
+  Shiva/zhi ba, Vanija/tshong ba, Snake, khen 4
+  Solar: Wood-Bird. Dou
+  5;31,24 24;48,46 21;44,10 19;32,57 9;19,49
+5: Fri. Uttarabhadrapada/khrums smad. Earth-Water; 4 Feb 2033
+  Siddha/grub pa, Valava/byis pa, Horse, kham 5
+  Solar: Fire-Dog. Niu
+  6;25,39 25;53,4 21;48,44 20;41,49 9;20,49
+    klu bzlog
+6: Sat. Revati/nam gru. Earth-Water; 5 Feb 2033
+  Sadhya/bsgrub bya, Taitila/til rdung, Sheep, gin 6
+  Solar: Fire-Pig. Nu
+  0;19,54 26;57,23 21;53,18 21;50,41 9;21,50
+7: Sun. Bharani/bra nye. Fire-Fire; 6 Feb 2033
+  Shubha/dge ba, Vanija/tshong ba, Monkey, zin 7
+  Solar: Earth-Mouse. Xu
+  1;14,29 1;1,22 21;57,51 22;59,13 9;22,51
+    zin phung, nyi nag ngan pa dgu 'dzom
+8: Mon. Krittika/smin drug. Water-Fire; 7 Feb 2033
+  Brahman/tshangs pa, Vava/gdab pa, Bird, zon 8
+  Solar: Earth-Ox. Wei
+  2;10,3 2;4,21 22;2,25 24;6,46 9;23,52
+9: Tue. Rohini/snar ma. Fire-Earth; 8 Feb 2033
+  Indra/dbang po, Kaulava/rigs can, Dog, li 9
+  Solar: Iron-Tiger. Shi
+  3;6,37 3;6,20 22;6,58 25;13,19 9;24,53
+10: Wed. Mrigashiras/mgo. Water-Wind; 9 Feb 2033
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Pig, khon 1
+  Solar: Iron-Rabbit. Bi
+  4;4,12 4;7,19 22;11,32 26;18,52 9;25,53
+    klu bzlog
+11: Thu. Ardra/lag. Wind-Water; 10 Feb 2033
+  Vishkambha/rnam sel, Vishti/viSTi, Mouse, dwa 2
+  Solar: Water-Dragon. Kui
+  5;3,6 5;6,59 22;16,6 0;23,5 9;26,54
+12: Fri. Punarvasu/nabs so. Earth-Wind; 11 Feb 2033
+  Priti/mdza' bo, Valava/byis pa, Ox, khen 3
+  Solar: Water-Snake. Lou
+  6;3,40 6;4,58 22;20,39 1;25,38 9;27,55
+13: Sat. Pushya/rgyal. Earth-Fire; 12 Feb 2033
+  Ayushmat/tshe dang ldan pa, Taitila/til rdung, Tiger, kham 4
+  Solar: Wood-Horse. Wei
+  0;5,15 7;1,57 22;25,13 2;27,10 9;28,56
+    yan kwong, zin phung
+14: Sun. Pushya/rgyal. Fire-Fire; 13 Feb 2033
+  Saubhagya/skal bzang, Vanija/tshong ba, Rabbit, gin 5
+  Solar: Wood-Sheep. Mao
+  1;7,49 7;57,56 22;29,46 3;27,43 9;29,57
+    klu thebs
+15: Mon. Ashlesha/skag. Water-Water; 14 Feb 2033
+  Shobhana/dge byed, Vava/gdab pa, Dragon, zin 6
+  Solar: Fire-Monkey. Bi
+  2;11,24 8;52,55 22;34,20 4;27,16 10;0,57
+    klu bzlog
+
+Mars, slow: 13;14,30,0,180 - fast: 16;14,11,5,30 East 7;6,29
+Jupiter, slow: 22;31,9,2,304 - fast: 22;30,41,5,355 North 10;0,9
+Saturn, slow: 4;46,2,2,4558 - fast: 4;21,12,5,5331 West 1;28,2
+Mercury, slow: 2;56,3,0,2934 - fast: 23;45,19,4,470 East 10;16,44
+Venus, slow: 6;13,27,2,644 - fast: 25;58,49,0,448 South 11;16,24
+Rahu, head: 13;19,26,0,12
+
+16: Tue. Magha/mchu. Fire-Fire; 15 Feb 2033
+  Atiganda/shin tu 'grams, Kaulava/rigs can, Snake, zon 7
+  Solar: Fire-Bird. Zui
+  3;15,37 9;47,13 22;38,51 5;26,5 10;1,58
+17: Wed. Purvaphalguni/gre. Water-Fire; 16 Feb 2033
+  Sukarman/las bzang, Gara/khyim skyes, Horse, li 8
+  Solar: Earth-Dog. Can
+  4;19,49 10;41,32 22;43,21 6;24,53 10;2,58
+18: Thu. Uttaraphalguni/dbo. Wind-Wind; 17 Feb 2033
+  Dhriti/'dzin byed, Vishti/viSTi, Sheep, khon 9
+  Solar: Earth-Pig. Jing
+  5;24,0 11;35,50 22;47,50 7;23,41 10;3,57
+19: Fri. Hasta/me bzhi. Earth-Wind; 18 Feb 2033
+  Shula/zug rngu, Vava/gdab pa, Monkey, dwa 1
+  Solar: Iron-Mouse. Gui
+  6;28,12 12;30,8 22;52,20 8;22,28 10;4,57
+    zin phung
+20: Sat. Citra/nag pa. Earth-Wind; 19 Feb 2033
+  Ganda/'grams, Kaulava/rigs can, Bird, khen 2
+  Solar: Iron-Ox. Liu
+  0;32,23 13;24,26 22;56,50 9;21,17 10;5,57
+21: Sun. Svati/sa ri. Fire-Wind; 20 Feb 2033
+  Vriddhi/'phel, Gara/khyim skyes, Dog, kham 3
+  Solar: Water-Tiger. Xing
+  1;36,15 14;19,4 23;1,20 10;20,24 10;6,57
+22: Mon. Vishakha/sa ga. Water-Fire; 21 Feb 2033
+  Dhruva/brtan pa, Vishti/viSTi, Pig, gin 4
+  Solar: Water-Rabbit. Zhang
+  2;39,7 15;14,41 23;5,49 11;20,31 10;7,57
+23: Tue. Anuradha/lha mtshams. Fire-Earth; 22 Feb 2033
+  Vyaghata/yongs bsnun, Valava/byis pa, Mouse, zin 5
+  Solar: Wood-Dragon. Yi
+  3;40,59 16;11,19 23;10,19 12;21,38 10;8,57
+24: Wed. Jyeshtha/snron. Water-Earth; 23 Feb 2033
+  Harshana/dga' ba, Taitila/til rdung, Ox, zon 6
+  Solar: Wood-Snake. Zhen
+  4;41,51 17;8,57 23;14,49 13;23,46 10;9,57
+25: Thu. Mula/snrubs. Wind-Water; 24 Feb 2033
+  Vajra/rdo rje, Vanija/tshong ba, Tiger, li 7
+  Solar: Fire-Horse. Jiao
+  5;41,24 18;7,54 23;19,18 14;27,13 10;10,57
+    zin phung
+26: Fri. Purvashadha/chu stod. Earth-Water; 25 Feb 2033
+  Siddhi/dngos grub, Vava/gdab pa, Rabbit, khon 8
+  Solar: Fire-Sheep. Kang
+  6;39,16 19;8,32 23;23,48 15;32,20 10;11,57
+27: Sat. Uttarashadha/chu smad. Earth-Earth; 26 Feb 2033
+  Vyatipata/phan tshun, Kaulava/rigs can, Dragon, dwa 9
+  Solar: Earth-Monkey. Di
+  0;36,8 20;10,9 23;28,18 16;38,27 10;12,57
+28: Sun. Abhijit/gro zhin. Fire-Earth; 27 Feb 2033
+  Variyas/mchog can, Gara/khyim skyes, Snake, khen 1
+  Solar: Earth-Bird. Fang
+  1;32,0 21;12,47 23;32,48 17;45,35 10;13,57
+29: Mon. Dhanishtha/mon gre. Water-Water; 28 Feb 2033
+  Parigha/yongs 'joms, Shakuni/bkra shis, Horse, kham 2
+  Solar: Iron-Dog. Xin
+  2;26,52 22;16,25 23;37,17 18;53,43 10;14,57
+30: Tue. Shatabhishaj/mon gru. Fire-Earth; 1 Mar 2033
+  Siddha/grub pa, Naga/klu, Sheep, gin 3
+  Solar: Iron-Pig. Wei
+  3;21,3 23;20,43 23;41,47 20;2,31 10;15,57
+
+Mars, slow: 13;47,48,1,139 - fast: 16;49,6,3,64 East 7;14,14
+Jupiter, slow: 22;37,8,2,310 - fast: 22;46,36,0,82 East 10;3,41
+Saturn, slow: 4;48,39,5,4423 - fast: 4;21,9,3,250 West 1;28,2
+Mercury, slow: 7;32,16,5,2863 - fast: 24;30,19,4,3782 South 10;26,44
+Venus, slow: 8;1,36,0,576 - fast: 26;54,23,0,317 South 11;28,45
+Rahu, head: 13;15,54,4,16
+
+Tibetan Lunar Month: 2 (Intercalary) - Wood-female-Rabbit
+
+Month: 15175;1
+Anomaly: 12;41
+Mean Weekday: 3;4,47,3,131
+Mean Sun: 23;33,53,5,1
+
+1: Wed. Purvabhadrapada/khrums stod. Water-Fire; 2 Mar 2033
+  Sadhya/bsgrub bya, Vava/gdab pa, Monkey, zin 4
+  Solar: Water-Mouse. Ji
+  4;15,14 24;25,2 23;46,17 21;11,19 10;16,57
+    zin phung
+2: Thu. Uttarabhadrapada/khrums smad. Wind-Water; 3 Mar 2033
+  Shubha/dge ba, Kaulava/rigs can, Bird, zon 5
+  Solar: Water-Ox. Dou
+  5;9,26 25;29,20 23;50,46 22;20,7 10;17,57
+3: Fri. Revati/nam gru. Earth-Water; 4 Mar 2033
+  Shukla/dkar po, Gara/khyim skyes, Dog, li 6
+  Solar: Wood-Tiger. Niu
+  6;3,37 26;33,38 23;55,16 23;28,55 10;18,57
+4. Omitted.
+  6;57,48 23;59,46
+5: Sat. Ashvini/tha skar. Earth-Wind; 5 Mar 2033
+  Brahman/tshangs pa, Vava/gdab pa, Mouse, dwa 8
+  Solar: Wood-Rabbit. Nu
+  0;52,19 0;41,56 24;4,15 24;46,11 10;20,56
+6: Sun. Bharani/bra nye. Fire-Fire; 6 Mar 2033
+  Indra/dbang po, Kaulava/rigs can, Ox, khen 9
+  Solar: Fire-Dragon. Xu
+  1;47,50 1;44,54 24;8,45 25;53,40 10;21,56
+7: Mon. Krittika/smin drug. Water-Fire; 7 Mar 2033
+  Vishkambha/rnam sel, Gara/khyim skyes, Tiger, kham 1
+  Solar: Fire-Snake. Wei
+  2;44,21 2;46,53 24;13,15 0;0,8 10;22,56
+    zin phung
+8: Tue. Rohini/snar ma. Fire-Earth; 8 Mar 2033
+  Priti/mdza' bo, Vishti/viSTi, Rabbit, gin 2
+  Solar: Earth-Horse. Shi
+  3;41,52 3;47,52 24;17,45 1;5,37 10;23,56
+    klu bzlog
+9: Wed. Mrigashiras/mgo. Water-Wind; 9 Mar 2033
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Dragon, zin 3
+  Solar: Earth-Sheep. Bi
+  4;40,43 4;47,31 24;22,14 2;9,45 10;24,56
+10: Thu. Ardra/lag. Wind-Water; 10 Mar 2033
+  Saubhagya/skal bzang, Taitila/til rdung, Snake, zon 4
+  Solar: Iron-Monkey. Kui
+  5;41,14 5;45,29 24;26,44 3;12,14 10;25,56
+    klu thebs
+11: Fri. Punarvasu/nabs so. Earth-Wind; 11 Mar 2033
+  Shobhana/dge byed, Vanija/tshong ba, Horse, li 5
+  Solar: Iron-Bird. Lou
+  6;42,45 6;42,28 24;31,14 4;13,42 10;26,56
+    yan kwong
+12: Sat. Pushya/rgyal. Earth-Fire; 12 Mar 2033
+  Atiganda/shin tu 'grams, Vava/gdab pa, Sheep, khon 6
+  Solar: Water-Dog. Wei
+  0;45,17 7;38,26 24;35,43 5;14,10 10;27,56
+13: Sun. Ashlesha/skag. Fire-Water; 13 Mar 2033
+  Sukarman/las bzang, Kaulava/rigs can, Monkey, dwa 7
+  Solar: Water-Pig. Mao
+  1;48,48 8;33,25 24;40,13 6;13,38 10;28,56
+    zin phung
+14: Mon. Magha/mchu. Water-Fire; 14 Mar 2033
+  Dhriti/'dzin byed, Gara/khyim skyes, Bird, khen 8
+  Solar: Wood-Mouse. Bi
+  2;52,59 9;27,43 24;44,43 7;12,26 10;29,56
+    nyi nag
+15: Tue. Purvaphalguni/gre. Fire-Fire; 15 Mar 2033
+  Shula/zug rngu, Vanija/tshong ba, Dog, kham 9
+  Solar: Wood-Ox. Zui
+  3;57,11 10;22,1 24;49,13 8;11,14 11;0,56
+
+Mars, slow: 14;19,6,2,18 - fast: 17;17,23,1,154 South 7;20,31
+Jupiter, slow: 22;42,43,3,99 - fast: 23;2,10,0,290 East 10;7,8
+Saturn, slow: 4;51,6,5,4297 - fast: 4;23,6,5,4297 North 1;28,28
+Mercury, slow: 11;50,5,4,6902 - fast: 23;33,48,0,2463 West 10;14,10
+Venus, slow: 9;42,32,1,163 - fast: 0;43,44,4,4 South 0;9,43
+Rahu, head: 13;12,23,2,20
+
+16: Wed. Uttaraphalguni/dbo. Water-Wind; 16 Mar 2033
+  Ganda/'grams, Vava/gdab pa, Pig, gin 1
+  Solar: Fire-Tiger. Can
+  4;60,0 11;22,1 24;53,42 9;15,44 11;1,56
+16: Thu. Hasta/me bzhi. Wind-Wind; 17 Mar 2033
+  Vriddhi/'phel, Kaulava/rigs can, Pig, gin 1
+  Solar: Fire-Rabbit. Jing
+  5;1,22 12;16,19 24;53,42 10;10,2 11;1,56
+17: Fri. Citra/nag pa. Earth-Wind; 18 Mar 2033
+  Dhruva/brtan pa, Gara/khyim skyes, Mouse, zin 2
+  Solar: Earth-Dragon. Gui
+  6;5,30 13;10,38 24;58,8 11;8,46 11;2,55
+18: Sat. Svati/sa ri. Earth-Wind; 19 Mar 2033
+  Vyaghata/yongs bsnun, Vishti/viSTi, Ox, zon 3
+  Solar: Earth-Snake. Liu
+  0;9,35 14;4,56 25;2,32 12;7,28 11;3,53
+    klu bzlog
+19: Sun. Svati/sa ri. Fire-Wind; 20 Mar 2033
+  Harshana/dga' ba, Valava/byis pa, Tiger, li 4
+  Solar: Iron-Horse. Xing
+  1;13,21 14;59,34 25;6,56 13;6,30 11;4,52
+    zin phung
+20: Mon. Vishakha/sa ga. Water-Fire; 21 Mar 2033
+  Vajra/rdo rje, Taitila/til rdung, Rabbit, khon 5
+  Solar: Iron-Sheep. Zhang
+  2;16,7 15;55,12 25;11,20 14;6,32 11;5,51
+    klu bzlog
+21: Tue. Anuradha/lha mtshams. Fire-Earth; 22 Mar 2033
+  Siddhi/dngos grub, Vanija/tshong ba, Dragon, dwa 6
+  Solar: Water-Monkey. Yi
+  3;17,53 16;51,50 25;15,43 15;7,34 11;6,49
+22: Wed. Jyeshtha/snron. Water-Earth; 23 Mar 2033
+  Vyatipata/phan tshun, Vava/gdab pa, Snake, khen 7
+  Solar: Water-Bird. Zhen
+  4;18,39 17;49,28 25;20,7 16;9,36 11;7,48
+    klu bzlog
+23: Thu. Mula/snrubs. Wind-Water; 24 Mar 2033
+  Variyas/mchog can, Kaulava/rigs can, Horse, kham 8
+  Solar: Wood-Dog. Jiao
+  5;18,5 18;48,26 25;24,31 17;12,58 11;8,47
+24: Fri. Purvashadha/chu stod. Earth-Water; 25 Mar 2033
+  Parigha/yongs 'joms, Gara/khyim skyes, Sheep, gin 9
+  Solar: Wood-Pig. Kang
+  6;15,50 19;49,4 25;28,55 18;18,0 11;9,45
+25: Sat. Uttarashadha/chu smad. Earth-Earth; 26 Mar 2033
+  Shiva/zhi ba, Vishti/viSTi, Monkey, zin 1
+  Solar: Fire-Mouse. Di
+  0;12,36 20;50,42 25;33,19 19;24,2 11;10,44
+    zin phung
+26: Sun. Abhijit/gro zhin. Fire-Earth; 27 Mar 2033
+  Siddha/grub pa, Valava/byis pa, Bird, zon 2
+  Solar: Fire-Ox. Fang
+  1;8,22 21;53,21 25;37,43 20;31,4 11;11,42
+27: Mon. Dhanishtha/mon gre. Water-Water; 28 Mar 2033
+  Sadhya/bsgrub bya, Taitila/til rdung, Dog, li 3
+  Solar: Earth-Tiger. Xin
+  2;3,7 22;56,59 25;42,7 21;39,6 11;12,41
+28. Omitted.
+  2;57,13 25;46,31
+29: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 29 Mar 2033
+  Shubha/dge ba, Vishti/viSTi, Mouse, dwa 5
+  Solar: Earth-Rabbit. Wei
+  3;51,18 24;5,36 25;50,55 22;56,31 11;14,38
+30: Wed. Uttarabhadrapada/khrums smad. Water-Water; 30 Mar 2033
+  Brahman/tshangs pa, Catushpada/rkang bzhi, Ox, khen 6
+  Solar: Iron-Dragon. Ji
+  4;45,24 25;9,54 25;55,18 24;5,13 11;15,37
+
+Mars, slow: 14;52,38,3,101 - fast: 17;45,4,0,76 South 7;26,40
+Jupiter, slow: 22;48,42,3,105 - fast: 23;17,8,0,26 East 10;10,28
+Saturn, slow: 4;53,44,2,4162 - fast: 4;27,26,4,1842 North 1;29,25
+Mercury, slow: 16;26,19,3,6831 - fast: 23;51,47,4,1935 West 10;18,10
+Venus, slow: 11;30,40,5,95 - fast: 0;47,11,2,284 South 0;10,29
+Rahu, head: 13;8,52,1,1
+
+Tibetan Lunar Month: 2 (Delayed) - Wood-female-Rabbit
+
+Month: 15176;1
+Anomaly: 14;42
+Mean Weekday: 4;36,37,3,611
+Mean Sun: 25;44,52,1,11
+
+1: Thu. Revati/nam gru. Wind-Water; 31 Mar 2033
+  Indra/dbang po, Kintughna/mi sdug pa, Monkey, zin 4
+  Solar: Iron-Snake. Dou
+  5;39,29 26;14,12 25;59,42 25;13,55 11;16,36
+    zin phung
+2: Fri. Ashvini/tha skar. Earth-Wind; 1 Apr 2033
+  Vaidhriti/'khon 'dzin, Valava/byis pa, Bird, zon 5
+  Solar: Water-Horse. Niu
+  6;33,35 0;18,31 26;4,6 26;22,38 11;17,34
+3: Sat. Bharani/bra nye. Earth-Fire; 2 Apr 2033
+  Vishkambha/rnam sel, Taitila/til rdung, Dog, li 6
+  Solar: Water-Sheep. Nu
+  0;28,0 1;22,29 26;8,30 0;31,0 11;18,33
+4: Sun. Krittika/smin drug. Fire-Fire; 3 Apr 2033
+  Priti/mdza' bo, Vishti/viSTi, Pig, khon 7
+  Solar: Wood-Monkey. Xu
+  1;23,26 2;25,27 26;12,54 1;38,22 11;19,32
+5: Mon. Rohini/snar ma. Water-Earth; 4 Apr 2033
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Mouse, dwa 8
+  Solar: Wood-Bird. Wei
+  2;19,52 3;27,26 26;17,18 2;44,44 11;20,30
+6: Tue. Mrigashiras/mgo. Fire-Wind; 5 Apr 2033
+  Saubhagya/skal bzang, Taitila/til rdung, Ox, khen 9
+  Solar: Fire-Dog. Shi
+  3;17,17 4;28,24 26;21,42 3;50,6 11;21,29
+7: Wed. Ardra/lag. Water-Water; 6 Apr 2033
+  Shobhana/dge byed, Vanija/tshong ba, Tiger, kham 1
+  Solar: Fire-Pig. Bi
+  4;16,3 5;28,2 26;26,6 4;54,8 11;22,28
+    zin phung
+8: Thu. Punarvasu/nabs so. Wind-Wind; 7 Apr 2033
+  Atiganda/shin tu 'grams, Vava/gdab pa, Rabbit, gin 2
+  Solar: Earth-Mouse. Kui
+  5;16,29 6;26,0 26;30,30 5;56,30 11;23,26
+    klu bzlog
+9: Fri. Pushya/rgyal. Earth-Fire; 8 Apr 2033
+  Sukarman/las bzang, Kaulava/rigs can, Dragon, zin 3
+  Solar: Earth-Ox. Lou
+  6;17,55 7;22,58 26;34,53 6;57,52 11;24,25
+10: Sat. Ashlesha/skag. Earth-Water; 9 Apr 2033
+  Dhriti/'dzin byed, Gara/khyim skyes, Snake, zon 4
+  Solar: Iron-Tiger. Wei
+  0;20,20 8;18,56 26;39,17 7;58,14 11;25,23
+    klu thebs
+11: Sun. Magha/mchu. Fire-Fire; 10 Apr 2033
+  Shula/zug rngu, Vishti/viSTi, Horse, li 5
+  Solar: Iron-Rabbit. Mao
+  1;23,46 9;13,54 26;43,41 8;57,36 11;26,22
+    yan kwong
+12: Mon. Purvaphalguni/gre. Water-Fire; 11 Apr 2033
+  Ganda/'grams, Vava/gdab pa, Sheep, khon 6
+  Solar: Water-Dragon. Bi
+  2;27,52 10;8,12 26;48,5 9;56,18 11;27,21
+13: Tue. Uttaraphalguni/dbo. Fire-Wind; 12 Apr 2033
+  Vriddhi/'phel, Kaulava/rigs can, Monkey, dwa 7
+  Solar: Water-Snake. Zui
+  3;31,58 11;2,31 26;52,29 10;55,0 11;28,19
+    zin phung
+14: Wed. Uttaraphalguni/dbo. Water-Wind; 13 Apr 2033
+  Dhruva/brtan pa, Gara/khyim skyes, Bird, khen 8
+  Solar: Wood-Horse. Can
+  4;36,3 11;56,49 26;56,53 11;53,42 11;29,18
+    nyi nag
+15: Thu. Hasta/me bzhi. Wind-Wind; 14 Apr 2033
+  Vyaghata/yongs bsnun, Vishti/viSTi, Dog, kham 9
+  Solar: Wood-Sheep. Jing
+  5;40,9 12;51,7 0;1,17 12;52,24 0;0,17
+
+Mars, slow: 15;26,18,3,61 - fast: 18;2,4,3,203 South 8;0,27
+Jupiter, slow: 22;54,41,3,111 - fast: 23;31,6,5,107 East 10;13,34
+Saturn, slow: 4;56,21,5,4027 - fast: 4;32,9,5,3575 North 2;0,28
+Mercury, slow: 21;2,33,2,6760 - fast: 25;17,6,5,1385 North 11;7,8
+Venus, slow: 13;18,49,3,27 - fast: 0;27,31,2,439 South 0;6,6
+Rahu, head: 13;5,20,5,5
+
+16: Fri. Citra/nag pa. Earth-Wind; 15 Apr 2033
+  Harshana/dga' ba, Valava/byis pa, Pig, gin 1
+  Solar: Fire-Monkey. Gui
+  6;44,15 13;45,25 0;5,41 13;51,6 0;1,15
+17: Sat. Svati/sa ri. Earth-Wind; 16 Apr 2033
+  Vajra/rdo rje, Taitila/til rdung, Mouse, zin 2
+  Solar: Fire-Bird. Liu
+  0;48,0 14;40,4 0;10,5 14;50,9 0;2,14
+18: Sun. Vishakha/sa ga. Fire-Fire; 17 Apr 2033
+  Siddhi/dngos grub, Vanija/tshong ba, Ox, zon 3
+  Solar: Earth-Dog. Xing
+  1;50,43 15;35,42 0;14,25 15;50,8 0;3,12
+    klu bzlog
+19: Mon. Anuradha/lha mtshams. Water-Earth; 18 Apr 2033
+  Vyatipata/phan tshun, Vava/gdab pa, Tiger, li 4
+  Solar: Earth-Pig. Zhang
+  2;52,24 16;32,21 0;18,45 16;51,7 0;4,10
+    zin phung
+20: Tue. Jyeshtha/snron. Fire-Earth; 19 Apr 2033
+  Variyas/mchog can, Kaulava/rigs can, Rabbit, khon 5
+  Solar: Iron-Mouse. Yi
+  3;53,5 17;29,59 0;23,5 17;53,5 0;5,7
+    klu bzlog
+21: Wed. Mula/snrubs. Water-Water; 20 Apr 2033
+  Parigha/yongs 'joms, Gara/khyim skyes, Dragon, dwa 6
+  Solar: Iron-Ox. Zhen
+  4;52,27 18;28,58 0;27,25 18;56,24 0;6,5
+22: Thu. Purvashadha/chu stod. Wind-Water; 21 Apr 2033
+  Siddha/grub pa, Vishti/viSTi, Snake, khen 7
+  Solar: Water-Tiger. Jiao
+  5;50,8 19;29,37 0;31,45 20;1,23 0;7,3
+    klu bzlog
+23: Fri. Uttarashadha/chu smad. Earth-Earth; 22 Apr 2033
+  Sadhya/bsgrub bya, Valava/byis pa, Horse, kham 8
+  Solar: Water-Rabbit. Kang
+  6;46,49 20;31,16 0;36,5 21;7,21 0;8,1
+24: Sat. Abhijit/gro zhin. Earth-Earth; 23 Apr 2033
+  Shubha/dge ba, Taitila/til rdung, Sheep, gin 9
+  Solar: Wood-Dragon. Di
+  0;42,31 21;33,54 0;40,25 22;14,20 0;8,59
+25: Sun. Dhanishtha/mon gre. Fire-Water; 24 Apr 2033
+  Shukla/dkar po, Vanija/tshong ba, Monkey, zin 1
+  Solar: Wood-Snake. Fang
+  1;37,12 22;37,33 0;44,45 23;22,19 0;9,56
+    zin phung
+26: Mon. Shatabhishaj/mon gru. Water-Earth; 25 Apr 2033
+  Brahman/tshangs pa, Vava/gdab pa, Bird, zon 2
+  Solar: Fire-Horse. Xin
+  2;31,13 23;41,51 0;49,5 24;30,57 0;10,54
+27: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 26 Apr 2033
+  Indra/dbang po, Taitila/til rdung, Dog, li 3
+  Solar: Fire-Sheep. Wei
+  3;25,15 24;46,10 0;53,25 25;39,36 0;11,52
+28: Wed. Uttarabhadrapada/khrums smad. Water-Water; 27 Apr 2033
+  Vaidhriti/'khon 'dzin, Vanija/tshong ba, Pig, khon 4
+  Solar: Earth-Monkey. Ji
+  4;19,17 25;50,28 0;57,45 26;48,14 0;12,50
+    klu bzlog
+29: Thu. Revati/nam gru. Wind-Water; 28 Apr 2033
+  Vishkambha/rnam sel, Shakuni/bkra shis, Mouse, dwa 5
+  Solar: Earth-Bird. Dou
+  5;13,18 26;54,46 1;2,5 0;56,52 0;13,47
+30: Fri. Ashvini/tha skar. Earth-Wind; 29 Apr 2033
+  Ayushmat/tshe dang ldan pa, Naga/klu, Ox, khen 6
+  Solar: Iron-Dog. Niu
+  6;7,20 0;59,5 1;6,25 2;5,31 0;14,45
+
+Mars, slow: 16;3,30,5,35 - fast: 18;21,22,1,113 South 8;4,44
+Jupiter, slow: 23;0,40,3,117 - fast: 23;43,11,3,163 East 10;16,15
+Saturn, slow: 4;58,59,2,3892 - fast: 4;38,46,5,1341 North 2;1,57
+Mercury, slow: 25;38,47,1,6689 - fast: 0;12,40,5,7593 North 0;2,49
+Venus, slow: 15;6,58,0,708 - fast: 26;49,0,3,450 West 11;27,33
+Rahu, head: 13;1,49,3,9
+
+Tibetan Lunar Month: 3 - Fire-male-Dragon
+
+Month: 15177;3
+Anomaly: 16;43
+Mean Weekday: 6;8,27,4,384
+Mean Sun: 0;55,50,4,8
+
+1: Sat. Krittika/smin drug. Earth-Fire; 30 Apr 2033
+  Saubhagya/skal bzang, Vava/gdab pa, Tiger, kham 7
+  Solar: Iron-Pig. Nu
+  0;1,42 2;3,3 1;10,45 3;13,49 0;15,43
+    zin phung
+2. Omitted.
+  0;57,4 1;15,5
+3: Sun. Rohini/snar ma. Fire-Earth; 1 May 2033
+  Shobhana/dge byed, Taitila/til rdung, Dragon, zin 9
+  Solar: Water-Mouse. Xu
+  1;53,27 3;7,58 1;19,25 4;27,24 0;17,39
+4: Mon. Mrigashiras/mgo. Water-Wind; 2 May 2033
+  Atiganda/shin tu 'grams, Vanija/tshong ba, Snake, zon 1
+  Solar: Water-Ox. Wei
+  2;50,49 4;8,56 1;23,45 5;32,42 0;18,36
+5: Tue. Ardra/lag. Fire-Water; 3 May 2033
+  Sukarman/las bzang, Vava/gdab pa, Horse, li 2
+  Solar: Wood-Tiger. Shi
+  3;49,32 5;8,33 1;28,6 6;36,39 0;19,34
+6: Wed. Punarvasu/nabs so. Water-Wind; 4 May 2033
+  Dhriti/'dzin byed, Kaulava/rigs can, Sheep, khon 3
+  Solar: Wood-Rabbit. Bi
+  4;49,54 6;6,31 1;32,26 7;38,57 0;20,32
+7: Thu. Pushya/rgyal. Wind-Fire; 5 May 2033
+  Shula/zug rngu, Gara/khyim skyes, Monkey, dwa 4
+  Solar: Fire-Dragon. Kui
+  5;51,16 7;3,29 1;36,46 8;40,15 0;21,30
+    zin phung
+8: Fri. Pushya/rgyal. Earth-Fire; 6 May 2033
+  Ganda/'grams, Vishti/viSTi, Bird, khen 5
+  Solar: Fire-Snake. Lou
+  6;53,39 7;59,26 1;41,6 9;40,32 0;22,28
+9: Sat. Ashlesha/skag. Earth-Water; 7 May 2033
+  Vriddhi/'phel, Vava/gdab pa, Dog, kham 6
+  Solar: Earth-Horse. Wei
+  0;57,1 8;54,24 1;45,26 10;39,50 0;23,25
+    yan kwong
+10: Sun. Magha/mchu. Fire-Fire; 8 May 2033
+  Dhruva/brtan pa, Kaulava/rigs can, Pig, gin 7
+  Solar: Earth-Sheep. Mao
+  1;60,0 9;54,24 1;49,46 11;44,10 0;24,23
+10: Mon. Purvaphalguni/gre. Water-Fire; 9 May 2033
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Pig, gin 7
+  Solar: Iron-Monkey. Bi
+  2;1,3 10;48,42 1;49,46 12;38,28 0;24,23
+11: Tue. Uttaraphalguni/dbo. Fire-Wind; 10 May 2033
+  Harshana/dga' ba, Vishti/viSTi, Mouse, zin 8
+  Solar: Iron-Bird. Zui
+  3;5,5 11;43,0 1;54,6 13;37,6 0;25,21
+12: Wed. Hasta/me bzhi. Water-Wind; 11 May 2033
+  Vajra/rdo rje, Valava/byis pa, Ox, zon 9
+  Solar: Water-Dog. Can
+  4;9,7 12;37,18 1;58,26 14;35,44 0;26,19
+13: Thu. Citra/nag pa. Wind-Wind; 12 May 2033
+  Siddhi/dngos grub, Taitila/til rdung, Tiger, li 1
+  Solar: Water-Pig. Jing
+  5;13,8 13;31,37 2;2,46 15;34,23 0;27,16
+    zin phung
+14: Fri. Svati/sa ri. Earth-Wind; 13 May 2033
+  Vyatipata/phan tshun, Vanija/tshong ba, Rabbit, khon 2
+  Solar: Wood-Mouse. Gui
+  6;17,10 14;25,55 2;7,6 16;33,1 0;28,14
+15: Sat. Vishakha/sa ga. Earth-Fire; 14 May 2033
+  Variyas/mchog can, Vava/gdab pa, Dragon, dwa 3
+  Solar: Wood-Ox. Liu
+  0;20,51 15;20,34 2;11,26 17;32,0 0;29,12
+  Revelation of the Kalacakra Tantra.
+
+Mars, slow: 16;40,43,1,9 - fast: 18;26,14,0,97 South 8;5,49
+Jupiter, slow: 23;6,41,4,230 - fast: 23;55,9,3,207 East 10;18,55
+Saturn, slow: 5;1,36,5,3757 - fast: 4;45,35,4,4942 North 2;3,27
+Mercury, slow: 3;15,1,0,6618 - fast: 2;17,47,4,4652 East 1;0,37
+Venus, slow: 16;55,6,4,640 - fast: 26;40,59,1,61 West 11;25,46
+Rahu, head: 12;58,18,1,13
+
+16: Sun. Anuradha/lha mtshams. Fire-Earth; 15 May 2033
+  Parigha/yongs 'joms, Kaulava/rigs can, Snake, khen 4
+  Solar: Fire-Tiger. Xing
+  1;23,32 16;16,13 2;15,46 18;31,59 1;0,10
+17: Mon. Jyeshtha/snron. Water-Earth; 16 May 2033
+  Shiva/zhi ba, Gara/khyim skyes, Horse, kham 5
+  Solar: Fire-Rabbit. Zhang
+  2;25,13 17;12,52 2;20,6 19;32,58 1;1,8
+18: Tue. Mula/snrubs. Fire-Water; 17 May 2033
+  Siddha/grub pa, Vishti/viSTi, Sheep, gin 6
+  Solar: Earth-Dragon. Yi
+  3;25,54 18;10,31 2;24,26 20;34,57 1;2,5
+19: Wed. Purvashadha/chu stod. Water-Water; 18 May 2033
+  Sadhya/bsgrub bya, Valava/byis pa, Monkey, zin 7
+  Solar: Earth-Snake. Zhen
+  4;25,9 19;9,31 2;28,41 21;38,12 1;3,2
+    zin phung
+20: Thu. Uttarashadha/chu smad. Wind-Earth; 19 May 2033
+  Shubha/dge ba, Taitila/til rdung, Bird, zon 8
+  Solar: Iron-Horse. Jiao
+  5;22,45 20;10,10 2;32,55 22;43,5 1;3,58
+21: Fri. Abhijit/gro zhin. Earth-Earth; 20 May 2033
+  Shukla/dkar po, Vanija/tshong ba, Dog, li 9
+  Solar: Iron-Sheep. Kang
+  6;19,20 21;11,49 2;37,9 23;48,58 1;4,55
+    nyi nag
+22: Sat. Dhanishtha/mon gre. Earth-Water; 21 May 2033
+  Brahman/tshangs pa, Vava/gdab pa, Pig, khon 1
+  Solar: Water-Monkey. Di
+  0;14,55 22;14,28 2;41,23 24;55,51 1;5,51
+23: Sun. Shatabhishaj/mon gru. Fire-Earth; 22 May 2033
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Mouse, dwa 2
+  Solar: Water-Bird. Fang
+  1;9,30 23;18,7 2;45,37 26;3,45 1;6,48
+24: Mon. Purvabhadrapada/khrums stod. Water-Fire; 23 May 2033
+  Vishkambha/rnam sel, Gara/khyim skyes, Ox, khen 3
+  Solar: Wood-Dog. Xin
+  2;3,26 24;22,25 2;49,51 0;12,17 1;7,44
+25. Omitted.
+  2;57,21 2;54,6
+26: Tue. Uttarabhadrapada/khrums smad. Fire-Water; 24 May 2033
+  Priti/mdza' bo, Vava/gdab pa, Rabbit, gin 5
+  Solar: Wood-Pig. Wei
+  3;51,17 25;31,2 2;58,20 1;29,23 1;9,37
+27: Wed. Revati/nam gru. Water-Water; 25 May 2033
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Dragon, zin 6
+  Solar: Fire-Mouse. Ji
+  4;45,13 26;35,21 3;2,34 2;37,55 1;10,34
+28: Thu. Ashvini/tha skar. Wind-Wind; 26 May 2033
+  Saubhagya/skal bzang, Gara/khyim skyes, Snake, zon 7
+  Solar: Fire-Ox. Dou
+  5;39,9 0;39,39 3;6,48 3;46,28 1;11,30
+29: Fri. Bharani/bra nye. Earth-Fire; 27 May 2033
+  Shobhana/dge byed, Vishti/viSTi, Horse, li 8
+  Solar: Earth-Tiger. Niu
+  6;33,26 1;43,36 3;11,2 4;54,39 1;12,27
+30: Sat. Krittika/smin drug. Earth-Fire; 28 May 2033
+  Sukarman/las bzang, Catushpada/rkang bzhi, Sheep, khon 9
+  Solar: Earth-Rabbit. Nu
+  0;28,42 2;46,34 3;15,17 6;1,51 1;13,23
+
+Mars, slow: 17;15,26,4,0 - fast: 18;19,56,3,111 South 8;4,25
+Jupiter, slow: 23;12,21,2,352 - fast: 24;3,10,2,188 East 10;20,42
+Saturn, slow: 5;4,3,5,3631 - fast: 4;53,17,4,1706 North 2;5,10
+Mercury, slow: 7;32,50,0,1860 - fast: 4;13,51,0,5060 East 1;26,24
+Venus, slow: 18;36,2,5,227 - fast: 0;9,24,0,606 West 0;2,5
+Rahu, head: 12;54,46,5,17
+
+Tibetan Lunar Month: 4 - Fire-female-Snake
+
+Month: 15178;5
+Anomaly: 18;44
+Mean Weekday: 0;40,17,5,157
+Mean Sun: 3;6,49,1,5
+
+1: Sun. Rohini/snar ma. Fire-Earth; 29 May 2033
+  Dhriti/'dzin byed, Vava/gdab pa, Monkey, dwa 1
+  Solar: Iron-Dragon. Xu
+  1;24,59 3;48,31 3;19,31 7;8,2 1;14,20
+2: Mon. Mrigashiras/mgo. Water-Wind; 30 May 2033
+  Shula/zug rngu, Kaulava/rigs can, Bird, khen 2
+  Solar: Iron-Snake. Wei
+  2;22,16 4;49,28 3;23,45 8;13,14 1;15,16
+3: Tue. Ardra/lag. Fire-Water; 31 May 2033
+  Ganda/'grams, Gara/khyim skyes, Dog, kham 3
+  Solar: Water-Horse. Shi
+  3;20,54 5;49,5 3;27,59 9;17,4 1;16,13
+4: Wed. Punarvasu/nabs so. Water-Wind; 1 Jun 2033
+  Vriddhi/'phel, Vishti/viSTi, Pig, gin 4
+  Solar: Water-Sheep. Bi
+  4;21,11 6;47,2 3;32,13 10;19,16 1;17,9
+5: Thu. Pushya/rgyal. Wind-Fire; 2 Jun 2033
+  Dhruva/brtan pa, Valava/byis pa, Mouse, zin 5
+  Solar: Wood-Monkey. Kui
+  5;22,28 7;43,59 3;36,28 11;20,27 1;18,6
+6: Fri. Ashlesha/skag. Earth-Water; 3 Jun 2033
+  Vyaghata/yongs bsnun, Taitila/til rdung, Ox, zon 6
+  Solar: Wood-Bird. Lou
+  6;24,45 8;39,56 3;40,42 12;20,38 1;19,2
+    zin phung
+7: Sat. Magha/mchu. Earth-Fire; 4 Jun 2033
+  Harshana/dga' ba, Gara/khyim skyes, Tiger, li 7
+  Solar: Fire-Dog. Wei
+  0;28,2 9;34,53 3;44,56 13;19,50 1;19,59
+    yan kwong
+8: Sun. Purvaphalguni/gre. Fire-Fire; 5 Jun 2033
+  Vajra/rdo rje, Vishti/viSTi, Rabbit, khon 8
+  Solar: Fire-Pig. Mao
+  1;31,58 10;29,12 3;49,10 14;18,22 1;20,55
+  Birth of the Buddha.
+    klu thebs, nyi nag
+9: Mon. Uttaraphalguni/dbo. Water-Wind; 6 Jun 2033
+  Siddhi/dngos grub, Valava/byis pa, Dragon, dwa 9
+  Solar: Earth-Mouse. Bi
+  2;35,54 11;23,30 3;53,24 15;16,54 1;21,52
+10: Tue. Hasta/me bzhi. Fire-Wind; 7 Jun 2033
+  Vyatipata/phan tshun, Taitila/til rdung, Snake, khen 1
+  Solar: Earth-Ox. Zui
+  3;39,50 12;17,48 3;57,38 16;15,27 1;22,48
+11: Wed. Citra/nag pa. Water-Wind; 8 Jun 2033
+  Variyas/mchog can, Vanija/tshong ba, Horse, kham 2
+  Solar: Iron-Tiger. Can
+  4;43,46 13;12,6 4;1,53 17;13,59 1;23,45
+12: Thu. Svati/sa ri. Wind-Wind; 9 Jun 2033
+  Parigha/yongs 'joms, Vava/gdab pa, Sheep, gin 3
+  Solar: Iron-Rabbit. Jing
+  5;47,42 14;6,24 4;6,7 18;12,32 1;24,41
+    zin phung
+13: Fri. Vishakha/sa ga. Earth-Fire; 10 Jun 2033
+  Shiva/zhi ba, Kaulava/rigs can, Monkey, zin 4
+  Solar: Water-Dragon. Gui
+  6;51,17 15;1,4 4;10,21 19;11,25 1;25,38
+14: Sat. Vishakha/sa ga. Earth-Fire; 11 Jun 2033
+  Siddha/grub pa, Gara/khyim skyes, Bird, zon 5
+  Solar: Water-Snake. Liu
+  0;53,51 15;56,43 4;14,35 20;11,19 1;26,34
+15: Sun. Anuradha/lha mtshams. Fire-Earth; 12 Jun 2033
+  Sadhya/bsgrub bya, Vanija/tshong ba, Dog, li 6
+  Solar: Wood-Horse. Xing
+  1;55,26 16;53,23 4;18,49 21;12,12 1;27,31
+  Enlightenment and Parinirvana of the Buddha.
+    klu thebs
+
+Mars, slow: 17;53,5,1,101 - fast: 18;12,7,5,67 South 8;2,41
+Jupiter, slow: 23;18,25,2,328 - fast: 24;10,19,2,74 East 10;22,17
+Saturn, slow: 5;6,41,2,3496 - fast: 5;1,15,0,4637 North 2;6,56
+Mercury, slow: 12;9,3,5,1789 - fast: 5;53,56,4,2743 East 2;18,39
+Venus, slow: 20;24,11,3,159 - fast: 0;53,30,1,508 West 0;11,53
+Rahu, head: 12;51,15,3,21
+
+16: Mon. Jyeshtha/snron. Water-Earth; 13 Jun 2033
+  Shubha/dge ba, Vava/gdab pa, Pig, khon 7
+  Solar: Wood-Sheep. Zhang
+  2;56,1 17;51,2 4;23,4 22;14,6 1;28,27
+17: Tue. Mula/snrubs. Fire-Water; 14 Jun 2033
+  Shukla/dkar po, Kaulava/rigs can, Mouse, dwa 8
+  Solar: Fire-Monkey. Yi
+  3;55,14 18;50,3 4;27,18 23;17,21 1;29,24
+18: Wed. Purvashadha/chu stod. Water-Water; 15 Jun 2033
+  Brahman/tshangs pa, Vanija/tshong ba, Ox, khen 9
+  Solar: Fire-Bird. Zhen
+  4;52,49 19;50,42 4;31,32 24;22,15 2;0,20
+    zin phung
+19: Thu. Uttarashadha/chu smad. Wind-Earth; 16 Jun 2033
+  Indra/dbang po, Vava/gdab pa, Tiger, kham 1
+  Solar: Earth-Dog. Jiao
+  5;49,24 20;52,22 4;35,46 25;28,9 2;1,17
+20: Fri. Abhijit/gro zhin. Earth-Earth; 17 Jun 2033
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Rabbit, gin 2
+  Solar: Earth-Pig. Kang
+  6;44,55 21;55,2 4;39,57 26;34,59 2;2,12
+    klu bzlog
+21: Sat. Dhanishtha/mon gre. Earth-Water; 18 Jun 2033
+  Vishkambha/rnam sel, Gara/khyim skyes, Dragon, zin 3
+  Solar: Iron-Mouse. Di
+  0;39,25 22;58,41 4;44,7 0;42,48 2;3,8
+22: Sun. Purvabhadrapada/khrums stod. Fire-Fire; 19 Jun 2033
+  Priti/mdza' bo, Vishti/viSTi, Snake, zon 4
+  Solar: Iron-Ox. Fang
+  1;33,17 24;2,59 4;48,17 1;51,17 2;4,3
+23: Mon. Uttarabhadrapada/khrums smad. Water-Water; 20 Jun 2033
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Horse, li 5
+  Solar: Water-Tiger. Xin
+  2;27,9 25;7,18 4;52,28 2;59,46 2;4,59
+24: Tue. Revati/nam gru. Fire-Water; 21 Jun 2033
+  Shobhana/dge byed, Gara/khyim skyes, Sheep, khon 6
+  Solar: Water-Rabbit. Wei
+  3;21,1 26;11,36 4;56,38 4;8,15 2;5,55
+    zin phung
+25: Wed. Ashvini/tha skar. Water-Wind; 22 Jun 2033
+  Atiganda/shin tu 'grams, Vishti/viSTi, Monkey, dwa 7
+  Solar: Wood-Dragon. Ji
+  4;14,53 0;15,55 5;0,48 5;16,43 2;6,50
+    klu bzlog
+26: Thu. Bharani/bra nye. Wind-Fire; 23 Jun 2033
+  Sukarman/las bzang, Valava/byis pa, Bird, khen 8
+  Solar: Wood-Snake. Dou
+  5;8,45 1;20,13 5;4,59 6;25,12 2;7,46
+27: Fri. Krittika/smin drug. Earth-Fire; 24 Jun 2033
+  Dhriti/'dzin byed, Taitila/til rdung, Dog, kham 9
+  Solar: Fire-Horse. Niu
+  6;2,58 2;24,10 5;9,9 7;33,19 2;8,42
+28. Omitted.
+  6;58,12 5;13,19
+29: Sat. Rohini/snar ma. Earth-Earth; 25 Jun 2033
+  Shula/zug rngu, Vanija/tshong ba, Mouse, zin 2
+  Solar: Fire-Sheep. Nu
+  0;54,25 3;29,4 5;17,29 8;46,34 2;10,33
+30: Sun. Mrigashiras/mgo. Fire-Wind; 26 Jun 2033
+  Ganda/'grams, Catushpada/rkang bzhi, Ox, zon 3
+  Solar: Earth-Monkey. Xu
+  1;51,39 4;30,1 5;21,40 9;51,41 2;11,28
+    zin phung
+
+Mars, slow: 18;30,30,0,180 - fast: 17;59,57,0,145 West 7;29,59
+Jupiter, slow: 23;24,5,1,89 - fast: 24;13,24,0,180 South 10;22,58
+Saturn, slow: 5;9,8,2,3370 - fast: 5;10,0,2,962 East 2;8,53
+Mercury, slow: 16;26,52,4,5828 - fast: 6;50,8,0,826 South 3;1,8
+Venus, slow: 22;5,7,3,495 - fast: 1;52,46,5,60 West 0;25,3
+Rahu, head: 12;47,44,2,2
+
+Tibetan Lunar Month: 5 - Earth-male-Horse
+
+Month: 15179;7
+Anomaly: 20;45
+Mean Weekday: 2;12,7,5,637
+Mean Sun: 5;17,47,4,2
+
+1: Mon. Ardra/lag. Water-Water; 27 Jun 2033
+  Vriddhi/'phel, Kintughna/mi sdug pa, Tiger, li 4
+  Solar: Earth-Bird. Wei
+  2;50,14 5;29,36 5;25,50 10;55,27 2;12,24
+2: Tue. Punarvasu/nabs so. Fire-Wind; 28 Jun 2033
+  Dhruva/brtan pa, Valava/byis pa, Rabbit, khon 5
+  Solar: Iron-Dog. Shi
+  3;50,27 6;27,33 5;30,0 11;57,34 2;13,20
+3: Wed. Pushya/rgyal. Water-Fire; 29 Jun 2033
+  Vyaghata/yongs bsnun, Taitila/til rdung, Dragon, dwa 6
+  Solar: Iron-Pig. Bi
+  4;51,41 7;24,30 5;34,11 12;58,41 2;14,15
+4: Thu. Ashlesha/skag. Wind-Water; 30 Jun 2033
+  Harshana/dga' ba, Vanija/tshong ba, Snake, khen 7
+  Solar: Water-Mouse. Kui
+  5;53,54 8;20,26 5;38,21 13;58,48 2;15,11
+5: Fri. Magha/mchu. Earth-Fire; 1 Jul 2033
+  Vajra/rdo rje, Vishti/viSTi, Horse, kham 8
+  Solar: Water-Ox. Lou
+  6;57,8 9;15,23 5;42,31 14;57,55 2;16,7
+    yan kwong
+6: Sat. Purvaphalguni/gre. Earth-Fire; 2 Jul 2033
+  Vyatipata/phan tshun, Valava/byis pa, Sheep, gin 9
+  Solar: Wood-Tiger. Wei
+  0;60,0 10;15,23 5;46,42 16;2,5 2;17,2
+    zin phung
+6: Sun. Uttaraphalguni/dbo. Fire-Wind; 3 Jul 2033
+  Vyatipata/phan tshun, Taitila/til rdung, Sheep, gin 9
+  Solar: Wood-Rabbit. Mao
+  1;1,0 11;9,41 5;46,42 16;56,23 2;17,2
+7: Mon. Hasta/me bzhi. Water-Wind; 4 Jul 2033
+  Variyas/mchog can, Vanija/tshong ba, Monkey, zin 1
+  Solar: Fire-Dragon. Bi
+  2;4,52 12;3,59 5;50,52 17;54,52 2;17,58
+8: Tue. Hasta/me bzhi. Fire-Wind; 5 Jul 2033
+  Parigha/yongs 'joms, Vava/gdab pa, Bird, zon 2
+  Solar: Fire-Snake. Zui
+  3;8,44 12;58,18 5;55,2 18;53,20 2;18,53
+    klu bzlog
+9: Wed. Citra/nag pa. Water-Wind; 6 Jul 2033
+  Shiva/zhi ba, Kaulava/rigs can, Dog, li 3
+  Solar: Earth-Horse. Can
+  4;12,36 13;52,36 5;59,13 19;51,49 2;19,49
+10: Thu. Svati/sa ri. Wind-Wind; 7 Jul 2033
+  Siddha/grub pa, Gara/khyim skyes, Pig, khon 4
+  Solar: Earth-Sheep. Jing
+  5;16,28 14;46,54 6;3,23 20;50,17 2;20,45
+11: Fri. Vishakha/sa ga. Earth-Fire; 8 Jul 2033
+  Sadhya/bsgrub bya, Vishti/viSTi, Mouse, dwa 5
+  Solar: Iron-Monkey. Gui
+  6;19,59 15;41,34 6;7,33 21;49,7 2;21,40
+12: Sat. Anuradha/lha mtshams. Earth-Earth; 9 Jul 2033
+  Shubha/dge ba, Valava/byis pa, Ox, khen 6
+  Solar: Iron-Bird. Liu
+  0;22,29 16;37,14 6;11,43 22;48,57 2;22,36
+    zin phung
+13: Sun. Jyeshtha/snron. Fire-Earth; 10 Jul 2033
+  Shukla/dkar po, Taitila/til rdung, Tiger, kham 7
+  Solar: Water-Dog. Xing
+  1;24,0 17;33,54 6;15,54 23;49,48 2;23,32
+14: Mon. Mula/snrubs. Water-Water; 11 Jul 2033
+  Brahman/tshangs pa, Vanija/tshong ba, Rabbit, gin 8
+  Solar: Water-Pig. Zhang
+  2;24,30 18;31,33 6;20,4 24;51,38 2;24,27
+15: Tue. Purvashadha/chu stod. Fire-Water; 12 Jul 2033
+  Indra/dbang po, Vava/gdab pa, Dragon, zin 9
+  Solar: Wood-Mouse. Yi
+  3;23,39 19;30,35 6;24,14 25;54,50 2;25,23
+    klu bzlog
+
+Mars, slow: 19;13,15,4,74 - fast: 18;6,54,0,160 West 8;1,32
+Jupiter, slow: 23;30,33,2,280 - fast: 24;14,17,0,252 South 10;23,10
+Saturn, slow: 5;11,56,2,3226 - fast: 5;18,53,0,4544 East 2;10,51
+Mercury, slow: 21;21,31,3,1647 - fast: 5;41,57,3,2479 West 2;15,59
+Venus, slow: 24;0,28,5,23 - fast: 2;59,29,3,502 North 1;9,53
+Rahu, head: 12;44,13,0,6
+
+16: Wed. Uttarashadha/chu smad. Water-Earth; 13 Jul 2033
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Snake, zon 1
+  Solar: Wood-Ox. Zhen
+  4;21,9 20;31,15 6;28,25 26;59,40 2;26,18
+    nyi nag
+17: Thu. Abhijit/gro zhin. Wind-Earth; 14 Jul 2033
+  Priti/mdza' bo, Gara/khyim skyes, Horse, li 2
+  Solar: Fire-Tiger. Jiao
+  5;17,39 21;32,55 6;32,35 1;5,30 2;27,14
+18: Fri. Dhanishtha/mon gre. Earth-Water; 15 Jul 2033
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Sheep, khon 3
+  Solar: Fire-Rabbit. Kang
+  6;13,10 22;35,35 6;36,45 2;12,21 2;28,10
+    zin phung
+19: Sat. Shatabhishaj/mon gru. Earth-Earth; 16 Jul 2033
+  Saubhagya/skal bzang, Valava/byis pa, Monkey, dwa 4
+  Solar: Earth-Dragon. Di
+  0;7,40 23;39,15 6;40,56 3;20,11 2;29,5
+20: Sun. Purvabhadrapada/khrums stod. Fire-Fire; 17 Jul 2033
+  Shobhana/dge byed, Taitila/til rdung, Bird, khen 5
+  Solar: Earth-Snake. Fang
+  1;1,32 24;43,33 6;45,6 4;28,40 3;0,1
+    klu thebs
+21. Omitted.
+  1;55,24 6;49,16
+22: Mon. Uttarabhadrapada/khrums smad. Water-Water; 18 Jul 2033
+  Atiganda/shin tu 'grams, Vishti/viSTi, Pig, gin 7
+  Solar: Iron-Horse. Xin
+  2;49,16 25;52,10 6;53,26 5;45,37 3;1,52
+    klu thebs
+23: Tue. Revati/nam gru. Fire-Water; 19 Jul 2033
+  Sukarman/las bzang, Valava/byis pa, Mouse, zin 8
+  Solar: Iron-Sheep. Wei
+  3;43,8 26;56,28 6;57,37 6;54,6 3;2,48
+24: Wed. Bharani/bra nye. Water-Fire; 20 Jul 2033
+  Shula/zug rngu, Taitila/til rdung, Ox, zon 9
+  Solar: Water-Monkey. Ji
+  4;37,0 1;0,47 7;1,47 8;2,34 3;3,43
+    zin phung
+25: Thu. Krittika/smin drug. Wind-Fire; 21 Jul 2033
+  Ganda/'grams, Vanija/tshong ba, Tiger, li 1
+  Solar: Water-Bird. Dou
+  5;31,13 2;4,43 7;5,57 9;10,41 3;4,39
+26: Fri. Rohini/snar ma. Earth-Earth; 22 Jul 2033
+  Vriddhi/'phel, Valava/byis pa, Rabbit, khon 2
+  Solar: Wood-Dog. Niu
+  6;26,27 3;7,40 7;10,8 10;17,48 3;5,35
+27: Sat. Mrigashiras/mgo. Earth-Wind; 23 Jul 2033
+  Dhruva/brtan pa, Taitila/til rdung, Dragon, dwa 3
+  Solar: Wood-Pig. Nu
+  0;22,41 4;9,36 7;14,18 11;23,55 3;6,30
+28: Sun. Ardra/lag. Fire-Water; 24 Jul 2033
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Snake, khen 4
+  Solar: Fire-Mouse. Xu
+  1;19,55 5;10,33 7;18,28 12;29,2 3;7,26
+29: Mon. Punarvasu/nabs so. Water-Wind; 25 Jul 2033
+  Harshana/dga' ba, Shakuni/bkra shis, Horse, kham 5
+  Solar: Fire-Ox. Wei
+  2;18,31 6;10,7 7;22,39 13;32,46 3;8,22
+30: Tue. Pushya/rgyal. Fire-Fire; 26 Jul 2033
+  Vajra/rdo rje, Naga/klu, Sheep, gin 6
+  Solar: Earth-Tiger. Shi
+  3;18,45 7;8,4 7;26,49 14;34,53 3;9,17
+    zin phung
+
+Mars, slow: 19;50,40,3,153 - fast: 18;6,53,1,75 West 8;1,31
+Jupiter, slow: 23;36,13,1,41 - fast: 24;11,20,1,159 South 10;22,31
+Saturn, slow: 5;14,23,2,3100 - fast: 5;26,35,1,5050 East 2;12,34
+Mercury, slow: 25;39,20,2,5686 - fast: 6;9,7,3,6793 West 2;22,1
+Venus, slow: 25;41,24,5,359 - fast: 4;9,27,4,622 North 1;25,26
+Rahu, head: 12;40,41,4,10
+
+Tibetan Lunar Month: 6 - Earth-female-Sheep
+
+Month: 15180;9
+Anomaly: 22;46
+Mean Weekday: 3;43,58,0,410
+Mean Sun: 7;28,46,0,12
+
+1: Wed. Ashlesha/skag. Water-Water; 27 Jul 2033
+  Siddhi/dngos grub, Vava/gdab pa, Monkey, zin 7
+  Solar: Earth-Rabbit. Bi
+  4;19,59 8;5,0 7;30,59 15;36,0 3;10,13
+2: Thu. Magha/mchu. Wind-Fire; 28 Jul 2033
+  Vyatipata/phan tshun, Kaulava/rigs can, Bird, zon 8
+  Solar: Iron-Dragon. Kui
+  5;22,13 9;0,56 7;35,10 16;36,6 3;11,8
+3: Fri. Magha/mchu. Earth-Fire; 29 Jul 2033
+  Variyas/mchog can, Gara/khyim skyes, Dog, li 9
+  Solar: Iron-Snake. Lou
+  6;25,27 9;55,53 7;39,20 17;35,13 3;12,4
+    yan kwong
+4: Sat. Purvaphalguni/gre. Earth-Fire; 30 Jul 2033
+  Parigha/yongs 'joms, Vanija/tshong ba, Pig, khon 1
+  Solar: Water-Horse. Wei
+  0;29,19 10;50,11 7;43,30 18;33,42 3;13,0
+  Turning of the Wheel of the Dharma.
+5: Sun. Uttaraphalguni/dbo. Fire-Wind; 31 Jul 2033
+  Shiva/zhi ba, Vava/gdab pa, Mouse, dwa 2
+  Solar: Water-Sheep. Mao
+  1;33,11 11;44,29 7;47,40 19;32,10 3;13,55
+    klu thebs
+6: Mon. Hasta/me bzhi. Water-Wind; 1 Aug 2033
+  Siddha/grub pa, Kaulava/rigs can, Ox, khen 3
+  Solar: Wood-Monkey. Bi
+  2;37,3 12;38,47 7;51,51 20;30,38 3;14,51
+    zin phung
+7: Tue. Citra/nag pa. Fire-Wind; 2 Aug 2033
+  Sadhya/bsgrub bya, Gara/khyim skyes, Tiger, kham 4
+  Solar: Wood-Bird. Zui
+  3;40,55 13;33,5 7;56,1 21;29,7 3;15,47
+8: Wed. Svati/sa ri. Water-Wind; 3 Aug 2033
+  Shubha/dge ba, Vishti/viSTi, Rabbit, gin 5
+  Solar: Fire-Dog. Can
+  4;44,47 14;27,24 8;0,11 22;27,35 3;16,42
+9: Thu. Vishakha/sa ga. Wind-Fire; 4 Aug 2033
+  Shukla/dkar po, Valava/byis pa, Dragon, zin 6
+  Solar: Fire-Pig. Jing
+  5;48,17 15;22,4 8;4,22 23;26,26 3;17,38
+10: Fri. Anuradha/lha mtshams. Earth-Earth; 5 Aug 2033
+  Brahman/tshangs pa, Taitila/til rdung, Snake, zon 7
+  Solar: Earth-Mouse. Gui
+  6;50,47 16;17,44 8;8,32 24;26,17 3;18,33
+11: Sat. Jyeshtha/snron. Earth-Earth; 6 Aug 2033
+  Indra/dbang po, Vanija/tshong ba, Horse, li 8
+  Solar: Earth-Ox. Liu
+  0;52,17 17;14,24 8;12,42 25;27,7 3;19,29
+    klu bzlog
+12: Sun. Mula/snrubs. Fire-Water; 7 Aug 2033
+  Vaidhriti/'khon 'dzin, Vava/gdab pa, Sheep, khon 9
+  Solar: Iron-Tiger. Xing
+  1;52,47 18;12,5 8;16,53 26;28,58 3;20,25
+    zin phung
+13: Mon. Purvashadha/chu stod. Water-Water; 8 Aug 2033
+  Vishkambha/rnam sel, Kaulava/rigs can, Monkey, dwa 1
+  Solar: Iron-Rabbit. Zhang
+  2;51,55 19;11,7 8;21,3 0;32,11 3;21,20
+    klu bzlog
+14: Tue. Uttarashadha/chu smad. Fire-Earth; 9 Aug 2033
+  Priti/mdza' bo, Gara/khyim skyes, Bird, khen 2
+  Solar: Water-Dragon. Yi
+  3;49,25 20;11,48 8;25,13 1;37,1 3;22,16
+15: Wed. Abhijit/gro zhin. Water-Earth; 10 Aug 2033
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Dog, kham 3
+  Solar: Water-Snake. Zhen
+  4;45,55 21;13,28 8;29,24 2;42,52 3;23,12
+  The Buddha's entry into the womb of his mother.
+    klu bzlog
+
+Mars, slow: 20;31,15,2,92 - fast: 18;16,21,2,105 West 8;3,38
+Jupiter, slow: 23;42,17,1,17 - fast: 24;6,45,3,5 South 10;21,30
+Saturn, slow: 5;17,0,5,2965 - fast: 5;34,9,5,1801 East 2;14,15
+Mercury, slow: 3;15,34,1,5615 - fast: 7;31,52,4,5281 North 3;10,25
+Venus, slow: 0;29,33,3,291 - fast: 5;23,56,5,35 North 2;11,59
+Rahu, head: 12;37,10,2,14
+
+16: Thu. Dhanishtha/mon gre. Wind-Water; 11 Aug 2033
+  Saubhagya/skal bzang, Valava/byis pa, Pig, gin 4
+  Solar: Wood-Horse. Jiao
+  5;41,25 22;16,9 8;33,34 3;49,43 3;24,7
+17: Fri. Shatabhishaj/mon gru. Earth-Earth; 12 Aug 2033
+  Shobhana/dge byed, Taitila/til rdung, Mouse, zin 5
+  Solar: Wood-Sheep. Kang
+  6;35,54 23;19,49 8;37,44 4;57,34 3;25,3
+18: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 13 Aug 2033
+  Sukarman/las bzang, Vanija/tshong ba, Ox, zon 6
+  Solar: Fire-Monkey. Di
+  0;29,46 24;24,7 8;41,54 6;6,2 3;25,58
+    zin phung
+19: Sun. Uttarabhadrapada/khrums smad. Fire-Water; 14 Aug 2033
+  Dhriti/'dzin byed, Valava/byis pa, Tiger, li 7
+  Solar: Fire-Bird. Fang
+  1;23,38 25;28,26 8;46,5 7;14,31 3;26,54
+20: Mon. Revati/nam gru. Water-Water; 15 Aug 2033
+  Shula/zug rngu, Taitila/til rdung, Rabbit, khon 8
+  Solar: Earth-Dog. Xin
+  2;17,30 26;32,44 8;50,15 8;23,0 3;27,50
+    klu thebs
+21: Tue. Ashvini/tha skar. Fire-Wind; 16 Aug 2033
+  Ganda/'grams, Vanija/tshong ba, Dragon, dwa 9
+  Solar: Earth-Pig. Wei
+  3;11,23 0;37,3 8;54,26 9;31,29 3;28,45
+22: Wed. Bharani/bra nye. Water-Fire; 17 Aug 2033
+  Vriddhi/'phel, Vava/gdab pa, Snake, khen 1
+  Solar: Iron-Mouse. Ji
+  4;5,19 1;41,21 8;58,40 10;40,1 3;29,42
+23. Omitted.
+  4;59,37 9;2,54
+24: Thu. Krittika/smin drug. Wind-Fire; 18 Aug 2033
+  Dhruva/brtan pa, Kaulava/rigs can, Sheep, gin 3
+  Solar: Iron-Ox. Dou
+  5;54,55 2;48,13 9;7,8 11;55,22 4;1,35
+    zin phung, nyi nag
+25: Fri. Rohini/snar ma. Earth-Earth; 19 Aug 2033
+  Harshana/dga' ba, Vanija/tshong ba, Monkey, zin 4
+  Solar: Water-Tiger. Niu
+  6;51,13 3;50,9 9;11,23 13;1,32 4;2,31
+    klu thebs
+26: Sat. Mrigashiras/mgo. Earth-Wind; 20 Aug 2033
+  Vajra/rdo rje, Vava/gdab pa, Bird, zon 5
+  Solar: Water-Rabbit. Nu
+  0;48,31 4;51,5 9;15,37 14;6,42 4;3,28
+27: Sun. Ardra/lag. Fire-Water; 21 Aug 2033
+  Siddhi/dngos grub, Kaulava/rigs can, Dog, li 6
+  Solar: Wood-Dragon. Xu
+  1;47,12 5;50,39 9;19,51 15;10,30 4;4,24
+28: Mon. Punarvasu/nabs so. Water-Wind; 22 Aug 2033
+  Vyatipata/phan tshun, Gara/khyim skyes, Pig, khon 7
+  Solar: Wood-Snake. Wei
+  2;47,30 6;48,35 9;24,5 16;12,40 4;5,21
+29: Tue. Pushya/rgyal. Fire-Fire; 23 Aug 2033
+  Variyas/mchog can, Vishti/viSTi, Mouse, dwa 8
+  Solar: Fire-Horse. Shi
+  3;48,48 7;45,30 9;28,19 17;13,50 4;6,17
+30: Wed. Ashlesha/skag. Water-Water; 24 Aug 2033
+  Parigha/yongs 'joms, Catushpada/rkang bzhi, Ox, khen 9
+  Solar: Fire-Sheep. Bi
+  4;51,7 8;41,26 9;32,33 18;14,0 4;7,14
+    zin phung
+
+Mars, slow: 21;10,22,5,227 - fast: 18;38,47,1,194 West 8;8,37
+Jupiter, slow: 23;47,56,5,139 - fast: 23;57,8,1,13 South 10;19,21
+Saturn, slow: 5;19,27,5,2839 - fast: 5;40,49,0,1103 East 2;15,44
+Mercury, slow: 7;33,23,1,857 - fast: 9;21,3,5,4612 North 4;4,40
+Venus, slow: 2;10,29,3,627 - fast: 6;38,42,3,458 North 2;28,36
+Rahu, head: 12;33,39,0,18
+
+Tibetan Lunar Month: 7 - Iron-male-Monkey
+
+Month: 15181;11
+Anomaly: 24;47
+Mean Weekday: 5;15,48,1,183
+Mean Sun: 9;39,44,3,9
+
+1: Thu. Magha/mchu. Wind-Fire; 25 Aug 2033
+  Shiva/zhi ba, Naga/klu, Tiger, kham 1
+  Solar: Earth-Monkey. Kui
+  5;54,25 9;36,22 9;36,48 19;13,10 4;8,10
+    yan kwong
+2: Fri. Purvaphalguni/gre. Earth-Fire; 26 Aug 2033
+  Siddha/grub pa, Vava/gdab pa, Rabbit, gin 2
+  Solar: Earth-Bird. Lou
+  6;58,21 10;30,40 9;41,2 20;11,43 4;9,7
+3: Sat. Uttaraphalguni/dbo. Earth-Wind; 27 Aug 2033
+  Sadhya/bsgrub bya, Kaulava/rigs can, Dragon, zin 3
+  Solar: Iron-Dog. Wei
+  0;60,0 11;30,40 9;45,16 21;15,57 4;10,3
+    zin phung
+3: Sun. Hasta/me bzhi. Fire-Wind; 28 Aug 2033
+  Shubha/dge ba, Gara/khyim skyes, Dragon, zin 3
+  Solar: Iron-Pig. Mao
+  1;2,17 12;24,59 9;45,16 22;10,15 4;10,3
+4: Mon. Citra/nag pa. Water-Wind; 29 Aug 2033
+  Shukla/dkar po, Vishti/viSTi, Snake, zon 4
+  Solar: Water-Mouse. Bi
+  2;6,13 13;19,17 9;49,30 23;8,47 4;11,0
+5: Tue. Svati/sa ri. Fire-Wind; 30 Aug 2033
+  Brahman/tshangs pa, Valava/byis pa, Horse, li 5
+  Solar: Water-Ox. Zui
+  3;10,9 14;13,35 9;53,44 24;7,20 4;11,56
+    klu bzlog
+6: Wed. Vishakha/sa ga. Water-Fire; 31 Aug 2033
+  Indra/dbang po, Taitila/til rdung, Sheep, khon 6
+  Solar: Wood-Tiger. Can
+  4;14,5 15;7,53 9;57,59 25;5,52 4;12,53
+    klu bzlog
+7: Thu. Anuradha/lha mtshams. Wind-Earth; 1 Sep 2033
+  Vaidhriti/'khon 'dzin, Vanija/tshong ba, Monkey, dwa 7
+  Solar: Wood-Rabbit. Jing
+  5;17,38 16;2,34 10;2,13 26;4,47 4;13,49
+8: Fri. Anuradha/lha mtshams. Earth-Earth; 2 Sep 2033
+  Vishkambha/rnam sel, Vava/gdab pa, Bird, khen 8
+  Solar: Fire-Dragon. Gui
+  6;20,12 16;58,15 10;6,27 0;4,42 4;14,46
+9: Sat. Jyeshtha/snron. Earth-Earth; 3 Sep 2033
+  Priti/mdza' bo, Kaulava/rigs can, Dog, kham 9
+  Solar: Fire-Snake. Liu
+  0;21,45 17;54,55 10;10,41 1;5,37 4;15,42
+    klu thebs, zin phung, nyi nag
+10: Sun. Mula/snrubs. Fire-Water; 4 Sep 2033
+  Ayushmat/tshe dang ldan pa, Gara/khyim skyes, Pig, gin 1
+  Solar: Earth-Horse. Xing
+  1;22,19 18;52,36 10;14,55 2;7,32 4;16,39
+11: Mon. Purvashadha/chu stod. Water-Water; 5 Sep 2033
+  Saubhagya/skal bzang, Vishti/viSTi, Mouse, zin 2
+  Solar: Earth-Sheep. Zhang
+  2;21,30 19;51,40 10;19,10 3;10,50 4;17,35
+12: Tue. Uttarashadha/chu smad. Fire-Earth; 6 Sep 2033
+  Shobhana/dge byed, Valava/byis pa, Ox, zon 3
+  Solar: Iron-Monkey. Yi
+  3;19,3 20;52,20 10;23,24 4;15,45 4;18,32
+13: Wed. Abhijit/gro zhin. Water-Earth; 7 Sep 2033
+  Atiganda/shin tu 'grams, Taitila/til rdung, Tiger, li 4
+  Solar: Iron-Bird. Zhen
+  4;15,36 21;54,1 10;27,38 5;21,40 4;19,28
+14: Thu. Dhanishtha/mon gre. Wind-Water; 8 Sep 2033
+  Sukarman/las bzang, Vanija/tshong ba, Rabbit, khon 5
+  Solar: Water-Dog. Jiao
+  5;11,9 22;56,42 10;31,52 6;28,35 4;20,25
+15: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 9 Sep 2033
+  Dhriti/'dzin byed, Vava/gdab pa, Dragon, dwa 6
+  Solar: Water-Pig. Kang
+  6;5,43 24;0,23 10;36,6 7;36,30 4;21,21
+    zin phung
+
+Mars, slow: 21;55,5,5,185 - fast: 19;10,20,5,199 West 8;15,37
+Jupiter, slow: 23;54,25,0,330 - fast: 23;49,33,4,268 West 10;17,40
+Saturn, slow: 5;22,15,5,2695 - fast: 5;47,1,5,465 East 2;17,7
+Mercury, slow: 12;28,1,5,5473 - fast: 11;26,19,4,5880 East 5;2,31
+Venus, slow: 4;5,50,5,155 - fast: 8;0,1,0,600 North 3;16,40
+Rahu, head: 12;30,7,4,22
+
+16. Omitted.
+  6;59,38 10;40,20
+17: Sat. Uttarabhadrapada/khrums smad. Earth-Water; 10 Sep 2033
+  Shula/zug rngu, Taitila/til rdung, Horse, kham 8
+  Solar: Wood-Mouse. Di
+  0;53,34 25;9,0 10;44,35 8;53,35 4;23,14
+18: Sun. Revati/nam gru. Fire-Water; 11 Sep 2033
+  Vriddhi/'phel, Vanija/tshong ba, Sheep, gin 9
+  Solar: Wood-Ox. Fang
+  1;47,30 26;13,18 10;48,49 10;2,8 4;24,10
+19: Mon. Ashvini/tha skar. Water-Wind; 12 Sep 2033
+  Dhruva/brtan pa, Vava/gdab pa, Monkey, zin 1
+  Solar: Fire-Tiger. Xin
+  2;41,26 0;17,37 10;53,3 11;10,40 4;25,7
+    klu thebs
+20: Tue. Bharani/bra nye. Fire-Fire; 13 Sep 2033
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Bird, zon 2
+  Solar: Fire-Rabbit. Wei
+  3;35,22 1;21,55 10;57,17 12;19,13 4;26,3
+21: Wed. Krittika/smin drug. Water-Fire; 14 Sep 2033
+  Harshana/dga' ba, Gara/khyim skyes, Dog, li 3
+  Solar: Earth-Dragon. Ji
+  4;29,40 2;25,51 11;1,31 13;27,22 4;27,0
+    zin phung
+22: Thu. Rohini/snar ma. Wind-Earth; 15 Sep 2033
+  Vajra/rdo rje, Vava/gdab pa, Pig, khon 4
+  Solar: Earth-Snake. Dou
+  5;25,0 3;28,46 11;5,47 14;34,33 4;27,57
+23: Fri. Mrigashiras/mgo. Earth-Wind; 16 Sep 2033
+  Siddhi/dngos grub, Kaulava/rigs can, Mouse, dwa 5
+  Solar: Iron-Horse. Niu
+  6;21,24 4;30,42 11;10,7 15;40,49 4;28,54
+24: Sat. Ardra/lag. Earth-Water; 17 Sep 2033
+  Vyatipata/phan tshun, Gara/khyim skyes, Ox, khen 6
+  Solar: Iron-Sheep. Nu
+  0;18,49 5;31,37 11;14,27 16;46,4 4;29,52
+25: Sun. Punarvasu/nabs so. Fire-Wind; 18 Sep 2033
+  Variyas/mchog can, Vishti/viSTi, Tiger, kham 7
+  Solar: Water-Monkey. Xu
+  1;17,36 6;31,10 11;18,47 17;49,57 5;0,50
+26: Mon. Pushya/rgyal. Water-Fire; 19 Sep 2033
+  Parigha/yongs 'joms, Valava/byis pa, Rabbit, gin 8
+  Solar: Water-Bird. Wei
+  2;18,1 7;29,6 11;23,7 18;52,13 5;1,48
+27: Tue. Ashlesha/skag. Fire-Water; 20 Sep 2033
+  Shiva/zhi ba, Taitila/til rdung, Dragon, zin 9
+  Solar: Wood-Dog. Shi
+  3;19,25 8;26,1 11;27,27 19;53,28 5;2,46
+    zin phung
+28: Wed. Magha/mchu. Water-Fire; 21 Sep 2033
+  Siddha/grub pa, Vanija/tshong ba, Snake, zon 1
+  Solar: Wood-Pig. Bi
+  4;21,50 9;21,56 11;31,47 20;53,44 5;3,43
+29: Thu. Purvaphalguni/gre. Wind-Fire; 22 Sep 2033
+  Sadhya/bsgrub bya, Shakuni/bkra shis, Horse, li 2
+  Solar: Fire-Mouse. Kui
+  5;25,14 10;16,52 11;36,7 21;52,59 5;4,41
+    yan kwong
+30: Fri. Uttaraphalguni/dbo. Earth-Wind; 23 Sep 2033
+  Shubha/dge ba, Catushpada/rkang bzhi, Sheep, khon 3
+  Solar: Fire-Ox. Lou
+  6;29,16 11;11,10 11;40,27 22;51,37 5;5,39
+
+Mars, slow: 22;34,13,3,91 - fast: 19;40,12,0,214 West 8;22,16
+Jupiter, slow: 24;0,4,5,91 - fast: 23;39,34,4,46 West 10;15,27
+Saturn, slow: 5;24,42,5,2569 - fast: 5;51,34,5,2745 East 2;18,7
+Mercury, slow: 16;45,50,5,715 - fast: 13;17,8,2,4124 East 5;27,8
+Venus, slow: 5;46,46,5,491 - fast: 9;18,11,4,306 North 4;4,2
+Rahu, head: 12;26,36,3,3
+
+Tibetan Lunar Month: 8 - Iron-female-Bird
+
+Month: 15182;13
+Anomaly: 26;48
+Mean Weekday: 6;47,38,1,663
+Mean Sun: 11;50,43,0,6
+
+1: Sat. Hasta/me bzhi. Earth-Wind; 24 Sep 2033
+  Shukla/dkar po, Kintughna/mi sdug pa, Monkey, dwa 4
+  Solar: Earth-Tiger. Wei
+  0;33,18 12;5,28 11;44,47 23;50,15 5;6,37
+2: Sun. Hasta/me bzhi. Fire-Wind; 25 Sep 2033
+  Brahman/tshangs pa, Valava/byis pa, Bird, khen 5
+  Solar: Earth-Rabbit. Mao
+  1;37,20 12;59,46 11;49,7 24;48,54 5;7,34
+3: Mon. Citra/nag pa. Water-Wind; 26 Sep 2033
+  Indra/dbang po, Taitila/til rdung, Dog, kham 6
+  Solar: Iron-Dragon. Bi
+  2;41,22 13;54,5 11;53,27 25;47,32 5;8,32
+    klu bzlog, zin phung
+4: Tue. Svati/sa ri. Fire-Wind; 27 Sep 2033
+  Vaidhriti/'khon 'dzin, Vanija/tshong ba, Pig, gin 7
+  Solar: Iron-Snake. Zui
+  3;45,23 14;48,23 11;57,47 26;46,10 5;9,30
+5: Wed. Vishakha/sa ga. Water-Fire; 28 Sep 2033
+  Vishkambha/rnam sel, Vava/gdab pa, Mouse, zin 8
+  Solar: Water-Horse. Can
+  4;49,2 15;43,4 12;2,7 0;45,11 5;10,28
+    klu thebs
+6: Thu. Anuradha/lha mtshams. Wind-Earth; 29 Sep 2033
+  Priti/mdza' bo, Kaulava/rigs can, Ox, zon 9
+  Solar: Water-Sheep. Jing
+  5;51,41 16;38,45 12;6,27 1;45,12 5;11,26
+    klu bzlog
+7: Fri. Jyeshtha/snron. Earth-Earth; 30 Sep 2033
+  Ayushmat/tshe dang ldan pa, Gara/khyim skyes, Tiger, li 1
+  Solar: Wood-Monkey. Gui
+  6;53,20 17;35,26 12;10,47 2;46,13 5;12,23
+8: Sat. Mula/snrubs. Earth-Water; 1 Oct 2033
+  Saubhagya/skal bzang, Vishti/viSTi, Rabbit, khon 2
+  Solar: Wood-Bird. Liu
+  0;53,59 18;33,7 12;15,7 3;48,15 5;13,21
+9: Sun. Purvashadha/chu stod. Fire-Water; 2 Oct 2033
+  Shobhana/dge byed, Valava/byis pa, Dragon, dwa 3
+  Solar: Fire-Dog. Xing
+  1;53,15 19;32,12 12;19,27 4;51,39 5;14,19
+    klu bzlog, zin phung
+10: Mon. Uttarashadha/chu smad. Water-Earth; 3 Oct 2033
+  Atiganda/shin tu 'grams, Taitila/til rdung, Snake, khen 4
+  Solar: Fire-Pig. Zhang
+  2;50,53 20;32,53 12;23,47 5;56,40 5;15,17
+11: Tue. Abhijit/gro zhin. Fire-Earth; 4 Oct 2033
+  Dhriti/'dzin byed, Vanija/tshong ba, Horse, kham 5
+  Solar: Earth-Mouse. Yi
+  3;47,32 21;34,34 12;28,7 7;2,42 5;16,14
+12: Wed. Dhanishtha/mon gre. Water-Water; 5 Oct 2033
+  Shula/zug rngu, Vava/gdab pa, Sheep, gin 6
+  Solar: Earth-Ox. Zhen
+  4;43,11 22;37,16 12;32,27 8;9,43 5;17,12
+13: Thu. Shatabhishaj/mon gru. Wind-Earth; 6 Oct 2033
+  Ganda/'grams, Kaulava/rigs can, Monkey, zin 7
+  Solar: Iron-Tiger. Jiao
+  5;37,49 23;40,57 12;36,47 9;17,44 5;18,10
+    klu bzlog
+14: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 7 Oct 2033
+  Vriddhi/'phel, Gara/khyim skyes, Bird, zon 8
+  Solar: Iron-Rabbit. Kang
+  6;31,51 24;45,15 12;41,7 10;26,23 5;19,8
+15: Sat. Uttarabhadrapada/khrums smad. Earth-Water; 8 Oct 2033
+  Dhruva/brtan pa, Vava/gdab pa, Dog, li 9
+  Solar: Water-Dragon. Di
+  0;25,52 25;49,34 12;45,27 11;35,1 5;20,6
+    klu thebs, zin phung
+
+Mars, slow: 23;16,8,5,23 - fast: 20;17,48,1,68 West 9;0,37
+Jupiter, slow: 24;6,8,5,67 - fast: 23;33,58,1,143 West 10;14,12
+Saturn, slow: 5;27,20,2,2434 - fast: 5;55,20,2,2434 East 2;18,57
+Mercury, slow: 21;22,4,4,644 - fast: 14;47,17,2,676 East 6;17,10
+Venus, slow: 7;34,55,3,423 - fast: 10;39,7,1,404 North 4;22,1
+Rahu, head: 12;23,5,1,7
+
+16: Sun. Revati/nam gru. Fire-Water; 9 Oct 2033
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Pig, khon 1
+  Solar: Water-Snake. Fang
+  1;19,54 26;53,52 12;49,47 12;43,40 5;21,3
+    klu bzlog
+17: Mon. Ashvini/tha skar. Water-Wind; 10 Oct 2033
+  Harshana/dga' ba, Gara/khyim skyes, Mouse, dwa 2
+  Solar: Wood-Horse. Xin
+  2;13,56 0;58,11 12;54,7 13;52,18 5;22,1
+18: Tue. Krittika/smin drug. Fire-Fire; 11 Oct 2033
+  Siddhi/dngos grub, Vishti/viSTi, Ox, khen 3
+  Solar: Wood-Sheep. Wei
+  3;7,57 2;2,29 12;58,27 15;0,56 5;22,59
+    nyi nag
+19: Wed. Rohini/snar ma. Water-Earth; 12 Oct 2033
+  Vyatipata/phan tshun, Valava/byis pa, Tiger, kham 4
+  Solar: Fire-Monkey. Ji
+  4;2,22 3;6,24 13;2,47 16;9,11 5;23,57
+20. Omitted.
+  4;57,47 13;7,7
+21: Thu. Mrigashiras/mgo. Wind-Wind; 13 Oct 2033
+  Variyas/mchog can, Taitila/til rdung, Dragon, zin 6
+  Solar: Fire-Bird. Dou
+  5;54,12 4;11,14 13;11,27 17;22,42 5;25,52
+    zin phung
+22: Fri. Ardra/lag. Earth-Water; 14 Oct 2033
+  Parigha/yongs 'joms, Vishti/viSTi, Snake, zon 7
+  Solar: Earth-Dog. Niu
+  6;51,37 5;12,10 13;15,47 18;27,57 5;26,50
+23: Sat. Punarvasu/nabs so. Earth-Wind; 15 Oct 2033
+  Shiva/zhi ba, Valava/byis pa, Horse, li 8
+  Solar: Earth-Pig. Nu
+  0;50,26 6;11,41 13;20,8 19;31,50 5;27,48
+24: Sun. Pushya/rgyal. Fire-Fire; 16 Oct 2033
+  Siddha/grub pa, Taitila/til rdung, Sheep, khon 9
+  Solar: Iron-Mouse. Xu
+  1;50,55 7;9,36 13;24,32 20;34,9 5;28,47
+25: Mon. Ashlesha/skag. Water-Water; 17 Oct 2033
+  Sadhya/bsgrub bya, Vanija/tshong ba, Monkey, dwa 1
+  Solar: Iron-Ox. Wei
+  2;52,24 8;6,31 13;28,56 21;35,28 5;29,45
+26: Tue. Magha/mchu. Fire-Fire; 18 Oct 2033
+  Shubha/dge ba, Vishti/viSTi, Bird, khen 2
+  Solar: Water-Tiger. Shi
+  3;54,53 9;2,26 13;33,20 22;35,46 6;0,44
+27: Wed. Magha/mchu. Water-Fire; 19 Oct 2033
+  Shukla/dkar po, Valava/byis pa, Dog, kham 3
+  Solar: Water-Rabbit. Bi
+  4;58,22 9;57,21 13;37,43 23;35,5 6;1,43
+    yan kwong, zin phung
+28: Thu. Purvaphalguni/gre. Wind-Fire; 20 Oct 2033
+  Brahman/tshangs pa, Taitila/til rdung, Pig, gin 4
+  Solar: Wood-Dragon. Kui
+  5;60,0 10;57,21 13;42,7 24;39,29 6;2,41
+28: Fri. Uttaraphalguni/dbo. Earth-Wind; 21 Oct 2033
+  Indra/dbang po, Vanija/tshong ba, Pig, gin 4
+  Solar: Wood-Snake. Lou
+  6;2,27 11;51,40 13;42,7 25;33,47 6;2,41
+29: Sat. Hasta/me bzhi. Earth-Wind; 22 Oct 2033
+  Vaidhriti/'khon 'dzin, Shakuni/bkra shis, Mouse, zin 5
+  Solar: Fire-Horse. Wei
+  0;6,33 12;45,58 13;46,31 26;32,29 6;3,40
+30: Sun. Citra/nag pa. Fire-Wind; 23 Oct 2033
+  Vishkambha/rnam sel, Naga/klu, Ox, zon 6
+  Solar: Fire-Sheep. Mao
+  1;10,39 13;40,16 13;50,55 0;31,11 6;4,39
+
+Mars, slow: 23;58,4,0,184 - fast: 20;56,15,0,5 North 9;9,10
+Jupiter, slow: 24;12,12,5,43 - fast: 23;30,47,3,109 West 10;13,30
+Saturn, slow: 5;29,57,5,2299 - fast: 5;56,54,2,3769 South 2;19,18
+Mercury, slow: 25;58,18,3,573 - fast: 15;19,4,2,2290 South 6;24,14
+Venus, slow: 9;23,4,1,355 - fast: 12;1,35,0,199 North 5;10,21
+Rahu, head: 12;19,33,5,11
+
+Tibetan Lunar Month: 9 - Water-male-Dog
+
+Month: 15183;15
+Anomaly: 0;49
+Mean Weekday: 1;19,28,2,436
+Mean Sun: 14;1,41,3,3
+
+1: Mon. Svati/sa ri. Water-Wind; 24 Oct 2033
+  Priti/mdza' bo, Vava/gdab pa, Tiger, li 7
+  Solar: Earth-Monkey. Bi
+  2;14,44 14;34,34 13;55,19 1;29,54 6;5,37
+    klu thebs
+2: Tue. Vishakha/sa ga. Fire-Fire; 25 Oct 2033
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Rabbit, khon 8
+  Solar: Earth-Bird. Zui
+  3;18,50 15;28,52 13;59,43 2;28,36 6;6,36
+3: Wed. Anuradha/lha mtshams. Water-Earth; 26 Oct 2033
+  Saubhagya/skal bzang, Gara/khyim skyes, Dragon, dwa 9
+  Solar: Iron-Dog. Can
+  4;22,32 16;23,34 14;4,7 3;27,41 6;7,34
+    zin phung
+4: Thu. Jyeshtha/snron. Wind-Earth; 27 Oct 2033
+  Shobhana/dge byed, Vishti/viSTi, Snake, khen 1
+  Solar: Iron-Pig. Jing
+  5;25,15 17;19,16 14;8,31 4;27,47 6;8,33
+5: Fri. Mula/snrubs. Earth-Water; 28 Oct 2033
+  Atiganda/shin tu 'grams, Valava/byis pa, Horse, kham 2
+  Solar: Water-Mouse. Gui
+  6;26,57 18;15,57 14;12,55 5;28,52 6;9,32
+6: Sat. Purvashadha/chu stod. Earth-Water; 29 Oct 2033
+  Sukarman/las bzang, Kaulava/rigs can, Sheep, gin 3
+  Solar: Water-Ox. Liu
+  0;27,39 19;13,39 14;17,18 6;30,58 6;10,30
+7: Sun. Uttarashadha/chu smad. Fire-Earth; 30 Oct 2033
+  Dhriti/'dzin byed, Vanija/tshong ba, Monkey, zin 4
+  Solar: Wood-Tiger. Xing
+  1;26,58 20;12,44 14;21,42 7;34,27 6;11,29
+8: Mon. Abhijit/gro zhin. Water-Earth; 31 Oct 2033
+  Shula/zug rngu, Vava/gdab pa, Bird, zon 5
+  Solar: Wood-Rabbit. Zhang
+  2;24,40 21;13,26 14;26,6 8;39,32 6;12,28
+9: Tue. Dhanishtha/mon gre. Fire-Water; 1 Nov 2033
+  Ganda/'grams, Kaulava/rigs can, Dog, li 6
+  Solar: Fire-Dragon. Yi
+  3;21,22 22;15,7 14;30,30 9;45,38 6;13,26
+    klu bzlog, zin phung
+10: Wed. Shatabhishaj/mon gru. Water-Earth; 2 Nov 2033
+  Vriddhi/'phel, Gara/khyim skyes, Pig, khon 7
+  Solar: Fire-Snake. Zhen
+  4;17,4 23;17,49 14;34,54 10;52,44 6;14,25
+    klu bzlog
+11: Thu. Purvabhadrapada/khrums stod. Wind-Fire; 3 Nov 2033
+  Vyaghata/yongs bsnun, Vishti/viSTi, Mouse, dwa 8
+  Solar: Earth-Horse. Jiao
+  5;11,46 24;21,31 14;39,18 12;0,50 6;15,24
+    klu thebs
+12: Fri. Uttarabhadrapada/khrums smad. Earth-Water; 4 Nov 2033
+  Harshana/dga' ba, Valava/byis pa, Ox, khen 9
+  Solar: Earth-Sheep. Kang
+  6;5,52 25;25,49 14;43,42 13;9,32 6;16,22
+13. Omitted.
+  6;59,57 14;48,6
+14: Sat. Revati/nam gru. Earth-Water; 5 Nov 2033
+  Vajra/rdo rje, Taitila/til rdung, Rabbit, gin 2
+  Solar: Iron-Monkey. Di
+  0;54,3 26;34,26 14;52,30 14;26,56 6;18,20
+15: Sun. Ashvini/tha skar. Fire-Wind; 6 Nov 2033
+  Siddhi/dngos grub, Vishti/viSTi, Dragon, zin 3
+  Solar: Iron-Bird. Fang
+  1;48,8 0;38,45 14;56,53 15;35,38 6;19,18
+    zin phung
+
+Mars, slow: 24;37,11,4,90 - fast: 21;36,41,4,23 North 9;18,9
+Jupiter, slow: 24;17,52,3,165 - fast: 23;29,56,4,195 West 10;13,19
+Saturn, slow: 5;32,24,5,2173 - fast: 5;56,5,5,302 South 2;19,7
+Mercury, slow: 3;16,7,2,4612 - fast: 14;10,22,3,3650 West 6;8,58
+Venus, slow: 11;4,0,1,691 - fast: 13;21,38,1,103 North 5;28,8
+Rahu, head: 12;16,2,3,15
+
+16: Mon. Bharani/bra nye. Water-Fire; 7 Nov 2033
+  Vyatipata/phan tshun, Valava/byis pa, Snake, zon 4
+  Solar: Water-Dog. Xin
+  2;42,14 1;43,3 15;1,17 16;44,21 6;20,17
+17: Tue. Krittika/smin drug. Fire-Fire; 8 Nov 2033
+  Variyas/mchog can, Taitila/til rdung, Horse, li 5
+  Solar: Water-Pig. Wei
+  3;36,43 2;46,58 15;5,41 17;52,39 6;21,15
+18: Wed. Rohini/snar ma. Water-Earth; 9 Nov 2033
+  Parigha/yongs 'joms, Vanija/tshong ba, Sheep, khon 6
+  Solar: Wood-Mouse. Ji
+  4;32,12 3;49,52 15;10,5 18;59,58 6;22,14
+19: Thu. Mrigashiras/mgo. Wind-Wind; 10 Nov 2033
+  Siddha/grub pa, Vava/gdab pa, Monkey, dwa 7
+  Solar: Wood-Ox. Dou
+  5;28,41 4;51,47 15;14,29 20;6,17 6;23,13
+    klu bzlog
+20: Fri. Ardra/lag. Earth-Water; 11 Nov 2033
+  Sadhya/bsgrub bya, Taitila/til rdung, Bird, khen 8
+  Solar: Fire-Tiger. Niu
+  6;26,11 5;52,42 15;18,53 21;11,35 6;24,11
+21: Sat. Punarvasu/nabs so. Earth-Wind; 12 Nov 2033
+  Shubha/dge ba, Vanija/tshong ba, Dog, kham 9
+  Solar: Fire-Rabbit. Nu
+  0;25,4 6;52,13 15;23,17 22;15,30 6;25,10
+    klu thebs, zin phung
+22: Sun. Pushya/rgyal. Fire-Fire; 13 Nov 2033
+  Shukla/dkar po, Vava/gdab pa, Pig, gin 1
+  Solar: Earth-Dragon. Xu
+  1;25,33 7;50,7 15;27,41 23;17,49 6;26,9
+  Descent of the Buddha from the realm of the gods.
+    klu thebs
+23: Mon. Ashlesha/skag. Water-Water; 14 Nov 2033
+  Brahman/tshangs pa, Valava/byis pa, Mouse, zin 2
+  Solar: Earth-Snake. Wei
+  2;27,2 8;47,2 15;32,5 24;19,7 6;27,7
+    klu thebs
+24: Tue. Magha/mchu. Fire-Fire; 15 Nov 2033
+  Indra/dbang po, Taitila/til rdung, Ox, zon 3
+  Solar: Iron-Horse. Shi
+  3;29,33 9;42,56 15;36,30 25;19,27 6;28,6
+25: Wed. Purvaphalguni/gre. Water-Fire; 16 Nov 2033
+  Vaidhriti/'khon 'dzin, Vanija/tshong ba, Tiger, li 4
+  Solar: Iron-Sheep. Bi
+  4;33,9 10;37,51 15;41,0 26;18,51 6;29,6
+    yan kwong
+26: Thu. Uttaraphalguni/dbo. Wind-Wind; 17 Nov 2033
+  Vishkambha/rnam sel, Vava/gdab pa, Rabbit, khon 5
+  Solar: Water-Monkey. Kui
+  5;37,20 11;32,9 15;45,30 0;17,39 7;0,6
+27: Fri. Hasta/me bzhi. Earth-Wind; 18 Nov 2033
+  Priti/mdza' bo, Kaulava/rigs can, Dragon, dwa 6
+  Solar: Water-Bird. Lou
+  6;41,32 12;26,27 15;50,0 1;16,27 7;1,6
+    zin phung, nyi nag
+28: Sat. Citra/nag pa. Earth-Wind; 19 Nov 2033
+  Ayushmat/tshe dang ldan pa, Gara/khyim skyes, Snake, khen 7
+  Solar: Wood-Dog. Wei
+  0;45,43 13;20,45 15;54,29 2;15,15 7;2,6
+29: Sun. Svati/sa ri. Fire-Wind; 20 Nov 2033
+  Saubhagya/skal bzang, Vishti/viSTi, Horse, kham 8
+  Solar: Wood-Pig. Mao
+  1;49,55 14;15,4 15;58,59 3;14,3 7;3,6
+30: Mon. Vishakha/sa ga. Water-Fire; 21 Nov 2033
+  Shobhana/dge byed, Shakuni/bkra shis, Sheep, gin 9
+  Solar: Fire-Mouse. Bi
+  2;54,6 15;9,22 16;3,29 4;12,51 7;4,6
+
+Mars, slow: 25;19,7,0,22 - fast: 22;19,47,3,227 North 9;27,43
+Jupiter, slow: 24;23,56,3,141 - fast: 23;32,30,2,130 West 10;13,53
+Saturn, slow: 5;35,2,2,2038 - fast: 5;53,54,1,3105 South 2;18,38
+Mercury, slow: 7;52,21,1,4541 - fast: 14;36,57,0,2030 North 6;14,52
+Venus, slow: 12;52,8,5,623 - fast: 14;45,21,0,433 North 6;16,44
+Rahu, head: 12;12,31,1,19
+
+Tibetan Lunar Month: 10 - Water-female-Pig
+
+Month: 15184;17
+Anomaly: 2;50
+Mean Weekday: 2;51,18,3,209
+Mean Sun: 16;12,40,0,0
+
+1: Tue. Anuradha/lha mtshams. Fire-Earth; 22 Nov 2033
+  Atiganda/shin tu 'grams, Naga/klu, Monkey, zin 1
+  Solar: Fire-Ox. Zui
+  3;57,54 16;4,4 16;7,58 5;12,3 7;5,6
+2: Wed. Jyeshtha/snron. Water-Earth; 23 Nov 2033
+  Sukarman/las bzang, Vava/gdab pa, Bird, zon 2
+  Solar: Earth-Tiger. Can
+  4;60,0 17;4,4 16;12,28 6;16,32 7;6,6
+2: Thu. Jyeshtha/snron. Wind-Earth; 24 Nov 2033
+  Dhriti/'dzin byed, Kaulava/rigs can, Bird, zon 2
+  Solar: Earth-Rabbit. Jing
+  5;0,42 17;59,46 16;12,28 7;12,14 7;6,6
+3: Fri. Mula/snrubs. Earth-Water; 25 Nov 2033
+  Shula/zug rngu, Gara/khyim skyes, Dog, li 3
+  Solar: Iron-Dragon. Gui
+  6;2,29 18;56,28 16;16,58 8;13,26 7;7,6
+4: Sat. Purvashadha/chu stod. Earth-Water; 26 Nov 2033
+  Ganda/'grams, Vishti/viSTi, Pig, khon 4
+  Solar: Iron-Snake. Liu
+  0;3,17 19;54,10 16;21,28 9;15,38 7;8,6
+    zin phung
+5: Sun. Uttarashadha/chu smad. Fire-Earth; 27 Nov 2033
+  Vriddhi/'phel, Valava/byis pa, Mouse, dwa 5
+  Solar: Water-Horse. Xing
+  1;2,40 20;53,16 16;25,57 10;19,14 7;9,6
+6: Mon. Abhijit/gro zhin. Water-Earth; 28 Nov 2033
+  Dhruva/brtan pa, Taitila/til rdung, Ox, khen 6
+  Solar: Water-Sheep. Zhang
+  2;0,28 21;53,58 16;30,27 11;24,26 7;10,6
+7. Omitted.
+  2;57,15 16;34,57
+8: Tue. Dhanishtha/mon gre. Fire-Water; 29 Nov 2033
+  Vyaghata/yongs bsnun, Vishti/viSTi, Rabbit, gin 8
+  Solar: Wood-Monkey. Yi
+  3;53,3 22;58,23 16;39,26 12;37,50 7;12,5
+    klu thebs
+9: Wed. Purvabhadrapada/khrums stod. Water-Fire; 30 Nov 2033
+  Harshana/dga' ba, Valava/byis pa, Dragon, zin 9
+  Solar: Wood-Bird. Zhen
+  4;47,50 24;2,5 16;43,56 13;46,2 7;13,5
+    klu bzlog
+10: Thu. Uttarabhadrapada/khrums smad. Wind-Water; 1 Dec 2033
+  Vajra/rdo rje, Taitila/til rdung, Snake, zon 1
+  Solar: Fire-Dog. Jiao
+  5;42,2 25;6,23 16;48,26 14;54,50 7;14,5
+    klu bzlog, zin phung, nyi nag
+11: Fri. Revati/nam gru. Earth-Water; 2 Dec 2033
+  Vyatipata/phan tshun, Vanija/tshong ba, Horse, li 2
+  Solar: Fire-Pig. Kang
+  6;36,13 26;10,42 16;52,55 16;3,38 7;15,5
+12: Sat. Ashvini/tha skar. Earth-Wind; 3 Dec 2033
+  Variyas/mchog can, Vava/gdab pa, Sheep, khon 3
+  Solar: Earth-Mouse. Di
+  0;30,24 0;15,0 16;57,25 17;12,26 7;16,5
+13: Sun. Bharani/bra nye. Fire-Fire; 4 Dec 2033
+  Parigha/yongs 'joms, Taitila/til rdung, Monkey, dwa 4
+  Solar: Earth-Ox. Fang
+  1;24,36 1;19,19 17;1,55 18;21,14 7;17,5
+14: Mon. Krittika/smin drug. Water-Fire; 5 Dec 2033
+  Shiva/zhi ba, Vanija/tshong ba, Bird, khen 5
+  Solar: Iron-Tiger. Xin
+  2;18,47 2;23,37 17;6,25 19;30,2 7;18,5
+15: Tue. Rohini/snar ma. Fire-Earth; 6 Dec 2033
+  Siddha/grub pa, Vava/gdab pa, Dog, kham 6
+  Solar: Iron-Rabbit. Wei
+  3;13,23 3;27,31 17;10,54 20;38,26 7;19,5
+    klu thebs
+
+Mars, slow: 26;0,7,0,102 - fast: 23;4,25,2,187 North 10;7,38
+Jupiter, slow: 24;30,0,3,117 - fast: 23;38,48,4,69 North 10;15,17
+Saturn, slow: 5;37,39,5,1903 - fast: 5;50,36,5,4039 South 2;17,54
+Mercury, slow: 12;28,35,0,4470 - fast: 16;3,37,0,7859 North 7;4,8
+Venus, slow: 14;40,17,3,555 - fast: 16;9,31,4,480 North 7;5,27
+Rahu, head: 12;9,0,0,0
+
+16: Wed. Mrigashiras/mgo. Water-Wind; 7 Dec 2033
+  Sadhya/bsgrub bya, Kaulava/rigs can, Pig, gin 7
+  Solar: Water-Dragon. Ji
+  4;8,58 4;30,26 17;15,24 21;45,50 7;20,5
+    zin phung
+17: Thu. Ardra/lag. Wind-Water; 8 Dec 2033
+  Shubha/dge ba, Gara/khyim skyes, Mouse, zin 8
+  Solar: Water-Snake. Dou
+  5;5,33 5;32,20 17;19,54 22;52,14 7;21,5
+18: Fri. Punarvasu/nabs so. Earth-Wind; 9 Dec 2033
+  Shukla/dkar po, Vishti/viSTi, Ox, zon 9
+  Solar: Wood-Horse. Niu
+  6;3,9 6;33,14 17;24,23 23;57,38 7;22,5
+    klu thebs
+19: Sat. Pushya/rgyal. Earth-Fire; 10 Dec 2033
+  Indra/dbang po, Valava/byis pa, Tiger, li 1
+  Solar: Wood-Sheep. Nu
+  0;2,9 7;32,44 17;28,53 25;1,38 7;23,5
+    klu bzlog
+20: Sun. Ashlesha/skag. Fire-Water; 11 Dec 2033
+  Vaidhriti/'khon 'dzin, Taitila/til rdung, Rabbit, khon 2
+  Solar: Fire-Monkey. Xu
+  1;2,44 8;30,38 17;33,23 26;4,2 7;24,5
+21: Mon. Magha/mchu. Water-Fire; 12 Dec 2033
+  Vishkambha/rnam sel, Vanija/tshong ba, Dragon, dwa 3
+  Solar: Fire-Bird. Wei
+  2;4,20 9;27,32 17;37,53 0;5,25 7;25,5
+22: Tue. Purvaphalguni/gre. Fire-Fire; 13 Dec 2033
+  Priti/mdza' bo, Vava/gdab pa, Snake, khen 4
+  Solar: Earth-Dog. Shi
+  3;6,55 10;23,26 17;42,22 1;5,49 7;26,5
+    zin phung
+23: Wed. Uttaraphalguni/dbo. Water-Wind; 14 Dec 2033
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Horse, kham 5
+  Solar: Earth-Pig. Bi
+  4;10,31 11;18,20 17;46,52 2;5,13 7;27,5
+    yan kwong
+24: Thu. Hasta/me bzhi. Wind-Wind; 15 Dec 2033
+  Saubhagya/skal bzang, Gara/khyim skyes, Sheep, gin 6
+  Solar: Iron-Mouse. Kui
+  5;14,43 12;12,39 17;51,22 3;4,1 7;28,4
+25: Fri. Citra/nag pa. Earth-Wind; 16 Dec 2033
+  Shobhana/dge byed, Vishti/viSTi, Monkey, zin 7
+  Solar: Iron-Ox. Lou
+  6;18,56 13;6,57 17;55,53 4;2,50 7;29,5
+26: Sat. Svati/sa ri. Earth-Wind; 17 Dec 2033
+  Atiganda/shin tu 'grams, Valava/byis pa, Bird, zon 8
+  Solar: Water-Tiger. Wei
+  0;23,11 14;1,15 18;0,27 5;1,42 8;0,6
+    klu bzlog
+27: Sun. Svati/sa ri. Fire-Wind; 18 Dec 2033
+  Sukarman/las bzang, Kaulava/rigs can, Dog, li 9
+  Solar: Water-Rabbit. Mao
+  1;27,26 14;55,33 18;5,0 6;0,34 8;1,6
+28: Mon. Vishakha/sa ga. Water-Fire; 19 Dec 2033
+  Sukarman/las bzang, Gara/khyim skyes, Pig, khon 1
+  Solar: Wood-Dragon. Bi
+  2;31,42 15;49,51 18;9,34 6;59,26 8;2,7
+    zin phung
+29: Tue. Anuradha/lha mtshams. Fire-Earth; 20 Dec 2033
+  Dhriti/'dzin byed, Vishti/viSTi, Mouse, dwa 2
+  Solar: Wood-Snake. Zui
+  3;35,33 16;44,34 18;14,7 7;58,42 8;3,8
+30: Wed. Jyeshtha/snron. Water-Earth; 21 Dec 2033
+  Shula/zug rngu, Catushpada/rkang bzhi, Ox, khen 3
+  Solar: Fire-Horse. Can
+  4;38,24 17;40,16 18;18,41 8;58,58 8;4,9
+
+Mars, slow: 26;40,12,1,203 - fast: 23;49,10,0,148 North 10;17,35
+Jupiter, slow: 24;36,4,3,93 - fast: 23;46,39,4,14 North 10;17,2
+Saturn, slow: 5;40,17,2,1768 - fast: 5;45,30,3,2528 South 2;16,46
+Mercury, slow: 17;4,48,5,4399 - fast: 17;56,26,4,6721 North 7;29,12
+Venus, slow: 16;28,26,1,487 - fast: 17;34,12,1,553 North 7;24,16
+Rahu, head: 12;5,28,4,4
+
+Tibetan Lunar Month: 11 - Wood-male-Mouse
+
+Month: 15185;19
+Anomaly: 4;51
+Mean Weekday: 4;23,8,3,689
+Mean Sun: 18;23,38,2,10
+
+1: Thu. Mula/snrubs. Wind-Water; 22 Dec 2033
+  Vriddhi/'phel, Kintughna/mi sdug pa, Tiger, kham 4
+  Solar: Fire-Sheep. Jing
+  5;40,15 18;36,59 18;23,15 10;0,14 8;5,10
+2: Fri. Purvashadha/chu stod. Earth-Water; 23 Dec 2033
+  Dhruva/brtan pa, Valava/byis pa, Rabbit, gin 5
+  Solar: Earth-Monkey. Gui
+  6;41,6 19;34,42 18;27,48 11;2,30 8;6,10
+    klu bzlog
+3: Sat. Uttarashadha/chu smad. Earth-Earth; 24 Dec 2033
+  Vyaghata/yongs bsnun, Taitila/til rdung, Dragon, zin 6
+  Solar: Earth-Bird. Liu
+  0;40,33 20;33,48 18;32,22 12;6,11 8;7,11
+4: Sun. Abhijit/gro zhin. Fire-Earth; 25 Dec 2033
+  Harshana/dga' ba, Vanija/tshong ba, Snake, zon 7
+  Solar: Iron-Dog. Xing
+  1;38,24 21;34,31 18;36,55 13;11,27 8;8,12
+    zin phung
+5: Mon. Dhanishtha/mon gre. Water-Water; 26 Dec 2033
+  Vajra/rdo rje, Vava/gdab pa, Horse, li 8
+  Solar: Iron-Pig. Zhang
+  2;35,15 22;36,14 18;41,29 14;17,43 8;9,13
+6: Tue. Shatabhishaj/mon gru. Fire-Earth; 27 Dec 2033
+  Siddhi/dngos grub, Kaulava/rigs can, Sheep, khon 9
+  Solar: Water-Mouse. Yi
+  3;31,6 23;38,56 18;46,3 15;24,59 8;10,14
+    klu bzlog
+7: Wed. Purvabhadrapada/khrums stod. Water-Fire; 28 Dec 2033
+  Vyatipata/phan tshun, Vanija/tshong ba, Monkey, dwa 1
+  Solar: Water-Ox. Zhen
+  4;25,56 24;42,39 18;50,36 16;33,16 8;11,14
+    klu thebs
+8: Thu. Uttarabhadrapada/khrums smad. Wind-Water; 29 Dec 2033
+  Variyas/mchog can, Vava/gdab pa, Bird, khen 2
+  Solar: Wood-Tiger. Jiao
+  5;20,12 25;46,58 18;55,10 17;42,8 8;12,15
+9: Fri. Revati/nam gru. Earth-Water; 30 Dec 2033
+  Parigha/yongs 'joms, Kaulava/rigs can, Dog, kham 3
+  Solar: Wood-Rabbit. Kang
+  6;14,27 26;51,16 18;59,43 18;51,0 8;13,16
+10: Sat. Ashvini/tha skar. Earth-Wind; 31 Dec 2033
+  Shiva/zhi ba, Gara/khyim skyes, Pig, gin 4
+  Solar: Fire-Dragon. Di
+  0;8,42 0;55,34 19;4,17 19;59,52 8;14,17
+    zin phung
+11: Sun. Bharani/bra nye. Fire-Fire; 1 Jan 2034
+  Sadhya/bsgrub bya, Vishti/viSTi, Mouse, zin 5
+  Solar: Fire-Snake. Fang
+  1;2,57 1;59,53 19;8,51 21;8,44 8;15,18
+12. Omitted.
+  1;57,13 19;13,24
+13: Mon. Rohini/snar ma. Water-Earth; 2 Jan 2034
+  Shubha/dge ba, Kaulava/rigs can, Tiger, li 7
+  Solar: Earth-Horse. Xin
+  2;51,52 3;8,5 19;17,58 22;26,3 8;17,19
+14: Tue. Mrigashiras/mgo. Fire-Wind; 3 Jan 2034
+  Shukla/dkar po, Gara/khyim skyes, Rabbit, khon 8
+  Solar: Earth-Sheep. Wei
+  3;47,32 4;10,59 19;22,31 23;33,30 8;18,20
+15: Wed. Ardra/lag. Water-Water; 4 Jan 2034
+  Brahman/tshangs pa, Vishti/viSTi, Dragon, dwa 9
+  Solar: Iron-Monkey. Ji
+  4;44,12 5;12,53 19;27,5 24;39,58 8;19,21
+    klu thebs
+
+Mars, slow: 0;17,37,1,53 - fast: 24;32,29,4,220 North 10;27,13
+Jupiter, slow: 24;41,44,1,215 - fast: 23;57,28,3,235 North 10;19,26
+Saturn, slow: 5;42,44,2,1642 - fast: 5;41,6,0,1723 West 2;15,48
+Mercury, slow: 21;22,37,4,8438 - fast: 19;50,17,1,4139 East 8;24,30
+Venus, slow: 18;9,22,2,74 - fast: 18;55,52,3,664 North 8;12,25
+Rahu, head: 12;1,57,2,8
+
+16: Thu. Punarvasu/nabs so. Wind-Wind; 5 Jan 2034
+  Indra/dbang po, Valava/byis pa, Snake, khen 1
+  Solar: Iron-Bird. Dou
+  5;41,52 6;13,46 19;31,38 25;45,25 8;20,21
+    klu bzlog, zin phung
+17: Fri. Pushya/rgyal. Earth-Fire; 6 Jan 2034
+  Vaidhriti/'khon 'dzin, Taitila/til rdung, Horse, kham 2
+  Solar: Water-Dog. Niu
+  6;40,56 7;13,15 19;36,12 26;49,28 8;21,22
+18: Sat. Ashlesha/skag. Earth-Water; 7 Jan 2034
+  Vishkambha/rnam sel, Vanija/tshong ba, Sheep, gin 3
+  Solar: Water-Pig. Nu
+  0;41,36 8;11,9 19;40,46 0;51,55 8;22,23
+19: Sun. Magha/mchu. Fire-Fire; 8 Jan 2034
+  Priti/mdza' bo, Vava/gdab pa, Monkey, zin 4
+  Solar: Wood-Mouse. Xu
+  1;43,16 9;8,3 19;45,19 1;53,22 8;23,24
+20: Mon. Purvaphalguni/gre. Water-Fire; 9 Jan 2034
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Bird, zon 5
+  Solar: Wood-Ox. Wei
+  2;45,56 10;3,56 19;49,53 2;53,50 8;24,25
+    klu bzlog, nyi nag
+21: Tue. Purvaphalguni/gre. Fire-Fire; 10 Jan 2034
+  Saubhagya/skal bzang, Gara/khyim skyes, Dog, li 6
+  Solar: Fire-Tiger. Shi
+  3;49,36 10;58,50 19;54,26 3;53,17 8;25,25
+    yan kwong, klu thebs
+22: Wed. Uttaraphalguni/dbo. Water-Wind; 11 Jan 2034
+  Shobhana/dge byed, Vishti/viSTi, Pig, khon 7
+  Solar: Fire-Rabbit. Bi
+  4;53,51 11;53,8 19;59,0 4;52,9 8;26,26
+    zin phung
+23: Thu. Hasta/me bzhi. Wind-Wind; 12 Jan 2034
+  Atiganda/shin tu 'grams, Vava/gdab pa, Mouse, dwa 8
+  Solar: Earth-Dragon. Kui
+  5;58,7 12;47,26 20;3,34 5;51,0 8;27,27
+24: Fri. Citra/nag pa. Earth-Wind; 13 Jan 2034
+  Sukarman/las bzang, Kaulava/rigs can, Ox, khen 9
+  Solar: Earth-Snake. Lou
+  6;60,0 13;47,26 20;8,7 6;55,34 8;28,28
+24: Sat. Svati/sa ri. Earth-Wind; 14 Jan 2034
+  Dhriti/'dzin byed, Gara/khyim skyes, Ox, khen 9
+  Solar: Iron-Horse. Wei
+  0;2,22 14;41,45 20;8,7 7;49,52 8;28,28
+25: Sun. Vishakha/sa ga. Fire-Fire; 15 Jan 2034
+  Shula/zug rngu, Vishti/viSTi, Tiger, kham 1
+  Solar: Iron-Sheep. Mao
+  1;6,37 15;36,3 20;12,41 8;48,44 8;29,29
+26: Mon. Anuradha/lha mtshams. Water-Earth; 16 Jan 2034
+  Ganda/'grams, Valava/byis pa, Rabbit, gin 2
+  Solar: Water-Monkey. Bi
+  2;10,53 16;30,21 20;17,14 9;47,36 9;0,29
+    klu bzlog
+27: Tue. Jyeshtha/snron. Fire-Earth; 17 Jan 2034
+  Vriddhi/'phel, Taitila/til rdung, Dragon, zin 3
+  Solar: Water-Bird. Zui
+  3;14,43 17;25,4 20;21,48 10;46,52 9;1,30
+28: Wed. Mula/snrubs. Water-Water; 18 Jan 2034
+  Dhruva/brtan pa, Vanija/tshong ba, Snake, zon 4
+  Solar: Wood-Dog. Can
+  4;17,34 18;20,47 20;26,22 11;47,9 9;2,31
+    zin phung
+29: Thu. Purvashadha/chu stod. Wind-Water; 19 Jan 2034
+  Vyaghata/yongs bsnun, Shakuni/bkra shis, Horse, li 5
+  Solar: Wood-Pig. Jing
+  5;19,25 19;17,30 20;30,55 12;48,25 9;3,32
+30: Fri. Uttarashadha/chu smad. Earth-Earth; 20 Jan 2034
+  Harshana/dga' ba, Naga/klu, Sheep, khon 6
+  Solar: Fire-Mouse. Gui
+  6;20,15 20;15,13 20;35,29 13;50,42 9;4,33
+
+Mars, slow: 1;0,22,4,176 - fast: 25;20,56,1,220 North 11;7,59
+Jupiter, slow: 24;48,12,3,45 - fast: 24;9,50,5,276 North 10;22,11
+Saturn, slow: 5;45,32,2,1498 - fast: 5;35,59,4,3464 West 2;14,39
+Mercury, slow: 26;17,16,3,4257 - fast: 21;43,37,3,7231 East 9;19,41
+Venus, slow: 20;4,43,3,351 - fast: 20;23,33,2,319 North 9;1,54
+Rahu, head: 11;58,26,0,12
+
+Tibetan Lunar Month: 12 - Wood-female-Ox
+
+Month: 15186;21
+Anomaly: 6;52
+Mean Weekday: 5;54,58,4,462
+Mean Sun: 20;34,36,5,7
+
+1: Sat. Abhijit/gro zhin. Earth-Earth; 21 Jan 2034
+  Vajra/rdo rje, Vava/gdab pa, Monkey, dwa 7
+  Solar: Fire-Ox. Liu
+  0;19,41 21;14,21 20;40,2 14;54,23 9;5,33
+2: Sun. Dhanishtha/mon gre. Fire-Water; 22 Jan 2034
+  Siddhi/dngos grub, Kaulava/rigs can, Bird, khen 8
+  Solar: Earth-Tiger. Xing
+  1;17,32 22;15,4 20;44,36 15;59,40 9;6,34
+3: Mon. Shatabhishaj/mon gru. Water-Earth; 23 Jan 2034
+  Variyas/mchog can, Gara/khyim skyes, Dog, kham 9
+  Solar: Earth-Rabbit. Zhang
+  2;14,22 23;16,47 20;49,10 17;5,57 9;7,35
+4: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 24 Jan 2034
+  Parigha/yongs 'joms, Vishti/viSTi, Pig, gin 1
+  Solar: Iron-Dragon. Yi
+  3;10,13 24;19,30 20;53,43 18;13,14 9;8,36
+    zin phung
+5: Wed. Uttarabhadrapada/khrums smad. Water-Water; 25 Jan 2034
+  Shiva/zhi ba, Valava/byis pa, Mouse, zin 2
+  Solar: Iron-Snake. Zhen
+  4;5,3 25;23,13 20;58,17 19;21,30 9;9,37
+6. Omitted.
+  4;59,18 21;2,50
+7: Thu. Revati/nam gru. Wind-Water; 26 Jan 2034
+  Siddha/grub pa, Gara/khyim skyes, Tiger, li 4
+  Solar: Water-Horse. Jiao
+  5;53,33 26;31,50 21;7,24 20;39,14 9;11,38
+8: Fri. Ashvini/tha skar. Earth-Wind; 27 Jan 2034
+  Sadhya/bsgrub bya, Vishti/viSTi, Rabbit, khon 5
+  Solar: Water-Sheep. Kang
+  6;47,49 0;36,8 21;11,57 21;48,6 9;12,39
+9: Sat. Bharani/bra nye. Earth-Fire; 28 Jan 2034
+  Shubha/dge ba, Valava/byis pa, Dragon, dwa 6
+  Solar: Wood-Monkey. Di
+  0;42,4 1;40,27 21;16,31 22;56,58 9;13,40
+10: Sun. Krittika/smin drug. Fire-Fire; 29 Jan 2034
+  Brahman/tshangs pa, Taitila/til rdung, Snake, khen 7
+  Solar: Wood-Bird. Fang
+  1;36,19 2;44,45 21;21,5 24;5,50 9;14,41
+    zin phung
+11: Mon. Rohini/snar ma. Water-Earth; 30 Jan 2034
+  Indra/dbang po, Vanija/tshong ba, Horse, kham 8
+  Solar: Fire-Dog. Xin
+  2;30,59 3;48,38 21;25,38 25;14,17 9;15,41
+12: Tue. Mrigashiras/mgo. Fire-Wind; 31 Jan 2034
+  Vaidhriti/'khon 'dzin, Valava/byis pa, Sheep, gin 9
+  Solar: Fire-Pig. Wei
+  3;26,39 4;51,32 21;30,12 26;21,44 9;16,42
+13: Wed. Ardra/lag. Water-Water; 1 Feb 2034
+  Vishkambha/rnam sel, Taitila/til rdung, Monkey, zin 1
+  Solar: Earth-Mouse. Ji
+  4;23,20 5;53,25 21;34,45 0;28,11 9;17,43
+14: Thu. Punarvasu/nabs so. Wind-Wind; 2 Feb 2034
+  Priti/mdza' bo, Vanija/tshong ba, Bird, zon 2
+  Solar: Earth-Ox. Dou
+  5;21,0 6;54,19 21;39,19 1;33,38 9;18,44
+15: Fri. Pushya/rgyal. Earth-Fire; 3 Feb 2034
+  Ayushmat/tshe dang ldan pa, Vava/gdab pa, Dog, li 3
+  Solar: Iron-Tiger. Niu
+  6;20,5 7;53,47 21;43,53 2;37,40 9;19,45
+
+Mars, slow: 1;36,0,4,84 - fast: 26;4,14,2,30 North 11;17,36
+Jupiter, slow: 24;53,52,1,167 - fast: 24;23,2,0,213 North 10;25,7
+Saturn, slow: 5;47,59,2,1372 - fast: 5;31,46,4,1012 West 2;13,43
+Mercury, slow: 3;35,5,2,8296 - fast: 22;58,21,0,1883 South 10;6,18
+Venus, slow: 21;45,39,3,687 - fast: 21;45,13,4,60 East 9;20,3
+Rahu, head: 11;54,54,4,16
+
+16: Sat. Ashlesha/skag. Earth-Water; 4 Feb 2034
+  Saubhagya/skal bzang, Kaulava/rigs can, Pig, khon 4
+  Solar: Iron-Rabbit. Nu
+  0;20,46 8;51,40 21;48,26 3;40,7 9;20,45
+    zin phung
+17: Sun. Magha/mchu. Fire-Fire; 5 Feb 2034
+  Shobhana/dge byed, Gara/khyim skyes, Mouse, dwa 5
+  Solar: Water-Dragon. Xu
+  1;22,26 9;48,33 21;53,0 4;41,33 9;21,46
+18: Mon. Purvaphalguni/gre. Water-Fire; 6 Feb 2034
+  Atiganda/shin tu 'grams, Vishti/viSTi, Ox, khen 6
+  Solar: Water-Snake. Wei
+  2;25,6 10;44,26 21;57,33 5;42,0 9;22,47
+19: Tue. Uttaraphalguni/dbo. Fire-Wind; 7 Feb 2034
+  Sukarman/las bzang, Vava/gdab pa, Tiger, kham 7
+  Solar: Wood-Horse. Shi
+  3;28,47 11;39,20 22;2,7 6;41,27 9;23,48
+    yan kwong
+20: Wed. Hasta/me bzhi. Water-Wind; 8 Feb 2034
+  Dhriti/'dzin byed, Kaulava/rigs can, Rabbit, gin 8
+  Solar: Wood-Sheep. Bi
+  4;33,2 12;33,38 22;6,41 7;40,19 9;24,49
+21: Thu. Citra/nag pa. Wind-Wind; 9 Feb 2034
+  Shula/zug rngu, Gara/khyim skyes, Dragon, zin 9
+  Solar: Fire-Monkey. Kui
+  5;37,18 13;27,56 22;11,14 8;39,10 9;25,49
+22: Fri. Svati/sa ri. Earth-Wind; 10 Feb 2034
+  Ganda/'grams, Vishti/viSTi, Snake, zon 1
+  Solar: Fire-Bird. Lou
+  6;41,33 14;22,14 22;15,48 9;38,2 9;26,50
+    zin phung
+23: Sat. Vishakha/sa ga. Earth-Fire; 11 Feb 2034
+  Vriddhi/'phel, Valava/byis pa, Horse, li 2
+  Solar: Earth-Dog. Wei
+  0;45,48 15;16,32 22;20,21 10;36,54 9;27,51
+24: Sun. Anuradha/lha mtshams. Fire-Earth; 12 Feb 2034
+  Dhruva/brtan pa, Taitila/til rdung, Sheep, khon 3
+  Solar: Earth-Pig. Mao
+  1;50,4 16;10,51 22;24,55 11;35,46 9;28,52
+25: Mon. Jyeshtha/snron. Water-Earth; 13 Feb 2034
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Monkey, dwa 4
+  Solar: Iron-Mouse. Bi
+  2;53,54 17;5,34 22;29,29 12;35,3 9;29,53
+26: Tue. Mula/snrubs. Fire-Water; 14 Feb 2034
+  Harshana/dga' ba, Vishti/viSTi, Bird, khen 5
+  Solar: Iron-Ox. Zui
+  3;56,44 18;1,17 22;34,2 13;35,20 10;0,53
+27: Wed. Mula/snrubs. Water-Water; 15 Feb 2034
+  Vajra/rdo rje, Valava/byis pa, Dog, kham 6
+  Solar: Water-Tiger. Can
+  4;58,32 18;58,1 22;38,33 14;36,35 10;1,54
+28: Thu. Purvashadha/chu stod. Wind-Water; 16 Feb 2034
+  Siddhi/dngos grub, Taitila/til rdung, Pig, gin 7
+  Solar: Water-Rabbit. Jing
+  5;59,18 19;55,44 22;43,3 15;38,48 10;2,54
+    zin phung
+29: Fri. Uttarashadha/chu smad. Earth-Earth; 17 Feb 2034
+  Vyatipata/phan tshun, Vanija/tshong ba, Mouse, zin 8
+  Solar: Wood-Dragon. Gui
+  6;58,39 20;54,53 22;47,33 16;42,26 10;3,54
+30: Sat. Abhijit/gro zhin. Earth-Earth; 18 Feb 2034
+  Variyas/mchog can, Shakuni/bkra shis, Ox, zon 9
+  Solar: Wood-Snake. Liu
+  0;56,26 21;55,36 22;52,3 17;47,39 10;4,54
+    nyi nag
+
+Mars, slow: 2;13,13,0,58 - fast: 26;49,55,4,107 North 11;27,45
+Jupiter, slow: 24;59,56,1,143 - fast: 24;37,47,0,228 North 10;28,23
+Saturn, slow: 5;50,36,5,1237 - fast: 5;29,1,5,5239 West 2;13,7
+Mercury, slow: 8;11,19,1,8225 - fast: 23;7,12,1,8342 South 10;8,16
+Venus, slow: 23;33,48,1,619 - fast: 23;9,38,3,296 East 10;8,48
+Rahu, head: 11;51,23,2,20
+

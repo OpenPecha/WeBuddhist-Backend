@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from fastapi.responses import FileResponse
 from starlette import status
 
+from .calendar_parser import CalendarType
 from .calendar_response_models import (
     CalendarMonthResponse,
     CalendarTodayResponse,
@@ -36,8 +37,19 @@ def get_calendar_view() -> FileResponse:
     status_code=status.HTTP_200_OK,
     response_model=CalendarTodayResponse,
 )
-def get_calendar_today_endpoint() -> CalendarTodayResponse:
-    return get_calendar_today_service()
+async def get_calendar_today_endpoint(
+    calendar_type: CalendarType = CalendarType.PHUGPA,
+) -> CalendarTodayResponse:
+    return await get_calendar_today_service(calendar_type)
+
+
+@calendar_router.get(
+    "/types",
+    status_code=status.HTTP_200_OK,
+    response_model=list[CalendarType],
+)
+def get_available_calendar_types_endpoint() -> list[CalendarType]:
+    return list(CalendarType)
 
 
 @calendar_router.get(
@@ -45,8 +57,11 @@ def get_calendar_today_endpoint() -> CalendarTodayResponse:
     status_code=status.HTTP_200_OK,
     response_model=CalendarYearResponse,
 )
-def get_calendar_year_endpoint(year: int) -> CalendarYearResponse:
-    return get_calendar_year_service(year)
+async def get_calendar_year_endpoint(
+    year: int,
+    calendar_type: CalendarType = CalendarType.PHUGPA,
+) -> CalendarYearResponse:
+    return await get_calendar_year_service(year, calendar_type)
 
 
 @calendar_router.get(
@@ -54,5 +69,9 @@ def get_calendar_year_endpoint(year: int) -> CalendarYearResponse:
     status_code=status.HTTP_200_OK,
     response_model=CalendarMonthResponse,
 )
-def get_calendar_month_endpoint(year: int, month: int) -> CalendarMonthResponse:
-    return get_calendar_month_service(year, month)
+async def get_calendar_month_endpoint(
+    year: int,
+    month: int,
+    calendar_type: CalendarType = CalendarType.PHUGPA,
+) -> CalendarMonthResponse:
+    return await get_calendar_month_service(year, month, calendar_type)
