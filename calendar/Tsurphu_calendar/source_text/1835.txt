@@ -1,0 +1,2000 @@
+New Year: 1835, Wood-female-Sheep
+
+Tibetan Lunar Month: 1 - Earth-male-Tiger
+
+Month: 12725;57
+Anomaly: 20;111
+Mean Weekday: 5;8,30,1,579
+Mean Sun: 21;26,43,0,6
+
+1: Thu. Abhijit/gro zhin. Wind-Earth; 29 Jan 1835
+  Vyatipata/phan tshun, Kintughna/mi sdug pa, Tiger, li 1
+  Solar: Iron-Bird. Dou
+  5;46,49 21;41,38 21;34,27 16;16,5 9;17,39
+  From 1st to 15th, Demonstration of Miracles.
+    zin phung
+2: Fri. Dhanishtha/mon gre. Earth-Water; 30 Jan 1835
+  Variyas/mchog can, Valava/byis pa, Rabbit, khon 2
+  Solar: Water-Dog. Niu
+  6;47,57 22;39,3 21;39,1 17;18,5 9;18,40
+3: Sat. Shatabhishaj/mon gru. Earth-Earth; 31 Jan 1835
+  Parigha/yongs 'joms, Taitila/til rdung, Dragon, dwa 3
+  Solar: Water-Pig. Nu
+  0;50,6 23;35,28 21;43,35 18;19,3 9;19,41
+4: Sun. Purvabhadrapada/khrums stod. Fire-Fire; 1 Feb 1835
+  Shiva/zhi ba, Vanija/tshong ba, Snake, khen 4
+  Solar: Wood-Mouse. Xu
+  1;53,14 24;30,54 21;48,8 19;19,2 9;20,41
+5: Mon. Uttarabhadrapada/khrums smad. Water-Water; 2 Feb 1835
+  Siddha/grub pa, Vishti/viSTi, Horse, kham 5
+  Solar: Wood-Ox. Wei
+  2;57,22 25;25,19 21;52,42 20;18,1 9;21,42
+    klu bzlog
+6: Tue. Revati/nam gru. Fire-Water; 3 Feb 1835
+  Sadhya/bsgrub bya, Valava/byis pa, Sheep, gin 6
+  Solar: Fire-Tiger. Shi
+  3;60,0 26;25,19 21;57,15 21;22,35 9;22,43
+6: Wed. Ashvini/tha skar. Water-Wind; 4 Feb 1835
+  Shubha/dge ba, Taitila/til rdung, Sheep, gin 6
+  Solar: Fire-Rabbit. Bi
+  4;1,38 0;19,37 21;57,15 22;16,53 9;22,43
+7: Thu. Bharani/bra nye. Wind-Fire; 5 Feb 1835
+  Shukla/dkar po, Vanija/tshong ba, Monkey, zin 7
+  Solar: Earth-Dragon. Kui
+  5;5,53 1;13,55 22;1,49 23;15,45 9;23,44
+    zin phung, nyi nag ngan pa dgu 'dzom
+8: Fri. Krittika/smin drug. Earth-Fire; 6 Feb 1835
+  Brahman/tshangs pa, Vava/gdab pa, Bird, zon 8
+  Solar: Earth-Snake. Lou
+  6;10,8 2;8,14 22;6,23 24;14,37 9;24,45
+9: Sat. Rohini/snar ma. Earth-Earth; 7 Feb 1835
+  Indra/dbang po, Kaulava/rigs can, Dog, li 9
+  Solar: Iron-Horse. Wei
+  0;14,24 3;2,32 22;10,56 25;13,28 9;25,45
+10: Sun. Rohini/snar ma. Fire-Earth; 8 Feb 1835
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Pig, khon 1
+  Solar: Iron-Sheep. Mao
+  1;18,39 3;56,50 22;15,30 26;12,20 9;26,46
+    klu bzlog
+11: Mon. Mrigashiras/mgo. Water-Wind; 9 Feb 1835
+  Vishkambha/rnam sel, Vishti/viSTi, Mouse, dwa 2
+  Solar: Water-Monkey. Bi
+  2;22,2 4;52,1 22;20,3 0;12,5 9;27,47
+12: Tue. Ardra/lag. Fire-Water; 10 Feb 1835
+  Priti/mdza' bo, Valava/byis pa, Ox, khen 3
+  Solar: Water-Bird. Zui
+  3;24,24 5;48,12 22;24,37 1;12,50 9;28,48
+13: Wed. Punarvasu/nabs so. Water-Wind; 11 Feb 1835
+  Ayushmat/tshe dang ldan pa, Taitila/til rdung, Tiger, kham 4
+  Solar: Wood-Dog. Can
+  4;25,46 6;45,24 22;29,11 2;14,35 9;29,49
+    yan kwong, zin phung
+14: Thu. Pushya/rgyal. Wind-Fire; 12 Feb 1835
+  Saubhagya/skal bzang, Vanija/tshong ba, Rabbit, gin 5
+  Solar: Wood-Pig. Jing
+  5;26,8 7;43,35 22;33,44 3;17,20 10;0,49
+    klu thebs
+15: Fri. Ashlesha/skag. Earth-Water; 13 Feb 1835
+  Shobhana/dge byed, Vava/gdab pa, Dragon, zin 6
+  Solar: Fire-Mouse. Gui
+  6;24,36 8;43,40 22;38,16 4;21,56 10;1,50
+    klu bzlog
+
+Mars, slow: 7;10,25,2,112 - fast: 4;43,37,4,67 West 2;3,1
+Jupiter, slow: 4;20,39,1,125 - fast: 3;31,4,3,152 West 1;16,54
+Saturn, slow: 13;1,34,3,4599 - fast: 13;25,32,0,4243 South 5;29,0
+Mercury, slow: 0;16,34,2,5098 - fast: 23;27,46,5,2017 East 10;12,50
+Venus, slow: 10;14,15,3,183 - fast: 20;26,46,0,133 West 9;2,36
+Rahu, head: 3;48,54,4,16
+
+16: Sat. Magha/mchu. Earth-Fire; 14 Feb 1835
+  Atiganda/shin tu 'grams, Kaulava/rigs can, Snake, zon 7
+  Solar: Fire-Ox. Liu
+  0;21,54 9;44,51 22;42,45 5;27,37 10;2,50
+17: Sun. Purvaphalguni/gre. Fire-Fire; 15 Feb 1835
+  Sukarman/las bzang, Gara/khyim skyes, Horse, li 8
+  Solar: Earth-Tiger. Xing
+  1;18,12 10;47,2 22;47,15 6;34,18 10;3,50
+18: Mon. Uttaraphalguni/dbo. Water-Wind; 16 Feb 1835
+  Dhriti/'dzin byed, Vishti/viSTi, Sheep, khon 9
+  Solar: Earth-Rabbit. Zhang
+  2;13,30 11;50,14 22;51,45 7;41,59 10;4,50
+19: Tue. Hasta/me bzhi. Fire-Wind; 17 Feb 1835
+  Shula/zug rngu, Valava/byis pa, Monkey, dwa 1
+  Solar: Iron-Dragon. Yi
+  3;7,49 12;54,25 22;56,15 8;50,40 10;5,50
+    zin phung
+20: Wed. Citra/nag pa. Water-Wind; 18 Feb 1835
+  Ganda/'grams, Taitila/til rdung, Bird, khen 2
+  Solar: Iron-Snake. Zhen
+  4;2,0 13;58,44 23;0,44 9;59,28 10;6,49
+21. Omitted.
+  4;56,11 23;5,14
+22: Thu. Vishakha/sa ga. Wind-Fire; 19 Feb 1835
+  Dhruva/brtan pa, Vishti/viSTi, Pig, gin 4
+  Solar: Water-Horse. Jiao
+  5;50,23 15;7,20 23;9,44 11;17,5 10;8,49
+23: Fri. Anuradha/lha mtshams. Earth-Earth; 20 Feb 1835
+  Vyaghata/yongs bsnun, Valava/byis pa, Mouse, zin 5
+  Solar: Water-Sheep. Kang
+  6;44,34 16;11,39 23;14,13 12;25,53 10;9,49
+24: Sat. Jyeshtha/snron. Earth-Earth; 21 Feb 1835
+  Harshana/dga' ba, Taitila/til rdung, Ox, zon 6
+  Solar: Wood-Monkey. Di
+  0;38,45 17;15,57 23;18,43 13;34,41 10;10,49
+25: Sun. Mula/snrubs. Fire-Water; 22 Feb 1835
+  Vajra/rdo rje, Vanija/tshong ba, Tiger, li 7
+  Solar: Wood-Bird. Fang
+  1;33,50 18;19,22 23;23,13 14;42,35 10;11,49
+    zin phung
+26: Mon. Purvashadha/chu stod. Water-Water; 23 Feb 1835
+  Siddhi/dngos grub, Vava/gdab pa, Rabbit, khon 8
+  Solar: Fire-Dog. Xin
+  2;29,55 19;21,47 23;27,43 15;49,30 10;12,49
+27: Tue. Uttarashadha/chu smad. Fire-Earth; 24 Feb 1835
+  Vyatipata/phan tshun, Taitila/til rdung, Dragon, dwa 9
+  Solar: Fire-Pig. Wei
+  3;26,59 20;23,12 23;32,12 16;55,25 10;13,49
+28: Wed. Abhijit/gro zhin. Water-Earth; 25 Feb 1835
+  Parigha/yongs 'joms, Vanija/tshong ba, Snake, khen 1
+  Solar: Earth-Mouse. Ji
+  4;25,4 21;23,37 23;36,42 18;0,20 10;14,49
+29: Thu. Dhanishtha/mon gre. Wind-Water; 26 Feb 1835
+  Shiva/zhi ba, Shakuni/bkra shis, Horse, kham 2
+  Solar: Earth-Ox. Dou
+  5;25,2 22;22,9 23;41,12 19;3,21 10;15,49
+30: Fri. Shatabhishaj/mon gru. Earth-Earth; 27 Feb 1835
+  Siddha/grub pa, Naga/klu, Sheep, gin 3
+  Solar: Iron-Tiger. Niu
+  6;26,7 23;19,34 23;45,41 20;5,16 10;16,49
+
+Mars, slow: 7;39,2,0,132 - fast: 4;48,53,0,159 West 2;4,11
+Jupiter, slow: 4;26,0,1,359 - fast: 3;34,12,0,41 North 1;17,36
+Saturn, slow: 13;3,35,2,2884 - fast: 13;22,44,5,2572 South 5;28,23
+Mercury, slow: 4;34,23,2,340 - fast: 24;55,11,4,4060 East 11;2,15
+Venus, slow: 11;55,11,3,519 - fast: 20;49,26,5,489 West 9;7,39
+Rahu, head: 3;45,23,2,20
+
+Tibetan Lunar Month: 2 - Earth-female-Rabbit
+
+Month: 12726;59
+Anomaly: 22;112
+Mean Weekday: 6;40,20,2,352
+Mean Sun: 23;37,41,3,3
+
+1: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 28 Feb 1835
+  Sadhya/bsgrub bya, Kintughna/mi sdug pa, Monkey, zin 4
+  Solar: Iron-Rabbit. Nu
+  0;28,12 24;15,59 23;50,11 21;6,10 10;17,49
+    zin phung
+2: Sun. Uttarabhadrapada/khrums smad. Fire-Water; 1 Mar 1835
+  Shubha/dge ba, Valava/byis pa, Bird, zon 5
+  Solar: Water-Dragon. Xu
+  1;31,17 25;11,24 23;54,41 22;6,5 10;18,49
+3: Mon. Revati/nam gru. Water-Water; 2 Mar 1835
+  Shukla/dkar po, Taitila/til rdung, Dog, li 6
+  Solar: Water-Snake. Wei
+  2;35,21 26;5,49 23;59,11 23;5,0 10;19,49
+4: Tue. Ashvini/tha skar. Fire-Wind; 3 Mar 1835
+  Brahman/tshangs pa, Vanija/tshong ba, Pig, khon 7
+  Solar: Wood-Horse. Shi
+  3;39,33 0;0,7 24;3,40 24;3,47 10;20,49
+5: Wed. Ashvini/tha skar. Water-Wind; 4 Mar 1835
+  Indra/dbang po, Vava/gdab pa, Mouse, dwa 8
+  Solar: Wood-Sheep. Bi
+  4;43,44 0;54,25 24;8,10 25;2,35 10;21,48
+6: Thu. Bharani/bra nye. Wind-Fire; 5 Mar 1835
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Ox, khen 9
+  Solar: Fire-Monkey. Kui
+  5;47,56 1;48,43 24;12,40 26;1,23 10;22,48
+7: Fri. Krittika/smin drug. Earth-Fire; 6 Mar 1835
+  Vishkambha/rnam sel, Gara/khyim skyes, Tiger, kham 1
+  Solar: Fire-Bird. Lou
+  6;52,7 2;43,1 24;17,9 0;0,11 10;23,48
+    zin phung
+8: Sat. Rohini/snar ma. Earth-Earth; 7 Mar 1835
+  Vishkambha/rnam sel, Vanija/tshong ba, Rabbit, gin 2
+  Solar: Earth-Dog. Wei
+  0;56,19 3;37,20 24;21,39 0;58,59 10;24,48
+    klu bzlog
+9: Sun. Mrigashiras/mgo. Fire-Wind; 8 Mar 1835
+  Priti/mdza' bo, Vava/gdab pa, Dragon, zin 3
+  Solar: Earth-Pig. Mao
+  1;59,37 4;32,31 24;26,9 1;58,40 10;25,48
+10: Mon. Ardra/lag. Water-Water; 9 Mar 1835
+  Saubhagya/skal bzang, Kaulava/rigs can, Snake, zon 4
+  Solar: Iron-Mouse. Bi
+  2;60,0 5;32,31 24;30,38 3;3,10 10;26,48
+    klu thebs
+10: Tue. Punarvasu/nabs so. Fire-Wind; 10 Mar 1835
+  Saubhagya/skal bzang, Gara/khyim skyes, Snake, zon 4
+  Solar: Iron-Ox. Zui
+  3;1,55 6;28,43 24;30,38 3;59,22 10;26,48
+11: Wed. Pushya/rgyal. Water-Fire; 11 Mar 1835
+  Atiganda/shin tu 'grams, Vishti/viSTi, Horse, li 5
+  Solar: Water-Tiger. Can
+  4;3,13 7;25,55 24;35,8 5;1,3 10;27,48
+    yan kwong
+12: Thu. Ashlesha/skag. Wind-Water; 12 Mar 1835
+  Sukarman/las bzang, Valava/byis pa, Sheep, khon 6
+  Solar: Water-Rabbit. Jing
+  5;3,31 8;24,6 24;39,38 6;3,45 10;28,48
+13: Fri. Magha/mchu. Earth-Fire; 13 Mar 1835
+  Dhriti/'dzin byed, Taitila/til rdung, Monkey, dwa 7
+  Solar: Wood-Dragon. Gui
+  6;1,55 9;24,12 24;44,8 7;8,20 10;29,48
+    zin phung
+14. Omitted.
+  6;59,13 24;48,37
+15: Sat. Purvaphalguni/gre. Earth-Fire; 14 Mar 1835
+  Shula/zug rngu, Vanija/tshong ba, Dog, kham 9
+  Solar: Wood-Snake. Liu
+  0;55,31 10;27,35 24;53,7 8;20,43 11;1,48
+
+Mars, slow: 8;7,54,4,208 - fast: 5;10,26,5,82 West 2;8,59
+Jupiter, slow: 4;31,44,2,94 - fast: 3;41,7,1,194 North 1;19,8
+Saturn, slow: 13;5,44,4,5276 - fast: 13;19,0,1,2242 South 5;27,33
+Mercury, slow: 9;10,37,1,269 - fast: 25;31,58,3,5323 South 11;10,26
+Venus, slow: 13;43,20,1,451 - fast: 21;35,4,3,696 West 9;17,47
+Rahu, head: 3;41,52,1,1
+
+16: Sun. Uttaraphalguni/dbo. Fire-Wind; 15 Mar 1835
+  Ganda/'grams, Valava/byis pa, Pig, gin 1
+  Solar: Fire-Horse. Xing
+  1;50,45 11;30,47 24;57,33 9;28,21 11;2,47
+17: Mon. Hasta/me bzhi. Water-Wind; 16 Mar 1835
+  Vriddhi/'phel, Taitila/til rdung, Mouse, zin 2
+  Solar: Fire-Sheep. Zhang
+  2;44,57 12;34,59 25;1,57 10;36,57 11;3,46
+18: Tue. Citra/nag pa. Fire-Wind; 17 Mar 1835
+  Dhruva/brtan pa, Vanija/tshong ba, Ox, zon 3
+  Solar: Earth-Monkey. Yi
+  3;39,3 13;39,18 25;6,21 11;45,39 11;4,44
+    klu bzlog
+19: Wed. Svati/sa ri. Water-Wind; 18 Mar 1835
+  Vyaghata/yongs bsnun, Vava/gdab pa, Tiger, li 4
+  Solar: Earth-Bird. Zhen
+  4;33,8 14;43,36 25;10,45 12;54,22 11;5,43
+    zin phung
+20: Thu. Vishakha/sa ga. Wind-Fire; 19 Mar 1835
+  Vajra/rdo rje, Kaulava/rigs can, Rabbit, khon 5
+  Solar: Iron-Dog. Jiao
+  5;27,14 15;47,54 25;15,9 14;3,4 11;6,42
+    klu bzlog
+21: Fri. Anuradha/lha mtshams. Earth-Earth; 20 Mar 1835
+  Siddhi/dngos grub, Vanija/tshong ba, Dragon, dwa 6
+  Solar: Iron-Pig. Kang
+  6;21,19 16;52,13 25;19,33 15;11,46 11;7,40
+22: Sat. Jyeshtha/snron. Earth-Earth; 21 Mar 1835
+  Vyatipata/phan tshun, Vava/gdab pa, Snake, khen 7
+  Solar: Water-Mouse. Di
+  0;15,25 17;56,31 25;23,57 16;20,28 11;8,39
+    klu bzlog
+23: Sun. Mula/snrubs. Fire-Water; 22 Mar 1835
+  Variyas/mchog can, Kaulava/rigs can, Horse, kham 8
+  Solar: Water-Ox. Fang
+  1;10,24 18;59,56 25;28,21 17;28,17 11;9,38
+24: Mon. Uttarashadha/chu smad. Water-Earth; 23 Mar 1835
+  Parigha/yongs 'joms, Gara/khyim skyes, Sheep, gin 9
+  Solar: Wood-Tiger. Xin
+  2;6,24 20;2,20 25;32,44 18;35,5 11;10,36
+25: Tue. Abhijit/gro zhin. Fire-Earth; 24 Mar 1835
+  Shiva/zhi ba, Vishti/viSTi, Monkey, zin 1
+  Solar: Wood-Rabbit. Wei
+  3;3,23 21;3,45 25;37,8 19;40,54 11;11,35
+    zin phung
+26: Wed. Dhanishtha/mon gre. Water-Water; 25 Mar 1835
+  Siddha/grub pa, Valava/byis pa, Bird, zon 2
+  Solar: Fire-Dragon. Ji
+  4;1,22 22;4,10 25;41,32 20;45,42 11;12,33
+27: Thu. Shatabhishaj/mon gru. Wind-Earth; 26 Mar 1835
+  Sadhya/bsgrub bya, Taitila/til rdung, Dog, li 3
+  Solar: Fire-Snake. Dou
+  5;1,15 23;2,40 25;45,56 21;48,37 11;13,32
+28: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 27 Mar 1835
+  Shubha/dge ba, Vanija/tshong ba, Pig, khon 4
+  Solar: Earth-Horse. Niu
+  6;2,15 24;0,5 25;50,20 22;50,25 11;14,31
+    klu bzlog
+29: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 28 Mar 1835
+  Shukla/dkar po, Shakuni/bkra shis, Mouse, dwa 5
+  Solar: Earth-Sheep. Nu
+  0;4,14 24;56,29 25;54,44 23;51,14 11;15,29
+30: Sun. Uttarabhadrapada/khrums smad. Fire-Water; 29 Mar 1835
+  Brahman/tshangs pa, Naga/klu, Ox, khen 6
+  Solar: Iron-Monkey. Xu
+  1;7,14 25;51,54 25;59,8 24;51,2 11;16,28
+
+Mars, slow: 8;36,44,0,104 - fast: 5;35,19,5,53 North 2;14,31
+Jupiter, slow: 4;37,28,2,190 - fast: 3;49,35,3,171 North 1;21,1
+Saturn, slow: 13;7,54,1,2285 - fast: 13;13,28,0,4384 South 5;26,19
+Mercury, slow: 13;46,51,0,198 - fast: 24;25,53,4,4445 West 10;25,45
+Venus, slow: 15;31,28,5,383 - fast: 22;33,10,1,295 West 10;0,42
+Rahu, head: 3;38,20,5,5
+
+Tibetan Lunar Month: 3 - Iron-male-Dragon
+
+Month: 12727;61
+Anomaly: 24;113
+Mean Weekday: 1;12,10,3,125
+Mean Sun: 25;48,40,0,0
+
+1: Mon. Revati/nam gru. Water-Water; 30 Mar 1835
+  Indra/dbang po, Vava/gdab pa, Tiger, kham 7
+  Solar: Iron-Bird. Wei
+  2;11,13 26;46,18 26;3,32 25;49,50 11;17,27
+    zin phung
+2: Tue. Ashvini/tha skar. Fire-Wind; 31 Mar 1835
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Rabbit, gin 8
+  Solar: Water-Dog. Shi
+  3;15,19 0;40,36 26;7,56 26;48,32 11;18,25
+3: Wed. Bharani/bra nye. Water-Fire; 1 Apr 1835
+  Vishkambha/rnam sel, Gara/khyim skyes, Dragon, zin 9
+  Solar: Water-Pig. Bi
+  4;19,24 1;34,54 26;12,19 0;47,14 11;19,24
+4: Thu. Krittika/smin drug. Wind-Fire; 2 Apr 1835
+  Priti/mdza' bo, Vishti/viSTi, Snake, zon 1
+  Solar: Wood-Mouse. Kui
+  5;23,30 2;29,13 26;16,43 1;45,57 11;20,23
+5: Fri. Rohini/snar ma. Earth-Earth; 3 Apr 1835
+  Ayushmat/tshe dang ldan pa, Vava/gdab pa, Horse, li 2
+  Solar: Wood-Ox. Lou
+  6;27,36 3;23,31 26;21,7 2;44,39 11;21,21
+6: Sat. Mrigashiras/mgo. Earth-Wind; 4 Apr 1835
+  Saubhagya/skal bzang, Kaulava/rigs can, Sheep, khon 3
+  Solar: Fire-Tiger. Wei
+  0;31,42 4;17,49 26;25,31 3;43,21 11;22,20
+7: Sun. Ardra/lag. Fire-Water; 5 Apr 1835
+  Shobhana/dge byed, Gara/khyim skyes, Monkey, dwa 4
+  Solar: Fire-Rabbit. Mao
+  1;34,53 5;13,1 26;29,55 4;42,57 11;23,19
+    zin phung
+8: Mon. Punarvasu/nabs so. Water-Wind; 6 Apr 1835
+  Atiganda/shin tu 'grams, Vishti/viSTi, Bird, khen 5
+  Solar: Earth-Dragon. Bi
+  2;37,5 6;9,13 26;34,19 5;43,33 11;24,17
+9: Tue. Pushya/rgyal. Fire-Fire; 7 Apr 1835
+  Sukarman/las bzang, Valava/byis pa, Dog, kham 6
+  Solar: Earth-Snake. Zui
+  3;38,17 7;6,25 26;38,43 6;45,9 11;25,16
+    yan kwong
+10: Wed. Ashlesha/skag. Water-Water; 8 Apr 1835
+  Dhriti/'dzin byed, Taitila/til rdung, Pig, gin 7
+  Solar: Iron-Horse. Can
+  4;38,28 8;4,38 26;43,7 7;47,45 11;26,14
+11: Thu. Magha/mchu. Wind-Fire; 9 Apr 1835
+  Shula/zug rngu, Vanija/tshong ba, Mouse, zin 8
+  Solar: Iron-Sheep. Jing
+  5;36,46 9;4,44 26;47,31 8;52,15 11;27,13
+12: Fri. Purvaphalguni/gre. Earth-Fire; 10 Apr 1835
+  Ganda/'grams, Vava/gdab pa, Ox, zon 9
+  Solar: Water-Monkey. Gui
+  6;33,58 10;5,56 26;51,54 9;57,51 11;28,12
+13: Sat. Uttaraphalguni/dbo. Earth-Wind; 11 Apr 1835
+  Dhruva/brtan pa, Kaulava/rigs can, Tiger, li 1
+  Solar: Water-Bird. Liu
+  0;30,9 11;8,9 26;56,18 11;4,27 11;29,10
+    zin phung
+14: Sun. Hasta/me bzhi. Fire-Wind; 12 Apr 1835
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Rabbit, khon 2
+  Solar: Wood-Dog. Xing
+  1;25,21 12;11,21 0;0,42 12;12,4 0;0,9
+15: Mon. Citra/nag pa. Water-Wind; 13 Apr 1835
+  Harshana/dga' ba, Vava/gdab pa, Dragon, dwa 3
+  Solar: Wood-Pig. Zhang
+  2;19,32 13;15,33 0;5,6 13;20,40 0;1,8
+  Revelation of the Kalacakra Tantra.
+
+Mars, slow: 9;5,33,2,0 - fast: 6;5,59,0,176 North 2;21,19
+Jupiter, slow: 4;43,12,2,286 - fast: 4;1,18,0,307 North 1;23,37
+Saturn, slow: 13;10,3,3,4677 - fast: 13;8,39,0,2784 West 5;25,15
+Mercury, slow: 18;23,4,5,127 - fast: 25;4,30,5,7443 North 11;4,20
+Venus, slow: 17;19,37,3,315 - fast: 23;37,57,5,191 North 10;15,6
+Rahu, head: 3;34,49,3,9
+
+16: Tue. Svati/sa ri. Fire-Wind; 14 Apr 1835
+  Vajra/rdo rje, Kaulava/rigs can, Snake, khen 4
+  Solar: Fire-Mouse. Yi
+  3;13,38 14;19,52 0;9,30 14;29,22 0;2,6
+17: Wed. Vishakha/sa ga. Water-Fire; 15 Apr 1835
+  Siddhi/dngos grub, Gara/khyim skyes, Horse, kham 5
+  Solar: Fire-Ox. Zhen
+  4;7,41 15;24,10 0;13,51 15;38,2 0;3,4
+18: Thu. Anuradha/lha mtshams. Wind-Earth; 16 Apr 1835
+  Vyatipata/phan tshun, Vishti/viSTi, Sheep, gin 6
+  Solar: Earth-Tiger. Jiao
+  5;1,42 16;28,28 0;18,11 16;46,40 0;4,2
+19. Omitted.
+  5;55,44 0;22,31
+20: Fri. Jyeshtha/snron. Earth-Earth; 17 Apr 1835
+  Parigha/yongs 'joms, Kaulava/rigs can, Bird, zon 8
+  Solar: Earth-Rabbit. Kang
+  6;49,46 17;37,5 0;26,51 18;3,57 0;5,58
+21: Sat. Mula/snrubs. Earth-Water; 18 Apr 1835
+  Shiva/zhi ba, Gara/khyim skyes, Dog, li 9
+  Solar: Iron-Dragon. Di
+  0;44,41 18;40,29 0;31,11 19;11,41 0;6,55
+    nyi nag
+22: Sun. Purvashadha/chu stod. Fire-Water; 19 Apr 1835
+  Siddha/grub pa, Vishti/viSTi, Pig, khon 1
+  Solar: Iron-Snake. Fang
+  1;40,37 19;42,54 0;35,31 20;18,25 0;7,53
+23: Mon. Uttarashadha/chu smad. Water-Earth; 20 Apr 1835
+  Sadhya/bsgrub bya, Valava/byis pa, Mouse, dwa 2
+  Solar: Water-Horse. Xin
+  2;37,33 20;44,18 0;39,51 21;24,10 0;8,51
+24: Tue. Abhijit/gro zhin. Fire-Earth; 21 Apr 1835
+  Shubha/dge ba, Taitila/til rdung, Ox, khen 3
+  Solar: Water-Sheep. Wei
+  3;35,29 21;44,42 0;44,11 22;28,54 0;9,49
+25: Wed. Dhanishtha/mon gre. Water-Water; 22 Apr 1835
+  Shukla/dkar po, Vanija/tshong ba, Tiger, kham 4
+  Solar: Wood-Monkey. Ji
+  4;35,19 22;43,12 0;48,31 23;31,44 0;10,47
+    klu thebs, zin phung
+26: Thu. Shatabhishaj/mon gru. Wind-Earth; 23 Apr 1835
+  Brahman/tshangs pa, Vava/gdab pa, Rabbit, gin 5
+  Solar: Wood-Bird. Dou
+  5;36,15 23;40,36 0;52,51 24;33,28 0;11,44
+27: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 24 Apr 1835
+  Indra/dbang po, Kaulava/rigs can, Dragon, zin 6
+  Solar: Fire-Dog. Niu
+  6;38,11 24;37,0 0;57,11 25;34,12 0;12,42
+28: Sat. Uttarabhadrapada/khrums smad. Earth-Water; 25 Apr 1835
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Snake, zon 7
+  Solar: Fire-Pig. Nu
+  0;41,7 25;32,24 1;1,31 26;33,56 0;13,40
+29: Sun. Revati/nam gru. Fire-Water; 26 Apr 1835
+  Vishkambha/rnam sel, Vishti/viSTi, Horse, li 8
+  Solar: Earth-Mouse. Xu
+  1;45,3 26;26,48 1;5,51 0;32,39 0;14,38
+30: Mon. Ashvini/tha skar. Water-Wind; 27 Apr 1835
+  Priti/mdza' bo, Catushpada/rkang bzhi, Sheep, khon 9
+  Solar: Earth-Ox. Wei
+  2;49,5 0;21,6 1;10,11 1;31,18 0;15,35
+
+Mars, slow: 9;32,27,1,193 - fast: 6;38,26,2,25 North 2;28,32
+Jupiter, slow: 4;48,33,3,159 - fast: 4;13,2,1,126 North 1;26,13
+Saturn, slow: 13;12,4,2,2962 - fast: 13;2,43,5,1728 West 5;23,56
+Mercury, slow: 22;40,53,4,4166 - fast: 26;34,55,1,6752 North 11;24,25
+Venus, slow: 19;0,33,3,651 - fast: 24;47,45,2,386 North 11;0,36
+Rahu, head: 3;31,18,1,13
+
+Tibetan Lunar Month: 4 - Iron-female-Snake
+
+Month: 12728;63
+Anomaly: 26;114
+Mean Weekday: 2;44,0,3,605
+Mean Sun: 0;59,38,2,10
+
+1: Tue. Bharani/bra nye. Fire-Fire; 28 Apr 1835
+  Ayushmat/tshe dang ldan pa, Kintughna/mi sdug pa, Monkey, dwa 1
+  Solar: Iron-Tiger. Shi
+  3;53,7 1;15,24 1;14,31 2;29,56 0;16,33
+2: Wed. Krittika/smin drug. Water-Fire; 29 Apr 1835
+  Saubhagya/skal bzang, Vava/gdab pa, Bird, khen 2
+  Solar: Iron-Rabbit. Bi
+  4;57,9 2;9,42 1;18,51 3;28,34 0;17,31
+3: Thu. Rohini/snar ma. Wind-Earth; 30 Apr 1835
+  Shobhana/dge byed, Kaulava/rigs can, Dog, kham 3
+  Solar: Water-Dragon. Kui
+  5;60,0 3;9,42 1;23,11 4;32,54 0;18,29
+3: Fri. Mrigashiras/mgo. Earth-Wind; 1 May 1835
+  Atiganda/shin tu 'grams, Gara/khyim skyes, Dog, kham 3
+  Solar: Water-Snake. Lou
+  6;1,11 4;4,0 1;23,11 5;27,12 0;18,29
+4: Sat. Mrigashiras/mgo. Earth-Wind; 2 May 1835
+  Sukarman/las bzang, Vishti/viSTi, Pig, gin 4
+  Solar: Wood-Horse. Wei
+  0;5,12 4;58,19 1;27,32 6;25,51 0;19,27
+5: Sun. Ardra/lag. Fire-Water; 3 May 1835
+  Dhriti/'dzin byed, Valava/byis pa, Mouse, zin 5
+  Solar: Wood-Sheep. Mao
+  1;8,20 5;53,31 1;31,52 7;25,23 0;20,24
+6: Mon. Punarvasu/nabs so. Water-Wind; 4 May 1835
+  Shula/zug rngu, Taitila/til rdung, Ox, zon 6
+  Solar: Fire-Monkey. Bi
+  2;10,27 6;49,44 1;36,12 8;25,56 0;21,22
+    zin phung
+7: Tue. Pushya/rgyal. Fire-Fire; 5 May 1835
+  Ganda/'grams, Vanija/tshong ba, Tiger, li 7
+  Solar: Fire-Bird. Zui
+  3;11,35 7;46,56 1;40,32 9;27,28 0;22,20
+    yan kwong
+8: Wed. Ashlesha/skag. Water-Water; 6 May 1835
+  Vriddhi/'phel, Vava/gdab pa, Rabbit, khon 8
+  Solar: Earth-Dog. Can
+  4;11,42 8;45,9 1;44,52 10;30,1 0;23,18
+  Birth of the Buddha.
+    klu thebs, nyi nag
+9: Thu. Magha/mchu. Wind-Fire; 7 May 1835
+  Dhruva/brtan pa, Kaulava/rigs can, Dragon, dwa 9
+  Solar: Earth-Pig. Jing
+  5;9,55 9;45,16 1;49,12 11;34,28 0;24,16
+10: Fri. Purvaphalguni/gre. Earth-Fire; 8 May 1835
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Snake, khen 1
+  Solar: Iron-Mouse. Gui
+  6;7,2 10;46,29 1;53,32 12;40,1 0;25,13
+11: Sat. Uttaraphalguni/dbo. Earth-Wind; 9 May 1835
+  Harshana/dga' ba, Vishti/viSTi, Horse, kham 2
+  Solar: Iron-Ox. Liu
+  0;3,9 11;48,42 1;57,52 13;46,34 0;26,11
+12. Omitted.
+  0;58,17 2;2,12
+13: Sun. Hasta/me bzhi. Fire-Wind; 10 May 1835
+  Siddhi/dngos grub, Kaulava/rigs can, Monkey, zin 4
+  Solar: Water-Tiger. Xing
+  1;52,24 12;56,7 2;6,32 15;2,39 0;28,7
+14: Mon. Svati/sa ri. Water-Wind; 11 May 1835
+  Vyatipata/phan tshun, Gara/khyim skyes, Bird, zon 5
+  Solar: Water-Rabbit. Zhang
+  2;46,25 14;0,26 2;10,52 16;11,18 0;29,4
+15: Tue. Vishakha/sa ga. Fire-Fire; 12 May 1835
+  Variyas/mchog can, Vishti/viSTi, Dog, li 6
+  Solar: Wood-Dragon. Yi
+  3;40,27 15;4,44 2;15,12 17;19,56 1;0,2
+  Enlightenment and Parinirvana of the Buddha.
+    klu thebs
+
+Mars, slow: 10;1,16,3,89 - fast: 7;14,14,2,18 North 3;6,29
+Jupiter, slow: 4;54,17,3,255 - fast: 4;26,55,0,279 North 1;29,18
+Saturn, slow: 13;14,13,4,5354 - fast: 12;58,8,2,3653 West 5;22,55
+Mercury, slow: 0;17,7,3,4095 - fast: 1;33,20,4,6731 North 0;20,44
+Venus, slow: 20;48,42,1,583 - fast: 26;1,59,2,693 North 11;17,6
+Rahu, head: 3;27,46,5,17
+
+16: Wed. Anuradha/lha mtshams. Water-Earth; 13 May 1835
+  Parigha/yongs 'joms, Valava/byis pa, Pig, khon 7
+  Solar: Wood-Snake. Zhen
+  4;34,29 16;9,2 2;19,32 18;28,34 1;1,0
+17: Thu. Jyeshtha/snron. Wind-Earth; 14 May 1835
+  Shiva/zhi ba, Taitila/til rdung, Mouse, dwa 8
+  Solar: Fire-Horse. Jiao
+  5;28,30 17;13,21 2;23,52 19;37,13 1;1,58
+18: Fri. Mula/snrubs. Earth-Water; 15 May 1835
+  Siddha/grub pa, Vishti/viSTi, Ox, khen 9
+  Solar: Fire-Sheep. Kang
+  6;22,28 18;17,39 2;28,7 20;45,47 1;2,55
+    zin phung
+19: Sat. Purvashadha/chu stod. Earth-Water; 16 May 1835
+  Sadhya/bsgrub bya, Valava/byis pa, Tiger, kham 1
+  Solar: Earth-Monkey. Di
+  0;17,18 19;21,3 2;32,22 21;53,25 1;3,51
+20: Sun. Uttarashadha/chu smad. Fire-Earth; 17 May 1835
+  Shukla/dkar po, Taitila/til rdung, Rabbit, gin 2
+  Solar: Earth-Bird. Fang
+  1;13,8 20;23,27 2;36,36 23;0,3 1;4,48
+    klu bzlog
+21: Mon. Abhijit/gro zhin. Water-Earth; 18 May 1835
+  Brahman/tshangs pa, Vanija/tshong ba, Dragon, zin 3
+  Solar: Iron-Dog. Xin
+  2;9,59 21;24,50 2;40,50 24;5,41 1;5,44
+22: Tue. Dhanishtha/mon gre. Fire-Water; 19 May 1835
+  Indra/dbang po, Vava/gdab pa, Snake, zon 4
+  Solar: Iron-Pig. Wei
+  3;7,49 22;25,14 2;45,4 25;10,19 1;6,41
+23: Wed. Shatabhishaj/mon gru. Water-Earth; 20 May 1835
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Horse, li 5
+  Solar: Water-Mouse. Ji
+  4;7,35 23;23,43 2;49,18 26;13,2 1;7,37
+24: Thu. Purvabhadrapada/khrums stod. Wind-Fire; 21 May 1835
+  Vishkambha/rnam sel, Gara/khyim skyes, Sheep, khon 6
+  Solar: Water-Ox. Dou
+  5;8,25 24;21,7 2;53,32 0;14,39 1;8,33
+    zin phung
+25: Fri. Uttarabhadrapada/khrums smad. Earth-Water; 22 May 1835
+  Priti/mdza' bo, Vishti/viSTi, Monkey, dwa 7
+  Solar: Wood-Tiger. Niu
+  6;10,16 25;17,30 2;57,47 1;15,17 1;9,30
+    klu bzlog
+26: Sat. Revati/nam gru. Earth-Water; 23 May 1835
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Bird, khen 8
+  Solar: Wood-Rabbit. Nu
+  0;13,7 26;12,54 3;2,1 2;14,55 1;10,26
+27: Sun. Ashvini/tha skar. Fire-Wind; 24 May 1835
+  Saubhagya/skal bzang, Taitila/til rdung, Dog, kham 9
+  Solar: Fire-Dragon. Xu
+  1;16,57 0;7,17 3;6,15 3;13,33 1;11,23
+28: Mon. Bharani/bra nye. Water-Fire; 25 May 1835
+  Shobhana/dge byed, Vanija/tshong ba, Pig, gin 1
+  Solar: Fire-Snake. Wei
+  2;20,53 1;1,35 3;10,29 4;12,5 1;12,19
+29: Tue. Bharani/bra nye. Fire-Fire; 26 May 1835
+  Atiganda/shin tu 'grams, Shakuni/bkra shis, Mouse, zin 2
+  Solar: Earth-Horse. Shi
+  3;24,49 1;55,54 3;14,43 5;10,37 1;13,16
+30: Wed. Krittika/smin drug. Water-Fire; 27 May 1835
+  Sukarman/las bzang, Catushpada/rkang bzhi, Ox, zon 3
+  Solar: Earth-Sheep. Bi
+  4;28,45 2;50,12 3;18,58 6;9,10 1;14,12
+    zin phung
+
+Mars, slow: 10;30,5,4,214 - fast: 7;52,13,3,134 North 3;14,56
+Jupiter, slow: 5;0,1,3,351 - fast: 4;41,47,3,84 North 2;2,37
+Saturn, slow: 13;16,23,1,2363 - fast: 12;54,52,0,3215 West 5;22,11
+Mercury, slow: 4;53,21,2,4024 - fast: 3;38,35,1,8020 East 1;18,34
+Venus, slow: 22;36,50,5,515 - fast: 0;17,41,5,189 North 0;3,55
+Rahu, head: 3;24,15,3,21
+
+Tibetan Lunar Month: 5 (Intercalary) - Water-male-Horse
+
+Month: 12729;0
+Anomaly: 0;115
+Mean Weekday: 4;15,50,4,378
+Mean Sun: 3;10,36,5,7
+
+1: Thu. Rohini/snar ma. Wind-Earth; 28 May 1835
+  Dhriti/'dzin byed, Kintughna/mi sdug pa, Tiger, li 4
+  Solar: Iron-Monkey. Kui
+  5;32,41 3;44,30 3;23,12 7;7,42 1;15,9
+2: Fri. Mrigashiras/mgo. Earth-Wind; 29 May 1835
+  Shula/zug rngu, Valava/byis pa, Rabbit, khon 5
+  Solar: Iron-Bird. Lou
+  6;36,37 4;38,48 3;27,26 8;6,15 1;16,5
+3: Sat. Ardra/lag. Earth-Water; 30 May 1835
+  Ganda/'grams, Taitila/til rdung, Dragon, dwa 6
+  Solar: Water-Dog. Wei
+  0;39,38 5;34,1 3;31,40 9;5,42 1;17,2
+4: Sun. Punarvasu/nabs so. Fire-Wind; 31 May 1835
+  Vriddhi/'phel, Vanija/tshong ba, Snake, khen 7
+  Solar: Water-Pig. Mao
+  1;41,40 6;30,14 3;35,54 10;6,9 1;17,58
+5: Mon. Pushya/rgyal. Water-Fire; 1 Jun 1835
+  Dhruva/brtan pa, Vava/gdab pa, Horse, kham 8
+  Solar: Wood-Mouse. Bi
+  2;42,41 7;27,27 3;40,9 11;7,36 1;18,55
+    yan kwong
+6: Tue. Ashlesha/skag. Fire-Water; 2 Jun 1835
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Sheep, gin 9
+  Solar: Wood-Ox. Zui
+  3;42,42 8;25,40 3;44,23 12;10,4 1;19,51
+    zin phung
+7: Wed. Magha/mchu. Water-Fire; 3 Jun 1835
+  Harshana/dga' ba, Gara/khyim skyes, Monkey, zin 1
+  Solar: Fire-Tiger. Can
+  4;40,48 9;25,48 3;48,37 13;14,26 1;20,48
+8: Thu. Purvaphalguni/gre. Wind-Fire; 4 Jun 1835
+  Vajra/rdo rje, Vishti/viSTi, Bird, zon 2
+  Solar: Fire-Rabbit. Jing
+  5;37,49 10;27,2 3;52,51 14;19,53 1;21,44
+    klu bzlog
+9: Fri. Uttaraphalguni/dbo. Earth-Wind; 5 Jun 1835
+  Siddhi/dngos grub, Valava/byis pa, Dog, li 3
+  Solar: Earth-Dragon. Gui
+  6;33,50 11;29,15 3;57,5 15;26,21 1;22,41
+10: Sat. Hasta/me bzhi. Earth-Wind; 6 Jun 1835
+  Vyatipata/phan tshun, Taitila/til rdung, Pig, khon 4
+  Solar: Earth-Snake. Liu
+  0;28,51 12;32,28 4;1,19 16;33,48 1;23,37
+11: Sun. Citra/nag pa. Fire-Wind; 7 Jun 1835
+  Variyas/mchog can, Vishti/viSTi, Mouse, dwa 5
+  Solar: Iron-Horse. Xing
+  1;22,52 13;36,41 4;5,34 17;42,15 1;24,34
+12: Mon. Svati/sa ri. Water-Wind; 8 Jun 1835
+  Parigha/yongs 'joms, Valava/byis pa, Ox, khen 6
+  Solar: Iron-Sheep. Zhang
+  2;16,48 14;41,0 4;9,48 18;50,48 1;25,30
+    zin phung
+13: Tue. Vishakha/sa ga. Fire-Fire; 9 Jun 1835
+  Shiva/zhi ba, Taitila/til rdung, Tiger, kham 7
+  Solar: Water-Monkey. Yi
+  3;10,43 15;45,18 4;14,2 19;59,20 1;26,27
+14: Wed. Anuradha/lha mtshams. Water-Earth; 10 Jun 1835
+  Sadhya/bsgrub bya, Vanija/tshong ba, Rabbit, gin 8
+  Solar: Water-Bird. Zhen
+  4;4,39 16;49,36 4;18,16 21;7,53 1;27,23
+15. Omitted.
+  4;58,35 4;22,30
+
+Mars, slow: 10;56,59,4,178 - fast: 8;29,43,4,50 North 3;23,16
+Jupiter, slow: 5;5,22,4,224 - fast: 4;57,10,0,1 North 2;6,2
+Saturn, slow: 13;18,24,0,648 - fast: 12;52,33,1,1436 West 5;21,40
+Mercury, slow: 9;11,10,1,8063 - fast: 5;33,26,5,3168 East 2;14,5
+Venus, slow: 24;17,47,0,102 - fast: 1;32,17,5,537 North 0;20,30
+Rahu, head: 3;20,44,2,2
+
+16: Thu. Jyeshtha/snron. Wind-Earth; 11 Jun 1835
+  Shubha/dge ba, Valava/byis pa, Snake, zon 1
+  Solar: Wood-Dog. Jiao
+  5;52,31 17;58,13 4;26,45 22;24,58 1;29,16
+    nyi nag
+17: Fri. Purvashadha/chu stod. Earth-Water; 12 Jun 1835
+  Shukla/dkar po, Taitila/til rdung, Horse, li 2
+  Solar: Wood-Pig. Kang
+  6;47,22 19;1,36 4;30,59 23;32,36 2;0,13
+18: Sat. Uttarashadha/chu smad. Earth-Earth; 13 Jun 1835
+  Brahman/tshangs pa, Vanija/tshong ba, Sheep, khon 3
+  Solar: Fire-Mouse. Di
+  0;43,13 20;4,0 4;35,13 24;39,13 2;1,9
+    zin phung
+19: Sun. Abhijit/gro zhin. Fire-Earth; 14 Jun 1835
+  Indra/dbang po, Vava/gdab pa, Monkey, dwa 4
+  Solar: Fire-Ox. Fang
+  1;40,0 21;5,23 4;39,24 25;44,47 2;2,5
+20: Mon. Dhanishtha/mon gre. Water-Water; 15 Jun 1835
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Bird, khen 5
+  Solar: Earth-Tiger. Xin
+  2;37,47 22;5,46 4;43,34 26;49,21 2;3,1
+    klu thebs
+21: Tue. Shatabhishaj/mon gru. Fire-Earth; 16 Jun 1835
+  Vishkambha/rnam sel, Gara/khyim skyes, Dog, kham 6
+  Solar: Earth-Rabbit. Wei
+  3;37,30 23;4,14 4;47,45 0;51,59 2;3,56
+22: Wed. Purvabhadrapada/khrums stod. Water-Fire; 17 Jun 1835
+  Priti/mdza' bo, Vishti/viSTi, Pig, gin 7
+  Solar: Iron-Dragon. Ji
+  4;38,17 24;1,38 4;51,55 1;53,33 2;4,52
+    klu thebs
+23: Thu. Purvabhadrapada/khrums stod. Wind-Fire; 18 Jun 1835
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Mouse, zin 8
+  Solar: Iron-Snake. Dou
+  5;40,4 24;58,1 4;56,5 2;54,6 2;5,47
+24: Fri. Uttarabhadrapada/khrums smad. Earth-Water; 19 Jun 1835
+  Saubhagya/skal bzang, Taitila/til rdung, Ox, zon 9
+  Solar: Water-Horse. Niu
+  6;42,51 25;53,24 5;0,15 3;53,40 2;6,43
+    zin phung
+25: Sat. Revati/nam gru. Earth-Water; 20 Jun 1835
+  Shobhana/dge byed, Vanija/tshong ba, Tiger, li 1
+  Solar: Water-Sheep. Nu
+  0;46,38 26;47,47 5;4,26 4;52,13 2;7,39
+26: Sun. Ashvini/tha skar. Fire-Wind; 21 Jun 1835
+  Atiganda/shin tu 'grams, Vava/gdab pa, Rabbit, khon 2
+  Solar: Wood-Monkey. Xu
+  1;50,31 0;42,5 5;8,36 5;50,41 2;8,34
+27: Mon. Bharani/bra nye. Water-Fire; 22 Jun 1835
+  Sukarman/las bzang, Valava/byis pa, Dragon, dwa 3
+  Solar: Wood-Bird. Wei
+  2;54,23 1;36,23 5;12,46 6;49,10 2;9,30
+28: Tue. Krittika/smin drug. Fire-Fire; 23 Jun 1835
+  Dhriti/'dzin byed, Taitila/til rdung, Snake, khen 4
+  Solar: Fire-Dog. Shi
+  3;58,15 2;30,41 5;16,57 7;47,39 2;10,26
+29: Wed. Rohini/snar ma. Water-Earth; 24 Jun 1835
+  Shula/zug rngu, Vanija/tshong ba, Horse, kham 5
+  Solar: Fire-Pig. Bi
+  4;60,0 3;30,41 5;21,7 8;51,49 2;11,21
+29: Thu. Mrigashiras/mgo. Wind-Wind; 25 Jun 1835
+  Ganda/'grams, Shakuni/bkra shis, Horse, kham 5
+  Solar: Earth-Mouse. Kui
+  5;2,7 4;25,0 5;21,7 9;46,7 2;11,21
+30: Fri. Ardra/lag. Earth-Water; 26 Jun 1835
+  Vriddhi/'phel, Naga/klu, Sheep, gin 6
+  Solar: Earth-Ox. Lou
+  6;5,59 5;19,18 5;25,17 10;44,35 2;12,17
+    zin phung
+
+Mars, slow: 11;28,13,5,73 - fast: 9;11,14,2,3 North 4;2,29
+Jupiter, slow: 5;11,29,4,182 - fast: 5;13,10,4,49 East 2;9,35
+Saturn, slow: 13;20,42,0,1764 - fast: 12;52,42,0,1764 North 5;21,42
+Mercury, slow: 14;5,49,0,3882 - fast: 7;8,55,4,8120 East 3;5,19
+Venus, slow: 26;13,8,1,379 - fast: 2;54,23,2,586 North 1;8,45
+Rahu, head: 3;17,13,0,6
+
+Tibetan Lunar Month: 5 (Delayed) - Water-male-Horse
+
+Month: 12730;0
+Anomaly: 2;116
+Mean Weekday: 5;47,40,5,151
+Mean Sun: 5;21,35,2,4
+
+1: Sat. Punarvasu/nabs so. Earth-Wind; 27 Jun 1835
+  Dhruva/brtan pa, Vava/gdab pa, Tiger, li 4
+  Solar: Iron-Tiger. Wei
+  0;8,56 6;14,31 5;29,28 11;43,59 2;13,12
+2: Sun. Pushya/rgyal. Fire-Fire; 28 Jun 1835
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Rabbit, khon 5
+  Solar: Iron-Rabbit. Mao
+  1;10,53 7;10,45 5;33,38 12;44,23 2;14,8
+3: Mon. Ashlesha/skag. Water-Water; 29 Jun 1835
+  Harshana/dga' ba, Gara/khyim skyes, Dragon, dwa 6
+  Solar: Water-Dragon. Bi
+  2;11,49 8;7,58 5;37,48 13;45,47 2;15,4
+4: Tue. Magha/mchu. Fire-Fire; 30 Jun 1835
+  Vajra/rdo rje, Vishti/viSTi, Snake, khen 7
+  Solar: Water-Snake. Zui
+  3;11,46 9;6,12 5;41,59 14;48,11 2;15,59
+5: Wed. Purvaphalguni/gre. Water-Fire; 1 Jul 1835
+  Siddhi/dngos grub, Valava/byis pa, Horse, kham 8
+  Solar: Wood-Horse. Can
+  4;9,48 10;6,21 5;46,9 15;52,30 2;16,55
+    yan kwong
+6: Thu. Uttaraphalguni/dbo. Wind-Wind; 2 Jul 1835
+  Vyatipata/phan tshun, Taitila/til rdung, Sheep, gin 9
+  Solar: Wood-Sheep. Jing
+  5;6,44 11;7,34 5;50,19 16;57,54 2;17,51
+    zin phung
+7: Fri. Hasta/me bzhi. Earth-Wind; 3 Jul 1835
+  Parigha/yongs 'joms, Vanija/tshong ba, Monkey, zin 1
+  Solar: Fire-Monkey. Gui
+  6;2,41 12;9,48 5;54,29 18;4,18 2;18,46
+8. Omitted.
+  6;57,38 5;58,40
+9: Sat. Citra/nag pa. Earth-Wind; 4 Jul 1835
+  Shiva/zhi ba, Valava/byis pa, Dog, li 3
+  Solar: Fire-Bird. Liu
+  0;51,34 13;17,15 6;2,50 19;20,6 2;20,37
+10: Sun. Svati/sa ri. Fire-Wind; 5 Jul 1835
+  Siddha/grub pa, Taitila/til rdung, Pig, khon 4
+  Solar: Earth-Dog. Xing
+  1;45,26 14;21,34 6;7,0 20;28,35 2;21,33
+11: Mon. Vishakha/sa ga. Water-Fire; 6 Jul 1835
+  Sadhya/bsgrub bya, Vanija/tshong ba, Mouse, dwa 5
+  Solar: Earth-Pig. Zhang
+  2;39,18 15;25,52 6;11,11 21;37,3 2;22,29
+12: Tue. Anuradha/lha mtshams. Fire-Earth; 7 Jul 1835
+  Shubha/dge ba, Vava/gdab pa, Ox, khen 6
+  Solar: Iron-Mouse. Yi
+  3;33,10 16;30,11 6;15,21 22;45,32 2;23,24
+    zin phung
+13: Wed. Jyeshtha/snron. Water-Earth; 8 Jul 1835
+  Shukla/dkar po, Kaulava/rigs can, Tiger, kham 7
+  Solar: Iron-Ox. Zhen
+  4;27,2 17;34,29 6;19,31 23;54,0 2;24,20
+14: Thu. Mula/snrubs. Wind-Water; 9 Jul 1835
+  Indra/dbang po, Vanija/tshong ba, Rabbit, gin 8
+  Solar: Water-Tiger. Jiao
+  5;20,54 18;38,47 6;23,42 25;2,29 2;25,16
+15: Fri. Purvashadha/chu stod. Earth-Water; 10 Jul 1835
+  Vaidhriti/'khon 'dzin, Vava/gdab pa, Dragon, zin 9
+  Solar: Water-Rabbit. Kang
+  6;15,41 19;42,10 6;27,52 26;10,2 2;26,11
+    klu bzlog
+
+Mars, slow: 11;56,50,3,93 - fast: 9;52,25,2,207 North 4;11,38
+Jupiter, slow: 5;16,50,5,55 - fast: 5;28,33,0,328 East 2;13,0
+Saturn, slow: 13;22,42,5,49 - fast: 12;54,51,3,1965 North 5;22,11
+Mercury, slow: 18;23,37,5,7921 - fast: 7;48,32,1,8637 South 3;14,7
+Venus, slow: 0;54,4,1,715 - fast: 4;11,20,2,24 North 1;25,51
+Rahu, head: 3;13,41,4,10
+
+16: Sat. Uttarashadha/chu smad. Earth-Earth; 11 Jul 1835
+  Vishkambha/rnam sel, Kaulava/rigs can, Snake, zon 1
+  Solar: Wood-Dragon. Di
+  0;11,29 20;44,33 6;32,2 0;16,36 2;27,7
+    nyi nag
+17: Sun. Abhijit/gro zhin. Fire-Earth; 12 Jul 1835
+  Priti/mdza' bo, Gara/khyim skyes, Horse, li 2
+  Solar: Wood-Snake. Fang
+  1;8,16 21;45,56 6;36,13 1;22,9 2;28,2
+18: Mon. Dhanishtha/mon gre. Water-Water; 13 Jul 1835
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Sheep, khon 3
+  Solar: Fire-Horse. Xin
+  2;6,4 22;46,19 6;40,23 2;26,42 2;28,58
+    zin phung
+19: Tue. Shatabhishaj/mon gru. Fire-Earth; 14 Jul 1835
+  Saubhagya/skal bzang, Valava/byis pa, Monkey, dwa 4
+  Solar: Fire-Sheep. Wei
+  3;5,47 23;44,46 6;44,33 3;29,19 2;29,54
+20: Wed. Purvabhadrapada/khrums stod. Water-Fire; 15 Jul 1835
+  Shobhana/dge byed, Taitila/til rdung, Bird, khen 5
+  Solar: Earth-Monkey. Ji
+  4;6,34 24;42,8 6;48,43 4;30,52 3;0,49
+    klu thebs
+21: Thu. Uttarabhadrapada/khrums smad. Wind-Water; 16 Jul 1835
+  Atiganda/shin tu 'grams, Vanija/tshong ba, Dog, kham 6
+  Solar: Earth-Bird. Dou
+  5;8,22 25;38,31 6;52,54 5;31,25 3;1,45
+22: Fri. Revati/nam gru. Earth-Water; 17 Jul 1835
+  Sukarman/las bzang, Vava/gdab pa, Pig, gin 7
+  Solar: Iron-Dog. Niu
+  6;11,10 26;33,54 6;57,4 6;30,58 3;2,41
+    klu thebs
+23: Sat. Ashvini/tha skar. Earth-Wind; 18 Jul 1835
+  Dhriti/'dzin byed, Kaulava/rigs can, Mouse, zin 8
+  Solar: Iron-Pig. Nu
+  0;14,57 0;28,16 7;1,14 7;29,31 3;3,36
+24: Sun. Bharani/bra nye. Fire-Fire; 19 Jul 1835
+  Shula/zug rngu, Gara/khyim skyes, Ox, zon 9
+  Solar: Water-Mouse. Xu
+  1;18,50 1;22,35 7;5,25 8;28,0 3;4,32
+    zin phung
+25: Mon. Krittika/smin drug. Water-Fire; 20 Jul 1835
+  Ganda/'grams, Vishti/viSTi, Tiger, li 1
+  Solar: Water-Ox. Wei
+  2;22,42 2;16,53 7;9,35 9;26,28 3;5,27
+26: Tue. Rohini/snar ma. Fire-Earth; 21 Jul 1835
+  Vriddhi/'phel, Valava/byis pa, Rabbit, khon 2
+  Solar: Wood-Tiger. Shi
+  3;26,34 3;11,11 7;13,45 10;24,57 3;6,23
+27: Wed. Mrigashiras/mgo. Water-Wind; 22 Jul 1835
+  Dhruva/brtan pa, Kaulava/rigs can, Dragon, dwa 3
+  Solar: Wood-Rabbit. Bi
+  4;30,26 4;5,29 7;17,56 11;23,25 3;7,19
+28: Thu. Mrigashiras/mgo. Wind-Wind; 23 Jul 1835
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Snake, khen 4
+  Solar: Fire-Dragon. Kui
+  5;34,18 4;59,47 7;22,6 12;21,54 3;8,14
+29: Fri. Ardra/lag. Earth-Water; 24 Jul 1835
+  Harshana/dga' ba, Vishti/viSTi, Horse, kham 5
+  Solar: Fire-Snake. Lou
+  6;37,14 5;55,1 7;26,16 13;21,18 3;9,10
+30: Sat. Punarvasu/nabs so. Earth-Wind; 25 Jul 1835
+  Vajra/rdo rje, Catushpada/rkang bzhi, Sheep, gin 6
+  Solar: Earth-Horse. Wei
+  0;39,11 6;51,15 7;30,27 14;21,42 3;10,6
+    zin phung
+
+Mars, slow: 12;27,29,5,49 - fast: 10;35,16,1,129 North 4;21,10
+Jupiter, slow: 5;22,34,5,151 - fast: 5;44,4,4,168 East 2;16,27
+Saturn, slow: 13;24,52,1,2441 - fast: 12;59,7,3,4167 North 5;23,8
+Mercury, slow: 22;59,51,4,7850 - fast: 6;44,12,2,2796 West 2;29,49
+Venus, slow: 2;42,12,5,647 - fast: 5;31,22,0,339 North 2;13,38
+Rahu, head: 3;10,10,2,14
+
+Tibetan Lunar Month: 6 - Water-female-Sheep
+
+Month: 12731;2
+Anomaly: 4;117
+Mean Weekday: 0;19,30,5,631
+Mean Sun: 7;32,33,5,1
+
+1: Sun. Pushya/rgyal. Fire-Fire; 26 Jul 1835
+  Siddhi/dngos grub, Kintughna/mi sdug pa, Monkey, zin 7
+  Solar: Earth-Sheep. Mao
+  1;40,7 7;48,29 7;34,37 15;23,6 3;11,1
+2: Mon. Ashlesha/skag. Water-Water; 27 Jul 1835
+  Vyatipata/phan tshun, Valava/byis pa, Bird, zon 8
+  Solar: Iron-Monkey. Bi
+  2;40,3 8;46,43 7;38,47 16;25,31 3;11,57
+3: Tue. Magha/mchu. Fire-Fire; 28 Jul 1835
+  Variyas/mchog can, Taitila/til rdung, Dog, li 9
+  Solar: Iron-Bird. Zui
+  3;38,4 9;46,53 7;42,57 17;29,51 3;12,52
+    yan kwong
+4: Wed. Purvaphalguni/gre. Water-Fire; 29 Jul 1835
+  Parigha/yongs 'joms, Vanija/tshong ba, Pig, khon 1
+  Solar: Water-Dog. Can
+  4;35,0 10;48,7 7;47,8 18;35,15 3;13,48
+  Turning of the Wheel of the Dharma.
+5: Thu. Uttaraphalguni/dbo. Wind-Wind; 30 Jul 1835
+  Shiva/zhi ba, Vava/gdab pa, Mouse, dwa 2
+  Solar: Water-Pig. Jing
+  5;30,56 11;50,21 7;51,18 19;41,40 3;14,44
+    klu thebs
+6: Fri. Hasta/me bzhi. Earth-Wind; 31 Jul 1835
+  Siddha/grub pa, Taitila/til rdung, Ox, khen 3
+  Solar: Wood-Mouse. Gui
+  6;25,53 12;53,35 7;55,28 20;49,4 3;15,39
+    zin phung
+7: Sat. Citra/nag pa. Earth-Wind; 1 Aug 1835
+  Sadhya/bsgrub bya, Vanija/tshong ba, Tiger, kham 4
+  Solar: Wood-Ox. Liu
+  0;19,49 13;57,49 7;59,39 21;57,29 3;16,35
+8: Sun. Vishakha/sa ga. Fire-Fire; 2 Aug 1835
+  Shukla/dkar po, Vava/gdab pa, Rabbit, gin 5
+  Solar: Fire-Tiger. Xing
+  1;13,41 15;2,8 8;3,49 23;5,57 3;17,30
+9: Mon. Anuradha/lha mtshams. Water-Earth; 3 Aug 1835
+  Brahman/tshangs pa, Kaulava/rigs can, Dragon, zin 6
+  Solar: Fire-Rabbit. Zhang
+  2;7,33 16;6,26 8;7,59 24;14,26 3;18,26
+10: Tue. Jyeshtha/snron. Fire-Earth; 4 Aug 1835
+  Indra/dbang po, Gara/khyim skyes, Snake, zon 7
+  Solar: Earth-Dragon. Yi
+  3;1,25 17;10,44 8;12,10 25;22,54 3;19,22
+11. Omitted.
+  3;55,17 8;16,20
+12: Wed. Mula/snrubs. Water-Water; 5 Aug 1835
+  Vaidhriti/'khon 'dzin, Vava/gdab pa, Sheep, khon 9
+  Solar: Earth-Snake. Zhen
+  4;49,8 18;19,21 8;20,30 26;39,52 3;21,13
+    zin phung
+13: Thu. Purvashadha/chu stod. Wind-Water; 6 Aug 1835
+  Vishkambha/rnam sel, Kaulava/rigs can, Monkey, dwa 1
+  Solar: Iron-Horse. Jiao
+  5;43,56 19;22,44 8;24,41 0;47,25 3;22,9
+    klu bzlog
+14: Fri. Uttarashadha/chu smad. Earth-Earth; 7 Aug 1835
+  Priti/mdza' bo, Gara/khyim skyes, Bird, khen 2
+  Solar: Iron-Sheep. Kang
+  6;39,44 20;25,6 8;28,51 1;53,57 3;23,4
+15: Sat. Abhijit/gro zhin. Earth-Earth; 8 Aug 1835
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Dog, kham 3
+  Solar: Water-Monkey. Di
+  0;36,32 21;26,28 8;33,1 2;59,30 3;24,0
+  The Buddha's entry into the womb of his mother.
+    klu bzlog
+
+Mars, slow: 12;56,6,3,69 - fast: 11;16,47,2,1 North 5;0,23
+Jupiter, slow: 5;27,56,0,24 - fast: 5;58,16,5,259 East 2;19,37
+Saturn, slow: 13;26,53,0,726 - fast: 13;3,37,4,843 North 5;24,8
+Mercury, slow: 0;17,40,4,3092 - fast: 7;19,33,4,4060 North 3;7,40
+Venus, slow: 4;23,9,0,234 - fast: 6;49,40,5,47 North 3;1,2
+Rahu, head: 3;6,39,0,18
+
+16: Sun. Dhanishtha/mon gre. Fire-Water; 9 Aug 1835
+  Shobhana/dge byed, Valava/byis pa, Pig, gin 4
+  Solar: Water-Bird. Fang
+  1;34,20 22;26,51 8;37,11 4;4,3 3;24,55
+17: Mon. Shatabhishaj/mon gru. Water-Earth; 10 Aug 1835
+  Atiganda/shin tu 'grams, Taitila/til rdung, Mouse, zin 5
+  Solar: Wood-Dog. Xin
+  2;34,4 23;25,17 8;41,22 5;6,39 3;25,51
+18: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 11 Aug 1835
+  Sukarman/las bzang, Vanija/tshong ba, Ox, zon 6
+  Solar: Wood-Pig. Wei
+  3;34,52 24;22,39 8;45,32 6;8,12 3;26,47
+    zin phung
+19: Wed. Uttarabhadrapada/khrums smad. Water-Water; 12 Aug 1835
+  Dhriti/'dzin byed, Vava/gdab pa, Tiger, li 7
+  Solar: Fire-Mouse. Ji
+  4;36,40 25;19,2 8;49,42 7;8,44 3;27,42
+20: Thu. Revati/nam gru. Wind-Water; 13 Aug 1835
+  Shula/zug rngu, Kaulava/rigs can, Rabbit, khon 8
+  Solar: Fire-Ox. Dou
+  5;39,28 26;14,24 8;53,53 8;8,17 3;28,38
+    klu thebs
+21: Fri. Ashvini/tha skar. Earth-Wind; 14 Aug 1835
+  Ganda/'grams, Gara/khyim skyes, Dragon, dwa 9
+  Solar: Earth-Tiger. Niu
+  6;43,20 0;8,46 8;58,7 9;6,53 3;29,34
+22: Sat. Bharani/bra nye. Earth-Fire; 15 Aug 1835
+  Vriddhi/'phel, Vishti/viSTi, Snake, khen 1
+  Solar: Earth-Rabbit. Nu
+  0;47,16 1;3,4 9;2,21 10;5,25 4;0,31
+23: Sun. Bharani/bra nye. Fire-Fire; 16 Aug 1835
+  Dhruva/brtan pa, Valava/byis pa, Horse, kham 2
+  Solar: Iron-Dragon. Xu
+  1;51,12 1;57,22 9;6,35 11;3,58 4;1,27
+    klu bzlog
+24: Mon. Krittika/smin drug. Water-Fire; 17 Aug 1835
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Sheep, gin 3
+  Solar: Iron-Snake. Wei
+  2;55,8 2;51,40 9;10,49 12;2,30 4;2,24
+    zin phung, nyi nag
+25: Tue. Rohini/snar ma. Fire-Earth; 18 Aug 1835
+  Harshana/dga' ba, Gara/khyim skyes, Monkey, zin 4
+  Solar: Water-Horse. Shi
+  3;59,4 3;45,59 9;15,3 13;1,3 4;3,20
+    klu thebs
+26: Wed. Mrigashiras/mgo. Water-Wind; 19 Aug 1835
+  Vajra/rdo rje, Vishti/viSTi, Bird, zon 5
+  Solar: Water-Sheep. Bi
+  4;60,0 4;45,59 9;19,18 14;5,17 4;4,17
+26: Thu. Ardra/lag. Wind-Water; 20 Aug 1835
+  Vajra/rdo rje, Valava/byis pa, Bird, zon 5
+  Solar: Wood-Monkey. Kui
+  5;3,0 5;40,17 9;19,18 14;59,35 4;4,17
+27: Fri. Punarvasu/nabs so. Earth-Wind; 21 Aug 1835
+  Siddhi/dngos grub, Taitila/til rdung, Dog, li 6
+  Solar: Wood-Bird. Lou
+  6;6,0 6;35,31 9;23,32 15;59,4 4;5,13
+28: Sat. Pushya/rgyal. Earth-Fire; 22 Aug 1835
+  Vyatipata/phan tshun, Vanija/tshong ba, Pig, khon 7
+  Solar: Fire-Dog. Wei
+  0;8,0 7;31,46 9;27,46 16;59,32 4;6,10
+29: Sun. Ashlesha/skag. Fire-Water; 23 Aug 1835
+  Parigha/yongs 'joms, Shakuni/bkra shis, Mouse, dwa 8
+  Solar: Fire-Pig. Mao
+  1;9,0 8;29,0 9;32,0 18;1,1 4;7,6
+30: Mon. Magha/mchu. Water-Fire; 24 Aug 1835
+  Shiva/zhi ba, Naga/klu, Ox, khen 9
+  Solar: Earth-Mouse. Bi
+  2;8,59 9;27,14 9;36,14 19;3,29 4;8,3
+    zin phung
+
+Mars, slow: 13;29,55,0,110 - fast: 12;2,8,2,23 North 5;10,28
+Jupiter, slow: 5;34,2,5,343 - fast: 6;11,59,5,194 East 2;22,39
+Saturn, slow: 13;29,11,0,1842 - fast: 13;10,8,2,4534 North 5;25,35
+Mercury, slow: 5;12,19,2,7708 - fast: 8;51,24,5,3587 North 3;28,5
+Venus, slow: 6;18,30,1,511 - fast: 8;13,56,5,699 North 3;19,45
+Rahu, head: 3;3,7,4,22
+
+Tibetan Lunar Month: 7 - Wood-male-Monkey
+
+Month: 12732;4
+Anomaly: 6;118
+Mean Weekday: 1;51,21,0,404
+Mean Sun: 9;43,32,1,11
+
+1: Tue. Purvaphalguni/gre. Fire-Fire; 25 Aug 1835
+  Siddha/grub pa, Vava/gdab pa, Tiger, kham 1
+  Solar: Earth-Ox. Zui
+  3;7,3 10;27,25 9;40,29 20;7,54 4;8,59
+    yan kwong
+2: Wed. Uttaraphalguni/dbo. Water-Wind; 26 Aug 1835
+  Sadhya/bsgrub bya, Kaulava/rigs can, Rabbit, gin 2
+  Solar: Iron-Tiger. Can
+  4;4,3 11;28,40 9;44,43 21;13,23 4;9,56
+3: Thu. Hasta/me bzhi. Wind-Wind; 27 Aug 1835
+  Shubha/dge ba, Gara/khyim skyes, Dragon, zin 3
+  Solar: Iron-Rabbit. Jing
+  5;0,2 12;30,54 9;48,57 22;19,52 4;10,52
+    zin phung
+4. Omitted.
+  5;55,2 9;53,11
+5: Fri. Citra/nag pa. Earth-Wind; 28 Aug 1835
+  Shukla/dkar po, Vava/gdab pa, Horse, li 5
+  Solar: Water-Dragon. Gui
+  6;49,1 13;38,23 9;57,25 23;35,49 4;12,45
+    klu bzlog
+6: Sat. Svati/sa ri. Earth-Wind; 29 Aug 1835
+  Brahman/tshangs pa, Kaulava/rigs can, Sheep, khon 6
+  Solar: Water-Snake. Liu
+  0;42,57 14;42,42 10;1,40 24;44,22 4;13,42
+    klu bzlog
+7: Sun. Vishakha/sa ga. Fire-Fire; 30 Aug 1835
+  Indra/dbang po, Gara/khyim skyes, Monkey, dwa 7
+  Solar: Wood-Horse. Xing
+  1;36,53 15;47,0 10;5,54 25;52,54 4;14,38
+8: Mon. Anuradha/lha mtshams. Water-Earth; 31 Aug 1835
+  Vishkambha/rnam sel, Vishti/viSTi, Bird, khen 8
+  Solar: Wood-Sheep. Zhang
+  2;30,49 16;51,18 10;10,8 0;1,27 4;15,35
+9: Tue. Jyeshtha/snron. Fire-Earth; 1 Sep 1835
+  Priti/mdza' bo, Kaulava/rigs can, Dog, kham 9
+  Solar: Fire-Monkey. Yi
+  3;24,45 17;55,37 10;14,22 1;9,59 4;16,31
+    klu thebs, zin phung, nyi nag
+10: Wed. Mula/snrubs. Water-Water; 2 Sep 1835
+  Ayushmat/tshe dang ldan pa, Gara/khyim skyes, Pig, gin 1
+  Solar: Fire-Bird. Zhen
+  4;18,41 18;59,55 10;18,36 2;18,32 4;17,28
+11: Thu. Uttarashadha/chu smad. Wind-Earth; 3 Sep 1835
+  Saubhagya/skal bzang, Vishti/viSTi, Mouse, zin 2
+  Solar: Earth-Dog. Jiao
+  5;13,33 20;3,17 10;22,50 3;26,8 4;18,24
+12: Fri. Abhijit/gro zhin. Earth-Earth; 4 Sep 1835
+  Shobhana/dge byed, Valava/byis pa, Ox, zon 3
+  Solar: Earth-Pig. Kang
+  6;9,25 21;5,39 10;27,5 4;32,44 4;19,21
+13: Sat. Dhanishtha/mon gre. Earth-Water; 5 Sep 1835
+  Atiganda/shin tu 'grams, Taitila/til rdung, Tiger, li 4
+  Solar: Iron-Mouse. Di
+  0;6,17 22;7,1 10;31,19 5;38,20 4;20,17
+14: Sun. Shatabhishaj/mon gru. Fire-Earth; 6 Sep 1835
+  Sukarman/las bzang, Vanija/tshong ba, Rabbit, khon 5
+  Solar: Iron-Ox. Fang
+  1;4,10 23;7,23 10;35,33 6;42,57 4;21,14
+15: Mon. Purvabhadrapada/khrums stod. Water-Fire; 7 Sep 1835
+  Dhriti/'dzin byed, Vava/gdab pa, Dragon, dwa 6
+  Solar: Water-Tiger. Xin
+  2;3,58 24;5,48 10;39,47 7;45,36 4;22,10
+    zin phung
+
+Mars, slow: 14;1,13,0,218 - fast: 12;46,32,4,51 North 5;20,20
+Jupiter, slow: 5;39,20,2,238 - fast: 6;23,18,3,114 East 2;25,10
+Saturn, slow: 13;31,11,5,127 - fast: 13;16,40,5,4705 North 5;27,2
+Mercury, slow: 9;30,8,2,2950 - fast: 10;41,36,4,3899 North 4;22,34
+Venus, slow: 7;59,26,2,98 - fast: 9;33,1,5,424 North 4;7,20
+Rahu, head: 2;59,36,3,3
+
+16: Tue. Uttarabhadrapada/khrums smad. Fire-Water; 8 Sep 1835
+  Shula/zug rngu, Kaulava/rigs can, Snake, khen 7
+  Solar: Water-Rabbit. Wei
+  3;4,51 25;3,10 10;44,1 8;47,12 4;23,7
+17: Wed. Uttarabhadrapada/khrums smad. Water-Water; 9 Sep 1835
+  Ganda/'grams, Gara/khyim skyes, Horse, kham 8
+  Solar: Wood-Dragon. Ji
+  4;6,43 25;59,32 10;48,16 9;47,48 4;24,3
+18: Thu. Revati/nam gru. Wind-Water; 10 Sep 1835
+  Vriddhi/'phel, Vishti/viSTi, Sheep, gin 9
+  Solar: Wood-Snake. Dou
+  5;9,35 26;54,54 10;52,30 10;47,24 4;25,0
+19: Fri. Ashvini/tha skar. Earth-Wind; 11 Sep 1835
+  Dhruva/brtan pa, Valava/byis pa, Monkey, zin 1
+  Solar: Fire-Horse. Niu
+  6;13,28 0;49,15 10;56,44 11;46,0 4;25,56
+    klu thebs
+20: Sat. Bharani/bra nye. Earth-Fire; 12 Sep 1835
+  Vyaghata/yongs bsnun, Taitila/til rdung, Bird, zon 2
+  Solar: Fire-Sheep. Nu
+  0;17,24 1;43,34 11;0,58 12;44,32 4;26,53
+21: Sun. Krittika/smin drug. Fire-Fire; 13 Sep 1835
+  Harshana/dga' ba, Vanija/tshong ba, Dog, li 3
+  Solar: Earth-Monkey. Xu
+  1;21,20 2;37,52 11;5,13 13;43,5 4;27,49
+    zin phung
+22: Mon. Rohini/snar ma. Water-Earth; 14 Sep 1835
+  Vajra/rdo rje, Vava/gdab pa, Pig, khon 4
+  Solar: Earth-Bird. Wei
+  2;25,22 3;32,10 11;9,33 14;41,43 4;28,47
+23: Tue. Mrigashiras/mgo. Fire-Wind; 15 Sep 1835
+  Siddhi/dngos grub, Valava/byis pa, Mouse, dwa 5
+  Solar: Iron-Dog. Shi
+  3;29,24 4;26,28 11;13,53 15;40,21 4;29,45
+24: Wed. Ardra/lag. Water-Water; 16 Sep 1835
+  Vyatipata/phan tshun, Taitila/til rdung, Ox, khen 6
+  Solar: Iron-Pig. Bi
+  4;33,26 5;20,47 11;18,13 16;39,0 5;0,42
+25: Thu. Punarvasu/nabs so. Wind-Wind; 17 Sep 1835
+  Variyas/mchog can, Vanija/tshong ba, Tiger, kham 7
+  Solar: Water-Mouse. Kui
+  5;36,31 6;16,1 11;22,33 17;38,34 5;1,40
+26: Fri. Pushya/rgyal. Earth-Fire; 18 Sep 1835
+  Parigha/yongs 'joms, Vava/gdab pa, Rabbit, gin 8
+  Solar: Water-Ox. Lou
+  6;38,36 7;12,16 11;26,53 18;39,9 5;2,38
+27: Sat. Ashlesha/skag. Earth-Water; 19 Sep 1835
+  Shiva/zhi ba, Kaulava/rigs can, Dragon, zin 9
+  Solar: Wood-Tiger. Wei
+  0;39,41 8;9,31 11;31,13 19;40,44 5;3,36
+    zin phung
+28: Sun. Magha/mchu. Fire-Fire; 20 Sep 1835
+  Siddha/grub pa, Gara/khyim skyes, Snake, zon 1
+  Solar: Wood-Rabbit. Mao
+  1;39,46 9;7,46 11;35,33 20;43,19 5;4,34
+29: Mon. Purvaphalguni/gre. Water-Fire; 21 Sep 1835
+  Sadhya/bsgrub bya, Vishti/viSTi, Horse, li 2
+  Solar: Fire-Dragon. Bi
+  2;37,55 10;7,57 11;39,53 21;47,51 5;5,31
+    yan kwong
+30: Tue. Uttaraphalguni/dbo. Fire-Wind; 22 Sep 1835
+  Shubha/dge ba, Catushpada/rkang bzhi, Sheep, khon 3
+  Solar: Fire-Snake. Zui
+  3;35,0 11;9,12 11;44,13 22;53,26 5;6,29
+
+Mars, slow: 14;34,45,2,72 - fast: 13;32,19,4,159 North 6;0,31
+Jupiter, slow: 5;44,49,3,63 - fast: 6;34,8,5,152 East 2;27,35
+Saturn, slow: 13;33,21,1,2519 - fast: 13;24,7,0,1239 North 5;28,41
+Mercury, slow: 14;6,22,1,2879 - fast: 12;42,13,4,6632 East 5;19,23
+Venus, slow: 9;47,35,0,30 - fast: 10;56,0,3,348 North 4;25,46
+Rahu, head: 2;56,5,1,7
+
+Tibetan Lunar Month: 8 - Wood-female-Bird
+
+Month: 12733;6
+Anomaly: 8;119
+Mean Weekday: 3;23,11,1,177
+Mean Sun: 11;54,30,4,8
+
+1: Wed. Hasta/me bzhi. Water-Wind; 23 Sep 1835
+  Brahman/tshangs pa, Kintughna/mi sdug pa, Monkey, dwa 4
+  Solar: Earth-Horse. Can
+  4;31,5 12;11,27 11;48,33 24;0,1 5;7,27
+2: Thu. Citra/nag pa. Wind-Wind; 24 Sep 1835
+  Indra/dbang po, Kaulava/rigs can, Bird, khen 5
+  Solar: Earth-Sheep. Jing
+  5;26,10 13;14,42 11;52,53 25;7,36 5;8,25
+3: Fri. Svati/sa ri. Earth-Wind; 25 Sep 1835
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Dog, kham 6
+  Solar: Iron-Monkey. Gui
+  6;20,15 14;18,57 11;57,13 26;16,11 5;9,22
+    klu bzlog, zin phung
+4: Sat. Vishakha/sa ga. Earth-Fire; 26 Sep 1835
+  Vishkambha/rnam sel, Vishti/viSTi, Pig, gin 7
+  Solar: Iron-Bird. Liu
+  0;14,16 15;23,16 12;1,33 0;24,49 5;10,20
+5: Sun. Anuradha/lha mtshams. Fire-Earth; 27 Sep 1835
+  Priti/mdza' bo, Valava/byis pa, Mouse, zin 8
+  Solar: Water-Dog. Xing
+  1;8,18 16;27,34 12;5,53 1;33,27 5;11,18
+    klu thebs
+6: Mon. Jyeshtha/snron. Water-Earth; 28 Sep 1835
+  Ayushmat/tshe dang ldan pa, Taitila/til rdung, Ox, zon 9
+  Solar: Water-Pig. Zhang
+  2;2,20 17;31,52 12;10,13 2;42,6 5;12,16
+    klu bzlog
+7. Omitted.
+  2;56,21 12;14,33
+8: Tue. Mula/snrubs. Fire-Water; 29 Sep 1835
+  Saubhagya/skal bzang, Vishti/viSTi, Rabbit, khon 2
+  Solar: Wood-Mouse. Yi
+  3;50,23 18;40,29 12;18,53 3;59,22 5;14,11
+9: Wed. Purvashadha/chu stod. Water-Water; 30 Sep 1835
+  Atiganda/shin tu 'grams, Valava/byis pa, Dragon, dwa 3
+  Solar: Wood-Ox. Zhen
+  4;45,21 19;43,51 12;23,13 5;7,4 5;15,9
+    klu bzlog, zin phung
+10: Thu. Uttarashadha/chu smad. Wind-Earth; 1 Oct 1835
+  Sukarman/las bzang, Taitila/til rdung, Snake, khen 4
+  Solar: Fire-Tiger. Jiao
+  5;41,20 20;46,12 12;27,33 6;13,45 5;16,7
+11: Fri. Abhijit/gro zhin. Earth-Earth; 2 Oct 1835
+  Dhriti/'dzin byed, Vanija/tshong ba, Horse, kham 5
+  Solar: Fire-Rabbit. Kang
+  6;38,19 21;47,34 12;31,53 7;19,27 5;17,5
+12: Sat. Dhanishtha/mon gre. Earth-Water; 3 Oct 1835
+  Shula/zug rngu, Vava/gdab pa, Sheep, gin 6
+  Solar: Earth-Dragon. Di
+  0;36,17 22;47,55 12;36,13 8;24,8 5;18,2
+13: Sun. Shatabhishaj/mon gru. Fire-Earth; 4 Oct 1835
+  Ganda/'grams, Kaulava/rigs can, Monkey, zin 7
+  Solar: Earth-Snake. Fang
+  1;36,13 23;46,20 12;40,33 9;26,53 5;19,0
+    klu bzlog
+14: Mon. Purvabhadrapada/khrums stod. Water-Fire; 5 Oct 1835
+  Vriddhi/'phel, Gara/khyim skyes, Bird, zon 8
+  Solar: Iron-Horse. Xin
+  2;37,11 24;43,41 12;44,53 10;28,35 5;19,58
+15: Tue. Uttarabhadrapada/khrums smad. Fire-Water; 6 Oct 1835
+  Dhruva/brtan pa, Vishti/viSTi, Dog, li 9
+  Solar: Iron-Sheep. Wei
+  3;39,10 25;40,3 12;49,13 11;29,16 5;20,56
+    klu thebs, zin phung
+
+Mars, slow: 15;6,3,2,180 - fast: 14;16,44,0,187 North 6;10,23
+Jupiter, slow: 5;49,56,4,20 - fast: 6;41,6,4,140 East 2;29,8
+Saturn, slow: 13;35,22,0,804 - fast: 13;31,49,4,5030 North 6;0,24
+Mercury, slow: 18;24,11,0,6918 - fast: 14;29,46,3,5080 East 6;13,17
+Venus, slow: 11;28,31,0,366 - fast: 12;16,6,5,27 North 5;13,34
+Rahu, head: 2;52,33,5,11
+
+16: Wed. Revati/nam gru. Water-Water; 7 Oct 1835
+  Vyaghata/yongs bsnun, Valava/byis pa, Pig, khon 1
+  Solar: Water-Monkey. Ji
+  4;42,9 26;35,24 12;53,33 12;28,57 5;21,54
+    klu bzlog
+17: Thu. Ashvini/tha skar. Wind-Wind; 8 Oct 1835
+  Harshana/dga' ba, Taitila/til rdung, Mouse, dwa 2
+  Solar: Water-Bird. Dou
+  5;46,7 0;29,45 12;57,53 13;27,38 5;22,51
+18: Fri. Bharani/bra nye. Earth-Fire; 9 Oct 1835
+  Vajra/rdo rje, Vanija/tshong ba, Ox, khen 3
+  Solar: Wood-Dog. Niu
+  6;50,9 1;24,3 13;2,13 14;26,17 5;23,49
+    nyi nag
+19: Sat. Krittika/smin drug. Earth-Fire; 10 Oct 1835
+  Siddhi/dngos grub, Vishti/viSTi, Tiger, kham 4
+  Solar: Wood-Pig. Nu
+  0;54,11 2;18,21 13;6,33 15;24,55 5;24,47
+20: Sun. Rohini/snar ma. Fire-Earth; 11 Oct 1835
+  Vyatipata/phan tshun, Valava/byis pa, Rabbit, gin 5
+  Solar: Fire-Mouse. Xu
+  1;58,13 3;12,40 13;10,53 16;23,33 5;25,45
+21: Mon. Mrigashiras/mgo. Water-Wind; 12 Oct 1835
+  Variyas/mchog can, Taitila/til rdung, Dragon, zin 6
+  Solar: Fire-Ox. Wei
+  2;60,0 4;12,40 13;15,13 17;27,53 5;26,42
+    zin phung
+21: Tue. Ardra/lag. Fire-Water; 13 Oct 1835
+  Parigha/yongs 'joms, Vanija/tshong ba, Dragon, zin 6
+  Solar: Earth-Tiger. Shi
+  3;2,14 5;6,58 13;15,13 18;22,11 5;26,42
+22: Wed. Punarvasu/nabs so. Water-Wind; 14 Oct 1835
+  Shiva/zhi ba, Vava/gdab pa, Snake, zon 7
+  Solar: Earth-Rabbit. Bi
+  4;6,17 6;1,16 13;19,33 19;20,50 5;27,40
+23: Thu. Punarvasu/nabs so. Wind-Wind; 15 Oct 1835
+  Siddha/grub pa, Kaulava/rigs can, Horse, li 8
+  Solar: Iron-Dragon. Kui
+  5;9,25 6;56,31 13;23,57 20;20,29 5;28,39
+24: Fri. Pushya/rgyal. Earth-Fire; 16 Oct 1835
+  Sadhya/bsgrub bya, Gara/khyim skyes, Sheep, khon 9
+  Solar: Iron-Snake. Lou
+  6;11,34 7;52,47 13;28,21 21;21,8 5;29,38
+25: Sat. Ashlesha/skag. Earth-Water; 17 Oct 1835
+  Shubha/dge ba, Vishti/viSTi, Monkey, dwa 1
+  Solar: Water-Horse. Wei
+  0;12,43 8;50,2 13;32,45 22;22,47 6;0,36
+26: Sun. Magha/mchu. Fire-Fire; 18 Oct 1835
+  Shukla/dkar po, Valava/byis pa, Bird, khen 2
+  Solar: Water-Sheep. Mao
+  1;12,51 9;48,17 13;37,9 23;25,26 6;1,35
+27: Mon. Purvaphalguni/gre. Water-Fire; 19 Oct 1835
+  Brahman/tshangs pa, Taitila/til rdung, Dog, kham 3
+  Solar: Wood-Monkey. Bi
+  2;11,3 10;48,30 13;41,33 24;30,3 6;2,34
+    yan kwong, zin phung
+28: Tue. Uttaraphalguni/dbo. Fire-Wind; 20 Oct 1835
+  Indra/dbang po, Vanija/tshong ba, Pig, gin 4
+  Solar: Wood-Bird. Zui
+  3;8,11 11;49,45 13;45,57 25;35,42 6;3,32
+29: Wed. Hasta/me bzhi. Water-Wind; 21 Oct 1835
+  Vaidhriti/'khon 'dzin, Shakuni/bkra shis, Mouse, zin 5
+  Solar: Fire-Dog. Can
+  4;4,20 12;52,0 13;50,21 26;42,21 6;4,31
+30. Omitted.
+  4;59,28 13;54,45
+
+Mars, slow: 15;41,11,2,188 - fast: 15;3,30,1,153 North 6;20,46
+Jupiter, slow: 5;55,25,4,206 - fast: 6;46,55,3,191 South 3;0,25
+Saturn, slow: 13;37,31,2,3196 - fast: 13;40,19,1,1468 East 6;2,17
+Mercury, slow: 23;0,24,5,6847 - fast: 15;52,58,4,5413 East 7;1,46
+Venus, slow: 13;16,39,4,298 - fast: 13;39,39,2,455 North 6;2,8
+Rahu, head: 2;49,2,3,15
+
+Tibetan Lunar Month: 9 - Fire-male-Dog
+
+Month: 12734;8
+Anomaly: 10;120
+Mean Weekday: 4;55,1,1,657
+Mean Sun: 14;5,29,1,5
+
+1: Thu. Citra/nag pa. Wind-Wind; 22 Oct 1835
+  Vishkambha/rnam sel, Kintughna/mi sdug pa, Tiger, li 7
+  Solar: Fire-Pig. Jing
+  5;53,36 13;59,31 13;59,8 0;58,40 6;6,28
+    klu thebs
+2: Fri. Vishakha/sa ga. Earth-Fire; 23 Oct 1835
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Rabbit, khon 8
+  Solar: Earth-Mouse. Gui
+  6;47,42 15;3,50 14;3,32 2;7,22 6;7,27
+3: Sat. Anuradha/lha mtshams. Earth-Earth; 24 Oct 1835
+  Saubhagya/skal bzang, Taitila/til rdung, Dragon, dwa 9
+  Solar: Earth-Ox. Liu
+  0;41,47 16;8,8 14;7,56 3;16,5 6;8,25
+    zin phung
+4: Sun. Jyeshtha/snron. Fire-Earth; 25 Oct 1835
+  Shobhana/dge byed, Vanija/tshong ba, Snake, khen 1
+  Solar: Iron-Tiger. Xing
+  1;35,53 17;12,27 14;12,20 4;24,47 6;9,24
+5: Mon. Mula/snrubs. Water-Water; 26 Oct 1835
+  Atiganda/shin tu 'grams, Vava/gdab pa, Horse, kham 2
+  Solar: Iron-Rabbit. Zhang
+  2;29,59 18;16,45 14;16,44 5;33,29 6;10,23
+6: Tue. Purvashadha/chu stod. Fire-Water; 27 Oct 1835
+  Sukarman/las bzang, Taitila/til rdung, Sheep, gin 3
+  Solar: Water-Dragon. Yi
+  3;24,4 19;21,3 14;21,8 6;42,12 6;11,21
+7: Wed. Uttarashadha/chu smad. Water-Earth; 28 Oct 1835
+  Dhriti/'dzin byed, Vanija/tshong ba, Monkey, zin 4
+  Solar: Water-Snake. Zhen
+  4;19,7 20;24,24 14;25,32 7;49,57 6;12,20
+8: Thu. Abhijit/gro zhin. Wind-Earth; 29 Oct 1835
+  Shula/zug rngu, Vava/gdab pa, Bird, zon 5
+  Solar: Wood-Horse. Jiao
+  5;15,10 21;26,45 14;29,56 8;56,41 6;13,19
+9: Fri. Dhanishtha/mon gre. Earth-Water; 30 Oct 1835
+  Vriddhi/'phel, Kaulava/rigs can, Dog, li 6
+  Solar: Wood-Sheep. Kang
+  6;12,13 22;28,6 14;34,20 10;2,26 6;14,17
+    klu bzlog, zin phung
+10: Sat. Shatabhishaj/mon gru. Earth-Earth; 31 Oct 1835
+  Dhruva/brtan pa, Gara/khyim skyes, Pig, khon 7
+  Solar: Fire-Monkey. Di
+  0;10,15 23;28,27 14;38,43 11;7,11 6;15,16
+    klu bzlog
+11: Sun. Purvabhadrapada/khrums stod. Fire-Fire; 1 Nov 1835
+  Vyaghata/yongs bsnun, Vishti/viSTi, Mouse, dwa 8
+  Solar: Fire-Bird. Fang
+  1;10,16 24;26,51 14;43,7 12;9,59 6;16,15
+    klu thebs
+12: Mon. Uttarabhadrapada/khrums smad. Water-Water; 2 Nov 1835
+  Harshana/dga' ba, Valava/byis pa, Ox, khen 9
+  Solar: Earth-Dog. Xin
+  2;11,19 25;24,12 14;47,31 13;11,44 6;17,13
+13: Tue. Revati/nam gru. Fire-Water; 3 Nov 1835
+  Vajra/rdo rje, Taitila/til rdung, Tiger, kham 1
+  Solar: Earth-Pig. Wei
+  3;13,22 26;20,33 14;51,55 14;12,28 6;18,12
+14: Wed. Ashvini/tha skar. Water-Wind; 4 Nov 1835
+  Siddhi/dngos grub, Vanija/tshong ba, Rabbit, gin 2
+  Solar: Iron-Mouse. Ji
+  4;16,25 0;15,54 14;56,19 15;12,13 6;19,10
+15: Thu. Bharani/bra nye. Wind-Fire; 5 Nov 1835
+  Vyatipata/phan tshun, Vava/gdab pa, Dragon, zin 3
+  Solar: Iron-Ox. Dou
+  5;20,28 1;10,15 15;0,43 16;10,58 6;20,9
+    zin phung
+
+Mars, slow: 16;18,23,4,162 - fast: 15;51,33,0,106 North 7;1,27
+Jupiter, slow: 6;0,54,5,31 - fast: 6;48,54,2,331 South 3;0,52
+Saturn, slow: 13;39,40,5,205 - fast: 13;48,17,1,4570 East 6;4,3
+Mercury, slow: 0;36,38,4,6776 - fast: 16;9,34,3,6717 South 7;5,27
+Venus, slow: 15;4,48,2,230 - fast: 15;3,20,3,316 East 6;20,44
+Rahu, head: 2;45,31,1,19
+
+16: Fri. Krittika/smin drug. Earth-Fire; 6 Nov 1835
+  Variyas/mchog can, Kaulava/rigs can, Snake, zon 4
+  Solar: Water-Tiger. Niu
+  6;24,33 2;4,33 15;5,7 17;9,40 6;21,8
+17: Sat. Krittika/smin drug. Earth-Fire; 7 Nov 1835
+  Parigha/yongs 'joms, Taitila/til rdung, Horse, li 5
+  Solar: Water-Rabbit. Nu
+  0;28,39 2;58,51 15;9,31 18;8,22 6;22,6
+18: Sun. Rohini/snar ma. Fire-Earth; 8 Nov 1835
+  Shiva/zhi ba, Vanija/tshong ba, Sheep, khon 6
+  Solar: Wood-Dragon. Xu
+  1;32,45 3;53,9 15;13,55 19;7,4 6;23,5
+19: Mon. Mrigashiras/mgo. Water-Wind; 9 Nov 1835
+  Siddha/grub pa, Vava/gdab pa, Monkey, dwa 7
+  Solar: Wood-Snake. Wei
+  2;36,50 4;47,27 15;18,18 20;5,46 6;24,4
+    klu bzlog
+20: Tue. Ardra/lag. Fire-Water; 10 Nov 1835
+  Sadhya/bsgrub bya, Kaulava/rigs can, Bird, khen 8
+  Solar: Fire-Horse. Shi
+  3;40,56 5;41,46 15;22,42 21;4,28 6;25,2
+21: Wed. Punarvasu/nabs so. Water-Wind; 11 Nov 1835
+  Shubha/dge ba, Gara/khyim skyes, Dog, kham 9
+  Solar: Fire-Sheep. Bi
+  4;44,4 6;37,1 15;27,6 22;4,8 6;26,1
+    klu thebs, zin phung
+22: Thu. Pushya/rgyal. Wind-Fire; 12 Nov 1835
+  Shukla/dkar po, Vishti/viSTi, Pig, gin 1
+  Solar: Earth-Monkey. Kui
+  5;46,12 7;33,17 15;31,30 23;4,48 6;27,0
+  Descent of the Buddha from the realm of the gods.
+    klu thebs
+23: Fri. Ashlesha/skag. Earth-Water; 13 Nov 1835
+  Brahman/tshangs pa, Valava/byis pa, Mouse, zin 2
+  Solar: Earth-Bird. Lou
+  6;47,22 8;30,33 15;35,55 24;6,28 6;27,59
+    klu thebs
+24: Sat. Magha/mchu. Earth-Fire; 14 Nov 1835
+  Indra/dbang po, Taitila/til rdung, Ox, zon 3
+  Solar: Iron-Dog. Wei
+  0;47,36 9;28,49 15;40,25 25;9,14 6;28,58
+25: Sun. Purvaphalguni/gre. Fire-Fire; 15 Nov 1835
+  Vaidhriti/'khon 'dzin, Vanija/tshong ba, Tiger, li 4
+  Solar: Iron-Pig. Mao
+  1;45,52 10;29,2 15;44,55 26;13,57 6;29,58
+    yan kwong
+26: Mon. Uttaraphalguni/dbo. Water-Wind; 16 Nov 1835
+  Vishkambha/rnam sel, Vava/gdab pa, Rabbit, khon 5
+  Solar: Water-Mouse. Bi
+  2;43,6 11;30,18 15;49,24 0;19,42 7;0,58
+27: Tue. Hasta/me bzhi. Fire-Wind; 17 Nov 1835
+  Priti/mdza' bo, Kaulava/rigs can, Dragon, dwa 6
+  Solar: Water-Ox. Zui
+  3;39,20 12;32,34 15;53,54 1;26,28 7;1,58
+    zin phung, nyi nag
+28: Wed. Citra/nag pa. Water-Wind; 18 Nov 1835
+  Ayushmat/tshe dang ldan pa, Gara/khyim skyes, Snake, khen 7
+  Solar: Wood-Tiger. Can
+  4;34,34 13;35,50 15;58,24 2;34,14 7;2,58
+29: Thu. Svati/sa ri. Wind-Wind; 19 Nov 1835
+  Saubhagya/skal bzang, Vishti/viSTi, Horse, kham 8
+  Solar: Wood-Rabbit. Jing
+  5;28,47 14;40,5 16;2,53 3;42,59 7;3,58
+30: Fri. Vishakha/sa ga. Earth-Fire; 20 Nov 1835
+  Shobhana/dge byed, Naga/klu, Sheep, gin 9
+  Solar: Fire-Dragon. Gui
+  6;22,59 15;44,24 16;7,23 4;51,47 7;4,58
+
+Mars, slow: 16;55,36,0,136 - fast: 16;39,56,4,95 North 7;12,12
+Jupiter, slow: 6;6,23,5,217 - fast: 6;47,53,2,78 South 3;0,38
+Saturn, slow: 13;41,50,1,2597 - fast: 13;55,43,2,1103 East 6;5,42
+Mercury, slow: 5;12,52,3,6705 - fast: 14;56,59,3,4531 West 6;19,19
+Venus, slow: 16;52,57,0,162 - fast: 16;27,44,1,115 East 7;9,29
+Rahu, head: 2;42,0,0,0
+
+Tibetan Lunar Month: 10 - Fire-female-Pig
+
+Month: 12735;10
+Anomaly: 12;121
+Mean Weekday: 6;26,51,2,430
+Mean Sun: 16;16,27,4,2
+
+1: Sat. Anuradha/lha mtshams. Earth-Earth; 21 Nov 1835
+  Sukarman/las bzang, Vava/gdab pa, Monkey, zin 1
+  Solar: Fire-Snake. Liu
+  0;17,10 16;48,42 16;11,53 6;0,36 7;5,58
+2: Sun. Jyeshtha/snron. Fire-Earth; 22 Nov 1835
+  Dhriti/'dzin byed, Kaulava/rigs can, Bird, zon 2
+  Solar: Earth-Horse. Xing
+  1;11,21 17;53,1 16;16,23 7;9,24 7;6,58
+3: Mon. Mula/snrubs. Water-Water; 23 Nov 1835
+  Shula/zug rngu, Gara/khyim skyes, Dog, li 3
+  Solar: Earth-Sheep. Zhang
+  2;5,33 18;57,19 16;20,52 8;18,12 7;7,58
+4. Omitted.
+  2;59,44 16;25,22
+5: Tue. Uttarashadha/chu smad. Fire-Earth; 24 Nov 1835
+  Ganda/'grams, Vishti/viSTi, Mouse, dwa 5
+  Solar: Iron-Monkey. Yi
+  3;54,53 20;4,58 16;29,52 9;34,50 7;9,58
+6: Wed. Abhijit/gro zhin. Water-Earth; 25 Nov 1835
+  Vriddhi/'phel, Kaulava/rigs can, Ox, khen 6
+  Solar: Iron-Bird. Zhen
+  4;51,2 21;7,19 16;34,21 10;41,40 7;10,58
+7: Thu. Dhanishtha/mon gre. Wind-Water; 26 Nov 1835
+  Dhruva/brtan pa, Gara/khyim skyes, Tiger, kham 7
+  Solar: Water-Dog. Jiao
+  5;48,11 22;8,39 16;38,51 11;47,31 7;11,58
+8: Fri. Shatabhishaj/mon gru. Earth-Earth; 27 Nov 1835
+  Vyaghata/yongs bsnun, Vishti/viSTi, Rabbit, gin 8
+  Solar: Water-Pig. Kang
+  6;46,21 23;9,0 16;43,21 12;52,21 7;12,58
+    klu thebs
+9: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 28 Nov 1835
+  Harshana/dga' ba, Valava/byis pa, Dragon, zin 9
+  Solar: Wood-Mouse. Di
+  0;46,28 24;7,23 16;47,51 13;55,14 7;13,58
+    klu bzlog
+10: Sun. Uttarabhadrapada/khrums smad. Fire-Water; 29 Nov 1835
+  Vajra/rdo rje, Taitila/til rdung, Snake, zon 1
+  Solar: Wood-Ox. Fang
+  1;47,37 25;4,43 16;52,20 14;57,4 7;14,57
+    klu bzlog, zin phung, nyi nag
+11: Mon. Revati/nam gru. Water-Water; 30 Nov 1835
+  Siddhi/dngos grub, Vanija/tshong ba, Horse, li 2
+  Solar: Fire-Tiger. Xin
+  2;49,46 26;1,3 16;56,50 15;57,54 7;15,57
+12: Tue. Revati/nam gru. Fire-Water; 1 Dec 1835
+  Vyatipata/phan tshun, Vava/gdab pa, Sheep, khon 3
+  Solar: Fire-Rabbit. Wei
+  3;52,55 26;56,24 17;1,20 16;57,44 7;16,57
+13: Wed. Ashvini/tha skar. Water-Wind; 2 Dec 1835
+  Variyas/mchog can, Valava/byis pa, Monkey, dwa 4
+  Solar: Earth-Dragon. Ji
+  4;57,5 0;50,44 17;5,49 17;56,34 7;17,57
+14: Thu. Bharani/bra nye. Wind-Fire; 3 Dec 1835
+  Shiva/zhi ba, Taitila/til rdung, Bird, khen 5
+  Solar: Earth-Snake. Dou
+  5;60,0 1;50,44 17;10,19 19;1,4 7;18,57
+14: Fri. Krittika/smin drug. Earth-Fire; 4 Dec 1835
+  Shiva/zhi ba, Vanija/tshong ba, Bird, khen 5
+  Solar: Iron-Horse. Niu
+  6;1,16 2;45,2 17;10,19 19;55,22 7;18,57
+15: Sat. Rohini/snar ma. Earth-Earth; 5 Dec 1835
+  Siddha/grub pa, Vava/gdab pa, Dog, kham 6
+  Solar: Iron-Sheep. Nu
+  0;5,28 3;39,21 17;14,49 20;54,10 7;19,57
+    klu thebs
+
+Mars, slow: 17;32,48,2,110 - fast: 17;28,27,4,206 North 7;22,59
+Jupiter, slow: 6;11,53,0,42 - fast: 6;44,2,1,296 South 2;29,47
+Saturn, slow: 13;43,59,3,4989 - fast: 14;2,31,2,4490 East 6;7,13
+Mercury, slow: 9;49,6,2,6634 - fast: 15;43,41,0,778 North 6;29,42
+Venus, slow: 18;41,5,4,94 - fast: 17;52,9,3,154 East 7;28,15
+Rahu, head: 2;38,28,4,4
+
+16: Sun. Mrigashiras/mgo. Fire-Wind; 6 Dec 1835
+  Sadhya/bsgrub bya, Kaulava/rigs can, Pig, gin 7
+  Solar: Water-Monkey. Xu
+  1;9,39 4;33,39 17;19,18 21;52,58 7;20,57
+    zin phung
+17: Mon. Ardra/lag. Water-Water; 7 Dec 1835
+  Shubha/dge ba, Gara/khyim skyes, Mouse, zin 8
+  Solar: Water-Bird. Wei
+  2;13,51 5;27,57 17;23,48 22;51,46 7;21,57
+18: Tue. Punarvasu/nabs so. Fire-Wind; 8 Dec 1835
+  Shukla/dkar po, Vishti/viSTi, Ox, zon 9
+  Solar: Wood-Dog. Shi
+  3;18,2 6;22,15 17;28,18 23;50,34 7;22,57
+    klu thebs
+19: Wed. Pushya/rgyal. Water-Fire; 9 Dec 1835
+  Brahman/tshangs pa, Valava/byis pa, Tiger, li 1
+  Solar: Wood-Pig. Bi
+  4;21,16 7;17,31 17;32,48 24;50,19 7;23,57
+    klu bzlog
+20: Thu. Ashlesha/skag. Wind-Water; 10 Dec 1835
+  Indra/dbang po, Taitila/til rdung, Rabbit, khon 2
+  Solar: Fire-Mouse. Kui
+  5;23,29 8;13,47 17;37,17 25;51,5 7;24,57
+21: Fri. Magha/mchu. Earth-Fire; 11 Dec 1835
+  Vaidhriti/'khon 'dzin, Vanija/tshong ba, Dragon, dwa 3
+  Solar: Fire-Ox. Lou
+  6;24,43 9;11,4 17;41,47 26;52,51 7;25,57
+22: Sat. Purvaphalguni/gre. Earth-Fire; 12 Dec 1835
+  Vishkambha/rnam sel, Vava/gdab pa, Snake, khen 4
+  Solar: Earth-Tiger. Wei
+  0;24,56 10;9,20 17;46,17 0;55,37 7;26,57
+    zin phung
+23: Sun. Uttaraphalguni/dbo. Fire-Wind; 13 Dec 1835
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Horse, kham 5
+  Solar: Earth-Rabbit. Mao
+  1;23,12 11;9,34 17;50,46 2;0,21 7;27,57
+    yan kwong
+24: Mon. Hasta/me bzhi. Water-Wind; 14 Dec 1835
+  Saubhagya/skal bzang, Gara/khyim skyes, Sheep, gin 6
+  Solar: Iron-Dragon. Bi
+  2;20,26 12;10,50 17;55,17 3;6,8 7;28,57
+25: Tue. Citra/nag pa. Fire-Wind; 15 Dec 1835
+  Shobhana/dge byed, Vishti/viSTi, Monkey, zin 7
+  Solar: Iron-Snake. Zui
+  3;16,44 13;13,7 17;59,51 4;12,58 7;29,58
+26: Wed. Svati/sa ri. Water-Wind; 16 Dec 1835
+  Atiganda/shin tu 'grams, Valava/byis pa, Bird, zon 8
+  Solar: Water-Horse. Can
+  4;12,1 14;16,23 18;4,24 5;20,48 8;0,58
+    klu bzlog
+27: Thu. Vishakha/sa ga. Wind-Fire; 17 Dec 1835
+  Sukarman/las bzang, Taitila/til rdung, Dog, li 9
+  Solar: Water-Sheep. Jing
+  5;6,18 15;20,39 18;8,58 6;29,38 8;1,59
+28: Fri. Anuradha/lha mtshams. Earth-Earth; 18 Dec 1835
+  Dhriti/'dzin byed, Vanija/tshong ba, Pig, khon 1
+  Solar: Wood-Monkey. Gui
+  6;0,33 16;24,58 18;13,32 7;38,30 8;3,0
+    zin phung
+29. Omitted.
+  6;54,48 18;18,5
+30: Sat. Jyeshtha/snron. Earth-Earth; 19 Dec 1835
+  Shula/zug rngu, Catushpada/rkang bzhi, Ox, khen 3
+  Solar: Wood-Bird. Liu
+  0;49,4 17;33,34 18;22,39 8;56,14 8;5,2
+
+Mars, slow: 18;9,7,2,4 - fast: 18;16,26,5,41 East 8;3,39
+Jupiter, slow: 6;17,0,0,360 - fast: 6;37,13,1,150 South 2;28,16
+Saturn, slow: 13;46,0,2,3274 - fast: 14;8,46,0,4822 East 6;8,36
+Mercury, slow: 14;6,55,2,1876 - fast: 17;15,10,3,2301 North 7;20,2
+Venus, slow: 20;22,1,4,430 - fast: 19;13,49,4,644 East 8;16,24
+Rahu, head: 2;34,57,2,8
+
+Tibetan Lunar Month: 11 - Earth-male-Mouse
+
+Month: 12736;12
+Anomaly: 14;122
+Mean Weekday: 0;58,41,3,203
+Mean Sun: 18;27,26,0,12
+
+1: Sun. Mula/snrubs. Fire-Water; 20 Dec 1835
+  Vriddhi/'phel, Kintughna/mi sdug pa, Tiger, kham 4
+  Solar: Fire-Dog. Xing
+  1;43,19 18;37,53 18;27,12 10;5,6 8;6,2
+2: Mon. Purvashadha/chu stod. Water-Water; 21 Dec 1835
+  Dhruva/brtan pa, Valava/byis pa, Rabbit, gin 5
+  Solar: Fire-Pig. Zhang
+  2;37,34 19;42,11 18;31,46 11;13,58 8;7,3
+    klu bzlog
+3: Tue. Uttarashadha/chu smad. Fire-Earth; 22 Dec 1835
+  Vyaghata/yongs bsnun, Taitila/til rdung, Dragon, zin 6
+  Solar: Earth-Mouse. Yi
+  3;32,48 20;45,31 18;36,20 12;21,51 8;8,4
+4: Wed. Abhijit/gro zhin. Water-Earth; 23 Dec 1835
+  Harshana/dga' ba, Vanija/tshong ba, Snake, zon 7
+  Solar: Earth-Ox. Zhen
+  4;29,1 21;47,52 18;40,53 13;28,45 8;9,5
+    zin phung
+5: Thu. Dhanishtha/mon gre. Wind-Water; 24 Dec 1835
+  Vajra/rdo rje, Valava/byis pa, Horse, li 8
+  Solar: Iron-Tiger. Jiao
+  5;26,14 22;49,12 18;45,27 14;34,39 8;10,6
+6: Fri. Shatabhishaj/mon gru. Earth-Earth; 25 Dec 1835
+  Siddhi/dngos grub, Taitila/til rdung, Sheep, khon 9
+  Solar: Iron-Rabbit. Kang
+  6;24,28 23;49,32 18;50,0 15;39,33 8;11,6
+    klu bzlog
+7: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 26 Dec 1835
+  Vyatipata/phan tshun, Vanija/tshong ba, Monkey, dwa 1
+  Solar: Water-Dragon. Di
+  0;24,40 24;47,54 18;54,34 16;42,28 8;12,7
+    klu thebs
+8: Sun. Uttarabhadrapada/khrums smad. Fire-Water; 27 Dec 1835
+  Variyas/mchog can, Vava/gdab pa, Bird, khen 2
+  Solar: Water-Snake. Fang
+  1;25,53 25;45,14 18;59,8 17;44,22 8;13,8
+9: Mon. Revati/nam gru. Water-Water; 28 Dec 1835
+  Parigha/yongs 'joms, Valava/byis pa, Dog, kham 3
+  Solar: Wood-Horse. Xin
+  2;28,7 26;41,34 19;3,41 18;45,15 8;14,9
+10: Tue. Ashvini/tha skar. Fire-Wind; 29 Dec 1835
+  Shiva/zhi ba, Taitila/til rdung, Pig, gin 4
+  Solar: Wood-Sheep. Wei
+  3;31,20 0;36,54 19;8,15 19;45,9 8;15,10
+    zin phung
+11: Wed. Bharani/bra nye. Water-Fire; 30 Dec 1835
+  Siddha/grub pa, Vanija/tshong ba, Mouse, zin 5
+  Solar: Fire-Monkey. Ji
+  4;35,34 1;31,14 19;12,48 20;44,2 8;16,10
+12: Thu. Krittika/smin drug. Wind-Fire; 31 Dec 1835
+  Sadhya/bsgrub bya, Vava/gdab pa, Ox, zon 6
+  Solar: Fire-Bird. Dou
+  5;39,49 2;25,32 19;17,22 21;42,54 8;17,11
+13: Fri. Rohini/snar ma. Earth-Earth; 1 Jan 1836
+  Shubha/dge ba, Kaulava/rigs can, Tiger, li 7
+  Solar: Earth-Dog. Niu
+  6;44,5 3;19,50 19;21,55 22;41,46 8;18,12
+14: Sat. Mrigashiras/mgo. Earth-Wind; 2 Jan 1836
+  Shukla/dkar po, Gara/khyim skyes, Rabbit, khon 8
+  Solar: Earth-Pig. Nu
+  0;48,20 4;14,8 19;26,29 23;40,38 8;19,13
+15: Sun. Ardra/lag. Fire-Water; 3 Jan 1836
+  Brahman/tshangs pa, Vishti/viSTi, Dragon, dwa 9
+  Solar: Iron-Mouse. Xu
+  1;52,36 5;8,27 19;31,3 24;39,30 8;20,14
+    klu thebs
+
+Mars, slow: 18;49,12,3,105 - fast: 19;6,41,4,45 East 8;14,49
+Jupiter, slow: 6;22,29,1,185 - fast: 6;27,3,0,334 South 2;26,0
+Saturn, slow: 13;48,9,5,283 - fast: 14;13,39,2,867 East 6;9,42
+Mercury, slow: 18;43,9,1,1805 - fast: 19;10,29,4,1699 North 8;15,39
+Venus, slow: 22;10,10,2,362 - fast: 20;38,30,2,304 East 9;5,13
+Rahu, head: 2;31,26,0,12
+
+16: Mon. Punarvasu/nabs so. Water-Wind; 4 Jan 1836
+  Indra/dbang po, Vava/gdab pa, Snake, khen 1
+  Solar: Iron-Ox. Wei
+  2;56,51 6;2,45 19;35,36 25;38,21 8;21,14
+    klu bzlog, zin phung
+17: Tue. Pushya/rgyal. Fire-Fire; 5 Jan 1836
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Horse, kham 2
+  Solar: Water-Tiger. Shi
+  3;60,0 7;2,45 19;40,10 26;42,55 8;22,15
+17: Wed. Pushya/rgyal. Water-Fire; 6 Jan 1836
+  Vishkambha/rnam sel, Gara/khyim skyes, Horse, kham 2
+  Solar: Water-Rabbit. Bi
+  4;0,8 7;58,1 19;40,10 0;38,12 8;22,15
+18: Thu. Ashlesha/skag. Wind-Water; 7 Jan 1836
+  Priti/mdza' bo, Vishti/viSTi, Sheep, gin 3
+  Solar: Wood-Dragon. Kui
+  5;2,25 8;54,18 19;44,43 1;39,2 8;23,16
+19: Fri. Magha/mchu. Earth-Fire; 8 Jan 1836
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Monkey, zin 4
+  Solar: Wood-Snake. Lou
+  6;3,42 9;51,35 19;49,17 2;40,52 8;24,17
+20: Sat. Purvaphalguni/gre. Earth-Fire; 9 Jan 1836
+  Saubhagya/skal bzang, Taitila/til rdung, Bird, zon 5
+  Solar: Fire-Horse. Wei
+  0;3,59 10;49,51 19;53,51 3;43,42 8;25,18
+    klu bzlog, nyi nag
+21: Sun. Uttaraphalguni/dbo. Fire-Wind; 10 Jan 1836
+  Shobhana/dge byed, Vanija/tshong ba, Dog, li 6
+  Solar: Fire-Sheep. Mao
+  1;2,17 11;50,6 19;58,24 4;48,31 8;26,18
+    yan kwong, klu thebs
+22. Omitted.
+  1;59,34 20;2,58
+23: Mon. Hasta/me bzhi. Water-Wind; 11 Jan 1836
+  Sukarman/las bzang, Vava/gdab pa, Mouse, dwa 8
+  Solar: Earth-Monkey. Bi
+  2;55,51 12;53,40 20;7,31 6;1,12 8;28,20
+24: Tue. Citra/nag pa. Fire-Wind; 12 Jan 1836
+  Dhriti/'dzin byed, Taitila/til rdung, Ox, khen 9
+  Solar: Earth-Bird. Zui
+  3;51,8 13;56,57 20;12,5 7;9,2 8;29,21
+25: Wed. Vishakha/sa ga. Water-Fire; 13 Jan 1836
+  Shula/zug rngu, Vanija/tshong ba, Tiger, kham 1
+  Solar: Iron-Dog. Can
+  4;45,25 15;1,13 20;16,39 8;17,52 9;0,22
+26: Thu. Anuradha/lha mtshams. Wind-Earth; 14 Jan 1836
+  Ganda/'grams, Vava/gdab pa, Rabbit, gin 2
+  Solar: Iron-Pig. Jing
+  5;39,40 16;5,32 20;21,12 9;26,45 9;1,22
+    klu bzlog
+27: Fri. Jyeshtha/snron. Earth-Earth; 15 Jan 1836
+  Vriddhi/'phel, Kaulava/rigs can, Dragon, zin 3
+  Solar: Water-Mouse. Gui
+  6;33,55 17;9,50 20;25,46 10;35,36 9;2,23
+28: Sat. Mula/snrubs. Earth-Water; 16 Jan 1836
+  Dhruva/brtan pa, Gara/khyim skyes, Snake, zon 4
+  Solar: Water-Ox. Liu
+  0;28,10 18;14,9 20;30,19 11;44,28 9;3,24
+    zin phung
+29: Sun. Purvashadha/chu stod. Fire-Water; 17 Jan 1836
+  Vyaghata/yongs bsnun, Shakuni/bkra shis, Horse, li 5
+  Solar: Wood-Tiger. Xing
+  1;22,25 19;18,27 20;34,53 12;53,20 9;4,25
+30: Mon. Uttarashadha/chu smad. Water-Earth; 18 Jan 1836
+  Vajra/rdo rje, Naga/klu, Sheep, khon 6
+  Solar: Wood-Rabbit. Zhang
+  2;16,41 20;22,45 20;39,27 14;2,12 9;5,26
+
+Mars, slow: 19;29,17,4,206 - fast: 19;56,47,2,122 East 8;25,57
+Jupiter, slow: 6;27,58,2,10 - fast: 6;18,11,1,355 West 2;24,2
+Saturn, slow: 13;50,19,1,2675 - fast: 14;17,55,2,3068 East 6;10,38
+Mercury, slow: 23;19,23,0,1734 - fast: 21;8,44,3,1448 East 9;11,56
+Venus, slow: 23;58,19,0,294 - fast: 22;2,53,3,186 East 9;23,58
+Rahu, head: 2;27,54,4,16
+
+Tibetan Lunar Month: 12 - Earth-female-Ox
+
+Month: 12737;14
+Anomaly: 16;123
+Mean Weekday: 2;30,31,3,683
+Mean Sun: 20;38,24,3,9
+
+1: Tue. Abhijit/gro zhin. Fire-Earth; 19 Jan 1836
+  Siddhi/dngos grub, Vava/gdab pa, Monkey, dwa 7
+  Solar: Fire-Dragon. Yi
+  3;11,55 21;26,5 20;44,0 15;10,6 9;6,26
+2: Wed. Dhanishtha/mon gre. Water-Water; 20 Jan 1836
+  Vyatipata/phan tshun, Kaulava/rigs can, Bird, khen 8
+  Solar: Fire-Snake. Zhen
+  4;8,8 22;28,25 20;48,34 16;16,59 9;7,27
+3: Thu. Shatabhishaj/mon gru. Wind-Earth; 21 Jan 1836
+  Variyas/mchog can, Gara/khyim skyes, Dog, kham 9
+  Solar: Earth-Horse. Jiao
+  5;5,22 23;29,44 20;53,7 17;22,52 9;8,28
+4: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 22 Jan 1836
+  Parigha/yongs 'joms, Vishti/viSTi, Pig, gin 1
+  Solar: Earth-Sheep. Kang
+  6;3,36 24;30,4 20;57,41 18;27,46 9;9,29
+    zin phung
+5: Sat. Uttarabhadrapada/khrums smad. Earth-Water; 23 Jan 1836
+  Shiva/zhi ba, Valava/byis pa, Mouse, zin 2
+  Solar: Iron-Monkey. Di
+  0;3,49 25;28,25 21;2,14 19;30,40 9;10,29
+6: Sun. Revati/nam gru. Fire-Water; 24 Jan 1836
+  Siddha/grub pa, Taitila/til rdung, Ox, zon 3
+  Solar: Iron-Bird. Fang
+  1;5,3 26;25,45 21;6,48 20;32,33 9;11,30
+7: Mon. Ashvini/tha skar. Water-Wind; 25 Jan 1836
+  Sadhya/bsgrub bya, Vanija/tshong ba, Tiger, li 4
+  Solar: Water-Dog. Xin
+  2;7,17 0;22,4 21;11,22 21;33,27 9;12,31
+8: Tue. Bharani/bra nye. Fire-Fire; 26 Jan 1836
+  Shubha/dge ba, Vava/gdab pa, Rabbit, khon 5
+  Solar: Water-Pig. Wei
+  3;10,31 1;17,24 21;15,55 22;33,20 9;13,32
+9: Wed. Krittika/smin drug. Water-Fire; 27 Jan 1836
+  Shukla/dkar po, Kaulava/rigs can, Dragon, dwa 6
+  Solar: Wood-Mouse. Ji
+  4;14,45 2;11,43 21;20,29 23;32,13 9;14,33
+10: Thu. Rohini/snar ma. Wind-Earth; 28 Jan 1836
+  Brahman/tshangs pa, Gara/khyim skyes, Snake, khen 7
+  Solar: Wood-Ox. Dou
+  5;19,0 3;6,1 21;25,2 24;31,4 9;15,33
+    zin phung
+11: Fri. Mrigashiras/mgo. Earth-Wind; 29 Jan 1836
+  Indra/dbang po, Vishti/viSTi, Horse, kham 8
+  Solar: Fire-Tiger. Niu
+  6;23,16 4;0,20 21;29,36 25;29,56 9;16,34
+12: Sat. Mrigashiras/mgo. Earth-Wind; 30 Jan 1836
+  Vaidhriti/'khon 'dzin, Vava/gdab pa, Sheep, gin 9
+  Solar: Fire-Rabbit. Nu
+  0;27,31 4;54,38 21;34,10 26;28,48 9;17,35
+13: Sun. Ardra/lag. Fire-Water; 31 Jan 1836
+  Vishkambha/rnam sel, Kaulava/rigs can, Monkey, zin 1
+  Solar: Earth-Dragon. Xu
+  1;31,47 5;48,56 21;38,43 0;27,40 9;18,36
+14: Mon. Punarvasu/nabs so. Water-Wind; 1 Feb 1836
+  Priti/mdza' bo, Gara/khyim skyes, Bird, zon 2
+  Solar: Earth-Snake. Wei
+  2;36,2 6;43,14 21;43,17 1;26,31 9;19,37
+15: Tue. Pushya/rgyal. Fire-Fire; 2 Feb 1836
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Dog, li 3
+  Solar: Iron-Horse. Shi
+  3;39,19 7;38,31 21;47,50 2;26,22 9;20,37
+
+Mars, slow: 20;9,23,0,78 - fast: 20;46,36,5,35 East 9;7,1
+Jupiter, slow: 6;33,27,2,196 - fast: 6;8,32,3,172 West 2;21,53
+Saturn, slow: 13;52,28,3,5067 - fast: 14;20,28,3,5067 East 6;11,13
+Mercury, slow: 0;55,36,5,1663 - fast: 22;54,23,0,8235 East 10;5,25
+Venus, slow: 25;46,27,4,226 - fast: 23;26,53,5,343 East 10;12,38
+Rahu, head: 2;24,23,2,20
+
+16: Wed. Ashlesha/skag. Water-Water; 3 Feb 1836
+  Saubhagya/skal bzang, Valava/byis pa, Pig, khon 4
+  Solar: Iron-Sheep. Bi
+  4;41,35 8;34,48 21;52,24 3;27,13 9;21,38
+    zin phung
+17: Thu. Magha/mchu. Wind-Fire; 4 Feb 1836
+  Shobhana/dge byed, Taitila/til rdung, Mouse, dwa 5
+  Solar: Water-Monkey. Kui
+  5;42,52 9;32,5 21;56,58 4;29,3 9;22,39
+18: Fri. Purvaphalguni/gre. Earth-Fire; 5 Feb 1836
+  Atiganda/shin tu 'grams, Vanija/tshong ba, Ox, khen 6
+  Solar: Water-Bird. Lou
+  6;43,8 10;30,23 22;1,31 5;31,54 9;23,40
+19: Sat. Uttaraphalguni/dbo. Earth-Wind; 6 Feb 1836
+  Sukarman/las bzang, Vava/gdab pa, Tiger, kham 7
+  Solar: Wood-Dog. Wei
+  0;41,26 11;30,39 22;6,5 6;36,44 9;24,41
+    yan kwong
+20: Sun. Hasta/me bzhi. Fire-Wind; 7 Feb 1836
+  Dhriti/'dzin byed, Kaulava/rigs can, Rabbit, gin 8
+  Solar: Wood-Pig. Mao
+  1;38,42 12;31,56 22;10,38 7;42,35 9;25,41
+21: Mon. Citra/nag pa. Water-Wind; 8 Feb 1836
+  Shula/zug rngu, Gara/khyim skyes, Dragon, zin 9
+  Solar: Fire-Mouse. Bi
+  2;34,58 13;34,13 22;15,12 8;49,25 9;26,42
+22: Tue. Svati/sa ri. Fire-Wind; 9 Feb 1836
+  Ganda/'grams, Vishti/viSTi, Snake, zon 1
+  Solar: Fire-Ox. Zui
+  3;30,15 14;37,30 22;19,46 9;57,16 9;27,43
+    zin phung
+23: Wed. Vishakha/sa ga. Water-Fire; 10 Feb 1836
+  Dhruva/brtan pa, Kaulava/rigs can, Horse, li 2
+  Solar: Earth-Tiger. Can
+  4;24,31 15;41,47 22;24,19 11;6,7 9;28,44
+24: Thu. Anuradha/lha mtshams. Wind-Earth; 11 Feb 1836
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Sheep, khon 3
+  Solar: Earth-Rabbit. Jing
+  5;18,46 16;46,6 22;28,53 12;14,59 9;29,45
+25: Fri. Jyeshtha/snron. Earth-Earth; 12 Feb 1836
+  Harshana/dga' ba, Vishti/viSTi, Monkey, dwa 4
+  Solar: Iron-Dragon. Gui
+  6;13,2 17;50,24 22;33,26 13;23,51 10;0,45
+26: Sat. Mula/snrubs. Earth-Water; 13 Feb 1836
+  Vajra/rdo rje, Valava/byis pa, Bird, khen 5
+  Solar: Iron-Snake. Liu
+  0;7,15 18;54,43 22;37,58 14;32,41 10;1,46
+27: Sun. Purvashadha/chu stod. Fire-Water; 14 Feb 1836
+  Siddhi/dngos grub, Taitila/til rdung, Dog, kham 6
+  Solar: Water-Horse. Xing
+  1;1,26 19;59,1 22;42,28 15;41,29 10;2,46
+28. Omitted.
+  1;55,38 22;46,58
+29: Mon. Abhijit/gro zhin. Water-Earth; 15 Feb 1836
+  Vyatipata/phan tshun, Vishti/viSTi, Mouse, zin 8
+  Solar: Water-Sheep. Zhang
+  2;50,48 21;6,39 22;51,27 16;58,6 10;4,46
+30: Tue. Dhanishtha/mon gre. Fire-Water; 16 Feb 1836
+  Parigha/yongs 'joms, Catushpada/rkang bzhi, Ox, zon 9
+  Solar: Wood-Monkey. Yi
+  3;46,59 22;8,58 22;55,57 18;4,55 10;5,46
+    nyi nag
+
+Mars, slow: 20;48,1,3,19 - fast: 21;35,32,4,155 East 9;17,53
+Jupiter, slow: 6;38,34,3,153 - fast: 6;2,57,1,277 West 2;20,39
+Saturn, slow: 13;54,29,2,3352 - fast: 14;20,39,3,4816 South 6;11,15
+Mercury, slow: 5;13,25,4,5702 - fast: 24;4,3,1,5619 South 10;20,54
+Venus, slow: 0;27,23,4,562 - fast: 24;47,43,5,720 East 11;0,36
+Rahu, head: 2;20,52,1,1
+

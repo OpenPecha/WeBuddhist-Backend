@@ -1,0 +1,1855 @@
+New Year: 1920, Iron-male-Monkey
+
+Tibetan Lunar Month: 1 - Earth-male-Tiger
+
+Month: 13777;17
+Anomaly: 5;29
+Mean Weekday: 5;19,9,2,34
+Mean Sun: 22;51,44,3,9
+
+1: Fri. Shatabhishaj/mon gru. Earth-Earth; 20 Feb 1920
+  Shiva/zhi ba, Kintughna/mi sdug pa, Tiger, li 1
+  Solar: Earth-Monkey. Gui
+  6;49,13 23;7,39 23;2,52 19;10,32 10;7,18
+  From 1st to 15th, Demonstration of Miracles.
+    zin phung
+2: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 21 Feb 1920
+  Siddha/grub pa, Valava/byis pa, Rabbit, khon 2
+  Solar: Earth-Bird. Liu
+  0;48,57 24;6,25 23;7,22 20;13,48 10;8,18
+3: Sun. Uttarabhadrapada/khrums smad. Fire-Water; 22 Feb 1920
+  Sadhya/bsgrub bya, Taitila/til rdung, Dragon, dwa 3
+  Solar: Iron-Dog. Xing
+  1;46,54 25;6,57 23;11,52 21;18,50 10;9,18
+4: Mon. Revati/nam gru. Water-Water; 23 Feb 1920
+  Shubha/dge ba, Vanija/tshong ba, Snake, khen 4
+  Solar: Iron-Pig. Zhang
+  2;43,52 26;8,29 23;16,22 22;24,51 10;10,18
+5: Tue. Ashvini/tha skar. Fire-Wind; 24 Feb 1920
+  Shukla/dkar po, Vava/gdab pa, Horse, kham 5
+  Solar: Water-Mouse. Yi
+  3;39,49 0;11,2 23;20,51 23;31,53 10;11,18
+    klu bzlog
+6: Wed. Bharani/bra nye. Water-Fire; 25 Feb 1920
+  Brahman/tshangs pa, Kaulava/rigs can, Sheep, gin 6
+  Solar: Water-Ox. Zhen
+  4;34,47 1;14,34 23;25,21 24;39,55 10;12,18
+7: Thu. Krittika/smin drug. Wind-Fire; 26 Feb 1920
+  Indra/dbang po, Gara/khyim skyes, Monkey, zin 7
+  Solar: Wood-Tiger. Jiao
+  5;28,58 2;18,52 23;29,51 25;48,43 10;13,18
+    zin phung, nyi nag ngan pa dgu 'dzom
+8: Fri. Rohini/snar ma. Earth-Earth; 27 Feb 1920
+  Vaidhriti/'khon 'dzin, Vava/gdab pa, Bird, zon 8
+  Solar: Wood-Rabbit. Kang
+  6;23,9 3;23,11 23;34,20 26;57,31 10;14,17
+9: Sat. Mrigashiras/mgo. Earth-Wind; 28 Feb 1920
+  Priti/mdza' bo, Kaulava/rigs can, Dog, li 9
+  Solar: Fire-Dragon. Di
+  0;17,21 4;27,29 23;38,50 1;6,19 10;15,17
+10: Sun. Ardra/lag. Fire-Water; 29 Feb 1920
+  Ayushmat/tshe dang ldan pa, Gara/khyim skyes, Pig, khon 1
+  Solar: Fire-Snake. Fang
+  1;11,32 5;31,47 23;43,20 2;15,8 10;16,17
+    klu bzlog
+11: Mon. Punarvasu/nabs so. Water-Wind; 1 Mar 1920
+  Saubhagya/skal bzang, Vishti/viSTi, Mouse, dwa 2
+  Solar: Earth-Horse. Xin
+  2;5,43 6;36,6 23;47,50 3;23,56 10;17,17
+12: Tue. Pushya/rgyal. Fire-Fire; 2 Mar 1920
+  Shobhana/dge byed, Valava/byis pa, Ox, khen 3
+  Solar: Earth-Sheep. Wei
+  3;0,9 7;40,10 23;52,19 4;32,30 10;18,17
+13. Omitted.
+  3;55,34 23;56,49
+14: Wed. Ashlesha/skag. Water-Water; 3 Mar 1920
+  Atiganda/shin tu 'grams, Gara/khyim skyes, Rabbit, gin 5
+  Solar: Iron-Monkey. Ji
+  4;51,59 8;45,19 24;1,19 5;46,38 10;20,17
+    klu thebs
+15: Thu. Magha/mchu. Wind-Fire; 4 Mar 1920
+  Sukarman/las bzang, Vishti/viSTi, Dragon, zin 6
+  Solar: Iron-Bird. Dou
+  5;49,25 9;46,23 24;5,48 6;52,12 10;21,17
+    klu bzlog
+
+Mars, slow: 12;2,58,2,130 - fast: 14;19,36,3,224 South 6;11,1
+Jupiter, slow: 8;52,0,3,357 - fast: 8;28,3,1,176 West 3;22,54
+Saturn, slow: 9;53,42,4,752 - fast: 9;50,14,3,1155 West 4;11,9
+Mercury, slow: 3;50,0,2,7606 - fast: 25;11,9,1,8303 East 11;5,48
+Venus, slow: 17;0,52,5,167 - fast: 21;17,34,0,401 North 9;13,54
+Rahu, head: 15;19,10,2,14
+
+16: Fri. Purvaphalguni/gre. Earth-Fire; 5 Mar 1920
+  Dhriti/'dzin byed, Valava/byis pa, Snake, zon 7
+  Solar: Water-Dog. Niu
+  6;48,4 10;46,13 24;10,18 7;56,32 10;22,17
+17: Sat. Uttaraphalguni/dbo. Earth-Wind; 6 Mar 1920
+  Shula/zug rngu, Taitila/til rdung, Horse, li 8
+  Solar: Water-Pig. Nu
+  0;48,30 11;44,17 24;14,48 8;59,6 10;23,17
+18: Sun. Hasta/me bzhi. Fire-Wind; 7 Mar 1920
+  Vriddhi/'phel, Vanija/tshong ba, Sheep, khon 9
+  Solar: Wood-Mouse. Xu
+  1;49,56 12;41,21 24;19,18 10;0,39 10;24,17
+19: Mon. Citra/nag pa. Water-Wind; 8 Mar 1920
+  Dhruva/brtan pa, Vava/gdab pa, Monkey, dwa 1
+  Solar: Wood-Ox. Wei
+  2;52,21 13;37,26 24;23,47 11;1,13 10;25,17
+    zin phung
+20: Tue. Svati/sa ri. Fire-Wind; 9 Mar 1920
+  Vyaghata/yongs bsnun, Valava/byis pa, Bird, khen 2
+  Solar: Fire-Tiger. Shi
+  3;55,47 14;32,30 24;28,17 12;0,47 10;26,17
+21: Wed. Vishakha/sa ga. Water-Fire; 10 Mar 1920
+  Vyaghata/yongs bsnun, Taitila/til rdung, Dog, kham 3
+  Solar: Fire-Rabbit. Bi
+  4;59,58 15;26,48 24;32,47 12;59,35 10;27,17
+22: Thu. Anuradha/lha mtshams. Wind-Earth; 11 Mar 1920
+  Vajra/rdo rje, Vanija/tshong ba, Pig, gin 4
+  Solar: Earth-Dragon. Kui
+  5;60,0 16;26,48 24;37,16 14;4,5 10;28,17
+22: Fri. Jyeshtha/snron. Earth-Earth; 12 Mar 1920
+  Vajra/rdo rje, Vava/gdab pa, Pig, gin 4
+  Solar: Earth-Snake. Lou
+  6;4,10 17;21,6 24;37,16 14;58,23 10;28,17
+23: Sat. Mula/snrubs. Earth-Water; 13 Mar 1920
+  Siddhi/dngos grub, Kaulava/rigs can, Mouse, zin 5
+  Solar: Iron-Horse. Wei
+  0;8,21 18;15,24 24;41,46 15;57,11 10;29,17
+24: Sun. Purvashadha/chu stod. Fire-Water; 14 Mar 1920
+  Vyatipata/phan tshun, Gara/khyim skyes, Ox, zon 6
+  Solar: Iron-Sheep. Mao
+  1;12,33 19;9,42 24;46,16 16;55,59 11;0,16
+25: Mon. Uttarashadha/chu smad. Water-Earth; 15 Mar 1920
+  Variyas/mchog can, Vishti/viSTi, Tiger, li 7
+  Solar: Water-Monkey. Bi
+  2;16,44 20;4,1 24;50,46 17;54,47 11;1,16
+    zin phung
+26: Tue. Uttarashadha/chu smad. Fire-Earth; 16 Mar 1920
+  Parigha/yongs 'joms, Valava/byis pa, Rabbit, khon 8
+  Solar: Water-Bird. Zui
+  3;20,41 20;58,33 24;55,15 18;53,48 11;2,16
+27: Wed. Abhijit/gro zhin. Water-Earth; 17 Mar 1920
+  Shiva/zhi ba, Taitila/til rdung, Dragon, dwa 9
+  Solar: Wood-Dog. Can
+  4;23,33 21;54,5 24;59,39 19;53,45 11;3,15
+28: Thu. Dhanishtha/mon gre. Wind-Water; 18 Mar 1920
+  Siddha/grub pa, Vanija/tshong ba, Snake, khen 1
+  Solar: Wood-Pig. Jing
+  5;25,24 22;50,38 25;4,3 20;54,41 11;4,14
+29: Fri. Shatabhishaj/mon gru. Earth-Earth; 19 Mar 1920
+  Sadhya/bsgrub bya, Shakuni/bkra shis, Horse, kham 2
+  Solar: Fire-Mouse. Gui
+  6;26,15 23;48,11 25;8,27 21;56,38 11;5,12
+30: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 20 Mar 1920
+  Shubha/dge ba, Naga/klu, Sheep, gin 3
+  Solar: Fire-Ox. Liu
+  0;25,53 24;46,57 25;12,50 22;59,48 11;6,11
+
+Mars, slow: 12;35,40,2,22 - fast: 14;12,36,4,63 South 6;9,28
+Jupiter, slow: 8;57,35,4,146 - fast: 8;22,49,3,287 West 3;21,44
+Saturn, slow: 9;56,13,3,2097 - fast: 9;44,34,3,3673 West 4;9,54
+Mercury, slow: 8;44,39,1,3425 - fast: 26;7,11,3,7966 South 11;18,15
+Venus, slow: 18;56,14,0,444 - fast: 22;41,20,0,283 North 10;2,31
+Rahu, head: 15;15,39,0,18
+
+Tibetan Lunar Month: 2 - Earth-female-Rabbit
+
+Month: 13778;19
+Anomaly: 7;30
+Mean Weekday: 6;50,59,2,514
+Mean Sun: 25;2,43,0,6
+
+1: Sun. Uttarabhadrapada/khrums smad. Fire-Water; 21 Mar 1920
+  Brahman/tshangs pa, Vava/gdab pa, Monkey, zin 4
+  Solar: Earth-Tiger. Xing
+  1;23,44 25;47,30 25;17,14 24;4,45 11;7,9
+    zin phung
+2: Mon. Revati/nam gru. Water-Water; 22 Mar 1920
+  Indra/dbang po, Kaulava/rigs can, Bird, zon 5
+  Solar: Earth-Rabbit. Zhang
+  2;20,35 26;49,3 25;21,38 25;10,41 11;8,8
+3: Tue. Ashvini/tha skar. Fire-Wind; 23 Mar 1920
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Dog, li 6
+  Solar: Iron-Dragon. Yi
+  3;16,26 0;51,35 25;26,2 26;17,38 11;9,7
+4: Wed. Bharani/bra nye. Water-Fire; 24 Mar 1920
+  Vishkambha/rnam sel, Vishti/viSTi, Pig, khon 7
+  Solar: Iron-Snake. Zhen
+  4;11,18 1;55,8 25;30,26 0;25,34 11;10,5
+5: Thu. Krittika/smin drug. Wind-Fire; 25 Mar 1920
+  Priti/mdza' bo, Valava/byis pa, Mouse, dwa 8
+  Solar: Water-Horse. Jiao
+  5;5,23 2;59,26 25;34,50 1;34,17 11;11,4
+6. Omitted.
+  5;59,29 25;39,14
+7: Fri. Mrigashiras/mgo. Earth-Wind; 26 Mar 1920
+  Ayushmat/tshe dang ldan pa, Gara/khyim skyes, Tiger, kham 1
+  Solar: Water-Sheep. Kang
+  6;53,34 4;8,3 25;43,38 2;51,41 11;13,1
+    zin phung
+8: Sat. Ardra/lag. Earth-Water; 27 Mar 1920
+  Shobhana/dge byed, Vishti/viSTi, Rabbit, gin 2
+  Solar: Wood-Monkey. Di
+  0;47,40 5;12,21 25;48,2 4;0,23 11;14,0
+    klu bzlog
+9: Sun. Punarvasu/nabs so. Fire-Wind; 28 Mar 1920
+  Atiganda/shin tu 'grams, Valava/byis pa, Dragon, zin 3
+  Solar: Wood-Bird. Fang
+  1;41,45 6;16,40 25;52,25 5;9,6 11;14,59
+10: Mon. Pushya/rgyal. Water-Fire; 29 Mar 1920
+  Sukarman/las bzang, Taitila/til rdung, Snake, zon 4
+  Solar: Fire-Dog. Xin
+  2;36,5 7;20,44 25;56,49 6;17,34 11;15,57
+    klu thebs
+11: Tue. Ashlesha/skag. Fire-Water; 30 Mar 1920
+  Dhriti/'dzin byed, Vanija/tshong ba, Horse, li 5
+  Solar: Fire-Pig. Wei
+  3;31,25 8;23,48 26;1,13 7;25,1 11;16,56
+    yan kwong
+12: Wed. Magha/mchu. Water-Fire; 31 Mar 1920
+  Shula/zug rngu, Vava/gdab pa, Sheep, khon 6
+  Solar: Earth-Mouse. Ji
+  4;27,45 9;25,51 26;5,37 8;31,29 11;17,55
+13: Thu. Purvaphalguni/gre. Wind-Fire; 1 Apr 1920
+  Ganda/'grams, Taitila/til rdung, Monkey, dwa 7
+  Solar: Earth-Ox. Dou
+  5;25,5 10;26,55 26;10,1 9;36,57 11;18,53
+    zin phung
+14: Fri. Uttaraphalguni/dbo. Earth-Wind; 2 Apr 1920
+  Vriddhi/'phel, Vanija/tshong ba, Bird, khen 8
+  Solar: Iron-Tiger. Niu
+  6;23,40 11;26,44 26;14,25 10;41,10 11;19,52
+    nyi nag
+15: Sat. Hasta/me bzhi. Earth-Wind; 3 Apr 1920
+  Dhruva/brtan pa, Vava/gdab pa, Dog, kham 9
+  Solar: Iron-Rabbit. Nu
+  0;24,0 12;24,48 26;18,49 11;43,37 11;20,50
+
+Mars, slow: 13;4,17,0,42 - fast: 13;50,21,2,56 South 6;4,31
+Jupiter, slow: 9;2,28,5,187 - fast: 8;18,54,3,175 West 3;20,52
+Saturn, slow: 9;58,25,3,2601 - fast: 9;40,36,4,643 West 4;9,1
+Mercury, slow: 13;2,28,0,7464 - fast: 25;14,51,0,3013 West 11;6,38
+Venus, slow: 20;37,10,1,31 - fast: 24;0,7,3,161 North 10;20,1
+Rahu, head: 15;12,7,4,22
+
+16: Sun. Citra/nag pa. Fire-Wind; 4 Apr 1920
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Pig, gin 1
+  Solar: Water-Dragon. Xu
+  1;25,20 13;21,52 26;23,13 12;45,5 11;21,49
+17: Mon. Svati/sa ri. Water-Wind; 5 Apr 1920
+  Harshana/dga' ba, Taitila/til rdung, Mouse, zin 2
+  Solar: Water-Snake. Wei
+  2;27,40 14;17,56 26;27,37 13;45,33 11;22,48
+18: Tue. Vishakha/sa ga. Fire-Fire; 6 Apr 1920
+  Vajra/rdo rje, Vanija/tshong ba, Ox, zon 3
+  Solar: Wood-Horse. Shi
+  3;31,1 15;12,59 26;32,0 14;45,0 11;23,46
+    klu bzlog
+19: Wed. Anuradha/lha mtshams. Water-Earth; 7 Apr 1920
+  Siddhi/dngos grub, Vava/gdab pa, Tiger, li 4
+  Solar: Wood-Sheep. Bi
+  4;35,6 16;7,17 26;36,24 15;43,42 11;24,45
+    zin phung
+20: Thu. Jyeshtha/snron. Wind-Earth; 8 Apr 1920
+  Vyatipata/phan tshun, Kaulava/rigs can, Rabbit, khon 5
+  Solar: Fire-Monkey. Kui
+  5;39,12 17;1,36 26;40,48 16;42,24 11;25,44
+    klu bzlog
+21: Fri. Jyeshtha/snron. Earth-Earth; 9 Apr 1920
+  Variyas/mchog can, Gara/khyim skyes, Dragon, dwa 6
+  Solar: Fire-Bird. Lou
+  6;43,18 17;55,54 26;45,12 17;41,6 11;26,42
+22: Sat. Mula/snrubs. Earth-Water; 10 Apr 1920
+  Parigha/yongs 'joms, Vishti/viSTi, Snake, khen 7
+  Solar: Earth-Dog. Wei
+  0;47,23 18;50,12 26;49,36 18;39,49 11;27,41
+    klu bzlog
+23: Sun. Purvashadha/chu stod. Fire-Water; 11 Apr 1920
+  Shiva/zhi ba, Valava/byis pa, Horse, kham 8
+  Solar: Earth-Pig. Mao
+  1;51,29 19;44,30 26;54,0 19;38,31 11;28,40
+24: Mon. Uttarashadha/chu smad. Water-Earth; 12 Apr 1920
+  Siddha/grub pa, Kaulava/rigs can, Sheep, gin 9
+  Solar: Iron-Mouse. Bi
+  2;55,20 20;39,3 26;58,24 20;37,27 11;29,38
+25: Tue. Abhijit/gro zhin. Fire-Earth; 13 Apr 1920
+  Sadhya/bsgrub bya, Gara/khyim skyes, Monkey, zin 1
+  Solar: Iron-Ox. Zui
+  3;58,11 21;34,36 0;2,48 21;37,24 0;0,37
+    zin phung
+26: Wed. Dhanishtha/mon gre. Water-Water; 14 Apr 1920
+  Shubha/dge ba, Vishti/viSTi, Bird, zon 2
+  Solar: Water-Tiger. Can
+  4;60,0 22;34,36 0;7,12 22;41,48 0;1,36
+26: Thu. Shatabhishaj/mon gru. Wind-Earth; 15 Apr 1920
+  Shukla/dkar po, Valava/byis pa, Bird, zon 2
+  Solar: Water-Rabbit. Jing
+  5;0,2 23;31,9 0;7,12 23;38,21 0;1,36
+27: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 16 Apr 1920
+  Brahman/tshangs pa, Taitila/til rdung, Dog, li 3
+  Solar: Wood-Dragon. Gui
+  6;0,53 24;28,42 0;11,35 24;40,17 0;2,34
+28: Sat. Uttarabhadrapada/khrums smad. Earth-Water; 17 Apr 1920
+  Indra/dbang po, Vanija/tshong ba, Pig, khon 4
+  Solar: Wood-Snake. Liu
+  0;0,25 25;27,30 0;15,55 25;43,25 0;3,32
+    klu bzlog
+29. Omitted.
+  0;58,12 0;20,15
+30: Sun. Revati/nam gru. Fire-Water; 18 Apr 1920
+  Vaidhriti/'khon 'dzin, Shakuni/bkra shis, Ox, khen 6
+  Solar: Fire-Horse. Xing
+  1;54,59 26;29,36 0;24,35 26;54,11 0;5,27
+
+Mars, slow: 13;36,37,3,35 - fast: 13;24,8,2,140 West 5;28,41
+Jupiter, slow: 9;7,43,0,102 - fast: 8;18,25,0,265 West 3;20,45
+Saturn, slow: 10;0,47,0,834 - fast: 9;37,55,2,1883 West 4;8,25
+Mercury, slow: 17;38,41,5,7393 - fast: 25;26,37,3,3386 West 11;9,15
+Venus, slow: 22;25,18,4,712 - fast: 25;21,4,4,526 North 11;8,1
+Rahu, head: 15;8,36,3,3
+
+Tibetan Lunar Month: 3 - Iron-male-Dragon
+
+Month: 13779;21
+Anomaly: 9;31
+Mean Weekday: 1;22,49,3,287
+Mean Sun: 0;13,41,3,3
+
+1: Mon. Ashvini/tha skar. Water-Wind; 19 Apr 1920
+  Priti/mdza' bo, Kintughna/mi sdug pa, Tiger, kham 7
+  Solar: Fire-Sheep. Zhang
+  2;50,46 0;32,9 0;28,55 1;1,4 0;6,25
+    zin phung
+2: Tue. Bharani/bra nye. Fire-Fire; 20 Apr 1920
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Rabbit, gin 8
+  Solar: Earth-Monkey. Yi
+  3;45,32 1;35,42 0;33,15 2;8,57 0;7,23
+3: Wed. Krittika/smin drug. Water-Fire; 21 Apr 1920
+  Saubhagya/skal bzang, Taitila/til rdung, Dragon, zin 9
+  Solar: Earth-Bird. Zhen
+  4;39,34 2;40,0 0;37,35 3;17,36 0;8,21
+4: Thu. Rohini/snar ma. Wind-Earth; 22 Apr 1920
+  Shobhana/dge byed, Vanija/tshong ba, Snake, zon 1
+  Solar: Iron-Dog. Jiao
+  5;33,36 3;44,19 0;41,55 4;26,14 0;9,18
+5: Fri. Mrigashiras/mgo. Earth-Wind; 23 Apr 1920
+  Atiganda/shin tu 'grams, Vava/gdab pa, Horse, li 2
+  Solar: Iron-Pig. Kang
+  6;27,37 4;48,37 0;46,15 5;34,53 0;10,16
+6: Sat. Ardra/lag. Earth-Water; 24 Apr 1920
+  Sukarman/las bzang, Taitila/til rdung, Sheep, khon 3
+  Solar: Water-Mouse. Di
+  0;21,39 5;52,55 0;50,35 6;43,31 0;11,14
+7: Sun. Punarvasu/nabs so. Fire-Wind; 25 Apr 1920
+  Dhriti/'dzin byed, Vanija/tshong ba, Monkey, dwa 4
+  Solar: Water-Ox. Fang
+  1;15,41 6;57,14 0;54,55 7;52,9 0;12,12
+    zin phung
+8: Mon. Ashlesha/skag. Water-Water; 26 Apr 1920
+  Ganda/'grams, Vava/gdab pa, Bird, khen 5
+  Solar: Wood-Tiger. Xin
+  2;9,57 8;1,17 0;59,15 9;0,33 0;13,10
+9: Tue. Magha/mchu. Fire-Fire; 27 Apr 1920
+  Vriddhi/'phel, Kaulava/rigs can, Dog, kham 6
+  Solar: Wood-Rabbit. Wei
+  3;5,14 9;4,21 1;3,35 10;7,56 0;14,7
+    yan kwong
+10: Wed. Purvaphalguni/gre. Water-Fire; 28 Apr 1920
+  Dhruva/brtan pa, Gara/khyim skyes, Pig, gin 7
+  Solar: Fire-Dragon. Ji
+  4;1,30 10;6,24 1;7,55 11;14,20 0;15,5
+11. Omitted.
+  4;58,47 1;12,15
+12: Thu. Uttaraphalguni/dbo. Wind-Wind; 29 Apr 1920
+  Vyaghata/yongs bsnun, Vishti/viSTi, Ox, zon 9
+  Solar: Fire-Snake. Dou
+  5;57,19 11;7,16 1;16,35 12;23,51 0;17,1
+13: Fri. Hasta/me bzhi. Earth-Wind; 30 Apr 1920
+  Harshana/dga' ba, Valava/byis pa, Tiger, li 1
+  Solar: Earth-Horse. Niu
+  6;57,35 12;5,19 1;20,55 13;26,15 0;17,59
+    zin phung
+14: Sat. Citra/nag pa. Earth-Wind; 1 May 1920
+  Vajra/rdo rje, Taitila/til rdung, Rabbit, khon 2
+  Solar: Earth-Sheep. Nu
+  0;58,52 13;2,22 1;25,15 14;27,38 0;18,56
+15: Sun. Svati/sa ri. Fire-Wind; 2 May 1920
+  Siddhi/dngos grub, Vanija/tshong ba, Dragon, dwa 3
+  Solar: Iron-Monkey. Xu
+  1;60,0 14;2,22 1;29,35 15;31,58 0;19,54
+  Revelation of the Kalacakra Tantra.
+15: Mon. Svati/sa ri. Water-Wind; 3 May 1920
+  Vyatipata/phan tshun, Vava/gdab pa, Dragon, dwa 3
+  Solar: Iron-Bird. Wei
+  2;1,9 14;58,26 1;29,35 16;28,1 0;19,54
+
+Mars, slow: 14;10,9,4,118 - fast: 13;5,8,2,87 West 5;24,28
+Jupiter, slow: 9;12,57,1,17 - fast: 8;21,3,2,146 North 3;21,20
+Saturn, slow: 10;3,8,2,4450 - fast: 9;36,36,2,1975 West 4;8,8
+Mercury, slow: 22;14,55,4,7322 - fast: 26;47,18,0,113 North 11;27,10
+Venus, slow: 24;13,27,2,644 - fast: 26;43,20,1,557 North 11;26,17
+Rahu, head: 15;5,5,1,7
+
+16: Tue. Vishakha/sa ga. Fire-Fire; 4 May 1920
+  Variyas/mchog can, Kaulava/rigs can, Snake, khen 4
+  Solar: Water-Dog. Shi
+  3;4,26 15;53,29 1;33,55 17;27,24 0;20,52
+17: Wed. Anuradha/lha mtshams. Water-Earth; 5 May 1920
+  Parigha/yongs 'joms, Gara/khyim skyes, Horse, kham 5
+  Solar: Water-Pig. Bi
+  4;8,28 16;47,47 1;38,15 18;26,2 0;21,50
+18: Thu. Jyeshtha/snron. Wind-Earth; 6 May 1920
+  Shiva/zhi ba, Vishti/viSTi, Sheep, gin 6
+  Solar: Wood-Mouse. Kui
+  5;12,29 17;42,5 1;42,35 19;24,41 0;22,47
+19: Fri. Mula/snrubs. Earth-Water; 7 May 1920
+  Siddha/grub pa, Valava/byis pa, Monkey, zin 7
+  Solar: Wood-Ox. Lou
+  6;16,31 18;36,23 1;46,55 20;23,19 0;23,45
+    zin phung
+20: Sat. Purvashadha/chu stod. Earth-Water; 8 May 1920
+  Sadhya/bsgrub bya, Taitila/til rdung, Bird, zon 8
+  Solar: Fire-Tiger. Wei
+  0;20,33 19;30,42 1;51,15 21;21,57 0;24,43
+21: Sun. Uttarashadha/chu smad. Fire-Earth; 9 May 1920
+  Shubha/dge ba, Vanija/tshong ba, Dog, li 9
+  Solar: Fire-Rabbit. Mao
+  1;24,35 20;25,0 1;55,35 22;20,35 0;25,41
+    nyi nag
+22: Mon. Abhijit/gro zhin. Water-Earth; 10 May 1920
+  Shukla/dkar po, Vishti/viSTi, Pig, khon 1
+  Solar: Earth-Dragon. Bi
+  2;28,21 21;19,33 1;59,55 23;19,29 0;26,39
+23: Tue. Dhanishtha/mon gre. Fire-Water; 11 May 1920
+  Brahman/tshangs pa, Valava/byis pa, Mouse, dwa 2
+  Solar: Earth-Snake. Zui
+  3;31,8 22;15,6 2;4,15 24;19,22 0;27,36
+24: Wed. Shatabhishaj/mon gru. Water-Earth; 12 May 1920
+  Indra/dbang po, Taitila/til rdung, Ox, khen 3
+  Solar: Iron-Horse. Can
+  4;32,55 23;11,40 2;8,35 25;20,15 0;28,34
+25: Thu. Purvabhadrapada/khrums stod. Wind-Fire; 13 May 1920
+  Vaidhriti/'khon 'dzin, Vanija/tshong ba, Tiger, kham 4
+  Solar: Iron-Sheep. Jing
+  5;33,41 24;9,13 2;12,55 26;22,9 0;29,32
+    klu thebs, zin phung
+26: Fri. Uttarabhadrapada/khrums smad. Earth-Water; 14 May 1920
+  Vishkambha/rnam sel, Vava/gdab pa, Rabbit, gin 5
+  Solar: Water-Monkey. Gui
+  6;33,13 25;8,2 2;17,15 0;25,18 1;0,30
+27: Sat. Revati/nam gru. Earth-Water; 15 May 1920
+  Priti/mdza' bo, Kaulava/rigs can, Dragon, zin 6
+  Solar: Water-Bird. Liu
+  0;30,59 26;8,35 2;21,35 1;30,11 1;1,27
+28: Sun. Ashvini/tha skar. Fire-Wind; 16 May 1920
+  Ayushmat/tshe dang ldan pa, Gara/khyim skyes, Snake, zon 7
+  Solar: Wood-Dog. Xing
+  1;27,45 0;10,9 2;25,54 2;36,3 1;2,25
+29: Mon. Bharani/bra nye. Water-Fire; 17 May 1920
+  Saubhagya/skal bzang, Shakuni/bkra shis, Horse, li 8
+  Solar: Wood-Pig. Zhang
+  2;23,25 1;12,42 2;30,8 3;42,51 1;3,21
+30: Tue. Krittika/smin drug. Fire-Fire; 18 May 1920
+  Shobhana/dge byed, Naga/klu, Sheep, khon 9
+  Solar: Fire-Mouse. Yi
+  3;18,6 2;16,16 2;34,22 4;50,39 1;4,18
+
+Mars, slow: 14;43,41,5,201 - fast: 12;56,4,3,163 West 5;22,27
+Jupiter, slow: 9;18,11,1,293 - fast: 8;27,24,1,199 North 3;22,45
+Saturn, slow: 10;5,29,5,2683 - fast: 9;37,29,5,2683 North 4;8,19
+Mercury, slow: 26;51,9,3,7251 - fast: 1;42,19,3,6887 North 0;22,44
+Venus, slow: 26;1,36,0,576 - fast: 1;4,52,0,645 North 0;14,24
+Rahu, head: 15;1,33,5,11
+
+Tibetan Lunar Month: 4 - Iron-female-Snake
+
+Month: 13780;23
+Anomaly: 11;32
+Mean Weekday: 2;54,39,4,60
+Mean Sun: 2;24,40,0,0
+
+1: Wed. Rohini/snar ma. Water-Earth; 19 May 1920
+  Atiganda/shin tu 'grams, Vava/gdab pa, Monkey, dwa 1
+  Solar: Fire-Ox. Zhen
+  4;12,2 3;20,34 2;38,37 5;59,11 1;5,14
+2: Thu. Mrigashiras/mgo. Wind-Wind; 20 May 1920
+  Dhriti/'dzin byed, Kaulava/rigs can, Bird, khen 2
+  Solar: Earth-Tiger. Jiao
+  5;5,57 4;24,53 2;42,51 7;7,44 1;6,11
+3. Omitted.
+  5;59,53 2;47,5
+4: Fri. Ardra/lag. Earth-Water; 21 May 1920
+  Shula/zug rngu, Vanija/tshong ba, Pig, gin 4
+  Solar: Earth-Rabbit. Kang
+  6;53,49 5;33,29 2;51,19 8;24,49 1;8,4
+5: Sat. Punarvasu/nabs so. Earth-Wind; 22 May 1920
+  Ganda/'grams, Vava/gdab pa, Mouse, zin 5
+  Solar: Iron-Dragon. Di
+  0;47,45 6;37,48 2;55,33 9;33,21 1;9,0
+6: Sun. Pushya/rgyal. Fire-Fire; 23 May 1920
+  Vriddhi/'phel, Kaulava/rigs can, Ox, zon 6
+  Solar: Iron-Snake. Fang
+  1;41,56 7;41,51 2;59,47 10;41,39 1;9,57
+    zin phung
+7: Mon. Ashlesha/skag. Water-Water; 24 May 1920
+  Dhruva/brtan pa, Gara/khyim skyes, Tiger, li 7
+  Solar: Water-Horse. Xin
+  2;37,7 8;44,54 3;4,2 11;48,56 1;10,53
+    yan kwong
+8: Tue. Magha/mchu. Fire-Fire; 25 May 1920
+  Vyaghata/yongs bsnun, Vishti/viSTi, Rabbit, khon 8
+  Solar: Water-Sheep. Wei
+  3;33,19 9;46,57 3;8,16 12;55,13 1;11,50
+  Birth of the Buddha.
+    klu thebs, nyi nag
+9: Wed. Purvaphalguni/gre. Water-Fire; 26 May 1920
+  Vajra/rdo rje, Valava/byis pa, Dragon, dwa 9
+  Solar: Wood-Monkey. Ji
+  4;30,30 10;48,0 3;12,30 14;0,30 1;12,46
+10: Thu. Uttaraphalguni/dbo. Wind-Wind; 27 May 1920
+  Siddhi/dngos grub, Taitila/til rdung, Snake, khen 1
+  Solar: Wood-Bird. Dou
+  5;28,56 11;47,47 3;16,44 15;4,32 1;13,43
+11: Fri. Hasta/me bzhi. Earth-Wind; 28 May 1920
+  Vyatipata/phan tshun, Vanija/tshong ba, Horse, kham 2
+  Solar: Fire-Dog. Niu
+  6;29,8 12;45,50 3;20,58 16;6,49 1;14,39
+12: Sat. Citra/nag pa. Earth-Wind; 29 May 1920
+  Variyas/mchog can, Vava/gdab pa, Sheep, gin 3
+  Solar: Fire-Pig. Nu
+  0;30,19 13;42,53 3;25,13 17;8,6 1;15,36
+    zin phung
+13: Sun. Svati/sa ri. Fire-Wind; 30 May 1920
+  Parigha/yongs 'joms, Kaulava/rigs can, Monkey, zin 4
+  Solar: Earth-Mouse. Xu
+  1;32,31 14;38,56 3;29,27 18;8,23 1;16,32
+14: Mon. Vishakha/sa ga. Water-Fire; 31 May 1920
+  Shiva/zhi ba, Gara/khyim skyes, Bird, zon 5
+  Solar: Earth-Ox. Wei
+  2;35,42 15;33,58 3;33,41 19;7,40 1;17,29
+15: Tue. Anuradha/lha mtshams. Fire-Earth; 1 Jun 1920
+  Siddha/grub pa, Vishti/viSTi, Dog, li 6
+  Solar: Iron-Tiger. Shi
+  3;39,38 16;28,17 3;37,55 20;6,12 1;18,25
+  Enlightenment and Parinirvana of the Buddha.
+    klu thebs
+
+Mars, slow: 15;15,0,0,80 - fast: 12;52,24,1,113 West 5;21,38
+Jupiter, slow: 9;23,4,2,334 - fast: 8;34,46,5,278 North 3;24,23
+Saturn, slow: 10;7,41,5,3187 - fast: 9;40,26,5,278 North 4;8,59
+Mercury, slow: 4;8,58,3,2493 - fast: 3;42,8,3,5356 East 1;19,21
+Venus, slow: 0;42,32,1,163 - fast: 2;23,29,0,735 North 1;1,53
+Rahu, head: 14;58,2,3,15
+
+16: Wed. Jyeshtha/snron. Water-Earth; 2 Jun 1920
+  Sadhya/bsgrub bya, Valava/byis pa, Pig, khon 7
+  Solar: Iron-Rabbit. Bi
+  4;43,34 17;22,35 3;42,9 21;4,44 1;19,22
+17: Thu. Mula/snrubs. Wind-Water; 3 Jun 1920
+  Shubha/dge ba, Taitila/til rdung, Mouse, dwa 8
+  Solar: Water-Dragon. Kui
+  5;47,30 18;16,53 3;46,24 22;3,17 1;20,18
+18: Fri. Purvashadha/chu stod. Earth-Water; 4 Jun 1920
+  Shukla/dkar po, Vanija/tshong ba, Ox, khen 9
+  Solar: Water-Snake. Lou
+  6;51,26 19;11,11 3;50,38 23;1,49 1;21,15
+    zin phung
+19: Sat. Uttarashadha/chu smad. Earth-Earth; 5 Jun 1920
+  Brahman/tshangs pa, Vishti/viSTi, Tiger, kham 1
+  Solar: Wood-Horse. Wei
+  0;55,22 20;5,29 3;54,52 24;0,22 1;22,11
+20: Sun. Abhijit/gro zhin. Fire-Earth; 6 Jun 1920
+  Brahman/tshangs pa, Valava/byis pa, Rabbit, gin 2
+  Solar: Wood-Sheep. Mao
+  1;59,2 21;0,3 3;59,6 24;59,10 1;23,8
+    klu bzlog
+21: Mon. Dhanishtha/mon gre. Water-Water; 7 Jun 1920
+  Vaidhriti/'khon 'dzin, Taitila/til rdung, Dragon, zin 3
+  Solar: Fire-Monkey. Bi
+  2;60,0 22;0,3 4;3,20 26;3,24 1;24,4
+21: Tue. Dhanishtha/mon gre. Fire-Water; 8 Jun 1920
+  Vaidhriti/'khon 'dzin, Vanija/tshong ba, Dragon, zin 3
+  Solar: Fire-Bird. Zui
+  3;1,43 22;55,37 4;3,20 26;58,58 1;24,4
+22: Wed. Shatabhishaj/mon gru. Water-Earth; 9 Jun 1920
+  Vishkambha/rnam sel, Vava/gdab pa, Snake, zon 4
+  Solar: Earth-Dog. Can
+  4;3,23 23;52,11 4;7,34 0;59,46 1;25,1
+23: Thu. Purvabhadrapada/khrums stod. Wind-Fire; 10 Jun 1920
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Horse, li 5
+  Solar: Earth-Pig. Jing
+  5;4,4 24;49,45 4;11,49 2;1,34 1;25,57
+24: Fri. Uttarabhadrapada/khrums smad. Earth-Water; 11 Jun 1920
+  Saubhagya/skal bzang, Gara/khyim skyes, Sheep, khon 6
+  Solar: Iron-Mouse. Gui
+  6;3,28 25;48,34 4;16,3 3;4,37 1;26,54
+    zin phung
+25: Sat. Revati/nam gru. Earth-Water; 12 Jun 1920
+  Shobhana/dge byed, Vishti/viSTi, Monkey, dwa 7
+  Solar: Iron-Ox. Liu
+  0;1,8 26;49,8 4;20,17 4;9,26 1;27,50
+    klu bzlog
+26. Omitted.
+  0;57,49 4;24,31
+27: Sun. Ashvini/tha skar. Fire-Wind; 13 Jun 1920
+  Atiganda/shin tu 'grams, Kaulava/rigs can, Dog, kham 9
+  Solar: Water-Tiger. Xing
+  1;53,29 0;53,16 4;28,45 5;22,2 1;29,43
+28: Mon. Bharani/bra nye. Water-Fire; 14 Jun 1920
+  Sukarman/las bzang, Gara/khyim skyes, Pig, gin 1
+  Solar: Water-Rabbit. Zhang
+  2;48,9 1;56,50 4;33,0 6;29,50 2;0,40
+29: Tue. Rohini/snar ma. Fire-Earth; 15 Jun 1920
+  Dhriti/'dzin byed, Vishti/viSTi, Mouse, zin 2
+  Solar: Wood-Dragon. Yi
+  3;42,4 3;1,8 4;37,13 7;38,21 2;1,36
+30: Wed. Mrigashiras/mgo. Water-Wind; 16 Jun 1920
+  Shula/zug rngu, Catushpada/rkang bzhi, Ox, zon 3
+  Solar: Wood-Snake. Zhen
+  4;35,56 4;5,27 4;41,23 8;46,50 2;2,31
+    zin phung
+
+Mars, slow: 15;51,6,4,120 - fast: 13;9,54,4,8 West 5;25,32
+Jupiter, slow: 9;28,18,3,249 - fast: 8;46,2,3,215 North 3;26,53
+Saturn, slow: 10;10,3,2,1420 - fast: 9;44,54,3,1510 North 4;9,58
+Mercury, slow: 8;45,12,2,2422 - fast: 5;44,15,4,536 East 2;16,30
+Venus, slow: 2;30,40,5,95 - fast: 3;45,23,4,380 North 1;20,5
+Rahu, head: 14;54,31,1,19
+
+Tibetan Lunar Month: 5 - Water-male-Horse
+
+Month: 13781;25
+Anomaly: 13;33
+Mean Weekday: 4;26,29,4,540
+Mean Sun: 4;35,38,2,10
+
+1: Thu. Ardra/lag. Wind-Water; 17 Jun 1920
+  Ganda/'grams, Kintughna/mi sdug pa, Tiger, li 4
+  Solar: Fire-Horse. Jiao
+  5;29,48 5;9,45 4;45,33 9;55,19 2;3,27
+2: Fri. Punarvasu/nabs so. Earth-Wind; 18 Jun 1920
+  Dhruva/brtan pa, Kaulava/rigs can, Rabbit, khon 5
+  Solar: Fire-Sheep. Kang
+  6;23,40 6;14,3 4;49,44 11;3,47 2;4,23
+3: Sat. Pushya/rgyal. Earth-Fire; 19 Jun 1920
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Dragon, dwa 6
+  Solar: Earth-Monkey. Di
+  0;17,32 7;18,22 4;53,54 12;12,16 2;5,18
+4: Sun. Ashlesha/skag. Fire-Water; 20 Jun 1920
+  Harshana/dga' ba, Vishti/viSTi, Snake, khen 7
+  Solar: Earth-Bird. Fang
+  1;11,39 8;22,24 4;58,4 13;20,29 2;6,14
+5: Mon. Magha/mchu. Water-Fire; 21 Jun 1920
+  Vajra/rdo rje, Valava/byis pa, Horse, kham 8
+  Solar: Iron-Dog. Xin
+  2;6,47 9;25,27 5;2,14 14;27,42 2;7,9
+    yan kwong
+6: Tue. Purvaphalguni/gre. Fire-Fire; 22 Jun 1920
+  Siddhi/dngos grub, Taitila/til rdung, Sheep, gin 9
+  Solar: Iron-Pig. Wei
+  3;2,55 10;27,29 5;6,25 15;33,55 2;8,5
+    zin phung
+7: Wed. Uttaraphalguni/dbo. Water-Wind; 23 Jun 1920
+  Vyatipata/phan tshun, Vanija/tshong ba, Monkey, zin 1
+  Solar: Water-Mouse. Ji
+  4;0,3 11;28,32 5;10,35 16;39,7 2;9,1
+8. Omitted.
+  4;58,26 5;14,45
+9: Thu. Hasta/me bzhi. Wind-Wind; 24 Jun 1920
+  Variyas/mchog can, Vava/gdab pa, Dog, li 3
+  Solar: Water-Ox. Dou
+  5;58,34 12;26,21 5;18,56 17;45,17 2;10,52
+10: Fri. Citra/nag pa. Earth-Wind; 25 Jun 1920
+  Parigha/yongs 'joms, Kaulava/rigs can, Pig, khon 4
+  Solar: Wood-Tiger. Niu
+  6;59,42 13;23,23 5;23,6 18;46,30 2;11,48
+11: Sat. Svati/sa ri. Earth-Wind; 26 Jun 1920
+  Shiva/zhi ba, Gara/khyim skyes, Mouse, dwa 5
+  Solar: Wood-Rabbit. Nu
+  0;60,0 14;23,23 5;27,16 19;50,40 2;12,43
+11: Sun. Vishakha/sa ga. Fire-Fire; 27 Jun 1920
+  Siddha/grub pa, Vishti/viSTi, Mouse, dwa 5
+  Solar: Fire-Dragon. Xu
+  1;1,50 15;19,26 5;27,16 20;46,42 2;12,43
+12: Mon. Anuradha/lha mtshams. Water-Earth; 28 Jun 1920
+  Sadhya/bsgrub bya, Valava/byis pa, Ox, khen 6
+  Solar: Fire-Snake. Wei
+  2;4,58 16;14,28 5;31,27 21;45,55 2;13,39
+    zin phung
+13: Tue. Jyeshtha/snron. Fire-Earth; 29 Jun 1920
+  Shubha/dge ba, Taitila/til rdung, Tiger, kham 7
+  Solar: Earth-Horse. Shi
+  3;8,50 17;8,46 5;35,37 22;44,23 2;14,34
+14: Wed. Mula/snrubs. Water-Water; 30 Jun 1920
+  Shukla/dkar po, Vanija/tshong ba, Rabbit, gin 8
+  Solar: Earth-Sheep. Bi
+  4;12,42 18;3,4 5;39,47 23;42,52 2;15,30
+15: Thu. Mula/snrubs. Wind-Water; 1 Jul 1920
+  Brahman/tshangs pa, Vava/gdab pa, Dragon, zin 9
+  Solar: Iron-Monkey. Kui
+  5;16,34 18;57,23 5;43,58 24;41,21 2;16,26
+    klu bzlog
+
+Mars, slow: 16;28,19,0,94 - fast: 13;34,58,0,211 West 6;1,6
+Jupiter, slow: 9;33,32,4,164 - fast: 8;57,33,2,149 North 3;29,27
+Saturn, slow: 10;12,24,4,5036 - fast: 9;50,19,4,449 North 4;11,11
+Mercury, slow: 13;21,26,1,2351 - fast: 7;26,53,4,2846 East 3;9,18
+Venus, slow: 4;18,49,3,27 - fast: 5;7,14,3,313 North 2;8,16
+Rahu, head: 14;51,0,0,0
+
+16: Fri. Purvashadha/chu stod. Earth-Water; 2 Jul 1920
+  Indra/dbang po, Kaulava/rigs can, Snake, zon 1
+  Solar: Iron-Bird. Lou
+  6;20,27 19;51,41 5;48,8 25;39,49 2;17,21
+    nyi nag
+17: Sat. Uttarashadha/chu smad. Earth-Earth; 3 Jul 1920
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Horse, li 2
+  Solar: Water-Dog. Wei
+  0;24,19 20;45,59 5;52,18 26;38,17 2;18,17
+18: Sun. Abhijit/gro zhin. Fire-Earth; 4 Jul 1920
+  Vishkambha/rnam sel, Vanija/tshong ba, Sheep, khon 3
+  Solar: Water-Pig. Mao
+  1;27,55 21;40,33 5;56,28 0;37,2 2;19,13
+    zin phung
+19: Mon. Dhanishtha/mon gre. Water-Water; 5 Jul 1920
+  Priti/mdza' bo, Vava/gdab pa, Monkey, dwa 4
+  Solar: Wood-Mouse. Bi
+  2;30,31 22;36,7 6;0,39 1;36,47 2;20,8
+20: Tue. Shatabhishaj/mon gru. Fire-Earth; 6 Jul 1920
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Bird, khen 5
+  Solar: Wood-Ox. Zui
+  3;32,7 23;32,42 6;4,49 2;37,31 2;21,4
+    klu thebs
+21: Wed. Purvabhadrapada/khrums stod. Water-Fire; 7 Jul 1920
+  Saubhagya/skal bzang, Gara/khyim skyes, Dog, kham 6
+  Solar: Fire-Tiger. Can
+  4;32,43 24;30,16 6;8,59 3;39,16 2;21,59
+22: Thu. Uttarabhadrapada/khrums smad. Wind-Water; 8 Jul 1920
+  Shobhana/dge byed, Vishti/viSTi, Pig, gin 7
+  Solar: Fire-Rabbit. Jing
+  5;32,3 25;29,6 6;13,10 4;42,17 2;22,55
+    klu thebs
+23: Fri. Revati/nam gru. Earth-Water; 9 Jul 1920
+  Atiganda/shin tu 'grams, Valava/byis pa, Mouse, zin 8
+  Solar: Earth-Dragon. Gui
+  6;29,39 26;29,41 6;17,20 5;47,1 2;23,51
+24: Sat. Ashvini/tha skar. Earth-Wind; 10 Jul 1920
+  Sukarman/las bzang, Gara/khyim skyes, Ox, zon 9
+  Solar: Earth-Snake. Liu
+  0;26,15 0;31,15 6;21,30 6;52,46 2;24,46
+    zin phung
+25: Sun. Bharani/bra nye. Fire-Fire; 11 Jul 1920
+  Dhriti/'dzin byed, Vishti/viSTi, Tiger, li 1
+  Solar: Iron-Horse. Xing
+  1;21,51 1;33,50 6;25,41 7;59,31 2;25,42
+26: Mon. Krittika/smin drug. Water-Fire; 12 Jul 1920
+  Ganda/'grams, Valava/byis pa, Rabbit, khon 2
+  Solar: Iron-Sheep. Zhang
+  2;16,26 2;37,24 6;29,51 9;7,15 2;26,38
+27: Tue. Rohini/snar ma. Fire-Earth; 13 Jul 1920
+  Vriddhi/'phel, Taitila/til rdung, Dragon, dwa 3
+  Solar: Water-Monkey. Yi
+  3;10,18 3;41,42 6;34,1 10;15,44 2;27,33
+28: Wed. Mrigashiras/mgo. Water-Wind; 14 Jul 1920
+  Dhruva/brtan pa, Vanija/tshong ba, Snake, khen 4
+  Solar: Water-Bird. Zhen
+  4;4,10 4;46,1 6;38,12 11;24,13 2;28,29
+29. Omitted.
+  4;58,2 6;42,22
+30: Thu. Ardra/lag. Wind-Water; 15 Jul 1920
+  Vyaghata/yongs bsnun, Catushpada/rkang bzhi, Sheep, gin 6
+  Solar: Wood-Dog. Jiao
+  5;51,54 5;54,37 6;46,32 12;41,10 3;0,20
+    zin phung
+
+Mars, slow: 17;3,2,3,85 - fast: 14;4,3,1,131 West 6;7,34
+Jupiter, slow: 9;38,25,5,205 - fast: 9;10,39,3,167 North 4;2,22
+Saturn, slow: 10;14,36,5,157 - fast: 9;56,44,5,339 North 4;12,36
+Mercury, slow: 17;39,15,0,6390 - fast: 8;27,25,0,4975 South 3;22,45
+Venus, slow: 5;59,45,3,363 - fast: 6;26,5,0,295 North 2;25,47
+Rahu, head: 14;47,28,4,4
+
+Tibetan Lunar Month: 6 - Water-female-Sheep
+
+Month: 13782;27
+Anomaly: 15;34
+Mean Weekday: 5;58,19,5,313
+Mean Sun: 6;46,36,5,7
+
+1: Fri. Punarvasu/nabs so. Earth-Wind; 16 Jul 1920
+  Harshana/dga' ba, Kintughna/mi sdug pa, Monkey, zin 7
+  Solar: Wood-Pig. Kang
+  6;45,46 6;58,56 6;50,42 13;49,39 3;1,16
+2: Sat. Ashlesha/skag. Earth-Water; 17 Jul 1920
+  Vajra/rdo rje, Valava/byis pa, Bird, zon 8
+  Solar: Fire-Mouse. Di
+  0;39,54 8;2,58 6;54,53 14;57,51 3;2,11
+3: Sun. Magha/mchu. Fire-Fire; 18 Jul 1920
+  Vyatipata/phan tshun, Taitila/til rdung, Dog, li 9
+  Solar: Fire-Ox. Fang
+  1;35,2 9;6,0 6;59,3 16;5,4 3;3,7
+    yan kwong
+4: Mon. Purvaphalguni/gre. Water-Fire; 19 Jul 1920
+  Variyas/mchog can, Vanija/tshong ba, Pig, khon 1
+  Solar: Earth-Tiger. Xin
+  2;31,11 10;8,2 7;3,13 17;11,16 3;4,3
+  Turning of the Wheel of the Dharma.
+5: Tue. Uttaraphalguni/dbo. Fire-Wind; 20 Jul 1920
+  Parigha/yongs 'joms, Vava/gdab pa, Mouse, dwa 2
+  Solar: Earth-Rabbit. Wei
+  3;28,19 11;9,4 7;7,24 18;16,28 3;4,58
+    klu thebs
+6: Wed. Hasta/me bzhi. Water-Wind; 21 Jul 1920
+  Shiva/zhi ba, Taitila/til rdung, Ox, khen 3
+  Solar: Iron-Dragon. Ji
+  4;26,44 12;8,50 7;11,34 19;20,24 3;5,54
+    zin phung
+7: Thu. Citra/nag pa. Wind-Wind; 22 Jul 1920
+  Siddha/grub pa, Vanija/tshong ba, Tiger, kham 4
+  Solar: Iron-Snake. Dou
+  5;26,52 13;6,52 7;15,44 20;22,36 3;6,49
+8: Fri. Svati/sa ri. Earth-Wind; 23 Jul 1920
+  Sadhya/bsgrub bya, Vishti/viSTi, Rabbit, gin 5
+  Solar: Water-Horse. Niu
+  6;28,0 14;3,54 7;19,55 21;23,49 3;7,45
+9: Sat. Svati/sa ri. Earth-Wind; 24 Jul 1920
+  Shubha/dge ba, Valava/byis pa, Dragon, zin 6
+  Solar: Water-Sheep. Nu
+  0;30,9 14;59,56 7;24,5 22;24,1 3;8,41
+10: Sun. Vishakha/sa ga. Fire-Fire; 25 Jul 1920
+  Shukla/dkar po, Taitila/til rdung, Snake, zon 7
+  Solar: Wood-Monkey. Xu
+  1;33,17 15;54,58 7;28,15 23;23,13 3;9,36
+11: Mon. Anuradha/lha mtshams. Water-Earth; 26 Jul 1920
+  Brahman/tshangs pa, Vanija/tshong ba, Horse, li 8
+  Solar: Wood-Bird. Wei
+  2;37,9 16;49,16 7;32,26 24;21,42 3;10,32
+    klu bzlog
+12: Tue. Jyeshtha/snron. Fire-Earth; 27 Jul 1920
+  Indra/dbang po, Vava/gdab pa, Sheep, khon 9
+  Solar: Fire-Dog. Shi
+  3;41,1 17;43,34 7;36,36 25;20,10 3;11,28
+    zin phung
+13: Wed. Mula/snrubs. Water-Water; 28 Jul 1920
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Monkey, dwa 1
+  Solar: Fire-Pig. Bi
+  4;44,53 18;37,52 7;40,46 26;18,39 3;12,23
+    klu bzlog
+14: Thu. Purvashadha/chu stod. Wind-Water; 29 Jul 1920
+  Vishkambha/rnam sel, Gara/khyim skyes, Bird, khen 2
+  Solar: Earth-Mouse. Kui
+  5;48,46 19;32,10 7;44,56 0;17,7 3;13,19
+15: Fri. Uttarashadha/chu smad. Earth-Earth; 30 Jul 1920
+  Priti/mdza' bo, Vishti/viSTi, Dog, kham 3
+  Solar: Earth-Ox. Lou
+  6;52,38 20;26,29 7;49,7 1;15,36 3;14,14
+  The Buddha's entry into the womb of his mother.
+    klu bzlog
+
+Mars, slow: 17;40,14,5,59 - fast: 14;38,50,2,146 North 6;15,17
+Jupiter, slow: 9;43,40,0,120 - fast: 9;25,4,2,155 North 4;5,34
+Saturn, slow: 10;16,58,1,3773 - fast: 10;3,53,5,3424 North 4;14,11
+Mercury, slow: 22;15,28,5,6319 - fast: 7;32,50,3,1923 West 3;10,37
+Venus, slow: 7;47,54,1,295 - fast: 7;47,55,4,607 North 3;13,59
+Rahu, head: 14;43,57,2,8
+
+16: Sat. Abhijit/gro zhin. Earth-Earth; 31 Jul 1920
+  Ayushmat/tshe dang ldan pa, Vava/gdab pa, Pig, gin 4
+  Solar: Iron-Tiger. Wei
+  0;56,13 21;21,3 7;53,17 2;14,21 3;15,10
+17: Sun. Dhanishtha/mon gre. Fire-Water; 1 Aug 1920
+  Saubhagya/skal bzang, Kaulava/rigs can, Mouse, zin 5
+  Solar: Iron-Rabbit. Mao
+  1;58,49 22;16,38 7;57,27 3;14,6 3;16,6
+18: Mon. Shatabhishaj/mon gru. Water-Earth; 2 Aug 1920
+  Shobhana/dge byed, Gara/khyim skyes, Ox, zon 6
+  Solar: Water-Dragon. Bi
+  2;60,0 23;16,38 8;1,38 4;18,16 3;17,1
+    zin phung
+18: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 3 Aug 1920
+  Atiganda/shin tu 'grams, Vishti/viSTi, Ox, zon 6
+  Solar: Water-Snake. Zui
+  3;0,25 24;13,12 8;1,38 5;14,50 3;17,1
+19: Wed. Uttarabhadrapada/khrums smad. Water-Water; 4 Aug 1920
+  Sukarman/las bzang, Valava/byis pa, Tiger, li 7
+  Solar: Wood-Horse. Can
+  4;1,0 25;10,47 8;5,48 6;16,36 3;17,57
+20: Thu. Revati/nam gru. Wind-Water; 5 Aug 1920
+  Dhriti/'dzin byed, Taitila/til rdung, Rabbit, khon 8
+  Solar: Wood-Sheep. Jing
+  5;0,19 26;9,39 8;9,58 7;19,37 3;18,53
+    klu thebs
+21. Omitted.
+  5;57,55 8;14,9
+22: Fri. Ashvini/tha skar. Earth-Wind; 6 Aug 1920
+  Shula/zug rngu, Vanija/tshong ba, Snake, khen 1
+  Solar: Fire-Monkey. Gui
+  6;54,30 0;11,48 8;18,19 8;30,8 3;20,44
+23: Sat. Bharani/bra nye. Earth-Fire; 7 Aug 1920
+  Ganda/'grams, Valava/byis pa, Horse, kham 2
+  Solar: Fire-Bird. Liu
+  0;50,6 1;14,23 8;22,29 9;36,53 3;21,39
+    klu bzlog
+24: Sun. Krittika/smin drug. Fire-Fire; 8 Aug 1920
+  Vriddhi/'phel, Taitila/til rdung, Sheep, gin 3
+  Solar: Earth-Dog. Xing
+  1;44,41 2;17,58 8;26,39 10;44,38 3;22,35
+    zin phung, nyi nag
+25: Mon. Rohini/snar ma. Water-Earth; 9 Aug 1920
+  Dhruva/brtan pa, Vanija/tshong ba, Monkey, zin 4
+  Solar: Earth-Pig. Zhang
+  2;38,33 3;22,16 8;30,50 11;53,7 3;23,31
+    klu thebs
+26: Tue. Mrigashiras/mgo. Fire-Wind; 10 Aug 1920
+  Harshana/dga' ba, Vava/gdab pa, Bird, zon 5
+  Solar: Iron-Mouse. Yi
+  3;32,25 4;26,35 8;35,0 13;1,35 3;24,26
+27: Wed. Ardra/lag. Water-Water; 11 Aug 1920
+  Vajra/rdo rje, Taitila/til rdung, Dog, li 6
+  Solar: Iron-Ox. Zhen
+  4;26,17 5;30,53 8;39,10 14;10,4 3;25,22
+28: Thu. Punarvasu/nabs so. Wind-Wind; 12 Aug 1920
+  Siddhi/dngos grub, Vanija/tshong ba, Pig, khon 7
+  Solar: Water-Tiger. Jiao
+  5;20,9 6;35,11 8;43,21 15;18,33 3;26,18
+29: Fri. Pushya/rgyal. Earth-Fire; 13 Aug 1920
+  Vyatipata/phan tshun, Shakuni/bkra shis, Mouse, dwa 8
+  Solar: Water-Rabbit. Kang
+  6;14,1 7;39,30 8;47,31 16;27,1 3;27,13
+30: Sat. Ashlesha/skag. Earth-Water; 14 Aug 1920
+  Variyas/mchog can, Naga/klu, Ox, khen 9
+  Solar: Wood-Dragon. Di
+  0;8,9 8;43,31 8;51,41 17;35,13 3;28,9
+    zin phung
+
+Mars, slow: 18;19,48,4,92 - fast: 15;19,42,0,90 North 6;24,22
+Jupiter, slow: 9;48,54,1,35 - fast: 9;40,21,0,107 North 4;8,58
+Saturn, slow: 10;19,19,4,2006 - fast: 10;11,31,0,1079 North 4;15,53
+Mercury, slow: 26;51,42,4,6248 - fast: 7;41,11,2,3733 West 3;12,29
+Venus, slow: 9;36,2,5,227 - fast: 9;9,57,3,680 East 4;2,12
+Rahu, head: 14;40,26,0,12
+
+Tibetan Lunar Month: 7 - Wood-male-Monkey
+
+Month: 13783;29
+Anomaly: 17;35
+Mean Weekday: 0;30,10,0,86
+Mean Sun: 8;57,35,2,4
+
+1: Sun. Magha/mchu. Fire-Fire; 15 Aug 1920
+  Parigha/yongs 'joms, Vava/gdab pa, Tiger, kham 1
+  Solar: Wood-Snake. Fang
+  1;3,20 9;46,33 8;55,53 18;42,27 3;29,5
+    yan kwong
+2. Omitted.
+  1;59,32 9;0,8
+3: Mon. Purvaphalguni/gre. Water-Fire; 16 Aug 1920
+  Shiva/zhi ba, Kaulava/rigs can, Dragon, zin 3
+  Solar: Fire-Horse. Xin
+  2;56,45 10;49,36 9;4,22 19;53,59 4;0,58
+    zin phung
+4: Tue. Uttaraphalguni/dbo. Fire-Wind; 17 Aug 1920
+  Siddha/grub pa, Gara/khyim skyes, Snake, zon 4
+  Solar: Fire-Sheep. Wei
+  3;55,14 11;49,21 9;8,36 20;57,58 4;1,54
+5: Wed. Hasta/me bzhi. Water-Wind; 18 Aug 1920
+  Shubha/dge ba, Vishti/viSTi, Horse, li 5
+  Solar: Earth-Monkey. Ji
+  4;55,27 12;47,23 9;12,50 22;0,13 4;2,51
+    klu bzlog
+6: Thu. Citra/nag pa. Wind-Wind; 19 Aug 1920
+  Shukla/dkar po, Valava/byis pa, Sheep, khon 6
+  Solar: Earth-Bird. Dou
+  5;56,40 13;44,24 9;17,4 23;1,29 4;3,47
+    klu bzlog
+7: Fri. Svati/sa ri. Earth-Wind; 20 Aug 1920
+  Brahman/tshangs pa, Taitila/til rdung, Monkey, dwa 7
+  Solar: Iron-Dog. Niu
+  6;58,52 14;40,26 9;21,18 24;1,44 4;4,44
+8: Sat. Vishakha/sa ga. Earth-Fire; 21 Aug 1920
+  Indra/dbang po, Vanija/tshong ba, Bird, khen 8
+  Solar: Iron-Pig. Nu
+  0;60,0 15;40,26 9;25,33 25;5,59 4;5,40
+8: Sun. Anuradha/lha mtshams. Fire-Earth; 22 Aug 1920
+  Vaidhriti/'khon 'dzin, Vava/gdab pa, Bird, khen 8
+  Solar: Water-Mouse. Xu
+  1;2,5 16;35,27 9;25,33 26;1,0 4;5,40
+9: Mon. Jyeshtha/snron. Water-Earth; 23 Aug 1920
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Dog, kham 9
+  Solar: Water-Ox. Wei
+  2;6,1 17;29,45 9;29,47 26;59,33 4;6,37
+    klu thebs, zin phung, nyi nag
+10: Tue. Mula/snrubs. Fire-Water; 24 Aug 1920
+  Vishkambha/rnam sel, Gara/khyim skyes, Pig, gin 1
+  Solar: Wood-Tiger. Shi
+  3;9,57 18;24,3 9;34,1 0;58,5 4;7,33
+11: Wed. Purvashadha/chu stod. Water-Water; 25 Aug 1920
+  Priti/mdza' bo, Vishti/viSTi, Mouse, zin 2
+  Solar: Wood-Rabbit. Bi
+  4;13,53 19;18,22 9;38,15 1;56,37 4;8,30
+12: Thu. Uttarashadha/chu smad. Wind-Earth; 26 Aug 1920
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Ox, zon 3
+  Solar: Fire-Dragon. Kui
+  5;17,49 20;12,40 9;42,29 2;55,10 4;9,26
+13: Fri. Abhijit/gro zhin. Earth-Earth; 27 Aug 1920
+  Saubhagya/skal bzang, Taitila/til rdung, Tiger, li 4
+  Solar: Fire-Snake. Lou
+  6;21,45 21;6,58 9;46,44 3;53,42 4;10,23
+14: Sat. Dhanishtha/mon gre. Earth-Water; 28 Aug 1920
+  Shobhana/dge byed, Vanija/tshong ba, Rabbit, khon 5
+  Solar: Earth-Horse. Wei
+  0;25,24 22;1,33 9;50,58 4;52,31 4;11,19
+15: Sun. Dhanishtha/mon gre. Fire-Water; 29 Aug 1920
+  Atiganda/shin tu 'grams, Vishti/viSTi, Dragon, dwa 6
+  Solar: Earth-Sheep. Mao
+  1;28,3 22;57,8 9;55,12 5;52,21 4;12,16
+    zin phung
+
+Mars, slow: 18;59,53,5,193 - fast: 16;1,28,5,125 North 7;3,39
+Jupiter, slow: 9;54,8,1,311 - fast: 9;55,37,4,60 East 4;12,21
+Saturn, slow: 10;21,41,1,239 - fast: 10;19,49,3,587 North 4;17,44
+Mercury, slow: 4;27,56,3,6177 - fast: 8;58,38,2,3094 North 3;29,41
+Venus, slow: 11;24,11,3,159 - fast: 10;32,5,2,138 East 4;20,27
+Rahu, head: 14;36,54,4,16
+
+16: Mon. Shatabhishaj/mon gru. Water-Earth; 30 Aug 1920
+  Sukarman/las bzang, Valava/byis pa, Snake, khen 7
+  Solar: Iron-Monkey. Bi
+  2;29,42 23;53,43 9;59,26 6;53,10 4;13,12
+17: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 31 Aug 1920
+  Dhriti/'dzin byed, Taitila/til rdung, Horse, kham 8
+  Solar: Iron-Bird. Zui
+  3;30,21 24;51,19 10;3,40 7;54,59 4;14,9
+18: Wed. Uttarabhadrapada/khrums smad. Water-Water; 1 Sep 1920
+  Shula/zug rngu, Vanija/tshong ba, Sheep, gin 9
+  Solar: Water-Dog. Can
+  4;29,43 25;50,11 10;7,55 8;58,6 4;15,5
+19: Thu. Revati/nam gru. Wind-Water; 2 Sep 1920
+  Vriddhi/'phel, Vava/gdab pa, Monkey, zin 1
+  Solar: Water-Pig. Jing
+  5;27,22 26;50,46 10;12,9 10;2,55 4;16,2
+    klu thebs
+20: Fri. Ashvini/tha skar. Earth-Wind; 3 Sep 1920
+  Dhruva/brtan pa, Taitila/til rdung, Bird, zon 2
+  Solar: Wood-Mouse. Gui
+  6;24,1 0;52,21 10;16,23 11;8,45 4;16,58
+21: Sat. Bharani/bra nye. Earth-Fire; 4 Sep 1920
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Dog, li 3
+  Solar: Wood-Ox. Liu
+  0;19,40 1;54,57 10;20,37 12;15,34 4;17,55
+    zin phung
+22: Sun. Krittika/smin drug. Fire-Fire; 5 Sep 1920
+  Harshana/dga' ba, Vava/gdab pa, Pig, khon 4
+  Solar: Fire-Tiger. Xing
+  1;14,19 2;58,32 10;24,51 13;23,24 4;18,51
+23: Mon. Mrigashiras/mgo. Water-Wind; 6 Sep 1920
+  Vajra/rdo rje, Kaulava/rigs can, Mouse, dwa 5
+  Solar: Fire-Rabbit. Zhang
+  2;8,15 4;2,50 10;29,5 14;31,56 4;19,47
+24: Tue. Ardra/lag. Fire-Water; 7 Sep 1920
+  Siddhi/dngos grub, Gara/khyim skyes, Ox, khen 6
+  Solar: Earth-Dragon. Yi
+  3;2,10 5;7,9 10;33,20 15;40,29 4;20,44
+25. Omitted.
+  3;56,6 10;37,34
+26: Wed. Punarvasu/nabs so. Water-Wind; 8 Sep 1920
+  Vyatipata/phan tshun, Vava/gdab pa, Rabbit, gin 8
+  Solar: Earth-Snake. Zhen
+  4;50,2 6;15,45 10;41,48 16;57,34 4;22,37
+27: Thu. Pushya/rgyal. Wind-Fire; 9 Sep 1920
+  Parigha/yongs 'joms, Kaulava/rigs can, Dragon, zin 9
+  Solar: Iron-Horse. Jiao
+  5;43,58 7;20,4 10;46,2 18;6,6 4;23,33
+    zin phung
+28: Fri. Ashlesha/skag. Earth-Water; 10 Sep 1920
+  Shiva/zhi ba, Gara/khyim skyes, Snake, zon 1
+  Solar: Iron-Sheep. Kang
+  6;38,11 8;24,5 10;50,16 19;14,22 4;24,30
+29: Sat. Magha/mchu. Earth-Fire; 11 Sep 1920
+  Siddha/grub pa, Vishti/viSTi, Horse, li 2
+  Solar: Water-Monkey. Di
+  0;33,24 9;27,6 10;54,31 20;21,37 4;25,26
+    yan kwong
+30: Sun. Purvaphalguni/gre. Fire-Fire; 12 Sep 1920
+  Sadhya/bsgrub bya, Catushpada/rkang bzhi, Sheep, khon 3
+  Solar: Water-Bird. Fang
+  1;29,37 10;29,7 10;58,45 21;27,53 4;26,23
+
+Mars, slow: 19;37,18,5,43 - fast: 16;44,2,3,152 North 7;13,7
+Jupiter, slow: 9;58,58,3,249 - fast: 10;10,34,2,332 East 4;15,40
+Saturn, slow: 10;23,53,1,743 - fast: 10;28,21,1,2863 East 4;19,38
+Mercury, slow: 8;45,45,3,1419 - fast: 10;44,28,1,1708 North 4;23,12
+Venus, slow: 13;5,7,3,495 - fast: 11;51,42,5,369 East 5;8,9
+Rahu, head: 14;33,23,2,20
+
+Tibetan Lunar Month: 8 - Wood-female-Bird
+
+Month: 13784;31
+Anomaly: 19;36
+Mean Weekday: 2;2,0,0,566
+Mean Sun: 11;8,33,5,1
+
+1: Mon. Uttaraphalguni/dbo. Water-Wind; 13 Sep 1920
+  Shubha/dge ba, Vava/gdab pa, Monkey, dwa 4
+  Solar: Wood-Dog. Xin
+  2;26,50 11;30,9 11;2,59 22;33,8 4;27,19
+2: Tue. Hasta/me bzhi. Fire-Wind; 14 Sep 1920
+  Shukla/dkar po, Kaulava/rigs can, Bird, khen 5
+  Solar: Wood-Pig. Wei
+  3;25,23 12;29,53 11;7,16 23;37,9 4;28,17
+3: Wed. Citra/nag pa. Water-Wind; 15 Sep 1920
+  Brahman/tshangs pa, Gara/khyim skyes, Dog, kham 6
+  Solar: Fire-Mouse. Ji
+  4;25,42 13;27,54 11;11,36 24;39,30 4;29,14
+    klu bzlog, zin phung
+4: Thu. Svati/sa ri. Wind-Wind; 16 Sep 1920
+  Indra/dbang po, Vanija/tshong ba, Pig, gin 7
+  Solar: Fire-Ox. Dou
+  5;27,1 14;24,55 11;15,56 25;40,51 5;0,12
+5: Fri. Vishakha/sa ga. Earth-Fire; 17 Sep 1920
+  Vaidhriti/'khon 'dzin, Vava/gdab pa, Mouse, zin 8
+  Solar: Earth-Tiger. Niu
+  6;29,20 15;20,56 11;20,16 26;41,12 5;1,10
+    klu thebs
+6: Sat. Anuradha/lha mtshams. Earth-Earth; 18 Sep 1920
+  Vishkambha/rnam sel, Kaulava/rigs can, Ox, zon 9
+  Solar: Earth-Rabbit. Nu
+  0;32,39 16;15,57 11;24,36 0;40,33 5;2,8
+    klu bzlog
+7: Sun. Jyeshtha/snron. Fire-Earth; 19 Sep 1920
+  Priti/mdza' bo, Gara/khyim skyes, Tiger, li 1
+  Solar: Iron-Dragon. Xu
+  1;36,41 17;10,15 11;28,56 1;39,12 5;3,5
+8: Mon. Mula/snrubs. Water-Water; 20 Sep 1920
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Rabbit, khon 2
+  Solar: Iron-Snake. Wei
+  2;40,43 18;4,33 11;33,16 2;37,50 5;4,3
+9: Tue. Mula/snrubs. Fire-Water; 21 Sep 1920
+  Saubhagya/skal bzang, Valava/byis pa, Dragon, dwa 3
+  Solar: Water-Horse. Shi
+  3;44,44 18;58,51 11;37,36 3;36,28 5;5,1
+    klu bzlog, zin phung
+10: Wed. Purvashadha/chu stod. Water-Water; 22 Sep 1920
+  Shobhana/dge byed, Taitila/til rdung, Snake, khen 4
+  Solar: Water-Sheep. Bi
+  4;48,46 19;53,9 11;41,56 4;35,6 5;5,59
+11: Thu. Uttarashadha/chu smad. Wind-Earth; 23 Sep 1920
+  Atiganda/shin tu 'grams, Vanija/tshong ba, Horse, kham 5
+  Solar: Wood-Monkey. Kui
+  5;52,48 20;47,28 11;46,16 5;33,44 5;6,57
+12: Fri. Abhijit/gro zhin. Earth-Earth; 24 Sep 1920
+  Sukarman/las bzang, Vishti/viSTi, Sheep, gin 6
+  Solar: Wood-Bird. Lou
+  6;56,33 21;42,3 11;50,36 6;32,40 5;7,54
+13: Sat. Dhanishtha/mon gre. Earth-Water; 25 Sep 1920
+  Dhriti/'dzin byed, Valava/byis pa, Monkey, zin 7
+  Solar: Fire-Dog. Wei
+  0;59,17 22;37,39 11;54,56 7;32,35 5;8,52
+    klu bzlog
+14: Sun. Shatabhishaj/mon gru. Fire-Earth; 26 Sep 1920
+  Shula/zug rngu, Taitila/til rdung, Bird, zon 8
+  Solar: Fire-Pig. Mao
+  1;60,0 23;37,39 11;59,16 8;36,56 5;9,50
+14: Mon. Purvabhadrapada/khrums stod. Water-Fire; 27 Sep 1920
+  Ganda/'grams, Vanija/tshong ba, Bird, zon 8
+  Solar: Earth-Mouse. Bi
+  2;1,1 24;34,14 11;59,16 9;33,31 5;9,50
+15: Tue. Uttarabhadrapada/khrums smad. Fire-Water; 28 Sep 1920
+  Vriddhi/'phel, Vava/gdab pa, Dog, li 9
+  Solar: Earth-Ox. Zui
+  3;1,46 25;31,50 12;3,36 10;35,27 5;10,48
+    klu thebs, zin phung
+
+Mars, slow: 20;20,4,3,217 - fast: 17;30,58,2,47 North 7;23,32
+Jupiter, slow: 10;4,28,2,70 - fast: 10;25,54,3,156 East 4;19,5
+Saturn, slow: 10;26,24,0,2088 - fast: 10;36,22,1,4812 East 4;21,24
+Mercury, slow: 13;40,24,1,6035 - fast: 12;49,0,3,7067 East 5;20,53
+Venus, slow: 15;0,28,5,23 - fast: 13;17,41,4,590 East 5;27,15
+Rahu, head: 14;29,52,1,1
+
+16: Wed. Revati/nam gru. Water-Water; 29 Sep 1920
+  Dhruva/brtan pa, Kaulava/rigs can, Pig, khon 1
+  Solar: Iron-Tiger. Can
+  4;1,13 26;30,43 12;7,56 11;38,40 5;11,45
+    klu bzlog
+17. Omitted.
+  4;58,57 12;12,16
+18: Thu. Ashvini/tha skar. Wind-Wind; 30 Sep 1920
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Ox, khen 3
+  Solar: Iron-Rabbit. Jing
+  5;55,41 0;32,54 12;16,36 12;49,31 5;13,41
+    nyi nag
+19: Fri. Bharani/bra nye. Earth-Fire; 1 Oct 1920
+  Harshana/dga' ba, Vava/gdab pa, Tiger, kham 4
+  Solar: Water-Dragon. Gui
+  6;51,26 1;35,30 12;20,56 13;56,27 5;14,39
+20: Sat. Krittika/smin drug. Earth-Fire; 2 Oct 1920
+  Siddhi/dngos grub, Kaulava/rigs can, Rabbit, gin 5
+  Solar: Water-Snake. Liu
+  0;46,10 2;39,6 12;25,16 15;4,23 5;15,37
+21: Sun. Rohini/snar ma. Fire-Earth; 3 Oct 1920
+  Vyatipata/phan tshun, Gara/khyim skyes, Dragon, zin 6
+  Solar: Wood-Horse. Xing
+  1;40,11 3;43,24 12;29,36 16;13,1 5;16,34
+    zin phung
+22: Mon. Mrigashiras/mgo. Water-Wind; 4 Oct 1920
+  Variyas/mchog can, Vishti/viSTi, Snake, zon 7
+  Solar: Wood-Sheep. Zhang
+  2;34,13 4;47,43 12;33,56 17;21,40 5;17,32
+23: Tue. Ardra/lag. Fire-Water; 5 Oct 1920
+  Parigha/yongs 'joms, Valava/byis pa, Horse, li 8
+  Solar: Fire-Monkey. Yi
+  3;28,15 5;52,1 12;38,16 18;30,18 5;18,30
+24: Wed. Punarvasu/nabs so. Water-Wind; 6 Oct 1920
+  Shiva/zhi ba, Gara/khyim skyes, Sheep, khon 9
+  Solar: Fire-Bird. Zhen
+  4;22,16 6;56,19 12;42,36 19;38,56 5;19,28
+25: Thu. Ashlesha/skag. Wind-Water; 7 Oct 1920
+  Siddha/grub pa, Vishti/viSTi, Monkey, dwa 1
+  Solar: Earth-Dog. Jiao
+  5;16,18 8;0,38 12;46,56 20;47,35 5;20,25
+26: Fri. Magha/mchu. Earth-Fire; 8 Oct 1920
+  Sadhya/bsgrub bya, Valava/byis pa, Bird, khen 2
+  Solar: Earth-Pig. Kang
+  6;10,37 9;4,39 12;51,16 21;55,55 5;21,23
+27: Sat. Purvaphalguni/gre. Earth-Fire; 9 Oct 1920
+  Shukla/dkar po, Taitila/til rdung, Dog, kham 3
+  Solar: Iron-Mouse. Di
+  0;5,56 10;7,39 12;55,36 23;3,16 5;22,21
+    yan kwong, zin phung
+28: Sun. Uttaraphalguni/dbo. Fire-Wind; 10 Oct 1920
+  Brahman/tshangs pa, Vanija/tshong ba, Pig, gin 4
+  Solar: Iron-Ox. Fang
+  1;2,16 11;9,40 12;59,56 24;9,37 5;23,19
+29. Omitted.
+  1;59,35 13;4,16
+30: Mon. Hasta/me bzhi. Water-Wind; 11 Oct 1920
+  Indra/dbang po, Shakuni/bkra shis, Ox, zon 6
+  Solar: Water-Tiger. Xin
+  2;58,12 12;10,24 13;8,36 25;19,1 5;25,14
+
+Mars, slow: 20;56,24,3,97 - fast: 18;14,11,3,6 North 8;3,9
+Jupiter, slow: 10;8,56,1,263 - fast: 10;39,21,0,196 East 4;22,4
+Saturn, slow: 10;28,26,3,4863 - fast: 10;43,42,0,3940 East 4;23,2
+Mercury, slow: 17;39,48,1,5387 - fast: 14;35,0,5,919 East 6;14,26
+Venus, slow: 16;34,12,2,14 - fast: 14;34,33,2,558 East 6;14,20
+Rahu, head: 14;26,20,5,5
+
+Tibetan Lunar Month: 9 - Fire-male-Dog
+
+Month: 13785;33
+Anomaly: 21;37
+Mean Weekday: 3;33,50,1,339
+Mean Sun: 13;19,32,1,11
+
+1: Tue. Citra/nag pa. Fire-Wind; 12 Oct 1920
+  Vaidhriti/'khon 'dzin, Naga/klu, Tiger, li 7
+  Solar: Water-Rabbit. Wei
+  3;58,31 13;8,24 13;12,56 26;21,21 5;26,12
+    klu thebs
+2: Wed. Svati/sa ri. Water-Wind; 13 Oct 1920
+  Vishkambha/rnam sel, Vava/gdab pa, Rabbit, khon 8
+  Solar: Wood-Dragon. Ji
+  4;59,51 14;5,25 13;17,16 0;22,42 5;27,10
+3: Thu. Vishakha/sa ga. Wind-Fire; 14 Oct 1920
+  Priti/mdza' bo, Kaulava/rigs can, Dragon, dwa 9
+  Solar: Wood-Snake. Dou
+  5;60,0 15;5,25 13;21,39 1;27,4 5;28,8
+    zin phung
+3: Fri. Anuradha/lha mtshams. Earth-Earth; 15 Oct 1920
+  Ayushmat/tshe dang ldan pa, Gara/khyim skyes, Dragon, dwa 9
+  Solar: Fire-Horse. Niu
+  6;2,13 16;1,26 13;21,39 2;23,5 5;28,8
+4: Sat. Anuradha/lha mtshams. Earth-Earth; 16 Oct 1920
+  Saubhagya/skal bzang, Vishti/viSTi, Snake, khen 1
+  Solar: Fire-Sheep. Nu
+  0;5,36 16;56,26 13;26,3 3;22,29 5;29,7
+5: Sun. Jyeshtha/snron. Fire-Earth; 17 Oct 1920
+  Shobhana/dge byed, Valava/byis pa, Horse, kham 2
+  Solar: Earth-Monkey. Xu
+  1;9,42 17;50,44 13;30,27 4;21,11 6;0,6
+6: Mon. Mula/snrubs. Water-Water; 18 Oct 1920
+  Atiganda/shin tu 'grams, Taitila/til rdung, Sheep, gin 3
+  Solar: Earth-Bird. Wei
+  2;13,47 18;45,3 13;34,50 5;19,53 6;1,4
+7: Tue. Purvashadha/chu stod. Fire-Water; 19 Oct 1920
+  Sukarman/las bzang, Vanija/tshong ba, Monkey, zin 4
+  Solar: Iron-Dog. Shi
+  3;17,53 19;39,21 13;39,14 6;18,36 6;2,3
+8: Wed. Uttarashadha/chu smad. Water-Earth; 20 Oct 1920
+  Dhriti/'dzin byed, Vava/gdab pa, Bird, zon 5
+  Solar: Iron-Pig. Bi
+  4;21,59 20;33,39 13;43,38 7;17,18 6;3,1
+9: Thu. Abhijit/gro zhin. Wind-Earth; 21 Oct 1920
+  Shula/zug rngu, Kaulava/rigs can, Dog, li 6
+  Solar: Water-Mouse. Kui
+  5;26,4 21;27,57 13;48,2 8;16,0 6;4,0
+    klu bzlog, zin phung
+10: Fri. Dhanishtha/mon gre. Earth-Water; 22 Oct 1920
+  Ganda/'grams, Taitila/til rdung, Pig, khon 7
+  Solar: Water-Ox. Lou
+  6;29,52 22;22,33 13;52,26 9;15,0 6;4,59
+    klu bzlog
+11: Sat. Shatabhishaj/mon gru. Earth-Earth; 23 Oct 1920
+  Vriddhi/'phel, Vanija/tshong ba, Mouse, dwa 8
+  Solar: Wood-Tiger. Wei
+  0;32,40 23;18,9 13;56,50 10;15,0 6;5,57
+    klu thebs
+12: Sun. Purvabhadrapada/khrums stod. Fire-Fire; 24 Oct 1920
+  Dhruva/brtan pa, Vava/gdab pa, Ox, khen 9
+  Solar: Wood-Rabbit. Mao
+  1;34,28 24;14,45 14;1,14 11;15,59 6;6,56
+13: Mon. Uttarabhadrapada/khrums smad. Water-Water; 25 Oct 1920
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Tiger, kham 1
+  Solar: Fire-Dragon. Bi
+  2;35,16 25;12,21 14;5,38 12;18,0 6;7,55
+14: Tue. Revati/nam gru. Fire-Water; 26 Oct 1920
+  Harshana/dga' ba, Gara/khyim skyes, Rabbit, gin 2
+  Solar: Fire-Snake. Zui
+  3;34,46 26;11,15 14;10,2 13;21,17 6;8,53
+15: Wed. Ashvini/tha skar. Water-Wind; 27 Oct 1920
+  Vajra/rdo rje, Vishti/viSTi, Dragon, zin 3
+  Solar: Earth-Horse. Can
+  4;32,34 0;11,51 14;14,25 14;26,17 6;9,52
+    zin phung
+
+Mars, slow: 21;41,7,3,55 - fast: 19;4,6,0,54 North 8;14,14
+Jupiter, slow: 10;14,26,0,84 - fast: 10;52,29,3,192 East 4;24,59
+Saturn, slow: 10;30,57,3,825 - fast: 10;50,33,4,4082 East 4;24,34
+Mercury, slow: 22;34,27,0,1206 - fast: 16;11,16,5,6090 East 7;5,50
+Venus, slow: 18;29,33,3,291 - fast: 16;0,16,5,727 East 7;3,23
+Rahu, head: 14;22,49,3,9
+
+16: Thu. Bharani/bra nye. Wind-Fire; 28 Oct 1920
+  Siddhi/dngos grub, Valava/byis pa, Snake, zon 4
+  Solar: Earth-Sheep. Jing
+  5;29,21 1;13,28 14;18,49 15;32,17 6;10,51
+17: Fri. Krittika/smin drug. Earth-Fire; 29 Oct 1920
+  Vyatipata/phan tshun, Gara/khyim skyes, Horse, li 5
+  Solar: Iron-Monkey. Gui
+  6;25,9 2;16,4 14;23,13 16;39,17 6;11,49
+18: Sat. Rohini/snar ma. Earth-Earth; 30 Oct 1920
+  Variyas/mchog can, Vishti/viSTi, Sheep, khon 6
+  Solar: Iron-Bird. Liu
+  0;19,57 3;19,40 14;27,37 17;47,18 6;12,48
+19: Sun. Mrigashiras/mgo. Fire-Wind; 31 Oct 1920
+  Parigha/yongs 'joms, Valava/byis pa, Monkey, dwa 7
+  Solar: Water-Dog. Xing
+  1;14,2 4;23,58 14;32,1 18;56,0 6;13,47
+    klu bzlog
+20: Mon. Ardra/lag. Water-Water; 1 Nov 1920
+  Siddha/grub pa, Taitila/til rdung, Bird, khen 8
+  Solar: Water-Pig. Zhang
+  2;8,8 5;28,17 14;36,25 20;4,42 6;14,45
+21: Tue. Punarvasu/nabs so. Fire-Wind; 2 Nov 1920
+  Sadhya/bsgrub bya, Vanija/tshong ba, Dog, kham 9
+  Solar: Wood-Mouse. Yi
+  3;2,13 6;32,35 14;40,49 21;13,24 6;15,44
+    klu thebs, zin phung
+22. Omitted.
+  3;56,19 14;45,13
+23: Wed. Pushya/rgyal. Water-Fire; 3 Nov 1920
+  Shubha/dge ba, Valava/byis pa, Mouse, zin 2
+  Solar: Wood-Ox. Zhen
+  4;50,24 7;41,12 14;49,37 22;30,49 6;17,41
+    klu thebs
+24: Thu. Ashlesha/skag. Wind-Water; 4 Nov 1920
+  Shukla/dkar po, Taitila/til rdung, Ox, zon 3
+  Solar: Fire-Tiger. Jiao
+  5;44,48 8;45,12 14;54,0 23;39,13 6;18,40
+25: Fri. Magha/mchu. Earth-Fire; 5 Nov 1920
+  Brahman/tshangs pa, Vanija/tshong ba, Tiger, li 4
+  Solar: Fire-Rabbit. Kang
+  6;40,11 9;48,13 14;58,24 24;46,37 6;19,38
+    yan kwong
+26: Sat. Purvaphalguni/gre. Earth-Fire; 6 Nov 1920
+  Indra/dbang po, Vava/gdab pa, Rabbit, khon 5
+  Solar: Earth-Dragon. Di
+  0;36,35 10;50,13 15;2,48 25;53,1 6;20,37
+27: Sun. Uttaraphalguni/dbo. Fire-Wind; 7 Nov 1920
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Dragon, dwa 6
+  Solar: Earth-Snake. Fang
+  1;33,59 11;51,13 15;7,12 26;58,26 6;21,36
+    zin phung, nyi nag
+28: Mon. Hasta/me bzhi. Water-Wind; 8 Nov 1920
+  Priti/mdza' bo, Gara/khyim skyes, Snake, khen 7
+  Solar: Iron-Horse. Xin
+  2;32,40 12;50,55 15;11,36 1;2,32 6;22,34
+29: Tue. Citra/nag pa. Fire-Wind; 9 Nov 1920
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Horse, kham 8
+  Solar: Iron-Sheep. Wei
+  3;33,4 13;48,55 15;16,0 2;4,56 6;23,33
+30: Wed. Svati/sa ri. Water-Wind; 10 Nov 1920
+  Saubhagya/skal bzang, Catushpada/rkang bzhi, Sheep, gin 9
+  Solar: Water-Monkey. Ji
+  4;34,28 14;45,56 15;20,24 3;6,20 6;24,32
+
+Mars, slow: 22;20,15,0,190 - fast: 19;50,19,4,221 North 8;24,31
+Jupiter, slow: 10;19,14,3,153 - fast: 11;3,22,1,51 East 4;27,24
+Saturn, slow: 10;33,9,3,1329 - fast: 10;56,58,5,3973 East 4;25,59
+Mercury, slow: 26;52,15,5,5245 - fast: 16;51,8,0,6597 South 7;14,41
+Venus, slow: 20;10,29,3,627 - fast: 17;20,38,4,608 East 7;21,15
+Rahu, head: 14;19,18,1,13
+
+Tibetan Lunar Month: 10 - Fire-female-Pig
+
+Month: 13786;35
+Anomaly: 23;38
+Mean Weekday: 5;5,40,2,112
+Mean Sun: 15;30,30,4,8
+
+1: Thu. Vishakha/sa ga. Wind-Fire; 11 Nov 1920
+  Shobhana/dge byed, Kintughna/mi sdug pa, Monkey, zin 1
+  Solar: Water-Bird. Dou
+  5;36,51 15;41,56 15;24,48 4;6,44 6;25,30
+2: Fri. Anuradha/lha mtshams. Earth-Earth; 12 Nov 1920
+  Atiganda/shin tu 'grams, Valava/byis pa, Bird, zon 2
+  Solar: Wood-Dog. Niu
+  6;40,15 16;36,56 15;29,12 5;6,8 6;26,29
+3: Sat. Jyeshtha/snron. Earth-Earth; 13 Nov 1920
+  Sukarman/las bzang, Taitila/til rdung, Dog, li 3
+  Solar: Wood-Pig. Nu
+  0;44,21 17;31,14 15;33,35 6;4,50 6;27,27
+4: Sun. Mula/snrubs. Fire-Water; 14 Nov 1920
+  Dhriti/'dzin byed, Vanija/tshong ba, Pig, khon 4
+  Solar: Fire-Mouse. Xu
+  1;48,31 18;25,32 15;38,3 7;3,36 6;28,27
+    zin phung
+5: Mon. Purvashadha/chu stod. Water-Water; 15 Nov 1920
+  Shula/zug rngu, Vava/gdab pa, Mouse, dwa 5
+  Solar: Fire-Ox. Wei
+  2;52,42 19;19,50 15;42,33 8;2,24 6;29,27
+6: Tue. Uttarashadha/chu smad. Fire-Earth; 16 Nov 1920
+  Ganda/'grams, Valava/byis pa, Ox, khen 6
+  Solar: Earth-Tiger. Shi
+  3;56,54 20;14,9 15;47,3 9;1,12 7;0,27
+7: Wed. Abhijit/gro zhin. Water-Earth; 17 Nov 1920
+  Vriddhi/'phel, Taitila/til rdung, Tiger, kham 7
+  Solar: Earth-Rabbit. Bi
+  4;60,0 21;14,9 15;51,32 10;5,41 7;1,27
+7: Thu. Dhanishtha/mon gre. Wind-Water; 18 Nov 1920
+  Dhruva/brtan pa, Vanija/tshong ba, Tiger, kham 7
+  Solar: Iron-Dragon. Kui
+  5;1,5 22;8,27 15;51,32 11;0,0 7;1,27
+8: Fri. Shatabhishaj/mon gru. Earth-Earth; 19 Nov 1920
+  Dhruva/brtan pa, Vava/gdab pa, Rabbit, gin 8
+  Solar: Iron-Snake. Lou
+  6;4,58 23;3,3 15;56,2 11;59,6 7;2,27
+    klu thebs
+9: Sat. Shatabhishaj/mon gru. Earth-Earth; 20 Nov 1920
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Dragon, zin 9
+  Solar: Water-Horse. Wei
+  0;7,52 23;58,40 16;0,32 12;59,12 7;3,27
+    klu bzlog
+10: Sun. Purvabhadrapada/khrums stod. Fire-Fire; 21 Nov 1920
+  Vajra/rdo rje, Gara/khyim skyes, Snake, zon 1
+  Solar: Water-Sheep. Mao
+  1;9,45 24;55,16 16;5,2 14;0,18 7;4,27
+    klu bzlog, zin phung, nyi nag
+11: Mon. Uttarabhadrapada/khrums smad. Water-Water; 22 Nov 1920
+  Siddhi/dngos grub, Vishti/viSTi, Horse, li 2
+  Solar: Wood-Monkey. Bi
+  2;10,38 25;52,53 16;9,31 15;2,24 7;5,27
+12: Tue. Revati/nam gru. Fire-Water; 23 Nov 1920
+  Vyatipata/phan tshun, Valava/byis pa, Sheep, khon 3
+  Solar: Wood-Bird. Zui
+  3;10,13 26;51,48 16;14,1 16;5,49 7;6,27
+13: Wed. Ashvini/tha skar. Water-Wind; 24 Nov 1920
+  Variyas/mchog can, Taitila/til rdung, Monkey, dwa 4
+  Solar: Fire-Dog. Can
+  4;8,6 0;52,24 16;18,31 17;10,55 7;7,26
+14: Thu. Bharani/bra nye. Wind-Fire; 25 Nov 1920
+  Parigha/yongs 'joms, Vanija/tshong ba, Bird, khen 5
+  Solar: Fire-Pig. Jing
+  5;4,59 1;54,1 16;23,0 18;17,2 7;8,26
+15: Fri. Krittika/smin drug. Earth-Fire; 26 Nov 1920
+  Shiva/zhi ba, Vava/gdab pa, Dog, kham 6
+  Solar: Earth-Mouse. Gui
+  6;0,52 2;56,37 16;27,30 19;24,8 7;9,26
+    klu thebs
+
+Mars, slow: 23;4,58,0,148 - fast: 20;41,16,4,12 North 9;5,50
+Jupiter, slow: 10;24,44,1,335 - fast: 11;14,6,5,23 East 4;29,48
+Saturn, slow: 10;35,40,2,2674 - fast: 11;1,41,0,2226 East 4;27,2
+Mercury, slow: 4;46,54,4,1064 - fast: 15;29,46,1,2577 West 6;26,36
+Venus, slow: 22;5,50,5,155 - fast: 18;46,2,4,331 East 8;10,13
+Rahu, head: 14;15,46,5,17
+
+16. Omitted.
+  6;55,45 16;32,0
+17: Sat. Mrigashiras/mgo. Earth-Wind; 27 Nov 1920
+  Siddha/grub pa, Taitila/til rdung, Mouse, zin 8
+  Solar: Earth-Ox. Liu
+  0;49,57 4;4,32 16;36,30 20;41,2 7;11,26
+18: Sun. Ardra/lag. Fire-Water; 28 Nov 1920
+  Sadhya/bsgrub bya, Vanija/tshong ba, Ox, zon 9
+  Solar: Iron-Tiger. Xing
+  1;44,8 5;8,51 16;40,59 21;49,50 7;12,26
+    klu thebs
+19: Mon. Punarvasu/nabs so. Water-Wind; 29 Nov 1920
+  Shubha/dge ba, Vava/gdab pa, Tiger, li 1
+  Solar: Iron-Rabbit. Zhang
+  2;38,19 6;13,9 16;45,29 22;58,39 7;13,26
+    klu bzlog
+20: Tue. Pushya/rgyal. Fire-Fire; 30 Nov 1920
+  Brahman/tshangs pa, Kaulava/rigs can, Rabbit, khon 2
+  Solar: Water-Dragon. Yi
+  3;32,31 7;17,28 16;49,59 24;7,27 7;14,26
+21: Wed. Ashlesha/skag. Water-Water; 1 Dec 1920
+  Indra/dbang po, Vanija/tshong ba, Dragon, dwa 3
+  Solar: Water-Snake. Zhen
+  4;26,42 8;21,46 16;54,28 25;16,15 7;15,26
+22: Thu. Magha/mchu. Wind-Fire; 2 Dec 1920
+  Vaidhriti/'khon 'dzin, Vava/gdab pa, Snake, khen 4
+  Solar: Wood-Horse. Jiao
+  5;21,12 9;25,46 16;58,58 26;24,44 7;16,26
+    zin phung
+23: Fri. Purvaphalguni/gre. Earth-Fire; 3 Dec 1920
+  Vishkambha/rnam sel, Kaulava/rigs can, Horse, kham 5
+  Solar: Wood-Sheep. Kang
+  6;16,42 10;28,46 17;3,28 0;32,14 7;17,26
+    yan kwong
+24: Sat. Uttaraphalguni/dbo. Earth-Wind; 4 Dec 1920
+  Priti/mdza' bo, Gara/khyim skyes, Sheep, gin 6
+  Solar: Fire-Monkey. Di
+  0;13,12 11;30,46 17;7,58 1;38,44 7;18,26
+25: Sun. Hasta/me bzhi. Fire-Wind; 5 Dec 1920
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Monkey, zin 7
+  Solar: Fire-Bird. Fang
+  1;10,41 12;31,45 17;12,27 2;44,13 7;19,26
+26: Mon. Citra/nag pa. Water-Wind; 6 Dec 1920
+  Saubhagya/skal bzang, Valava/byis pa, Bird, zon 8
+  Solar: Earth-Dog. Xin
+  2;9,30 13;31,27 17;16,57 3;48,24 7;20,26
+    klu bzlog
+27: Tue. Svati/sa ri. Fire-Wind; 7 Dec 1920
+  Shobhana/dge byed, Taitila/til rdung, Dog, li 9
+  Solar: Earth-Pig. Wei
+  3;10,0 14;29,26 17;21,27 4;50,54 7;21,26
+28: Wed. Vishakha/sa ga. Water-Fire; 8 Dec 1920
+  Atiganda/shin tu 'grams, Vanija/tshong ba, Pig, khon 1
+  Solar: Iron-Mouse. Ji
+  4;11,30 15;26,26 17;25,56 5;52,23 7;22,25
+    zin phung
+29: Thu. Anuradha/lha mtshams. Wind-Earth; 9 Dec 1920
+  Sukarman/las bzang, Shakuni/bkra shis, Mouse, dwa 2
+  Solar: Iron-Ox. Dou
+  5;14,0 16;22,26 17;30,26 6;52,52 7;23,25
+30: Fri. Jyeshtha/snron. Earth-Earth; 10 Dec 1920
+  Dhriti/'dzin byed, Naga/klu, Ox, khen 3
+  Solar: Water-Tiger. Niu
+  6;17,30 17;17,25 17;34,56 7;52,21 7;24,25
+
+Mars, slow: 23;44,5,4,54 - fast: 21;28,18,4,132 North 9;16,17
+Jupiter, slow: 10;29,32,5,43 - fast: 11;20,44,4,273 East 5;1,16
+Saturn, slow: 10;37,52,2,3178 - fast: 11;5,52,2,3178 East 4;27,58
+Mercury, slow: 9;4,43,3,5103 - fast: 15;59,11,2,6766 North 7;3,9
+Venus, slow: 23;46,46,5,491 - fast: 20;5,52,5,541 East 8;27,58
+Rahu, head: 14;12,15,3,21
+
+Tibetan Lunar Month: 11 - Water-male-Mouse
+
+Month: 13787;37
+Anomaly: 25;39
+Mean Weekday: 6;37,30,2,592
+Mean Sun: 17;41,29,1,5
+
+1: Sat. Mula/snrubs. Earth-Water; 11 Dec 1920
+  Shula/zug rngu, Vava/gdab pa, Tiger, kham 4
+  Solar: Water-Rabbit. Nu
+  0;21,41 18;11,44 17;39,26 8;51,10 7;25,25
+2: Sun. Purvashadha/chu stod. Fire-Water; 12 Dec 1920
+  Ganda/'grams, Kaulava/rigs can, Rabbit, gin 5
+  Solar: Wood-Dragon. Xu
+  1;25,53 19;6,2 17;43,55 9;49,57 7;26,25
+    klu bzlog
+3: Mon. Uttarashadha/chu smad. Water-Earth; 13 Dec 1920
+  Vriddhi/'phel, Taitila/til rdung, Dragon, zin 6
+  Solar: Wood-Snake. Wei
+  2;30,4 20;0,20 17;48,25 10;48,45 7;27,25
+4: Tue. Uttarashadha/chu smad. Fire-Earth; 14 Dec 1920
+  Dhruva/brtan pa, Vanija/tshong ba, Snake, zon 7
+  Solar: Fire-Horse. Shi
+  3;34,16 20;54,38 17;52,55 11;47,33 7;28,25
+    zin phung
+5: Wed. Abhijit/gro zhin. Water-Earth; 15 Dec 1920
+  Vyaghata/yongs bsnun, Vava/gdab pa, Horse, li 8
+  Solar: Fire-Sheep. Bi
+  4;38,30 21;48,56 17;57,27 12;46,24 7;29,26
+6: Thu. Dhanishtha/mon gre. Wind-Water; 16 Dec 1920
+  Harshana/dga' ba, Kaulava/rigs can, Sheep, khon 9
+  Solar: Earth-Monkey. Kui
+  5;42,27 22;43,33 18;2,1 13;45,35 8;0,26
+    klu bzlog
+7: Fri. Shatabhishaj/mon gru. Earth-Earth; 17 Dec 1920
+  Vajra/rdo rje, Gara/khyim skyes, Monkey, dwa 1
+  Solar: Earth-Bird. Lou
+  6;45,24 23;39,10 18;6,34 14;45,45 8;1,27
+    klu thebs
+8: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 18 Dec 1920
+  Siddhi/dngos grub, Vishti/viSTi, Bird, khen 2
+  Solar: Iron-Dog. Wei
+  0;47,21 24;35,47 18;11,8 15;46,56 8;2,28
+9: Sun. Uttarabhadrapada/khrums smad. Fire-Water; 19 Dec 1920
+  Vyatipata/phan tshun, Valava/byis pa, Dog, kham 3
+  Solar: Iron-Pig. Mao
+  1;48,17 25;33,24 18;15,42 16;49,6 8;3,29
+10: Mon. Revati/nam gru. Water-Water; 20 Dec 1920
+  Variyas/mchog can, Taitila/til rdung, Pig, gin 4
+  Solar: Water-Mouse. Bi
+  2;47,55 26;32,20 18;20,15 17;52,35 8;4,30
+    zin phung
+11: Tue. Ashvini/tha skar. Fire-Wind; 21 Dec 1920
+  Parigha/yongs 'joms, Vanija/tshong ba, Mouse, zin 5
+  Solar: Water-Ox. Zui
+  3;45,52 0;32,57 18;24,49 18;57,46 8;5,30
+12: Wed. Bharani/bra nye. Water-Fire; 22 Dec 1920
+  Siddha/grub pa, Vava/gdab pa, Ox, zon 6
+  Solar: Wood-Tiger. Can
+  4;42,48 1;34,34 18;29,22 20;3,57 8;6,31
+13: Thu. Krittika/smin drug. Wind-Fire; 23 Dec 1920
+  Sadhya/bsgrub bya, Kaulava/rigs can, Tiger, li 7
+  Solar: Wood-Rabbit. Jing
+  5;38,45 2;37,11 18;33,56 21;11,7 8;7,32
+14: Fri. Rohini/snar ma. Earth-Earth; 24 Dec 1920
+  Shubha/dge ba, Gara/khyim skyes, Rabbit, khon 8
+  Solar: Fire-Dragon. Gui
+  6;33,41 3;40,48 18;38,30 22;19,18 8;8,33
+15: Sat. Mrigashiras/mgo. Earth-Wind; 25 Dec 1920
+  Shukla/dkar po, Vishti/viSTi, Dragon, dwa 9
+  Solar: Fire-Snake. Liu
+  0;27,56 4;45,6 18;43,3 23;28,10 8;9,34
+    klu thebs
+
+Mars, slow: 24;26,0,5,215 - fast: 22;18,21,0,144 North 9;27,24
+Jupiter, slow: 10;34,41,5,349 - fast: 11;26,5,1,9 South 5;2,27
+Saturn, slow: 10;40,13,5,1411 - fast: 11;8,0,2,1858 South 4;28,26
+Mercury, slow: 13;40,57,2,5032 - fast: 17;23,45,2,718 North 7;21,56
+Venus, slow: 25;34,55,3,423 - fast: 21;28,32,4,475 East 9;16,20
+Rahu, head: 14;8,44,2,2
+
+16: Sun. Ardra/lag. Fire-Water; 26 Dec 1920
+  Brahman/tshangs pa, Kaulava/rigs can, Snake, khen 1
+  Solar: Earth-Horse. Xing
+  1;22,11 5;49,25 18;47,37 24;37,2 8;10,34
+    klu bzlog, zin phung
+17: Mon. Punarvasu/nabs so. Water-Wind; 27 Dec 1920
+  Indra/dbang po, Gara/khyim skyes, Horse, kham 2
+  Solar: Earth-Sheep. Zhang
+  2;16,27 6;53,43 18;52,10 25;45,54 8;11,35
+18: Tue. Pushya/rgyal. Fire-Fire; 28 Dec 1920
+  Vaidhriti/'khon 'dzin, Vishti/viSTi, Sheep, gin 3
+  Solar: Iron-Monkey. Yi
+  3;10,42 7;58,1 18;56,44 26;54,46 8;12,36
+19: Wed. Magha/mchu. Water-Fire; 29 Dec 1920
+  Priti/mdza' bo, Valava/byis pa, Monkey, zin 4
+  Solar: Iron-Bird. Zhen
+  4;4,57 9;2,20 19;1,18 1;3,38 8;13,37
+20. Omitted.
+  4;59,31 19;5,51
+21: Thu. Purvaphalguni/gre. Wind-Fire; 30 Dec 1920
+  Ayushmat/tshe dang ldan pa, Taitila/til rdung, Dog, li 6
+  Solar: Water-Dog. Jiao
+  5;55,5 10;9,19 19;10,25 2;19,44 8;15,38
+    yan kwong, klu thebs
+22: Fri. Uttaraphalguni/dbo. Earth-Wind; 31 Dec 1920
+  Saubhagya/skal bzang, Vishti/viSTi, Pig, khon 7
+  Solar: Water-Pig. Kang
+  6;51,40 11;11,18 19;14,58 3;26,17 8;16,39
+    zin phung
+23: Sat. Hasta/me bzhi. Earth-Wind; 1 Jan 1921
+  Shobhana/dge byed, Valava/byis pa, Mouse, dwa 8
+  Solar: Wood-Mouse. Di
+  0;49,14 12;12,18 19;19,32 4;31,50 8;17,40
+24: Sun. Citra/nag pa. Fire-Wind; 2 Jan 1921
+  Atiganda/shin tu 'grams, Taitila/til rdung, Ox, khen 9
+  Solar: Wood-Ox. Fang
+  1;48,7 13;11,58 19;24,6 5;36,4 8;18,41
+25: Mon. Svati/sa ri. Water-Wind; 3 Jan 1921
+  Sukarman/las bzang, Vanija/tshong ba, Tiger, kham 1
+  Solar: Fire-Tiger. Xin
+  2;48,41 14;9,57 19;28,39 6;38,37 8;19,42
+26: Tue. Vishakha/sa ga. Fire-Fire; 4 Jan 1921
+  Dhriti/'dzin byed, Vava/gdab pa, Rabbit, gin 2
+  Solar: Fire-Rabbit. Wei
+  3;50,16 15;6,57 19;33,13 7;40,10 8;20,42
+    klu bzlog
+27: Wed. Anuradha/lha mtshams. Water-Earth; 5 Jan 1921
+  Shula/zug rngu, Kaulava/rigs can, Dragon, zin 3
+  Solar: Earth-Dragon. Ji
+  4;52,50 16;2,56 19;37,46 8;40,42 8;21,43
+28: Thu. Anuradha/lha mtshams. Wind-Earth; 6 Jan 1921
+  Ganda/'grams, Taitila/til rdung, Snake, zon 4
+  Solar: Earth-Snake. Dou
+  5;56,24 16;57,55 19;42,20 9;40,15 8;22,44
+    zin phung
+29: Fri. Jyeshtha/snron. Earth-Earth; 7 Jan 1921
+  Vriddhi/'phel, Vanija/tshong ba, Horse, li 5
+  Solar: Iron-Horse. Niu
+  6;60,0 17;57,55 19;46,53 10;44,49 8;23,45
+29: Sat. Mula/snrubs. Earth-Water; 8 Jan 1921
+  Dhruva/brtan pa, Shakuni/bkra shis, Horse, li 5
+  Solar: Iron-Sheep. Nu
+  0;0,40 18;52,13 19;46,53 11;39,7 8;23,45
+30: Sun. Purvashadha/chu stod. Fire-Water; 9 Jan 1921
+  Vyaghata/yongs bsnun, Naga/klu, Sheep, khon 6
+  Solar: Water-Monkey. Xu
+  1;4,55 19;46,31 19;51,27 12;37,59 8;24,46
+
+Mars, slow: 25;7,56,1,147 - fast: 23;8,31,1,142 North 10;8,33
+Jupiter, slow: 10;39,51,0,294 - fast: 11;27,35,2,317 South 5;2,47
+Saturn, slow: 10;42,35,1,5027 - fast: 11;7,55,4,5306 South 4;28,25
+Mercury, slow: 18;17,11,1,4961 - fast: 19;17,9,2,2766 North 8;17,8
+Venus, slow: 0;23,4,1,355 - fast: 22;49,13,3,348 East 10;4,16
+Rahu, head: 14;5,13,0,6
+
+Tibetan Lunar Month: 12 - Water-female-Ox
+
+Month: 13788;39
+Anomaly: 27;40
+Mean Weekday: 1;9,20,3,365
+Mean Sun: 19;52,27,4,2
+
+1: Mon. Uttarashadha/chu smad. Water-Earth; 10 Jan 1921
+  Harshana/dga' ba, Vava/gdab pa, Monkey, dwa 7
+  Solar: Water-Bird. Wei
+  2;9,11 20;40,50 19;56,1 13;36,51 8;25,46
+2: Tue. Abhijit/gro zhin. Fire-Earth; 11 Jan 1921
+  Vajra/rdo rje, Kaulava/rigs can, Bird, khen 8
+  Solar: Wood-Dog. Shi
+  3;13,26 21;35,8 20;0,34 14;35,42 8;26,47
+3: Wed. Dhanishtha/mon gre. Water-Water; 12 Jan 1921
+  Siddhi/dngos grub, Gara/khyim skyes, Dog, kham 9
+  Solar: Wood-Pig. Bi
+  4;17,41 22;29,26 20;5,8 15;34,34 8;27,48
+4: Thu. Shatabhishaj/mon gru. Wind-Earth; 13 Jan 1921
+  Vyatipata/phan tshun, Vishti/viSTi, Pig, gin 1
+  Solar: Fire-Mouse. Kui
+  5;21,38 23;24,3 20;9,41 16;33,45 8;28,49
+    zin phung
+5: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 14 Jan 1921
+  Variyas/mchog can, Valava/byis pa, Mouse, zin 2
+  Solar: Fire-Ox. Lou
+  6;24,34 24;19,41 20;14,15 17;33,56 8;29,50
+6: Sat. Uttarabhadrapada/khrums smad. Earth-Water; 15 Jan 1921
+  Parigha/yongs 'joms, Taitila/til rdung, Ox, zon 3
+  Solar: Earth-Tiger. Wei
+  0;26,30 25;16,18 20;18,49 18;35,7 9;0,50
+7: Sun. Revati/nam gru. Fire-Water; 16 Jan 1921
+  Shiva/zhi ba, Gara/khyim skyes, Tiger, li 4
+  Solar: Earth-Rabbit. Mao
+  1;27,26 26;13,55 20;23,22 19;37,18 9;1,51
+8: Mon. Ashvini/tha skar. Water-Wind; 17 Jan 1921
+  Siddha/grub pa, Vishti/viSTi, Rabbit, khon 5
+  Solar: Iron-Dragon. Bi
+  2;27,3 0;12,52 20;27,56 20;40,48 9;2,52
+9: Tue. Bharani/bra nye. Fire-Fire; 18 Jan 1921
+  Sadhya/bsgrub bya, Kaulava/rigs can, Dragon, dwa 6
+  Solar: Iron-Snake. Zui
+  3;24,59 1;13,29 20;32,29 21;45,59 9;3,53
+10: Wed. Krittika/smin drug. Water-Fire; 19 Jan 1921
+  Shubha/dge ba, Gara/khyim skyes, Snake, khen 7
+  Solar: Water-Horse. Can
+  4;21,55 2;15,7 20;37,3 22;52,10 9;4,54
+    zin phung
+11: Thu. Rohini/snar ma. Wind-Earth; 20 Jan 1921
+  Shukla/dkar po, Vishti/viSTi, Horse, kham 8
+  Solar: Water-Sheep. Jing
+  5;17,52 3;17,45 20;41,37 23;59,22 9;5,54
+12: Fri. Mrigashiras/mgo. Earth-Wind; 21 Jan 1921
+  Indra/dbang po, Valava/byis pa, Sheep, gin 9
+  Solar: Wood-Monkey. Gui
+  6;12,48 4;21,22 20;46,10 25;7,33 9;6,55
+13: Sat. Ardra/lag. Earth-Water; 22 Jan 1921
+  Vaidhriti/'khon 'dzin, Taitila/til rdung, Monkey, zin 1
+  Solar: Wood-Bird. Liu
+  0;7,3 5;25,40 20;50,44 26;16,25 9;7,56
+14: Sun. Punarvasu/nabs so. Fire-Wind; 23 Jan 1921
+  Vishkambha/rnam sel, Vanija/tshong ba, Bird, zon 2
+  Solar: Fire-Dog. Xing
+  1;1,18 6;29,59 20;55,17 0;25,17 9;8,57
+15. Omitted.
+  1;55,33 20;59,51
+
+Mars, slow: 25;46,45,1,221 - fast: 23;56,40,2,72 North 10;19,15
+Jupiter, slow: 10;44,39,4,2 - fast: 11;25,40,0,171 South 5;2,22
+Saturn, slow: 10;44,47,2,148 - fast: 11;5,41,3,1264 South 4;27,55
+Mercury, slow: 22;35,0,1,203 - fast: 21;11,26,2,4790 East 9;12,32
+Venus, slow: 2;4,0,1,691 - fast: 24;6,54,1,561 East 10;21,32
+Rahu, head: 14;1,41,4,10
+
+16: Mon. Pushya/rgyal. Water-Fire; 24 Jan 1921
+  Priti/mdza' bo, Valava/byis pa, Pig, khon 4
+  Solar: Fire-Pig. Zhang
+  2;49,48 7;38,36 21;4,25 1;43,1 9;10,58
+    zin phung
+17: Tue. Ashlesha/skag. Fire-Water; 25 Jan 1921
+  Ayushmat/tshe dang ldan pa, Taitila/til rdung, Mouse, dwa 5
+  Solar: Earth-Mouse. Yi
+  3;44,4 8;42,54 21;8,58 2;51,52 9;11,59
+18: Wed. Magha/mchu. Water-Fire; 26 Jan 1921
+  Shobhana/dge byed, Vanija/tshong ba, Ox, khen 6
+  Solar: Earth-Ox. Zhen
+  4;38,38 9;46,53 21;13,32 4;0,25 9;13,0
+19: Thu. Purvaphalguni/gre. Wind-Fire; 27 Jan 1921
+  Atiganda/shin tu 'grams, Vava/gdab pa, Tiger, kham 7
+  Solar: Iron-Tiger. Jiao
+  5;34,13 10;49,52 21;18,5 5;7,58 9;14,1
+    yan kwong
+20: Fri. Uttaraphalguni/dbo. Earth-Wind; 28 Jan 1921
+  Sukarman/las bzang, Kaulava/rigs can, Rabbit, gin 8
+  Solar: Iron-Rabbit. Kang
+  6;30,47 11;51,51 21;22,39 6;14,30 9;15,2
+21: Sat. Hasta/me bzhi. Earth-Wind; 29 Jan 1921
+  Dhriti/'dzin byed, Gara/khyim skyes, Dragon, zin 9
+  Solar: Water-Dragon. Di
+  0;28,22 12;52,50 21;27,12 7;20,3 9;16,2
+22: Sun. Citra/nag pa. Fire-Wind; 30 Jan 1921
+  Shula/zug rngu, Vishti/viSTi, Snake, zon 1
+  Solar: Water-Snake. Fang
+  1;27,16 13;52,29 21;31,46 8;24,16 9;17,3
+    zin phung
+23: Mon. Svati/sa ri. Water-Wind; 31 Jan 1921
+  Ganda/'grams, Valava/byis pa, Horse, li 2
+  Solar: Wood-Horse. Xin
+  2;27,51 14;50,28 21;36,20 9;26,48 9;18,4
+24: Tue. Vishakha/sa ga. Fire-Fire; 1 Feb 1921
+  Vriddhi/'phel, Taitila/til rdung, Sheep, khon 3
+  Solar: Wood-Sheep. Wei
+  3;29,26 15;47,27 21;40,53 10;28,21 9;19,5
+25: Wed. Anuradha/lha mtshams. Water-Earth; 2 Feb 1921
+  Dhruva/brtan pa, Vanija/tshong ba, Monkey, dwa 4
+  Solar: Fire-Monkey. Ji
+  4;32,1 16;43,26 21;45,27 11;28,53 9;20,6
+26: Thu. Jyeshtha/snron. Wind-Earth; 3 Feb 1921
+  Vyaghata/yongs bsnun, Vava/gdab pa, Bird, khen 5
+  Solar: Fire-Bird. Dou
+  5;35,35 17;38,24 21;50,0 12;28,25 9;21,6
+27: Fri. Mula/snrubs. Earth-Water; 4 Feb 1921
+  Harshana/dga' ba, Kaulava/rigs can, Dog, kham 6
+  Solar: Earth-Dog. Niu
+  6;39,51 18;32,43 21;54,34 13;27,17 9;22,7
+28: Sat. Purvashadha/chu stod. Earth-Water; 5 Feb 1921
+  Vajra/rdo rje, Gara/khyim skyes, Pig, gin 7
+  Solar: Earth-Pig. Nu
+  0;44,6 19;27,1 21;59,8 14;26,9 9;23,8
+    zin phung
+29: Sun. Uttarashadha/chu smad. Fire-Earth; 6 Feb 1921
+  Siddhi/dngos grub, Vishti/viSTi, Mouse, zin 8
+  Solar: Iron-Mouse. Xu
+  1;48,22 20;21,19 22;3,41 15;25,1 9;24,9
+30: Mon. Abhijit/gro zhin. Water-Earth; 7 Feb 1921
+  Vyatipata/phan tshun, Catushpada/rkang bzhi, Ox, zon 9
+  Solar: Iron-Ox. Wei
+  2;52,37 21;15,37 22;8,15 16;23,52 9;25,10
+    nyi nag
+
+Mars, slow: 26;26,50,3,93 - fast: 24;45,39,0,31 North 11;0,8
+Jupiter, slow: 10;49,48,4,308 - fast: 11;21,18,5,279 South 5;1,24
+Saturn, slow: 10;47,8,4,3764 - fast: 11;2,31,0,1490 South 4;27,13
+Mercury, slow: 0;11,14,0,132 - fast: 23;3,49,4,4411 East 10;7,31
+Venus, slow: 3;52,8,5,623 - fast: 25;24,46,2,26 East 11;8,50
+Rahu, head: 13;58,10,2,14
+

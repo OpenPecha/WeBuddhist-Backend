@@ -35,9 +35,8 @@ bs4 = "^0.0.2"
 elasticsearch = "^9.0.1"
 toml = "^0.10.2"
 mailtrap = "^2.3.0"
-google-genai = "^2.0"
-
 scalar-fastapi = "^1.8.2"
+apscheduler = "^3.11.3"
 [tool.poetry.scripts]
 start = "uvicorn:main"
 

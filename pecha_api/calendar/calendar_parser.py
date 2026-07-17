@@ -1,31 +1,92 @@
 from datetime import date, datetime
-from functools import lru_cache
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Optional
+import json
 import re
 
 PHUGPA_CALENDAR_DIR = (
     Path(__file__).resolve().parent.parent.parent / "calendar" / "Phugpa_calendar"
 )
+TSURPHU_CALENDAR_DIR = (
+    Path(__file__).resolve().parent.parent.parent / "calendar" / "Tsurphu_calendar"
+)
 MIN_CALENDAR_YEAR = 1800
 MAX_CALENDAR_YEAR = 2049
+# Source files label years by the Western year of Losar.
+# Traditional Tibetan year numbers are offset by 127
+# (e.g. Western 2026 -> Tibetan 2153).
+TIBETAN_YEAR_OFFSET = 127
 
 
-def get_calendar_file_for_year(year: int) -> Path:
+class CalendarType(str, Enum):
+    PHUGPA = "phugpa"
+    TSURPHU = "tsurphu"
+
+
+def to_tibetan_year(western_year: int | str) -> int:
+    return int(western_year) + TIBETAN_YEAR_OFFSET
+
+
+def _calendar_dir(calendar_type: CalendarType) -> Path:
+    return (
+        PHUGPA_CALENDAR_DIR
+        if calendar_type == CalendarType.PHUGPA
+        else TSURPHU_CALENDAR_DIR
+    )
+
+
+def _validate_calendar_year(year: int) -> None:
     if year < MIN_CALENDAR_YEAR or year > MAX_CALENDAR_YEAR:
         raise FileNotFoundError(
             f"Calendar year {year} is out of supported range "
             f"({MIN_CALENDAR_YEAR}-{MAX_CALENDAR_YEAR})"
         )
-    file_path = PHUGPA_CALENDAR_DIR / f"{year}.txt"
+
+
+def get_calendar_file_for_year(
+    year: int,
+    calendar_type: CalendarType = CalendarType.PHUGPA,
+) -> Path:
+    _validate_calendar_year(year)
+    file_path = _calendar_dir(calendar_type) / "source_text" / f"{year}.txt"
     if not file_path.is_file():
-        raise FileNotFoundError(f"No calendar file for year {year}: {file_path}")
+        raise FileNotFoundError(
+            f"No calendar file for year {year} "
+            f"({calendar_type.value}): {file_path}"
+        )
     return file_path
 
 
-@lru_cache(maxsize=32)
-def parse_calendar_year(year: int) -> Dict[str, Dict[str, Any]]:
-    return parse_calendar_file(str(get_calendar_file_for_year(year)))
+def get_calendar_json_for_year(
+    year: int,
+    calendar_type: CalendarType = CalendarType.PHUGPA,
+) -> Path:
+    _validate_calendar_year(year)
+    return _calendar_dir(calendar_type) / "json" / f"{year}.json"
+
+
+def parse_calendar_year(
+    year: int,
+    calendar_type: CalendarType = CalendarType.PHUGPA,
+) -> Dict[str, Dict[str, Any]]:
+    return parse_calendar_file(str(get_calendar_file_for_year(year, calendar_type)))
+
+
+def load_calendar_year(
+    year: int,
+    calendar_type: CalendarType = CalendarType.PHUGPA,
+) -> Dict[str, Dict[str, Any]]:
+    """Load pre-parsed calendar JSON; fall back to parsing .txt if missing."""
+    json_path = get_calendar_json_for_year(year, calendar_type)
+    if json_path.is_file():
+        with open(json_path, encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError(f"Invalid calendar JSON for year {year}: {json_path}")
+        return data
+
+    return parse_calendar_year(year, calendar_type)
 
 
 def parse_calendar_file(file_path: str) -> Dict[str, Dict[str, Any]]:
@@ -37,7 +98,7 @@ def parse_calendar_file(file_path: str) -> Dict[str, Dict[str, Any]]:
     re_new_year = re.compile(r"New Year:\s+(\d{4}),\s*(.+)")
     re_lunar_month = re.compile(r"Tibetan Lunar Month:\s+(\d+)\s*-\s*(.+)")
     re_day = re.compile(
-        r"^(\d{1,2})(:|\. Omitted:)\s*(.*?);?\s*(\d{1,2}\s\w+\.\s+.+;)?\s*([0-9]{1,2} \w+ \d{4})?"
+        r"^(\d{1,2})(:|\. Omitted[:.])\s*(.*?);?\s*(\d{1,2}\s\w+\.\s+.+;)?\s*([0-9]{1,2} \w+ \d{4})?"
     )
     re_date = re.compile(r"([0-9]{1,2} [A-Za-z]{3,} \d{4})")
     re_solar = re.compile(r"^\s*Solar:\s+(.+)\.\s+([A-Za-z]+)\s*(\d+)?")
@@ -124,6 +185,7 @@ def parse_calendar_file(file_path: str) -> Dict[str, Dict[str, Any]]:
 def get_days_for_gregorian_month(
     gregorian_year: int,
     gregorian_month: int,
+    calendar_type: CalendarType = CalendarType.PHUGPA,
 ) -> list[Dict[str, Any]]:
     month_prefix = f"{gregorian_year}-{gregorian_month:02d}"
     days_by_date: Dict[str, Dict[str, Any]] = {}
@@ -132,7 +194,7 @@ def get_days_for_gregorian_month(
         if tibetan_year < MIN_CALENDAR_YEAR or tibetan_year > MAX_CALENDAR_YEAR:
             continue
         try:
-            year_data = parse_calendar_year(tibetan_year)
+            year_data = load_calendar_year(tibetan_year, calendar_type)
         except FileNotFoundError:
             continue
         for day_data in year_data.values():
@@ -145,6 +207,7 @@ def get_days_for_gregorian_month(
 
 def find_calendar_day_for_gregorian_date(
     gregorian_date: date | str,
+    calendar_type: CalendarType = CalendarType.PHUGPA,
 ) -> Optional[tuple[int, Dict[str, Any]]]:
     if isinstance(gregorian_date, str):
         gregorian_key = gregorian_date
@@ -157,7 +220,7 @@ def find_calendar_day_for_gregorian_date(
         if tibetan_year < MIN_CALENDAR_YEAR or tibetan_year > MAX_CALENDAR_YEAR:
             continue
         try:
-            year_data = parse_calendar_year(tibetan_year)
+            year_data = load_calendar_year(tibetan_year, calendar_type)
         except FileNotFoundError:
             continue
         day_data = year_data.get(gregorian_key)

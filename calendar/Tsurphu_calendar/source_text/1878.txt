@@ -1,0 +1,2008 @@
+New Year: 1878, Earth-male-Tiger
+
+Tibetan Lunar Month: 1 - Wood-male-Tiger
+
+Month: 13257;49
+Anomaly: 25;13
+Mean Weekday: 0;24,50,3,5
+Mean Sun: 21;45,4,3,9
+
+1: Sun. Dhanishtha/mon gre. Fire-Water; 3 Feb 1878
+  Variyas/mchog can, Vava/gdab pa, Tiger, li 1
+  Solar: Water-Mouse. Xu
+  1;18,37 22;29,1 21;53,38 17;22,39 9;21,55
+  From 1st to 15th, Demonstration of Miracles.
+    zin phung
+2: Mon. Shatabhishaj/mon gru. Water-Earth; 4 Feb 1878
+  Parigha/yongs 'joms, Kaulava/rigs can, Rabbit, khon 2
+  Solar: Water-Ox. Wei
+  2;22,52 23;23,19 21;58,12 18;21,31 9;22,56
+3: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 5 Feb 1878
+  Shiva/zhi ba, Taitila/til rdung, Dragon, dwa 3
+  Solar: Wood-Tiger. Shi
+  3;27,7 24;17,37 22;2,45 19;20,23 9;23,56
+4: Wed. Uttarabhadrapada/khrums smad. Water-Water; 6 Feb 1878
+  Siddha/grub pa, Vanija/tshong ba, Snake, khen 4
+  Solar: Wood-Rabbit. Bi
+  4;31,23 25;11,55 22;7,19 20;19,15 9;24,57
+5: Thu. Revati/nam gru. Wind-Water; 7 Feb 1878
+  Sadhya/bsgrub bya, Vava/gdab pa, Horse, kham 5
+  Solar: Fire-Dragon. Kui
+  5;35,38 26;6,14 22;11,52 21;18,6 9;25,58
+    klu bzlog
+6: Fri. Ashvini/tha skar. Earth-Wind; 8 Feb 1878
+  Shubha/dge ba, Kaulava/rigs can, Sheep, gin 6
+  Solar: Fire-Snake. Lou
+  6;39,47 0;0,38 22;16,26 22;17,4 9;26,59
+7: Sat. Ashvini/tha skar. Earth-Wind; 9 Feb 1878
+  Shukla/dkar po, Gara/khyim skyes, Monkey, zin 7
+  Solar: Earth-Horse. Wei
+  0;42,56 0;56,3 22;20,59 23;17,2 9;27,59
+    zin phung, nyi nag ngan pa dgu 'dzom
+8: Sun. Bharani/bra nye. Fire-Fire; 10 Feb 1878
+  Brahman/tshangs pa, Vishti/viSTi, Bird, zon 8
+  Solar: Earth-Sheep. Mao
+  1;45,5 1;52,27 22;25,33 24;18,1 9;29,0
+9: Mon. Krittika/smin drug. Water-Fire; 11 Feb 1878
+  Indra/dbang po, Valava/byis pa, Dog, li 9
+  Solar: Iron-Monkey. Bi
+  2;46,14 2;49,52 22;30,7 25;19,59 10;0,1
+10: Tue. Rohini/snar ma. Fire-Earth; 12 Feb 1878
+  Vaidhriti/'khon 'dzin, Taitila/til rdung, Pig, khon 1
+  Solar: Iron-Bird. Zui
+  3;46,17 3;48,23 22;34,40 26;23,3 10;1,2
+    klu bzlog
+11: Wed. Mrigashiras/mgo. Water-Wind; 13 Feb 1878
+  Vishkambha/rnam sel, Vanija/tshong ba, Mouse, dwa 2
+  Solar: Water-Dog. Can
+  4;44,23 4;48,47 22;39,11 0;27,59 10;2,2
+12: Thu. Ardra/lag. Wind-Water; 14 Feb 1878
+  Priti/mdza' bo, Vava/gdab pa, Ox, khen 3
+  Solar: Water-Pig. Jing
+  5;41,28 5;50,12 22;43,41 1;33,53 10;3,2
+13: Fri. Punarvasu/nabs so. Earth-Wind; 15 Feb 1878
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Tiger, kham 4
+  Solar: Wood-Mouse. Gui
+  6;37,33 6;52,37 22;48,10 2;40,48 10;4,2
+    yan kwong, zin phung
+14: Sat. Pushya/rgyal. Earth-Fire; 16 Feb 1878
+  Saubhagya/skal bzang, Gara/khyim skyes, Rabbit, gin 5
+  Solar: Wood-Ox. Liu
+  0;32,38 7;56,2 22;52,40 3;48,42 10;5,2
+    klu thebs
+15: Sun. Magha/mchu. Fire-Fire; 17 Feb 1878
+  Shobhana/dge byed, Vava/gdab pa, Dragon, zin 6
+  Solar: Fire-Tiger. Xing
+  1;26,49 9;0,20 22;57,10 4;57,30 10;6,2
+    klu bzlog
+
+Mars, slow: 3;55,11,0,86 - fast: 1;6,20,1,100 North 0;14,44
+Jupiter, slow: 20;34,8,1,311 - fast: 20;56,36,0,304 East 9;9,14
+Saturn, slow: 24;2,29,5,883 - fast: 23;55,30,1,843 North 10;19,0
+Mercury, slow: 16;2,1,0,6978 - fast: 21;2,42,4,7344 North 9;10,36
+Venus, slow: 7;57,16,3,369 - fast: 25;49,37,1,535 South 11;14,21
+Rahu, head: 22;21,46,5,17
+
+16: Mon. Purvaphalguni/gre. Water-Fire; 18 Feb 1878
+  Sukarman/las bzang, Kaulava/rigs can, Snake, zon 7
+  Solar: Fire-Rabbit. Zhang
+  2;21,1 10;4,38 23;1,40 6;6,18 10;7,2
+17: Tue. Uttaraphalguni/dbo. Fire-Wind; 19 Feb 1878
+  Dhriti/'dzin byed, Gara/khyim skyes, Horse, li 8
+  Solar: Earth-Dragon. Yi
+  3;15,12 11;8,57 23;6,9 7;15,6 10;8,2
+18: Wed. Hasta/me bzhi. Water-Wind; 20 Feb 1878
+  Shula/zug rngu, Vishti/viSTi, Sheep, khon 9
+  Solar: Earth-Snake. Zhen
+  4;9,24 12;13,15 23;10,39 8;23,54 10;9,2
+19: Thu. Citra/nag pa. Wind-Wind; 21 Feb 1878
+  Ganda/'grams, Valava/byis pa, Monkey, dwa 1
+  Solar: Iron-Horse. Jiao
+  5;3,35 13;17,33 23;15,9 9;32,42 10;10,2
+    zin phung
+20. Omitted.
+  5;57,53 23;19,38
+21: Fri. Svati/sa ri. Earth-Wind; 22 Feb 1878
+  Vriddhi/'phel, Gara/khyim skyes, Dog, kham 3
+  Solar: Iron-Sheep. Kang
+  6;53,11 14;24,57 23;24,8 10;49,5 10;12,1
+22: Sat. Vishakha/sa ga. Earth-Fire; 23 Feb 1878
+  Dhruva/brtan pa, Vishti/viSTi, Pig, gin 4
+  Solar: Water-Monkey. Di
+  0;49,29 15;27,9 23;28,38 11;55,47 10;13,1
+23: Sun. Anuradha/lha mtshams. Fire-Earth; 24 Feb 1878
+  Harshana/dga' ba, Valava/byis pa, Mouse, zin 5
+  Solar: Water-Bird. Fang
+  1;46,47 16;28,21 23;33,8 13;1,29 10;14,1
+24: Mon. Jyeshtha/snron. Water-Earth; 25 Feb 1878
+  Vajra/rdo rje, Taitila/til rdung, Ox, zon 6
+  Solar: Wood-Dog. Xin
+  2;45,11 17;28,26 23;37,37 14;6,3 10;15,1
+25: Tue. Mula/snrubs. Fire-Water; 26 Feb 1878
+  Siddhi/dngos grub, Vanija/tshong ba, Tiger, li 7
+  Solar: Wood-Pig. Wei
+  3;45,29 18;26,37 23;42,7 15;8,45 10;16,1
+    zin phung
+26: Wed. Purvashadha/chu stod. Water-Water; 27 Feb 1878
+  Vyatipata/phan tshun, Vava/gdab pa, Rabbit, khon 8
+  Solar: Fire-Mouse. Ji
+  4;46,47 19;23,49 23;46,37 16;10,26 10;17,1
+27: Thu. Uttarashadha/chu smad. Wind-Earth; 28 Feb 1878
+  Variyas/mchog can, Kaulava/rigs can, Dragon, dwa 9
+  Solar: Fire-Ox. Dou
+  5;49,5 20;20,1 23;51,6 17;11,7 10;18,1
+28: Fri. Abhijit/gro zhin. Earth-Earth; 1 Mar 1878
+  Parigha/yongs 'joms, Gara/khyim skyes, Snake, khen 1
+  Solar: Earth-Tiger. Niu
+  6;52,23 21;15,12 23;55,36 18;10,49 10;19,1
+29: Sat. Dhanishtha/mon gre. Earth-Water; 2 Mar 1878
+  Shiva/zhi ba, Vanija/tshong ba, Horse, kham 2
+  Solar: Earth-Rabbit. Nu
+  0;56,35 22;9,30 24;0,6 19;9,37 10;20,1
+30: Sun. Shatabhishaj/mon gru. Fire-Earth; 3 Mar 1878
+  Siddha/grub pa, Shakuni/bkra shis, Sheep, gin 3
+  Solar: Iron-Dragon. Xu
+  1;60,0 23;9,30 24;4,36 20;14,6 10;21,1
+30: Mon. Purvabhadrapada/khrums stod. Water-Fire; 4 Mar 1878
+  Sadhya/bsgrub bya, Naga/klu, Sheep, gin 3
+  Solar: Iron-Snake. Wei
+  2;0,46 24;3,49 24;4,36 21;8,25 10;21,1
+
+Mars, slow: 4;28,43,1,169 - fast: 1;47,33,1,95 North 0;23,54
+Jupiter, slow: 20;39,52,2,46 - fast: 21;11,1,4,254 East 9;12,27
+Saturn, slow: 24;4,51,1,4499 - fast: 24;3,58,2,4835 North 10;20,52
+Mercury, slow: 20;38,14,5,6907 - fast: 22;50,17,0,2572 North 10;4,30
+Venus, slow: 9;45,25,1,301 - fast: 25;50,7,4,286 South 11;14,28
+Rahu, head: 22;18,15,3,21
+
+Tibetan Lunar Month: 2 - Wood-female-Rabbit
+
+Month: 13258;51
+Anomaly: 27;14
+Mean Weekday: 1;56,40,3,485
+Mean Sun: 23;56,3,0,6
+
+1: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 5 Mar 1878
+  Shubha/dge ba, Vava/gdab pa, Monkey, zin 4
+  Solar: Water-Horse. Shi
+  3;4,58 24;58,7 24;9,5 22;7,12 10;22,1
+    zin phung
+2: Wed. Uttarabhadrapada/khrums smad. Water-Water; 6 Mar 1878
+  Shukla/dkar po, Kaulava/rigs can, Bird, zon 5
+  Solar: Water-Sheep. Bi
+  4;9,9 25;52,25 24;13,35 23;6,0 10;23,1
+3: Thu. Revati/nam gru. Wind-Water; 7 Mar 1878
+  Brahman/tshangs pa, Gara/khyim skyes, Dog, li 6
+  Solar: Wood-Monkey. Kui
+  5;13,21 26;46,43 24;18,5 24;4,48 10;24,1
+4: Fri. Ashvini/tha skar. Earth-Wind; 8 Mar 1878
+  Indra/dbang po, Vishti/viSTi, Pig, khon 7
+  Solar: Wood-Bird. Lou
+  6;17,26 0;41,8 24;22,34 25;3,43 10;25,1
+5: Sat. Bharani/bra nye. Earth-Fire; 9 Mar 1878
+  Vaidhriti/'khon 'dzin, Valava/byis pa, Mouse, dwa 8
+  Solar: Fire-Dog. Wei
+  0;20,30 1;36,33 24;27,4 26;3,38 10;26,1
+6: Sun. Krittika/smin drug. Fire-Fire; 10 Mar 1878
+  Vishkambha/rnam sel, Taitila/til rdung, Ox, khen 9
+  Solar: Fire-Pig. Mao
+  1;22,35 2;32,58 24;31,34 0;4,32 10;27,0
+7: Mon. Rohini/snar ma. Water-Earth; 11 Mar 1878
+  Priti/mdza' bo, Vanija/tshong ba, Tiger, kham 1
+  Solar: Earth-Mouse. Bi
+  2;23,40 3;30,23 24;36,4 1;6,27 10;28,0
+    zin phung
+8: Tue. Mrigashiras/mgo. Fire-Wind; 12 Mar 1878
+  Ayushmat/tshe dang ldan pa, Vava/gdab pa, Rabbit, gin 2
+  Solar: Earth-Ox. Zui
+  3;23,38 4;28,55 24;40,33 2;9,29 10;29,0
+    klu bzlog
+9: Wed. Ardra/lag. Water-Water; 13 Mar 1878
+  Saubhagya/skal bzang, Kaulava/rigs can, Dragon, zin 3
+  Solar: Iron-Tiger. Can
+  4;21,42 5;29,20 24;45,3 3;14,23 11;0,0
+10: Thu. Punarvasu/nabs so. Wind-Wind; 14 Mar 1878
+  Shobhana/dge byed, Gara/khyim skyes, Snake, zon 4
+  Solar: Iron-Rabbit. Jing
+  5;18,47 6;30,45 24;49,33 4;20,18 11;1,0
+    klu thebs
+11: Fri. Pushya/rgyal. Earth-Fire; 15 Mar 1878
+  Atiganda/shin tu 'grams, Vishti/viSTi, Horse, li 5
+  Solar: Water-Dragon. Gui
+  6;14,51 7;33,10 24;54,2 5;27,13 11;2,0
+    yan kwong
+12: Sat. Ashlesha/skag. Earth-Water; 16 Mar 1878
+  Sukarman/las bzang, Valava/byis pa, Sheep, khon 6
+  Solar: Water-Snake. Liu
+  0;9,51 8;36,35 24;58,27 6;35,3 11;2,59
+13: Sun. Magha/mchu. Fire-Fire; 17 Mar 1878
+  Dhriti/'dzin byed, Taitila/til rdung, Monkey, dwa 7
+  Solar: Wood-Horse. Xing
+  1;3,57 9;40,54 25;2,51 7;43,46 11;3,58
+    zin phung
+14. Omitted.
+  1;58,2 25;7,15
+15: Mon. Purvaphalguni/gre. Water-Fire; 18 Mar 1878
+  Ganda/'grams, Vishti/viSTi, Dog, kham 9
+  Solar: Wood-Sheep. Zhang
+  2;52,8 10;49,31 25;11,39 9;1,10 11;5,55
+
+Mars, slow: 5;0,1,2,48 - fast: 2;27,28,3,206 North 1;2,46
+Jupiter, slow: 20;45,27,0,198 - fast: 21;24,3,3,244 East 9;15,20
+Saturn, slow: 24;7,3,1,5003 - fast: 24;12,30,1,1728 East 10;22,46
+Mercury, slow: 24;56,3,5,2149 - fast: 24;47,8,4,7159 East 11;0,28
+Venus, slow: 11;26,21,1,637 - fast: 25;46,36,3,291 South 11;13,41
+Rahu, head: 22;14,44,2,2
+
+16: Tue. Uttaraphalguni/dbo. Fire-Wind; 19 Mar 1878
+  Vriddhi/'phel, Valava/byis pa, Pig, gin 1
+  Solar: Fire-Monkey. Yi
+  3;46,14 11;53,49 25;16,3 10;9,53 11;6,54
+17: Wed. Hasta/me bzhi. Water-Wind; 20 Mar 1878
+  Dhruva/brtan pa, Taitila/til rdung, Mouse, zin 2
+  Solar: Fire-Bird. Zhen
+  4;40,19 12;58,7 25;20,27 11;18,35 11;7,52
+18: Thu. Svati/sa ri. Wind-Wind; 21 Mar 1878
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Ox, zon 3
+  Solar: Earth-Dog. Jiao
+  5;34,32 14;2,19 25;24,51 12;27,10 11;8,51
+    klu bzlog
+19: Fri. Vishakha/sa ga. Earth-Fire; 22 Mar 1878
+  Harshana/dga' ba, Vava/gdab pa, Tiger, li 4
+  Solar: Earth-Pig. Kang
+  6;29,44 15;5,30 25;29,15 13;34,45 11;9,50
+    zin phung
+20: Sat. Anuradha/lha mtshams. Earth-Earth; 23 Mar 1878
+  Vajra/rdo rje, Taitila/til rdung, Rabbit, khon 5
+  Solar: Iron-Mouse. Di
+  0;25,57 16;7,41 25;33,39 14;41,20 11;10,48
+    klu bzlog
+21: Sun. Jyeshtha/snron. Fire-Earth; 24 Mar 1878
+  Siddhi/dngos grub, Vanija/tshong ba, Dragon, dwa 6
+  Solar: Iron-Ox. Fang
+  1;23,9 17;8,53 25;38,2 15;46,56 11;11,47
+22: Mon. Mula/snrubs. Water-Water; 25 Mar 1878
+  Vyatipata/phan tshun, Vava/gdab pa, Snake, khen 7
+  Solar: Water-Tiger. Xin
+  2;21,29 18;8,57 25;42,26 16;51,24 11;12,45
+    klu bzlog
+23: Tue. Purvashadha/chu stod. Fire-Water; 26 Mar 1878
+  Variyas/mchog can, Kaulava/rigs can, Horse, kham 8
+  Solar: Water-Rabbit. Wei
+  3;21,41 19;7,8 25;46,50 17;53,59 11;13,44
+24: Wed. Uttarashadha/chu smad. Water-Earth; 27 Mar 1878
+  Parigha/yongs 'joms, Gara/khyim skyes, Sheep, gin 9
+  Solar: Wood-Dragon. Ji
+  4;22,54 20;4,19 25;51,14 18;55,34 11;14,43
+25: Thu. Abhijit/gro zhin. Wind-Earth; 28 Mar 1878
+  Shiva/zhi ba, Vishti/viSTi, Monkey, zin 1
+  Solar: Wood-Snake. Dou
+  5;25,7 21;0,31 25;55,38 19;56,9 11;15,41
+    zin phung
+26: Fri. Abhijit/gro zhin. Earth-Earth; 29 Mar 1878
+  Siddha/grub pa, Vava/gdab pa, Bird, zon 2
+  Solar: Fire-Horse. Niu
+  6;28,20 21;55,42 26;0,2 20;55,44 11;16,40
+27: Sat. Dhanishtha/mon gre. Earth-Water; 30 Mar 1878
+  Sadhya/bsgrub bya, Kaulava/rigs can, Dog, li 3
+  Solar: Fire-Sheep. Nu
+  0;32,25 22;50,0 26;4,26 21;54,26 11;17,39
+28: Sun. Shatabhishaj/mon gru. Fire-Earth; 31 Mar 1878
+  Shubha/dge ba, Gara/khyim skyes, Pig, khon 4
+  Solar: Earth-Monkey. Xu
+  1;36,31 23;44,18 26;8,50 22;53,8 11;18,37
+    klu bzlog
+29: Mon. Purvabhadrapada/khrums stod. Water-Fire; 1 Apr 1878
+  Shukla/dkar po, Vishti/viSTi, Mouse, dwa 5
+  Solar: Earth-Bird. Wei
+  2;40,37 24;38,36 26;13,14 23;51,50 11;19,36
+30: Tue. Uttarabhadrapada/khrums smad. Fire-Water; 2 Apr 1878
+  Brahman/tshangs pa, Catushpada/rkang bzhi, Ox, khen 6
+  Solar: Iron-Dog. Shi
+  3;44,42 25;32,54 26;17,37 24;50,32 11;20,35
+
+Mars, slow: 5;33,33,3,131 - fast: 3;10,35,5,199 North 1;12,21
+Jupiter, slow: 20;51,26,0,204 - fast: 21;35,59,3,300 East 9;17,59
+Saturn, slow: 24;9,24,4,3236 - fast: 24;20,12,4,5312 East 10;24,29
+Mercury, slow: 2;32,17,4,2078 - fast: 26;48,21,3,4522 East 11;27,24
+Venus, slow: 13;14,29,5,569 - fast: 25;9,58,0,246 West 11;5,32
+Rahu, head: 22;11,13,0,6
+
+Tibetan Lunar Month: 3 - Fire-male-Dragon
+
+Month: 13259;53
+Anomaly: 1;15
+Mean Weekday: 3;28,30,4,258
+Mean Sun: 26;7,1,3,3
+
+1: Wed. Revati/nam gru. Water-Water; 3 Apr 1878
+  Indra/dbang po, Kintughna/mi sdug pa, Tiger, kham 7
+  Solar: Iron-Pig. Bi
+  4;48,48 26;27,13 26;22,1 25;49,15 11;21,33
+    zin phung
+2: Thu. Ashvini/tha skar. Wind-Wind; 4 Apr 1878
+  Vaidhriti/'khon 'dzin, Valava/byis pa, Rabbit, gin 8
+  Solar: Water-Mouse. Kui
+  5;52,47 0;21,38 26;26,25 26;48,4 11;22,32
+3: Fri. Bharani/bra nye. Earth-Fire; 5 Apr 1878
+  Vishkambha/rnam sel, Kaulava/rigs can, Dragon, zin 9
+  Solar: Water-Ox. Lou
+  6;55,45 1;17,3 26;30,49 0;47,53 11;23,31
+4: Sat. Krittika/smin drug. Earth-Fire; 6 Apr 1878
+  Priti/mdza' bo, Gara/khyim skyes, Snake, zon 1
+  Solar: Wood-Tiger. Wei
+  0;57,44 2;13,29 26;35,13 1;48,42 11;24,29
+5: Sun. Rohini/snar ma. Fire-Earth; 7 Apr 1878
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Horse, li 2
+  Solar: Wood-Rabbit. Mao
+  1;58,42 3;10,54 26;39,37 2;50,32 11;25,28
+6: Mon. Mrigashiras/mgo. Water-Wind; 8 Apr 1878
+  Saubhagya/skal bzang, Valava/byis pa, Sheep, khon 3
+  Solar: Fire-Dragon. Bi
+  2;58,33 4;9,27 26;44,1 3;53,28 11;26,26
+7: Tue. Ardra/lag. Fire-Water; 9 Apr 1878
+  Shobhana/dge byed, Taitila/til rdung, Monkey, dwa 4
+  Solar: Fire-Snake. Zui
+  3;56,31 5;9,53 26;48,25 4;58,18 11;27,25
+    zin phung
+8: Wed. Punarvasu/nabs so. Water-Wind; 10 Apr 1878
+  Sukarman/las bzang, Vishti/viSTi, Bird, khen 5
+  Solar: Earth-Horse. Can
+  4;53,30 6;11,18 26;52,49 6;4,7 11;28,24
+9: Thu. Pushya/rgyal. Wind-Fire; 11 Apr 1878
+  Dhriti/'dzin byed, Valava/byis pa, Dog, kham 6
+  Solar: Earth-Sheep. Jing
+  5;49,28 7;13,44 26;57,12 7;10,57 11;29,22
+    yan kwong
+10: Fri. Ashlesha/skag. Earth-Water; 12 Apr 1878
+  Shula/zug rngu, Taitila/til rdung, Pig, gin 7
+  Solar: Iron-Monkey. Gui
+  6;44,26 8;17,10 0;1,36 8;18,46 0;0,21
+11: Sat. Magha/mchu. Earth-Fire; 13 Apr 1878
+  Ganda/'grams, Vanija/tshong ba, Mouse, zin 8
+  Solar: Iron-Bird. Liu
+  0;38,32 9;21,28 0;6,0 9;27,29 0;1,20
+12: Sun. Purvaphalguni/gre. Fire-Fire; 14 Apr 1878
+  Vriddhi/'phel, Vava/gdab pa, Ox, zon 9
+  Solar: Water-Dog. Xing
+  1;32,37 10;25,46 0;10,24 10;36,11 0;2,18
+13: Mon. Uttaraphalguni/dbo. Water-Wind; 15 Apr 1878
+  Dhruva/brtan pa, Taitila/til rdung, Tiger, li 1
+  Solar: Water-Pig. Zhang
+  2;26,40 11;30,5 0;14,45 11;44,50 0;3,16
+    zin phung
+14: Tue. Hasta/me bzhi. Fire-Wind; 16 Apr 1878
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Rabbit, khon 2
+  Solar: Wood-Mouse. Yi
+  3;20,41 12;34,23 0;19,5 12;53,28 0;4,14
+15: Wed. Citra/nag pa. Water-Wind; 17 Apr 1878
+  Vajra/rdo rje, Vava/gdab pa, Dragon, dwa 3
+  Solar: Wood-Ox. Zhen
+  4;14,43 13;38,41 0;23,25 14;2,7 0;5,12
+  Revelation of the Kalacakra Tantra.
+
+Mars, slow: 6;5,1,3,99 - fast: 3;52,38,4,170 North 1;21,41
+Jupiter, slow: 20;57,25,0,210 - fast: 21;46,55,1,258 East 9;20,25
+Saturn, slow: 24;11,46,1,1469 - fast: 24;27,49,1,515 East 10;26,10
+Mercury, slow: 7;8,31,3,2007 - fast: 1;33,28,0,5129 East 0;20,46
+Venus, slow: 15;2,38,3,501 - fast: 25;2,9,5,213 West 11;3,48
+Rahu, head: 22;7,41,4,10
+
+16: Thu. Svati/sa ri. Wind-Wind; 18 Apr 1878
+  Siddhi/dngos grub, Kaulava/rigs can, Snake, khen 4
+  Solar: Fire-Tiger. Jiao
+  5;8,52 14;42,52 0;27,45 15;10,37 0;6,10
+17: Fri. Vishakha/sa ga. Earth-Fire; 19 Apr 1878
+  Vyatipata/phan tshun, Gara/khyim skyes, Horse, kham 5
+  Solar: Fire-Rabbit. Kang
+  6;4,1 15;46,3 0;32,5 16;18,8 0;7,7
+18: Sat. Anuradha/lha mtshams. Earth-Earth; 20 Apr 1878
+  Variyas/mchog can, Vishti/viSTi, Sheep, gin 6
+  Solar: Earth-Dragon. Di
+  0;0,10 16;48,14 0;36,25 17;24,39 0;8,5
+19. Omitted.
+  0;57,19 0;40,45
+20: Sun. Jyeshtha/snron. Fire-Earth; 21 Apr 1878
+  Parigha/yongs 'joms, Valava/byis pa, Bird, zon 8
+  Solar: Earth-Snake. Fang
+  1;55,36 17;49,28 0;45,5 18;34,34 0;10,1
+21: Mon. Mula/snrubs. Water-Water; 22 Apr 1878
+  Shiva/zhi ba, Taitila/til rdung, Dog, li 9
+  Solar: Iron-Horse. Xin
+  2;55,45 18;47,39 0;49,25 19;37,4 0;10,58
+    nyi nag
+22: Tue. Purvashadha/chu stod. Fire-Water; 23 Apr 1878
+  Siddha/grub pa, Vanija/tshong ba, Pig, khon 1
+  Solar: Iron-Sheep. Wei
+  3;56,54 19;44,50 0;53,45 20;38,35 0;11,56
+23: Wed. Uttarashadha/chu smad. Water-Earth; 24 Apr 1878
+  Sadhya/bsgrub bya, Vava/gdab pa, Mouse, dwa 2
+  Solar: Water-Monkey. Ji
+  4;59,4 20;41,1 0;58,5 21;39,6 0;12,54
+24: Thu. Abhijit/gro zhin. Wind-Earth; 25 Apr 1878
+  Shubha/dge ba, Kaulava/rigs can, Ox, khen 3
+  Solar: Water-Bird. Dou
+  5;60,0 21;41,1 1;2,25 22;43,26 0;13,52
+24: Fri. Dhanishtha/mon gre. Earth-Water; 26 Apr 1878
+  Shukla/dkar po, Gara/khyim skyes, Ox, khen 3
+  Solar: Wood-Dog. Niu
+  6;2,13 22;36,11 1;2,25 23;38,36 0;13,52
+25: Sat. Shatabhishaj/mon gru. Earth-Earth; 27 Apr 1878
+  Brahman/tshangs pa, Vishti/viSTi, Tiger, kham 4
+  Solar: Wood-Pig. Nu
+  0;6,15 23;30,29 1;6,45 24;37,15 0;14,50
+    klu thebs, zin phung
+26: Sun. Purvabhadrapada/khrums stod. Fire-Fire; 28 Apr 1878
+  Indra/dbang po, Valava/byis pa, Rabbit, gin 5
+  Solar: Fire-Mouse. Xu
+  1;10,17 24;24,48 1;11,5 25;35,53 0;15,47
+27: Mon. Uttarabhadrapada/khrums smad. Water-Water; 29 Apr 1878
+  Vaidhriti/'khon 'dzin, Taitila/til rdung, Dragon, zin 6
+  Solar: Fire-Ox. Wei
+  2;14,18 25;19,6 1;15,25 26;34,31 0;16,45
+28: Tue. Revati/nam gru. Fire-Water; 30 Apr 1878
+  Vishkambha/rnam sel, Vanija/tshong ba, Snake, zon 7
+  Solar: Earth-Tiger. Shi
+  3;18,20 26;13,24 1;19,45 0;33,9 0;17,43
+29: Wed. Ashvini/tha skar. Water-Wind; 1 May 1878
+  Priti/mdza' bo, Shakuni/bkra shis, Horse, li 8
+  Solar: Earth-Rabbit. Bi
+  4;22,22 0;7,42 1;24,5 1;31,48 0;18,41
+30: Thu. Bharani/bra nye. Wind-Fire; 2 May 1878
+  Ayushmat/tshe dang ldan pa, Naga/klu, Sheep, khon 9
+  Solar: Iron-Dragon. Kui
+  5;26,16 1;2,8 1;28,25 2;30,34 0;19,38
+
+Mars, slow: 6;35,40,5,55 - fast: 4;35,29,3,93 North 2;1,13
+Jupiter, slow: 21;3,24,0,216 - fast: 21;54,38,4,68 East 9;22,8
+Saturn, slow: 24;14,7,3,5085 - fast: 24;34,23,0,4746 East 10;27,38
+Mercury, slow: 11;44,45,2,1936 - fast: 2;37,9,1,3750 South 1;4,55
+Venus, slow: 16;50,47,1,433 - fast: 25;23,14,2,158 West 11;8,29
+Rahu, head: 22;4,10,2,14
+
+Tibetan Lunar Month: 4 - Fire-female-Snake
+
+Month: 13260;55
+Anomaly: 3;16
+Mean Weekday: 5;0,20,5,31
+Mean Sun: 1;18,0,0,0
+
+1: Fri. Bharani/bra nye. Earth-Fire; 3 May 1878
+  Saubhagya/skal bzang, Kintughna/mi sdug pa, Monkey, dwa 1
+  Solar: Iron-Snake. Lou
+  6;29,10 1;57,34 1;32,45 3;30,19 0;20,36
+2: Sat. Krittika/smin drug. Earth-Fire; 4 May 1878
+  Shobhana/dge byed, Valava/byis pa, Bird, khen 2
+  Solar: Water-Horse. Wei
+  0;31,4 2;54,0 1;37,5 4;31,5 0;21,34
+3: Sun. Rohini/snar ma. Fire-Earth; 5 May 1878
+  Atiganda/shin tu 'grams, Taitila/til rdung, Dog, kham 3
+  Solar: Water-Sheep. Mao
+  1;31,59 3;51,26 1;41,25 5;32,51 0;22,32
+4: Mon. Mrigashiras/mgo. Water-Wind; 6 May 1878
+  Sukarman/las bzang, Vanija/tshong ba, Pig, gin 4
+  Solar: Wood-Monkey. Bi
+  2;31,45 4;49,59 1;45,45 6;35,45 0;23,30
+5: Tue. Ardra/lag. Fire-Water; 7 May 1878
+  Dhriti/'dzin byed, Vava/gdab pa, Mouse, zin 5
+  Solar: Wood-Bird. Zui
+  3;29,39 5;50,25 1;50,5 7;40,31 0;24,27
+6: Wed. Punarvasu/nabs so. Water-Wind; 8 May 1878
+  Shula/zug rngu, Taitila/til rdung, Ox, zon 6
+  Solar: Fire-Dog. Can
+  4;26,33 6;51,51 1;54,25 8;46,17 0;25,25
+    zin phung
+7: Thu. Pushya/rgyal. Wind-Fire; 9 May 1878
+  Ganda/'grams, Vanija/tshong ba, Tiger, li 7
+  Solar: Fire-Pig. Jing
+  5;22,27 7;54,17 1;58,45 9;53,3 0;26,23
+    yan kwong
+8: Fri. Ashlesha/skag. Earth-Water; 10 May 1878
+  Dhruva/brtan pa, Vava/gdab pa, Rabbit, khon 8
+  Solar: Earth-Mouse. Gui
+  6;17,21 8;57,44 2;3,5 11;0,49 0;27,21
+  Birth of the Buddha.
+    klu thebs, nyi nag
+9: Sat. Purvaphalguni/gre. Earth-Fire; 11 May 1878
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Dragon, dwa 9
+  Solar: Earth-Ox. Liu
+  0;11,22 10;2,2 2;7,25 12;9,27 0;28,18
+10: Sun. Uttaraphalguni/dbo. Fire-Wind; 12 May 1878
+  Harshana/dga' ba, Gara/khyim skyes, Snake, khen 1
+  Solar: Iron-Tiger. Xing
+  1;5,24 11;6,20 2;11,45 13;18,6 0;29,16
+11. Omitted.
+  1;59,26 2;16,5
+12: Mon. Hasta/me bzhi. Water-Wind; 13 May 1878
+  Vajra/rdo rje, Vava/gdab pa, Sheep, gin 3
+  Solar: Iron-Rabbit. Zhang
+  2;53,27 12;14,57 2;20,25 14;35,22 1;1,12
+    zin phung
+13: Tue. Citra/nag pa. Fire-Wind; 14 May 1878
+  Siddhi/dngos grub, Kaulava/rigs can, Monkey, zin 4
+  Solar: Water-Dragon. Yi
+  3;47,29 13;19,15 2;24,45 15;44,1 1;2,10
+14: Wed. Svati/sa ri. Water-Wind; 15 May 1878
+  Vyatipata/phan tshun, Gara/khyim skyes, Bird, zon 5
+  Solar: Water-Snake. Zhen
+  4;41,33 14;23,26 2;28,59 16;52,26 1;3,6
+15: Thu. Vishakha/sa ga. Wind-Fire; 16 May 1878
+  Variyas/mchog can, Vishti/viSTi, Dog, li 6
+  Solar: Wood-Horse. Jiao
+  5;36,37 15;26,36 2;33,14 17;59,50 1;4,3
+  Enlightenment and Parinirvana of the Buddha.
+    klu thebs
+
+Mars, slow: 7;4,17,3,75 - fast: 5;17,0,3,194 North 2;10,26
+Jupiter, slow: 21;8,59,1,5 - fast: 22;0,15,3,359 South 9;23,23
+Saturn, slow: 24;16,19,4,206 - fast: 24;40,33,5,5112 East 10;29,0
+Mercury, slow: 16;2,34,1,5975 - fast: 2;7,25,0,7529 West 0;28,18
+Venus, slow: 18;31,43,2,20 - fast: 26;8,49,0,741 West 11;18,37
+Rahu, head: 22;0,39,0,18
+
+16: Fri. Anuradha/lha mtshams. Earth-Earth; 17 May 1878
+  Shiva/zhi ba, Valava/byis pa, Pig, khon 7
+  Solar: Wood-Sheep. Kang
+  6;32,40 16;28,47 2;37,28 19;6,15 1;4,59
+17: Sat. Jyeshtha/snron. Earth-Earth; 18 May 1878
+  Siddha/grub pa, Taitila/til rdung, Mouse, dwa 8
+  Solar: Fire-Monkey. Di
+  0;29,44 17;29,57 2;41,42 20;11,40 1;5,56
+18: Sun. Mula/snrubs. Fire-Water; 19 May 1878
+  Sadhya/bsgrub bya, Vanija/tshong ba, Ox, khen 9
+  Solar: Fire-Bird. Fang
+  1;27,56 18;30,0 2;45,56 21;15,56 1;6,52
+    zin phung
+19: Mon. Purvashadha/chu stod. Water-Water; 20 May 1878
+  Shubha/dge ba, Vava/gdab pa, Tiger, kham 1
+  Solar: Earth-Dog. Xin
+  2;28,0 19;28,10 2;50,10 22;18,21 1;7,49
+20: Tue. Uttarashadha/chu smad. Fire-Earth; 21 May 1878
+  Shukla/dkar po, Kaulava/rigs can, Rabbit, gin 2
+  Solar: Earth-Pig. Wei
+  3;29,4 20;25,20 2;54,25 23;19,45 1;8,45
+    klu bzlog
+21: Wed. Abhijit/gro zhin. Water-Earth; 22 May 1878
+  Brahman/tshangs pa, Gara/khyim skyes, Dragon, zin 3
+  Solar: Iron-Mouse. Ji
+  4;31,8 21;21,31 2;58,39 24;20,10 1;9,42
+22: Thu. Dhanishtha/mon gre. Wind-Water; 23 May 1878
+  Indra/dbang po, Vishti/viSTi, Snake, zon 4
+  Solar: Iron-Ox. Dou
+  5;34,12 22;16,41 3;2,53 25;19,34 1;10,38
+23: Fri. Shatabhishaj/mon gru. Earth-Earth; 24 May 1878
+  Vaidhriti/'khon 'dzin, Valava/byis pa, Horse, li 5
+  Solar: Water-Tiger. Niu
+  6;38,8 23;10,59 3;7,7 26;18,7 1;11,35
+24: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 25 May 1878
+  Vishkambha/rnam sel, Taitila/til rdung, Sheep, khon 6
+  Solar: Water-Rabbit. Nu
+  0;42,3 24;5,17 3;11,21 0;16,39 1;12,31
+    zin phung
+25: Sun. Purvabhadrapada/khrums stod. Fire-Fire; 26 May 1878
+  Priti/mdza' bo, Vanija/tshong ba, Monkey, dwa 7
+  Solar: Wood-Dragon. Xu
+  1;45,59 24;59,36 3;15,36 1;15,12 1;13,28
+    klu bzlog
+26: Mon. Uttarabhadrapada/khrums smad. Water-Water; 27 May 1878
+  Ayushmat/tshe dang ldan pa, Vava/gdab pa, Bird, khen 8
+  Solar: Wood-Snake. Wei
+  2;49,55 25;53,54 3;19,50 2;13,44 1;14,24
+27: Tue. Revati/nam gru. Fire-Water; 28 May 1878
+  Saubhagya/skal bzang, Kaulava/rigs can, Dog, kham 9
+  Solar: Fire-Horse. Shi
+  3;53,51 26;48,12 3;24,4 3;12,16 1;15,20
+28: Wed. Ashvini/tha skar. Water-Wind; 29 May 1878
+  Shobhana/dge byed, Taitila/til rdung, Pig, gin 1
+  Solar: Fire-Sheep. Bi
+  4;57,39 0;42,38 3;28,18 4;10,57 1;16,17
+29: Thu. Bharani/bra nye. Wind-Fire; 30 May 1878
+  Atiganda/shin tu 'grams, Vanija/tshong ba, Mouse, zin 2
+  Solar: Earth-Monkey. Kui
+  5;60,0 1;42,38 3;32,32 5;15,11 1;17,13
+29: Fri. Krittika/smin drug. Earth-Fire; 31 May 1878
+  Sukarman/las bzang, Shakuni/bkra shis, Mouse, zin 2
+  Solar: Earth-Bird. Lou
+  6;0,27 2;38,4 3;32,32 6;10,37 1;17,13
+30: Sat. Rohini/snar ma. Earth-Earth; 1 Jun 1878
+  Dhriti/'dzin byed, Naga/klu, Ox, zon 3
+  Solar: Iron-Dog. Wei
+  0;2,15 3;34,31 3;36,46 7;11,18 1;18,10
+    zin phung
+
+Mars, slow: 7;36,59,2,196 - fast: 6;1,11,0,166 North 2;20,15
+Jupiter, slow: 21;15,22,0,228 - fast: 22;3,0,2,295 South 9;24,0
+Saturn, slow: 24;18,50,3,1551 - fast: 24;45,10,4,4687 East 11;0,2
+Mercury, slow: 20;57,13,0,1794 - fast: 1;56,22,4,2136 West 0;25,51
+Venus, slow: 20;27,4,3,297 - fast: 0;7,11,0,333 West 0;1,35
+Rahu, head: 21;57,7,4,22
+
+Tibetan Lunar Month: 5 - Earth-male-Horse
+
+Month: 13261;57
+Anomaly: 5;17
+Mean Weekday: 6;32,10,5,511
+Mean Sun: 3;28,58,2,10
+
+1: Sun. Mrigashiras/mgo. Fire-Wind; 2 Jun 1878
+  Shula/zug rngu, Vava/gdab pa, Tiger, li 4
+  Solar: Iron-Pig. Mao
+  1;3,3 4;31,57 3;41,1 8;12,58 1;19,6
+2: Mon. Ardra/lag. Water-Water; 3 Jun 1878
+  Ganda/'grams, Kaulava/rigs can, Rabbit, khon 5
+  Solar: Water-Mouse. Bi
+  2;2,43 5;30,32 3;45,15 9;15,47 1;20,3
+3: Tue. Punarvasu/nabs so. Fire-Wind; 4 Jun 1878
+  Vriddhi/'phel, Gara/khyim skyes, Dragon, dwa 6
+  Solar: Water-Ox. Zui
+  3;0,30 6;30,58 3;49,29 10;20,28 1;20,59
+4. Omitted.
+  3;57,18 3;53,43
+5: Wed. Pushya/rgyal. Water-Fire; 5 Jun 1878
+  Dhruva/brtan pa, Vava/gdab pa, Horse, kham 8
+  Solar: Wood-Tiger. Can
+  4;53,6 7;34,51 3;57,57 11;32,49 1;22,52
+    yan kwong
+6: Thu. Ashlesha/skag. Wind-Water; 6 Jun 1878
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Sheep, gin 9
+  Solar: Wood-Rabbit. Jing
+  5;47,53 8;38,18 4;2,12 12;40,30 1;23,49
+    zin phung
+7: Fri. Magha/mchu. Earth-Fire; 7 Jun 1878
+  Harshana/dga' ba, Gara/khyim skyes, Monkey, zin 1
+  Solar: Fire-Dragon. Gui
+  6;41,49 9;42,36 4;6,26 13;49,2 1;24,45
+8: Sat. Purvaphalguni/gre. Earth-Fire; 8 Jun 1878
+  Vajra/rdo rje, Vishti/viSTi, Bird, zon 2
+  Solar: Fire-Snake. Liu
+  0;35,45 10;46,54 4;10,40 14;57,35 1;25,42
+    klu bzlog
+9: Sun. Uttaraphalguni/dbo. Fire-Wind; 9 Jun 1878
+  Vyatipata/phan tshun, Valava/byis pa, Dog, li 3
+  Solar: Earth-Horse. Xing
+  1;29,41 11;51,13 4;14,54 16;6,7 1;26,38
+10: Mon. Hasta/me bzhi. Water-Wind; 10 Jun 1878
+  Variyas/mchog can, Gara/khyim skyes, Pig, khon 4
+  Solar: Earth-Sheep. Zhang
+  2;23,37 12;55,31 4;19,8 17;14,40 1;27,35
+11: Tue. Citra/nag pa. Fire-Wind; 11 Jun 1878
+  Parigha/yongs 'joms, Vishti/viSTi, Mouse, dwa 5
+  Solar: Iron-Monkey. Yi
+  3;17,33 13;59,49 4;23,23 18;23,12 1;28,31
+12: Wed. Vishakha/sa ga. Water-Fire; 12 Jun 1878
+  Shiva/zhi ba, Valava/byis pa, Ox, khen 6
+  Solar: Iron-Bird. Zhen
+  4;11,37 15;3,59 4;27,37 19;31,37 1;29,28
+    zin phung
+13: Thu. Anuradha/lha mtshams. Wind-Earth; 13 Jun 1878
+  Siddha/grub pa, Taitila/til rdung, Tiger, kham 7
+  Solar: Water-Dog. Jiao
+  5;6,41 16;7,9 4;31,51 20;39,1 2;0,24
+14: Fri. Jyeshtha/snron. Earth-Earth; 14 Jun 1878
+  Sadhya/bsgrub bya, Vanija/tshong ba, Rabbit, gin 8
+  Solar: Water-Pig. Kang
+  6;2,45 17;9,20 4;36,5 21;45,25 2;1,21
+15. Omitted.
+  6;59,45 4;40,15
+
+Mars, slow: 8;2,8,5,183 - fast: 6;41,32,0,198 North 2;29,13
+Jupiter, slow: 21;20,33,1,161 - fast: 22;1,28,0,158 South 9;23,39
+Saturn, slow: 24;20,53,0,4326 - fast: 24;48,53,0,4326 East 11;0,51
+Mercury, slow: 24;56,37,0,1146 - fast: 3;11,13,3,5254 North 1;12,29
+Venus, slow: 22;0,48,0,288 - fast: 1;12,43,0,587 North 0;16,9
+Rahu, head: 21;53,36,3,3
+
+16: Sat. Mula/snrubs. Earth-Water; 15 Jun 1878
+  Shubha/dge ba, Vava/gdab pa, Snake, zon 1
+  Solar: Wood-Mouse. Di
+  0;57,54 18;10,31 4;44,26 22;54,57 2;3,12
+    nyi nag
+17: Sun. Purvashadha/chu stod. Fire-Water; 16 Jun 1878
+  Shukla/dkar po, Kaulava/rigs can, Horse, li 2
+  Solar: Wood-Ox. Fang
+  1;57,54 19;8,41 4;48,36 23;57,17 2;4,8
+18: Mon. Uttarashadha/chu smad. Water-Earth; 17 Jun 1878
+  Brahman/tshangs pa, Gara/khyim skyes, Sheep, khon 3
+  Solar: Fire-Tiger. Xin
+  2;58,55 20;5,51 4;52,46 24;58,38 2;5,3
+    zin phung
+19: Tue. Abhijit/gro zhin. Fire-Earth; 18 Jun 1878
+  Vaidhriti/'khon 'dzin, Vishti/viSTi, Monkey, dwa 4
+  Solar: Fire-Rabbit. Wei
+  3;60,0 21;5,51 4;56,57 26;2,48 2;5,59
+19: Wed. Dhanishtha/mon gre. Water-Water; 19 Jun 1878
+  Vaidhriti/'khon 'dzin, Valava/byis pa, Monkey, dwa 4
+  Solar: Earth-Dragon. Ji
+  4;0,55 22;2,1 4;56,57 26;58,58 2;5,59
+20: Thu. Dhanishtha/mon gre. Wind-Water; 20 Jun 1878
+  Vishkambha/rnam sel, Taitila/til rdung, Bird, khen 5
+  Solar: Earth-Snake. Dou
+  5;3,56 22;57,11 5;1,7 0;58,18 2;6,54
+    klu thebs
+21: Fri. Shatabhishaj/mon gru. Earth-Earth; 21 Jun 1878
+  Priti/mdza' bo, Vanija/tshong ba, Dog, kham 6
+  Solar: Iron-Horse. Niu
+  6;7,48 23;51,29 5;5,17 1;56,46 2;7,50
+22: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 22 Jun 1878
+  Ayushmat/tshe dang ldan pa, Vava/gdab pa, Pig, gin 7
+  Solar: Iron-Sheep. Nu
+  0;11,40 24;45,47 5;9,27 2;55,15 2;8,46
+    klu thebs
+23: Sun. Uttarabhadrapada/khrums smad. Fire-Water; 23 Jun 1878
+  Saubhagya/skal bzang, Kaulava/rigs can, Mouse, zin 8
+  Solar: Water-Monkey. Xu
+  1;15,32 25;40,5 5;13,38 3;53,43 2;9,41
+24: Mon. Revati/nam gru. Water-Water; 24 Jun 1878
+  Shobhana/dge byed, Gara/khyim skyes, Ox, zon 9
+  Solar: Water-Bird. Wei
+  2;19,24 26;34,23 5;17,48 4;52,12 2;10,37
+    zin phung
+25: Tue. Ashvini/tha skar. Fire-Wind; 25 Jun 1878
+  Atiganda/shin tu 'grams, Vishti/viSTi, Tiger, li 1
+  Solar: Wood-Dog. Shi
+  3;23,16 0;28,41 5;21,58 5;50,40 2;11,33
+26: Wed. Bharani/bra nye. Water-Fire; 26 Jun 1878
+  Sukarman/las bzang, Vava/gdab pa, Rabbit, khon 2
+  Solar: Wood-Pig. Bi
+  4;27,0 1;23,8 5;26,9 6;49,17 2;12,28
+27: Thu. Krittika/smin drug. Wind-Fire; 27 Jun 1878
+  Dhriti/'dzin byed, Kaulava/rigs can, Dragon, dwa 3
+  Solar: Fire-Mouse. Kui
+  5;29,44 2;18,35 5;30,19 7;48,54 2;13,24
+28: Fri. Rohini/snar ma. Earth-Earth; 28 Jun 1878
+  Shula/zug rngu, Gara/khyim skyes, Snake, khen 4
+  Solar: Fire-Ox. Lou
+  6;31,27 3;15,2 5;34,29 8;49,31 2;14,19
+29: Sat. Mrigashiras/mgo. Earth-Wind; 29 Jun 1878
+  Ganda/'grams, Vishti/viSTi, Horse, kham 5
+  Solar: Earth-Tiger. Wei
+  0;32,11 4;12,28 5;38,40 9;51,8 2;15,15
+30: Sun. Ardra/lag. Fire-Water; 30 Jun 1878
+  Vriddhi/'phel, Catushpada/rkang bzhi, Sheep, gin 6
+  Solar: Earth-Rabbit. Mao
+  1;31,45 5;11,4 5;42,50 10;53,54 2;16,11
+    zin phung
+
+Mars, slow: 8;32,53,3,11 - fast: 7;25,35,4,206 North 3;9,1
+Jupiter, slow: 21;26,56,1,23 - fast: 21;58,33,0,87 South 9;23,0
+Saturn, slow: 24;23,24,0,288 - fast: 24;50,50,5,2533 South 11;1,17
+Mercury, slow: 2;51,15,4,5762 - fast: 5;4,14,4,6008 North 2;7,36
+Venus, slow: 23;56,9,1,565 - fast: 2;24,33,2,213 North 1;2,7
+Rahu, head: 21;50,5,1,7
+
+Tibetan Lunar Month: 6 - Earth-female-Sheep
+
+Month: 13262;59
+Anomaly: 7;18
+Mean Weekday: 1;4,1,0,284
+Mean Sun: 5;39,56,5,7
+
+1: Mon. Punarvasu/nabs so. Water-Wind; 1 Jul 1878
+  Dhruva/brtan pa, Kintughna/mi sdug pa, Monkey, zin 7
+  Solar: Iron-Dragon. Bi
+  2;29,29 6;11,31 5;47,0 11;58,31 2;17,6
+2: Tue. Pushya/rgyal. Fire-Fire; 2 Jul 1878
+  Harshana/dga' ba, Kaulava/rigs can, Bird, zon 8
+  Solar: Iron-Snake. Zui
+  3;26,12 7;12,58 5;51,11 13;4,9 2;18,2
+3: Wed. Ashlesha/skag. Water-Water; 3 Jul 1878
+  Vajra/rdo rje, Gara/khyim skyes, Dog, li 9
+  Solar: Water-Horse. Can
+  4;21,56 8;15,25 5;55,21 14;10,46 2;18,58
+    yan kwong
+4: Thu. Magha/mchu. Wind-Fire; 4 Jul 1878
+  Siddhi/dngos grub, Vishti/viSTi, Pig, khon 1
+  Solar: Water-Sheep. Jing
+  5;16,39 9;18,52 5;59,31 15;18,23 2;19,53
+  Turning of the Wheel of the Dharma.
+5: Fri. Purvaphalguni/gre. Earth-Fire; 5 Jul 1878
+  Vyatipata/phan tshun, Valava/byis pa, Mouse, dwa 2
+  Solar: Wood-Monkey. Gui
+  6;10,31 10;23,10 6;3,41 16;26,52 2;20,49
+    klu thebs
+6: Sat. Uttaraphalguni/dbo. Earth-Wind; 6 Jul 1878
+  Variyas/mchog can, Taitila/til rdung, Ox, khen 3
+  Solar: Wood-Bird. Liu
+  0;4,23 11;27,28 6;7,52 17;35,20 2;21,44
+    zin phung
+7. Omitted.
+  0;58,15 6;12,2
+8: Sun. Hasta/me bzhi. Fire-Wind; 7 Jul 1878
+  Parigha/yongs 'joms, Vishti/viSTi, Rabbit, gin 5
+  Solar: Fire-Dog. Xing
+  1;52,7 12;36,5 6;16,12 18;52,18 2;23,36
+9: Mon. Citra/nag pa. Water-Wind; 8 Jul 1878
+  Siddha/grub pa, Valava/byis pa, Dragon, zin 6
+  Solar: Fire-Pig. Zhang
+  2;45,59 13;40,23 6;20,23 20;0,46 2;24,31
+10: Tue. Svati/sa ri. Fire-Wind; 9 Jul 1878
+  Sadhya/bsgrub bya, Taitila/til rdung, Snake, zon 7
+  Solar: Earth-Mouse. Yi
+  3;39,59 14;44,33 6;24,33 21;9,6 2;25,27
+11: Wed. Vishakha/sa ga. Water-Fire; 10 Jul 1878
+  Shubha/dge ba, Vanija/tshong ba, Horse, li 8
+  Solar: Earth-Ox. Zhen
+  4;35,0 15;47,43 6;28,43 22;16,26 2;26,23
+    klu bzlog
+12: Thu. Anuradha/lha mtshams. Wind-Earth; 11 Jul 1878
+  Shukla/dkar po, Vava/gdab pa, Sheep, khon 9
+  Solar: Iron-Tiger. Jiao
+  5;31,1 16;49,52 6;32,54 23;22,46 2;27,18
+    zin phung
+13: Fri. Jyeshtha/snron. Earth-Earth; 12 Jul 1878
+  Brahman/tshangs pa, Kaulava/rigs can, Monkey, dwa 1
+  Solar: Iron-Rabbit. Kang
+  6;28,2 17;51,2 6;37,4 24;28,6 2;28,14
+    klu bzlog
+14: Sat. Mula/snrubs. Earth-Water; 13 Jul 1878
+  Indra/dbang po, Vanija/tshong ba, Bird, khen 2
+  Solar: Water-Dragon. Di
+  0;26,11 18;51,2 6;41,14 25;32,17 2;29,9
+15: Sun. Purvashadha/chu stod. Fire-Water; 14 Jul 1878
+  Vaidhriti/'khon 'dzin, Vava/gdab pa, Dog, kham 3
+  Solar: Water-Snake. Fang
+  1;26,12 19;49,12 6;45,25 26;34,37 3;0,5
+  The Buddha's entry into the womb of his mother.
+    klu bzlog
+
+Mars, slow: 8;59,47,2,204 - fast: 8;7,17,1,191 North 3;18,17
+Jupiter, slow: 21;32,31,1,173 - fast: 21;52,4,3,226 South 9;21,34
+Saturn, slow: 24;25,36,0,792 - fast: 24;50,16,4,513 South 11;1,10
+Mercury, slow: 7;9,4,4,1004 - fast: 7;2,30,3,8207 East 3;3,53
+Venus, slow: 25;37,5,2,152 - fast: 3;37,5,0,628 North 1;18,14
+Rahu, head: 21;46,33,5,11
+
+16: Mon. Uttarashadha/chu smad. Water-Earth; 15 Jul 1878
+  Vishkambha/rnam sel, Valava/byis pa, Pig, gin 4
+  Solar: Wood-Horse. Xin
+  2;27,13 20;46,21 6;49,35 0;35,56 3;1,1
+17: Tue. Abhijit/gro zhin. Fire-Earth; 16 Jul 1878
+  Priti/mdza' bo, Taitila/til rdung, Mouse, zin 5
+  Solar: Wood-Sheep. Wei
+  3;29,14 21;42,31 6;53,45 1;36,16 3;1,56
+18: Wed. Dhanishtha/mon gre. Water-Water; 17 Jul 1878
+  Ayushmat/tshe dang ldan pa, Vanija/tshong ba, Ox, zon 6
+  Solar: Fire-Monkey. Ji
+  4;32,15 22;37,40 6;57,55 2;35,36 3;2,52
+    zin phung
+19: Thu. Shatabhishaj/mon gru. Wind-Earth; 18 Jul 1878
+  Saubhagya/skal bzang, Vava/gdab pa, Tiger, li 7
+  Solar: Fire-Bird. Dou
+  5;36,7 23;31,58 7;2,6 3;34,4 3;3,48
+20: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 19 Jul 1878
+  Shobhana/dge byed, Kaulava/rigs can, Rabbit, khon 8
+  Solar: Earth-Dog. Niu
+  6;39,59 24;26,16 7;6,16 4;32,33 3;4,43
+    klu thebs
+21: Sat. Uttarabhadrapada/khrums smad. Earth-Water; 20 Jul 1878
+  Atiganda/shin tu 'grams, Gara/khyim skyes, Dragon, dwa 9
+  Solar: Earth-Pig. Nu
+  0;43,51 25;20,35 7;10,26 5;31,2 3;5,39
+22: Sun. Revati/nam gru. Fire-Water; 21 Jul 1878
+  Sukarman/las bzang, Vishti/viSTi, Snake, khen 1
+  Solar: Iron-Mouse. Xu
+  1;47,43 26;14,53 7;14,37 6;29,30 3;6,34
+23: Mon. Ashvini/tha skar. Water-Wind; 22 Jul 1878
+  Dhriti/'dzin byed, Valava/byis pa, Horse, kham 2
+  Solar: Iron-Ox. Wei
+  2;51,35 0;9,11 7;18,47 7;27,58 3;7,30
+    klu bzlog
+24: Tue. Bharani/bra nye. Fire-Fire; 23 Jul 1878
+  Shula/zug rngu, Kaulava/rigs can, Sheep, gin 3
+  Solar: Water-Tiger. Shi
+  3;55,19 1;3,38 7;22,57 8;26,36 3;8,26
+    zin phung, nyi nag
+25: Wed. Bharani/bra nye. Water-Fire; 24 Jul 1878
+  Ganda/'grams, Gara/khyim skyes, Monkey, zin 4
+  Solar: Water-Rabbit. Bi
+  4;58,2 1;59,5 7;27,8 9;26,13 3;9,21
+    klu thebs
+26: Thu. Krittika/smin drug. Wind-Fire; 25 Jul 1878
+  Vriddhi/'phel, Vishti/viSTi, Bird, zon 5
+  Solar: Wood-Dragon. Kui
+  5;59,45 2;55,33 7;31,18 10;26,51 3;10,17
+27: Fri. Rohini/snar ma. Earth-Earth; 26 Jul 1878
+  Dhruva/brtan pa, Valava/byis pa, Dog, li 6
+  Solar: Wood-Snake. Lou
+  6;60,0 3;55,33 7;35,28 11;31,1 3;11,13
+27: Sat. Mrigashiras/mgo. Earth-Wind; 27 Jul 1878
+  Vyaghata/yongs bsnun, Taitila/til rdung, Dog, li 6
+  Solar: Fire-Horse. Wei
+  0;0,28 4;53,0 7;35,28 12;28,29 3;11,13
+28: Sun. Ardra/lag. Fire-Water; 28 Jul 1878
+  Harshana/dga' ba, Vanija/tshong ba, Pig, khon 7
+  Solar: Fire-Sheep. Mao
+  1;0,2 5;51,36 7;39,38 13;31,15 3;12,8
+29. Omitted.
+  1;57,45 7;43,49
+30: Mon. Punarvasu/nabs so. Water-Wind; 29 Jul 1878
+  Vajra/rdo rje, Shakuni/bkra shis, Ox, khen 9
+  Solar: Earth-Monkey. Bi
+  2;54,28 6;53,31 7;47,59 14;41,30 3;13,59
+    zin phung
+
+Mars, slow: 9;28,36,4,100 - fast: 8;50,9,5,73 North 3;27,48
+Jupiter, slow: 21;38,30,1,179 - fast: 21;42,36,2,110 South 9;19,28
+Saturn, slow: 24;27,57,2,4408 - fast: 24;48,2,3,4637 South 11;0,40
+Mercury, slow: 11;45,18,3,933 - fast: 9;4,0,0,6398 East 4;0,53
+Venus, slow: 0;25,14,0,84 - fast: 4;53,20,2,290 North 2;5,11
+Rahu, head: 21;43,2,3,15
+
+Tibetan Lunar Month: 7 - Iron-male-Monkey
+
+Month: 13263;61
+Anomaly: 9;19
+Mean Weekday: 2;35,51,1,57
+Mean Sun: 7;50,55,2,4
+
+1: Tue. Pushya/rgyal. Fire-Fire; 30 Jul 1878
+  Siddhi/dngos grub, Kintughna/mi sdug pa, Tiger, kham 1
+  Solar: Earth-Bird. Zui
+  3;50,11 7;55,58 7;52,9 15;48,8 3;14,55
+    yan kwong
+2: Wed. Ashlesha/skag. Water-Water; 31 Jul 1878
+  Vyatipata/phan tshun, Valava/byis pa, Rabbit, gin 2
+  Solar: Iron-Dog. Can
+  4;44,54 8;59,26 7;56,20 16;55,46 3;15,51
+3: Thu. Purvaphalguni/gre. Wind-Fire; 1 Aug 1878
+  Parigha/yongs 'joms, Taitila/til rdung, Dragon, zin 3
+  Solar: Iron-Pig. Jing
+  5;38,45 10;3,44 8;0,30 18;4,15 3;16,46
+    zin phung
+4: Fri. Uttaraphalguni/dbo. Earth-Wind; 2 Aug 1878
+  Shiva/zhi ba, Vanija/tshong ba, Snake, zon 4
+  Solar: Water-Mouse. Gui
+  6;32,37 11;8,2 8;4,40 19;12,43 3;17,42
+5: Sat. Hasta/me bzhi. Earth-Wind; 3 Aug 1878
+  Siddha/grub pa, Valava/byis pa, Horse, li 5
+  Solar: Water-Ox. Liu
+  0;26,29 12;12,21 8;8,51 20;21,12 3;18,38
+    klu bzlog
+6: Sun. Citra/nag pa. Fire-Wind; 4 Aug 1878
+  Sadhya/bsgrub bya, Taitila/til rdung, Sheep, khon 6
+  Solar: Wood-Tiger. Xing
+  1;20,21 13;16,39 8;13,1 21;29,40 3;19,33
+    klu bzlog
+7: Mon. Svati/sa ri. Water-Wind; 5 Aug 1878
+  Shubha/dge ba, Vanija/tshong ba, Monkey, dwa 7
+  Solar: Wood-Rabbit. Zhang
+  2;14,13 14;20,57 8;17,11 22;38,9 3;20,29
+8: Tue. Vishakha/sa ga. Fire-Fire; 6 Aug 1878
+  Shukla/dkar po, Vava/gdab pa, Bird, khen 8
+  Solar: Fire-Dragon. Yi
+  3;8,14 15;25,7 8;21,22 23;46,29 3;21,24
+9: Wed. Anuradha/lha mtshams. Water-Earth; 7 Aug 1878
+  Brahman/tshangs pa, Kaulava/rigs can, Dog, kham 9
+  Solar: Fire-Snake. Zhen
+  4;3,16 16;28,16 8;25,32 24;53,48 3;22,20
+    klu thebs, zin phung, nyi nag
+10. Omitted.
+  4;59,17 8;29,42
+11: Thu. Jyeshtha/snron. Wind-Earth; 8 Aug 1878
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Mouse, zin 2
+  Solar: Earth-Horse. Jiao
+  5;56,18 17;31,34 8;33,52 26;5,27 3;24,11
+12: Fri. Mula/snrubs. Earth-Water; 9 Aug 1878
+  Vishkambha/rnam sel, Vishti/viSTi, Ox, zon 3
+  Solar: Earth-Sheep. Kang
+  6;54,28 18;31,34 8;38,3 0;9,37 3;25,7
+13: Sat. Purvashadha/chu stod. Earth-Water; 10 Aug 1878
+  Priti/mdza' bo, Valava/byis pa, Tiger, li 4
+  Solar: Iron-Monkey. Di
+  0;54,30 19;29,43 8;42,13 1;11,56 3;26,3
+14: Sun. Uttarashadha/chu smad. Fire-Earth; 11 Aug 1878
+  Ayushmat/tshe dang ldan pa, Taitila/til rdung, Rabbit, khon 5
+  Solar: Iron-Bird. Fang
+  1;55,31 20;26,52 8;46,23 2;13,16 3;26,58
+15: Mon. Abhijit/gro zhin. Water-Earth; 12 Aug 1878
+  Saubhagya/skal bzang, Vanija/tshong ba, Dragon, dwa 6
+  Solar: Water-Dog. Xin
+  2;57,32 21;23,1 8;50,34 3;13,35 3;27,54
+    zin phung
+
+Mars, slow: 9;55,30,4,64 - fast: 9;31,52,1,147 North 4;7,4
+Jupiter, slow: 21;44,5,1,329 - fast: 21;33,48,1,13 West 9;17,30
+Saturn, slow: 24;30,9,2,4912 - fast: 24;44,31,5,4492 South 10;29,53
+Mercury, slow: 16;3,7,2,4972 - fast: 10;45,54,1,6196 East 4;23,32
+Venus, slow: 2;6,10,0,420 - fast: 6;9,2,3,497 North 2;22,0
+Rahu, head: 21;39,31,1,19
+
+16: Tue. Dhanishtha/mon gre. Fire-Water; 13 Aug 1878
+  Shobhana/dge byed, Vava/gdab pa, Snake, khen 7
+  Solar: Water-Pig. Wei
+  3;60,0 22;23,1 8;54,45 4;17,46 3;28,50
+16: Wed. Shatabhishaj/mon gru. Water-Earth; 14 Aug 1878
+  Atiganda/shin tu 'grams, Kaulava/rigs can, Snake, khen 7
+  Solar: Wood-Mouse. Ji
+  4;0,35 23;18,10 8;54,45 5;12,55 3;28,50
+17: Thu. Purvabhadrapada/khrums stod. Wind-Fire; 15 Aug 1878
+  Sukarman/las bzang, Gara/khyim skyes, Horse, kham 8
+  Solar: Wood-Ox. Dou
+  5;4,31 24;12,28 8;58,59 6;11,27 3;29,46
+18: Fri. Uttarabhadrapada/khrums smad. Earth-Water; 16 Aug 1878
+  Dhriti/'dzin byed, Vishti/viSTi, Sheep, gin 9
+  Solar: Fire-Tiger. Niu
+  6;8,27 25;6,46 9;3,13 7;10,0 4;0,43
+19: Sat. Revati/nam gru. Earth-Water; 17 Aug 1878
+  Shula/zug rngu, Valava/byis pa, Monkey, zin 1
+  Solar: Fire-Rabbit. Nu
+  0;12,23 26;1,4 9;7,27 8;8,32 4;1,39
+    klu thebs
+20: Sun. Revati/nam gru. Fire-Water; 18 Aug 1878
+  Ganda/'grams, Taitila/til rdung, Bird, zon 2
+  Solar: Earth-Dragon. Xu
+  1;16,18 26;55,22 9;11,41 9;7,4 4;2,35
+21: Mon. Ashvini/tha skar. Water-Wind; 19 Aug 1878
+  Vriddhi/'phel, Vanija/tshong ba, Dog, li 3
+  Solar: Earth-Snake. Wei
+  2;20,14 0;49,41 9;15,56 10;5,37 4;3,32
+    zin phung
+22: Tue. Bharani/bra nye. Fire-Fire; 20 Aug 1878
+  Dhruva/brtan pa, Vava/gdab pa, Pig, khon 4
+  Solar: Iron-Horse. Shi
+  3;24,1 1;44,8 9;20,10 11;4,18 4;4,28
+23: Wed. Krittika/smin drug. Water-Fire; 21 Aug 1878
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Mouse, dwa 5
+  Solar: Iron-Sheep. Bi
+  4;26,48 2;39,36 9;24,24 12;4,0 4;5,25
+24: Thu. Rohini/snar ma. Wind-Earth; 22 Aug 1878
+  Harshana/dga' ba, Taitila/til rdung, Ox, khen 6
+  Solar: Water-Monkey. Kui
+  5;28,34 3;36,4 9;28,38 13;4,42 4;6,21
+25: Fri. Mrigashiras/mgo. Earth-Wind; 23 Aug 1878
+  Vajra/rdo rje, Vanija/tshong ba, Tiger, kham 7
+  Solar: Water-Bird. Lou
+  6;29,21 4;33,31 9;32,52 14;6,24 4;7,18
+26: Sat. Ardra/lag. Earth-Water; 24 Aug 1878
+  Siddhi/dngos grub, Vava/gdab pa, Rabbit, gin 8
+  Solar: Wood-Dog. Wei
+  0;28,58 5;32,8 9;37,7 15;9,15 4;8,14
+27: Sun. Punarvasu/nabs so. Fire-Wind; 25 Aug 1878
+  Vyatipata/phan tshun, Taitila/til rdung, Dragon, zin 9
+  Solar: Wood-Pig. Mao
+  1;26,44 6;32,36 9;41,21 16;13,57 4;9,11
+    zin phung
+28: Mon. Pushya/rgyal. Water-Fire; 26 Aug 1878
+  Variyas/mchog can, Vanija/tshong ba, Snake, zon 1
+  Solar: Fire-Mouse. Bi
+  2;23,30 7;34,4 9;45,35 17;19,39 4;10,7
+29: Tue. Ashlesha/skag. Fire-Water; 27 Aug 1878
+  Parigha/yongs 'joms, Shakuni/bkra shis, Horse, li 2
+  Solar: Fire-Ox. Zui
+  3;19,17 8;36,32 9;49,49 18;26,21 4;11,4
+    yan kwong
+30: Wed. Magha/mchu. Water-Fire; 28 Aug 1878
+  Shiva/zhi ba, Naga/klu, Sheep, khon 3
+  Solar: Earth-Tiger. Can
+  4;14,3 9;40,0 9;54,3 19;34,3 4;12,0
+
+Mars, slow: 10;26,15,1,121 - fast: 10;16,30,4,33 North 4;17,0
+Jupiter, slow: 21;50,28,1,191 - fast: 21;25,22,3,136 West 9;15,38
+Saturn, slow: 24;32,40,2,874 - fast: 24;39,46,3,2011 South 10;28,50
+Mercury, slow: 20;57,46,1,791 - fast: 11;47,52,3,4264 South 5;7,18
+Venus, slow: 4;1,31,1,697 - fast: 7;31,35,1,245 North 3;10,21
+Rahu, head: 21;36,0,0,0
+
+Tibetan Lunar Month: 8 - Iron-female-Bird
+
+Month: 13264;63
+Anomaly: 11;20
+Mean Weekday: 4;7,41,1,537
+Mean Sun: 10;1,53,5,1
+
+1: Thu. Purvaphalguni/gre. Wind-Fire; 29 Aug 1878
+  Siddha/grub pa, Vava/gdab pa, Monkey, dwa 4
+  Solar: Earth-Rabbit. Jing
+  5;7,59 10;44,18 9;58,18 20;42,36 4;12,57
+2: Fri. Uttaraphalguni/dbo. Earth-Wind; 30 Aug 1878
+  Sadhya/bsgrub bya, Kaulava/rigs can, Bird, khen 5
+  Solar: Iron-Dragon. Gui
+  6;1,55 11;48,36 10;2,32 21;51,9 4;13,53
+3. Omitted.
+  6;55,51 10;6,46
+4: Sat. Hasta/me bzhi. Earth-Wind; 31 Aug 1878
+  Shukla/dkar po, Vanija/tshong ba, Pig, gin 7
+  Solar: Iron-Snake. Liu
+  0;49,46 12;57,13 10;11,0 23;8,14 4;15,46
+5: Sun. Svati/sa ri. Fire-Wind; 1 Sep 1878
+  Brahman/tshangs pa, Vava/gdab pa, Mouse, zin 8
+  Solar: Water-Horse. Xing
+  1;43,42 14;1,31 10;15,14 24;16,46 4;16,43
+    klu thebs
+6: Mon. Vishakha/sa ga. Water-Fire; 2 Sep 1878
+  Indra/dbang po, Kaulava/rigs can, Ox, zon 9
+  Solar: Water-Sheep. Zhang
+  2;37,48 15;5,40 10;19,28 25;25,9 4;17,39
+    klu bzlog
+7: Tue. Anuradha/lha mtshams. Fire-Earth; 3 Sep 1878
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Tiger, li 1
+  Solar: Wood-Monkey. Yi
+  3;32,53 16;8,49 10;23,43 26;32,32 4;18,36
+8: Wed. Jyeshtha/snron. Water-Earth; 4 Sep 1878
+  Vishkambha/rnam sel, Vishti/viSTi, Rabbit, khon 2
+  Solar: Wood-Bird. Zhen
+  4;28,59 17;10,57 10;27,57 0;38,55 4;19,32
+9: Thu. Mula/snrubs. Wind-Water; 5 Sep 1878
+  Priti/mdza' bo, Kaulava/rigs can, Dragon, dwa 3
+  Solar: Fire-Dog. Jiao
+  5;26,4 18;12,6 10;32,11 1;44,18 4;20,29
+    klu bzlog, zin phung
+10: Fri. Purvashadha/chu stod. Earth-Water; 6 Sep 1878
+  Ayushmat/tshe dang ldan pa, Gara/khyim skyes, Snake, khen 4
+  Solar: Fire-Pig. Kang
+  6;24,20 19;12,5 10;36,25 2;48,31 4;21,25
+11: Sat. Uttarashadha/chu smad. Earth-Earth; 7 Sep 1878
+  Saubhagya/skal bzang, Vishti/viSTi, Horse, kham 5
+  Solar: Earth-Mouse. Di
+  0;24,25 20;10,14 10;40,39 3;50,54 4;22,22
+12: Sun. Abhijit/gro zhin. Fire-Earth; 8 Sep 1878
+  Shobhana/dge byed, Valava/byis pa, Sheep, gin 6
+  Solar: Earth-Ox. Fang
+  1;25,31 21;7,22 10;44,54 4;52,16 4;23,18
+13: Mon. Dhanishtha/mon gre. Water-Water; 9 Sep 1878
+  Atiganda/shin tu 'grams, Kaulava/rigs can, Monkey, zin 7
+  Solar: Iron-Tiger. Xin
+  2;27,36 22;3,31 10;49,8 5;52,39 4;24,15
+    klu bzlog
+14: Tue. Dhanishtha/mon gre. Fire-Water; 10 Sep 1878
+  Sukarman/las bzang, Gara/khyim skyes, Bird, zon 8
+  Solar: Iron-Rabbit. Wei
+  3;30,42 22;58,39 10;53,22 6;52,2 4;25,11
+15: Wed. Shatabhishaj/mon gru. Water-Earth; 11 Sep 1878
+  Dhriti/'dzin byed, Vishti/viSTi, Dog, li 9
+  Solar: Water-Dragon. Ji
+  4;34,38 23;52,57 10;57,36 7;50,34 4;26,8
+    klu thebs, zin phung
+
+Mars, slow: 10;53,9,1,85 - fast: 10;58,50,4,139 East 4;26,24
+Jupiter, slow: 21;56,3,1,341 - fast: 21;20,21,2,60 West 9;14,31
+Saturn, slow: 24;34,52,2,1378 - fast: 24;34,37,1,4497 West 10;27,41
+Mercury, slow: 25;15,35,0,4830 - fast: 11;2,51,0,661 West 4;27,18
+Venus, slow: 5;42,27,2,284 - fast: 8;49,22,0,472 North 3;27,38
+Rahu, head: 21;32,28,4,4
+
+16: Thu. Purvabhadrapada/khrums stod. Wind-Fire; 12 Sep 1878
+  Shula/zug rngu, Valava/byis pa, Pig, khon 1
+  Solar: Water-Snake. Dou
+  5;38,34 24;47,16 11;1,50 8;49,6 4;27,4
+    klu bzlog
+17: Fri. Uttarabhadrapada/khrums smad. Earth-Water; 13 Sep 1878
+  Ganda/'grams, Taitila/til rdung, Mouse, dwa 2
+  Solar: Wood-Horse. Niu
+  6;42,32 25;41,34 11;6,6 9;47,40 4;28,1
+18: Sat. Revati/nam gru. Earth-Water; 14 Sep 1878
+  Vriddhi/'phel, Vanija/tshong ba, Ox, khen 3
+  Solar: Wood-Sheep. Nu
+  0;46,33 26;35,52 11;10,26 10;46,18 4;28,59
+    nyi nag
+19: Sun. Ashvini/tha skar. Fire-Wind; 15 Sep 1878
+  Dhruva/brtan pa, Vava/gdab pa, Tiger, kham 4
+  Solar: Fire-Monkey. Xu
+  1;50,35 0;30,10 11;14,46 11;44,57 4;29,57
+20: Mon. Bharani/bra nye. Water-Fire; 16 Sep 1878
+  Vyaghata/yongs bsnun, Valava/byis pa, Rabbit, gin 5
+  Solar: Fire-Bird. Wei
+  2;54,27 1;24,38 11;19,6 12;43,45 5;0,54
+21: Tue. Krittika/smin drug. Fire-Fire; 17 Sep 1878
+  Harshana/dga' ba, Taitila/til rdung, Dragon, zin 6
+  Solar: Earth-Dog. Shi
+  3;57,19 2;20,6 11;23,26 13;43,33 5;1,52
+    zin phung
+22: Wed. Rohini/snar ma. Water-Earth; 18 Sep 1878
+  Vajra/rdo rje, Vanija/tshong ba, Snake, zon 7
+  Solar: Earth-Pig. Bi
+  4;59,11 3;16,34 11;27,46 14;44,21 5;2,50
+23: Thu. Mrigashiras/mgo. Wind-Wind; 19 Sep 1878
+  Siddhi/dngos grub, Vava/gdab pa, Horse, li 8
+  Solar: Iron-Mouse. Kui
+  5;60,0 4;16,34 11;32,6 15;48,41 5;3,48
+23: Fri. Ardra/lag. Earth-Water; 20 Sep 1878
+  Vyatipata/phan tshun, Kaulava/rigs can, Horse, li 8
+  Solar: Iron-Ox. Lou
+  6;0,3 5;14,3 11;32,6 16;46,9 5;3,48
+24. Omitted.
+  6;59,45 11;36,26
+25: Sat. Punarvasu/nabs so. Earth-Wind; 21 Sep 1878
+  Variyas/mchog can, Gara/khyim skyes, Monkey, dwa 1
+  Solar: Water-Tiger. Wei
+  0;57,37 6;13,9 11;40,46 17;53,55 5;5,43
+26: Sun. Pushya/rgyal. Fire-Fire; 22 Sep 1878
+  Parigha/yongs 'joms, Vishti/viSTi, Bird, khen 2
+  Solar: Water-Rabbit. Mao
+  1;54,28 7;14,37 11;45,6 18;59,44 5;6,41
+27: Mon. Ashlesha/skag. Water-Water; 23 Sep 1878
+  Siddha/grub pa, Kaulava/rigs can, Dog, kham 3
+  Solar: Wood-Dragon. Bi
+  2;50,20 8;17,5 11;49,26 20;6,32 5;7,39
+    yan kwong, zin phung
+28: Tue. Magha/mchu. Fire-Fire; 24 Sep 1878
+  Sadhya/bsgrub bya, Gara/khyim skyes, Pig, gin 4
+  Solar: Wood-Snake. Zui
+  3;45,12 9;20,34 11;53,46 21;14,20 5;8,37
+29: Wed. Purvaphalguni/gre. Water-Fire; 25 Sep 1878
+  Shubha/dge ba, Vishti/viSTi, Mouse, zin 5
+  Solar: Fire-Horse. Can
+  4;39,14 10;24,52 11;58,6 22;22,58 5;9,34
+30: Thu. Uttaraphalguni/dbo. Wind-Wind; 26 Sep 1878
+  Shukla/dkar po, Catushpada/rkang bzhi, Ox, zon 6
+  Solar: Fire-Sheep. Jing
+  5;33,15 11;29,10 12;2,26 23;31,37 5;10,32
+
+Mars, slow: 11;22,6,0,36 - fast: 11;42,24,3,53 East 5;6,5
+Jupiter, slow: 22;2,2,1,347 - fast: 21;17,57,1,351 West 9;13,59
+Saturn, slow: 24;37,13,4,4994 - fast: 24;29,28,4,746 West 10;26,33
+Mercury, slow: 2;51,48,5,4759 - fast: 10;54,41,4,1893 West 4;25,29
+Venus, slow: 7;30,36,0,216 - fast: 10;11,6,1,616 North 4;15,48
+Rahu, head: 21;28,57,2,8
+
+Tibetan Lunar Month: 9 (Intercalary) - Water-male-Dog
+
+Month: 13265;0
+Anomaly: 13;21
+Mean Weekday: 5;39,31,2,310
+Mean Sun: 12;12,52,1,11
+
+1: Fri. Hasta/me bzhi. Earth-Wind; 27 Sep 1878
+  Brahman/tshangs pa, Kintughna/mi sdug pa, Tiger, li 7
+  Solar: Earth-Monkey. Gui
+  6;27,17 12;33,29 12;6,46 24;40,15 5;11,30
+    klu thebs
+2: Sat. Citra/nag pa. Earth-Wind; 28 Sep 1878
+  Indra/dbang po, Kaulava/rigs can, Rabbit, khon 8
+  Solar: Earth-Bird. Liu
+  0;21,18 13;37,47 12;11,6 25;48,54 5;12,28
+3: Sun. Svati/sa ri. Fire-Wind; 29 Sep 1878
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Dragon, dwa 9
+  Solar: Iron-Dog. Xing
+  1;15,20 14;42,5 12;15,26 26;57,32 5;13,25
+    zin phung
+4: Mon. Vishakha/sa ga. Water-Fire; 30 Sep 1878
+  Priti/mdza' bo, Vishti/viSTi, Snake, khen 1
+  Solar: Iron-Pig. Zhang
+  2;9,32 15;46,14 12;19,46 1;6,0 5;14,23
+5: Tue. Anuradha/lha mtshams. Fire-Earth; 1 Oct 1878
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Horse, kham 2
+  Solar: Water-Mouse. Yi
+  3;4,44 16;49,22 12;24,6 2;13,28 5;15,21
+6: Wed. Jyeshtha/snron. Water-Earth; 2 Oct 1878
+  Saubhagya/skal bzang, Taitila/til rdung, Sheep, gin 3
+  Solar: Water-Ox. Zhen
+  4;0,55 17;51,30 12;28,26 3;19,57 5;16,19
+7. Omitted.
+  4;58,7 12;32,46
+8: Thu. Mula/snrubs. Wind-Water; 3 Oct 1878
+  Shobhana/dge byed, Vanija/tshong ba, Bird, zon 5
+  Solar: Wood-Tiger. Jiao
+  5;56,29 18;52,36 12;37,6 4;29,43 5;18,14
+9: Fri. Purvashadha/chu stod. Earth-Water; 4 Oct 1878
+  Atiganda/shin tu 'grams, Vava/gdab pa, Dog, li 6
+  Solar: Wood-Rabbit. Kang
+  6;56,41 19;50,45 12;41,26 5;32,11 5;19,12
+    klu bzlog, zin phung
+10: Sat. Uttarashadha/chu smad. Earth-Earth; 5 Oct 1878
+  Sukarman/las bzang, Kaulava/rigs can, Pig, khon 7
+  Solar: Fire-Dragon. Di
+  0;57,53 20;47,53 12;45,46 6;33,39 5;20,10
+    klu bzlog
+11: Sun. Abhijit/gro zhin. Fire-Earth; 6 Oct 1878
+  Dhriti/'dzin byed, Gara/khyim skyes, Mouse, dwa 8
+  Solar: Fire-Snake. Fang
+  1;60,0 21;47,53 12;50,6 7;37,59 5;21,8
+    klu thebs
+11: Mon. Dhanishtha/mon gre. Water-Water; 7 Oct 1878
+  Shula/zug rngu, Vishti/viSTi, Mouse, dwa 8
+  Solar: Earth-Horse. Xin
+  2;0,5 22;44,1 12;50,6 8;34,7 5;21,8
+12: Tue. Shatabhishaj/mon gru. Fire-Earth; 8 Oct 1878
+  Ganda/'grams, Valava/byis pa, Ox, khen 9
+  Solar: Earth-Sheep. Wei
+  3;3,17 23;39,9 12;54,26 9;33,35 5;22,5
+13: Wed. Purvabhadrapada/khrums stod. Water-Fire; 9 Oct 1878
+  Vriddhi/'phel, Taitila/til rdung, Tiger, kham 1
+  Solar: Iron-Monkey. Ji
+  4;7,19 24;33,27 12;58,46 10;32,14 5;23,3
+14: Thu. Uttarabhadrapada/khrums smad. Wind-Water; 10 Oct 1878
+  Dhruva/brtan pa, Vanija/tshong ba, Rabbit, gin 2
+  Solar: Iron-Bird. Dou
+  5;11,21 25;27,45 13;3,6 11;30,52 5;24,1
+15: Fri. Revati/nam gru. Earth-Water; 11 Oct 1878
+  Vyaghata/yongs bsnun, Vava/gdab pa, Dragon, zin 3
+  Solar: Water-Dog. Niu
+  6;15,22 26;22,3 13;7,26 12;29,30 5;24,59
+    zin phung
+
+Mars, slow: 11;52,45,1,221 - fast: 12;26,34,1,57 East 5;15,54
+Jupiter, slow: 22;8,1,1,353 - fast: 21;18,30,1,330 West 9;14,6
+Saturn, slow: 24;39,35,1,3227 - fast: 24;24,42,3,4502 West 10;25,29
+Mercury, slow: 7;28,2,4,4688 - fast: 12;5,54,5,7934 North 5;11,18
+Venus, slow: 9;18,44,4,148 - fast: 11;33,39,4,24 North 5;4,8
+Rahu, head: 21;25,26,0,12
+
+16: Sat. Ashvini/tha skar. Earth-Wind; 12 Oct 1878
+  Harshana/dga' ba, Kaulava/rigs can, Snake, zon 4
+  Solar: Water-Pig. Nu
+  0;19,24 0;16,22 13;11,46 13;28,8 5;25,57
+17: Sun. Bharani/bra nye. Fire-Fire; 13 Oct 1878
+  Vajra/rdo rje, Gara/khyim skyes, Horse, li 5
+  Solar: Wood-Mouse. Xu
+  1;23,26 1;10,40 13;16,6 14;26,46 5;26,54
+18: Mon. Krittika/smin drug. Water-Fire; 14 Oct 1878
+  Siddhi/dngos grub, Vanija/tshong ba, Sheep, khon 6
+  Solar: Wood-Ox. Wei
+  2;27,19 2;5,8 13;20,28 15;25,36 5;27,52
+19: Tue. Rohini/snar ma. Fire-Earth; 15 Oct 1878
+  Vyatipata/phan tshun, Vava/gdab pa, Monkey, dwa 7
+  Solar: Fire-Tiger. Shi
+  3;30,14 3;0,37 13;24,51 16;25,29 5;28,51
+    klu bzlog
+20: Wed. Rohini/snar ma. Water-Earth; 16 Oct 1878
+  Variyas/mchog can, Kaulava/rigs can, Bird, khen 8
+  Solar: Fire-Rabbit. Bi
+  4;32,9 3;57,5 13;29,15 17;26,21 5;29,50
+21: Thu. Mrigashiras/mgo. Wind-Wind; 17 Oct 1878
+  Parigha/yongs 'joms, Gara/khyim skyes, Dog, kham 9
+  Solar: Earth-Dragon. Kui
+  5;33,5 4;54,34 13;33,39 18;28,14 6;0,48
+    klu thebs, zin phung
+22: Fri. Ardra/lag. Earth-Water; 18 Oct 1878
+  Shiva/zhi ba, Vishti/viSTi, Pig, gin 1
+  Solar: Earth-Snake. Lou
+  6;32,50 5;53,13 13;38,3 19;31,16 6;1,47
+  Descent of the Buddha from the realm of the gods.
+    klu thebs
+23: Sat. Punarvasu/nabs so. Earth-Wind; 19 Oct 1878
+  Siddha/grub pa, Valava/byis pa, Mouse, zin 2
+  Solar: Iron-Horse. Wei
+  0;30,45 6;53,41 13;42,27 20;36,9 6;2,46
+    klu thebs
+24: Sun. Pushya/rgyal. Fire-Fire; 20 Oct 1878
+  Sadhya/bsgrub bya, Taitila/til rdung, Ox, zon 3
+  Solar: Iron-Sheep. Mao
+  1;27,40 7;55,10 13;46,51 21;42,2 6;3,44
+25: Mon. Ashlesha/skag. Water-Water; 21 Oct 1878
+  Shubha/dge ba, Vishti/viSTi, Tiger, li 4
+  Solar: Water-Monkey. Bi
+  2;23,35 8;57,39 13;51,15 22;48,54 6;4,43
+    yan kwong
+26: Tue. Purvaphalguni/gre. Fire-Fire; 22 Oct 1878
+  Shukla/dkar po, Valava/byis pa, Rabbit, khon 5
+  Solar: Water-Bird. Zui
+  3;18,30 10;1,8 13;55,39 23;56,47 6;5,42
+27: Wed. Uttaraphalguni/dbo. Water-Wind; 23 Oct 1878
+  Indra/dbang po, Taitila/til rdung, Dragon, dwa 6
+  Solar: Wood-Dog. Can
+  4;12,36 11;5,26 14;0,3 25;5,29 6;6,40
+    zin phung, nyi nag
+28: Thu. Hasta/me bzhi. Wind-Wind; 24 Oct 1878
+  Vaidhriti/'khon 'dzin, Vanija/tshong ba, Snake, khen 7
+  Solar: Wood-Pig. Jing
+  5;6,41 12;9,44 14;4,26 26;14,11 6;7,39
+29: Fri. Citra/nag pa. Earth-Wind; 25 Oct 1878
+  Vishkambha/rnam sel, Shakuni/bkra shis, Horse, kham 8
+  Solar: Fire-Mouse. Gui
+  6;0,47 13;14,3 14;8,50 0;22,53 6;8,37
+30. Omitted.
+  6;54,53 14;13,14
+
+Mars, slow: 12;21,22,0,12 - fast: 13;9,19,0,46 East 5;25,24
+Jupiter, slow: 22;13,36,2,142 - fast: 21;21,46,3,299 North 9;14,50
+Saturn, slow: 24;41,47,1,3731 - fast: 24;21,16,5,5111 West 10;24,43
+Mercury, slow: 11;45,51,3,8727 - fast: 13;49,21,2,5903 North 6;4,18
+Venus, slow: 10;59,40,4,484 - fast: 12;53,37,0,320 North 5;21,54
+Rahu, head: 21;21,54,4,16
+
+Tibetan Lunar Month: 9 (Delayed) - Water-male-Dog
+
+Month: 13266;0
+Anomaly: 15;22
+Mean Weekday: 0;11,21,3,83
+Mean Sun: 14;23,50,4,8
+
+1: Sat. Svati/sa ri. Earth-Wind; 26 Oct 1878
+  Priti/mdza' bo, Kintughna/mi sdug pa, Tiger, li 7
+  Solar: Fire-Ox. Liu
+  0;48,58 14;22,39 14;17,38 1;40,18 6;10,35
+    klu thebs
+2: Sun. Vishakha/sa ga. Fire-Fire; 27 Oct 1878
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Rabbit, khon 8
+  Solar: Earth-Tiger. Xing
+  1;43,14 15;26,47 14;22,2 2;48,50 6;11,33
+3: Mon. Anuradha/lha mtshams. Water-Earth; 28 Oct 1878
+  Saubhagya/skal bzang, Taitila/til rdung, Dragon, dwa 9
+  Solar: Earth-Rabbit. Zhang
+  2;38,30 16;29,55 14;26,26 3;56,21 6;12,32
+    zin phung
+4: Tue. Jyeshtha/snron. Fire-Earth; 29 Oct 1878
+  Atiganda/shin tu 'grams, Vanija/tshong ba, Snake, khen 1
+  Solar: Iron-Dragon. Yi
+  3;34,46 17;32,3 14;30,50 5;2,53 6;13,31
+5: Wed. Mula/snrubs. Water-Water; 30 Oct 1878
+  Sukarman/las bzang, Vava/gdab pa, Horse, kham 2
+  Solar: Iron-Snake. Zhen
+  4;32,2 18;33,11 14;35,14 6;8,25 6;14,29
+6: Thu. Purvashadha/chu stod. Wind-Water; 31 Oct 1878
+  Dhriti/'dzin byed, Kaulava/rigs can, Sheep, gin 3
+  Solar: Water-Horse. Jiao
+  5;30,29 19;33,8 14;39,38 7;12,46 6;15,28
+7: Fri. Uttarashadha/chu smad. Earth-Earth; 1 Nov 1878
+  Shula/zug rngu, Gara/khyim skyes, Monkey, zin 4
+  Solar: Water-Sheep. Kang
+  6;30,45 20;31,15 14;44,1 8;15,17 6;16,27
+8: Sat. Abhijit/gro zhin. Earth-Earth; 2 Nov 1878
+  Ganda/'grams, Vishti/viSTi, Bird, zon 5
+  Solar: Wood-Monkey. Di
+  0;32,2 21;28,23 14;48,25 9;16,49 6;17,25
+9: Sun. Dhanishtha/mon gre. Fire-Water; 3 Nov 1878
+  Vriddhi/'phel, Valava/byis pa, Dog, li 6
+  Solar: Wood-Bird. Fang
+  1;34,18 22;24,31 14;52,49 10;17,20 6;18,24
+    klu bzlog, zin phung
+10: Mon. Shatabhishaj/mon gru. Water-Earth; 4 Nov 1878
+  Dhruva/brtan pa, Taitila/til rdung, Pig, khon 7
+  Solar: Fire-Dog. Xin
+  2;37,34 23;19,38 14;57,13 11;16,52 6;19,23
+    klu bzlog
+11: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 5 Nov 1878
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Mouse, dwa 8
+  Solar: Fire-Pig. Wei
+  3;41,40 24;13,56 15;1,37 12;15,34 6;20,21
+    klu thebs
+12: Wed. Uttarabhadrapada/khrums smad. Water-Water; 6 Nov 1878
+  Harshana/dga' ba, Vava/gdab pa, Ox, khen 9
+  Solar: Earth-Mouse. Ji
+  4;45,46 25;8,15 15;6,1 13;14,16 6;21,20
+13: Thu. Revati/nam gru. Wind-Water; 7 Nov 1878
+  Vajra/rdo rje, Kaulava/rigs can, Tiger, kham 1
+  Solar: Earth-Ox. Dou
+  5;49,51 26;2,33 15;10,25 14;12,58 6;22,18
+14: Fri. Revati/nam gru. Earth-Water; 8 Nov 1878
+  Siddhi/dngos grub, Gara/khyim skyes, Rabbit, gin 2
+  Solar: Iron-Tiger. Niu
+  6;53,57 26;56,51 15;14,49 15;11,40 6;23,17
+15: Sat. Ashvini/tha skar. Earth-Wind; 9 Nov 1878
+  Vyatipata/phan tshun, Vanija/tshong ba, Dragon, zin 3
+  Solar: Iron-Rabbit. Nu
+  0;58,3 0;51,9 15;19,13 16;10,22 6;24,16
+    zin phung
+
+Mars, slow: 12;52,1,1,197 - fast: 13;53,19,2,194 East 6;5,10
+Jupiter, slow: 22;19,35,2,148 - fast: 21;28,54,5,119 North 9;16,25
+Saturn, slow: 24;44,8,4,1964 - fast: 24;19,7,5,4607 West 10;24,15
+Mercury, slow: 16;22,5,2,8656 - fast: 15;46,41,5,1902 East 7;0,22
+Venus, slow: 12;47,49,2,416 - fast: 14;17,17,4,43 North 6;10,30
+Rahu, head: 21;18,23,2,20
+
+16: Sun. Bharani/bra nye. Fire-Fire; 10 Nov 1878
+  Variyas/mchog can, Vava/gdab pa, Snake, zon 4
+  Solar: Water-Dragon. Xu
+  1;60,0 1;51,9 15;23,36 17;14,46 6;25,14
+16: Mon. Krittika/smin drug. Water-Fire; 11 Nov 1878
+  Parigha/yongs 'joms, Kaulava/rigs can, Snake, zon 4
+  Solar: Water-Snake. Wei
+  2;1,58 2;45,38 15;23,36 18;9,15 6;25,14
+17: Tue. Rohini/snar ma. Fire-Earth; 12 Nov 1878
+  Shiva/zhi ba, Gara/khyim skyes, Horse, li 5
+  Solar: Wood-Horse. Shi
+  3;4,53 3;41,7 15;28,0 19;9,8 6;26,13
+18: Wed. Mrigashiras/mgo. Water-Wind; 13 Nov 1878
+  Siddha/grub pa, Vishti/viSTi, Sheep, khon 6
+  Solar: Wood-Sheep. Bi
+  4;6,47 4;37,36 15;32,24 20;10,1 6;27,12
+19: Thu. Ardra/lag. Wind-Water; 14 Nov 1878
+  Sadhya/bsgrub bya, Valava/byis pa, Monkey, dwa 7
+  Solar: Fire-Monkey. Kui
+  5;7,45 5;35,5 15;36,50 21;11,56 6;28,11
+    klu bzlog
+20: Fri. Punarvasu/nabs so. Earth-Wind; 15 Nov 1878
+  Shubha/dge ba, Taitila/til rdung, Bird, khen 8
+  Solar: Fire-Bird. Lou
+  6;7,35 6;33,45 15;41,20 22;15,6 6;29,11
+21: Sat. Pushya/rgyal. Earth-Fire; 16 Nov 1878
+  Shukla/dkar po, Vanija/tshong ba, Dog, kham 9
+  Solar: Earth-Dog. Wei
+  0;5,35 7;34,14 15;45,50 23;20,5 7;0,11
+    klu thebs, zin phung
+22: Sun. Ashlesha/skag. Fire-Water; 17 Nov 1878
+  Brahman/tshangs pa, Vava/gdab pa, Pig, gin 1
+  Solar: Earth-Pig. Mao
+  1;2,36 8;35,43 15;50,20 24;26,3 7;1,11
+    klu thebs
+23. Omitted.
+  1;58,36 15;54,49
+24: Mon. Magha/mchu. Water-Fire; 18 Nov 1878
+  Indra/dbang po, Taitila/til rdung, Ox, zon 3
+  Solar: Iron-Mouse. Bi
+  2;53,37 9;41,42 15;59,19 25;41,1 7;3,11
+25: Tue. Purvaphalguni/gre. Fire-Fire; 19 Nov 1878
+  Vaidhriti/'khon 'dzin, Vanija/tshong ba, Tiger, li 4
+  Solar: Iron-Ox. Zui
+  3;47,48 10;46,0 16;3,49 26;49,49 7;4,10
+    yan kwong
+26: Wed. Uttaraphalguni/dbo. Water-Wind; 20 Nov 1878
+  Vishkambha/rnam sel, Vava/gdab pa, Rabbit, khon 5
+  Solar: Water-Tiger. Can
+  4;42,0 11;50,18 16;8,18 0;58,37 7;5,10
+27: Thu. Hasta/me bzhi. Wind-Wind; 21 Nov 1878
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Dragon, dwa 6
+  Solar: Water-Rabbit. Jing
+  5;36,11 12;54,37 16;12,48 2;7,25 7;6,10
+    zin phung, nyi nag
+28: Fri. Citra/nag pa. Earth-Wind; 22 Nov 1878
+  Saubhagya/skal bzang, Gara/khyim skyes, Snake, khen 7
+  Solar: Wood-Dragon. Gui
+  6;30,22 13;58,55 16;17,18 3;16,13 7;7,10
+29: Sat. Vishakha/sa ga. Earth-Fire; 23 Nov 1878
+  Shobhana/dge byed, Shakuni/bkra shis, Horse, kham 8
+  Solar: Wood-Snake. Liu
+  0;24,34 15;3,13 16;21,48 4;25,1 7;8,10
+30: Sun. Anuradha/lha mtshams. Fire-Earth; 24 Nov 1878
+  Atiganda/shin tu 'grams, Naga/klu, Sheep, gin 9
+  Solar: Fire-Horse. Xing
+  1;18,56 16;7,21 16;26,17 5;33,39 7;9,10
+
+Mars, slow: 13;23,12,3,185 - fast: 14;37,39,3,224 East 6;15,2
+Jupiter, slow: 22;25,34,2,154 - fast: 21;37,29,5,116 North 9;18,19
+Saturn, slow: 24;46,30,1,197 - fast: 24;18,53,3,1211 West 10;24,11
+Mercury, slow: 20;58,19,1,8585 - fast: 17;40,37,5,5130 East 7;25,41
+Venus, slow: 14;35,58,0,348 - fast: 15;41,41,1,188 North 6;29,15
+Rahu, head: 21;14,52,1,1
+
+Tibetan Lunar Month: 10 - Water-female-Pig
+
+Month: 13267;2
+Anomaly: 17;23
+Mean Weekday: 1;43,11,3,563
+Mean Sun: 16;34,49,1,5
+
+1: Mon. Jyeshtha/snron. Water-Earth; 25 Nov 1878
+  Sukarman/las bzang, Vava/gdab pa, Monkey, zin 1
+  Solar: Fire-Sheep. Zhang
+  2;14,18 17;10,28 16;30,47 6;41,16 7;10,10
+2: Tue. Mula/snrubs. Fire-Water; 26 Nov 1878
+  Dhriti/'dzin byed, Kaulava/rigs can, Bird, zon 2
+  Solar: Earth-Monkey. Yi
+  3;10,41 18;12,36 16;35,17 7;47,53 7;11,10
+3: Wed. Purvashadha/chu stod. Water-Water; 27 Nov 1878
+  Shula/zug rngu, Gara/khyim skyes, Dog, li 3
+  Solar: Earth-Bird. Zhen
+  4;8,3 19;13,43 16;39,46 8;53,30 7;12,10
+4: Thu. Uttarashadha/chu smad. Wind-Earth; 28 Nov 1878
+  Ganda/'grams, Vishti/viSTi, Pig, khon 4
+  Solar: Iron-Dog. Jiao
+  5;6,36 20;13,39 16;44,16 9;57,56 7;13,10
+    zin phung
+5: Fri. Abhijit/gro zhin. Earth-Earth; 29 Nov 1878
+  Dhruva/brtan pa, Valava/byis pa, Mouse, dwa 5
+  Solar: Iron-Pig. Kang
+  6;6,59 21;11,46 16;48,46 11;0,33 7;14,10
+6: Sat. Dhanishtha/mon gre. Earth-Water; 30 Nov 1878
+  Vyaghata/yongs bsnun, Taitila/til rdung, Ox, khen 6
+  Solar: Water-Mouse. Di
+  0;8,21 22;8,54 16;53,16 12;2,10 7;15,10
+7: Sun. Shatabhishaj/mon gru. Fire-Earth; 1 Dec 1878
+  Harshana/dga' ba, Vanija/tshong ba, Tiger, kham 7
+  Solar: Water-Ox. Fang
+  1;10,44 23;5,1 16;57,45 13;2,46 7;16,10
+8: Mon. Purvabhadrapada/khrums stod. Water-Fire; 2 Dec 1878
+  Vajra/rdo rje, Vava/gdab pa, Rabbit, gin 8
+  Solar: Wood-Tiger. Xin
+  2;14,7 24;0,8 17;2,15 14;2,23 7;17,10
+    klu thebs
+9: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 3 Dec 1878
+  Siddhi/dngos grub, Kaulava/rigs can, Dragon, zin 9
+  Solar: Wood-Rabbit. Wei
+  3;18,18 24;54,26 17;6,45 15;1,11 7;18,10
+    klu bzlog
+10: Wed. Uttarabhadrapada/khrums smad. Water-Water; 4 Dec 1878
+  Siddhi/dngos grub, Gara/khyim skyes, Snake, zon 1
+  Solar: Fire-Dragon. Ji
+  4;22,30 25;48,44 17;11,14 15;59,59 7;19,9
+    klu bzlog, zin phung, nyi nag
+11: Thu. Revati/nam gru. Wind-Water; 5 Dec 1878
+  Vyatipata/phan tshun, Vishti/viSTi, Horse, li 2
+  Solar: Fire-Snake. Dou
+  5;26,41 26;43,2 17;15,44 16;58,47 7;20,9
+12: Fri. Ashvini/tha skar. Earth-Wind; 6 Dec 1878
+  Variyas/mchog can, Vava/gdab pa, Sheep, khon 3
+  Solar: Earth-Horse. Niu
+  6;30,53 0;37,21 17;20,14 17;57,35 7;21,9
+13: Sat. Bharani/bra nye. Earth-Fire; 7 Dec 1878
+  Parigha/yongs 'joms, Kaulava/rigs can, Monkey, dwa 4
+  Solar: Earth-Sheep. Nu
+  0;35,4 1;31,39 17;24,44 18;56,23 7;22,9
+14: Sun. Krittika/smin drug. Fire-Fire; 8 Dec 1878
+  Shiva/zhi ba, Gara/khyim skyes, Bird, khen 5
+  Solar: Iron-Monkey. Xu
+  1;39,4 2;26,8 17;29,13 19;55,22 7;23,9
+15: Mon. Rohini/snar ma. Water-Earth; 9 Dec 1878
+  Siddha/grub pa, Vishti/viSTi, Dog, kham 6
+  Solar: Iron-Bird. Wei
+  2;42,5 3;21,38 17;33,43 20;55,21 7;24,9
+    klu thebs
+
+Mars, slow: 13;56,44,5,39 - fast: 15;23,26,4,103 East 6;25,12
+Jupiter, slow: 22;31,33,2,160 - fast: 21;49,25,5,171 North 9;20,59
+Saturn, slow: 24;48,51,3,3813 - fast: 24;20,51,3,3813 North 10;24,38
+Mercury, slow: 25;34,33,0,8514 - fast: 19;12,3,0,8322 East 8;16,0
+Venus, slow: 16;24,6,4,280 - fast: 17;6,11,1,630 North 7;18,2
+Rahu, head: 21;11,20,5,5
+
+16: Tue. Mrigashiras/mgo. Fire-Wind; 10 Dec 1878
+  Sadhya/bsgrub bya, Valava/byis pa, Pig, gin 7
+  Solar: Water-Dog. Shi
+  3;44,5 4;18,7 17;38,13 21;56,20 7;25,9
+    zin phung
+17: Wed. Ardra/lag. Water-Water; 11 Dec 1878
+  Shubha/dge ba, Taitila/til rdung, Mouse, zin 8
+  Solar: Water-Pig. Bi
+  4;45,5 5;15,37 17;42,42 22;58,19 7;26,9
+18: Thu. Punarvasu/nabs so. Wind-Wind; 12 Dec 1878
+  Brahman/tshangs pa, Vanija/tshong ba, Ox, zon 9
+  Solar: Wood-Mouse. Kui
+  5;44,54 6;14,17 17;47,12 24;1,30 7;27,9
+    klu thebs
+19: Fri. Pushya/rgyal. Earth-Fire; 13 Dec 1878
+  Indra/dbang po, Vava/gdab pa, Tiger, li 1
+  Solar: Wood-Ox. Lou
+  6;42,54 7;14,47 17;51,42 25;6,29 7;28,9
+    klu bzlog
+20: Sat. Ashlesha/skag. Earth-Water; 14 Dec 1878
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Rabbit, khon 2
+  Solar: Fire-Tiger. Wei
+  0;39,56 8;16,16 17;56,13 26;12,30 7;29,9
+21: Sun. Magha/mchu. Fire-Fire; 15 Dec 1878
+  Vishkambha/rnam sel, Gara/khyim skyes, Dragon, dwa 3
+  Solar: Fire-Rabbit. Mao
+  1;36,0 9;18,46 18;0,47 0;19,33 8;0,10
+22: Mon. Purvaphalguni/gre. Water-Fire; 16 Dec 1878
+  Priti/mdza' bo, Vishti/viSTi, Snake, khen 4
+  Solar: Earth-Dragon. Bi
+  2;31,4 10;22,16 18;5,21 1;27,37 8;1,11
+    zin phung
+23: Tue. Uttaraphalguni/dbo. Fire-Wind; 17 Dec 1878
+  Ayushmat/tshe dang ldan pa, Kaulava/rigs can, Horse, kham 5
+  Solar: Earth-Snake. Zui
+  3;25,20 11;26,34 18;9,54 2;36,29 8;2,12
+    yan kwong
+24: Wed. Hasta/me bzhi. Water-Wind; 18 Dec 1878
+  Saubhagya/skal bzang, Gara/khyim skyes, Sheep, gin 6
+  Solar: Iron-Horse. Can
+  4;19,35 12;30,52 18;14,28 3;45,21 8;3,12
+25: Thu. Citra/nag pa. Wind-Wind; 19 Dec 1878
+  Shobhana/dge byed, Vishti/viSTi, Monkey, zin 7
+  Solar: Iron-Sheep. Jing
+  5;13,50 13;35,11 18;19,1 4;54,13 8;4,13
+26: Fri. Svati/sa ri. Earth-Wind; 20 Dec 1878
+  Sukarman/las bzang, Valava/byis pa, Bird, zon 8
+  Solar: Water-Monkey. Gui
+  6;8,5 14;39,29 18;23,35 6;3,4 8;5,14
+    klu bzlog
+27: Sat. Vishakha/sa ga. Earth-Fire; 21 Dec 1878
+  Dhriti/'dzin byed, Taitila/til rdung, Dog, li 9
+  Solar: Water-Bird. Liu
+  0;2,21 15;43,47 18;28,9 7;11,57 8;6,15
+28. Omitted.
+  0;56,47 18;32,42
+29: Sun. Anuradha/lha mtshams. Fire-Earth; 22 Dec 1878
+  Shula/zug rngu, Vishti/viSTi, Mouse, dwa 2
+  Solar: Wood-Dog. Xing
+  1;52,14 16;51,1 18;37,16 8;28,18 8;8,16
+30: Mon. Jyeshtha/snron. Water-Earth; 23 Dec 1878
+  Ganda/'grams, Catushpada/rkang bzhi, Ox, khen 3
+  Solar: Wood-Pig. Zhang
+  2;48,41 17;53,8 18;41,49 9;34,58 8;9,17
+
+Mars, slow: 14;28,2,5,147 - fast: 16;7,15,3,142 East 7;4,56
+Jupiter, slow: 22;37,8,2,310 - fast: 22;1,17,4,83 North 9;23,37
+Saturn, slow: 24;51,3,3,4317 - fast: 24;24,53,0,3303 North 10;25,31
+Mercury, slow: 2;52,22,0,3756 - fast: 19;52,12,5,4387 South 8;24,56
+Venus, slow: 18;5,2,4,616 - fast: 18;27,51,3,741 North 8;6,11
+Rahu, head: 21;7,49,3,9
+
+Tibetan Lunar Month: 11 - Iron-male-Mouse
+
+Month: 13268;4
+Anomaly: 19;24
+Mean Weekday: 3;15,1,4,336
+Mean Sun: 18;45,47,4,2
+
+1: Tue. Mula/snrubs. Fire-Water; 24 Dec 1878
+  Vriddhi/'phel, Kintughna/mi sdug pa, Tiger, kham 4
+  Solar: Fire-Mouse. Yi
+  3;46,7 18;54,15 18;46,23 10;40,38 8;10,18
+2: Wed. Purvashadha/chu stod. Water-Water; 25 Dec 1878
+  Dhruva/brtan pa, Valava/byis pa, Rabbit, gin 5
+  Solar: Fire-Ox. Zhen
+  4;44,45 19;54,10 18;50,56 11;45,7 8;11,19
+    klu bzlog
+3: Thu. Uttarashadha/chu smad. Wind-Earth; 26 Dec 1878
+  Vyaghata/yongs bsnun, Taitila/til rdung, Dragon, zin 6
+  Solar: Earth-Tiger. Jiao
+  5;45,12 20;52,17 18;55,30 12;47,48 8;12,20
+4: Fri. Abhijit/gro zhin. Earth-Earth; 27 Dec 1878
+  Harshana/dga' ba, Vanija/tshong ba, Snake, zon 7
+  Solar: Earth-Rabbit. Kang
+  6;46,39 21;49,24 19;0,4 13;49,28 8;13,20
+    zin phung
+5: Sat. Dhanishtha/mon gre. Earth-Water; 28 Dec 1878
+  Vajra/rdo rje, Vava/gdab pa, Horse, li 8
+  Solar: Iron-Dragon. Di
+  0;49,6 22;45,31 19;4,37 14;50,8 8;14,21
+6: Sun. Shatabhishaj/mon gru. Fire-Earth; 29 Dec 1878
+  Siddhi/dngos grub, Kaulava/rigs can, Sheep, khon 9
+  Solar: Iron-Snake. Fang
+  1;52,33 23;40,37 19;9,11 15;49,49 8;15,22
+    klu bzlog
+7: Mon. Purvabhadrapada/khrums stod. Water-Fire; 30 Dec 1878
+  Vyatipata/phan tshun, Taitila/til rdung, Monkey, dwa 1
+  Solar: Water-Horse. Xin
+  2;56,48 24;34,56 19;13,44 16;48,40 8;16,23
+    klu thebs
+8: Tue. Uttarabhadrapada/khrums smad. Fire-Water; 31 Dec 1878
+  Variyas/mchog can, Vanija/tshong ba, Bird, khen 2
+  Solar: Water-Sheep. Wei
+  3;60,0 25;34,56 19;18,18 17;53,14 8;17,24
+8: Wed. Revati/nam gru. Water-Water; 1 Jan 1879
+  Parigha/yongs 'joms, Vava/gdab pa, Bird, khen 2
+  Solar: Wood-Monkey. Ji
+  4;1,4 26;29,14 19;18,18 18;47,32 8;17,24
+9: Thu. Ashvini/tha skar. Wind-Wind; 2 Jan 1879
+  Shiva/zhi ba, Kaulava/rigs can, Dog, kham 3
+  Solar: Wood-Bird. Dou
+  5;5,19 0;23,32 19;22,52 19;46,24 8;18,24
+10: Fri. Bharani/bra nye. Earth-Fire; 3 Jan 1879
+  Siddha/grub pa, Gara/khyim skyes, Pig, gin 4
+  Solar: Fire-Dog. Niu
+  6;9,34 1;17,50 19;27,25 20;45,16 8;19,25
+    zin phung
+11: Sat. Krittika/smin drug. Earth-Fire; 4 Jan 1879
+  Sadhya/bsgrub bya, Vishti/viSTi, Mouse, zin 5
+  Solar: Fire-Pig. Nu
+  0;13,50 2;12,8 19;31,59 21;44,8 8;20,26
+12: Sun. Rohini/snar ma. Fire-Earth; 5 Jan 1879
+  Shubha/dge ba, Valava/byis pa, Ox, zon 6
+  Solar: Earth-Mouse. Xu
+  1;17,54 3;6,38 19;36,32 22;43,11 8;21,27
+13: Mon. Mrigashiras/mgo. Water-Wind; 6 Jan 1879
+  Shukla/dkar po, Taitila/til rdung, Tiger, li 7
+  Solar: Earth-Ox. Wei
+  2;20,57 4;2,8 19;41,6 23;43,14 8;22,28
+14: Tue. Mrigashiras/mgo. Fire-Wind; 7 Jan 1879
+  Brahman/tshangs pa, Vanija/tshong ba, Rabbit, khon 8
+  Solar: Iron-Tiger. Shi
+  3;23,1 4;58,38 19;45,40 24;44,18 8;23,28
+15: Wed. Ardra/lag. Water-Water; 8 Jan 1879
+  Indra/dbang po, Vava/gdab pa, Dragon, dwa 9
+  Solar: Iron-Rabbit. Bi
+  4;24,5 5;56,8 19;50,13 25;46,22 8;24,29
+    klu thebs
+
+Mars, slow: 15;3,49,1,205 - fast: 16;53,25,5,199 East 7;15,12
+Jupiter, slow: 22;43,31,2,172 - fast: 22;15,41,1,157 North 9;26,49
+Saturn, slow: 24;53,34,3,279 - fast: 24;29,29,5,2878 North 10;26,33
+Mercury, slow: 7;47,0,4,8372 - fast: 18;32,47,1,4201 West 8;7,17
+Venus, slow: 20;0,24,0,144 - fast: 19;55,32,2,396 East 8;25,40
+Rahu, head: 21;4,18,1,13
+
+16: Thu. Punarvasu/nabs so. Wind-Wind; 9 Jan 1879
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Snake, khen 1
+  Solar: Water-Dragon. Kui
+  5;23,57 6;54,50 19;54,47 26;49,37 8;25,30
+    klu bzlog, zin phung
+17: Fri. Pushya/rgyal. Earth-Fire; 10 Jan 1879
+  Vishkambha/rnam sel, Gara/khyim skyes, Horse, kham 2
+  Solar: Water-Snake. Lou
+  6;22,0 7;55,20 19;59,20 0;54,40 8;26,31
+18: Sat. Ashlesha/skag. Earth-Water; 11 Jan 1879
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Sheep, gin 3
+  Solar: Wood-Horse. Wei
+  0;19,4 8;56,50 20;3,54 2;0,44 8;27,32
+19: Sun. Magha/mchu. Fire-Fire; 12 Jan 1879
+  Saubhagya/skal bzang, Valava/byis pa, Monkey, zin 4
+  Solar: Wood-Sheep. Mao
+  1;15,7 9;59,20 20;8,28 3;7,48 8;28,32
+20: Mon. Uttaraphalguni/dbo. Water-Wind; 13 Jan 1879
+  Shobhana/dge byed, Taitila/til rdung, Bird, zon 5
+  Solar: Fire-Monkey. Bi
+  2;10,11 11;2,50 20;13,1 4;15,51 8;29,33
+    klu bzlog, nyi nag
+21: Tue. Hasta/me bzhi. Fire-Wind; 14 Jan 1879
+  Atiganda/shin tu 'grams, Vanija/tshong ba, Dog, li 6
+  Solar: Fire-Bird. Zui
+  3;4,26 12;7,8 20;17,35 5;24,43 9;0,34
+    yan kwong, klu thebs
+22. Omitted.
+  3;58,41 20;22,8
+23: Wed. Citra/nag pa. Water-Wind; 15 Jan 1879
+  Sukarman/las bzang, Valava/byis pa, Mouse, dwa 8
+  Solar: Earth-Dog. Can
+  4;52,57 13;15,45 20;26,42 6;42,27 9;2,36
+24: Thu. Svati/sa ri. Wind-Wind; 16 Jan 1879
+  Dhriti/'dzin byed, Taitila/til rdung, Ox, khen 9
+  Solar: Earth-Pig. Jing
+  5;47,12 14;20,3 20;31,15 7;51,19 9;3,36
+25: Fri. Vishakha/sa ga. Earth-Fire; 17 Jan 1879
+  Ganda/'grams, Vanija/tshong ba, Tiger, kham 1
+  Solar: Iron-Mouse. Gui
+  6;41,27 15;24,21 20;35,49 9;0,11 9;4,37
+26: Sat. Anuradha/lha mtshams. Earth-Earth; 18 Jan 1879
+  Vriddhi/'phel, Vava/gdab pa, Rabbit, gin 2
+  Solar: Iron-Ox. Liu
+  0;35,54 16;28,28 20;40,23 10;8,51 9;5,38
+    klu bzlog
+27: Sun. Jyeshtha/snron. Fire-Earth; 19 Jan 1879
+  Dhruva/brtan pa, Kaulava/rigs can, Dragon, zin 3
+  Solar: Water-Tiger. Xing
+  1;31,21 17;31,34 20;44,56 11;16,31 9;6,39
+28: Mon. Mula/snrubs. Water-Water; 20 Jan 1879
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Snake, zon 4
+  Solar: Water-Rabbit. Zhang
+  2;27,48 18;33,41 20;49,30 12;23,11 9;7,40
+    zin phung
+29: Tue. Purvashadha/chu stod. Fire-Water; 21 Jan 1879
+  Harshana/dga' ba, Shakuni/bkra shis, Horse, li 5
+  Solar: Wood-Dragon. Yi
+  3;25,16 19;34,47 20;54,3 13;28,51 9;8,40
+30: Wed. Uttarashadha/chu smad. Water-Earth; 22 Jan 1879
+  Vajra/rdo rje, Naga/klu, Sheep, khon 6
+  Solar: Wood-Snake. Zhen
+  4;23,55 20;34,42 20;58,37 14;33,19 9;9,41
+
+Mars, slow: 15;36,13,4,222 - fast: 17;37,25,0,195 East 7;24,58
+Jupiter, slow: 22;49,6,2,322 - fast: 22;30,23,0,203 North 10;0,5
+Saturn, slow: 24;55,46,3,783 - fast: 24;35,50,2,5368 North 10;27,57
+Mercury, slow: 12;4,49,4,3614 - fast: 19;2,56,0,4736 North 8;13,59
+Venus, slow: 21;41,20,0,480 - fast: 21;17,12,4,137 East 9;13,49
+Rahu, head: 21;0,46,5,17
+
+Tibetan Lunar Month: 12 - Iron-female-Ox
+
+Month: 13269;6
+Anomaly: 21;25
+Mean Weekday: 4;46,51,5,109
+Mean Sun: 20;56,46,0,12
+
+1: Thu. Abhijit/gro zhin. Wind-Earth; 23 Jan 1879
+  Siddhi/dngos grub, Vava/gdab pa, Monkey, dwa 7
+  Solar: Fire-Horse. Jiao
+  5;24,22 21;32,48 21;3,11 15;35,59 9;10,42
+2: Fri. Dhanishtha/mon gre. Earth-Water; 24 Jan 1879
+  Vyatipata/phan tshun, Kaulava/rigs can, Bird, khen 8
+  Solar: Fire-Sheep. Kang
+  6;25,49 22;29,55 21;7,44 16;37,39 9;11,43
+3: Sat. Shatabhishaj/mon gru. Earth-Earth; 25 Jan 1879
+  Variyas/mchog can, Taitila/til rdung, Dog, kham 9
+  Solar: Earth-Monkey. Di
+  0;28,16 23;26,1 21;12,18 17;38,19 9;12,44
+4: Sun. Purvabhadrapada/khrums stod. Fire-Fire; 26 Jan 1879
+  Parigha/yongs 'joms, Vanija/tshong ba, Pig, gin 1
+  Solar: Earth-Bird. Fang
+  1;31,44 24;21,7 21;16,51 18;37,59 9;13,44
+    zin phung
+5: Mon. Uttarabhadrapada/khrums smad. Water-Water; 27 Jan 1879
+  Shiva/zhi ba, Vava/gdab pa, Mouse, zin 2
+  Solar: Iron-Dog. Xin
+  2;35,59 25;15,25 21;21,25 19;36,51 9;14,45
+6: Tue. Revati/nam gru. Fire-Water; 28 Jan 1879
+  Siddha/grub pa, Kaulava/rigs can, Ox, zon 3
+  Solar: Iron-Pig. Wei
+  3;40,15 26;9,43 21;25,59 20;35,42 9;15,46
+7: Wed. Ashvini/tha skar. Water-Wind; 29 Jan 1879
+  Sadhya/bsgrub bya, Gara/khyim skyes, Tiger, li 4
+  Solar: Water-Mouse. Ji
+  4;44,30 0;4,2 21;30,32 21;34,34 9;16,47
+8: Thu. Ashvini/tha skar. Wind-Wind; 30 Jan 1879
+  Shubha/dge ba, Vishti/viSTi, Rabbit, khon 5
+  Solar: Water-Ox. Dou
+  5;48,45 0;58,20 21;35,6 22;33,26 9;17,48
+9: Fri. Bharani/bra nye. Earth-Fire; 31 Jan 1879
+  Shukla/dkar po, Valava/byis pa, Dragon, dwa 6
+  Solar: Wood-Tiger. Niu
+  6;53,1 1;52,38 21;39,39 23;32,18 9;18,48
+10: Sat. Krittika/smin drug. Earth-Fire; 1 Feb 1879
+  Brahman/tshangs pa, Kaulava/rigs can, Snake, khen 7
+  Solar: Wood-Rabbit. Nu
+  0;57,4 2;47,8 21;44,13 24;31,22 9;19,49
+    zin phung
+11: Sun. Rohini/snar ma. Fire-Earth; 2 Feb 1879
+  Indra/dbang po, Gara/khyim skyes, Horse, kham 8
+  Solar: Fire-Dragon. Xu
+  1;60,0 3;47,8 21;48,47 25;35,55 9;20,50
+11: Mon. Mrigashiras/mgo. Water-Wind; 3 Feb 1879
+  Vaidhriti/'khon 'dzin, Vishti/viSTi, Horse, kham 8
+  Solar: Fire-Snake. Wei
+  2;0,7 4;42,39 21;48,47 26;31,26 9;20,50
+12: Tue. Ardra/lag. Fire-Water; 4 Feb 1879
+  Vishkambha/rnam sel, Valava/byis pa, Sheep, gin 9
+  Solar: Earth-Horse. Shi
+  3;2,11 5;39,9 21;53,20 0;32,29 9;21,51
+13: Wed. Punarvasu/nabs so. Water-Wind; 5 Feb 1879
+  Priti/mdza' bo, Taitila/til rdung, Monkey, zin 1
+  Solar: Earth-Sheep. Bi
+  4;3,14 6;36,39 21;57,54 1;34,33 9;22,52
+14: Thu. Pushya/rgyal. Wind-Fire; 6 Feb 1879
+  Ayushmat/tshe dang ldan pa, Vanija/tshong ba, Bird, zon 2
+  Solar: Iron-Monkey. Kui
+  5;3,5 7;35,22 22;2,27 2;37,49 9;23,52
+15: Fri. Ashlesha/skag. Earth-Water; 7 Feb 1879
+  Saubhagya/skal bzang, Vava/gdab pa, Dog, li 3
+  Solar: Iron-Bird. Lou
+  6;1,8 8;35,52 22;7,1 3;42,54 9;24,53
+
+Mars, slow: 16;15,54,5,179 - fast: 18;26,8,0,152 East 8;5,48
+Jupiter, slow: 22;55,29,2,184 - fast: 22;46,37,0,171 North 10;3,41
+Saturn, slow: 24;58,17,2,2128 - fast: 24;42,37,1,2088 North 10;29,28
+Mercury, slow: 16;59,28,2,8230 - fast: 20;33,15,1,23 North 9;4,3
+Venus, slow: 23;36,41,2,8 - fast: 22;44,49,0,253 East 10;3,17
+Rahu, head: 20;57,15,3,21
+
+16. Omitted.
+  6;58,11 22;11,34
+17: Sat. Magha/mchu. Earth-Fire; 8 Feb 1879
+  Shobhana/dge byed, Kaulava/rigs can, Mouse, dwa 5
+  Solar: Water-Dog. Wei
+  0;54,14 9;39,53 22;16,8 4;56,2 9;26,55
+18: Sun. Purvaphalguni/gre. Fire-Fire; 9 Feb 1879
+  Sukarman/las bzang, Vanija/tshong ba, Ox, khen 6
+  Solar: Water-Pig. Mao
+  1;49,17 10;43,24 22;20,42 6;4,6 9;27,56
+19: Mon. Uttaraphalguni/dbo. Water-Wind; 10 Feb 1879
+  Dhriti/'dzin byed, Vava/gdab pa, Tiger, kham 7
+  Solar: Wood-Mouse. Bi
+  2;43,33 11;47,42 22;25,15 7;12,58 9;28,56
+    yan kwong
+20: Tue. Hasta/me bzhi. Fire-Wind; 11 Feb 1879
+  Shula/zug rngu, Kaulava/rigs can, Rabbit, gin 8
+  Solar: Wood-Ox. Zui
+  3;37,48 12;52,0 22;29,49 8;21,50 9;29,57
+21: Wed. Citra/nag pa. Water-Wind; 12 Feb 1879
+  Ganda/'grams, Gara/khyim skyes, Dragon, zin 9
+  Solar: Fire-Tiger. Can
+  4;32,3 13;56,19 22;34,22 9;30,42 10;0,58
+22: Thu. Vishakha/sa ga. Wind-Fire; 13 Feb 1879
+  Vriddhi/'phel, Vava/gdab pa, Snake, zon 1
+  Solar: Fire-Rabbit. Jing
+  5;26,16 15;0,37 22;38,54 10;39,31 10;1,58
+    zin phung
+23: Fri. Anuradha/lha mtshams. Earth-Earth; 14 Feb 1879
+  Dhruva/brtan pa, Kaulava/rigs can, Horse, li 2
+  Solar: Earth-Dragon. Gui
+  6;20,27 16;4,55 22;43,23 11;48,19 10;2,58
+24: Sat. Jyeshtha/snron. Earth-Earth; 15 Feb 1879
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Sheep, khon 3
+  Solar: Earth-Snake. Liu
+  0;14,51 17;9,2 22;47,53 12;56,55 10;3,58
+25: Sun. Mula/snrubs. Fire-Water; 16 Feb 1879
+  Vajra/rdo rje, Vishti/viSTi, Monkey, dwa 4
+  Solar: Iron-Horse. Xing
+  1;10,14 18;12,8 22;52,23 14;4,31 10;4,58
+26: Mon. Purvashadha/chu stod. Water-Water; 17 Feb 1879
+  Siddhi/dngos grub, Valava/byis pa, Bird, khen 5
+  Solar: Iron-Sheep. Zhang
+  2;6,38 19;14,14 22;56,52 15;11,6 10;5,58
+27: Tue. Uttarashadha/chu smad. Fire-Earth; 18 Feb 1879
+  Vyatipata/phan tshun, Taitila/til rdung, Dog, kham 6
+  Solar: Water-Monkey. Yi
+  3;4,2 20;15,20 23;1,22 16;16,42 10;6,58
+28: Wed. Abhijit/gro zhin. Water-Earth; 19 Feb 1879
+  Variyas/mchog can, Vanija/tshong ba, Pig, gin 7
+  Solar: Water-Bird. Zhen
+  4;2,38 21;15,13 23;5,52 17;21,5 10;7,58
+    zin phung
+29: Thu. Dhanishtha/mon gre. Wind-Water; 20 Feb 1879
+  Parigha/yongs 'joms, Shakuni/bkra shis, Mouse, zin 8
+  Solar: Wood-Dog. Jiao
+  5;3,2 22;13,19 23;10,22 18;23,41 10;8,58
+30: Fri. Shatabhishaj/mon gru. Earth-Earth; 21 Feb 1879
+  Shiva/zhi ba, Naga/klu, Ox, zon 9
+  Solar: Wood-Pig. Kang
+  6;4,26 23;10,25 23;14,51 19;25,17 10;9,58
+    nyi nag
+
+Mars, slow: 16;50,38,2,170 - fast: 19;10,46,1,189 East 8;15,43
+Jupiter, slow: 23;1,4,2,334 - fast: 23;2,11,1,19 East 10;7,9
+Saturn, slow: 25;0,29,2,2632 - fast: 24;50,5,4,480 North 11;1,7
+Mercury, slow: 21;17,17,2,3472 - fast: 22;23,44,2,2504 North 9;28,36
+Venus, slow: 25;17,37,2,344 - fast: 24;6,12,2,100 East 10;21,22
+Rahu, head: 20;53,44,2,2
+
