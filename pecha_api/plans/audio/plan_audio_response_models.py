@@ -70,3 +70,45 @@ class UpdateAudioJobStatusRequest(BaseModel):
         if self.status == AudioJobStatus.FAILED and not self.error_message:
             raise ValueError("error_message is required when status is failed")
         return self
+
+
+class AudioGenerationSubTaskDTO(BaseModel):
+    id: UUID
+    task_id: UUID
+    content_type: str
+    content: Optional[str] = None
+    audio_url: Optional[str] = None
+    display_order: int
+
+
+class DayAudioGenerationPayload(BaseModel):
+    id: UUID
+    plan_id: UUID
+    subtasks: List[AudioGenerationSubTaskDTO]
+
+
+class SubTaskAudioGenerationPayload(BaseModel):
+    id: UUID
+    task_id: UUID
+    content_type: str
+    content: Optional[str] = None
+    audio_url: Optional[str] = None
+
+
+class SubTaskTimestampPayload(BaseModel):
+    sub_task_id: UUID
+    start_ms: int
+    end_ms: int
+
+
+class DayAudioGenerationResultRequest(BaseModel):
+    audio_key: str
+    duration_ms: int
+    mime_type: str = "audio/wav"
+    file_size_bytes: int
+    timestamps: List[SubTaskTimestampPayload] = Field(default_factory=list)
+
+
+class SubTaskAudioGenerationResultRequest(BaseModel):
+    audio_key: str
+    duration_ms: int
