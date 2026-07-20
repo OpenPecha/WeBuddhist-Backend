@@ -65,6 +65,7 @@ from pecha_api.mantra import mantra_views
 from pecha_api.mantra.mantra_count_views import user_mantra_count_router
 from pecha_api.events import events_router, cms_events_router
 from pecha_api.traditions import tradition_views
+from pecha_api.languages import language_views
 from pecha_api.plans.admin.admin_views import cms_admin_router
 from pecha_api.region_restrictions.region_restriction_views import cms_china_restrictions_router
 from pecha_api.plans.transfers.transfer_views import (
@@ -160,6 +161,7 @@ api.include_router(events_router)
 api.include_router(cms_events_router)
 api.include_router(tradition_views.tradition_router)
 api.include_router(tradition_views.user_tradition_router)
+api.include_router(language_views.language_router)
 
 api.include_router(routines_views.user_routine_router)
 api.add_middleware(
