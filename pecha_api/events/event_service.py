@@ -13,7 +13,10 @@ from pecha_api.plans.authors.plan_authors_service import (
 )
 from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
 from pecha_api.plans.groups.groups_repository import get_author_group_ids
-from pecha_api.plans.shared.metadata_utils import format_metadata_response
+from pecha_api.plans.shared.metadata_utils import (
+    filter_by_language_with_fallback,
+    format_metadata_response,
+)
 from pecha_api.plans.shared.permissions import (
     require_can_create_content,
     require_can_read_group_content,
@@ -53,10 +56,18 @@ def _language_value(language) -> str:
     return str(language)
 
 
-def _metadata_to_dtos(entries, language: Optional[str] = None) -> List[EventMetadataDTO]:
+def _metadata_to_dtos(
+    entries, language: Optional[str] = None, fallback: bool = False
+) -> List[EventMetadataDTO]:
     if not entries:
         return []
-    if language:
+    if fallback:
+        entries = filter_by_language_with_fallback(
+            entries=list(entries),
+            language=language,
+            language_of=lambda entry: _language_value(entry.language),
+        )
+    elif language:
         language_upper = language.upper()
         entries = [
             entry for entry in entries
@@ -76,14 +87,16 @@ def _metadata_to_dtos(entries, language: Optional[str] = None) -> List[EventMeta
     )
 
 
-def _metadata_response(entries, language: Optional[str] = None):
+def _metadata_response(entries, language: Optional[str] = None, fallback: bool = False):
     return format_metadata_response(
-        _metadata_to_dtos(entries, language=language),
+        _metadata_to_dtos(entries, language=language, fallback=fallback),
         language=language,
     )
 
 
-def _event_to_dto(event: Event, language: Optional[str] = None) -> EventDTO:
+def _event_to_dto(
+    event: Event, language: Optional[str] = None, fallback: bool = False
+) -> EventDTO:
     return EventDTO(
         id=event.id,
         plan_id=event.plan_id,
@@ -94,7 +107,9 @@ def _event_to_dto(event: Event, language: Optional[str] = None) -> EventDTO:
         start_date=event.start_date,
         end_date=event.end_date,
         is_one_day=event.end_date == event.start_date,
-        metadata=_metadata_response(event.metadata_entries, language=language),
+        metadata=_metadata_response(
+            event.metadata_entries, language=language, fallback=fallback
+        ),
         image=safe_get_image_url(
             event.image_url, resource_id=event.id, resource_type="event"
         ),
@@ -127,6 +142,7 @@ def get_events_service(
     to_date: Optional[datetime] = None,
     language: Optional[str] = None,
     restrict_group_ids: Optional[List[UUID]] = None,
+    fallback: bool = False,
     skip: int = 0,
     limit: int = 20,
 ) -> EventsResponse:
@@ -145,7 +161,10 @@ def get_events_service(
             limit=limit,
         )
         return EventsResponse(
-            events=[_event_to_dto(event, language=language) for event in events],
+            events=[
+                _event_to_dto(event, language=language, fallback=fallback)
+                for event in events
+            ],
             total=total,
             skip=skip,
             limit=limit,
@@ -218,6 +237,7 @@ def get_events_today_service(
         from_date=from_date,
         to_date=to_date,
         language=language,
+        fallback=True,
         skip=skip,
         limit=limit,
     )
@@ -231,7 +251,7 @@ def get_event_by_id_service(event_id: UUID, language: Optional[str] = None) -> E
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Event with id '{event_id}' not found",
             )
-        return _event_to_dto(event, language=language)
+        return _event_to_dto(event, language=language, fallback=True)
 
 
 def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:

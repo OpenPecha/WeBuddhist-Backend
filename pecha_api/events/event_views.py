@@ -40,6 +40,7 @@ def get_events_endpoint(
         from_date=from_date,
         to_date=to_date,
         language=language,
+        fallback=True,
         skip=skip,
         limit=limit,
     )
