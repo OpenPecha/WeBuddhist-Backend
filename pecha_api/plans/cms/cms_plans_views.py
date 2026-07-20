@@ -8,10 +8,15 @@ from typing import Annotated
 from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, CreatePlanRequest, PlanWithDays, UpdatePlanRequest, \
     PlanStatusUpdate, PlanDayDTO, GeneratePlanAudioRequest
 from pecha_api.plans.cms.cms_plans_service import get_filtered_plans, create_new_plan, get_details_plan, update_plan_details, \
-    delete_selected_plan, update_plan_featured_service, update_selected_plan_status, get_plan_day_details, generate_plan_audio_service
+    delete_selected_plan, update_plan_featured_service, update_selected_plan_status, get_plan_day_details
 from pecha_api.plans.plans_enums import SortBy, SortOrder
 from pecha_api.plans.audio.cms_plan_audio_service import get_cms_plan_audio_list
-from pecha_api.plans.audio.plan_audio_response_models import PlanAudioListResponse
+from pecha_api.plans.audio.plan_audio_response_models import (
+    PlanAudioListResponse,
+    AudioJobAcceptedResponse,
+    AudioJobStatusResponse,
+)
+from pecha_api.plans.audio.audio_job_service import enqueue_plan_audio_job, get_audio_job_status
 from pecha_api.plans.videos.plan_video_service import (
     add_plan_video,
     list_plan_videos,
@@ -79,17 +84,35 @@ async def list_plan_audio(
         limit=limit,
     )
 
-@cms_plans_router.post("/audio/generate", status_code=status.HTTP_200_OK)
+@cms_plans_router.post(
+    "/audio/generate",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=AudioJobAcceptedResponse,
+)
 async def generate_plan_audio(
     request: GeneratePlanAudioRequest,
 ):
-    return await generate_plan_audio_service(
+    return enqueue_plan_audio_job(
         day_id=request.day_id,
         sub_task_id=request.sub_task_id,
         language=request.language,
         audio_type=request.type,
         voice_name=request.voice_name,
     )
+
+
+@cms_plans_router.get(
+    "/audio/jobs/{job_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=AudioJobStatusResponse,
+)
+async def get_plan_audio_job_status(
+    job_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    _ = authentication_credential
+    return get_audio_job_status(job_id=job_id)
+
 
 @cms_plans_router.get("/{plan_id}", status_code=status.HTTP_200_OK, response_model=PlanWithDays)
 async def get_plan_details(authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],

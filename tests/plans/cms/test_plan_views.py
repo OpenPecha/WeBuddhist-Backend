@@ -3,11 +3,12 @@ import pytest
 from unittest.mock import patch, AsyncMock
 from datetime import datetime, timezone
 
-from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus, PlanAudioType, MonlamVoiceName
+from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus, PlanAudioType, MonlamVoiceName, AudioJobStatus
 from pecha_api.plans.plans_response_models import CreatePlanRequest, PlanDTO, PlansResponse, PlanDayDTO, GeneratePlanAudioRequest
-from pecha_api.plans.cms.cms_plans_views import create_plan, get_plans, get_plan_day_content, generate_plan_audio
+from pecha_api.plans.cms.cms_plans_views import create_plan, get_plans, get_plan_day_content, generate_plan_audio, get_plan_audio_job_status
 from pecha_api.plans.plans_response_models import UpdatePlanRequest, PlanStatusUpdate, PlanWithDays
 from pecha_api.plans.cms.cms_plans_views import get_plan_details, update_plan, delete_plan, update_plan_status
+from pecha_api.plans.audio.plan_audio_response_models import AudioJobAcceptedResponse, AudioJobStatusResponse
 
 
 class _Creds:
@@ -299,6 +300,7 @@ async def test_update_plan_status_success():
 @pytest.mark.asyncio
 async def test_generate_plan_audio_endpoint_with_day_id():
     day_id = uuid.uuid4()
+    job_id = uuid.uuid4()
     request = GeneratePlanAudioRequest(
         day_id=day_id,
         language="bo",
@@ -306,16 +308,11 @@ async def test_generate_plan_audio_endpoint_with_day_id():
         voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE,
     )
 
-    expected = {
-        "audio_url": "https://s3.example.com/audio.wav",
-        "audio_duration_ms": 5000,
-        "s3_key": "audio/plan_days/test.wav",
-    }
+    expected = AudioJobAcceptedResponse(job_id=job_id, status=AudioJobStatus.PENDING)
 
     with patch(
-        "pecha_api.plans.cms.cms_plans_views.generate_plan_audio_service",
+        "pecha_api.plans.cms.cms_plans_views.enqueue_plan_audio_job",
         return_value=expected,
-        new_callable=AsyncMock,
     ) as mock_service:
         resp = await generate_plan_audio(request=request)
 
@@ -332,6 +329,7 @@ async def test_generate_plan_audio_endpoint_with_day_id():
 @pytest.mark.asyncio
 async def test_generate_plan_audio_endpoint_with_subtask_id():
     sub_task_id = uuid.uuid4()
+    job_id = uuid.uuid4()
     request = GeneratePlanAudioRequest(
         sub_task_id=sub_task_id,
         language="en",
@@ -339,16 +337,11 @@ async def test_generate_plan_audio_endpoint_with_subtask_id():
         voice_name=MonlamVoiceName.YANGCHEN_LHASA_FEMALE,
     )
 
-    expected = {
-        "audio_url": "https://s3.example.com/subtask_audio.wav",
-        "audio_duration_ms": 3000,
-        "s3_key": "audio/plan_subtasks/test.wav",
-    }
+    expected = AudioJobAcceptedResponse(job_id=job_id, status=AudioJobStatus.PENDING)
 
     with patch(
-        "pecha_api.plans.cms.cms_plans_views.generate_plan_audio_service",
+        "pecha_api.plans.cms.cms_plans_views.enqueue_plan_audio_job",
         return_value=expected,
-        new_callable=AsyncMock,
     ) as mock_service:
         resp = await generate_plan_audio(request=request)
 
@@ -359,6 +352,35 @@ async def test_generate_plan_audio_endpoint_with_subtask_id():
             audio_type=PlanAudioType.RECITATION,
             voice_name=MonlamVoiceName.YANGCHEN_LHASA_FEMALE,
         )
+        assert resp == expected
+
+
+@pytest.mark.asyncio
+async def test_get_plan_audio_job_status_endpoint():
+    job_id = uuid.uuid4()
+    now = datetime.now(timezone.utc)
+    expected = AudioJobStatusResponse(
+        job_id=job_id,
+        status=AudioJobStatus.COMPLETED,
+        language="bo",
+        type=PlanAudioType.TEXT_READING.value,
+        voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE.value,
+        audio_url="https://s3.example.com/audio.wav",
+        audio_duration_ms=5000,
+        s3_key="audio/plan_days/test.wav",
+        created_at=now,
+        updated_at=now,
+    )
+
+    with patch(
+        "pecha_api.plans.cms.cms_plans_views.get_audio_job_status",
+        return_value=expected,
+    ) as mock_service:
+        resp = await get_plan_audio_job_status(
+            job_id=job_id,
+            authentication_credential=_Creds("token"),
+        )
+        mock_service.assert_called_once_with(job_id=job_id)
         assert resp == expected
 
 

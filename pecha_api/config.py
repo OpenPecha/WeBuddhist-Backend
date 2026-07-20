@@ -105,6 +105,9 @@ DEFAULTS = dict(
     WORKER_API_URL="",
     WORKER_LLM_MODEL="gemini-2.5-flash-lite",
 
+    # Audio generation SQS queue (backend producer → worker consumer)
+    AUDIO_SQS_QUEUE_URL="",
+
     # Internal routine notification dispatch (worker -> backend)
     NOTIFICATION_DISPATCH_SECRET_TOKEN="",
     NOTIFICATION_DEFAULT_TITLE="WebBuddhist",
