@@ -105,6 +105,13 @@ DEFAULTS = dict(
     WORKER_API_URL="",
     WORKER_LLM_MODEL="gemini-2.5-flash-lite",
 
+    # Audio generation SQS queue (backend producer → worker consumer)
+    AUDIO_SQS_QUEUE_URL="",
+    # Fail pending jobs that never got an SQS MessageId (commit-before-send crash)
+    AUDIO_JOB_DISPATCH_RECONCILE_GRACE_SECONDS=120,
+    AUDIO_JOB_DISPATCH_RECONCILE_INTERVAL_SECONDS=60,
+    AUDIO_JOB_DISPATCH_RECONCILE_BATCH_SIZE=50,
+
     # Internal routine notification dispatch (worker -> backend)
     NOTIFICATION_DISPATCH_SECRET_TOKEN="",
     NOTIFICATION_DEFAULT_TITLE="WebBuddhist",

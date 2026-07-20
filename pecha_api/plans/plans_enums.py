@@ -80,6 +80,13 @@ class MonlamVoiceName(str, enum.Enum):
     WANGDONTSO_KHAM_FEMALE = "wangdontso_kham_female"
 
 
+class AudioJobStatus(str, enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 # SQLAlchemy enum types
 DifficultyLevelEnum = Enum(DifficultyLevel)
 ContentTypeEnum = Enum(ContentType)

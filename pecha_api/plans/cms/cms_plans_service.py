@@ -840,8 +840,8 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
         ):
             plan.display_order = update_plan_request.display_order
 
-        if {"start_date", "series_id", "display_order"} & update_plan_request.model_fields_set:
-            _validate_plan_schedule_within_series(db=db, plan=plan)
+        # if {"start_date", "series_id", "display_order"} & update_plan_request.model_fields_set:
+        #     _validate_plan_schedule_within_series(db=db, plan=plan)
 
         plan.updated_at = datetime.now(timezone.utc)
         plan.updated_by = author_details.email

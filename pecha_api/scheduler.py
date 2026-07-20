@@ -2,8 +2,10 @@ import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from pecha_api.config import get_int
+from pecha_api.plans.audio.audio_job_service import reconcile_undispatched_audio_jobs
 from pecha_api.verse_of_day.verse_of_day_service import cleanup_expired_verses_of_day
 
 logger = logging.getLogger(__name__)
@@ -25,11 +27,23 @@ def setup_scheduler() -> None:
         name="Cleanup expired verses of the day",
         replace_existing=True,
     )
+
+    reconcile_interval = max(get_int("AUDIO_JOB_DISPATCH_RECONCILE_INTERVAL_SECONDS"), 1)
+    scheduler.add_job(
+        reconcile_undispatched_audio_jobs,
+        IntervalTrigger(seconds=reconcile_interval),
+        id="reconcile_undispatched_audio_jobs",
+        name="Fail undispatched pending audio jobs",
+        replace_existing=True,
+    )
+
     if not scheduler.running:
         scheduler.start()
     logger.info(
-        "Scheduler started: cleaning verses of the day older than %s day(s) daily at midnight",
+        "Scheduler started: cleaning verses of the day older than %s day(s) daily at midnight; "
+        "failing undispatched audio jobs every %s second(s)",
         expiry_days,
+        reconcile_interval,
     )
 
 
