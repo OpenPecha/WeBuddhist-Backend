@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Sequence
 from uuid import UUID
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from pecha_api.plans.audio.audio_job_models import AudioJob
@@ -19,6 +20,26 @@ def get_audio_job_by_id(db: Session, job_id: UUID) -> Optional[AudioJob]:
     return db.query(AudioJob).filter(AudioJob.id == job_id).first()
 
 
+def list_undispatched_pending_audio_jobs(
+    db: Session,
+    *,
+    older_than: datetime,
+    limit: int = 50,
+) -> List[AudioJob]:
+    """Pending jobs never recorded as dispatched to SQS (commit-before-send crash)."""
+    return (
+        db.query(AudioJob)
+        .filter(
+            AudioJob.status == AudioJobStatus.PENDING.value,
+            AudioJob.sqs_message_id.is_(None),
+            AudioJob.created_at <= older_than,
+        )
+        .order_by(AudioJob.created_at.asc())
+        .limit(limit)
+        .all()
+    )
+
+
 def update_audio_job_sqs_message_id(
     db: Session,
     job_id: UUID,
@@ -34,16 +55,30 @@ def update_audio_job_sqs_message_id(
 
 
 def mark_audio_job_processing(db: Session, job_id: UUID) -> Optional[AudioJob]:
-    job = get_audio_job_by_id(db=db, job_id=job_id)
-    if not job:
-        return None
-    job.status = AudioJobStatus.PROCESSING.value
-    job.started_at = datetime.now(timezone.utc)
-    job.attempt_count = (job.attempt_count or 0) + 1
-    job.error_message = None
+    """Atomically claim a pending job for processing.
+
+    Only one concurrent caller can win the PENDING -> PROCESSING transition.
+    Returns None when the job is missing or was already claimed/finished.
+    """
+    now = datetime.now(timezone.utc)
+    result = db.execute(
+        update(AudioJob)
+        .where(
+            AudioJob.id == job_id,
+            AudioJob.status == AudioJobStatus.PENDING.value,
+        )
+        .values(
+            status=AudioJobStatus.PROCESSING.value,
+            started_at=now,
+            attempt_count=AudioJob.attempt_count + 1,
+            error_message=None,
+            updated_at=now,
+        )
+    )
     db.commit()
-    db.refresh(job)
-    return job
+    if result.rowcount == 0:
+        return None
+    return get_audio_job_by_id(db=db, job_id=job_id)
 
 
 def mark_audio_job_completed(
@@ -51,29 +86,59 @@ def mark_audio_job_completed(
     job_id: UUID,
     result: Dict[str, Any],
 ) -> Optional[AudioJob]:
-    job = get_audio_job_by_id(db=db, job_id=job_id)
-    if not job:
-        return None
-    job.status = AudioJobStatus.COMPLETED.value
-    job.result = result
-    job.error_message = None
-    job.completed_at = datetime.now(timezone.utc)
+    """Atomically complete a processing job. Returns None if not in PROCESSING."""
+    now = datetime.now(timezone.utc)
+    update_result = db.execute(
+        update(AudioJob)
+        .where(
+            AudioJob.id == job_id,
+            AudioJob.status == AudioJobStatus.PROCESSING.value,
+        )
+        .values(
+            status=AudioJobStatus.COMPLETED.value,
+            result=result,
+            error_message=None,
+            completed_at=now,
+            updated_at=now,
+        )
+    )
     db.commit()
-    db.refresh(job)
-    return job
+    if update_result.rowcount == 0:
+        return None
+    return get_audio_job_by_id(db=db, job_id=job_id)
 
 
 def mark_audio_job_failed(
     db: Session,
     job_id: UUID,
     error_message: str,
+    *,
+    expected_statuses: Optional[Sequence[str]] = None,
 ) -> Optional[AudioJob]:
-    job = get_audio_job_by_id(db=db, job_id=job_id)
-    if not job:
-        return None
-    job.status = AudioJobStatus.FAILED.value
-    job.error_message = error_message
-    job.completed_at = datetime.now(timezone.utc)
+    """Atomically fail a job from an allowed status set.
+
+    Defaults to PENDING or PROCESSING so enqueue failures and worker failures
+    both work. Pass expected_statuses to restrict (e.g. PROCESSING only).
+    """
+    statuses = list(expected_statuses) if expected_statuses is not None else [
+        AudioJobStatus.PENDING.value,
+        AudioJobStatus.PROCESSING.value,
+    ]
+    now = datetime.now(timezone.utc)
+    update_result = db.execute(
+        update(AudioJob)
+        .where(
+            AudioJob.id == job_id,
+            AudioJob.status.in_(statuses),
+        )
+        .values(
+            status=AudioJobStatus.FAILED.value,
+            error_message=error_message,
+            completed_at=now,
+            updated_at=now,
+        )
+    )
     db.commit()
-    db.refresh(job)
-    return job
+    if update_result.rowcount == 0:
+        return None
+    return get_audio_job_by_id(db=db, job_id=job_id)

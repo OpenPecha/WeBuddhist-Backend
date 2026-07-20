@@ -90,6 +90,56 @@ def test_enqueue_plan_audio_job_success(
 
 
 @patch("pecha_api.plans.audio.audio_job_service.mark_audio_job_failed")
+@patch("pecha_api.plans.audio.audio_job_service.list_undispatched_pending_audio_jobs")
+@patch("pecha_api.plans.audio.audio_job_service.get_int", side_effect=lambda key: {
+    "AUDIO_JOB_DISPATCH_RECONCILE_GRACE_SECONDS": 120,
+    "AUDIO_JOB_DISPATCH_RECONCILE_BATCH_SIZE": 50,
+}[key])
+@patch("pecha_api.plans.audio.audio_job_service.SessionLocal")
+def test_reconcile_undispatched_audio_jobs_marks_failed(
+    mock_session_local,
+    mock_get_int,
+    mock_list_jobs,
+    mock_mark_failed,
+):
+    from pecha_api.plans.audio.audio_job_service import reconcile_undispatched_audio_jobs
+
+    job_id = uuid.uuid4()
+    day_id = uuid.uuid4()
+    job = AudioJob(
+        id=job_id,
+        status=AudioJobStatus.PENDING.value,
+        day_id=day_id,
+        language="bo",
+        audio_type=PlanAudioType.TEXT_READING.value,
+        voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE.value,
+        payload={"day_id": str(day_id), "language": "bo"},
+        sqs_message_id=None,
+    )
+    failed = AudioJob(
+        id=job_id,
+        status=AudioJobStatus.FAILED.value,
+        day_id=day_id,
+        language="bo",
+        audio_type=PlanAudioType.TEXT_READING.value,
+        voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE.value,
+        payload=job.payload,
+        error_message="Audio job never dispatched to SQS",
+    )
+    mock_list_jobs.return_value = [job]
+    mock_mark_failed.return_value = failed
+    mock_session_local.return_value.__enter__.return_value = MagicMock()
+
+    count = reconcile_undispatched_audio_jobs()
+
+    assert count == 1
+    mock_mark_failed.assert_called_once()
+    assert mock_mark_failed.call_args.kwargs["job_id"] == job_id
+    assert mock_mark_failed.call_args.kwargs["expected_statuses"] == (AudioJobStatus.PENDING.value,)
+    assert "never dispatched" in mock_mark_failed.call_args.kwargs["error_message"]
+
+
+@patch("pecha_api.plans.audio.audio_job_service.mark_audio_job_failed")
 @patch(
     "pecha_api.plans.audio.audio_job_service.send_audio_job_message",
     side_effect=HTTPException(status_code=502, detail="Failed to enqueue audio generation job"),
@@ -183,9 +233,9 @@ def test_update_audio_job_status_processing(
 
     job_id = uuid.uuid4()
     now = datetime.now(timezone.utc)
-    pending = AudioJob(
+    processing = AudioJob(
         id=job_id,
-        status=AudioJobStatus.PENDING.value,
+        status=AudioJobStatus.PROCESSING.value,
         day_id=uuid.uuid4(),
         language="bo",
         audio_type=PlanAudioType.TEXT_READING.value,
@@ -193,20 +243,9 @@ def test_update_audio_job_status_processing(
         payload={},
         created_at=now,
         updated_at=now,
-    )
-    processing = AudioJob(
-        id=job_id,
-        status=AudioJobStatus.PROCESSING.value,
-        day_id=pending.day_id,
-        language="bo",
-        audio_type=PlanAudioType.TEXT_READING.value,
-        voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE.value,
-        payload={},
-        created_at=now,
-        updated_at=now,
         started_at=now,
+        attempt_count=1,
     )
-    mock_get_job.return_value = pending
     mock_mark_processing.return_value = processing
     mock_session_local.return_value.__enter__.return_value = MagicMock()
 
@@ -214,6 +253,7 @@ def test_update_audio_job_status_processing(
 
     assert result.status == AudioJobStatus.PROCESSING
     mock_mark_processing.assert_called_once()
+    mock_get_job.assert_not_called()
 
 
 @patch("pecha_api.plans.audio.audio_job_service.mark_audio_job_completed")
@@ -228,22 +268,11 @@ def test_update_audio_job_status_completed(
 
     job_id = uuid.uuid4()
     now = datetime.now(timezone.utc)
-    processing = AudioJob(
-        id=job_id,
-        status=AudioJobStatus.PROCESSING.value,
-        day_id=uuid.uuid4(),
-        language="bo",
-        audio_type=PlanAudioType.TEXT_READING.value,
-        voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE.value,
-        payload={},
-        created_at=now,
-        updated_at=now,
-        started_at=now,
-    )
+    day_id = uuid.uuid4()
     completed = AudioJob(
         id=job_id,
         status=AudioJobStatus.COMPLETED.value,
-        day_id=processing.day_id,
+        day_id=day_id,
         language="bo",
         audio_type=PlanAudioType.TEXT_READING.value,
         voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE.value,
@@ -254,7 +283,6 @@ def test_update_audio_job_status_completed(
         started_at=now,
         completed_at=now,
     )
-    mock_get_job.return_value = processing
     mock_mark_completed.return_value = completed
     mock_session_local.return_value.__enter__.return_value = MagicMock()
 
@@ -271,6 +299,7 @@ def test_update_audio_job_status_completed(
     assert result.status == AudioJobStatus.COMPLETED
     assert result.s3_key == "audio/day.wav"
     mock_mark_completed.assert_called_once()
+    mock_get_job.assert_not_called()
 
 
 @patch("pecha_api.plans.audio.audio_job_service.mark_audio_job_processing")
@@ -298,6 +327,7 @@ def test_update_audio_job_status_noop_when_terminal(
         updated_at=now,
         completed_at=now,
     )
+    mock_mark_processing.return_value = None
     mock_get_job.return_value = completed
     mock_session_local.return_value.__enter__.return_value = MagicMock()
 
@@ -308,7 +338,86 @@ def test_update_audio_job_status_noop_when_terminal(
         result = update_audio_job_status(job_id=job_id, next_status=AudioJobStatus.PROCESSING)
 
     assert result.status == AudioJobStatus.COMPLETED
-    mock_mark_processing.assert_not_called()
+    mock_mark_processing.assert_called_once()
+
+
+@patch("pecha_api.plans.audio.audio_job_service.mark_audio_job_processing")
+@patch("pecha_api.plans.audio.audio_job_service.get_audio_job_by_id")
+@patch("pecha_api.plans.audio.audio_job_service.SessionLocal")
+def test_update_audio_job_status_conflict_when_already_processing(
+    mock_session_local,
+    mock_get_job,
+    mock_mark_processing,
+):
+    from pecha_api.plans.audio.audio_job_service import update_audio_job_status
+
+    job_id = uuid.uuid4()
+    now = datetime.now(timezone.utc)
+    processing = AudioJob(
+        id=job_id,
+        status=AudioJobStatus.PROCESSING.value,
+        day_id=uuid.uuid4(),
+        language="bo",
+        audio_type=PlanAudioType.TEXT_READING.value,
+        voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE.value,
+        payload={},
+        created_at=now,
+        updated_at=now,
+        started_at=now,
+        attempt_count=1,
+    )
+    mock_mark_processing.return_value = None
+    mock_get_job.return_value = processing
+    mock_session_local.return_value.__enter__.return_value = MagicMock()
+
+    with pytest.raises(HTTPException) as exc:
+        update_audio_job_status(job_id=job_id, next_status=AudioJobStatus.PROCESSING)
+
+    assert exc.value.status_code == 409
+    mock_mark_processing.assert_called_once()
+
+
+@patch("pecha_api.plans.audio.audio_job_service.mark_audio_job_completed")
+@patch("pecha_api.plans.audio.audio_job_service.get_audio_job_by_id")
+@patch("pecha_api.plans.audio.audio_job_service.SessionLocal")
+def test_update_audio_job_status_completed_noop_when_already_terminal(
+    mock_session_local,
+    mock_get_job,
+    mock_mark_completed,
+):
+    from pecha_api.plans.audio.audio_job_service import update_audio_job_status
+
+    job_id = uuid.uuid4()
+    now = datetime.now(timezone.utc)
+    completed = AudioJob(
+        id=job_id,
+        status=AudioJobStatus.COMPLETED.value,
+        day_id=uuid.uuid4(),
+        language="bo",
+        audio_type=PlanAudioType.TEXT_READING.value,
+        voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE.value,
+        payload={},
+        result={"s3_key": "audio/day.wav", "audio_duration_ms": 1000},
+        created_at=now,
+        updated_at=now,
+        completed_at=now,
+    )
+    mock_mark_completed.return_value = None
+    mock_get_job.return_value = completed
+    mock_session_local.return_value.__enter__.return_value = MagicMock()
+
+    with patch(
+        "pecha_api.plans.audio.audio_job_service.generate_presigned_access_url",
+        return_value="https://presigned",
+    ), patch("pecha_api.plans.audio.audio_job_service.get", return_value="bucket"):
+        result = update_audio_job_status(
+            job_id=job_id,
+            next_status=AudioJobStatus.COMPLETED,
+            result={"s3_key": "audio/other.wav", "audio_duration_ms": 999},
+        )
+
+    assert result.status == AudioJobStatus.COMPLETED
+    assert result.s3_key == "audio/day.wav"
 
 
 @patch("pecha_api.plans.audio.audio_job_service.get_sub_task_by_subtask_id")
