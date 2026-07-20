@@ -44,7 +44,8 @@ class CalendarMonthData(BaseModel):
 
 
 class CalendarYearResponse(BaseModel):
-    year: int
+    year: int = Field(description="Western/Losar year matching the source calendar file")
+    tibetan_year: int = Field(description="Traditional Tibetan year number")
     new_year: Optional[NewYearInfo] = None
     months: Dict[str, CalendarMonthData] = Field(
         description="Calendar days grouped by Tibetan lunar month number"

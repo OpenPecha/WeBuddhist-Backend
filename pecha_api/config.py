@@ -52,6 +52,7 @@ DEFAULTS = dict(
     CACHE_TOPIC_TIMEOUT=1800,       # 30 minutes for topics (not frequently changed)
     CACHE_SHEET_TIMEOUT=60,         # 1 minute for sheets (frequently edited by users)
     CACHE_USER_STATS_TIMEOUT=300,   # 5 minutes for user stats
+    CACHE_CALENDAR_TIMEOUT=2592000, # 30 days; source calendar files are immutable
 
     SHORT_URL_GENERATION_ENDPOINT="https://pech.as/api/v1",
     
@@ -104,10 +105,20 @@ DEFAULTS = dict(
     WORKER_API_URL="",
     WORKER_LLM_MODEL="gemini-2.5-flash-lite",
 
+    # Audio generation SQS queue (backend producer → worker consumer)
+    AUDIO_SQS_QUEUE_URL="",
+    # Fail pending jobs that never got an SQS MessageId (commit-before-send crash)
+    AUDIO_JOB_DISPATCH_RECONCILE_GRACE_SECONDS=120,
+    AUDIO_JOB_DISPATCH_RECONCILE_INTERVAL_SECONDS=60,
+    AUDIO_JOB_DISPATCH_RECONCILE_BATCH_SIZE=50,
+
     # Internal routine notification dispatch (worker -> backend)
     NOTIFICATION_DISPATCH_SECRET_TOKEN="",
     NOTIFICATION_DEFAULT_TITLE="WebBuddhist",
     NOTIFICATION_DEFAULT_BODY="Time for your daily practice.",
+
+    # Verse of the day retention (days); scheduler deletes older rows daily
+    VERSE_OF_DAY_EXPIRY_DAYS=7,
 
 )
 

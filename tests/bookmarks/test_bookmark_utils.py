@@ -365,9 +365,10 @@ async def test_enrich_text_bookmark_with_language_uses_localized_text():
         "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
         new_callable=AsyncMock,
         return_value=(segment_id, "English content"),
-    ):
+    ) as mock_preview:
         result = await enrich_text_bookmark(bookmark, language="BO")
 
+    mock_preview.assert_awaited_once_with(localized_text_id)
     assert result["text"].id == localized_text_id
     assert result["text"].title == "བོད་ཡིག་ཁ་བྱང་"
 

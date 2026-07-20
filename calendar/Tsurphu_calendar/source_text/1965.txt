@@ -1,0 +1,2007 @@
+New Year: 1965, Wood-female-Snake
+
+Tibetan Lunar Month: 1 - Earth-male-Tiger
+
+Month: 14333;57
+Anomaly: 1;81
+Mean Weekday: 2;19,32,1,375
+Mean Sun: 21;33,29,1,5
+
+1: Tue. Dhanishtha/mon gre. Fire-Water; 2 Feb 1965
+  Vyatipata/phan tshun, Kintughna/mi sdug pa, Tiger, li 1
+  Solar: Fire-Pig. Wei
+  3;35,29 22;0,2 21;41,32 16;41,34 9;19,13
+  From 1st to 15th, Demonstration of Miracles.
+    zin phung
+2: Wed. Dhanishtha/mon gre. Water-Water; 3 Feb 1965
+  Variyas/mchog can, Valava/byis pa, Rabbit, khon 2
+  Solar: Earth-Mouse. Ji
+  4;39,6 22;54,59 21;46,5 17;41,4 9;20,14
+3: Thu. Shatabhishaj/mon gru. Wind-Earth; 4 Feb 1965
+  Parigha/yongs 'joms, Taitila/til rdung, Dragon, dwa 3
+  Solar: Earth-Ox. Dou
+  5;41,43 23;50,55 21;50,39 18;41,35 9;21,15
+4: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 5 Feb 1965
+  Shiva/zhi ba, Vanija/tshong ba, Snake, khen 4
+  Solar: Iron-Tiger. Niu
+  6;43,20 24;47,52 21;55,12 19;43,5 9;22,16
+5: Sat. Uttarabhadrapada/khrums smad. Earth-Water; 6 Feb 1965
+  Siddha/grub pa, Vava/gdab pa, Horse, kham 5
+  Solar: Iron-Rabbit. Nu
+  0;43,56 25;45,49 21;59,46 20;45,35 9;23,16
+    klu bzlog
+6: Sun. Revati/nam gru. Fire-Water; 7 Feb 1965
+  Sadhya/bsgrub bya, Kaulava/rigs can, Sheep, gin 6
+  Solar: Water-Dragon. Xu
+  1;42,54 26;45,25 22;4,20 21;49,45 9;24,17
+7: Mon. Ashvini/tha skar. Water-Wind; 8 Feb 1965
+  Shubha/dge ba, Gara/khyim skyes, Monkey, zin 7
+  Solar: Water-Snake. Wei
+  2;40,31 0;46,22 22;8,53 22;55,15 9;25,18
+    zin phung, nyi nag ngan pa dgu 'dzom
+8: Tue. Bharani/bra nye. Fire-Fire; 9 Feb 1965
+  Brahman/tshangs pa, Vishti/viSTi, Bird, zon 8
+  Solar: Wood-Horse. Shi
+  3;37,7 1;48,19 22;13,27 24;1,46 9;26,19
+9: Wed. Krittika/smin drug. Water-Fire; 10 Feb 1965
+  Indra/dbang po, Valava/byis pa, Dog, li 9
+  Solar: Wood-Sheep. Bi
+  4;32,44 2;51,16 22;18,0 25;9,17 9;27,20
+10: Thu. Rohini/snar ma. Wind-Earth; 11 Feb 1965
+  Vaidhriti/'khon 'dzin, Taitila/til rdung, Pig, khon 1
+  Solar: Fire-Monkey. Kui
+  5;27,21 3;55,13 22;22,34 26;17,47 9;28,20
+    klu bzlog
+11: Fri. Mrigashiras/mgo. Earth-Wind; 12 Feb 1965
+  Vishkambha/rnam sel, Vishti/viSTi, Mouse, dwa 2
+  Solar: Fire-Bird. Lou
+  6;21,36 4;59,31 22;27,8 0;26,39 9;29,21
+12: Sat. Punarvasu/nabs so. Earth-Wind; 13 Feb 1965
+  Priti/mdza' bo, Valava/byis pa, Ox, khen 3
+  Solar: Earth-Dog. Wei
+  0;15,51 6;3,50 22;31,41 1;35,31 10;0,22
+13: Sun. Pushya/rgyal. Fire-Fire; 14 Feb 1965
+  Ayushmat/tshe dang ldan pa, Taitila/til rdung, Tiger, kham 4
+  Solar: Earth-Pig. Mao
+  1;10,6 7;8,8 22;36,14 2;44,23 10;1,23
+    yan kwong, zin phung
+14: Mon. Ashlesha/skag. Water-Water; 15 Feb 1965
+  Saubhagya/skal bzang, Vanija/tshong ba, Rabbit, gin 5
+  Solar: Iron-Mouse. Bi
+  2;4,17 8;12,26 22;40,44 3;53,11 10;2,23
+    klu thebs
+15. Omitted.
+  2;58,29 22;45,14
+
+Mars, slow: 9;47,49,3,107 - fast: 10;52,37,4,91 South 4;25,1
+Jupiter, slow: 3;16,16,3,261 - fast: 2;24,39,1,327 North 1;2,8
+Saturn, slow: 22;47,6,4,680 - fast: 22;46,17,5,1026 North 10;3,37
+Mercury, slow: 21;11,56,5,7303 - fast: 22;1,41,1,2173 North 9;23,42
+Venus, slow: 18;55,30,5,35 - fast: 21;10,32,5,359 North 9;12,20
+Rahu, head: 4;3,0,0,0
+
+16: Tue. Magha/mchu. Fire-Fire; 16 Feb 1965
+  Atiganda/shin tu 'grams, Valava/byis pa, Snake, zon 7
+  Solar: Iron-Ox. Zui
+  3;53,19 9;20,24 22;49,44 5;10,8 10;4,23
+17: Wed. Purvaphalguni/gre. Water-Fire; 17 Feb 1965
+  Sukarman/las bzang, Taitila/til rdung, Horse, li 8
+  Solar: Water-Tiger. Can
+  4;49,9 10;23,4 22;54,13 6;17,18 10;5,23
+18: Thu. Uttaraphalguni/dbo. Wind-Wind; 18 Feb 1965
+  Dhriti/'dzin byed, Vanija/tshong ba, Sheep, khon 9
+  Solar: Water-Rabbit. Jing
+  5;45,59 11;24,43 22;58,43 7;23,27 10;6,23
+19: Fri. Hasta/me bzhi. Earth-Wind; 19 Feb 1965
+  Shula/zug rngu, Vava/gdab pa, Monkey, dwa 1
+  Solar: Wood-Dragon. Gui
+  6;43,50 12;25,23 23;3,13 8;28,36 10;7,22
+    zin phung
+20: Sat. Citra/nag pa. Earth-Wind; 20 Feb 1965
+  Ganda/'grams, Kaulava/rigs can, Bird, khen 2
+  Solar: Wood-Snake. Liu
+  0;43,19 13;24,23 23;7,42 9;32,6 10;8,22
+21: Sun. Svati/sa ri. Fire-Wind; 21 Feb 1965
+  Vriddhi/'phel, Gara/khyim skyes, Dog, kham 3
+  Solar: Fire-Horse. Xing
+  1;44,9 14;22,3 23;12,12 10;34,15 10;9,22
+22: Mon. Vishakha/sa ga. Water-Fire; 22 Feb 1965
+  Dhruva/brtan pa, Vishti/viSTi, Pig, gin 4
+  Solar: Fire-Sheep. Zhang
+  2;46,0 15;18,42 23;16,42 11;35,24 10;10,22
+23: Tue. Anuradha/lha mtshams. Fire-Earth; 23 Feb 1965
+  Vyaghata/yongs bsnun, Valava/byis pa, Mouse, zin 5
+  Solar: Earth-Monkey. Yi
+  3;48,50 16;14,21 23;21,12 12;35,33 10;11,22
+24: Wed. Jyeshtha/snron. Water-Earth; 24 Feb 1965
+  Harshana/dga' ba, Taitila/til rdung, Ox, zon 6
+  Solar: Earth-Bird. Zhen
+  4;52,40 17;9,0 23;25,41 13;34,42 10;12,22
+25: Thu. Mula/snrubs. Wind-Water; 25 Feb 1965
+  Vajra/rdo rje, Gara/khyim skyes, Tiger, li 7
+  Solar: Iron-Dog. Jiao
+  5;56,52 18;3,19 23;30,11 14;33,30 10;13,22
+    zin phung
+26: Fri. Purvashadha/chu stod. Earth-Water; 26 Feb 1965
+  Siddhi/dngos grub, Vishti/viSTi, Rabbit, khon 8
+  Solar: Iron-Pig. Kang
+  6;60,0 19;3,19 23;34,41 15;38,0 10;14,22
+26: Sat. Purvashadha/chu stod. Earth-Water; 27 Feb 1965
+  Vyatipata/phan tshun, Valava/byis pa, Rabbit, khon 8
+  Solar: Water-Mouse. Di
+  0;1,3 19;57,37 23;34,41 16;32,18 10;14,22
+27: Sun. Uttarashadha/chu smad. Fire-Earth; 28 Feb 1965
+  Variyas/mchog can, Taitila/til rdung, Dragon, dwa 9
+  Solar: Water-Ox. Fang
+  1;5,15 20;51,55 23;39,10 17;31,6 10;15,22
+28: Mon. Abhijit/gro zhin. Water-Earth; 1 Mar 1965
+  Parigha/yongs 'joms, Vanija/tshong ba, Snake, khen 1
+  Solar: Wood-Tiger. Xin
+  2;9,26 21;46,13 23;43,40 18;29,54 10;16,22
+29: Tue. Dhanishtha/mon gre. Fire-Water; 2 Mar 1965
+  Shiva/zhi ba, Shakuni/bkra shis, Horse, kham 2
+  Solar: Wood-Rabbit. Wei
+  3;13,38 22;40,31 23;48,10 19;28,42 10;17,22
+30: Wed. Shatabhishaj/mon gru. Water-Earth; 3 Mar 1965
+  Siddha/grub pa, Naga/klu, Sheep, gin 3
+  Solar: Fire-Dragon. Ji
+  4;17,10 23;35,29 23;52,40 20;28,9 10;18,22
+
+Mars, slow: 10;18,34,0,164 - fast: 10;25,49,2,193 South 4;19,4
+Jupiter, slow: 3;22,32,5,163 - fast: 2;32,16,4,147 North 1;3,50
+Saturn, slow: 22;49,24,4,1796 - fast: 22;54,55,0,622 East 10;5,32
+Mercury, slow: 26;6,35,4,3122 - fast: 24;7,29,0,7039 East 10;21,39
+Venus, slow: 20;50,52,0,312 - fast: 22;37,8,5,78 North 10;1,35
+Rahu, head: 3;59,28,4,4
+
+Tibetan Lunar Month: 2 - Earth-female-Rabbit
+
+Month: 14334;59
+Anomaly: 3;82
+Mean Weekday: 3;51,22,2,148
+Mean Sun: 23;44,27,4,2
+
+1: Thu. Purvabhadrapada/khrums stod. Wind-Fire; 4 Mar 1965
+  Sadhya/bsgrub bya, Vava/gdab pa, Monkey, zin 4
+  Solar: Fire-Snake. Dou
+  5;19,43 24;31,26 23;57,9 21;28,36 10;19,22
+    zin phung
+2: Fri. Uttarabhadrapada/khrums smad. Earth-Water; 5 Mar 1965
+  Shubha/dge ba, Kaulava/rigs can, Bird, zon 5
+  Solar: Earth-Horse. Niu
+  6;21,15 25;28,23 24;1,39 22;30,2 10;20,22
+3: Sat. Revati/nam gru. Earth-Water; 6 Mar 1965
+  Shukla/dkar po, Gara/khyim skyes, Dog, li 6
+  Solar: Earth-Sheep. Nu
+  0;21,48 26;26,21 24;6,9 23;32,30 10;21,22
+4: Sun. Ashvini/tha skar. Fire-Wind; 7 Mar 1965
+  Brahman/tshangs pa, Vishti/viSTi, Pig, khon 7
+  Solar: Iron-Monkey. Xu
+  1;20,41 0;25,57 24;10,38 24;36,36 10;22,21
+5: Mon. Bharani/bra nye. Water-Fire; 8 Mar 1965
+  Indra/dbang po, Valava/byis pa, Mouse, dwa 8
+  Solar: Iron-Bird. Wei
+  2;18,13 1;26,54 24;15,8 25;42,3 10;23,21
+6: Tue. Krittika/smin drug. Fire-Fire; 9 Mar 1965
+  Vaidhriti/'khon 'dzin, Taitila/til rdung, Ox, khen 9
+  Solar: Water-Dog. Shi
+  3;14,45 2;28,52 24;19,38 26;48,30 10;24,21
+7: Wed. Rohini/snar ma. Water-Earth; 10 Mar 1965
+  Vishkambha/rnam sel, Vanija/tshong ba, Tiger, kham 1
+  Solar: Water-Pig. Bi
+  4;10,18 3;31,49 24;24,8 0;55,57 10;25,21
+    zin phung
+8: Thu. Mrigashiras/mgo. Wind-Wind; 11 Mar 1965
+  Ayushmat/tshe dang ldan pa, Vava/gdab pa, Rabbit, gin 2
+  Solar: Wood-Mouse. Kui
+  5;4,50 4;35,47 24;28,37 2;4,25 10;26,21
+    klu bzlog
+9. Omitted.
+  5;59,1 24;33,7
+10: Fri. Ardra/lag. Earth-Water; 12 Mar 1965
+  Saubhagya/skal bzang, Taitila/til rdung, Snake, zon 4
+  Solar: Wood-Ox. Lou
+  6;53,13 5;44,24 24;37,37 3;22,1 10;28,21
+    klu thebs
+11: Sat. Punarvasu/nabs so. Earth-Wind; 13 Mar 1965
+  Shobhana/dge byed, Vanija/tshong ba, Horse, li 5
+  Solar: Fire-Tiger. Wei
+  0;47,24 6;48,42 24;42,6 4;30,49 10;29,21
+    yan kwong
+12: Sun. Pushya/rgyal. Fire-Fire; 14 Mar 1965
+  Atiganda/shin tu 'grams, Vava/gdab pa, Sheep, khon 6
+  Solar: Fire-Rabbit. Mao
+  1;41,35 7;53,0 24;46,36 5;39,37 11;0,21
+13: Mon. Ashlesha/skag. Water-Water; 15 Mar 1965
+  Sukarman/las bzang, Kaulava/rigs can, Monkey, dwa 7
+  Solar: Earth-Dragon. Bi
+  2;35,47 8;57,19 24;51,6 6;48,25 11;1,21
+    zin phung
+14: Tue. Purvaphalguni/gre. Fire-Fire; 16 Mar 1965
+  Dhriti/'dzin byed, Gara/khyim skyes, Bird, khen 8
+  Solar: Earth-Snake. Zui
+  3;30,36 10;0,58 24;55,35 7;56,33 11;2,21
+    nyi nag
+15: Wed. Uttaraphalguni/dbo. Water-Wind; 17 Mar 1965
+  Ganda/'grams, Vava/gdab pa, Dog, kham 9
+  Solar: Iron-Horse. Can
+  4;26,21 11;3,37 24;59,59 9;3,36 11;3,19
+
+Mars, slow: 10;45,28,0,128 - fast: 9;46,29,3,210 West 4;10,19
+Jupiter, slow: 3;27,54,0,36 - fast: 2;41,6,1,304 North 1;5,48
+Saturn, slow: 22;51,25,3,81 - fast: 23;2,18,0,3904 East 10;7,10
+Mercury, slow: 3;24,24,3,7161 - fast: 25;55,39,1,8226 East 11;15,42
+Venus, slow: 22;31,48,0,648 - fast: 23;57,51,0,745 North 10;19,31
+Rahu, head: 3;55,57,2,8
+
+16: Thu. Hasta/me bzhi. Wind-Wind; 18 Mar 1965
+  Vriddhi/'phel, Kaulava/rigs can, Pig, gin 1
+  Solar: Iron-Sheep. Jing
+  5;23,6 12;5,16 25;4,23 10;9,39 11;4,18
+17: Fri. Citra/nag pa. Earth-Wind; 19 Mar 1965
+  Dhruva/brtan pa, Gara/khyim skyes, Mouse, zin 2
+  Solar: Water-Monkey. Gui
+  6;20,51 13;5,55 25;8,46 11;14,42 11;5,17
+18: Sat. Svati/sa ri. Earth-Wind; 20 Mar 1965
+  Vyaghata/yongs bsnun, Vishti/viSTi, Ox, zon 3
+  Solar: Water-Bird. Liu
+  0;20,15 14;4,54 25;13,10 12;18,5 11;6,15
+    klu bzlog
+19: Sun. Vishakha/sa ga. Fire-Fire; 21 Mar 1965
+  Harshana/dga' ba, Valava/byis pa, Tiger, li 4
+  Solar: Wood-Dog. Xing
+  1;21,0 15;2,33 25;17,34 13;20,8 11;7,14
+    zin phung
+20: Mon. Vishakha/sa ga. Water-Fire; 22 Mar 1965
+  Vajra/rdo rje, Taitila/til rdung, Rabbit, khon 5
+  Solar: Wood-Pig. Zhang
+  2;22,45 15;59,12 25;21,58 14;21,11 11;8,13
+    klu bzlog
+21: Tue. Anuradha/lha mtshams. Fire-Earth; 23 Mar 1965
+  Siddhi/dngos grub, Vanija/tshong ba, Dragon, dwa 6
+  Solar: Fire-Mouse. Yi
+  3;25,30 16;54,51 25;26,22 15;21,13 11;9,11
+22: Wed. Jyeshtha/snron. Water-Earth; 24 Mar 1965
+  Vyatipata/phan tshun, Vishti/viSTi, Snake, khen 7
+  Solar: Fire-Ox. Zhen
+  4;29,15 17;49,30 25;30,46 16;20,16 11;10,10
+    klu bzlog
+23: Thu. Mula/snrubs. Wind-Water; 25 Mar 1965
+  Variyas/mchog can, Valava/byis pa, Horse, kham 8
+  Solar: Earth-Tiger. Jiao
+  5;33,21 18;43,48 25;35,10 17;18,58 11;11,8
+24: Fri. Purvashadha/chu stod. Earth-Water; 26 Mar 1965
+  Parigha/yongs 'joms, Taitila/til rdung, Sheep, gin 9
+  Solar: Earth-Rabbit. Kang
+  6;37,27 19;38,6 25;39,34 18;17,40 11;12,7
+25: Sat. Uttarashadha/chu smad. Earth-Earth; 27 Mar 1965
+  Shiva/zhi ba, Vanija/tshong ba, Monkey, zin 1
+  Solar: Iron-Dragon. Di
+  0;41,32 20;32,25 25;43,58 19;16,23 11;13,6
+    zin phung
+26: Sun. Abhijit/gro zhin. Fire-Earth; 28 Mar 1965
+  Siddha/grub pa, Vava/gdab pa, Bird, zon 2
+  Solar: Iron-Snake. Fang
+  1;45,38 21;26,43 25;48,21 20;15,5 11;14,4
+27: Mon. Dhanishtha/mon gre. Water-Water; 29 Mar 1965
+  Sadhya/bsgrub bya, Kaulava/rigs can, Dog, li 3
+  Solar: Water-Horse. Xin
+  2;49,44 22;21,1 25;52,45 21;13,47 11;15,3
+28: Tue. Shatabhishaj/mon gru. Fire-Earth; 30 Mar 1965
+  Shubha/dge ba, Gara/khyim skyes, Pig, khon 4
+  Solar: Water-Sheep. Wei
+  3;53,10 23;15,59 25;57,9 22;13,8 11;16,2
+    klu bzlog
+29: Wed. Purvabhadrapada/khrums stod. Water-Fire; 31 Mar 1965
+  Shukla/dkar po, Vanija/tshong ba, Mouse, dwa 5
+  Solar: Wood-Monkey. Ji
+  4;55,36 24;11,56 26;1,33 23;13,30 11;17,0
+30: Thu. Uttarabhadrapada/khrums smad. Wind-Water; 1 Apr 1965
+  Brahman/tshangs pa, Shakuni/bkra shis, Ox, khen 6
+  Solar: Wood-Bird. Dou
+  5;57,2 25;8,54 26;5,57 24;14,51 11;17,59
+
+Mars, slow: 11;14,17,2,24 - fast: 9;26,25,3,155 West 4;5,52
+Jupiter, slow: 3;33,38,0,132 - fast: 2;52,48,5,79 North 1;8,24
+Saturn, slow: 22;53,34,5,2473 - fast: 23;9,42,1,5151 East 10;8,49
+Mercury, slow: 8;0,38,2,7090 - fast: 0;15,21,3,4534 South 0;3,24
+Venus, slow: 24;19,56,4,580 - fast: 25;21,23,4,457 North 11;8,5
+Rahu, head: 3;52,26,0,12
+
+Tibetan Lunar Month: 3 - Iron-male-Dragon
+
+Month: 14335;61
+Anomaly: 5;83
+Mean Weekday: 5;23,12,2,628
+Mean Sun: 25;55,26,0,12
+
+1: Fri. Revati/nam gru. Earth-Water; 2 Apr 1965
+  Indra/dbang po, Naga/klu, Tiger, kham 7
+  Solar: Fire-Dog. Niu
+  6;57,28 26;6,52 26;10,21 25;17,13 11;18,58
+    zin phung
+2: Sat. Ashvini/tha skar. Earth-Wind; 3 Apr 1965
+  Vaidhriti/'khon 'dzin, Vava/gdab pa, Rabbit, gin 8
+  Solar: Fire-Pig. Nu
+  0;56,15 0;6,29 26;14,45 26;21,14 11;19,56
+3: Sun. Bharani/bra nye. Fire-Fire; 4 Apr 1965
+  Vishkambha/rnam sel, Taitila/til rdung, Dragon, zin 9
+  Solar: Earth-Mouse. Xu
+  1;53,41 1;7,27 26;19,9 0;26,36 11;20,55
+4: Mon. Krittika/smin drug. Water-Fire; 5 Apr 1965
+  Priti/mdza' bo, Vanija/tshong ba, Snake, zon 1
+  Solar: Earth-Ox. Wei
+  2;50,7 2;9,25 26;23,33 1;32,58 11;21,54
+5: Tue. Rohini/snar ma. Fire-Earth; 6 Apr 1965
+  Ayushmat/tshe dang ldan pa, Vava/gdab pa, Horse, li 2
+  Solar: Iron-Tiger. Shi
+  3;45,33 3;12,23 26;27,56 2;40,20 11;22,52
+6: Wed. Mrigashiras/mgo. Water-Wind; 7 Apr 1965
+  Saubhagya/skal bzang, Kaulava/rigs can, Sheep, khon 3
+  Solar: Iron-Rabbit. Bi
+  4;39,59 4;16,21 26;32,20 3;48,42 11;23,51
+7: Thu. Ardra/lag. Wind-Water; 8 Apr 1965
+  Shobhana/dge byed, Gara/khyim skyes, Monkey, dwa 4
+  Solar: Water-Dragon. Kui
+  5;34,4 5;20,39 26;36,44 4;57,24 11;24,49
+    zin phung
+8: Fri. Punarvasu/nabs so. Earth-Wind; 9 Apr 1965
+  Sukarman/las bzang, Vishti/viSTi, Bird, khen 5
+  Solar: Water-Snake. Lou
+  6;28,10 6;24,58 26;41,8 6;6,6 11;25,48
+9: Sat. Pushya/rgyal. Earth-Fire; 10 Apr 1965
+  Dhriti/'dzin byed, Kaulava/rigs can, Dog, kham 6
+  Solar: Wood-Horse. Wei
+  0;22,15 7;29,16 26;45,32 7;14,48 11;26,47
+    yan kwong
+10: Sun. Ashlesha/skag. Fire-Water; 11 Apr 1965
+  Shula/zug rngu, Gara/khyim skyes, Pig, gin 7
+  Solar: Wood-Sheep. Mao
+  1;16,21 8;33,34 26;49,56 8;23,31 11;27,45
+11: Mon. Magha/mchu. Water-Fire; 12 Apr 1965
+  Ganda/'grams, Vishti/viSTi, Mouse, zin 8
+  Solar: Fire-Monkey. Bi
+  2;10,27 9;37,53 26;54,20 9;32,13 11;28,44
+12: Tue. Purvaphalguni/gre. Fire-Fire; 13 Apr 1965
+  Vriddhi/'phel, Valava/byis pa, Ox, zon 9
+  Solar: Fire-Bird. Zui
+  3;5,12 10;41,31 26;58,44 10;40,15 11;29,43
+13: Wed. Uttaraphalguni/dbo. Water-Wind; 14 Apr 1965
+  Dhruva/brtan pa, Taitila/til rdung, Tiger, li 1
+  Solar: Earth-Dog. Can
+  4;0,57 11;44,10 0;3,8 11;47,18 0;0,41
+    zin phung
+14. Omitted.
+  4;57,42 0;7,31
+15: Thu. Hasta/me bzhi. Wind-Wind; 15 Apr 1965
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Dragon, dwa 3
+  Solar: Earth-Pig. Jing
+  5;55,27 12;46,27 0;11,54 12;58,22 0;2,38
+  Revelation of the Kalacakra Tantra.
+
+Mars, slow: 11;42,32,1,83 - fast: 9;17,53,3,83 West 4;3,58
+Jupiter, slow: 3;38,59,1,5 - fast: 3;4,54,3,356 North 1;11,5
+Saturn, slow: 22;55,35,4,758 - fast: 23;15,57,0,100 East 10;10,12
+Mercury, slow: 12;18,27,2,2332 - fast: 0;36,43,1,3829 South 0;8,9
+Venus, slow: 26;0,52,5,167 - fast: 26;41,32,2,338 North 11;25,53
+Rahu, head: 3;48,54,4,16
+
+16: Fri. Citra/nag pa. Earth-Wind; 16 Apr 1965
+  Vajra/rdo rje, Vava/gdab pa, Snake, khen 4
+  Solar: Iron-Mouse. Gui
+  6;54,48 13;45,26 0;16,14 14;1,41 0;3,36
+17: Sat. Svati/sa ri. Earth-Wind; 17 Apr 1965
+  Siddhi/dngos grub, Kaulava/rigs can, Horse, kham 5
+  Solar: Iron-Ox. Liu
+  0;55,30 14;43,4 0;20,35 15;3,39 0;4,34
+18: Sun. Vishakha/sa ga. Fire-Fire; 18 Apr 1965
+  Vyatipata/phan tshun, Gara/khyim skyes, Sheep, gin 6
+  Solar: Water-Tiger. Xing
+  1;57,11 15;39,43 0;24,55 16;4,38 0;5,32
+19: Mon. Anuradha/lha mtshams. Water-Earth; 19 Apr 1965
+  Variyas/mchog can, Vishti/viSTi, Monkey, zin 7
+  Solar: Water-Rabbit. Zhang
+  2;59,53 16;35,21 0;29,15 17;4,36 0;6,30
+    zin phung
+20: Tue. Jyeshtha/snron. Fire-Earth; 20 Apr 1965
+  Parigha/yongs 'joms, Valava/byis pa, Bird, zon 8
+  Solar: Wood-Dragon. Yi
+  3;60,0 17;35,21 0;33,35 18;8,56 0;7,27
+20: Wed. Mula/snrubs. Water-Water; 21 Apr 1965
+  Shiva/zhi ba, Taitila/til rdung, Bird, zon 8
+  Solar: Wood-Snake. Zhen
+  4;3,34 18;30,0 0;33,35 19;3,35 0;7,27
+21: Thu. Purvashadha/chu stod. Wind-Water; 22 Apr 1965
+  Siddha/grub pa, Vanija/tshong ba, Dog, li 9
+  Solar: Fire-Horse. Jiao
+  5;7,36 19;24,18 0;37,55 20;2,13 0;8,25
+    nyi nag
+22: Fri. Uttarashadha/chu smad. Earth-Earth; 23 Apr 1965
+  Sadhya/bsgrub bya, Vava/gdab pa, Pig, khon 1
+  Solar: Fire-Sheep. Kang
+  6;11,38 20;18,36 0;42,15 21;0,51 0;9,23
+23: Sat. Abhijit/gro zhin. Earth-Earth; 24 Apr 1965
+  Sadhya/bsgrub bya, Kaulava/rigs can, Mouse, dwa 2
+  Solar: Earth-Monkey. Di
+  0;15,40 21;12,54 0;46,35 21;59,29 0;10,21
+24: Sun. Dhanishtha/mon gre. Fire-Water; 25 Apr 1965
+  Shubha/dge ba, Gara/khyim skyes, Ox, khen 3
+  Solar: Earth-Bird. Fang
+  1;19,42 22;7,12 0;50,55 22;58,7 0;11,18
+25: Mon. Shatabhishaj/mon gru. Water-Earth; 26 Apr 1965
+  Shukla/dkar po, Vishti/viSTi, Tiger, kham 4
+  Solar: Iron-Dog. Xin
+  2;23,44 23;1,30 0;55,15 23;56,46 0;12,16
+    klu thebs, zin phung
+26: Tue. Shatabhishaj/mon gru. Fire-Earth; 27 Apr 1965
+  Brahman/tshangs pa, Vava/gdab pa, Rabbit, gin 5
+  Solar: Iron-Pig. Wei
+  3;27,5 23;56,29 0;59,35 24;56,4 0;13,14
+27: Wed. Purvabhadrapada/khrums stod. Water-Fire; 28 Apr 1965
+  Indra/dbang po, Kaulava/rigs can, Dragon, zin 6
+  Solar: Water-Mouse. Ji
+  4;29,27 24;52,27 1;3,55 25;56,22 0;14,12
+28: Thu. Uttarabhadrapada/khrums smad. Wind-Water; 29 Apr 1965
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Snake, zon 7
+  Solar: Water-Ox. Dou
+  5;30,49 25;49,25 1;8,15 26;57,40 0;15,10
+29: Fri. Revati/nam gru. Earth-Water; 30 Apr 1965
+  Vishkambha/rnam sel, Vishti/viSTi, Horse, li 8
+  Solar: Wood-Tiger. Niu
+  6;31,11 26;47,23 1;12,35 0;59,58 0;16,7
+30: Sat. Ashvini/tha skar. Earth-Wind; 1 May 1965
+  Ayushmat/tshe dang ldan pa, Catushpada/rkang bzhi, Sheep, khon 9
+  Solar: Wood-Rabbit. Nu
+  0;29,53 0;47,1 1;16,55 2;3,56 0;17,5
+
+Mars, slow: 12;15,14,0,204 - fast: 9;29,49,3,26 West 4;6,37
+Jupiter, slow: 3;45,6,0,324 - fast: 3;19,17,5,186 North 1;14,17
+Saturn, slow: 22;57,53,4,1874 - fast: 23;22,10,4,2832 East 10;11,35
+Mercury, slow: 17;13,6,0,6948 - fast: 26;33,13,2,7015 West 11;24,2
+Venus, slow: 0;56,14,0,444 - fast: 1;7,31,1,559 North 0;15,0
+Rahu, head: 3;45,23,2,20
+
+Tibetan Lunar Month: 4 - Iron-female-Snake
+
+Month: 14336;63
+Anomaly: 7;84
+Mean Weekday: 6;55,2,3,401
+Mean Sun: 1;6,24,3,9
+
+1: Sun. Bharani/bra nye. Fire-Fire; 2 May 1965
+  Saubhagya/skal bzang, Kintughna/mi sdug pa, Monkey, dwa 1
+  Solar: Fire-Dragon. Xu
+  1;27,14 1;48,0 1;21,15 3;9,15 0;18,3
+2: Mon. Krittika/smin drug. Water-Fire; 3 May 1965
+  Shobhana/dge byed, Kaulava/rigs can, Bird, khen 2
+  Solar: Fire-Snake. Wei
+  2;23,36 2;49,58 1;25,35 4;15,33 0;19,1
+3: Tue. Rohini/snar ma. Fire-Earth; 4 May 1965
+  Atiganda/shin tu 'grams, Gara/khyim skyes, Dog, kham 3
+  Solar: Earth-Horse. Shi
+  3;18,58 3;52,56 1;29,55 5;22,51 0;19,58
+4: Wed. Mrigashiras/mgo. Water-Wind; 5 May 1965
+  Sukarman/las bzang, Vishti/viSTi, Pig, gin 4
+  Solar: Earth-Sheep. Bi
+  4;13,19 4;56,55 1;34,15 6;31,10 0;20,56
+5: Thu. Punarvasu/nabs so. Wind-Wind; 6 May 1965
+  Dhriti/'dzin byed, Valava/byis pa, Mouse, zin 5
+  Solar: Iron-Monkey. Kui
+  5;7,21 6;1,13 1;38,35 7;39,48 0;21,54
+6: Fri. Pushya/rgyal. Earth-Fire; 7 May 1965
+  Shula/zug rngu, Taitila/til rdung, Ox, zon 6
+  Solar: Iron-Bird. Lou
+  6;1,22 7;5,32 1;42,55 8;48,27 0;22,52
+    zin phung
+7. Omitted.
+  6;55,24 1;47,15
+8: Sat. Ashlesha/skag. Earth-Water; 8 May 1965
+  Vriddhi/'phel, Vishti/viSTi, Rabbit, khon 8
+  Solar: Water-Dog. Wei
+  0;49,26 8;14,8 1;51,35 10;5,44 0;24,47
+  Birth of the Buddha.
+    klu thebs, nyi nag
+9: Sun. Magha/mchu. Fire-Fire; 9 May 1965
+  Dhruva/brtan pa, Valava/byis pa, Dragon, dwa 9
+  Solar: Water-Pig. Mao
+  1;43,27 9;18,27 1;55,55 11;14,22 0;25,45
+10: Mon. Purvaphalguni/gre. Water-Fire; 10 May 1965
+  Vyaghata/yongs bsnun, Taitila/til rdung, Snake, khen 1
+  Solar: Wood-Mouse. Bi
+  2;38,9 10;22,5 2;0,15 12;22,20 0;26,43
+11: Tue. Uttaraphalguni/dbo. Fire-Wind; 11 May 1965
+  Harshana/dga' ba, Vanija/tshong ba, Horse, kham 2
+  Solar: Wood-Ox. Zui
+  3;33,51 11;24,43 2;4,35 13;29,18 0;27,41
+12: Wed. Hasta/me bzhi. Water-Wind; 12 May 1965
+  Vajra/rdo rje, Vava/gdab pa, Sheep, gin 3
+  Solar: Fire-Tiger. Can
+  4;30,33 12;26,21 2;8,55 14;35,16 0;28,38
+    zin phung
+13: Thu. Citra/nag pa. Wind-Wind; 13 May 1965
+  Siddhi/dngos grub, Kaulava/rigs can, Monkey, zin 4
+  Solar: Fire-Rabbit. Jing
+  5;28,15 13;26,59 2;13,15 15;40,14 0;29,36
+14: Fri. Svati/sa ri. Earth-Wind; 14 May 1965
+  Vyatipata/phan tshun, Gara/khyim skyes, Bird, zon 5
+  Solar: Earth-Dragon. Gui
+  6;27,37 14;25,57 2;17,35 16;43,32 1;0,34
+15: Sat. Vishakha/sa ga. Earth-Fire; 15 May 1965
+  Variyas/mchog can, Vishti/viSTi, Dog, li 6
+  Solar: Earth-Snake. Liu
+  0;28,19 15;23,35 2;21,55 17;45,30 1;1,32
+  Enlightenment and Parinirvana of the Buddha.
+    klu thebs
+
+Mars, slow: 12;43,50,4,224 - fast: 9;47,42,1,151 West 4;10,36
+Jupiter, slow: 3;50,27,1,197 - fast: 3;34,1,4,48 North 1;17,33
+Saturn, slow: 22;59,54,3,159 - fast: 23;26,18,2,4832 East 10;12,30
+Mercury, slow: 21;30,55,0,2190 - fast: 0;33,12,5,6441 North 0;7,22
+Venus, slow: 2;37,10,1,31 - fast: 2;26,57,1,142 East 1;2,39
+Rahu, head: 3;41,52,1,1
+
+16: Sun. Anuradha/lha mtshams. Fire-Earth; 16 May 1965
+  Parigha/yongs 'joms, Valava/byis pa, Pig, khon 7
+  Solar: Iron-Horse. Xing
+  1;29,59 16;20,13 2;26,13 18;46,27 1;2,29
+17: Mon. Jyeshtha/snron. Water-Earth; 17 May 1965
+  Shiva/zhi ba, Taitila/til rdung, Mouse, dwa 8
+  Solar: Iron-Sheep. Zhang
+  2;32,36 17;15,51 2;30,27 19;46,19 1;3,26
+18: Tue. Mula/snrubs. Fire-Water; 18 May 1965
+  Siddha/grub pa, Vanija/tshong ba, Ox, khen 9
+  Solar: Water-Monkey. Yi
+  3;36,12 18;10,29 2;34,41 20;45,11 1;4,22
+    zin phung
+19: Wed. Purvashadha/chu stod. Water-Water; 19 May 1965
+  Sadhya/bsgrub bya, Vava/gdab pa, Tiger, kham 1
+  Solar: Water-Bird. Zhen
+  4;40,8 19;4,47 2;38,56 21;43,43 1;5,19
+20: Thu. Purvashadha/chu stod. Wind-Water; 20 May 1965
+  Shubha/dge ba, Kaulava/rigs can, Rabbit, gin 2
+  Solar: Wood-Dog. Jiao
+  5;44,4 19;59,5 2;43,10 22;42,16 1;6,15
+    klu bzlog
+21: Fri. Uttarashadha/chu smad. Earth-Earth; 21 May 1965
+  Shukla/dkar po, Gara/khyim skyes, Dragon, zin 3
+  Solar: Wood-Pig. Kang
+  6;48,0 20;53,24 2;47,24 23;40,48 1;7,12
+22: Sat. Abhijit/gro zhin. Earth-Earth; 22 May 1965
+  Brahman/tshangs pa, Vishti/viSTi, Snake, zon 4
+  Solar: Fire-Mouse. Di
+  0;51,56 21;47,42 2;51,38 24;39,21 1;8,8
+23: Sun. Dhanishtha/mon gre. Fire-Water; 23 May 1965
+  Indra/dbang po, Vava/gdab pa, Horse, li 5
+  Solar: Fire-Ox. Fang
+  1;55,52 22;42,0 2;55,52 25;37,53 1;9,5
+24: Mon. Shatabhishaj/mon gru. Water-Earth; 24 May 1965
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Sheep, khon 6
+  Solar: Earth-Tiger. Xin
+  2;59,7 23;36,59 3;0,7 26;37,6 1;10,1
+    zin phung
+25: Tue. Purvabhadrapada/khrums stod. Fire-Fire; 25 May 1965
+  Vishkambha/rnam sel, Gara/khyim skyes, Monkey, dwa 7
+  Solar: Earth-Rabbit. Wei
+  3;60,0 24;36,59 3;4,21 0;41,20 1;10,58
+    klu bzlog
+25: Wed. Uttarabhadrapada/khrums smad. Water-Water; 26 May 1965
+  Priti/mdza' bo, Vishti/viSTi, Monkey, dwa 7
+  Solar: Iron-Dragon. Ji
+  4;1,23 25;32,57 3;4,21 1;37,18 1;10,58
+26: Thu. Revati/nam gru. Wind-Water; 27 May 1965
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Bird, khen 8
+  Solar: Iron-Snake. Dou
+  5;2,38 26;29,56 3;8,35 2;38,31 1;11,54
+27: Fri. Ashvini/tha skar. Earth-Wind; 28 May 1965
+  Saubhagya/skal bzang, Taitila/til rdung, Dog, kham 9
+  Solar: Water-Horse. Niu
+  6;2,54 0;27,55 3;12,49 3;40,44 1;12,51
+28: Sat. Bharani/bra nye. Earth-Fire; 29 May 1965
+  Shobhana/dge byed, Vanija/tshong ba, Pig, gin 1
+  Solar: Water-Sheep. Nu
+  0;1,29 1;27,34 3;17,3 4;44,37 1;13,47
+29. Omitted.
+  0;58,44 3;21,17
+30: Sun. Krittika/smin drug. Fire-Fire; 30 May 1965
+  Atiganda/shin tu 'grams, Shakuni/bkra shis, Ox, zon 3
+  Solar: Wood-Monkey. Xu
+  1;55,0 2;30,31 3;25,32 5;56,3 1;15,40
+    zin phung
+
+Mars, slow: 13;14,30,0,180 - fast: 10;12,38,4,153 North 4;16,8
+Jupiter, slow: 3;56,11,1,293 - fast: 3;49,43,1,211 North 1;21,2
+Saturn, slow: 23;2,3,5,2551 - fast: 23;30,3,5,2551 East 10;13,20
+Mercury, slow: 26;7,8,5,2119 - fast: 2;15,10,2,7045 North 1;0,2
+Venus, slow: 4;25,18,4,712 - fast: 3;49,4,5,349 East 1;20,54
+Rahu, head: 3;38,20,5,5
+
+Tibetan Lunar Month: 5 (Intercalary) - Water-male-Horse
+
+Month: 14337;0
+Anomaly: 9;85
+Mean Weekday: 1;26,52,4,174
+Mean Sun: 3;17,23,0,6
+
+1: Mon. Rohini/snar ma. Water-Earth; 31 May 1965
+  Dhriti/'dzin byed, Kintughna/mi sdug pa, Tiger, li 4
+  Solar: Wood-Bird. Wei
+  2;50,15 3;33,30 3;29,46 7;3,16 1;16,36
+2: Tue. Mrigashiras/mgo. Fire-Wind; 1 Jun 1965
+  Shula/zug rngu, Valava/byis pa, Rabbit, khon 5
+  Solar: Fire-Dog. Shi
+  3;44,31 4;37,29 3;34,0 8;11,29 1;17,33
+3: Wed. Ardra/lag. Water-Water; 2 Jun 1965
+  Ganda/'grams, Taitila/til rdung, Dragon, dwa 6
+  Solar: Fire-Pig. Bi
+  4;38,26 5;41,47 3;38,14 9;20,2 1;18,29
+4: Thu. Punarvasu/nabs so. Wind-Wind; 3 Jun 1965
+  Vriddhi/'phel, Vanija/tshong ba, Snake, khen 7
+  Solar: Earth-Mouse. Kui
+  5;32,22 6;46,6 3;42,28 10;28,34 1;19,26
+5: Fri. Pushya/rgyal. Earth-Fire; 4 Jun 1965
+  Dhruva/brtan pa, Valava/byis pa, Horse, kham 8
+  Solar: Earth-Ox. Lou
+  6;26,18 7;50,24 3;46,43 11;37,7 1;20,22
+    yan kwong
+6: Sat. Ashlesha/skag. Earth-Water; 5 Jun 1965
+  Vyaghata/yongs bsnun, Taitila/til rdung, Sheep, gin 9
+  Solar: Iron-Tiger. Wei
+  0;20,14 8;54,42 3;50,57 12;45,39 1;21,19
+    zin phung
+7: Sun. Magha/mchu. Fire-Fire; 6 Jun 1965
+  Harshana/dga' ba, Vanija/tshong ba, Monkey, zin 1
+  Solar: Iron-Rabbit. Mao
+  1;14,10 9;59,1 3;55,11 13;54,12 1;22,15
+8: Mon. Uttaraphalguni/dbo. Water-Wind; 7 Jun 1965
+  Siddhi/dngos grub, Vava/gdab pa, Bird, zon 2
+  Solar: Water-Dragon. Bi
+  2;8,46 11;2,39 3;59,25 15;2,4 1;23,12
+    klu bzlog
+9: Tue. Hasta/me bzhi. Fire-Wind; 8 Jun 1965
+  Vyatipata/phan tshun, Kaulava/rigs can, Dog, li 3
+  Solar: Water-Snake. Zui
+  3;4,23 12;5,16 4;3,39 16;8,56 1;24,8
+10: Wed. Citra/nag pa. Water-Wind; 9 Jun 1965
+  Variyas/mchog can, Gara/khyim skyes, Pig, khon 4
+  Solar: Wood-Horse. Can
+  4;0,59 13;6,54 4;7,54 17;14,48 1;25,5
+11. Omitted.
+  4;58,36 4;12,8
+12: Thu. Svati/sa ri. Wind-Wind; 10 Jun 1965
+  Parigha/yongs 'joms, Vishti/viSTi, Ox, khen 6
+  Solar: Wood-Sheep. Jing
+  5;57,53 14;6,28 4;16,22 18;22,51 1;26,58
+    zin phung
+13: Fri. Vishakha/sa ga. Earth-Fire; 11 Jun 1965
+  Shiva/zhi ba, Valava/byis pa, Tiger, kham 7
+  Solar: Fire-Monkey. Gui
+  6;58,29 15;4,6 4;20,36 19;24,43 1;27,54
+14: Sat. Anuradha/lha mtshams. Earth-Earth; 12 Jun 1965
+  Siddha/grub pa, Taitila/til rdung, Rabbit, gin 8
+  Solar: Fire-Bird. Liu
+  0;60,0 16;4,6 4;24,50 20;28,57 1;28,51
+14: Sun. Jyeshtha/snron. Fire-Earth; 13 Jun 1965
+  Sadhya/bsgrub bya, Vanija/tshong ba, Rabbit, gin 8
+  Solar: Earth-Dog. Xing
+  1;0,6 17;0,44 4;24,50 21;25,34 1;28,51
+15: Mon. Jyeshtha/snron. Water-Earth; 14 Jun 1965
+  Shubha/dge ba, Vava/gdab pa, Dragon, zin 9
+  Solar: Earth-Pig. Zhang
+  2;2,43 17;56,21 4;29,4 22;25,26 1;29,47
+    klu bzlog
+
+Mars, slow: 13;47,48,1,139 - fast: 10;47,33,2,187 North 4;23,54
+Jupiter, slow: 4;1,55,2,28 - fast: 4;5,24,5,14 East 1;24,32
+Saturn, slow: 23;4,13,1,4943 - fast: 23;31,36,0,649 South 10;13,41
+Mercury, slow: 3;43,22,4,2048 - fast: 4;16,50,2,4651 North 1;27,4
+Venus, slow: 6;13,27,2,644 - fast: 5;11,2,4,618 East 2;9,7
+Rahu, head: 3;34,49,3,9
+
+16: Tue. Mula/snrubs. Fire-Water; 15 Jun 1965
+  Shukla/dkar po, Kaulava/rigs can, Snake, zon 1
+  Solar: Iron-Mouse. Yi
+  3;6,20 18;50,59 4;33,19 23;24,18 2;0,44
+    nyi nag
+17: Wed. Purvashadha/chu stod. Water-Water; 16 Jun 1965
+  Brahman/tshangs pa, Gara/khyim skyes, Horse, li 2
+  Solar: Iron-Ox. Zhen
+  4;10,14 19;45,17 4;37,31 24;22,49 2;1,40
+18: Thu. Uttarashadha/chu smad. Wind-Earth; 17 Jun 1965
+  Indra/dbang po, Vishti/viSTi, Sheep, khon 3
+  Solar: Water-Tiger. Jiao
+  5;14,6 20;39,35 4;41,42 25;21,17 2;2,36
+    zin phung
+19: Fri. Abhijit/gro zhin. Earth-Earth; 18 Jun 1965
+  Vaidhriti/'khon 'dzin, Valava/byis pa, Monkey, dwa 4
+  Solar: Water-Rabbit. Kang
+  6;17,58 21;33,53 4;45,52 26;19,46 2;3,31
+20: Sat. Dhanishtha/mon gre. Earth-Water; 19 Jun 1965
+  Vishkambha/rnam sel, Taitila/til rdung, Bird, khen 5
+  Solar: Wood-Dragon. Di
+  0;21,50 22;28,11 4;50,2 0;18,14 2;4,27
+    klu thebs
+21: Sun. Shatabhishaj/mon gru. Fire-Earth; 20 Jun 1965
+  Priti/mdza' bo, Vanija/tshong ba, Dog, kham 6
+  Solar: Wood-Snake. Fang
+  1;25,43 23;22,30 4;54,13 1;16,43 2;5,22
+22: Mon. Purvabhadrapada/khrums stod. Water-Fire; 21 Jun 1965
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Pig, gin 7
+  Solar: Fire-Horse. Xin
+  2;28,54 24;17,29 4;58,23 2;15,52 2;6,18
+    klu thebs
+23: Tue. Uttarabhadrapada/khrums smad. Fire-Water; 22 Jun 1965
+  Saubhagya/skal bzang, Valava/byis pa, Mouse, zin 8
+  Solar: Fire-Sheep. Wei
+  3;31,5 25;13,28 5;2,33 3;16,1 2;7,14
+24: Wed. Revati/nam gru. Water-Water; 23 Jun 1965
+  Shobhana/dge byed, Taitila/til rdung, Ox, zon 9
+  Solar: Earth-Monkey. Ji
+  4;32,16 26;10,27 5;6,44 4;17,11 2;8,9
+    zin phung
+25: Thu. Ashvini/tha skar. Wind-Wind; 24 Jun 1965
+  Atiganda/shin tu 'grams, Vanija/tshong ba, Tiger, li 1
+  Solar: Earth-Bird. Dou
+  5;32,27 0;8,26 5;10,54 5;19,20 2;9,5
+26: Fri. Bharani/bra nye. Earth-Fire; 25 Jun 1965
+  Sukarman/las bzang, Vava/gdab pa, Rabbit, khon 2
+  Solar: Iron-Dog. Niu
+  6;30,58 1;8,6 5;15,4 6;23,11 2;10,1
+27: Sat. Krittika/smin drug. Earth-Fire; 26 Jun 1965
+  Dhriti/'dzin byed, Kaulava/rigs can, Dragon, dwa 3
+  Solar: Iron-Pig. Nu
+  0;28,9 2;9,5 5;19,15 7;28,20 2;10,56
+28: Sun. Rohini/snar ma. Fire-Earth; 27 Jun 1965
+  Shula/zug rngu, Vanija/tshong ba, Snake, khen 4
+  Solar: Water-Mouse. Xu
+  1;24,20 3;11,4 5;23,25 8;34,30 2;11,52
+29: Mon. Mrigashiras/mgo. Water-Wind; 28 Jun 1965
+  Ganda/'grams, Shakuni/bkra shis, Horse, kham 5
+  Solar: Water-Ox. Wei
+  2;19,31 4;14,4 5;27,35 9;41,39 2;12,47
+30: Tue. Ardra/lag. Fire-Water; 29 Jun 1965
+  Vriddhi/'phel, Naga/klu, Sheep, gin 6
+  Solar: Wood-Tiger. Shi
+  3;13,42 5;18,3 5;31,45 10;49,49 2;13,43
+    zin phung
+
+Mars, slow: 14;21,20,2,222 - fast: 11;23,37,4,26 North 5;1,55
+Jupiter, slow: 4;7,39,2,124 - fast: 4;21,6,2,177 East 1;28,1
+Saturn, slow: 23;6,22,4,1952 - fast: 23;30,54,4,4511 South 10;13,32
+Mercury, slow: 8;19,36,3,1977 - fast: 6;21,11,2,4723 East 2;24,42
+Venus, slow: 8;1,36,0,576 - fast: 6;32,53,3,518 East 2;27,18
+Rahu, head: 3;31,18,1,13
+
+Tibetan Lunar Month: 5 (Delayed) - Water-male-Horse
+
+Month: 14338;0
+Anomaly: 11;86
+Mean Weekday: 2;58,42,4,654
+Mean Sun: 5;28,21,3,3
+
+1: Wed. Punarvasu/nabs so. Water-Wind; 30 Jun 1965
+  Dhruva/brtan pa, Vava/gdab pa, Tiger, li 4
+  Solar: Wood-Rabbit. Bi
+  4;7,34 6;22,21 5;35,56 11;58,17 2;14,39
+2: Thu. Pushya/rgyal. Wind-Fire; 1 Jul 1965
+  Harshana/dga' ba, Kaulava/rigs can, Rabbit, khon 5
+  Solar: Fire-Dragon. Kui
+  5;1,26 7;26,40 5;40,6 13;6,46 2;15,34
+3. Omitted.
+  5;55,18 5;44,16
+4: Fri. Ashlesha/skag. Earth-Water; 2 Jul 1965
+  Vajra/rdo rje, Vanija/tshong ba, Snake, khen 7
+  Solar: Fire-Snake. Lou
+  6;49,10 8;35,16 5;48,27 14;23,43 2;17,26
+5: Sat. Magha/mchu. Earth-Fire; 3 Jul 1965
+  Siddhi/dngos grub, Vava/gdab pa, Horse, kham 8
+  Solar: Earth-Horse. Wei
+  0;43,2 9;39,35 5;52,37 15;32,12 2;18,21
+    yan kwong
+6: Sun. Purvaphalguni/gre. Fire-Fire; 4 Jul 1965
+  Vyatipata/phan tshun, Kaulava/rigs can, Sheep, gin 9
+  Solar: Earth-Sheep. Mao
+  1;37,35 10;43,12 5;56,47 16;40,0 2;19,17
+    zin phung
+7: Mon. Uttaraphalguni/dbo. Water-Wind; 5 Jul 1965
+  Variyas/mchog can, Gara/khyim skyes, Monkey, zin 1
+  Solar: Iron-Monkey. Bi
+  2;33,8 11;45,49 6;0,58 17;46,47 2;20,12
+8: Tue. Hasta/me bzhi. Fire-Wind; 6 Jul 1965
+  Parigha/yongs 'joms, Vishti/viSTi, Bird, zon 2
+  Solar: Iron-Bird. Zui
+  3;29,41 12;47,27 6;5,8 18;52,35 2;21,8
+    klu bzlog
+9: Wed. Citra/nag pa. Water-Wind; 7 Jul 1965
+  Shiva/zhi ba, Valava/byis pa, Dog, li 3
+  Solar: Water-Dog. Can
+  4;27,14 13;48,4 6;9,18 19;57,22 2;22,4
+10: Thu. Svati/sa ri. Wind-Wind; 8 Jul 1965
+  Sadhya/bsgrub bya, Gara/khyim skyes, Pig, khon 4
+  Solar: Water-Pig. Jing
+  5;26,28 14;47,0 6;13,28 21;0,29 2;22,59
+11: Fri. Vishakha/sa ga. Earth-Fire; 9 Jul 1965
+  Shubha/dge ba, Vanija/tshong ba, Mouse, dwa 5
+  Solar: Wood-Mouse. Gui
+  6;27,1 15;44,37 6;17,39 22;2,16 2;23,55
+12: Sat. Anuradha/lha mtshams. Earth-Earth; 10 Jul 1965
+  Shukla/dkar po, Vava/gdab pa, Ox, khen 6
+  Solar: Wood-Ox. Liu
+  0;28,34 16;41,14 6;21,49 23;3,4 2;24,51
+    zin phung
+13: Sun. Jyeshtha/snron. Fire-Earth; 11 Jul 1965
+  Brahman/tshangs pa, Kaulava/rigs can, Tiger, kham 7
+  Solar: Fire-Tiger. Xing
+  1;31,8 17;36,51 6;25,59 24;2,51 2;25,46
+14: Mon. Mula/snrubs. Water-Water; 12 Jul 1965
+  Indra/dbang po, Gara/khyim skyes, Rabbit, gin 8
+  Solar: Fire-Rabbit. Zhang
+  2;34,41 18;31,28 6;30,10 25;1,38 2;26,42
+15: Tue. Purvashadha/chu stod. Fire-Water; 13 Jul 1965
+  Vaidhriti/'khon 'dzin, Vishti/viSTi, Dragon, zin 9
+  Solar: Earth-Dragon. Yi
+  3;38,33 19;25,46 6;34,20 26;0,7 2;27,37
+    klu bzlog
+
+Mars, slow: 14;52,38,3,101 - fast: 12;1,11,4,196 North 5;10,15
+Jupiter, slow: 4;13,0,2,358 - fast: 4;36,8,0,84 East 2;1,21
+Saturn, slow: 23;8,23,3,237 - fast: 23;28,16,1,2223 South 10;12,56
+Mercury, slow: 12;37,25,2,6016 - fast: 8;11,0,2,1790 East 3;19,6
+Venus, slow: 9;42,32,1,163 - fast: 7;51,34,0,745 East 3;14,47
+Rahu, head: 3;27,46,5,17
+
+16: Wed. Uttarashadha/chu smad. Water-Earth; 14 Jul 1965
+  Vaidhriti/'khon 'dzin, Valava/byis pa, Snake, zon 1
+  Solar: Earth-Snake. Zhen
+  4;42,25 20;20,5 6;38,30 26;58,35 2;28,33
+    nyi nag
+17: Thu. Abhijit/gro zhin. Wind-Earth; 15 Jul 1965
+  Vishkambha/rnam sel, Taitila/til rdung, Horse, li 2
+  Solar: Iron-Horse. Jiao
+  5;46,17 21;14,23 6;42,41 0;57,4 2;29,29
+18: Fri. Dhanishtha/mon gre. Earth-Water; 16 Jul 1965
+  Priti/mdza' bo, Vanija/tshong ba, Sheep, khon 3
+  Solar: Iron-Sheep. Kang
+  6;50,9 22;8,41 6;46,51 1;55,32 3;0,24
+    zin phung
+19: Sat. Shatabhishaj/mon gru. Earth-Earth; 17 Jul 1965
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Monkey, dwa 4
+  Solar: Water-Monkey. Di
+  0;54,2 23;2,59 6;51,1 2;54,1 3;1,20
+20: Sun. Shatabhishaj/mon gru. Fire-Earth; 18 Jul 1965
+  Saubhagya/skal bzang, Valava/byis pa, Bird, khen 5
+  Solar: Water-Bird. Fang
+  1;57,12 23;57,59 6;55,12 3;53,11 3;2,16
+    klu thebs
+21: Mon. Purvabhadrapada/khrums stod. Water-Fire; 19 Jul 1965
+  Shobhana/dge byed, Taitila/til rdung, Dog, kham 6
+  Solar: Wood-Dog. Xin
+  2;59,23 24;53,58 6;59,22 4;53,21 3;3,11
+22: Tue. Uttarabhadrapada/khrums smad. Fire-Water; 20 Jul 1965
+  Atiganda/shin tu 'grams, Vanija/tshong ba, Pig, gin 7
+  Solar: Wood-Pig. Wei
+  3;60,0 25;53,58 7;3,32 5;57,31 3;4,7
+    klu thebs
+22: Wed. Revati/nam gru. Water-Water; 21 Jul 1965
+  Sukarman/las bzang, Vava/gdab pa, Pig, gin 7
+  Solar: Fire-Mouse. Ji
+  4;0,34 26;50,58 7;3,32 6;54,30 3;4,7
+23: Thu. Ashvini/tha skar. Wind-Wind; 22 Jul 1965
+  Dhriti/'dzin byed, Kaulava/rigs can, Mouse, zin 8
+  Solar: Fire-Ox. Dou
+  5;0,45 0;48,57 7;7,42 7;56,40 3;5,2
+24. Omitted.
+  5;59,14 7;11,53
+25: Fri. Bharani/bra nye. Earth-Fire; 23 Jul 1965
+  Ganda/'grams, Gara/khyim skyes, Tiger, li 1
+  Solar: Earth-Tiger. Niu
+  6;56,25 1;49,38 7;16,3 9;5,41 3;6,54
+26: Sat. Krittika/smin drug. Earth-Fire; 24 Jul 1965
+  Vriddhi/'phel, Vava/gdab pa, Rabbit, khon 2
+  Solar: Earth-Rabbit. Nu
+  0;52,35 2;51,38 7;20,13 10;11,51 3;7,49
+27: Sun. Rohini/snar ma. Fire-Earth; 25 Jul 1965
+  Dhruva/brtan pa, Kaulava/rigs can, Dragon, dwa 3
+  Solar: Iron-Dragon. Xu
+  1;47,46 3;54,37 7;24,24 11;19,1 3;8,45
+28: Mon. Mrigashiras/mgo. Water-Wind; 26 Jul 1965
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Snake, khen 4
+  Solar: Iron-Snake. Wei
+  2;41,57 4;58,37 7;28,34 12;27,12 3;9,41
+29: Tue. Punarvasu/nabs so. Fire-Wind; 27 Jul 1965
+  Harshana/dga' ba, Vishti/viSTi, Horse, kham 5
+  Solar: Water-Horse. Shi
+  3;35,48 6;2,55 7;32,44 13;35,40 3;10,36
+30: Wed. Pushya/rgyal. Water-Fire; 28 Jul 1965
+  Vajra/rdo rje, Catushpada/rkang bzhi, Sheep, gin 6
+  Solar: Water-Sheep. Bi
+  4;29,40 7;7,14 7;36,55 14;44,9 3;11,32
+    zin phung
+
+Mars, slow: 15;26,18,3,61 - fast: 12;41,33,5,103 North 5;19,14
+Jupiter, slow: 4;18,44,3,93 - fast: 4;50,29,1,225 East 2;4,33
+Saturn, slow: 23;10,32,5,2629 - fast: 23;24,40,1,1277 South 10;12,8
+Mercury, slow: 17;13,39,1,5945 - fast: 9;32,23,5,7724 South 4;7,11
+Venus, slow: 11;30,40,5,95 - fast: 9;12,39,5,314 East 4;2,48
+Rahu, head: 3;24,15,3,21
+
+Tibetan Lunar Month: 6 - Water-female-Sheep
+
+Month: 14339;2
+Anomaly: 13;87
+Mean Weekday: 4;30,32,5,427
+Mean Sun: 7;39,20,0,0
+
+1: Thu. Ashlesha/skag. Wind-Water; 29 Jul 1965
+  Siddhi/dngos grub, Vava/gdab pa, Monkey, zin 7
+  Solar: Wood-Monkey. Kui
+  5;23,32 8;11,32 7;41,5 15;52,37 3;12,27
+2: Fri. Magha/mchu. Earth-Fire; 30 Jul 1965
+  Variyas/mchog can, Kaulava/rigs can, Bird, zon 8
+  Solar: Wood-Bird. Lou
+  6;17,24 9;15,50 7;45,15 17;1,6 3;13,23
+3: Sat. Purvaphalguni/gre. Earth-Fire; 31 Jul 1965
+  Parigha/yongs 'joms, Gara/khyim skyes, Dog, li 9
+  Solar: Fire-Dog. Wei
+  0;11,16 10;20,9 7;49,26 18;9,35 3;14,19
+    yan kwong
+4: Sun. Uttaraphalguni/dbo. Fire-Wind; 1 Aug 1965
+  Shiva/zhi ba, Vishti/viSTi, Pig, khon 1
+  Solar: Fire-Pig. Mao
+  1;5,50 11;23,46 7;53,36 19;17,22 3;15,14
+  Turning of the Wheel of the Dharma.
+5: Mon. Hasta/me bzhi. Water-Wind; 2 Aug 1965
+  Siddha/grub pa, Valava/byis pa, Mouse, dwa 2
+  Solar: Earth-Mouse. Bi
+  2;1,23 12;26,22 7;57,46 20;24,9 3;16,10
+    klu thebs
+6. Omitted.
+  2;57,57 8;1,56
+7: Tue. Citra/nag pa. Fire-Wind; 3 Aug 1965
+  Sadhya/bsgrub bya, Taitila/til rdung, Tiger, kham 4
+  Solar: Earth-Ox. Zui
+  3;55,30 13;28,36 8;6,7 21;34,43 3;18,1
+8: Wed. Svati/sa ri. Water-Wind; 4 Aug 1965
+  Shubha/dge ba, Vanija/tshong ba, Rabbit, gin 5
+  Solar: Iron-Tiger. Can
+  4;54,45 14;27,31 8;10,17 22;37,49 3;18,57
+9: Thu. Vishakha/sa ga. Wind-Fire; 5 Aug 1965
+  Shukla/dkar po, Vava/gdab pa, Dragon, zin 6
+  Solar: Iron-Rabbit. Jing
+  5;55,19 15;25,8 8;14,27 23;39,36 3;19,52
+10: Fri. Anuradha/lha mtshams. Earth-Earth; 6 Aug 1965
+  Brahman/tshangs pa, Kaulava/rigs can, Snake, zon 7
+  Solar: Water-Dragon. Gui
+  6;56,53 16;21,45 8;18,38 24;40,23 3;20,48
+11: Sat. Jyeshtha/snron. Earth-Earth; 7 Aug 1965
+  Indra/dbang po, Gara/khyim skyes, Horse, li 8
+  Solar: Water-Snake. Liu
+  0;59,26 17;17,21 8;22,48 25;40,9 3;21,44
+    klu bzlog
+12: Sun. Mula/snrubs. Fire-Water; 8 Aug 1965
+  Vaidhriti/'khon 'dzin, Vishti/viSTi, Sheep, khon 9
+  Solar: Wood-Horse. Xing
+  1;60,0 18;17,21 8;26,58 26;44,20 3;22,39
+    zin phung
+12: Mon. Purvashadha/chu stod. Water-Water; 9 Aug 1965
+  Vishkambha/rnam sel, Valava/byis pa, Sheep, khon 9
+  Solar: Wood-Sheep. Zhang
+  2;3,0 19;11,58 8;26,58 0;38,56 3;22,39
+13: Tue. Uttarashadha/chu smad. Fire-Earth; 10 Aug 1965
+  Priti/mdza' bo, Taitila/til rdung, Monkey, dwa 1
+  Solar: Fire-Monkey. Yi
+  3;6,52 20;6,16 8;31,9 1;37,25 3;23,35
+    klu bzlog
+14: Wed. Abhijit/gro zhin. Water-Earth; 11 Aug 1965
+  Ayushmat/tshe dang ldan pa, Vanija/tshong ba, Bird, khen 2
+  Solar: Fire-Bird. Zhen
+  4;10,44 21;0,34 8;35,19 2;35,54 3;24,30
+15: Thu. Abhijit/gro zhin. Wind-Earth; 12 Aug 1965
+  Saubhagya/skal bzang, Vava/gdab pa, Dog, kham 3
+  Solar: Earth-Dog. Jiao
+  5;14,36 21;54,52 8;39,29 3;34,22 3;25,26
+  The Buddha's entry into the womb of his mother.
+    klu bzlog
+
+Mars, slow: 16;3,30,5,35 - fast: 13;25,50,2,162 North 5;29,4
+Jupiter, slow: 4;24,28,3,189 - fast: 5;3,30,3,328 East 2;7,26
+Saturn, slow: 23;12,42,1,5021 - fast: 23;19,25,2,2184 South 10;10,58
+Mercury, slow: 21;49,53,0,5874 - fast: 9;43,49,3,7138 South 4;9,44
+Venus, slow: 13;18,49,3,27 - fast: 10;33,53,3,10 East 4;20,51
+Rahu, head: 3;20,44,2,2
+
+16: Fri. Dhanishtha/mon gre. Earth-Water; 13 Aug 1965
+  Shobhana/dge byed, Kaulava/rigs can, Pig, gin 4
+  Solar: Earth-Pig. Kang
+  6;18,28 22;49,11 8;43,40 4;32,51 3;26,22
+17: Sat. Shatabhishaj/mon gru. Earth-Earth; 14 Aug 1965
+  Atiganda/shin tu 'grams, Gara/khyim skyes, Mouse, zin 5
+  Solar: Iron-Mouse. Di
+  0;22,21 23;43,29 8;47,50 5;31,19 3;27,17
+18: Sun. Purvabhadrapada/khrums stod. Fire-Fire; 15 Aug 1965
+  Sukarman/las bzang, Vishti/viSTi, Ox, zon 6
+  Solar: Iron-Ox. Fang
+  1;25,31 24;38,29 8;52,0 6;30,29 3;28,13
+    zin phung
+19: Mon. Uttarabhadrapada/khrums smad. Water-Water; 16 Aug 1965
+  Dhriti/'dzin byed, Vava/gdab pa, Tiger, li 7
+  Solar: Water-Tiger. Xin
+  2;27,43 25;34,29 8;56,12 7;30,41 3;29,9
+20: Tue. Revati/nam gru. Fire-Water; 17 Aug 1965
+  Shula/zug rngu, Kaulava/rigs can, Rabbit, khon 8
+  Solar: Water-Rabbit. Wei
+  3;28,58 26;31,29 9;0,27 8;31,56 4;0,6
+    klu thebs
+21: Wed. Ashvini/tha skar. Water-Wind; 18 Aug 1965
+  Ganda/'grams, Gara/khyim skyes, Dragon, dwa 9
+  Solar: Wood-Dragon. Ji
+  4;29,12 0;29,29 9;4,41 9;34,10 4;1,2
+22: Thu. Bharani/bra nye. Wind-Fire; 19 Aug 1965
+  Vriddhi/'phel, Vishti/viSTi, Snake, khen 1
+  Solar: Wood-Snake. Dou
+  5;27,44 1;29,10 9;8,55 10;38,6 4;1,59
+23: Fri. Krittika/smin drug. Earth-Fire; 20 Aug 1965
+  Dhruva/brtan pa, Kaulava/rigs can, Horse, kham 2
+  Solar: Fire-Horse. Niu
+  6;24,58 2;30,11 9;13,9 11;43,20 4;2,55
+    klu bzlog
+24: Sat. Rohini/snar ma. Earth-Earth; 21 Aug 1965
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Sheep, gin 3
+  Solar: Fire-Sheep. Nu
+  0;21,12 3;32,11 9;17,23 12;49,34 4;3,51
+    zin phung, nyi nag
+25: Sun. Mrigashiras/mgo. Fire-Wind; 22 Aug 1965
+  Harshana/dga' ba, Vishti/viSTi, Monkey, zin 4
+  Solar: Earth-Monkey. Xu
+  1;16,26 4;35,11 9;21,38 13;56,49 4;4,48
+    klu thebs
+26: Mon. Ardra/lag. Water-Water; 23 Aug 1965
+  Siddhi/dngos grub, Valava/byis pa, Bird, zon 5
+  Solar: Earth-Bird. Wei
+  2;10,40 5;39,11 9;25,52 15;5,3 4;5,44
+27: Tue. Punarvasu/nabs so. Fire-Wind; 24 Aug 1965
+  Vyatipata/phan tshun, Taitila/til rdung, Dog, li 6
+  Solar: Iron-Dog. Shi
+  3;4,36 6;43,29 9;30,6 16;13,36 4;6,41
+28. Omitted.
+  3;58,32 9;34,20
+29: Wed. Pushya/rgyal. Water-Fire; 25 Aug 1965
+  Variyas/mchog can, Vishti/viSTi, Mouse, dwa 8
+  Solar: Iron-Pig. Bi
+  4;52,28 7;52,6 9;38,34 17;30,41 4;8,34
+30: Thu. Ashlesha/skag. Wind-Water; 26 Aug 1965
+  Parigha/yongs 'joms, Catushpada/rkang bzhi, Ox, khen 9
+  Solar: Water-Mouse. Kui
+  5;46,24 8;56,24 9;42,49 18;39,13 4;9,30
+    zin phung
+
+Mars, slow: 16;38,14,2,26 - fast: 14;8,51,3,116 North 6;8,38
+Jupiter, slow: 4;29,49,4,62 - fast: 5;14,52,3,155 East 2;9,58
+Saturn, slow: 23;14,43,0,3306 - fast: 23;14,9,3,2145 West 10;9,48
+Mercury, slow: 26;7,42,0,1116 - fast: 8;49,1,0,1883 West 3;27,33
+Venus, slow: 14;59,45,3,363 - fast: 11;51,49,0,138 East 5;8,10
+Rahu, head: 3;17,13,0,6
+
+Tibetan Lunar Month: 7 - Wood-male-Monkey
+
+Month: 14340;4
+Anomaly: 15;88
+Mean Weekday: 6;2,23,0,200
+Mean Sun: 9;50,18,2,10
+
+1: Fri. Purvaphalguni/gre. Earth-Fire; 27 Aug 1965
+  Shiva/zhi ba, Kintughna/mi sdug pa, Tiger, kham 1
+  Solar: Water-Ox. Lou
+  6;40,19 10;0,43 9;47,3 19;47,46 4;10,27
+    yan kwong
+2: Sat. Uttaraphalguni/dbo. Earth-Wind; 28 Aug 1965
+  Siddha/grub pa, Valava/byis pa, Rabbit, gin 2
+  Solar: Wood-Tiger. Wei
+  0;34,57 11;4,19 9;51,17 20;55,37 4;11,23
+3: Sun. Hasta/me bzhi. Fire-Wind; 29 Aug 1965
+  Shubha/dge ba, Taitila/til rdung, Dragon, zin 3
+  Solar: Wood-Rabbit. Mao
+  1;30,35 12;6,56 9;55,31 22;2,27 4;12,20
+    zin phung
+4: Mon. Citra/nag pa. Water-Wind; 30 Aug 1965
+  Shukla/dkar po, Vanija/tshong ba, Snake, zon 4
+  Solar: Fire-Dragon. Bi
+  2;27,13 13;8,32 9;59,45 23;8,18 4;13,16
+5: Tue. Svati/sa ri. Fire-Wind; 31 Aug 1965
+  Brahman/tshangs pa, Valava/byis pa, Horse, li 5
+  Solar: Fire-Snake. Zui
+  3;24,51 14;9,8 10;3,59 24;13,8 4;14,13
+    klu bzlog
+6: Wed. Vishakha/sa ga. Water-Fire; 1 Sep 1965
+  Indra/dbang po, Taitila/til rdung, Sheep, khon 6
+  Solar: Earth-Horse. Can
+  4;24,11 15;8,2 10;8,14 25;16,16 4;15,9
+    klu bzlog
+7: Thu. Anuradha/lha mtshams. Wind-Earth; 2 Sep 1965
+  Vaidhriti/'khon 'dzin, Vanija/tshong ba, Monkey, dwa 7
+  Solar: Earth-Sheep. Jing
+  5;24,49 16;5,39 10;12,28 26;18,7 4;16,6
+8: Fri. Jyeshtha/snron. Earth-Earth; 3 Sep 1965
+  Vishkambha/rnam sel, Vava/gdab pa, Bird, khen 8
+  Solar: Iron-Monkey. Gui
+  6;26,26 17;2,15 10;16,42 0;18,58 4;17,2
+9: Sat. Jyeshtha/snron. Earth-Earth; 4 Sep 1965
+  Priti/mdza' bo, Valava/byis pa, Dog, kham 9
+  Solar: Iron-Bird. Liu
+  0;29,4 17;57,51 10;20,56 1;18,48 4;17,59
+    klu thebs, zin phung, nyi nag
+10: Sun. Mula/snrubs. Fire-Water; 5 Sep 1965
+  Ayushmat/tshe dang ldan pa, Taitila/til rdung, Pig, gin 1
+  Solar: Water-Dog. Xing
+  1;32,43 18;52,27 10;25,10 2;17,38 4;18,55
+11: Mon. Purvashadha/chu stod. Water-Water; 6 Sep 1965
+  Saubhagya/skal bzang, Vanija/tshong ba, Mouse, zin 2
+  Solar: Water-Pig. Zhang
+  2;36,39 19;46,46 10;29,25 3;16,11 4;19,52
+12: Tue. Uttarashadha/chu smad. Fire-Earth; 7 Sep 1965
+  Shobhana/dge byed, Vava/gdab pa, Ox, zon 3
+  Solar: Wood-Mouse. Yi
+  3;40,35 20;41,4 10;33,39 4;14,43 4;20,48
+13: Wed. Abhijit/gro zhin. Water-Earth; 8 Sep 1965
+  Atiganda/shin tu 'grams, Kaulava/rigs can, Tiger, li 4
+  Solar: Wood-Ox. Zhen
+  4;44,30 21;35,22 10;37,53 5;13,15 4;21,45
+14: Thu. Dhanishtha/mon gre. Wind-Water; 9 Sep 1965
+  Sukarman/las bzang, Gara/khyim skyes, Rabbit, khon 5
+  Solar: Fire-Tiger. Jiao
+  5;48,26 22;29,40 10;42,7 6;11,48 4;22,41
+15: Fri. Shatabhishaj/mon gru. Earth-Earth; 10 Sep 1965
+  Dhriti/'dzin byed, Vishti/viSTi, Dragon, dwa 6
+  Solar: Fire-Rabbit. Kang
+  6;52,22 23;23,58 10;46,21 7;10,20 4;23,38
+    zin phung
+
+Mars, slow: 17;15,26,4,0 - fast: 14;54,32,5,193 North 6;18,47
+Jupiter, slow: 4;35,33,4,158 - fast: 5;25,14,1,82 East 2;12,16
+Saturn, slow: 23;16,52,3,315 - fast: 23;8,41,0,4911 West 10;8,35
+Mercury, slow: 3;43,55,5,1045 - fast: 9;39,41,4,8602 North 4;8,49
+Venus, slow: 16;47,54,1,295 - fast: 13;12,4,4,667 East 5;26,1
+Rahu, head: 3;13,41,4,10
+
+16: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 11 Sep 1965
+  Shula/zug rngu, Vava/gdab pa, Snake, khen 7
+  Solar: Earth-Dragon. Di
+  0;55,36 24;18,59 10;50,36 8;9,35 4;24,34
+17: Sun. Uttarabhadrapada/khrums smad. Fire-Water; 12 Sep 1965
+  Ganda/'grams, Kaulava/rigs can, Horse, kham 8
+  Solar: Earth-Snake. Fang
+  1;57,50 25;14,59 10;54,50 9;9,49 4;25,31
+18: Mon. Revati/nam gru. Water-Water; 13 Sep 1965
+  Vriddhi/'phel, Gara/khyim skyes, Sheep, gin 9
+  Solar: Iron-Horse. Xin
+  2;59,4 26;12,0 10;59,4 10;11,4 4;26,27
+19: Tue. Ashvini/tha skar. Fire-Wind; 14 Sep 1965
+  Dhruva/brtan pa, Vishti/viSTi, Monkey, zin 1
+  Solar: Iron-Sheep. Wei
+  3;59,18 0;10,0 11;3,18 11;13,18 4;27,24
+    klu thebs
+20: Wed. Bharani/bra nye. Water-Fire; 15 Sep 1965
+  Vyaghata/yongs bsnun, Valava/byis pa, Bird, zon 2
+  Solar: Water-Monkey. Ji
+  4;57,53 1;9,43 11;7,36 12;17,19 4;28,21
+21: Thu. Krittika/smin drug. Wind-Fire; 16 Sep 1965
+  Harshana/dga' ba, Taitila/til rdung, Dog, li 3
+  Solar: Water-Bird. Dou
+  5;55,12 2;10,43 11;11,56 13;22,39 4;29,19
+    zin phung
+22: Fri. Rohini/snar ma. Earth-Earth; 17 Sep 1965
+  Vajra/rdo rje, Vishti/viSTi, Pig, khon 4
+  Solar: Wood-Dog. Niu
+  6;51,31 3;12,44 11;16,16 14;29,0 5;0,16
+23: Sat. Mrigashiras/mgo. Earth-Wind; 18 Sep 1965
+  Siddhi/dngos grub, Valava/byis pa, Mouse, dwa 5
+  Solar: Wood-Pig. Nu
+  0;46,51 4;15,44 11;20,36 15;36,20 5;1,14
+24: Sun. Ardra/lag. Fire-Water; 19 Sep 1965
+  Vyatipata/phan tshun, Taitila/til rdung, Ox, khen 6
+  Solar: Fire-Mouse. Xu
+  1;41,10 5;19,45 11;24,56 16;44,41 5;2,12
+25: Mon. Punarvasu/nabs so. Water-Wind; 20 Sep 1965
+  Variyas/mchog can, Vanija/tshong ba, Tiger, kham 7
+  Solar: Fire-Ox. Wei
+  2;35,12 6;24,3 11;29,16 17;53,19 5;3,10
+26: Tue. Pushya/rgyal. Fire-Fire; 21 Sep 1965
+  Shiva/zhi ba, Vava/gdab pa, Rabbit, gin 8
+  Solar: Earth-Tiger. Shi
+  3;29,14 7;28,22 11;33,36 19;1,58 5;4,8
+27: Wed. Ashlesha/skag. Water-Water; 22 Sep 1965
+  Siddha/grub pa, Taitila/til rdung, Dragon, zin 9
+  Solar: Earth-Rabbit. Bi
+  4;23,15 8;32,40 11;37,56 20;10,36 5;5,5
+    zin phung
+28: Thu. Magha/mchu. Wind-Fire; 23 Sep 1965
+  Sadhya/bsgrub bya, Vanija/tshong ba, Snake, zon 1
+  Solar: Iron-Dragon. Kui
+  5;17,17 9;36,58 11;42,16 21;19,15 5;6,3
+29: Fri. Purvaphalguni/gre. Earth-Fire; 24 Sep 1965
+  Shubha/dge ba, Shakuni/bkra shis, Horse, li 2
+  Solar: Iron-Snake. Lou
+  6;11,19 10;41,17 11;46,36 22;27,53 5;7,1
+    yan kwong
+30: Sat. Uttaraphalguni/dbo. Earth-Wind; 25 Sep 1965
+  Shukla/dkar po, Naga/klu, Sheep, khon 3
+  Solar: Water-Horse. Wei
+  0;6,3 11;44,53 11;50,56 23;35,49 5;7,59
+
+Mars, slow: 17;53,5,1,101 - fast: 15;40,57,1,223 North 6;29,6
+Jupiter, slow: 4;41,17,4,254 - fast: 5;32,37,4,222 East 2;13,55
+Saturn, slow: 23;19,1,5,2707 - fast: 23;3,48,2,2687 West 10;7,30
+Mercury, slow: 8;20,9,4,974 - fast: 11;17,40,0,6768 North 5;0,35
+Venus, slow: 18;36,2,5,227 - fast: 14;32,54,0,161 East 6;13,58
+Rahu, head: 3;10,10,2,14
+
+Tibetan Lunar Month: 8 - Wood-female-Bird
+
+Month: 14341;6
+Anomaly: 17;89
+Mean Weekday: 0;34,13,0,680
+Mean Sun: 12;1,16,5,7
+
+1: Sun. Hasta/me bzhi. Fire-Wind; 26 Sep 1965
+  Brahman/tshangs pa, Vava/gdab pa, Monkey, dwa 4
+  Solar: Water-Sheep. Mao
+  1;1,47 12;47,29 11;55,16 24;42,45 5;8,56
+2. Omitted.
+  1;58,31 11;59,36
+3: Mon. Citra/nag pa. Water-Wind; 27 Sep 1965
+  Indra/dbang po, Kaulava/rigs can, Dog, kham 6
+  Solar: Wood-Monkey. Bi
+  2;56,15 13;49,40 12;3,56 25;53,37 5;10,52
+    klu bzlog, zin phung
+4: Tue. Svati/sa ri. Fire-Wind; 28 Sep 1965
+  Vaidhriti/'khon 'dzin, Gara/khyim skyes, Pig, gin 7
+  Solar: Wood-Bird. Zui
+  3;55,41 14;48,34 12;8,16 26;56,50 5;11,50
+5: Wed. Vishakha/sa ga. Water-Fire; 29 Sep 1965
+  Vishkambha/rnam sel, Vishti/viSTi, Mouse, zin 8
+  Solar: Fire-Dog. Can
+  4;56,26 15;46,10 12;12,36 0;58,46 5;12,48
+    klu thebs
+6: Thu. Anuradha/lha mtshams. Wind-Earth; 30 Sep 1965
+  Priti/mdza' bo, Valava/byis pa, Ox, zon 9
+  Solar: Fire-Pig. Jing
+  5;58,10 16;42,45 12;16,56 1;59,42 5;13,45
+    klu bzlog
+7: Fri. Jyeshtha/snron. Earth-Earth; 1 Oct 1965
+  Saubhagya/skal bzang, Taitila/til rdung, Tiger, li 1
+  Solar: Earth-Mouse. Gui
+  6;60,0 17;42,45 12;21,16 3;4,2 5;14,43
+7: Sat. Mula/snrubs. Earth-Water; 2 Oct 1965
+  Saubhagya/skal bzang, Vanija/tshong ba, Tiger, li 1
+  Solar: Earth-Ox. Liu
+  0;0,54 18;38,21 12;21,16 3;59,38 5;14,43
+8: Sun. Purvashadha/chu stod. Fire-Water; 3 Oct 1965
+  Shobhana/dge byed, Vava/gdab pa, Rabbit, khon 2
+  Solar: Iron-Tiger. Xing
+  1;4,38 19;32,57 12;25,36 4;58,33 5;15,41
+9: Mon. Uttarashadha/chu smad. Water-Earth; 4 Oct 1965
+  Atiganda/shin tu 'grams, Kaulava/rigs can, Dragon, dwa 3
+  Solar: Iron-Rabbit. Zhang
+  2;8,40 20;27,15 12;29,56 5;57,11 5;16,39
+    klu bzlog, zin phung
+10: Tue. Abhijit/gro zhin. Fire-Earth; 5 Oct 1965
+  Sukarman/las bzang, Gara/khyim skyes, Snake, khen 4
+  Solar: Water-Dragon. Yi
+  3;12,42 21;21,33 12;34,16 6;55,50 5;17,36
+11: Wed. Dhanishtha/mon gre. Water-Water; 6 Oct 1965
+  Dhriti/'dzin byed, Vishti/viSTi, Horse, kham 5
+  Solar: Water-Snake. Zhen
+  4;16,44 22;15,51 12;38,36 7;54,28 5;18,34
+12: Thu. Shatabhishaj/mon gru. Wind-Earth; 7 Oct 1965
+  Shula/zug rngu, Valava/byis pa, Sheep, gin 6
+  Solar: Wood-Horse. Jiao
+  5;20,46 23;10,10 12;42,56 8;53,6 5;19,32
+13: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 8 Oct 1965
+  Ganda/'grams, Taitila/til rdung, Monkey, zin 7
+  Solar: Wood-Sheep. Kang
+  6;24,48 24;4,28 12;47,16 9;51,44 5;20,30
+    klu bzlog
+14: Sat. Purvabhadrapada/khrums stod. Earth-Fire; 9 Oct 1965
+  Vriddhi/'phel, Gara/khyim skyes, Bird, zon 8
+  Solar: Fire-Monkey. Di
+  0;28,7 24;59,29 12;51,36 10;51,5 5;21,28
+15: Sun. Uttarabhadrapada/khrums smad. Fire-Water; 10 Oct 1965
+  Dhruva/brtan pa, Vishti/viSTi, Dog, li 9
+  Solar: Fire-Bird. Fang
+  1;30,26 25;55,29 12;55,56 11;51,26 5;22,25
+    klu thebs, zin phung
+
+Mars, slow: 18;33,10,2,202 - fast: 16;29,55,5,182 North 7;9,59
+Jupiter, slow: 4;47,1,4,350 - fast: 5;38,2,3,242 South 2;15,7
+Saturn, slow: 23;21,11,1,5099 - fast: 23;0,23,2,2866 West 10;6,45
+Mercury, slow: 12;56,23,3,903 - fast: 13;13,55,4,1594 North 5;26,25
+Venus, slow: 20;24,11,3,159 - fast: 15;52,6,2,502 East 7;1,34
+Rahu, head: 3;6,39,0,18
+
+16: Mon. Revati/nam gru. Water-Water; 11 Oct 1965
+  Vyaghata/yongs bsnun, Valava/byis pa, Pig, khon 1
+  Solar: Earth-Dog. Xin
+  2;31,45 26;52,30 13;0,16 12;52,47 5;23,23
+    klu bzlog
+17: Tue. Ashvini/tha skar. Fire-Wind; 12 Oct 1965
+  Harshana/dga' ba, Taitila/til rdung, Mouse, dwa 2
+  Solar: Earth-Pig. Wei
+  3;32,4 0;50,31 13;4,36 13;55,8 5;24,21
+18: Wed. Bharani/bra nye. Water-Fire; 13 Oct 1965
+  Vajra/rdo rje, Vanija/tshong ba, Ox, khen 3
+  Solar: Iron-Mouse. Ji
+  4;30,41 1;50,15 13;8,56 14;59,11 5;25,19
+    nyi nag
+19: Thu. Krittika/smin drug. Wind-Fire; 14 Oct 1965
+  Vyatipata/phan tshun, Vava/gdab pa, Tiger, kham 4
+  Solar: Iron-Ox. Dou
+  5;28,0 2;51,16 13;13,16 16;4,32 5;26,17
+20: Fri. Rohini/snar ma. Earth-Earth; 15 Oct 1965
+  Variyas/mchog can, Taitila/til rdung, Rabbit, gin 5
+  Solar: Water-Tiger. Niu
+  6;24,19 3;53,17 13;17,36 17;10,53 5;27,14
+21: Sat. Mrigashiras/mgo. Earth-Wind; 16 Oct 1965
+  Parigha/yongs 'joms, Vanija/tshong ba, Dragon, zin 6
+  Solar: Water-Rabbit. Nu
+  0;19,40 4;56,18 13;21,59 18;18,17 5;28,13
+    zin phung
+22: Sun. Punarvasu/nabs so. Fire-Wind; 17 Oct 1965
+  Shiva/zhi ba, Vava/gdab pa, Snake, zon 7
+  Solar: Wood-Dragon. Xu
+  1;14,3 6;0,19 13;26,23 19;26,42 5;29,11
+23: Mon. Pushya/rgyal. Water-Fire; 18 Oct 1965
+  Siddha/grub pa, Kaulava/rigs can, Horse, li 8
+  Solar: Wood-Snake. Wei
+  2;8,9 7;4,37 13;30,46 20;35,24 6;0,10
+24: Tue. Ashlesha/skag. Fire-Water; 19 Oct 1965
+  Sadhya/bsgrub bya, Gara/khyim skyes, Sheep, khon 9
+  Solar: Fire-Horse. Shi
+  3;2,14 8;8,56 13;35,10 21;44,6 6;1,9
+25. Omitted.
+  3;56,20 13;39,34
+26: Wed. Magha/mchu. Water-Fire; 20 Oct 1965
+  Shukla/dkar po, Vava/gdab pa, Bird, khen 2
+  Solar: Fire-Sheep. Bi
+  4;50,25 9;17,32 13;43,58 23;1,31 6;3,6
+27: Thu. Purvaphalguni/gre. Wind-Fire; 21 Oct 1965
+  Brahman/tshangs pa, Kaulava/rigs can, Dog, kham 3
+  Solar: Earth-Monkey. Kui
+  5;44,31 10;21,51 13;48,22 24;10,13 6;4,4
+    yan kwong, zin phung
+28: Fri. Uttaraphalguni/dbo. Earth-Wind; 22 Oct 1965
+  Indra/dbang po, Gara/khyim skyes, Pig, gin 4
+  Solar: Earth-Bird. Lou
+  6;39,19 11;25,26 13;52,46 25;18,13 6;5,3
+29: Sat. Hasta/me bzhi. Earth-Wind; 23 Oct 1965
+  Vaidhriti/'khon 'dzin, Vishti/viSTi, Mouse, zin 5
+  Solar: Iron-Dog. Wei
+  0;35,7 12;28,2 13;57,10 26;25,12 6;6,2
+30: Sun. Citra/nag pa. Fire-Wind; 24 Oct 1965
+  Vishkambha/rnam sel, Catushpada/rkang bzhi, Ox, zon 6
+  Solar: Iron-Pig. Mao
+  1;31,56 13;29,37 14;1,34 0;31,11 6;7,0
+
+Mars, slow: 19;10,35,2,52 - fast: 17;17,10,2,58 North 7;20,28
+Jupiter, slow: 4;52,22,5,223 - fast: 5;39,23,4,53 South 2;15,25
+Saturn, slow: 23;23,12,0,3384 - fast: 22;57,55,5,1704 West 10;6,12
+Mercury, slow: 17;14,12,2,4942 - fast: 15;7,21,0,558 East 6;21,38
+Venus, slow: 22;5,7,3,495 - fast: 17;8,27,2,656 East 7;18,32
+Rahu, head: 3;3,7,4,22
+
+Tibetan Lunar Month: 9 - Fire-male-Dog
+
+Month: 14342;8
+Anomaly: 19;90
+Mean Weekday: 2;6,3,1,453
+Mean Sun: 14;12,15,2,4
+
+1: Mon. Svati/sa ri. Water-Wind; 25 Oct 1965
+  Priti/mdza' bo, Kintughna/mi sdug pa, Tiger, li 7
+  Solar: Water-Mouse. Bi
+  2;29,44 14;30,13 14;5,58 1;36,11 6;7,59
+    klu thebs
+2: Tue. Vishakha/sa ga. Fire-Fire; 26 Oct 1965
+  Ayushmat/tshe dang ldan pa, Valava/byis pa, Rabbit, khon 8
+  Solar: Water-Ox. Zui
+  3;29,16 15;29,5 14;10,21 2;39,27 6;8,58
+3: Wed. Anuradha/lha mtshams. Water-Earth; 27 Oct 1965
+  Saubhagya/skal bzang, Taitila/til rdung, Dragon, dwa 9
+  Solar: Wood-Tiger. Can
+  4;30,4 16;26,41 14;14,45 3;41,26 6;9,56
+    zin phung
+4: Thu. Jyeshtha/snron. Wind-Earth; 28 Oct 1965
+  Shobhana/dge byed, Vanija/tshong ba, Snake, khen 1
+  Solar: Wood-Rabbit. Jing
+  5;31,53 17;23,16 14;19,9 4;42,26 6;10,55
+5: Fri. Mula/snrubs. Earth-Water; 29 Oct 1965
+  Atiganda/shin tu 'grams, Vava/gdab pa, Horse, kham 2
+  Solar: Fire-Dragon. Gui
+  6;34,41 18;18,51 14;23,33 5;42,25 6;11,54
+6: Sat. Purvashadha/chu stod. Earth-Water; 30 Oct 1965
+  Sukarman/las bzang, Kaulava/rigs can, Sheep, gin 3
+  Solar: Fire-Snake. Liu
+  0;38,30 19;13,26 14;27,57 6;41,24 6;12,52
+7: Sun. Uttarashadha/chu smad. Fire-Earth; 31 Oct 1965
+  Dhriti/'dzin byed, Gara/khyim skyes, Monkey, zin 4
+  Solar: Earth-Horse. Xing
+  1;42,36 20;7,45 14;32,21 7;40,6 6;13,51
+8: Mon. Abhijit/gro zhin. Water-Earth; 1 Nov 1965
+  Shula/zug rngu, Vishti/viSTi, Bird, zon 5
+  Solar: Earth-Sheep. Zhang
+  2;46,41 21;2,3 14;36,45 8;38,48 6;14,50
+9: Tue. Abhijit/gro zhin. Fire-Earth; 2 Nov 1965
+  Ganda/'grams, Valava/byis pa, Dog, li 6
+  Solar: Iron-Monkey. Yi
+  3;50,47 21;56,21 14;41,9 9;37,30 6;15,48
+    klu bzlog, zin phung
+10: Wed. Dhanishtha/mon gre. Water-Water; 3 Nov 1965
+  Vriddhi/'phel, Kaulava/rigs can, Pig, khon 7
+  Solar: Iron-Bird. Zhen
+  4;54,53 22;50,39 14;45,33 10;36,12 6;16,47
+    klu bzlog
+11: Thu. Shatabhishaj/mon gru. Wind-Earth; 4 Nov 1965
+  Dhruva/brtan pa, Gara/khyim skyes, Mouse, dwa 8
+  Solar: Water-Dog. Jiao
+  5;58,58 23;44,57 14;49,56 11;34,54 6;17,45
+    klu thebs
+12: Fri. Purvabhadrapada/khrums stod. Earth-Fire; 5 Nov 1965
+  Vyaghata/yongs bsnun, Vishti/viSTi, Ox, khen 9
+  Solar: Water-Pig. Kang
+  6;60,0 24;44,57 14;54,20 12;39,18 6;18,44
+12: Sat. Uttarabhadrapada/khrums smad. Earth-Water; 6 Nov 1965
+  Harshana/dga' ba, Valava/byis pa, Ox, khen 9
+  Solar: Wood-Mouse. Di
+  0;2,21 25;39,59 14;54,20 13;34,20 6;18,44
+13: Sun. Revati/nam gru. Fire-Water; 7 Nov 1965
+  Vajra/rdo rje, Taitila/til rdung, Tiger, kham 1
+  Solar: Wood-Ox. Fang
+  1;4,44 26;36,0 14;58,44 14;34,45 6;19,43
+14: Mon. Ashvini/tha skar. Water-Wind; 8 Nov 1965
+  Siddhi/dngos grub, Vanija/tshong ba, Rabbit, gin 2
+  Solar: Fire-Tiger. Xin
+  2;6,6 0;33,1 15;3,8 15;36,10 6;20,41
+15: Tue. Bharani/bra nye. Fire-Fire; 9 Nov 1965
+  Vyatipata/phan tshun, Vava/gdab pa, Dragon, zin 3
+  Solar: Fire-Rabbit. Wei
+  3;6,29 1;31,3 15;7,32 16;38,35 6;21,40
+    zin phung
+
+Mars, slow: 19;53,20,5,175 - fast: 18;7,53,1,100 North 8;1,45
+Jupiter, slow: 4;58,29,5,181 - fast: 5;38,36,4,98 South 2;15,14
+Saturn, slow: 23;25,30,0,4500 - fast: 22;57,45,3,5064 West 10;6,10
+Mercury, slow: 22;8,51,1,761 - fast: 16;53,25,5,7566 East 7;15,12
+Venus, slow: 24;0,28,5,23 - fast: 18;27,4,1,365 East 8;6,0
+Rahu, head: 2;59,36,3,3
+
+16: Wed. Krittika/smin drug. Water-Fire; 10 Nov 1965
+  Variyas/mchog can, Kaulava/rigs can, Snake, zon 4
+  Solar: Earth-Dragon. Ji
+  4;5,8 2;30,47 15;11,56 17;42,43 6;22,39
+17: Thu. Rohini/snar ma. Wind-Earth; 11 Nov 1965
+  Parigha/yongs 'joms, Gara/khyim skyes, Horse, li 5
+  Solar: Earth-Snake. Dou
+  5;2,31 3;31,49 15;16,20 18;48,9 6;23,37
+18. Omitted.
+  5;58,53 15;20,44
+19: Fri. Mrigashiras/mgo. Earth-Wind; 12 Nov 1965
+  Siddha/grub pa, Vishti/viSTi, Monkey, dwa 7
+  Solar: Iron-Horse. Niu
+  6;54,16 4;36,51 15;25,8 20;2,0 6;25,35
+    klu bzlog
+20: Sat. Ardra/lag. Earth-Water; 13 Nov 1965
+  Sadhya/bsgrub bya, Kaulava/rigs can, Bird, khen 8
+  Solar: Iron-Sheep. Nu
+  0;48,38 5;40,53 15;29,31 21;10,25 6;26,33
+21: Sun. Punarvasu/nabs so. Fire-Wind; 14 Nov 1965
+  Shubha/dge ba, Gara/khyim skyes, Dog, kham 9
+  Solar: Water-Monkey. Xu
+  1;42,43 6;45,11 15;33,55 22;19,7 6;27,32
+    klu thebs, zin phung
+22: Mon. Pushya/rgyal. Water-Fire; 15 Nov 1965
+  Shukla/dkar po, Vishti/viSTi, Pig, gin 1
+  Solar: Water-Bird. Wei
+  2;36,53 7;49,30 15;38,24 23;27,54 6;28,32
+  Descent of the Buddha from the realm of the gods.
+    klu thebs
+23: Tue. Ashlesha/skag. Fire-Water; 16 Nov 1965
+  Brahman/tshangs pa, Valava/byis pa, Mouse, zin 2
+  Solar: Wood-Dog. Shi
+  3;31,5 8;53,48 15;42,53 24;36,42 6;29,31
+    klu thebs
+24: Wed. Magha/mchu. Water-Fire; 17 Nov 1965
+  Indra/dbang po, Gara/khyim skyes, Ox, zon 3
+  Solar: Wood-Pig. Bi
+  4;25,16 9;58,6 15;47,23 25;45,30 7;0,31
+25: Thu. Uttaraphalguni/dbo. Wind-Wind; 18 Nov 1965
+  Vaidhriti/'khon 'dzin, Vishti/viSTi, Tiger, li 4
+  Solar: Fire-Mouse. Kui
+  5;19,27 11;2,25 15;51,53 26;54,18 7;1,31
+    yan kwong
+26: Fri. Hasta/me bzhi. Earth-Wind; 19 Nov 1965
+  Priti/mdza' bo, Valava/byis pa, Rabbit, khon 5
+  Solar: Fire-Ox. Lou
+  6;14,22 12;6,0 15;56,22 1;2,23 7;2,31
+27: Sat. Citra/nag pa. Earth-Wind; 20 Nov 1965
+  Ayushmat/tshe dang ldan pa, Taitila/til rdung, Dragon, dwa 6
+  Solar: Earth-Tiger. Wei
+  0;10,17 13;8,35 16;0,52 2;9,28 7;3,31
+    zin phung, nyi nag
+28: Sun. Svati/sa ri. Fire-Wind; 21 Nov 1965
+  Saubhagya/skal bzang, Vanija/tshong ba, Snake, khen 7
+  Solar: Earth-Rabbit. Mao
+  1;7,11 14;10,10 16;5,22 3;15,32 7;4,31
+29: Mon. Vishakha/sa ga. Water-Fire; 22 Nov 1965
+  Shobhana/dge byed, Shakuni/bkra shis, Horse, kham 8
+  Solar: Iron-Dragon. Bi
+  2;5,6 15;10,45 16;9,52 4;20,37 7;5,31
+30: Tue. Anuradha/lha mtshams. Fire-Earth; 23 Nov 1965
+  Atiganda/shin tu 'grams, Naga/klu, Sheep, gin 9
+  Solar: Iron-Snake. Zui
+  3;4,44 16;9,37 16;14,21 5;23,58 7;6,31
+
+Mars, slow: 20;31,15,2,92 - fast: 18;55,26,5,31 North 8;12,19
+Jupiter, slow: 5;3,51,0,54 - fast: 5;34,17,5,16 South 2;14,17
+Saturn, slow: 23;27,30,5,2785 - fast: 22;59,30,5,2785 North 10;6,33
+Mercury, slow: 26;26,40,0,4800 - fast: 17;56,11,3,6631 South 7;29,9
+Venus, slow: 25;41,24,5,359 - fast: 19;39,59,3,197 East 8;22,13
+Rahu, head: 2;56,5,1,7
+
+Tibetan Lunar Month: 10 - Fire-female-Pig
+
+Month: 14343;10
+Anomaly: 21;91
+Mean Weekday: 3;37,53,2,226
+Mean Sun: 16;23,13,5,1
+
+1: Wed. Jyeshtha/snron. Water-Earth; 24 Nov 1965
+  Sukarman/las bzang, Vava/gdab pa, Monkey, zin 1
+  Solar: Water-Horse. Can
+  4;5,39 17;7,12 16;18,51 6;26,3 7;7,31
+2: Thu. Mula/snrubs. Wind-Water; 25 Nov 1965
+  Dhriti/'dzin byed, Kaulava/rigs can, Bird, zon 2
+  Solar: Water-Sheep. Jing
+  5;7,34 18;3,46 16;23,21 7;27,8 7;8,31
+3: Fri. Mula/snrubs. Earth-Water; 26 Nov 1965
+  Shula/zug rngu, Gara/khyim skyes, Dog, li 3
+  Solar: Wood-Monkey. Gui
+  6;10,29 18;59,21 16;27,50 8;27,12 7;9,31
+4: Sat. Purvashadha/chu stod. Earth-Water; 27 Nov 1965
+  Ganda/'grams, Vishti/viSTi, Pig, khon 4
+  Solar: Wood-Bird. Liu
+  0;14,24 19;53,56 16;32,20 9;26,17 7;10,31
+    zin phung
+5: Sun. Uttarashadha/chu smad. Fire-Earth; 28 Nov 1965
+  Vriddhi/'phel, Valava/byis pa, Mouse, dwa 5
+  Solar: Fire-Dog. Xing
+  1;18,35 20;48,14 16;36,50 10;25,5 7;11,31
+6: Mon. Abhijit/gro zhin. Water-Earth; 29 Nov 1965
+  Dhruva/brtan pa, Taitila/til rdung, Ox, khen 6
+  Solar: Fire-Pig. Zhang
+  2;22,47 21;42,32 16;41,20 11;23,52 7;12,31
+7: Tue. Dhanishtha/mon gre. Fire-Water; 30 Nov 1965
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Tiger, kham 7
+  Solar: Earth-Mouse. Yi
+  3;26,58 22;36,51 16;45,49 12;22,40 7;13,31
+8: Wed. Shatabhishaj/mon gru. Water-Earth; 1 Dec 1965
+  Harshana/dga' ba, Vishti/viSTi, Rabbit, gin 8
+  Solar: Earth-Ox. Zhen
+  4;31,10 23;31,9 16;50,19 13;21,28 7;14,30
+    klu thebs
+9: Thu. Purvabhadrapada/khrums stod. Wind-Fire; 2 Dec 1965
+  Vajra/rdo rje, Valava/byis pa, Dragon, zin 9
+  Solar: Iron-Tiger. Jiao
+  5;35,21 24;25,27 16;54,49 14;20,16 7;15,30
+    klu bzlog
+10: Fri. Uttarabhadrapada/khrums smad. Earth-Water; 3 Dec 1965
+  Siddhi/dngos grub, Taitila/til rdung, Snake, zon 1
+  Solar: Iron-Rabbit. Kang
+  6;38,49 25;20,29 16;59,18 15;19,48 7;16,30
+    klu bzlog, zin phung, nyi nag
+11: Sat. Revati/nam gru. Earth-Water; 4 Dec 1965
+  Vyatipata/phan tshun, Vanija/tshong ba, Horse, li 2
+  Solar: Water-Dragon. Di
+  0;41,17 26;16,30 17;3,48 16;20,19 7;17,30
+12: Sun. Ashvini/tha skar. Fire-Wind; 5 Dec 1965
+  Variyas/mchog can, Vava/gdab pa, Sheep, khon 3
+  Solar: Water-Snake. Fang
+  1;42,45 0;13,32 17;8,18 17;21,51 7;18,30
+13: Mon. Bharani/bra nye. Water-Fire; 6 Dec 1965
+  Parigha/yongs 'joms, Kaulava/rigs can, Monkey, dwa 4
+  Solar: Wood-Horse. Xin
+  2;43,13 1;11,34 17;12,48 18;24,22 7;19,30
+14: Tue. Krittika/smin drug. Fire-Fire; 7 Dec 1965
+  Shiva/zhi ba, Gara/khyim skyes, Bird, khen 5
+  Solar: Wood-Sheep. Wei
+  3;41,57 2;11,19 17;17,17 19;28,37 7;20,30
+15: Wed. Rohini/snar ma. Water-Earth; 8 Dec 1965
+  Siddha/grub pa, Vishti/viSTi, Dog, kham 6
+  Solar: Fire-Monkey. Ji
+  4;39,25 3;12,21 17;21,47 20;34,9 7;21,30
+    klu thebs
+
+Mars, slow: 21;13,10,4,24 - fast: 19;46,8,0,139 North 8;23,35
+Jupiter, slow: 5;9,35,0,150 - fast: 5;27,28,5,217 South 2;12,46
+Saturn, slow: 23;29,40,1,5177 - fast: 23;3,38,2,2754 North 10;7,28
+Mercury, slow: 4;2,53,5,4729 - fast: 17;14,41,5,5106 West 7;19,55
+Venus, slow: 0;29,33,3,291 - fast: 20;51,41,2,656 South 9;8,9
+Rahu, head: 2;52,33,5,11
+
+16: Thu. Mrigashiras/mgo. Wind-Wind; 9 Dec 1965
+  Sadhya/bsgrub bya, Valava/byis pa, Pig, gin 7
+  Solar: Fire-Bird. Dou
+  5;35,53 4;14,23 17;26,17 21;40,40 7;22,30
+    zin phung
+17: Fri. Ardra/lag. Earth-Water; 10 Dec 1965
+  Shubha/dge ba, Taitila/til rdung, Mouse, zin 8
+  Solar: Earth-Dog. Niu
+  6;31,21 5;17,25 17;30,46 22;48,12 7;23,30
+18: Sat. Punarvasu/nabs so. Earth-Wind; 11 Dec 1965
+  Shukla/dkar po, Vishti/viSTi, Ox, zon 9
+  Solar: Earth-Pig. Nu
+  0;25,49 6;21,27 17;35,16 23;56,44 7;24,30
+    klu thebs
+19: Sun. Pushya/rgyal. Fire-Fire; 12 Dec 1965
+  Indra/dbang po, Valava/byis pa, Tiger, li 1
+  Solar: Iron-Mouse. Xu
+  1;20,0 7;25,45 17;39,46 25;5,32 7;25,30
+    klu bzlog
+20: Mon. Ashlesha/skag. Water-Water; 13 Dec 1965
+  Vaidhriti/'khon 'dzin, Taitila/til rdung, Rabbit, khon 2
+  Solar: Iron-Ox. Wei
+  2;14,11 8;30,4 17;44,16 26;14,20 7;26,30
+21: Tue. Magha/mchu. Fire-Fire; 14 Dec 1965
+  Vishkambha/rnam sel, Vanija/tshong ba, Dragon, dwa 3
+  Solar: Water-Tiger. Shi
+  3;8,23 9;34,22 17;48,45 0;23,8 7;27,30
+22: Wed. Purvaphalguni/gre. Water-Fire; 15 Dec 1965
+  Priti/mdza' bo, Vava/gdab pa, Snake, khen 4
+  Solar: Water-Rabbit. Bi
+  4;2,34 10;38,40 17;53,15 1;31,56 7;28,30
+    zin phung
+23. Omitted.
+  4;56,49 17;57,48
+24: Thu. Uttaraphalguni/dbo. Wind-Wind; 16 Dec 1965
+  Ayushmat/tshe dang ldan pa, Taitila/til rdung, Sheep, gin 6
+  Solar: Wood-Dragon. Kui
+  5;51,47 11;46,33 18;2,21 2;48,55 8;0,31
+25: Fri. Hasta/me bzhi. Earth-Wind; 17 Dec 1965
+  Saubhagya/skal bzang, Vanija/tshong ba, Monkey, zin 7
+  Solar: Wood-Snake. Lou
+  6;47,46 12;49,8 18;6,55 3;56,4 8;1,32
+26: Sat. Citra/nag pa. Earth-Wind; 18 Dec 1965
+  Atiganda/shin tu 'grams, Vava/gdab pa, Bird, zon 8
+  Solar: Fire-Horse. Wei
+  0;44,45 13;50,43 18;11,29 5;2,12 8;2,33
+    klu bzlog
+27: Sun. Svati/sa ri. Fire-Wind; 19 Dec 1965
+  Sukarman/las bzang, Kaulava/rigs can, Dog, li 9
+  Solar: Fire-Sheep. Mao
+  1;42,45 14;51,17 18;16,2 6;7,20 8;3,33
+28: Mon. Vishakha/sa ga. Water-Fire; 20 Dec 1965
+  Dhriti/'dzin byed, Gara/khyim skyes, Pig, khon 1
+  Solar: Earth-Monkey. Bi
+  2;42,27 15;50,8 18;20,36 7;10,44 8;4,34
+    zin phung
+29: Tue. Anuradha/lha mtshams. Fire-Earth; 21 Dec 1965
+  Shula/zug rngu, Vishti/viSTi, Mouse, dwa 2
+  Solar: Earth-Bird. Zui
+  3;43,26 16;47,42 18;25,9 8;12,52 8;5,35
+30: Wed. Jyeshtha/snron. Water-Earth; 22 Dec 1965
+  Ganda/'grams, Catushpada/rkang bzhi, Ox, khen 3
+  Solar: Iron-Dog. Can
+  4;45,26 17;44,17 18;29,43 9;14,0 8;6,36
+
+Mars, slow: 21;52,18,1,159 - fast: 20;35,21,5,218 North 9;4,31
+Jupiter, slow: 5;14,56,1,23 - fast: 5;17,26,2,173 South 2;10,32
+Saturn, slow: 23;31,41,0,3462 - fast: 23;7,51,1,663 North 10;8,24
+Mercury, slow: 8;20,42,4,8768 - fast: 16;52,47,2,1392 West 7;15,3
+Venus, slow: 2;10,29,3,627 - fast: 21;56,18,0,213 South 9;22,30
+Rahu, head: 2;49,2,3,15
+
+Tibetan Lunar Month: 11 - Earth-male-Mouse
+
+Month: 14344;12
+Anomaly: 23;92
+Mean Weekday: 5;9,43,2,706
+Mean Sun: 18;34,12,1,11
+
+1: Thu. Mula/snrubs. Wind-Water; 23 Dec 1965
+  Vriddhi/'phel, Kintughna/mi sdug pa, Tiger, kham 4
+  Solar: Iron-Pig. Jing
+  5;48,25 18;39,51 18;34,17 10;14,8 8;7,37
+2: Fri. Purvashadha/chu stod. Earth-Water; 24 Dec 1965
+  Dhruva/brtan pa, Valava/byis pa, Rabbit, gin 5
+  Solar: Water-Mouse. Gui
+  6;52,24 19;34,26 18;38,50 11;13,16 8;8,37
+    klu bzlog
+3: Sat. Uttarashadha/chu smad. Earth-Earth; 25 Dec 1965
+  Vyaghata/yongs bsnun, Kaulava/rigs can, Dragon, zin 6
+  Solar: Water-Ox. Liu
+  0;56,39 20;28,44 18;43,24 12;12,8 8;9,38
+4: Sun. Abhijit/gro zhin. Fire-Earth; 26 Dec 1965
+  Harshana/dga' ba, Gara/khyim skyes, Snake, zon 7
+  Solar: Wood-Tiger. Xing
+  1;60,0 21;28,44 18;47,57 13;16,42 8;10,39
+    zin phung
+4: Mon. Dhanishtha/mon gre. Water-Water; 27 Dec 1965
+  Vajra/rdo rje, Vishti/viSTi, Snake, zon 7
+  Solar: Wood-Rabbit. Zhang
+  2;0,55 22;23,2 18;47,57 14;11,0 8;10,39
+5: Tue. Shatabhishaj/mon gru. Fire-Earth; 28 Dec 1965
+  Siddhi/dngos grub, Valava/byis pa, Horse, li 8
+  Solar: Fire-Dragon. Yi
+  3;5,10 23;17,20 18;52,31 15;9,52 8;11,40
+6: Wed. Purvabhadrapada/khrums stod. Water-Fire; 29 Dec 1965
+  Vyatipata/phan tshun, Taitila/til rdung, Sheep, khon 9
+  Solar: Fire-Snake. Zhen
+  4;9,26 24;11,38 18;57,5 16;8,43 8;12,41
+    klu bzlog
+7: Thu. Uttarabhadrapada/khrums smad. Wind-Water; 30 Dec 1965
+  Variyas/mchog can, Vanija/tshong ba, Monkey, dwa 1
+  Solar: Earth-Horse. Jiao
+  5;13,41 25;5,57 19;1,38 17;7,35 8;13,41
+    klu thebs
+8: Fri. Revati/nam gru. Earth-Water; 31 Dec 1965
+  Parigha/yongs 'joms, Vava/gdab pa, Bird, khen 2
+  Solar: Earth-Sheep. Kang
+  6;17,12 26;0,59 19;6,12 18;7,11 8;14,42
+9: Sat. Revati/nam gru. Earth-Water; 1 Jan 1966
+  Shiva/zhi ba, Kaulava/rigs can, Dog, kham 3
+  Solar: Iron-Monkey. Di
+  0;19,44 26;57,1 19;10,45 19;7,47 8;15,43
+10: Sun. Ashvini/tha skar. Fire-Wind; 2 Jan 1966
+  Siddha/grub pa, Gara/khyim skyes, Pig, gin 4
+  Solar: Iron-Bird. Fang
+  1;21,15 0;54,3 19;15,19 20;9,22 8;16,44
+    zin phung
+11: Mon. Bharani/bra nye. Water-Fire; 3 Jan 1966
+  Sadhya/bsgrub bya, Vishti/viSTi, Mouse, zin 5
+  Solar: Water-Dog. Xin
+  2;21,47 1;52,5 19;19,53 21;11,58 8;17,45
+12: Tue. Krittika/smin drug. Fire-Fire; 4 Jan 1966
+  Shubha/dge ba, Valava/byis pa, Ox, zon 6
+  Solar: Water-Pig. Wei
+  3;20,34 2;51,52 19;24,26 22;16,18 8;18,45
+13: Wed. Rohini/snar ma. Water-Earth; 5 Jan 1966
+  Shukla/dkar po, Taitila/til rdung, Tiger, li 7
+  Solar: Wood-Mouse. Ji
+  4;18,5 3;52,54 19;29,0 23;21,54 8;19,46
+14: Thu. Mrigashiras/mgo. Wind-Wind; 6 Jan 1966
+  Brahman/tshangs pa, Vanija/tshong ba, Rabbit, khon 8
+  Solar: Wood-Ox. Dou
+  5;14,36 4;54,56 19;33,33 24;28,30 8;20,47
+15: Fri. Ardra/lag. Earth-Water; 7 Jan 1966
+  Indra/dbang po, Vava/gdab pa, Dragon, dwa 9
+  Solar: Fire-Tiger. Niu
+  6;10,8 5;57,59 19;38,7 25;36,6 8;21,48
+    klu thebs
+
+Mars, slow: 22;37,1,1,117 - fast: 21;28,2,4,38 North 9;16,13
+Jupiter, slow: 5;21,3,0,342 - fast: 5;9,4,5,194 West 2;8,41
+Saturn, slow: 23;33,59,0,4578 - fast: 23;14,21,5,4355 North 10;9,51
+Mercury, slow: 13;15,21,3,4587 - fast: 18;0,30,5,2756 North 8;0,6
+Venus, slow: 4;5,50,5,155 - fast: 22;49,9,0,469 South 10;4,15
+Rahu, head: 2;45,31,1,19
+
+16: Sat. Pushya/rgyal. Earth-Fire; 8 Jan 1966
+  Vaidhriti/'khon 'dzin, Kaulava/rigs can, Snake, khen 1
+  Solar: Fire-Rabbit. Nu
+  0;4,39 7;2,1 19;42,40 26;44,42 8;22,49
+    klu bzlog, zin phung
+17. Omitted.
+  0;58,54 19;47,14
+18: Sun. Ashlesha/skag. Fire-Water; 9 Jan 1966
+  Priti/mdza' bo, Vanija/tshong ba, Sheep, gin 3
+  Solar: Earth-Dragon. Xu
+  1;53,9 8;10,38 19;51,48 1;2,26 8;24,50
+19: Mon. Magha/mchu. Water-Fire; 10 Jan 1966
+  Ayushmat/tshe dang ldan pa, Vava/gdab pa, Monkey, zin 4
+  Solar: Earth-Snake. Wei
+  2;47,25 9;14,56 19;56,21 2;11,18 8;25,51
+20: Tue. Purvaphalguni/gre. Fire-Fire; 11 Jan 1966
+  Saubhagya/skal bzang, Kaulava/rigs can, Bird, zon 5
+  Solar: Iron-Horse. Shi
+  3;41,40 10;19,15 20;0,55 3;20,10 8;26,52
+    klu bzlog, nyi nag
+21: Wed. Uttaraphalguni/dbo. Water-Wind; 12 Jan 1966
+  Shobhana/dge byed, Gara/khyim skyes, Dog, li 6
+  Solar: Iron-Sheep. Bi
+  4;35,55 11;23,33 20;5,28 4;29,2 8;27,53
+    yan kwong, klu thebs
+22: Thu. Hasta/me bzhi. Wind-Wind; 13 Jan 1966
+  Atiganda/shin tu 'grams, Vishti/viSTi, Pig, khon 7
+  Solar: Water-Monkey. Kui
+  5;30,54 12;27,7 20;10,2 5;37,10 8;28,53
+    zin phung
+23: Fri. Citra/nag pa. Earth-Wind; 14 Jan 1966
+  Sukarman/las bzang, Kaulava/rigs can, Mouse, dwa 8
+  Solar: Water-Bird. Lou
+  6;26,54 13;29,41 20;14,36 6;44,17 8;29,54
+24: Sat. Svati/sa ri. Earth-Wind; 15 Jan 1966
+  Dhriti/'dzin byed, Gara/khyim skyes, Ox, khen 9
+  Solar: Wood-Dog. Wei
+  0;23,53 14;31,15 20;19,9 7;50,25 9;0,55
+25: Sun. Vishakha/sa ga. Fire-Fire; 16 Jan 1966
+  Shula/zug rngu, Vishti/viSTi, Tiger, kham 1
+  Solar: Wood-Pig. Mao
+  1;21,53 15;31,49 20;23,43 8;55,33 9;1,56
+26: Mon. Anuradha/lha mtshams. Water-Earth; 17 Jan 1966
+  Ganda/'grams, Valava/byis pa, Rabbit, gin 2
+  Solar: Fire-Mouse. Bi
+  2;21,37 16;30,39 20;28,16 9;58,56 9;2,57
+    klu bzlog
+27: Tue. Jyeshtha/snron. Fire-Earth; 18 Jan 1966
+  Dhruva/brtan pa, Taitila/til rdung, Dragon, zin 3
+  Solar: Fire-Ox. Zui
+  3;22,36 17;28,13 20;32,50 11;1,4 9;3,57
+28: Wed. Mula/snrubs. Water-Water; 19 Jan 1966
+  Vyaghata/yongs bsnun, Vanija/tshong ba, Snake, zon 4
+  Solar: Earth-Tiger. Can
+  4;24,36 18;24,47 20;37,24 12;2,11 9;4,58
+    zin phung
+29: Thu. Purvashadha/chu stod. Wind-Water; 20 Jan 1966
+  Harshana/dga' ba, Vishti/viSTi, Horse, li 5
+  Solar: Earth-Rabbit. Jing
+  5;27,35 19;20,21 20;41,57 13;2,19 9;5,59
+30: Fri. Uttarashadha/chu smad. Earth-Earth; 21 Jan 1966
+  Vajra/rdo rje, Catushpada/rkang bzhi, Sheep, khon 6
+  Solar: Iron-Dragon. Gui
+  6;31,35 20;14,55 20;46,31 14;1,26 9;7,0
+
+Mars, slow: 23;16,8,5,23 - fast: 22;17,16,3,117 North 9;27,10
+Jupiter, slow: 5;26,24,1,215 - fast: 4;59,57,4,159 West 2;6,39
+Saturn, slow: 23;35,59,5,2863 - fast: 23;20,45,4,5143 North 10;11,16
+Mercury, slow: 17;33,10,2,8626 - fast: 19;43,0,1,2833 North 8;22,53
+Venus, slow: 5;46,46,5,491 - fast: 23;40,33,0,561 South 10;15,40
+Rahu, head: 2;42,0,0,0
+
+Tibetan Lunar Month: 12 - Earth-female-Ox
+
+Month: 14345;14
+Anomaly: 25;93
+Mean Weekday: 6;41,33,3,479
+Mean Sun: 20;45,10,4,8
+
+1: Sat. Abhijit/gro zhin. Earth-Earth; 22 Jan 1966
+  Siddhi/dngos grub, Kintughna/mi sdug pa, Monkey, dwa 7
+  Solar: Iron-Snake. Liu
+  0;35,50 21;9,13 20;51,4 15;0,18 9;8,1
+2: Sun. Dhanishtha/mon gre. Fire-Water; 23 Jan 1966
+  Siddhi/dngos grub, Valava/byis pa, Bird, khen 8
+  Solar: Water-Horse. Xing
+  1;40,6 22;3,32 20;55,38 15;59,10 9;9,1
+3: Mon. Dhanishtha/mon gre. Water-Water; 24 Jan 1966
+  Vyatipata/phan tshun, Taitila/til rdung, Dog, kham 9
+  Solar: Water-Sheep. Zhang
+  2;44,21 22;57,50 21;0,12 16;58,2 9;10,2
+4: Tue. Shatabhishaj/mon gru. Fire-Earth; 25 Jan 1966
+  Variyas/mchog can, Vanija/tshong ba, Pig, gin 1
+  Solar: Wood-Monkey. Yi
+  3;48,37 23;52,8 21;4,45 17;56,53 9;11,3
+    zin phung
+5: Wed. Purvabhadrapada/khrums stod. Water-Fire; 26 Jan 1966
+  Parigha/yongs 'joms, Vava/gdab pa, Mouse, zin 2
+  Solar: Wood-Bird. Zhen
+  4;52,52 24;46,26 21;9,19 18;55,45 9;12,4
+6: Thu. Uttarabhadrapada/khrums smad. Wind-Water; 27 Jan 1966
+  Shiva/zhi ba, Valava/byis pa, Ox, zon 3
+  Solar: Fire-Dog. Jiao
+  5;56,23 25;41,29 21;13,52 19;55,21 9;13,5
+7: Fri. Revati/nam gru. Earth-Water; 28 Jan 1966
+  Siddha/grub pa, Taitila/til rdung, Tiger, li 4
+  Solar: Fire-Pig. Kang
+  6;58,54 26;37,31 21;18,26 20;55,58 9;14,5
+8: Sat. Ashvini/tha skar. Earth-Wind; 29 Jan 1966
+  Shubha/dge ba, Vanija/tshong ba, Rabbit, khon 5
+  Solar: Earth-Mouse. Di
+  0;60,0 0;37,31 21;22,59 22;0,31 9;15,6
+8: Sun. Bharani/bra nye. Fire-Fire; 30 Jan 1966
+  Shubha/dge ba, Vava/gdab pa, Rabbit, khon 5
+  Solar: Earth-Ox. Fang
+  1;0,25 1;34,34 21;22,59 22;57,34 9;15,6
+9: Mon. Krittika/smin drug. Water-Fire; 31 Jan 1966
+  Brahman/tshangs pa, Kaulava/rigs can, Dragon, dwa 6
+  Solar: Iron-Tiger. Xin
+  2;0,56 2;32,37 21;27,33 24;0,10 9;16,7
+10. Omitted.
+  2;59,42 21;32,7
+11: Tue. Rohini/snar ma. Fire-Earth; 1 Feb 1966
+  Indra/dbang po, Gara/khyim skyes, Horse, kham 8
+  Solar: Iron-Rabbit. Wei
+  3;57,13 3;33,27 21;36,40 25;10,7 9;18,9
+12: Wed. Mrigashiras/mgo. Water-Wind; 2 Feb 1966
+  Vaidhriti/'khon 'dzin, Vava/gdab pa, Sheep, gin 9
+  Solar: Water-Dragon. Ji
+  4;53,44 4;35,29 21;41,14 26;16,44 9;19,9
+13: Thu. Ardra/lag. Wind-Water; 3 Feb 1966
+  Vishkambha/rnam sel, Kaulava/rigs can, Monkey, zin 1
+  Solar: Water-Snake. Dou
+  5;49,15 5;38,32 21;45,47 0;24,20 9;20,10
+14: Fri. Punarvasu/nabs so. Earth-Wind; 4 Feb 1966
+  Priti/mdza' bo, Gara/khyim skyes, Bird, zon 2
+  Solar: Wood-Horse. Niu
+  6;43,45 6;42,35 21;50,21 1;32,57 9;21,11
+15: Sat. Pushya/rgyal. Earth-Fire; 5 Feb 1966
+  Ayushmat/tshe dang ldan pa, Vishti/viSTi, Dog, li 3
+  Solar: Wood-Sheep. Nu
+  0;38,1 7;46,53 21;54,55 2;41,48 9;22,12
+
+Mars, slow: 23;58,4,0,184 - fast: 23;8,13,5,67 North 10;8,29
+Jupiter, slow: 5;32,8,1,311 - fast: 4;55,21,3,123 West 2;5,38
+Saturn, slow: 23;38,9,1,5255 - fast: 23;28,11,5,1677 North 10;12,55
+Mercury, slow: 22;9,24,1,8555 - fast: 21;42,22,1,6161 East 9;19,24
+Venus, slow: 7;34,55,3,423 - fast: 23;43,19,5,477 South 10;16,17
+Rahu, head: 2;38,28,4,4
+
+16: Sun. Ashlesha/skag. Fire-Water; 6 Feb 1966
+  Saubhagya/skal bzang, Valava/byis pa, Pig, khon 4
+  Solar: Fire-Monkey. Xu
+  1;32,16 8;51,12 21;59,28 3;50,40 9;23,13
+    zin phung
+17: Mon. Magha/mchu. Water-Fire; 7 Feb 1966
+  Shobhana/dge byed, Gara/khyim skyes, Mouse, dwa 5
+  Solar: Fire-Bird. Wei
+  2;26,31 9;55,30 22;4,2 4;59,32 9;24,13
+18: Tue. Purvaphalguni/gre. Fire-Fire; 8 Feb 1966
+  Sukarman/las bzang, Vishti/viSTi, Ox, khen 6
+  Solar: Earth-Dog. Shi
+  3;20,46 10;59,48 22;8,35 6;8,24 9;25,14
+19: Wed. Hasta/me bzhi. Water-Wind; 9 Feb 1966
+  Dhriti/'dzin byed, Valava/byis pa, Tiger, kham 7
+  Solar: Earth-Pig. Bi
+  4;15,2 12;4,7 22;13,9 7;17,16 9;26,15
+    yan kwong
+20: Thu. Citra/nag pa. Wind-Wind; 10 Feb 1966
+  Shula/zug rngu, Taitila/til rdung, Rabbit, gin 8
+  Solar: Iron-Mouse. Kui
+  5;10,1 13;7,41 22;17,43 8;25,24 9;27,16
+21: Fri. Svati/sa ri. Earth-Wind; 11 Feb 1966
+  Ganda/'grams, Vanija/tshong ba, Dragon, zin 9
+  Solar: Iron-Ox. Lou
+  6;6,1 14;10,14 22;22,16 9;32,31 9;28,17
+22: Sat. Vishakha/sa ga. Earth-Fire; 12 Feb 1966
+  Vriddhi/'phel, Vava/gdab pa, Snake, zon 1
+  Solar: Water-Tiger. Wei
+  0;3,1 15;11,48 22;26,50 10;38,38 9;29,17
+    zin phung
+23: Sun. Anuradha/lha mtshams. Fire-Earth; 13 Feb 1966
+  Dhruva/brtan pa, Kaulava/rigs can, Horse, li 2
+  Solar: Water-Rabbit. Mao
+  1;1,1 16;12,22 22;31,23 11;43,46 10;0,18
+24: Mon. Jyeshtha/snron. Water-Earth; 14 Feb 1966
+  Vyaghata/yongs bsnun, Gara/khyim skyes, Sheep, khon 3
+  Solar: Wood-Dragon. Bi
+  2;0,46 17;11,11 22;35,57 12;47,8 10;1,19
+25: Tue. Mula/snrubs. Fire-Water; 15 Feb 1966
+  Harshana/dga' ba, Vishti/viSTi, Monkey, dwa 4
+  Solar: Wood-Snake. Zui
+  3;1,42 18;8,44 22;40,27 13;49,11 10;2,19
+26: Wed. Purvashadha/chu stod. Water-Water; 16 Feb 1966
+  Vajra/rdo rje, Valava/byis pa, Bird, khen 5
+  Solar: Fire-Horse. Can
+  4;3,38 19;5,18 22;44,56 14;50,15 10;3,19
+27: Thu. Uttarashadha/chu smad. Wind-Earth; 17 Feb 1966
+  Siddhi/dngos grub, Taitila/til rdung, Dog, kham 6
+  Solar: Fire-Sheep. Jing
+  5;6,34 20;0,51 22;49,26 15;50,18 10;4,19
+28: Fri. Uttarashadha/chu smad. Earth-Earth; 18 Feb 1966
+  Vyatipata/phan tshun, Vanija/tshong ba, Pig, gin 7
+  Solar: Earth-Monkey. Gui
+  6;10,30 20;55,25 22;53,56 16;49,21 10;5,19
+    zin phung
+29: Sat. Abhijit/gro zhin. Earth-Earth; 19 Feb 1966
+  Variyas/mchog can, Shakuni/bkra shis, Mouse, zin 8
+  Solar: Earth-Bird. Liu
+  0;14,42 21;49,43 22;58,26 17;48,9 10;6,19
+30: Sun. Dhanishtha/mon gre. Fire-Water; 20 Feb 1966
+  Parigha/yongs 'joms, Naga/klu, Ox, zon 9
+  Solar: Iron-Dog. Xing
+  1;18,54 22;44,1 23;2,55 18;46,57 10;7,19
+    nyi nag
+
+Mars, slow: 24;39,59,2,116 - fast: 23;59,11,1,17 North 10;19,49
+Jupiter, slow: 5;37,52,2,46 - fast: 4;53,2,4,0 West 2;5,7
+Saturn, slow: 23;40,18,4,2264 - fast: 23;35,53,4,3859 North 10;14,38
+Mercury, slow: 26;45,38,0,8484 - fast: 23;39,32,0,7522 East 10;15,27
+Venus, slow: 9;23,4,1,355 - fast: 23;28,3,2,361 South 10;12,54
+Rahu, head: 2;34,57,2,8
+

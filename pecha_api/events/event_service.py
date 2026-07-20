@@ -12,11 +12,14 @@ from pecha_api.plans.authors.plan_authors_service import (
     validate_cms_author_details,
 )
 from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
+from pecha_api.plans.groups.groups_repository import get_author_group_ids
 from pecha_api.plans.shared.metadata_utils import format_metadata_response
 from pecha_api.plans.shared.permissions import (
     require_can_create_content,
+    require_can_read_group_content,
     require_cms_write_access,
     require_group_member,
+    is_reviewer,
     is_super_admin,
 )
 
@@ -123,6 +126,7 @@ def get_events_service(
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
     language: Optional[str] = None,
+    restrict_group_ids: Optional[List[UUID]] = None,
     skip: int = 0,
     limit: int = 20,
 ) -> EventsResponse:
@@ -136,6 +140,7 @@ def get_events_service(
             timer_id=timer_id,
             from_date=from_date,
             to_date=to_date,
+            restrict_group_ids=restrict_group_ids,
             skip=skip,
             limit=limit,
         )
@@ -145,6 +150,59 @@ def get_events_service(
             skip=skip,
             limit=limit,
         )
+
+
+def get_cms_events_service(
+    token: str,
+    group_id: Optional[UUID] = None,
+    plan_id: Optional[UUID] = None,
+    accumulator_id: Optional[UUID] = None,
+    mantra_id: Optional[UUID] = None,
+    timer_id: Optional[UUID] = None,
+    from_date: Optional[datetime] = None,
+    to_date: Optional[datetime] = None,
+    language: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+) -> EventsResponse:
+    current_author = validate_cms_author_details(token=token)
+
+    restrict_group_ids: Optional[List[UUID]] = None
+    if not is_super_admin(current_author) and not is_reviewer(current_author):
+        with SessionLocal() as db:
+            member_group_ids = get_author_group_ids(db=db, author_id=current_author.id)
+        if not member_group_ids:
+            return EventsResponse(events=[], total=0, skip=skip, limit=limit)
+        restrict_group_ids = member_group_ids
+
+    return get_events_service(
+        group_id=group_id,
+        plan_id=plan_id,
+        accumulator_id=accumulator_id,
+        mantra_id=mantra_id,
+        timer_id=timer_id,
+        from_date=from_date,
+        to_date=to_date,
+        language=language,
+        restrict_group_ids=restrict_group_ids,
+        skip=skip,
+        limit=limit,
+    )
+
+
+def get_cms_event_by_id_service(
+    token: str, event_id: UUID, language: Optional[str] = None
+) -> EventDTO:
+    current_author = validate_cms_author_details(token=token)
+    with SessionLocal() as db:
+        event = get_event_by_id(db, event_id)
+        if not event:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Event with id '{event_id}' not found",
+            )
+        require_can_read_group_content(db=db, group_id=event.group_id, author=current_author)
+        return _event_to_dto(event, language=language)
 
 
 def get_events_today_service(

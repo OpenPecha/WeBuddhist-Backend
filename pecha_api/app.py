@@ -55,6 +55,7 @@ from pecha_api.texts import texts_openpecha_views
 from pecha_api.texts.segments import segments_openpecha_views
 from pecha_api.routines import routines_views
 from pecha_api.routines.routine_notifications import internal_views as routine_notification_internal_views
+from pecha_api.plans.audio import internal_views as audio_job_internal_views
 from pecha_api.notification import notification_views as cms_notification_views
 from pecha_api.verse_of_day import verse_of_day_views
 from pecha_api.calendar import calendar_views
@@ -66,6 +67,7 @@ from pecha_api.mantra import mantra_views
 from pecha_api.mantra.mantra_count_views import user_mantra_count_router
 from pecha_api.events import events_router, cms_events_router
 from pecha_api.traditions import tradition_views
+from pecha_api.languages import language_views
 from pecha_api.plans.admin.admin_views import cms_admin_router
 from pecha_api.region_restrictions.region_restriction_views import cms_china_restrictions_router
 from pecha_api.plans.transfers.transfer_views import (
@@ -143,6 +145,8 @@ api.include_router(text_metadata_views.text_metadata_router)
 api.include_router(uploader_collections_views.text_uploader_collections_router)
 api.include_router(routines_views.routines_router)
 api.include_router(routine_notification_internal_views.internal_routine_notifications_router)
+api.include_router(audio_job_internal_views.internal_audio_jobs_router)
+api.include_router(audio_job_internal_views.internal_audio_generation_router)
 api.include_router(collections_openpecha_views.collections_v2_router)
 api.include_router(texts_openpecha_views.texts_v2_router)
 api.include_router(segments_openpecha_views.segments_v2_router)
@@ -161,6 +165,7 @@ api.include_router(events_router)
 api.include_router(cms_events_router)
 api.include_router(tradition_views.tradition_router)
 api.include_router(tradition_views.user_tradition_router)
+api.include_router(language_views.language_router)
 
 api.include_router(routines_views.user_routine_router)
 api.add_middleware(

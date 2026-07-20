@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Phugpa Tibetan Calendar</title>
+  <title>Tibetan Calendar</title>
   <style>
     :root {
       --bg: #f4efe4;
@@ -290,10 +290,14 @@
   <div class="app">
     <header>
       <div>
-        <h1>Phugpa Tibetan Calendar</h1>
-        <p>Gregorian view with lunar &amp; solar details from the Phugpa tradition</p>
+        <h1 id="calendar-title">Phugpa Tibetan Calendar</h1>
+        <p id="calendar-description">Gregorian view with lunar &amp; solar details from the Phugpa tradition</p>
       </div>
       <div class="controls">
+        <select id="calendar-type-select" aria-label="Calendar type">
+          <option value="phugpa">Phugpa</option>
+          <option value="tsurphu">Tsurphu</option>
+        </select>
         <button id="prev-month" type="button" aria-label="Previous month">&#8592;</button>
         <select id="month-select" aria-label="Month"></select>
         <select id="year-select" aria-label="Year"></select>
@@ -334,6 +338,7 @@
 
     const API_BASE = window.location.pathname.replace(/\/view\/?$/, "");
     const state = {
+      calendarType: "phugpa",
       viewYear: new Date().getFullYear(),
       viewMonth: new Date().getMonth(),
       todayIso: null,
@@ -342,6 +347,9 @@
       tibetanYears: new Set(),
     };
 
+    const calendarTypeSelect = document.getElementById("calendar-type-select");
+    const calendarTitle = document.getElementById("calendar-title");
+    const calendarDescription = document.getElementById("calendar-description");
     const monthSelect = document.getElementById("month-select");
     const yearSelect = document.getElementById("year-select");
     const daysGrid = document.getElementById("days-grid");
@@ -382,7 +390,10 @@
     }
 
     async function fetchJson(path) {
-      const response = await fetch(`${API_BASE}${path}`);
+      const separator = path.includes("?") ? "&" : "?";
+      const response = await fetch(
+        `${API_BASE}${path}${separator}calendar_type=${encodeURIComponent(state.calendarType)}`
+      );
       if (!response.ok) {
         const text = await response.text();
         throw new Error(text || `Request failed (${response.status})`);
@@ -401,16 +412,16 @@
       }
     }
 
-    async function loadYearData(tibetanYear) {
-      const data = await fetchJson(`/${tibetanYear}`);
-      state.tibetanYears.add(data.year);
+    async function loadYearData(westernYear) {
+      const data = await fetchJson(`/${westernYear}`);
+      state.tibetanYears.add(data.tibetan_year);
 
       Object.values(data.months || {}).forEach((monthData) => {
         monthData.days.forEach((day) => {
           if (!day.gregorian_date) return;
           state.dayMap[day.gregorian_date] = {
             ...day,
-            tibetan_year: data.year,
+            tibetan_year: data.tibetan_year,
             tibetan_new_year: data.new_year,
           };
         });
@@ -525,7 +536,8 @@
       });
 
       if (!dayData) {
-        detailSubtitle.textContent = "No Phugpa calendar data available for this date.";
+        const calendarName = state.calendarType === "tsurphu" ? "Tsurphu" : "Phugpa";
+        detailSubtitle.textContent = `No ${calendarName} calendar data available for this date.`;
         detailContent.innerHTML = '<p class="placeholder">Try another date within the supported range (1800–2049).</p>';
         return;
       }
@@ -622,6 +634,21 @@
     document.getElementById("prev-month").addEventListener("click", () => shiftMonth(-1));
     document.getElementById("next-month").addEventListener("click", () => shiftMonth(1));
     document.getElementById("today-btn").addEventListener("click", () => refreshView(true));
+    calendarTypeSelect.addEventListener("change", () => {
+      state.calendarType = calendarTypeSelect.value;
+      state.todayIso = null;
+      state.selectedIso = null;
+
+      const calendarName = state.calendarType === "tsurphu" ? "Tsurphu" : "Phugpa";
+      calendarTitle.textContent = `${calendarName} Tibetan Calendar`;
+      calendarDescription.textContent =
+        `Gregorian view with lunar & solar details from the ${calendarName} tradition`;
+      detailTitle.textContent = "Select a day";
+      detailSubtitle.textContent = "Click any date to see lunar and solar information.";
+      detailContent.innerHTML =
+        "Navigate the calendar or press <strong>Today</strong> to jump to the current date.";
+      refreshView(true);
+    });
     monthSelect.addEventListener("change", () => {
       state.viewMonth = Number(monthSelect.value);
       refreshView(false);
