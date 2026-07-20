@@ -35,4 +35,6 @@ class CacheType(Enum):
 
     # Plan-specific cache types
     PLAN_DAY_DETAIL = "plan_day_detail"
+
+    CALENDAR_YEAR = "calendar_year"
     

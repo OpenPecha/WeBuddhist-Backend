@@ -150,7 +150,7 @@
   <div class="app">
     <header>
       <h1>TTS Test</h1>
-      <p>Preview English (Gemini) or Tibetan (Monlam) speech synthesis.</p>
+      <p>Preview English or Tibetan speech synthesis via the worker API.</p>
     </header>
 
     <div class="card">
@@ -236,8 +236,6 @@
     const playerEl = document.getElementById("player");
     const statusEl = document.getElementById("status");
 
-    let audioObjectUrl = null;
-
     function populateVoices() {
       voiceNameEl.innerHTML = "";
       Object.entries(VOICES).forEach(([region, voices]) => {
@@ -262,13 +260,6 @@
     function setStatus(message, type = "") {
       statusEl.textContent = message;
       statusEl.className = `status ${type}`.trim();
-    }
-
-    function revokeAudioUrl() {
-      if (audioObjectUrl) {
-        URL.revokeObjectURL(audioObjectUrl);
-        audioObjectUrl = null;
-      }
     }
 
     async function generateAudio() {
@@ -299,23 +290,23 @@
           body: JSON.stringify(payload),
         });
 
+        const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-          let detail = `Request failed (${response.status})`;
-          try {
-            const data = await response.json();
-            detail = data.detail || detail;
-          } catch (_) {}
+          const detail = data.detail || `Request failed (${response.status})`;
           throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
         }
 
-        const blob = await response.blob();
-        revokeAudioUrl();
-        audioObjectUrl = URL.createObjectURL(blob);
-        playerEl.src = audioObjectUrl;
+        if (!data.audio_url) {
+          throw new Error("Worker response did not include an audio URL.");
+        }
+
+        playerEl.src = data.audio_url;
         await playerEl.play().catch(() => {});
-        setStatus("Audio ready.", "ok");
+        const durationSeconds = data.audio_duration_ms
+          ? ` (${(data.audio_duration_ms / 1000).toFixed(1)}s)`
+          : "";
+        setStatus(`Audio ready${durationSeconds}.`, "ok");
       } catch (error) {
-        revokeAudioUrl();
         playerEl.removeAttribute("src");
         setStatus(error.message || "Failed to generate audio.", "error");
       } finally {
