@@ -1,8 +1,8 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 from pecha_api.plans.plans_enums import AudioJobStatus
 
@@ -54,3 +54,19 @@ class AudioJobStatusResponse(BaseModel):
     updated_at: datetime
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+
+
+class UpdateAudioJobStatusRequest(BaseModel):
+    status: AudioJobStatus
+    result: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = Field(default=None, max_length=4000)
+
+    @model_validator(mode="after")
+    def validate_status_payload(self) -> "UpdateAudioJobStatusRequest":
+        if self.status == AudioJobStatus.PENDING:
+            raise ValueError("Worker cannot set status to pending")
+        if self.status == AudioJobStatus.COMPLETED and not self.result:
+            raise ValueError("result is required when status is completed")
+        if self.status == AudioJobStatus.FAILED and not self.error_message:
+            raise ValueError("error_message is required when status is failed")
+        return self

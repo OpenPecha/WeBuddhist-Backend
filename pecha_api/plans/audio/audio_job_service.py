@@ -9,7 +9,9 @@ from pecha_api.plans.audio.audio_job_models import AudioJob
 from pecha_api.plans.audio.audio_job_repository import (
     create_audio_job,
     get_audio_job_by_id,
+    mark_audio_job_completed,
     mark_audio_job_failed,
+    mark_audio_job_processing,
     update_audio_job_sqs_message_id,
 )
 from pecha_api.plans.audio.plan_audio_response_models import (
@@ -128,6 +130,40 @@ def enqueue_plan_audio_job(
     )
 
 
+def _to_audio_job_status_response(job: AudioJob) -> AudioJobStatusResponse:
+    result = job.result or {}
+    audio_url = result.get("audio_url")
+    s3_key = result.get("s3_key")
+    if s3_key and not audio_url:
+        audio_url = generate_presigned_access_url(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=s3_key,
+        )
+
+    try:
+        status_value = AudioJobStatus(job.status)
+    except ValueError:
+        status_value = AudioJobStatus.FAILED
+
+    return AudioJobStatusResponse(
+        job_id=job.id,
+        status=status_value,
+        day_id=job.day_id,
+        sub_task_id=job.sub_task_id,
+        language=job.language,
+        type=job.audio_type,
+        voice_name=job.voice_name,
+        audio_url=audio_url,
+        audio_duration_ms=result.get("audio_duration_ms"),
+        s3_key=s3_key,
+        error_message=job.error_message,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
+        started_at=job.started_at,
+        completed_at=job.completed_at,
+    )
+
+
 def get_audio_job_status(job_id: UUID) -> AudioJobStatusResponse:
     with SessionLocal() as db:
         job = get_audio_job_by_id(db=db, job_id=job_id)
@@ -136,35 +172,51 @@ def get_audio_job_status(job_id: UUID) -> AudioJobStatusResponse:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=ResponseError(error=NOT_FOUND, message="Audio job not found").model_dump(),
             )
+        return _to_audio_job_status_response(job)
 
-        result = job.result or {}
-        audio_url = result.get("audio_url")
-        s3_key = result.get("s3_key")
-        if s3_key and not audio_url:
-            audio_url = generate_presigned_access_url(
-                bucket_name=get("AWS_BUCKET_NAME"),
-                s3_key=s3_key,
+
+def update_audio_job_status(
+    *,
+    job_id: UUID,
+    next_status: AudioJobStatus,
+    result: Optional[dict] = None,
+    error_message: Optional[str] = None,
+) -> AudioJobStatusResponse:
+    terminal = {AudioJobStatus.COMPLETED.value, AudioJobStatus.FAILED.value}
+
+    with SessionLocal() as db:
+        job = get_audio_job_by_id(db=db, job_id=job_id)
+        if not job:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(error=NOT_FOUND, message="Audio job not found").model_dump(),
             )
 
-        try:
-            status_value = AudioJobStatus(job.status)
-        except ValueError:
-            status_value = AudioJobStatus.FAILED
+        if job.status in terminal:
+            return _to_audio_job_status_response(job)
 
-        return AudioJobStatusResponse(
-            job_id=job.id,
-            status=status_value,
-            day_id=job.day_id,
-            sub_task_id=job.sub_task_id,
-            language=job.language,
-            type=job.audio_type,
-            voice_name=job.voice_name,
-            audio_url=audio_url,
-            audio_duration_ms=result.get("audio_duration_ms"),
-            s3_key=s3_key,
-            error_message=job.error_message,
-            created_at=job.created_at,
-            updated_at=job.updated_at,
-            started_at=job.started_at,
-            completed_at=job.completed_at,
-        )
+        if next_status == AudioJobStatus.PROCESSING:
+            updated = mark_audio_job_processing(db=db, job_id=job_id)
+        elif next_status == AudioJobStatus.COMPLETED:
+            updated = mark_audio_job_completed(db=db, job_id=job_id, result=result or {})
+        elif next_status == AudioJobStatus.FAILED:
+            updated = mark_audio_job_failed(
+                db=db,
+                job_id=job_id,
+                error_message=error_message or "Audio job failed",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ResponseError(
+                    error=BAD_REQUEST,
+                    message=f"Unsupported audio job status update: {next_status.value}",
+                ).model_dump(),
+            )
+
+        if not updated:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(error=NOT_FOUND, message="Audio job not found").model_dump(),
+            )
+        return _to_audio_job_status_response(updated)
