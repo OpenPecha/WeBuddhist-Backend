@@ -56,6 +56,7 @@ async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) 
                     source_text_id=sub.source_text_id,          
                     pecha_segment_id=sub.pecha_segment_id,
                     segment_ids=sub.segment_ids,
+                    segment_numbers=sub.segment_numbers,
                     display_order=next_display_order + index,
                     created_by=current_author.email,
                 )
@@ -81,6 +82,7 @@ async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) 
                     source_text_id=item.source_text_id,
                     pecha_segment_id=item.pecha_segment_id,
                     segment_ids=item.segment_ids,
+                    segment_numbers=item.segment_numbers,
                     display_order=item.display_order,
                     start_ms=start_ms,
                     end_ms=end_ms,
@@ -110,6 +112,7 @@ async def update_sub_task_by_task_id(token: str, update_sub_task_request: Update
                 source_text_id=subtask.source_text_id,
                 pecha_segment_id=subtask.pecha_segment_id,
                 segment_ids=subtask.segment_ids,
+                segment_numbers=subtask.segment_numbers,
                 display_order=subtask.display_order,
                 created_by=current_author.email,
             )

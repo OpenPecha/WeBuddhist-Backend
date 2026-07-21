@@ -407,6 +407,7 @@ def build_task_dto(task) -> TaskDTO:
                 source_text_id=subtask.source_text_id,
                 pecha_segment_id=subtask.pecha_segment_id,
                 segment_ids=subtask.segment_ids,
+                segment_numbers=subtask.segment_numbers,
                 display_order=subtask.display_order,
                 start_ms=start_ms,
                 end_ms=end_ms,

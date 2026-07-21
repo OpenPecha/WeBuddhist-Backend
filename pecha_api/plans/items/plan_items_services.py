@@ -238,6 +238,7 @@ def _copy_tasks_and_subtasks_to_days(
                         source_text_id=source_sub_task.source_text_id,
                         pecha_segment_id=source_sub_task.pecha_segment_id,
                         segment_ids=source_sub_task.segment_ids,
+                        segment_numbers=source_sub_task.segment_numbers,
                         display_order=source_sub_task.display_order,
                         created_by=created_by,
                     )

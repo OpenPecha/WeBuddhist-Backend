@@ -298,6 +298,7 @@ def _clone_sub_task(db: Session, src_sub, new_task_id: UUID, created_by: str) ->
         source_text_id=src_sub.source_text_id,
         pecha_segment_id=src_sub.pecha_segment_id,
         segment_ids=src_sub.segment_ids,
+        segment_numbers=src_sub.segment_numbers,
         display_order=src_sub.display_order,
         created_by=created_by,
         updated_by=created_by,
