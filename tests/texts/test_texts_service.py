@@ -1547,7 +1547,9 @@ async def test_get_text_details_by_text_id_cache_miss_sets_cache():
         mock_set_cache.assert_awaited_once()
         assert mock_set_cache.await_args.kwargs["text_id"] == text_id
         assert mock_set_cache.await_args.kwargs["content_id"] == content_id
-        assert mock_set_cache.await_args.kwargs["skip"] == "segment_id_1"
+        # skip encodes segment_id:start:end; limit encodes direction:size
+        assert mock_set_cache.await_args.kwargs["skip"] == "segment_id_1:None:None"
+        assert mock_set_cache.await_args.kwargs["limit"] == "next:1"
 
 
 @pytest.mark.asyncio
