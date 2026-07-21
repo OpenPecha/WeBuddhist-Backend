@@ -1270,15 +1270,48 @@ class TestHelperFunctions:
 
         assert build_preset_mantra_dto(mantra, language="en") is None
 
-    def test_build_preset_mantra_dto_returns_none_when_language_missing(self):
-        """Requested language with no matching metadata yields None."""
+    def test_build_preset_mantra_dto_falls_back_to_english_when_language_missing(self):
+        """Requested language with no matching metadata falls back to English."""
         mantra = TestDataFactory.create_mock_mantra(
             metadata_entries=[
-                TestDataFactory.create_mock_mantra_metadata(language=LanguageCode.EN)
+                TestDataFactory.create_mock_mantra_metadata(
+                    mantra="EN text", language=LanguageCode.EN
+                )
             ],
         )
 
-        assert build_preset_mantra_dto(mantra, language="bo") is None
+        result = build_preset_mantra_dto(mantra, language="bo")
+
+        assert result is not None
+        assert result.mantra == "EN text"
+
+    def test_build_preset_mantra_dto_falls_back_to_english_for_unlisted_language(self):
+        """A language outside the enum (e.g. Ladakhi) still resolves to English."""
+        mantra = TestDataFactory.create_mock_mantra(
+            metadata_entries=[
+                TestDataFactory.create_mock_mantra_metadata(
+                    mantra="EN text", language=LanguageCode.EN
+                ),
+                TestDataFactory.create_mock_mantra_metadata(
+                    mantra="BO text", language=LanguageCode.BO
+                ),
+            ],
+        )
+
+        result = build_preset_mantra_dto(mantra, language="la")
+
+        assert result is not None
+        assert result.mantra == "EN text"
+
+    def test_build_preset_mantra_dto_returns_none_when_no_match_and_no_english(self):
+        """With neither the requested language nor English available, yield None."""
+        mantra = TestDataFactory.create_mock_mantra(
+            metadata_entries=[
+                TestDataFactory.create_mock_mantra_metadata(language=LanguageCode.BO)
+            ],
+        )
+
+        assert build_preset_mantra_dto(mantra, language="zh") is None
 
     def test_build_preset_mantra_dto_falls_back_to_first_metadata(self):
         """Without English metadata, the first entry is used."""

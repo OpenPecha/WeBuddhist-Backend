@@ -12,6 +12,7 @@ from ..users.users_service import validate_and_extract_user_details
 from pecha_api.daily_log.daily_log_cache_service import invalidate_user_stats_cache
 from ..texts.texts_utils import TextUtils
 from ..plans.authors.plan_authors_service import get_image_url
+from ..plans.shared.metadata_utils import filter_by_language_with_fallback
 from .accumulator_repository import (
     get_all_accumulators,
     get_user_accumulators,
@@ -165,7 +166,7 @@ def convert_accumulators_to_dtos(accumulators: List[Accumulator]) -> List[Accumu
 
 
 def _metadata_language(entry: MantraMetadata) -> str:
-    return entry.language.value if hasattr(entry.language, "value") else entry.language
+    return entry.language.value if hasattr(entry.language, "value") else str(entry.language)
 
 
 def _pick_mantra_metadata(
@@ -175,11 +176,12 @@ def _pick_mantra_metadata(
     if not metadata_entries:
         return None
     if language:
-        language_upper = language.upper()
-        for entry in metadata_entries:
-            if _metadata_language(entry) == language_upper:
-                return entry
-        return None
+        matched = filter_by_language_with_fallback(
+            entries=list(metadata_entries),
+            language=language,
+            language_of=_metadata_language,
+        )
+        return matched[0] if matched else None
     for entry in metadata_entries:
         if _metadata_language(entry) == "EN":
             return entry
