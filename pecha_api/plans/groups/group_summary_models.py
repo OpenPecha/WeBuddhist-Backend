@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupType
+from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole, AuthorGroupType
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 
@@ -33,3 +33,5 @@ class AuthorGroupSummaryDTO(BaseModel):
     follower_count: int = 0
     joiner_count: int = 0
     member_count: int = 0
+    # Current CMS author's membership role in this group (null when not a member).
+    my_role: Optional[AuthorGroupMemberRole] = None

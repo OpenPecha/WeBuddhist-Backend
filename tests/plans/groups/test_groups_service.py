@@ -1072,12 +1072,49 @@ def test_list_cms_groups_scopes_to_member_groups_for_non_admin():
     ) as mock_paginated, patch(
         "pecha_api.plans.groups.groups_service.get_followers_count_map",
         return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_roles_map",
+        return_value={group.id: "OWNER"},
     ):
         mock_session.return_value.__enter__.return_value = mock_db
         mock_session.return_value.__exit__.return_value = False
-        list_cms_groups(token="t", skip=0, limit=10)
+        result = list_cms_groups(token="t", skip=0, limit=10)
 
     assert mock_paginated.call_args.kwargs["group_ids"] == [group.id]
+    assert result.groups[0].my_role == AuthorGroupMemberRole.OWNER
+
+
+def test_list_cms_groups_includes_my_role_from_batch_lookup():
+    author = _make_author(is_admin=True)
+    group = _make_group()
+
+    mock_db = MagicMock()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_paginated",
+        return_value=([group], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_roles_map",
+        return_value={group.id: "ADMIN"},
+    ) as mock_roles:
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_session.return_value.__exit__.return_value = False
+        result = list_cms_groups(token="t", skip=0, limit=10)
+
+    mock_roles.assert_called_once()
+    assert result.groups[0].my_role == AuthorGroupMemberRole.ADMIN
 
 
 def test_follow_group_requires_public_group():
