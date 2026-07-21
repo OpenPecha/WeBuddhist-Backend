@@ -1,7 +1,7 @@
 """add segment_numbers to sub_tasks
 
 Revision ID: a9b0c1d2e3f4
-Revises: c8d9e0f1a2b3
+Revises: c92c72f4e73e
 Create Date: 2026-07-21
 
 """
@@ -13,7 +13,7 @@ from sqlalchemy.dialects import postgresql
 
 
 revision: str = "a9b0c1d2e3f4"
-down_revision: Union[str, None] = "c8d9e0f1a2b3"
+down_revision: Union[str, None] = "c92c72f4e73e"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
