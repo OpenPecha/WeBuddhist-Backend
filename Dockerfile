@@ -30,4 +30,4 @@ EXPOSE 8000
 
 # Command to run the application
 # SYNC_ALEMBIC_STAMP defaults to false; only enable for legacy local databases.
-CMD ["sh", "-c", "poetry run python scripts/sync_alembic_stamp.py && poetry run alembic upgrade head && poetry run uvicorn pecha_api.app:api --host 0.0.0.0 --port 8000 --log-level debug"]
+CMD ["sh", "-c", "poetry run python scripts/sync_alembic_stamp.py && poetry run alembic upgrade heads && poetry run uvicorn pecha_api.app:api --host 0.0.0.0 --port 8000 --log-level debug"]
