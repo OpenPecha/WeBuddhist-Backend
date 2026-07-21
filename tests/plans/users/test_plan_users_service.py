@@ -1604,7 +1604,7 @@ def test_get_user_plan_day_details_service_success():
                 estimated_time=10,
                 display_order=1,
                 sub_tasks=[
-                    SimpleNamespace(id=sub1_id, content_type=ContentType.TEXT, content="A", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None, audio_url=None),
+                    SimpleNamespace(id=sub1_id, content_type=ContentType.TEXT, content="A", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None, segment_numbers=None, audio_url=None),
                 ],
             ),
             SimpleNamespace(
@@ -1613,7 +1613,7 @@ def test_get_user_plan_day_details_service_success():
                 estimated_time=5,
                 display_order=2,
                 sub_tasks=[
-                    SimpleNamespace(id=sub2_id, content_type=ContentType.AUDIO, content="B", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None, audio_url=None),
+                    SimpleNamespace(id=sub2_id, content_type=ContentType.AUDIO, content="B", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None, segment_numbers=None, audio_url=None),
                 ],
             ),
         ],
@@ -1823,6 +1823,7 @@ def test_get_user_plan_day_details_service_image_subtask_presigned():
                         source_text_id=None,
                         pecha_segment_id=None,
                         segment_ids=None,
+                        segment_numbers=None,
                         audio_url=None,
                     )
                 ],
@@ -1897,6 +1898,7 @@ def test_get_user_plan_day_details_service_with_segment_fields():
                         source_text_id=source_text_id,
                         pecha_segment_id=pecha_segment_id,
                         segment_ids=segment_ids,
+                        segment_numbers=[50, 51],
                         audio_url=None,
                     )
                 ],
@@ -1934,6 +1936,7 @@ def test_get_user_plan_day_details_service_with_segment_fields():
         assert sub.source_text_id == source_text_id
         assert sub.pecha_segment_id == pecha_segment_id
         assert sub.segment_ids == segment_ids
+        assert sub.segment_numbers == [50, 51]
 
 
 def test_unenroll_user_from_plan_success():

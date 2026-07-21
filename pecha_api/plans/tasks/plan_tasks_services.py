@@ -164,6 +164,7 @@ async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskRespons
                     source_text_id=sub_task.source_text_id,
                     pecha_segment_id=sub_task.pecha_segment_id,
                     segment_ids=sub_task.segment_ids,
+                    segment_numbers=sub_task.segment_numbers,
                     image_url=content_and_image_url.image_url,
                     audio_url=audio_url,
                     display_order=sub_task.display_order,

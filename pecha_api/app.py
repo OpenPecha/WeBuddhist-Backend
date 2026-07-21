@@ -37,6 +37,7 @@ from pecha_api.plans.authors import plan_authors_views as plan_authors_views
 from pecha_api.plans.featured import featured_day_views
 from pecha_api.plans.notifications import day_notification_views
 from pecha_api.plans.dashboard import dashboard_views as cms_dashboard_views
+from pecha_api.plans.analytics import analytics_views as cms_analytics_views
 from pecha_api.plans.groups import groups_views as author_groups_views
 from pecha_api.recitations import recitations_view
 from pecha_api.user_follows import user_follow_views
@@ -105,6 +106,7 @@ api.include_router(cms_series_views.cms_series_router)
 api.include_router(cms_tags_views.cms_tags_router)
 api.include_router(cms_dashboard_views.dashboard_router)
 api.include_router(cms_dashboard_views.practice_router)
+api.include_router(cms_analytics_views.analytics_router)
 api.include_router(author_groups_views.cms_groups_router)
 api.include_router(cms_notification_views.cms_notifications_router)
 api.include_router(cms_admin_router)

@@ -99,32 +99,55 @@ def get_segment_page(
     segment_id: str,
     direction: PaginationDirection,
     size: int,
-) -> Tuple[int, int, Dict[str, int]]:
+    start: Optional[int] = None,
+    end: Optional[int] = None,
+) -> Tuple[int, int, Dict[str, int], bool, bool]:
     """
     Resolve pagination without materializing every segment id in memory.
-    Returns (total_segments, current_segment_position, page_segment_id_to_position).
+    Returns (
+        total_segments,
+        current_segment_position,
+        page_segment_id_to_position,
+        has_more_up,
+        has_more_down,
+    ).
+
+    When start and/or end are provided, they define the segment position range
+    (1-based, inclusive). Otherwise pagination uses segment_id + direction + size.
     """
     total_segments = 0
     anchor_position = 0
 
     for seg_id, position in iter_segment_positions(table_of_content):
         total_segments = position
-        if seg_id == segment_id:
+        if segment_id and seg_id == segment_id:
             anchor_position = position
 
-    if anchor_position == 0:
-        anchor_position = 1
+    if total_segments == 0:
+        return 0, 0, {}, False, False
 
-    anchor_index = anchor_position - 1
-    if direction == PaginationDirection.NEXT:
-        page_start = anchor_index
-        page_end = min(anchor_index + size, total_segments)
+    if start is not None or end is not None:
+        page_start_pos, page_end_pos, current_segment_position = _resolve_range_bounds(
+            start=start,
+            end=end,
+            size=size,
+            total_segments=total_segments,
+        )
     else:
-        page_start = max(0, anchor_index - size + 1)
-        page_end = anchor_index + 1
+        if anchor_position == 0:
+            anchor_position = 1
 
-    page_start_pos = page_start + 1
-    page_end_pos = page_end
+        anchor_index = anchor_position - 1
+        if direction == PaginationDirection.NEXT:
+            page_start = anchor_index
+            page_end = min(anchor_index + size, total_segments)
+        else:
+            page_start = max(0, anchor_index - size + 1)
+            page_end = anchor_index + 1
+
+        page_start_pos = page_start + 1
+        page_end_pos = page_end
+        current_segment_position = anchor_position
 
     page_segments: Dict[str, int] = {}
     for seg_id, position in iter_segment_positions(table_of_content):
@@ -133,4 +156,33 @@ def get_segment_page(
         if position > page_end_pos:
             break
 
-    return total_segments, anchor_position, page_segments
+    has_more_up = page_start_pos > 1
+    has_more_down = page_end_pos < total_segments
+
+    return total_segments, current_segment_position, page_segments, has_more_up, has_more_down
+
+
+def _resolve_range_bounds(
+    start: Optional[int],
+    end: Optional[int],
+    size: int,
+    total_segments: int,
+) -> Tuple[int, int, int]:
+    """
+    Resolve inclusive 1-based page bounds from optional start/end indexes.
+    Returns (page_start_pos, page_end_pos, current_segment_position).
+    """
+    if start is not None and end is not None:
+        page_start_pos = max(1, min(start, total_segments))
+        page_end_pos = max(page_start_pos, min(end, total_segments))
+        return page_start_pos, page_end_pos, page_end_pos
+
+    if start is not None:
+        page_start_pos = max(1, min(start, total_segments))
+        page_end_pos = min(page_start_pos + size - 1, total_segments)
+        return page_start_pos, page_end_pos, page_end_pos
+
+    # end only
+    page_end_pos = max(1, min(end, total_segments))
+    page_start_pos = max(1, page_end_pos - size + 1)
+    return page_start_pos, page_end_pos, page_end_pos

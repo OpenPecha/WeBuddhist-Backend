@@ -760,6 +760,7 @@ def _get_user_sub_tasks_dto_bulk(sub_tasks: List[PlanSubTask], completed_subtask
                 source_text_id=sub_task.source_text_id,
                 pecha_segment_id=sub_task.pecha_segment_id,
                 segment_ids=sub_task.segment_ids,
+                segment_numbers=sub_task.segment_numbers,
                 start_ms=start_ms,
                 end_ms=end_ms,
             )

@@ -257,6 +257,25 @@ def get_group_member(
     )
 
 
+def get_member_roles_map(
+    db: Session,
+    author_id: UUID,
+    group_ids: Sequence[UUID],
+) -> Dict[UUID, str]:
+    """Batch-load the author's role in each group (avoids N detail fetches)."""
+    if not group_ids:
+        return {}
+    rows = (
+        db.query(AuthorGroupMember.group_id, AuthorGroupMember.role)
+        .filter(
+            AuthorGroupMember.author_id == author_id,
+            AuthorGroupMember.group_id.in_(list(group_ids)),
+        )
+        .all()
+    )
+    return {row.group_id: row.role for row in rows}
+
+
 def get_owner_count(db: Session, group_id: UUID) -> int:
     return (
         db.query(func.count(AuthorGroupMember.id))

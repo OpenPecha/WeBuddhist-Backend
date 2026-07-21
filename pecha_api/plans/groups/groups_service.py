@@ -46,6 +46,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_groups_by_ids,
     get_group_member,
     get_groups_paginated,
+    get_member_roles_map,
     get_invite_by_id,
     get_owner_count,
     get_plans_by_group_id,
@@ -531,9 +532,15 @@ def _group_to_summary(
     joiner_count: int = 0,
     public: bool = False,
     language: Optional[str] = None,
+    my_role: Optional[AuthorGroupMemberRole | str] = None,
 ) -> AuthorGroupSummaryDTO:
     dto_class = PublicAuthorGroupSummaryDTO if public else AuthorGroupSummaryDTO
     tags = _group_tag_names(group.tags) if public else tags_to_summary_dtos(group.tags)
+    role = (
+        AuthorGroupMemberRole(_to_role_value(my_role))
+        if my_role is not None and not public
+        else None
+    )
     return dto_class(
         id=group.id,
         slug=group.slug,
@@ -548,6 +555,7 @@ def _group_to_summary(
         follower_count=follower_count,
         joiner_count=joiner_count,
         member_count=len(group.members),
+        my_role=role,
     )
 
 
@@ -935,6 +943,7 @@ def list_cms_groups(
         ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=ids)
         joiner_count_map = get_joiners_count_map(db=db, group_ids=ids)
+        my_role_map = get_member_roles_map(db=db, author_id=author.id, group_ids=ids)
         return AuthorGroupListResponse(
             groups=[
                 _group_to_summary(
@@ -942,6 +951,7 @@ def list_cms_groups(
                     follower_count=follower_count_map.get(item.id, 0),
                     joiner_count=joiner_count_map.get(item.id, 0),
                     language=language,
+                    my_role=my_role_map.get(item.id),
                 )
                 for item in groups
             ],
