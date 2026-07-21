@@ -37,6 +37,7 @@ def test_get_events_today_service_uses_day_bounds():
         from_date=start,
         to_date=end,
         language="en",
+        fallback=True,
         skip=0,
         limit=20,
     )
