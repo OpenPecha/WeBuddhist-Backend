@@ -22,7 +22,7 @@ DEFAULT_TAG = None
 DEFAULT_GROUP_ID = None
 
 
-def _storable_language(language: str) -> Optional[str]:
+def storable_language(language: str) -> Optional[str]:
 
     requested = language.upper()
     return requested if requested in SUPPORTED_LANGUAGE_CODES else None
@@ -33,7 +33,7 @@ def _with_language_fallback(query, language: Optional[str], fetch):
     if not language:
         return fetch(query)
 
-    requested = _storable_language(language)
+    requested = storable_language(language)
     if requested is None:
         return fetch(query.filter(Plan.language == DEFAULT_LANGUAGE))
 
@@ -48,7 +48,7 @@ def resolve_plans_language(db: Session, language: Optional[str]) -> str:
     if not language:
         return DEFAULT_LANGUAGE
 
-    requested = _storable_language(language)
+    requested = storable_language(language)
     if requested is None or requested == DEFAULT_LANGUAGE:
         return DEFAULT_LANGUAGE
 

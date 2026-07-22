@@ -190,6 +190,29 @@ def test_get_series_paginated_with_language_applies_metadata_filter():
     assert len(filter_args) == 2
 
 
+def test_get_series_paginated_language_fallback_skips_metadata_filter():
+    """Public callers must not drop series lacking metadata in ``language``.
+
+    The series would otherwise never reach the service layer, where the
+    per-series English fallback runs, so the list would come back empty.
+    """
+    db = _make_session_mock()
+    row = MagicMock(spec=Series)
+
+    db.query.return_value = _paginated_query_chain([row], 1)
+
+    rows, total = get_series_paginated(
+        db=db, search=None, skip=0, limit=10, language="ne", language_fallback=True
+    )
+
+    assert rows == [(row, 0, 0)]
+    assert total == 1
+    filtered = db.query.return_value.options.return_value.filter
+    filter_args = filtered.call_args[0]
+    # Only the deleted_at filter remains; the language exists() is not applied.
+    assert len(filter_args) == 1
+
+
 def test_get_series_paginated_returns_series_with_plan_count():
     db = _make_session_mock()
     row = MagicMock(spec=Series)

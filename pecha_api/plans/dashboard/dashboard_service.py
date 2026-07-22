@@ -33,7 +33,10 @@ from pecha_api.plans.series.series_service import (
     _series_schedule_from_plans,
     compute_series_progress,
 )
-from pecha_api.plans.shared.metadata_utils import format_metadata_response
+from pecha_api.plans.shared.metadata_utils import (
+    filter_by_language_with_fallback,
+    format_metadata_response,
+)
 def _parse_languages(item_type: str, languages_raw: Optional[str]) -> List[str]:
     if not languages_raw:
         return []
@@ -48,7 +51,7 @@ def _to_plan_status(status_value) -> PlanStatus:
     return PlanStatus(status_value)
 
 
-def _parse_metadata(raw, language: Optional[str] = None):
+def _parse_metadata(raw, language: Optional[str] = None, fallback: bool = False):
     if raw is None:
         metadata_list: List[SeriesMetadataDTO] = []
     elif isinstance(raw, str):
@@ -59,7 +62,13 @@ def _parse_metadata(raw, language: Optional[str] = None):
     else:
         metadata_list = [SeriesMetadataDTO(**item) for item in raw]
 
-    if language:
+    if fallback:
+        metadata_list = filter_by_language_with_fallback(
+            entries=metadata_list,
+            language=language,
+            language_of=lambda item: item.language,
+        )
+    elif language:
         language_upper = language.upper()
         metadata_list = [
             item for item in metadata_list
@@ -68,7 +77,9 @@ def _parse_metadata(raw, language: Optional[str] = None):
     return format_metadata_response(metadata_list, language=language)
 
 
-def _row_to_dto(row, language: Optional[str] = None) -> DashboardItemDTO:
+def _row_to_dto(
+    row, language: Optional[str] = None, fallback: bool = False
+) -> DashboardItemDTO:
     item_type = row.item_type
     common = dict(
         id=row.id,
@@ -88,7 +99,9 @@ def _row_to_dto(row, language: Optional[str] = None) -> DashboardItemDTO:
     if item_type == "series":
         return DashboardItemDTO(
             **common,
-            metadata=_parse_metadata(row.metadata_json, language=language),
+            metadata=_parse_metadata(
+                row.metadata_json, language=language, fallback=fallback
+            ),
             author_id=row.author_id,
         )
     return DashboardItemDTO(
@@ -170,8 +183,12 @@ def get_dashboard_items_list(
     )
 
 
-def _row_to_public_dto(row, language: Optional[str] = None) -> DashboardItemDTO:
-    return _row_to_dto(row, language=language).model_copy(update={"author_id": None})
+def _row_to_public_dto(
+    row, language: Optional[str] = None, fallback: bool = False
+) -> DashboardItemDTO:
+    return _row_to_dto(row, language=language, fallback=fallback).model_copy(
+        update={"author_id": None}
+    )
 
 
 def _published_plans_by_series(
@@ -186,6 +203,7 @@ def _published_plans_by_series(
                 series.plans,
                 published_only=True,
                 language=language,
+                fallback=True,
             )
         ]
         for series in get_series_with_plans_by_ids(db_session, series_ids)
@@ -203,6 +221,7 @@ def _series_progress_by_ids(
             series.plans,
             published_only=True,
             language=language,
+            fallback=True,
         )
         progress_map[series.id] = compute_series_progress(
             start_date=start_date,
@@ -232,9 +251,12 @@ def get_practice_items_list(
             status=PlanStatus.PUBLISHED,
             language=language,
             featured=featured,
+            language_fallback=True,
         )
 
-        items = [_row_to_public_dto(row, language=language) for row in rows]
+        items = [
+            _row_to_public_dto(row, language=language, fallback=True) for row in rows
+        ]
         series_ids = [item.id for item in items if item.type == "series"]
         plans_by_series = _published_plans_by_series(
             db_session,

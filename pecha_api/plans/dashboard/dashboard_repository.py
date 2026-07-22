@@ -9,6 +9,7 @@ from sqlalchemy.orm import Query, Session
 from pecha_api.plans.authors.plan_authors_model import Author  # noqa: F401
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.public.plan_repository import resolve_plans_language
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
@@ -91,6 +92,7 @@ def _apply_series_filters(
     featured: Optional[bool],
     language: Optional[str],
     group_ids: Optional[Sequence[UUID]] = None,
+    language_fallback: bool = False,
 ) -> Query:
     query = query.filter(Series.deleted_at.is_(None))
     if group_ids is not None:
@@ -111,7 +113,11 @@ def _apply_series_filters(
         query = query.filter(Series.status == status)
     if featured is not None:
         query = query.filter(Series.featured == featured)
-    if language:
+    if language and not language_fallback:
+        # Strict mode (CMS): only series translated into ``language``.
+        # Public callers pass ``language_fallback=True`` so a series with no
+        # content in ``language`` is still returned and rendered in English by
+        # the service layer, instead of vanishing from the Practice list.
         language_upper = language.upper()
         query = query.filter(
             or_(
@@ -155,6 +161,9 @@ def _apply_plan_filters(
     if featured is not None:
         query = query.filter(Plan.featured == featured)
     if language:
+        # ``language`` is already resolved by the caller when falling back, so
+        # the list stays in a single language rather than mixing the requested
+        # one with English.
         query = query.filter(Plan.language == language.upper())
     return query
 
@@ -215,25 +224,41 @@ def get_dashboard_items(
     language: Optional[str],
     featured: Optional[bool],
     group_ids: Optional[Sequence[UUID]] = None,
+    language_fallback: bool = False,
 ) -> Tuple[List, int]:
-    filter_kwargs = {
+    common_kwargs = {
         "search": search,
         "status": status,
         "featured": featured,
-        "language": language,
         "group_ids": group_ids,
     }
 
-    series_query = _apply_series_filters(_series_base_query(db), **filter_kwargs)
+    # Plans carry their language on the row itself, so resolve a single language
+    # up front: the listing stays wholly in the requested language, or wholly in
+    # English when that language has no plans, rather than mixing the two.
+    plan_language = (
+        resolve_plans_language(db=db, language=language)
+        if language and language_fallback
+        else language
+    )
+
+    series_query = _apply_series_filters(
+        _series_base_query(db),
+        language=language,
+        language_fallback=language_fallback,
+        **common_kwargs,
+    )
     plan_query = _apply_plan_filters(
         _plan_base_query(db),
+        language=plan_language,
         standalone_only=False,
-        **filter_kwargs,
+        **common_kwargs,
     )
     standalone_plan_query = _apply_plan_filters(
         _plan_base_query(db),
+        language=plan_language,
         standalone_only=True,
-        **filter_kwargs,
+        **common_kwargs,
     )
 
     if tab == "series":
