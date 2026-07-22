@@ -714,11 +714,8 @@ def get_series_paginated(
     if featured is not None:
         filters.append(Series.featured == featured)
     if language and not language_fallback:
-        # Strict mode (CMS): only series translated into ``language``.
-        # Public callers pass ``language_fallback=True`` so that a series with
-        # no metadata in ``language`` is still returned and rendered in
-        # English by the per-series fallback in the service layer, rather than
-        # disappearing from the list entirely.
+        # Strict mode (CMS). Public callers skip this so untranslated series
+        # are still returned and rendered in English by the service layer.
         language_upper = language.upper()
         filters.append(
             exists(

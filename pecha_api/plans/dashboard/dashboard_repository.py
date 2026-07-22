@@ -114,10 +114,8 @@ def _apply_series_filters(
     if featured is not None:
         query = query.filter(Series.featured == featured)
     if language and not language_fallback:
-        # Strict mode (CMS): only series translated into ``language``.
-        # Public callers pass ``language_fallback=True`` so a series with no
-        # content in ``language`` is still returned and rendered in English by
-        # the service layer, instead of vanishing from the Practice list.
+        # Strict mode (CMS). Public callers skip this so untranslated series
+        # are still returned and rendered in English by the service layer.
         language_upper = language.upper()
         query = query.filter(
             or_(
@@ -161,9 +159,6 @@ def _apply_plan_filters(
     if featured is not None:
         query = query.filter(Plan.featured == featured)
     if language:
-        # ``language`` is already resolved by the caller when falling back, so
-        # the list stays in a single language rather than mixing the requested
-        # one with English.
         query = query.filter(Plan.language == language.upper())
     return query
 
@@ -233,9 +228,7 @@ def get_dashboard_items(
         "group_ids": group_ids,
     }
 
-    # Plans carry their language on the row itself, so resolve a single language
-    # up front: the listing stays wholly in the requested language, or wholly in
-    # English when that language has no plans, rather than mixing the two.
+    # Resolve once so the listing stays in a single language, never mixed.
     plan_language = (
         resolve_plans_language(db=db, language=language)
         if language and language_fallback
