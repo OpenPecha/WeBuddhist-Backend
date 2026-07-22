@@ -396,7 +396,7 @@ paths:
           required: false
           schema:
             type: string
-          description: Filter plans by language (EN, BO, ZH, HI, NE, MN). Case-insensitive.
+          description: Filter plans by language (EN, BO, ZH, HI, NE, MN, LA). Case-insensitive.
       responses:
         '200':
           description: The requested Series.
@@ -518,7 +518,7 @@ components:
           type: string
           description: >-
             Language code of the metadata row. In practice the server emits a
-            LanguageCode enum value (`EN`, `BO`, `ZH`, `HI`, `NE`, `MN`), but the response model
+            LanguageCode enum value (`EN`, `BO`, `ZH`, `HI`, `NE`, `MN`, `LA`), but the response model
             is typed as a plain string and is not enum-validated.
 
     CreateSeriesRequest:
@@ -541,7 +541,7 @@ components:
           type: object
           nullable: true
           description: >-
-            Map of language code (EN/BO/ZH/HI/NE/MN) to an ordered list of plan UUIDs.
+            Map of language code (EN/BO/ZH/HI/NE/MN/LA) to an ordered list of plan UUIDs.
             Keys are validated against LanguageCode.
           additionalProperties:
             type: array
@@ -568,7 +568,7 @@ components:
           type: object
           nullable: true
           description: >-
-            Map of language code (EN/BO/ZH/HI/NE/MN) to an ordered list of plan UUIDs.
+            Map of language code (EN/BO/ZH/HI/NE/MN/LA) to an ordered list of plan UUIDs.
             Keys are validated against LanguageCode.
           additionalProperties:
             type: array
@@ -605,7 +605,7 @@ components:
           type: string
           description: >-
             Language code of the plan. In practice the server emits a
-            LanguageCode enum value (`EN`, `BO`, `ZH`, `HI`, `NE`, `MN`), but the response model
+            LanguageCode enum value (`EN`, `BO`, `ZH`, `HI`, `NE`, `MN`, `LA`), but the response model
             is typed as a plain string and is not enum-validated.
         difficulty_level:
           allOf:
