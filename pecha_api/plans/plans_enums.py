@@ -34,6 +34,7 @@ class LanguageCode(enum.Enum):
     HI = "HI"
     NE = "NE"
     MN = "MN"
+    LA = "LA"
 
 class SortOrder(enum.Enum):
     ASC = "asc"
