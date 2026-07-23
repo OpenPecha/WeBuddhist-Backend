@@ -30,6 +30,13 @@ class Event(Base):
         passive_deletes=True,
     )
 
+    participants = relationship(
+        "GroupEventParticipant",
+        back_populates="event",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
     __table_args__ = (
         Index("idx_events_group_id", "group_id"),
         Index("idx_events_start_date", "start_date"),

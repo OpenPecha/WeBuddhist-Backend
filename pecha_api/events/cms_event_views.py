@@ -6,7 +6,13 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette import status
 
-from .event_response_models import CreateEventRequest, UpdateEventRequest, EventDTO, EventsResponse
+from .event_response_models import (
+    CreateEventRequest,
+    UpdateEventRequest,
+    EventDTO,
+    EventsResponse,
+    EventParticipantsResponse,
+)
 from .event_service import (
     create_event_service,
     update_event_service,
@@ -14,6 +20,7 @@ from .event_service import (
     get_cms_events_service,
     get_cms_event_by_id_service,
 )
+from .event_participant_service import get_cms_event_participants_service
 
 oauth2_scheme = HTTPBearer()
 
@@ -62,6 +69,26 @@ async def get_cms_event_by_id_endpoint(
         token=credentials.credentials,
         event_id=event_id,
         language=language,
+    )
+
+
+@cms_events_router.get(
+    "/{event_id}/participants",
+    status_code=status.HTTP_200_OK,
+    response_model=EventParticipantsResponse,
+    response_model_exclude_none=True,
+)
+async def get_cms_event_participants_endpoint(
+    event_id: UUID,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> EventParticipantsResponse:
+    return get_cms_event_participants_service(
+        token=credentials.credentials,
+        event_id=event_id,
+        skip=skip,
+        limit=limit,
     )
 
 
