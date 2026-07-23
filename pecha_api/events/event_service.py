@@ -32,6 +32,7 @@ from .event_response_models import (
     UpdateEventRequest,
     EventDTO,
     EventMetadataDTO,
+    EventLinkDTO,
     EventsResponse,
     _validate_date_range,
 )
@@ -94,6 +95,21 @@ def _metadata_response(entries, language: Optional[str] = None, fallback: bool =
     )
 
 
+def _links_to_dtos(links) -> List[EventLinkDTO]:
+    if not links:
+        return []
+    return [
+        EventLinkDTO(
+            id=link.id,
+            type=link.type,
+            url=link.url,
+            label=link.label,
+            display_order=link.display_order,
+        )
+        for link in sorted(links, key=lambda link: link.display_order)
+    ]
+
+
 def _event_to_dto(
     event: Event, language: Optional[str] = None, fallback: bool = False
 ) -> EventDTO:
@@ -110,6 +126,7 @@ def _event_to_dto(
         metadata=_metadata_response(
             event.metadata_entries, language=language, fallback=fallback
         ),
+        links=_links_to_dtos(event.links),
         image=safe_get_image_url(
             event.image_url, resource_id=event.id, resource_type="event"
         ),
@@ -275,7 +292,7 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
             group_id=request.group_id,
             author=current_author,
         )
-        saved = save_event(db, event, request.metadata)
+        saved = save_event(db, event, request.metadata, request.links)
         return _event_to_dto(saved)
 
 
@@ -315,7 +332,7 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
 
         event.updated_at = datetime.now(timezone.utc)
 
-        saved = update_event(db, event, metadata_entries=request.metadata)
+        saved = update_event(db, event, metadata_entries=request.metadata, link_entries=request.links)
         return _event_to_dto(saved)
 
 

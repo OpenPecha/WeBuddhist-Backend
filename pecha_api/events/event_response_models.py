@@ -1,6 +1,7 @@
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 from typing import Optional, List, Union
 from datetime import datetime
+from urllib.parse import urlparse
 from uuid import UUID
 
 from pecha_api.plans.plans_enums import LanguageCode
@@ -17,6 +18,42 @@ class EventMetadataDTO(BaseModel):
 
 
 EventMetadataResponse = Union[EventMetadataDTO, List[EventMetadataDTO], None]
+
+
+class EventLinkDTO(BaseModel):
+    model_config = ConfigDict(ser_json_exclude_none=True)
+
+    id: UUID
+    type: str
+    url: str
+    label: Optional[str] = None
+    display_order: int
+
+
+def _validate_link_url(url: str) -> str:
+    parsed = urlparse(url.strip())
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        raise ValueError("url must be a valid http or https URL")
+    return url.strip()
+
+
+class EventLinkInput(BaseModel):
+    type: str
+    url: str
+    label: Optional[str] = None
+    display_order: int = 1
+
+    @field_validator("type")
+    @classmethod
+    def validate_type_not_empty(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("type must be a non-empty string")
+        return value.strip()
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        return _validate_link_url(value)
 
 
 class EventMetadataInput(BaseModel):
@@ -50,6 +87,7 @@ class EventDTO(BaseModel):
     end_date: datetime
     is_one_day: bool
     metadata: EventMetadataResponse
+    links: List[EventLinkDTO] = []
     image: Optional[ImageUrlModel] = None
     image_url: Optional[str] = None
     created_at: datetime
@@ -86,6 +124,7 @@ class CreateEventRequest(BaseModel):
     start_date: datetime
     end_date: datetime
     metadata: List[EventMetadataInput]
+    links: List[EventLinkInput] = []
     image_url: Optional[str] = None
     plan_id: Optional[UUID] = None
     accumulator_id: Optional[UUID] = None
@@ -110,6 +149,7 @@ class UpdateEventRequest(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     metadata: Optional[List[EventMetadataInput]] = None
+    links: Optional[List[EventLinkInput]] = None
     image_url: Optional[str] = None
     plan_id: Optional[UUID] = None
     accumulator_id: Optional[UUID] = None

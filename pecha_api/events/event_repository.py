@@ -9,6 +9,7 @@ from starlette import status
 
 from .event_model import Event
 from .event_metadata_model import EventMetadata
+from .event_link_model import EventLink
 
 
 def _persist_metadata_entries(db: Session, event_id: UUID, metadata_entries: List) -> None:
@@ -23,11 +24,25 @@ def _persist_metadata_entries(db: Session, event_id: UUID, metadata_entries: Lis
         )
 
 
-def save_event(db: Session, event: Event, metadata_entries: List) -> Event:
+def _persist_link_entries(db: Session, event_id: UUID, link_entries: List) -> None:
+    for entry in link_entries:
+        db.add(
+            EventLink(
+                event_id=event_id,
+                type=entry.type,
+                url=entry.url,
+                label=entry.label,
+                display_order=entry.display_order,
+            )
+        )
+
+
+def save_event(db: Session, event: Event, metadata_entries: List, link_entries: Optional[List] = None) -> Event:
     try:
         db.add(event)
         db.flush()
         _persist_metadata_entries(db, event.id, metadata_entries)
+        _persist_link_entries(db, event.id, link_entries or [])
         db.commit()
         db.refresh(event)
         return get_event_by_id(db, event.id)
@@ -42,7 +57,7 @@ def save_event(db: Session, event: Event, metadata_entries: List) -> Event:
 def get_event_by_id(db: Session, event_id: UUID) -> Optional[Event]:
     return (
         db.query(Event)
-        .options(selectinload(Event.metadata_entries))
+        .options(selectinload(Event.metadata_entries), selectinload(Event.links))
         .filter(Event.id == event_id)
         .first()
     )
@@ -52,11 +67,15 @@ def update_event(
     db: Session,
     event: Event,
     metadata_entries: Optional[List] = None,
+    link_entries: Optional[List] = None,
 ) -> Event:
     try:
         if metadata_entries is not None:
             db.query(EventMetadata).filter(EventMetadata.event_id == event.id).delete()
             _persist_metadata_entries(db, event.id, metadata_entries)
+        if link_entries is not None:
+            db.query(EventLink).filter(EventLink.event_id == event.id).delete()
+            _persist_link_entries(db, event.id, link_entries)
         db.commit()
         db.refresh(event)
         return get_event_by_id(db, event.id)
@@ -137,7 +156,7 @@ def get_events(
     total = count_query.scalar()
 
     events_query = _apply_event_filters(
-        db.query(Event).options(selectinload(Event.metadata_entries)),
+        db.query(Event).options(selectinload(Event.metadata_entries), selectinload(Event.links)),
         group_id=group_id,
         plan_id=plan_id,
         accumulator_id=accumulator_id,
