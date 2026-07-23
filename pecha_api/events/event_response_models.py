@@ -64,6 +64,23 @@ class EventsResponse(BaseModel):
     limit: int
 
 
+class EventParticipantDTO(BaseModel):
+    model_config = ConfigDict(ser_json_exclude_none=True)
+
+    user_id: UUID
+    username: Optional[str] = None
+    fullname: Optional[str] = None
+    avatar_url: Optional[str] = None
+    created_at: datetime
+
+
+class EventParticipantsResponse(BaseModel):
+    participants: List[EventParticipantDTO]
+    skip: int
+    limit: int
+    total: int
+
+
 class CreateEventRequest(BaseModel):
     group_id: UUID
     start_date: datetime
