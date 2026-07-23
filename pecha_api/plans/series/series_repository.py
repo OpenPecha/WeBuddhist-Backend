@@ -688,6 +688,7 @@ def get_series_paginated(
     featured: Optional[bool] = None,
     published_only: bool = False,
     group_ids: Optional[Sequence[UUID]] = None,
+    language_fallback: bool = False,
 ) -> Tuple[List[Tuple[Series, int, int]], int]:
 
     filters = []
@@ -712,7 +713,9 @@ def get_series_paginated(
         filters.append(Series.status == status)
     if featured is not None:
         filters.append(Series.featured == featured)
-    if language:
+    if language and not language_fallback:
+        # Strict mode (CMS). Public callers skip this so untranslated series
+        # are still returned and rendered in English by the service layer.
         language_upper = language.upper()
         filters.append(
             exists(

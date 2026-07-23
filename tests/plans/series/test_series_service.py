@@ -1768,6 +1768,23 @@ def test_get_filtered_series_passes_language_to_repository():
     call_kwargs = mock_repo.call_args.kwargs
     assert call_kwargs["language"] == "zh"
     assert call_kwargs["status"] == PlanStatus.PUBLISHED
+    # Public listing must opt into fallback so untranslated series still appear.
+    assert call_kwargs["language_fallback"] is True
+
+
+def test_get_cms_filtered_series_keeps_strict_language_filter():
+    """CMS browsing stays strict: authors filter series by actual translation."""
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.series.series_service.validate_cms_author_details") as mock_author, \
+         patch("pecha_api.plans.series.series_service.is_super_admin", return_value=True), \
+         patch("pecha_api.plans.series.series_service.get_series_paginated",
+               return_value=([], 0)) as mock_repo:
+        _session_local_context(mock_session_local)
+        mock_author.return_value = MagicMock(id=uuid.uuid4())
+
+        get_cms_filtered_series(token="dummy", search=None, skip=0, limit=10, language="ne")
+
+    assert mock_repo.call_args.kwargs.get("language_fallback") in (None, False)
 
 
 def test_get_random_featured_series_defaults_to_english_when_language_not_provided():

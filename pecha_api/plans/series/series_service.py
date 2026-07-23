@@ -623,6 +623,7 @@ def get_filtered_series(
             status=PlanStatus.PUBLISHED,
             published_only=True,
             group_ids=[group_id] if group_id is not None else None,
+            language_fallback=True,
         )
         rows = filter_items_for_timezone(
             rows,
@@ -665,6 +666,7 @@ def get_filtered_series(
                 start_date=start_date,
                 end_date=end_date,
                 total_days=total_days,
+                fallback=True,
                 partner=partner_by_series_id.get(row.id),
             )
         )

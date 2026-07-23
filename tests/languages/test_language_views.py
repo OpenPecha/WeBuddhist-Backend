@@ -10,6 +10,7 @@ from pecha_api.app import api
 from pecha_api.languages import language_service
 from pecha_api.languages.language_response_models import LanguageDTO, LanguageListResponse
 from pecha_api.languages.language_service import list_languages_service, load_languages
+from pecha_api.plans.plans_enums import LanguageCode
 
 client = TestClient(api)
 
@@ -160,3 +161,19 @@ class TestListLanguagesEndpoint:
         assert "languages" in body
         assert len(body["languages"]) >= 1
         assert {"code", "name", "native_name", "enabled"} <= set(body["languages"][0])
+
+
+class TestLanguageCodeSync:
+    def test_language_code_enum_matches_languages_json(self):
+        payload = load_languages()
+        json_codes = {
+            entry["code"].upper()
+            for entry in payload.get("languages", [])
+        }
+        enum_codes = {code.value for code in LanguageCode}
+
+        assert enum_codes == json_codes, (
+            "LanguageCode enum must match pecha_api/languages/languages.json. "
+            f"Missing in enum: {sorted(json_codes - enum_codes)}. "
+            f"Extra in enum: {sorted(enum_codes - json_codes)}."
+        )
