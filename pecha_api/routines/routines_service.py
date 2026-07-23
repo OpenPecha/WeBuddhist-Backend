@@ -14,7 +14,13 @@ from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
 from pecha_api.texts.texts_models import Text
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
-from pecha_api.plans.users.recitation_collection.recitation_collection_models import RecitationCollection
+from pecha_api.plans.users.recitation_collection.recitation_collection_models import (
+    RecitationCollection,
+)
+from pecha_api.group_recitation_collection.models import (
+    GroupRecitationCollection,
+    GroupRecitationCollectionItem,
+)
 from pecha_api.plans.plans_enums import UserPlanStatus
 from datetime import datetime, time, timezone
 from pecha_api.plans.users.plan_users_progress_repository import (
@@ -66,6 +72,7 @@ from .response_message import (
     DUPLICATE_PLAN,
     DUPLICATE_SERIES,
     DUPLICATE_RECITATION_COLLECTION,
+    DUPLICATE_GROUP_RECITATION_COLLECTION,
     DUPLICATE_ACCUMULATOR,
     INVALID_TIME_FORMAT,
     INVALID_TIMER_DURATION,
@@ -248,6 +255,19 @@ def _validate_session_uniqueness(sessions: List[SessionRequest]) -> None:
             ).model_dump(),
         )
 
+    group_collection_source_ids = [
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.GROUP_RECITATION_COLLECTION
+    ]
+    if len(group_collection_source_ids) != len(set(group_collection_source_ids)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=DUPLICATE_GROUP_RECITATION_COLLECTION
+            ).model_dump(),
+        )
+
     accumulator_source_ids = [
         session.source_id
         for session in sessions
@@ -264,34 +284,51 @@ def _validate_session_uniqueness(sessions: List[SessionRequest]) -> None:
 
 def _check_duplicate_collections(db, routine_id: UUID, sessions: List) -> None:
     """Check for duplicate recitation collections when adding a new time block."""
-    existing_collection_ids = get_existing_collection_source_ids(db=db, routine_id=routine_id)
-    new_collection_ids = [s.source_id for s in sessions if s.session_type == SessionType.RECITATION_COLLECTION]
-    overlap = set(new_collection_ids) & set(existing_collection_ids)
-    if overlap:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=DUPLICATE_RECITATION_COLLECTION
-            ).model_dump(),
+    for session_type, error_message in (
+        (SessionType.RECITATION_COLLECTION, DUPLICATE_RECITATION_COLLECTION),
+        (SessionType.GROUP_RECITATION_COLLECTION, DUPLICATE_GROUP_RECITATION_COLLECTION),
+    ):
+        existing_collection_ids = get_existing_collection_source_ids(
+            db=db, routine_id=routine_id, session_type=session_type
         )
+        new_collection_ids = [
+            s.source_id for s in sessions if s.session_type == session_type
+        ]
+        overlap = set(new_collection_ids) & set(existing_collection_ids)
+        if overlap:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=error_message
+                ).model_dump(),
+            )
 
 
 def _check_duplicate_collections_on_update(
     db, routine_id: UUID, time_block_id: UUID, sessions: List
 ) -> None:
     """Check for duplicate recitation collections when updating a time block."""
-    existing_collection_ids = get_existing_collection_source_ids_in_routine(
-        db=db, routine_id=routine_id, exclude_time_block_id=time_block_id
-    )
-    new_collection_ids = [s.source_id for s in sessions if s.session_type == SessionType.RECITATION_COLLECTION]
-    overlap = set(new_collection_ids) & set(existing_collection_ids)
-    if overlap:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=DUPLICATE_RECITATION_COLLECTION
-            ).model_dump(),
+    for session_type, error_message in (
+        (SessionType.RECITATION_COLLECTION, DUPLICATE_RECITATION_COLLECTION),
+        (SessionType.GROUP_RECITATION_COLLECTION, DUPLICATE_GROUP_RECITATION_COLLECTION),
+    ):
+        existing_collection_ids = get_existing_collection_source_ids_in_routine(
+            db=db,
+            routine_id=routine_id,
+            exclude_time_block_id=time_block_id,
+            session_type=session_type,
         )
+        new_collection_ids = [
+            s.source_id for s in sessions if s.session_type == session_type
+        ]
+        overlap = set(new_collection_ids) & set(existing_collection_ids)
+        if overlap:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=error_message
+                ).model_dump(),
+            )
 
 
 def _check_duplicate_time(db, routine_id: UUID, time: str) -> None:
@@ -647,7 +684,7 @@ def _resolve_timer_sessions(timer_sessions: List[RoutineSession]) -> List[Sessio
 def _resolve_recitation_collection_sessions(
     db, collection_sessions: List[RoutineSession], user_id: UUID
 ) -> List[SessionDTO]:
-    """Resolve recitation collection sessions by fetching collection details."""
+    """Resolve individual recitation collection sessions by fetching collection details."""
     if not collection_sessions:
         return []
 
@@ -689,6 +726,66 @@ def _resolve_recitation_collection_sessions(
             collection.img_url, resource_id=collection.id, resource_type="collection"
         )
         
+        resolved.append(
+            SessionDTO(
+                id=session.id,
+                session_type=session.session_type,
+                source_id=session.source_id,
+                title=collection.name,
+                image=collection_image,
+                display_order=session.display_order,
+                item_count=item_counts.get(collection.id, 0),
+            )
+        )
+    return resolved
+
+
+def _resolve_group_recitation_collection_sessions(
+    db, collection_sessions: List[RoutineSession]
+) -> List[SessionDTO]:
+    """Resolve group recitation collection sessions; source_id is the collection id."""
+    if not collection_sessions:
+        return []
+
+    from sqlalchemy import func
+
+    collection_ids = [session.source_id for session in collection_sessions]
+    collections = (
+        db.query(GroupRecitationCollection)
+        .filter(
+            GroupRecitationCollection.id.in_(collection_ids),
+            GroupRecitationCollection.deleted_at.is_(None),
+        )
+        .all()
+    )
+    collection_map = {collection.id: collection for collection in collections}
+
+    item_counts = dict(
+        db.query(
+            GroupRecitationCollectionItem.group_recitation_collection_id,
+            func.count(GroupRecitationCollectionItem.id),
+        )
+        .filter(
+            GroupRecitationCollectionItem.group_recitation_collection_id.in_(
+                collection_ids
+            ),
+            GroupRecitationCollectionItem.deleted_at.is_(None),
+        )
+        .group_by(GroupRecitationCollectionItem.group_recitation_collection_id)
+        .all()
+    )
+
+    resolved = []
+    for session in collection_sessions:
+        collection = collection_map.get(session.source_id)
+        if collection is None:
+            continue
+
+        collection_image = safe_get_image_url(
+            collection.img_url,
+            resource_id=collection.id,
+            resource_type="collection",
+        )
         resolved.append(
             SessionDTO(
                 id=session.id,
@@ -938,6 +1035,11 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID, l
         for session in sessions
         if session.session_type == SessionType.RECITATION_COLLECTION
     ]
+    group_recitation_collection_sessions = [
+        session
+        for session in sessions
+        if session.session_type == SessionType.GROUP_RECITATION_COLLECTION
+    ]
     timer_sessions = [
         session for session in sessions if session.session_type == SessionType.TIMER
     ]
@@ -955,6 +1057,9 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID, l
     resolved_collections = _resolve_recitation_collection_sessions(
         db=db, collection_sessions=recitation_collection_sessions, user_id=user_id
     )
+    resolved_group_collections = _resolve_group_recitation_collection_sessions(
+        db=db, collection_sessions=group_recitation_collection_sessions
+    )
     resolved_timers = _resolve_timer_sessions(timer_sessions=timer_sessions)
     resolved_accumulators = _resolve_accumulator_sessions(
         db=db,
@@ -968,6 +1073,7 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID, l
         + resolved_series
         + resolved_recitations
         + resolved_collections
+        + resolved_group_collections
         + resolved_timers
         + resolved_accumulators
     )
