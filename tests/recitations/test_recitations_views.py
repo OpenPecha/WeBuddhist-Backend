@@ -35,7 +35,14 @@ async def test_get_list_of_recitations_success():
         resp = await get_list_of_recitations(search=None, language="en", skip=0, limit=10)
 
         mock_service.assert_awaited_once_with(
-            search=None, language="en", skip=0, limit=10, timezone_name=None
+            search=None,
+            language="en",
+            skip=0,
+            limit=10,
+            timezone_name=None,
+            token=None,
+            include_collections=False,
+            include_group_collections=False,
         )
         assert resp == expected
         assert len(resp.recitations) == 2
@@ -67,7 +74,14 @@ async def test_get_list_of_recitations_single_recitation():
         resp = await get_list_of_recitations(search=None, language="bo", skip=0, limit=10)
 
         mock_service.assert_awaited_once_with(
-            search=None, language="bo", skip=0, limit=10, timezone_name=None
+            search=None,
+            language="bo",
+            skip=0,
+            limit=10,
+            timezone_name=None,
+            token=None,
+            include_collections=False,
+            include_group_collections=False,
         )
         assert resp == expected
         assert len(resp.recitations) == 1
@@ -97,12 +111,60 @@ async def test_get_list_of_recitations_with_search():
         resp = await get_list_of_recitations(search="prayer", language="en", skip=0, limit=10)
 
         mock_service.assert_awaited_once_with(
-            search="prayer", language="en", skip=0, limit=10, timezone_name=None
+            search="prayer",
+            language="en",
+            skip=0,
+            limit=10,
+            timezone_name=None,
+            token=None,
+            include_collections=False,
+            include_group_collections=False,
         )
         assert resp == expected
         assert len(resp.recitations) == 1
         assert resp.total == 1
         assert resp.recitations[0].title == "Prayer Recitation"
+
+
+@pytest.mark.asyncio
+async def test_get_list_of_recitations_with_token_passes_credentials():
+    """Authenticated list request forwards the bearer token to the service."""
+    from fastapi.security import HTTPAuthorizationCredentials
+
+    expected = RecitationsResponse(
+        recitations=[RecitationDTO(title="First Recitation", text_id=uuid.uuid4())],
+        skip=0,
+        limit=10,
+        total=1,
+    )
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="valid_token")
+
+    with patch(
+        "pecha_api.recitations.recitations_view.get_list_of_recitations_service",
+        return_value=expected,
+        new_callable=AsyncMock,
+    ) as mock_service:
+        resp = await get_list_of_recitations(
+            search=None,
+            language="en",
+            skip=0,
+            limit=10,
+            include_collections=True,
+            include_group_collections=True,
+            credentials=credentials,
+        )
+
+        mock_service.assert_awaited_once_with(
+            search=None,
+            language="en",
+            skip=0,
+            limit=10,
+            timezone_name=None,
+            token="valid_token",
+            include_collections=True,
+            include_group_collections=True,
+        )
+        assert resp == expected
 
 
 @pytest.mark.asyncio
