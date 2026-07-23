@@ -50,12 +50,16 @@ class TestWithLanguageFallback:
         assert query.calls == ["ZH", "EN"]
 
     def test_language_outside_db_enum_queries_english_only(self):
-        """``Plan.language`` is a PG enum: comparing an unknown label raises
-        InvalidTextRepresentation, so such languages must never be queried."""
         query = FakeQuery({"EN": ["en-plan"]})
 
-        assert _with_language_fallback(query, "la", _fetch) == ["en-plan"]
+        assert _with_language_fallback(query, "xx", _fetch) == ["en-plan"]
         assert query.calls == ["EN"]
+
+    def test_supported_language_la_is_queried_before_english(self):
+        query = FakeQuery({"LA": ["la-plan"], "EN": ["en-plan"]})
+
+        assert _with_language_fallback(query, "la", _fetch) == ["la-plan"]
+        assert query.calls == ["LA"]
 
     def test_language_is_upper_cased(self):
         query = FakeQuery({"BO": ["bo-plan"]})
@@ -100,10 +104,9 @@ class TestResolvePlansLanguage:
         assert resolve_plans_language(db=db, language="zh") == DEFAULT_LANGUAGE
 
     def test_language_outside_db_enum_skips_the_query(self):
-        """An unknown enum label would raise in PostgreSQL, so never query it."""
         db = self._db_returning(False)
 
-        assert resolve_plans_language(db=db, language="la") == DEFAULT_LANGUAGE
+        assert resolve_plans_language(db=db, language="xx") == DEFAULT_LANGUAGE
         db.query.assert_not_called()
 
     def test_defaults_to_english_when_language_missing(self):
