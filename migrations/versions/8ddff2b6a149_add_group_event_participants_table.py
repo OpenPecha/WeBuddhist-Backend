@@ -1,7 +1,7 @@
 """add group_event_participants table
 
 Revision ID: 8ddff2b6a149
-Revises: a9b0c1d2e3f4
+Revises: b0c1d2e3f4a5
 Create Date: 2026-07-22 16:07:14.802784
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '8ddff2b6a149'
-down_revision: Union[str, None] = 'a9b0c1d2e3f4'
+down_revision: Union[str, None] = 'b0c1d2e3f4a5'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
