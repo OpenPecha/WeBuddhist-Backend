@@ -1,8 +1,8 @@
 """Language fallback for published-plan queries.
 
 Plans are stored per-language, so a requested language with no authored plans
-(e.g. 'LA' for Ladakhi) must fall back to English rather than returning an
-empty result. See ``plan_repository._with_language_fallback`` and
+must fall back to English rather than returning an empty result. See
+``plan_repository._with_language_fallback`` and
 ``plan_repository.resolve_plans_language``.
 """
 from unittest.mock import MagicMock, patch

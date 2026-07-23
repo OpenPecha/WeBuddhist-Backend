@@ -84,7 +84,10 @@ class SessionDTO(BaseModel):
                 "first_segment",
             ):
                 data.pop(field, None)
-        elif self.session_type == SessionType.RECITATION_COLLECTION:
+        elif self.session_type in (
+            SessionType.RECITATION_COLLECTION,
+            SessionType.GROUP_RECITATION_COLLECTION,
+        ):
             for field in (
                 "duration_ms",
                 "language",

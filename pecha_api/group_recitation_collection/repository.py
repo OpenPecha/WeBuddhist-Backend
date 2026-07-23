@@ -32,6 +32,25 @@ def get_group_collections(
     return collections, total
 
 
+def get_collections_by_group_ids(
+    db: Session,
+    group_ids: List[UUID],
+) -> List[GroupRecitationCollection]:
+    """Get all non-deleted collections for the given groups, newest first."""
+    if not group_ids:
+        return []
+
+    return (
+        db.query(GroupRecitationCollection)
+        .filter(
+            GroupRecitationCollection.group_id.in_(group_ids),
+            GroupRecitationCollection.deleted_at.is_(None),
+        )
+        .order_by(GroupRecitationCollection.created_at.desc())
+        .all()
+    )
+
+
 def get_collection_by_id(
     db: Session,
     collection_id: UUID,
