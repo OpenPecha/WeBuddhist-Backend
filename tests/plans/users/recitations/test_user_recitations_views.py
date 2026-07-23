@@ -14,6 +14,7 @@ from pecha_api.plans.users.recitation.user_recitations_response_models import (
     CreateUserRecitationRequest,
     UserRecitationsResponse,
     UserRecitationDTO,
+    UserRecitationItemType,
     UpdateRecitationOrderRequest,
     RecitationOrderItem
 )
@@ -49,6 +50,7 @@ class TestDataFactory:
     def create_user_recitation_dto(title="Test Text", text_id=None, language="bo", display_order=1) -> UserRecitationDTO:
         """Create a UserRecitationDTO with specified attributes."""
         return UserRecitationDTO(
+            type=UserRecitationItemType.RECITATION,
             title=title,
             text_id=text_id or uuid4(),
             language=language,
@@ -160,7 +162,11 @@ class TestGetUserRecitationsView:
         assert result.recitations[1].title == "Diamond Sutra"
         assert result.recitations[1].text_id == text_id_2
         
-        mock_service.assert_awaited_once_with(token=token)
+        mock_service.assert_awaited_once_with(
+            token=token,
+            include_collections=False,
+            include_group_collections=False,
+        )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
     @pytest.mark.asyncio
@@ -181,7 +187,11 @@ class TestGetUserRecitationsView:
         assert len(result.recitations) == 0
         assert result.recitations == []
         
-        mock_service.assert_awaited_once_with(token=token)
+        mock_service.assert_awaited_once_with(
+            token=token,
+            include_collections=False,
+            include_group_collections=False,
+        )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
     @pytest.mark.asyncio
@@ -210,7 +220,11 @@ class TestGetUserRecitationsView:
         assert result.recitations[0].title == "Lotus Sutra"
         assert result.recitations[0].text_id == text_id
         
-        mock_service.assert_awaited_once_with(token=token)
+        mock_service.assert_awaited_once_with(
+            token=token,
+            include_collections=False,
+            include_group_collections=False,
+        )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
     @pytest.mark.asyncio
@@ -234,7 +248,11 @@ class TestGetUserRecitationsView:
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
         assert exc_info.value.detail == "Invalid authentication credentials"
         
-        mock_service.assert_awaited_once_with(token=token)
+        mock_service.assert_awaited_once_with(
+            token=token,
+            include_collections=False,
+            include_group_collections=False,
+        )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
     @pytest.mark.asyncio

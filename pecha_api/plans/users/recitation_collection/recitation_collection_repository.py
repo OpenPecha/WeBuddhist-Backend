@@ -31,6 +31,19 @@ def get_user_collections(
     return collections, total
 
 
+def get_all_user_collections(
+    db: Session,
+    user_id: UUID,
+) -> List[RecitationCollection]:
+    """Return all individual recitation collections for a user, newest first."""
+    return (
+        db.query(RecitationCollection)
+        .filter(RecitationCollection.user_id == user_id)
+        .order_by(RecitationCollection.created_at.desc())
+        .all()
+    )
+
+
 def get_collection_item_counts(
     db: Session,
     collection_ids: List[UUID]

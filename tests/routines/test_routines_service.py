@@ -18,6 +18,7 @@ from pecha_api.routines.routines_service import (
     _resolve_plan_sessions,
     _resolve_recitation_sessions,
     _resolve_recitation_collection_sessions,
+    _resolve_group_recitation_collection_sessions,
     _resolve_timer_sessions,
     _resolve_sessions,
     _enroll_new_sessions_on_update,
@@ -50,6 +51,7 @@ from pecha_api.routines.response_message import (
     DUPLICATE_PLAN,
     DUPLICATE_SERIES,
     DUPLICATE_RECITATION_COLLECTION,
+    DUPLICATE_GROUP_RECITATION_COLLECTION,
     TIME_ALREADY_EXISTS,
     SOURCE_ID_REQUIRED,
     INVALID_TIMER_DURATION,
@@ -224,6 +226,48 @@ def test_validate_duplicate_recitation_collection_source_ids():
         _validate_time_block_request(request)
     assert exc_info.value.status_code == 422
     assert exc_info.value.detail["message"] == DUPLICATE_RECITATION_COLLECTION
+
+
+def test_validate_duplicate_group_recitation_collection_source_ids():
+    duplicate_id = uuid.uuid4()
+    request = CreateTimeBlockRequest(
+        time="12:00",
+        time_int=1200,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.GROUP_RECITATION_COLLECTION,
+                source_id=duplicate_id,
+                display_order=0,
+            ),
+            SessionRequest(
+                session_type=SessionType.GROUP_RECITATION_COLLECTION,
+                source_id=duplicate_id,
+                display_order=1,
+            ),
+        ],
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_time_block_request(request)
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["message"] == DUPLICATE_GROUP_RECITATION_COLLECTION
+
+
+def test_validate_group_recitation_collection_requires_source_id():
+    request = CreateTimeBlockRequest(
+        time="12:00",
+        time_int=1200,
+        sessions=[
+            SessionRequest(
+                session_type=SessionType.GROUP_RECITATION_COLLECTION,
+                source_id=None,
+                display_order=0,
+            ),
+        ],
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        _validate_time_block_request(request)
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail["message"] == SOURCE_ID_REQUIRED
 
 
 def test_validate_timer_session_valid():
@@ -2781,6 +2825,87 @@ def test_resolve_recitation_collection_sessions_defaults_item_count_to_zero():
     assert len(result) == 1
     assert result[0].item_count == 0
     assert result[0].image is None
+
+
+def test_resolve_group_recitation_collection_sessions_empty():
+    result = _resolve_group_recitation_collection_sessions(db=MagicMock(), collection_sessions=[])
+    assert result == []
+
+
+def test_resolve_group_recitation_collection_sessions_success():
+    collection_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+    session = SimpleNamespace(
+        id=session_id,
+        session_type=SessionType.GROUP_RECITATION_COLLECTION,
+        source_id=collection_id,
+        display_order=2,
+    )
+    collection = SimpleNamespace(
+        id=collection_id,
+        name="Group Chants",
+        img_url="group-collections/img.jpg",
+    )
+    db = _make_collection_db(
+        collections=[collection],
+        item_counts=[(collection_id, 4)],
+    )
+    collection_image = ImageUrlModel(
+        thumbnail="https://example.com/group_thumb.jpg",
+        medium="https://example.com/group_med.jpg",
+        original="https://example.com/group.jpg",
+    )
+    with patch(
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=collection_image,
+    ):
+        result = _resolve_group_recitation_collection_sessions(
+            db=db, collection_sessions=[session]
+        )
+
+    assert len(result) == 1
+    dto = result[0]
+    assert dto.id == session_id
+    assert dto.session_type == SessionType.GROUP_RECITATION_COLLECTION
+    assert dto.source_id == collection_id
+    assert dto.title == "Group Chants"
+    assert dto.image == collection_image
+    assert dto.display_order == 2
+    assert dto.item_count == 4
+
+
+def test_resolve_group_recitation_collection_sessions_missing_skipped():
+    session = SimpleNamespace(
+        id=uuid.uuid4(),
+        session_type=SessionType.GROUP_RECITATION_COLLECTION,
+        source_id=uuid.uuid4(),
+        display_order=0,
+    )
+    db = _make_collection_db(collections=[], item_counts=[])
+    with patch(
+        "pecha_api.routines.routines_service.safe_get_image_url",
+        return_value=None,
+    ):
+        result = _resolve_group_recitation_collection_sessions(
+            db=db, collection_sessions=[session]
+        )
+    assert result == []
+
+
+def test_session_dto_serializer_keeps_item_count_for_group_collection():
+    dto = SessionDTO(
+        id=uuid.uuid4(),
+        session_type=SessionType.GROUP_RECITATION_COLLECTION,
+        source_id=uuid.uuid4(),
+        title="Group Collection",
+        display_order=0,
+        item_count=3,
+    )
+    data = dto.model_dump()
+    assert data["item_count"] == 3
+    assert "language" not in data
+    assert "duration_ms" not in data
+    assert "accumulator_id" not in data
 
 
 def test_session_request_accepts_accumulator_id():
