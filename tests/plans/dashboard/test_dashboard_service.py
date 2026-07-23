@@ -483,8 +483,85 @@ def test_published_plans_by_series_filters_by_language():
         mock_series.plans,
         published_only=True,
         language="bo",
+        fallback=True,
     )
     assert result == {series_id: [mock_plan_dto]}
+
+
+def test_get_dashboard_items_list_keeps_strict_language_filter():
+    """CMS browsing stays strict so authors can audit actual translations."""
+    with patch(
+        "pecha_api.plans.dashboard.dashboard_service.validate_cms_author_details",
+        return_value=_make_mock_author(is_admin=True),
+    ), patch(
+        "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
+    ) as mock_session_local, patch(
+        "pecha_api.plans.dashboard.dashboard_service.get_dashboard_items",
+        return_value=([], 0),
+    ) as mock_repo:
+        _session_local_context(mock_session_local)
+        get_dashboard_items_list(
+            token="admin-token", tab="all", page=1, page_size=20, language="ne"
+        )
+
+    assert mock_repo.call_args.kwargs.get("language_fallback") in (None, False)
+
+
+def test_get_dashboard_items_resolves_a_single_plan_language():
+    """Standalone plans stay in one language instead of mixing with English.
+
+    ``resolve_plans_language`` decides once: the requested language when it has
+    published plans, English otherwise.
+    """
+    from pecha_api.plans.dashboard import dashboard_repository
+
+    with patch.object(
+        dashboard_repository, "resolve_plans_language", return_value="EN"
+    ) as mock_resolve, patch.object(
+        dashboard_repository, "_apply_plan_filters"
+    ) as mock_plan_filters, patch.object(
+        dashboard_repository, "_apply_series_filters"
+    ), patch.object(
+        dashboard_repository, "_series_base_query"
+    ), patch.object(
+        dashboard_repository, "_plan_base_query"
+    ), patch.object(
+        dashboard_repository, "_order_combined_query"
+    ):
+        dashboard_repository.get_dashboard_items(
+            MagicMock(),
+            tab="plans",
+            page=1,
+            page_size=10,
+            search=None,
+            status=PlanStatus.PUBLISHED,
+            language="ne",
+            featured=None,
+            language_fallback=True,
+        )
+
+    mock_resolve.assert_called_once()
+    # Both plan queries receive the resolved language, never the raw request.
+    for call in mock_plan_filters.call_args_list:
+        assert call.kwargs["language"] == "EN"
+
+
+def test_get_practice_items_list_opts_into_language_fallback():
+    """Practice listing must not drop items lacking content in ``language``.
+
+    Without fallback the SQL filter removes them before the service layer can
+    render an English version, leaving the Practice page empty.
+    """
+    with patch(
+        "pecha_api.plans.dashboard.dashboard_service.SessionLocal"
+    ) as mock_session_local, patch(
+        "pecha_api.plans.dashboard.dashboard_service.get_dashboard_items",
+        return_value=([], 0),
+    ) as mock_repo:
+        _session_local_context(mock_session_local)
+        get_practice_items_list(tab="all", page=1, page_size=10, language="ne")
+
+    assert mock_repo.call_args.kwargs["language_fallback"] is True
 
 
 def test_get_practice_items_list_clamps_page_and_page_size():

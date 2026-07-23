@@ -23,6 +23,7 @@ from pecha_api.plans.public.plan_repository import (
     get_all_unique_tags,
     get_next_plan_in_series,
     get_previous_plan_in_series,
+    resolve_plans_language,
 )
 from pecha_api.plans.series.series_service import (
     _series_schedule_from_plans,
@@ -84,7 +85,7 @@ async def get_published_plans(
     
     try:
         with SessionLocal() as db:
-            language_upper = language.upper()
+            language_upper = resolve_plans_language(db=db, language=language)
             plan_aggregates = get_published_plans_from_db(
                 db=db,
                 skip=skip,
