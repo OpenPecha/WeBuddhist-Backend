@@ -1,8 +1,8 @@
 """Language fallback for published-plan queries.
 
 Plans are stored per-language, so a requested language with no authored plans
-(e.g. 'LA' for Ladakhi) must fall back to English rather than returning an
-empty result. See ``plan_repository._with_language_fallback`` and
+must fall back to English rather than returning an empty result. See
+``plan_repository._with_language_fallback`` and
 ``plan_repository.resolve_plans_language``.
 """
 from unittest.mock import MagicMock, patch
@@ -54,7 +54,7 @@ class TestWithLanguageFallback:
         InvalidTextRepresentation, so such languages must never be queried."""
         query = FakeQuery({"EN": ["en-plan"]})
 
-        assert _with_language_fallback(query, "la", _fetch) == ["en-plan"]
+        assert _with_language_fallback(query, "fr", _fetch) == ["en-plan"]
         assert query.calls == ["EN"]
 
     def test_language_is_upper_cased(self):
@@ -103,7 +103,7 @@ class TestResolvePlansLanguage:
         """An unknown enum label would raise in PostgreSQL, so never query it."""
         db = self._db_returning(False)
 
-        assert resolve_plans_language(db=db, language="la") == DEFAULT_LANGUAGE
+        assert resolve_plans_language(db=db, language="fr") == DEFAULT_LANGUAGE
         db.query.assert_not_called()
 
     def test_defaults_to_english_when_language_missing(self):
