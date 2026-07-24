@@ -45,6 +45,17 @@ class RecitationsResponse(BaseModel):
     total: int
 
 
+class ListRecitationsRequest(BaseModel):
+    search: Optional[str] = None
+    language: str = "en"
+    skip: int = 0
+    limit: int = 10
+    timezone_name: Optional[str] = None
+    token: Optional[str] = None
+    should_include_collections: bool = False
+    should_include_group_collections: bool = False
+
+
 class RecitationDetailsRequest(BaseModel):
     language: str
     recitation: List[str] = []

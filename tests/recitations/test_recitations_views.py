@@ -7,6 +7,7 @@ from pecha_api.recitations.recitations_view import get_list_of_recitations, get_
 from pecha_api.recitations.recitations_response_models import (
     RecitationDTO,
     RecitationsResponse,
+    ListRecitationsRequest,
     RecitationDetailsRequest,
     RecitationDetailsResponse,
     Segment,
@@ -35,14 +36,16 @@ async def test_get_list_of_recitations_success():
         resp = await get_list_of_recitations(search=None, language="en", skip=0, limit=10)
 
         mock_service.assert_awaited_once_with(
-            search=None,
-            language="en",
-            skip=0,
-            limit=10,
-            timezone_name=None,
-            token=None,
-            include_collections=False,
-            include_group_collections=False,
+            request=ListRecitationsRequest(
+                search=None,
+                language="en",
+                skip=0,
+                limit=10,
+                timezone_name=None,
+                token=None,
+                should_include_collections=False,
+                should_include_group_collections=False,
+            )
         )
         assert resp == expected
         assert len(resp.recitations) == 2
@@ -74,14 +77,16 @@ async def test_get_list_of_recitations_single_recitation():
         resp = await get_list_of_recitations(search=None, language="bo", skip=0, limit=10)
 
         mock_service.assert_awaited_once_with(
-            search=None,
-            language="bo",
-            skip=0,
-            limit=10,
-            timezone_name=None,
-            token=None,
-            include_collections=False,
-            include_group_collections=False,
+            request=ListRecitationsRequest(
+                search=None,
+                language="bo",
+                skip=0,
+                limit=10,
+                timezone_name=None,
+                token=None,
+                should_include_collections=False,
+                should_include_group_collections=False,
+            )
         )
         assert resp == expected
         assert len(resp.recitations) == 1
@@ -111,14 +116,16 @@ async def test_get_list_of_recitations_with_search():
         resp = await get_list_of_recitations(search="prayer", language="en", skip=0, limit=10)
 
         mock_service.assert_awaited_once_with(
-            search="prayer",
-            language="en",
-            skip=0,
-            limit=10,
-            timezone_name=None,
-            token=None,
-            include_collections=False,
-            include_group_collections=False,
+            request=ListRecitationsRequest(
+                search="prayer",
+                language="en",
+                skip=0,
+                limit=10,
+                timezone_name=None,
+                token=None,
+                should_include_collections=False,
+                should_include_group_collections=False,
+            )
         )
         assert resp == expected
         assert len(resp.recitations) == 1
@@ -149,20 +156,22 @@ async def test_get_list_of_recitations_with_token_passes_credentials():
             language="en",
             skip=0,
             limit=10,
-            include_collections=True,
-            include_group_collections=True,
+            should_include_collections=True,
+            should_include_group_collections=True,
             credentials=credentials,
         )
 
         mock_service.assert_awaited_once_with(
-            search=None,
-            language="en",
-            skip=0,
-            limit=10,
-            timezone_name=None,
-            token="valid_token",
-            include_collections=True,
-            include_group_collections=True,
+            request=ListRecitationsRequest(
+                search=None,
+                language="en",
+                skip=0,
+                limit=10,
+                timezone_name=None,
+                token="valid_token",
+                should_include_collections=True,
+                should_include_group_collections=True,
+            )
         )
         assert resp == expected
 

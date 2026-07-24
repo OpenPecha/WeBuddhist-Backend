@@ -17,6 +17,7 @@ from pecha_api.recitations.recitations_response_models import (
     RecitationCollectionDTO,
     RecitationCollectionItemType,
     RecitationsResponse,
+    ListRecitationsRequest,
     RecitationDetailsRequest,
     RecitationDetailsResponse,
     RecitationSegment,
@@ -49,7 +50,9 @@ class TestGetListOfRecitationsService:
         """Test successful retrieval of recitations list from JSON order data."""
         mock_get_recitations_with_image_urls.side_effect = lambda recitations: recitations
 
-        result = await get_list_of_recitations_service(language="en")
+        result = await get_list_of_recitations_service(
+            request=ListRecitationsRequest(language="en")
+        )
 
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 10
@@ -70,7 +73,9 @@ class TestGetListOfRecitationsService:
         """Test get_list_of_recitations_service when search filter returns no match."""
         mock_get_recitations_with_image_urls.side_effect = lambda recitations: recitations
 
-        result = await get_list_of_recitations_service(search="nonexistent", language="en")
+        result = await get_list_of_recitations_service(
+            request=ListRecitationsRequest(search="nonexistent", language="en")
+        )
 
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 0
@@ -87,7 +92,9 @@ class TestGetListOfRecitationsService:
         """Test get_list_of_recitations_service when search filter matches."""
         mock_get_recitations_with_image_urls.side_effect = lambda recitations: recitations
 
-        result = await get_list_of_recitations_service(search="refuge", language="en")
+        result = await get_list_of_recitations_service(
+            request=ListRecitationsRequest(search="refuge", language="en")
+        )
 
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 1
@@ -103,8 +110,12 @@ class TestGetListOfRecitationsService:
         """Test get_list_of_recitations_service with different language parameters."""
         mock_get_recitations_with_image_urls.side_effect = lambda recitations: recitations
 
-        bo_result = await get_list_of_recitations_service(language="bo")
-        en_result = await get_list_of_recitations_service(language="fr")
+        bo_result = await get_list_of_recitations_service(
+            request=ListRecitationsRequest(language="bo")
+        )
+        en_result = await get_list_of_recitations_service(
+            request=ListRecitationsRequest(language="fr")
+        )
 
         assert bo_result.recitations[0].title == "སྐྱབས་འགྲོ་སེམས་བསྐྱེད།"
         assert en_result.recitations[0].title == "Refuge and Bodhichitta"
@@ -129,9 +140,11 @@ class TestGetListOfRecitationsService:
         ]
 
         result = await get_list_of_recitations_service(
-            language="en",
-            token="valid_token",
-            include_collections=True,
+            request=ListRecitationsRequest(
+                language="en",
+                token="valid_token",
+                should_include_collections=True,
+            )
         )
 
         assert len(result.collections) == 1
@@ -139,8 +152,8 @@ class TestGetListOfRecitationsService:
         assert result.collections[0].collection_id == collection_id
         mock_get_user_collections.assert_called_once_with(
             token="valid_token",
-            include_collections=True,
-            include_group_collections=False,
+            should_include_collections=True,
+            should_include_group_collections=False,
         )
 
     @patch("pecha_api.recitations.recitations_services.validate_and_extract_user_details")
@@ -202,8 +215,8 @@ class TestGetListOfRecitationsService:
 
         result = _get_user_collections_for_token(
             token="valid_token",
-            include_collections=True,
-            include_group_collections=True,
+            should_include_collections=True,
+            should_include_group_collections=True,
         )
 
         assert len(result) == 2
@@ -254,8 +267,8 @@ class TestGetListOfRecitationsService:
 
         result = _get_user_collections_for_token(
             token="valid_token",
-            include_collections=True,
-            include_group_collections=False,
+            should_include_collections=True,
+            should_include_group_collections=False,
         )
 
         assert len(result) == 1
@@ -304,8 +317,8 @@ class TestGetListOfRecitationsService:
 
         result = _get_user_collections_for_token(
             token="valid_token",
-            include_collections=False,
-            include_group_collections=True,
+            should_include_collections=False,
+            should_include_group_collections=True,
         )
 
         assert len(result) == 1
@@ -352,8 +365,8 @@ class TestGetListOfRecitationsService:
 
         result = _get_user_collections_for_token(
             token="valid_token",
-            include_collections=False,
-            include_group_collections=True,
+            should_include_collections=False,
+            should_include_group_collections=True,
         )
 
         assert result == []
@@ -369,8 +382,8 @@ class TestGetListOfRecitationsService:
 
         assert _get_user_collections_for_token(
             token=None,
-            include_collections=True,
-            include_group_collections=True,
+            should_include_collections=True,
+            should_include_group_collections=True,
         ) == []
 
     def test_get_user_collections_flags_false_returns_empty(self):
@@ -380,8 +393,8 @@ class TestGetListOfRecitationsService:
 
         assert _get_user_collections_for_token(
             token="valid_token",
-            include_collections=False,
-            include_group_collections=False,
+            should_include_collections=False,
+            should_include_group_collections=False,
         ) == []
 
     def test_collection_dto_omits_group_id_for_individual(self):

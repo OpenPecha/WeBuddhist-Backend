@@ -16,6 +16,7 @@ from pecha_api.recitations.recitations_response_models import (
     RecitationCollectionDTO,
     RecitationCollectionItemType,
     RecitationsResponse,
+    ListRecitationsRequest,
     RecitationDetailsRequest,
     RecitationDetailsResponse,
     Segment,
@@ -165,20 +166,20 @@ def _build_group_collection_dtos(db, user_id: UUID) -> List[RecitationCollection
 
 def _get_user_collections_for_token(
     token: Optional[str],
-    include_collections: bool = False,
-    include_group_collections: bool = False,
+    should_include_collections: bool = False,
+    should_include_group_collections: bool = False,
 ) -> List[RecitationCollectionDTO]:
-    if not token or (not include_collections and not include_group_collections):
+    if not token or (not should_include_collections and not should_include_group_collections):
         return []
 
     current_user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         collections: List[RecitationCollectionDTO] = []
-        if include_collections:
+        if should_include_collections:
             collections.extend(
                 _build_individual_collection_dtos(db=db, user_id=current_user.id)
             )
-        if include_group_collections:
+        if should_include_group_collections:
             collections.extend(
                 _build_group_collection_dtos(db=db, user_id=current_user.id)
             )
@@ -186,20 +187,13 @@ def _get_user_collections_for_token(
 
 
 async def get_list_of_recitations_service(
-    search: Optional[str] = None,
-    language: str = "en",
-    skip: int = 0,
-    limit: int = 10,
-    timezone_name: Optional[str] = None,
-    token: Optional[str] = None,
-    include_collections: bool = False,
-    include_group_collections: bool = False,
+    request: ListRecitationsRequest,
 ) -> RecitationsResponse:
     recitation_list_response = get_ordered_recitations_response(
-        language=language,
-        search=search,
-        skip=skip,
-        limit=limit,
+        language=request.language,
+        search=request.search,
+        skip=request.skip,
+        limit=request.limit,
     )
 
     recitations_with_images = get_recitations_with_image_urls(
@@ -207,7 +201,7 @@ async def get_list_of_recitations_service(
     )
     visible_recitations = filter_items_for_timezone(
         recitations_with_images,
-        timezone_name=timezone_name,
+        timezone_name=request.timezone_name,
         item_type=RestrictedItemType.RECITATION,
         id_of=lambda recitation: recitation.text_id,
     )
@@ -215,12 +209,12 @@ async def get_list_of_recitations_service(
     return RecitationsResponse(
         recitations=visible_recitations,
         collections=_get_user_collections_for_token(
-            token=token,
-            include_collections=include_collections,
-            include_group_collections=include_group_collections,
+            token=request.token,
+            should_include_collections=request.should_include_collections,
+            should_include_group_collections=request.should_include_group_collections,
         ),
-        skip=skip,
-        limit=limit,
+        skip=request.skip,
+        limit=request.limit,
         total=recitation_list_response.total,
     )
 

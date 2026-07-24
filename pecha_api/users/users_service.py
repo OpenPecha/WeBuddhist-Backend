@@ -151,7 +151,20 @@ def validate_and_extract_user_details(token: str) -> Users:
         if email is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorConstants.TOKEN_ERROR_MESSAGE)
         with SessionLocal() as db_session:
-            user = get_user_by_email(db=db_session, email=email)
+            try:
+                user = get_user_by_email(db=db_session, email=email)
+            except HTTPException as exception:
+                if exception.status_code == status.HTTP_404_NOT_FOUND:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
+                    ) from exception
+                raise
+            if user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
+                )
             return user
     except ExpiredSignatureError as exception:
         logging.debug(f"exception: {exception}")

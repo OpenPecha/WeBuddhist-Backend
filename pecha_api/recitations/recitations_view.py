@@ -9,6 +9,7 @@ from pecha_api.recitations.recitations_services import (
 )
 from pecha_api.recitations.recitations_response_models import (
     RecitationsResponse,
+    ListRecitationsRequest,
     RecitationDetailsRequest,
     RecitationDetailsResponse,
 )
@@ -27,11 +28,11 @@ async def get_list_of_recitations(
     language: str = Query(),
     skip: int = Query(0, ge=0),
     limit: int = Query(10, ge=1),
-    include_collections: Annotated[
+    should_include_collections: Annotated[
         bool,
         Query(description="Include the user's individual recitation collections (requires auth)"),
     ] = False,
-    include_group_collections: Annotated[
+    should_include_group_collections: Annotated[
         bool,
         Query(
             description=(
@@ -54,17 +55,19 @@ async def get_list_of_recitations(
         Optional[HTTPAuthorizationCredentials],
         Depends(optional_oauth2_scheme),
     ] = None,
-):
+) -> RecitationsResponse:
     token = credentials.credentials if credentials else None
     return await get_list_of_recitations_service(
-        search=search,
-        language=language,
-        skip=skip,
-        limit=limit,
-        timezone_name=x_timezone,
-        token=token,
-        include_collections=include_collections,
-        include_group_collections=include_group_collections,
+        request=ListRecitationsRequest(
+            search=search,
+            language=language,
+            skip=skip,
+            limit=limit,
+            timezone_name=x_timezone,
+            token=token,
+            should_include_collections=should_include_collections,
+            should_include_group_collections=should_include_group_collections,
+        )
     )
 
 
@@ -82,7 +85,7 @@ async def get_recitation_details(
             ),
         ),
     ] = None,
-):
+) -> RecitationDetailsResponse:
     return await get_recitation_details_service(
         text_id=text_id,
         recitation_details_request=recitation_details_request,

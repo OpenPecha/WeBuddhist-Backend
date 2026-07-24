@@ -272,6 +272,34 @@ def test_validate_and_extract_user_details_invalid_token():
     assert exc_info.value.detail == "Invalid or no token found"
 
 
+def test_validate_and_extract_user_details_user_not_found():
+    token = "valid_token"
+
+    with patch("pecha_api.users.users_service.validate_token", return_value={"email": "missing@example.com"}), \
+            patch("pecha_api.users.users_service.get_user_by_email", return_value=None):
+        with pytest.raises(HTTPException) as exc_info:
+            validate_and_extract_user_details(token)
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+    assert exc_info.value.detail == ErrorConstants.TOKEN_ERROR_MESSAGE
+
+
+def test_validate_and_extract_user_details_user_not_found_raises_404():
+    token = "valid_token"
+
+    with patch("pecha_api.users.users_service.validate_token", return_value={"email": "missing@example.com"}), \
+            patch(
+                "pecha_api.users.users_service.get_user_by_email",
+                side_effect=HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=ErrorConstants.USER_NOT_FOUND,
+                ),
+            ):
+        with pytest.raises(HTTPException) as exc_info:
+            validate_and_extract_user_details(token)
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+    assert exc_info.value.detail == ErrorConstants.TOKEN_ERROR_MESSAGE
+
+
 def test_validate_and_extract_user_details_expired_signature():
     token = "expired_token"
 
