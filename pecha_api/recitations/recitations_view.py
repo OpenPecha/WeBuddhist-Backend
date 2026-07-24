@@ -36,7 +36,7 @@ async def get_list_of_recitations(
         Query(
             description=(
                 "Include group recitation collections from groups the user follows "
-                "(requires auth)"
+                "or has joined (requires auth)"
             )
         ),
     ] = False,

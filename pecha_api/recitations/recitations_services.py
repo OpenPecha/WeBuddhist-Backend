@@ -43,7 +43,10 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_repositor
     get_all_user_collections,
     get_collection_item_counts,
 )
-from pecha_api.plans.groups.groups_repository import get_following_group_ids_by_user
+from pecha_api.plans.groups.groups_repository import (
+    get_following_group_ids_by_user,
+    get_joined_group_ids_by_user,
+)
 from pecha_api.group_recitation_collection.repository import (
     get_collections_by_group_ids,
     get_collection_item_counts as get_group_collection_item_counts,
@@ -132,8 +135,14 @@ def _build_individual_collection_dtos(db, user_id: UUID) -> List[RecitationColle
 
 
 def _build_group_collection_dtos(db, user_id: UUID) -> List[RecitationCollectionDTO]:
-    followed_group_ids = get_following_group_ids_by_user(db=db, user_id=user_id)
-    collections = get_collections_by_group_ids(db=db, group_ids=followed_group_ids)
+    # PAGE groups use follow; COMMUNITY groups use join — include both.
+    related_group_ids = list(
+        dict.fromkeys(
+            get_following_group_ids_by_user(db=db, user_id=user_id)
+            + get_joined_group_ids_by_user(db=db, user_id=user_id)
+        )
+    )
+    collections = get_collections_by_group_ids(db=db, group_ids=related_group_ids)
     if not collections:
         return []
 

@@ -146,6 +146,7 @@ class TestGetListOfRecitationsService:
     @patch("pecha_api.recitations.recitations_services.validate_and_extract_user_details")
     @patch("pecha_api.recitations.recitations_services.get_group_collection_item_counts")
     @patch("pecha_api.recitations.recitations_services.get_collections_by_group_ids")
+    @patch("pecha_api.recitations.recitations_services.get_joined_group_ids_by_user")
     @patch("pecha_api.recitations.recitations_services.get_following_group_ids_by_user")
     @patch("pecha_api.recitations.recitations_services.get_collection_item_counts")
     @patch("pecha_api.recitations.recitations_services.get_all_user_collections")
@@ -158,6 +159,7 @@ class TestGetListOfRecitationsService:
         mock_get_collections,
         mock_item_counts,
         mock_followed_groups,
+        mock_joined_groups,
         mock_group_collections,
         mock_group_item_counts,
         mock_validate,
@@ -183,6 +185,7 @@ class TestGetListOfRecitationsService:
         ]
         mock_item_counts.return_value = {individual_id: 4}
         mock_followed_groups.return_value = [group_id]
+        mock_joined_groups.return_value = []
         mock_group_collections.return_value = [
             SimpleNamespace(
                 id=group_collection_id,
@@ -211,6 +214,10 @@ class TestGetListOfRecitationsService:
         assert result[1].name == "Sangha Chants"
         assert result[1].group_id == group_id
         assert result[1].item_count == 5
+        mock_group_collections.assert_called_once_with(
+            db=mock_session_local.return_value.__enter__.return_value,
+            group_ids=[group_id],
+        )
 
     @patch("pecha_api.recitations.recitations_services.validate_and_extract_user_details")
     @patch("pecha_api.recitations.recitations_services.get_collection_item_counts")
@@ -257,6 +264,7 @@ class TestGetListOfRecitationsService:
     @patch("pecha_api.recitations.recitations_services.validate_and_extract_user_details")
     @patch("pecha_api.recitations.recitations_services.get_group_collection_item_counts")
     @patch("pecha_api.recitations.recitations_services.get_collections_by_group_ids")
+    @patch("pecha_api.recitations.recitations_services.get_joined_group_ids_by_user")
     @patch("pecha_api.recitations.recitations_services.get_following_group_ids_by_user")
     @patch("pecha_api.recitations.recitations_services.SessionLocal")
     @patch("pecha_api.recitations.recitations_services._presigned_image_url")
@@ -265,6 +273,7 @@ class TestGetListOfRecitationsService:
         mock_presign,
         mock_session_local,
         mock_followed_groups,
+        mock_joined_groups,
         mock_group_collections,
         mock_group_item_counts,
         mock_validate,
@@ -280,7 +289,8 @@ class TestGetListOfRecitationsService:
         mock_validate.return_value = SimpleNamespace(id=user_id)
         mock_session_local.return_value.__enter__.return_value = MagicMock()
         mock_session_local.return_value.__exit__.return_value = None
-        mock_followed_groups.return_value = [group_id]
+        mock_followed_groups.return_value = []
+        mock_joined_groups.return_value = [group_id]
         mock_group_collections.return_value = [
             SimpleNamespace(
                 id=collection_id,
@@ -301,6 +311,56 @@ class TestGetListOfRecitationsService:
         assert len(result) == 1
         assert result[0].type == RecitationCollectionItemType.GROUP_RECITATION_COLLECTION
         assert result[0].group_id == group_id
+        mock_group_collections.assert_called_once_with(
+            db=mock_session_local.return_value.__enter__.return_value,
+            group_ids=[group_id],
+        )
+
+    @patch("pecha_api.recitations.recitations_services.validate_and_extract_user_details")
+    @patch("pecha_api.recitations.recitations_services.get_group_collection_item_counts")
+    @patch("pecha_api.recitations.recitations_services.get_collections_by_group_ids")
+    @patch("pecha_api.recitations.recitations_services.get_joined_group_ids_by_user")
+    @patch("pecha_api.recitations.recitations_services.get_following_group_ids_by_user")
+    @patch("pecha_api.recitations.recitations_services.SessionLocal")
+    @patch("pecha_api.recitations.recitations_services._presigned_image_url")
+    def test_get_user_collections_merges_followed_and_joined_groups(
+        self,
+        mock_presign,
+        mock_session_local,
+        mock_followed_groups,
+        mock_joined_groups,
+        mock_group_collections,
+        mock_group_item_counts,
+        mock_validate,
+    ):
+        from types import SimpleNamespace
+        from pecha_api.recitations.recitations_services import (
+            _get_user_collections_for_token,
+        )
+
+        user_id = uuid4()
+        followed_group_id = uuid4()
+        joined_group_id = uuid4()
+        mock_validate.return_value = SimpleNamespace(id=user_id)
+        mock_session_local.return_value.__enter__.return_value = MagicMock()
+        mock_session_local.return_value.__exit__.return_value = None
+        mock_followed_groups.return_value = [followed_group_id]
+        mock_joined_groups.return_value = [joined_group_id, followed_group_id]
+        mock_group_collections.return_value = []
+        mock_group_item_counts.return_value = {}
+        mock_presign.return_value = None
+
+        result = _get_user_collections_for_token(
+            token="valid_token",
+            include_collections=False,
+            include_group_collections=True,
+        )
+
+        assert result == []
+        mock_group_collections.assert_called_once_with(
+            db=mock_session_local.return_value.__enter__.return_value,
+            group_ids=[followed_group_id, joined_group_id],
+        )
 
     def test_get_user_collections_for_token_without_token_returns_empty(self):
         from pecha_api.recitations.recitations_services import (
