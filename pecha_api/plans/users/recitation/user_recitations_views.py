@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from starlette import status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated
@@ -41,23 +41,9 @@ async def create_user_recitation(
 )
 async def get_user_recitations(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    include_collections: Annotated[
-        bool,
-        Query(description="Include the user's individual recitation collections"),
-    ] = False,
-    include_group_collections: Annotated[
-        bool,
-        Query(
-            description=(
-                "Include group recitation collections from groups the user follows"
-            )
-        ),
-    ] = False,
 ):
     return await get_user_recitations_service(
         token=authentication_credential.credentials,
-        include_collections=include_collections,
-        include_group_collections=include_group_collections,
     )
 
 

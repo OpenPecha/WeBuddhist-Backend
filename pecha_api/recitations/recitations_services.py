@@ -3,7 +3,6 @@ from pecha_api.texts.texts_enums import TextType
 from typing import List, Dict, Union,Optional
 from pecha_api.recitations.order.recitation_order_loader import get_ordered_recitations_response
 from pecha_api.recitations.recitations_repository import get_text_images_by_text_ids
-from pecha_api.recitations.recitations_response_models import RecitationDTO, RecitationsResponse, Segment
 from pecha_api.texts.first_segment_preview_service import (
     build_first_segment_previews_for_texts,
 )
@@ -13,12 +12,15 @@ from pecha_api.texts.segments.segments_utils import SegmentUtils
 from pecha_api.texts.segments.segments_response_models import SegmentTranslation, SegmentTransliteration, SegmentAdaptation, SegmentRecitation
 from pecha_api.texts.segments.segments_response_models import SegmentDTO
 from pecha_api.recitations.recitations_response_models import (
-    RecitationDTO, 
-    RecitationsResponse, 
-    RecitationDetailsRequest, 
+    RecitationDTO,
+    RecitationCollectionDTO,
+    RecitationCollectionItemType,
+    RecitationsResponse,
+    ListRecitationsRequest,
+    RecitationDetailsRequest,
     RecitationDetailsResponse,
     Segment,
-    RecitationSegment,  
+    RecitationSegment,
 )
 from pecha_api.cache.cache_enums import CacheType
 from pecha_api.recitations.recication_cache_services import set_recitation_by_text_id_cache, get_recitation_by_text_id_cache
@@ -36,6 +38,19 @@ from pecha_api.region_restrictions.region_restriction_enums import RestrictedIte
 from pecha_api.region_restrictions.region_restriction_service import (
     assert_visible_for_timezone,
     filter_items_for_timezone,
+)
+from pecha_api.users.users_service import validate_and_extract_user_details
+from pecha_api.plans.users.recitation_collection.recitation_collection_repository import (
+    get_all_user_collections,
+    get_collection_item_counts,
+)
+from pecha_api.plans.groups.groups_repository import (
+    get_following_group_ids_by_user,
+    get_joined_group_ids_by_user,
+)
+from pecha_api.group_recitation_collection.repository import (
+    get_collections_by_group_ids,
+    get_collection_item_counts as get_group_collection_item_counts,
 )
 
 def get_recitations_with_image_urls(recitations: List[RecitationDTO]) -> List[RecitationDTO]:
@@ -90,18 +105,95 @@ async def get_recitations_with_first_segments(recitations: List[RecitationDTO]) 
         )
     return result
 
+def _presigned_image_url(s3_key: str | None) -> str | None:
+    if not s3_key:
+        return None
+    return generate_presigned_access_url(
+        bucket_name=get("AWS_BUCKET_NAME"),
+        s3_key=s3_key,
+    )
+
+
+def _build_individual_collection_dtos(db, user_id: UUID) -> List[RecitationCollectionDTO]:
+    collections = get_all_user_collections(db=db, user_id=user_id)
+    if not collections:
+        return []
+
+    item_counts = get_collection_item_counts(
+        db=db,
+        collection_ids=[collection.id for collection in collections],
+    )
+    return [
+        RecitationCollectionDTO(
+            type=RecitationCollectionItemType.RECITATION_COLLECTION,
+            name=collection.name,
+            collection_id=collection.id,
+            image_url=_presigned_image_url(collection.img_url),
+            item_count=item_counts.get(collection.id, 0),
+        )
+        for collection in collections
+    ]
+
+
+def _build_group_collection_dtos(db, user_id: UUID) -> List[RecitationCollectionDTO]:
+    # PAGE groups use follow; COMMUNITY groups use join — include both.
+    related_group_ids = list(
+        dict.fromkeys(
+            get_following_group_ids_by_user(db=db, user_id=user_id)
+            + get_joined_group_ids_by_user(db=db, user_id=user_id)
+        )
+    )
+    collections = get_collections_by_group_ids(db=db, group_ids=related_group_ids)
+    if not collections:
+        return []
+
+    item_counts = get_group_collection_item_counts(
+        db=db,
+        collection_ids=[collection.id for collection in collections],
+    )
+    return [
+        RecitationCollectionDTO(
+            type=RecitationCollectionItemType.GROUP_RECITATION_COLLECTION,
+            name=collection.name,
+            collection_id=collection.id,
+            group_id=collection.group_id,
+            image_url=_presigned_image_url(collection.img_url),
+            item_count=item_counts.get(collection.id, 0),
+        )
+        for collection in collections
+    ]
+
+
+def _get_user_collections_for_token(
+    token: Optional[str],
+    should_include_collections: bool = False,
+    should_include_group_collections: bool = False,
+) -> List[RecitationCollectionDTO]:
+    if not token or (not should_include_collections and not should_include_group_collections):
+        return []
+
+    current_user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        collections: List[RecitationCollectionDTO] = []
+        if should_include_collections:
+            collections.extend(
+                _build_individual_collection_dtos(db=db, user_id=current_user.id)
+            )
+        if should_include_group_collections:
+            collections.extend(
+                _build_group_collection_dtos(db=db, user_id=current_user.id)
+            )
+        return collections
+
+
 async def get_list_of_recitations_service(
-    search: Optional[str] = None,
-    language: str = "en",
-    skip: int = 0,
-    limit: int = 10,
-    timezone_name: Optional[str] = None,
+    request: ListRecitationsRequest,
 ) -> RecitationsResponse:
     recitation_list_response = get_ordered_recitations_response(
-        language=language,
-        search=search,
-        skip=skip,
-        limit=limit,
+        language=request.language,
+        search=request.search,
+        skip=request.skip,
+        limit=request.limit,
     )
 
     recitations_with_images = get_recitations_with_image_urls(
@@ -109,15 +201,20 @@ async def get_list_of_recitations_service(
     )
     visible_recitations = filter_items_for_timezone(
         recitations_with_images,
-        timezone_name=timezone_name,
+        timezone_name=request.timezone_name,
         item_type=RestrictedItemType.RECITATION,
         id_of=lambda recitation: recitation.text_id,
     )
 
     return RecitationsResponse(
         recitations=visible_recitations,
-        skip=skip,
-        limit=limit,
+        collections=_get_user_collections_for_token(
+            token=request.token,
+            should_include_collections=request.should_include_collections,
+            should_include_group_collections=request.should_include_group_collections,
+        ),
+        skip=request.skip,
+        limit=request.limit,
         total=recitation_list_response.total,
     )
 

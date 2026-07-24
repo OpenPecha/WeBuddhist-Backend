@@ -14,7 +14,6 @@ from pecha_api.plans.users.recitation.user_recitations_response_models import (
     CreateUserRecitationRequest,
     UserRecitationsResponse,
     UserRecitationDTO,
-    UserRecitationItemType,
     UpdateRecitationOrderRequest,
     RecitationOrderItem
 )
@@ -50,7 +49,6 @@ class TestDataFactory:
     def create_user_recitation_dto(title="Test Text", text_id=None, language="bo", display_order=1) -> UserRecitationDTO:
         """Create a UserRecitationDTO with specified attributes."""
         return UserRecitationDTO(
-            type=UserRecitationItemType.RECITATION,
             title=title,
             text_id=text_id or uuid4(),
             language=language,
@@ -164,8 +162,6 @@ class TestGetUserRecitationsView:
         
         mock_service.assert_awaited_once_with(
             token=token,
-            include_collections=False,
-            include_group_collections=False,
         )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
@@ -189,8 +185,6 @@ class TestGetUserRecitationsView:
         
         mock_service.assert_awaited_once_with(
             token=token,
-            include_collections=False,
-            include_group_collections=False,
         )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
@@ -222,8 +216,6 @@ class TestGetUserRecitationsView:
         
         mock_service.assert_awaited_once_with(
             token=token,
-            include_collections=False,
-            include_group_collections=False,
         )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
@@ -250,8 +242,6 @@ class TestGetUserRecitationsView:
         
         mock_service.assert_awaited_once_with(
             token=token,
-            include_collections=False,
-            include_group_collections=False,
         )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
