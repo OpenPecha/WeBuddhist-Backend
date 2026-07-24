@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Optional, List, Union
 from datetime import datetime
 from urllib.parse import urlparse
@@ -38,9 +38,9 @@ def _validate_link_url(url: str) -> str:
 
 
 class EventLinkInput(BaseModel):
-    type: str
-    url: str
-    label: Optional[str] = None
+    type: str = Field(max_length=50)
+    url: str = Field(max_length=2000)
+    label: Optional[str] = Field(default=None, max_length=255)
     display_order: int = 1
 
     @field_validator("type")

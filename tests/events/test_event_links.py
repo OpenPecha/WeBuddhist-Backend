@@ -26,14 +26,14 @@ client = TestClient(api)
 
 # --------------------------- EventLinkInput validation ---------------------------
 
-def test_event_link_input_accepts_valid_http_and_https():
+def test_event_link_input_accepts_valid_http_and_https() -> None:
     http_link = EventLinkInput(type="web", url="http://example.com/info")
     https_link = EventLinkInput(type="google-meet", url="https://meet.google.com/abc")
     assert http_link.url == "http://example.com/info"
     assert https_link.display_order == 1  # default
 
 
-def test_event_link_input_trims_type_and_url():
+def test_event_link_input_trims_type_and_url() -> None:
     link = EventLinkInput(type="  web  ", url="  https://example.com  ")
     assert link.type == "web"
     assert link.url == "https://example.com"
@@ -43,20 +43,30 @@ def test_event_link_input_trims_type_and_url():
     "bad_url",
     ["ftp://example.com", "notaurl", "javascript:alert(1)", "http://", "https://", "mailto:a@b.com"],
 )
-def test_event_link_input_rejects_non_http_url(bad_url):
+def test_event_link_input_rejects_non_http_url(bad_url: str) -> None:
     with pytest.raises(ValidationError):
         EventLinkInput(type="web", url=bad_url)
 
 
 @pytest.mark.parametrize("bad_type", ["", "   "])
-def test_event_link_input_rejects_empty_type(bad_type):
+def test_event_link_input_rejects_empty_type(bad_type: str) -> None:
     with pytest.raises(ValidationError):
         EventLinkInput(type=bad_type, url="https://example.com")
 
 
+def test_event_link_input_rejects_oversized_fields() -> None:
+    # type > 50, url > 2000, label > 255 must be rejected at validation, not at the DB
+    with pytest.raises(ValidationError):
+        EventLinkInput(type="x" * 51, url="https://example.com")
+    with pytest.raises(ValidationError):
+        EventLinkInput(type="web", url="https://example.com/" + "a" * 2000)
+    with pytest.raises(ValidationError):
+        EventLinkInput(type="web", url="https://example.com", label="y" * 256)
+
+
 # --------------------------- request defaults ---------------------------
 
-def test_create_event_request_defaults_links_to_empty_list():
+def test_create_event_request_defaults_links_to_empty_list() -> None:
     now = datetime.now(timezone.utc)
     request = CreateEventRequest(
         group_id=uuid4(),
@@ -67,14 +77,14 @@ def test_create_event_request_defaults_links_to_empty_list():
     assert request.links == []
 
 
-def test_update_event_request_defaults_links_to_none():
+def test_update_event_request_defaults_links_to_none() -> None:
     request = UpdateEventRequest()
     assert request.links is None
 
 
 # --------------------------- _links_to_dtos ordering ---------------------------
 
-def _link(display_order, type_="web"):
+def _link(display_order: int, type_: str = "web") -> SimpleNamespace:
     return SimpleNamespace(
         id=uuid4(),
         type=type_,
@@ -84,20 +94,20 @@ def _link(display_order, type_="web"):
     )
 
 
-def test_links_to_dtos_orders_by_display_order():
+def test_links_to_dtos_orders_by_display_order() -> None:
     links = [_link(3), _link(1), _link(2)]
     dtos = _links_to_dtos(links)
     assert [dto.display_order for dto in dtos] == [1, 2, 3]
 
 
-def test_links_to_dtos_empty_returns_empty_list():
+def test_links_to_dtos_empty_returns_empty_list() -> None:
     assert _links_to_dtos([]) == []
     assert _links_to_dtos(None) == []
 
 
 # --------------------------- EventDTO serialization ---------------------------
 
-def test_event_dto_serializes_links_ordered():
+def test_event_dto_serializes_links_ordered() -> None:
     now = datetime.now(timezone.utc)
     event = EventDTO(
         id=uuid4(),
@@ -118,7 +128,7 @@ def test_event_dto_serializes_links_ordered():
 
 # --------------------------- endpoint 400 on bad link ---------------------------
 
-def test_create_event_endpoint_rejects_bad_url():
+def test_create_event_endpoint_rejects_bad_url() -> None:
     now = datetime.now(timezone.utc).isoformat()
     response = client.post(
         "/cms/events",
@@ -134,7 +144,7 @@ def test_create_event_endpoint_rejects_bad_url():
     assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
-def test_create_event_endpoint_rejects_empty_type():
+def test_create_event_endpoint_rejects_empty_type() -> None:
     now = datetime.now(timezone.utc).isoformat()
     response = client.post(
         "/cms/events",
@@ -152,7 +162,7 @@ def test_create_event_endpoint_rejects_empty_type():
 
 # --------------------------- service passes links to repository ---------------------------
 
-def _saved_event_stub():
+def _saved_event_stub() -> SimpleNamespace:
     now = datetime.now(timezone.utc)
     return SimpleNamespace(
         id=uuid4(),
@@ -172,7 +182,7 @@ def _saved_event_stub():
     )
 
 
-def test_create_event_service_passes_links_to_save():
+def test_create_event_service_passes_links_to_save() -> None:
     now = datetime.now(timezone.utc)
     request = CreateEventRequest(
         group_id=uuid4(),
@@ -200,7 +210,7 @@ def test_create_event_service_passes_links_to_save():
     assert forwarded_links == request.links
 
 
-def test_update_event_service_replaces_links():
+def test_update_event_service_replaces_links() -> None:
     now = datetime.now(timezone.utc)
     request = UpdateEventRequest(
         links=[{"type": "google-meet", "url": "https://meet.google.com/abc"}],

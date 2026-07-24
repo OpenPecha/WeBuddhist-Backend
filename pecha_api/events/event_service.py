@@ -95,7 +95,7 @@ def _metadata_response(entries, language: Optional[str] = None, fallback: bool =
     )
 
 
-def _links_to_dtos(links) -> List[EventLinkDTO]:
+def _links_to_dtos(links: Optional[List]) -> List[EventLinkDTO]:
     if not links:
         return []
     return [
