@@ -34,6 +34,7 @@ def _event(metadata_entries):
         end_date=now,
         image_url=None,
         metadata_entries=metadata_entries,
+        links=[],
         created_at=now,
         created_by="author@example.com",
         updated_at=None,

@@ -30,6 +30,13 @@ class Event(Base):
         passive_deletes=True,
     )
 
+    links = relationship(
+        "EventLink",
+        back_populates="event",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
     participants = relationship(
         "GroupEventParticipant",
         back_populates="event",
