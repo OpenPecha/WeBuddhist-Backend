@@ -8,6 +8,8 @@ from starlette import status
 from pecha_api.group_posts.enums import GroupPostMediaType, GroupPostStatus
 from pecha_api.group_posts.response_models import GroupPostDTO, GroupPostsResponse
 from pecha_api.group_posts.service import (
+    _generate_presigned_url,
+    _isoformat,
     get_group_post_detail_service,
     list_group_posts_service,
 )
@@ -75,6 +77,49 @@ class MockGroupPost:
         self.deleted_by = None
         self.media = media or []
         self.links = links or []
+
+
+class TestGeneratePresignedUrl:
+    """A media URL that cannot be signed must degrade to null rather than
+    failing the whole feed."""
+
+    def test_returns_none_without_a_key(self):
+        assert _generate_presigned_url(None) is None
+        assert _generate_presigned_url("") is None
+
+    @patch('pecha_api.group_posts.service.get')
+    @patch('pecha_api.group_posts.service.generate_presigned_access_url')
+    def test_signs_the_key_with_the_configured_bucket(self, mock_generate, mock_get):
+        mock_get.return_value = "media-bucket"
+        mock_generate.return_value = "https://presigned/a.webp"
+
+        assert _generate_presigned_url("groups/g/posts/a.webp") == "https://presigned/a.webp"
+        mock_generate.assert_called_once_with(
+            bucket_name="media-bucket",
+            s3_key="groups/g/posts/a.webp",
+        )
+
+    @patch('pecha_api.group_posts.service.get')
+    @patch('pecha_api.group_posts.service.generate_presigned_access_url')
+    def test_returns_none_when_signing_fails(self, mock_generate, mock_get):
+        mock_get.return_value = "media-bucket"
+        mock_generate.side_effect = RuntimeError("s3 unavailable")
+
+        assert _generate_presigned_url("groups/g/posts/a.webp") is None
+
+
+class TestIsoformat:
+
+    def test_returns_none_for_none(self):
+        assert _isoformat(None) is None
+
+    def test_formats_datetimes(self):
+        value = datetime(2026, 7, 27, 12, 30, tzinfo=tz.utc)
+
+        assert _isoformat(value) == value.isoformat()
+
+    def test_falls_back_to_str_for_other_values(self):
+        assert _isoformat(42) == "42"
 
 
 class TestListGroupPostsService:

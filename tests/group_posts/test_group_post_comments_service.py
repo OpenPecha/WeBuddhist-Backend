@@ -10,6 +10,7 @@ from pecha_api.group_posts.comment_response_models import (
     GroupPostCommentsResponse,
 )
 from pecha_api.group_posts.comment_service import (
+    build_comment_dto,
     create_post_comment_service,
     delete_post_comment_service,
     list_post_comments_service,
@@ -114,8 +115,79 @@ class TestListPostCommentsService:
         assert result.comments == []
         assert result.total == 0
 
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.comment_service.SessionLocal')
+    def test_list_comments_post_not_found_returns_404(
+        self, mock_session, mock_get_group, mock_get_post
+    ):
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_get_group.return_value = MockGroup()
+        mock_get_post.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            list_post_comments_service(group_id=uuid4(), post_id=uuid4())
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestBuildCommentDTO:
+
+    def test_uses_a_placeholder_email_when_the_user_row_is_missing(self):
+        comment = MockComment()
+        comment.user = None
+
+        dto = build_comment_dto(comment)
+
+        assert dto.user_email == "unknown@example.com"
+
+    def test_leaves_updated_at_null_when_never_edited(self):
+        comment = MockComment()
+        comment.updated_at = None
+
+        dto = build_comment_dto(comment)
+
+        assert dto.updated_at is None
+        assert dto.created_at == comment.created_at.isoformat()
+
 
 class TestCreatePostCommentService:
+
+    @patch('pecha_api.group_posts.comment_service.create_comment')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.comment_service.SessionLocal')
+    def test_create_comment_success(
+        self, mock_session, mock_get_group, mock_get_post, mock_create
+    ):
+        group_id = uuid4()
+        post_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_group.return_value = MockGroup(id=group_id)
+        mock_get_post.return_value = MockPost(id=post_id, group_id=group_id)
+
+        user = MockUser(email="commenter@example.com")
+        mock_db.query.return_value.filter.return_value.first.return_value = user
+        mock_create.return_value = MockComment(
+            user=user, user_id=user.id, post_id=post_id, text="Hello"
+        )
+
+        result = create_post_comment_service(
+            group_id=group_id,
+            post_id=post_id,
+            author_email="commenter@example.com",
+            text="Hello",
+        )
+
+        assert result.text == "Hello"
+        assert result.user_id == user.id
+        assert result.user_email == "commenter@example.com"
+
+        persisted = mock_create.call_args.kwargs["comment"]
+        assert persisted.post_id == post_id
+        assert persisted.user_id == user.id
+        assert persisted.text == "Hello"
 
     @patch('pecha_api.group_posts.comment_service.get_post_by_id')
     @patch('pecha_api.group_posts.comment_service.get_group_by_id')

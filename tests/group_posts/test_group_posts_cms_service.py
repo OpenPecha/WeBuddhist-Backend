@@ -395,6 +395,39 @@ class TestCmsUpdateGroupPostService:
         assert exc_info.value.detail == EMPTY_POST_MESSAGE
         mock_update_post.assert_not_called()
 
+    @patch('pecha_api.group_posts.service._generate_presigned_url')
+    @patch('pecha_api.group_posts.cms_service.update_post')
+    @patch('pecha_api.group_posts.cms_service.get_post_by_id')
+    @patch('pecha_api.group_posts.cms_service.require_can_change_status')
+    @patch('pecha_api.group_posts.cms_service.require_can_create_content')
+    @patch('pecha_api.group_posts.cms_service.get_group_by_id')
+    @patch('pecha_api.group_posts.cms_service.validate_and_extract_author_details')
+    @patch('pecha_api.group_posts.cms_service.SessionLocal')
+    def test_update_overrides_published_at(
+        self, mock_session, mock_validate, mock_get_group, mock_require_create,
+        mock_require_status, mock_get_post, mock_update_post, mock_presign
+    ):
+        group_id = uuid4()
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_validate.return_value = MockAuthor()
+        mock_get_group.return_value = MockGroup(id=group_id)
+        mock_presign.return_value = None
+        post = MockGroupPost(group_id=group_id)
+        mock_get_post.return_value = post
+        mock_update_post.side_effect = lambda db, post: post
+
+        backdated = datetime(2026, 1, 15, 9, 0, tzinfo=tz.utc)
+        result = cms_update_group_post_service(
+            token="cms_token",
+            group_id=group_id,
+            post_id=post.id,
+            request=UpdateGroupPostRequest(published_at=backdated),
+        )
+
+        assert post.published_at == backdated
+        assert result.published_at == backdated.isoformat()
+        mock_require_status.assert_not_called()
+
     @patch('pecha_api.group_posts.cms_service.get_post_by_id')
     @patch('pecha_api.group_posts.cms_service.require_can_create_content')
     @patch('pecha_api.group_posts.cms_service.get_group_by_id')

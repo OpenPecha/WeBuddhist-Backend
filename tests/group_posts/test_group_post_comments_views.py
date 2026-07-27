@@ -66,3 +66,128 @@ class TestPublicGroupPostCommentsViews:
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["total"] == 0
 
+
+class TestCreatePostCommentView:
+
+    @patch('pecha_api.group_posts.comment_views.create_post_comment_service')
+    @patch('pecha_api.group_posts.comment_views.validate_and_extract_author_details')
+    def test_create_comment(self, mock_validate, mock_service):
+        client = get_client()
+        group_id = uuid4()
+        post_id = uuid4()
+        author = MagicMock()
+        author.email = "author@example.com"
+        mock_validate.return_value = author
+        mock_service.return_value = _comment_dto(post_id=post_id)
+
+        response = client.post(
+            f"/author/groups/{group_id}/posts/{post_id}/comments",
+            headers=AUTH_HEADERS,
+            json={"text": "Great post!"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.json()["text"] == "Great post!"
+        mock_validate.assert_called_once_with(token="test-token")
+        mock_service.assert_called_once_with(
+            group_id=group_id,
+            post_id=post_id,
+            author_email="author@example.com",
+            text="Great post!",
+        )
+
+    def test_create_comment_requires_auth(self):
+        client = get_client()
+
+        response = client.post(
+            f"/author/groups/{uuid4()}/posts/{uuid4()}/comments",
+            json={"text": "Great post!"},
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    @patch('pecha_api.group_posts.comment_views.create_post_comment_service')
+    @patch('pecha_api.group_posts.comment_views.validate_and_extract_author_details')
+    def test_create_comment_rejects_blank_text(self, mock_validate, mock_service):
+        client = get_client()
+
+        response = client.post(
+            f"/author/groups/{uuid4()}/posts/{uuid4()}/comments",
+            headers=AUTH_HEADERS,
+            json={"text": "   "},
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+        mock_service.assert_not_called()
+
+    @patch('pecha_api.group_posts.comment_views.create_post_comment_service')
+    @patch('pecha_api.group_posts.comment_views.validate_and_extract_author_details')
+    def test_create_comment_propagates_service_error(self, mock_validate, mock_service):
+        client = get_client()
+        mock_validate.return_value = MagicMock(email="author@example.com")
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Not found"
+        )
+
+        response = client.post(
+            f"/author/groups/{uuid4()}/posts/{uuid4()}/comments",
+            headers=AUTH_HEADERS,
+            json={"text": "Great post!"},
+        )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestDeletePostCommentView:
+
+    @patch('pecha_api.group_posts.comment_views.delete_post_comment_service')
+    @patch('pecha_api.group_posts.comment_views.validate_and_extract_author_details')
+    def test_delete_comment(self, mock_validate, mock_service):
+        client = get_client()
+        group_id = uuid4()
+        post_id = uuid4()
+        comment_id = uuid4()
+        author = MagicMock()
+        author.id = uuid4()
+        mock_validate.return_value = author
+        mock_service.return_value = None
+
+        response = client.delete(
+            f"/author/groups/{group_id}/posts/{post_id}/comments/{comment_id}",
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_service.assert_called_once_with(
+            group_id=group_id,
+            post_id=post_id,
+            comment_id=comment_id,
+            user_id=author.id,
+        )
+
+    def test_delete_comment_requires_auth(self):
+        client = get_client()
+
+        response = client.delete(
+            f"/author/groups/{uuid4()}/posts/{uuid4()}/comments/{uuid4()}"
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    @patch('pecha_api.group_posts.comment_views.delete_post_comment_service')
+    @patch('pecha_api.group_posts.comment_views.validate_and_extract_author_details')
+    def test_delete_comment_of_another_user_is_forbidden(self, mock_validate, mock_service):
+        client = get_client()
+        mock_validate.return_value = MagicMock(id=uuid4())
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own comments",
+        )
+
+        response = client.delete(
+            f"/author/groups/{uuid4()}/posts/{uuid4()}/comments/{uuid4()}",
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+

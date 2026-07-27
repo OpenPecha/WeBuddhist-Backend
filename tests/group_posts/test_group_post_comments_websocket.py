@@ -117,3 +117,176 @@ class TestPostCommentBroadcasterUnit:
         result = await broadcaster.get_connected_users(post_id)
         assert result == users
         broadcaster.redis.smembers.assert_called_once_with(f"post:{post_id}:users")
+
+
+class TestPostCommentBroadcasterFailures:
+    """Redis is treated as best-effort for tracking, but fatal for publishing."""
+
+    @pytest.mark.parametrize(
+        "redis_error, expected_error",
+        [
+            (ConnectionRefusedError("refused"), ConnectionError),
+            (TimeoutError("timed out"), TimeoutError),
+            (ValueError("bad url"), RuntimeError),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_connect_wraps_redis_errors(self, redis_error, expected_error):
+        from pecha_api.group_posts.comment_websocket import PostCommentBroadcaster
+
+        broadcaster = PostCommentBroadcaster("redis://localhost:6379/0")
+
+        with patch(
+            "pecha_api.group_posts.comment_websocket.Redis.from_url",
+            side_effect=redis_error,
+        ):
+            with pytest.raises(expected_error):
+                await broadcaster.connect()
+
+        assert broadcaster.redis is None
+
+    @pytest.mark.asyncio
+    async def test_disconnect_without_connection_is_a_noop(self):
+        from pecha_api.group_posts.comment_websocket import PostCommentBroadcaster
+
+        broadcaster = PostCommentBroadcaster("redis://localhost:6379/0")
+
+        await broadcaster.disconnect()
+
+        assert broadcaster.redis is None
+
+    @pytest.mark.asyncio
+    async def test_add_connection_survives_redis_failure(self):
+        from pecha_api.group_posts.comment_websocket import PostCommentBroadcaster
+
+        broadcaster = PostCommentBroadcaster("redis://localhost:6379/0")
+        broadcaster.redis = AsyncMock()
+        broadcaster.redis.sadd.side_effect = RuntimeError("redis down")
+
+        post_id, user_id = uuid4(), uuid4()
+        await broadcaster.add_connection(post_id, user_id, AsyncMock())
+
+        assert broadcaster.connections[post_id][user_id] is not None
+
+    @pytest.mark.asyncio
+    async def test_remove_connection_survives_redis_failure(self):
+        from pecha_api.group_posts.comment_websocket import PostCommentBroadcaster
+
+        broadcaster = PostCommentBroadcaster("redis://localhost:6379/0")
+        broadcaster.redis = AsyncMock()
+        broadcaster.redis.srem.side_effect = RuntimeError("redis down")
+
+        post_id, user_id = uuid4(), uuid4()
+        broadcaster.connections[post_id] = {user_id: AsyncMock(), uuid4(): AsyncMock()}
+
+        await broadcaster.remove_connection(post_id, user_id)
+
+        assert user_id not in broadcaster.connections[post_id]
+
+    @pytest.mark.asyncio
+    async def test_remove_connection_for_unknown_post_is_a_noop(self):
+        from pecha_api.group_posts.comment_websocket import PostCommentBroadcaster
+
+        broadcaster = PostCommentBroadcaster("redis://localhost:6379/0")
+        broadcaster.redis = AsyncMock()
+
+        await broadcaster.remove_connection(uuid4(), uuid4())
+
+        assert broadcaster.connections == {}
+
+    @pytest.mark.asyncio
+    async def test_broadcast_comment_reraises_redis_failure(self):
+        from pecha_api.group_posts.comment_websocket import PostCommentBroadcaster
+
+        broadcaster = PostCommentBroadcaster("redis://localhost:6379/0")
+        broadcaster.redis = AsyncMock()
+        broadcaster.redis.publish.side_effect = RuntimeError("publish failed")
+
+        post_id = uuid4()
+        now = datetime.now(tz.utc).isoformat()
+        comment = GroupPostCommentDTO(
+            id=uuid4(),
+            post_id=post_id,
+            user_id=uuid4(),
+            user_email="test@example.com",
+            text="Great post!",
+            created_at=now,
+            updated_at=now,
+        )
+
+        with pytest.raises(RuntimeError, match="publish failed"):
+            await broadcaster.broadcast_comment(post_id, comment)
+
+    @pytest.mark.asyncio
+    async def test_subscribe_to_post_subscribes_to_the_post_channel(self):
+        from pecha_api.group_posts.comment_websocket import PostCommentBroadcaster
+
+        broadcaster = PostCommentBroadcaster("redis://localhost:6379/0")
+        pubsub = MagicMock()
+        pubsub.subscribe = AsyncMock()
+        redis = MagicMock()
+        redis.pubsub.return_value = pubsub
+        broadcaster.redis = redis
+
+        post_id = uuid4()
+        result = await broadcaster.subscribe_to_post(post_id)
+
+        assert result is pubsub
+        pubsub.subscribe.assert_awaited_once_with(f"post:{post_id}:comments")
+
+    @pytest.mark.asyncio
+    async def test_get_connected_users_returns_empty_set_on_redis_failure(self):
+        from pecha_api.group_posts.comment_websocket import PostCommentBroadcaster
+
+        broadcaster = PostCommentBroadcaster("redis://localhost:6379/0")
+        broadcaster.redis = AsyncMock()
+        broadcaster.redis.smembers.side_effect = RuntimeError("redis down")
+
+        assert await broadcaster.get_connected_users(uuid4()) == set()
+
+
+class TestBroadcasterLifecycle:
+
+    def test_get_broadcaster_raises_when_not_initialized(self):
+        from pecha_api.group_posts import comment_websocket
+
+        with patch.object(comment_websocket, "broadcaster", None):
+            with pytest.raises(RuntimeError, match="not initialized"):
+                comment_websocket.get_broadcaster()
+
+    def test_get_broadcaster_raises_when_redis_connection_is_lost(self):
+        from pecha_api.group_posts import comment_websocket
+
+        disconnected = comment_websocket.PostCommentBroadcaster("redis://localhost:6379/0")
+
+        with patch.object(comment_websocket, "broadcaster", disconnected):
+            with pytest.raises(RuntimeError, match="Redis connection lost"):
+                comment_websocket.get_broadcaster()
+
+    def test_get_broadcaster_returns_connected_instance(self):
+        from pecha_api.group_posts import comment_websocket
+
+        connected = comment_websocket.PostCommentBroadcaster("redis://localhost:6379/0")
+        connected.redis = AsyncMock()
+
+        with patch.object(comment_websocket, "broadcaster", connected):
+            assert comment_websocket.get_broadcaster() is connected
+
+    @pytest.mark.asyncio
+    async def test_init_broadcaster_connects_and_sets_the_global(self):
+        from pecha_api.group_posts import comment_websocket
+
+        instance = MagicMock()
+        instance.connect = AsyncMock()
+
+        with patch.object(comment_websocket, "broadcaster", None), patch.object(
+            comment_websocket, "PostCommentBroadcaster", return_value=instance
+        ) as mock_cls:
+            result = await comment_websocket.init_broadcaster("redis://localhost:6379/0")
+
+            assert result is instance
+            assert comment_websocket.broadcaster is instance
+            mock_cls.assert_called_once_with("redis://localhost:6379/0")
+            instance.connect.assert_awaited_once()
+
+        assert comment_websocket.broadcaster is None

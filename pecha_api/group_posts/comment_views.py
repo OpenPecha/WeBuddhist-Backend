@@ -110,7 +110,7 @@ async def websocket_post_comments(
         broadcaster = get_broadcaster()
     except RuntimeError as e:
         logger.error(f"Broadcaster not initialized: {e}")
-        await websocket.close(code=status.WS_1011_SERVER_ERROR, reason="Redis unavailable")
+        await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason="Redis unavailable")
         return
 
     try:
@@ -209,7 +209,7 @@ async def websocket_post_comments(
     except Exception as e:
         logger.error(f"WebSocket error: {e}")
         try:
-            await websocket.close(code=status.WS_1011_SERVER_ERROR)
+            await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
         except Exception:
             pass
 

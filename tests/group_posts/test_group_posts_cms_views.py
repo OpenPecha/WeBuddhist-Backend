@@ -58,6 +58,30 @@ class TestCmsGroupPostsViews:
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
+    @patch('pecha_api.group_posts.cms_views.cms_get_group_post_detail_service')
+    def test_get_group_post_detail(self, mock_service):
+        group_id = uuid4()
+        dto = _post_dto(group_id=group_id, post_status="HIDDEN")
+        mock_service.return_value = dto
+
+        response = client.get(
+            f"/cms/author/groups/{group_id}/posts/{dto.id}",
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["status"] == "HIDDEN"
+        mock_service.assert_called_once_with(
+            token="test-token",
+            group_id=group_id,
+            post_id=dto.id,
+        )
+
+    def test_get_group_post_detail_requires_auth(self):
+        response = client.get(f"/cms/author/groups/{uuid4()}/posts/{uuid4()}")
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
     @patch('pecha_api.group_posts.cms_views.cms_create_group_post_service')
     def test_create_group_post(self, mock_service):
         group_id = uuid4()
