@@ -1,9 +1,13 @@
+import asyncio
+import json
+import logging
 from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
+from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 
 from pecha_api.group_posts.comment_response_models import (
     CreateGroupPostCommentRequest,
@@ -15,7 +19,10 @@ from pecha_api.group_posts.comment_service import (
     delete_post_comment_service,
     list_post_comments_service,
 )
+from pecha_api.group_posts.comment_websocket import get_broadcaster
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
+
+logger = logging.getLogger(__name__)
 
 oauth2_scheme = HTTPBearer()
 
@@ -85,3 +92,107 @@ def delete_post_comment(
         user_id=author.id,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@public_group_post_comments_router.websocket(
+    "/live"
+)
+async def websocket_post_comments(
+    websocket: WebSocket,
+    group_id: UUID,
+    post_id: UUID,
+    token: str = Query(...),
+):
+    """Live comment stream for a post (WebSocket)."""
+    author = None
+
+    try:
+        broadcaster = get_broadcaster()
+    except RuntimeError as e:
+        logger.error(f"Broadcaster not initialized: {e}")
+        await websocket.close(code=status.WS_1011_SERVER_ERROR, reason="Redis unavailable")
+        return
+
+    try:
+        # 1. Authenticate
+        author = validate_and_extract_author_details(token=token)
+
+        # 2. Validate group & post exist (synchronous)
+        from pecha_api.db.database import SessionLocal
+        from pecha_api.group_posts.comment_service import (
+            _validate_group_is_public,
+            _validate_post_published,
+        )
+
+        with SessionLocal() as db:
+            _validate_group_is_public(db, group_id)
+            _validate_post_published(db, post_id, group_id)
+
+        # 3. Accept, track connection, and subscribe to Redis channel
+        await websocket.accept()
+        await broadcaster.add_connection(post_id, author.id, websocket)
+        pubsub = await broadcaster.subscribe_to_post(post_id)
+
+        # 4a. Background task: listen for Redis pub/sub messages
+        async def listen_redis():
+            try:
+                async for message in pubsub.listen():
+                    if message["type"] == "message":
+                        try:
+                            await websocket.send_text(message["data"])
+                        except (ConnectionClosedOK, ConnectionClosedError):
+                            break
+            except Exception as e:
+                logger.error(f"Error listening to Redis: {e}")
+
+        redis_task = asyncio.create_task(listen_redis())
+
+        # 4b. Main task: listen for client messages
+        try:
+            while True:
+                data = await websocket.receive_json()
+
+                if data.get("type") != "comment":
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": "INVALID_MESSAGE",
+                        "message": "Only 'comment' type messages are supported"
+                    })
+                    continue
+
+                # 5. Create comment via existing service
+                try:
+                    comment_dto = create_post_comment_service(
+                        group_id=group_id,
+                        post_id=post_id,
+                        user_id=author.id,
+                        text=data.get("text", ""),
+                    )
+                except HTTPException as e:
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": e.detail if isinstance(e.detail, str) else "ERROR",
+                        "message": e.detail if isinstance(e.detail, str) else str(e.detail)
+                    })
+                    continue
+
+                # 6. Broadcast to all servers via Redis pub/sub
+                await broadcaster.broadcast_comment(post_id, comment_dto)
+
+        finally:
+            redis_task.cancel()
+            try:
+                await pubsub.unsubscribe(f"post:{post_id}:comments")
+            except Exception as e:
+                logger.error(f"Error unsubscribing from Redis: {e}")
+
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        try:
+            await websocket.close(code=status.WS_1011_SERVER_ERROR)
+        except Exception:
+            pass
+
+    finally:
+        if author:
+            await broadcaster.remove_connection(post_id, author.id)

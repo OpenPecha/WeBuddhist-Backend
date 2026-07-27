@@ -14,6 +14,7 @@ from ..texts.texts_models import TableOfContent
 from ..texts.groups.groups_models import Group
 from ..config import get
 from ..scheduler import setup_scheduler, shutdown_scheduler
+from ..group_posts.comment_websocket import init_broadcaster
 
 mongodb_client = None
 mongodb = None
@@ -48,8 +49,48 @@ async def lifespan(api: FastAPI):
             raise
 
         setup_scheduler()
+
+        # Initialize the comment WebSocket broadcaster (connects to Redis)
+        try:
+            redis_url = get("REDIS_URL")
+            await init_broadcaster(redis_url=redis_url)
+            logging.info("✅ Comment broadcaster initialized with Redis")
+        except ConnectionRefusedError as e:
+            error_msg = (
+                f"❌ REDIS CONNECTION FAILED: Cannot connect to Redis at {get('REDIS_URL')}\n"
+                f"   - Make sure Redis/Dragonfly is running\n"
+                f"   - Check REDIS_URL config: {get('REDIS_URL')}\n"
+                f"   - Try: docker run -d -p 6379:6379 redis:latest\n"
+                f"   Error: {e}"
+            )
+            logging.error(error_msg)
+            raise RuntimeError(error_msg) from e
+        except TimeoutError as e:
+            error_msg = (
+                f"❌ REDIS TIMEOUT: Connection to Redis at {get('REDIS_URL')} timed out\n"
+                f"   - Redis may be unresponsive or overloaded\n"
+                f"   - Check REDIS_URL: {get('REDIS_URL')}\n"
+                f"   Error: {e}"
+            )
+            logging.error(error_msg)
+            raise RuntimeError(error_msg) from e
+        except Exception as e:
+            error_msg = (
+                f"❌ REDIS INITIALIZATION FAILED: {type(e).__name__}\n"
+                f"   - Redis URL: {get('REDIS_URL')}\n"
+                f"   - Error: {str(e)}\n"
+                f"   - Make sure Redis/Dragonfly is running and accessible"
+            )
+            logging.error(error_msg)
+            raise RuntimeError(error_msg) from e
+
         yield
     finally:
         shutdown_scheduler()
+        # Disconnect the comment broadcaster
+        from ..group_posts.comment_websocket import broadcaster
+        if broadcaster:
+            await broadcaster.disconnect()
+            logging.info("Comment broadcaster disconnected")
         if mongodb_client:
             mongodb_client.close()
