@@ -115,7 +115,18 @@ async def websocket_post_comments(
 
     try:
         # 1. Authenticate
-        author = validate_and_extract_author_details(token=token)
+        try:
+            author = validate_and_extract_author_details(token=token)
+        except HTTPException as auth_error:
+            logger.error(f"WebSocket auth failed: {auth_error.detail}")
+            await websocket.accept()
+            await websocket.send_json({
+                "type": "error",
+                "code": "UNAUTHORIZED",
+                "message": str(auth_error.detail)
+            })
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
+            return
 
         # 2. Validate group & post exist (synchronous)
         from pecha_api.db.database import SessionLocal
@@ -136,14 +147,19 @@ async def websocket_post_comments(
         # 4a. Background task: listen for Redis pub/sub messages
         async def listen_redis():
             try:
+                logger.info(f"📡 Started listening to Redis channel for post {post_id}")
                 async for message in pubsub.listen():
                     if message["type"] == "message":
                         try:
+                            logger.info(f"📨 Received message from Redis: {message['data'][:100]}")
                             await websocket.send_text(message["data"])
                         except (ConnectionClosedOK, ConnectionClosedError):
+                            logger.info(f"🔌 WebSocket closed, stopping Redis listener")
                             break
+                    elif message["type"] == "subscribe":
+                        logger.info(f"✅ Subscribed to channel: {message['channel']}")
             except Exception as e:
-                logger.error(f"Error listening to Redis: {e}")
+                logger.error(f"❌ Error listening to Redis: {e}")
 
         redis_task = asyncio.create_task(listen_redis())
 
@@ -177,7 +193,15 @@ async def websocket_post_comments(
                     continue
 
                 # 6. Broadcast to all servers via Redis pub/sub
-                await broadcaster.broadcast_comment(post_id, comment_dto)
+                try:
+                    await broadcaster.broadcast_comment(post_id, comment_dto)
+                except Exception as e:
+                    logger.error(f"Failed to broadcast comment {comment_dto.id} to Redis: {e}")
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": "BROADCAST_ERROR",
+                        "message": f"Failed to broadcast comment: {str(e)}"
+                    })
 
         finally:
             redis_task.cancel()
