@@ -96,7 +96,7 @@ def list_post_comments_service(
 def create_post_comment_service(
     group_id: UUID,
     post_id: UUID,
-    user_id: UUID,
+    author_email: str,
     text: str,
 ) -> GroupPostCommentDTO:
     """Create a comment on a post. User must be authenticated."""
@@ -104,16 +104,24 @@ def create_post_comment_service(
         _validate_group_is_public(db, group_id)
         _validate_post_published(db, post_id, group_id)
 
-        # User is already validated via JWT token (authenticated in WebSocket endpoint)
-        # No need to verify again - user_id came from the Authors table via token validation
+        # Look up user by email in Users table
+        user = db.query(Users).filter(Users.email == author_email).first()
+        if not user:
+            logger.error(f"❌ User not found in users table for email: {author_email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"User account not found: {author_email}",
+            )
+
+        logger.info(f"✅ Found user {user.id} ({author_email})")
 
         comment = GroupPostComment(
             post_id=post_id,
-            user_id=user_id,
+            user_id=user.id,
             text=text,
         )
 
-        logger.info(f"✅ Comment created by user {user_id}")
+        logger.info(f"✅ Comment created by user {user.id}")
         created = create_comment(db=db, comment=comment)
         return build_comment_dto(created)
 

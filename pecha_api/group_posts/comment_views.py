@@ -68,7 +68,7 @@ def create_post_comment(
     return create_post_comment_service(
         group_id=group_id,
         post_id=post_id,
-        user_id=author.id,
+        author_email=author.email,
         text=request.text,
     )
 
@@ -182,12 +182,12 @@ async def websocket_post_comments(
 
                 # 5. Create comment via existing service
                 try:
-                    logger.info(f"💬 Creating comment for user {author.id} ({author.email})")
+                    logger.info(f"💬 Creating comment for author {author.email}")
                     logger.info(f"  Text: {data.get('text', '')[:50]}")
                     comment_dto = create_post_comment_service(
                         group_id=group_id,
                         post_id=post_id,
-                        user_id=author.id,
+                        author_email=author.email,
                         text=data.get("text", ""),
                     )
                     logger.info(f"✅ Comment created: {comment_dto.id}")
