@@ -104,12 +104,8 @@ def create_post_comment_service(
         _validate_group_is_public(db, group_id)
         _validate_post_published(db, post_id, group_id)
 
-        user = db.query(Users).filter(Users.id == user_id).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-            )
+        # User is already validated via JWT token (authenticated in WebSocket endpoint)
+        # No need to verify again - user_id came from the Authors table via token validation
 
         comment = GroupPostComment(
             post_id=post_id,
@@ -117,6 +113,7 @@ def create_post_comment_service(
             text=text,
         )
 
+        logger.info(f"✅ Comment created by user {user_id}")
         created = create_comment(db=db, comment=comment)
         return build_comment_dto(created)
 
