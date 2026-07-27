@@ -1,6 +1,6 @@
-"""Interactive HTML viewer for testing group posts and real-time comments with built-in login."""
+"""HTML viewer for group post live comments - token-based auth."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from fastapi.responses import HTMLResponse
 from uuid import UUID
 
@@ -17,8 +17,9 @@ viewer_router = APIRouter(
 def view_post_comments(
     group_id: UUID,
     post_id: UUID,
+    token: str = Query(..., description="Bearer token for authentication"),
 ):
-    """Interactive HTML page with login and live comment viewer."""
+    """Live comment viewer - requires bearer token in query parameter."""
     return f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -87,107 +88,6 @@ def view_post_comments(
             @keyframes pulse {{
                 0%, 100% {{ opacity: 1; }}
                 50% {{ opacity: 0.5; }}
-            }}
-
-            /* Login Screen */
-            .login-screen {{
-                display: flex;
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                padding: 40px 20px;
-                flex: 1;
-            }}
-
-            .login-form {{
-                width: 100%;
-                max-width: 300px;
-            }}
-
-            .login-form h2 {{
-                font-size: 20px;
-                color: #1f2937;
-                margin-bottom: 20px;
-                text-align: center;
-            }}
-
-            .form-group {{
-                margin-bottom: 16px;
-            }}
-
-            .form-group label {{
-                display: block;
-                font-weight: 600;
-                color: #374151;
-                margin-bottom: 6px;
-                font-size: 14px;
-            }}
-
-            .form-group input {{
-                width: 100%;
-                padding: 12px;
-                border: 1px solid #d1d5db;
-                border-radius: 8px;
-                font-family: inherit;
-                font-size: 14px;
-            }}
-
-            .form-group input:focus {{
-                outline: none;
-                border-color: #667eea;
-                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-            }}
-
-            .login-btn {{
-                width: 100%;
-                padding: 12px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
-                border: none;
-                border-radius: 8px;
-                cursor: pointer;
-                font-weight: 600;
-                font-size: 14px;
-                transition: transform 0.2s, box-shadow 0.2s;
-            }}
-
-            .login-btn:hover {{
-                transform: translateY(-2px);
-                box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
-            }}
-
-            .login-btn:disabled {{
-                opacity: 0.5;
-                cursor: not-allowed;
-                transform: none;
-            }}
-
-            /* Comments Screen */
-            .comments-screen {{
-                display: none;
-                flex: 1;
-                flex-direction: column;
-            }}
-
-            .comments-screen.active {{
-                display: flex;
-            }}
-
-            .logout-btn {{
-                margin-left: auto;
-                padding: 8px 16px;
-                background: rgba(255,255,255,0.2);
-                color: white;
-                border: 1px solid rgba(255,255,255,0.3);
-                border-radius: 6px;
-                cursor: pointer;
-                font-size: 12px;
-                font-weight: 600;
-                transition: background 0.2s;
-            }}
-
-            .logout-btn:hover {{
-                background: rgba(255,255,255,0.3);
             }}
 
             .comments-section {{
@@ -312,127 +212,44 @@ def view_post_comments(
                 color: #9ca3af;
                 margin-top: 4px;
             }}
-
-            .user-info {{
-                font-size: 12px;
-                color: rgba(255,255,255,0.7);
-                margin-top: 8px;
-            }}
         </style>
     </head>
     <body>
         <div class="container">
-            <!-- LOGIN SCREEN -->
-            <div id="loginScreen" class="login-screen active">
-                <form class="login-form" id="loginForm">
-                    <h2>🔐 Sign In</h2>
-                    <div id="loginError" class="error" style="display: none;"></div>
-                    <div class="form-group">
-                        <label for="email">Email</label>
-                        <input type="email" id="email" name="email" placeholder="user@example.com" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="password">Password</label>
-                        <input type="password" id="password" name="password" placeholder="••••••••" required>
-                    </div>
-                    <button type="submit" class="login-btn" id="loginBtn">Sign In</button>
-                </form>
+            <div class="header">
+                <h1>💬 Live Comments</h1>
+                <div class="status">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Connecting...</span>
+                </div>
             </div>
 
-            <!-- COMMENTS SCREEN -->
-            <div id="commentsScreen" class="comments-screen">
-                <div class="header">
-                    <div style="display: flex; justify-content: space-between; align-items: start;">
-                        <div>
-                            <h1>💬 Live Comments</h1>
-                            <div class="status">
-                                <div class="status-dot" id="statusDot"></div>
-                                <span id="statusText">Connecting...</span>
-                            </div>
-                            <div class="user-info">Logged in as: <strong id="userEmail"></strong></div>
-                        </div>
-                        <button class="logout-btn" id="logoutBtn">Logout</button>
-                    </div>
+            <div class="comments-section" id="commentsSection">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 12px;">Loading comments...</p>
                 </div>
+            </div>
 
-                <div class="comments-section" id="commentsSection">
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        <p style="margin-top: 12px;">Loading comments...</p>
-                    </div>
-                </div>
-
-                <div class="input-section">
-                    <textarea
-                        id="commentInput"
-                        placeholder="Write a comment... (max 5000 characters)"
-                        maxlength="5000"
-                        disabled
-                    ></textarea>
-                    <button id="sendBtn" disabled>Send</button>
-                    <div class="char-count" id="charCount"></div>
-                </div>
+            <div class="input-section">
+                <textarea
+                    id="commentInput"
+                    placeholder="Write a comment... (max 5000 characters)"
+                    maxlength="5000"
+                    disabled
+                ></textarea>
+                <button id="sendBtn" disabled>Send</button>
+                <div class="char-count" id="charCount"></div>
             </div>
         </div>
 
         <script>
             const groupId = "{group_id}";
             const postId = "{post_id}";
+            const token = "{token}";
             const apiBase = window.location.origin + "/api/v1";
 
-            let token = null;
             let ws = null;
-            let broadcaster = null;
-
-            // ============ LOGIN LOGIC ============
-
-            const loginForm = document.getElementById("loginForm");
-            const emailInput = document.getElementById("email");
-            const passwordInput = document.getElementById("password");
-            const loginBtn = document.getElementById("loginBtn");
-            const loginError = document.getElementById("loginError");
-            const loginScreen = document.getElementById("loginScreen");
-            const commentsScreen = document.getElementById("commentsScreen");
-
-            loginForm.addEventListener("submit", async (e) => {{
-                e.preventDefault();
-                loginError.style.display = "none";
-                loginBtn.disabled = true;
-                loginBtn.textContent = "Signing in...";
-
-                try {{
-                    const response = await fetch(`${{apiBase}}/auth/login`, {{
-                        method: "POST",
-                        headers: {{ "Content-Type": "application/json" }},
-                        body: JSON.stringify({{
-                            email: emailInput.value,
-                            password: passwordInput.value
-                        }})
-                    }});
-
-                    const data = await response.json();
-
-                    if (!response.ok) {{
-                        throw new Error(data.detail || "Login failed");
-                    }}
-
-                    token = data.access_token;
-                    document.getElementById("userEmail").textContent = emailInput.value;
-
-                    loginScreen.classList.remove("active");
-                    commentsScreen.classList.add("active");
-
-                    connectWebSocket();
-                }} catch (err) {{
-                    loginError.textContent = "❌ " + err.message;
-                    loginError.style.display = "block";
-                }} finally {{
-                    loginBtn.disabled = false;
-                    loginBtn.textContent = "Sign In";
-                }}
-            }});
-
-            // ============ COMMENTS LOGIC ============
 
             const statusDot = document.getElementById("statusDot");
             const statusText = document.getElementById("statusText");
@@ -440,7 +257,6 @@ def view_post_comments(
             const commentInput = document.getElementById("commentInput");
             const sendBtn = document.getElementById("sendBtn");
             const charCount = document.getElementById("charCount");
-            const logoutBtn = document.getElementById("logoutBtn");
 
             function updateStatus(connected, message) {{
                 if (connected) {{
@@ -459,7 +275,7 @@ def view_post_comments(
                 ws = new WebSocket(wsUrl);
 
                 ws.onopen = () => {{
-                    updateStatus(true, "🟢 Connected");
+                    updateStatus(true, "Connected");
                     loadInitialComments();
                 }};
 
@@ -474,11 +290,11 @@ def view_post_comments(
                 }};
 
                 ws.onerror = () => {{
-                    updateStatus(false, "🔴 Connection error");
+                    updateStatus(false, "Connection error");
                 }};
 
                 ws.onclose = () => {{
-                    updateStatus(false, "🔴 Disconnected");
+                    updateStatus(false, "Disconnected");
                     setTimeout(connectWebSocket, 3000);
                 }};
             }}
@@ -558,15 +374,7 @@ def view_post_comments(
                 }}
             }});
 
-            logoutBtn.addEventListener("click", () => {{
-                if (ws) ws.close();
-                token = null;
-                loginScreen.classList.add("active");
-                commentsScreen.classList.remove("active");
-                emailInput.value = "";
-                passwordInput.value = "";
-                loginError.style.display = "none";
-            }});
+            connectWebSocket();
         </script>
     </body>
     </html>
