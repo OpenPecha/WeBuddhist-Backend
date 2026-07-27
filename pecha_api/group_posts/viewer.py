@@ -18,7 +18,7 @@ def view_post_comments(
     group_id: UUID,
     post_id: UUID,
 ):
-    """Live comment viewer - token input on the page."""
+    """Live comment viewer - accepts token via input field in the page."""
     return f"""
     <!DOCTYPE html>
     <html lang="en">
