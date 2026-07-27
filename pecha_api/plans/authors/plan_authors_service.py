@@ -205,8 +205,16 @@ def validate_and_extract_author_details(token: str) -> Author:
         email = payload.get("email")
         if email is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorConstants.TOKEN_ERROR_MESSAGE)
+        logging.info(f"✅ Token validated. Email extracted: {email}")
         with SessionLocal() as db_session:
             author = get_author_by_email(db=db_session, email=email)
+            if author is None:
+                logging.error(f"❌ User not found in database for email: {email}")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=f"User not found: {email} does not exist in the system"
+                )
+            logging.info(f"✅ Author found: {author.id} ({email})")
             return author
     except ExpiredSignatureError as exception:
         logging.debug(f"exception: {exception}")
