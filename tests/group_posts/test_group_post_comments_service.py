@@ -139,7 +139,7 @@ class TestCreatePostCommentService:
             create_post_comment_service(
                 group_id=uuid4(),
                 post_id=uuid4(),
-                user_id=uuid4(),
+                author_email="test@example.com",
                 text="Hello",
             )
 
