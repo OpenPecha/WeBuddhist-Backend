@@ -272,7 +272,16 @@ def view_post_comments(
             function connectWebSocket() {{
                 // Use wss:// for HTTPS, ws:// for HTTP
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsUrl = `${{protocol}}//${{window.location.host}}/api/v1/author/groups/${{groupId}}/posts/${{postId}}/comments/live?token=${{token}}`;
+                // URL-encode the token to handle special characters
+                const encodedToken = encodeURIComponent(token);
+                const wsUrl = `${{protocol}}//${{window.location.host}}/api/v1/author/groups/${{groupId}}/posts/${{postId}}/comments/live?token=${{encodedToken}}`;
+
+                console.log("[WebSocket Debug]");
+                console.log("  Token present:", token.length > 0 ? "Yes" : "No");
+                console.log("  Token first 50 chars:", token.substring(0, 50));
+                console.log("  WebSocket URL:", wsUrl);
+                console.log("  Group ID:", groupId);
+                console.log("  Post ID:", postId);
 
                 ws = new WebSocket(wsUrl);
 
@@ -291,20 +300,27 @@ def view_post_comments(
                     }}
                 }};
 
-                ws.onerror = () => {{
+                ws.onerror = (event) => {{
+                    console.error("[WebSocket Error]", event);
                     updateStatus(false, "Connection error");
                 }};
 
-                ws.onclose = () => {{
+                ws.onclose = (event) => {{
+                    console.log("[WebSocket Closed]", event.code, event.reason);
                     updateStatus(false, "Disconnected");
                     setTimeout(connectWebSocket, 3000);
                 }};
             }}
 
             function loadInitialComments() {{
+                console.log("[Loading initial comments]");
                 fetch(`${{apiBase}}/author/groups/${{groupId}}/posts/${{postId}}/comments?limit=50`)
-                    .then(r => r.json())
+                    .then(r => {{
+                        console.log("  HTTP Status:", r.status);
+                        return r.json();
+                    }})
                     .then(data => {{
+                        console.log("  Comments loaded:", data.comments.length);
                         commentsSection.innerHTML = "";
                         if (data.comments.length === 0) {{
                             commentsSection.innerHTML = '<div class="comments-empty">No comments yet. Be the first!</div>';
@@ -312,7 +328,10 @@ def view_post_comments(
                             data.comments.reverse().forEach(c => addComment(c));
                         }}
                     }})
-                    .catch(err => showError("Failed to load comments: " + err.message));
+                    .catch(err => {{
+                        console.error("  Failed to load comments:", err);
+                        showError("Failed to load comments: " + err.message);
+                    }});
             }}
 
             function addComment(comment) {{
