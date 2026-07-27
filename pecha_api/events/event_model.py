@@ -14,6 +14,11 @@ class Event(Base):
     accumulator_id = Column(UUID(as_uuid=True), ForeignKey("accumulators.id", ondelete="SET NULL"), nullable=True)
     mantra_id = Column(UUID(as_uuid=True), ForeignKey("mantra.id", ondelete="SET NULL"), nullable=True)
     timer_id = Column(UUID(as_uuid=True), ForeignKey("timers.id", ondelete="SET NULL"), nullable=True)
+    group_recitation_collection_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("group_recitation_collections.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     group_id = Column(UUID(as_uuid=True), ForeignKey("author_groups.id", ondelete="RESTRICT"), nullable=False)
     start_date = Column(DateTime(timezone=True), nullable=False)
     end_date = Column(DateTime(timezone=True), nullable=False)
@@ -48,4 +53,5 @@ class Event(Base):
         Index("idx_events_group_id", "group_id"),
         Index("idx_events_start_date", "start_date"),
         Index("idx_events_end_date", "end_date"),
+        Index("idx_events_group_recitation_collection_id", "group_recitation_collection_id"),
     )

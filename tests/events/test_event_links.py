@@ -170,6 +170,7 @@ def _saved_event_stub() -> SimpleNamespace:
         accumulator_id=None,
         mantra_id=None,
         timer_id=None,
+        group_recitation_collection_id=None,
         group_id=uuid4(),
         start_date=now,
         end_date=now,
