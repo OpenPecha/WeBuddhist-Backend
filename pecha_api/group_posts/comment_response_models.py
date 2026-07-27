@@ -32,7 +32,7 @@ class CreateGroupPostCommentRequest(BaseModel):
     @classmethod
     def validate_text(cls, value: str) -> str:
         value = value.strip()
-        if len(value) < 1:
+        if not value:
             raise ValueError("Comment text must not be empty")
         if len(value) > 5000:
             raise ValueError("Comment text must not exceed 5000 characters")

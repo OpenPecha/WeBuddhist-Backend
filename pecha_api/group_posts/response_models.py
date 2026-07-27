@@ -78,8 +78,8 @@ class GroupPostLinkRequest(BaseModel):
     @classmethod
     def validate_url(cls, value: str) -> str:
         value = value.strip()
-        if not value.lower().startswith(("http://", "https://")):
-            raise ValueError("url must start with http:// or https://")
+        if not value.lower().startswith("https://"):
+            raise ValueError("url must start with https://")
         return value
 
 

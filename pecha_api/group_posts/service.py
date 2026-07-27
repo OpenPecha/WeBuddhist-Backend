@@ -34,8 +34,8 @@ def _generate_presigned_url(s3_key: Optional[str]) -> Optional[str]:
             bucket_name=get("AWS_BUCKET_NAME"),
             s3_key=s3_key,
         )
-    except Exception as e:
-        logger.error(f"Failed to generate presigned URL for {s3_key}: {e}")
+    except Exception:
+        logger.exception(f"Failed to generate presigned URL for {s3_key}")
         return None
 
 
