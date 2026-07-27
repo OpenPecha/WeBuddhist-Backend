@@ -44,6 +44,7 @@ DEFAULTS = dict(
     CACHE_PREFIX="pecha:",
     CACHE_DEFAULT_TIMEOUT=3000000, # 30 seconds in seconds
     CACHE_CONNECTION_STRING="redis://localhost:6379",
+    REDIS_URL="redis://localhost:6379/0",
     
     # Cache timeout configurations for different types (in seconds)
     CACHE_TEXT_TIMEOUT=1800,        # 30 minutes for texts (not frequently changed)
