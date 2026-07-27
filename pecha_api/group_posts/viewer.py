@@ -291,12 +291,22 @@ def view_post_comments(
                 }};
 
                 ws.onmessage = (event) => {{
-                    const message = JSON.parse(event.data);
+                    console.log("[WebSocket message received]", event.data.substring(0, 100));
+                    try {{
+                        const message = JSON.parse(event.data);
+                        console.log("[Parsed message type]:", message.type);
 
-                    if (message.type === "comment_created") {{
-                        addComment(message.comment);
-                    }} else if (message.type === "error") {{
-                        showError(message.message);
+                        if (message.type === "comment_created") {{
+                            console.log("[Broadcasting comment to UI]");
+                            addComment(message.comment);
+                        }} else if (message.type === "error") {{
+                            console.error("[Server error]", message.message);
+                            showError(message.message);
+                        }} else {{
+                            console.warn("[Unknown message type]", message.type);
+                        }}
+                    }} catch (e) {{
+                        console.error("[Failed to parse message]", e.message, "Data:", event.data.substring(0, 100));
                     }}
                 }};
 
@@ -335,7 +345,9 @@ def view_post_comments(
             }}
 
             function addComment(comment) {{
+                console.log("[Adding comment]", comment.user_email, ":", comment.text.substring(0, 50));
                 if (commentsSection.querySelector(".comments-empty")) {{
+                    console.log("[Removing 'no comments' message]");
                     commentsSection.innerHTML = "";
                 }}
 
@@ -350,6 +362,7 @@ def view_post_comments(
                 `;
 
                 commentsSection.appendChild(div);
+                console.log("[Comment added to DOM]");
             }}
 
             function showError(message) {{
@@ -365,13 +378,16 @@ def view_post_comments(
                 if (!text) return;
 
                 if (ws && ws.readyState === WebSocket.OPEN) {{
+                    console.log("[Sending comment] Text length:", text.length);
                     ws.send(JSON.stringify({{
                         type: "comment",
                         text: text
                     }}));
+                    console.log("[Comment sent] Waiting for broadcast...");
                     commentInput.value = "";
                     charCount.textContent = "";
                 }} else {{
+                    console.error("[Send error] WebSocket not open. State:", ws ? ws.readyState : "null");
                     showError("Not connected. Please wait...");
                 }}
             }}
