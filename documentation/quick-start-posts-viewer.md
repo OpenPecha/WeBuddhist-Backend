@@ -1,33 +1,41 @@
 # Quick Start: Posts Viewer Page
 
-The interactive viewer page lets you test group posts and real-time comments in the browser.
+The interactive viewer page lets you test group posts and real-time comments in the browser with **built-in login**.
 
 ## TL;DR
 
 ```
-http://localhost:8000/api/v1/view/groups/{group_id}/posts/{post_id}?token={token}
+http://localhost:8000/api/v1/view/groups/{group_id}/posts/{post_id}
 ```
 
 Replace:
 - `{group_id}` — UUID of your group
-- `{post_id}` — UUID of your post  
-- `{token}` — Your bearer auth token
+- `{post_id}` — UUID of your post
+
+Then:
+1. Enter your **email and password** in the login form
+2. Click **Sign In**
+3. Start commenting in real-time!
 
 ## What you get
 
+- 🔐 **Built-in login** — No need to copy-paste tokens
 - 🟢 **Live status indicator** — Shows when connected to WebSocket
 - 💬 **Real-time comments** — Posts from other users appear instantly
 - ⌨️ **Comment form** — Type and send comments directly
 - 📱 **Responsive design** — Works on mobile and desktop
 - 🔄 **Auto-reconnect** — Reconnects if connection drops
+- 🚪 **Logout button** — Switch accounts anytime
 
 ## Example
 
-Viewer page for a specific post:
+Open viewer page for a specific post:
 
 ```
-http://localhost:8000/api/v1/view/groups/550e8400-e29b-41d4-a716-446655440000/posts/550e8400-e29b-41d4-a716-446655440001?token=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...
+http://localhost:8000/api/v1/view/groups/550e8400-e29b-41d4-a716-446655440000/posts/550e8400-e29b-41d4-a716-446655440001
 ```
+
+The page will show a login form where you enter your credentials.
 
 ## How to test end-to-end
 
@@ -55,9 +63,12 @@ http://localhost:8000/api/v1/view/groups/550e8400-e29b-41d4-a716-446655440000/po
 
 ## Troubleshooting
 
-**Won't connect?**
+**Login fails?**
+- Check email and password are correct
+- Verify user account exists in the system
+
+**Won't connect after login?**
 - Check Redis is running
-- Verify token is valid
 - Check group is public, post is published
 
 **No comments showing?**
@@ -66,6 +77,10 @@ http://localhost:8000/api/v1/view/groups/550e8400-e29b-41d4-a716-446655440000/po
 
 **Can't type in textbox?**
 - Wait for green status dot (connected)
-- Post may not have loaded yet
+- Make sure login was successful
+
+**Getting "Connection refused"?**
+- Make sure the FastAPI server is running
+- Check Redis is running on port 6379
 
 See [posts-viewer-page.md](posts-viewer-page.md) for detailed documentation.
