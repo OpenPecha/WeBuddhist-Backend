@@ -116,13 +116,9 @@ async def websocket_post_comments(
     try:
         # 1. Authenticate
         try:
-            logger.info(f"🔐 WebSocket auth attempt")
-            logger.info(f"  Token (first 50 chars): {token[:50] if token else 'NONE'}")
-            logger.info(f"  Token length: {len(token) if token else 0}")
             author = validate_and_extract_author_details(token=token)
-            logger.info(f"✅ WebSocket auth successful: {author.email}")
         except HTTPException as auth_error:
-            logger.error(f"❌ WebSocket auth failed: {auth_error.detail}")
+            logger.error(f"WebSocket auth failed: {auth_error.detail}")
             await websocket.accept()
             await websocket.send_json({
                 "type": "error",
@@ -151,19 +147,14 @@ async def websocket_post_comments(
         # 4a. Background task: listen for Redis pub/sub messages
         async def listen_redis():
             try:
-                logger.info(f"📡 Started listening to Redis channel for post {post_id}")
                 async for message in pubsub.listen():
                     if message["type"] == "message":
                         try:
-                            logger.info(f"📨 Received message from Redis: {message['data'][:100]}")
                             await websocket.send_text(message["data"])
                         except (ConnectionClosedOK, ConnectionClosedError):
-                            logger.info(f"🔌 WebSocket closed, stopping Redis listener")
                             break
-                    elif message["type"] == "subscribe":
-                        logger.info(f"✅ Subscribed to channel: {message['channel']}")
             except Exception as e:
-                logger.error(f"❌ Error listening to Redis: {e}")
+                logger.error(f"Error listening to Redis: {e}")
 
         redis_task = asyncio.create_task(listen_redis())
 
@@ -182,17 +173,14 @@ async def websocket_post_comments(
 
                 # 5. Create comment via existing service
                 try:
-                    logger.info(f"💬 Creating comment for author {author.email}")
-                    logger.info(f"  Text: {data.get('text', '')[:50]}")
                     comment_dto = create_post_comment_service(
                         group_id=group_id,
                         post_id=post_id,
                         author_email=author.email,
                         text=data.get("text", ""),
                     )
-                    logger.info(f"✅ Comment created: {comment_dto.id}")
                 except HTTPException as e:
-                    logger.error(f"❌ Comment creation failed: {e.detail}")
+                    logger.error(f"Comment creation failed: {e.detail}")
                     await websocket.send_json({
                         "type": "error",
                         "code": e.detail if isinstance(e.detail, str) else "ERROR",

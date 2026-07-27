@@ -359,10 +359,6 @@ def view_post_comments(
                 const encodedToken = encodeURIComponent(token);
                 const wsUrl = `${{protocol}}//${{window.location.host}}/api/v1/author/groups/${{groupId}}/posts/${{postId}}/comments/live?token=${{encodedToken}}`;
 
-                console.log("[WebSocket Debug]");
-                console.log("  Token length:", token.length);
-                console.log("  WebSocket URL:", wsUrl);
-
                 ws = new WebSocket(wsUrl);
 
                 ws.onopen = () => {{
@@ -371,46 +367,33 @@ def view_post_comments(
                 }};
 
                 ws.onmessage = (event) => {{
-                    console.log("[WebSocket message received]", event.data.substring(0, 100));
                     try {{
                         const message = JSON.parse(event.data);
-                        console.log("[Parsed message type]:", message.type);
 
                         if (message.type === "comment_created") {{
-                            console.log("[Broadcasting comment to UI]");
                             addComment(message.comment);
                         }} else if (message.type === "error") {{
-                            console.error("[Server error]", message.message);
                             showError(message.message);
-                        }} else {{
-                            console.warn("[Unknown message type]", message.type);
                         }}
                     }} catch (e) {{
-                        console.error("[Failed to parse message]", e.message);
+                        // Silently handle parse errors
                     }}
                 }};
 
                 ws.onerror = (event) => {{
-                    console.error("[WebSocket Error]", event);
                     updateStatus(false, "Connection error");
                 }};
 
                 ws.onclose = (event) => {{
-                    console.log("[WebSocket Closed]", event.code, event.reason);
                     updateStatus(false, "Disconnected");
                     setTimeout(connectWebSocket, 3000);
                 }};
             }}
 
             function loadInitialComments() {{
-                console.log("[Loading initial comments]");
                 fetch(`${{apiBase}}/author/groups/${{groupId}}/posts/${{postId}}/comments?limit=50`)
-                    .then(r => {{
-                        console.log("  HTTP Status:", r.status);
-                        return r.json();
-                    }})
+                    .then(r => r.json())
                     .then(data => {{
-                        console.log("  Comments loaded:", data.comments.length);
                         commentsSection.innerHTML = "";
                         if (data.comments.length === 0) {{
                             commentsSection.innerHTML = '<div class="comments-empty">No comments yet. Be the first!</div>';
@@ -419,15 +402,12 @@ def view_post_comments(
                         }}
                     }})
                     .catch(err => {{
-                        console.error("  Failed to load comments:", err);
                         showError("Failed to load comments: " + err.message);
                     }});
             }}
 
             function addComment(comment) {{
-                console.log("[Adding comment]", comment.user_email, ":", comment.text.substring(0, 50));
                 if (commentsSection.querySelector(".comments-empty")) {{
-                    console.log("[Removing 'no comments' message]");
                     commentsSection.innerHTML = "";
                 }}
 
@@ -442,7 +422,6 @@ def view_post_comments(
                 `;
 
                 commentsSection.appendChild(div);
-                console.log("[Comment added to DOM]");
             }}
 
             function sendComment() {{
@@ -450,16 +429,13 @@ def view_post_comments(
                 if (!text) return;
 
                 if (ws && ws.readyState === WebSocket.OPEN) {{
-                    console.log("[Sending comment] Text length:", text.length);
                     ws.send(JSON.stringify({{
                         type: "comment",
                         text: text
                     }}));
-                    console.log("[Comment sent] Waiting for broadcast...");
                     commentInput.value = "";
                     charCount.textContent = "";
                 }} else {{
-                    console.error("[Send error] WebSocket not open. State:", ws ? ws.readyState : "null");
                     showError("Not connected. Please wait...");
                 }}
             }}

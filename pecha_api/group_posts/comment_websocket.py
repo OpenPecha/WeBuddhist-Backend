@@ -96,10 +96,9 @@ class PostCommentBroadcaster:
 
         try:
             # Publish to Redis: all servers subscribe to this channel
-            subscribers = await self.redis.publish(channel, json.dumps(message))
-            logger.info(f"✅ Comment {comment.id} broadcast to {subscribers} subscribers on channel {channel}")
+            await self.redis.publish(channel, json.dumps(message))
         except Exception as e:
-            logger.error(f"❌ Failed to broadcast comment {comment.id} to Redis channel {channel}: {e}")
+            logger.error(f"Failed to broadcast comment to Redis: {e}")
             raise
 
     async def subscribe_to_post(self, post_id: UUID):

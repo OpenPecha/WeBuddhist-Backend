@@ -107,13 +107,10 @@ def create_post_comment_service(
         # Look up user by email in Users table
         user = db.query(Users).filter(Users.email == author_email).first()
         if not user:
-            logger.error(f"❌ User not found in users table for email: {author_email}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail=f"User account not found: {author_email}",
             )
-
-        logger.info(f"✅ Found user {user.id} ({author_email})")
 
         comment = GroupPostComment(
             post_id=post_id,
@@ -121,7 +118,6 @@ def create_post_comment_service(
             text=text,
         )
 
-        logger.info(f"✅ Comment created by user {user.id}")
         created = create_comment(db=db, comment=comment)
         return build_comment_dto(created)
 
