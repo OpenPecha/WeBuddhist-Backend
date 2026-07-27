@@ -1,6 +1,6 @@
 """HTML viewer for group post live comments - token-based auth."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
 from uuid import UUID
 
@@ -17,9 +17,8 @@ viewer_router = APIRouter(
 def view_post_comments(
     group_id: UUID,
     post_id: UUID,
-    token: str = Query(..., description="Bearer token for authentication"),
 ):
-    """Live comment viewer - requires bearer token in query parameter."""
+    """Live comment viewer - token input on the page."""
     return f"""
     <!DOCTYPE html>
     <html lang="en">
@@ -90,12 +89,64 @@ def view_post_comments(
                 50% {{ opacity: 0.5; }}
             }}
 
+            .auth-section {{
+                padding: 20px;
+                border-bottom: 1px solid #e5e7eb;
+                background: #f9fafb;
+                display: flex;
+                gap: 10px;
+                align-items: flex-end;
+            }}
+
+            .auth-section input {{
+                flex: 1;
+                padding: 12px;
+                border: 1px solid #d1d5db;
+                border-radius: 8px;
+                font-size: 14px;
+                font-family: monospace;
+            }}
+
+            .auth-section input:focus {{
+                outline: none;
+                border-color: #667eea;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }}
+
+            .auth-section button {{
+                padding: 12px 24px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: transform 0.2s, box-shadow 0.2s;
+                white-space: nowrap;
+            }}
+
+            .auth-section button:hover {{
+                transform: translateY(-2px);
+                box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+            }}
+
+            .auth-section button:disabled {{
+                opacity: 0.5;
+                cursor: not-allowed;
+                transform: none;
+            }}
+
             .comments-section {{
                 flex: 1;
                 overflow-y: auto;
                 padding: 20px;
                 display: flex;
                 flex-direction: column-reverse;
+                display: none;
+            }}
+
+            .comments-section.active {{
+                display: flex;
             }}
 
             .comment {{
@@ -137,6 +188,11 @@ def view_post_comments(
                 background: #f9fafb;
                 display: flex;
                 gap: 10px;
+                display: none;
+            }}
+
+            .input-section.active {{
+                display: flex;
             }}
 
             .input-section textarea {{
@@ -219,9 +275,19 @@ def view_post_comments(
             <div class="header">
                 <h1>💬 Live Comments</h1>
                 <div class="status">
-                    <div class="status-dot" id="statusDot"></div>
-                    <span id="statusText">Connecting...</span>
+                    <div class="status-dot offline" id="statusDot"></div>
+                    <span id="statusText">Not connected</span>
                 </div>
+            </div>
+
+            <div class="auth-section">
+                <input
+                    type="password"
+                    id="tokenInput"
+                    placeholder="Enter your bearer token"
+                    autocomplete="off"
+                />
+                <button id="connectBtn">Connect</button>
             </div>
 
             <div class="comments-section" id="commentsSection">
@@ -231,7 +297,7 @@ def view_post_comments(
                 </div>
             </div>
 
-            <div class="input-section">
+            <div class="input-section" id="inputSection">
                 <textarea
                     id="commentInput"
                     placeholder="Write a comment... (max 5000 characters)"
@@ -246,14 +312,17 @@ def view_post_comments(
         <script>
             const groupId = "{group_id}";
             const postId = "{post_id}";
-            const token = "{token}";
             const apiBase = window.location.origin + "/api/v1";
 
             let ws = null;
+            let token = null;
 
+            const tokenInput = document.getElementById("tokenInput");
+            const connectBtn = document.getElementById("connectBtn");
             const statusDot = document.getElementById("statusDot");
             const statusText = document.getElementById("statusText");
             const commentsSection = document.getElementById("commentsSection");
+            const inputSection = document.getElementById("inputSection");
             const commentInput = document.getElementById("commentInput");
             const sendBtn = document.getElementById("sendBtn");
             const charCount = document.getElementById("charCount");
@@ -269,19 +338,30 @@ def view_post_comments(
                 sendBtn.disabled = !connected;
             }}
 
+            function showAuth() {{
+                commentsSection.classList.remove("active");
+                inputSection.classList.remove("active");
+                updateStatus(false, "Not connected");
+            }}
+
+            function showComments() {{
+                commentsSection.classList.add("active");
+                inputSection.classList.add("active");
+            }}
+
             function connectWebSocket() {{
-                // Use wss:// for HTTPS, ws:// for HTTP
+                if (!token) {{
+                    showError("Token is required");
+                    return;
+                }}
+
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                // URL-encode the token to handle special characters
                 const encodedToken = encodeURIComponent(token);
                 const wsUrl = `${{protocol}}//${{window.location.host}}/api/v1/author/groups/${{groupId}}/posts/${{postId}}/comments/live?token=${{encodedToken}}`;
 
                 console.log("[WebSocket Debug]");
-                console.log("  Token present:", token.length > 0 ? "Yes" : "No");
-                console.log("  Token first 50 chars:", token.substring(0, 50));
+                console.log("  Token length:", token.length);
                 console.log("  WebSocket URL:", wsUrl);
-                console.log("  Group ID:", groupId);
-                console.log("  Post ID:", postId);
 
                 ws = new WebSocket(wsUrl);
 
@@ -306,7 +386,7 @@ def view_post_comments(
                             console.warn("[Unknown message type]", message.type);
                         }}
                     }} catch (e) {{
-                        console.error("[Failed to parse message]", e.message, "Data:", event.data.substring(0, 100));
+                        console.error("[Failed to parse message]", e.message);
                     }}
                 }};
 
@@ -365,14 +445,6 @@ def view_post_comments(
                 console.log("[Comment added to DOM]");
             }}
 
-            function showError(message) {{
-                const errorDiv = document.createElement("div");
-                errorDiv.className = "error";
-                errorDiv.textContent = message;
-                commentsSection.insertBefore(errorDiv, commentsSection.firstChild);
-                setTimeout(() => errorDiv.remove(), 5000);
-            }}
-
             function sendComment() {{
                 const text = commentInput.value.trim();
                 if (!text) return;
@@ -398,6 +470,33 @@ def view_post_comments(
                 return div.innerHTML;
             }}
 
+            function showError(message) {{
+                const errorDiv = document.createElement("div");
+                errorDiv.className = "error";
+                errorDiv.textContent = message;
+                commentsSection.insertBefore(errorDiv, commentsSection.firstChild);
+                setTimeout(() => errorDiv.remove(), 5000);
+            }}
+
+            connectBtn.addEventListener("click", () => {{
+                token = tokenInput.value.trim();
+                if (!token) {{
+                    showError("Please enter a token");
+                    return;
+                }}
+                connectBtn.disabled = true;
+                connectBtn.textContent = "Connecting...";
+                updateStatus(false, "Connecting...");
+                showComments();
+                connectWebSocket();
+            }});
+
+            tokenInput.addEventListener("keydown", (e) => {{
+                if (e.key === "Enter") {{
+                    connectBtn.click();
+                }}
+            }});
+
             commentInput.addEventListener("input", () => {{
                 const len = commentInput.value.length;
                 charCount.textContent = len > 0 ? `${{len}}/5000` : "";
@@ -411,7 +510,7 @@ def view_post_comments(
                 }}
             }});
 
-            connectWebSocket();
+            showAuth();
         </script>
     </body>
     </html>
