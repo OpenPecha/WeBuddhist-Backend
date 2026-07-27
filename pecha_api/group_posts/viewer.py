@@ -270,7 +270,9 @@ def view_post_comments(
             }}
 
             function connectWebSocket() {{
-                const wsUrl = `ws://${{window.location.host}}/api/v1/author/groups/${{groupId}}/posts/${{postId}}/comments/live?token=${{token}}`;
+                // Use wss:// for HTTPS, ws:// for HTTP
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${{protocol}}//${{window.location.host}}/api/v1/author/groups/${{groupId}}/posts/${{postId}}/comments/live?token=${{token}}`;
 
                 ws = new WebSocket(wsUrl);
 
