@@ -87,6 +87,7 @@ class EventDTO(BaseModel):
     start_date: datetime
     end_date: datetime
     is_one_day: bool
+    featured: bool
     metadata: EventMetadataResponse
     links: List[EventLinkDTO] = []
     image: Optional[ImageUrlModel] = None

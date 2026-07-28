@@ -19,6 +19,7 @@ from .event_service import (
     delete_event_service,
     get_cms_events_service,
     get_cms_event_by_id_service,
+    update_event_featured_service,
 )
 from .event_participant_service import get_cms_event_participants_service
 
@@ -121,3 +122,11 @@ async def delete_event_endpoint(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ) -> None:
     delete_event_service(token=credentials.credentials, event_id=event_id)
+
+
+@cms_events_router.patch("/{event_id}/featured", status_code=status.HTTP_204_NO_CONTENT)
+async def update_event_featured_endpoint(
+    event_id: UUID,
+    credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+) -> None:
+    update_event_featured_service(token=credentials.credentials, event_id=event_id)

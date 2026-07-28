@@ -11,6 +11,7 @@ from .event_service import (
     get_events_service,
     get_events_today_service,
     get_event_by_id_service,
+    get_featured_events_service,
 )
 from .event_participant_service import (
     join_event_service,
@@ -74,6 +75,14 @@ def get_events_today_endpoint(
         skip=skip,
         limit=limit,
     )
+
+
+@events_router.get("/featured", status_code=status.HTTP_200_OK, response_model=list[EventDTO], response_model_exclude_none=True)
+def get_featured_events_endpoint(
+    language: Annotated[Optional[str], Query(description="Filter metadata by language code")] = "en",
+    limit: Annotated[int, Query(ge=1, le=100)] = 10,
+) -> list[EventDTO]:
+    return get_featured_events_service(language=language, limit=limit)
 
 
 @events_router.post(

@@ -38,6 +38,8 @@ from pecha_api.events.event_model import Event
 from pecha_api.events.event_metadata_model import EventMetadata
 from pecha_api.events.event_participant_model import GroupEventParticipant
 from pecha_api.events.event_link_model import EventLink
+from pecha_api.group_posts.models import GroupPost, GroupPostMedia, GroupPostLink
+from pecha_api.group_posts.comment_models import GroupPostComment
 from pecha_api.mantra.mantra_metadata_model import MantraMetadata
 from pecha_api.traditions.tradition_models import Tradition, TraditionMetadata, UserTradition
 from pecha_api.region_restrictions.region_restriction_models import ChinaRestrictedItem

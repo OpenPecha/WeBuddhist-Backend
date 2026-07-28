@@ -181,3 +181,18 @@ def get_events(
         .all()
     )
     return events, total
+
+
+def get_featured_events(
+    db: Session,
+    limit: int = 10,
+) -> List[Event]:
+    events = (
+        db.query(Event)
+        .options(selectinload(Event.metadata_entries), selectinload(Event.links))
+        .filter(Event.featured == True)
+        .order_by(Event.start_date.desc())
+        .limit(limit)
+        .all()
+    )
+    return events

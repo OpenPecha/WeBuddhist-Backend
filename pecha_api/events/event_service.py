@@ -23,6 +23,7 @@ from pecha_api.plans.shared.permissions import (
     require_can_read_group_content,
     require_cms_write_access,
     require_group_member,
+    require_can_change_status,
     is_reviewer,
     is_super_admin,
 )
@@ -43,6 +44,7 @@ from .event_repository import (
     update_event,
     delete_event,
     get_events,
+    get_featured_events,
 )
 
 _CONTENT_EDIT_ROLES = {
@@ -125,6 +127,7 @@ def _event_to_dto(
         start_date=event.start_date,
         end_date=event.end_date,
         is_one_day=event.end_date == event.start_date,
+        featured=event.featured,
         metadata=_metadata_response(
             event.metadata_entries, language=language, fallback=fallback
         ),
@@ -386,3 +389,30 @@ def delete_event_service(token: str, event_id: UUID) -> None:
 
         _require_can_edit_event(db, event.group_id, current_author)
         delete_event(db, event)
+
+
+def get_featured_events_service(
+    language: Optional[str] = None,
+    limit: int = 10,
+) -> List[EventDTO]:
+    with SessionLocal() as db:
+        events = get_featured_events(db, limit=limit)
+        return [
+            _event_to_dto(event, language=language, fallback=True)
+            for event in events
+        ]
+
+
+def update_event_featured_service(token: str, event_id: UUID) -> None:
+    current_author = validate_cms_author_details(token=token)
+    with SessionLocal() as db:
+        event = get_event_by_id(db, event_id)
+        if not event:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Event with id '{event_id}' not found",
+            )
+        require_can_change_status(db=db, group_id=event.group_id, author=current_author)
+        event.featured = not event.featured
+        event.updated_at = datetime.now(timezone.utc)
+        update_event(db, event)

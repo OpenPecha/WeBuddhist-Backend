@@ -238,6 +238,29 @@ class TestValidateAndExtractAuthorDetails:
     @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
     @patch('pecha_api.plans.authors.plan_authors_service.get_author_by_email')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
+    def test_validate_and_extract_author_details_author_lookup_returns_none(
+        self,
+        mock_validate_token,
+        mock_get_author_by_email,
+        mock_session_local
+    ):
+        """A well-formed token for an email with no author row is unauthorized."""
+        # Arrange
+        token = "valid_token"
+        mock_session_local.return_value.__enter__.return_value = MagicMock()
+        mock_validate_token.return_value = {"email": "nonexistent@example.com"}
+        mock_get_author_by_email.return_value = None
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            validate_and_extract_author_details(token)
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "nonexistent@example.com" in exc_info.value.detail
+
+    @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
+    @patch('pecha_api.plans.authors.plan_authors_service.get_author_by_email')
+    @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_logging_debug_called(
         self, 
         mock_validate_token, 

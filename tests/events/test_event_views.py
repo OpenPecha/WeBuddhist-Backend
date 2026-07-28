@@ -19,6 +19,7 @@ def _sample_event_dto() -> EventDTO:
         start_date=now,
         end_date=now,
         is_one_day=True,
+        featured=False,
         metadata=[],
         created_at=now,
         created_by="author@example.com",
