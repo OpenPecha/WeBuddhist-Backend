@@ -13,6 +13,7 @@ from pecha_api.plans.authors.plan_authors_service import (
 )
 from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
 from pecha_api.plans.groups.groups_repository import get_author_group_ids
+from pecha_api.group_recitation_collection.repository import get_collection_by_id
 from pecha_api.plans.shared.metadata_utils import (
     filter_by_language_with_fallback,
     format_metadata_response,
@@ -121,6 +122,7 @@ def _event_to_dto(
         accumulator_id=event.accumulator_id,
         mantra_id=event.mantra_id,
         timer_id=event.timer_id,
+        group_recitation_collection_id=event.group_recitation_collection_id,
         group_id=event.group_id,
         start_date=event.start_date,
         end_date=event.end_date,
@@ -152,12 +154,31 @@ def _require_can_edit_event(db, group_id: UUID, author) -> None:
     )
 
 
+def _validate_group_recitation_collection(
+    db, collection_id: Optional[UUID], group_id: UUID
+) -> None:
+    if collection_id is None:
+        return
+    collection = get_collection_by_id(
+        db=db, collection_id=collection_id, group_id=group_id
+    )
+    if collection is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Group recitation collection '{collection_id}' not found "
+                f"or does not belong to group '{group_id}'"
+            ),
+        )
+
+
 def get_events_service(
     group_id: Optional[UUID] = None,
     plan_id: Optional[UUID] = None,
     accumulator_id: Optional[UUID] = None,
     mantra_id: Optional[UUID] = None,
     timer_id: Optional[UUID] = None,
+    group_recitation_collection_id: Optional[UUID] = None,
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
     language: Optional[str] = None,
@@ -174,6 +195,7 @@ def get_events_service(
             accumulator_id=accumulator_id,
             mantra_id=mantra_id,
             timer_id=timer_id,
+            group_recitation_collection_id=group_recitation_collection_id,
             from_date=from_date,
             to_date=to_date,
             restrict_group_ids=restrict_group_ids,
@@ -198,6 +220,7 @@ def get_cms_events_service(
     accumulator_id: Optional[UUID] = None,
     mantra_id: Optional[UUID] = None,
     timer_id: Optional[UUID] = None,
+    group_recitation_collection_id: Optional[UUID] = None,
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
     language: Optional[str] = None,
@@ -220,6 +243,7 @@ def get_cms_events_service(
         accumulator_id=accumulator_id,
         mantra_id=mantra_id,
         timer_id=timer_id,
+        group_recitation_collection_id=group_recitation_collection_id,
         from_date=from_date,
         to_date=to_date,
         language=language,
@@ -282,6 +306,7 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         accumulator_id=request.accumulator_id,
         mantra_id=request.mantra_id,
         timer_id=request.timer_id,
+        group_recitation_collection_id=request.group_recitation_collection_id,
         group_id=request.group_id,
         start_date=request.start_date,
         end_date=request.end_date,
@@ -294,6 +319,11 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
             db=db,
             group_id=request.group_id,
             author=current_author,
+        )
+        _validate_group_recitation_collection(
+            db=db,
+            collection_id=request.group_recitation_collection_id,
+            group_id=request.group_id,
         )
         saved = save_event(db, event, request.metadata, request.links)
         return _event_to_dto(saved)
@@ -330,6 +360,13 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
             event.mantra_id = request.mantra_id
         if request.timer_id is not None:
             event.timer_id = request.timer_id
+        if "group_recitation_collection_id" in request.model_fields_set:
+            _validate_group_recitation_collection(
+                db=db,
+                collection_id=request.group_recitation_collection_id,
+                group_id=event.group_id,
+            )
+            event.group_recitation_collection_id = request.group_recitation_collection_id
         if request.image_url is not None:
             event.image_url = request.image_url
 

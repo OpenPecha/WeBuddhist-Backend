@@ -82,6 +82,7 @@ class EventDTO(BaseModel):
     accumulator_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
     timer_id: Optional[UUID] = None
+    group_recitation_collection_id: Optional[UUID] = None
     group_id: UUID
     start_date: datetime
     end_date: datetime
@@ -131,6 +132,7 @@ class CreateEventRequest(BaseModel):
     accumulator_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
     timer_id: Optional[UUID] = None
+    group_recitation_collection_id: Optional[UUID] = None
 
     @field_validator("metadata")
     @classmethod
@@ -156,6 +158,7 @@ class UpdateEventRequest(BaseModel):
     accumulator_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
     timer_id: Optional[UUID] = None
+    group_recitation_collection_id: Optional[UUID] = None
 
     @field_validator("metadata")
     @classmethod
