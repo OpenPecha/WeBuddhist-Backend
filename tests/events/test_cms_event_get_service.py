@@ -191,3 +191,66 @@ def test_detail_403_when_not_group_member(
         get_cms_event_by_id_service(token="tok", event_id=uuid4())
 
     assert exc.value.status_code == 403
+
+
+# --------------------------- participant_count enrichment ---------------------------
+
+
+@patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_event_participant_counts")
+@patch(f"{MODULE}.get_events")
+def test_list_attaches_participant_counts(mock_get_events, mock_counts, mock_session):
+    from pecha_api.events.event_service import get_events_service
+
+    mock_session.return_value.__enter__.return_value = MagicMock()
+    event_a = _event()
+    event_b = _event()
+    mock_get_events.return_value = ([event_a, event_b], 2)
+    mock_counts.return_value = {event_a.id: 5, event_b.id: 0}
+
+    result = get_events_service()
+
+    by_id = {e.id: e for e in result.events}
+    assert by_id[event_a.id].participant_count == 5
+    assert by_id[event_b.id].participant_count == 0
+    mock_counts.assert_called_once()
+    assert set(mock_counts.call_args.kwargs["event_ids"]) == {event_a.id, event_b.id}
+
+
+@patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_event_participant_counts")
+@patch(f"{MODULE}.get_events")
+def test_list_event_missing_from_counts_defaults_to_zero(
+    mock_get_events, mock_counts, mock_session
+):
+    from pecha_api.events.event_service import get_events_service
+
+    mock_session.return_value.__enter__.return_value = MagicMock()
+    event = _event()
+    mock_get_events.return_value = ([event], 1)
+    mock_counts.return_value = {}
+
+    result = get_events_service()
+
+    assert result.events[0].participant_count == 0
+
+
+@patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_event_participant_count")
+@patch(f"{MODULE}.require_can_read_group_content")
+@patch(f"{MODULE}.get_event_by_id")
+@patch(f"{MODULE}.validate_cms_author_details")
+def test_detail_includes_participant_count(
+    mock_validate, mock_get_by_id, mock_require_read, mock_count, mock_session
+):
+    mock_db = MagicMock()
+    mock_session.return_value.__enter__.return_value = mock_db
+    mock_validate.return_value = _author()
+    event = _event()
+    mock_get_by_id.return_value = event
+    mock_count.return_value = 7
+
+    result = get_cms_event_by_id_service(token="tok", event_id=event.id)
+
+    assert result.participant_count == 7
+    mock_count.assert_called_once_with(db=mock_db, event_id=event.id)

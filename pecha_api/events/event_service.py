@@ -46,6 +46,10 @@ from .event_repository import (
     get_events,
     get_featured_events,
 )
+from .event_participant_repository import (
+    get_event_participant_count,
+    get_event_participant_counts,
+)
 
 _CONTENT_EDIT_ROLES = {
     AuthorGroupMemberRole.OWNER,
@@ -114,7 +118,10 @@ def _links_to_dtos(links: Optional[List]) -> List[EventLinkDTO]:
 
 
 def _event_to_dto(
-    event: Event, language: Optional[str] = None, fallback: bool = False
+    event: Event,
+    language: Optional[str] = None,
+    fallback: bool = False,
+    participant_count: int = 0,
 ) -> EventDTO:
     return EventDTO(
         id=event.id,
@@ -136,6 +143,7 @@ def _event_to_dto(
             event.image_url, resource_id=event.id, resource_type="event"
         ),
         image_url=event.image_url,
+        participant_count=participant_count,
         created_at=event.created_at,
         created_by=event.created_by,
         updated_at=event.updated_at,
@@ -202,9 +210,17 @@ def get_events_service(
             skip=skip,
             limit=limit,
         )
+        counts_by_event = get_event_participant_counts(
+            db=db, event_ids=[event.id for event in events]
+        )
         return EventsResponse(
             events=[
-                _event_to_dto(event, language=language, fallback=fallback)
+                _event_to_dto(
+                    event,
+                    language=language,
+                    fallback=fallback,
+                    participant_count=counts_by_event.get(event.id, 0),
+                )
                 for event in events
             ],
             total=total,
@@ -265,7 +281,10 @@ def get_cms_event_by_id_service(
                 detail=f"Event with id '{event_id}' not found",
             )
         require_can_read_group_content(db=db, group_id=event.group_id, author=current_author)
-        return _event_to_dto(event, language=language)
+        participant_count = get_event_participant_count(db=db, event_id=event_id)
+        return _event_to_dto(
+            event, language=language, participant_count=participant_count
+        )
 
 
 def get_events_today_service(
@@ -295,7 +314,10 @@ def get_event_by_id_service(event_id: UUID, language: Optional[str] = None) -> E
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Event with id '{event_id}' not found",
             )
-        return _event_to_dto(event, language=language, fallback=True)
+        participant_count = get_event_participant_count(db=db, event_id=event_id)
+        return _event_to_dto(
+            event, language=language, fallback=True, participant_count=participant_count
+        )
 
 
 def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
