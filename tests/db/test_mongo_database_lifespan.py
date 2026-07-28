@@ -17,10 +17,11 @@ async def test_lifespan_closes_mongo_client_on_shutdown():
         side_effect=lambda key: {
             "MONGO_CONNECTION_STRING": "mongodb://localhost:27017",
             "MONGO_DATABASE_NAME": "testdb",
+            "REDIS_URL": "redis://localhost:6379/0",
         }[key],
     ), patch("pecha_api.db.mongo_database.setup_scheduler") as mock_setup_scheduler, patch(
         "pecha_api.db.mongo_database.shutdown_scheduler"
-    ) as mock_shutdown_scheduler:
+    ) as mock_shutdown_scheduler, patch("pecha_api.db.mongo_database.init_broadcaster", new_callable=AsyncMock):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
         mock_db = MagicMock()
@@ -47,10 +48,11 @@ async def test_lifespan_cleans_up_when_beanie_init_fails():
         side_effect=lambda key: {
             "MONGO_CONNECTION_STRING": "mongodb://localhost:27017",
             "MONGO_DATABASE_NAME": "testdb",
+            "REDIS_URL": "redis://localhost:6379/0",
         }[key],
     ), patch("pecha_api.db.mongo_database.setup_scheduler") as mock_setup_scheduler, patch(
         "pecha_api.db.mongo_database.shutdown_scheduler"
-    ) as mock_shutdown_scheduler:
+    ) as mock_shutdown_scheduler, patch("pecha_api.db.mongo_database.init_broadcaster", new_callable=AsyncMock):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
         mock_client.__getitem__.return_value = MagicMock()
@@ -76,11 +78,12 @@ async def test_lifespan_cleans_up_when_scheduler_setup_fails():
         side_effect=lambda key: {
             "MONGO_CONNECTION_STRING": "mongodb://localhost:27017",
             "MONGO_DATABASE_NAME": "testdb",
+            "REDIS_URL": "redis://localhost:6379/0",
         }[key],
     ), patch(
         "pecha_api.db.mongo_database.setup_scheduler",
         side_effect=ValueError("invalid retention"),
-    ), patch("pecha_api.db.mongo_database.shutdown_scheduler") as mock_shutdown_scheduler:
+    ), patch("pecha_api.db.mongo_database.shutdown_scheduler") as mock_shutdown_scheduler, patch("pecha_api.db.mongo_database.init_broadcaster", new_callable=AsyncMock):
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
         mock_client.__getitem__.return_value = MagicMock()
