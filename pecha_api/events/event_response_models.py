@@ -92,6 +92,7 @@ class EventDTO(BaseModel):
     links: List[EventLinkDTO] = []
     image: Optional[ImageUrlModel] = None
     image_url: Optional[str] = None
+    participant_count: int = 0
     created_at: datetime
     created_by: str
     updated_at: Optional[datetime] = None
