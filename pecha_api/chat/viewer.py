@@ -1,8 +1,9 @@
 """HTML viewer for testing the chat system - token-based auth.
 
-Lets a tester paste a bearer token, pick GROUP or DIRECT mode, enter the
-target group_id/user_id, and start chatting in that room (auto-created on
-first message, exactly like a real client)."""
+Lets a tester paste a bearer token, then browse their own groups, a group's
+people, or their existing chats (no manual group_id/user_id entry) and start
+chatting in that room (auto-created on first message, exactly like a real
+client)."""
 
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse
@@ -19,7 +20,7 @@ chat_viewer_router = APIRouter(
     include_in_schema=False,
 )
 def view_chat():
-    """Live chat test page - accepts token, group_id/user_id via input fields."""
+    """Live chat test page - accepts a token, then lists groups/people/chats to pick from."""
     return _CHAT_VIEWER_HTML
 
 
@@ -41,7 +42,7 @@ _CHAT_VIEWER_HTML = """
         }
 
         .container {
-            max-width: 640px;
+            max-width: 680px;
             margin: 0 auto;
             background: white;
             border-radius: 12px;
@@ -55,50 +56,62 @@ _CHAT_VIEWER_HTML = """
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            padding: 20px;
+            padding: 16px 20px;
         }
 
-        .header h1 { font-size: 22px; margin-bottom: 8px; }
+        .header h1 { font-size: 20px; margin-bottom: 6px; }
 
-        .status { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .status { display: flex; align-items: center; gap: 8px; font-size: 13px; flex-wrap: wrap; }
 
         .status-dot {
-            width: 12px; height: 12px; border-radius: 50%;
+            width: 10px; height: 10px; border-radius: 50%;
             background: #10b981; animation: pulse 2s infinite;
         }
         .status-dot.offline { background: #ef4444; animation: none; }
 
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
-        .setup-section {
-            padding: 20px;
-            border-bottom: 1px solid #e5e7eb;
-            background: #f9fafb;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+        .online-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
         }
 
-        .setup-row { display: flex; gap: 10px; align-items: center; }
+        .back-btn {
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            margin-left: auto;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.3); }
 
-        .setup-section input, .setup-section select {
-            flex: 1;
+        /* --- Token screen --- */
+        .token-section {
+            padding: 24px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .token-section input {
             padding: 12px;
             border: 1px solid #d1d5db;
             border-radius: 8px;
             font-size: 14px;
-            font-family: inherit;
+            font-family: monospace;
         }
-
-        .setup-section input[type="password"] { font-family: monospace; }
-
-        .setup-section input:focus, .setup-section select:focus {
+        .token-section input:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        .setup-section button {
+        button.primary {
             padding: 12px 24px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
@@ -106,24 +119,86 @@ _CHAT_VIEWER_HTML = """
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
-            white-space: nowrap;
             transition: transform 0.2s, box-shadow 0.2s;
         }
+        button.primary:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3); }
+        button.primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-        .setup-section button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3); }
-        .setup-section button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        /* --- Lobby (tabs + lists) --- */
+        .lobby { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+        .lobby.active { display: flex; }
 
-        .room-label { font-size: 12px; color: #6b7280; padding: 0 20px; }
-
-        .messages-section {
+        .tabs { display: flex; border-bottom: 1px solid #e5e7eb; background: #f9fafb; }
+        .tab {
             flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: none;
-            flex-direction: column;
+            padding: 12px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            color: #6b7280;
+            border-bottom: 2px solid transparent;
+        }
+        .tab.active { color: #667eea; border-bottom-color: #667eea; }
+
+        .tab-panel { display: none; flex: 1; overflow-y: auto; padding: 12px; }
+        .tab-panel.active { display: block; }
+
+        .group-picker {
+            padding: 10px 12px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #f9fafb;
+        }
+        .group-picker select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #d1d5db;
+            font-size: 13px;
         }
 
-        .messages-section.active { display: flex; }
+        .list-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .list-item:hover { background: #f3f4f6; }
+
+        .avatar {
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 600;
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+
+        .list-item-body { flex: 1; min-width: 0; }
+        .list-item-title { font-weight: 600; color: #1f2937; font-size: 14px; }
+        .list-item-sub { font-size: 12px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .unread-badge {
+            background: #667eea;
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 10px;
+        }
+
+        .empty-state, .loading { text-align: center; color: #9ca3af; padding: 30px 10px; font-size: 14px; }
+
+        /* --- Chat view --- */
+        .chat-view { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+        .chat-view.active { display: flex; }
+
+        .messages-section { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; }
 
         .message {
             margin-bottom: 12px;
@@ -133,7 +208,6 @@ _CHAT_VIEWER_HTML = """
             border-left: 4px solid #667eea;
             max-width: 80%;
         }
-
         .message.mine {
             align-self: flex-end;
             background: #ede9fe;
@@ -145,26 +219,21 @@ _CHAT_VIEWER_HTML = """
         .message-body { color: #374151; line-height: 1.4; word-break: break-word; }
         .message-time { font-size: 11px; color: #9ca3af; margin-top: 4px; }
 
-        .messages-empty { text-align: center; color: #9ca3af; padding: 40px 20px; }
-
         .typing-indicator {
             padding: 4px 20px;
             font-size: 13px;
             color: #6b7280;
             font-style: italic;
             min-height: 22px;
-            display: none;
         }
-        .typing-indicator.active { display: block; }
 
         .input-section {
             border-top: 1px solid #e5e7eb;
             padding: 16px;
             background: #f9fafb;
+            display: flex;
             gap: 10px;
-            display: none;
         }
-        .input-section.active { display: flex; }
 
         .input-section textarea {
             flex: 1;
@@ -176,119 +245,102 @@ _CHAT_VIEWER_HTML = """
             resize: none;
             max-height: 100px;
         }
-
         .input-section textarea:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
         }
 
-        .input-section button {
-            padding: 12px 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .input-section button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3); }
-        .input-section button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
         .error {
             background: #fee2e2;
             color: #991b1b;
-            padding: 12px;
+            padding: 10px 12px;
             border-radius: 8px;
-            margin-bottom: 12px;
+            margin: 8px 12px;
             border-left: 4px solid #dc2626;
+            font-size: 13px;
         }
-
-        .loading { text-align: center; padding: 20px; color: #9ca3af; }
-
-        .spinner {
-            display: inline-block;
-            width: 20px; height: 20px;
-            border: 3px solid #e5e7eb;
-            border-top-color: #667eea;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>Chat Test Viewer</h1>
-            <div class="status">
+            <h1 id="headerTitle">Chat Test Viewer</h1>
+            <div class="status" id="statusRow">
                 <div class="status-dot offline" id="statusDot"></div>
                 <span id="statusText">Not connected</span>
             </div>
         </div>
 
-        <div class="setup-section" id="setupSection">
-            <div class="setup-row">
-                <input type="password" id="tokenInput" placeholder="Enter your bearer token" autocomplete="off" />
+        <div class="token-section" id="tokenSection">
+            <input type="password" id="tokenInput" placeholder="Enter your bearer token" autocomplete="off" />
+            <button class="primary" id="tokenBtn">Continue</button>
+        </div>
+
+        <div class="lobby" id="lobby">
+            <div class="tabs">
+                <div class="tab active" data-tab="groups">My Groups</div>
+                <div class="tab" data-tab="people">People</div>
+                <div class="tab" data-tab="chats">My Chats</div>
             </div>
-            <div class="setup-row">
-                <select id="modeSelect">
-                    <option value="group">Group chat (group_id)</option>
-                    <option value="direct">Direct message (user_id)</option>
-                </select>
-                <input type="text" id="targetInput" placeholder="Enter group_id or user_id (UUID)" />
-                <button id="connectBtn">Start Chat</button>
+
+            <div class="tab-panel active" id="panel-groups">
+                <div id="groupsList" class="loading">Loading...</div>
+            </div>
+
+            <div class="tab-panel" id="panel-people">
+                <div class="group-picker">
+                    <select id="peopleGroupSelect"><option value="">Select a group first...</option></select>
+                </div>
+                <div id="peopleList" class="empty-state">Pick a group above to see its people.</div>
+            </div>
+
+            <div class="tab-panel" id="panel-chats">
+                <div id="chatsList" class="loading">Loading...</div>
             </div>
         </div>
 
-        <div class="room-label" id="roomLabel"></div>
-
-        <div class="messages-section" id="messagesSection">
-            <div class="loading"><div class="spinner"></div></div>
-        </div>
-
-        <div class="typing-indicator" id="typingIndicator"></div>
-
-        <div class="input-section" id="inputSection">
-            <textarea id="messageInput" placeholder="Type a message... (max 4000 characters)" maxlength="4000" disabled></textarea>
-            <button id="sendBtn" disabled>Send</button>
+        <div class="chat-view" id="chatView">
+            <div class="messages-section" id="messagesSection"></div>
+            <div class="typing-indicator" id="typingIndicator"></div>
+            <div class="input-section">
+                <textarea id="messageInput" placeholder="Type a message... (max 4000 characters)" maxlength="4000"></textarea>
+                <button class="primary" id="sendBtn">Send</button>
+            </div>
         </div>
     </div>
 
     <script>
         const apiBase = window.location.origin + "/api/v1";
 
-        let ws = null;
         let token = null;
-        let roomId = null;
         let myEmail = null;
+        let ws = null;
+        let roomId = null;
         let typingTimeout = null;
         let lastTypingSent = false;
+        let myGroups = [];
 
+        const tokenSection = document.getElementById("tokenSection");
         const tokenInput = document.getElementById("tokenInput");
-        const modeSelect = document.getElementById("modeSelect");
-        const targetInput = document.getElementById("targetInput");
-        const connectBtn = document.getElementById("connectBtn");
+        const tokenBtn = document.getElementById("tokenBtn");
+        const lobby = document.getElementById("lobby");
+        const chatView = document.getElementById("chatView");
+        const headerTitle = document.getElementById("headerTitle");
+        const statusRow = document.getElementById("statusRow");
         const statusDot = document.getElementById("statusDot");
         const statusText = document.getElementById("statusText");
-        const roomLabel = document.getElementById("roomLabel");
+        const groupsList = document.getElementById("groupsList");
+        const peopleGroupSelect = document.getElementById("peopleGroupSelect");
+        const peopleList = document.getElementById("peopleList");
+        const chatsList = document.getElementById("chatsList");
         const messagesSection = document.getElementById("messagesSection");
         const typingIndicator = document.getElementById("typingIndicator");
-        const inputSection = document.getElementById("inputSection");
         const messageInput = document.getElementById("messageInput");
         const sendBtn = document.getElementById("sendBtn");
 
-        function updateStatus(connected, message) {
-            statusDot.classList.toggle("offline", !connected);
-            statusText.textContent = message;
-            messageInput.disabled = !connected;
-            sendBtn.disabled = !connected;
-        }
-
-        function showChat() {
-            messagesSection.classList.add("active");
-            inputSection.classList.add("active");
+        function authHeaders() {
+            return { "Authorization": `Bearer ${token}` };
         }
 
         function decodeJwtEmail(jwt) {
@@ -300,20 +352,231 @@ _CHAT_VIEWER_HTML = """
             }
         }
 
-        function connectWebSocket() {
-            const mode = modeSelect.value;
-            const target = targetInput.value.trim();
-            if (!target) {
-                showError("Please enter a group_id or user_id");
-                connectBtn.disabled = false;
-                connectBtn.textContent = "Start Chat";
+        function initials(text) {
+            return (text || "?").trim().slice(0, 1).toUpperCase();
+        }
+
+        function groupTitle(group) {
+            const meta = group.metadata;
+            if (Array.isArray(meta) && meta.length > 0) return meta[0].title;
+            if (meta && meta.title) return meta.title;
+            return group.slug || group.id;
+        }
+
+        function showError(container, message) {
+            const div = document.createElement("div");
+            div.className = "error";
+            div.textContent = message;
+            container.parentElement.insertBefore(div, container);
+            setTimeout(() => div.remove(), 5000);
+        }
+
+        /* ---------- Step 1: token ---------- */
+
+        tokenBtn.addEventListener("click", async () => {
+            const value = tokenInput.value.trim();
+            if (!value) {
+                showError(tokenSection, "Please enter a token");
+                return;
+            }
+            token = value;
+            myEmail = decodeJwtEmail(token);
+            if (!myEmail) {
+                showError(tokenSection, "Could not read this token - is it a valid bearer token?");
+                token = null;
                 return;
             }
 
+            tokenSection.style.display = "none";
+            lobby.classList.add("active");
+            headerTitle.textContent = myEmail;
+            loadMyGroups();
+            loadMyChats();
+        });
+
+        tokenInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") tokenBtn.click();
+        });
+
+        /* ---------- Tabs ---------- */
+
+        document.querySelectorAll(".tab").forEach((tab) => {
+            tab.addEventListener("click", () => {
+                document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+                document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+                tab.classList.add("active");
+                document.getElementById(`panel-${tab.dataset.tab}`).classList.add("active");
+            });
+        });
+
+        /* ---------- My Groups ---------- */
+
+        async function loadMyGroups() {
+            groupsList.className = "loading";
+            groupsList.textContent = "Loading...";
+            try {
+                const [joined, following] = await Promise.all([
+                    fetch(`${apiBase}/users/me/joined/author/groups?limit=100`, { headers: authHeaders() }).then(r => r.json()),
+                    fetch(`${apiBase}/users/me/following/author/groups?limit=100`, { headers: authHeaders() }).then(r => r.json()),
+                ]);
+                const byId = new Map();
+                (joined.groups || []).forEach(g => byId.set(g.id, g));
+                (following.groups || []).forEach(g => byId.set(g.id, g));
+                myGroups = Array.from(byId.values());
+
+                renderGroupsList();
+                renderPeopleGroupOptions();
+            } catch (err) {
+                groupsList.textContent = "Failed to load groups: " + err.message;
+            }
+        }
+
+        function renderGroupsList() {
+            groupsList.className = "";
+            groupsList.innerHTML = "";
+            if (myGroups.length === 0) {
+                groupsList.innerHTML = '<div class="empty-state">You have not joined or followed any groups yet.</div>';
+                return;
+            }
+            myGroups.forEach(group => {
+                const title = groupTitle(group);
+                const div = document.createElement("div");
+                div.className = "list-item";
+                div.innerHTML = `
+                    <div class="avatar">${initials(title)}</div>
+                    <div class="list-item-body">
+                        <div class="list-item-title">${escapeHtml(title)}</div>
+                        <div class="list-item-sub">Group chat</div>
+                    </div>
+                `;
+                div.addEventListener("click", () => openGroupChat(group.id, title));
+                groupsList.appendChild(div);
+            });
+        }
+
+        function renderPeopleGroupOptions() {
+            peopleGroupSelect.innerHTML = '<option value="">Select a group first...</option>';
+            myGroups.forEach(group => {
+                const opt = document.createElement("option");
+                opt.value = group.id;
+                opt.textContent = groupTitle(group);
+                peopleGroupSelect.appendChild(opt);
+            });
+        }
+
+        /* ---------- People ---------- */
+
+        peopleGroupSelect.addEventListener("change", () => {
+            const groupId = peopleGroupSelect.value;
+            if (!groupId) {
+                peopleList.className = "empty-state";
+                peopleList.textContent = "Pick a group above to see its people.";
+                return;
+            }
+            loadGroupPeople(groupId);
+        });
+
+        async function loadGroupPeople(groupId) {
+            peopleList.className = "loading";
+            peopleList.textContent = "Loading...";
+            try {
+                const data = await fetch(`${apiBase}/chat/groups/${groupId}/people?limit=100`, { headers: authHeaders() }).then(r => r.json());
+                peopleList.className = "";
+                peopleList.innerHTML = "";
+                if (!data.people || data.people.length === 0) {
+                    peopleList.innerHTML = '<div class="empty-state">No other people in this group yet.</div>';
+                    return;
+                }
+                data.people.forEach(person => {
+                    const displayName = `${person.firstname} ${person.lastname || ""}`.trim() || person.email;
+                    const div = document.createElement("div");
+                    div.className = "list-item";
+                    div.innerHTML = `
+                        <div class="avatar">${initials(displayName)}</div>
+                        <div class="list-item-body">
+                            <div class="list-item-title">${escapeHtml(displayName)}</div>
+                            <div class="list-item-sub">${escapeHtml(person.email)}</div>
+                        </div>
+                    `;
+                    div.addEventListener("click", () => openDirectChat(person.user_id, displayName));
+                    peopleList.appendChild(div);
+                });
+            } catch (err) {
+                peopleList.textContent = "Failed to load people: " + err.message;
+            }
+        }
+
+        /* ---------- My Chats ---------- */
+
+        async function loadMyChats() {
+            chatsList.className = "loading";
+            chatsList.textContent = "Loading...";
+            try {
+                const data = await fetch(`${apiBase}/chat/rooms?limit=100`, { headers: authHeaders() }).then(r => r.json());
+                chatsList.className = "";
+                chatsList.innerHTML = "";
+                if (!data.rooms || data.rooms.length === 0) {
+                    chatsList.innerHTML = '<div class="empty-state">No chats yet - start one from My Groups or People.</div>';
+                    return;
+                }
+                data.rooms.forEach(room => {
+                    const isGroup = room.kind === "GROUP";
+                    const title = isGroup ? room.name : (room.other_user_name || room.other_user_email || room.name);
+                    const preview = room.last_message ? room.last_message.body : "No messages yet";
+                    const div = document.createElement("div");
+                    div.className = "list-item";
+                    div.innerHTML = `
+                        <div class="avatar">${initials(title)}</div>
+                        <div class="list-item-body">
+                            <div class="list-item-title">${escapeHtml(title)}</div>
+                            <div class="list-item-sub">${escapeHtml(preview)}</div>
+                        </div>
+                        ${room.unread_count > 0 ? `<div class="unread-badge">${room.unread_count}</div>` : ""}
+                    `;
+                    div.addEventListener("click", () => {
+                        if (isGroup) {
+                            openGroupChat(room.group_id, title);
+                        } else if (room.other_user_id) {
+                            openDirectChat(room.other_user_id, title);
+                        }
+                    });
+                    chatsList.appendChild(div);
+                });
+            } catch (err) {
+                chatsList.textContent = "Failed to load chats: " + err.message;
+            }
+        }
+
+        /* ---------- Opening a chat ---------- */
+
+        function openGroupChat(groupId, title) {
+            connect(`group_id=${encodeURIComponent(groupId)}`, title);
+        }
+
+        function openDirectChat(userId, title) {
+            connect(`receiver_id=${encodeURIComponent(userId)}`, title);
+        }
+
+        function connect(queryParam, title) {
+            if (ws) {
+                ws.onclose = null;
+                ws.close();
+                ws = null;
+            }
+            roomId = null;
+            lastTypingSent = false;
+            messagesSection.innerHTML = '<div class="loading">Connecting...</div>';
+            typingIndicator.textContent = "";
+
+            lobby.classList.remove("active");
+            chatView.classList.add("active");
+            headerTitle.textContent = title;
+            addBackButton();
+            updateStatus(false, "Connecting...");
+
             const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
             const encodedToken = encodeURIComponent(token);
-            const param = mode === "group" ? `group_id=${encodeURIComponent(target)}` : `receiver_id=${encodeURIComponent(target)}`;
-            const wsUrl = `${protocol}//${window.location.host}/api/v1/chat/live?token=${encodedToken}&${param}`;
+            const wsUrl = `${protocol}//${window.location.host}/api/v1/chat/live?token=${encodedToken}&${queryParam}`;
 
             ws = new WebSocket(wsUrl);
 
@@ -331,18 +594,17 @@ _CHAT_VIEWER_HTML = """
 
                 if (message.type === "room_info") {
                     roomId = message.room_id;
-                    roomLabel.textContent = `Room: ${roomId}`;
-                    showChat();
+                    messagesSection.innerHTML = "";
                     loadHistory();
                 } else if (message.type === "message_created") {
                     addMessage(message.message);
-                    setTyping(false, message.message.sender_email);
+                    if (message.message.sender_email !== myEmail) setTyping(false);
                 } else if (message.type === "typing") {
-                    if (message.email !== myEmail) {
-                        setTyping(message.is_typing, message.email);
-                    }
+                    if (message.email !== myEmail) setTyping(message.is_typing, message.email);
+                } else if (message.type === "presence") {
+                    updatePresence(message.count, message.online);
                 } else if (message.type === "error") {
-                    showError(message.message);
+                    showError(messagesSection, message.message);
                 }
             };
 
@@ -355,24 +617,66 @@ _CHAT_VIEWER_HTML = """
             };
         }
 
+        function addBackButton() {
+            let btn = document.getElementById("backBtn");
+            if (!btn) {
+                btn = document.createElement("button");
+                btn.id = "backBtn";
+                btn.className = "back-btn";
+                btn.textContent = "\\u2190 Switch chat";
+                btn.addEventListener("click", goBackToLobby);
+                statusRow.appendChild(btn);
+            }
+        }
+
+        function goBackToLobby() {
+            if (ws) {
+                ws.onclose = null;
+                ws.close();
+                ws = null;
+            }
+            roomId = null;
+            chatView.classList.remove("active");
+            lobby.classList.add("active");
+            updateStatus(false, "Not connected");
+            loadMyChats();
+        }
+
+        function updateStatus(connected, message) {
+            statusDot.classList.toggle("offline", !connected);
+            statusText.textContent = message;
+        }
+
+        function updatePresence(count, online) {
+            let badge = document.getElementById("onlineBadge");
+            if (!badge) {
+                badge = document.createElement("span");
+                badge.id = "onlineBadge";
+                badge.className = "online-badge";
+                statusRow.insertBefore(badge, statusRow.querySelector(".back-btn"));
+            }
+            const names = (online || []).map(p => p.email === myEmail ? "you" : p.email.split("@")[0]);
+            badge.textContent = `${count} online` + (names.length ? ` (${names.join(", ")})` : "");
+        }
+
+        /* ---------- Messages ---------- */
+
         function loadHistory() {
-            fetch(`${apiBase}/chat/rooms/${roomId}/messages?limit=50`, {
-                headers: { "Authorization": `Bearer ${token}` }
-            })
+            fetch(`${apiBase}/chat/rooms/${roomId}/messages?limit=50`, { headers: authHeaders() })
                 .then(r => r.json())
                 .then(data => {
                     messagesSection.innerHTML = "";
-                    if (data.messages.length === 0) {
-                        messagesSection.innerHTML = '<div class="messages-empty">No messages yet. Say hello!</div>';
+                    if (!data.messages || data.messages.length === 0) {
+                        messagesSection.innerHTML = '<div class="empty-state">No messages yet. Say hello!</div>';
                     } else {
                         data.messages.slice().reverse().forEach(m => addMessage(m));
                     }
                 })
-                .catch(err => showError("Failed to load history: " + err.message));
+                .catch(err => showError(messagesSection, "Failed to load history: " + err.message));
         }
 
         function addMessage(message) {
-            if (messagesSection.querySelector(".messages-empty")) {
+            if (messagesSection.querySelector(".empty-state")) {
                 messagesSection.innerHTML = "";
             }
 
@@ -392,12 +696,7 @@ _CHAT_VIEWER_HTML = """
         }
 
         function setTyping(isTyping, email) {
-            if (isTyping) {
-                typingIndicator.textContent = `${email} is typing...`;
-                typingIndicator.classList.add("active");
-            } else {
-                typingIndicator.classList.remove("active");
-            }
+            typingIndicator.textContent = isTyping ? `${email} is typing...` : "";
         }
 
         function sendMessage() {
@@ -409,7 +708,7 @@ _CHAT_VIEWER_HTML = """
                 messageInput.value = "";
                 sendTypingState(false);
             } else {
-                showError("Not connected. Please wait...");
+                showError(messagesSection, "Not connected. Please wait...");
             }
         }
 
@@ -423,34 +722,9 @@ _CHAT_VIEWER_HTML = """
 
         function escapeHtml(text) {
             const div = document.createElement("div");
-            div.textContent = text;
+            div.textContent = text == null ? "" : text;
             return div.innerHTML;
         }
-
-        function showError(message) {
-            const errorDiv = document.createElement("div");
-            errorDiv.className = "error";
-            errorDiv.textContent = message;
-            messagesSection.insertBefore(errorDiv, messagesSection.firstChild);
-            setTimeout(() => errorDiv.remove(), 5000);
-        }
-
-        connectBtn.addEventListener("click", () => {
-            token = tokenInput.value.trim();
-            if (!token) {
-                showError("Please enter a token");
-                return;
-            }
-            myEmail = decodeJwtEmail(token);
-            connectBtn.disabled = true;
-            connectBtn.textContent = "Connecting...";
-            updateStatus(false, "Connecting...");
-            connectWebSocket();
-        });
-
-        targetInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") connectBtn.click();
-        });
 
         sendBtn.addEventListener("click", sendMessage);
 
@@ -466,8 +740,6 @@ _CHAT_VIEWER_HTML = """
             clearTimeout(typingTimeout);
             typingTimeout = setTimeout(() => sendTypingState(false), 2000);
         });
-
-        updateStatus(false, "Not connected");
     </script>
 </body>
 </html>

@@ -8,6 +8,8 @@ from starlette import status
 from pecha_api.chat.response_models import (
     ChatMessageDTO,
     ChatMessagesResponse,
+    ChatPeopleResponse,
+    ChatPersonDTO,
     ChatRoomDTO,
     ChatRoomMembersResponse,
     ChatRoomsResponse,
@@ -116,6 +118,34 @@ class TestSendGroupMessage:
             headers=AUTH_HEADERS,
             json={"body": "Hello"},
         )
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestListGroupPeople:
+
+    @patch('pecha_api.chat.views.list_group_people_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_list_people(self, mock_validate, mock_service):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = ChatPeopleResponse(
+            people=[ChatPersonDTO(user_id=uuid4(), email="bob@example.com", firstname="Bob", lastname="Smith")],
+            skip=0,
+            limit=50,
+            total=1,
+        )
+
+        response = client.get(f"/chat/groups/{uuid4()}/people", headers=AUTH_HEADERS)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total"] == 1
+        assert response.json()["people"][0]["email"] == "bob@example.com"
+
+    def test_requires_auth(self):
+        client = get_client()
+
+        response = client.get(f"/chat/groups/{uuid4()}/people")
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 

@@ -54,11 +54,33 @@ class ChatRoomDTO(BaseModel):
     updated_at: str
     last_message: Optional[ChatMessageDTO] = None
     unread_count: int = 0
+    # PRIVATE rooms only: the other participant (not the caller), so a client
+    # can reconnect/DM them again without needing to already know their id.
+    other_user_id: Optional[UUID] = None
+    other_user_email: Optional[str] = None
+    other_user_name: Optional[str] = None
 
 
 class ChatRoomsResponse(BaseModel):
     """Response for list-my-rooms (inbox) endpoint."""
     rooms: List[ChatRoomDTO]
+    skip: int
+    limit: int
+    total: int
+
+
+class ChatPersonDTO(BaseModel):
+    """DTO for a person the caller could start/continue a DM with."""
+    user_id: UUID
+    email: str
+    firstname: str
+    lastname: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
+class ChatPeopleResponse(BaseModel):
+    """Response for the group-people (DM candidates) endpoint."""
+    people: List[ChatPersonDTO]
     skip: int
     limit: int
     total: int

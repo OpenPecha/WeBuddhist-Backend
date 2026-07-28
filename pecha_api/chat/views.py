@@ -24,6 +24,7 @@ from pecha_api.chat.response_models import (
     AddChatRoomMembersRequest,
     ChatMessageDTO,
     ChatMessagesResponse,
+    ChatPeopleResponse,
     ChatRoomDTO,
     ChatRoomMembersResponse,
     ChatRoomsResponse,
@@ -32,6 +33,7 @@ from pecha_api.chat.response_models import (
 )
 from pecha_api.chat.service import (
     get_room_detail_service,
+    list_group_people_service,
     list_my_rooms_service,
     mark_room_read_service,
     update_room_profile_service,
@@ -172,6 +174,23 @@ def send_direct_chat_message(
 
 
 @chat_router.get(
+    "/chat/groups/{group_id}/people",
+    status_code=status.HTTP_200_OK,
+    response_model=ChatPeopleResponse,
+)
+def list_group_people(
+    group_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+):
+    """List a group's joiners as DM candidates (excludes the caller) — lets a
+    client pick a person to message without already knowing their user_id."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    return list_group_people_service(group_id=group_id, user=user, skip=skip, limit=limit)
+
+
+@chat_router.get(
     "/chat/rooms/{room_id}/members",
     status_code=status.HTTP_200_OK,
     response_model=ChatRoomMembersResponse,
@@ -236,6 +255,7 @@ async def websocket_chat_live(
       {"type": "room_info", "room_id": "..."}   (sent once, right after connect)
       {"type": "message_created", "message": {...}}
       {"type": "typing", "user_id": "...", "email": "...", "is_typing": true|false}
+      {"type": "presence", "count": N, "online": [{"user_id": "...", "email": "..."}]}
       {"type": "error", "code": "...", "message": "..."}
     """
     user = None
@@ -298,8 +318,9 @@ async def websocket_chat_live(
 
         await websocket.accept()
         await websocket.send_json({"type": "room_info", "room_id": str(room_id)})
-        await broadcaster.add_connection(room_id, user.id, websocket)
         pubsub = await broadcaster.subscribe_to_room(room_id)
+        await broadcaster.add_connection(room_id, user.id, user.email, websocket)
+        await broadcaster.broadcast_presence(room_id)
 
         async def listen_redis():
             try:
@@ -391,3 +412,4 @@ async def websocket_chat_live(
     finally:
         if user and room_id:
             await broadcaster.remove_connection(room_id, user.id)
+            await broadcaster.broadcast_presence(room_id)

@@ -59,14 +59,50 @@ class TestChatBroadcasterUnit:
         user_id = uuid4()
         mock_ws = AsyncMock()
 
-        await broadcaster.add_connection(room_id, user_id, mock_ws)
+        await broadcaster.add_connection(room_id, user_id, "user@example.com", mock_ws)
         assert room_id in broadcaster.connections
         assert user_id in broadcaster.connections[room_id]
-        broadcaster.redis.sadd.assert_called_once()
+        broadcaster.redis.hset.assert_called_once_with(
+            f"chat:room:{room_id}:presence", str(user_id), "user@example.com"
+        )
 
         await broadcaster.remove_connection(room_id, user_id)
         assert room_id not in broadcaster.connections
-        broadcaster.redis.srem.assert_called_once()
+        broadcaster.redis.hdel.assert_called_once_with(f"chat:room:{room_id}:presence", str(user_id))
+
+    @pytest.mark.asyncio
+    async def test_broadcaster_broadcast_presence(self):
+        from pecha_api.chat.chat_websocket import ChatBroadcaster
+
+        broadcaster = ChatBroadcaster("redis://localhost:6379/0")
+        broadcaster.redis = AsyncMock()
+        room_id = uuid4()
+        user_id = uuid4()
+        broadcaster.redis.hgetall.return_value = {str(user_id): "user@example.com"}
+
+        await broadcaster.broadcast_presence(room_id)
+
+        broadcaster.redis.hgetall.assert_called_once_with(f"chat:room:{room_id}:presence")
+        broadcaster.redis.publish.assert_called_once()
+        channel, payload = broadcaster.redis.publish.call_args.args
+        assert channel == f"chat:room:{room_id}:messages"
+        parsed = json.loads(payload)
+        assert parsed["type"] == "presence"
+        assert parsed["count"] == 1
+        assert parsed["online"] == [{"user_id": str(user_id), "email": "user@example.com"}]
+
+    @pytest.mark.asyncio
+    async def test_get_connected_users_returns_dict(self):
+        from pecha_api.chat.chat_websocket import ChatBroadcaster
+
+        broadcaster = ChatBroadcaster("redis://localhost:6379/0")
+        broadcaster.redis = AsyncMock()
+        room_id = uuid4()
+        broadcaster.redis.hgetall.return_value = {"abc": "a@example.com"}
+
+        result = await broadcaster.get_connected_users(room_id)
+
+        assert result == {"abc": "a@example.com"}
 
     @pytest.mark.asyncio
     async def test_broadcaster_broadcast_message(self):

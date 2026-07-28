@@ -55,28 +55,28 @@ class ChatBroadcaster:
             await self.redis.close()
             logger.info("Redis connection closed for chat broadcaster")
 
-    async def add_connection(self, room_id: UUID, user_id: UUID, ws: object) -> None:
-        """Track local WebSocket connection and mark in Redis."""
+    async def add_connection(self, room_id: UUID, user_id: UUID, email: str, ws: object) -> None:
+        """Track local WebSocket connection and mark presence in Redis."""
         if room_id not in self.connections:
             self.connections[room_id] = {}
         self.connections[room_id][user_id] = ws
 
         try:
-            await self.redis.sadd(f"chat:room:{room_id}:users", str(user_id))
+            await self.redis.hset(f"chat:room:{room_id}:presence", str(user_id), email)
         except Exception as e:
-            logger.error(f"Failed to add connection to Redis: {e}")
+            logger.error(f"Failed to add presence to Redis: {e}")
 
     async def remove_connection(self, room_id: UUID, user_id: UUID) -> None:
-        """Remove local WebSocket connection and cleanup Redis tracking."""
+        """Remove local WebSocket connection and cleanup presence in Redis."""
         if room_id in self.connections:
             self.connections[room_id].pop(user_id, None)
             if not self.connections[room_id]:
                 del self.connections[room_id]
 
         try:
-            await self.redis.srem(f"chat:room:{room_id}:users", str(user_id))
+            await self.redis.hdel(f"chat:room:{room_id}:presence", str(user_id))
         except Exception as e:
-            logger.error(f"Failed to remove connection from Redis: {e}")
+            logger.error(f"Failed to remove presence from Redis: {e}")
 
     async def broadcast_message(
         self,
@@ -117,19 +117,34 @@ class ChatBroadcaster:
         except Exception as e:
             logger.error(f"Failed to broadcast typing indicator to Redis: {e}")
 
+    async def broadcast_presence(self, room_id: UUID) -> None:
+        """Publish the current online roster for a room (not persisted)."""
+        online = await self.get_connected_users(room_id)
+        channel = f"chat:room:{room_id}:messages"
+        payload = {
+            "type": "presence",
+            "count": len(online),
+            "online": [{"user_id": user_id, "email": email} for user_id, email in online.items()],
+        }
+
+        try:
+            await self.redis.publish(channel, json.dumps(payload))
+        except Exception as e:
+            logger.error(f"Failed to broadcast presence to Redis: {e}")
+
     async def subscribe_to_room(self, room_id: UUID):
         """Subscribe to the message stream for a room."""
         pubsub = self.redis.pubsub()
         await pubsub.subscribe(f"chat:room:{room_id}:messages")
         return pubsub
 
-    async def get_connected_users(self, room_id: UUID) -> set:
-        """Get all users connected to a room (across all servers)."""
+    async def get_connected_users(self, room_id: UUID) -> Dict[str, str]:
+        """Get all users connected to a room (across all servers) as {user_id: email}."""
         try:
-            return await self.redis.smembers(f"chat:room:{room_id}:users")
+            return await self.redis.hgetall(f"chat:room:{room_id}:presence")
         except Exception as e:
             logger.error(f"Failed to get connected users from Redis: {e}")
-            return set()
+            return {}
 
 
 # Global broadcaster instance (initialized in app startup)

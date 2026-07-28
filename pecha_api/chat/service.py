@@ -26,7 +26,13 @@ from pecha_api.chat.repository import (
     mark_read,
     update_room,
 )
-from pecha_api.chat.response_models import ChatMessageDTO, ChatRoomDTO, ChatRoomsResponse
+from pecha_api.chat.response_models import (
+    ChatMessageDTO,
+    ChatPeopleResponse,
+    ChatPersonDTO,
+    ChatRoomDTO,
+    ChatRoomsResponse,
+)
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.groups.groups_models import AuthorGroup
@@ -34,6 +40,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_group_by_id,
     is_user_following_group,
     is_user_joined_group,
+    list_group_joiners_paginated,
 )
 from pecha_api.plans.response_message import FORBIDDEN, NOT_FOUND
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
@@ -86,6 +93,15 @@ def build_room_dto(
     last_read_at = viewer_member.last_read_at if viewer_member else None
     unread_count = count_unread_messages(db=db, room_id=room.id, last_read_at=last_read_at)
 
+    other_user_id = other_user_email = other_user_name = None
+    if room.group_id is None:
+        other_id = room.receiver_id if room.sender_id == viewer_id else room.sender_id
+        other_user = db.query(Users).filter(Users.id == other_id).first()
+        if other_user:
+            other_user_id = other_user.id
+            other_user_email = other_user.email
+            other_user_name = f"{other_user.firstname} {other_user.lastname or ''}".strip()
+
     return ChatRoomDTO(
         id=room.id,
         group_id=room.group_id,
@@ -99,6 +115,9 @@ def build_room_dto(
         updated_at=_isoformat(room.updated_at),
         last_message=build_message_dto(last_message) if last_message else None,
         unread_count=unread_count,
+        other_user_id=other_user_id,
+        other_user_email=other_user_email,
+        other_user_name=other_user_name,
     )
 
 
@@ -123,7 +142,10 @@ def resolve_or_create_group_room(db: Session, group_id: UUID, user: Users) -> Ch
         db=db, group_id=group_id, user_id=user.id
     ) or is_user_following_group(db=db, group_id=group_id, user_id=user.id)
     if not is_eligible:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=FORBIDDEN)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only joined or following members of this group can send messages in its chat",
+        )
 
     room = ChatRoom(
         group_id=group_id,
@@ -249,3 +271,35 @@ def mark_room_read_service(room_id: UUID, user: Users) -> None:
         _get_room_or_404(db=db, room_id=room_id)
         member = _require_active_member(db=db, room_id=room_id, user_id=user.id)
         mark_read(db=db, member=member)
+
+
+def list_group_people_service(
+    group_id: UUID,
+    user: Users,
+    skip: int = 0,
+    limit: int = 50,
+) -> ChatPeopleResponse:
+    """List a group's joiners as DM candidates (excluding the caller), so a
+    client can start a direct chat without already knowing a user_id."""
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+
+        users, total = list_group_joiners_paginated(db=db, group_id=group_id, skip=skip, limit=limit)
+        return ChatPeopleResponse(
+            people=[
+                ChatPersonDTO(
+                    user_id=joiner.id,
+                    email=joiner.email,
+                    firstname=joiner.firstname,
+                    lastname=joiner.lastname,
+                    avatar_url=joiner.avatar_url,
+                )
+                for joiner in users
+                if joiner.id != user.id
+            ],
+            skip=skip,
+            limit=limit,
+            total=total,
+        )
