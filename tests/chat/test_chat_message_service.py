@@ -11,6 +11,7 @@ import pecha_api.app  # noqa: F401
 
 from pecha_api.chat.message_service import (
     delete_message_service,
+    list_room_messages_service,
     send_direct_message_service,
     send_group_message_service,
 )
@@ -100,6 +101,23 @@ class TestSendDirectMessageService:
         result = send_direct_message_service(receiver_id=uuid4(), user=user, body="Hey")
 
         assert result.body == "Hey"
+
+
+class TestListRoomMessagesService:
+
+    @patch('pecha_api.chat.message_service.get_room_messages')
+    @patch('pecha_api.chat.message_service._require_active_member')
+    @patch('pecha_api.chat.message_service._get_room_or_404')
+    @patch('pecha_api.chat.message_service.SessionLocal')
+    def test_lists_messages(self, mock_session, mock_get_room, mock_require, mock_get_messages):
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        message = MockMessage(body="Hi")
+        mock_get_messages.return_value = ([message], 1)
+
+        result = list_room_messages_service(room_id=uuid4(), user=MockUser(), skip=0, limit=20)
+
+        assert result.total == 1
+        assert result.messages[0].body == "Hi"
 
 
 class TestDeleteMessageService:

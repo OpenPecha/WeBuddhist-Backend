@@ -227,3 +227,59 @@ class TestRoomMessages:
         )
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
+
+
+class TestRoomDetailAndProfile:
+
+    @patch('pecha_api.chat.views.get_room_detail_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_get_room_detail(self, mock_validate, mock_service):
+        client = get_client()
+        room = _room_dto()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = room
+
+        response = client.get(f"/chat/rooms/{room.id}", headers=AUTH_HEADERS)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["id"] == str(room.id)
+
+    @patch('pecha_api.chat.views.update_room_profile_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_update_room_profile(self, mock_validate, mock_service):
+        client = get_client()
+        room = _room_dto()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = room
+
+        response = client.patch(
+            f"/chat/rooms/{room.id}",
+            headers=AUTH_HEADERS,
+            json={"name": "Renamed"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once()
+
+    @patch('pecha_api.chat.views.mark_room_read_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_mark_room_read(self, mock_validate, mock_service):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = None
+
+        response = client.post(f"/chat/rooms/{uuid4()}/read", headers=AUTH_HEADERS)
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    @patch('pecha_api.chat.views.list_room_members_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_list_room_members(self, mock_validate, mock_service):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = ChatRoomMembersResponse(members=[], skip=0, limit=20, total=0)
+
+        response = client.get(f"/chat/rooms/{uuid4()}/members", headers=AUTH_HEADERS)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["total"] == 0
