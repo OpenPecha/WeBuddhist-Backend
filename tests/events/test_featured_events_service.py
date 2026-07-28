@@ -26,6 +26,7 @@ def _event(event_id=None, group_id=None, featured=False):
     event.accumulator_id = None
     event.mantra_id = None
     event.timer_id = None
+    event.group_recitation_collection_id = None
     event.group_id = group_id or uuid4()
     event.start_date = now
     event.end_date = now
