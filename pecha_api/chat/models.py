@@ -121,6 +121,8 @@ class ChatMessage(Base):
         nullable=False,
     )
     deleted_at = Column(DateTime(timezone=True), nullable=True)
+    notification_sqs_message_id = Column(String(128), nullable=True)
+    notification_dispatched_at = Column(DateTime(timezone=True), nullable=True)
 
     room = relationship("ChatRoom", back_populates="messages")
     sender = relationship("Users")
@@ -132,6 +134,13 @@ class ChatMessage(Base):
             "room_id",
             "created_at",
             postgresql_where=sql_text("deleted_at IS NULL"),
+        ),
+        Index(
+            "idx_chat_messages_undispatched_notifications",
+            "created_at",
+            postgresql_where=sql_text(
+                "deleted_at IS NULL AND notification_sqs_message_id IS NULL"
+            ),
         ),
     )
 

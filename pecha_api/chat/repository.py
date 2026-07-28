@@ -200,6 +200,62 @@ def soft_delete_message(db: Session, message: ChatMessage) -> None:
     db.commit()
 
 
+def mark_message_notification_dispatched(
+    db: Session,
+    message_id: UUID,
+    sqs_message_id: str,
+) -> Optional[ChatMessage]:
+    message = (
+        db.query(ChatMessage)
+        .filter(
+            ChatMessage.id == message_id,
+            ChatMessage.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not message:
+        return None
+    message.notification_sqs_message_id = sqs_message_id
+    message.notification_dispatched_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(message)
+    return message
+
+
+def list_undispatched_chat_notification_messages(
+    db: Session,
+    *,
+    older_than: datetime,
+    limit: int,
+) -> List[ChatMessage]:
+    return (
+        db.query(ChatMessage)
+        .filter(
+            ChatMessage.deleted_at.is_(None),
+            ChatMessage.notification_sqs_message_id.is_(None),
+            ChatMessage.created_at <= older_than,
+        )
+        .order_by(ChatMessage.created_at.asc())
+        .limit(limit)
+        .all()
+    )
+
+
+def get_message_by_id_any_room(db: Session, message_id: UUID) -> Optional[ChatMessage]:
+    return (
+        db.query(ChatMessage)
+        .options(
+            selectinload(ChatMessage.sender),
+            selectinload(ChatMessage.room),
+        )
+        .filter(
+            ChatMessage.id == message_id,
+            ChatMessage.deleted_at.is_(None),
+        )
+        .first()
+    )
+
+
 def get_last_message(db: Session, room_id: UUID) -> Optional[ChatMessage]:
     return (
         db.query(ChatMessage)

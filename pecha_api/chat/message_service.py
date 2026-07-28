@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from starlette import status
 
 from pecha_api.chat.models import ChatMessage, ChatRoom
+from pecha_api.chat.notification_dispatch_service import enqueue_chat_message_notification
 from pecha_api.chat.repository import (
     create_message,
     get_message_by_id,
@@ -43,7 +44,9 @@ def _persist_message(db: Session, room: ChatRoom, user: Users, body: str) -> Cha
     message = create_message(db=db, message=message)
     message.sender = user
     touch_room(db=db, room=room)
-    return build_message_dto(message)
+    dto = build_message_dto(message)
+    enqueue_chat_message_notification(message.id)
+    return dto
 
 
 def list_room_messages_service(
