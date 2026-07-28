@@ -33,6 +33,7 @@ def _event(metadata_entries):
         start_date=now,
         end_date=now,
         image_url=None,
+        featured=False,
         metadata_entries=metadata_entries,
         links=[],
         created_at=now,

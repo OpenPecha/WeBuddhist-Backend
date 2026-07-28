@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, UUID, ForeignKey, Index
+from sqlalchemy import Column, String, DateTime, UUID, ForeignKey, Index, Boolean
 from sqlalchemy.orm import relationship
 from ..db.database import Base
 from uuid import uuid4
@@ -18,6 +18,7 @@ class Event(Base):
     start_date = Column(DateTime(timezone=True), nullable=False)
     end_date = Column(DateTime(timezone=True), nullable=False)
     image_url = Column(String(1000), nullable=True)
+    featured = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False)
     created_by = Column(String(255), nullable=False)
@@ -48,4 +49,5 @@ class Event(Base):
         Index("idx_events_group_id", "group_id"),
         Index("idx_events_start_date", "start_date"),
         Index("idx_events_end_date", "end_date"),
+        Index("idx_events_featured", "featured"),
     )

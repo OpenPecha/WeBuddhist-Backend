@@ -18,6 +18,7 @@ def test_event_response_omits_null_fields():
         start_date=now,
         end_date=now,
         is_one_day=True,
+        featured=False,
         metadata=[],
         created_at=now,
         created_by="author@example.com",

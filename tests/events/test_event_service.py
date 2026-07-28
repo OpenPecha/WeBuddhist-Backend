@@ -16,6 +16,7 @@ def test_get_events_today_service_uses_day_bounds():
         start_date=now,
         end_date=now,
         is_one_day=True,
+        featured=False,
         metadata=[],
         created_at=now,
         created_by="author@example.com",
