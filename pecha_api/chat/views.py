@@ -1,0 +1,393 @@
+import asyncio
+import logging
+from typing import Annotated, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, WebSocket
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from starlette import status
+from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
+
+from pecha_api.chat.chat_websocket import get_broadcaster
+from pecha_api.chat.member_service import (
+    add_room_members_service,
+    list_room_members_service,
+    remove_room_member_service,
+)
+from pecha_api.chat.message_service import (
+    delete_message_service,
+    list_room_messages_service,
+    send_direct_message_service,
+    send_group_message_service,
+)
+from pecha_api.chat.response_models import (
+    AddChatRoomMembersRequest,
+    ChatMessageDTO,
+    ChatMessagesResponse,
+    ChatRoomDTO,
+    ChatRoomMembersResponse,
+    ChatRoomsResponse,
+    SendChatMessageRequest,
+    UpdateChatRoomRequest,
+)
+from pecha_api.chat.service import (
+    get_room_detail_service,
+    list_my_rooms_service,
+    mark_room_read_service,
+    update_room_profile_service,
+)
+from pecha_api.users.users_service import validate_and_extract_user_details
+
+logger = logging.getLogger(__name__)
+
+oauth2_scheme = HTTPBearer()
+
+chat_router = APIRouter(tags=["Chat"])
+
+
+@chat_router.get(
+    "/chat/rooms",
+    status_code=status.HTTP_200_OK,
+    response_model=ChatRoomsResponse,
+)
+def list_my_rooms(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    """List my chat rooms (inbox), most recently active first."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    return list_my_rooms_service(user=user, skip=skip, limit=limit)
+
+
+@chat_router.get(
+    "/chat/rooms/{room_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=ChatRoomDTO,
+)
+def get_room_detail(
+    room_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Get a chat room's detail. Caller must be an active member."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    return get_room_detail_service(room_id=room_id, user=user)
+
+
+@chat_router.patch(
+    "/chat/rooms/{room_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=ChatRoomDTO,
+)
+def update_room_profile(
+    room_id: UUID,
+    request: UpdateChatRoomRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Update a room's name/picture. Group: creator only. Private: either participant."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    return update_room_profile_service(
+        room_id=room_id,
+        user=user,
+        name=request.name,
+        img_url=request.img_url,
+    )
+
+
+@chat_router.post(
+    "/chat/rooms/{room_id}/read",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def mark_room_read(
+    room_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Bump the caller's last_read_at for this room."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    mark_room_read_service(room_id=room_id, user=user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@chat_router.get(
+    "/chat/rooms/{room_id}/messages",
+    status_code=status.HTTP_200_OK,
+    response_model=ChatMessagesResponse,
+)
+def list_room_messages(
+    room_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    """Paginated message history for a room (newest first). Active member only."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    return list_room_messages_service(room_id=room_id, user=user, skip=skip, limit=limit)
+
+
+@chat_router.delete(
+    "/chat/rooms/{room_id}/messages/{message_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_room_message(
+    room_id: UUID,
+    message_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Soft-delete a message. Only the sender can delete their own message."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    delete_message_service(room_id=room_id, message_id=message_id, user=user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@chat_router.post(
+    "/chat/groups/{group_id}/messages",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ChatMessageDTO,
+)
+def send_group_chat_message(
+    group_id: UUID,
+    request: SendChatMessageRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Send a message to a group's chat room. Auto-creates the room (caller
+    becomes CREATOR) on the first message from an eligible group joiner/follower."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    return send_group_message_service(group_id=group_id, user=user, body=request.body)
+
+
+@chat_router.post(
+    "/chat/users/{user_id}/messages",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ChatMessageDTO,
+)
+def send_direct_chat_message(
+    user_id: UUID,
+    request: SendChatMessageRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Send a direct message to another user. Auto-creates (and reuses) the
+    normalized-pair DM room."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    return send_direct_message_service(receiver_id=user_id, user=user, body=request.body)
+
+
+@chat_router.get(
+    "/chat/rooms/{room_id}/members",
+    status_code=status.HTTP_200_OK,
+    response_model=ChatRoomMembersResponse,
+)
+def list_room_members(
+    room_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    """List active members of a room. Active member only."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    return list_room_members_service(room_id=room_id, user=user, skip=skip, limit=limit)
+
+
+@chat_router.post(
+    "/chat/rooms/{room_id}/members",
+    status_code=status.HTTP_200_OK,
+    response_model=ChatRoomMembersResponse,
+)
+def add_room_members(
+    room_id: UUID,
+    request: AddChatRoomMembersRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Add members to a group chat room. Creator only; targets must be
+    joiners/followers of the linked author group. No-op on private rooms (400)."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    return add_room_members_service(room_id=room_id, user=user, user_ids=request.user_ids)
+
+
+@chat_router.delete(
+    "/chat/rooms/{room_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def remove_room_member(
+    room_id: UUID,
+    user_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Creator removes a member, or a member removes themself (user_id == self)."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    remove_room_member_service(room_id=room_id, user=user, target_user_id=user_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@chat_router.websocket("/chat/live")
+async def websocket_chat_live(
+    websocket: WebSocket,
+    token: str = Query(...),
+    group_id: Optional[UUID] = Query(None),
+    receiver_id: Optional[UUID] = Query(None),
+):
+    """Live chat stream for a room (WebSocket). Pass either group_id (group
+    chat) or receiver_id (DM) — the room is resolved/auto-created on connect.
+
+    Client -> server messages:
+      {"type": "message", "body": "..."}
+      {"type": "typing", "is_typing": true|false}   (ephemeral, not persisted)
+
+    Server -> client events:
+      {"type": "room_info", "room_id": "..."}   (sent once, right after connect)
+      {"type": "message_created", "message": {...}}
+      {"type": "typing", "user_id": "...", "email": "...", "is_typing": true|false}
+      {"type": "error", "code": "...", "message": "..."}
+    """
+    user = None
+    room_id: Optional[UUID] = None
+
+    if (group_id is None) == (receiver_id is None):
+        await websocket.accept()
+        await websocket.send_json({
+            "type": "error",
+            "code": "INVALID_PARAMS",
+            "message": "Pass exactly one of group_id or receiver_id",
+        })
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    try:
+        broadcaster = get_broadcaster()
+    except RuntimeError as e:
+        logger.error(f"Broadcaster not initialized: {e}")
+        await websocket.close(code=status.WS_1011_INTERNAL_ERROR, reason="Redis unavailable")
+        return
+
+    try:
+        try:
+            user = validate_and_extract_user_details(token=token)
+        except HTTPException as auth_error:
+            logger.error(f"WebSocket auth failed: {auth_error.detail}")
+            await websocket.accept()
+            await websocket.send_json({
+                "type": "error",
+                "code": "UNAUTHORIZED",
+                "message": str(auth_error.detail),
+            })
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION, reason="Unauthorized")
+            return
+
+        from pecha_api.db.database import SessionLocal
+        from pecha_api.chat.service import (
+            _require_active_member,
+            resolve_or_create_group_room,
+            resolve_or_create_private_room,
+        )
+
+        try:
+            with SessionLocal() as db:
+                if group_id is not None:
+                    room = resolve_or_create_group_room(db=db, group_id=group_id, user=user)
+                else:
+                    room = resolve_or_create_private_room(db=db, user=user, receiver_id=receiver_id)
+                room_id = room.id
+        except HTTPException as resolve_error:
+            await websocket.accept()
+            await websocket.send_json({
+                "type": "error",
+                "code": resolve_error.detail if isinstance(resolve_error.detail, str) else "ERROR",
+                "message": str(resolve_error.detail),
+            })
+            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+            return
+
+        await websocket.accept()
+        await websocket.send_json({"type": "room_info", "room_id": str(room_id)})
+        await broadcaster.add_connection(room_id, user.id, websocket)
+        pubsub = await broadcaster.subscribe_to_room(room_id)
+
+        async def listen_redis():
+            try:
+                async for message in pubsub.listen():
+                    if message["type"] == "message":
+                        try:
+                            await websocket.send_text(message["data"])
+                        except (ConnectionClosedOK, ConnectionClosedError):
+                            break
+            except Exception as e:
+                logger.error(f"Error listening to Redis: {e}")
+
+        redis_task = asyncio.create_task(listen_redis())
+
+        try:
+            while True:
+                data = await websocket.receive_json()
+
+                if data.get("type") == "typing":
+                    try:
+                        with SessionLocal() as db:
+                            _require_active_member(db=db, room_id=room_id, user_id=user.id)
+                        await broadcaster.broadcast_typing(
+                            room_id,
+                            user.id,
+                            user.email,
+                            is_typing=bool(data.get("is_typing", True)),
+                        )
+                    except HTTPException as e:
+                        await websocket.send_json({
+                            "type": "error",
+                            "code": e.detail if isinstance(e.detail, str) else "ERROR",
+                            "message": e.detail if isinstance(e.detail, str) else str(e.detail),
+                        })
+                    except Exception as e:
+                        logger.error(f"Failed to broadcast typing indicator: {e}")
+                    continue
+
+                if data.get("type") != "message":
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": "INVALID_MESSAGE",
+                        "message": "Only 'message' and 'typing' type messages are supported",
+                    })
+                    continue
+
+                try:
+                    if group_id is not None:
+                        message_dto = send_group_message_service(
+                            group_id=group_id, user=user, body=data.get("body", "")
+                        )
+                    else:
+                        message_dto = send_direct_message_service(
+                            receiver_id=receiver_id, user=user, body=data.get("body", "")
+                        )
+                except HTTPException as e:
+                    logger.error(f"Message send failed: {e.detail}")
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": e.detail if isinstance(e.detail, str) else "ERROR",
+                        "message": e.detail if isinstance(e.detail, str) else str(e.detail),
+                    })
+                    continue
+
+                try:
+                    await broadcaster.broadcast_message(room_id, message_dto)
+                except Exception as e:
+                    logger.error(f"Failed to broadcast message {message_dto.id} to Redis: {e}")
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": "BROADCAST_ERROR",
+                        "message": f"Failed to broadcast message: {str(e)}",
+                    })
+
+        finally:
+            redis_task.cancel()
+            try:
+                await pubsub.unsubscribe(f"chat:room:{room_id}:messages")
+            except Exception as e:
+                logger.error(f"Error unsubscribing from Redis: {e}")
+
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        try:
+            await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
+        except Exception:
+            pass
+
+    finally:
+        if user and room_id:
+            await broadcaster.remove_connection(room_id, user.id)
