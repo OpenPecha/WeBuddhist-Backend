@@ -82,6 +82,7 @@ class EventDTO(BaseModel):
     accumulator_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
     timer_id: Optional[UUID] = None
+    group_recitation_collection_id: Optional[UUID] = None
     group_id: UUID
     start_date: datetime
     end_date: datetime
@@ -91,6 +92,7 @@ class EventDTO(BaseModel):
     links: List[EventLinkDTO] = []
     image: Optional[ImageUrlModel] = None
     image_url: Optional[str] = None
+    participant_count: int = 0
     created_at: datetime
     created_by: str
     updated_at: Optional[datetime] = None
@@ -131,6 +133,7 @@ class CreateEventRequest(BaseModel):
     accumulator_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
     timer_id: Optional[UUID] = None
+    group_recitation_collection_id: Optional[UUID] = None
 
     @field_validator("metadata")
     @classmethod
@@ -156,6 +159,7 @@ class UpdateEventRequest(BaseModel):
     accumulator_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
     timer_id: Optional[UUID] = None
+    group_recitation_collection_id: Optional[UUID] = None
 
     @field_validator("metadata")
     @classmethod
