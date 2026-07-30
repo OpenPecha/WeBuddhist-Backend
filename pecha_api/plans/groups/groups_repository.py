@@ -188,7 +188,13 @@ def leave_group_membership(
 def get_series_by_group_id(db: Session, group_id: UUID) -> List[Series]:
     return (
         db.query(Series)
-        .outerjoin(SeriesPartner, SeriesPartner.series_id == Series.id)
+        .outerjoin(
+            SeriesPartner,
+            and_(
+                SeriesPartner.series_id == Series.id,
+                SeriesPartner.deleted_at.is_(None),
+            ),
+        )
         .filter(
             Series.deleted_at.is_(None),
             or_(
