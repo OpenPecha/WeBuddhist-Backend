@@ -63,9 +63,44 @@ def ensure_series_partner(db: Session, series_id: UUID, group_id: UUID) -> Serie
     """Create the series_partner row when missing (idempotent)."""
     partner = get_series_partner(db, series_id, group_id)
     if partner is not None:
+        if partner.deleted_at is not None:
+            partner.deleted_at = None
+            db.flush()
         return partner
     partner = SeriesPartner(series_id=series_id, group_id=group_id)
     db.add(partner)
+    db.flush()
+    return partner
+
+
+def list_active_series_partners(db: Session, series_id: UUID) -> List[SeriesPartner]:
+    return (
+        db.query(SeriesPartner)
+        .filter(
+            and_(
+                SeriesPartner.series_id == series_id,
+                SeriesPartner.deleted_at.is_(None),
+            )
+        )
+        .all()
+    )
+
+
+def soft_delete_series_partner(db: Session, series_id: UUID, group_id: UUID) -> Optional[SeriesPartner]:
+    partner = (
+        db.query(SeriesPartner)
+        .filter(
+            and_(
+                SeriesPartner.series_id == series_id,
+                SeriesPartner.group_id == group_id,
+                SeriesPartner.deleted_at.is_(None),
+            )
+        )
+        .first()
+    )
+    if partner is None:
+        return None
+    partner.deleted_at = datetime.now(timezone.utc)
     db.flush()
     return partner
 

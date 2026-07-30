@@ -865,3 +865,116 @@ def test_clone_series_plans_success(sample_series_dto):
         clone_request=mock_clone.call_args.kwargs["clone_request"],
     )
     assert response.json()["id"] == str(sample_series_dto.id)
+
+# --- Series partner CMS endpoints ---
+
+def _partner_item(is_owner: bool = False):
+    from pecha_api.plans.series.series_response_models import SeriesPartnerItemDTO
+    return SeriesPartnerItemDTO(
+        id=uuid.uuid4(),
+        group_id=uuid.uuid4(),
+        group_name="Partner Group",
+        group_image=None,
+        is_owner=is_owner,
+    )
+
+
+def test_list_series_partners_success():
+    from pecha_api.plans.series.series_response_models import SeriesPartnerListResponse
+
+    series_id = uuid.uuid4()
+    owner = _partner_item(is_owner=True)
+    added = _partner_item(is_owner=False)
+    response_model = SeriesPartnerListResponse(partners=[owner, added])
+
+    with patch(
+        "pecha_api.plans.series.series_view.list_series_partners_for_cms",
+        return_value=response_model,
+    ) as mock_list:
+        response = client.get(
+            f"/cms/series/{series_id}/partners",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data["partners"]) == 2
+    assert data["partners"][0]["is_owner"] is True
+    mock_list.assert_called_once()
+    assert mock_list.call_args.kwargs["token"] == "dummy"
+    assert mock_list.call_args.kwargs["series_id"] == series_id
+
+
+def test_add_series_partner_success():
+    series_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+    item = _partner_item(is_owner=False)
+
+    with patch(
+        "pecha_api.plans.series.series_view.add_series_partner",
+        return_value=item,
+    ) as mock_add:
+        response = client.post(
+            f"/cms/series/{series_id}/partners",
+            json={"group_id": str(group_id)},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert data["id"] == str(item.id)
+    mock_add.assert_called_once()
+    call_kwargs = mock_add.call_args.kwargs
+    assert call_kwargs["token"] == "dummy"
+    assert call_kwargs["series_id"] == series_id
+    assert call_kwargs["add_request"].group_id == group_id
+
+
+def test_add_series_partner_validation_error_missing_group_id():
+    series_id = uuid.uuid4()
+    response = client.post(
+        f"/cms/series/{series_id}/partners",
+        json={},
+        headers={"Authorization": "Bearer dummy"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_delete_series_partner_success():
+    series_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.plans.series.series_view.remove_series_partner",
+        return_value=None,
+    ) as mock_remove:
+        response = client.delete(
+            f"/cms/series/{series_id}/partners/{group_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    mock_remove.assert_called_once_with(
+        token="dummy",
+        series_id=series_id,
+        group_id=group_id,
+    )
+
+
+def test_delete_series_partner_owner_rejected():
+    series_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.plans.series.series_view.remove_series_partner",
+        side_effect=HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The series' owning group cannot be removed as a partner",
+        ),
+    ):
+        response = client.delete(
+            f"/cms/series/{series_id}/partners/{group_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST

@@ -156,6 +156,26 @@ def test_get_series_by_group_id_includes_owned_and_partner_series():
     query.distinct.assert_called_once()
 
 
+def test_get_series_by_group_id_excludes_soft_deleted_partner_links():
+    """The SeriesPartner outerjoin must exclude soft-deleted partner rows so a
+    series removed from a group (deleted_at set) no longer surfaces for it."""
+    db = _make_session_mock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.outerjoin.return_value = query
+    query.filter.return_value = query
+    query.distinct.return_value = query
+    query.distinct.return_value.all.return_value = []
+
+    get_series_by_group_id(db=db, group_id=uuid.uuid4())
+
+    # deleted_at guard belongs in the JOIN condition (not the WHERE), otherwise
+    # an outer join would wrongly drop group-owned series that have no partner row.
+    join_condition = query.outerjoin.call_args.args[1]
+    rendered = str(join_condition.compile(compile_kwargs={"literal_binds": True}))
+    assert "series_partner.deleted_at IS NULL" in rendered
+
+
 def test_update_group_commits_without_re_adding_instance():
     db = _make_session_mock()
     group = MagicMock()

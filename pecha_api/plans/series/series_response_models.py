@@ -33,6 +33,22 @@ class SeriesPartnerDTO(BaseModel):
     group_image: Optional[str] = None
 
 
+class SeriesPartnerItemDTO(BaseModel):
+    id: UUID
+    group_id: UUID
+    group_name: str
+    group_image: Optional[str] = None
+    is_owner: bool = False
+
+
+class SeriesPartnerListResponse(BaseModel):
+    partners: List[SeriesPartnerItemDTO] = []
+
+
+class AddSeriesPartnerRequest(BaseModel):
+    group_id: UUID
+
+
 class SeriesMetadataDTO(BaseModel):
     id: UUID
     title: str
