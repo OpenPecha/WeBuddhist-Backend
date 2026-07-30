@@ -3756,6 +3756,34 @@ def test_add_series_partner_success_returns_item():
     mock_ensure.assert_called_once()
 
 
+def test_add_series_partner_maps_integrity_error_to_400():
+    series_id, owner_group, partner_group = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=_series_row(series_id, owner_group),
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_change_status"
+    ), patch(
+        "pecha_api.plans.groups.groups_repository.get_group_by_id",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_repository.ensure_series_partner",
+        side_effect=IntegrityError("stmt", {}, Exception("duplicate key")),
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=MagicMock(),
+    ):
+        _session_local_context(msl)
+        with pytest.raises(HTTPException) as exc:
+            add_series_partner(
+                token="dummy",
+                series_id=series_id,
+                add_request=AddSeriesPartnerRequest(group_id=partner_group),
+            )
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert "Database integrity error" in exc.value.detail
+
+
 def test_remove_series_partner_rejects_owner_group():
     series_id, owner_group = uuid.uuid4(), uuid.uuid4()
     with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
@@ -3771,6 +3799,19 @@ def test_remove_series_partner_rejects_owner_group():
         with pytest.raises(HTTPException) as exc:
             remove_series_partner(token="dummy", series_id=series_id, group_id=owner_group)
     assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_remove_series_partner_404_when_series_missing():
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id", return_value=None
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=MagicMock(),
+    ):
+        _session_local_context(msl)
+        with pytest.raises(HTTPException) as exc:
+            remove_series_partner(token="dummy", series_id=uuid.uuid4(), group_id=uuid.uuid4())
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 def test_remove_series_partner_404_when_not_a_partner():
@@ -3811,3 +3852,160 @@ def test_remove_series_partner_success_soft_deletes():
         remove_series_partner(token="dummy", series_id=series_id, group_id=other_group)
     mock_del.assert_called_once()
     db.commit.assert_called_once()
+
+
+# --- _group_display_name ---
+
+from pecha_api.plans.series.series_service import (
+    _group_display_name,
+    build_series_partner_dto,
+)
+
+
+def _group_summary(title, language="en", avatar_url=None):
+    """Minimal AuthorGroupSummaryDTO-like stub for display-name resolution."""
+    group = MagicMock()
+    meta = MagicMock()
+    meta.title = title
+    meta.language = language
+    group.metadata = [meta]
+    group.avatar_url = avatar_url
+    return group
+
+
+def test_group_display_name_returns_default_when_metadata_none():
+    group = MagicMock()
+    group.metadata = None
+    assert _group_display_name(group) == "Group"
+
+
+def test_group_display_name_returns_default_for_empty_list():
+    group = MagicMock()
+    group.metadata = []
+    assert _group_display_name(group) == "Group"
+
+
+def test_group_display_name_picks_language_matched_title():
+    group = _group_summary("Kadam Group", language="en")
+    with patch(
+        "pecha_api.plans.series.series_service.filter_by_language_with_fallback",
+        return_value=[group.metadata[0]],
+    ):
+        assert _group_display_name(group, language="en") == "Kadam Group"
+
+
+def test_group_display_name_falls_back_to_first_entry_when_no_match():
+    group = _group_summary("First Title", language="bo")
+    with patch(
+        "pecha_api.plans.series.series_service.filter_by_language_with_fallback",
+        return_value=[],
+    ):
+        assert _group_display_name(group, language="en") == "First Title"
+
+
+def test_group_display_name_handles_single_metadata_object():
+    group = MagicMock()
+    meta = MagicMock()
+    meta.title = "Solo Title"
+    group.metadata = meta  # not a list
+    assert _group_display_name(group) == "Solo Title"
+
+
+# --- build_series_partner_dto ---
+
+
+def test_build_series_partner_dto_returns_none_when_group_missing():
+    assert build_series_partner_dto(group=None) is None
+
+
+def test_build_series_partner_dto_builds_from_group():
+    group = _group_summary("Partner Group", avatar_url="http://img/a.png")
+    with patch(
+        "pecha_api.plans.series.series_service.filter_by_language_with_fallback",
+        return_value=[group.metadata[0]],
+    ):
+        dto = build_series_partner_dto(group=group)
+    assert dto.group_name == "Partner Group"
+    assert dto.group_image == "http://img/a.png"
+
+
+# --- list_series_partners_for_cms ---
+
+
+def test_list_series_partners_for_cms_404_when_series_missing():
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id", return_value=None
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=MagicMock(),
+    ):
+        _session_local_context(msl)
+        with pytest.raises(HTTPException) as exc:
+            list_series_partners_for_cms(token="dummy", series_id=uuid.uuid4())
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_list_series_partners_for_cms_returns_partners_with_owner_flag():
+    series_id, owner_group, partner_group = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    owner_partner_id, other_partner_id = uuid.uuid4(), uuid.uuid4()
+
+    owner_row = MagicMock(id=owner_partner_id, group_id=owner_group)
+    partner_row = MagicMock(id=other_partner_id, group_id=partner_group)
+
+    owner_summary = _group_summary("Owner Group", avatar_url="http://img/owner.png")
+    partner_summary = _group_summary("Partner Group", avatar_url="http://img/partner.png")
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=_series_row(series_id, owner_group),
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_read_group_content"
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_repository.list_active_series_partners",
+        return_value=[owner_row, partner_row],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_summaries_by_ids",
+        return_value={owner_group: owner_summary, partner_group: partner_summary},
+    ), patch(
+        "pecha_api.plans.series.series_service.filter_by_language_with_fallback",
+        side_effect=lambda entries, **_: entries,
+    ):
+        _session_local_context(msl)
+        result = list_series_partners_for_cms(token="dummy", series_id=series_id)
+
+    assert len(result.partners) == 2
+    by_id = {p.id: p for p in result.partners}
+    assert by_id[owner_partner_id].is_owner is True
+    assert by_id[owner_partner_id].group_name == "Owner Group"
+    assert by_id[other_partner_id].is_owner is False
+    assert by_id[other_partner_id].group_image == "http://img/partner.png"
+
+
+def test_list_series_partners_for_cms_uses_default_name_when_summary_missing():
+    series_id, owner_group = uuid.uuid4(), uuid.uuid4()
+    row = MagicMock(id=uuid.uuid4(), group_id=owner_group)
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=_series_row(series_id, owner_group),
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_read_group_content"
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_repository.list_active_series_partners",
+        return_value=[row],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_summaries_by_ids",
+        return_value={},  # no summary for the group
+    ):
+        _session_local_context(msl)
+        result = list_series_partners_for_cms(token="dummy", series_id=series_id)
+
+    assert len(result.partners) == 1
+    assert result.partners[0].group_name == "Group"
+    assert result.partners[0].group_image is None
