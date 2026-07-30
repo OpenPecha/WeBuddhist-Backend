@@ -70,6 +70,7 @@ def create_post_comment(
         post_id=post_id,
         author_email=author.email,
         text=request.text,
+        parent_comment_id=request.parent_comment_id,
     )
 
 
@@ -173,18 +174,28 @@ async def websocket_post_comments(
 
                 # 5. Create comment via existing service
                 try:
+                    parent_comment_id = data.get("parent_comment_id")
+                    if parent_comment_id is not None:
+                        parent_comment_id = UUID(str(parent_comment_id))
+
                     comment_dto = create_post_comment_service(
                         group_id=group_id,
                         post_id=post_id,
                         author_email=author.email,
                         text=data.get("text", ""),
+                        parent_comment_id=parent_comment_id,
                     )
-                except HTTPException as e:
-                    logger.error(f"Comment creation failed: {e.detail}")
+                except (HTTPException, ValueError) as e:
+                    detail = (
+                        e.detail
+                        if isinstance(e, HTTPException)
+                        else "Invalid parent_comment_id"
+                    )
+                    logger.error(f"Comment creation failed: {detail}")
                     await websocket.send_json({
                         "type": "error",
-                        "code": e.detail if isinstance(e.detail, str) else "ERROR",
-                        "message": e.detail if isinstance(e.detail, str) else str(e.detail)
+                        "code": detail if isinstance(detail, str) else "ERROR",
+                        "message": detail if isinstance(detail, str) else str(detail)
                     })
                     continue
 

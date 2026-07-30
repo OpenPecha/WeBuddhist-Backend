@@ -18,12 +18,18 @@ def get_client():
 AUTH_HEADERS = {"Authorization": "Bearer test-token"}
 
 
-def _comment_dto(post_id=None, user_id=None, user_email="user@example.com") -> GroupPostCommentDTO:
+def _comment_dto(
+    post_id=None,
+    user_id=None,
+    user_email="user@example.com",
+    parent_comment_id=None,
+) -> GroupPostCommentDTO:
     now = datetime.now(tz.utc).isoformat()
     return GroupPostCommentDTO(
         id=uuid4(),
         post_id=post_id or uuid4(),
         user_id=user_id or uuid4(),
+        parent_comment_id=parent_comment_id,
         user_email=user_email,
         text="Great post!",
         created_at=now,
@@ -94,6 +100,39 @@ class TestCreatePostCommentView:
             post_id=post_id,
             author_email="author@example.com",
             text="Great post!",
+            parent_comment_id=None,
+        )
+
+    @patch('pecha_api.group_posts.comment_views.create_post_comment_service')
+    @patch('pecha_api.group_posts.comment_views.validate_and_extract_author_details')
+    def test_create_reply_to_comment(self, mock_validate, mock_service):
+        client = get_client()
+        group_id = uuid4()
+        post_id = uuid4()
+        parent_comment_id = uuid4()
+        mock_validate.return_value = MagicMock(email="author@example.com")
+        mock_service.return_value = _comment_dto(
+            post_id=post_id,
+            parent_comment_id=parent_comment_id,
+        )
+
+        response = client.post(
+            f"/author/groups/{group_id}/posts/{post_id}/comments",
+            headers=AUTH_HEADERS,
+            json={
+                "text": "Nested reply",
+                "parent_comment_id": str(parent_comment_id),
+            },
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.json()["parent_comment_id"] == str(parent_comment_id)
+        mock_service.assert_called_once_with(
+            group_id=group_id,
+            post_id=post_id,
+            author_email="author@example.com",
+            text="Nested reply",
+            parent_comment_id=parent_comment_id,
         )
 
     def test_create_comment_requires_auth(self):

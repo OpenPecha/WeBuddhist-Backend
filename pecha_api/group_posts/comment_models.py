@@ -17,6 +17,7 @@ from pecha_api.db.database import Base
 
 FK_GROUP_POSTS_ID = "group_posts.id"
 FK_USERS_ID = "users.id"
+FK_GROUP_POST_COMMENTS_ID = "group_post_comments.id"
 
 
 class GroupPostComment(Base):
@@ -32,6 +33,11 @@ class GroupPostComment(Base):
         UUID(as_uuid=True),
         ForeignKey(FK_USERS_ID, ondelete="CASCADE"),
         nullable=False,
+    )
+    parent_comment_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(FK_GROUP_POST_COMMENTS_ID, ondelete="CASCADE"),
+        nullable=True,
     )
     text = Column(Text, nullable=False)
 
@@ -49,10 +55,22 @@ class GroupPostComment(Base):
 
     post = relationship("GroupPost")
     user = relationship("Users")
+    parent_comment = relationship(
+        "GroupPostComment",
+        remote_side=[id],
+        foreign_keys=[parent_comment_id],
+        back_populates="replies",
+    )
+    replies = relationship(
+        "GroupPostComment",
+        foreign_keys=[parent_comment_id],
+        back_populates="parent_comment",
+    )
 
     __table_args__ = (
         Index("idx_group_post_comments_post_id", "post_id"),
         Index("idx_group_post_comments_user_id", "user_id"),
+        Index("idx_group_post_comments_parent_comment_id", "parent_comment_id"),
         Index(
             "idx_group_post_comments_feed",
             "post_id",

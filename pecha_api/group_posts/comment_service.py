@@ -40,6 +40,7 @@ def build_comment_dto(comment: GroupPostComment) -> GroupPostCommentDTO:
         id=comment.id,
         post_id=comment.post_id,
         user_id=comment.user_id,
+        parent_comment_id=comment.parent_comment_id,
         user_email=user_email,
         text=comment.text,
         created_at=_isoformat(comment.created_at),
@@ -98,11 +99,24 @@ def create_post_comment_service(
     post_id: UUID,
     author_email: str,
     text: str,
+    parent_comment_id: Optional[UUID] = None,
 ) -> GroupPostCommentDTO:
-    """Create a comment on a post. User must be authenticated."""
+    """Create a top-level comment or a reply to any comment on the post."""
     with SessionLocal() as db:
         _validate_group_is_public(db, group_id)
         _validate_post_published(db, post_id, group_id)
+
+        if parent_comment_id is not None:
+            parent_comment = get_comment_by_id(
+                db=db,
+                comment_id=parent_comment_id,
+                post_id=post_id,
+            )
+            if not parent_comment:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Parent comment not found",
+                )
 
         # Look up user by email in Users table
         user = db.query(Users).filter(Users.email == author_email).first()
@@ -115,6 +129,7 @@ def create_post_comment_service(
         comment = GroupPostComment(
             post_id=post_id,
             user_id=user.id,
+            parent_comment_id=parent_comment_id,
             text=text,
         )
 

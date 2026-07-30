@@ -50,12 +50,13 @@ class FakePubSub:
             raise self.unsubscribe_error
 
 
-def _comment_dto(post_id) -> GroupPostCommentDTO:
+def _comment_dto(post_id, parent_comment_id=None) -> GroupPostCommentDTO:
     now = datetime.now(tz.utc).isoformat()
     return GroupPostCommentDTO(
         id=uuid4(),
         post_id=post_id,
         user_id=uuid4(),
+        parent_comment_id=parent_comment_id,
         user_email="user@example.com",
         text="Great post!",
         created_at=now,
@@ -221,6 +222,32 @@ class TestWebSocketPostCommentsMessages:
             post_id=post_id,
             author_email=author.email,
             text="Great post!",
+            parent_comment_id=None,
+        )
+        broadcaster.broadcast_comment.assert_awaited_once_with(post_id, dto)
+
+    def test_creates_and_broadcasts_reply(self):
+        group_id = uuid4()
+        post_id = uuid4()
+        parent_comment_id = uuid4()
+        author = MockAuthor()
+        dto = _comment_dto(post_id, parent_comment_id=parent_comment_id)
+
+        with _websocket_env(author=author) as (broadcaster, mock_create):
+            mock_create.return_value = dto
+            with client.websocket_connect(_ws_url(group_id, post_id)) as websocket:
+                websocket.send_json({
+                    "type": "comment",
+                    "text": "Nested reply",
+                    "parent_comment_id": str(parent_comment_id),
+                })
+
+        mock_create.assert_called_once_with(
+            group_id=group_id,
+            post_id=post_id,
+            author_email=author.email,
+            text="Nested reply",
+            parent_comment_id=parent_comment_id,
         )
         broadcaster.broadcast_comment.assert_awaited_once_with(post_id, dto)
 

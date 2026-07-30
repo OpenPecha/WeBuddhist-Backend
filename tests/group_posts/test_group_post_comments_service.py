@@ -24,10 +24,18 @@ class MockUser:
 
 
 class MockComment:
-    def __init__(self, user=None, user_id=None, post_id=None, text="Great post!"):
+    def __init__(
+        self,
+        user=None,
+        user_id=None,
+        post_id=None,
+        parent_comment_id=None,
+        text="Great post!",
+    ):
         self.id = uuid4()
         self.post_id = post_id or uuid4()
         self.user_id = user_id or uuid4()
+        self.parent_comment_id = parent_comment_id
         self.user = user or MockUser(user_id=self.user_id)
         self.text = text
         self.created_at = datetime.now(tz.utc)
@@ -150,6 +158,14 @@ class TestBuildCommentDTO:
         assert dto.updated_at is None
         assert dto.created_at == comment.created_at.isoformat()
 
+    def test_includes_parent_comment_id(self):
+        parent_comment_id = uuid4()
+        comment = MockComment(parent_comment_id=parent_comment_id)
+
+        dto = build_comment_dto(comment)
+
+        assert dto.parent_comment_id == parent_comment_id
+
 
 class TestCreatePostCommentService:
 
@@ -187,7 +203,88 @@ class TestCreatePostCommentService:
         persisted = mock_create.call_args.kwargs["comment"]
         assert persisted.post_id == post_id
         assert persisted.user_id == user.id
+        assert persisted.parent_comment_id is None
         assert persisted.text == "Hello"
+
+    @patch('pecha_api.group_posts.comment_service.create_comment')
+    @patch('pecha_api.group_posts.comment_service.get_comment_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.comment_service.SessionLocal')
+    def test_create_multilevel_reply_success(
+        self,
+        mock_session,
+        mock_get_group,
+        mock_get_post,
+        mock_get_comment,
+        mock_create,
+    ):
+        group_id = uuid4()
+        post_id = uuid4()
+        parent_comment_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_group.return_value = MockGroup(id=group_id)
+        mock_get_post.return_value = MockPost(id=post_id, group_id=group_id)
+        mock_get_comment.return_value = MockComment(post_id=post_id)
+
+        user = MockUser(email="commenter@example.com")
+        mock_db.query.return_value.filter.return_value.first.return_value = user
+        mock_create.return_value = MockComment(
+            user=user,
+            user_id=user.id,
+            post_id=post_id,
+            parent_comment_id=parent_comment_id,
+            text="Nested reply",
+        )
+
+        result = create_post_comment_service(
+            group_id=group_id,
+            post_id=post_id,
+            author_email=user.email,
+            text="Nested reply",
+            parent_comment_id=parent_comment_id,
+        )
+
+        assert result.parent_comment_id == parent_comment_id
+        persisted = mock_create.call_args.kwargs["comment"]
+        assert persisted.parent_comment_id == parent_comment_id
+        mock_get_comment.assert_called_once_with(
+            db=mock_db,
+            comment_id=parent_comment_id,
+            post_id=post_id,
+        )
+
+    @patch('pecha_api.group_posts.comment_service.get_comment_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.comment_service.SessionLocal')
+    def test_create_reply_rejects_parent_outside_post(
+        self,
+        mock_session,
+        mock_get_group,
+        mock_get_post,
+        mock_get_comment,
+    ):
+        group_id = uuid4()
+        post_id = uuid4()
+        parent_comment_id = uuid4()
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_get_group.return_value = MockGroup(id=group_id)
+        mock_get_post.return_value = MockPost(id=post_id, group_id=group_id)
+        mock_get_comment.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_post_comment_service(
+                group_id=group_id,
+                post_id=post_id,
+                author_email="commenter@example.com",
+                text="Reply",
+                parent_comment_id=parent_comment_id,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        assert exc_info.value.detail == "Parent comment not found"
 
     @patch('pecha_api.group_posts.comment_service.get_post_by_id')
     @patch('pecha_api.group_posts.comment_service.get_group_by_id')
