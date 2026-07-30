@@ -7,8 +7,8 @@ from starlette import status
 
 from pecha_api.plans.language_constants import language_query_description
 from pecha_api.plans.plans_enums import PlanStatus
-from pecha_api.plans.series.series_response_models import CreateSeriesRequest, UpdateSeriesRequest, UpdateSeriesStatusRequest, SeriesDTO, SeriesListResponse, CloneSeriesPlansRequest
-from pecha_api.plans.series.series_service import create_new_series, update_existing_series, update_existing_series_status, update_existing_series_featured, get_cms_filtered_series, get_cms_series_detail, delete_existing_series, clone_series_plans_for_language
+from pecha_api.plans.series.series_response_models import CreateSeriesRequest, UpdateSeriesRequest, UpdateSeriesStatusRequest, SeriesDTO, SeriesListResponse, CloneSeriesPlansRequest, SeriesPartnerItemDTO, SeriesPartnerListResponse, AddSeriesPartnerRequest
+from pecha_api.plans.series.series_service import create_new_series, update_existing_series, update_existing_series_status, update_existing_series_featured, get_cms_filtered_series, get_cms_series_detail, delete_existing_series, clone_series_plans_for_language, list_series_partners_for_cms, add_series_partner, remove_series_partner
 
 oauth2_scheme = HTTPBearer()
 
@@ -159,4 +159,62 @@ async def get_cms_series(
         token=authentication_credential.credentials,
         series_id=series_id,
         language=language,
+    )
+
+
+@cms_series_router.get(
+    "/{series_id}/partners",
+    status_code=status.HTTP_200_OK,
+    response_model=SeriesPartnerListResponse,
+)
+async def get_series_partners(
+    series_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    language: Annotated[
+        Optional[str],
+        Query(description=language_query_description("Language for partner group names", lowercase_example=True)),
+    ] = None,
+):
+    return list_series_partners_for_cms(
+        token=authentication_credential.credentials,
+        series_id=series_id,
+        language=language,
+    )
+
+
+@cms_series_router.post(
+    "/{series_id}/partners",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SeriesPartnerItemDTO,
+)
+async def create_series_partner(
+    series_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    add_partner_request: AddSeriesPartnerRequest,
+    language: Annotated[
+        Optional[str],
+        Query(description=language_query_description("Language for partner group name", lowercase_example=True)),
+    ] = None,
+):
+    return add_series_partner(
+        token=authentication_credential.credentials,
+        series_id=series_id,
+        add_request=add_partner_request,
+        language=language,
+    )
+
+
+@cms_series_router.delete(
+    "/{series_id}/partners/{group_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_series_partner(
+    series_id: UUID,
+    group_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return remove_series_partner(
+        token=authentication_credential.credentials,
+        series_id=series_id,
+        group_id=group_id,
     )

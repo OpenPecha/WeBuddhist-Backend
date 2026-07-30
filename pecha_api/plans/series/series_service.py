@@ -44,6 +44,9 @@ from pecha_api.plans.series.series_response_models import (
     CloneSeriesPlansRequest,
     SeriesProgressDTO,
     SeriesPartnerDTO,
+    SeriesPartnerItemDTO,
+    SeriesPartnerListResponse,
+    AddSeriesPartnerRequest,
 )
 from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
 from pecha_api.plans.authors.plan_authors_service import (
@@ -266,6 +269,25 @@ def _group_metadata_language(metadata) -> str:
     return language.value if hasattr(language, "value") else str(language)
 
 
+def _group_display_name(
+    group: AuthorGroupSummaryDTO,
+    language: Optional[str] = None,
+) -> str:
+    metadata_entries = group.metadata
+    if metadata_entries is None:
+        return "Group"
+    if isinstance(metadata_entries, list):
+        if not metadata_entries:
+            return "Group"
+        matched = filter_by_language_with_fallback(
+            entries=metadata_entries,
+            language=language,
+            language_of=_group_metadata_language,
+        )
+        return matched[0].title if matched else metadata_entries[0].title
+    return metadata_entries.title
+
+
 def build_series_partner_dto(
     group: Optional[AuthorGroupSummaryDTO],
     language: Optional[str] = None,
@@ -273,24 +295,8 @@ def build_series_partner_dto(
     if group is None:
         return None
 
-    metadata_entries = group.metadata
-    if metadata_entries is None:
-        title = "Group"
-    elif isinstance(metadata_entries, list):
-        if not metadata_entries:
-            title = "Group"
-        else:
-            matched = filter_by_language_with_fallback(
-                entries=metadata_entries,
-                language=language,
-                language_of=_group_metadata_language,
-            )
-            title = matched[0].title if matched else metadata_entries[0].title
-    else:
-        title = metadata_entries.title
-
     return SeriesPartnerDTO(
-        group_name=title,
+        group_name=_group_display_name(group, language=language),
         group_image=group.avatar_url,
     )
 
@@ -1276,6 +1282,168 @@ def delete_existing_series(token: str, series_id: UUID) -> None:
                 series=series,
                 deleted_by=current_author.email,
             )
+        return
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database integrity error: {exc.orig}",
+        ) from exc
+
+
+def _build_series_partner_item_dto(
+    partner_id: UUID,
+    group_summary: Optional[AuthorGroupSummaryDTO],
+    group_id: UUID,
+    is_owner: bool,
+    language: Optional[str] = None,
+) -> SeriesPartnerItemDTO:
+    group_name = (
+        _group_display_name(group_summary, language=language)
+        if group_summary is not None
+        else "Group"
+    )
+    group_image = group_summary.avatar_url if group_summary is not None else None
+    return SeriesPartnerItemDTO(
+        id=partner_id,
+        group_id=group_id,
+        group_name=group_name,
+        group_image=group_image,
+        is_owner=is_owner,
+    )
+
+
+def list_series_partners_for_cms(
+    token: str,
+    series_id: UUID,
+    language: Optional[str] = None,
+) -> SeriesPartnerListResponse:
+    from pecha_api.plans.groups.groups_service import get_group_summaries_by_ids
+    from pecha_api.plans.users.plan_user_series_repository import list_active_series_partners
+
+    current_author = validate_cms_author_details(token=token)
+
+    with SessionLocal() as db_session:
+        series = get_series_by_id(db=db_session, series_id=series_id)
+        if not series:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Series with id '{series_id}' not found",
+            )
+        require_can_read_group_content(
+            db=db_session, group_id=series.group_id, author=current_author
+        )
+
+        partner_rows = list_active_series_partners(db=db_session, series_id=series_id)
+        group_summaries = get_group_summaries_by_ids(
+            db=db_session,
+            group_ids=[row.group_id for row in partner_rows],
+            language=language,
+        )
+        partners = [
+            _build_series_partner_item_dto(
+                partner_id=row.id,
+                group_summary=group_summaries.get(row.group_id),
+                group_id=row.group_id,
+                is_owner=row.group_id == series.group_id,
+                language=language,
+            )
+            for row in partner_rows
+        ]
+
+    return SeriesPartnerListResponse(partners=partners)
+
+
+def add_series_partner(
+    token: str,
+    series_id: UUID,
+    add_request: AddSeriesPartnerRequest,
+    language: Optional[str] = None,
+) -> SeriesPartnerItemDTO:
+    from pecha_api.plans.groups.groups_repository import get_group_by_id
+    from pecha_api.plans.groups.groups_service import get_group_summaries_by_ids
+    from pecha_api.plans.users.plan_user_series_repository import ensure_series_partner
+
+    current_author = validate_cms_author_details(token=token)
+    group_id = add_request.group_id
+
+    try:
+        with SessionLocal() as db_session:
+            series = get_series_by_id(db=db_session, series_id=series_id)
+            if not series:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Series with id '{series_id}' not found",
+                )
+            require_can_change_status(
+                db=db_session, group_id=series.group_id, author=current_author
+            )
+
+            group = get_group_by_id(db=db_session, group_id=group_id)
+            if group is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Group with id '{group_id}' not found",
+                )
+
+            partner = ensure_series_partner(
+                db=db_session, series_id=series_id, group_id=group_id
+            )
+            partner_id = partner.id
+            db_session.commit()
+
+            group_summaries = get_group_summaries_by_ids(
+                db=db_session, group_ids=[group_id], language=language
+            )
+            return _build_series_partner_item_dto(
+                partner_id=partner_id,
+                group_summary=group_summaries.get(group_id),
+                group_id=group_id,
+                is_owner=group_id == series.group_id,
+                language=language,
+            )
+    except IntegrityError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Database integrity error: {exc.orig}",
+        ) from exc
+
+
+def remove_series_partner(
+    token: str,
+    series_id: UUID,
+    group_id: UUID,
+) -> None:
+    from pecha_api.plans.users.plan_user_series_repository import soft_delete_series_partner
+
+    current_author = validate_cms_author_details(token=token)
+
+    try:
+        with SessionLocal() as db_session:
+            series = get_series_by_id(db=db_session, series_id=series_id)
+            if not series:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Series with id '{series_id}' not found",
+                )
+            require_can_change_status(
+                db=db_session, group_id=series.group_id, author=current_author
+            )
+
+            if group_id == series.group_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="The series' owning group cannot be removed as a partner",
+                )
+
+            partner = soft_delete_series_partner(
+                db=db_session, series_id=series_id, group_id=group_id
+            )
+            if partner is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Group '{group_id}' is not a partner of series '{series_id}'",
+                )
+            db_session.commit()
         return
     except IntegrityError as exc:
         raise HTTPException(

@@ -3639,3 +3639,175 @@ def test_clone_series_plans_for_language_integrity_error_raises_400():
 
     assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
     assert "Database integrity error" in exc.value.detail
+
+
+# --- Series partner CMS service ---
+
+from pecha_api.plans.series.series_service import (
+    add_series_partner,
+    remove_series_partner,
+    list_series_partners_for_cms,
+)
+from pecha_api.plans.series.series_response_models import AddSeriesPartnerRequest
+
+
+def _series_row(series_id, group_id):
+    row = MagicMock()
+    row.id = series_id
+    row.group_id = group_id
+    return row
+
+
+def test_add_series_partner_404_when_series_missing():
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id", return_value=None
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=MagicMock(),
+    ):
+        _session_local_context(msl)
+        with pytest.raises(HTTPException) as exc:
+            add_series_partner(
+                token="dummy",
+                series_id=uuid.uuid4(),
+                add_request=AddSeriesPartnerRequest(group_id=uuid.uuid4()),
+            )
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_add_series_partner_404_when_group_missing():
+    series_id, owner_group = uuid.uuid4(), uuid.uuid4()
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=_series_row(series_id, owner_group),
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_change_status"
+    ), patch(
+        "pecha_api.plans.groups.groups_repository.get_group_by_id", return_value=None
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=MagicMock(),
+    ):
+        _session_local_context(msl)
+        with pytest.raises(HTTPException) as exc:
+            add_series_partner(
+                token="dummy",
+                series_id=series_id,
+                add_request=AddSeriesPartnerRequest(group_id=uuid.uuid4()),
+            )
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_add_series_partner_enforces_permission():
+    series_id, owner_group = uuid.uuid4(), uuid.uuid4()
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=_series_row(series_id, owner_group),
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_change_status",
+        side_effect=HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN"),
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=MagicMock(),
+    ):
+        _session_local_context(msl)
+        with pytest.raises(HTTPException) as exc:
+            add_series_partner(
+                token="dummy",
+                series_id=series_id,
+                add_request=AddSeriesPartnerRequest(group_id=uuid.uuid4()),
+            )
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_add_series_partner_success_returns_item():
+    series_id, owner_group, partner_group = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    partner_row = MagicMock()
+    partner_row.id = uuid.uuid4()
+
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=_series_row(series_id, owner_group),
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_change_status"
+    ), patch(
+        "pecha_api.plans.groups.groups_repository.get_group_by_id",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_repository.ensure_series_partner",
+        return_value=partner_row,
+    ) as mock_ensure, patch(
+        "pecha_api.plans.groups.groups_service.get_group_summaries_by_ids",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=MagicMock(),
+    ):
+        _session_local_context(msl)
+        result = add_series_partner(
+            token="dummy",
+            series_id=series_id,
+            add_request=AddSeriesPartnerRequest(group_id=partner_group),
+        )
+
+    assert result.id == partner_row.id
+    assert result.group_id == partner_group
+    assert result.is_owner is False
+    mock_ensure.assert_called_once()
+
+
+def test_remove_series_partner_rejects_owner_group():
+    series_id, owner_group = uuid.uuid4(), uuid.uuid4()
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=_series_row(series_id, owner_group),
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_change_status"
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=MagicMock(),
+    ):
+        _session_local_context(msl)
+        with pytest.raises(HTTPException) as exc:
+            remove_series_partner(token="dummy", series_id=series_id, group_id=owner_group)
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_remove_series_partner_404_when_not_a_partner():
+    series_id, owner_group, other_group = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=_series_row(series_id, owner_group),
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_change_status"
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_repository.soft_delete_series_partner",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=MagicMock(),
+    ):
+        _session_local_context(msl)
+        with pytest.raises(HTTPException) as exc:
+            remove_series_partner(token="dummy", series_id=series_id, group_id=other_group)
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_remove_series_partner_success_soft_deletes():
+    series_id, owner_group, other_group = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    with patch("pecha_api.plans.series.series_service.SessionLocal") as msl, patch(
+        "pecha_api.plans.series.series_service.get_series_by_id",
+        return_value=_series_row(series_id, owner_group),
+    ), patch(
+        "pecha_api.plans.series.series_service.require_can_change_status"
+    ), patch(
+        "pecha_api.plans.users.plan_user_series_repository.soft_delete_series_partner",
+        return_value=MagicMock(),
+    ) as mock_del, patch(
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
+        return_value=MagicMock(),
+    ):
+        db = _session_local_context(msl)
+        remove_series_partner(token="dummy", series_id=series_id, group_id=other_group)
+    mock_del.assert_called_once()
+    db.commit.assert_called_once()

@@ -202,6 +202,7 @@ class SeriesPartner(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(_datetime.timezone.utc),
     )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     series = relationship("Series", backref="series_partners")
     group = relationship("AuthorGroup")

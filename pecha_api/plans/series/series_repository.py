@@ -73,6 +73,7 @@ def get_enrolled_count_map_by_group_and_series_ids(
             select(SeriesPartner.series_id, SeriesPartner.id).where(
                 SeriesPartner.group_id == group_id,
                 SeriesPartner.series_id.in_(series_ids),
+                SeriesPartner.deleted_at.is_(None),
             )
         )
         .all()
@@ -735,6 +736,7 @@ def get_series_paginated(
                     select(1).where(
                         SeriesPartner.series_id == Series.id,
                         SeriesPartner.group_id.in_(group_ids),
+                        SeriesPartner.deleted_at.is_(None),
                     )
                 ),
             )
