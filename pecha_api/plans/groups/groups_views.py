@@ -17,6 +17,7 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupInviteDTO,
     GroupInviteListResponse,
     GroupMemberAccumulationsResponse,
+    GroupPracticesResponse,
     PublicAuthorGroupDetailDTO,
     PublicAuthorGroupListResponse,
     ReplaceGroupSocialLinksRequest,
@@ -43,6 +44,7 @@ from pecha_api.plans.groups.groups_service import (
     get_followed_group,
     get_group_accumulations,
     get_group_member_accumulations,
+    get_group_practices,
     get_joined_group,
     join_group,
     leave_group,
@@ -353,6 +355,35 @@ def get_public_group(
         require_public=True,
         language=language,
         token=authentication_credential.credentials if authentication_credential else None,
+    )
+
+
+@public_groups_router.get(
+    "/{group_id}/practices",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupPracticesResponse,
+)
+async def get_public_group_practices(
+    group_id: UUID,
+    authentication_credential: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(optional_oauth2_scheme)
+    ] = None,
+    language: Annotated[Optional[str], Query(description=_LANGUAGE_QUERY_DESCRIPTION)] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted practices are hidden for Chinese timezones."),
+    ] = None,
+):
+    """List a public group's practices (series, accumulators, and collections) as a single merged, sorted feed of cards."""
+    return await get_group_practices(
+        group_id=group_id,
+        skip=skip,
+        limit=limit,
+        language=language,
+        token=authentication_credential.credentials if authentication_credential else None,
+        timezone_name=x_timezone,
     )
 
 

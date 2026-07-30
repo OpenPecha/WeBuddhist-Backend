@@ -111,6 +111,9 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupMemberAccumulationDTO,
     GroupMemberAccumulationsResponse,
     GroupMetadataDTO,
+    GroupPracticeCardDTO,
+    GroupPracticesResponse,
+    GroupPracticeType,
     GroupSocialLinkDTO,
     PublicAuthorGroupDetailDTO,
     PublicAuthorGroupListResponse,
@@ -126,6 +129,8 @@ from pecha_api.plans.groups.groups_response_models import (
     UpdateAuthorGroupRequest,
     UpdateGroupMemberRoleRequest,
 )
+from pecha_api.group_accumulator.group_accumulator_service import get_group_accumulators_service
+from pecha_api.group_recitation_collection.service import list_group_collections_service
 from pecha_api.plans.groups.groups_models import author_group_tags
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
@@ -141,6 +146,7 @@ OWNER_ROLE_NOT_ASSIGNABLE = (
 )
 GROUP_ALREADY_HAS_OWNER = "This group already has an owner"
 NOTIFICATION_CATEGORY_GROUP_INVITE = "group_invite"
+_PRACTICES_FETCH_LIMIT = 1000
 
 
 def _to_role_value(role: AuthorGroupMemberRole | str) -> str:
@@ -799,6 +805,86 @@ def get_author_group_detail(
             language=language,
             user_id=user_id,
         )
+
+
+def _as_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+async def get_group_practices(
+    group_id: UUID,
+    skip: int = 0,
+    limit: int = 20,
+    language: Optional[str] = None,
+    token: Optional[str] = None,
+    timezone_name: Optional[str] = None,
+) -> GroupPracticesResponse:
+    user_id = None
+    if token:
+        try:
+            user = validate_and_extract_user_details(token=token)
+            user_id = user.id
+        except Exception:
+            pass
+
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group or not group.is_public:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+
+        group_series = get_series_by_group_id(db=db, group_id=group_id)
+        series_dtos = _series_to_dtos(
+            db=db,
+            series_list=group_series,
+            group_id=group_id,
+            language=language,
+            published_only=True,
+            user_id=user_id,
+        )
+        series_cards = [
+            (_as_aware_utc(series.created_at), GroupPracticeCardDTO(type=GroupPracticeType.SERIES, series=dto))
+            for series, dto in zip(group_series, series_dtos)
+        ]
+
+    accumulators_response = get_group_accumulators_service(
+        group_id=group_id,
+        skip=0,
+        limit=_PRACTICES_FETCH_LIMIT,
+        token=token,
+        timezone_name=timezone_name,
+    )
+    accumulator_cards = [
+        (_as_aware_utc(acc.created_at), GroupPracticeCardDTO(type=GroupPracticeType.ACCUMULATOR, accumulator=acc))
+        for acc in accumulators_response.accumulators
+    ]
+
+    collections_response = await list_group_collections_service(
+        group_id=group_id,
+        skip=0,
+        limit=_PRACTICES_FETCH_LIMIT,
+        timezone_name=timezone_name,
+    )
+    collection_cards = [
+        (
+            _as_aware_utc(datetime.fromisoformat(collection.created_at)),
+            GroupPracticeCardDTO(type=GroupPracticeType.COLLECTION, collection=collection),
+        )
+        for collection in collections_response.collections
+    ]
+
+    all_cards = series_cards + accumulator_cards + collection_cards
+    all_cards.sort(key=lambda entry: entry[0], reverse=True)
+    total = len(all_cards)
+    page_cards = [card for _, card in all_cards[skip:skip + limit]]
+
+    return GroupPracticesResponse(
+        practices=page_cards,
+        skip=skip,
+        limit=limit,
+        total=total,
+    )
 
 
 def list_group_members(

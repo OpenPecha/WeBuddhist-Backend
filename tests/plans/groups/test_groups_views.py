@@ -7,6 +7,7 @@ from starlette import status
 
 from pecha_api.app import api
 from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole, AuthorGroupType
+from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
     AuthorGroupListResponse,
@@ -17,6 +18,10 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupMemberAccumulationDTO,
     GroupMemberAccumulationsResponse,
     GroupMetadataDTO,
+    GroupPracticeCardDTO,
+    GroupPracticesResponse,
+    GroupPracticeType,
+    GroupSeriesListItemDTO,
     UserFollowedAuthorGroupDTO,
     UserFollowedAuthorGroupListResponse,
     UserJoinedAuthorGroupDTO,
@@ -24,6 +29,8 @@ from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupMemberProfileDTO,
     AuthorGroupMembersListResponse,
 )
+from pecha_api.group_accumulator.group_accumulator_response_models import GroupAccumulatorDTO
+from pecha_api.group_recitation_collection.response_models import GroupRecitationCollectionDTO
 client = TestClient(api)
 
 
@@ -465,6 +472,64 @@ def test_get_public_group_members():
     assert body["list"][0]["username"] == "alice"
     assert body["list"][0]["fullname"] == "Alice Smith"
     assert body["list"][0]["avatar_url"] == "https://example.com/avatar.webp"
+
+
+def test_get_public_group_practices():
+    group_id = uuid4()
+    practices_response = GroupPracticesResponse(
+        practices=[
+            GroupPracticeCardDTO(
+                type=GroupPracticeType.SERIES,
+                series=GroupSeriesListItemDTO(
+                    id=uuid4(),
+                    author_id=uuid4(),
+                    featured=False,
+                    status=PlanStatus.PUBLISHED,
+                ),
+            ),
+            GroupPracticeCardDTO(
+                type=GroupPracticeType.ACCUMULATOR,
+                accumulator=GroupAccumulatorDTO(
+                    id=uuid4(),
+                    group_id=group_id,
+                    title="Om Mani Padme Hum",
+                    member_count=3,
+                    created_at=datetime.now(timezone.utc),
+                ),
+            ),
+            GroupPracticeCardDTO(
+                type=GroupPracticeType.COLLECTION,
+                collection=GroupRecitationCollectionDTO(
+                    id=uuid4(),
+                    group_id=group_id,
+                    name="Morning Recitations",
+                    item_count=5,
+                    created_at=datetime.now(timezone.utc).isoformat(),
+                ),
+            ),
+        ],
+        skip=0,
+        limit=20,
+        total=3,
+    )
+    with patch(
+        "pecha_api.plans.groups.groups_views.get_group_practices",
+        return_value=practices_response,
+    ) as mock_service:
+        response = client.get(f"/author/groups/{group_id}/practices?skip=0&limit=20")
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(
+        group_id=group_id,
+        skip=0,
+        limit=20,
+        language=None,
+        token=None,
+        timezone_name=None,
+    )
+    body = response.json()
+    assert body["total"] == 3
+    types = {card["type"] for card in body["practices"]}
+    assert types == {"series", "accumulator", "collection"}
 
 
 def test_follow_and_unfollow_group():
