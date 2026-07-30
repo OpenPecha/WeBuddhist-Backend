@@ -45,6 +45,7 @@ from pecha_api.plans.users.recitation import user_recitations_views
 from pecha_api.plans.users.recitation_collection import recitation_collection_views
 from pecha_api.group_recitation_collection import views as group_recitation_collection_views
 from pecha_api.group_recitation_collection import cms_views as cms_group_recitation_collection_views
+from pecha_api.group_recitation_collection import user_chant_completion_views
 from pecha_api.group_posts import views as group_posts_views
 from pecha_api.group_posts import cms_views as cms_group_posts_views
 from pecha_api.group_posts import comment_views as group_post_comments_views
@@ -145,6 +146,7 @@ api.include_router(user_recitations_views.user_recitation_router)
 api.include_router(recitation_collection_views.recitation_collection_router)
 api.include_router(group_recitation_collection_views.public_group_recitation_collection_router)
 api.include_router(cms_group_recitation_collection_views.cms_group_recitation_collection_router)
+api.include_router(user_chant_completion_views.user_chant_completion_router)
 api.include_router(group_posts_views.public_group_posts_router)
 api.include_router(cms_group_posts_views.cms_group_posts_router)
 api.include_router(group_post_comments_views.public_group_post_comments_router)

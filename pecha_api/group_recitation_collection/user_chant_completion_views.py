@@ -1,0 +1,63 @@
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from starlette import status
+
+from pecha_api.group_recitation_collection.user_chant_completion_response_models import (
+    CreateChantCompletionRequest,
+    TodayChantCompletionsResponse,
+)
+from pecha_api.group_recitation_collection.user_chant_completion_service import (
+    get_today_completions_service,
+    create_chant_completion_service,
+)
+
+oauth2_scheme = HTTPBearer()
+
+user_chant_completion_router = APIRouter(
+    prefix="/users/me/groups/{group_id}/recitation-collections/{collection_id}/complete",
+    tags=["User Chant Completion"],
+)
+
+
+@user_chant_completion_router.get(
+    "/today",
+    status_code=status.HTTP_200_OK,
+    response_model=TodayChantCompletionsResponse,
+)
+def get_today_chant_completions(
+    group_id: UUID,
+    collection_id: UUID,
+    authentication_credential: Annotated[
+        HTTPAuthorizationCredentials, Depends(oauth2_scheme)
+    ],
+):
+    """Get list of chants completed today by the authenticated user."""
+    return get_today_completions_service(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        collection_id=collection_id,
+    )
+
+
+@user_chant_completion_router.post(
+    "",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def create_chant_completion(
+    group_id: UUID,
+    collection_id: UUID,
+    request: CreateChantCompletionRequest,
+    authentication_credential: Annotated[
+        HTTPAuthorizationCredentials, Depends(oauth2_scheme)
+    ],
+):
+    """Log a chant completion for the authenticated user."""
+    create_chant_completion_service(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        collection_id=collection_id,
+        chant_id=request.chant_id,
+    )
