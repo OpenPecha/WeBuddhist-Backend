@@ -8,6 +8,7 @@ from _datetime import datetime
 from fastapi import HTTPException
 from starlette import status
 from .accumulator_models import Accumulator
+from .accumulator_metadata_model import AccumulatorMetadata
 from .mala_image_model import MalaImage
 from .accumulator_history_model import AccumulatorHistory
 from .accumulator_enums import AccumulatorType
@@ -105,12 +106,16 @@ def get_all_accumulators(
     skip: int = 0,
     limit: int = 20,
     search: Optional[str] = None,
+    show_recitations: bool = False,
 ) -> Tuple[List[Accumulator], int]:
     """Public list: only group-defined presets, never users' own accumulators.
 
+    When `show_recitations` is False (default), presets with a non-null
+    `text_id` are excluded so the list matches the pre-recitation catalog.
+
     When `search` is provided, results are limited to presets whose mantra
-    metadata (mantra text, title, or pronunciation) matches the term
-    (case-insensitive substring), across any language.
+    metadata (mantra text, title, or pronunciation) or accumulator metadata
+    (name/description) matches the term (case-insensitive substring).
     """
     query = (
         db.query(Accumulator)
@@ -119,6 +124,9 @@ def get_all_accumulators(
             Accumulator.deleted_at.is_(None),
         )
     )
+
+    if not show_recitations:
+        query = query.filter(Accumulator.text_id.is_(None))
 
     if search:
         term = f"%{search.strip()}%"
@@ -130,7 +138,17 @@ def get_all_accumulators(
                 | func.coalesce(MantraMetadata.pronunciation, "").ilike(term)
             )
         )
-        query = query.filter(Accumulator.mantra_id.in_(matching_mantra_ids))
+        matching_preset_ids = (
+            db.query(AccumulatorMetadata.accumulator_id)
+            .filter(
+                func.coalesce(AccumulatorMetadata.name, "").ilike(term)
+                | func.coalesce(AccumulatorMetadata.description, "").ilike(term)
+            )
+        )
+        query = query.filter(
+            Accumulator.mantra_id.in_(matching_mantra_ids)
+            | Accumulator.id.in_(matching_preset_ids)
+        )
 
     total = query.count()
     accumulators = query.order_by(Accumulator.created_at.desc()).offset(skip).limit(limit).all()

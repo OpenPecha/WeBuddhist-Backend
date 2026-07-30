@@ -31,10 +31,25 @@ from pecha_api.group_accumulator.group_accumulator_response_models import (
 
 class MockGroupAccumulator:
     """Mock GroupAccumulator model."""
-    def __init__(self, id=None, group_id=None, accumulator_id=None, title=None, image_key=None, target_count=108000):
+    def __init__(
+        self,
+        id=None,
+        group_id=None,
+        accumulator_id=None,
+        title=None,
+        image_key=None,
+        target_count=108000,
+        text_id=None,
+        mantra_id=None,
+    ):
         self.id = id or uuid4()
         self.group_id = group_id or uuid4()
         self.accumulator_id = accumulator_id
+        self.accumulator = (
+            MagicMock(text_id=text_id, mantra_id=mantra_id)
+            if accumulator_id is not None
+            else None
+        )
         self.title = title
         self.image_key = image_key
         self.target_count = target_count
@@ -133,11 +148,21 @@ class TestGetGroupAccumulatorsService:
     def test_get_group_accumulators_success(self, mock_get, mock_session):
         """Test successful retrieval of group accumulators."""
         group_id = uuid4()
+        text_id = uuid4()
+        mantra_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_accumulators = [
-            MockGroupAccumulator(group_id=group_id),
-            MockGroupAccumulator(group_id=group_id),
+            MockGroupAccumulator(
+                group_id=group_id,
+                accumulator_id=uuid4(),
+                text_id=text_id,
+            ),
+            MockGroupAccumulator(
+                group_id=group_id,
+                accumulator_id=uuid4(),
+                mantra_id=mantra_id,
+            ),
         ]
         mock_get.return_value = (mock_accumulators, 2)
 
@@ -147,6 +172,10 @@ class TestGetGroupAccumulatorsService:
         assert result.total == 2
         assert result.skip == 0
         assert result.limit == 20
+        assert result.accumulators[0].text_id == text_id
+        assert result.accumulators[0].mantra_id is None
+        assert result.accumulators[1].text_id is None
+        assert result.accumulators[1].mantra_id == mantra_id
         mock_get.assert_called_once_with(mock_db, group_id, 0, 20)
 
     @patch('pecha_api.group_accumulator.group_accumulator_service.SessionLocal')
@@ -211,9 +240,16 @@ class TestGetGroupAccumulatorService:
     ):
         """Test successful retrieval of group accumulator."""
         accumulator_id = uuid4()
+        text_id = uuid4()
+        mantra_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
-        mock_accumulator = MockGroupAccumulator(id=accumulator_id)
+        mock_accumulator = MockGroupAccumulator(
+            id=accumulator_id,
+            accumulator_id=uuid4(),
+            text_id=text_id,
+            mantra_id=mantra_id,
+        )
         mock_get.return_value = mock_accumulator
         mock_total.return_value = 5000
         mock_today.return_value = 108
@@ -225,6 +261,8 @@ class TestGetGroupAccumulatorService:
         assert result.total_count == 5000
         assert result.total_today_count == 108
         assert result.member_count == 12
+        assert result.text_id == text_id
+        assert result.mantra_id == mantra_id
         mock_get.assert_called_once_with(mock_db, accumulator_id)
         mock_total.assert_called_once_with(mock_db, accumulator_id)
 
