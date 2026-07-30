@@ -240,9 +240,16 @@ class TestGetGroupAccumulatorService:
     ):
         """Test successful retrieval of group accumulator."""
         accumulator_id = uuid4()
+        text_id = uuid4()
+        mantra_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
-        mock_accumulator = MockGroupAccumulator(id=accumulator_id)
+        mock_accumulator = MockGroupAccumulator(
+            id=accumulator_id,
+            accumulator_id=uuid4(),
+            text_id=text_id,
+            mantra_id=mantra_id,
+        )
         mock_get.return_value = mock_accumulator
         mock_total.return_value = 5000
         mock_today.return_value = 108
@@ -254,6 +261,8 @@ class TestGetGroupAccumulatorService:
         assert result.total_count == 5000
         assert result.total_today_count == 108
         assert result.member_count == 12
+        assert result.text_id == text_id
+        assert result.mantra_id == mantra_id
         mock_get.assert_called_once_with(mock_db, accumulator_id)
         mock_total.assert_called_once_with(mock_db, accumulator_id)
 
