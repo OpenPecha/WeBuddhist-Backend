@@ -1,16 +1,25 @@
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 from fastapi import HTTPException
 from starlette import status
 
+from pecha_api.group_accumulator.group_accumulator_response_models import (
+    GroupAccumulatorDTO,
+    GroupAccumulatorsResponse,
+)
+from pecha_api.group_recitation_collection.response_models import (
+    GroupRecitationCollectionDTO,
+    GroupRecitationCollectionsResponse,
+)
 from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole, AuthorGroupType
 from pecha_api.plans.groups.groups_response_models import (
     CreateAuthorGroupRequest,
     CreateGroupInviteRequest,
     GroupMetadataInput,
+    GroupPracticeType,
     GroupSeriesListItemDTO,
     GroupSocialLinkInput,
     ReplaceGroupSocialLinksRequest,
@@ -21,6 +30,7 @@ from pecha_api.plans.groups.groups_response_models import (
 from pecha_api.plans.series.series_response_models import SeriesPartnerDTO
 from pecha_api.plans.groups.groups_service import (
     GROUP_NOT_FOUND,
+    _as_aware_utc,
     _assert_metadata_valid,
     _generate_group_asset_url,
     _get_member_or_403,
@@ -34,6 +44,7 @@ from pecha_api.plans.groups.groups_service import (
     delete_group_member,
     get_group_accumulations,
     get_group_member_accumulations,
+    get_group_practices,
     list_group_invites,
     list_my_pending_group_invites,
     reject_group_invite_by_id,
@@ -60,7 +71,7 @@ from pecha_api.plans.groups.groups_service import (
     OWNER_ROLE_NOT_ASSIGNABLE,
 )
 from pecha_api.plans.platform_enums import PlatformRole
-from pecha_api.plans.plans_enums import LanguageCode
+from pecha_api.plans.plans_enums import LanguageCode, PlanStatus
 
 
 def _session_local_context(mock_session_local):
@@ -2982,3 +2993,244 @@ def test_get_group_member_accumulations_fullname_fallback():
         )
     
     assert result.list[0].fullname == "user@example.com"
+
+
+def test_as_aware_utc_adds_timezone_for_naive_datetime():
+    naive = datetime(2026, 1, 1, 12, 0, 0)
+    aware = _as_aware_utc(naive)
+    assert aware.tzinfo == timezone.utc
+    assert aware.replace(tzinfo=None) == naive
+
+
+def test_as_aware_utc_preserves_existing_timezone():
+    original = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    assert _as_aware_utc(original) is original
+
+
+@pytest.mark.asyncio
+async def test_get_group_practices_group_not_found():
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            await get_group_practices(group_id=uuid4())
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.value.detail == GROUP_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_get_group_practices_private_group_hidden():
+    group = _make_group(is_public=False)
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            await get_group_practices(group_id=group.id)
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_get_group_practices_merges_and_sorts_by_created_at():
+    group = _make_group()
+    series_id = uuid4()
+    accumulator_id = uuid4()
+    collection_id = uuid4()
+
+    series = MagicMock()
+    series.id = series_id
+    series.created_at = datetime(2026, 1, 3, tzinfo=timezone.utc)
+
+    series_dto = GroupSeriesListItemDTO(
+        id=series_id,
+        author_id=uuid4(),
+        featured=False,
+        status=PlanStatus.PUBLISHED,
+    )
+    accumulator = GroupAccumulatorDTO(
+        id=accumulator_id,
+        group_id=group.id,
+        title="Om Mani",
+        member_count=2,
+        created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+    )
+    collection = GroupRecitationCollectionDTO(
+        id=collection_id,
+        group_id=group.id,
+        name="Morning",
+        item_count=1,
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc).isoformat(),
+    )
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_by_group_id",
+        return_value=[series],
+    ), patch(
+        "pecha_api.plans.groups.groups_service._series_to_dtos",
+        return_value=[series_dto],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_service",
+        return_value=GroupAccumulatorsResponse(
+            accumulators=[accumulator],
+            total=1,
+            skip=0,
+            limit=1000,
+        ),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_group_collections_service",
+        new_callable=AsyncMock,
+        return_value=GroupRecitationCollectionsResponse(
+            collections=[collection],
+            skip=0,
+            limit=1000,
+            total=1,
+        ),
+    ):
+        _session_local_context(mock_session)
+        result = await get_group_practices(group_id=group.id, skip=0, limit=20)
+
+    assert result.total == 3
+    assert result.skip == 0
+    assert result.limit == 20
+    assert [card.type for card in result.practices] == [
+        GroupPracticeType.SERIES,
+        GroupPracticeType.ACCUMULATOR,
+        GroupPracticeType.COLLECTION,
+    ]
+    assert result.practices[0].series.id == series_id
+    assert result.practices[1].accumulator.id == accumulator_id
+    assert result.practices[2].collection.id == collection_id
+
+
+@pytest.mark.asyncio
+async def test_get_group_practices_pagination():
+    group = _make_group()
+    older = GroupAccumulatorDTO(
+        id=uuid4(),
+        group_id=group.id,
+        title="Older",
+        member_count=0,
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+    newer = GroupAccumulatorDTO(
+        id=uuid4(),
+        group_id=group.id,
+        title="Newer",
+        member_count=0,
+        created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+    )
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_by_group_id",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service._series_to_dtos",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_service",
+        return_value=GroupAccumulatorsResponse(
+            accumulators=[older, newer],
+            total=2,
+            skip=0,
+            limit=1000,
+        ),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_group_collections_service",
+        new_callable=AsyncMock,
+        return_value=GroupRecitationCollectionsResponse(
+            collections=[],
+            skip=0,
+            limit=1000,
+            total=0,
+        ),
+    ):
+        _session_local_context(mock_session)
+        result = await get_group_practices(group_id=group.id, skip=1, limit=1)
+
+    assert result.total == 2
+    assert len(result.practices) == 1
+    assert result.practices[0].accumulator.id == older.id
+
+
+@pytest.mark.asyncio
+async def test_get_group_practices_with_valid_token_passes_user_id():
+    group = _make_group()
+    user = MagicMock()
+    user.id = uuid4()
+    series = MagicMock()
+    series.id = uuid4()
+    series.created_at = datetime(2026, 1, 1)  # naive datetime path
+    series_dto = GroupSeriesListItemDTO(
+        id=series.id,
+        author_id=uuid4(),
+        featured=False,
+        status=PlanStatus.PUBLISHED,
+    )
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ) as mock_validate, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_by_group_id",
+        return_value=[series],
+    ), patch(
+        "pecha_api.plans.groups.groups_service._series_to_dtos",
+        return_value=[series_dto],
+    ) as mock_series_to_dtos, patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_service",
+        return_value=GroupAccumulatorsResponse(accumulators=[], total=0, skip=0, limit=1000),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_group_collections_service",
+        new_callable=AsyncMock,
+        return_value=GroupRecitationCollectionsResponse(collections=[], skip=0, limit=1000, total=0),
+    ):
+        _session_local_context(mock_session)
+        result = await get_group_practices(group_id=group.id, token="valid-token", language="en")
+
+    mock_validate.assert_called_once_with(token="valid-token")
+    assert mock_series_to_dtos.call_args.kwargs["user_id"] == user.id
+    assert result.total == 1
+
+
+@pytest.mark.asyncio
+async def test_get_group_practices_with_invalid_token_continues_anonymously():
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid"),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_by_group_id",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service._series_to_dtos",
+        return_value=[],
+    ) as mock_series_to_dtos, patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_service",
+        return_value=GroupAccumulatorsResponse(accumulators=[], total=0, skip=0, limit=1000),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_group_collections_service",
+        new_callable=AsyncMock,
+        return_value=GroupRecitationCollectionsResponse(collections=[], skip=0, limit=1000, total=0),
+    ):
+        _session_local_context(mock_session)
+        result = await get_group_practices(group_id=group.id, token="bad-token")
+
+    assert mock_series_to_dtos.call_args.kwargs["user_id"] is None
+    assert result.total == 0
+    assert result.practices == []
