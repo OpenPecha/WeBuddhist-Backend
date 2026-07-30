@@ -10,6 +10,7 @@ class GroupPostCommentDTO(BaseModel):
     id: UUID
     post_id: UUID
     user_id: UUID
+    parent_comment_id: Optional[UUID] = None
     user_email: str
     text: str
     created_at: str
@@ -27,6 +28,7 @@ class GroupPostCommentsResponse(BaseModel):
 class CreateGroupPostCommentRequest(BaseModel):
     """Request to create a comment."""
     text: str
+    parent_comment_id: Optional[UUID] = None
 
     @field_validator("text")
     @classmethod
