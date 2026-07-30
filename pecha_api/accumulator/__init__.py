@@ -8,6 +8,7 @@ from .group_accumulator_join_model import group_accumulator_joins
 from .user_group_accumulator_model import UserGroupAccumulator
 from .accumulator_enums import AccumulatorType, AccumulatorTypeEnum
 from .accumulator_views import accumulator_router
+from .accumulator_cms_views import accumulator_cms_router
 
 __all__ = [
     "Accumulator",
@@ -21,4 +22,5 @@ __all__ = [
     "AccumulatorType",
     "AccumulatorTypeEnum",
     "accumulator_router",
+    "accumulator_cms_router",
 ]

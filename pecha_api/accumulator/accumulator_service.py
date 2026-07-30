@@ -336,9 +336,16 @@ def get_all_accumulators_service(
     language: Optional[str] = None,
     search: Optional[str] = None,
     timezone_name: Optional[str] = None,
+    show_recitations: bool = False,
 ) -> PublicAccumulatorsResponse:
     with SessionLocal() as db:
-        accumulators, total = get_all_accumulators(db, skip, limit, search=search)
+        accumulators, total = get_all_accumulators(
+            db,
+            skip,
+            limit,
+            search=search,
+            show_recitations=show_recitations,
+        )
         visible_accumulators = filter_items_for_timezone(
             accumulators,
             timezone_name=timezone_name,

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
@@ -12,6 +12,44 @@ class AccumulatorMetadataDTO(BaseModel):
     language: LanguageCode
     name: str
     description: Optional[str] = None
+
+
+class CreatePresetAccumulatorRequest(BaseModel):
+    """CMS request to create a public preset accumulator."""
+    target_count: Optional[int] = Field(None, ge=1)
+    text_id: Optional[UUID] = None
+    mantra_id: Optional[UUID] = None
+    mala_image_id: Optional[UUID] = None
+    metadata: List[AccumulatorMetadataDTO] = Field(..., min_length=1)
+
+    @model_validator(mode="after")
+    def validate_metadata(self):
+        languages = [entry.language for entry in self.metadata]
+        if len(languages) != len(set(languages)):
+            raise ValueError("metadata languages must be unique")
+        if any(not entry.name or not entry.name.strip() for entry in self.metadata):
+            raise ValueError("metadata name must not be empty")
+        return self
+
+
+class UpdatePresetAccumulatorRequest(BaseModel):
+    """CMS request to update a public preset accumulator."""
+    target_count: Optional[int] = Field(None, ge=1)
+    text_id: Optional[UUID] = None
+    mantra_id: Optional[UUID] = None
+    mala_image_id: Optional[UUID] = None
+    metadata: Optional[List[AccumulatorMetadataDTO]] = Field(None, min_length=1)
+
+    @model_validator(mode="after")
+    def validate_metadata(self):
+        if self.metadata is None:
+            return self
+        languages = [entry.language for entry in self.metadata]
+        if len(languages) != len(set(languages)):
+            raise ValueError("metadata languages must be unique")
+        if any(not entry.name or not entry.name.strip() for entry in self.metadata):
+            raise ValueError("metadata name must not be empty")
+        return self
 
 
 class PresetMantraDTO(BaseModel):

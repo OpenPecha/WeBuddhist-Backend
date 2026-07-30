@@ -49,6 +49,15 @@ async def get_all_preset_accumulators(
         Optional[str],
         Query(description="Filter presets by mantra text, title, or pronunciation (case-insensitive, any language)"),
     ] = None,
+    show_recitations: Annotated[
+        bool,
+        Query(
+            description=(
+                "When false (default), exclude presets that have a text_id. "
+                "When true, include text-linked (recitation) presets."
+            ),
+        ),
+    ] = False,
     x_timezone: Annotated[
         Optional[str],
         Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted accumulators are hidden for Chinese timezones."),
@@ -60,6 +69,7 @@ async def get_all_preset_accumulators(
         language=language,
         search=search,
         timezone_name=x_timezone,
+        show_recitations=show_recitations,
     )
 
 
