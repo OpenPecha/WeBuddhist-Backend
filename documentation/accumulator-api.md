@@ -154,6 +154,8 @@ Accumulators support **multi-language metadata** with `name` and `description` f
 | `updated_at` | datetime | Last update timestamp |
 | `deleted_at` | datetime? | Soft delete timestamp |
 
+> **`text_id` note**: `GroupAccumulator` does not store `text_id` directly. When `accumulator_id` is set, it points at a preset `Accumulator` row, and presets now carry their own `text_id` (UUID, added alongside `mantra_id` — see [Accumulator](#accumulator) below) linking the practice to a recitation text. To resolve which text a group accumulator practices, read `accumulator_id` off the group accumulator response, then fetch `GET /accumulators/{accumulator_id}` (or `GET /accumulators/presets`) and read `text_id` off that preset. See [Resolving `text_id` for a group accumulator](#resolving-text_id-for-a-group-accumulator) for the full flow.
+
 ### GroupAccumulatorJoin
 
 | Field | Type | Description |
@@ -604,6 +606,8 @@ List all active group accumulators for a specific group.
 ```
 
 **App usage**: Call this when opening a group page to populate the list of group accumulations/practices available in that group.
+
+**Note**: `accumulator_id` (renamed `preset_accumulator_id` in some responses — see [GroupAccumulatorDTO](#groupaccumulatordto)) is the only pointer back to the preset. It does not itself carry `text_id`; fetch the preset (`GET /accumulators/{accumulator_id}`) to read `text_id` if the client needs to deep-link into the practiced text.
 
 ---
 
