@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
@@ -14,6 +15,8 @@ from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.plans.plans_response_models import PlanDTO
 from pecha_api.plans.series.series_response_models import SeriesListItemDTO
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
+from pecha_api.group_accumulator.group_accumulator_response_models import GroupAccumulatorDTO
+from pecha_api.group_recitation_collection.response_models import GroupRecitationCollectionDTO
 
 
 class GroupSeriesListItemDTO(SeriesListItemDTO):
@@ -48,6 +51,9 @@ __all__ = [
     "GroupMemberAccumulationsResponse",
     "AuthorGroupMemberProfileDTO",
     "AuthorGroupMembersListResponse",
+    "GroupPracticeType",
+    "GroupPracticeCardDTO",
+    "GroupPracticesResponse",
 ]
 
 
@@ -272,3 +278,23 @@ class AuthorGroupMembersListResponse(BaseModel):
     list: List[AuthorGroupMemberProfileDTO]
     skip: int
     limit: int
+
+
+class GroupPracticeType(str, Enum):
+    SERIES = "series"
+    ACCUMULATOR = "accumulator"
+    COLLECTION = "collection"
+
+
+class GroupPracticeCardDTO(BaseModel):
+    type: GroupPracticeType
+    series: Optional[GroupSeriesListItemDTO] = None
+    accumulator: Optional[GroupAccumulatorDTO] = None
+    collection: Optional[GroupRecitationCollectionDTO] = None
+
+
+class GroupPracticesResponse(BaseModel):
+    practices: List[GroupPracticeCardDTO]
+    skip: int
+    limit: int
+    total: int
