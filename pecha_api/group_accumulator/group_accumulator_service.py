@@ -118,9 +118,12 @@ def _convert_to_dto(
     is_joined: Optional[bool] = None,
     member_count: int = 0,
 ) -> GroupAccumulatorDTO:
+    preset_accumulator = getattr(group_accumulator, "accumulator", None)
     return GroupAccumulatorDTO(
         id=group_accumulator.id,
         preset_accumulator_id=group_accumulator.accumulator_id,
+        text_id=preset_accumulator.text_id if preset_accumulator else None,
+        mantra_id=preset_accumulator.mantra_id if preset_accumulator else None,
         group_id=group_accumulator.group_id,
         title=group_accumulator.title,
         image=get_image_url(group_accumulator.image_key),
@@ -149,9 +152,12 @@ def _convert_to_detail_dto(
     user: Optional[GroupAccumulatorDetailUserDTO] = None,
     is_joined: Optional[bool] = None,
 ) -> GroupAccumulatorDetailDTO:
+    preset_accumulator = getattr(group_accumulator, "accumulator", None)
     return GroupAccumulatorDetailDTO(
         id=group_accumulator.id,
         preset_accumulator_id=group_accumulator.accumulator_id,
+        text_id=preset_accumulator.text_id if preset_accumulator else None,
+        mantra_id=preset_accumulator.mantra_id if preset_accumulator else None,
         group_id=group_accumulator.group_id,
         title=group_accumulator.title,
         image=get_image_url(group_accumulator.image_key),

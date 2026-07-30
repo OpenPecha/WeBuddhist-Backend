@@ -11,10 +11,11 @@ Complete API reference for the Accumulator system, enabling individual and group
 3. [Individual Accumulator APIs](#individual-accumulator-apis)
 4. [Group Accumulator APIs (User)](#group-accumulator-apis-user)
 5. [App Integration Guide: Group Accumulation](#app-integration-guide-group-accumulation)
-6. [CMS Group Accumulator APIs](#cms-group-accumulator-apis)
-7. [Request/Response Schemas](#requestresponse-schemas)
-8. [Common Workflows](#common-workflows)
-9. [Error Handling](#error-handling)
+6. [CMS Accumulator Preset APIs](#cms-accumulator-preset-apis)
+7. [CMS Group Accumulator APIs](#cms-group-accumulator-apis)
+8. [Request/Response Schemas](#requestresponse-schemas)
+9. [Common Workflows](#common-workflows)
+10. [Error Handling](#error-handling)
 
 ---
 
@@ -154,6 +155,8 @@ Accumulators support **multi-language metadata** with `name` and `description` f
 | `updated_at` | datetime | Last update timestamp |
 | `deleted_at` | datetime? | Soft delete timestamp |
 
+> **`text_id` note**: `GroupAccumulator` does not store `text_id` directly. When `accumulator_id` is set, it points at a preset `Accumulator` row, and presets now carry their own `text_id` (UUID, added alongside `mantra_id` — see [Accumulator](#accumulator) below) linking the practice to a recitation text. To resolve which text a group accumulator practices, read `accumulator_id` off the group accumulator response, then fetch `GET /accumulators/{accumulator_id}` (or `GET /accumulators/presets`) and read `text_id` off that preset. See [Resolving `text_id` for a group accumulator](#resolving-text_id-for-a-group-accumulator) for the full flow.
+
 ### GroupAccumulatorJoin
 
 | Field | Type | Description |
@@ -191,6 +194,9 @@ List all public preset accumulators available for users to add.
 | `limit` | int | 20 | Max records (1-100) |
 | `language` | string? | - | Language code for mantra content (e.g., `en`, `bo`) |
 | `search` | string? | - | Filter by mantra text, title, or pronunciation |
+| `show_recitations` | bool | `false` | When `false`, exclude presets that have a `text_id`. When `true`, include text-linked (recitation) presets |
+
+There is no separate preset “type” for recitations — a preset is recitation-linked when `text_id` is set. Default listing preserves the previous mantra-only catalog behavior.
 
 **Response**: `PublicAccumulatorsResponse`
 
@@ -604,6 +610,8 @@ List all active group accumulators for a specific group.
 ```
 
 **App usage**: Call this when opening a group page to populate the list of group accumulations/practices available in that group.
+
+**Note**: `accumulator_id` (renamed `preset_accumulator_id` in some responses — see [GroupAccumulatorDTO](#groupaccumulatordto)) is the only pointer back to the preset. It does not itself carry `text_id`; fetch the preset (`GET /accumulators/{accumulator_id}`) to read `text_id` if the client needs to deep-link into the practiced text.
 
 ---
 
@@ -1033,6 +1041,116 @@ Authorization: Bearer {token}
 | Re-create | CMS authors can create a new group accumulator for the same group/preset |
 
 Requires the caller to be a member of the parent group. CMS authors can also reset via `DELETE /cms/groups/{group_id}/accumulators/{group_accumulator_id}`.
+
+---
+
+## CMS Accumulator Preset APIs
+
+Base path: `/cms/accumulators/presets`
+
+These endpoints let CMS authors manage the public preset catalog. Auth matches mantra create: any active CMS author (`validate_cms_author_details`).
+
+Presets may optionally link a recitation text (`text_id`) and/or a mantra (`mantra_id`). At least one metadata entry with a name is required.
+
+CMS list always includes text-linked presets (equivalent to public `show_recitations=true`). The public `GET /accumulators/presets` defaults to excluding them.
+
+### GET /cms/accumulators/presets
+
+List presets (CMS).
+
+**Authentication**: Required (Bearer token - CMS author)
+
+**Query Parameters**:
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `skip` | int | 0 | Pagination offset |
+| `limit` | int | 20 | Max records (1-100) |
+| `search` | string | — | Filter by preset name/description or mantra text/title/pronunciation |
+| `language` | string | — | Language for nested mantra content |
+
+**Response**: `200 OK` - `PublicAccumulatorsResponse`
+
+---
+
+### GET /cms/accumulators/presets/{preset_id}
+
+Get a single preset for editing.
+
+**Authentication**: Required (Bearer token - CMS author)
+
+**Response**: `200 OK` - `PublicAccumulatorDTO`
+
+**Errors**:
+- `404 NOT_FOUND` - Preset not found
+
+---
+
+### POST /cms/accumulators/presets
+
+Create a public preset accumulator.
+
+**Authentication**: Required (Bearer token - CMS author)
+
+**Request Body**: `CreatePresetAccumulatorRequest`
+
+```json
+{
+  "target_count": 100000,
+  "text_id": "text-uuid",
+  "mantra_id": "mantra-uuid",
+  "mala_image_id": null,
+  "metadata": [
+    {
+      "language": "EN",
+      "name": "Chenrezig Practice",
+      "description": "Compassion practice"
+    }
+  ]
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `target_count` | int | No | Suggested target (>= 1) |
+| `text_id` | UUID | No | Linked OpenPecha text |
+| `mantra_id` | UUID | No | Linked mantra |
+| `mala_image_id` | UUID | No | Mala image from catalog |
+| `metadata` | array | Yes | At least one entry; languages must be unique |
+
+**Response**: `201 Created` - `PublicAccumulatorDTO`
+
+**Errors**:
+- `404 NOT_FOUND` - Invalid `text_id`, `mantra_id`, or `mala_image_id`
+- `422` - Empty metadata or duplicate languages
+
+---
+
+### PUT /cms/accumulators/presets/{preset_id}
+
+Update a public preset. Only provided fields are applied. When `metadata` is sent, it replaces all existing metadata rows.
+
+**Authentication**: Required (Bearer token - CMS author)
+
+**Request Body**: `UpdatePresetAccumulatorRequest` (all fields optional)
+
+**Response**: `200 OK` - `PublicAccumulatorDTO`
+
+**Errors**:
+- `404 NOT_FOUND` - Preset not found, or invalid linked ids
+- `403 FORBIDDEN` - Target is not a preset
+
+---
+
+### DELETE /cms/accumulators/presets/{preset_id}
+
+Soft-delete a preset (`deleted_at`). Soft-deleted presets drop out of public and CMS lists.
+
+**Authentication**: Required (Bearer token - CMS author)
+
+**Response**: `204 No Content`
+
+**Errors**:
+- `404 NOT_FOUND` - Preset not found
 
 ---
 

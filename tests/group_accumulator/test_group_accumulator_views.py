@@ -26,11 +26,15 @@ class TestDataFactory:
         id=None,
         group_id=None,
         accumulator_id=None,
+        text_id=None,
+        mantra_id=None,
         target_count=108000,
     ) -> GroupAccumulatorDTO:
         return GroupAccumulatorDTO(
             id=id or uuid4(),
             preset_accumulator_id=accumulator_id,
+            text_id=text_id,
+            mantra_id=mantra_id,
             group_id=group_id or uuid4(),
             target_count=target_count,
             start_date=datetime.utcnow(),
@@ -106,9 +110,17 @@ class TestGetGroupAccumulators:
     def test_get_group_accumulators_success(self, mock_service):
         """Test successful retrieval of group accumulators."""
         group_id = uuid4()
+        text_id = uuid4()
+        mantra_id = uuid4()
         accumulators = [
-            TestDataFactory.create_group_accumulator_dto(group_id=group_id),
-            TestDataFactory.create_group_accumulator_dto(group_id=group_id),
+            TestDataFactory.create_group_accumulator_dto(
+                group_id=group_id,
+                text_id=text_id,
+            ),
+            TestDataFactory.create_group_accumulator_dto(
+                group_id=group_id,
+                mantra_id=mantra_id,
+            ),
         ]
         mock_service.return_value = TestDataFactory.create_accumulators_response(
             accumulators=accumulators,
@@ -123,6 +135,10 @@ class TestGetGroupAccumulators:
         assert data["total"] == 2
         assert data["skip"] == 0
         assert data["limit"] == 20
+        assert data["accumulators"][0]["text_id"] == str(text_id)
+        assert data["accumulators"][0]["mantra_id"] is None
+        assert data["accumulators"][1]["text_id"] is None
+        assert data["accumulators"][1]["mantra_id"] == str(mantra_id)
         mock_service.assert_called_once_with(group_id=group_id, skip=0, limit=20, token=None, timezone_name=None)
 
     @patch('pecha_api.group_accumulator.group_accumulator_views.get_group_accumulators_service')

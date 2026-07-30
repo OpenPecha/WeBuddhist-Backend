@@ -36,6 +36,14 @@ class GroupAccumulatorDTO(BaseModel):
         None,
         description="ID of the linked preset accumulator, if any",
     )
+    text_id: Optional[UUID] = Field(
+        None,
+        description="Text ID from the linked preset accumulator, if any",
+    )
+    mantra_id: Optional[UUID] = Field(
+        None,
+        description="Mantra ID from the linked preset accumulator, if any",
+    )
     group_id: UUID
     title: Optional[str] = None
     image: Optional[ImageUrlModel] = None
@@ -86,6 +94,14 @@ class GroupAccumulatorDetailDTO(BaseModel):
     preset_accumulator_id: Optional[UUID] = Field(
         None,
         description="ID of the linked preset accumulator, if any",
+    )
+    text_id: Optional[UUID] = Field(
+        None,
+        description="Text ID from the linked preset accumulator, if any",
+    )
+    mantra_id: Optional[UUID] = Field(
+        None,
+        description="Mantra ID from the linked preset accumulator, if any",
     )
     group_id: UUID
     title: Optional[str] = None
