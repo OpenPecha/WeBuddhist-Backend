@@ -109,7 +109,9 @@ class TestGetAllAccumulators:
         assert isinstance(result, PublicAccumulatorsResponse)
         assert len(result.accumulators) == 2
         assert result.total == 2
-        mock_service.assert_called_once_with(skip=0, limit=20, language=None, search=None, timezone_name=None)
+        mock_service.assert_called_once_with(
+            skip=0, limit=20, language=None, search=None, timezone_name=None, show_recitations=False
+        )
 
     @patch('pecha_api.accumulator.accumulator_views.get_all_accumulators_service')
     @pytest.mark.asyncio
@@ -140,7 +142,9 @@ class TestGetAllAccumulators:
         assert result.skip == 5
         assert result.limit == 1
         assert result.total == 10
-        mock_service.assert_called_once_with(skip=5, limit=1, language=None, search=None, timezone_name=None)
+        mock_service.assert_called_once_with(
+            skip=5, limit=1, language=None, search=None, timezone_name=None, show_recitations=False
+        )
 
     @patch('pecha_api.accumulator.accumulator_views.get_all_accumulators_service')
     @pytest.mark.asyncio
@@ -152,7 +156,23 @@ class TestGetAllAccumulators:
 
         await get_all_preset_accumulators(skip=0, limit=20, language="bo")
 
-        mock_service.assert_called_once_with(skip=0, limit=20, language="bo", search=None, timezone_name=None)
+        mock_service.assert_called_once_with(
+            skip=0, limit=20, language="bo", search=None, timezone_name=None, show_recitations=False
+        )
+
+    @patch('pecha_api.accumulator.accumulator_views.get_all_accumulators_service')
+    @pytest.mark.asyncio
+    async def test_get_all_accumulators_with_show_recitations(self, mock_service):
+        """Test get_all_accumulators forwards show_recitations=True to the service."""
+        mock_service.return_value = PublicAccumulatorsResponse(
+            accumulators=[], total=0, skip=0, limit=20
+        )
+
+        await get_all_preset_accumulators(skip=0, limit=20, show_recitations=True)
+
+        mock_service.assert_called_once_with(
+            skip=0, limit=20, language=None, search=None, timezone_name=None, show_recitations=True
+        )
 
 
 class TestGetUserAccumulators:
