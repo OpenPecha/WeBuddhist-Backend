@@ -46,7 +46,7 @@ class MockGroupAccumulator:
         self.group_id = group_id or uuid4()
         self.accumulator_id = accumulator_id
         self.accumulator = (
-            MagicMock(text_id=text_id, mantra_id=mantra_id)
+            MagicMock(text_id=text_id, mantra_id=mantra_id, content_type=None)
             if accumulator_id is not None
             else None
         )

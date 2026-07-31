@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 from datetime import datetime
 from uuid import UUID
-from .accumulator_enums import AccumulatorType
+from .accumulator_enums import AccumulatorType, ContentType
 from ..plans.plans_enums import LanguageCode
 from ..plans.media.media_response_models import ImageUrlModel
 
@@ -16,6 +16,7 @@ class AccumulatorMetadataDTO(BaseModel):
 
 class CreatePresetAccumulatorRequest(BaseModel):
     """CMS request to create a public preset accumulator."""
+    content_type: ContentType = ContentType.MANTRA
     target_count: Optional[int] = Field(None, ge=1)
     text_id: Optional[UUID] = None
     mantra_id: Optional[UUID] = None
@@ -29,6 +30,12 @@ class CreatePresetAccumulatorRequest(BaseModel):
             raise ValueError("metadata languages must be unique")
         if any(not entry.name or not entry.name.strip() for entry in self.metadata):
             raise ValueError("metadata name must not be empty")
+        return self
+
+    @model_validator(mode="after")
+    def validate_content_reference(self):
+        if self.content_type == ContentType.CHANT and self.text_id is None:
+            raise ValueError("text_id is required when content_type is chant")
         return self
 
 
@@ -66,12 +73,22 @@ class PresetMantraDTO(BaseModel):
     )
 
 
+class PresetChantDTO(BaseModel):
+    """Chant (text) content for a preset."""
+    id: UUID
+    title: Optional[str] = None
+    language: Optional[str] = None
+    type: Optional[str] = None
+    image_url: Optional[str] = None
+
+
 class AccumulatorDTO(BaseModel):
     id: UUID
     user_id: Optional[UUID] = None
     group_id: Optional[UUID] = None
     parent_id: Optional[UUID] = Field(None, description="The preset this accumulator was created from")
     type: AccumulatorType
+    content_type: ContentType = ContentType.MANTRA
     target_count: Optional[int] = None
     current_count: int
     text_id: Optional[UUID] = None
@@ -98,10 +115,12 @@ class PublicAccumulatorDTO(BaseModel):
     id: UUID
     group_id: Optional[UUID] = None
     type: AccumulatorType
+    content_type: ContentType = ContentType.MANTRA
     target_count: Optional[int] = None
     current_count: int
     text_id: Optional[UUID] = None
     mantra: Optional[PresetMantraDTO] = None
+    chant: Optional[PresetChantDTO] = None
     mala_image_id: Optional[UUID] = None
     mala_image_url: Optional[str] = Field(None, description="Presigned S3 URL for the chosen mala image (None when no image is set)")
     metadata: List[AccumulatorMetadataDTO] = []
@@ -139,6 +158,7 @@ class AccumulatorSessionDTO(BaseModel):
 class AccumulatorHistoryDTO(BaseModel):
     accumulator_id: UUID
     parent_id: Optional[UUID] = Field(None, description="The preset this accumulator was created from")
+    content_type: ContentType = ContentType.MANTRA
     target_count: Optional[int] = None
     current_count: int
     total_counted: int

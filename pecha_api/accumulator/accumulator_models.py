@@ -4,7 +4,7 @@ from ..db.database import Base
 from uuid import uuid4
 import _datetime
 from _datetime import datetime
-from .accumulator_enums import AccumulatorTypeEnum
+from .accumulator_enums import AccumulatorTypeEnum, ContentTypeEnum, ContentType
 
 
 class Accumulator(Base):
@@ -21,6 +21,12 @@ class Accumulator(Base):
         nullable=True,
     )
     type = Column(AccumulatorTypeEnum, nullable=False)
+    content_type = Column(
+        ContentTypeEnum,
+        nullable=False,
+        default=ContentType.MANTRA,
+        server_default=ContentType.MANTRA.value,
+    )
     target_count = Column(Integer, nullable=True)
     current_count = Column(Integer, nullable=False, default=0)
     text_id = Column(UUID(as_uuid=True), nullable=True)

@@ -11,7 +11,7 @@ from .accumulator_models import Accumulator
 from .accumulator_metadata_model import AccumulatorMetadata
 from .mala_image_model import MalaImage
 from .accumulator_history_model import AccumulatorHistory
-from .accumulator_enums import AccumulatorType
+from .accumulator_enums import AccumulatorType, ContentType
 from .group_accumulator_models import GroupAccumulator
 from .group_accumulator_history_model import GroupAccumulatorHistory
 from .group_accumulator_join_model import group_accumulator_joins
@@ -107,11 +107,16 @@ def get_all_accumulators(
     limit: int = 20,
     search: Optional[str] = None,
     show_recitations: bool = False,
+    content_type: Optional[ContentType] = None,
 ) -> Tuple[List[Accumulator], int]:
     """Public list: only group-defined presets, never users' own accumulators.
 
     When `show_recitations` is False (default), presets with a non-null
     `text_id` are excluded so the list matches the pre-recitation catalog.
+    This filter is ignored when `content_type` is explicitly CHANT.
+
+    When `content_type` is provided, results are limited to that content
+    type (mantra or chant). When omitted, both types are returned.
 
     When `search` is provided, results are limited to presets whose mantra
     metadata (mantra text, title, or pronunciation) or accumulator metadata
@@ -125,7 +130,9 @@ def get_all_accumulators(
         )
     )
 
-    if not show_recitations:
+    if content_type is not None:
+        query = query.filter(Accumulator.content_type == content_type)
+    elif not show_recitations:
         query = query.filter(Accumulator.text_id.is_(None))
 
     if search:

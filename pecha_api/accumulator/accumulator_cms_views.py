@@ -5,6 +5,7 @@ from uuid import UUID
 from starlette import status
 
 from pecha_api.plans.language_constants import language_query_description
+from .accumulator_enums import ContentType
 from .accumulator_cms_service import (
     list_preset_accumulators_cms_service,
     get_preset_accumulator_cms_service,
@@ -43,13 +44,18 @@ async def list_preset_accumulators(
         Optional[str],
         Query(description="Filter by preset name/description or mantra text/title/pronunciation"),
     ] = None,
+    content_type: Annotated[
+        Optional[ContentType],
+        Query(description="Filter presets by content type: 'mantra' or 'chant'. Omit to return both."),
+    ] = None,
 ):
-    return list_preset_accumulators_cms_service(
+    return await list_preset_accumulators_cms_service(
         token=credentials.credentials,
         skip=skip,
         limit=limit,
         search=search,
         language=language,
+        content_type=content_type,
     )
 
 
@@ -66,7 +72,7 @@ async def get_preset_accumulator(
         Query(description=language_query_description("Language code for mantra content", lowercase_example=True)),
     ] = None,
 ):
-    return get_preset_accumulator_cms_service(
+    return await get_preset_accumulator_cms_service(
         token=credentials.credentials,
         preset_id=preset_id,
         language=language,

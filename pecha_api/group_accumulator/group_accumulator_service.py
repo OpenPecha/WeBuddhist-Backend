@@ -27,6 +27,7 @@ from pecha_api.region_restrictions.region_restriction_service import (
     assert_visible_for_timezone,
     filter_items_for_timezone,
 )
+from pecha_api.accumulator.accumulator_service import _resolve_content_type
 from .group_accumulator_repository import (
     create_group_accumulator,
     get_group_accumulators,
@@ -124,6 +125,7 @@ def _convert_to_dto(
         preset_accumulator_id=group_accumulator.accumulator_id,
         text_id=preset_accumulator.text_id if preset_accumulator else None,
         mantra_id=preset_accumulator.mantra_id if preset_accumulator else None,
+        content_type=_resolve_content_type(preset_accumulator) if preset_accumulator else None,
         group_id=group_accumulator.group_id,
         title=group_accumulator.title,
         image=get_image_url(group_accumulator.image_key),
@@ -158,6 +160,7 @@ def _convert_to_detail_dto(
         preset_accumulator_id=group_accumulator.accumulator_id,
         text_id=preset_accumulator.text_id if preset_accumulator else None,
         mantra_id=preset_accumulator.mantra_id if preset_accumulator else None,
+        content_type=_resolve_content_type(preset_accumulator) if preset_accumulator else None,
         group_id=group_accumulator.group_id,
         title=group_accumulator.title,
         image=get_image_url(group_accumulator.image_key),

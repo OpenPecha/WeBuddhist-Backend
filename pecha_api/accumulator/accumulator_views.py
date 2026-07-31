@@ -5,6 +5,7 @@ from uuid import UUID
 from starlette import status
 
 from pecha_api.plans.language_constants import language_query_description
+from .accumulator_enums import ContentType
 from .accumulator_service import (
     get_all_accumulators_service,
     get_user_accumulators_service,
@@ -54,22 +55,28 @@ async def get_all_preset_accumulators(
         Query(
             description=(
                 "When false (default), exclude presets that have a text_id. "
-                "When true, include text-linked (recitation) presets."
+                "When true, include text-linked (recitation) presets. "
+                "Ignored when content_type is explicitly set to 'chant'."
             ),
         ),
     ] = False,
+    content_type: Annotated[
+        Optional[ContentType],
+        Query(description="Filter presets by content type: 'mantra' or 'chant'. Omit to return both."),
+    ] = None,
     x_timezone: Annotated[
         Optional[str],
         Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted accumulators are hidden for Chinese timezones."),
     ] = None,
 ):
-    return get_all_accumulators_service(
+    return await get_all_accumulators_service(
         skip=skip,
         limit=limit,
         language=language,
         search=search,
         timezone_name=x_timezone,
         show_recitations=show_recitations,
+        content_type=content_type,
     )
 
 

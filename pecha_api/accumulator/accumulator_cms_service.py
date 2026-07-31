@@ -8,7 +8,7 @@ from ..db.database import SessionLocal
 from ..plans.authors.plan_authors_service import validate_cms_author_details
 from ..texts.texts_utils import TextUtils
 from ..mantra.mantra_repository import get_mantras_by_ids
-from .accumulator_enums import AccumulatorType
+from .accumulator_enums import AccumulatorType, ContentType
 from .accumulator_metadata_model import AccumulatorMetadata
 from .accumulator_models import Accumulator
 from .accumulator_repository import (
@@ -29,6 +29,7 @@ from .accumulator_response_models import (
 from .accumulator_service import (
     convert_accumulator_to_public_dto,
     validate_mantra_exists,
+    _resolve_content_type,
 )
 from .response_message import (
     NOT_FOUND,
@@ -54,14 +55,18 @@ def _build_metadata_entries(
     ]
 
 
-def _to_public_dto(db, accumulator: Accumulator, language: Optional[str] = None) -> PublicAccumulatorDTO:
+async def _to_public_dto(db, accumulator: Accumulator, language: Optional[str] = None) -> PublicAccumulatorDTO:
     mantras_by_id = {}
     if accumulator.mantra_id is not None:
         mantras_by_id = get_mantras_by_ids(db, [accumulator.mantra_id])
+    texts_by_id = {}
+    if accumulator.text_id is not None:
+        texts_by_id = await TextUtils.get_text_details_by_ids(text_ids=[str(accumulator.text_id)])
     return convert_accumulator_to_public_dto(
         accumulator,
         mantras_by_id=mantras_by_id,
         language=language,
+        texts_by_id=texts_by_id,
     )
 
 
@@ -81,12 +86,13 @@ def _validate_optional_mala_image(db, mala_image_id: Optional[UUID]) -> None:
         )
 
 
-def list_preset_accumulators_cms_service(
+async def list_preset_accumulators_cms_service(
     token: str,
     skip: int = 0,
     limit: int = 20,
     search: Optional[str] = None,
     language: Optional[str] = None,
+    content_type: Optional[ContentType] = None,
 ) -> PublicAccumulatorsResponse:
     validate_cms_author_details(token=token)
 
@@ -98,12 +104,17 @@ def list_preset_accumulators_cms_service(
             limit,
             search=search,
             show_recitations=True,
+            content_type=content_type,
         )
         mantra_ids = [a.mantra_id for a in accumulators if a.mantra_id is not None]
         mantras_by_id = get_mantras_by_ids(db, mantra_ids)
+        text_ids = [str(a.text_id) for a in accumulators if a.text_id is not None]
+        texts_by_id = await TextUtils.get_text_details_by_ids(text_ids=text_ids) if text_ids else {}
         return PublicAccumulatorsResponse(
             accumulators=[
-                convert_accumulator_to_public_dto(a, mantras_by_id=mantras_by_id, language=language)
+                convert_accumulator_to_public_dto(
+                    a, mantras_by_id=mantras_by_id, language=language, texts_by_id=texts_by_id
+                )
                 for a in accumulators
             ],
             total=total,
@@ -112,7 +123,7 @@ def list_preset_accumulators_cms_service(
         )
 
 
-def get_preset_accumulator_cms_service(
+async def get_preset_accumulator_cms_service(
     token: str,
     preset_id: UUID,
     language: Optional[str] = None,
@@ -126,7 +137,7 @@ def get_preset_accumulator_cms_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"error": NOT_FOUND, "message": PRESET_NOT_FOUND},
             )
-        return _to_public_dto(db, preset, language=language)
+        return await _to_public_dto(db, preset, language=language)
 
 
 async def create_preset_accumulator_cms_service(
@@ -147,6 +158,7 @@ async def create_preset_accumulator_cms_service(
             group_id=None,
             parent_id=None,
             type=AccumulatorType.PRESET,
+            content_type=request.content_type,
             target_count=request.target_count,
             current_count=0,
             text_id=request.text_id,
@@ -155,7 +167,7 @@ async def create_preset_accumulator_cms_service(
         )
         preset.metadata_entries = _build_metadata_entries(request.metadata)
         saved = save_accumulator(db, preset)
-        return _to_public_dto(db, saved)
+        return await _to_public_dto(db, saved)
 
 
 async def update_preset_accumulator_cms_service(
@@ -196,7 +208,7 @@ async def update_preset_accumulator_cms_service(
             preset.metadata_entries.extend(_build_metadata_entries(request.metadata))
 
         updated = update_accumulator(db, preset)
-        return _to_public_dto(db, updated)
+        return await _to_public_dto(db, updated)
 
 
 def delete_preset_accumulator_cms_service(token: str, preset_id: UUID) -> None:

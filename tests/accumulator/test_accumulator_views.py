@@ -110,7 +110,8 @@ class TestGetAllAccumulators:
         assert len(result.accumulators) == 2
         assert result.total == 2
         mock_service.assert_called_once_with(
-            skip=0, limit=20, language=None, search=None, timezone_name=None, show_recitations=False
+            skip=0, limit=20, language=None, search=None, timezone_name=None,
+            show_recitations=False, content_type=None
         )
 
     @patch('pecha_api.accumulator.accumulator_views.get_all_accumulators_service')
@@ -143,7 +144,8 @@ class TestGetAllAccumulators:
         assert result.limit == 1
         assert result.total == 10
         mock_service.assert_called_once_with(
-            skip=5, limit=1, language=None, search=None, timezone_name=None, show_recitations=False
+            skip=5, limit=1, language=None, search=None, timezone_name=None,
+            show_recitations=False, content_type=None
         )
 
     @patch('pecha_api.accumulator.accumulator_views.get_all_accumulators_service')
@@ -157,7 +159,8 @@ class TestGetAllAccumulators:
         await get_all_preset_accumulators(skip=0, limit=20, language="bo")
 
         mock_service.assert_called_once_with(
-            skip=0, limit=20, language="bo", search=None, timezone_name=None, show_recitations=False
+            skip=0, limit=20, language="bo", search=None, timezone_name=None,
+            show_recitations=False, content_type=None
         )
 
     @patch('pecha_api.accumulator.accumulator_views.get_all_accumulators_service')
@@ -171,7 +174,8 @@ class TestGetAllAccumulators:
         await get_all_preset_accumulators(skip=0, limit=20, show_recitations=True)
 
         mock_service.assert_called_once_with(
-            skip=0, limit=20, language=None, search=None, timezone_name=None, show_recitations=True
+            skip=0, limit=20, language=None, search=None, timezone_name=None,
+            show_recitations=True, content_type=None
         )
 
 

@@ -40,7 +40,7 @@ from pecha_api.accumulator.accumulator_response_models import (
 )
 from pecha_api.accumulator.accumulator_models import Accumulator
 from pecha_api.accumulator.accumulator_history_model import AccumulatorHistory
-from pecha_api.accumulator.accumulator_enums import AccumulatorType
+from pecha_api.accumulator.accumulator_enums import AccumulatorType, ContentType
 from pecha_api.mantra.mantra_model import Mantra  
 from pecha_api.mantra.mantra_metadata_model import MantraMetadata  
 
@@ -108,6 +108,7 @@ class TestDataFactory:
         mantra_id=None,
         mala=None,
         metadata_entries=None,
+        content_type=None,
     ):
         """Create a mock Accumulator model. name/description are placed on a
         single (EN) metadata row unless metadata_entries is given explicitly.
@@ -118,6 +119,11 @@ class TestDataFactory:
         accumulator.group_id = group_id
         accumulator.parent_id = parent_id
         accumulator.type = accumulator_type
+        accumulator.content_type = (
+            content_type
+            if content_type is not None
+            else (ContentType.CHANT if text_id is not None else ContentType.MANTRA)
+        )
         accumulator.target_count = target_count
         accumulator.current_count = current_count
         accumulator.text_id = text_id
@@ -182,7 +188,8 @@ class TestGetAllAccumulatorsService:
     @patch('pecha_api.accumulator.accumulator_service.get_mantras_by_ids')
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.get_all_accumulators')
-    def test_get_all_accumulators_service_success(self, mock_get_all, mock_session, mock_get_mantras):
+    @pytest.mark.asyncio
+    async def test_get_all_accumulators_service_success(self, mock_get_all, mock_session, mock_get_mantras):
         """Test successful retrieval of all accumulators."""
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
@@ -192,7 +199,7 @@ class TestGetAllAccumulatorsService:
         mock_get_all.return_value = ([acc1, acc2], 2)
         mock_get_mantras.return_value = {}
 
-        result = get_all_accumulators_service(skip=0, limit=20)
+        result = await get_all_accumulators_service(skip=0, limit=20)
 
         assert isinstance(result, PublicAccumulatorsResponse)
         assert len(result.accumulators) == 2
@@ -203,13 +210,16 @@ class TestGetAllAccumulatorsService:
         assert isinstance(result.accumulators[0], PublicAccumulatorDTO)
         assert not hasattr(result.accumulators[0], "user_id")
 
-        mock_get_all.assert_called_once_with(mock_db, 0, 20, search=None, show_recitations=False)
+        mock_get_all.assert_called_once_with(
+            mock_db, 0, 20, search=None, show_recitations=False, content_type=None
+        )
         mock_get_mantras.assert_called_once_with(mock_db, [])
 
     @patch('pecha_api.accumulator.accumulator_service.get_mantras_by_ids')
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.get_all_accumulators')
-    def test_get_all_accumulators_service_includes_mantra_detail(
+    @pytest.mark.asyncio
+    async def test_get_all_accumulators_service_includes_mantra_detail(
         self, mock_get_all, mock_session, mock_get_mantras
     ):
         """Preset list should embed mantra detail for the requested language."""
@@ -246,7 +256,7 @@ class TestGetAllAccumulatorsService:
         mock_get_all.return_value = ([preset], 1)
         mock_get_mantras.return_value = {mantra_id: mantra}
 
-        result = get_all_accumulators_service(skip=0, limit=20, language="bo")
+        result = await get_all_accumulators_service(skip=0, limit=20, language="bo")
 
         assert result.accumulators[0].mantra.id == mantra_id
         assert result.accumulators[0].mantra.mantra == "Tibetan text"
@@ -259,7 +269,8 @@ class TestGetAllAccumulatorsService:
     @patch('pecha_api.accumulator.accumulator_service.get_mantras_by_ids')
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.get_all_accumulators')
-    def test_get_all_accumulators_service_empty(self, mock_get_all, mock_session, mock_get_mantras):
+    @pytest.mark.asyncio
+    async def test_get_all_accumulators_service_empty(self, mock_get_all, mock_session, mock_get_mantras):
         """Test get_all_accumulators_service when no accumulators exist."""
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
@@ -267,7 +278,7 @@ class TestGetAllAccumulatorsService:
         mock_get_all.return_value = ([], 0)
         mock_get_mantras.return_value = {}
 
-        result = get_all_accumulators_service(skip=0, limit=20)
+        result = await get_all_accumulators_service(skip=0, limit=20)
 
         assert len(result.accumulators) == 0
         assert result.total == 0
@@ -275,7 +286,8 @@ class TestGetAllAccumulatorsService:
     @patch('pecha_api.accumulator.accumulator_service.get_mantras_by_ids')
     @patch('pecha_api.accumulator.accumulator_service.SessionLocal')
     @patch('pecha_api.accumulator.accumulator_service.get_all_accumulators')
-    def test_get_all_accumulators_service_pagination(self, mock_get_all, mock_session, mock_get_mantras):
+    @pytest.mark.asyncio
+    async def test_get_all_accumulators_service_pagination(self, mock_get_all, mock_session, mock_get_mantras):
         """Test get_all_accumulators_service with custom pagination."""
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
@@ -284,13 +296,15 @@ class TestGetAllAccumulatorsService:
         mock_get_all.return_value = ([acc1], 10)
         mock_get_mantras.return_value = {}
 
-        result = get_all_accumulators_service(skip=5, limit=1)
+        result = await get_all_accumulators_service(skip=5, limit=1)
 
         assert result.skip == 5
         assert result.limit == 1
         assert result.total == 10
 
-        mock_get_all.assert_called_once_with(mock_db, 5, 1, search=None, show_recitations=False)
+        mock_get_all.assert_called_once_with(
+            mock_db, 5, 1, search=None, show_recitations=False, content_type=None
+        )
 
 
 class TestGetUserAccumulatorsService:

@@ -39,6 +39,7 @@ from .accumulator_response_models import (
     AccumulatorDTO,
     AccumulatorMetadataDTO,
     PresetMantraDTO,
+    PresetChantDTO,
     PublicAccumulatorDTO,
     PublicAccumulatorsResponse,
     CreateAccumulatorRequest,
@@ -53,7 +54,7 @@ from .accumulator_response_models import (
 from .accumulator_models import Accumulator
 from .accumulator_metadata_model import AccumulatorMetadata
 from .accumulator_history_model import AccumulatorHistory
-from .accumulator_enums import AccumulatorType
+from .accumulator_enums import AccumulatorType, ContentType
 from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
 from pecha_api.region_restrictions.region_restriction_service import (
     filter_items_for_timezone,
@@ -136,6 +137,17 @@ def resolve_accumulator_bookmark_mala_image_url(
     return mala_image_url
 
 
+def _resolve_content_type(accumulator: Accumulator) -> ContentType:
+    content_type = getattr(accumulator, "content_type", None)
+    if content_type is None:
+        return ContentType.CHANT if accumulator.text_id is not None else ContentType.MANTRA
+    return (
+        ContentType(content_type.value)
+        if hasattr(content_type, "value")
+        else ContentType(content_type)
+    )
+
+
 def convert_accumulator_to_dto(accumulator: Accumulator) -> AccumulatorDTO:
     accumulator_type = (
         AccumulatorType(accumulator.type.value)
@@ -149,6 +161,7 @@ def convert_accumulator_to_dto(accumulator: Accumulator) -> AccumulatorDTO:
         group_id=accumulator.group_id,
         parent_id=accumulator.parent_id,
         type=accumulator_type,
+        content_type=_resolve_content_type(accumulator),
         target_count=accumulator.target_count,
         current_count=accumulator.current_count or 0,
         text_id=accumulator.text_id,
@@ -207,10 +220,25 @@ def build_preset_mantra_dto(
     )
 
 
+def build_preset_chant_dto(text_dto) -> Optional[PresetChantDTO]:
+    """Build chant DTO from a TextDTO (fetched via TextUtils.get_text_details_by_ids)."""
+    if text_dto is None:
+        return None
+    text_type = getattr(text_dto, "type", None)
+    return PresetChantDTO(
+        id=UUID(text_dto.id) if not isinstance(text_dto.id, UUID) else text_dto.id,
+        title=getattr(text_dto, "title", None),
+        language=getattr(text_dto, "language", None),
+        type=text_type.value if hasattr(text_type, "value") else text_type,
+        image_url=None,
+    )
+
+
 def convert_accumulator_to_public_dto(
     accumulator: Accumulator,
     mantras_by_id: Optional[Dict[UUID, Mantra]] = None,
     language: Optional[str] = None,
+    texts_by_id: Optional[Dict[str, "object"]] = None,
 ) -> PublicAccumulatorDTO:
     accumulator_type = (
         AccumulatorType(accumulator.type.value)
@@ -223,14 +251,21 @@ def convert_accumulator_to_public_dto(
         mantra = mantras_by_id.get(accumulator.mantra_id)
         if mantra is not None:
             mantra_dto = build_preset_mantra_dto(mantra, language)
+    chant_dto = None
+    if accumulator.text_id and texts_by_id:
+        text_dto = texts_by_id.get(str(accumulator.text_id))
+        if text_dto is not None:
+            chant_dto = build_preset_chant_dto(text_dto)
     return PublicAccumulatorDTO(
         id=accumulator.id,
         group_id=accumulator.group_id,
         type=accumulator_type,
+        content_type=_resolve_content_type(accumulator),
         target_count=accumulator.target_count,
         current_count=accumulator.current_count or 0,
         text_id=accumulator.text_id,
         mantra=mantra_dto,
+        chant=chant_dto,
         mala_image_id=mala_image_id,
         mala_image_url=mala_image_url,
         metadata=convert_metadata_entries_to_dtos(accumulator),
@@ -284,6 +319,7 @@ def _create_accumulator_from_preset(
         group_id=preset.group_id,
         parent_id=preset.id,
         type=AccumulatorType.USER,
+        content_type=_resolve_content_type(preset),
         target_count=preset.target_count,
         current_count=0,
         text_id=preset.text_id,
@@ -314,6 +350,7 @@ def _build_accumulator_history_dto(
     return AccumulatorHistoryDTO(
         accumulator_id=accumulator.id,
         parent_id=accumulator.parent_id,
+        content_type=_resolve_content_type(accumulator),
         target_count=accumulator.target_count,
         current_count=accumulator.current_count or 0,
         total_counted=total_counted,
@@ -330,13 +367,14 @@ def _build_accumulator_history_dto(
     )
 
 
-def get_all_accumulators_service(
+async def get_all_accumulators_service(
     skip: int = 0,
     limit: int = 20,
     language: Optional[str] = None,
     search: Optional[str] = None,
     timezone_name: Optional[str] = None,
     show_recitations: bool = False,
+    content_type: Optional[ContentType] = None,
 ) -> PublicAccumulatorsResponse:
     with SessionLocal() as db:
         accumulators, total = get_all_accumulators(
@@ -345,6 +383,7 @@ def get_all_accumulators_service(
             limit,
             search=search,
             show_recitations=show_recitations,
+            content_type=content_type,
         )
         visible_accumulators = filter_items_for_timezone(
             accumulators,
@@ -354,9 +393,11 @@ def get_all_accumulators_service(
         )
         mantra_ids = [a.mantra_id for a in visible_accumulators if a.mantra_id is not None]
         mantras_by_id = get_mantras_by_ids(db, mantra_ids)
+        text_ids = [str(a.text_id) for a in visible_accumulators if a.text_id is not None]
+        texts_by_id = await TextUtils.get_text_details_by_ids(text_ids=text_ids) if text_ids else {}
         return PublicAccumulatorsResponse(
             accumulators=[
-                convert_accumulator_to_public_dto(a, mantras_by_id, language)
+                convert_accumulator_to_public_dto(a, mantras_by_id, language, texts_by_id)
                 for a in visible_accumulators
             ],
             total=total,
@@ -510,6 +551,7 @@ def get_accumulator_history_service(
             accumulator_history_dto = AccumulatorHistoryDTO(
                 accumulator_id=accumulator.id,
                 parent_id=accumulator.parent_id,
+                content_type=_resolve_content_type(accumulator),
                 target_count=accumulator.target_count,
                 current_count=accumulator.current_count or 0,
                 total_counted=total_counted,

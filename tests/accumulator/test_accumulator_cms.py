@@ -245,10 +245,11 @@ class TestCmsPresetService:
 
         mock_delete.assert_called_once_with(mock_db, preset)
 
+    @pytest.mark.asyncio
     @patch("pecha_api.accumulator.accumulator_cms_service.validate_cms_author_details")
     @patch("pecha_api.accumulator.accumulator_cms_service.SessionLocal")
     @patch("pecha_api.accumulator.accumulator_cms_service.get_preset_by_id")
-    def test_get_preset_service_not_found(
+    async def test_get_preset_service_not_found(
         self,
         mock_get_preset,
         mock_session,
@@ -259,15 +260,16 @@ class TestCmsPresetService:
         mock_get_preset.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
-            get_preset_accumulator_cms_service(token="token", preset_id=uuid4())
+            await get_preset_accumulator_cms_service(token="token", preset_id=uuid4())
 
         assert exc_info.value.status_code == 404
 
+    @pytest.mark.asyncio
     @patch("pecha_api.accumulator.accumulator_cms_service.validate_cms_author_details")
     @patch("pecha_api.accumulator.accumulator_cms_service.SessionLocal")
     @patch("pecha_api.accumulator.accumulator_cms_service.get_all_accumulators")
     @patch("pecha_api.accumulator.accumulator_cms_service.get_mantras_by_ids")
-    def test_list_presets_service_success(
+    async def test_list_presets_service_success(
         self,
         mock_get_mantras,
         mock_get_all,
@@ -279,17 +281,18 @@ class TestCmsPresetService:
         mock_get_all.return_value = ([], 0)
         mock_get_mantras.return_value = {}
 
-        result = list_preset_accumulators_cms_service(token="token", skip=0, limit=20)
+        result = await list_preset_accumulators_cms_service(token="token", skip=0, limit=20)
 
         assert result.total == 0
         assert result.accumulators == []
         mock_validate_auth.assert_called_once_with(token="token")
 
+    @pytest.mark.asyncio
     @patch("pecha_api.accumulator.accumulator_cms_service.validate_cms_author_details")
     @patch("pecha_api.accumulator.accumulator_cms_service.SessionLocal")
     @patch("pecha_api.accumulator.accumulator_cms_service.get_preset_by_id")
     @patch("pecha_api.accumulator.accumulator_cms_service._to_public_dto")
-    def test_get_preset_service_success(
+    async def test_get_preset_service_success(
         self,
         mock_to_dto,
         mock_get_preset,
@@ -303,7 +306,7 @@ class TestCmsPresetService:
         expected = _sample_public_dto()
         mock_to_dto.return_value = expected
 
-        result = get_preset_accumulator_cms_service(
+        result = await get_preset_accumulator_cms_service(
             token="token",
             preset_id=uuid4(),
             language="en",
@@ -471,19 +474,21 @@ class TestCmsPresetService:
         assert exc_info.value.status_code == 404
         mock_save.assert_not_called()
 
+    @pytest.mark.asyncio
     @patch("pecha_api.accumulator.accumulator_cms_service.get_mantras_by_ids")
     @patch("pecha_api.accumulator.accumulator_cms_service.convert_accumulator_to_public_dto")
-    def test_to_public_dto_loads_mantra_when_present(self, mock_convert, mock_get_mantras):
+    async def test_to_public_dto_loads_mantra_when_present(self, mock_convert, mock_get_mantras):
         db = MagicMock()
         mantra_id = uuid4()
         accumulator = MagicMock()
         accumulator.mantra_id = mantra_id
+        accumulator.text_id = None
         mantras = {mantra_id: MagicMock()}
         mock_get_mantras.return_value = mantras
         expected = _sample_public_dto()
         mock_convert.return_value = expected
 
-        result = _to_public_dto(db, accumulator, language="bo")
+        result = await _to_public_dto(db, accumulator, language="bo")
 
         assert result is expected
         mock_get_mantras.assert_called_once_with(db, [mantra_id])
@@ -491,18 +496,21 @@ class TestCmsPresetService:
             accumulator,
             mantras_by_id=mantras,
             language="bo",
+            texts_by_id={},
         )
 
+    @pytest.mark.asyncio
     @patch("pecha_api.accumulator.accumulator_cms_service.get_mantras_by_ids")
     @patch("pecha_api.accumulator.accumulator_cms_service.convert_accumulator_to_public_dto")
-    def test_to_public_dto_skips_mantra_lookup_when_absent(self, mock_convert, mock_get_mantras):
+    async def test_to_public_dto_skips_mantra_lookup_when_absent(self, mock_convert, mock_get_mantras):
         db = MagicMock()
         accumulator = MagicMock()
         accumulator.mantra_id = None
+        accumulator.text_id = None
         expected = _sample_public_dto()
         mock_convert.return_value = expected
 
-        result = _to_public_dto(db, accumulator)
+        result = await _to_public_dto(db, accumulator)
 
         assert result is expected
         mock_get_mantras.assert_not_called()
@@ -510,6 +518,7 @@ class TestCmsPresetService:
             accumulator,
             mantras_by_id={},
             language=None,
+            texts_by_id={},
         )
 
     @patch("pecha_api.accumulator.accumulator_cms_service.get_mala_image_by_id")

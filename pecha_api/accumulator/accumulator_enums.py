@@ -12,3 +12,15 @@ AccumulatorTypeEnum = Enum(
     name="accumulatortype",
     values_callable=lambda x: [e.value for e in x]
 )
+
+
+class ContentType(enum.Enum):
+    MANTRA = "mantra"
+    CHANT = "chant"
+
+
+ContentTypeEnum = Enum(
+    ContentType,
+    name="contenttype",
+    values_callable=lambda x: [e.value for e in x]
+)

@@ -5,6 +5,7 @@ from uuid import UUID
 from enum import Enum
 
 from pecha_api.plans.media.media_response_models import ImageUrlModel
+from pecha_api.accumulator.accumulator_enums import ContentType
 
 
 class GroupAccumulatorMemberSortBy(str, Enum):
@@ -43,6 +44,10 @@ class GroupAccumulatorDTO(BaseModel):
     mantra_id: Optional[UUID] = Field(
         None,
         description="Mantra ID from the linked preset accumulator, if any",
+    )
+    content_type: Optional[ContentType] = Field(
+        None,
+        description="Content type (mantra or chant) from the linked preset accumulator, if any",
     )
     group_id: UUID
     title: Optional[str] = None
@@ -102,6 +107,10 @@ class GroupAccumulatorDetailDTO(BaseModel):
     mantra_id: Optional[UUID] = Field(
         None,
         description="Mantra ID from the linked preset accumulator, if any",
+    )
+    content_type: Optional[ContentType] = Field(
+        None,
+        description="Content type (mantra or chant) from the linked preset accumulator, if any",
     )
     group_id: UUID
     title: Optional[str] = None
