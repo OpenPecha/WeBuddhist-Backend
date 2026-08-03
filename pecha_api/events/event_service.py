@@ -53,6 +53,8 @@ from .event_participant_repository import (
     get_joined_event_ids_by_user,
     is_user_joined_event,
 )
+from .location_repository import get_location_without_group_filter
+from .location_response_models import LocationDTO
 
 _CONTENT_EDIT_ROLES = {
     AuthorGroupMemberRole.OWNER,
@@ -120,6 +122,19 @@ def _links_to_dtos(links: Optional[List]) -> List[EventLinkDTO]:
     ]
 
 
+def _location_to_dto(event: Event) -> Optional[LocationDTO]:
+    location = event.location
+    if location is None:
+        return None
+    return LocationDTO(
+        id=location.id,
+        group_id=location.group_id,
+        name=location.name,
+        latitude=location.latitude,
+        longitude=location.longitude,
+    )
+
+
 def _event_to_dto(
     event: Event,
     language: Optional[str] = None,
@@ -135,6 +150,8 @@ def _event_to_dto(
         timer_id=event.timer_id,
         group_recitation_collection_id=event.group_recitation_collection_id,
         group_id=event.group_id,
+        location_id=event.location_id,
+        location=_location_to_dto(event),
         start_date=event.start_date,
         end_date=event.end_date,
         is_one_day=event.end_date == event.start_date,
@@ -182,6 +199,27 @@ def _validate_group_recitation_collection(
                 f"Group recitation collection '{collection_id}' not found "
                 f"or does not belong to group '{group_id}'"
             ),
+        )
+
+
+def _validate_location(db, location_id: Optional[UUID], group_id: UUID) -> None:
+    if location_id is None:
+        return
+    location = get_location_without_group_filter(db=db, location_id=location_id)
+    if location is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Location with id '{location_id}' not found",
+        )
+    if location.group_id != group_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "LOCATION_GROUP_MISMATCH",
+                "message": (
+                    f"Location '{location_id}' does not belong to group '{group_id}'"
+                ),
+            },
         )
 
 
@@ -364,6 +402,7 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         timer_id=request.timer_id,
         group_recitation_collection_id=request.group_recitation_collection_id,
         group_id=request.group_id,
+        location_id=request.location_id,
         start_date=request.start_date,
         end_date=request.end_date,
         image_url=request.image_url,
@@ -380,6 +419,9 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
             db=db,
             collection_id=request.group_recitation_collection_id,
             group_id=request.group_id,
+        )
+        _validate_location(
+            db=db, location_id=request.location_id, group_id=request.group_id
         )
         saved = save_event(db, event, request.metadata, request.links)
         return _event_to_dto(saved)
@@ -423,6 +465,11 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
                 group_id=event.group_id,
             )
             event.group_recitation_collection_id = request.group_recitation_collection_id
+        if "location_id" in request.model_fields_set:
+            _validate_location(
+                db=db, location_id=request.location_id, group_id=event.group_id
+            )
+            event.location_id = request.location_id
         if request.image_url is not None:
             event.image_url = request.image_url
 

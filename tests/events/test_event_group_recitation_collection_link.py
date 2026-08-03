@@ -29,6 +29,8 @@ def _saved_event_stub(group_id=None, collection_id=None) -> SimpleNamespace:
         timer_id=None,
         group_recitation_collection_id=collection_id,
         group_id=group_id or uuid4(),
+        location_id=None,
+        location=None,
         start_date=now,
         end_date=now,
         image_url=None,

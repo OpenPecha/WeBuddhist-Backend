@@ -57,7 +57,11 @@ def save_event(db: Session, event: Event, metadata_entries: List, link_entries: 
 def get_event_by_id(db: Session, event_id: UUID) -> Optional[Event]:
     return (
         db.query(Event)
-        .options(selectinload(Event.metadata_entries), selectinload(Event.links))
+        .options(
+            selectinload(Event.metadata_entries),
+            selectinload(Event.links),
+            selectinload(Event.location),
+        )
         .filter(Event.id == event_id)
         .first()
     )
@@ -163,7 +167,11 @@ def get_events(
     total = count_query.scalar()
 
     events_query = _apply_event_filters(
-        db.query(Event).options(selectinload(Event.metadata_entries), selectinload(Event.links)),
+        db.query(Event).options(
+            selectinload(Event.metadata_entries),
+            selectinload(Event.links),
+            selectinload(Event.location),
+        ),
         group_id=group_id,
         plan_id=plan_id,
         accumulator_id=accumulator_id,
@@ -189,7 +197,11 @@ def get_featured_events(
 ) -> List[Event]:
     events = (
         db.query(Event)
-        .options(selectinload(Event.metadata_entries), selectinload(Event.links))
+        .options(
+            selectinload(Event.metadata_entries),
+            selectinload(Event.links),
+            selectinload(Event.location),
+        )
         .filter(Event.featured == True)
         .order_by(Event.start_date.desc())
         .limit(limit)
