@@ -46,6 +46,7 @@ def test_get_events_today_success():
         language=None,
         skip=0,
         limit=20,
+        token=None,
     )
 
 
@@ -68,6 +69,51 @@ def test_get_events_today_with_timezone_header():
         language=None,
         skip=0,
         limit=20,
+        token=None,
+    )
+
+
+def test_get_events_today_forwards_optional_token():
+    response_payload = EventsResponse(events=[], total=0, skip=0, limit=20)
+
+    with patch(
+        "pecha_api.events.event_views.get_events_today_service",
+        return_value=response_payload,
+    ) as mock_service:
+        response = client.get(
+            "/events/today",
+            headers={"Authorization": "Bearer user-token"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(
+        timezone=None,
+        group_id=None,
+        language=None,
+        skip=0,
+        limit=20,
+        token="user-token",
+    )
+
+
+def test_get_event_by_id_forwards_optional_token():
+    event = _sample_event_dto()
+    event_id = event.id
+
+    with patch(
+        "pecha_api.events.event_views.get_event_by_id_service",
+        return_value=event,
+    ) as mock_service:
+        response = client.get(
+            f"/events/{event_id}",
+            headers={"Authorization": "Bearer user-token"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(
+        event_id=event_id,
+        language=None,
+        token="user-token",
     )
 
 

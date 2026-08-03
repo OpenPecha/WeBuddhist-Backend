@@ -41,5 +41,6 @@ def test_get_events_today_service_uses_day_bounds():
         fallback=True,
         skip=0,
         limit=20,
+        token=None,
     )
     assert result == expected
