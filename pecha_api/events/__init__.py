@@ -5,6 +5,7 @@ from .event_link_model import EventLink
 from .location_model import Location
 from .event_views import events_router
 from .cms_event_views import cms_events_router
+from .cms_location_views import cms_locations_router
 
 __all__ = [
     "Event",
@@ -14,4 +15,5 @@ __all__ = [
     "Location",
     "events_router",
     "cms_events_router",
+    "cms_locations_router",
 ]

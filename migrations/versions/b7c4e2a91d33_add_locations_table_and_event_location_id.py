@@ -25,9 +25,6 @@ def upgrade() -> None:
             sa.Column("id", sa.UUID(as_uuid=True), nullable=False),
             sa.Column("group_id", sa.UUID(as_uuid=True), nullable=False),
             sa.Column("name", sa.String(length=255), nullable=False),
-            # NUMERIC(9, 6) for both: 3 digits before the decimal keeps out-of-range
-            # values inside the column type so the CHECK constraint below is the one
-            # that rejects them, instead of a numeric overflow error.
             sa.Column("latitude", sa.Numeric(precision=9, scale=6), nullable=True),
             sa.Column("longitude", sa.Numeric(precision=9, scale=6), nullable=True),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
@@ -55,8 +52,6 @@ def upgrade() -> None:
     if not index_exists("locations", "idx_locations_group_id"):
         op.create_index("idx_locations_group_id", "locations", ["group_id"])
 
-    # Not unique: a group may legitimately have two places with the same name
-    # (e.g. "Main Hall" at different centres).
     if not index_exists("locations", "idx_locations_group_id_name"):
         op.create_index(
             "idx_locations_group_id_name", "locations", ["group_id", "name"]
