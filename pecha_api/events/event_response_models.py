@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.plans.media.media_response_models import ImageUrlModel
+from .location_response_models import LocationDTO
 
 
 class EventMetadataDTO(BaseModel):
@@ -84,6 +85,8 @@ class EventDTO(BaseModel):
     timer_id: Optional[UUID] = None
     group_recitation_collection_id: Optional[UUID] = None
     group_id: UUID
+    location_id: Optional[UUID] = None
+    location: Optional[LocationDTO] = None
     start_date: datetime
     end_date: datetime
     is_one_day: bool
@@ -93,6 +96,10 @@ class EventDTO(BaseModel):
     image: Optional[ImageUrlModel] = None
     image_url: Optional[str] = None
     participant_count: int = 0
+    is_joined: Optional[bool] = Field(
+        None,
+        description="Whether the authenticated user has joined (null when unauthenticated)",
+    )
     created_at: datetime
     created_by: str
     updated_at: Optional[datetime] = None
@@ -134,6 +141,7 @@ class CreateEventRequest(BaseModel):
     mantra_id: Optional[UUID] = None
     timer_id: Optional[UUID] = None
     group_recitation_collection_id: Optional[UUID] = None
+    location_id: Optional[UUID] = None
 
     @field_validator("metadata")
     @classmethod
@@ -160,6 +168,7 @@ class UpdateEventRequest(BaseModel):
     mantra_id: Optional[UUID] = None
     timer_id: Optional[UUID] = None
     group_recitation_collection_id: Optional[UUID] = None
+    location_id: Optional[UUID] = None
 
     @field_validator("metadata")
     @classmethod

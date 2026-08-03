@@ -20,6 +20,7 @@ class Event(Base):
         nullable=True,
     )
     group_id = Column(UUID(as_uuid=True), ForeignKey("author_groups.id", ondelete="RESTRICT"), nullable=False)
+    location_id = Column(UUID(as_uuid=True), ForeignKey("locations.id", ondelete="RESTRICT"), nullable=True)
     start_date = Column(DateTime(timezone=True), nullable=False)
     end_date = Column(DateTime(timezone=True), nullable=False)
     image_url = Column(String(1000), nullable=True)
@@ -50,8 +51,11 @@ class Event(Base):
         passive_deletes=True,
     )
 
+    location = relationship("Location")
+
     __table_args__ = (
         Index("idx_events_group_id", "group_id"),
+        Index("idx_events_location_id", "location_id"),
         Index("idx_events_start_date", "start_date"),
         Index("idx_events_end_date", "end_date"),
         Index("idx_events_group_recitation_collection_id", "group_recitation_collection_id"),

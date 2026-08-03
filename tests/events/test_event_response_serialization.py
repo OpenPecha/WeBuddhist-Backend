@@ -39,3 +39,4 @@ def test_event_response_omits_null_fields():
     assert "image" not in event_body
     assert "image_url" not in event_body
     assert "updated_at" not in event_body
+    assert "is_joined" not in event_body

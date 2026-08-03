@@ -31,6 +31,8 @@ def _event(metadata_entries):
         timer_id=None,
         group_recitation_collection_id=None,
         group_id=uuid4(),
+        location_id=None,
+        location=None,
         start_date=now,
         end_date=now,
         image_url=None,
@@ -98,8 +100,9 @@ def test_no_fallback_returns_null_when_selected_language_missing():
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_event_participant_counts", return_value={})
 @patch(f"{MODULE}.get_events")
-def test_get_events_service_public_uses_fallback(mock_get_events, mock_session):
+def test_get_events_service_public_uses_fallback(mock_get_events, _mock_counts, mock_session):
     mock_session.return_value.__enter__.return_value = MagicMock()
     event = _event([_metadata("en", "English")])
     mock_get_events.return_value = ([event], 1)
@@ -111,8 +114,9 @@ def test_get_events_service_public_uses_fallback(mock_get_events, mock_session):
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_event_participant_counts", return_value={})
 @patch(f"{MODULE}.get_events")
-def test_get_events_service_cms_default_no_fallback(mock_get_events, mock_session):
+def test_get_events_service_cms_default_no_fallback(mock_get_events, _mock_counts, mock_session):
     mock_session.return_value.__enter__.return_value = MagicMock()
     event = _event([_metadata("en", "English")])
     mock_get_events.return_value = ([event], 1)
@@ -125,8 +129,9 @@ def test_get_events_service_cms_default_no_fallback(mock_get_events, mock_sessio
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_event_participant_count", return_value=0)
 @patch(f"{MODULE}.get_event_by_id")
-def test_get_event_by_id_service_uses_fallback(mock_get_by_id, mock_session):
+def test_get_event_by_id_service_uses_fallback(mock_get_by_id, _mock_count, mock_session):
     mock_session.return_value.__enter__.return_value = MagicMock()
     event = _event([_metadata("en", "English")])
     mock_get_by_id.return_value = event
@@ -135,3 +140,4 @@ def test_get_event_by_id_service_uses_fallback(mock_get_by_id, mock_session):
 
     assert dto.metadata is not None
     assert dto.metadata.language == "en"
+    assert dto.is_joined is None

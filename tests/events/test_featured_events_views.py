@@ -45,7 +45,7 @@ def test_get_featured_events_success():
     body = response.json()
     assert len(body) == 2
     assert all(event["featured"] is True for event in body)
-    mock_service.assert_called_once_with(language="en", limit=10)
+    mock_service.assert_called_once_with(language="en", limit=10, token=None)
 
 
 def test_get_featured_events_default_params():
@@ -56,7 +56,7 @@ def test_get_featured_events_default_params():
         response = client.get("/events/featured")
 
     assert response.status_code == status.HTTP_200_OK
-    mock_service.assert_called_once_with(language="en", limit=10)
+    mock_service.assert_called_once_with(language="en", limit=10, token=None)
 
 
 def test_get_featured_events_custom_params():
@@ -71,7 +71,7 @@ def test_get_featured_events_custom_params():
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     assert len(body) == 1
-    mock_service.assert_called_once_with(language="bo", limit=5)
+    mock_service.assert_called_once_with(language="bo", limit=5, token=None)
 
 
 def test_get_featured_events_empty():
@@ -84,7 +84,7 @@ def test_get_featured_events_empty():
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     assert body == []
-    mock_service.assert_called_once_with(language="en", limit=10)
+    mock_service.assert_called_once_with(language="en", limit=10, token=None)
 
 
 def test_get_featured_events_max_limit():
@@ -99,7 +99,21 @@ def test_get_featured_events_max_limit():
     assert response.status_code == status.HTTP_200_OK
     body = response.json()
     assert len(body) == 20
-    mock_service.assert_called_once_with(language="en", limit=100)
+    mock_service.assert_called_once_with(language="en", limit=100, token=None)
+
+
+def test_get_featured_events_forwards_optional_token():
+    with patch(
+        "pecha_api.events.event_views.get_featured_events_service",
+        return_value=[],
+    ) as mock_service:
+        response = client.get(
+            "/events/featured",
+            headers={"Authorization": "Bearer user-token"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(language="en", limit=10, token="user-token")
 
 
 def test_get_featured_events_invalid_limit():
