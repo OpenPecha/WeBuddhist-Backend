@@ -39,6 +39,8 @@ class GroupPostDTO(BaseModel):
     links: List[GroupPostLinkDTO]
     created_at: str
     updated_at: Optional[str] = None
+    like_count: int = 0
+    liked_by_me: bool = False
 
 
 class GroupPostsResponse(BaseModel):

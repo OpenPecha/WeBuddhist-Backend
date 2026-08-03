@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -23,6 +23,12 @@ from pecha_api.group_posts.comment_response_models import (
     GroupPostCommentsResponse,
 )
 from pecha_api.group_posts.repository import get_post_by_id
+from pecha_api.group_posts.comment_like_repository import (
+    batch_count_comment_likes,
+    batch_check_comments_liked_by_user,
+    count_comment_likes,
+    like_exists,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +39,11 @@ def _isoformat(value) -> Optional[str]:
     return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
 
-def build_comment_dto(comment: GroupPostComment) -> GroupPostCommentDTO:
+def build_comment_dto(
+    comment: GroupPostComment,
+    like_count: int = 0,
+    liked_by_me: bool = False,
+) -> GroupPostCommentDTO:
     """Build a comment DTO with user email."""
     user_email = comment.user.email if comment.user else "unknown@example.com"
     return GroupPostCommentDTO(
@@ -45,6 +55,8 @@ def build_comment_dto(comment: GroupPostComment) -> GroupPostCommentDTO:
         text=comment.text,
         created_at=_isoformat(comment.created_at),
         updated_at=_isoformat(comment.updated_at),
+        like_count=like_count,
+        liked_by_me=liked_by_me,
     )
 
 
@@ -73,6 +85,7 @@ def list_post_comments_service(
     post_id: UUID,
     skip: int = 0,
     limit: int = 20,
+    user_id: Optional[UUID] = None,
 ) -> GroupPostCommentsResponse:
     """Public list of comments on a post."""
     with SessionLocal() as db:
@@ -86,8 +99,24 @@ def list_post_comments_service(
             limit=limit,
         )
 
+        # Batch hydrate like counts and liked_by_me
+        comment_ids = [comment.id for comment in comments]
+        like_counts = batch_count_comment_likes(db=db, comment_ids=comment_ids)
+        liked_comments = (
+            batch_check_comments_liked_by_user(db=db, comment_ids=comment_ids, user_id=user_id)
+            if user_id
+            else set()
+        )
+
         return GroupPostCommentsResponse(
-            comments=[build_comment_dto(comment) for comment in comments],
+            comments=[
+                build_comment_dto(
+                    comment,
+                    like_count=like_counts.get(comment.id, 0),
+                    liked_by_me=comment.id in liked_comments,
+                )
+                for comment in comments
+            ],
             skip=skip,
             limit=limit,
             total=total,

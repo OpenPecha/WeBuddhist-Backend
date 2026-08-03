@@ -21,10 +21,13 @@ from pecha_api.group_posts.comment_service import (
 )
 from pecha_api.group_posts.comment_websocket import get_broadcaster
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
+from pecha_api.users.users_models import Users
+from pecha_api.db.database import SessionLocal
 
 logger = logging.getLogger(__name__)
 
 oauth2_scheme = HTTPBearer()
+oauth2_scheme_optional = HTTPBearer(auto_error=False)
 
 public_group_post_comments_router = APIRouter(
     prefix="/author/groups/{group_id}/posts/{post_id}/comments",
@@ -42,13 +45,27 @@ def list_post_comments(
     post_id: UUID,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    authentication_credential: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(oauth2_scheme_optional)
+    ] = None,
 ):
-    """List comments on a post (newest first)."""
+    """List comments on a post (newest first). Optional auth for liked_by_me."""
+    user_id = None
+    if authentication_credential:
+        try:
+            author = validate_and_extract_author_details(token=authentication_credential.credentials)
+            with SessionLocal() as db:
+                user = db.query(Users).filter(Users.email == author.email).first()
+                if user:
+                    user_id = user.id
+        except Exception:
+            pass
     return list_post_comments_service(
         group_id=group_id,
         post_id=post_id,
         skip=skip,
         limit=limit,
+        user_id=user_id,
     )
 
 
