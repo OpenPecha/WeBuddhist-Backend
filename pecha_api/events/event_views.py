@@ -20,6 +20,7 @@ from .event_participant_service import (
 )
 
 oauth2_scheme = HTTPBearer()
+optional_oauth2_scheme = HTTPBearer(auto_error=False)
 
 events_router = APIRouter(
     prefix="/events",
@@ -40,6 +41,10 @@ def get_events_endpoint(
     language: Annotated[Optional[str], Query(description="Filter metadata by language code")] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    credentials: Annotated[
+        Optional[HTTPAuthorizationCredentials],
+        Depends(optional_oauth2_scheme),
+    ] = None,
 ) -> EventsResponse:
     return get_events_service(
         group_id=group_id,
@@ -54,6 +59,7 @@ def get_events_endpoint(
         fallback=True,
         skip=skip,
         limit=limit,
+        token=credentials.credentials if credentials else None,
     )
 
 
@@ -67,6 +73,10 @@ def get_events_today_endpoint(
         Optional[str],
         Header(alias="X-Timezone", description="IANA timezone for determining today's date."),
     ] = None,
+    credentials: Annotated[
+        Optional[HTTPAuthorizationCredentials],
+        Depends(optional_oauth2_scheme),
+    ] = None,
 ) -> EventsResponse:
     return get_events_today_service(
         timezone=x_timezone,
@@ -74,6 +84,7 @@ def get_events_today_endpoint(
         language=language,
         skip=skip,
         limit=limit,
+        token=credentials.credentials if credentials else None,
     )
 
 
@@ -81,8 +92,16 @@ def get_events_today_endpoint(
 def get_featured_events_endpoint(
     language: Annotated[Optional[str], Query(description="Filter metadata by language code")] = "en",
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
+    credentials: Annotated[
+        Optional[HTTPAuthorizationCredentials],
+        Depends(optional_oauth2_scheme),
+    ] = None,
 ) -> list[EventDTO]:
-    return get_featured_events_service(language=language, limit=limit)
+    return get_featured_events_service(
+        language=language,
+        limit=limit,
+        token=credentials.credentials if credentials else None,
+    )
 
 
 @events_router.post(
@@ -126,5 +145,13 @@ def get_event_participants_endpoint(
 def get_event_by_id_endpoint(
     event_id: UUID,
     language: Annotated[Optional[str], Query(description="Filter metadata by language code")] = None,
+    credentials: Annotated[
+        Optional[HTTPAuthorizationCredentials],
+        Depends(optional_oauth2_scheme),
+    ] = None,
 ) -> EventDTO:
-    return get_event_by_id_service(event_id=event_id, language=language)
+    return get_event_by_id_service(
+        event_id=event_id,
+        language=language,
+        token=credentials.credentials if credentials else None,
+    )

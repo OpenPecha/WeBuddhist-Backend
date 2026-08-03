@@ -27,6 +27,7 @@ from pecha_api.plans.shared.permissions import (
     is_reviewer,
     is_super_admin,
 )
+from pecha_api.users.users_service import validate_and_extract_user_details
 
 from .event_model import Event
 from .event_response_models import (
@@ -49,6 +50,8 @@ from .event_repository import (
 from .event_participant_repository import (
     get_event_participant_count,
     get_event_participant_counts,
+    get_joined_event_ids_by_user,
+    is_user_joined_event,
 )
 
 _CONTENT_EDIT_ROLES = {
@@ -122,6 +125,7 @@ def _event_to_dto(
     language: Optional[str] = None,
     fallback: bool = False,
     participant_count: int = 0,
+    is_joined: Optional[bool] = None,
 ) -> EventDTO:
     return EventDTO(
         id=event.id,
@@ -144,6 +148,7 @@ def _event_to_dto(
         ),
         image_url=event.image_url,
         participant_count=participant_count,
+        is_joined=is_joined,
         created_at=event.created_at,
         created_by=event.created_by,
         updated_at=event.updated_at,
@@ -194,6 +199,7 @@ def get_events_service(
     fallback: bool = False,
     skip: int = 0,
     limit: int = 20,
+    token: Optional[str] = None,
 ) -> EventsResponse:
     with SessionLocal() as db:
         events, total = get_events(
@@ -210,9 +216,20 @@ def get_events_service(
             skip=skip,
             limit=limit,
         )
-        counts_by_event = get_event_participant_counts(
-            db=db, event_ids=[event.id for event in events]
-        )
+        event_ids = [event.id for event in events]
+        counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
+
+        joined_ids: set[UUID] = set()
+        if token:
+            current_user = validate_and_extract_user_details(token=token)
+            joined_ids = set(
+                get_joined_event_ids_by_user(
+                    db=db,
+                    user_id=current_user.id,
+                    event_ids=event_ids,
+                )
+            )
+
         return EventsResponse(
             events=[
                 _event_to_dto(
@@ -220,6 +237,7 @@ def get_events_service(
                     language=language,
                     fallback=fallback,
                     participant_count=counts_by_event.get(event.id, 0),
+                    is_joined=(event.id in joined_ids) if token else None,
                 )
                 for event in events
             ],
@@ -293,6 +311,7 @@ def get_events_today_service(
     language: Optional[str] = None,
     skip: int = 0,
     limit: int = 20,
+    token: Optional[str] = None,
 ) -> EventsResponse:
     from_date, to_date = get_day_bounds_in_timezone(timezone)
     return get_events_service(
@@ -303,10 +322,15 @@ def get_events_today_service(
         fallback=True,
         skip=skip,
         limit=limit,
+        token=token,
     )
 
 
-def get_event_by_id_service(event_id: UUID, language: Optional[str] = None) -> EventDTO:
+def get_event_by_id_service(
+    event_id: UUID,
+    language: Optional[str] = None,
+    token: Optional[str] = None,
+) -> EventDTO:
     with SessionLocal() as db:
         event = get_event_by_id(db, event_id)
         if not event:
@@ -315,8 +339,18 @@ def get_event_by_id_service(event_id: UUID, language: Optional[str] = None) -> E
                 detail=f"Event with id '{event_id}' not found",
             )
         participant_count = get_event_participant_count(db=db, event_id=event_id)
+        is_joined = None
+        if token:
+            current_user = validate_and_extract_user_details(token=token)
+            is_joined = is_user_joined_event(
+                db=db, event_id=event_id, user_id=current_user.id
+            )
         return _event_to_dto(
-            event, language=language, fallback=True, participant_count=participant_count
+            event,
+            language=language,
+            fallback=True,
+            participant_count=participant_count,
+            is_joined=is_joined,
         )
 
 
@@ -416,11 +450,32 @@ def delete_event_service(token: str, event_id: UUID) -> None:
 def get_featured_events_service(
     language: Optional[str] = None,
     limit: int = 10,
+    token: Optional[str] = None,
 ) -> List[EventDTO]:
     with SessionLocal() as db:
         events = get_featured_events(db, limit=limit)
+        event_ids = [event.id for event in events]
+        counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
+
+        joined_ids: set[UUID] = set()
+        if token:
+            current_user = validate_and_extract_user_details(token=token)
+            joined_ids = set(
+                get_joined_event_ids_by_user(
+                    db=db,
+                    user_id=current_user.id,
+                    event_ids=event_ids,
+                )
+            )
+
         return [
-            _event_to_dto(event, language=language, fallback=True)
+            _event_to_dto(
+                event,
+                language=language,
+                fallback=True,
+                participant_count=counts_by_event.get(event.id, 0),
+                is_joined=(event.id in joined_ids) if token else None,
+            )
             for event in events
         ]
 

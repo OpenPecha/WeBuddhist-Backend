@@ -44,8 +44,9 @@ def _event(event_id=None, group_id=None, featured=False):
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_event_participant_counts", return_value={})
 @patch(f"{MODULE}.get_featured_events")
-def test_get_featured_events_returns_list(mock_get_featured, mock_session):
+def test_get_featured_events_returns_list(mock_get_featured, _mock_counts, mock_session):
     mock_db = MagicMock()
     mock_session.return_value.__enter__.return_value = mock_db
     
@@ -57,12 +58,14 @@ def test_get_featured_events_returns_list(mock_get_featured, mock_session):
 
     assert len(result) == 2
     assert all(isinstance(e, EventDTO) for e in result)
+    assert all(e.is_joined is None for e in result)
     mock_get_featured.assert_called_once_with(mock_db, limit=10)
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_event_participant_counts", return_value={})
 @patch(f"{MODULE}.get_featured_events")
-def test_get_featured_events_empty_list(mock_get_featured, mock_session):
+def test_get_featured_events_empty_list(mock_get_featured, _mock_counts, mock_session):
     mock_db = MagicMock()
     mock_session.return_value.__enter__.return_value = mock_db
     mock_get_featured.return_value = []
@@ -74,8 +77,9 @@ def test_get_featured_events_empty_list(mock_get_featured, mock_session):
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_event_participant_counts", return_value={})
 @patch(f"{MODULE}.get_featured_events")
-def test_get_featured_events_with_language(mock_get_featured, mock_session):
+def test_get_featured_events_with_language(mock_get_featured, _mock_counts, mock_session):
     mock_db = MagicMock()
     mock_session.return_value.__enter__.return_value = mock_db
     
@@ -89,8 +93,9 @@ def test_get_featured_events_with_language(mock_get_featured, mock_session):
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_event_participant_counts", return_value={})
 @patch(f"{MODULE}.get_featured_events")
-def test_get_featured_events_respects_limit(mock_get_featured, mock_session):
+def test_get_featured_events_respects_limit(mock_get_featured, _mock_counts, mock_session):
     mock_db = MagicMock()
     mock_session.return_value.__enter__.return_value = mock_db
     

@@ -93,6 +93,10 @@ class EventDTO(BaseModel):
     image: Optional[ImageUrlModel] = None
     image_url: Optional[str] = None
     participant_count: int = 0
+    is_joined: Optional[bool] = Field(
+        None,
+        description="Whether the authenticated user has joined (null when unauthenticated)",
+    )
     created_at: datetime
     created_by: str
     updated_at: Optional[datetime] = None

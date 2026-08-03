@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -19,6 +19,21 @@ def is_user_joined_event(db: Session, event_id: UUID, user_id: UUID) -> bool:
         )
     ).first()
     return row is not None
+
+
+def get_joined_event_ids_by_user(
+    db: Session,
+    user_id: UUID,
+    event_ids: Optional[List[UUID]] = None,
+) -> List[UUID]:
+    if event_ids is not None and not event_ids:
+        return []
+    query = db.query(GroupEventParticipant.event_id).filter(
+        GroupEventParticipant.user_id == user_id,
+    )
+    if event_ids is not None:
+        query = query.filter(GroupEventParticipant.event_id.in_(event_ids))
+    return [row.event_id for row in query.all()]
 
 
 def upsert_event_participant(db: Session, event_id: UUID, user_id: UUID) -> None:
