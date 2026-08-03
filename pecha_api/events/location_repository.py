@@ -1,8 +1,11 @@
 from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
+from fastapi import HTTPException
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from starlette import status
 
 from .event_model import Event
 from .location_model import Location
@@ -64,18 +67,46 @@ def get_event_counts(db: Session, location_ids: List[UUID]) -> Dict[UUID, int]:
 
 
 def save_location(db: Session, location: Location) -> Location:
-    db.add(location)
-    db.commit()
-    db.refresh(location)
-    return location
+    try:
+        db.add(location)
+        db.commit()
+        db.refresh(location)
+        return location
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "BAD_REQUEST", "message": str(e.orig)},
+        )
 
 
 def update_location(db: Session, location: Location) -> Location:
-    db.commit()
-    db.refresh(location)
-    return location
+    try:
+        db.commit()
+        db.refresh(location)
+        return location
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "BAD_REQUEST", "message": str(e.orig)},
+        )
 
 
 def delete_location(db: Session, location: Location) -> None:
-    db.delete(location)
-    db.commit()
+    try:
+        db.delete(location)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        event_count = get_event_count(db=db, location_id=location.id)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "error": "LOCATION_IN_USE",
+                "message": (
+                    f"Location is used by {event_count} event(s) and cannot be deleted"
+                ),
+                "event_count": event_count,
+            },
+        )

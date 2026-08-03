@@ -7,9 +7,15 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 from starlette import status
 
 from pecha_api.app import api  # noqa: F401
+from pecha_api.events.location_repository import (
+    delete_location,
+    save_location,
+    update_location,
+)
 from pecha_api.events.location_response_models import (
     CreateLocationRequest,
     UpdateLocationRequest,
@@ -23,6 +29,7 @@ from pecha_api.events.location_service import (
 )
 
 MODULE = "pecha_api.events.location_service"
+REPO_MODULE = "pecha_api.events.location_repository"
 
 
 def _author() -> SimpleNamespace:
@@ -483,6 +490,43 @@ def test_delete_referenced_location_returns_409_with_event_count() -> None:
     assert exc.value.detail["error"] == "LOCATION_IN_USE"
     assert exc.value.detail["event_count"] == 7
     mock_delete.assert_not_called()
+
+
+def test_delete_location_race_returns_409_not_500() -> None:
+    location = _location_stub()
+    db = MagicMock()
+    db.commit.side_effect = IntegrityError("stmt", {}, Exception("FK violation"))
+
+    with patch(f"{REPO_MODULE}.get_event_count", return_value=1):
+        with pytest.raises(HTTPException) as exc:
+            delete_location(db=db, location=location)
+
+    assert exc.value.status_code == status.HTTP_409_CONFLICT
+    assert exc.value.detail["error"] == "LOCATION_IN_USE"
+    assert exc.value.detail["event_count"] == 1
+    db.rollback.assert_called_once()
+
+
+def test_save_location_integrity_error_returns_400_not_500() -> None:
+    db = MagicMock()
+    db.commit.side_effect = IntegrityError("stmt", {}, Exception("FK violation"))
+
+    with pytest.raises(HTTPException) as exc:
+        save_location(db=db, location=_location_stub())
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    db.rollback.assert_called_once()
+
+
+def test_update_location_integrity_error_returns_400_not_500() -> None:
+    db = MagicMock()
+    db.commit.side_effect = IntegrityError("stmt", {}, Exception("constraint"))
+
+    with pytest.raises(HTTPException) as exc:
+        update_location(db=db, location=_location_stub())
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    db.rollback.assert_called_once()
 
 
 def test_delete_unknown_location_returns_404() -> None:
