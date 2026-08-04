@@ -94,11 +94,24 @@ def _websocket_env(
             patch("pecha_api.group_posts.comment_views.get_broadcaster", return_value=broadcaster)
         )
         stack.enter_context(patch("pecha_api.db.database.SessionLocal"))
+        
+        # Mock the internal validation functions
+        mock_get_and_validate = stack.enter_context(
+            patch("pecha_api.group_posts.comment_service._get_and_validate_post")
+        )
+        if validation_error is not None:
+            mock_get_and_validate.side_effect = validation_error
+        else:
+            # Return a mock post and group_id
+            mock_post = type('MockPost', (), {'id': uuid4(), 'group_id': uuid4()})
+            mock_get_and_validate.return_value = (mock_post, mock_post.group_id)
+        
         mock_group_check = stack.enter_context(
             patch("pecha_api.group_posts.comment_service._validate_group_is_public")
         )
         if validation_error is not None:
             mock_group_check.side_effect = validation_error
+        
         mock_create = stack.enter_context(
             patch("pecha_api.group_posts.comment_views.create_post_comment_service")
         )
@@ -121,12 +134,13 @@ class TestWebSocketPostCommentsConnection:
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
         with _websocket_env(auth_error=auth_error) as (broadcaster, _):
-            with client.websocket_connect(_ws_url(uuid4(), uuid4(), token="bad")) as websocket:
-                message = websocket.receive_json()
-
-        assert message["type"] == "error"
-        assert message["code"] == "UNAUTHORIZED"
-        assert message["message"] == "Invalid token"
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(uuid4(), uuid4(), token="bad")) as websocket:
+                    message = websocket.receive_json()
+                    assert message["type"] == "error"
+                    assert message["code"] == "UNAUTHORIZED"
+                    assert message["message"] == "Invalid token"
+        
         broadcaster.add_connection.assert_not_awaited()
 
     def test_closes_when_group_validation_fails(self):
@@ -146,8 +160,9 @@ class TestWebSocketPostCommentsConnection:
         pubsub = FakePubSub()
 
         with _websocket_env(author=author, pubsub=pubsub) as (broadcaster, _):
-            with client.websocket_connect(_ws_url(group_id, post_id)):
-                pass
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(group_id, post_id)):
+                    pass
 
         broadcaster.add_connection.assert_awaited_once()
         assert broadcaster.add_connection.await_args.args[:2] == (post_id, author.id)
@@ -158,8 +173,9 @@ class TestWebSocketPostCommentsConnection:
         pubsub = FakePubSub(unsubscribe_error=RuntimeError("redis gone"))
 
         with _websocket_env(pubsub=pubsub):
-            with client.websocket_connect(_ws_url(uuid4(), uuid4())):
-                pass
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(uuid4(), uuid4())):
+                    pass
 
         assert len(pubsub.unsubscribed) == 1
 
@@ -177,16 +193,18 @@ class TestWebSocketPostCommentsRedisStream:
         )
 
         with _websocket_env(pubsub=pubsub):
-            with client.websocket_connect(_ws_url(uuid4(), post_id)) as websocket:
-                assert websocket.receive_text() == payload
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(uuid4(), post_id)) as websocket:
+                    assert websocket.receive_text() == payload
 
     def test_redis_listen_failure_does_not_break_connection(self):
         pubsub = FakePubSub(listen_error=RuntimeError("pubsub exploded"))
 
         with _websocket_env(pubsub=pubsub) as (_, mock_create):
-            with client.websocket_connect(_ws_url(uuid4(), uuid4())) as websocket:
-                websocket.send_json({"type": "ping"})
-                assert websocket.receive_json()["code"] == "INVALID_MESSAGE"
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(uuid4(), uuid4())) as websocket:
+                    websocket.send_json({"type": "ping"})
+                    assert websocket.receive_json()["code"] == "INVALID_MESSAGE"
 
         mock_create.assert_not_called()
 
@@ -195,12 +213,13 @@ class TestWebSocketPostCommentsMessages:
 
     def test_rejects_unsupported_message_type(self):
         with _websocket_env() as (_, mock_create):
-            with client.websocket_connect(_ws_url(uuid4(), uuid4())) as websocket:
-                websocket.send_json({"type": "reaction", "text": "hi"})
-                message = websocket.receive_json()
-
-        assert message["type"] == "error"
-        assert message["code"] == "INVALID_MESSAGE"
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(uuid4(), uuid4())) as websocket:
+                    websocket.send_json({"type": "reaction", "text": "hi"})
+                    message = websocket.receive_json()
+                    assert message["type"] == "error"
+                    assert message["code"] == "INVALID_MESSAGE"
+        
         mock_create.assert_not_called()
 
     def test_creates_and_broadcasts_comment(self):
@@ -211,11 +230,11 @@ class TestWebSocketPostCommentsMessages:
 
         with _websocket_env(author=author) as (broadcaster, mock_create):
             mock_create.return_value = dto
-            with client.websocket_connect(_ws_url(group_id, post_id)) as websocket:
-                websocket.send_json({"type": "comment", "text": "Great post!"})
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(group_id, post_id)) as websocket:
+                    websocket.send_json({"type": "comment", "text": "Great post!"})
 
         mock_create.assert_called_once_with(
-            group_id=group_id,
             post_id=post_id,
             author_email=author.email,
             text="Great post!",
@@ -232,15 +251,15 @@ class TestWebSocketPostCommentsMessages:
 
         with _websocket_env(author=author) as (broadcaster, mock_create):
             mock_create.return_value = dto
-            with client.websocket_connect(_ws_url(group_id, post_id)) as websocket:
-                websocket.send_json({
-                    "type": "comment",
-                    "text": "Nested reply",
-                    "parent_comment_id": str(parent_comment_id),
-                })
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(group_id, post_id)) as websocket:
+                    websocket.send_json({
+                        "type": "comment",
+                        "text": "Nested reply",
+                        "parent_comment_id": str(parent_comment_id),
+                    })
 
         mock_create.assert_called_once_with(
-            group_id=group_id,
             post_id=post_id,
             author_email=author.email,
             text="Nested reply",
@@ -253,12 +272,13 @@ class TestWebSocketPostCommentsMessages:
             mock_create.side_effect = HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="POST_NOT_FOUND"
             )
-            with client.websocket_connect(_ws_url(uuid4(), uuid4())) as websocket:
-                websocket.send_json({"type": "comment", "text": "Great post!"})
-                message = websocket.receive_json()
-
-        assert message["type"] == "error"
-        assert message["code"] == "POST_NOT_FOUND"
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(uuid4(), uuid4())) as websocket:
+                    websocket.send_json({"type": "comment", "text": "Great post!"})
+                    message = websocket.receive_json()
+                    assert message["type"] == "error"
+                    assert message["code"] == "POST_NOT_FOUND"
+        
         broadcaster.broadcast_comment.assert_not_awaited()
 
     def test_reports_non_string_creation_failure_detail(self):
@@ -267,12 +287,12 @@ class TestWebSocketPostCommentsMessages:
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail={"field": "text"},
             )
-            with client.websocket_connect(_ws_url(uuid4(), uuid4())) as websocket:
-                websocket.send_json({"type": "comment", "text": "Great post!"})
-                message = websocket.receive_json()
-
-        assert message["code"] == "ERROR"
-        assert "text" in message["message"]
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(uuid4(), uuid4())) as websocket:
+                    websocket.send_json({"type": "comment", "text": "Great post!"})
+                    message = websocket.receive_json()
+                    assert message["code"] == "ERROR"
+                    assert "text" in message["message"]
 
     def test_reports_broadcast_failure(self):
         post_id = uuid4()
@@ -280,10 +300,10 @@ class TestWebSocketPostCommentsMessages:
         with _websocket_env() as (broadcaster, mock_create):
             mock_create.return_value = _comment_dto(post_id)
             broadcaster.broadcast_comment.side_effect = RuntimeError("redis publish failed")
-            with client.websocket_connect(_ws_url(uuid4(), post_id)) as websocket:
-                websocket.send_json({"type": "comment", "text": "Great post!"})
-                message = websocket.receive_json()
-
-        assert message["type"] == "error"
-        assert message["code"] == "BROADCAST_ERROR"
-        assert "redis publish failed" in message["message"]
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(uuid4(), post_id)) as websocket:
+                    websocket.send_json({"type": "comment", "text": "Great post!"})
+                    message = websocket.receive_json()
+                    assert message["type"] == "error"
+                    assert message["code"] == "BROADCAST_ERROR"
+                    assert "redis publish failed" in message["message"]
