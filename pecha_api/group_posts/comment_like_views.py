@@ -19,7 +19,7 @@ from pecha_api.plans.authors.plan_authors_service import validate_and_extract_au
 oauth2_scheme = HTTPBearer()
 
 public_group_post_comment_likes_router = APIRouter(
-    prefix="/author/groups/{group_id}/posts/{post_id}/comments/{comment_id}/likes",
+    prefix="/groups/author/comments/{comment_id}/likes",
     tags=["Public Group Post Comment Likes"],
 )
 
@@ -30,16 +30,12 @@ public_group_post_comment_likes_router = APIRouter(
     response_model=LikeCommentResponse,
 )
 def like_comment(
-    group_id: UUID,
-    post_id: UUID,
     comment_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
     """Like a comment (requires authentication). Idempotent - returns 200 if already liked."""
     author = validate_and_extract_author_details(token=authentication_credential.credentials)
     result = like_comment_service(
-        group_id=group_id,
-        post_id=post_id,
         comment_id=comment_id,
         author_email=author.email,
     )
@@ -55,16 +51,12 @@ def like_comment(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def unlike_comment(
-    group_id: UUID,
-    post_id: UUID,
     comment_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
     """Unlike a comment (requires authentication). Idempotent - succeeds even if not liked."""
     author = validate_and_extract_author_details(token=authentication_credential.credentials)
     unlike_comment_service(
-        group_id=group_id,
-        post_id=post_id,
         comment_id=comment_id,
         author_email=author.email,
     )
@@ -77,16 +69,12 @@ def unlike_comment(
     response_model=CommentLikersResponse,
 )
 def list_comment_likers(
-    group_id: UUID,
-    post_id: UUID,
     comment_id: UUID,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     """List users who liked a comment (public, no auth required)."""
     return list_comment_likers_service(
-        group_id=group_id,
-        post_id=post_id,
         comment_id=comment_id,
         skip=skip,
         limit=limit,

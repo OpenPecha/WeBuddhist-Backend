@@ -19,7 +19,7 @@ from pecha_api.plans.authors.plan_authors_service import validate_and_extract_au
 oauth2_scheme = HTTPBearer()
 
 public_group_post_likes_router = APIRouter(
-    prefix="/author/groups/{group_id}/posts/{post_id}/likes",
+    prefix="/groups/author/posts/{post_id}/likes",
     tags=["Public Group Post Likes"],
 )
 
@@ -30,14 +30,12 @@ public_group_post_likes_router = APIRouter(
     response_model=LikePostResponse,
 )
 def like_post(
-    group_id: UUID,
     post_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
     """Like a post (requires authentication). Idempotent - returns 200 if already liked."""
     author = validate_and_extract_author_details(token=authentication_credential.credentials)
     result = like_post_service(
-        group_id=group_id,
         post_id=post_id,
         author_email=author.email,
     )
@@ -53,14 +51,12 @@ def like_post(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def unlike_post(
-    group_id: UUID,
     post_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
     """Unlike a post (requires authentication). Idempotent - succeeds even if not liked."""
     author = validate_and_extract_author_details(token=authentication_credential.credentials)
     unlike_post_service(
-        group_id=group_id,
         post_id=post_id,
         author_email=author.email,
     )
@@ -73,14 +69,12 @@ def unlike_post(
     response_model=PostLikersResponse,
 )
 def list_post_likers(
-    group_id: UUID,
     post_id: UUID,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
     """List users who liked a post (public, no auth required)."""
     return list_post_likers_service(
-        group_id=group_id,
         post_id=post_id,
         skip=skip,
         limit=limit,

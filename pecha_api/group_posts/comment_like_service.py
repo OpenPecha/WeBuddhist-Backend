@@ -23,8 +23,8 @@ from pecha_api.group_posts.comment_like_response_models import (
     CommentLikerDTO,
     CommentLikersResponse,
 )
-from pecha_api.group_posts.comment_repository import get_comment_by_id
-from pecha_api.group_posts.repository import get_post_by_id
+from pecha_api.group_posts.comment_repository import get_comment_by_id_only
+from pecha_api.group_posts.repository import get_post_by_id_only
 
 logger = logging.getLogger(__name__)
 
@@ -45,24 +45,23 @@ def _validate_group_is_public(db: Session, group_id: UUID) -> None:
         )
 
 
-def _validate_post_published(db: Session, post_id: UUID, group_id: UUID) -> None:
-    """Validate that post exists, is published, and not soft-deleted."""
-    post = get_post_by_id(db=db, post_id=post_id, group_id=group_id, status=None)
-    if not post:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=NOT_FOUND,
-        )
-
-
-def _validate_comment_exists(db: Session, comment_id: UUID, post_id: UUID) -> None:
-    """Validate that comment exists and not soft-deleted."""
-    comment = get_comment_by_id(db=db, comment_id=comment_id, post_id=post_id)
+def _get_and_validate_comment(db: Session, comment_id: UUID) -> tuple:
+    """Get comment and validate hierarchy. Returns (comment, post, group_id)."""
+    comment = get_comment_by_id_only(db=db, comment_id=comment_id)
     if not comment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=NOT_FOUND,
         )
+    
+    post = get_post_by_id_only(db=db, post_id=comment.post_id)
+    if not post:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=NOT_FOUND,
+        )
+    
+    return comment, post, post.group_id
 
 
 def _resolve_user_id(db: Session, author_email: str) -> UUID:
@@ -77,16 +76,13 @@ def _resolve_user_id(db: Session, author_email: str) -> UUID:
 
 
 def like_comment_service(
-    group_id: UUID,
-    post_id: UUID,
     comment_id: UUID,
     author_email: str,
 ) -> LikeCommentResponse:
     """Like a comment. Idempotent - returns 200 if already liked."""
     with SessionLocal() as db:
+        comment, post, group_id = _get_and_validate_comment(db, comment_id)
         _validate_group_is_public(db, group_id)
-        _validate_post_published(db, post_id, group_id)
-        _validate_comment_exists(db, comment_id, post_id)
 
         user_id = _resolve_user_id(db, author_email)
 
@@ -108,16 +104,13 @@ def like_comment_service(
 
 
 def unlike_comment_service(
-    group_id: UUID,
-    post_id: UUID,
     comment_id: UUID,
     author_email: str,
 ) -> None:
     """Unlike a comment. Idempotent - succeeds even if not liked."""
     with SessionLocal() as db:
+        comment, post, group_id = _get_and_validate_comment(db, comment_id)
         _validate_group_is_public(db, group_id)
-        _validate_post_published(db, post_id, group_id)
-        _validate_comment_exists(db, comment_id, post_id)
 
         user_id = _resolve_user_id(db, author_email)
 
@@ -125,17 +118,14 @@ def unlike_comment_service(
 
 
 def list_comment_likers_service(
-    group_id: UUID,
-    post_id: UUID,
     comment_id: UUID,
     skip: int = 0,
     limit: int = 20,
 ) -> CommentLikersResponse:
     """Public list of users who liked a comment."""
     with SessionLocal() as db:
+        comment, post, group_id = _get_and_validate_comment(db, comment_id)
         _validate_group_is_public(db, group_id)
-        _validate_post_published(db, post_id, group_id)
-        _validate_comment_exists(db, comment_id, post_id)
 
         likes, total = get_comment_likers(
             db=db,

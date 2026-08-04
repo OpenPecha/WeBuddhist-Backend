@@ -24,7 +24,7 @@ from pecha_api.group_posts.like_response_models import (
     PostLikerDTO,
     PostLikersResponse,
 )
-from pecha_api.group_posts.repository import get_post_by_id
+from pecha_api.group_posts.repository import get_post_by_id_only
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +45,15 @@ def _validate_group_is_public(db: Session, group_id: UUID) -> None:
         )
 
 
-def _validate_post_published(db: Session, post_id: UUID, group_id: UUID) -> None:
-    """Validate that post exists, is published, and not soft-deleted."""
-    post = get_post_by_id(db=db, post_id=post_id, group_id=group_id, status=GroupPostStatus.PUBLISHED)
+def _get_and_validate_post(db: Session, post_id: UUID) -> tuple:
+    """Get post and validate it exists, is published, and not soft-deleted. Returns (post, group_id)."""
+    post = get_post_by_id_only(db=db, post_id=post_id, status=GroupPostStatus.PUBLISHED)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=NOT_FOUND,
         )
+    return post, post.group_id
 
 
 def _resolve_user_id(db: Session, author_email: str) -> UUID:
@@ -67,14 +68,13 @@ def _resolve_user_id(db: Session, author_email: str) -> UUID:
 
 
 def like_post_service(
-    group_id: UUID,
     post_id: UUID,
     author_email: str,
 ) -> LikePostResponse:
     """Like a post. Idempotent - returns 200 if already liked."""
     with SessionLocal() as db:
+        post, group_id = _get_and_validate_post(db, post_id)
         _validate_group_is_public(db, group_id)
-        _validate_post_published(db, post_id, group_id)
 
         user_id = _resolve_user_id(db, author_email)
 
@@ -96,14 +96,13 @@ def like_post_service(
 
 
 def unlike_post_service(
-    group_id: UUID,
     post_id: UUID,
     author_email: str,
 ) -> None:
     """Unlike a post. Idempotent - succeeds even if not liked."""
     with SessionLocal() as db:
+        post, group_id = _get_and_validate_post(db, post_id)
         _validate_group_is_public(db, group_id)
-        _validate_post_published(db, post_id, group_id)
 
         user_id = _resolve_user_id(db, author_email)
 
@@ -111,15 +110,14 @@ def unlike_post_service(
 
 
 def list_post_likers_service(
-    group_id: UUID,
     post_id: UUID,
     skip: int = 0,
     limit: int = 20,
 ) -> PostLikersResponse:
     """Public list of users who liked a post."""
     with SessionLocal() as db:
+        post, group_id = _get_and_validate_post(db, post_id)
         _validate_group_is_public(db, group_id)
-        _validate_post_published(db, post_id, group_id)
 
         likes, total = get_post_likers(
             db=db,
