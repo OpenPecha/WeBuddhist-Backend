@@ -1,7 +1,7 @@
 import json
 from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone as tz
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -84,7 +84,11 @@ def _websocket_env(
     """Patch every collaborator the websocket endpoint reaches for."""
     if broadcaster is None:
         broadcaster = AsyncMock()
-    broadcaster.subscribe_to_post.return_value = pubsub if pubsub is not None else FakePubSub()
+    
+    # subscribe_to_post is awaited, so it needs to return an awaitable
+    async def mock_subscribe(post_id):
+        return pubsub if pubsub is not None else FakePubSub(keep_alive=True)
+    broadcaster.subscribe_to_post = mock_subscribe
 
     with ExitStack() as stack:
         mock_validate = stack.enter_context(
@@ -98,9 +102,13 @@ def _websocket_env(
         stack.enter_context(
             patch("pecha_api.group_posts.comment_views.get_broadcaster", return_value=broadcaster)
         )
-        stack.enter_context(patch("pecha_api.db.database.SessionLocal"))
         
-        # Mock the internal validation functions
+        # Mock SessionLocal as a context manager
+        mock_session = stack.enter_context(patch("pecha_api.db.database.SessionLocal"))
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        
+        # Mock the internal validation functions - patch where they are imported FROM
         mock_get_and_validate = stack.enter_context(
             patch("pecha_api.group_posts.comment_service._get_and_validate_post")
         )
