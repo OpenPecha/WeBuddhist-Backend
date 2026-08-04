@@ -15,6 +15,7 @@ from pecha_api.group_posts.comment_models import GroupPostComment
 from pecha_api.group_posts.comment_repository import (
     create_comment,
     get_comment_by_id,
+    get_comment_by_id_only,
     get_post_comments,
     soft_delete_comment,
 )
@@ -22,7 +23,7 @@ from pecha_api.group_posts.comment_response_models import (
     GroupPostCommentDTO,
     GroupPostCommentsResponse,
 )
-from pecha_api.group_posts.repository import get_post_by_id
+from pecha_api.group_posts.repository import get_post_by_id, get_post_by_id_only
 from pecha_api.group_posts.comment_like_repository import (
     batch_count_comment_likes,
     batch_check_comments_liked_by_user,
@@ -70,18 +71,18 @@ def _validate_group_is_public(db: Session, group_id: UUID) -> None:
         )
 
 
-def _validate_post_published(db: Session, post_id: UUID, group_id: UUID) -> None:
-    """Validate that post exists, is published, and not soft-deleted."""
-    post = get_post_by_id(db=db, post_id=post_id, group_id=group_id, status=None)
+def _get_and_validate_post(db: Session, post_id: UUID) -> tuple:
+    """Get post and validate it exists. Returns (post, group_id)."""
+    post = get_post_by_id_only(db=db, post_id=post_id, status=None)
     if not post:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=NOT_FOUND,
         )
+    return post, post.group_id
 
 
 def list_post_comments_service(
-    group_id: UUID,
     post_id: UUID,
     skip: int = 0,
     limit: int = 20,
@@ -89,8 +90,8 @@ def list_post_comments_service(
 ) -> GroupPostCommentsResponse:
     """Public list of comments on a post."""
     with SessionLocal() as db:
+        post, group_id = _get_and_validate_post(db, post_id)
         _validate_group_is_public(db, group_id)
-        _validate_post_published(db, post_id, group_id)
 
         comments, total = get_post_comments(
             db=db,
@@ -124,7 +125,6 @@ def list_post_comments_service(
 
 
 def create_post_comment_service(
-    group_id: UUID,
     post_id: UUID,
     author_email: str,
     text: str,
@@ -132,8 +132,8 @@ def create_post_comment_service(
 ) -> GroupPostCommentDTO:
     """Create a top-level comment or a reply to any comment on the post."""
     with SessionLocal() as db:
+        post, group_id = _get_and_validate_post(db, post_id)
         _validate_group_is_public(db, group_id)
-        _validate_post_published(db, post_id, group_id)
 
         if parent_comment_id is not None:
             parent_comment = get_comment_by_id(
@@ -167,22 +167,21 @@ def create_post_comment_service(
 
 
 def delete_post_comment_service(
-    group_id: UUID,
-    post_id: UUID,
     comment_id: UUID,
     user_id: UUID,
 ) -> None:
     """Delete a comment. User must be the author or the post author."""
     with SessionLocal() as db:
-        _validate_group_is_public(db, group_id)
-        _validate_post_published(db, post_id, group_id)
-
-        comment = get_comment_by_id(db=db, comment_id=comment_id, post_id=post_id)
+        comment = get_comment_by_id_only(db=db, comment_id=comment_id)
         if not comment:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=NOT_FOUND,
             )
+
+        # Validate post and group
+        post, group_id = _get_and_validate_post(db, comment.post_id)
+        _validate_group_is_public(db, group_id)
 
         if comment.user_id != user_id:
             raise HTTPException(

@@ -14,7 +14,7 @@ from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 from pecha_api.group_posts.enums import GroupPostStatus
 from pecha_api.group_posts.models import GroupPost
-from pecha_api.group_posts.repository import get_group_posts, get_post_by_id
+from pecha_api.group_posts.repository import get_group_posts, get_post_by_id, get_post_by_id_only
 from pecha_api.group_posts.response_models import (
     GroupPostDTO,
     GroupPostLinkDTO,
@@ -152,18 +152,14 @@ def list_group_posts_service(
 
 
 def get_group_post_detail_service(
-    group_id: UUID,
     post_id: UUID,
     user_id: Optional[UUID] = None,
 ) -> GroupPostDTO:
     """Public post detail. HIDDEN and soft-deleted posts return 404."""
     with SessionLocal() as db:
-        _validate_group_is_public(db, group_id)
-
-        post = get_post_by_id(
+        post = get_post_by_id_only(
             db=db,
             post_id=post_id,
-            group_id=group_id,
             status=GroupPostStatus.PUBLISHED,
         )
 
@@ -172,6 +168,9 @@ def get_group_post_detail_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=NOT_FOUND,
             )
+
+        # Validate group is public
+        _validate_group_is_public(db, post.group_id)
 
         # Hydrate like count and liked_by_me
         like_count = count_post_likes(db=db, post_id=post_id)
