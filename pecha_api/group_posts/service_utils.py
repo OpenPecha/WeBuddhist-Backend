@@ -1,6 +1,6 @@
 """Shared utility functions for group post services."""
 import logging
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -14,7 +14,7 @@ from pecha_api.users.users_models import Users
 logger = logging.getLogger(__name__)
 
 
-def isoformat(value) -> Optional[str]:
+def isoformat(value: Any) -> Optional[str]:
     """Convert a value to ISO format string if it has isoformat method."""
     if value is None:
         return None

@@ -32,7 +32,7 @@ def like_post(
     post_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     response: Response,
-):
+) -> LikePostResponse:
     """Like a post (requires authentication). Returns 201 if newly created, 200 if already liked."""
     author = validate_and_extract_author_details(token=authentication_credential.credentials)
     result = like_post_service(
@@ -50,7 +50,7 @@ def like_post(
 def unlike_post(
     post_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
+) -> Response:
     """Unlike a post (requires authentication). Idempotent - succeeds even if not liked."""
     author = validate_and_extract_author_details(token=authentication_credential.credentials)
     unlike_post_service(
@@ -69,7 +69,7 @@ def list_post_likers(
     post_id: UUID,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-):
+) -> PostLikersResponse:
     """List users who liked a post (public, no auth required)."""
     return list_post_likers_service(
         post_id=post_id,

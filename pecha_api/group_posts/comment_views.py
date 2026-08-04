@@ -52,7 +52,7 @@ def list_post_comments(
     authentication_credential: Annotated[
         Optional[HTTPAuthorizationCredentials], Depends(oauth2_scheme_optional)
     ] = None,
-):
+) -> GroupPostCommentsResponse:
     """List comments on a post (newest first). Optional auth for liked_by_me."""
     user_id = None
     if authentication_credential:
@@ -81,7 +81,7 @@ def create_post_comment(
     post_id: UUID,
     request: CreateGroupPostCommentRequest,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
+) -> GroupPostCommentDTO:
     """Create a comment on a post (requires authentication)."""
     author = validate_and_extract_author_details(token=authentication_credential.credentials)
     return create_post_comment_service(
@@ -99,7 +99,7 @@ def create_post_comment(
 def delete_post_comment(
     comment_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
+) -> Response:
     """Delete a comment (only the author can delete)."""
     author = validate_and_extract_author_details(token=authentication_credential.credentials)
     delete_post_comment_service(
