@@ -50,7 +50,7 @@ class TestPublicGroupPostCommentsViews:
         )
 
         response = client.get(
-            f"/author/groups/{group_id}/posts/{post_id}/comments?skip=0&limit=20"
+            f"/groups/author/posts/{post_id}/comments?skip=0&limit=20"
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -67,7 +67,7 @@ class TestPublicGroupPostCommentsViews:
             comments=[], skip=0, limit=20, total=0
         )
 
-        response = client.get(f"/author/groups/{group_id}/posts/{post_id}/comments")
+        response = client.get(f"/groups/author/posts/{post_id}/comments")
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["total"] == 0
@@ -87,7 +87,7 @@ class TestCreatePostCommentView:
         mock_service.return_value = _comment_dto(post_id=post_id)
 
         response = client.post(
-            f"/author/groups/{group_id}/posts/{post_id}/comments",
+            f"/groups/author/posts/{post_id}/comments",
             headers=AUTH_HEADERS,
             json={"text": "Great post!"},
         )
@@ -96,7 +96,6 @@ class TestCreatePostCommentView:
         assert response.json()["text"] == "Great post!"
         mock_validate.assert_called_once_with(token="test-token")
         mock_service.assert_called_once_with(
-            group_id=group_id,
             post_id=post_id,
             author_email="author@example.com",
             text="Great post!",
@@ -117,7 +116,7 @@ class TestCreatePostCommentView:
         )
 
         response = client.post(
-            f"/author/groups/{group_id}/posts/{post_id}/comments",
+            f"/groups/author/posts/{post_id}/comments",
             headers=AUTH_HEADERS,
             json={
                 "text": "Nested reply",
@@ -128,7 +127,6 @@ class TestCreatePostCommentView:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.json()["parent_comment_id"] == str(parent_comment_id)
         mock_service.assert_called_once_with(
-            group_id=group_id,
             post_id=post_id,
             author_email="author@example.com",
             text="Nested reply",
@@ -139,7 +137,7 @@ class TestCreatePostCommentView:
         client = get_client()
 
         response = client.post(
-            f"/author/groups/{uuid4()}/posts/{uuid4()}/comments",
+            f"/groups/author/posts/{uuid4()}/comments",
             json={"text": "Great post!"},
         )
 
@@ -151,7 +149,7 @@ class TestCreatePostCommentView:
         client = get_client()
 
         response = client.post(
-            f"/author/groups/{uuid4()}/posts/{uuid4()}/comments",
+            f"/groups/author/posts/{uuid4()}/comments",
             headers=AUTH_HEADERS,
             json={"text": "   "},
         )
@@ -169,7 +167,7 @@ class TestCreatePostCommentView:
         )
 
         response = client.post(
-            f"/author/groups/{uuid4()}/posts/{uuid4()}/comments",
+            f"/groups/author/posts/{uuid4()}/comments",
             headers=AUTH_HEADERS,
             json={"text": "Great post!"},
         )
@@ -192,14 +190,12 @@ class TestDeletePostCommentView:
         mock_service.return_value = None
 
         response = client.delete(
-            f"/author/groups/{group_id}/posts/{post_id}/comments/{comment_id}",
+            f"/groups/author/comments/{comment_id}",
             headers=AUTH_HEADERS,
         )
 
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_service.assert_called_once_with(
-            group_id=group_id,
-            post_id=post_id,
             comment_id=comment_id,
             user_id=author.id,
         )
@@ -208,7 +204,7 @@ class TestDeletePostCommentView:
         client = get_client()
 
         response = client.delete(
-            f"/author/groups/{uuid4()}/posts/{uuid4()}/comments/{uuid4()}"
+            f"/groups/author/comments/{uuid4()}"
         )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -224,7 +220,7 @@ class TestDeletePostCommentView:
         )
 
         response = client.delete(
-            f"/author/groups/{uuid4()}/posts/{uuid4()}/comments/{uuid4()}",
+            f"/groups/author/comments/{uuid4()}",
             headers=AUTH_HEADERS,
         )
 

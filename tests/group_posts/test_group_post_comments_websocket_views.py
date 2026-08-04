@@ -99,9 +99,6 @@ def _websocket_env(
         )
         if validation_error is not None:
             mock_group_check.side_effect = validation_error
-        stack.enter_context(
-            patch("pecha_api.group_posts.comment_service._validate_post_published")
-        )
         mock_create = stack.enter_context(
             patch("pecha_api.group_posts.comment_views.create_post_comment_service")
         )
