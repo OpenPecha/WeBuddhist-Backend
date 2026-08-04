@@ -25,24 +25,13 @@ from pecha_api.group_posts.like_response_models import (
     PostLikersResponse,
 )
 from pecha_api.group_posts.repository import get_post_by_id_only
+from pecha_api.group_posts.service_utils import (
+    isoformat,
+    validate_group_is_public,
+    resolve_user_id,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def _isoformat(value) -> Optional[str]:
-    if value is None:
-        return None
-    return value.isoformat() if hasattr(value, "isoformat") else str(value)
-
-
-def _validate_group_is_public(db: Session, group_id: UUID) -> None:
-    """Validate that group exists and is public."""
-    group = get_group_by_id(db=db, group_id=group_id)
-    if not group or not group.is_public:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=NOT_FOUND,
-        )
 
 
 def _get_and_validate_post(db: Session, post_id: UUID) -> tuple:
@@ -56,17 +45,6 @@ def _get_and_validate_post(db: Session, post_id: UUID) -> tuple:
     return post, post.group_id
 
 
-def _resolve_user_id(db: Session, author_email: str) -> UUID:
-    """Resolve user ID from author email."""
-    user = db.query(Users).filter(Users.email == author_email).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"User account not found: {author_email}",
-        )
-    return user.id
-
-
 def like_post_service(
     post_id: UUID,
     author_email: str,
@@ -74,9 +52,9 @@ def like_post_service(
     """Like a post. Idempotent - returns 200 if already liked."""
     with SessionLocal() as db:
         post, group_id = _get_and_validate_post(db, post_id)
-        _validate_group_is_public(db, group_id)
+        validate_group_is_public(db, group_id)
 
-        user_id = _resolve_user_id(db, author_email)
+        user_id = resolve_user_id(db, author_email)
 
         like = GroupPostLike(
             post_id=post_id,
@@ -91,7 +69,7 @@ def like_post_service(
             user_id=user_id,
             liked=True,
             like_count=like_count,
-            created_at=_isoformat(created_like.created_at),
+            created_at=isoformat(created_like.created_at),
         )
 
 
@@ -102,9 +80,9 @@ def unlike_post_service(
     """Unlike a post. Idempotent - succeeds even if not liked."""
     with SessionLocal() as db:
         post, group_id = _get_and_validate_post(db, post_id)
-        _validate_group_is_public(db, group_id)
+        validate_group_is_public(db, group_id)
 
-        user_id = _resolve_user_id(db, author_email)
+        user_id = resolve_user_id(db, author_email)
 
         delete_like(db=db, post_id=post_id, user_id=user_id)
 
@@ -117,7 +95,7 @@ def list_post_likers_service(
     """Public list of users who liked a post."""
     with SessionLocal() as db:
         post, group_id = _get_and_validate_post(db, post_id)
-        _validate_group_is_public(db, group_id)
+        validate_group_is_public(db, group_id)
 
         likes, total = get_post_likers(
             db=db,
@@ -131,7 +109,7 @@ def list_post_likers_service(
                 PostLikerDTO(
                     user_id=like.user_id,
                     user_email=like.user.email if like.user else "unknown@example.com",
-                    created_at=_isoformat(like.created_at),
+                    created_at=isoformat(like.created_at),
                 )
                 for like in likes
             ],
