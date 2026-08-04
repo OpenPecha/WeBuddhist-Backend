@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Dict, List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -59,8 +59,19 @@ def _enum_value(value) -> str:
     return value.value if hasattr(value, "value") else str(value)
 
 
-def build_post_dto(post: GroupPost) -> GroupPostDTO:
-    """Build a post DTO with presigned media URLs and ordered media/links."""
+def _author_display_name(author) -> str:
+    return f"{author.first_name} {author.last_name}".strip()
+
+
+def build_post_dto(
+    post: GroupPost,
+    *,
+    creator_name: Optional[str] = None,
+    creator_image_url: Optional[str] = None,
+    like_count: int = 0,
+    comment_count: int = 0,
+) -> GroupPostDTO:
+    """Build a post DTO with presigned media URLs, creator, and engagement counts."""
     media_dto = [
         GroupPostMediaDTO(
             id=media.id,
@@ -92,9 +103,52 @@ def build_post_dto(post: GroupPost) -> GroupPostDTO:
         published_at=_isoformat(post.published_at),
         media=media_dto,
         links=links_dto,
+        creator_name=creator_name,
+        creator_image_url=creator_image_url,
+        like_count=like_count,
+        comment_count=comment_count,
         created_at=_isoformat(post.created_at),
         updated_at=_isoformat(post.updated_at),
     )
+
+
+def build_post_dtos(db: Session, posts: List[GroupPost]) -> List[GroupPostDTO]:
+    """Build post DTOs with creator profiles and like/comment counts batched."""
+    if not posts:
+        return []
+
+    # Lazy imports avoid pulling author/like/comment mappers during module import
+    # (unit tests instantiate GroupPostMedia without the full model graph).
+    from pecha_api.plans.authors.plan_authors_repository import get_authors_by_emails
+    from pecha_api.group_posts.comment_repository import get_comment_counts_by_post_ids
+    from pecha_api.group_posts.like_repository import get_like_counts_by_post_ids
+
+    post_ids = [post.id for post in posts]
+    emails = list({post.created_by for post in posts if post.created_by})
+    authors_by_email: Dict[str, object] = {
+        author.email: author
+        for author in get_authors_by_emails(db=db, emails=emails)
+    }
+    like_counts = get_like_counts_by_post_ids(db=db, post_ids=post_ids)
+    comment_counts = get_comment_counts_by_post_ids(db=db, post_ids=post_ids)
+
+    dtos: List[GroupPostDTO] = []
+    for post in posts:
+        author = authors_by_email.get(post.created_by)
+        creator_name = _author_display_name(author) if author else None
+        creator_image_url = (
+            _generate_presigned_url(author.image_url) if author else None
+        )
+        dtos.append(
+            build_post_dto(
+                post,
+                creator_name=creator_name,
+                creator_image_url=creator_image_url,
+                like_count=like_counts.get(post.id, 0),
+                comment_count=comment_counts.get(post.id, 0),
+            )
+        )
+    return dtos
 
 
 def list_group_posts_service(
@@ -115,7 +169,7 @@ def list_group_posts_service(
         )
 
         return GroupPostsResponse(
-            posts=[build_post_dto(post) for post in posts],
+            posts=build_post_dtos(db, posts),
             skip=skip,
             limit=limit,
             total=total,
@@ -143,4 +197,4 @@ def get_group_post_detail_service(
                 detail=NOT_FOUND,
             )
 
-        return build_post_dto(post)
+        return build_post_dtos(db, [post])[0]

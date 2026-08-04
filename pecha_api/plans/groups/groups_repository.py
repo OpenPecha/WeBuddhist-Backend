@@ -247,6 +247,21 @@ def get_groups_by_ids(db: Session, group_ids: Sequence[UUID]) -> List[AuthorGrou
     )
 
 
+def get_public_group_ids(
+    db: Session,
+    *,
+    exclude_group_ids: Optional[Sequence[UUID]] = None,
+) -> List[UUID]:
+    """Return IDs of non-deleted public author groups, optionally excluding some."""
+    query = db.query(AuthorGroup.id).filter(
+        AuthorGroup.deleted_at.is_(None),
+        AuthorGroup.is_public.is_(True),
+    )
+    if exclude_group_ids:
+        query = query.filter(AuthorGroup.id.not_in(exclude_group_ids))
+    return [row[0] for row in query.all()]
+
+
 def get_group_member(
     db: Session,
     group_id: UUID,

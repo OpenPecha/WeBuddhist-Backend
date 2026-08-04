@@ -125,12 +125,22 @@ class TestIsoformat:
 class TestListGroupPostsService:
     """Test cases for the public feed."""
 
+    @patch('pecha_api.group_posts.comment_repository.get_comment_counts_by_post_ids')
+    @patch('pecha_api.group_posts.like_repository.get_like_counts_by_post_ids')
+    @patch('pecha_api.plans.authors.plan_authors_repository.get_authors_by_emails')
     @patch('pecha_api.group_posts.service._generate_presigned_url')
     @patch('pecha_api.group_posts.service.get_group_posts')
     @patch('pecha_api.group_posts.service.get_group_by_id')
     @patch('pecha_api.group_posts.service.SessionLocal')
     def test_list_success_only_published(
-        self, mock_session, mock_get_group, mock_get_posts, mock_presign
+        self,
+        mock_session,
+        mock_get_group,
+        mock_get_posts,
+        mock_presign,
+        mock_get_authors,
+        mock_like_counts,
+        mock_comment_counts,
     ):
         group_id = uuid4()
         mock_db = MagicMock()
@@ -146,6 +156,15 @@ class TestListGroupPostsService:
         post = MockGroupPost(group_id=group_id, media=media, links=links)
         mock_get_posts.return_value = ([post], 1)
 
+        author = MagicMock()
+        author.email = "author@example.com"
+        author.first_name = "Tenzin"
+        author.last_name = "Gyatsu"
+        author.image_url = "authors/tenzin.webp"
+        mock_get_authors.return_value = [author]
+        mock_like_counts.return_value = {post.id: 3}
+        mock_comment_counts.return_value = {post.id: 5}
+
         result = list_group_posts_service(group_id=group_id, skip=0, limit=20)
 
         assert isinstance(result, GroupPostsResponse)
@@ -159,6 +178,10 @@ class TestListGroupPostsService:
         assert dto.media[0].url == "https://presigned/a.webp"
         assert dto.media[0].width == 1080
         assert dto.links[0].label == "Full guide"
+        assert dto.creator_name == "Tenzin Gyatsu"
+        assert dto.creator_image_url == "https://presigned/authors/tenzin.webp"
+        assert dto.like_count == 3
+        assert dto.comment_count == 5
 
         _, kwargs = mock_get_posts.call_args
         assert kwargs["status"] == GroupPostStatus.PUBLISHED
@@ -186,10 +209,21 @@ class TestListGroupPostsService:
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
+    @patch('pecha_api.group_posts.comment_repository.get_comment_counts_by_post_ids')
+    @patch('pecha_api.group_posts.like_repository.get_like_counts_by_post_ids')
+    @patch('pecha_api.plans.authors.plan_authors_repository.get_authors_by_emails')
     @patch('pecha_api.group_posts.service.get_group_posts')
     @patch('pecha_api.group_posts.service.get_group_by_id')
     @patch('pecha_api.group_posts.service.SessionLocal')
-    def test_list_empty(self, mock_session, mock_get_group, mock_get_posts):
+    def test_list_empty(
+        self,
+        mock_session,
+        mock_get_group,
+        mock_get_posts,
+        mock_get_authors,
+        mock_like_counts,
+        mock_comment_counts,
+    ):
         group_id = uuid4()
         mock_session.return_value.__enter__.return_value = MagicMock()
         mock_get_group.return_value = MockGroup(id=group_id)
@@ -199,20 +233,38 @@ class TestListGroupPostsService:
 
         assert result.posts == []
         assert result.total == 0
+        mock_get_authors.assert_not_called()
+        mock_like_counts.assert_not_called()
+        mock_comment_counts.assert_not_called()
 
 
 class TestGetGroupPostDetailService:
     """Test cases for the public post detail."""
 
+    @patch('pecha_api.group_posts.comment_repository.get_comment_counts_by_post_ids')
+    @patch('pecha_api.group_posts.like_repository.get_like_counts_by_post_ids')
+    @patch('pecha_api.plans.authors.plan_authors_repository.get_authors_by_emails')
     @patch('pecha_api.group_posts.service._generate_presigned_url')
     @patch('pecha_api.group_posts.service.get_post_by_id')
     @patch('pecha_api.group_posts.service.get_group_by_id')
     @patch('pecha_api.group_posts.service.SessionLocal')
-    def test_detail_success(self, mock_session, mock_get_group, mock_get_post, mock_presign):
+    def test_detail_success(
+        self,
+        mock_session,
+        mock_get_group,
+        mock_get_post,
+        mock_presign,
+        mock_get_authors,
+        mock_like_counts,
+        mock_comment_counts,
+    ):
         group_id = uuid4()
         mock_session.return_value.__enter__.return_value = MagicMock()
         mock_get_group.return_value = MockGroup(id=group_id)
         mock_presign.return_value = None
+        mock_get_authors.return_value = []
+        mock_like_counts.return_value = {}
+        mock_comment_counts.return_value = {}
 
         post = MockGroupPost(group_id=group_id)
         mock_get_post.return_value = post
@@ -222,6 +274,8 @@ class TestGetGroupPostDetailService:
         assert isinstance(result, GroupPostDTO)
         assert result.id == post.id
         assert result.group_id == group_id
+        assert result.like_count == 0
+        assert result.comment_count == 0
 
     @patch('pecha_api.group_posts.service.get_post_by_id')
     @patch('pecha_api.group_posts.service.get_group_by_id')

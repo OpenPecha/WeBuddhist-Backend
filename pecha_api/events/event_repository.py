@@ -151,7 +151,11 @@ def get_events(
     restrict_group_ids: Optional[List[UUID]] = None,
     skip: int = 0,
     limit: int = 20,
+    newest_first: bool = False,
 ) -> Tuple[List[Event], int]:
+    if restrict_group_ids is not None and not restrict_group_ids:
+        return [], 0
+
     count_query = _apply_event_filters(
         db.query(func.count(Event.id)),
         group_id=group_id,
@@ -182,8 +186,13 @@ def get_events(
         to_date=to_date,
         restrict_group_ids=restrict_group_ids,
     )
+    order_by = (
+        (Event.created_at.desc(), Event.id.desc())
+        if newest_first
+        else (Event.start_date.asc(),)
+    )
     events = (
-        events_query.order_by(Event.start_date.asc())
+        events_query.order_by(*order_by)
         .offset(skip)
         .limit(limit)
         .all()

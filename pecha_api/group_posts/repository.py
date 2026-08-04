@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 from uuid import UUID
 
 from sqlalchemy.orm import Session, selectinload
@@ -16,8 +16,28 @@ def get_group_posts(
     status: Optional[GroupPostStatus] = None,
 ) -> Tuple[List[GroupPost], int]:
     """Get paginated posts for a group, newest first, excluding soft-deleted."""
+    return get_posts_for_group_ids(
+        db=db,
+        group_ids=[group_id],
+        skip=skip,
+        limit=limit,
+        status=status,
+    )
+
+
+def get_posts_for_group_ids(
+    db: Session,
+    group_ids: Sequence[UUID],
+    skip: int = 0,
+    limit: int = 20,
+    status: Optional[GroupPostStatus] = None,
+) -> Tuple[List[GroupPost], int]:
+    """Get paginated published posts across groups, newest first."""
+    if not group_ids:
+        return [], 0
+
     query = db.query(GroupPost).filter(
-        GroupPost.group_id == group_id,
+        GroupPost.group_id.in_(group_ids),
         GroupPost.deleted_at.is_(None),
     )
     if status is not None:

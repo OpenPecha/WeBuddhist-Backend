@@ -29,7 +29,7 @@ class GroupPostLinkDTO(BaseModel):
 
 
 class GroupPostDTO(BaseModel):
-    """DTO for a single post with media and links."""
+    """DTO for a single post with media, creator, and engagement counts."""
     id: UUID
     group_id: UUID
     caption: Optional[str] = None
@@ -37,6 +37,10 @@ class GroupPostDTO(BaseModel):
     published_at: str
     media: List[GroupPostMediaDTO]
     links: List[GroupPostLinkDTO]
+    creator_name: Optional[str] = None
+    creator_image_url: Optional[str] = None
+    like_count: int = 0
+    comment_count: int = 0
     created_at: str
     updated_at: Optional[str] = None
 
