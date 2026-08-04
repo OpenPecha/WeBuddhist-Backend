@@ -29,11 +29,12 @@ class FakePubSub:
     AsyncMock cannot express.
     """
 
-    def __init__(self, messages=None, listen_error=None, unsubscribe_error=None):
+    def __init__(self, messages=None, listen_error=None, unsubscribe_error=None, keep_alive=False):
         self.messages = messages or []
         self.listen_error = listen_error
         self.unsubscribe_error = unsubscribe_error
         self.unsubscribed = []
+        self.keep_alive = keep_alive
 
     def listen(self):
         return self._listen()
@@ -43,6 +44,10 @@ class FakePubSub:
             raise self.listen_error
         for message in self.messages:
             yield message
+        # If keep_alive is True, wait indefinitely to keep the connection open
+        if self.keep_alive:
+            import asyncio
+            await asyncio.Event().wait()
 
     async def unsubscribe(self, channel):
         self.unsubscribed.append(channel)
@@ -159,7 +164,7 @@ class TestWebSocketPostCommentsConnection:
         group_id = uuid4()
         post_id = uuid4()
         author = MockAuthor()
-        pubsub = FakePubSub()
+        pubsub = FakePubSub(keep_alive=True)
 
         with _websocket_env(author=author, pubsub=pubsub) as (broadcaster, _):
             # Connection will be accepted, then immediately closed when context exits
@@ -175,7 +180,7 @@ class TestWebSocketPostCommentsConnection:
         assert pubsub.unsubscribed == [f"post:{post_id}:comments"]
 
     def test_unsubscribe_failure_is_swallowed(self):
-        pubsub = FakePubSub(unsubscribe_error=RuntimeError("redis gone"))
+        pubsub = FakePubSub(unsubscribe_error=RuntimeError("redis gone"), keep_alive=True)
 
         with _websocket_env(pubsub=pubsub):
             with pytest.raises(WebSocketDisconnect):
@@ -194,7 +199,8 @@ class TestWebSocketPostCommentsRedisStream:
             messages=[
                 {"type": "subscribe", "data": 1},
                 {"type": "message", "data": payload},
-            ]
+            ],
+            keep_alive=True
         )
 
         with _websocket_env(pubsub=pubsub):
@@ -203,7 +209,8 @@ class TestWebSocketPostCommentsRedisStream:
                 assert received == payload
 
     def test_redis_listen_failure_does_not_break_connection(self):
-        pubsub = FakePubSub(listen_error=RuntimeError("pubsub exploded"))
+        # When listen fails, the background task stops but the main loop should continue
+        pubsub = FakePubSub(listen_error=RuntimeError("pubsub exploded"), keep_alive=True)
 
         with _websocket_env(pubsub=pubsub) as (_, mock_create):
             with client.websocket_connect(_ws_url(uuid4(), uuid4())) as websocket:
@@ -217,7 +224,7 @@ class TestWebSocketPostCommentsRedisStream:
 class TestWebSocketPostCommentsMessages:
 
     def test_rejects_unsupported_message_type(self):
-        with _websocket_env() as (_, mock_create):
+        with _websocket_env(pubsub=FakePubSub(keep_alive=True)) as (_, mock_create):
             with client.websocket_connect(_ws_url(uuid4(), uuid4())) as websocket:
                 websocket.send_json({"type": "reaction", "text": "hi"})
                 message = websocket.receive_json()
@@ -232,7 +239,7 @@ class TestWebSocketPostCommentsMessages:
         author = MockAuthor()
         dto = _comment_dto(post_id)
 
-        with _websocket_env(author=author) as (broadcaster, mock_create):
+        with _websocket_env(author=author, pubsub=FakePubSub(keep_alive=True)) as (broadcaster, mock_create):
             mock_create.return_value = dto
             with client.websocket_connect(_ws_url(group_id, post_id)) as websocket:
                 websocket.send_json({"type": "comment", "text": "Great post!"})
@@ -255,7 +262,7 @@ class TestWebSocketPostCommentsMessages:
         author = MockAuthor()
         dto = _comment_dto(post_id, parent_comment_id=parent_comment_id)
 
-        with _websocket_env(author=author) as (broadcaster, mock_create):
+        with _websocket_env(author=author, pubsub=FakePubSub(keep_alive=True)) as (broadcaster, mock_create):
             mock_create.return_value = dto
             with client.websocket_connect(_ws_url(group_id, post_id)) as websocket:
                 websocket.send_json({
@@ -276,7 +283,7 @@ class TestWebSocketPostCommentsMessages:
         broadcaster.broadcast_comment.assert_awaited_once_with(post_id, dto)
 
     def test_reports_comment_creation_failure(self):
-        with _websocket_env() as (broadcaster, mock_create):
+        with _websocket_env(pubsub=FakePubSub(keep_alive=True)) as (broadcaster, mock_create):
             mock_create.side_effect = HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="POST_NOT_FOUND"
             )
@@ -289,7 +296,7 @@ class TestWebSocketPostCommentsMessages:
         broadcaster.broadcast_comment.assert_not_awaited()
 
     def test_reports_non_string_creation_failure_detail(self):
-        with _websocket_env() as (_, mock_create):
+        with _websocket_env(pubsub=FakePubSub(keep_alive=True)) as (_, mock_create):
             mock_create.side_effect = HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail={"field": "text"},
@@ -303,7 +310,7 @@ class TestWebSocketPostCommentsMessages:
     def test_reports_broadcast_failure(self):
         post_id = uuid4()
 
-        with _websocket_env() as (broadcaster, mock_create):
+        with _websocket_env(pubsub=FakePubSub(keep_alive=True)) as (broadcaster, mock_create):
             mock_create.return_value = _comment_dto(post_id)
             broadcaster.broadcast_comment.side_effect = RuntimeError("redis publish failed")
             with client.websocket_connect(_ws_url(uuid4(), post_id)) as websocket:
