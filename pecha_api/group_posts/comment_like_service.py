@@ -78,6 +78,7 @@ def like_comment_service(
             liked=True,
             like_count=like_count,
             created_at=isoformat(created_like.created_at),
+            is_new=is_new,
         )
 
 

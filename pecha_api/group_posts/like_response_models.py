@@ -11,6 +11,7 @@ class LikePostResponse(BaseModel):
     liked: bool
     like_count: int
     created_at: str
+    is_new: bool
 
 
 class PostLikerDTO(BaseModel):

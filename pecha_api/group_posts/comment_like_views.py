@@ -26,24 +26,21 @@ public_group_post_comment_likes_router = APIRouter(
 
 @public_group_post_comment_likes_router.post(
     "",
-    status_code=status.HTTP_201_CREATED,
     response_model=LikeCommentResponse,
 )
 def like_comment(
     comment_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    response: Response,
 ):
-    """Like a comment (requires authentication). Idempotent - returns 200 if already liked."""
+    """Like a comment (requires authentication). Returns 201 if newly created, 200 if already liked."""
     author = validate_and_extract_author_details(token=authentication_credential.credentials)
     result = like_comment_service(
         comment_id=comment_id,
         author_email=author.email,
     )
-    return Response(
-        content=result.model_dump_json(),
-        media_type="application/json",
-        status_code=status.HTTP_201_CREATED,
-    )
+    response.status_code = status.HTTP_201_CREATED if result.is_new else status.HTTP_200_OK
+    return result
 
 
 @public_group_post_comment_likes_router.delete(
