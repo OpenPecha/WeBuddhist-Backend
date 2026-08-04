@@ -104,7 +104,7 @@ def list_comment_likers_service(
     """Public list of users who liked a comment."""
     with SessionLocal() as db:
         comment, post, group_id = _get_and_validate_comment(db, comment_id)
-        _validate_group_is_public(db, group_id)
+        validate_group_is_public(db, group_id)
 
         likes, total = get_comment_likers(
             db=db,
@@ -118,7 +118,7 @@ def list_comment_likers_service(
                 CommentLikerDTO(
                     user_id=like.user_id,
                     user_email=like.user.email if like.user else "unknown@example.com",
-                    created_at=_isoformat(like.created_at),
+                    created_at=isoformat(like.created_at),
                 )
                 for like in likes
             ],
