@@ -25,7 +25,6 @@ from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.author_group_feed.response_models import (
     AuthorGroupFeedItemDTO,
     AuthorGroupFeedItemType,
-    AuthorGroupFeedRequest,
     AuthorGroupFeedResponse,
 )
 
@@ -115,7 +114,7 @@ def _build_group_card_map(
 
 def get_author_group_feed_service(
     token: str,
-    request: Optional[AuthorGroupFeedRequest] = None,
+    include_unfollowed: bool = False,
     skip: int = 0,
     limit: int = 20,
     language: Optional[str] = None,
@@ -125,8 +124,6 @@ def get_author_group_feed_service(
     Default: only groups the user follows.
     With include_unfollowed=True: mix in content from other public groups.
     """
-    request = request or AuthorGroupFeedRequest()
-    include_unfollowed = request.include_unfollowed
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:

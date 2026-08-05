@@ -13,15 +13,6 @@ class AuthorGroupFeedItemType(str, Enum):
     EVENT = "event"
 
 
-class AuthorGroupFeedRequest(BaseModel):
-    """Optional body to control feed scope.
-
-    My tab: include_unfollowed=false (followed groups only).
-    Discover tab: include_unfollowed=true (mix in other public groups).
-    """
-    include_unfollowed: bool = False
-
-
 class AuthorGroupFeedItemDTO(BaseModel):
     type: AuthorGroupFeedItemType
     feed_at: str

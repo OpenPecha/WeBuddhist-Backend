@@ -4,7 +4,6 @@ from uuid import uuid4
 
 from pecha_api.author_group_feed.response_models import (
     AuthorGroupFeedItemType,
-    AuthorGroupFeedRequest,
 )
 from pecha_api.author_group_feed.service import get_author_group_feed_service
 from pecha_api.events.event_response_models import EventDTO
@@ -140,7 +139,7 @@ class TestGetAuthorGroupFeedService:
 
         result = get_author_group_feed_service(
             token="token",
-            request=AuthorGroupFeedRequest(include_unfollowed=False),
+            include_unfollowed=False,
             skip=0,
             limit=20,
         )
@@ -207,7 +206,7 @@ class TestGetAuthorGroupFeedService:
 
         result = get_author_group_feed_service(
             token="token",
-            request=AuthorGroupFeedRequest(include_unfollowed=True),
+            include_unfollowed=True,
         )
 
         assert result.include_unfollowed is True
