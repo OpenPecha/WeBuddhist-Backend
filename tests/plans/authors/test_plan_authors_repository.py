@@ -20,6 +20,9 @@ from pecha_api.plans.authors.plan_authors_repository import (
     save_author,
     get_author_by_email,
     get_author_by_id,
+    get_author_by_phone,
+    link_author_phone,
+    save_phone_author,
     update_author,
     check_author_exists,
 )
@@ -149,4 +152,39 @@ def test_check_author_exists_no_exception_when_author_not_exists():
     # Should not raise
     result = check_author_exists(db=db, email="new@example.com")
     assert result is None
+
+
+def test_get_author_by_phone_returns_optional_author():
+    db = _make_session_mock()
+    expected = MagicMock()
+    db.query.return_value.options.return_value.filter.return_value.first.return_value = expected
+
+    result = get_author_by_phone(db, "+14155552671")
+
+    assert result is expected
+    db.query.return_value.options.return_value.filter.assert_called_once()
+
+
+def test_save_phone_author_commits_author():
+    db = _make_session_mock()
+    author = MagicMock(name="PhoneAuthor")
+
+    assert save_phone_author(db, author) is author
+
+    db.add.assert_called_once_with(author)
+    db.commit.assert_called_once()
+    db.refresh.assert_called_once_with(author)
+
+
+def test_link_author_phone_conflict_rolls_back_and_returns_409():
+    db = _make_session_mock()
+    db.commit.side_effect = IntegrityError(None, None, Exception("duplicate phone"))
+    author = MagicMock()
+
+    with pytest.raises(HTTPException) as exc:
+        link_author_phone(db, author, "+14155552671")
+
+    assert exc.value.status_code == status.HTTP_409_CONFLICT
+    assert author.phone_number == "+14155552671"
+    db.rollback.assert_called_once()
 

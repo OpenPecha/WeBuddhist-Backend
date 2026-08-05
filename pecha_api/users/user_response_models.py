@@ -25,7 +25,7 @@ class UserInfoResponse(BaseModel):
     firstname: str
     lastname: str
     username: str
-    email: str
+    email: Optional[str] = None
     title: Optional[str] = None
     organization: Optional[str] = None
     location: Optional[str] = None

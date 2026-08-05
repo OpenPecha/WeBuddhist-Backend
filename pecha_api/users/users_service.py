@@ -1,7 +1,8 @@
 import logging
 import random
 import string
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 import jose
 from fastapi import HTTPException, status, UploadFile
@@ -23,7 +24,14 @@ from .user_response_models import (
 from .users_enums import SocialProfile
 from .users_models import Users, SocialMediaAccount
 from ..auth.auth_repository import validate_token
-from .users_repository import get_user_by_email, update_user, get_user_by_username, find_user_by_username, delete_user
+from .users_repository import (
+    delete_user,
+    find_user_by_username,
+    get_user_by_email,
+    get_user_by_id,
+    get_user_by_username,
+    update_user,
+)
 from ..uploads.S3_utils import delete_file, upload_bytes, generate_presigned_access_url
 from ..db.database import SessionLocal
 from ..config import get
@@ -144,15 +152,29 @@ def upload_user_image(token: str, file: UploadFile) -> str:
         return presigned_url
 
 
+def resolve_user_from_token_payload(db, payload: Dict[str, Any]) -> Users:
+    subject = payload.get("sub")
+    if subject is not None:
+        try:
+            return get_user_by_id(db=db, user_id=UUID(str(subject)))
+        except (TypeError, ValueError):
+            pass
+
+    email = payload.get("email")
+    if isinstance(email, str) and email:
+        return get_user_by_email(db=db, email=email)
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
+    )
+
+
 def validate_and_extract_user_details(token: str) -> Users:
     try:
         payload = validate_token(token)
-        email = payload.get("email")
-        if email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorConstants.TOKEN_ERROR_MESSAGE)
         with SessionLocal() as db_session:
             try:
-                user = get_user_by_email(db=db_session, email=email)
+                user = resolve_user_from_token_payload(db_session, payload)
             except HTTPException as exception:
                 if exception.status_code == status.HTTP_404_NOT_FOUND:
                     raise HTTPException(

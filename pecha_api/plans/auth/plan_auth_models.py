@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pecha_api.plans.auth.plan_auth_enums import AuthorStatus
 
@@ -34,6 +35,31 @@ class AuthorInfo(BaseModel):
 class AuthorLoginResponse(BaseModel):
     user: AuthorInfo
     auth: TokenResponse
+
+
+class PhoneExchangeRequest(BaseModel):
+    auth0_token: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
+class PhoneExchangeResponse(BaseModel):
+    author_id: UUID
+    phone_number: str
+    status: AuthorStatus
+    message: str
+    user: AuthorInfo
+    auth: Optional[TokenResponse] = None
+
+
+class PhoneLinkRequest(BaseModel):
+    auth0_token: str
+
+
+class PhoneLinkResponse(BaseModel):
+    author_id: UUID
+    phone_number: str
+    message: str
 
 class AuthorLoginRequest(BaseModel):
     email: str

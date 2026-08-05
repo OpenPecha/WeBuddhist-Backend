@@ -202,15 +202,30 @@ def _get_author_social_profile(author: Author) -> List[SocialMediaProfile]:
 def validate_and_extract_author_details(token: str) -> Author:
     try:
         payload = validate_token(token)
-        email = payload.get("email")
-        if email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorConstants.TOKEN_ERROR_MESSAGE)
         with SessionLocal() as db_session:
-            author = get_author_by_email(db=db_session, email=email)
+            subject = payload.get("sub")
+            email = payload.get("email")
+            try:
+                author_id = UUID(str(subject)) if subject is not None else None
+            except (TypeError, ValueError):
+                author_id = None
+            if author_id is not None:
+                author = get_author_by_id(db=db_session, author_id=author_id)
+            else:
+                if not isinstance(email, str) or not email:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
+                    )
+                author = get_author_by_email(db=db_session, email=email)
             if author is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail=f"User not found: {email} does not exist in the system"
+                    detail=(
+                        f"User not found: {email} does not exist in the system"
+                        if email
+                        else ErrorConstants.TOKEN_ERROR_MESSAGE
+                    ),
                 )
             return author
     except ExpiredSignatureError as exception:
