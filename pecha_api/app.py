@@ -50,6 +50,8 @@ from pecha_api.group_posts import views as group_posts_views
 from pecha_api.group_posts import cms_views as cms_group_posts_views
 from pecha_api.group_posts import comment_views as group_post_comments_views
 from pecha_api.group_posts import viewer as group_posts_viewer
+from pecha_api.group_posts import like_views as group_post_like_views
+from pecha_api.group_posts import comment_like_views as group_post_comment_like_views
 from pecha_api.chat import views as chat_views
 from pecha_api.chat import viewer as chat_viewer_views
 from pecha_api.chat import internal_views as chat_notification_internal_views
@@ -147,9 +149,13 @@ api.include_router(recitation_collection_views.recitation_collection_router)
 api.include_router(group_recitation_collection_views.public_group_recitation_collection_router)
 api.include_router(cms_group_recitation_collection_views.cms_group_recitation_collection_router)
 api.include_router(user_chant_completion_views.user_chant_completion_router)
-api.include_router(group_posts_views.public_group_posts_router)
+api.include_router(group_posts_views.public_group_posts_list_router)
+api.include_router(group_posts_views.public_group_posts_detail_router)
 api.include_router(cms_group_posts_views.cms_group_posts_router)
 api.include_router(group_post_comments_views.public_group_post_comments_router)
+api.include_router(group_post_comments_views.public_group_post_comment_actions_router)
+api.include_router(group_post_like_views.public_group_post_likes_router)
+api.include_router(group_post_comment_like_views.public_group_post_comment_likes_router)
 api.include_router(chat_views.chat_router)
 api.include_router(chat_viewer_views.chat_viewer_router)
 api.include_router(chat_notification_internal_views.internal_chat_notifications_router)

@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -14,12 +14,18 @@ from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 from pecha_api.group_posts.enums import GroupPostStatus
 from pecha_api.group_posts.models import GroupPost
-from pecha_api.group_posts.repository import get_group_posts, get_post_by_id
+from pecha_api.group_posts.repository import get_group_posts, get_post_by_id, get_post_by_id_only
 from pecha_api.group_posts.response_models import (
     GroupPostDTO,
     GroupPostLinkDTO,
     GroupPostMediaDTO,
     GroupPostsResponse,
+)
+from pecha_api.group_posts.like_repository import (
+    batch_count_post_likes,
+    batch_check_posts_liked_by_user,
+    count_post_likes,
+    like_exists,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,7 +65,11 @@ def _enum_value(value) -> str:
     return value.value if hasattr(value, "value") else str(value)
 
 
-def build_post_dto(post: GroupPost) -> GroupPostDTO:
+def build_post_dto(
+    post: GroupPost,
+    like_count: int = 0,
+    liked_by_me: bool = False,
+) -> GroupPostDTO:
     """Build a post DTO with presigned media URLs and ordered media/links."""
     media_dto = [
         GroupPostMediaDTO(
@@ -94,6 +104,8 @@ def build_post_dto(post: GroupPost) -> GroupPostDTO:
         links=links_dto,
         created_at=_isoformat(post.created_at),
         updated_at=_isoformat(post.updated_at),
+        like_count=like_count,
+        liked_by_me=liked_by_me,
     )
 
 
@@ -101,6 +113,7 @@ def list_group_posts_service(
     group_id: UUID,
     skip: int = 0,
     limit: int = 20,
+    user_id: Optional[UUID] = None,
 ) -> GroupPostsResponse:
     """Public chronological feed of published posts for a public group."""
     with SessionLocal() as db:
@@ -114,8 +127,24 @@ def list_group_posts_service(
             status=GroupPostStatus.PUBLISHED,
         )
 
+        # Batch hydrate like counts and liked_by_me
+        post_ids = [post.id for post in posts]
+        like_counts = batch_count_post_likes(db=db, post_ids=post_ids)
+        liked_posts = (
+            batch_check_posts_liked_by_user(db=db, post_ids=post_ids, user_id=user_id)
+            if user_id
+            else set()
+        )
+
         return GroupPostsResponse(
-            posts=[build_post_dto(post) for post in posts],
+            posts=[
+                build_post_dto(
+                    post,
+                    like_count=like_counts.get(post.id, 0),
+                    liked_by_me=post.id in liked_posts,
+                )
+                for post in posts
+            ],
             skip=skip,
             limit=limit,
             total=total,
@@ -123,17 +152,14 @@ def list_group_posts_service(
 
 
 def get_group_post_detail_service(
-    group_id: UUID,
     post_id: UUID,
+    user_id: Optional[UUID] = None,
 ) -> GroupPostDTO:
     """Public post detail. HIDDEN and soft-deleted posts return 404."""
     with SessionLocal() as db:
-        _validate_group_is_public(db, group_id)
-
-        post = get_post_by_id(
+        post = get_post_by_id_only(
             db=db,
             post_id=post_id,
-            group_id=group_id,
             status=GroupPostStatus.PUBLISHED,
         )
 
@@ -143,4 +169,15 @@ def get_group_post_detail_service(
                 detail=NOT_FOUND,
             )
 
-        return build_post_dto(post)
+        # Validate group is public
+        _validate_group_is_public(db, post.group_id)
+
+        # Hydrate like count and liked_by_me
+        like_count = count_post_likes(db=db, post_id=post_id)
+        liked_by_me = (
+            like_exists(db=db, post_id=post_id, user_id=user_id)
+            if user_id
+            else False
+        )
+
+        return build_post_dto(post, like_count=like_count, liked_by_me=liked_by_me)

@@ -205,37 +205,35 @@ class TestGetGroupPostDetailService:
     """Test cases for the public post detail."""
 
     @patch('pecha_api.group_posts.service._generate_presigned_url')
-    @patch('pecha_api.group_posts.service.get_post_by_id')
-    @patch('pecha_api.group_posts.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service.like_exists', return_value=False)
+    @patch('pecha_api.group_posts.service.count_post_likes', return_value=0)
+    @patch('pecha_api.group_posts.service.get_post_by_id_only')
+    @patch('pecha_api.group_posts.service._validate_group_is_public')
     @patch('pecha_api.group_posts.service.SessionLocal')
-    def test_detail_success(self, mock_session, mock_get_group, mock_get_post, mock_presign):
+    def test_detail_success(self, mock_session, mock_validate_group, mock_get_post, mock_count_likes, mock_like_exists, mock_presign):
         group_id = uuid4()
         mock_session.return_value.__enter__.return_value = MagicMock()
-        mock_get_group.return_value = MockGroup(id=group_id)
         mock_presign.return_value = None
 
         post = MockGroupPost(group_id=group_id)
         mock_get_post.return_value = post
 
-        result = get_group_post_detail_service(group_id=group_id, post_id=post.id)
+        result = get_group_post_detail_service(post_id=post.id)
 
         assert isinstance(result, GroupPostDTO)
         assert result.id == post.id
         assert result.group_id == group_id
 
-    @patch('pecha_api.group_posts.service.get_post_by_id')
-    @patch('pecha_api.group_posts.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service.get_post_by_id_only')
     @patch('pecha_api.group_posts.service.SessionLocal')
-    def test_detail_only_queries_published(self, mock_session, mock_get_group, mock_get_post):
+    def test_detail_only_queries_published(self, mock_session, mock_get_post):
         """HIDDEN and soft-deleted posts must be invisible publicly: the lookup
         is constrained to PUBLISHED and a miss returns 404."""
-        group_id = uuid4()
         mock_session.return_value.__enter__.return_value = MagicMock()
-        mock_get_group.return_value = MockGroup(id=group_id)
         mock_get_post.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
-            get_group_post_detail_service(group_id=group_id, post_id=uuid4())
+            get_group_post_detail_service(post_id=uuid4())
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         _, kwargs = mock_get_post.call_args

@@ -54,6 +54,22 @@ def get_comment_by_id(
     )
 
 
+def get_comment_by_id_only(
+    db: Session,
+    comment_id: UUID,
+) -> Optional[GroupPostComment]:
+    """Get a single comment by ID only, excluding soft-deleted."""
+    return (
+        db.query(GroupPostComment)
+        .options(selectinload(GroupPostComment.user))
+        .filter(
+            GroupPostComment.id == comment_id,
+            GroupPostComment.deleted_at.is_(None),
+        )
+        .first()
+    )
+
+
 def create_comment(db: Session, comment: GroupPostComment) -> GroupPostComment:
     """Create a new comment."""
     db.add(comment)
