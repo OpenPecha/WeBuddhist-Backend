@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 from datetime import datetime, timezone as tz
 
@@ -64,7 +64,55 @@ class TestPublicGroupPostsViews:
         assert body["total"] == 1
         assert body["posts"][0]["caption"] == "Hello"
         assert body["posts"][0]["media"][0]["url"] == "https://presigned.example/a.webp"
-        mock_service.assert_called_once_with(group_id=group_id, skip=0, limit=10, user_id=None)
+        mock_service.assert_called_once_with(
+            group_id=group_id,
+            skip=0,
+            limit=10,
+            user_id=None,
+        )
+
+    @patch('pecha_api.group_posts.views.list_public_group_posts_service')
+    def test_list_public_group_posts_forwards_include_unfollowed(self, mock_service):
+        mock_service.return_value = GroupPostsResponse(
+            posts=[],
+            skip=0,
+            limit=20,
+            total=0,
+        )
+
+        response = client.get("/groups/author/posts?include_unfollowed=true")
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(
+            skip=0,
+            limit=20,
+            user_id=None,
+            should_include_unfollowed=True,
+        )
+
+    @patch('pecha_api.group_posts.views.validate_and_extract_user_details')
+    @patch('pecha_api.group_posts.views.list_public_group_posts_service')
+    def test_list_public_group_posts_uses_authenticated_user(
+        self,
+        mock_service,
+        mock_validate_user,
+    ):
+        user_id = uuid4()
+        mock_validate_user.return_value = MagicMock(id=user_id)
+        mock_service.return_value = GroupPostsResponse(
+            posts=[],
+            skip=0,
+            limit=20,
+            total=0,
+        )
+
+        response = client.get(
+            "/groups/author/posts",
+            headers={"Authorization": "Bearer user-token"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert mock_service.call_args.kwargs["user_id"] == user_id
 
     @patch('pecha_api.group_posts.views.list_group_posts_service')
     def test_list_group_posts_invalid_limit(self, mock_service):

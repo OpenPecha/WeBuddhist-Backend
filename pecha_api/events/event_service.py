@@ -13,6 +13,7 @@ from pecha_api.plans.authors.plan_authors_service import (
 )
 from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
 from pecha_api.plans.groups.groups_repository import get_author_group_ids
+from pecha_api.plans.groups.follow_scope import resolve_public_group_scope
 from pecha_api.group_recitation_collection.repository import get_collection_by_id
 from pecha_api.plans.shared.metadata_utils import (
     filter_by_language_with_fallback,
@@ -235,11 +236,22 @@ def get_events_service(
     language: Optional[str] = None,
     restrict_group_ids: Optional[List[UUID]] = None,
     fallback: bool = False,
+    should_include_unfollowed: bool = False,
     skip: int = 0,
     limit: int = 20,
     token: Optional[str] = None,
 ) -> EventsResponse:
     with SessionLocal() as db:
+        current_user = None
+        if token:
+            current_user = validate_and_extract_user_details(token=token)
+            if restrict_group_ids is None:
+                restrict_group_ids, _ = resolve_public_group_scope(
+                    db=db,
+                    user_id=current_user.id,
+                    should_include_unfollowed=should_include_unfollowed,
+                )
+
         events, total = get_events(
             db,
             group_id=group_id,
@@ -258,8 +270,7 @@ def get_events_service(
         counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
 
         joined_ids: set[UUID] = set()
-        if token:
-            current_user = validate_and_extract_user_details(token=token)
+        if current_user:
             joined_ids = set(
                 get_joined_event_ids_by_user(
                     db=db,
@@ -275,7 +286,7 @@ def get_events_service(
                     language=language,
                     fallback=fallback,
                     participant_count=counts_by_event.get(event.id, 0),
-                    is_joined=(event.id in joined_ids) if token else None,
+                    is_joined=(event.id in joined_ids) if current_user else None,
                 )
                 for event in events
             ],
@@ -347,6 +358,7 @@ def get_events_today_service(
     timezone: Optional[str] = None,
     group_id: Optional[UUID] = None,
     language: Optional[str] = None,
+    should_include_unfollowed: bool = False,
     skip: int = 0,
     limit: int = 20,
     token: Optional[str] = None,
@@ -358,6 +370,7 @@ def get_events_today_service(
         to_date=to_date,
         language=language,
         fallback=True,
+        should_include_unfollowed=should_include_unfollowed,
         skip=skip,
         limit=limit,
         token=token,

@@ -8,13 +8,21 @@ from starlette import status
 
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
-from pecha_api.plans.groups.groups_repository import get_group_by_id
+from pecha_api.plans.groups.follow_scope import resolve_public_group_scope
+from pecha_api.plans.groups.groups_repository import (
+    get_group_by_id,
+    get_public_group_ids,
+)
 from pecha_api.plans.response_message import NOT_FOUND
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 from pecha_api.group_posts.enums import GroupPostStatus
 from pecha_api.group_posts.models import GroupPost
-from pecha_api.group_posts.repository import get_group_posts, get_post_by_id_only
+from pecha_api.group_posts.repository import (
+    get_group_posts,
+    get_post_by_id_only,
+    get_posts_for_group_ids,
+)
 from pecha_api.group_posts.response_models import (
     GroupPostDTO,
     GroupPostLinkDTO,
@@ -184,6 +192,39 @@ def list_group_posts_service(
             status=GroupPostStatus.PUBLISHED,
         )
 
+        return GroupPostsResponse(
+            posts=build_post_dtos(db, posts, user_id=user_id),
+            skip=skip,
+            limit=limit,
+            total=total,
+        )
+
+
+def list_public_group_posts_service(
+    *,
+    skip: int = 0,
+    limit: int = 20,
+    user_id: Optional[UUID] = None,
+    should_include_unfollowed: bool = False,
+) -> GroupPostsResponse:
+    """List published posts across followed or all public groups."""
+    with SessionLocal() as db:
+        if user_id:
+            group_ids, _ = resolve_public_group_scope(
+                db=db,
+                user_id=user_id,
+                should_include_unfollowed=should_include_unfollowed,
+            )
+        else:
+            group_ids = get_public_group_ids(db=db)
+
+        posts, total = get_posts_for_group_ids(
+            db=db,
+            group_ids=group_ids,
+            skip=skip,
+            limit=limit,
+            status=GroupPostStatus.PUBLISHED,
+        )
         return GroupPostsResponse(
             posts=build_post_dtos(db, posts, user_id=user_id),
             skip=skip,

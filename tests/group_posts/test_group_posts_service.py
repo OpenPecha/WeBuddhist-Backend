@@ -12,6 +12,7 @@ from pecha_api.group_posts.service import (
     _isoformat,
     get_group_post_detail_service,
     list_group_posts_service,
+    list_public_group_posts_service,
 )
 
 
@@ -208,6 +209,62 @@ class TestListGroupPostsService:
             list_group_posts_service(group_id=uuid4())
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.group_posts.service.get_posts_for_group_ids')
+    @patch('pecha_api.group_posts.service.resolve_public_group_scope')
+    @patch('pecha_api.group_posts.service.SessionLocal')
+    def test_list_public_posts_defaults_to_followed_groups(
+        self,
+        mock_session,
+        mock_resolve_scope,
+        mock_get_posts,
+    ):
+        followed_group_id = uuid4()
+        user_id = uuid4()
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_resolve_scope.return_value = (
+            [followed_group_id],
+            {followed_group_id},
+        )
+        mock_get_posts.return_value = ([], 0)
+
+        result = list_public_group_posts_service(
+            user_id=user_id,
+        )
+
+        assert result.posts == []
+        assert result.total == 0
+        assert mock_resolve_scope.call_args.kwargs[
+            "should_include_unfollowed"
+        ] is False
+        assert mock_get_posts.call_args.kwargs["group_ids"] == [
+            followed_group_id
+        ]
+
+    @patch('pecha_api.group_posts.service.get_posts_for_group_ids')
+    @patch('pecha_api.group_posts.service.resolve_public_group_scope')
+    @patch('pecha_api.group_posts.service.SessionLocal')
+    def test_list_public_posts_can_include_unfollowed_groups(
+        self,
+        mock_session,
+        mock_resolve_scope,
+        mock_get_posts,
+    ):
+        public_group_ids = [uuid4(), uuid4()]
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_resolve_scope.return_value = (public_group_ids, set())
+        mock_get_posts.return_value = ([], 0)
+
+        result = list_public_group_posts_service(
+            user_id=uuid4(),
+            should_include_unfollowed=True,
+        )
+
+        assert result.posts == []
+        assert mock_resolve_scope.call_args.kwargs[
+            "should_include_unfollowed"
+        ] is True
+        assert mock_get_posts.call_args.kwargs["group_ids"] == public_group_ids
 
     @patch('pecha_api.group_posts.comment_repository.get_comment_counts_by_post_ids')
     @patch('pecha_api.group_posts.like_repository.get_like_counts_by_post_ids')

@@ -9,10 +9,9 @@ from pecha_api.group_posts.response_models import GroupPostDTO, GroupPostsRespon
 from pecha_api.group_posts.service import (
     get_group_post_detail_service,
     list_group_posts_service,
+    list_public_group_posts_service,
 )
-from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
-from pecha_api.users.users_models import Users
-from pecha_api.db.database import SessionLocal
+from pecha_api.users.users_service import validate_and_extract_user_details
 
 oauth2_scheme_optional = HTTPBearer(auto_error=False)
 
@@ -44,14 +43,59 @@ def list_group_posts(
     user_id = None
     if authentication_credential:
         try:
-            author = validate_and_extract_author_details(token=authentication_credential.credentials)
-            with SessionLocal() as db:
-                user = db.query(Users).filter(Users.email == author.email).first()
-                if user:
-                    user_id = user.id
+            user = validate_and_extract_user_details(
+                token=authentication_credential.credentials
+            )
+            user_id = user.id
         except Exception:
             pass
-    return list_group_posts_service(group_id=group_id, skip=skip, limit=limit, user_id=user_id)
+    return list_group_posts_service(
+        group_id=group_id,
+        skip=skip,
+        limit=limit,
+        user_id=user_id,
+    )
+
+
+@public_group_posts_detail_router.get(
+    "",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupPostsResponse,
+)
+def list_public_group_posts(
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    should_include_unfollowed: Annotated[
+        bool,
+        Query(
+            alias="include_unfollowed",
+            description=(
+                "For authenticated users, false = followed groups only; "
+                "true = all public groups"
+            ),
+        ),
+    ] = False,
+    authentication_credential: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(oauth2_scheme_optional)
+    ] = None,
+) -> GroupPostsResponse:
+    """Chronological published posts across public author groups."""
+    user_id = None
+    if authentication_credential:
+        try:
+            user = validate_and_extract_user_details(
+                token=authentication_credential.credentials
+            )
+            user_id = user.id
+        except Exception:
+            pass
+
+    return list_public_group_posts_service(
+        skip=skip,
+        limit=limit,
+        user_id=user_id,
+        should_include_unfollowed=should_include_unfollowed,
+    )
 
 
 @public_group_posts_detail_router.get(
@@ -69,11 +113,10 @@ def get_group_post_detail(
     user_id = None
     if authentication_credential:
         try:
-            author = validate_and_extract_author_details(token=authentication_credential.credentials)
-            with SessionLocal() as db:
-                user = db.query(Users).filter(Users.email == author.email).first()
-                if user:
-                    user_id = user.id
+            user = validate_and_extract_user_details(
+                token=authentication_credential.credentials
+            )
+            user_id = user.id
         except Exception:
             pass
     return get_group_post_detail_service(post_id=post_id, user_id=user_id)
