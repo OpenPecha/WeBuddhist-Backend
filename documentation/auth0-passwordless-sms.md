@@ -14,29 +14,49 @@ token pair. The backend does not generate or store OTP codes.
 4. Enable Authorization Code with PKCE and the `webuddhist-backend` API
    audience.
 5. Add the following Post Login Action to the Login flow. Change the audience
-   guard if the API identifier differs by environment.
+   guard if the API identifier differs by environment. This Action covers both
+   SMS passwordless and Google social login claims.
 
 ```javascript
 exports.onExecutePostLogin = async (event, api) => {
   const audience = "webuddhist-backend";
   const namespace = "https://webuddhist.com";
 
-  if (
-    event.connection?.name !== "sms" ||
-    event.resource_server?.identifier !== audience ||
-    !event.user.phone_number
-  ) {
+  if (event.resource_server?.identifier !== audience) {
     return;
   }
 
-  api.accessToken.setCustomClaim(
-    `${namespace}/phone_number`,
-    event.user.phone_number
-  );
-  api.accessToken.setCustomClaim(
-    `${namespace}/phone_number_verified`,
-    event.user.phone_verified === true
-  );
+  if (event.connection?.name === "sms" && event.user.phone_number) {
+    api.accessToken.setCustomClaim(
+      `${namespace}/phone_number`,
+      event.user.phone_number
+    );
+    api.accessToken.setCustomClaim(
+      `${namespace}/phone_number_verified`,
+      event.user.phone_verified === true
+    );
+    return;
+  }
+
+  if (event.connection?.strategy === "google-oauth2" && event.user.email) {
+    api.accessToken.setCustomClaim(`${namespace}/email`, event.user.email);
+    api.accessToken.setCustomClaim(
+      `${namespace}/email_verified`,
+      event.user.email_verified === true
+    );
+    if (event.user.given_name) {
+      api.accessToken.setCustomClaim(
+        `${namespace}/given_name`,
+        event.user.given_name
+      );
+    }
+    if (event.user.family_name) {
+      api.accessToken.setCustomClaim(
+        `${namespace}/family_name`,
+        event.user.family_name
+      );
+    }
+  }
 };
 ```
 
@@ -63,6 +83,68 @@ The exchange/link endpoints are:
 - `/api/v1/auth/phone/exchange` and `/api/v1/auth/phone/link` for users.
 - `/api/v1/cms/auth/phone/exchange` and `/api/v1/cms/auth/phone/link` for
   Studio authors.
+- `/api/v1/cms/auth/google/exchange` for Studio Google login.
+
+## Google social login (Studio)
+
+Enable the Auth0 Google social connection (`google-oauth2`) on the Studio SPA
+and extend the Post Login Action so Google access tokens carry email claims:
+
+```javascript
+exports.onExecutePostLogin = async (event, api) => {
+  const audience = "webuddhist-backend";
+  const namespace = "https://webuddhist.com";
+
+  if (event.resource_server?.identifier !== audience) {
+    return;
+  }
+
+  if (event.connection?.name === "sms" && event.user.phone_number) {
+    api.accessToken.setCustomClaim(
+      `${namespace}/phone_number`,
+      event.user.phone_number
+    );
+    api.accessToken.setCustomClaim(
+      `${namespace}/phone_number_verified`,
+      event.user.phone_verified === true
+    );
+    return;
+  }
+
+  if (event.connection?.strategy === "google-oauth2" && event.user.email) {
+    api.accessToken.setCustomClaim(`${namespace}/email`, event.user.email);
+    api.accessToken.setCustomClaim(
+      `${namespace}/email_verified`,
+      event.user.email_verified === true
+    );
+    if (event.user.given_name) {
+      api.accessToken.setCustomClaim(
+        `${namespace}/given_name`,
+        event.user.given_name
+      );
+    }
+    if (event.user.family_name) {
+      api.accessToken.setCustomClaim(
+        `${namespace}/family_name`,
+        event.user.family_name
+      );
+    }
+  }
+};
+```
+
+Studio environment additions:
+
+```dotenv
+VITE_AUTH0_GOOGLE_CONNECTION=google-oauth2
+```
+
+Backend environment additions:
+
+```dotenv
+AUTH0_GOOGLE_EMAIL_CLAIM=https://webuddhist.com/email
+AUTH0_GOOGLE_EMAIL_VERIFIED_CLAIM=https://webuddhist.com/email_verified
+```
 
 ## Studio environment
 
@@ -71,6 +153,7 @@ VITE_AUTH0_DOMAIN=tenant.example.auth0.com
 VITE_AUTH0_CLIENT_ID=your-spa-client-id
 VITE_AUTH0_AUDIENCE=webuddhist-backend
 VITE_AUTH0_SMS_CONNECTION=sms
+VITE_AUTH0_GOOGLE_CONNECTION=google-oauth2
 ```
 
 Use environment-specific values and never commit Auth0 or SMS-provider secrets.

@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -88,7 +89,8 @@ def verify_auth0_sms_token(token: str) -> Auth0SMSIdentity:
             raise ValueError("Auth0 SMS token is not fresh")
 
         return Auth0SMSIdentity(subject=subject, phone_number=phone_number)
-    except (JWTError, KeyError, TypeError, ValueError, requests.RequestException):
+    except (JWTError, KeyError, TypeError, ValueError, requests.RequestException) as exception:
+        logging.warning("Auth0 SMS token rejected: %s", exception)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid Auth0 SMS token",

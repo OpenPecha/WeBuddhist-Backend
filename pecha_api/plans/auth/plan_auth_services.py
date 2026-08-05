@@ -4,17 +4,21 @@ from uuid import UUID
 from .plan_auth_enums import AuthorStatus
 from .plan_auth_models import CreateAuthorRequest, AuthorDetails, TokenPayload, \
     AuthorVerificationResponse, ResponseError, TokenResponse, AuthorLoginResponse, AuthorInfo, EmailReVerificationResponse, RefreshTokenResponse, \
-    PhoneExchangeRequest, PhoneExchangeResponse, PhoneLinkResponse
+    PhoneExchangeRequest, PhoneExchangeResponse, PhoneLinkResponse, \
+    GoogleExchangeRequest, GoogleExchangeResponse
 from pecha_api.auth.auth0_sms import AUTH0_SMS_PROVIDER, verify_auth0_sms_token
+from pecha_api.auth.auth0_google import AUTH0_GOOGLE_PROVIDER, verify_auth0_google_token
 from pecha_api.plans.authors.plan_authors_model import Author, AuthorPasswordReset
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.authors.plan_authors_repository import (
     check_author_exists,
+    find_author_by_email,
     get_author_by_email,
     get_author_by_id,
     get_author_by_phone,
     link_author_phone,
     save_author,
+    save_google_author,
     save_phone_author,
     update_author,
 )
@@ -393,4 +397,56 @@ def link_phone_identity(backend_token: str, auth0_token: str) -> PhoneLinkRespon
             phone_number=sms_identity.phone_number,
             message="Phone identity linked",
         )
+
+
+def _google_exchange_response(author: Author, email: str) -> GoogleExchangeResponse:
+    author_status = AuthorStatus.ACTIVE if author.is_active else AuthorStatus.INACTIVE
+    token_response = None
+    message = AUTHOR_NOT_ACTIVE
+    if author.is_verified and author.is_active:
+        token_response = generate_token_author(author).auth
+        message = "Authentication successful"
+    return GoogleExchangeResponse(
+        author_id=author.id,
+        email=email,
+        status=author_status,
+        message=message,
+        user=AuthorInfo(
+            name=_get_author_full_name(author),
+            image_url=author.image_url,
+        ),
+        auth=token_response,
+    )
+
+
+def exchange_google_token(request: GoogleExchangeRequest) -> GoogleExchangeResponse:
+    google_identity = verify_auth0_google_token(request.auth0_token)
+    with SessionLocal() as db:
+        author = find_author_by_email(db=db, email=google_identity.email)
+        if author is not None:
+            if not author.is_verified:
+                author.is_verified = True
+                author = update_author(db=db, author=author)
+            return _google_exchange_response(author, google_identity.email)
+
+        first_name = (request.first_name or google_identity.first_name or "").strip()
+        last_name = (request.last_name or google_identity.last_name or "").strip()
+        if not first_name or not last_name:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="First name and last name are required for a new phone profile",
+            )
+
+        author = Author(
+            first_name=first_name,
+            last_name=last_name,
+            email=google_identity.email,
+            phone_number=None,
+            password=None,
+            is_verified=True,
+            is_active=False,
+            created_by=f"{AUTH0_GOOGLE_PROVIDER}:{google_identity.subject}",
+        )
+        author = save_google_author(db=db, author=author)
+        return _google_exchange_response(author, google_identity.email)
 

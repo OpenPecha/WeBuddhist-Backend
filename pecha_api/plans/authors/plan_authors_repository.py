@@ -30,10 +30,16 @@ def get_all_authors(db: Session) -> List[Author]:
     return authors
 
 def get_author_by_email(db: Session, email: str) -> Author:
-    author = db.query(Author).options(joinedload(Author.social_media_accounts)).filter(Author.email == email).first()
+    author = find_author_by_email(db=db, email=email)
     if author is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=AUTHOR_NOT_FOUND)
     return author
+
+
+def find_author_by_email(db: Session, email: str) -> Optional[Author]:
+    return db.query(Author).options(joinedload(Author.social_media_accounts)).filter(
+        Author.email == email,
+    ).first()
 
 def check_author_exists(db: Session, email: str):
     author = db.query(Author).filter(Author.email == email).first()
@@ -71,6 +77,23 @@ def save_phone_author(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Phone identity is already linked to another author",
+        )
+
+
+def save_google_author(
+    db: Session,
+    author: Author,
+) -> Author:
+    try:
+        db.add(author)
+        db.commit()
+        db.refresh(author)
+        return author
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email is already linked to another author",
         )
 
 

@@ -61,6 +61,22 @@ class PhoneLinkResponse(BaseModel):
     phone_number: str
     message: str
 
+
+class GoogleExchangeRequest(BaseModel):
+    auth0_token: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
+class GoogleExchangeResponse(BaseModel):
+    author_id: UUID
+    email: str
+    status: AuthorStatus
+    message: str
+    user: AuthorInfo
+    auth: Optional[TokenResponse] = None
+
+
 class AuthorLoginRequest(BaseModel):
     email: str
     password: str

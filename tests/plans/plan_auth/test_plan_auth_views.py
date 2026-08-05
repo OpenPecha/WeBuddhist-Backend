@@ -10,6 +10,7 @@ from pecha_api.plans.auth.plan_auth_models import AuthorVerificationResponse, Em
 from pecha_api.plans.auth.plan_auth_models import RefreshTokenResponse
 from pecha_api.plans.auth.plan_auth_models import (
     AuthorInfo,
+    GoogleExchangeResponse,
     PhoneExchangeResponse,
     PhoneLinkResponse,
     TokenResponse,
@@ -368,3 +369,30 @@ def test_phone_link_without_backend_token_is_forbidden():
         json={"auth0_token": "auth0-token"},
     )
     assert response.status_code == 403
+
+
+def test_google_exchange_passes_auth0_token_and_profile_names():
+    author_id = "123e4567-e89b-12d3-a456-426614174000"
+    expected = GoogleExchangeResponse(
+        author_id=author_id,
+        email="ada@example.com",
+        status=AuthorStatus.INACTIVE,
+        message="Author not active",
+        user=AuthorInfo(name="Ada Lovelace"),
+    )
+    payload = {
+        "auth0_token": "auth0-token",
+        "first_name": "Ada",
+        "last_name": "Lovelace",
+    }
+    with patch(
+        "pecha_api.plans.auth.plan_auth_views.exchange_google_token",
+        return_value=expected,
+    ) as exchange:
+        response = client.post("/cms/auth/google/exchange", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["auth"] is None
+    assert exchange.call_args.args[0].auth0_token == "auth0-token"
+    assert exchange.call_args.args[0].first_name == "Ada"
+    assert exchange.call_args.args[0].last_name == "Lovelace"
