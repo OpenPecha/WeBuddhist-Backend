@@ -178,15 +178,19 @@ class TestCreatePostCommentView:
 class TestDeletePostCommentView:
 
     @patch('pecha_api.group_posts.comment_views.delete_post_comment_service')
+    @patch('pecha_api.group_posts.comment_views.resolve_user_id')
     @patch('pecha_api.group_posts.comment_views.validate_and_extract_author_details')
-    def test_delete_comment(self, mock_validate, mock_service):
+    def test_delete_comment(self, mock_validate, mock_resolve_user_id, mock_service):
         client = get_client()
         group_id = uuid4()
         post_id = uuid4()
         comment_id = uuid4()
         author = MagicMock()
         author.id = uuid4()
+        author.email = "author@example.com"
+        user_id = uuid4()
         mock_validate.return_value = author
+        mock_resolve_user_id.return_value = user_id
         mock_service.return_value = None
 
         response = client.delete(
@@ -197,7 +201,7 @@ class TestDeletePostCommentView:
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_service.assert_called_once_with(
             comment_id=comment_id,
-            user_id=author.id,
+            user_id=user_id,
         )
 
     def test_delete_comment_requires_auth(self):
@@ -210,10 +214,20 @@ class TestDeletePostCommentView:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     @patch('pecha_api.group_posts.comment_views.delete_post_comment_service')
+    @patch('pecha_api.group_posts.comment_views.resolve_user_id')
     @patch('pecha_api.group_posts.comment_views.validate_and_extract_author_details')
-    def test_delete_comment_of_another_user_is_forbidden(self, mock_validate, mock_service):
+    def test_delete_comment_of_another_user_is_forbidden(
+        self,
+        mock_validate,
+        mock_resolve_user_id,
+        mock_service,
+    ):
         client = get_client()
-        mock_validate.return_value = MagicMock(id=uuid4())
+        mock_validate.return_value = MagicMock(
+            id=uuid4(),
+            email="author@example.com",
+        )
+        mock_resolve_user_id.return_value = uuid4()
         mock_service.side_effect = HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only delete your own comments",

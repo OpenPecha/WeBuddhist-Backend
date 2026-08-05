@@ -38,6 +38,7 @@ from pecha_api.group_posts.response_models import (
     UpdateGroupPostRequest,
 )
 from pecha_api.group_posts.service import _enum_value, build_post_dtos
+from pecha_api.users.users_models import Users
 
 MAX_MEDIA_ITEMS_PER_POST = 10
 EMPTY_POST_MESSAGE = "Post must have a caption, at least one media item, or at least one link"
@@ -148,9 +149,14 @@ def cms_list_group_posts_service(
             limit=limit,
             status=status_filter,
         )
+        user = db.query(Users).filter(Users.email == author.email).first()
 
         return GroupPostsResponse(
-            posts=build_post_dtos(db, posts),
+            posts=build_post_dtos(
+                db,
+                posts,
+                user_id=user.id if user else None,
+            ),
             skip=skip,
             limit=limit,
             total=total,
@@ -170,7 +176,12 @@ def cms_get_group_post_detail_service(
         require_can_read_group_content(db=db, group_id=group_id, author=author)
 
         post = _get_post_or_404(db, post_id, group_id)
-        return build_post_dtos(db, [post])[0]
+        user = db.query(Users).filter(Users.email == author.email).first()
+        return build_post_dtos(
+            db,
+            [post],
+            user_id=user.id if user else None,
+        )[0]
 
 
 def cms_create_group_post_service(
