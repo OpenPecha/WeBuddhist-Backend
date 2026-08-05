@@ -14,7 +14,7 @@ from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 from pecha_api.group_posts.enums import GroupPostStatus
 from pecha_api.group_posts.models import GroupPost
-from pecha_api.group_posts.repository import get_group_posts, get_post_by_id
+from pecha_api.group_posts.repository import get_group_posts, get_post_by_id_only
 from pecha_api.group_posts.response_models import (
     GroupPostDTO,
     GroupPostLinkDTO,
@@ -70,6 +70,7 @@ def build_post_dto(
     creator_image_url: Optional[str] = None,
     like_count: int = 0,
     comment_count: int = 0,
+    liked_by_me: bool = False,
 ) -> GroupPostDTO:
     """Build a post DTO with presigned media URLs, creator, and engagement counts."""
     media_dto = [
@@ -109,10 +110,15 @@ def build_post_dto(
         comment_count=comment_count,
         created_at=_isoformat(post.created_at),
         updated_at=_isoformat(post.updated_at),
+        liked_by_me=liked_by_me,
     )
 
 
-def build_post_dtos(db: Session, posts: List[GroupPost]) -> List[GroupPostDTO]:
+def build_post_dtos(
+    db: Session,
+    posts: List[GroupPost],
+    user_id: Optional[UUID] = None,
+) -> List[GroupPostDTO]:
     """Build post DTOs with creator profiles and like/comment counts batched."""
     if not posts:
         return []
@@ -121,7 +127,10 @@ def build_post_dtos(db: Session, posts: List[GroupPost]) -> List[GroupPostDTO]:
     # (unit tests instantiate GroupPostMedia without the full model graph).
     from pecha_api.plans.authors.plan_authors_repository import get_authors_by_emails
     from pecha_api.group_posts.comment_repository import get_comment_counts_by_post_ids
-    from pecha_api.group_posts.like_repository import get_like_counts_by_post_ids
+    from pecha_api.group_posts.like_repository import (
+        batch_check_posts_liked_by_user,
+        get_like_counts_by_post_ids,
+    )
 
     post_ids = [post.id for post in posts]
     emails = list({post.created_by for post in posts if post.created_by})
@@ -131,6 +140,11 @@ def build_post_dtos(db: Session, posts: List[GroupPost]) -> List[GroupPostDTO]:
     }
     like_counts = get_like_counts_by_post_ids(db=db, post_ids=post_ids)
     comment_counts = get_comment_counts_by_post_ids(db=db, post_ids=post_ids)
+    liked_posts = (
+        batch_check_posts_liked_by_user(db=db, post_ids=post_ids, user_id=user_id)
+        if user_id
+        else set()
+    )
 
     dtos: List[GroupPostDTO] = []
     for post in posts:
@@ -146,6 +160,7 @@ def build_post_dtos(db: Session, posts: List[GroupPost]) -> List[GroupPostDTO]:
                 creator_image_url=creator_image_url,
                 like_count=like_counts.get(post.id, 0),
                 comment_count=comment_counts.get(post.id, 0),
+                liked_by_me=post.id in liked_posts,
             )
         )
     return dtos
@@ -155,6 +170,7 @@ def list_group_posts_service(
     group_id: UUID,
     skip: int = 0,
     limit: int = 20,
+    user_id: Optional[UUID] = None,
 ) -> GroupPostsResponse:
     """Public chronological feed of published posts for a public group."""
     with SessionLocal() as db:
@@ -169,7 +185,7 @@ def list_group_posts_service(
         )
 
         return GroupPostsResponse(
-            posts=build_post_dtos(db, posts),
+            posts=build_post_dtos(db, posts, user_id=user_id),
             skip=skip,
             limit=limit,
             total=total,
@@ -177,17 +193,14 @@ def list_group_posts_service(
 
 
 def get_group_post_detail_service(
-    group_id: UUID,
     post_id: UUID,
+    user_id: Optional[UUID] = None,
 ) -> GroupPostDTO:
     """Public post detail. HIDDEN and soft-deleted posts return 404."""
     with SessionLocal() as db:
-        _validate_group_is_public(db, group_id)
-
-        post = get_post_by_id(
+        post = get_post_by_id_only(
             db=db,
             post_id=post_id,
-            group_id=group_id,
             status=GroupPostStatus.PUBLISHED,
         )
 
@@ -197,4 +210,6 @@ def get_group_post_detail_service(
                 detail=NOT_FOUND,
             )
 
-        return build_post_dtos(db, [post])[0]
+        _validate_group_is_public(db, post.group_id)
+
+        return build_post_dtos(db, [post], user_id=user_id)[0]

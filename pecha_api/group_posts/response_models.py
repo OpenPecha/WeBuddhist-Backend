@@ -43,6 +43,7 @@ class GroupPostDTO(BaseModel):
     comment_count: int = 0
     created_at: str
     updated_at: Optional[str] = None
+    liked_by_me: bool = False
 
 
 class GroupPostsResponse(BaseModel):

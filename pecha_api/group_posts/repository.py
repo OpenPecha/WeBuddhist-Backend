@@ -83,6 +83,28 @@ def get_post_by_id(
     return query.first()
 
 
+def get_post_by_id_only(
+    db: Session,
+    post_id: UUID,
+    status: Optional[GroupPostStatus] = None,
+) -> Optional[GroupPost]:
+    """Get a single post by ID only, excluding soft-deleted."""
+    query = (
+        db.query(GroupPost)
+        .options(
+            selectinload(GroupPost.media),
+            selectinload(GroupPost.links),
+        )
+        .filter(
+            GroupPost.id == post_id,
+            GroupPost.deleted_at.is_(None),
+        )
+    )
+    if status is not None:
+        query = query.filter(GroupPost.status == status)
+    return query.first()
+
+
 def create_post(db: Session, post: GroupPost) -> GroupPost:
     """Create a new post with its media and links."""
     db.add(post)

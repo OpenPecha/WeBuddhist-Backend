@@ -8,17 +8,17 @@ from sqlalchemy.orm import relationship
 
 from pecha_api.db.database import Base
 
-FK_GROUP_POSTS_ID = "group_posts.id"
+FK_GROUP_POST_COMMENTS_ID = "group_post_comments.id"
 FK_USERS_ID = "users.id"
 
 
-class GroupPostLike(Base):
-    __tablename__ = "group_post_likes"
+class GroupPostCommentLike(Base):
+    __tablename__ = "group_post_comment_likes"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    post_id = Column(
+    comment_id = Column(
         UUID(as_uuid=True),
-        ForeignKey(FK_GROUP_POSTS_ID, ondelete="CASCADE"),
+        ForeignKey(FK_GROUP_POST_COMMENTS_ID, ondelete="CASCADE"),
         nullable=False,
     )
     user_id = Column(
@@ -32,16 +32,16 @@ class GroupPostLike(Base):
         nullable=False,
     )
 
-    post = relationship("GroupPost")
+    comment = relationship("GroupPostComment")
     user = relationship("Users")
 
     __table_args__ = (
-        UniqueConstraint("post_id", "user_id", name="uq_group_post_likes_post_user"),
-        Index("idx_group_post_likes_post_id", "post_id"),
-        Index("idx_group_post_likes_user_id", "user_id"),
+        UniqueConstraint("comment_id", "user_id", name="uq_group_post_comment_likes_comment_user"),
+        Index("idx_group_post_comment_likes_comment_id", "comment_id"),
+        Index("idx_group_post_comment_likes_user_id", "user_id"),
         Index(
-            "idx_group_post_likes_post_created",
-            "post_id",
+            "idx_group_post_comment_likes_comment_created",
+            "comment_id",
             "created_at",
             "id",
         ),

@@ -58,12 +58,15 @@ class MockPost:
 
 class TestListPostCommentsService:
 
+    @patch('pecha_api.group_posts.comment_service.batch_check_comments_liked_by_user')
+    @patch('pecha_api.group_posts.comment_service.batch_count_comment_likes')
     @patch('pecha_api.group_posts.comment_service.get_post_comments')
-    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
     @patch('pecha_api.group_posts.comment_service.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_list_comments_success(
-        self, mock_session, mock_get_group, mock_get_post, mock_get_comments
+        self, mock_session, mock_get_group, mock_get_post, mock_get_comments,
+        mock_batch_count, mock_batch_check
     ):
         group_id = uuid4()
         post_id = uuid4()
@@ -75,9 +78,10 @@ class TestListPostCommentsService:
         user = MockUser(email="commenter@example.com")
         comment = MockComment(user=user, post_id=post_id)
         mock_get_comments.return_value = ([comment], 1)
+        mock_batch_count.return_value = {comment.id: 0}
+        mock_batch_check.return_value = set()
 
         result = list_post_comments_service(
-            group_id=group_id,
             post_id=post_id,
             skip=0,
             limit=20,
@@ -88,25 +92,31 @@ class TestListPostCommentsService:
         assert result.comments[0].user_email == "commenter@example.com"
 
     @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
-    def test_list_comments_private_group_returns_404(self, mock_session, mock_get_group):
+    def test_list_comments_private_group_returns_404(self, mock_session, mock_get_post, mock_get_group):
+        group_id = uuid4()
+        post_id = uuid4()
         mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_get_post.return_value = MockPost(id=post_id, group_id=group_id)
         mock_get_group.return_value = MockGroup(is_public=False)
 
         with pytest.raises(HTTPException) as exc_info:
             list_post_comments_service(
-                group_id=uuid4(),
-                post_id=uuid4(),
+                post_id=post_id,
             )
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
+    @patch('pecha_api.group_posts.comment_service.batch_check_comments_liked_by_user')
+    @patch('pecha_api.group_posts.comment_service.batch_count_comment_likes')
     @patch('pecha_api.group_posts.comment_service.get_post_comments')
-    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
     @patch('pecha_api.group_posts.comment_service.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_list_comments_empty(
-        self, mock_session, mock_get_group, mock_get_post, mock_get_comments
+        self, mock_session, mock_get_group, mock_get_post, mock_get_comments,
+        mock_batch_count, mock_batch_check
     ):
         group_id = uuid4()
         post_id = uuid4()
@@ -114,27 +124,26 @@ class TestListPostCommentsService:
         mock_get_group.return_value = MockGroup(id=group_id)
         mock_get_post.return_value = MockPost(id=post_id, group_id=group_id)
         mock_get_comments.return_value = ([], 0)
+        mock_batch_count.return_value = {}
+        mock_batch_check.return_value = set()
 
         result = list_post_comments_service(
-            group_id=group_id,
             post_id=post_id,
         )
 
         assert result.comments == []
         assert result.total == 0
 
-    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
-    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_list_comments_post_not_found_returns_404(
-        self, mock_session, mock_get_group, mock_get_post
+        self, mock_session, mock_get_post
     ):
         mock_session.return_value.__enter__.return_value = MagicMock()
-        mock_get_group.return_value = MockGroup()
         mock_get_post.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
-            list_post_comments_service(group_id=uuid4(), post_id=uuid4())
+            list_post_comments_service(post_id=uuid4())
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
@@ -170,7 +179,7 @@ class TestBuildCommentDTO:
 class TestCreatePostCommentService:
 
     @patch('pecha_api.group_posts.comment_service.create_comment')
-    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
     @patch('pecha_api.group_posts.comment_service.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_create_comment_success(
@@ -190,7 +199,6 @@ class TestCreatePostCommentService:
         )
 
         result = create_post_comment_service(
-            group_id=group_id,
             post_id=post_id,
             author_email="commenter@example.com",
             text="Hello",
@@ -208,7 +216,7 @@ class TestCreatePostCommentService:
 
     @patch('pecha_api.group_posts.comment_service.create_comment')
     @patch('pecha_api.group_posts.comment_service.get_comment_by_id')
-    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
     @patch('pecha_api.group_posts.comment_service.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_create_multilevel_reply_success(
@@ -239,7 +247,6 @@ class TestCreatePostCommentService:
         )
 
         result = create_post_comment_service(
-            group_id=group_id,
             post_id=post_id,
             author_email=user.email,
             text="Nested reply",
@@ -256,7 +263,7 @@ class TestCreatePostCommentService:
         )
 
     @patch('pecha_api.group_posts.comment_service.get_comment_by_id')
-    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
     @patch('pecha_api.group_posts.comment_service.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_create_reply_rejects_parent_outside_post(
@@ -276,7 +283,6 @@ class TestCreatePostCommentService:
 
         with pytest.raises(HTTPException) as exc_info:
             create_post_comment_service(
-                group_id=group_id,
                 post_id=post_id,
                 author_email="commenter@example.com",
                 text="Reply",
@@ -286,16 +292,17 @@ class TestCreatePostCommentService:
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert exc_info.value.detail == "Parent comment not found"
 
-    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
     @patch('pecha_api.group_posts.comment_service.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_create_comment_user_not_found(
         self, mock_session, mock_get_group, mock_get_post
     ):
+        group_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_get_group.return_value = MockGroup()
-        mock_get_post.return_value = MockPost()
+        mock_get_post.return_value = MockPost(group_id=group_id)
 
         # Mock the db.query().filter().first() chain to return None
         mock_query = MagicMock()
@@ -306,7 +313,6 @@ class TestCreatePostCommentService:
 
         with pytest.raises(HTTPException) as exc_info:
             create_post_comment_service(
-                group_id=uuid4(),
                 post_id=uuid4(),
                 author_email="test@example.com",
                 text="Hello",
@@ -318,8 +324,8 @@ class TestCreatePostCommentService:
 class TestDeletePostCommentService:
 
     @patch('pecha_api.group_posts.comment_service.soft_delete_comment')
-    @patch('pecha_api.group_posts.comment_service.get_comment_by_id')
-    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_comment_by_id_only')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
     @patch('pecha_api.group_posts.comment_service.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_delete_own_comment_success(
@@ -339,16 +345,14 @@ class TestDeletePostCommentService:
         mock_get_comment.return_value = comment
 
         delete_post_comment_service(
-            group_id=group_id,
-            post_id=post_id,
             comment_id=comment_id,
             user_id=user_id,
         )
 
         mock_soft_delete.assert_called_once_with(db=mock_db, comment=comment)
 
-    @patch('pecha_api.group_posts.comment_service.get_comment_by_id')
-    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_comment_by_id_only')
+    @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
     @patch('pecha_api.group_posts.comment_service.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_delete_comment_permission_denied(
@@ -359,7 +363,8 @@ class TestDeletePostCommentService:
         comment_id = uuid4()
         user_id = uuid4()
         other_user_id = uuid4()
-        mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
         mock_get_group.return_value = MockGroup(id=group_id)
         mock_get_post.return_value = MockPost(id=post_id, group_id=group_id)
         comment = MockComment(user_id=other_user_id, post_id=post_id)
@@ -368,30 +373,22 @@ class TestDeletePostCommentService:
 
         with pytest.raises(HTTPException) as exc_info:
             delete_post_comment_service(
-                group_id=group_id,
-                post_id=post_id,
                 comment_id=comment_id,
                 user_id=user_id,
             )
 
         assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
-    @patch('pecha_api.group_posts.comment_service.get_comment_by_id')
-    @patch('pecha_api.group_posts.comment_service.get_post_by_id')
-    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.comment_service.get_comment_by_id_only')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_delete_comment_not_found(
-        self, mock_session, mock_get_group, mock_get_post, mock_get_comment
+        self, mock_session, mock_get_comment
     ):
         mock_session.return_value.__enter__.return_value = MagicMock()
-        mock_get_group.return_value = MockGroup()
-        mock_get_post.return_value = MockPost()
         mock_get_comment.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
             delete_post_comment_service(
-                group_id=uuid4(),
-                post_id=uuid4(),
                 comment_id=uuid4(),
                 user_id=uuid4(),
             )
