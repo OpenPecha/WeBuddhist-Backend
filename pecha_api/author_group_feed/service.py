@@ -17,8 +17,8 @@ from pecha_api.group_posts.repository import get_posts_for_group_ids
 from pecha_api.group_posts.service import build_post_dtos
 from pecha_api.plans.groups.groups_models import AuthorGroup
 from pecha_api.plans.groups.groups_repository import (
-    get_following_group_ids_by_user,
     get_groups_by_ids,
+    get_joined_group_ids_by_user,
     get_public_group_ids,
 )
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
@@ -78,23 +78,23 @@ def _group_display_name(group: AuthorGroup, language: Optional[str] = None) -> s
 
 def _resolve_feed_group_ids(
     *,
-    followed_ids: List[UUID],
+    joined_ids: List[UUID],
     should_include_unfollowed: bool,
     db: Session,
 ) -> Tuple[List[UUID], Set[UUID]]:
-    """Return (group_ids_to_query, followed_id_set)."""
-    public_followed = [
+    """Return (group_ids_to_query, joined_id_set)."""
+    public_joined = [
         group.id
-        for group in get_groups_by_ids(db=db, group_ids=followed_ids)
+        for group in get_groups_by_ids(db=db, group_ids=joined_ids)
         if group.is_public
     ]
-    followed_set = set(public_followed)
+    joined_set = set(public_joined)
 
     if not should_include_unfollowed:
-        return public_followed, followed_set
+        return public_joined, joined_set
 
     public_ids = get_public_group_ids(db=db)
-    return public_ids, followed_set
+    return public_ids, joined_set
 
 
 def _build_group_card_map(
@@ -124,14 +124,14 @@ def _get_author_group_feed(
 ) -> AuthorGroupFeedResponse:
     """Authenticated mixed feed of posts and events from author groups.
 
-    Default: only groups the user follows.
+    Default: only groups the user joined.
     With should_include_unfollowed=True: mix in other public groups.
     """
     current_user = validate_and_extract_user_details(token=token)
 
-    followed_ids = get_following_group_ids_by_user(db=db, user_id=current_user.id)
-    group_ids, followed_set = _resolve_feed_group_ids(
-        followed_ids=followed_ids,
+    joined_group_ids = get_joined_group_ids_by_user(db=db, user_id=current_user.id)
+    group_ids, joined_group_id_set = _resolve_feed_group_ids(
+        joined_ids=joined_group_ids,
         should_include_unfollowed=should_include_unfollowed,
         db=db,
     )
@@ -166,7 +166,7 @@ def _get_author_group_feed(
     )
     event_ids = [event.id for event in events]
     counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
-    joined_ids = set(
+    joined_event_ids = set(
         get_joined_event_ids_by_user(
             db=db,
             user_id=current_user.id,
@@ -191,7 +191,7 @@ def _get_author_group_feed(
                 AuthorGroupFeedItemDTO(
                     type=AuthorGroupFeedItemType.POST,
                     feed_at=_isoformat(feed_at),
-                    is_followed=post.group_id in followed_set,
+                    is_joined=post.group_id in joined_group_id_set,
                     group_id=post.group_id,
                     group_name=group_info.get("group_name"),
                     group_slug=group_info.get("group_slug"),
@@ -210,7 +210,7 @@ def _get_author_group_feed(
                 AuthorGroupFeedItemDTO(
                     type=AuthorGroupFeedItemType.EVENT,
                     feed_at=_isoformat(feed_at),
-                    is_followed=event.group_id in followed_set,
+                    is_joined=event.group_id in joined_group_id_set,
                     group_id=event.group_id,
                     group_name=group_info.get("group_name"),
                     group_slug=group_info.get("group_slug"),
@@ -219,7 +219,7 @@ def _get_author_group_feed(
                         event,
                         language=language,
                         participant_count=counts_by_event.get(event.id, 0),
-                        is_joined=event.id in joined_ids,
+                        is_joined=event.id in joined_event_ids,
                     ),
                 ),
             )

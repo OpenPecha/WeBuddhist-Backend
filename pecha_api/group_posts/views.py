@@ -70,7 +70,7 @@ def list_public_group_posts(
         Query(
             alias="include_unfollowed",
             description=(
-                "For authenticated users, false = followed groups only; "
+                "For authenticated users, false = joined groups only; "
                 "true = all public groups"
             ),
         ),

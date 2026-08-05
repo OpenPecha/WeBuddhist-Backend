@@ -44,7 +44,7 @@ def get_events_endpoint(
         Query(
             alias="include_unfollowed",
             description=(
-                "For authenticated users, false = followed groups only; "
+                "For authenticated users, false = joined groups only; "
                 "true = all public groups"
             ),
         ),
@@ -83,7 +83,7 @@ def get_events_today_endpoint(
         Query(
             alias="include_unfollowed",
             description=(
-                "For authenticated users, false = followed groups only; "
+                "For authenticated users, false = joined groups only; "
                 "true = all public groups"
             ),
         ),

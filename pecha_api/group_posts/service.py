@@ -207,7 +207,7 @@ def list_public_group_posts_service(
     user_id: Optional[UUID] = None,
     should_include_unfollowed: bool = False,
 ) -> GroupPostsResponse:
-    """List published posts across followed or all public groups."""
+    """List published posts across joined or all public groups."""
     with SessionLocal() as db:
         if user_id:
             group_ids, _ = resolve_public_group_scope(

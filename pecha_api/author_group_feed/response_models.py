@@ -16,7 +16,7 @@ class AuthorGroupFeedItemType(str, Enum):
 class AuthorGroupFeedItemDTO(BaseModel):
     type: AuthorGroupFeedItemType
     feed_at: str
-    is_followed: bool
+    is_joined: bool
     group_id: UUID
     group_name: Optional[str] = None
     group_slug: Optional[str] = None
