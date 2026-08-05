@@ -2,8 +2,10 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set, Tuple
 from uuid import UUID
 
+from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
+
 from pecha_api.config import get
-from pecha_api.db.database import SessionLocal
 from pecha_api.events.event_participant_repository import (
     get_event_participant_counts,
     get_joined_event_ids_by_user,
@@ -77,8 +79,8 @@ def _group_display_name(group: AuthorGroup, language: Optional[str] = None) -> s
 def _resolve_feed_group_ids(
     *,
     followed_ids: List[UUID],
-    include_unfollowed: bool,
-    db,
+    should_include_unfollowed: bool,
+    db: Session,
 ) -> Tuple[List[UUID], Set[UUID]]:
     """Return (group_ids_to_query, followed_id_set)."""
     public_followed = [
@@ -88,7 +90,7 @@ def _resolve_feed_group_ids(
     ]
     followed_set = set(public_followed)
 
-    if not include_unfollowed:
+    if not should_include_unfollowed:
         return public_followed, followed_set
 
     public_ids = get_public_group_ids(db=db)
@@ -96,7 +98,7 @@ def _resolve_feed_group_ids(
 
 
 def _build_group_card_map(
-    db,
+    db: Session,
     group_ids: List[UUID],
     language: Optional[str],
 ) -> Dict[UUID, dict]:
@@ -112,9 +114,10 @@ def _build_group_card_map(
     }
 
 
-def get_author_group_feed_service(
+def _get_author_group_feed(
+    db: Session,
     token: str,
-    include_unfollowed: bool = False,
+    should_include_unfollowed: bool,
     skip: int = 0,
     limit: int = 20,
     language: Optional[str] = None,
@@ -122,115 +125,134 @@ def get_author_group_feed_service(
     """Authenticated mixed feed of posts and events from author groups.
 
     Default: only groups the user follows.
-    With include_unfollowed=True: mix in content from other public groups.
+    With should_include_unfollowed=True: mix in other public groups.
     """
     current_user = validate_and_extract_user_details(token=token)
 
-    with SessionLocal() as db:
-        followed_ids = get_following_group_ids_by_user(db=db, user_id=current_user.id)
-        group_ids, followed_set = _resolve_feed_group_ids(
-            followed_ids=followed_ids,
-            include_unfollowed=include_unfollowed,
-            db=db,
-        )
+    followed_ids = get_following_group_ids_by_user(db=db, user_id=current_user.id)
+    group_ids, followed_set = _resolve_feed_group_ids(
+        followed_ids=followed_ids,
+        should_include_unfollowed=should_include_unfollowed,
+        db=db,
+    )
 
-        if not group_ids:
-            return AuthorGroupFeedResponse(
-                items=[],
-                skip=skip,
-                limit=limit,
-                total=0,
-                include_unfollowed=include_unfollowed,
-            )
-
-        # Fetch enough of each type to fill the requested page after merge.
-        fetch_limit = skip + limit
-
-        posts, posts_total = get_posts_for_group_ids(
-            db=db,
-            group_ids=group_ids,
-            skip=0,
-            limit=fetch_limit,
-            status=GroupPostStatus.PUBLISHED,
-        )
-        post_dtos = build_post_dtos(db, posts)
-
-        events, events_total = get_events(
-            db=db,
-            restrict_group_ids=group_ids,
-            skip=0,
-            limit=fetch_limit,
-            newest_first=True,
-        )
-        event_ids = [event.id for event in events]
-        counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
-        joined_ids = set(
-            get_joined_event_ids_by_user(
-                db=db,
-                user_id=current_user.id,
-                event_ids=event_ids,
-            )
-        )
-
-        page_group_ids = list({
-            *[post.group_id for post in posts],
-            *[event.group_id for event in events],
-        })
-        group_cards = _build_group_card_map(db, page_group_ids, language)
-
-        cards: List[Tuple[datetime, AuthorGroupFeedItemDTO]] = []
-
-        for post, post_dto in zip(posts, post_dtos):
-            feed_at = _as_aware_utc(post.published_at)
-            group_info = group_cards.get(post.group_id, {})
-            cards.append(
-                (
-                    feed_at,
-                    AuthorGroupFeedItemDTO(
-                        type=AuthorGroupFeedItemType.POST,
-                        feed_at=_isoformat(feed_at),
-                        is_followed=post.group_id in followed_set,
-                        group_id=post.group_id,
-                        group_name=group_info.get("group_name"),
-                        group_slug=group_info.get("group_slug"),
-                        group_avatar_url=group_info.get("group_avatar_url"),
-                        post=post_dto,
-                    ),
-                )
-            )
-
-        for event in events:
-            feed_at = _as_aware_utc(event.created_at)
-            group_info = group_cards.get(event.group_id, {})
-            cards.append(
-                (
-                    feed_at,
-                    AuthorGroupFeedItemDTO(
-                        type=AuthorGroupFeedItemType.EVENT,
-                        feed_at=_isoformat(feed_at),
-                        is_followed=event.group_id in followed_set,
-                        group_id=event.group_id,
-                        group_name=group_info.get("group_name"),
-                        group_slug=group_info.get("group_slug"),
-                        group_avatar_url=group_info.get("group_avatar_url"),
-                        event=_event_to_dto(
-                            event,
-                            language=language,
-                            participant_count=counts_by_event.get(event.id, 0),
-                            is_joined=event.id in joined_ids,
-                        ),
-                    ),
-                )
-            )
-
-        cards.sort(key=lambda entry: (entry[0], entry[1].type.value), reverse=True)
-        total = posts_total + events_total
-        page = [card for _, card in cards[skip:skip + limit]]
-
+    if not group_ids:
         return AuthorGroupFeedResponse(
-            items=page,
+            items=[],
             skip=skip,
             limit=limit,
-            total=total,
-            include_unfollowed=include_unfollowed,
+            total=0,
+            should_include_unfollowed=should_include_unfollowed,
         )
+
+    # Fetch enough of each type to fill the requested page after merge.
+    fetch_limit = skip + limit
+
+    posts, posts_total = get_posts_for_group_ids(
+        db=db,
+        group_ids=group_ids,
+        skip=0,
+        limit=fetch_limit,
+        status=GroupPostStatus.PUBLISHED,
+    )
+    post_dtos = build_post_dtos(db, posts, user_id=current_user.id)
+
+    events, events_total = get_events(
+        db=db,
+        restrict_group_ids=group_ids,
+        skip=0,
+        limit=fetch_limit,
+        should_sort_newest_first=True,
+    )
+    event_ids = [event.id for event in events]
+    counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
+    joined_ids = set(
+        get_joined_event_ids_by_user(
+            db=db,
+            user_id=current_user.id,
+            event_ids=event_ids,
+        )
+    )
+
+    page_group_ids = list({
+        *[post.group_id for post in posts],
+        *[event.group_id for event in events],
+    })
+    group_cards = _build_group_card_map(db, page_group_ids, language)
+
+    cards: List[Tuple[datetime, AuthorGroupFeedItemDTO]] = []
+
+    for post, post_dto in zip(posts, post_dtos):
+        feed_at = _as_aware_utc(post.published_at)
+        group_info = group_cards.get(post.group_id, {})
+        cards.append(
+            (
+                feed_at,
+                AuthorGroupFeedItemDTO(
+                    type=AuthorGroupFeedItemType.POST,
+                    feed_at=_isoformat(feed_at),
+                    is_followed=post.group_id in followed_set,
+                    group_id=post.group_id,
+                    group_name=group_info.get("group_name"),
+                    group_slug=group_info.get("group_slug"),
+                    group_avatar_url=group_info.get("group_avatar_url"),
+                    post=post_dto,
+                ),
+            )
+        )
+
+    for event in events:
+        feed_at = _as_aware_utc(event.created_at)
+        group_info = group_cards.get(event.group_id, {})
+        cards.append(
+            (
+                feed_at,
+                AuthorGroupFeedItemDTO(
+                    type=AuthorGroupFeedItemType.EVENT,
+                    feed_at=_isoformat(feed_at),
+                    is_followed=event.group_id in followed_set,
+                    group_id=event.group_id,
+                    group_name=group_info.get("group_name"),
+                    group_slug=group_info.get("group_slug"),
+                    group_avatar_url=group_info.get("group_avatar_url"),
+                    event=_event_to_dto(
+                        event,
+                        language=language,
+                        participant_count=counts_by_event.get(event.id, 0),
+                        is_joined=event.id in joined_ids,
+                    ),
+                ),
+            )
+        )
+
+    cards.sort(key=lambda entry: (entry[0], entry[1].type.value), reverse=True)
+    total = posts_total + events_total
+    page = [card for _, card in cards[skip:skip + limit]]
+
+    return AuthorGroupFeedResponse(
+        items=page,
+        skip=skip,
+        limit=limit,
+        total=total,
+        should_include_unfollowed=should_include_unfollowed,
+    )
+
+
+async def get_author_group_feed_service(
+    db: Session,
+    token: str,
+    should_include_unfollowed: bool = False,
+    skip: int = 0,
+    limit: int = 20,
+    language: Optional[str] = None,
+) -> AuthorGroupFeedResponse:
+    """Build the feed without blocking the application's event loop."""
+    return await run_in_threadpool(
+        _get_author_group_feed,
+        db=db,
+        token=token,
+        should_include_unfollowed=should_include_unfollowed,
+        skip=skip,
+        limit=limit,
+        language=language,
+    )

@@ -2,10 +2,12 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
 from starlette import status
 
 from pecha_api.author_group_feed.response_models import AuthorGroupFeedResponse
 from pecha_api.author_group_feed.service import get_author_group_feed_service
+from pecha_api.db.database import get_db
 
 oauth2_scheme = HTTPBearer()
 
@@ -20,15 +22,17 @@ author_group_feed_router = APIRouter(
     status_code=status.HTTP_200_OK,
     response_model=AuthorGroupFeedResponse,
 )
-def get_author_group_feed(
+async def get_author_group_feed(
     authentication_credential: Annotated[
         HTTPAuthorizationCredentials, Depends(oauth2_scheme)
     ],
+    db: Annotated[Session, Depends(get_db)],
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    include_unfollowed: Annotated[
+    should_include_unfollowed: Annotated[
         bool,
         Query(
+            alias="include_unfollowed",
             description=(
                 "false = followed groups only (My tab); "
                 "true = also mix in other public groups (Discover tab)"
@@ -45,9 +49,10 @@ def get_author_group_feed(
     Requires auth. Defaults to groups the user follows. Pass
     ``include_unfollowed=true`` to also mix in other public groups.
     """
-    return get_author_group_feed_service(
+    return await get_author_group_feed_service(
+        db=db,
         token=authentication_credential.credentials,
-        include_unfollowed=include_unfollowed,
+        should_include_unfollowed=should_include_unfollowed,
         skip=skip,
         limit=limit,
         language=language,

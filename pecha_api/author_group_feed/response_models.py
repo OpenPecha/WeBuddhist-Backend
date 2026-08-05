@@ -2,7 +2,7 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from pecha_api.events.event_response_models import EventDTO
 from pecha_api.group_posts.response_models import GroupPostDTO
@@ -30,4 +30,4 @@ class AuthorGroupFeedResponse(BaseModel):
     skip: int
     limit: int
     total: int
-    include_unfollowed: bool
+    should_include_unfollowed: bool = Field(serialization_alias="include_unfollowed")

@@ -2,6 +2,8 @@ from datetime import datetime, timezone as tz
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+import pytest
+
 from pecha_api.author_group_feed.response_models import (
     AuthorGroupFeedItemType,
 )
@@ -82,6 +84,7 @@ def _post_dto(post: MockPost) -> GroupPostDTO:
 
 class TestGetAuthorGroupFeedService:
 
+    @pytest.mark.asyncio
     @patch("pecha_api.author_group_feed.service.get_joined_event_ids_by_user")
     @patch("pecha_api.author_group_feed.service.get_event_participant_counts")
     @patch("pecha_api.author_group_feed.service._event_to_dto")
@@ -90,12 +93,10 @@ class TestGetAuthorGroupFeedService:
     @patch("pecha_api.author_group_feed.service.get_posts_for_group_ids")
     @patch("pecha_api.author_group_feed.service.get_groups_by_ids")
     @patch("pecha_api.author_group_feed.service.get_following_group_ids_by_user")
-    @patch("pecha_api.author_group_feed.service.SessionLocal")
     @patch("pecha_api.author_group_feed.service.validate_and_extract_user_details")
-    def test_followed_only_mixes_posts_and_events_newest_first(
+    async def test_followed_only_mixes_posts_and_events_newest_first(
         self,
         mock_validate,
-        mock_session,
         mock_following_ids,
         mock_groups_by_ids,
         mock_get_posts,
@@ -107,8 +108,8 @@ class TestGetAuthorGroupFeedService:
     ):
         user = MockUser()
         followed_id = uuid4()
+        mock_db = MagicMock()
         mock_validate.return_value = user
-        mock_session.return_value.__enter__.return_value = MagicMock()
         mock_following_ids.return_value = [followed_id]
         mock_groups_by_ids.side_effect = [
             [MockGroup(followed_id)],
@@ -137,15 +138,16 @@ class TestGetAuthorGroupFeedService:
             created_by=event.created_by,
         )
 
-        result = get_author_group_feed_service(
+        result = await get_author_group_feed_service(
+            db=mock_db,
             token="token",
-            include_unfollowed=False,
+            should_include_unfollowed=False,
             skip=0,
             limit=20,
         )
 
         assert result.total == 2
-        assert result.include_unfollowed is False
+        assert result.should_include_unfollowed is False
         assert len(result.items) == 2
         assert result.items[0].type == AuthorGroupFeedItemType.POST
         assert result.items[0].is_followed is True
@@ -157,11 +159,17 @@ class TestGetAuthorGroupFeedService:
         _, post_kwargs = mock_get_posts.call_args
         assert post_kwargs["group_ids"] == [followed_id]
         assert post_kwargs["status"] == GroupPostStatus.PUBLISHED
+        mock_build_posts.assert_called_once_with(
+            mock_db,
+            [post],
+            user_id=user.id,
+        )
 
         _, event_kwargs = mock_get_events.call_args
         assert event_kwargs["restrict_group_ids"] == [followed_id]
-        assert event_kwargs["newest_first"] is True
+        assert event_kwargs["should_sort_newest_first"] is True
 
+    @pytest.mark.asyncio
     @patch("pecha_api.author_group_feed.service.get_public_group_ids")
     @patch("pecha_api.author_group_feed.service.get_joined_event_ids_by_user")
     @patch("pecha_api.author_group_feed.service.get_event_participant_counts")
@@ -170,12 +178,10 @@ class TestGetAuthorGroupFeedService:
     @patch("pecha_api.author_group_feed.service.get_posts_for_group_ids")
     @patch("pecha_api.author_group_feed.service.get_groups_by_ids")
     @patch("pecha_api.author_group_feed.service.get_following_group_ids_by_user")
-    @patch("pecha_api.author_group_feed.service.SessionLocal")
     @patch("pecha_api.author_group_feed.service.validate_and_extract_user_details")
-    def test_include_unfollowed_mixes_other_public_groups(
+    async def test_should_include_unfollowed_mixes_other_public_groups(
         self,
         mock_validate,
-        mock_session,
         mock_following_ids,
         mock_groups_by_ids,
         mock_get_posts,
@@ -188,8 +194,8 @@ class TestGetAuthorGroupFeedService:
         user = MockUser()
         followed_id = uuid4()
         other_id = uuid4()
+        mock_db = MagicMock()
         mock_validate.return_value = user
-        mock_session.return_value.__enter__.return_value = MagicMock()
         mock_following_ids.return_value = [followed_id]
         mock_groups_by_ids.side_effect = [
             [MockGroup(followed_id)],
@@ -204,12 +210,13 @@ class TestGetAuthorGroupFeedService:
         mock_counts.return_value = {}
         mock_joined.return_value = []
 
-        result = get_author_group_feed_service(
+        result = await get_author_group_feed_service(
+            db=mock_db,
             token="token",
-            include_unfollowed=True,
+            should_include_unfollowed=True,
         )
 
-        assert result.include_unfollowed is True
+        assert result.should_include_unfollowed is True
         assert result.total == 1
         assert result.items[0].is_followed is False
         assert result.items[0].type == AuthorGroupFeedItemType.POST
@@ -220,22 +227,21 @@ class TestGetAuthorGroupFeedService:
     @patch("pecha_api.author_group_feed.service.get_posts_for_group_ids")
     @patch("pecha_api.author_group_feed.service.get_groups_by_ids")
     @patch("pecha_api.author_group_feed.service.get_following_group_ids_by_user")
-    @patch("pecha_api.author_group_feed.service.SessionLocal")
     @patch("pecha_api.author_group_feed.service.validate_and_extract_user_details")
-    def test_empty_when_user_follows_nothing(
+    @pytest.mark.asyncio
+    async def test_empty_when_user_follows_nothing(
         self,
         mock_validate,
-        mock_session,
         mock_following_ids,
         mock_groups_by_ids,
         mock_get_posts,
     ):
         mock_validate.return_value = MockUser()
-        mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_db = MagicMock()
         mock_following_ids.return_value = []
         mock_groups_by_ids.return_value = []
 
-        result = get_author_group_feed_service(token="token")
+        result = await get_author_group_feed_service(db=mock_db, token="token")
 
         assert result.items == []
         assert result.total == 0
