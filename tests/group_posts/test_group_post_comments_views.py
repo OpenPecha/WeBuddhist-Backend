@@ -20,7 +20,6 @@ AUTH_HEADERS = {"Authorization": "Bearer test-token"}
 
 def _comment_dto(
     post_id=None,
-    user_id=None,
     user_email="user@example.com",
     parent_comment_id=None,
 ) -> GroupPostCommentDTO:
@@ -28,9 +27,13 @@ def _comment_dto(
     return GroupPostCommentDTO(
         id=uuid4(),
         post_id=post_id or uuid4(),
-        user_id=user_id or uuid4(),
         parent_comment_id=parent_comment_id,
-        user_email=user_email,
+        user={
+            "first_name": "First",
+            "last_name": "Last",
+            "email": user_email,
+            "avatar_url": "https://example.com/avatar.jpg",
+        },
         text="Great post!",
         created_at=now,
         updated_at=now,
@@ -57,6 +60,13 @@ class TestPublicGroupPostCommentsViews:
         body = response.json()
         assert body["total"] == 1
         assert body["comments"][0]["text"] == "Great post!"
+        assert body["comments"][0]["user"] == {
+            "first_name": "First",
+            "last_name": "Last",
+            "email": "user@example.com",
+            "avatar_url": "https://example.com/avatar.jpg",
+        }
+        assert "user_id" not in body["comments"][0]
 
     @patch('pecha_api.group_posts.comment_views.list_post_comments_service')
     def test_list_comments_empty(self, mock_service):

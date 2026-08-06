@@ -5,13 +5,20 @@ from uuid import UUID
 from pydantic import BaseModel, field_validator
 
 
+class GroupPostCommentUserDTO(BaseModel):
+    """Public user details included with a comment."""
+    first_name: str
+    last_name: Optional[str] = None
+    email: str
+    avatar_url: Optional[str] = None
+
+
 class GroupPostCommentDTO(BaseModel):
     """DTO for a single comment."""
     id: UUID
     post_id: UUID
-    user_id: UUID
     parent_comment_id: Optional[UUID] = None
-    user_email: str
+    user: GroupPostCommentUserDTO
     text: str
     created_at: str
     updated_at: Optional[str] = None

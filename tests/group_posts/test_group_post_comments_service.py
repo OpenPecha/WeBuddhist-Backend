@@ -18,9 +18,19 @@ from pecha_api.group_posts.comment_service import (
 
 
 class MockUser:
-    def __init__(self, user_id=None, email="user@example.com"):
+    def __init__(
+        self,
+        user_id=None,
+        email="user@example.com",
+        firstname="First",
+        lastname="Last",
+        avatar_url=None,
+    ):
         self.id = user_id or uuid4()
         self.email = email
+        self.firstname = firstname
+        self.lastname = lastname
+        self.avatar_url = avatar_url
 
 
 class MockComment:
@@ -89,7 +99,7 @@ class TestListPostCommentsService:
 
         assert isinstance(result, GroupPostCommentsResponse)
         assert result.total == 1
-        assert result.comments[0].user_email == "commenter@example.com"
+        assert result.comments[0].user.email == "commenter@example.com"
 
     @patch('pecha_api.group_posts.comment_service.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
@@ -150,13 +160,35 @@ class TestListPostCommentsService:
 
 class TestBuildCommentDTO:
 
-    def test_uses_a_placeholder_email_when_the_user_row_is_missing(self):
+    def test_uses_placeholder_user_when_the_user_row_is_missing(self):
         comment = MockComment()
         comment.user = None
 
         dto = build_comment_dto(comment)
 
-        assert dto.user_email == "unknown@example.com"
+        assert dto.user.first_name == "Unknown"
+        assert dto.user.email == "unknown@example.com"
+        assert dto.user.avatar_url is None
+
+    @patch(
+        "pecha_api.group_posts.comment_service.generate_presigned_access_url",
+        return_value="https://example.com/avatar.jpg",
+    )
+    def test_includes_user_profile(self, mock_generate_url):
+        user = MockUser(
+            firstname="Tenzin",
+            lastname="Kunsang",
+            email="tenzin@example.com",
+            avatar_url="avatars/tenzin.jpg",
+        )
+
+        dto = build_comment_dto(MockComment(user=user))
+
+        assert dto.user.first_name == "Tenzin"
+        assert dto.user.last_name == "Kunsang"
+        assert dto.user.email == "tenzin@example.com"
+        assert dto.user.avatar_url == "https://example.com/avatar.jpg"
+        mock_generate_url.assert_called_once()
 
     def test_leaves_updated_at_null_when_never_edited(self):
         comment = MockComment()
@@ -205,8 +237,7 @@ class TestCreatePostCommentService:
         )
 
         assert result.text == "Hello"
-        assert result.user_id == user.id
-        assert result.user_email == "commenter@example.com"
+        assert result.user.email == "commenter@example.com"
 
         persisted = mock_create.call_args.kwargs["comment"]
         assert persisted.post_id == post_id
