@@ -11,18 +11,22 @@ token pair. The backend does not generate or store OTP codes.
 2. Configure an SMS provider (for example, Twilio) and Auth0's OTP lifetime,
    resend, and brute-force protection.
 3. Add the Studio callback and logout URLs to the Auth0 SPA application.
-4. Enable Authorization Code with PKCE and the `webuddhist-backend` API
-   audience.
-5. Add the following Post Login Action to the Login flow. Change the audience
-   guard if the API identifier differs by environment. This Action covers both
-   SMS passwordless and Google social login claims.
+4. Enable Authorization Code with PKCE and the backend API audience. The API
+   identifier differs per tenant: `webuddhist-backend` on dev,
+   `https://api.webuddhist.com` on prod.
+5. Add the following Post Login Action to the Login flow. The audience guard
+   lists every environment's API identifier — if the Action's guard does not
+   match the identifier the SPA requested, the Action returns early and the
+   access token ships without phone claims, which the backend rejects as
+   `Invalid Auth0 SMS token`. This Action covers both SMS passwordless and
+   Google social login claims.
 
 ```javascript
 exports.onExecutePostLogin = async (event, api) => {
-  const audience = "webuddhist-backend";
+  const audiences = ["webuddhist-backend", "https://api.webuddhist.com"];
   const namespace = "https://webuddhist.com";
 
-  if (event.resource_server?.identifier !== audience) {
+  if (!audiences.includes(event.resource_server?.identifier)) {
     return;
   }
 
@@ -61,8 +65,14 @@ exports.onExecutePostLogin = async (event, api) => {
 ```
 
 The backend accepts only RS256 access tokens whose issuer, audience, `sms|`
-subject, namespaced phone claims, and issue time all pass validation. Phone
-numbers must be in E.164 form.
+subject prefix, namespaced phone claims, and issue time all pass validation.
+Phone numbers must be in E.164 form and come from the namespaced claim; the
+subject stays the opaque Auth0 user id (`sms|6a744811b6f40222b44b0bf3`) and is
+never expected to contain the phone number.
+
+Tokens are rejected if they are older than `AUTH0_SMS_TOKEN_MAX_AGE_SECONDS`
+(default 300). The Auth0 access token itself lives far longer, and the SPA
+caches it, so the exchange must happen promptly after login.
 
 ## Backend environment
 
@@ -73,6 +83,11 @@ AUTH0_SMS_PHONE_CLAIM=https://webuddhist.com/phone_number
 AUTH0_SMS_PHONE_VERIFIED_CLAIM=https://webuddhist.com/phone_number_verified
 AUTH0_SMS_TOKEN_MAX_AGE_SECONDS=300
 ```
+
+`AUTH0_SMS_DOMAIN` and `AUTH0_SMS_AUDIENCE` must match the tenant and audience
+the Studio SPA requests (`VITE_AUTH0_DOMAIN` and `VITE_AUTH0_AUDIENCE`). A
+mismatch fails during signature verification with "signing key was not found",
+because the backend fetches JWKS from the wrong tenant.
 
 Run the Alembic migration before enabling phone login. It adds nullable,
 uniquely indexed `phone_number` columns directly to both `users` and `authors`;
@@ -92,10 +107,10 @@ and extend the Post Login Action so Google access tokens carry email claims:
 
 ```javascript
 exports.onExecutePostLogin = async (event, api) => {
-  const audience = "webuddhist-backend";
+  const audiences = ["webuddhist-backend", "https://api.webuddhist.com"];
   const namespace = "https://webuddhist.com";
 
-  if (event.resource_server?.identifier !== audience) {
+  if (!audiences.includes(event.resource_server?.identifier)) {
     return;
   }
 

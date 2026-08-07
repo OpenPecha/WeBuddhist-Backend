@@ -14,7 +14,7 @@ from pecha_api.auth.auth0_sms import (
 def _payload(**overrides):
     now = datetime.now(timezone.utc).timestamp()
     payload = {
-        "sub": "sms|+14155552671",
+        "sub": "sms|6a744811b6f40222b44b0bf3",
         "iat": now,
         "https://webuddhist.com/phone_number": "+1 (415) 555-2671",
         "https://webuddhist.com/phone_number_verified": True,
@@ -68,7 +68,7 @@ def test_verify_auth0_sms_token_returns_normalized_verified_identity():
     ):
         identity = verify_auth0_sms_token("token")
 
-    assert identity.subject == "sms|+14155552671"
+    assert identity.subject == "sms|6a744811b6f40222b44b0bf3"
     assert identity.phone_number == "+14155552671"
 
 
@@ -77,6 +77,7 @@ def test_verify_auth0_sms_token_returns_normalized_verified_identity():
     [
         _payload(**{"https://webuddhist.com/phone_number_verified": False}),
         _payload(sub="auth0|abc"),
+        _payload(sub="sms|"),
         _payload(**{"https://webuddhist.com/phone_number": "4155552671"}),
         _payload(iat=0),
     ],

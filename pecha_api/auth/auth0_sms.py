@@ -13,6 +13,7 @@ from pecha_api.config import get, get_int
 
 
 AUTH0_SMS_PROVIDER = "auth0_sms"
+AUTH0_SMS_CONNECTION = "sms"
 _E164_PATTERN = re.compile(r"^\+[1-9]\d{7,14}$")
 
 
@@ -78,8 +79,11 @@ def verify_auth0_sms_token(token: str) -> Auth0SMSIdentity:
 
         phone_number = normalize_e164(payload.get(phone_claim))
         subject = payload.get("sub")
-        if not isinstance(subject, str) or subject != f"sms|{phone_number}":
-            raise ValueError("Auth0 SMS subject does not match the verified phone number")
+        # Auth0 passwordless SMS subjects are "sms|<opaque user id>", not "sms|<E.164>".
+        if not isinstance(subject, str) or not subject.startswith(f"{AUTH0_SMS_CONNECTION}|"):
+            raise ValueError("Auth0 SMS subject is not from the SMS connection")
+        if not subject[len(AUTH0_SMS_CONNECTION) + 1 :].strip():
+            raise ValueError("Auth0 SMS subject is missing a user identifier")
 
         issued_at = payload.get("iat")
         if not isinstance(issued_at, (int, float)):
