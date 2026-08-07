@@ -20,6 +20,7 @@ from pecha_api.group_posts.comment_service import (
     list_post_comments_service,
 )
 from pecha_api.group_posts.comment_websocket import get_broadcaster
+from pecha_api.group_posts.service_utils import resolve_user_id
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
 from pecha_api.users.users_models import Users
 from pecha_api.db.database import SessionLocal
@@ -102,9 +103,11 @@ def delete_post_comment(
 ) -> Response:
     """Delete a comment (only the author can delete)."""
     author = validate_and_extract_author_details(token=authentication_credential.credentials)
+    with SessionLocal() as db:
+        user_id = resolve_user_id(db, author.email)
     delete_post_comment_service(
         comment_id=comment_id,
-        user_id=author.id,
+        user_id=user_id,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

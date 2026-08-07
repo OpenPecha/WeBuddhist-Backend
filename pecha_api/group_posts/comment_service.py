@@ -6,9 +6,11 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
 
+from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.groups.groups_repository import get_group_by_id
 from pecha_api.plans.response_message import NOT_FOUND
+from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.users.users_models import Users
 
 from pecha_api.group_posts.comment_models import GroupPostComment
@@ -21,6 +23,7 @@ from pecha_api.group_posts.comment_repository import (
 )
 from pecha_api.group_posts.comment_response_models import (
     GroupPostCommentDTO,
+    GroupPostCommentUserDTO,
     GroupPostCommentsResponse,
 )
 from pecha_api.group_posts.repository import get_post_by_id, get_post_by_id_only
@@ -40,19 +43,44 @@ def _isoformat(value) -> Optional[str]:
     return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
 
+def _generate_avatar_url(avatar_key: Optional[str]) -> Optional[str]:
+    if not avatar_key:
+        return None
+    try:
+        return generate_presigned_access_url(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=avatar_key,
+        )
+    except Exception:
+        logger.exception("Failed to generate comment user avatar URL")
+        return None
+
+
+def _build_comment_user(user: Optional[Users]) -> GroupPostCommentUserDTO:
+    if not user:
+        return GroupPostCommentUserDTO(
+            first_name="Unknown",
+            email="unknown@example.com",
+        )
+    return GroupPostCommentUserDTO(
+        first_name=user.firstname,
+        last_name=user.lastname,
+        email=user.email,
+        avatar_url=_generate_avatar_url(user.avatar_url),
+    )
+
+
 def build_comment_dto(
     comment: GroupPostComment,
     like_count: int = 0,
     liked_by_me: bool = False,
 ) -> GroupPostCommentDTO:
-    """Build a comment DTO with user email."""
-    user_email = comment.user.email if comment.user else "unknown@example.com"
+    """Build a comment DTO with public user details."""
     return GroupPostCommentDTO(
         id=comment.id,
         post_id=comment.post_id,
-        user_id=comment.user_id,
         parent_comment_id=comment.parent_comment_id,
-        user_email=user_email,
+        user=_build_comment_user(comment.user),
         text=comment.text,
         created_at=_isoformat(comment.created_at),
         updated_at=_isoformat(comment.updated_at),

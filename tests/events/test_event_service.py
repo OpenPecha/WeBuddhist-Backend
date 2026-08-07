@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 from pecha_api.events.event_response_models import EventDTO, EventsResponse
-from pecha_api.events.event_service import get_events_today_service
+from pecha_api.events.event_service import get_events_service, get_events_today_service
 
 
 def test_get_events_today_service_uses_day_bounds():
@@ -39,8 +39,76 @@ def test_get_events_today_service_uses_day_bounds():
         to_date=end,
         language="en",
         fallback=True,
+        should_include_unfollowed=False,
         skip=0,
         limit=20,
         token=None,
     )
     assert result == expected
+
+
+def test_get_events_service_limits_authenticated_user_to_followed_groups():
+    user = MagicMock(id=uuid4())
+    followed_group_id = uuid4()
+
+    with patch(
+        "pecha_api.events.event_service.SessionLocal"
+    ) as mock_session, patch(
+        "pecha_api.events.event_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.events.event_service.resolve_public_group_scope",
+        return_value=([followed_group_id], {followed_group_id}),
+    ) as mock_scope, patch(
+        "pecha_api.events.event_service.get_events",
+        return_value=([], 0),
+    ) as mock_get_events, patch(
+        "pecha_api.events.event_service.get_event_participant_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.events.event_service.get_joined_event_ids_by_user",
+        return_value=[],
+    ):
+        mock_session.return_value.__enter__.return_value = MagicMock()
+
+        result = get_events_service(token="token")
+
+    assert result.events == []
+    mock_scope.assert_called_once()
+    assert mock_scope.call_args.kwargs["should_include_unfollowed"] is False
+    assert mock_get_events.call_args.kwargs["restrict_group_ids"] == [
+        followed_group_id
+    ]
+
+
+def test_get_events_service_can_include_unfollowed_public_groups():
+    user = MagicMock(id=uuid4())
+    public_group_ids = [uuid4(), uuid4()]
+
+    with patch(
+        "pecha_api.events.event_service.SessionLocal"
+    ) as mock_session, patch(
+        "pecha_api.events.event_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.events.event_service.resolve_public_group_scope",
+        return_value=(public_group_ids, set()),
+    ) as mock_scope, patch(
+        "pecha_api.events.event_service.get_events",
+        return_value=([], 0),
+    ) as mock_get_events, patch(
+        "pecha_api.events.event_service.get_event_participant_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.events.event_service.get_joined_event_ids_by_user",
+        return_value=[],
+    ):
+        mock_session.return_value.__enter__.return_value = MagicMock()
+
+        get_events_service(
+            token="token",
+            should_include_unfollowed=True,
+        )
+
+    assert mock_scope.call_args.kwargs["should_include_unfollowed"] is True
+    assert mock_get_events.call_args.kwargs["restrict_group_ids"] == public_group_ids

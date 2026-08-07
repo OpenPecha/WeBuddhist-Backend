@@ -145,6 +145,17 @@ def delete_cms_group(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@cms_groups_router.get(
+    "/invites/me",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupInviteListResponse,
+)
+def get_my_pending_group_invites(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return list_my_pending_group_invites(token=authentication_credential.credentials)
+
+
 @cms_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=AuthorGroupDetailDTO)
 def get_cms_group(
     group_id: UUID,
@@ -237,17 +248,6 @@ def get_cms_group_invites(
         group_id=group_id,
         status_filter=status_filter,
     )
-
-
-@cms_groups_router.get(
-    "/invites/me",
-    status_code=status.HTTP_200_OK,
-    response_model=GroupInviteListResponse,
-)
-def get_my_pending_group_invites(
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
-    return list_my_pending_group_invites(token=authentication_credential.credentials)
 
 
 @cms_groups_router.post(

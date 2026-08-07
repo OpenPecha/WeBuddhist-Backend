@@ -82,14 +82,17 @@ class TestPostCommentBroadcasterUnit:
         broadcaster.redis = AsyncMock()
 
         post_id = uuid4()
-        user_id = uuid4()
         now = datetime.now(tz.utc).isoformat()
 
         comment_dto = GroupPostCommentDTO(
             id=uuid4(),
             post_id=post_id,
-            user_id=user_id,
-            user_email="test@example.com",
+            user={
+                "first_name": "First",
+                "last_name": "Last",
+                "email": "test@example.com",
+                "avatar_url": None,
+            },
             text="Great post!",
             created_at=now,
             updated_at=now,
@@ -207,8 +210,12 @@ class TestPostCommentBroadcasterFailures:
         comment = GroupPostCommentDTO(
             id=uuid4(),
             post_id=post_id,
-            user_id=uuid4(),
-            user_email="test@example.com",
+            user={
+                "first_name": "First",
+                "last_name": "Last",
+                "email": "test@example.com",
+                "avatar_url": None,
+            },
             text="Great post!",
             created_at=now,
             updated_at=now,

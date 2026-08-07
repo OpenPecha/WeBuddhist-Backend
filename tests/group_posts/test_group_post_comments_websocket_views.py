@@ -60,9 +60,13 @@ def _comment_dto(post_id, parent_comment_id=None) -> GroupPostCommentDTO:
     return GroupPostCommentDTO(
         id=uuid4(),
         post_id=post_id,
-        user_id=uuid4(),
         parent_comment_id=parent_comment_id,
-        user_email="user@example.com",
+        user={
+            "first_name": "First",
+            "last_name": "Last",
+            "email": "user@example.com",
+            "avatar_url": None,
+        },
         text="Great post!",
         created_at=now,
         updated_at=now,
