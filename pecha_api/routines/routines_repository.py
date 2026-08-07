@@ -395,18 +395,19 @@ def get_routine_series_and_recitation_counts(
         .all()
     )
 
-    series_count = sum(
-        1
+    # Use sets to count unique source_ids
+    series_source_ids = {
+        session.source_id
         for session in sessions
         if session.session_type == SessionType.SERIES and session.source_id is not None
-    )
-    standalone_plan_count = sum(
-        1
+    }
+    plan_source_ids = {
+        session.source_id
         for session in sessions
         if session.session_type == SessionType.PLAN and session.source_id is not None
-    )
-    recitation_count = sum(
-        1
+    }
+    recitation_source_ids = {
+        session.source_id
         for session in sessions
         if session.session_type
         in (
@@ -414,6 +415,6 @@ def get_routine_series_and_recitation_counts(
             SessionType.RECITATION_COLLECTION,
             SessionType.GROUP_RECITATION_COLLECTION,
         )
-    )
+    }
 
-    return series_count + standalone_plan_count, recitation_count
+    return len(series_source_ids) + len(plan_source_ids), len(recitation_source_ids)
