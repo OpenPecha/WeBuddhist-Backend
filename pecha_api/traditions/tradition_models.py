@@ -1,7 +1,7 @@
 from uuid import uuid4
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, UUID, Index, String, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, DateTime, UUID, Index, String, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -13,11 +13,12 @@ FK_TRADITION_LIST_ID = "tradition_list.id"
 
 class Tradition(Base):
     """A Buddhist tradition path (e.g. pali, chinese, tibetan).
-    ``parent_id`` is unused for the flat onboarding paths.
-    Per-language names live in ``tradition_metadata`` (one row per language)."""
+    ``code`` is the stable app key. Per-language names live in
+    ``tradition_metadata`` (one row per language)."""
     __tablename__ = "tradition_list"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    code = Column(String(64), nullable=False, unique=True)
     parent_id = Column(
         UUID(as_uuid=True),
         ForeignKey(FK_TRADITION_LIST_ID, ondelete="SET NULL"),
@@ -42,8 +43,8 @@ class Tradition(Base):
 
 
 class TraditionMetadata(Base):
-    """Per-language display name and aliases for a tradition. One row per
-    (tradition, language). ``other_names`` holds the list of aliases for that
+    """Per-language display name and description for a tradition. One row per
+    (tradition, language). ``other_names`` holds optional aliases for that
     language."""
     __tablename__ = "tradition_metadata"
 
@@ -55,6 +56,7 @@ class TraditionMetadata(Base):
     )
     language = Column(LanguageCodeEnum, nullable=False)
     name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
     # List of alias strings for this language.
     other_names = Column(JSONB, nullable=True)
 
