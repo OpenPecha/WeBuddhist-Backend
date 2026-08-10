@@ -20,7 +20,6 @@ AUTH_HEADERS = {"Authorization": "Bearer test-token"}
 
 def _comment_dto(
     post_id=None,
-    user_id=None,
     user_email="user@example.com",
     parent_comment_id=None,
 ) -> GroupPostCommentDTO:
@@ -28,9 +27,13 @@ def _comment_dto(
     return GroupPostCommentDTO(
         id=uuid4(),
         post_id=post_id or uuid4(),
-        user_id=user_id or uuid4(),
         parent_comment_id=parent_comment_id,
-        user_email=user_email,
+        user={
+            "first_name": "First",
+            "last_name": "Last",
+            "email": user_email,
+            "avatar_url": "https://example.com/avatar.jpg",
+        },
         text="Great post!",
         created_at=now,
         updated_at=now,
@@ -57,6 +60,13 @@ class TestPublicGroupPostCommentsViews:
         body = response.json()
         assert body["total"] == 1
         assert body["comments"][0]["text"] == "Great post!"
+        assert body["comments"][0]["user"] == {
+            "first_name": "First",
+            "last_name": "Last",
+            "email": "user@example.com",
+            "avatar_url": "https://example.com/avatar.jpg",
+        }
+        assert "user_id" not in body["comments"][0]
 
     @patch('pecha_api.group_posts.comment_views.list_post_comments_service')
     def test_list_comments_empty(self, mock_service):
@@ -178,15 +188,19 @@ class TestCreatePostCommentView:
 class TestDeletePostCommentView:
 
     @patch('pecha_api.group_posts.comment_views.delete_post_comment_service')
+    @patch('pecha_api.group_posts.comment_views.resolve_user_id')
     @patch('pecha_api.group_posts.comment_views.validate_and_extract_author_details')
-    def test_delete_comment(self, mock_validate, mock_service):
+    def test_delete_comment(self, mock_validate, mock_resolve_user_id, mock_service):
         client = get_client()
         group_id = uuid4()
         post_id = uuid4()
         comment_id = uuid4()
         author = MagicMock()
         author.id = uuid4()
+        author.email = "author@example.com"
+        user_id = uuid4()
         mock_validate.return_value = author
+        mock_resolve_user_id.return_value = user_id
         mock_service.return_value = None
 
         response = client.delete(
@@ -197,7 +211,7 @@ class TestDeletePostCommentView:
         assert response.status_code == status.HTTP_204_NO_CONTENT
         mock_service.assert_called_once_with(
             comment_id=comment_id,
-            user_id=author.id,
+            user_id=user_id,
         )
 
     def test_delete_comment_requires_auth(self):
@@ -210,10 +224,20 @@ class TestDeletePostCommentView:
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
     @patch('pecha_api.group_posts.comment_views.delete_post_comment_service')
+    @patch('pecha_api.group_posts.comment_views.resolve_user_id')
     @patch('pecha_api.group_posts.comment_views.validate_and_extract_author_details')
-    def test_delete_comment_of_another_user_is_forbidden(self, mock_validate, mock_service):
+    def test_delete_comment_of_another_user_is_forbidden(
+        self,
+        mock_validate,
+        mock_resolve_user_id,
+        mock_service,
+    ):
         client = get_client()
-        mock_validate.return_value = MagicMock(id=uuid4())
+        mock_validate.return_value = MagicMock(
+            id=uuid4(),
+            email="author@example.com",
+        )
+        mock_resolve_user_id.return_value = uuid4()
         mock_service.side_effect = HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only delete your own comments",

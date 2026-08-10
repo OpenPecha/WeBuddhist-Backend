@@ -28,6 +28,7 @@ def _make_author(
     *,
     author_id=None,
     email="admin@example.com",
+    phone_number=None,
     platform_role=PlatformRole.SUPER_ADMIN,
     is_active=True,
     is_verified=True,
@@ -35,6 +36,7 @@ def _make_author(
     author = MagicMock()
     author.id = author_id or uuid.uuid4()
     author.email = email
+    author.phone_number = phone_number
     author.first_name = "Admin"
     author.last_name = "User"
     author.platform_role = platform_role.value
@@ -71,6 +73,48 @@ def test_list_admin_authors_success():
     assert resp.total == 1
     assert resp.authors[0].email == row.email
     assert resp.authors[0].platform_role == PlatformRole.SUPER_ADMIN
+
+
+def test_list_admin_authors_includes_phone_only_authors():
+    row = _make_author(email=None, phone_number="+919812345678", is_active=False)
+    caller = _make_author(platform_role=PlatformRole.SUPER_ADMIN)
+
+    with patch(
+        "pecha_api.plans.admin.admin_service.validate_and_extract_author_details",
+        return_value=caller,
+    ), patch("pecha_api.plans.admin.admin_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.admin.admin_service.list_authors_admin",
+        return_value=([row], 1),
+    ):
+        _session_local_context(mock_session_local)
+        resp = list_admin_authors(
+            token="token",
+            skip=0,
+            limit=20,
+            is_verified=True,
+            is_active=False,
+        )
+
+    assert resp.authors[0].email is None
+    assert resp.authors[0].phone_number == "+919812345678"
+
+
+def test_get_admin_author_detail_phone_only_author():
+    target = _make_author(email=None, phone_number="+919812345678")
+    caller = _make_author(platform_role=PlatformRole.SUPER_ADMIN)
+
+    with patch(
+        "pecha_api.plans.admin.admin_service.validate_and_extract_author_details",
+        return_value=caller,
+    ), patch("pecha_api.plans.admin.admin_service.SessionLocal") as mock_session_local, patch(
+        "pecha_api.plans.admin.admin_service.get_author_by_id",
+        return_value=target,
+    ):
+        _session_local_context(mock_session_local)
+        dto = get_admin_author_detail(token="token", author_id=target.id)
+
+    assert dto.email is None
+    assert dto.phone_number == "+919812345678"
 
 
 def test_list_admin_authors_forbidden_for_creator():

@@ -12,12 +12,21 @@ from .plan_auth_models import (
     CreateAuthorRequest,
     EmailReVerificationResponse,
     PasswordResetRequest,
+    PhoneExchangeRequest,
+    PhoneExchangeResponse,
+    PhoneLinkRequest,
+    PhoneLinkResponse,
+    GoogleExchangeRequest,
+    GoogleExchangeResponse,
     RefreshTokenRequest,
     RefreshTokenResponse,
     ResetPasswordRequest,
 )
 from .plan_auth_services import (
     authenticate_and_generate_tokens,
+    exchange_google_token,
+    exchange_phone_token,
+    link_phone_identity,
     refresh_access_token,
     register_author,
     re_verify_email,
@@ -52,6 +61,27 @@ def login_user(author_login_request: AuthorLoginRequest) -> AuthorLoginResponse:
     return authenticate_and_generate_tokens(
         email=author_login_request.email,
         password=author_login_request.password,
+    )
+
+
+@plan_auth_router.post("/phone/exchange", status_code=status.HTTP_200_OK)
+def phone_exchange(request: PhoneExchangeRequest) -> PhoneExchangeResponse:
+    return exchange_phone_token(request)
+
+
+@plan_auth_router.post("/google/exchange", status_code=status.HTTP_200_OK)
+def google_exchange(request: GoogleExchangeRequest) -> GoogleExchangeResponse:
+    return exchange_google_token(request)
+
+
+@plan_auth_router.post("/phone/link", status_code=status.HTTP_200_OK)
+def phone_link(
+    request: PhoneLinkRequest,
+    backend_token: Annotated[str, Depends(get_cms_author_token)],
+) -> PhoneLinkResponse:
+    return link_phone_identity(
+        backend_token=backend_token,
+        auth0_token=request.auth0_token,
     )
 
 

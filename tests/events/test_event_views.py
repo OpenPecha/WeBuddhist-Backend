@@ -26,6 +26,19 @@ def _sample_event_dto() -> EventDTO:
     )
 
 
+def test_get_events_forwards_include_unfollowed():
+    response_payload = EventsResponse(events=[], total=0, skip=0, limit=20)
+
+    with patch(
+        "pecha_api.events.event_views.get_events_service",
+        return_value=response_payload,
+    ) as mock_service:
+        response = client.get("/events?include_unfollowed=true")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert mock_service.call_args.kwargs["should_include_unfollowed"] is True
+
+
 def test_get_events_today_success():
     event = _sample_event_dto()
     response_payload = EventsResponse(events=[event], total=1, skip=0, limit=20)
@@ -44,6 +57,7 @@ def test_get_events_today_success():
         timezone=None,
         group_id=None,
         language=None,
+        should_include_unfollowed=False,
         skip=0,
         limit=20,
         token=None,
@@ -67,6 +81,7 @@ def test_get_events_today_with_timezone_header():
         timezone="America/New_York",
         group_id=None,
         language=None,
+        should_include_unfollowed=False,
         skip=0,
         limit=20,
         token=None,
@@ -90,10 +105,24 @@ def test_get_events_today_forwards_optional_token():
         timezone=None,
         group_id=None,
         language=None,
+        should_include_unfollowed=False,
         skip=0,
         limit=20,
         token="user-token",
     )
+
+
+def test_get_events_today_forwards_include_unfollowed():
+    response_payload = EventsResponse(events=[], total=0, skip=0, limit=20)
+
+    with patch(
+        "pecha_api.events.event_views.get_events_today_service",
+        return_value=response_payload,
+    ) as mock_service:
+        response = client.get("/events/today?include_unfollowed=true")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert mock_service.call_args.kwargs["should_include_unfollowed"] is True
 
 
 def test_get_event_by_id_forwards_optional_token():

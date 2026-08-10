@@ -1,10 +1,27 @@
 import secrets
+from uuid import UUID
+
 from .plan_auth_enums import AuthorStatus
 from .plan_auth_models import CreateAuthorRequest, AuthorDetails, TokenPayload, \
-    AuthorVerificationResponse, ResponseError, TokenResponse, AuthorLoginResponse, AuthorInfo, EmailReVerificationResponse, RefreshTokenResponse
+    AuthorVerificationResponse, ResponseError, TokenResponse, AuthorLoginResponse, AuthorInfo, EmailReVerificationResponse, RefreshTokenResponse, \
+    PhoneExchangeRequest, PhoneExchangeResponse, PhoneLinkResponse, \
+    GoogleExchangeRequest, GoogleExchangeResponse
+from pecha_api.auth.auth0_sms import AUTH0_SMS_PROVIDER, verify_auth0_sms_token
+from pecha_api.auth.auth0_google import AUTH0_GOOGLE_PROVIDER, verify_auth0_google_token
 from pecha_api.plans.authors.plan_authors_model import Author, AuthorPasswordReset
 from pecha_api.db.database import SessionLocal
-from pecha_api.plans.authors.plan_authors_repository import save_author, get_author_by_email, update_author, check_author_exists
+from pecha_api.plans.authors.plan_authors_repository import (
+    check_author_exists,
+    find_author_by_email,
+    get_author_by_email,
+    get_author_by_id,
+    get_author_by_phone,
+    link_author_phone,
+    save_author,
+    save_google_author,
+    save_phone_author,
+    update_author,
+)
 from pecha_api.auth.auth_repository import get_hashed_password, verify_password, create_access_token, create_refresh_token
 from pecha_api.auth.password_reset_repository import save_password_reset, get_password_reset_by_token_for_author
 from pecha_api.auth.auth_service import send_reset_email
@@ -168,15 +185,17 @@ def authenticate_and_generate_tokens(email: str, password: str):
     return generate_token_author(author)
 
 def generate_author_token_data(author: Author):
-    if not all([author.email, author.first_name, author.last_name]):
+    if not all([author.id, author.first_name, author.last_name]):
         return None
     data = {
-        "email": author.email,
+        "sub": str(author.id),
         "name": _get_author_full_name(author),
         "iss": get("JWT_ISSUER"),
         "aud": get("JWT_AUD"),
         "iat": datetime.now(timezone.utc)
     }
+    if author.email:
+        data["email"] = author.email
     return data
 
 def generate_token_author(author: Author):
@@ -250,14 +269,14 @@ def re_verify_email(email: str) -> EmailReVerificationResponse:
 def refresh_access_token(refresh_token: str):
     try:
         payload = _validate_token(refresh_token)
-        author_email = payload.get("email")
-        if author_email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
         with SessionLocal() as db_session:
-            author = get_author_by_email(
-                db=db_session,
-                email=author_email
-            )
+            try:
+                author = resolve_author_from_backend_payload(db_session, payload)
+            except HTTPException:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid refresh token",
+                )
             data = generate_author_token_data(author)
             access_token = create_access_token(data=data)
             return RefreshTokenResponse(
@@ -276,4 +295,158 @@ def _validate_token(token: str):
         algorithms=[get("JWT_ALGORITHM")],
         audience=get("JWT_AUD")
     )
+
+
+def resolve_author_from_backend_payload(db, payload: Dict[str, Any]) -> Author:
+    subject = payload.get("sub")
+    if subject is not None:
+        try:
+            return get_author_by_id(db=db, author_id=UUID(str(subject)))
+        except (TypeError, ValueError):
+            pass
+
+    email = payload.get("email")
+    if isinstance(email, str) and email:
+        return get_author_by_email(db=db, email=email)
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid backend token",
+    )
+
+
+def _phone_exchange_response(author: Author, phone_number: str) -> PhoneExchangeResponse:
+    author_status = AuthorStatus.ACTIVE if author.is_active else AuthorStatus.INACTIVE
+    token_response = None
+    message = AUTHOR_NOT_ACTIVE
+    if author.is_verified and author.is_active:
+        token_response = generate_token_author(author).auth
+        message = "Authentication successful"
+    return PhoneExchangeResponse(
+        author_id=author.id,
+        phone_number=phone_number,
+        status=author_status,
+        message=message,
+        user=AuthorInfo(
+            name=_get_author_full_name(author),
+            image_url=author.image_url,
+        ),
+        auth=token_response,
+    )
+
+
+def exchange_phone_token(request: PhoneExchangeRequest) -> PhoneExchangeResponse:
+    sms_identity = verify_auth0_sms_token(request.auth0_token)
+    with SessionLocal() as db:
+        author = get_author_by_phone(db=db, phone_number=sms_identity.phone_number)
+        if author is not None:
+            return _phone_exchange_response(author, sms_identity.phone_number)
+
+        first_name = (request.first_name or "").strip()
+        last_name = (request.last_name or "").strip()
+        if not first_name or not last_name:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="First name and last name are required for a new phone profile",
+            )
+
+        author = Author(
+            first_name=first_name,
+            last_name=last_name,
+            email=None,
+            phone_number=sms_identity.phone_number,
+            password=None,
+            is_verified=True,
+            is_active=False,
+            created_by=f"{AUTH0_SMS_PROVIDER}:{sms_identity.subject}",
+        )
+        author = save_phone_author(db=db, author=author)
+        return _phone_exchange_response(author, sms_identity.phone_number)
+
+
+def link_phone_identity(backend_token: str, auth0_token: str) -> PhoneLinkResponse:
+    try:
+        backend_payload = _validate_token(backend_token)
+    except jwt.JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid backend token",
+        )
+    sms_identity = verify_auth0_sms_token(auth0_token)
+
+    with SessionLocal() as db:
+        author = resolve_author_from_backend_payload(db, backend_payload)
+        check_verified_author(author)
+        phone_author = get_author_by_phone(
+            db=db,
+            phone_number=sms_identity.phone_number,
+        )
+        if phone_author is not None and phone_author.id != author.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Phone number is already linked to another author",
+            )
+        if author.phone_number != sms_identity.phone_number:
+            link_author_phone(
+                db=db,
+                author=author,
+                phone_number=sms_identity.phone_number,
+            )
+
+        return PhoneLinkResponse(
+            author_id=author.id,
+            phone_number=sms_identity.phone_number,
+            message="Phone identity linked",
+        )
+
+
+def _google_exchange_response(author: Author, email: str) -> GoogleExchangeResponse:
+    author_status = AuthorStatus.ACTIVE if author.is_active else AuthorStatus.INACTIVE
+    token_response = None
+    message = AUTHOR_NOT_ACTIVE
+    if author.is_verified and author.is_active:
+        token_response = generate_token_author(author).auth
+        message = "Authentication successful"
+    return GoogleExchangeResponse(
+        author_id=author.id,
+        email=email,
+        status=author_status,
+        message=message,
+        user=AuthorInfo(
+            name=_get_author_full_name(author),
+            image_url=author.image_url,
+        ),
+        auth=token_response,
+    )
+
+
+def exchange_google_token(request: GoogleExchangeRequest) -> GoogleExchangeResponse:
+    google_identity = verify_auth0_google_token(request.auth0_token)
+    with SessionLocal() as db:
+        author = find_author_by_email(db=db, email=google_identity.email)
+        if author is not None:
+            if not author.is_verified:
+                author.is_verified = True
+                author = update_author(db=db, author=author)
+            return _google_exchange_response(author, google_identity.email)
+
+        first_name = (request.first_name or google_identity.first_name or "").strip()
+        last_name = (request.last_name or google_identity.last_name or "").strip()
+        if not first_name or not last_name:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="First name and last name are required for a new phone profile",
+            )
+
+        author = Author(
+            first_name=first_name,
+            last_name=last_name,
+            email=google_identity.email,
+            phone_number=None,
+            password=None,
+            is_verified=True,
+            is_active=False,
+            created_by=f"{AUTH0_GOOGLE_PROVIDER}:{google_identity.subject}",
+        )
+        author = save_google_author(db=db, author=author)
+        return _google_exchange_response(author, google_identity.email)
 

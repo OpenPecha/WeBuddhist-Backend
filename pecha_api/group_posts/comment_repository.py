@@ -1,10 +1,31 @@
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from uuid import UUID
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session, selectinload
 
 from pecha_api.group_posts.comment_models import GroupPostComment
+
+
+def get_comment_counts_by_post_ids(
+    db: Session,
+    post_ids: List[UUID],
+) -> Dict[UUID, int]:
+    """Return non-deleted comment counts keyed by post_id."""
+    if not post_ids:
+        return {}
+
+    rows = (
+        db.query(GroupPostComment.post_id, func.count(GroupPostComment.id))
+        .filter(
+            GroupPostComment.post_id.in_(post_ids),
+            GroupPostComment.deleted_at.is_(None),
+        )
+        .group_by(GroupPostComment.post_id)
+        .all()
+    )
+    return {post_id: count for post_id, count in rows}
 
 
 def get_post_comments(

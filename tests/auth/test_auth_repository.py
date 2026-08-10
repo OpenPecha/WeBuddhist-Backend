@@ -2,6 +2,7 @@ import jose
 import jwt
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
+from uuid import uuid4
 
 import pytest
 
@@ -176,7 +177,9 @@ def test_create_refresh_token_with_custom_expiry():
 
 
 def test_generate_token_data_success():
+    user_id = uuid4()
     user = Users(
+        id=user_id,
         email="test@example.com",
         firstname="John",
         lastname="Doe",
@@ -185,6 +188,7 @@ def test_generate_token_data_success():
     token_data = generate_token_data(user)
 
     assert token_data is not None
+    assert token_data["sub"] == str(user_id)
     assert token_data["email"] == "test@example.com"
     assert token_data["name"] == "John Doe"
     assert token_data["iss"] == PECHA_JWT_ISSUER
@@ -193,29 +197,30 @@ def test_generate_token_data_success():
 
 
 def test_generate_token_data_missing_email():
-    # Create a valid user first, then modify the email to None
+    user_id = uuid4()
     user = Users(
+        id=user_id,
         email="test@example.com",
         firstname="John",
         lastname="Doe",
         registration_source="email"
     )
-    # Simulate missing email by setting it to None after creation
     user.email = None
     token_data = generate_token_data(user)
 
-    assert token_data is None
+    assert token_data is not None
+    assert token_data["sub"] == str(user_id)
+    assert "email" not in token_data
 
 
 def test_generate_token_data_missing_firstname():
-    # Create a valid user first, then modify the firstname to None
     user = Users(
+        id=uuid4(),
         email="test@example.com",
         firstname="John",
         lastname="Doe",
         registration_source="email"
     )
-    # Simulate missing firstname by setting it to None after creation
     user.firstname = None
     token_data = generate_token_data(user)
 
@@ -224,6 +229,7 @@ def test_generate_token_data_missing_firstname():
 
 def test_generate_token_data_missing_lastname():
     user = Users(
+        id=uuid4(),
         email="test@example.com",
         firstname="John",
         lastname=None,

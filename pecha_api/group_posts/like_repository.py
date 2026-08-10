@@ -1,4 +1,3 @@
-from datetime import datetime, timezone
 from typing import Dict, List, Optional, Set, Tuple
 from uuid import UUID
 
@@ -113,6 +112,10 @@ def batch_count_post_likes(db: Session, post_ids: List[UUID]) -> Dict[UUID, int]
     )
 
     return {post_id: count for post_id, count in results}
+
+
+# Alias used by feed enrichment helpers and tests.
+get_like_counts_by_post_ids = batch_count_post_likes
 
 
 def batch_check_posts_liked_by_user(

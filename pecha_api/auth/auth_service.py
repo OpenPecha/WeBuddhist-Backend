@@ -1,21 +1,38 @@
 import logging
 import secrets
-import uuid
 import random
 from datetime import datetime, timedelta, timezone
+from typing import Any, Dict
+from uuid import UUID
 
 import jwt
+from jose import JWTError
 
-from ..users.users_service import validate_token
+from pecha_api.auth.auth0_sms import verify_auth0_sms_token
 from ..config import get
 from ..notification.email_provider import send_email
 from .auth_models import CreateUserRequest, UserLoginResponse, RefreshTokenResponse, TokenResponse, UserInfo, \
-    PropsResponse
+    PropsResponse, PhoneExchangeRequest, PhoneExchangeResponse, PhoneLinkResponse
 from ..users.users_models import Users, PasswordReset
 from ..db.database import SessionLocal
-from ..users.users_repository import get_user_by_email, save_user, get_user_by_username
-from .auth_repository import get_hashed_password, verify_password, create_access_token, create_refresh_token, \
-    generate_token_data
+from ..users.users_repository import (
+    get_user_by_email,
+    get_user_by_id,
+    get_user_by_phone,
+    get_user_by_username,
+    link_user_phone,
+    save_phone_user,
+    save_user,
+)
+from .auth_repository import (
+    create_access_token,
+    create_refresh_token,
+    decode_backend_token,
+    generate_token_data,
+    get_hashed_password,
+    validate_token,
+    verify_password,
+)
 from .password_reset_repository import save_password_reset, get_password_reset_by_token
 from .auth_enums import RegistrationSource
 from fastapi import HTTPException
@@ -104,14 +121,16 @@ def authenticate_user(email: str, password: str):
 def refresh_access_token(refresh_token: str):
     try:
         payload = validate_token(refresh_token)
-        email = payload.get("email")
-        if email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
         with SessionLocal() as db_session:
-            user = get_user_by_email(
-                db=db_session,
-                email=email
-            )
+            try:
+                user = resolve_user_from_backend_payload(db_session, payload)
+            except HTTPException as exception:
+                if exception.status_code == status.HTTP_401_UNAUTHORIZED:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid refresh token",
+                    ) from exception
+                raise
             data = generate_token_data(user)
             access_token = create_access_token(data=data)
             return RefreshTokenResponse(
@@ -122,6 +141,106 @@ def refresh_access_token(refresh_token: str):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
     except jwt.PyJWTError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+
+def resolve_user_from_backend_payload(db, payload: Dict[str, Any]) -> Users:
+    subject = payload.get("sub")
+    if subject is not None:
+        try:
+            return get_user_by_id(db=db, user_id=UUID(str(subject)))
+        except (TypeError, ValueError):
+            pass
+
+    email = payload.get("email")
+    if isinstance(email, str) and email:
+        return get_user_by_email(db=db, email=email)
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid backend token",
+    )
+
+
+def _phone_exchange_response(user: Users, phone_number: str) -> PhoneExchangeResponse:
+    login_response = generate_token_user(user)
+    return PhoneExchangeResponse(
+        user_id=user.id,
+        phone_number=phone_number,
+        message="Authentication successful",
+        user=login_response.user,
+        auth=login_response.auth,
+    )
+
+
+def exchange_phone_token(request: PhoneExchangeRequest) -> PhoneExchangeResponse:
+    sms_identity = verify_auth0_sms_token(request.auth0_token)
+    with SessionLocal() as db:
+        user = get_user_by_phone(db=db, phone_number=sms_identity.phone_number)
+        if user is not None:
+            return _phone_exchange_response(user, sms_identity.phone_number)
+
+        first_name = (request.first_name or "").strip()
+        last_name = (request.last_name or "").strip()
+        if not first_name or not last_name:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="First name and last name are required for a new phone profile",
+            )
+
+        user = Users(
+            firstname=first_name,
+            lastname=last_name,
+            username=generate_and_validate_username(
+                first_name=first_name,
+                last_name=last_name,
+            ),
+            email=None,
+            phone_number=sms_identity.phone_number,
+            password=None,
+            registration_source=RegistrationSource.PHONE.value,
+            is_active=True,
+            is_admin=False,
+        )
+        user = save_phone_user(db=db, user=user)
+        return _phone_exchange_response(user, sms_identity.phone_number)
+
+
+def _validate_backend_token(token: str) -> Dict[str, Any]:
+    return decode_backend_token(token)
+
+
+def link_phone_identity(backend_token: str, auth0_token: str) -> PhoneLinkResponse:
+    try:
+        backend_payload = _validate_backend_token(backend_token)
+    except (JWTError, KeyError, TypeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid backend token",
+        )
+    sms_identity = verify_auth0_sms_token(auth0_token)
+
+    with SessionLocal() as db:
+        user = resolve_user_from_backend_payload(db, backend_payload)
+        phone_user = get_user_by_phone(
+            db=db,
+            phone_number=sms_identity.phone_number,
+        )
+        if phone_user is not None and phone_user.id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Phone number is already linked to another user",
+            )
+        if user.phone_number != sms_identity.phone_number:
+            link_user_phone(
+                db=db,
+                user=user,
+                phone_number=sms_identity.phone_number,
+            )
+
+        return PhoneLinkResponse(
+            user_id=user.id,
+            phone_number=sms_identity.phone_number,
+            message="Phone identity linked",
+        )
 
 
 def request_reset_password(email: str):

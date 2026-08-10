@@ -693,8 +693,6 @@ def test_generate_author_token_data_success():
 
 
 @pytest.mark.parametrize("email,first_name,last_name,test_description", [
-    (None, "John", "Doe", "missing_email"),
-    ("", "John", "Doe", "empty_email"),
     ("john.doe@example.com", None, "Doe", "missing_first_name"),
     ("john.doe@example.com", "", "Doe", "empty_first_name"),
     ("john.doe@example.com", "John", None, "missing_last_name"),

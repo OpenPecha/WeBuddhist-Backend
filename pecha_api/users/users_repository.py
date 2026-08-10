@@ -42,6 +42,46 @@ def get_user_by_email(db: Session, email: str) -> Users:
     return user
 
 
+def get_user_by_id(db: Session, user_id: UUID) -> Users:
+    user = db.query(Users).filter(Users.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.USER_NOT_FOUND)
+    return user
+
+
+def get_user_by_phone(db: Session, phone_number: str) -> Optional[Users]:
+    return db.query(Users).filter(Users.phone_number == phone_number).first()
+
+
+def save_phone_user(db: Session, user: Users) -> Users:
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Phone number is already linked to another user",
+        )
+
+
+def link_user_phone(db: Session, user: Users, phone_number: str) -> Users:
+    try:
+        user.phone_number = phone_number
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Phone number is already linked to another user",
+        )
+
+
 def get_user_by_username(db: Session, username: str) -> Users:
     user = db.query(Users).filter(Users.username == username).first()
     if user is None:
