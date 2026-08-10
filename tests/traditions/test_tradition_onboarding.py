@@ -41,7 +41,7 @@ def test_save_user_tradition_request_accepts_path_codes():
     assert request.tradition_code == "pali"
 
 
-def test_save_user_tradition_request_rejects_taxonomy_codes():
+def test_save_user_tradition_request_rejects_unknown_codes():
     from pydantic import ValidationError
 
     from pecha_api.traditions.tradition_response_models import SaveUserTraditionRequest

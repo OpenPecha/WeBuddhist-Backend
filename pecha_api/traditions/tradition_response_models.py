@@ -1,36 +1,10 @@
 from datetime import datetime
-from typing import List, Literal, Optional
+from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from pecha_api.traditions.tradition_onboarding import list_tradition_path_codes
-
-
-class TraditionChatMessage(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str = Field(min_length=1)
-
-
-class TraditionChatRequest(BaseModel):
-    messages: List[TraditionChatMessage] = Field(min_length=1)
-    language: str = "en"
-
-
-class SuggestedTradition(BaseModel):
-    code: str
-    name: str
-
-
-class TraditionChatResponse(BaseModel):
-    model_config = ConfigDict(ser_json_exclude_none=True)
-
-    message: str
-    suggested_traditions: List[SuggestedTradition] = Field(default_factory=list)
-    follow_up_questions: List[str] = Field(default_factory=list)
-    is_complete: bool = False
-    selected_tradition_code: Optional[str] = None
-    model: str
 
 
 class SaveUserTraditionRequest(BaseModel):
@@ -51,8 +25,6 @@ class UserTraditionDTO(BaseModel):
     id: UUID
     tradition_code: str
     tradition_name: str
-    level: int
-    parent_code: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -64,8 +36,6 @@ class UserTraditionsResponse(BaseModel):
 class TraditionListItemDTO(BaseModel):
     code: str
     name: str
-    level: int
-    parent_code: Optional[str] = None
     regions: List[str] = Field(default_factory=list)
 
 

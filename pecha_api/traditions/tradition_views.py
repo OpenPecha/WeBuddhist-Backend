@@ -7,8 +7,6 @@ from uuid import UUID
 from pecha_api.plans.language_constants import language_query_description
 from pecha_api.traditions.tradition_response_models import (
     SaveUserTraditionRequest,
-    TraditionChatRequest,
-    TraditionChatResponse,
     TraditionListResponse,
     TraditionOnboardingResponse,
     UserTraditionDTO,
@@ -20,7 +18,6 @@ from pecha_api.traditions.tradition_service import (
     get_user_traditions_service,
     list_traditions_service,
     save_user_tradition_service,
-    tradition_chat_service,
     update_user_tradition_service,
 )
 
@@ -55,22 +52,6 @@ async def list_traditions(
     ] = "en",
 ):
     return await list_traditions_service(language=language or "en")
-
-
-@user_tradition_router.post(
-    "/chat",
-    status_code=status.HTTP_200_OK,
-    response_model=TraditionChatResponse,
-    response_model_exclude_none=True,
-)
-async def tradition_chat(
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-    chat_request: TraditionChatRequest,
-):
-    return await tradition_chat_service(
-        token=authentication_credential.credentials,
-        chat_request=chat_request,
-    )
 
 
 @user_tradition_router.get(

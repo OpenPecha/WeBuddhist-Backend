@@ -1,22 +1,17 @@
-import logging
 from typing import List
 from uuid import UUID
 
-import httpx
 from fastapi import HTTPException
 from starlette import status
 
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.plans_enums import LanguageCode
-from pecha_api.traditions.llm_client import chat_with_worker
 from pecha_api.traditions.tradition_constants import DEFAULT_CHAT_LANGUAGE, tradition_id_from_code
 from pecha_api.traditions.tradition_onboarding import (
     get_tradition_onboarding_content,
     get_tradition_path_entry,
     list_tradition_path_codes,
 )
-from pecha_api.traditions.tradition_llm_utils import parse_llm_json_response
-from pecha_api.traditions.tradition_prompt import build_tradition_chat_system_prompt
 from pecha_api.traditions.tradition_repository import (
     delete_user_tradition,
     get_user_traditions,
@@ -25,10 +20,6 @@ from pecha_api.traditions.tradition_repository import (
 )
 from pecha_api.traditions.tradition_response_models import (
     SaveUserTraditionRequest,
-    SuggestedTradition,
-    TraditionChatMessage,
-    TraditionChatRequest,
-    TraditionChatResponse,
     TraditionListItemDTO,
     TraditionListResponse,
     TraditionOnboardingPathsDTO,
@@ -38,117 +29,6 @@ from pecha_api.traditions.tradition_response_models import (
     UserTraditionsResponse,
 )
 from pecha_api.users.users_service import validate_and_extract_user_details
-
-
-def _build_conversation_prompt(messages: List[TraditionChatMessage]) -> str:
-    lines: list[str] = []
-    for message in messages:
-        speaker = "User" if message.role == "user" else "Assistant"
-        lines.append(f"{speaker}: {message.content}")
-    return "\n\n".join(lines)
-
-
-def _normalize_suggested_traditions(
-    suggested_traditions: list,
-    language: str,
-) -> List[SuggestedTradition]:
-    allowed_codes = list_tradition_path_codes()
-    normalized: list[SuggestedTradition] = []
-    seen_codes: set[str] = set()
-
-    for item in suggested_traditions:
-        if not isinstance(item, dict):
-            continue
-
-        code = str(item.get("code", "")).strip()
-        if not code or code not in allowed_codes or code in seen_codes:
-            continue
-
-        path_entry = get_tradition_path_entry(code, language=language)
-        name = item.get("name") or (path_entry["title"] if path_entry else code)
-        normalized.append(SuggestedTradition(code=code, name=name))
-        seen_codes.add(code)
-
-    return normalized
-
-
-def _normalize_follow_up_questions(follow_up_questions: list) -> List[str]:
-    normalized: list[str] = []
-    for question in follow_up_questions:
-        if not isinstance(question, str):
-            continue
-        cleaned = question.strip()
-        if cleaned:
-            normalized.append(cleaned)
-    return normalized
-
-
-def _normalize_selected_tradition_code(selected_code: object) -> str | None:
-    if selected_code in (None, "", "null"):
-        return None
-
-    normalized = str(selected_code).strip()
-    if normalized not in list_tradition_path_codes():
-        return None
-    return normalized
-
-
-async def tradition_chat_service(
-    token: str,
-    chat_request: TraditionChatRequest,
-) -> TraditionChatResponse:
-    validate_and_extract_user_details(token=token)
-
-    language = chat_request.language.lower() if chat_request.language else DEFAULT_CHAT_LANGUAGE
-    system_prompt = build_tradition_chat_system_prompt(language=language)
-    prompt = _build_conversation_prompt(chat_request.messages)
-
-    try:
-        worker_response = await chat_with_worker(
-            prompt=prompt,
-            system_prompt=system_prompt,
-        )
-    except httpx.HTTPStatusError as exc:
-        logging.exception("Tradition chat worker request failed")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Tradition assistant is temporarily unavailable",
-        ) from exc
-    except httpx.RequestError as exc:
-        logging.exception("Tradition chat worker request failed")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Could not reach tradition assistant service",
-        ) from exc
-
-    raw_response = worker_response.get("response", "")
-    try:
-        parsed_response = parse_llm_json_response(raw_response)
-    except (TypeError, ValueError) as exc:
-        logging.exception("Failed to parse tradition chat LLM response: %s", raw_response)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Tradition assistant returned an invalid response",
-        ) from exc
-
-    selected_tradition_code = _normalize_selected_tradition_code(
-        parsed_response.get("selected_tradition_code")
-    )
-    is_complete = bool(parsed_response.get("is_complete")) and selected_tradition_code is not None
-
-    return TraditionChatResponse(
-        message=str(parsed_response.get("message", "")).strip(),
-        suggested_traditions=_normalize_suggested_traditions(
-            parsed_response.get("suggested_traditions", []),
-            language=language,
-        ),
-        follow_up_questions=_normalize_follow_up_questions(
-            parsed_response.get("follow_up_questions", [])
-        ),
-        is_complete=is_complete,
-        selected_tradition_code=selected_tradition_code if is_complete else None,
-        model=worker_response.get("model", ""),
-    )
 
 
 async def save_user_tradition_service(
@@ -232,8 +112,6 @@ async def list_traditions_service(language: str = DEFAULT_CHAT_LANGUAGE) -> Trad
             TraditionListItemDTO(
                 code=code,
                 name=path_entry["title"],
-                level=0,
-                parent_code=None,
                 regions=[],
             )
         )
@@ -289,8 +167,6 @@ def _build_user_tradition_dto(user_tradition, tradition_code: str, language: str
         id=user_tradition.id,
         tradition_code=tradition_code,
         tradition_name=tradition_name,
-        level=0,
-        parent_code=None,
         created_at=user_tradition.created_at,
         updated_at=user_tradition.updated_at,
     )

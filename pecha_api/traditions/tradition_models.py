@@ -12,8 +12,8 @@ FK_TRADITION_LIST_ID = "tradition_list.id"
 
 
 class Tradition(Base):
-    """A node in the Buddhist tradition taxonomy. The hierarchy is self
-    referential via ``parent_id`` (a level-1 root has ``parent_id`` NULL).
+    """A Buddhist tradition path (e.g. pali, chinese, tibetan).
+    ``parent_id`` is unused for the flat onboarding paths.
     Per-language names live in ``tradition_metadata`` (one row per language)."""
     __tablename__ = "tradition_list"
 

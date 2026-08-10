@@ -47,8 +47,6 @@ async def test_update_user_tradition_service_returns_updated_dto():
             id=user_tradition_id,
             tradition_code="chinese",
             tradition_name="Chinese scriptures",
-            level=0,
-            parent_code=None,
             created_at=updated_record.created_at,
             updated_at=updated_record.updated_at,
         ),
