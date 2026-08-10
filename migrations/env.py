@@ -41,6 +41,7 @@ from pecha_api.events.event_link_model import EventLink
 from pecha_api.events.location_model import Location
 from pecha_api.group_posts.models import GroupPost, GroupPostMedia, GroupPostLink
 from pecha_api.group_posts.comment_models import GroupPostComment
+from pecha_api.group_posts.like_models import GroupPostLike
 from pecha_api.mantra.mantra_metadata_model import MantraMetadata
 from pecha_api.traditions.tradition_models import Tradition, TraditionMetadata, UserTradition
 from pecha_api.region_restrictions.region_restriction_models import ChinaRestrictedItem

@@ -415,8 +415,11 @@ def view_post_comments(
                 div.className = "comment";
 
                 const date = new Date(comment.created_at).toLocaleString();
+                const userName = [comment.user.first_name, comment.user.last_name]
+                    .filter(Boolean)
+                    .join(" ");
                 div.innerHTML = `
-                    <div class="comment-author">${{escapeHtml(comment.user_email)}}</div>
+                    <div class="comment-author">${{escapeHtml(userName || comment.user.email)}}</div>
                     <div class="comment-text">${{escapeHtml(comment.text)}}</div>
                     <div class="comment-time">${{date}}</div>
                 `;

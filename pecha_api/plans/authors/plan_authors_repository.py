@@ -35,6 +35,13 @@ def get_author_by_email(db: Session, email: str) -> Author:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=AUTHOR_NOT_FOUND)
     return author
 
+
+def get_authors_by_emails(db: Session, emails: List[str]) -> List[Author]:
+    """Return authors matching any of the given emails. Missing emails are omitted."""
+    if not emails:
+        return []
+    return db.query(Author).filter(Author.email.in_(emails)).all()
+
 def check_author_exists(db: Session, email: str):
     author = db.query(Author).filter(Author.email == email).first()
     if author:

@@ -39,6 +39,16 @@ def get_events_endpoint(
     from_date: Annotated[Optional[datetime], Query(description="Filter events ending on or after this date")] = None,
     to_date: Annotated[Optional[datetime], Query(description="Filter events starting on or before this date")] = None,
     language: Annotated[Optional[str], Query(description="Filter metadata by language code")] = None,
+    should_include_unfollowed: Annotated[
+        bool,
+        Query(
+            alias="include_unfollowed",
+            description=(
+                "For authenticated users, false = joined groups only; "
+                "true = all public groups"
+            ),
+        ),
+    ] = False,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     credentials: Annotated[
@@ -57,6 +67,7 @@ def get_events_endpoint(
         to_date=to_date,
         language=language,
         fallback=True,
+        should_include_unfollowed=should_include_unfollowed,
         skip=skip,
         limit=limit,
         token=credentials.credentials if credentials else None,
@@ -67,6 +78,16 @@ def get_events_endpoint(
 def get_events_today_endpoint(
     group_id: Annotated[Optional[UUID], Query(description="Filter by group ID")] = None,
     language: Annotated[Optional[str], Query(description="Filter metadata by language code")] = None,
+    should_include_unfollowed: Annotated[
+        bool,
+        Query(
+            alias="include_unfollowed",
+            description=(
+                "For authenticated users, false = joined groups only; "
+                "true = all public groups"
+            ),
+        ),
+    ] = False,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     x_timezone: Annotated[
@@ -82,6 +103,7 @@ def get_events_today_endpoint(
         timezone=x_timezone,
         group_id=group_id,
         language=language,
+        should_include_unfollowed=should_include_unfollowed,
         skip=skip,
         limit=limit,
         token=credentials.credentials if credentials else None,

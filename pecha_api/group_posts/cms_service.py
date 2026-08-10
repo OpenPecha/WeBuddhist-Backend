@@ -37,7 +37,8 @@ from pecha_api.group_posts.response_models import (
     ReplaceGroupPostMediaRequest,
     UpdateGroupPostRequest,
 )
-from pecha_api.group_posts.service import _enum_value, build_post_dto
+from pecha_api.group_posts.service import _enum_value, build_post_dtos
+from pecha_api.users.users_models import Users
 
 MAX_MEDIA_ITEMS_PER_POST = 10
 EMPTY_POST_MESSAGE = "Post must have a caption, at least one media item, or at least one link"
@@ -148,9 +149,14 @@ def cms_list_group_posts_service(
             limit=limit,
             status=status_filter,
         )
+        user = db.query(Users).filter(Users.email == author.email).first()
 
         return GroupPostsResponse(
-            posts=[build_post_dto(post) for post in posts],
+            posts=build_post_dtos(
+                db,
+                posts,
+                user_id=user.id if user else None,
+            ),
             skip=skip,
             limit=limit,
             total=total,
@@ -170,7 +176,12 @@ def cms_get_group_post_detail_service(
         require_can_read_group_content(db=db, group_id=group_id, author=author)
 
         post = _get_post_or_404(db, post_id, group_id)
-        return build_post_dto(post)
+        user = db.query(Users).filter(Users.email == author.email).first()
+        return build_post_dtos(
+            db,
+            [post],
+            user_id=user.id if user else None,
+        )[0]
 
 
 def cms_create_group_post_service(
@@ -201,7 +212,7 @@ def cms_create_group_post_service(
         )
 
         created = create_post(db=db, post=post)
-        return build_post_dto(created)
+        return build_post_dtos(db, [created])[0]
 
 
 def cms_update_group_post_service(
@@ -234,7 +245,7 @@ def cms_update_group_post_service(
         post.updated_by = author.email
 
         updated = update_post(db=db, post=post)
-        return build_post_dto(updated)
+        return build_post_dtos(db, [updated])[0]
 
 
 def cms_replace_group_post_media_service(
@@ -259,7 +270,7 @@ def cms_replace_group_post_media_service(
 
         media_entities = _build_media_entities(media_requests=request.media, post_id=post.id)
         updated = replace_post_media(db=db, post=post, media=media_entities)
-        return build_post_dto(updated)
+        return build_post_dtos(db, [updated])[0]
 
 
 def cms_replace_group_post_links_service(
@@ -283,7 +294,7 @@ def cms_replace_group_post_links_service(
 
         link_entities = _build_link_entities(link_requests=request.links, post_id=post.id)
         updated = replace_post_links(db=db, post=post, links=link_entities)
-        return build_post_dto(updated)
+        return build_post_dtos(db, [updated])[0]
 
 
 def cms_delete_group_post_service(
