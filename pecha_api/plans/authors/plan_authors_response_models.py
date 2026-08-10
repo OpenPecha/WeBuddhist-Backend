@@ -15,7 +15,7 @@ class AuthorUpdateResponse(BaseModel):
     id: UUID
     firstname: str
     lastname: str
-    email: str
+    email: Optional[str] = None
     image_url: str
     image_key: str
     bio: Optional[str] = None
@@ -32,7 +32,7 @@ class AuthorInfoResponse(BaseModel):
     id: UUID
     firstname: str
     lastname: str
-    email: str
+    email: Optional[str] = None
     platform_role: PlatformRole = PlatformRole.CREATOR
     is_verified: bool = False
     is_active: bool = False
@@ -46,7 +46,7 @@ class AuthorInfoPublicResponse(BaseModel):
     id: UUID
     firstname: str
     lastname: str
-    email: str
+    email: Optional[str] = None
     image: Optional[ImageUrlModel] = None
     bio: Optional[str] = None
     social_profiles: List[SocialMediaProfile]

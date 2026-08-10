@@ -7,3 +7,4 @@ class RegistrationSource(Enum):
     APPLE = "apple"
     EMAIL = "email"
     AUTH0 = "auth0"
+    PHONE = "phone"

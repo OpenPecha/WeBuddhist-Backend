@@ -57,15 +57,17 @@ def validate_token(token: str) -> Dict[str, Any]:
         return decode_backend_token(token)
 
 def generate_token_data(user: Users):
-    if not all([user.email, user.firstname, user.lastname]):
+    if not all([user.id, user.firstname, user.lastname]):
         return None
     data = {
-        "email": user.email,
+        "sub": str(user.id),
         "name": user.firstname + " " + user.lastname,
         "iss": get("JWT_ISSUER"),
         "aud": get("JWT_AUD"),
         "iat": datetime.now(timezone.utc)
     }
+    if user.email:
+        data["email"] = user.email
     return data
 
 

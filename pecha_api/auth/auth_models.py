@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -34,6 +35,30 @@ class UserInfo(BaseModel):
 class UserLoginResponse(BaseModel):
     user: UserInfo
     auth: TokenResponse
+
+
+class PhoneExchangeRequest(BaseModel):
+    auth0_token: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
+class PhoneExchangeResponse(BaseModel):
+    user_id: UUID
+    phone_number: str
+    message: str
+    user: UserInfo
+    auth: TokenResponse
+
+
+class PhoneLinkRequest(BaseModel):
+    auth0_token: str
+
+
+class PhoneLinkResponse(BaseModel):
+    user_id: UUID
+    phone_number: str
+    message: str
 
 
 class RefreshTokenRequest(BaseModel):

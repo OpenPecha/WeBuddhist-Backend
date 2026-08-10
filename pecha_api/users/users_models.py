@@ -10,7 +10,8 @@ class Users(Base):
     __tablename__ = "users"
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     auth0_id = Column(String(255), unique=True, index=True, nullable=True)
-    email = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=True)
+    phone_number = Column(String(16), unique=True, index=True, nullable=True)
     firstname = Column(String(255), nullable=False)
     lastname = Column(String(255), nullable=True)
     username = Column(String(255), nullable=True)
