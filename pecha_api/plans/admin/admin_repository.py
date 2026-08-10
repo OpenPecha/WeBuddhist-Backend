@@ -30,6 +30,7 @@ def list_authors_admin(
         pattern = f"%{search.strip()}%"
         query = query.filter(
             (Author.email.ilike(pattern))
+            | (Author.phone_number.ilike(pattern))
             | (Author.first_name.ilike(pattern))
             | (Author.last_name.ilike(pattern))
         )
