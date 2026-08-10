@@ -7,6 +7,7 @@ from uuid import UUID
 
 import jwt
 from jose import JWTError
+from jose.exceptions import ExpiredSignatureError as JoseExpiredSignatureError
 
 from pecha_api.auth.auth0_sms import verify_auth0_sms_token
 from ..config import get
@@ -137,9 +138,9 @@ def refresh_access_token(refresh_token: str):
                 access_token=access_token,
                 token_type="Bearer"
             )
-    except jwt.ExpiredSignatureError:
+    except (jwt.ExpiredSignatureError, JoseExpiredSignatureError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
-    except jwt.PyJWTError:
+    except (jwt.PyJWTError, JWTError, KeyError, TypeError, ValueError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
 
@@ -150,6 +151,12 @@ def resolve_user_from_backend_payload(db, payload: Dict[str, Any]) -> Users:
             return get_user_by_id(db=db, user_id=UUID(str(subject)))
         except (TypeError, ValueError):
             pass
+
+    phone_number = payload.get("phone_number")
+    if isinstance(phone_number, str) and phone_number:
+        user = get_user_by_phone(db=db, phone_number=phone_number)
+        if user is not None:
+            return user
 
     email = payload.get("email")
     if isinstance(email, str) and email:

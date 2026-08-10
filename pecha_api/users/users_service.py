@@ -29,6 +29,7 @@ from .users_repository import (
     find_user_by_username,
     get_user_by_email,
     get_user_by_id,
+    get_user_by_phone,
     get_user_by_username,
     update_user,
 )
@@ -159,6 +160,12 @@ def resolve_user_from_token_payload(db, payload: Dict[str, Any]) -> Users:
             return get_user_by_id(db=db, user_id=UUID(str(subject)))
         except (TypeError, ValueError):
             pass
+
+    phone_number = payload.get("phone_number")
+    if isinstance(phone_number, str) and phone_number:
+        user = get_user_by_phone(db=db, phone_number=phone_number)
+        if user is not None:
+            return user
 
     email = payload.get("email")
     if isinstance(email, str) and email:

@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from pecha_api.auth.auth0_sms import (
     _decode_auth0_sms_token,
+    extract_verified_phone_number,
     normalize_e164,
     verify_auth0_sms_token,
 )
@@ -92,6 +93,22 @@ def test_verify_auth0_sms_token_rejects_untrusted_claims(payload):
 
     assert exc.value.status_code == 401
     assert exc.value.detail == "Invalid Auth0 SMS token"
+
+
+def test_extract_verified_phone_number_returns_normalized_claim():
+    assert extract_verified_phone_number(_payload()) == "+14155552671"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        _payload(**{"https://webuddhist.com/phone_number_verified": False}),
+        _payload(**{"https://webuddhist.com/phone_number": "4155552671"}),
+        {"sub": "auth0|abc", "email": "person@example.com"},
+    ],
+)
+def test_extract_verified_phone_number_returns_none_for_unusable_claims(payload):
+    assert extract_verified_phone_number(payload) is None
 
 
 @pytest.mark.parametrize(

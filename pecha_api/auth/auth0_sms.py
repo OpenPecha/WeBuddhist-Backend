@@ -43,6 +43,23 @@ def _get_auth0_sms_public_keys() -> dict[str, dict[str, Any]]:
     return {key["kid"]: key for key in response.json()["keys"]}
 
 
+def verified_phone_number(payload: dict[str, Any]) -> str:
+    phone_claim = get("AUTH0_SMS_PHONE_CLAIM").strip()
+    verified_claim = get("AUTH0_SMS_PHONE_VERIFIED_CLAIM").strip()
+    if not phone_claim or not verified_claim:
+        raise ValueError("Auth0 SMS phone claims are not configured")
+    if payload.get(verified_claim) is not True:
+        raise ValueError("Auth0 SMS phone number is not verified")
+    return normalize_e164(payload.get(phone_claim))
+
+
+def extract_verified_phone_number(payload: dict[str, Any]) -> str | None:
+    try:
+        return verified_phone_number(payload)
+    except (TypeError, ValueError):
+        return None
+
+
 def _decode_auth0_sms_token(token: str) -> dict[str, Any]:
     header = jwt.get_unverified_header(token)
     if header.get("alg") != "RS256":
@@ -70,14 +87,7 @@ def _decode_auth0_sms_token(token: str) -> dict[str, Any]:
 def verify_auth0_sms_token(token: str) -> Auth0SMSIdentity:
     try:
         payload = _decode_auth0_sms_token(token)
-        phone_claim = get("AUTH0_SMS_PHONE_CLAIM").strip()
-        verified_claim = get("AUTH0_SMS_PHONE_VERIFIED_CLAIM").strip()
-        if not phone_claim or not verified_claim:
-            raise ValueError("Auth0 SMS phone claims are not configured")
-        if payload.get(verified_claim) is not True:
-            raise ValueError("Auth0 SMS phone number is not verified")
-
-        phone_number = normalize_e164(payload.get(phone_claim))
+        phone_number = verified_phone_number(payload)
         subject = payload.get("sub")
         # Auth0 passwordless SMS subjects are "sms|<opaque user id>", not "sms|<E.164>".
         if not isinstance(subject, str) or not subject.startswith(f"{AUTH0_SMS_CONNECTION}|"):

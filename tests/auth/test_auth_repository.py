@@ -403,6 +403,32 @@ def test_decode_backend_token_expired():
         pass
 
 
+def test_verify_auth0_token_exposes_verified_phone_number_for_sms_logins():
+    auth0_payload = {
+        "sub": "sms|6a744811b6f40222b44b0bf3",
+        "aud": "webuddhist-backend",
+        "https://webuddhist.com/phone_number": "+1 (415) 555-2671",
+        "https://webuddhist.com/phone_number_verified": True,
+    }
+    with patch(
+        "pecha_api.auth.auth_repository.get_auth0_public_key",
+        return_value={"key-1": {"kid": "key-1"}},
+    ), patch(
+        "pecha_api.auth.auth_repository.jwt.get_unverified_header",
+        return_value={"kid": "key-1"},
+    ), patch(
+        "pecha_api.auth.auth_repository.jwt.decode",
+        return_value=auth0_payload,
+    ), patch(
+        "pecha_api.auth.auth_repository._allowed_auth0_audiences",
+        return_value=["webuddhist-backend"],
+    ):
+        payload = verify_auth0_token("token")
+
+    assert payload["phone_number"] == "+14155552671"
+    assert "email" not in payload
+
+
 def test_decode_backend_token_invalid_audience():
     data = {
         "email": "test@example.com",

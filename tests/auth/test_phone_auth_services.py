@@ -204,3 +204,31 @@ def test_backend_and_protected_route_resolution_support_uuid_and_legacy_email():
         with patch(f"{module}.get_user_by_email", return_value=user) as by_email:
             assert resolver(db, {"email": "legacy@example.com"}) is user
             by_email.assert_called_once_with(db=db, email="legacy@example.com")
+
+
+def test_resolution_falls_back_to_phone_for_auth0_sms_payloads():
+    db = MagicMock()
+    user = _user()
+    user.phone_number = "+14155552671"
+    payload = {"sub": "sms|6a744811b6f40222b44b0bf3", "phone_number": "+14155552671"}
+    for resolver, module in (
+        (resolve_user_from_backend_payload, "pecha_api.auth.auth_service"),
+        (resolve_user_from_token_payload, "pecha_api.users.users_service"),
+    ):
+        with patch(f"{module}.get_user_by_phone", return_value=user) as by_phone:
+            assert resolver(db, payload) is user
+            by_phone.assert_called_once_with(db=db, phone_number="+14155552671")
+
+
+def test_resolution_rejects_phone_payload_without_a_registered_user():
+    db = MagicMock()
+    payload = {"sub": "sms|6a744811b6f40222b44b0bf3", "phone_number": "+14155552671"}
+    for resolver, module in (
+        (resolve_user_from_backend_payload, "pecha_api.auth.auth_service"),
+        (resolve_user_from_token_payload, "pecha_api.users.users_service"),
+    ):
+        with patch(f"{module}.get_user_by_phone", return_value=None):
+            with pytest.raises(HTTPException) as exc:
+                resolver(db, payload)
+
+        assert exc.value.status_code == 401
