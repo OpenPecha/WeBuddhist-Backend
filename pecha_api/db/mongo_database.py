@@ -11,6 +11,7 @@ from ..terms.terms_models import Term
 from ..texts.texts_models import Text
 from ..texts.segments.segments_models import Segment
 from ..texts.texts_models import TableOfContent
+from ..texts.text_audio_models import TextAudio
 from ..texts.groups.groups_models import Group
 from ..config import get
 from ..scheduler import setup_scheduler, shutdown_scheduler
@@ -41,6 +42,7 @@ async def lifespan(api: FastAPI):
                     Text,
                     Segment,
                     TableOfContent,
+                    TextAudio,
                     Group,
                 ],
             )
