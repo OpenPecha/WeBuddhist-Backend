@@ -140,5 +140,9 @@ async def delete_text_audio(token: str, text_id: str) -> None:
     audio = await TextAudio.find_one(TextAudio.text_id == text_id)
     if not audio:
         return
-    delete_file(audio.audio_key)
+    audio_key = audio.audio_key
     await audio.delete()
+    try:
+        delete_file(audio_key)
+    except HTTPException:
+        logging.exception("Failed to remove text audio from S3: %s", audio_key)
