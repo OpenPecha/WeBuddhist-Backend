@@ -18,7 +18,11 @@ from pecha_api.auth.auth_service import (
     resolve_user_from_backend_payload,
 )
 from pecha_api.auth.auth0_sms import Auth0SMSIdentity
+from pecha_api.error_contants import ErrorConstants
 from pecha_api.users.users_service import resolve_user_from_token_payload
+
+RESOLUTION_MODULE = "pecha_api.users.user_resolution"
+RESOLVERS = (resolve_user_from_backend_payload, resolve_user_from_token_payload)
 
 
 def _session(mock_session_local):
@@ -193,15 +197,12 @@ def test_regular_token_data_uses_stable_uuid_without_email():
 def test_backend_and_protected_route_resolution_support_uuid_and_legacy_email():
     db = MagicMock()
     user = _user()
-    for resolver, module in (
-        (resolve_user_from_backend_payload, "pecha_api.auth.auth_service"),
-        (resolve_user_from_token_payload, "pecha_api.users.users_service"),
-    ):
-        with patch(f"{module}.get_user_by_id", return_value=user) as by_id:
+    for resolver in RESOLVERS:
+        with patch(f"{RESOLUTION_MODULE}.get_user_by_id", return_value=user) as by_id:
             assert resolver(db, {"sub": str(user.id)}) is user
             by_id.assert_called_once_with(db=db, user_id=user.id)
 
-        with patch(f"{module}.get_user_by_email", return_value=user) as by_email:
+        with patch(f"{RESOLUTION_MODULE}.get_user_by_email", return_value=user) as by_email:
             assert resolver(db, {"email": "legacy@example.com"}) is user
             by_email.assert_called_once_with(db=db, email="legacy@example.com")
 
@@ -211,11 +212,8 @@ def test_resolution_falls_back_to_phone_for_auth0_sms_payloads():
     user = _user()
     user.phone_number = "+14155552671"
     payload = {"sub": "sms|6a744811b6f40222b44b0bf3", "phone_number": "+14155552671"}
-    for resolver, module in (
-        (resolve_user_from_backend_payload, "pecha_api.auth.auth_service"),
-        (resolve_user_from_token_payload, "pecha_api.users.users_service"),
-    ):
-        with patch(f"{module}.get_user_by_phone", return_value=user) as by_phone:
+    for resolver in RESOLVERS:
+        with patch(f"{RESOLUTION_MODULE}.get_user_by_phone", return_value=user) as by_phone:
             assert resolver(db, payload) is user
             by_phone.assert_called_once_with(db=db, phone_number="+14155552671")
 
@@ -223,12 +221,20 @@ def test_resolution_falls_back_to_phone_for_auth0_sms_payloads():
 def test_resolution_rejects_phone_payload_without_a_registered_user():
     db = MagicMock()
     payload = {"sub": "sms|6a744811b6f40222b44b0bf3", "phone_number": "+14155552671"}
-    for resolver, module in (
-        (resolve_user_from_backend_payload, "pecha_api.auth.auth_service"),
-        (resolve_user_from_token_payload, "pecha_api.users.users_service"),
-    ):
-        with patch(f"{module}.get_user_by_phone", return_value=None):
+    for resolver in RESOLVERS:
+        with patch(f"{RESOLUTION_MODULE}.get_user_by_phone", return_value=None):
             with pytest.raises(HTTPException) as exc:
                 resolver(db, payload)
 
         assert exc.value.status_code == 401
+
+
+def test_resolvers_keep_their_own_unauthorized_messages():
+    db = MagicMock()
+    with pytest.raises(HTTPException) as backend_exc:
+        resolve_user_from_backend_payload(db, {})
+    with pytest.raises(HTTPException) as token_exc:
+        resolve_user_from_token_payload(db, {})
+
+    assert backend_exc.value.detail == "Invalid backend token"
+    assert token_exc.value.detail == ErrorConstants.TOKEN_ERROR_MESSAGE

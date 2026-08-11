@@ -37,7 +37,7 @@ async def test_get_user_info_success():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "john.doe@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user):
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user):
         response = await get_user_info(token)
         assert response.firstname == "John"
         assert response.lastname == "Doe"
@@ -65,7 +65,7 @@ async def test_get_user_info_with_social_accounts():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "john.doe@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user):
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user):
         response = await get_user_info(token)
         assert response.firstname == "John"
         assert response.lastname == "Doe"
@@ -115,7 +115,7 @@ def test_update_user_info_success():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "john.doe@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user), \
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user), \
             patch("pecha_api.users.users_service.update_user") as mock_update_user:
         update_user_info(token, user_info_request)
         mock_update_user.assert_called_once()
@@ -168,7 +168,7 @@ def test_update_user_info_500_db_error():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "john.doe@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user), \
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user), \
             patch("pecha_api.users.users_service.update_user", side_effect=Exception("Db Error")):
         try:
             update_user_info(token, user_info_request)
@@ -357,7 +357,7 @@ def test_verify_admin_access_true():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "admin.user@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user):
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user):
         assert verify_admin_access(token) is True
 
 

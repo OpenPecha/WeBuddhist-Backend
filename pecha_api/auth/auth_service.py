@@ -3,7 +3,6 @@ import secrets
 import random
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
-from uuid import UUID
 
 import jwt
 from jose import JWTError
@@ -18,13 +17,13 @@ from ..users.users_models import Users, PasswordReset
 from ..db.database import SessionLocal
 from ..users.users_repository import (
     get_user_by_email,
-    get_user_by_id,
     get_user_by_phone,
     get_user_by_username,
     link_user_phone,
     save_phone_user,
     save_user,
 )
+from ..users.user_resolution import resolve_user_from_payload
 from .auth_repository import (
     create_access_token,
     create_refresh_token,
@@ -145,25 +144,10 @@ def refresh_access_token(refresh_token: str):
 
 
 def resolve_user_from_backend_payload(db, payload: Dict[str, Any]) -> Users:
-    subject = payload.get("sub")
-    if subject is not None:
-        try:
-            return get_user_by_id(db=db, user_id=UUID(str(subject)))
-        except (TypeError, ValueError):
-            pass
-
-    phone_number = payload.get("phone_number")
-    if isinstance(phone_number, str) and phone_number:
-        user = get_user_by_phone(db=db, phone_number=phone_number)
-        if user is not None:
-            return user
-
-    email = payload.get("email")
-    if isinstance(email, str) and email:
-        return get_user_by_email(db=db, email=email)
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid backend token",
+    return resolve_user_from_payload(
+        db=db,
+        payload=payload,
+        unauthorized_detail="Invalid backend token",
     )
 
 

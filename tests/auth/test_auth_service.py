@@ -1,7 +1,10 @@
 import uuid
 import jwt
+import pytest
 from unittest.mock import patch, MagicMock, ANY
 from datetime import datetime, timedelta, timezone
+from jose import JWTError
+from jose.exceptions import ExpiredSignatureError as JoseExpiredSignatureError
 from starlette import status
 
 from pecha_api.auth.auth_service import (
@@ -226,7 +229,7 @@ def test_refresh_access_token_success():
     user.avatar_url = "avatar"
 
     with patch('pecha_api.auth.auth_service.validate_token') as mock_validate_token, \
-            patch('pecha_api.auth.auth_service.get_user_by_email') as mock_get_user_by_email, \
+            patch('pecha_api.users.user_resolution.get_user_by_email') as mock_get_user_by_email, \
             patch('pecha_api.auth.auth_service.generate_token_data') as mock_generate_token_data, \
             patch('pecha_api.auth.auth_service.create_access_token') as mock_create_access_token:
         mock_validate_token.return_value = {"email": user.email}
@@ -289,11 +292,33 @@ def test_refresh_access_token_expired_token():
         mock_validate_token.assert_called_once_with(refresh_token)
 
 
+def test_refresh_access_token_expired_jose_token():
+    with patch('pecha_api.auth.auth_service.validate_token', side_effect=JoseExpiredSignatureError):
+        with pytest.raises(HTTPException) as exc_info:
+            refresh_access_token("expired_refresh_token")
+
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+    assert exc_info.value.detail == "Refresh token expired"
+
+
+@pytest.mark.parametrize(
+    "validation_error",
+    [JWTError("malformed token"), KeyError("kid"), TypeError("bad payload"), ValueError("bad claim")],
+)
+def test_refresh_access_token_rejects_unusable_tokens(validation_error):
+    with patch('pecha_api.auth.auth_service.validate_token', side_effect=validation_error):
+        with pytest.raises(HTTPException) as exc_info:
+            refresh_access_token("unusable_refresh_token")
+
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+    assert exc_info.value.detail == "Invalid refresh token"
+
+
 def test_refresh_access_token_user_not_found():
     refresh_token = "valid_refresh_token"
 
     with patch('pecha_api.auth.auth_service.validate_token') as mock_validate_token, \
-            patch('pecha_api.auth.auth_service.get_user_by_email') as mock_get_user_by_email:
+            patch('pecha_api.users.user_resolution.get_user_by_email') as mock_get_user_by_email:
         mock_validate_token.return_value = {"email": "test@example.com"}
         mock_get_user_by_email.side_effect = HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                                                            detail="User not found")
