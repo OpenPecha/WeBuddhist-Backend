@@ -3,6 +3,7 @@ import logging
 import mimetypes
 import os
 import uuid
+from datetime import datetime
 from typing import Optional
 
 from fastapi import HTTPException, UploadFile
@@ -70,6 +71,91 @@ async def get_text_audio(token: str, text_id: str) -> Optional[TextAudioResponse
     return to_text_audio_response(audio) if audio else None
 
 
+def _build_audio_metadata(
+    text_id: str,
+    text_title: str,
+    new_audio_key: str,
+    file: UploadFile,
+    content_type: str,
+    duration_ms: Optional[int],
+    author_email: str,
+    now: datetime,
+) -> TextAudio:
+    """Build a new TextAudio metadata object."""
+    extension = os.path.splitext(file.filename or "")[1].lower()
+    return TextAudio(
+        text_id=text_id,
+        text_title=text_title,
+        audio_key=new_audio_key,
+        file_name=file.filename or f"audio{extension}",
+        mime_type=content_type,
+        file_size_bytes=file.size,
+        duration_ms=duration_ms,
+        created_by=author_email,
+        created_at=now,
+        updated_at=now,
+    )
+
+
+def _update_audio_metadata(
+    audio: TextAudio,
+    text_title: str,
+    new_audio_key: str,
+    file: UploadFile,
+    content_type: str,
+    duration_ms: Optional[int],
+    author_email: str,
+    now: datetime,
+) -> None:
+    """Update existing TextAudio metadata fields."""
+    extension = os.path.splitext(file.filename or "")[1].lower()
+    audio.text_title = text_title
+    audio.audio_key = new_audio_key
+    audio.file_name = file.filename or f"audio{extension}"
+    audio.mime_type = content_type
+    audio.file_size_bytes = file.size
+    audio.duration_ms = duration_ms
+    audio.created_by = author_email
+    audio.updated_at = now
+
+
+async def _persist_audio_metadata(
+    text_id: str,
+    new_audio_key: str,
+    audio_metadata: TextAudio,
+    loop,
+) -> tuple[TextAudio, Optional[str]]:
+    """Persist audio metadata (insert or update), handling concurrent uploads."""
+    try:
+        await audio_metadata.insert()
+        return audio_metadata, None
+    except DuplicateKeyError:
+        # Concurrent upload detected; fetch and update instead
+        existing = await TextAudio.find_one(TextAudio.text_id == text_id)
+        if existing:
+            old_audio_key = existing.audio_key
+            existing.audio_key = audio_metadata.audio_key
+            existing.text_title = audio_metadata.text_title
+            existing.file_name = audio_metadata.file_name
+            existing.mime_type = audio_metadata.mime_type
+            existing.file_size_bytes = audio_metadata.file_size_bytes
+            existing.duration_ms = audio_metadata.duration_ms
+            existing.created_by = audio_metadata.created_by
+            existing.updated_at = audio_metadata.updated_at
+            await existing.save()
+            return existing, old_audio_key
+        raise
+
+
+async def _cleanup_audio_files(loop, new_audio_key: str, old_audio_key: Optional[str]) -> None:
+    """Clean up S3 audio files and handle errors gracefully."""
+    if old_audio_key and old_audio_key != new_audio_key:
+        try:
+            await loop.run_in_executor(None, lambda: delete_file(old_audio_key))
+        except HTTPException:
+            logging.exception("Failed to remove replaced text audio: %s", old_audio_key)
+
+
 async def upload_text_audio(
     token: str,
     text_id: str,
@@ -85,66 +171,34 @@ async def upload_text_audio(
         or "audio/mpeg"
     )
     new_audio_key = f"audio/texts/{uuid.uuid4()}{extension}"
-
-    file.file.seek(0)
+    now = utc_now()
     loop = asyncio.get_event_loop()
-    await loop.run_in_executor(
-        None,
-        lambda: upload_file(
-            bucket_name=get("AWS_BUCKET_NAME"),
-            s3_key=new_audio_key,
-            file=file,
-        ),
-    )
 
+    # Upload to S3
+    file.file.seek(0)
+    try:
+        await loop.run_in_executor(
+            None,
+            lambda: upload_file(
+                bucket_name=get("AWS_BUCKET_NAME"),
+                s3_key=new_audio_key,
+                file=file,
+            ),
+        )
+    except Exception:
+        raise
+
+    # Handle metadata persistence
     try:
         existing = await TextAudio.find_one(TextAudio.text_id == text_id)
-        old_audio_key = existing.audio_key if existing else None
-        now = utc_now()
-
         if existing:
-            existing.text_title = text.title
-            existing.audio_key = new_audio_key
-            existing.file_name = file.filename or f"audio{extension}"
-            existing.mime_type = content_type
-            existing.file_size_bytes = file.size
-            existing.duration_ms = duration_ms
-            existing.created_by = current_author.email
-            existing.updated_at = now
+            old_audio_key = existing.audio_key
+            _update_audio_metadata(existing, text.title, new_audio_key, file, content_type, duration_ms, current_author.email, now)
             await existing.save()
             audio = existing
         else:
-            audio = TextAudio(
-                text_id=text_id,
-                text_title=text.title,
-                audio_key=new_audio_key,
-                file_name=file.filename or f"audio{extension}",
-                mime_type=content_type,
-                file_size_bytes=file.size,
-                duration_ms=duration_ms,
-                created_by=current_author.email,
-                created_at=now,
-                updated_at=now,
-            )
-            try:
-                await audio.insert()
-            except DuplicateKeyError:
-                # Another request inserted concurrently; fetch and update it instead
-                existing = await TextAudio.find_one(TextAudio.text_id == text_id)
-                if existing:
-                    old_audio_key = existing.audio_key
-                    existing.text_title = text.title
-                    existing.audio_key = new_audio_key
-                    existing.file_name = file.filename or f"audio{extension}"
-                    existing.mime_type = content_type
-                    existing.file_size_bytes = file.size
-                    existing.duration_ms = duration_ms
-                    existing.created_by = current_author.email
-                    existing.updated_at = now
-                    await existing.save()
-                    audio = existing
-                else:
-                    raise
+            audio_metadata = _build_audio_metadata(text_id, text.title, new_audio_key, file, content_type, duration_ms, current_author.email, now)
+            audio, old_audio_key = await _persist_audio_metadata(text_id, new_audio_key, audio_metadata, loop)
     except DuplicateKeyError:
         await loop.run_in_executor(None, lambda: delete_file(new_audio_key))
         raise HTTPException(
@@ -155,12 +209,8 @@ async def upload_text_audio(
         await loop.run_in_executor(None, lambda: delete_file(new_audio_key))
         raise
 
-    if old_audio_key and old_audio_key != new_audio_key:
-        try:
-            await loop.run_in_executor(None, lambda: delete_file(old_audio_key))
-        except HTTPException:
-            logging.exception("Failed to remove replaced text audio: %s", old_audio_key)
-
+    # Cleanup old audio if applicable
+    await _cleanup_audio_files(loop, new_audio_key, old_audio_key)
     return to_text_audio_response(audio)
 
 
@@ -178,7 +228,7 @@ async def delete_text_audio(token: str, text_id: str) -> None:
         await loop.run_in_executor(None, lambda: delete_file(audio_key))
     except HTTPException as e:
         # S3 deletion failed, but don't delete metadata yet - log and re-raise
-        logging.error("Failed to remove text audio from S3 %s: %s. Metadata retained for retry.", audio_key, e)
+        logging.exception("Failed to remove text audio from S3 %s: %s. Metadata retained for retry.", audio_key, e)
         raise
 
     # Only delete metadata after S3 deletion succeeds
