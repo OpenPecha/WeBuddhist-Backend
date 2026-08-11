@@ -1,6 +1,5 @@
 import logging
 import secrets
-import random
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
 
@@ -345,8 +344,10 @@ def generate_username(first_name: str, last_name: str, phone_number: str = None)
     Generate a username based on the following logic:
     - If phone_number is present: webuddhist_{firstname}_{lastname}_{phonenumber}
     - If phone_number is NOT present: webuddhist_user_{random_6_digit}
+
+    Uses cryptographically secure random number generation for username uniqueness.
     """
-    random_suffix = str(random.randint(1, 9999)).zfill(4)
+    random_suffix = str(secrets.randbelow(9999) + 1).zfill(4)
 
     if phone_number:
         # Sanitize phone number - remove all non-digit characters
@@ -354,7 +355,7 @@ def generate_username(first_name: str, last_name: str, phone_number: str = None)
         return f"webuddhist_{first_name.lower()}_{last_name.lower()}_{sanitized_phone}.{random_suffix}"
     else:
         # Use random fallback if no phone number
-        random_num = str(random.randint(100000, 999999))
+        random_num = str(secrets.randbelow(900000) + 100000)
         return f"webuddhist_user_{random_num}.{random_suffix}"
 
 
