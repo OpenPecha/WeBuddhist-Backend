@@ -116,13 +116,13 @@ class TestGetUserMantraCountsService:
         mock_validate_user.return_value = user
         mock_db = MagicMock()
         mock_session_local.return_value.__enter__.return_value = mock_db
-        mock_get_counts.return_value = ([row], 1)
+        mock_get_counts.return_value = ([row], 500)
         mock_get_mantras.return_value = {mantra.id: mantra}
         mock_presign.return_value = "https://signed-url"
 
         result = get_user_mantra_counts_service(token="valid_token", language="en")
 
-        assert result.total == 1
+        assert result.total == 500
         assert len(result.counts) == 1
         assert result.counts[0].mantra_id == mantra.id
         assert result.counts[0].mantra_title == "Medicine Buddha Mantra"

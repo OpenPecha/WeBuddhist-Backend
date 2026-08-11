@@ -51,8 +51,9 @@ def get_user_mantra_counts(
     skip: int = 0,
     limit: int = 20,
 ) -> Tuple[List[UserMantraCountRow], int]:
+    """Returns paginated mantra rows and the sum of all mantra total_counts."""
     grouped = _user_mantra_counts_query(db, user_id).subquery()
-    total = db.query(func.count()).select_from(grouped).scalar() or 0
+    total = db.query(func.coalesce(func.sum(grouped.c.total_count), 0)).scalar() or 0
 
     rows = (
         db.query(grouped)
@@ -69,7 +70,7 @@ def get_user_mantra_counts(
             updated_at=row.updated_at,
         )
         for row in rows
-    ], total
+    ], int(total)
 
 
 def get_user_mantra_count_for_mantra(

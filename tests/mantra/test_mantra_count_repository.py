@@ -57,10 +57,8 @@ class TestGetUserMantraCountsRepository:
         mock_base_query.subquery.return_value = grouped
         mock_counts_query.return_value = mock_base_query
 
-        count_scalar = MagicMock()
-        count_scalar.scalar.return_value = 2
-        count_query = MagicMock()
-        count_query.select_from.return_value = count_scalar
+        sum_query = MagicMock()
+        sum_query.scalar.return_value = 800
 
         row = MagicMock()
         row.mantra_id = mantra_id
@@ -73,12 +71,12 @@ class TestGetUserMantraCountsRepository:
         rows_query.limit.return_value = rows_query
         rows_query.all.return_value = [row]
 
-        db.query.side_effect = [count_query, rows_query]
+        db.query.side_effect = [sum_query, rows_query]
 
         user_id = uuid4()
         rows, total = get_user_mantra_counts(db=db, user_id=user_id, skip=0, limit=20)
 
-        assert total == 2
+        assert total == 800
         assert len(rows) == 1
         assert rows[0].mantra_id == mantra_id
         assert rows[0].total_count == 300
@@ -94,10 +92,8 @@ class TestGetUserMantraCountsRepository:
         mock_base_query.subquery.return_value = grouped
         mock_counts_query.return_value = mock_base_query
 
-        count_scalar = MagicMock()
-        count_scalar.scalar.return_value = None
-        count_query = MagicMock()
-        count_query.select_from.return_value = count_scalar
+        sum_query = MagicMock()
+        sum_query.scalar.return_value = None
 
         row = MagicMock()
         row.mantra_id = uuid4()
@@ -110,7 +106,7 @@ class TestGetUserMantraCountsRepository:
         rows_query.limit.return_value = rows_query
         rows_query.all.return_value = [row]
 
-        db.query.side_effect = [count_query, rows_query]
+        db.query.side_effect = [sum_query, rows_query]
 
         rows, total = get_user_mantra_counts(db=db, user_id=uuid4())
 

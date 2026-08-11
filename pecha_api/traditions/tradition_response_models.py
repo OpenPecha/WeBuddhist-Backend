@@ -1,36 +1,10 @@
 from datetime import datetime
-from typing import List, Literal, Optional
+from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from pecha_api.traditions.tradition_onboarding import list_tradition_path_codes
-
-
-class TraditionChatMessage(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str = Field(min_length=1)
-
-
-class TraditionChatRequest(BaseModel):
-    messages: List[TraditionChatMessage] = Field(min_length=1)
-    language: str = "en"
-
-
-class SuggestedTradition(BaseModel):
-    code: str
-    name: str
-
-
-class TraditionChatResponse(BaseModel):
-    model_config = ConfigDict(ser_json_exclude_none=True)
-
-    message: str
-    suggested_traditions: List[SuggestedTradition] = Field(default_factory=list)
-    follow_up_questions: List[str] = Field(default_factory=list)
-    is_complete: bool = False
-    selected_tradition_code: Optional[str] = None
-    model: str
+from pecha_api.traditions.tradition_constants import normalize_tradition_code
 
 
 class SaveUserTraditionRequest(BaseModel):
@@ -38,11 +12,8 @@ class SaveUserTraditionRequest(BaseModel):
 
     @field_validator("tradition_code")
     @classmethod
-    def normalize_tradition_code(cls, value: str) -> str:
-        normalized = value.strip()
-        if normalized not in list_tradition_path_codes():
-            raise ValueError("tradition_code must be one of: pali, chinese, tibetan")
-        return normalized
+    def validate_tradition_code(cls, value: str) -> str:
+        return normalize_tradition_code(value)
 
 
 class UserTraditionDTO(BaseModel):
@@ -51,8 +22,6 @@ class UserTraditionDTO(BaseModel):
     id: UUID
     tradition_code: str
     tradition_name: str
-    level: int
-    parent_code: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -64,8 +33,6 @@ class UserTraditionsResponse(BaseModel):
 class TraditionListItemDTO(BaseModel):
     code: str
     name: str
-    level: int
-    parent_code: Optional[str] = None
     regions: List[str] = Field(default_factory=list)
 
 
@@ -90,3 +57,66 @@ class TraditionOnboardingResponse(BaseModel):
     option_intro: str
     paths: TraditionOnboardingPathsDTO
     footer: str
+
+
+class TraditionMetadataInput(BaseModel):
+    language: str = Field(min_length=2, max_length=8)
+    name: str = Field(min_length=1, max_length=255)
+    description: Optional[str] = None
+    other_names: Optional[List[str]] = None
+
+    @field_validator("language")
+    @classmethod
+    def normalize_language(cls, value: str) -> str:
+        return value.strip().upper()
+
+
+class CreateTraditionRequest(BaseModel):
+    code: str = Field(min_length=2, max_length=64)
+    regions: Optional[List[str]] = None
+    parent_id: Optional[UUID] = None
+    metadata: List[TraditionMetadataInput] = Field(min_length=1)
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, value: str) -> str:
+        return normalize_tradition_code(value)
+
+
+class UpdateTraditionRequest(BaseModel):
+    code: Optional[str] = Field(default=None, min_length=2, max_length=64)
+    regions: Optional[List[str]] = None
+    parent_id: Optional[UUID] = None
+    metadata: Optional[List[TraditionMetadataInput]] = None
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        return normalize_tradition_code(value)
+
+
+class TraditionMetadataDTO(BaseModel):
+    id: UUID
+    language: str
+    name: str
+    description: Optional[str] = None
+    other_names: Optional[List[str]] = None
+
+
+class TraditionCMSDTO(BaseModel):
+    id: UUID
+    code: str
+    regions: List[str] = Field(default_factory=list)
+    parent_id: Optional[UUID] = None
+    name: str
+    description: Optional[str] = None
+    metadata: List[TraditionMetadataDTO] = Field(default_factory=list)
+
+
+class TraditionsCMSListResponse(BaseModel):
+    traditions: List[TraditionCMSDTO]
+    skip: int
+    limit: int
+    total: int
