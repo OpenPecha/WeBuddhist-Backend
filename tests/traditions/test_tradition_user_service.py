@@ -47,8 +47,6 @@ async def test_update_user_tradition_service_returns_updated_dto():
             id=user_tradition_id,
             tradition_code="chinese",
             tradition_name="Chinese scriptures",
-            level=0,
-            parent_code=None,
             created_at=updated_record.created_at,
             updated_at=updated_record.updated_at,
         ),
@@ -98,9 +96,12 @@ def test_update_user_tradition_raises_404_when_missing():
     from pecha_api.traditions.tradition_repository import update_user_tradition
 
     db_mock = MagicMock()
-    db_mock.query.return_value.filter.return_value.first.return_value = None
+    db_mock.query.return_value.options.return_value.filter.return_value.first.return_value = None
 
-    with pytest.raises(HTTPException) as exc_info:
+    with patch(
+        "pecha_api.traditions.tradition_repository.joinedload",
+        return_value=MagicMock(),
+    ), pytest.raises(HTTPException) as exc_info:
         update_user_tradition(
             db=db_mock,
             user_id=uuid.uuid4(),
@@ -116,17 +117,24 @@ def test_update_user_tradition_raises_409_when_target_already_exists():
 
     user_id = uuid.uuid4()
     user_tradition_id = uuid.uuid4()
-    existing = SimpleNamespace(id=user_tradition_id, tradition_id=uuid.uuid4())
+    existing = SimpleNamespace(id=user_tradition_id, tradition_id=uuid.uuid4(), tradition=None)
     conflicting = SimpleNamespace(id=uuid.uuid4())
+    target_tradition = SimpleNamespace(id=uuid.uuid4(), code="tibetan", metadata_entries=[])
+
+    load_query = MagicMock()
+    load_query.options.return_value.filter.return_value.first.return_value = existing
+    conflict_query = MagicMock()
+    conflict_query.filter.return_value.first.return_value = conflicting
 
     db_mock = MagicMock()
-    first_query = MagicMock()
-    first_query.filter.return_value.first.side_effect = [existing, conflicting]
-    db_mock.query.return_value = first_query
+    db_mock.query.side_effect = [load_query, conflict_query]
 
     with patch(
-        "pecha_api.traditions.tradition_repository.ensure_path_tradition_exists",
-        return_value=uuid.uuid4(),
+        "pecha_api.traditions.tradition_repository.joinedload",
+        return_value=MagicMock(),
+    ), patch(
+        "pecha_api.traditions.tradition_repository.get_tradition_by_code",
+        return_value=target_tradition,
     ), pytest.raises(HTTPException) as exc_info:
         update_user_tradition(
             db=db_mock,

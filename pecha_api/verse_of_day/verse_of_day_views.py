@@ -11,6 +11,7 @@ from .verse_of_day_service import get_verse_of_day, get_verses_of_day_list_servi
 from pecha_api.users.users_service import validate_and_extract_user_details
 
 oauth2_scheme = HTTPBearer()
+oauth2_scheme_optional = HTTPBearer(auto_error=False)
 
 verse_of_day_router = APIRouter(
     prefix="/verse-of-day",
@@ -48,7 +49,18 @@ def get_verse_of_day_today_endpoint(
         Optional[str],
         Header(alias="X-Timezone", description="IANA timezone for determining today's date."),
     ] = None,
+    authentication_credential: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(oauth2_scheme_optional)
+    ] = None,
 ):
+    if authentication_credential and x_timezone:
+        try:
+            from pecha_api.users.user_metadata_service import sync_user_timezone
+            user = validate_and_extract_user_details(authentication_credential.credentials)
+            sync_user_timezone(user.id, x_timezone)
+        except Exception:
+            pass
+    
     return get_verse_of_day_today_service(lang=lang, timezone=x_timezone)
 
 

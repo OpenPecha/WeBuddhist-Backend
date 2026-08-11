@@ -36,7 +36,7 @@ class TestGetUserMantraCountsEndpoint:
                     updated_at=datetime.now(timezone.utc),
                 )
             ],
-            total=1,
+            total=200,
             skip=0,
             limit=20,
         )
@@ -48,7 +48,7 @@ class TestGetUserMantraCountsEndpoint:
             limit=20,
         )
 
-        assert result.total == 1
+        assert result.total == 200
         assert len(result.counts) == 1
         mock_service.assert_called_once_with(
             token="valid_token",

@@ -111,7 +111,6 @@ DEFAULTS = dict(
 
     # Worker API Configuration
     WORKER_API_URL="",
-    WORKER_LLM_MODEL="gemini-2.5-flash-lite",
 
     # Audio generation SQS queue (backend producer → worker consumer)
     AUDIO_SQS_QUEUE_URL="",

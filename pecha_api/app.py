@@ -195,6 +195,7 @@ api.include_router(cms_events_router)
 api.include_router(cms_locations_router)
 api.include_router(tradition_views.tradition_router)
 api.include_router(tradition_views.user_tradition_router)
+api.include_router(tradition_views.cms_traditions_router)
 api.include_router(language_views.language_router)
 
 api.include_router(routines_views.user_routine_router)

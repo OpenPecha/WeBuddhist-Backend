@@ -10,6 +10,7 @@ from .user_response_models import (
     OnboardingStatusResponse,
     UpdateOnboardingStatusRequest,
 )
+from .user_metadata_response_models import UpdateLanguageRequest, UserMetadataDTO
 from ..db import database
 from typing import Annotated
 from .users_service import (
@@ -22,6 +23,7 @@ from .users_service import (
     get_onboarding_status,
     update_onboarding_status,
 )
+from .user_metadata_service import update_user_language
 
 oauth2_scheme = HTTPBearer()
 user_router = APIRouter(
@@ -97,3 +99,11 @@ def patch_username(
     request: UpdateUsernameRequest,
 ) -> UpdateUsernameResponse:
     return update_username(token=authentication_credential.credentials, request=request)
+
+
+@user_router.put("/me/language", status_code=status.HTTP_200_OK, response_model=UserMetadataDTO)
+def update_user_language_endpoint(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    request: UpdateLanguageRequest,
+) -> UserMetadataDTO:
+    return update_user_language(token=authentication_credential.credentials, language=request.language)
