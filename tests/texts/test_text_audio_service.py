@@ -52,6 +52,7 @@ def text_audio_model():
         text_id = "text_id"
 
         def __init__(self, **fields):
+            self.pending_cleanup_keys = []
             for name, value in fields.items():
                 setattr(self, name, value)
             self.insert = AsyncMock()
@@ -62,7 +63,7 @@ def text_audio_model():
     return StubTextAudio
 
 
-def _existing_audio(model, audio_key: str = EXISTING_AUDIO_KEY):
+def _existing_audio(model, audio_key: str = EXISTING_AUDIO_KEY, pending_cleanup_keys=None):
     return model(
         text_id=TEXT_ID,
         text_title=TEXT_TITLE,
@@ -74,6 +75,7 @@ def _existing_audio(model, audio_key: str = EXISTING_AUDIO_KEY):
         created_by=AUTHOR_EMAIL,
         created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        pending_cleanup_keys=pending_cleanup_keys or [],
     )
 
 
@@ -305,7 +307,8 @@ class TestUploadTextAudio:
 
     @pytest.mark.asyncio
     async def test_replacement_succeeds_even_if_the_old_object_cannot_be_deleted(self, audio_env):
-        audio_env.model.find_one.return_value = _existing_audio(audio_env.model)
+        existing = _existing_audio(audio_env.model)
+        audio_env.model.find_one.return_value = existing
         audio_env.delete.side_effect = HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="S3 delete failed",
@@ -319,6 +322,47 @@ class TestUploadTextAudio:
 
         assert response.audio_key == NEW_AUDIO_KEY
         audio_env.delete.assert_called_once_with(EXISTING_AUDIO_KEY)
+        # The failure must not be silently lost - it's tracked for retry.
+        assert existing.pending_cleanup_keys == [EXISTING_AUDIO_KEY]
+        assert existing.save.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_replacement_clears_a_previously_pending_key_once_it_deletes(self, audio_env):
+        stale_key = "audio/texts/stale-key.mp3"
+        existing = _existing_audio(audio_env.model, pending_cleanup_keys=[stale_key])
+        audio_env.model.find_one.return_value = existing
+
+        response = await upload_text_audio(
+            token=VALID_TOKEN,
+            text_id=TEXT_ID,
+            file=_upload_file(),
+        )
+
+        assert response.audio_key == NEW_AUDIO_KEY
+        audio_env.delete.assert_any_call(EXISTING_AUDIO_KEY)
+        audio_env.delete.assert_any_call(stale_key)
+        assert existing.pending_cleanup_keys == []
+
+    @pytest.mark.asyncio
+    async def test_replacement_keeps_only_the_keys_that_still_fail_to_delete(self, audio_env):
+        stale_key = "audio/texts/stale-key.mp3"
+        existing = _existing_audio(audio_env.model, pending_cleanup_keys=[stale_key])
+        audio_env.model.find_one.return_value = existing
+        audio_env.delete.side_effect = lambda key: (
+            (_ for _ in ()).throw(HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="S3 error"))
+            if key == stale_key
+            else None
+        )
+
+        response = await upload_text_audio(
+            token=VALID_TOKEN,
+            text_id=TEXT_ID,
+            file=_upload_file(),
+        )
+
+        assert response.audio_key == NEW_AUDIO_KEY
+        # The just-displaced key deleted fine; the stale one is still pending.
+        assert existing.pending_cleanup_keys == [stale_key]
 
     @pytest.mark.asyncio
     async def test_nothing_is_uploaded_when_the_text_is_missing(self, audio_env):
@@ -446,15 +490,30 @@ class TestDeleteTextAudio:
         audio_env.delete.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_s3_deletion_failure_retains_metadata(self, audio_env):
-        """When S3 deletion fails, metadata should remain in DB for retry."""
+    async def test_metadata_is_deleted_even_if_s3_cleanup_fails(self, audio_env):
+        """Mongo deletion is the source of truth. If it succeeds, the audio no
+        longer exists for the app, so a later S3 failure must only orphan
+        storage - it must never leave metadata pointing at a missing file."""
         existing = _existing_audio(audio_env.model)
         audio_env.model.find_one.return_value = existing
         audio_env.delete.side_effect = HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="S3 error")
 
-        with pytest.raises(HTTPException) as exc:
-            await delete_text_audio(token=VALID_TOKEN, text_id=TEXT_ID)
+        assert await delete_text_audio(token=VALID_TOKEN, text_id=TEXT_ID) is None
 
-        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
-        # Metadata should NOT be deleted when S3 deletion fails
-        existing.delete.assert_not_awaited()
+        existing.delete.assert_awaited_once()
+        audio_env.delete.assert_called_once_with(EXISTING_AUDIO_KEY)
+
+    @pytest.mark.asyncio
+    async def test_delete_also_retries_cleanup_of_previously_pending_keys(self, audio_env):
+        """A key that failed to delete during an earlier replacement is retried
+        when the text's audio is eventually deleted outright."""
+        stale_key = "audio/texts/stale-key.mp3"
+        existing = _existing_audio(audio_env.model, pending_cleanup_keys=[stale_key])
+        audio_env.model.find_one.return_value = existing
+
+        assert await delete_text_audio(token=VALID_TOKEN, text_id=TEXT_ID) is None
+
+        existing.delete.assert_awaited_once()
+        audio_env.delete.assert_any_call(EXISTING_AUDIO_KEY)
+        audio_env.delete.assert_any_call(stale_key)
+        assert audio_env.delete.call_count == 2

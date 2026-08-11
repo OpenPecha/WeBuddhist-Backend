@@ -147,13 +147,31 @@ async def _persist_audio_metadata(
         raise
 
 
-async def _cleanup_audio_files(loop, new_audio_key: str, old_audio_key: Optional[str]) -> None:
-    """Clean up S3 audio files and handle errors gracefully."""
+async def _cleanup_audio_files(loop, audio: TextAudio, new_audio_key: str, old_audio_key: Optional[str]) -> None:
+    """Best-effort cleanup of S3 objects displaced by a replacement.
+
+    A key that fails to delete (the one just displaced, or one left over from
+    a previous failed cleanup) is persisted on the document instead of only
+    being logged, so it is retried on the next upload rather than lost.
+    """
+    candidates = list(audio.pending_cleanup_keys)
     if old_audio_key and old_audio_key != new_audio_key:
+        candidates.append(old_audio_key)
+    candidates = list(dict.fromkeys(key for key in candidates if key and key != new_audio_key))
+    if not candidates:
+        return
+
+    still_pending = []
+    for key in candidates:
         try:
-            await loop.run_in_executor(None, lambda: delete_file(old_audio_key))
+            await loop.run_in_executor(None, lambda k=key: delete_file(k))
         except HTTPException:
-            logging.exception("Failed to remove replaced text audio: %s", old_audio_key)
+            logging.exception("Failed to remove replaced text audio: %s", key)
+            still_pending.append(key)
+
+    if still_pending != audio.pending_cleanup_keys:
+        audio.pending_cleanup_keys = still_pending
+        await audio.save()
 
 
 async def upload_text_audio(
@@ -176,17 +194,14 @@ async def upload_text_audio(
 
     # Upload to S3
     file.file.seek(0)
-    try:
-        await loop.run_in_executor(
-            None,
-            lambda: upload_file(
-                bucket_name=get("AWS_BUCKET_NAME"),
-                s3_key=new_audio_key,
-                file=file,
-            ),
-        )
-    except Exception:
-        raise
+    await loop.run_in_executor(
+        None,
+        lambda: upload_file(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=new_audio_key,
+            file=file,
+        ),
+    )
 
     # Handle metadata persistence
     try:
@@ -210,7 +225,7 @@ async def upload_text_audio(
         raise
 
     # Cleanup old audio if applicable
-    await _cleanup_audio_files(loop, new_audio_key, old_audio_key)
+    await _cleanup_audio_files(loop, audio, new_audio_key, old_audio_key)
     return to_text_audio_response(audio)
 
 
@@ -220,16 +235,19 @@ async def delete_text_audio(token: str, text_id: str) -> None:
     audio = await TextAudio.find_one(TextAudio.text_id == text_id)
     if not audio:
         return
-    audio_key = audio.audio_key
+    keys_to_delete = list(dict.fromkeys(
+        key for key in [audio.audio_key, *audio.pending_cleanup_keys] if key
+    ))
     loop = asyncio.get_event_loop()
 
-    try:
-        # Delete from S3 first - if this fails, metadata stays in DB so we can retry
-        await loop.run_in_executor(None, lambda: delete_file(audio_key))
-    except HTTPException as e:
-        # S3 deletion failed, but don't delete metadata yet - log and re-raise
-        logging.exception("Failed to remove text audio from S3 %s: %s. Metadata retained for retry.", audio_key, e)
-        raise
-
-    # Only delete metadata after S3 deletion succeeds
+    # Delete metadata first (source of truth). Once this succeeds, the audio
+    # no longer exists from the application's perspective, so a subsequent
+    # S3 failure below only orphans storage instead of leaving a record that
+    # still points at a file which no longer exists.
     await audio.delete()
+
+    for key in keys_to_delete:
+        try:
+            await loop.run_in_executor(None, lambda k=key: delete_file(k))
+        except HTTPException as e:
+            logging.exception("Failed to remove text audio from S3 %s: %s. Object orphaned.", key, e)
