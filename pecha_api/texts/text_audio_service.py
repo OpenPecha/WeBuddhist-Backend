@@ -132,6 +132,7 @@ async def upload_text_audio(
                 # Another request inserted concurrently; fetch and update it instead
                 existing = await TextAudio.find_one(TextAudio.text_id == text_id)
                 if existing:
+                    old_audio_key = existing.audio_key
                     existing.text_title = text.title
                     existing.audio_key = new_audio_key
                     existing.file_name = file.filename or f"audio{extension}"
@@ -142,7 +143,6 @@ async def upload_text_audio(
                     existing.updated_at = now
                     await existing.save()
                     audio = existing
-                    old_audio_key = existing.audio_key
                 else:
                     raise
     except DuplicateKeyError:

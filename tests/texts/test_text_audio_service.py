@@ -388,6 +388,35 @@ class TestUploadTextAudio:
         # S3 object should be cleaned up on failure
         audio_env.delete.assert_called_once_with(NEW_AUDIO_KEY)
 
+    @pytest.mark.asyncio
+    async def test_concurrent_replacement_cleans_up_old_audio_key(self, audio_env):
+        """When concurrent upload replaces existing, old S3 object must be cleaned up."""
+        from pymongo.errors import DuplicateKeyError
+
+        file = _upload_file()
+        CONCURRENT_AUDIO_KEY = "audio/texts/concurrent-key.mp3"
+
+        # Patch the __init__ to make insert fail with DuplicateKeyError
+        original_init = audio_env.model.__init__
+
+        def init_with_insert_fail(self, **fields):
+            original_init(self, **fields)
+            self.insert = AsyncMock(side_effect=DuplicateKeyError("Duplicate key error"))
+
+        # When find_one is called, return existing audio with a different key
+        concurrent_audio = _existing_audio(audio_env.model, audio_key=CONCURRENT_AUDIO_KEY)
+        audio_env.model.find_one.return_value = concurrent_audio
+
+        with patch.object(audio_env.model, "__init__", init_with_insert_fail):
+            response = await upload_text_audio(token=VALID_TOKEN, text_id=TEXT_ID, file=file)
+
+        # The old audio key (from concurrent upload) must be cleaned up
+        assert response.audio_key == NEW_AUDIO_KEY
+        concurrent_audio.save.assert_awaited_once()
+        # Both the new object (on failure) and old object (on replace) should be cleaned
+        # We should see the old key deletion
+        audio_env.delete.assert_any_call(CONCURRENT_AUDIO_KEY)
+
 
 class TestDeleteTextAudio:
     @pytest.mark.asyncio
