@@ -52,17 +52,51 @@ def register_user_with_source(create_user_request: CreateUserRequest, registrati
 def create_user(create_user_request: CreateUserRequest, registration_source: RegistrationSource) -> Users:
     logging.debug(f"RegistrationSource: {registration_source.value}")
     logging.debug(f"Creating user with first name: {create_user_request.firstname}")
-    new_user = Users(**create_user_request.model_dump())
+
+    # Validate that either email or phone is provided
+    if not create_user_request.email and not create_user_request.phone_number:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either email or phone number is required"
+        )
+
+    new_user = Users(**create_user_request.model_dump(exclude_unset=True))
     new_user.is_admin = False
-    
+
     username = generate_and_validate_username(first_name=create_user_request.firstname,
                                               last_name=create_user_request.lastname)
     new_user.username = username
+
+    # Handle phone registration
+    if registration_source == RegistrationSource.PHONE:
+        if not create_user_request.phone_number:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number is required for phone registration"
+            )
+        # Check if phone already exists
+        with SessionLocal() as db_session:
+            existing_phone_user = get_user_by_phone(db_session, create_user_request.phone_number)
+            if existing_phone_user:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Phone number already registered"
+                )
+
+    # Handle email registration (traditional)
     if registration_source == RegistrationSource.EMAIL:
-        _validate_password(new_user.password)
-        hashed_password = get_hashed_password(new_user.password)
+        if not create_user_request.email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required for email registration"
+            )
+        _validate_password(create_user_request.password)
+        hashed_password = get_hashed_password(create_user_request.password)
         new_user.password = hashed_password
+
+    # For social logins (Google, Facebook, Apple, etc.), password is not required
     new_user.registration_source = registration_source.value
+
     with SessionLocal() as db_session:
         saved_user = save_user(db=db_session, user=new_user)
         return saved_user
