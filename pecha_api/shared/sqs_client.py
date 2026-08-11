@@ -62,13 +62,13 @@ def send_sqs_message(queue_url: str, message_body: Dict[str, Any], service_name:
     except HTTPException:
         raise
     except ClientError as e:
-        logger.error("Failed to enqueue %s job to SQS: %s", service_name.lower(), e)
+        logger.exception("Failed to enqueue %s job to SQS: %s", service_name.lower(), e)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Failed to enqueue {service_name.lower()} job",
         ) from e
     except Exception as e:
-        logger.error("Unexpected error enqueueing %s job: %s", service_name.lower(), e)
+        logger.exception("Unexpected error enqueueing %s job: %s", service_name.lower(), e)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Failed to enqueue {service_name.lower()} job",
