@@ -276,7 +276,7 @@ def test_validate_and_extract_user_details_user_not_found():
     token = "valid_token"
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "missing@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=None):
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=None):
         with pytest.raises(HTTPException) as exc_info:
             validate_and_extract_user_details(token)
     assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
@@ -288,7 +288,7 @@ def test_validate_and_extract_user_details_user_not_found_raises_404():
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "missing@example.com"}), \
             patch(
-                "pecha_api.users.users_service.get_user_by_email",
+                "pecha_api.users.user_resolution.get_user_by_email",
                 side_effect=HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=ErrorConstants.USER_NOT_FOUND,
