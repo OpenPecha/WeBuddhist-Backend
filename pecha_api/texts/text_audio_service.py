@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import mimetypes
 import os
@@ -85,10 +86,14 @@ async def upload_text_audio(
     new_audio_key = f"audio/texts/{uuid.uuid4()}{extension}"
 
     file.file.seek(0)
-    upload_file(
-        bucket_name=get("AWS_BUCKET_NAME"),
-        s3_key=new_audio_key,
-        file=file,
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(
+        None,
+        lambda: upload_file(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=new_audio_key,
+            file=file,
+        ),
     )
 
     try:
@@ -122,12 +127,12 @@ async def upload_text_audio(
             )
             await audio.insert()
     except Exception:
-        delete_file(new_audio_key)
+        await loop.run_in_executor(None, lambda: delete_file(new_audio_key))
         raise
 
     if old_audio_key and old_audio_key != new_audio_key:
         try:
-            delete_file(old_audio_key)
+            await loop.run_in_executor(None, lambda: delete_file(old_audio_key))
         except HTTPException:
             logging.exception("Failed to remove replaced text audio: %s", old_audio_key)
 
@@ -143,6 +148,7 @@ async def delete_text_audio(token: str, text_id: str) -> None:
     audio_key = audio.audio_key
     await audio.delete()
     try:
-        delete_file(audio_key)
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, lambda: delete_file(audio_key))
     except HTTPException:
         logging.exception("Failed to remove text audio from S3: %s", audio_key)
