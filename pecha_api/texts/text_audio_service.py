@@ -83,7 +83,6 @@ async def upload_text_audio(
         or "audio/mpeg"
     )
     new_audio_key = f"audio/texts/{uuid.uuid4()}{extension}"
-    existing = await TextAudio.find_one(TextAudio.text_id == text_id)
 
     file.file.seek(0)
     upload_file(
@@ -93,9 +92,11 @@ async def upload_text_audio(
     )
 
     try:
+        existing = await TextAudio.find_one(TextAudio.text_id == text_id)
+        old_audio_key = existing.audio_key if existing else None
         now = utc_now()
+
         if existing:
-            old_audio_key = existing.audio_key
             existing.text_title = text.title
             existing.audio_key = new_audio_key
             existing.file_name = file.filename or f"audio{extension}"
@@ -107,7 +108,6 @@ async def upload_text_audio(
             await existing.save()
             audio = existing
         else:
-            old_audio_key = None
             audio = TextAudio(
                 text_id=text_id,
                 text_title=text.title,

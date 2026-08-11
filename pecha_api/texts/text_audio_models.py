@@ -24,7 +24,7 @@ class TextAudio(Document):
     class Settings:
         collection = "text_audio"
         indexes = [
-            "text_id",
+            ("text_id", "UNIQUE"),
         ]
 
 
