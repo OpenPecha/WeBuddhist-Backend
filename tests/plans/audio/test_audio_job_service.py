@@ -31,7 +31,7 @@ def test_send_audio_job_message_success():
         "AWS_SECRET_KEY": "secret",
         "AWS_REGION": "eu-central-1",
     }.get(key, "")), \
-         patch("pecha_api.plans.audio.sqs_client._get_sqs_client", return_value=mock_client):
+         patch("pecha_api.shared.sqs_client._get_sqs_client", return_value=mock_client):
         message_id = send_audio_job_message({"job_id": "abc"})
 
     assert message_id == "msg-123"

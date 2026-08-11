@@ -1,0 +1,759 @@
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  6%]
+........................................................................ [  8%]
+........................................................................ [ 10%]
+........................................................................ [ 11%]
+........................................................................ [ 13%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+........................................................................ [ 18%]
+........................................................................ [ 20%]
+........................................................................ [ 22%]
+.........................ssssssssss..................................... [ 23%]
+........................................................................ [ 25%]
+........................................................................ [ 27%]
+........................................................................ [ 28%]
+........................................................................ [ 30%]
+........................................................................ [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 35%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 44%]
+........................................................................ [ 46%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+........................................................................ [ 51%]
+........................................................................ [ 52%]
+........................................................................ [ 54%]
+................................................................sss.sss. [ 56%]
+s....................................................................... [ 57%]
+........................................................................ [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 64%]
+........................................................................ [ 66%]
+........................................................................ [ 68%]
+........................................................................ [ 69%]
+........................................................................ [ 71%]
+........................................................................ [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 76%]
+........................................................................ [ 78%]
+........................................................................ [ 80%]
+........................................................................ [ 81%]
+........................................................................ [ 83%]
+........................................................................ [ 85%]
+........................................................................ [ 86%]
+........................................................................ [ 88%]
+........................................................................ [ 90%]
+........................................................................ [ 92%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 97%]
+........................................................................ [ 98%]
+................................................                         [100%]
+============================== warnings summary ===============================
+pecha_api\topics\topics_models.py:10
+  D:\work\WeBuddhist-Backend\pecha_api\topics\topics_models.py:10: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Topic(Document):
+
+pecha_api\collections\collections_models.py:6
+  D:\work\WeBuddhist-Backend\pecha_api\collections\collections_models.py:6: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Collection(Document):
+
+pecha_api\terms\terms_models.py:6
+  D:\work\WeBuddhist-Backend\pecha_api\terms\terms_models.py:6: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class Term(Document):
+
+pecha_api\verse_of_day\verse_of_day_response_models.py:11
+  D:\work\WeBuddhist-Backend\pecha_api\verse_of_day\verse_of_day_response_models.py:11: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class GroupInfoDTO(BaseModel):
+
+pecha_api\verse_of_day\verse_of_day_response_models.py:23
+  D:\work\WeBuddhist-Backend\pecha_api\verse_of_day\verse_of_day_response_models.py:23: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class VerseMetadataDTO(BaseModel):
+
+pecha_api\verse_of_day\verse_of_day_response_models.py:32
+  D:\work\WeBuddhist-Backend\pecha_api\verse_of_day\verse_of_day_response_models.py:32: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class VerseOfDayDTO(BaseModel):
+
+pecha_api\verse_of_day\verse_of_day_response_models.py:50
+  D:\work\WeBuddhist-Backend\pecha_api\verse_of_day\verse_of_day_response_models.py:50: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class VerseOfDayPublicDTO(BaseModel):
+
+pecha_api\users\user_metadata_response_models.py:9
+  D:\work\WeBuddhist-Backend\pecha_api\users\user_metadata_response_models.py:9: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class UserMetadataDTO(BaseModel):
+
+pecha_api\mantra\mantra_response_models.py:42
+  D:\work\WeBuddhist-Backend\pecha_api\mantra\mantra_response_models.py:42: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class MantraMetadataDTO(BaseModel):
+
+pecha_api\mantra\mantra_response_models.py:53
+  D:\work\WeBuddhist-Backend\pecha_api\mantra\mantra_response_models.py:53: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    class MantraDTO(BaseModel):
+
+tests/accumulator/test_accumulator_service.py: 47 warnings
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:132: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    accumulator.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py: 47 warnings
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:133: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    accumulator.updated_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestCreateAccumulatorService::test_create_accumulator_service_success
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:378: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    accumulator.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestCreateAccumulatorService::test_create_accumulator_service_success
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:379: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    accumulator.updated_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestCreateAccumulatorService::test_create_accumulator_service_no_history_on_create
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:463: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    accumulator.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestCreateAccumulatorService::test_create_accumulator_service_no_history_on_create
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:464: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    accumulator.updated_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestCreateAccumulatorService::test_create_accumulator_service_mantra_mala_image_default
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:513: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    accumulator.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestCreateAccumulatorService::test_create_accumulator_service_mantra_mala_image_default
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:514: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    accumulator.updated_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestCreateAccumulatorService::test_create_accumulator_service_falls_back_to_preset_mala_image
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:563: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    accumulator.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestCreateAccumulatorService::test_create_accumulator_service_falls_back_to_preset_mala_image
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:564: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    accumulator.updated_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestGetAccumulatorHistoryService::test_get_accumulator_history_service_success
+tests/accumulator/test_accumulator_service.py::TestGetAccumulatorHistoryService::test_get_accumulator_history_service_success
+tests/accumulator/test_accumulator_service.py::TestGetAccumulatorDetailService::test_get_accumulator_detail_service_success
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:175: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    history.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestGetAccumulatorGroupsService::test_get_accumulator_groups_service_success
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:1502: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    group_acc_1.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestGetAccumulatorGroupsService::test_get_accumulator_groups_service_success
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:1512: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    group_acc_2.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestGetAccumulatorGroupsService::test_get_accumulator_groups_service_returns_image_url
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:1598: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    group_acc.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestGetAccumulatorGroupsService::test_get_accumulator_groups_service_user_with_zero_count
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:1676: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    group_acc.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestGetAccumulatorGroupsService::test_get_accumulator_groups_service_pagination
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:1720: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    group_acc.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestGetAccumulatorGroupsService::test_get_accumulator_groups_service_with_optional_fields_none
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:1862: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    group_acc.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_service.py::TestGetAccumulatorGroupsService::test_get_accumulator_groups_service_large_user_count
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_service.py:1910: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    group_acc.created_at = datetime.utcnow()
+
+tests/accumulator/test_accumulator_views.py::TestGetAllAccumulators::test_get_all_accumulators_success
+tests/accumulator/test_accumulator_views.py::TestGetAllAccumulators::test_get_all_accumulators_success
+tests/accumulator/test_accumulator_views.py::TestGetAllAccumulators::test_get_all_accumulators_pagination
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_views.py:74: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/accumulator/test_accumulator_views.py::TestGetAllAccumulators::test_get_all_accumulators_success
+tests/accumulator/test_accumulator_views.py::TestGetAllAccumulators::test_get_all_accumulators_success
+tests/accumulator/test_accumulator_views.py::TestGetAllAccumulators::test_get_all_accumulators_pagination
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_views.py:75: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    updated_at=datetime.utcnow(),
+
+tests/accumulator/test_accumulator_views.py::TestGetUserAccumulators::test_get_user_accumulators_success
+tests/accumulator/test_accumulator_views.py::TestGetUserAccumulators::test_get_user_accumulators_success
+tests/accumulator/test_accumulator_views.py::TestCreateUserAccumulator::test_create_user_accumulator_success
+tests/accumulator/test_accumulator_views.py::TestUpdateUserAccumulator::test_update_user_accumulator_success
+tests/accumulator/test_accumulator_views.py::TestUpdateAccumulatorMalaImage::test_update_accumulator_mala_image_success
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_views.py:62: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/accumulator/test_accumulator_views.py::TestGetUserAccumulators::test_get_user_accumulators_success
+tests/accumulator/test_accumulator_views.py::TestGetUserAccumulators::test_get_user_accumulators_success
+tests/accumulator/test_accumulator_views.py::TestCreateUserAccumulator::test_create_user_accumulator_success
+tests/accumulator/test_accumulator_views.py::TestUpdateUserAccumulator::test_update_user_accumulator_success
+tests/accumulator/test_accumulator_views.py::TestUpdateAccumulatorMalaImage::test_update_accumulator_mala_image_success
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_views.py:63: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    updated_at=datetime.utcnow(),
+
+tests/accumulator/test_accumulator_views.py::TestGetUserAccumulatorHistory::test_get_user_accumulator_history_success
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_views.py:467: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    AccumulatorSessionDTO(count=100, created_at=datetime.utcnow()),
+
+tests/accumulator/test_accumulator_views.py::TestGetUserAccumulatorHistory::test_get_user_accumulator_history_success
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_views.py:468: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    AccumulatorSessionDTO(count=200, created_at=datetime.utcnow()),
+
+tests/accumulator/test_accumulator_views.py::TestGetAccumulatorGroups::test_get_accumulator_groups_success
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_views.py:608: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/accumulator/test_accumulator_views.py::TestGetAccumulatorGroups::test_get_accumulator_groups_success
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_views.py:619: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/accumulator/test_accumulator_views.py::TestGetAccumulatorGroups::test_get_accumulator_groups_user_with_zero_count
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_views.py:694: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/accumulator/test_accumulator_views.py::TestGetAccumulatorGroups::test_get_accumulator_groups_pagination
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_views.py:731: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/accumulator/test_accumulator_views.py::TestGetAccumulatorGroups::test_get_accumulator_groups_with_optional_fields
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_views.py:850: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/accumulator/test_accumulator_views.py::TestGetAccumulatorGroups::test_get_accumulator_groups_large_user_count
+  D:\work\WeBuddhist-Backend\tests\accumulator\test_accumulator_views.py:891: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/db/test_mongo_database_lifespan.py::test_lifespan_closes_mongo_client_on_shutdown
+tests/db/test_mongo_database_lifespan.py::test_lifespan_cleans_up_when_beanie_init_fails
+tests/db/test_mongo_database_lifespan.py::test_lifespan_cleans_up_when_scheduler_setup_fails
+  D:\work\WeBuddhist-Backend\pecha_api\chat\chat_websocket.py:55: DeprecationWarning: Call to deprecated close. (Use aclose() instead) -- Deprecated since version 5.0.1.
+    await self.redis.close()
+
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestCreateGroupAccumulator::test_create_group_accumulator_success
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestGetGroupAccumulators::test_get_group_accumulators_success
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestGetGroupAccumulators::test_get_group_accumulators_success
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestGetGroupAccumulators::test_get_group_accumulators_with_pagination
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestUpdateGroupAccumulator::test_update_group_accumulator_success
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestUpdateGroupAccumulator::test_update_group_accumulator_partial_update
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_cms_views.py:35: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    start_date=datetime.utcnow(),
+
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestCreateGroupAccumulator::test_create_group_accumulator_success
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestGetGroupAccumulators::test_get_group_accumulators_success
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestGetGroupAccumulators::test_get_group_accumulators_success
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestGetGroupAccumulators::test_get_group_accumulators_with_pagination
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestUpdateGroupAccumulator::test_update_group_accumulator_success
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestUpdateGroupAccumulator::test_update_group_accumulator_partial_update
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_cms_views.py:37: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestCreateGroupAccumulator::test_create_group_accumulator_success
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_cms_views.py:94: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "start_date": datetime.utcnow().isoformat(),
+
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestGetSingleGroupAccumulator::test_get_single_group_accumulator_success
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_cms_views.py:54: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    start_date=datetime.utcnow(),
+
+tests/group_accumulator/test_group_accumulator_cms_views.py::TestGetSingleGroupAccumulator::test_get_single_group_accumulator_success
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_cms_views.py:57: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/group_accumulator/test_group_accumulator_service.py: 30 warnings
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_service.py:56: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.start_date = datetime.utcnow()
+
+tests/group_accumulator/test_group_accumulator_service.py: 30 warnings
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_service.py:58: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.created_at = datetime.utcnow()
+
+tests/group_accumulator/test_group_accumulator_service.py::TestCreateGroupAccumulatorService::test_create_group_accumulator_success
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_service.py:110: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    start_date=datetime.utcnow(),
+
+tests/group_accumulator/test_group_accumulator_service.py::TestSubmitGroupCountService::test_submit_group_count_success
+tests/group_accumulator/test_group_accumulator_service.py::TestGetGroupAccumulatorHistoryService::test_get_history_success
+tests/group_accumulator/test_group_accumulator_service.py::TestGetGroupAccumulatorHistoryService::test_get_history_success
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_service.py:69: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.created_at = datetime.utcnow()
+
+tests/group_accumulator/test_group_accumulator_service.py::TestGetGroupAccumulatorMembersService::test_get_members_success
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_service.py:1160: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    joined_at = datetime.utcnow()
+
+tests/group_accumulator/test_group_accumulator_service.py::TestGetGroupAccumulatorUserSessionsService::test_get_user_sessions_success
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_service.py:1223: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/group_accumulator/test_group_accumulator_service.py::TestGetGroupAccumulatorUserSessionsService::test_get_user_sessions_success
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_service.py:1225: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    history_row = MagicMock(id=uuid4(), count=108, created_at=datetime.utcnow())
+
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulators::test_get_group_accumulators_success
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulators::test_get_group_accumulators_success
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulators::test_get_group_accumulators_with_pagination
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_views.py:40: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    start_date=datetime.utcnow(),
+
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulators::test_get_group_accumulators_success
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulators::test_get_group_accumulators_success
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulators::test_get_group_accumulators_with_pagination
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_views.py:42: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulator::test_get_group_accumulator_success
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulatorHistory::test_get_history_success
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulatorHistory::test_get_history_with_pagination
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulatorHistory::test_get_history_empty
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_views.py:59: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    start_date=datetime.utcnow(),
+
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulator::test_get_group_accumulator_success
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulatorHistory::test_get_history_success
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulatorHistory::test_get_history_with_pagination
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulatorHistory::test_get_history_empty
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_views.py:62: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/group_accumulator/test_group_accumulator_views.py::TestSubmitGroupCount::test_submit_group_count_success
+tests/group_accumulator/test_group_accumulator_views.py::TestSubmitGroupCount::test_submit_group_count_zero_delta
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulatorHistory::test_get_history_success
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulatorHistory::test_get_history_success
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulatorHistory::test_get_history_with_pagination
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_views.py:76: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulatorMembersView::test_get_members_success
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_views.py:540: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    joined_at=datetime.utcnow(),
+
+tests/group_accumulator/test_group_accumulator_views.py::TestGetGroupAccumulatorUserSessionsView::test_get_user_sessions_success
+  D:\work\WeBuddhist-Backend\tests\group_accumulator\test_group_accumulator_views.py:615: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at = datetime.utcnow()
+
+tests/group_recitation_collection/test_group_recitation_collection_cms_views.py::TestCmsListCollections::test_list_success
+tests/group_recitation_collection/test_group_recitation_collection_cms_views.py::TestCmsListCollections::test_list_success
+tests/group_recitation_collection/test_group_recitation_collection_cms_views.py::TestCmsListCollections::test_list_pagination
+  D:\work\WeBuddhist-Backend\tests\group_recitation_collection\test_group_recitation_collection_cms_views.py:37: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow().isoformat(),
+
+tests/group_recitation_collection/test_group_recitation_collection_cms_views.py::TestCmsGetCollectionDetail::test_get_detail_success
+tests/group_recitation_collection/test_group_recitation_collection_cms_views.py::TestCmsCreateCollection::test_create_success
+tests/group_recitation_collection/test_group_recitation_collection_cms_views.py::TestCmsUpdateCollection::test_update_success
+tests/group_recitation_collection/test_group_recitation_collection_cms_views.py::TestCmsReorderItems::test_reorder_success
+  D:\work\WeBuddhist-Backend\tests\group_recitation_collection\test_group_recitation_collection_cms_views.py:53: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow().isoformat(),
+
+tests/group_recitation_collection/test_group_recitation_collection_service.py::TestListGroupCollectionsService::test_list_collections_success
+tests/group_recitation_collection/test_group_recitation_collection_service.py::TestListGroupCollectionsService::test_list_collections_success
+tests/group_recitation_collection/test_group_recitation_collection_service.py::TestListGroupCollectionsService::test_list_collections_region_filtered
+tests/group_recitation_collection/test_group_recitation_collection_service.py::TestListGroupCollectionsService::test_list_collections_region_filtered
+tests/group_recitation_collection/test_group_recitation_collection_service.py::TestGetGroupCollectionDetailService::test_get_detail_success
+tests/group_recitation_collection/test_group_recitation_collection_service.py::TestGetGroupCollectionDetailService::test_get_detail_region_restricted
+  D:\work\WeBuddhist-Backend\tests\group_recitation_collection\test_group_recitation_collection_service.py:27: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.created_at = datetime.utcnow()
+
+tests/group_recitation_collection/test_group_recitation_collection_service.py::TestListGroupCollectionsService::test_list_collections_success
+tests/group_recitation_collection/test_group_recitation_collection_service.py::TestListGroupCollectionsService::test_list_collections_success
+tests/group_recitation_collection/test_group_recitation_collection_service.py::TestListGroupCollectionsService::test_list_collections_region_filtered
+tests/group_recitation_collection/test_group_recitation_collection_service.py::TestListGroupCollectionsService::test_list_collections_region_filtered
+tests/group_recitation_collection/test_group_recitation_collection_service.py::TestGetGroupCollectionDetailService::test_get_detail_success
+tests/group_recitation_collection/test_group_recitation_collection_service.py::TestGetGroupCollectionDetailService::test_get_detail_region_restricted
+  D:\work\WeBuddhist-Backend\tests\group_recitation_collection\test_group_recitation_collection_service.py:28: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.updated_at = datetime.utcnow()
+
+tests/group_recitation_collection/test_group_recitation_collection_views.py::TestListGroupRecitationCollections::test_list_collections_success
+tests/group_recitation_collection/test_group_recitation_collection_views.py::TestListGroupRecitationCollections::test_list_collections_success
+tests/group_recitation_collection/test_group_recitation_collection_views.py::TestListGroupRecitationCollections::test_list_collections_with_pagination
+tests/group_recitation_collection/test_group_recitation_collection_views.py::TestListGroupRecitationCollections::test_list_collections_with_timezone
+  D:\work\WeBuddhist-Backend\tests\group_recitation_collection\test_group_recitation_collection_views.py:36: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow().isoformat(),
+
+tests/group_recitation_collection/test_group_recitation_collection_views.py::TestGetGroupRecitationCollectionDetail::test_get_collection_detail_success
+tests/group_recitation_collection/test_group_recitation_collection_views.py::TestGetGroupRecitationCollectionDetail::test_get_collection_detail_with_timezone
+  D:\work\WeBuddhist-Backend\tests\group_recitation_collection\test_group_recitation_collection_views.py:52: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow().isoformat(),
+
+tests/plans/users/recitation_collection/test_recitation_collection_services.py::TestCreateCollectionService::test_create_collection_success
+tests/plans/users/recitation_collection/test_recitation_collection_services.py::TestCreateCollectionService::test_create_collection_without_image
+tests/plans/users/recitation_collection/test_recitation_collection_services.py::TestCreateCollectionService::test_create_collection_database_error
+tests/plans/users/recitation_collection/test_recitation_collection_services.py::TestCreateCollectionService::test_create_collection_with_special_characters
+  D:\work\WeBuddhist-Backend\pecha_api\plans\users\recitation_collection\recitation_collection_service.py:174: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+tests/plans/users/test_plan_users_views.py::test_get_user_plan_progress_details_success
+  D:\work\WeBuddhist-Backend\tests\plans\users\test_plan_users_views.py:510: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "started_at": datetime.utcnow(),
+
+tests/plans/users/test_plan_users_views.py::test_get_user_plan_progress_details_success
+  D:\work\WeBuddhist-Backend\tests\plans\users\test_plan_users_views.py:515: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "created_at": datetime.utcnow(),
+
+tests/segments/test_segments_service.py::test_get_translations_by_segment_id_success
+tests/segments/test_segments_service.py::test_get_commentaries_by_segment_id_success
+tests/segments/test_segments_service.py::test_get_root_text_mapping_by_segment_id_success
+  C:\Users\tenzin kunsang\AppData\Local\Programs\Python\Python313\Lib\json\encoder.py:263: PydanticDeprecatedSince20: `pydantic_encoder` is deprecated, use `pydantic_core.to_jsonable_python` instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    return _iterencode(o, 0)
+
+tests/timers/test_timer_services.py: 25 warnings
+  D:\work\WeBuddhist-Backend\tests\timers\test_timer_services.py:59: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timer.created_at = datetime.utcnow()
+
+tests/timers/test_timer_services.py: 25 warnings
+  D:\work\WeBuddhist-Backend\tests\timers\test_timer_services.py:60: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timer.updated_at = datetime.utcnow()
+
+tests/timers/test_timer_services.py::TestRecordTimerStopService::test_record_timer_stop_service_success
+tests/timers/test_timer_services.py::TestGetTimerHistoryService::test_get_timer_history_service_success
+tests/timers/test_timer_services.py::TestGetTimerHistoryService::test_get_timer_history_service_success
+tests/timers/test_timer_services.py::TestGetTimerHistoryService::test_get_timer_history_service_multiple_timers
+tests/timers/test_timer_services.py::TestGetTimerHistoryService::test_get_timer_history_service_multiple_timers
+  D:\work\WeBuddhist-Backend\tests\timers\test_timer_services.py:116: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    history.created_at = datetime.utcnow()
+
+tests/timers/test_timer_views.py: 12 warnings
+  D:\work\WeBuddhist-Backend\tests\timers\test_timer_views.py:63: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/timers/test_timer_views.py: 12 warnings
+  D:\work\WeBuddhist-Backend\tests\timers\test_timer_views.py:64: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    updated_at=datetime.utcnow()
+
+tests/timers/test_timer_views.py::TestGetUserTimerHistory::test_get_user_timer_history_success
+  D:\work\WeBuddhist-Backend\tests\timers\test_timer_views.py:785: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    TimerSessionDTO(duration=600, created_at=datetime.utcnow()),
+
+tests/timers/test_timer_views.py::TestGetUserTimerHistory::test_get_user_timer_history_success
+  D:\work\WeBuddhist-Backend\tests\timers\test_timer_views.py:786: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    TimerSessionDTO(duration=600, created_at=datetime.utcnow())
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+______________ coverage: platform win32, python 3.13.12-final-0 _______________
+
+Name                                                                           Stmts   Miss  Cover   Missing
+------------------------------------------------------------------------------------------------------------
+pecha_api\accumulator\accumulator_cms_service.py                                  91      0   100%
+pecha_api\accumulator\accumulator_cms_views.py                                    25      0   100%
+pecha_api\accumulator\accumulator_enums.py                                         6      0   100%
+pecha_api\accumulator\accumulator_history_model.py                                13      0   100%
+pecha_api\accumulator\accumulator_metadata_model.py                               13      0   100%
+pecha_api\accumulator\accumulator_service.py                                     203      0   100%
+pecha_api\accumulator\accumulator_views.py                                        39      0   100%
+pecha_api\accumulator\group_accumulator_history_model.py                          17      0   100%
+pecha_api\accumulator\group_accumulator_join_model.py                              5      0   100%
+pecha_api\accumulator\mala_image_model.py                                          9      0   100%
+pecha_api\accumulator\response_message.py                                         17      0   100%
+pecha_api\accumulator\user_group_accumulator_model.py                             16      0   100%
+pecha_api\app.py                                                                 201      6    97%   213-215, 220, 229, 234
+pecha_api\auth\auth0_google.py                                                    91     20    78%   31-39, 44, 57, 60, 77, 96-105, 125, 131, 134
+pecha_api\auth\auth0_sms.py                                                       77     10    87%   35-43, 69, 72, 77, 100
+pecha_api\auth\auth_enums.py                                                       8      0   100%
+pecha_api\auth\auth_service.py                                                   122      5    96%   170, 199, 205-206, 304
+pecha_api\auth\auth_views.py                                                      35      4    89%   22-26
+pecha_api\author_group_feed\service.py                                            88     11    88%   36, 38, 48, 54-55, 61, 68-71, 76
+pecha_api\author_group_feed\views.py                                              13      1    92%   52
+pecha_api\bookmarks\bookmark_enums.py                                             16      0   100%
+pecha_api\bookmarks\bookmark_services.py                                          36      0   100%
+pecha_api\bookmarks\bookmark_utils.py                                            208     18    91%   71, 75, 91, 95, 148, 164-170, 200, 204, 217, 224, 302, 350, 380, 395, 427
+pecha_api\bookmarks\bookmark_views.py                                             30      0   100%
+pecha_api\bookmarks\pytest_cov_plugin.py                                          56     13    77%   1-9, 20, 26, 34, 43, 48, 52, 65, 81
+pecha_api\cache\cache_enums.py                                                    28      0   100%
+pecha_api\calendar\calendar_cache_service.py                                      20      1    95%   33
+pecha_api\calendar\calendar_parser.py                                            136     11    92%   86, 135-136, 158-160, 195, 198-199, 224-225
+pecha_api\calendar\calendar_service.py                                           102     16    84%   33, 103-118, 138-139, 153
+pecha_api\calendar\calendar_views.py                                              24      0   100%
+pecha_api\cataloger\cataloger_response_model.py                                   32      0   100%
+pecha_api\cataloger\cataloger_service.py                                          82      2    98%   93-94
+pecha_api\cataloger\cataloger_views.py                                            15      0   100%
+pecha_api\chat\chat_websocket.py                                                  95      0   100%
+pecha_api\chat\enums.py                                                            6      0   100%
+pecha_api\chat\internal_views.py                                                  13      2    85%   33, 44
+pecha_api\chat\member_service.py                                                  66      0   100%
+pecha_api\chat\message_service.py                                                 45      0   100%
+pecha_api\chat\models.py                                                          51      0   100%
+pecha_api\chat\notification_dispatch_service.py                                   38      3    92%   48-49, 64
+pecha_api\chat\notification_service.py                                            53      3    94%   56, 58, 60
+pecha_api\chat\repository.py                                                      99     10    90%   208-222, 231, 245
+pecha_api\chat\service.py                                                        126      0   100%
+pecha_api\chat\sqs_client.py                                                      18      5    72%   29-33
+pecha_api\chat\viewer.py                                                           6      0   100%
+pecha_api\chat\views.py                                                          163      3    98%   331-332, 409
+pecha_api\collections\collections_cache_service.py                                33      0   100%
+pecha_api\collections\collections_openpecha_service.py                            56      0   100%
+pecha_api\collections\collections_openpecha_views.py                              11      0   100%
+pecha_api\collections\collections_service.py                                      65      0   100%
+pecha_api\collections\collections_views.py                                        26      0   100%
+pecha_api\config.py                                                               18      5    72%   144, 152-153, 159-160
+pecha_api\constants.py                                                            13      0   100%
+pecha_api\daily_log\daily_log_cache_service.py                                    51      2    96%   75, 109
+pecha_api\daily_log\daily_log_service.py                                          65      7    89%   63-78
+pecha_api\daily_log\daily_log_views.py                                            14      0   100%
+pecha_api\error_contants.py                                                       34      0   100%
+pecha_api\events\cms_event_views.py                                               32      3    91%   103, 112, 124
+pecha_api\events\cms_location_views.py                                            24      5    79%   42, 61, 78, 96, 113
+pecha_api\events\event_link_model.py                                              18      0   100%
+pecha_api\events\event_metadata_model.py                                          14      0   100%
+pecha_api\events\event_model.py                                                   25      0   100%
+pecha_api\events\event_participant_model.py                                       16      0   100%
+pecha_api\events\event_participant_service.py                                     58      5    91%   28-35
+pecha_api\events\event_service.py                                                186     22    88%   69, 177-180, 388, 449, 461, 463, 465, 467, 469, 471, 473, 487, 496-507
+pecha_api\events\event_views.py                                                   33      0   100%
+pecha_api\events\location_model.py                                                16      0   100%
+pecha_api\events\location_service.py                                              63      0   100%
+pecha_api\group_accumulator\group_accumulator_cms_views.py                        24      0   100%
+pecha_api\group_accumulator\group_accumulator_service.py                         241     27    89%   73-75, 79-80, 92-94, 334, 336, 338, 342, 344, 381, 388, 417, 487, 650, 714, 812, 818, 824, 826, 828, 832, 834, 858
+pecha_api\group_accumulator\group_accumulator_views.py                            40      0   100%
+pecha_api\group_posts\cms_service.py                                             122      0   100%
+pecha_api\group_posts\cms_views.py                                                32      0   100%
+pecha_api\group_posts\comment_like_service.py                                     46      7    85%   39-53
+pecha_api\group_posts\comment_like_views.py                                       24      8    67%   37-43, 55-60, 74
+pecha_api\group_posts\comment_service.py                                          78      3    96%   54-56
+pecha_api\group_posts\comment_views.py                                           114     75    34%   60-66, 124-244
+pecha_api\group_posts\comment_websocket.py                                        82      0   100%
+pecha_api\group_posts\enums.py                                                    11      0   100%
+pecha_api\group_posts\like_service.py                                             43      4    91%   39-45
+pecha_api\group_posts\like_views.py                                               24      8    67%   37-43, 55-60, 74
+pecha_api\group_posts\models.py                                                   53      0   100%
+pecha_api\group_posts\repository.py                                               53      5    91%   37, 92-105
+pecha_api\group_posts\service.py                                                  79      1    99%   219
+pecha_api\group_posts\service_utils.py                                            23      8    65%   20, 26-28, 36-42
+pecha_api\group_posts\viewer.py                                                    6      0   100%
+pecha_api\group_posts\views.py                                                    38      9    76%   45-50, 90, 115-120
+pecha_api\group_recitation_collection\cms_service.py                             146     18    88%   56-63, 80-101, 255, 370
+pecha_api\group_recitation_collection\cms_views.py                                35      0   100%
+pecha_api\group_recitation_collection\models.py                                   32      0   100%
+pecha_api\group_recitation_collection\repository.py                               54     34    37%   20-32, 40-43, 60, 76, 92-108, 116-119, 127-129, 137-138, 146-154, 162-166, 174-175, 184, 200, 208
+pecha_api\group_recitation_collection\service.py                                  65      5    92%   39-46
+pecha_api\group_recitation_collection\user_chant_completion_service.py            50      3    94%   70, 103, 118
+pecha_api\group_recitation_collection\user_chant_completion_views.py              15      2    87%   38, 58
+pecha_api\group_recitation_collection\views.py                                    13      0   100%
+pecha_api\http_message_utils.py                                                   10      0   100%
+pecha_api\image_utils.py                                                          46      6    87%   55-59, 61
+pecha_api\languages\language_constants.py                                          2      0   100%
+pecha_api\languages\language_service.py                                           17      0   100%
+pecha_api\languages\language_views.py                                              9      0   100%
+pecha_api\mantra\mantra_count_service.py                                          46      0   100%
+pecha_api\mantra\mantra_count_views.py                                            16      0   100%
+pecha_api\mantra\mantra_metadata_model.py                                         14      0   100%
+pecha_api\mantra\mantra_model.py                                                  15      0   100%
+pecha_api\mantra\mantra_service.py                                                34      0   100%
+pecha_api\mantra\mantra_views.py                                                  16      0   100%
+pecha_api\middleware\request_observability.py                                     70      8    89%   29-32, 35, 48, 64, 91
+pecha_api\notification\email_provider.py                                          14      0   100%
+pecha_api\notification\notification_service.py                                    28      0   100%
+pecha_api\notification\notification_views.py                                      15      0   100%
+pecha_api\openapi_config.py                                                       71     57    20%   46-97, 101-111, 115-122, 126-129, 138-151
+pecha_api\plans\admin\admin_service.py                                            69      1    99%   69
+pecha_api\plans\admin\admin_views.py                                              24      2    92%   68, 77
+pecha_api\plans\analytics\analytics_service.py                                    78      7    91%   37-38, 41, 141-151
+pecha_api\plans\analytics\analytics_views.py                                      13      0   100%
+pecha_api\plans\audio\audio_generation_payload_service.py                         64      6    91%   34-36, 42-43, 136
+pecha_api\plans\audio\audio_job_service.py                                       128     20    84%   58, 71-73, 199-200, 233, 265, 277, 280-299
+pecha_api\plans\audio\cms_plan_audio_service.py                                   37      1    97%   42
+pecha_api\plans\audio\dto_helpers.py                                              29      0   100%
+pecha_api\plans\audio\internal_views.py                                           27      6    78%   46, 59, 76, 88, 100, 112
+pecha_api\plans\audio\plan_day_audio_service.py                                   89     18    80%   50, 57-75, 104, 143, 207-213
+pecha_api\plans\audio\plan_subtask_audio_service.py                               70      0   100%
+pecha_api\plans\audio\sqs_client.py                                               10      0   100%
+pecha_api\plans\audio\timestamp_service.py                                        55      0   100%
+pecha_api\plans\audio\tts_test_views.py                                           33      1    97%   56
+pecha_api\plans\audio\worker_client.py                                            10      0   100%
+pecha_api\plans\auth\cms_auth_deps.py                                              6      0   100%
+pecha_api\plans\auth\plan_auth_enums.py                                            5      0   100%
+pecha_api\plans\auth\plan_auth_services.py                                       181      8    96%   158-159, 292, 305, 369-370, 428-429
+pecha_api\plans\auth\plan_auth_views.py                                           29      0   100%
+pecha_api\plans\authors\plan_authors_model.py                                     41      0   100%
+pecha_api\plans\authors\plan_authors_service.py                                  141      6    96%   189, 210-211, 249-251
+pecha_api\plans\authors\plan_authors_views.py                                     26      0   100%
+pecha_api\plans\cms\cms_plans_service.py                                         343     23    93%   445, 460, 494, 534, 543-544, 613, 634-639, 841, 983-988, 1008-1013
+pecha_api\plans\cms\cms_plans_views.py                                            62      6    90%   79, 170, 181, 193, 206, 219
+pecha_api\plans\dashboard\dashboard_service.py                                    92      6    93%   72-73, 127, 160, 220-226
+pecha_api\plans\dashboard\dashboard_views.py                                      17      0   100%
+pecha_api\plans\featured\featured_day_response_model.py                           21      0   100%
+pecha_api\plans\featured\featured_day_service.py                                  27      0   100%
+pecha_api\plans\featured\featured_day_views.py                                    10      0   100%
+pecha_api\plans\groups\follow_scope.py                                            11      1    91%   31
+pecha_api\plans\groups\group_invite_email.py                                      27      0   100%
+pecha_api\plans\groups\groups_enums.py                                            19      0   100%
+pecha_api\plans\groups\groups_service.py                                         755     82    89%   161, 194-196, 259-265, 271-273, 329, 375, 391-398, 482, 484, 489-499, 710, 718-722, 726, 728, 730-742, 787-790, 929, 931, 1014, 1055, 1060-1065, 1077, 1190, 1233, 1240, 1258, 1294, 1321, 1342, 1455, 1490, 1505, 1540, 1547, 1553, 1570-1574, 1611, 1621, 1628, 1633, 1662, 1667
+pecha_api\plans\groups\groups_views.py                                           117      2    98%   246, 307
+pecha_api\plans\items\plan_items_services.py                                     111      1    99%   98
+pecha_api\plans\items\plan_items_views.py                                         47      6    87%   64, 91, 114, 126, 139, 152
+pecha_api\plans\language_constants.py                                              8      0   100%
+pecha_api\plans\media\media_services.py                                          104      5    95%   36-40
+pecha_api\plans\media\media_views.py                                              31      2    94%   66, 81
+pecha_api\plans\notifications\day_notification_service.py                         83      1    99%   65
+pecha_api\plans\notifications\day_notification_views.py                           21      0   100%
+pecha_api\plans\plans_enums.py                                                    79      0   100%
+pecha_api\plans\platform_enums.py                                                  7      0   100%
+pecha_api\plans\public\plan_service.py                                           314     41    87%   361-362, 457, 721-723, 751-753, 763-820
+pecha_api\plans\public\plan_views.py                                              54      0   100%
+pecha_api\plans\public\plans_cache_service.py                                     82     19    77%   17, 30-34, 38-39, 63, 66, 73, 80, 86-90, 105, 113
+pecha_api\plans\public\public_tags_views.py                                       14      1    93%   48
+pecha_api\plans\response_message.py                                               63      0   100%
+pecha_api\plans\series\public_series_view.py                                      21      0   100%
+pecha_api\plans\series\series_metadata_model.py                                   14      0   100%
+pecha_api\plans\series\series_model.py                                            24      0   100%
+pecha_api\plans\series\series_service.py                                         497     40    92%   108-110, 181, 257, 268-269, 307-313, 325-373, 1449
+pecha_api\plans\series\series_view.py                                             44      0   100%
+pecha_api\plans\shareable_images\day_shareable_image_enums.py                      4      0   100%
+pecha_api\plans\shareable_images\day_shareable_image_service.py                   71     15    79%   36-54, 94-97, 100, 110, 121, 151
+pecha_api\plans\shared\dto.py                                                     20      0   100%
+pecha_api\plans\shared\metadata_utils.py                                          20      0   100%
+pecha_api\plans\shared\models.py                                                  39      0   100%
+pecha_api\plans\shared\permissions.py                                            119     12    90%   40, 94, 114, 143-145, 154, 165, 177, 188, 204, 220
+pecha_api\plans\shared\utils.py                                                   55     42    24%   14-35, 41-50, 64-92, 95-117
+pecha_api\plans\tags\tag_helpers.py                                               32      0   100%
+pecha_api\plans\tags\tag_metadata_model.py                                        14      0   100%
+pecha_api\plans\tags\tag_model.py                                                 23      0   100%
+pecha_api\plans\tags\tag_service.py                                              168      5    97%   72-74, 108, 129
+pecha_api\plans\tags\tag_views.py                                                 25      0   100%
+pecha_api\plans\tasks\plan_tasks_response_model.py                                47      0   100%
+pecha_api\plans\tasks\plan_tasks_services.py                                     119      2    98%   215, 218
+pecha_api\plans\tasks\plan_tasks_views.py                                         28      0   100%
+pecha_api\plans\tasks\sub_tasks\plan_sub_tasks_response_model.py                  49      0   100%
+pecha_api\plans\tasks\sub_tasks\plan_sub_tasks_services.py                        58      1    98%   150
+pecha_api\plans\tasks\sub_tasks\plan_sub_tasks_views.py                           26      0   100%
+pecha_api\plans\tasks\sub_tasks\subtask_preset_service.py                         43      0   100%
+pecha_api\plans\tasks\sub_tasks\subtask_preset_views.py                           22      0   100%
+pecha_api\plans\transfers\transfer_enums.py                                       18      0   100%
+pecha_api\plans\transfers\transfer_invite_email.py                                23      0   100%
+pecha_api\plans\transfers\transfer_service.py                                    237     49    79%   66-67, 70, 80-85, 102-118, 122-141, 154-193, 197, 235, 247, 258, 338, 364, 379, 409-417, 453, 455, 473, 475, 477
+pecha_api\plans\transfers\transfer_views.py                                       40      6    85%   53, 61, 69, 101, 116, 129
+pecha_api\plans\users\plan_user_series_day_sync_service.py                        45      0   100%
+pecha_api\plans\users\plan_users_service.py                                      446      2    99%   142, 215
+pecha_api\plans\users\plan_users_views.py                                         57      0   100%
+pecha_api\plans\users\recitation\user_recitations_services.py                     46     18    61%   28-38, 44, 66-80, 94-101, 107-110
+pecha_api\plans\users\recitation\user_recitations_views.py                        21      0   100%
+pecha_api\plans\users\recitation_collection\recitation_collection_service.py      96      0   100%
+pecha_api\plans\users\recitation_collection\recitation_collection_views.py        24      0   100%
+pecha_api\plans\users\series_user_progress.py                                     35      0   100%
+pecha_api\plans\videos\day_video_service.py                                       58     38    34%   38, 50-68, 72-76, 80-104, 108-118, 124-132
+pecha_api\plans\videos\plan_video_service.py                                      77     10    87%   50-62, 89-93
+pecha_api\plans\videos\youtube_utils.py                                           17     12    29%   16-28
+pecha_api\push_devices\push_device_enums.py                                        6      0   100%
+pecha_api\push_devices\push_device_service.py                                     64      6    91%   78-83
+pecha_api\push_devices\push_device_views.py                                       23      0   100%
+pecha_api\recitations\order\recitation_order_constants.py                          5      0   100%
+pecha_api\recitations\order\recitation_order_loader.py                            42      1    98%   32
+pecha_api\recitations\recication_cache_services.py                                17      0   100%
+pecha_api\recitations\recitations_enum.py                                          8      0   100%
+pecha_api\recitations\recitations_services.py                                    152     11    93%   57-79, 109-111, 120, 324
+pecha_api\recitations\recitations_view.py                                         15      0   100%
+pecha_api\region_restrictions\china_timezone.py                                   12      0   100%
+pecha_api\region_restrictions\region_restriction_admin_service.py                 61      0   100%
+pecha_api\region_restrictions\region_restriction_constants.py                      2      0   100%
+pecha_api\region_restrictions\region_restriction_enums.py                         13      0   100%
+pecha_api\region_restrictions\region_restriction_item_lookup.py                  198     13    93%   34, 71, 188, 192-196, 210-211, 219-220, 254, 438, 473-474
+pecha_api\region_restrictions\region_restriction_service.py                       38      0   100%
+pecha_api\region_restrictions\region_restriction_views.py                         21      0   100%
+pecha_api\routines\response_message.py                                            19      0   100%
+pecha_api\routines\routine_notifications\dependencies.py                          10      5    50%   12-19
+pecha_api\routines\routine_notifications\internal_views.py                        13      2    85%   29, 41
+pecha_api\routines\routine_notifications\routine_notification_service.py         167     70    58%   52-54, 60-66, 78-80, 97, 116, 125-145, 155-177, 181-193, 198, 204, 207-213, 222, 227, 232-239, 244, 265-274, 285-292, 321, 348
+pecha_api\routines\routines_enums.py                                              12      0   100%
+pecha_api\routines\routines_service.py                                           464     26    94%   125, 147, 384, 451-452, 476, 489-503, 626-627, 818, 828, 911, 922, 941, 1008, 1251-1270
+pecha_api\routines\routines_views.py                                              29      0   100%
+pecha_api\scheduler.py                                                            26      0   100%
+pecha_api\search\search_client.py                                                 26      7    73%   8, 24-25, 34-35, 38-39
+pecha_api\search\search_enums.py                                                  15      0   100%
+pecha_api\search\search_service.py                                               186      7    96%   44-45, 172, 259, 383-385
+pecha_api\search\search_views.py                                                  16      0   100%
+pecha_api\share\pecha_text_image_generator.py                                     90     73    19%   16-20, 24-25, 29-30, 34-37, 41-49, 65-74, 93-125, 139-148, 162-189, 195-205, 218-231
+pecha_api\share\pecha_text_image_generator_config.py                               5      0   100%
+pecha_api\share\share_enums.py                                                     7      0   100%
+pecha_api\share\share_service.py                                                  67      1    99%   37
+pecha_api\share\share_views.py                                                    12      2    83%   24, 28
+pecha_api\shared\sqs_client.py                                                    31      3    90%   19-26
+pecha_api\sheets\sheets_enum.py                                                    7      0   100%
+pecha_api\sheets\sheets_service.py                                               233      8    97%   216-231, 273
+pecha_api\sheets\sheets_views.py                                                  32      4    88%   48, 83, 94, 101
+pecha_api\short_url\short_url_service.py                                          15      9    40%   9-22
+pecha_api\terms\terms_service.py                                                  45      4    91%   17, 44, 58, 73
+pecha_api\terms\terms_views.py                                                    21      4    81%   32, 49, 65, 82
+pecha_api\text_uploader\collections\collection_model.py                            8      0   100%
+pecha_api\text_uploader\collections\collection_service.py                         82      9    89%   66-69, 125, 129, 134-135, 268
+pecha_api\text_uploader\collections\uploader_collections_views.py                  8      0   100%
+pecha_api\text_uploader\constants.py                                              22      0   100%
+pecha_api\text_uploader\mapping\mapping_model.py                                   6      0   100%
+pecha_api\text_uploader\mapping\mapping_services.py                               10      0   100%
+pecha_api\text_uploader\pipeline.py                                               40      0   100%
+pecha_api\text_uploader\segments\segment_model.py                                 12      0   100%
+pecha_api\text_uploader\segments\segment_respository.py                           50      4    92%   38-48
+pecha_api\text_uploader\segments\segment_service.py                               53      9    83%   26-37, 82
+pecha_api\text_uploader\table_of_content\toc_service.py                           28      0   100%
+pecha_api\text_uploader\text_metadata\text_metadata_model.py                      30      0   100%
+pecha_api\text_uploader\text_metadata\text_metadata_service.py                   108      1    99%   64
+pecha_api\text_uploader\text_metadata\text_metadata_views.py                      10      0   100%
+pecha_api\text_uploader\text_uploader_response_model.py                            7      0   100%
+pecha_api\text_uploader\text_uploader_views.py                                    11      0   100%
+pecha_api\texts\first_segment_preview_service.py                                  58     31    47%   29-34, 43, 66-70, 81-113
+pecha_api\texts\groups\groups_cache_service.py                                    17      0   100%
+pecha_api\texts\groups\groups_enums.py                                             5      0   100%
+pecha_api\texts\groups\groups_service.py                                          46      1    98%   50
+pecha_api\texts\groups\groups_views.py                                            14      0   100%
+pecha_api\texts\mappings\mappings_service.py                                     132     61    54%   49-85, 92-132, 155-175, 178-197, 247-256, 260-271
+pecha_api\texts\mappings\mappings_views.py                                        15      0   100%
+pecha_api\texts\segments\segments_cache_service.py                                82     27    67%   24, 34-39, 42-45, 52, 66, 80, 91-96, 99-102, 105-107
+pecha_api\texts\segments\segments_enum.py                                          7      0   100%
+pecha_api\texts\segments\segments_openpecha_service.py                            81      0   100%
+pecha_api\texts\segments\segments_openpecha_views.py                              12      0   100%
+pecha_api\texts\segments\segments_service.py                                     119      3    97%   81-82, 241
+pecha_api\texts\segments\segments_utils.py                                       195     20    90%   48, 117, 143, 146, 149-152, 179, 209, 231-232, 251, 254, 278, 293-294, 321, 330, 360-361
+pecha_api\texts\segments\segments_views.py                                        33      3    91%   65, 71, 85
+pecha_api\texts\text_audio_service.py                                             74      0   100%
+pecha_api\texts\text_audio_views.py                                               18      0   100%
+pecha_api\texts\texts_cache_service.py                                           169      0   100%
+pecha_api\texts\texts_enums.py                                                    19      0   100%
+pecha_api\texts\texts_openpecha_api.py                                            95      0   100%
+pecha_api\texts\texts_openpecha_service.py                                       136      0   100%
+pecha_api\texts\texts_openpecha_views.py                                          22      1    95%   53
+pecha_api\texts\texts_service.py                                                 474      4    99%   432, 595, 601, 611
+pecha_api\texts\texts_toc_utils.py                                               103     39    62%   10-16, 20-21, 25-31, 39-44, 53-56, 71-78, 127, 138, 186-188
+pecha_api\texts\texts_utils.py                                                   143      9    94%   242-248, 267, 271, 347-350
+pecha_api\texts\texts_views.py                                                    41      0   100%
+pecha_api\timers\response_message.py                                               8      0   100%
+pecha_api\timers\timer_enums.py                                                    6      0   100%
+pecha_api\timers\timer_history_model.py                                           13      0   100%
+pecha_api\timers\timer_model.py                                                   19      0   100%
+pecha_api\timers\timer_service.py                                                 99      2    98%   163, 167
+pecha_api\timers\timer_views.py                                                   33      0   100%
+pecha_api\timezone_utils.py                                                       60      6    90%   43-50, 89
+pecha_api\topics\topics_cache_service.py                                          17      1    94%   21
+pecha_api\topics\topics_service.py                                                31      0   100%
+pecha_api\topics\topics_views.py                                                  16      0   100%
+pecha_api\traditions\tradition_constants.py                                       26      3    88%   33, 51, 56
+pecha_api\traditions\tradition_onboarding.py                                       6      0   100%
+pecha_api\traditions\tradition_service.py                                         92     20    78%   51-59, 78-79, 102-110, 139, 278-287
+pecha_api\traditions\tradition_views.py                                           45      0   100%
+pecha_api\uploads\S3_utils.py                                                     55     14    75%   35-36, 58-59, 81-85, 97-103
+pecha_api\user_follows\user_follow_services.py                                    16      0   100%
+pecha_api\user_follows\user_follow_views.py                                       11      0   100%
+pecha_api\user_follows\user_follows_model.py                                      16      0   100%
+pecha_api\users\user_cache_service.py                                             33      0   100%
+pecha_api\users\user_metadata_model.py                                            17      0   100%
+pecha_api\users\user_metadata_service.py                                          22      9    59%   18-27, 32-36
+pecha_api\users\user_resolution.py                                                21      0   100%
+pecha_api\users\users_enums.py                                                    13      0   100%
+pecha_api\users\users_service.py                                                 195     13    93%   87, 176, 273-274, 278-286
+pecha_api\users\users_views.py                                                    43      4    91%   36-40
+pecha_api\utils.py                                                                56      6    89%   71-73, 94-96
+pecha_api\verse_of_day\verse_metadata_model.py                                    16      0   100%
+pecha_api\verse_of_day\verse_of_day_enums.py                                       4      0   100%
+pecha_api\verse_of_day\verse_of_day_model.py                                      22      0   100%
+pecha_api\verse_of_day\verse_of_day_service.py                                   155      2    99%   325, 333
+pecha_api\verse_of_day\verse_of_day_views.py                                      49      0   100%
+------------------------------------------------------------------------------------------------------------
+TOTAL                                                                          18031   1563    91%
+Required test coverage of 80.0% reached. Total coverage: 91.33%
+4207 passed, 20 skipped, 367 warnings in 96.72s (0:01:36)
