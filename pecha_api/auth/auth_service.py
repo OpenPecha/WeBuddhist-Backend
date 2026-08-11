@@ -64,7 +64,8 @@ def create_user(create_user_request: CreateUserRequest, registration_source: Reg
     new_user.is_admin = False
 
     username = generate_and_validate_username(first_name=create_user_request.firstname,
-                                              last_name=create_user_request.lastname)
+                                              last_name=create_user_request.lastname,
+                                              phone_number=create_user_request.phone_number)
     new_user.username = username
 
     # Handle phone registration
@@ -339,14 +340,31 @@ def validate_username(username: str) -> bool:
         return user is None
 
 
-def generate_username(first_name: str, last_name: str) -> str:
+def generate_username(first_name: str, last_name: str, phone_number: str = None) -> str:
+    """
+    Generate a username based on the following logic:
+    - If phone_number is present: webuddhist_{firstname}_{lastname}_{phonenumber}
+    - If phone_number is NOT present: webuddhist_user_{random_6_digit}
+    """
     random_suffix = str(random.randint(1, 9999)).zfill(4)
-    return f"{first_name.lower()}_{last_name.lower()}.{random_suffix}"
+
+    if phone_number:
+        # Sanitize phone number - remove all non-digit characters
+        sanitized_phone = ''.join(filter(str.isdigit, phone_number))
+        return f"webuddhist_{first_name.lower()}_{last_name.lower()}_{sanitized_phone}.{random_suffix}"
+    else:
+        # Use random fallback if no phone number
+        random_num = str(random.randint(100000, 999999))
+        return f"webuddhist_user_{random_num}.{random_suffix}"
 
 
-def generate_and_validate_username(first_name: str, last_name: str) -> str:
+def generate_and_validate_username(first_name: str, last_name: str, phone_number: str = None) -> str:
+    """
+    Generate and validate a unique username.
+    Keeps generating new usernames until a unique one is found.
+    """
     while True:  # Loop until a valid username is generated
-        username = generate_username(first_name=first_name, last_name=last_name)
+        username = generate_username(first_name=first_name, last_name=last_name, phone_number=phone_number)
         if validate_username(username=username):
             return username
 

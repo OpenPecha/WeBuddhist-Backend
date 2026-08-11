@@ -6,6 +6,7 @@ import uuid
 from typing import Optional
 
 from fastapi import HTTPException, UploadFile
+from pymongo.errors import DuplicateKeyError
 from starlette import status
 
 from pecha_api.config import DEFAULTS, get, get_int
@@ -125,7 +126,31 @@ async def upload_text_audio(
                 created_at=now,
                 updated_at=now,
             )
-            await audio.insert()
+            try:
+                await audio.insert()
+            except DuplicateKeyError:
+                # Another request inserted concurrently; fetch and update it instead
+                existing = await TextAudio.find_one(TextAudio.text_id == text_id)
+                if existing:
+                    existing.text_title = text.title
+                    existing.audio_key = new_audio_key
+                    existing.file_name = file.filename or f"audio{extension}"
+                    existing.mime_type = content_type
+                    existing.file_size_bytes = file.size
+                    existing.duration_ms = duration_ms
+                    existing.created_by = current_author.email
+                    existing.updated_at = now
+                    await existing.save()
+                    audio = existing
+                    old_audio_key = existing.audio_key
+                else:
+                    raise
+    except DuplicateKeyError:
+        await loop.run_in_executor(None, lambda: delete_file(new_audio_key))
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Audio for this text is being uploaded concurrently"
+        )
     except Exception:
         await loop.run_in_executor(None, lambda: delete_file(new_audio_key))
         raise
@@ -146,9 +171,15 @@ async def delete_text_audio(token: str, text_id: str) -> None:
     if not audio:
         return
     audio_key = audio.audio_key
-    await audio.delete()
+    loop = asyncio.get_event_loop()
+
     try:
-        loop = asyncio.get_event_loop()
+        # Delete from S3 first - if this fails, metadata stays in DB so we can retry
         await loop.run_in_executor(None, lambda: delete_file(audio_key))
-    except HTTPException:
-        logging.exception("Failed to remove text audio from S3: %s", audio_key)
+    except HTTPException as e:
+        # S3 deletion failed, but don't delete metadata yet - log and re-raise
+        logging.error("Failed to remove text audio from S3 %s: %s. Metadata retained for retry.", audio_key, e)
+        raise
+
+    # Only delete metadata after S3 deletion succeeds
+    await audio.delete()

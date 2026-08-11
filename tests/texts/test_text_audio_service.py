@@ -341,6 +341,53 @@ class TestUploadTextAudio:
         assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
         audio_env.upload.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_concurrent_upload_handles_duplicate_key_error(self, audio_env):
+        """When concurrent uploads race, DuplicateKeyError is caught and metadata updated."""
+        from pymongo.errors import DuplicateKeyError
+
+        file = _upload_file()
+        # Patch the __init__ to make insert fail with DuplicateKeyError on first create
+        original_init = audio_env.model.__init__
+
+        def init_with_insert_fail(self, **fields):
+            original_init(self, **fields)
+            self.insert = AsyncMock(side_effect=DuplicateKeyError("Duplicate key error"))
+
+        concurrent_audio = _existing_audio(audio_env.model)
+        audio_env.model.find_one.return_value = concurrent_audio
+
+        with patch.object(audio_env.model, "__init__", init_with_insert_fail):
+            response = await upload_text_audio(token=VALID_TOKEN, text_id=TEXT_ID, file=file)
+
+        # The concurrent document should have been updated
+        concurrent_audio.save.assert_awaited_once()
+        assert response.audio_key == NEW_AUDIO_KEY
+
+    @pytest.mark.asyncio
+    async def test_concurrent_upload_cleans_up_on_duplicate_key_error(self, audio_env):
+        """When DuplicateKeyError occurs and no document found, S3 object is cleaned up."""
+        from pymongo.errors import DuplicateKeyError
+
+        file = _upload_file()
+        # Patch the __init__ to make insert fail with DuplicateKeyError
+        original_init = audio_env.model.__init__
+
+        def init_with_insert_fail(self, **fields):
+            original_init(self, **fields)
+            self.insert = AsyncMock(side_effect=DuplicateKeyError("Duplicate key error"))
+
+        # When find_one returns None, it means the race condition couldn't be resolved
+        audio_env.model.find_one.return_value = None
+
+        with patch.object(audio_env.model, "__init__", init_with_insert_fail):
+            with pytest.raises(HTTPException) as exc:
+                await upload_text_audio(token=VALID_TOKEN, text_id=TEXT_ID, file=file)
+
+        assert exc.value.status_code == status.HTTP_409_CONFLICT
+        # S3 object should be cleaned up on failure
+        audio_env.delete.assert_called_once_with(NEW_AUDIO_KEY)
+
 
 class TestDeleteTextAudio:
     @pytest.mark.asyncio
@@ -368,3 +415,17 @@ class TestDeleteTextAudio:
 
         assert exc.value.status_code == status.HTTP_404_NOT_FOUND
         audio_env.delete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_s3_deletion_failure_retains_metadata(self, audio_env):
+        """When S3 deletion fails, metadata should remain in DB for retry."""
+        existing = _existing_audio(audio_env.model)
+        audio_env.model.find_one.return_value = existing
+        audio_env.delete.side_effect = HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="S3 error")
+
+        with pytest.raises(HTTPException) as exc:
+            await delete_text_audio(token=VALID_TOKEN, text_id=TEXT_ID)
+
+        assert exc.value.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
+        # Metadata should NOT be deleted when S3 deletion fails
+        existing.delete.assert_not_awaited()

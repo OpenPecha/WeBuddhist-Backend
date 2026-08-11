@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Optional
 
-from beanie import Document
+from beanie import Document, Indexed
 from pydantic import BaseModel, Field
 
 
@@ -10,7 +10,7 @@ def utc_now() -> datetime:
 
 
 class TextAudio(Document):
-    text_id: str
+    text_id: Indexed(str, unique=True)
     text_title: str
     audio_key: str
     file_name: str
@@ -23,9 +23,6 @@ class TextAudio(Document):
 
     class Settings:
         collection = "text_audio"
-        indexes = [
-            ("text_id", "UNIQUE"),
-        ]
 
 
 class TextAudioResponse(BaseModel):
