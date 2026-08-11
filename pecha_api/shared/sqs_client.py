@@ -1,8 +1,9 @@
 import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import boto3
+from botocore.client import BaseClient
 from botocore.exceptions import ClientError
 from fastapi import HTTPException
 from starlette import status
@@ -11,10 +12,10 @@ from pecha_api.config import get
 
 logger = logging.getLogger(__name__)
 
-_sqs_client = None
+_sqs_client: Optional[BaseClient] = None
 
 
-def _get_sqs_client():
+def _get_sqs_client() -> BaseClient:
     global _sqs_client
     if _sqs_client is None:
         _sqs_client = boto3.client(
