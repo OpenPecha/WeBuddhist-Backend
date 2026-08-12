@@ -5,6 +5,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from starlette import status
 
+from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
 from pecha_api.timezone_utils import get_day_bounds_in_timezone
 from pecha_api.plans.authors.plan_authors_service import (
@@ -12,8 +13,9 @@ from pecha_api.plans.authors.plan_authors_service import (
     validate_cms_author_details,
 )
 from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole
-from pecha_api.plans.groups.groups_repository import get_author_group_ids
+from pecha_api.plans.groups.groups_repository import get_author_group_ids, get_groups_by_ids
 from pecha_api.plans.groups.follow_scope import resolve_public_group_scope
+from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.group_recitation_collection.repository import get_collection_by_id
 from pecha_api.plans.shared.metadata_utils import (
     filter_by_language_with_fallback,
@@ -136,12 +138,30 @@ def _location_to_dto(event: Event) -> Optional[LocationDTO]:
     )
 
 
+def _group_avatar_url(avatar_key: Optional[str]) -> Optional[str]:
+    if not avatar_key:
+        return None
+    try:
+        return generate_presigned_access_url(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=avatar_key,
+        )
+    except Exception:
+        return None
+
+
+def _group_avatar_map(db, group_ids: List[UUID]) -> dict:
+    groups = get_groups_by_ids(db=db, group_ids=list(set(group_ids)))
+    return {group.id: _group_avatar_url(group.avatar_key) for group in groups}
+
+
 def _event_to_dto(
     event: Event,
     language: Optional[str] = None,
     fallback: bool = False,
     participant_count: int = 0,
     is_joined: Optional[bool] = None,
+    group_avatar_url: Optional[str] = None,
 ) -> EventDTO:
     return EventDTO(
         id=event.id,
@@ -165,6 +185,7 @@ def _event_to_dto(
             event.image_url, resource_id=event.id, resource_type="event"
         ),
         image_url=event.image_url,
+        group_avatar_url=group_avatar_url,
         participant_count=participant_count,
         is_joined=is_joined,
         created_at=event.created_at,
@@ -268,6 +289,7 @@ def get_events_service(
         )
         event_ids = [event.id for event in events]
         counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
+        avatar_by_group = _group_avatar_map(db, [event.group_id for event in events])
 
         joined_ids: set[UUID] = set()
         if current_user:
@@ -287,6 +309,7 @@ def get_events_service(
                     fallback=fallback,
                     participant_count=counts_by_event.get(event.id, 0),
                     is_joined=(event.id in joined_ids) if current_user else None,
+                    group_avatar_url=avatar_by_group.get(event.group_id),
                 )
                 for event in events
             ],
@@ -396,12 +419,14 @@ def get_event_by_id_service(
             is_joined = is_user_joined_event(
                 db=db, event_id=event_id, user_id=current_user.id
             )
+        group_avatar_url = _group_avatar_map(db, [event.group_id]).get(event.group_id)
         return _event_to_dto(
             event,
             language=language,
             fallback=True,
             participant_count=participant_count,
             is_joined=is_joined,
+            group_avatar_url=group_avatar_url,
         )
 
 
@@ -516,6 +541,7 @@ def get_featured_events_service(
         events = get_featured_events(db, limit=limit)
         event_ids = [event.id for event in events]
         counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
+        avatar_by_group = _group_avatar_map(db, [event.group_id for event in events])
 
         joined_ids: set[UUID] = set()
         if token:
@@ -535,6 +561,7 @@ def get_featured_events_service(
                 fallback=True,
                 participant_count=counts_by_event.get(event.id, 0),
                 is_joined=(event.id in joined_ids) if token else None,
+                group_avatar_url=avatar_by_group.get(event.group_id),
             )
             for event in events
         ]

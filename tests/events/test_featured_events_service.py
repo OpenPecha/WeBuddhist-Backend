@@ -46,9 +46,10 @@ def _event(event_id=None, group_id=None, featured=False):
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.get_event_participant_counts", return_value={})
 @patch(f"{MODULE}.get_featured_events")
-def test_get_featured_events_returns_list(mock_get_featured, _mock_counts, mock_session):
+def test_get_featured_events_returns_list(mock_get_featured, _mock_counts, _mock_groups, mock_session):
     mock_db = MagicMock()
     mock_session.return_value.__enter__.return_value = mock_db
     
@@ -79,9 +80,10 @@ def test_get_featured_events_empty_list(mock_get_featured, _mock_counts, mock_se
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.get_event_participant_counts", return_value={})
 @patch(f"{MODULE}.get_featured_events")
-def test_get_featured_events_with_language(mock_get_featured, _mock_counts, mock_session):
+def test_get_featured_events_with_language(mock_get_featured, _mock_counts, _mock_groups, mock_session):
     mock_db = MagicMock()
     mock_session.return_value.__enter__.return_value = mock_db
     
@@ -95,9 +97,10 @@ def test_get_featured_events_with_language(mock_get_featured, _mock_counts, mock
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.get_event_participant_counts", return_value={})
 @patch(f"{MODULE}.get_featured_events")
-def test_get_featured_events_respects_limit(mock_get_featured, _mock_counts, mock_session):
+def test_get_featured_events_respects_limit(mock_get_featured, _mock_counts, _mock_groups, mock_session):
     mock_db = MagicMock()
     mock_session.return_value.__enter__.return_value = mock_db
     

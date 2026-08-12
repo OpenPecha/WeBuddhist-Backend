@@ -41,10 +41,11 @@ def _user(user_id=None):
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.get_event_participant_counts", return_value={})
 @patch(f"{MODULE}.get_events")
 def test_list_without_token_leaves_is_joined_null(
-    mock_get_events, _mock_counts, mock_session
+    mock_get_events, _mock_counts, _mock_groups, mock_session
 ):
     mock_session.return_value.__enter__.return_value = MagicMock()
     event = _event()
@@ -56,6 +57,7 @@ def test_list_without_token_leaves_is_joined_null(
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.validate_and_extract_user_details")
 @patch(f"{MODULE}.get_joined_event_ids_by_user")
 @patch(f"{MODULE}.get_event_participant_counts")
@@ -65,6 +67,7 @@ def test_list_with_token_sets_is_joined(
     mock_counts,
     mock_joined_ids,
     mock_validate,
+    _mock_groups,
     mock_session,
 ):
     mock_session.return_value.__enter__.return_value = MagicMock()
@@ -91,10 +94,11 @@ def test_list_with_token_sets_is_joined(
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.get_event_participant_count", return_value=2)
 @patch(f"{MODULE}.get_event_by_id")
 def test_detail_without_token_leaves_is_joined_null(
-    mock_get_by_id, _mock_count, mock_session
+    mock_get_by_id, _mock_count, _mock_groups, mock_session
 ):
     mock_session.return_value.__enter__.return_value = MagicMock()
     event = _event()
@@ -106,6 +110,7 @@ def test_detail_without_token_leaves_is_joined_null(
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.validate_and_extract_user_details")
 @patch(f"{MODULE}.is_user_joined_event", return_value=True)
 @patch(f"{MODULE}.get_event_participant_count", return_value=2)
@@ -115,6 +120,7 @@ def test_detail_with_token_sets_is_joined_true(
     _mock_count,
     mock_is_joined,
     mock_validate,
+    _mock_groups,
     mock_session,
 ):
     mock_session.return_value.__enter__.return_value = MagicMock()
@@ -134,6 +140,7 @@ def test_detail_with_token_sets_is_joined_true(
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.validate_and_extract_user_details")
 @patch(f"{MODULE}.is_user_joined_event", return_value=False)
 @patch(f"{MODULE}.get_event_participant_count", return_value=0)
@@ -143,6 +150,7 @@ def test_detail_with_token_sets_is_joined_false(
     _mock_count,
     mock_is_joined,
     mock_validate,
+    _mock_groups,
     mock_session,
 ):
     mock_session.return_value.__enter__.return_value = MagicMock()
@@ -157,6 +165,7 @@ def test_detail_with_token_sets_is_joined_false(
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.validate_and_extract_user_details")
 @patch(f"{MODULE}.get_joined_event_ids_by_user")
 @patch(f"{MODULE}.get_event_participant_counts", return_value={})
@@ -166,6 +175,7 @@ def test_featured_with_token_sets_is_joined(
     _mock_counts,
     mock_joined_ids,
     mock_validate,
+    _mock_groups,
     mock_session,
 ):
     mock_session.return_value.__enter__.return_value = MagicMock()
