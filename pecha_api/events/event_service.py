@@ -150,9 +150,28 @@ def _group_avatar_url(avatar_key: Optional[str]) -> Optional[str]:
         return None
 
 
-def _group_avatar_map(db, group_ids: List[UUID]) -> dict:
+def _group_display_name(group) -> Optional[str]:
+    entries = group.metadata_entries or []
+    if not entries:
+        return group.slug
+
+    def _lang(entry) -> str:
+        value = entry.language
+        return value.value if hasattr(value, "value") else str(value)
+
+    for entry in entries:
+        if _lang(entry).upper() == "EN":
+            return entry.title
+    return entries[0].title
+
+
+def _group_card_map(db, group_ids: List[UUID]) -> dict:
+    """Map group_id -> (group_name, group_avatar_url), batched."""
     groups = get_groups_by_ids(db=db, group_ids=list(set(group_ids)))
-    return {group.id: _group_avatar_url(group.avatar_key) for group in groups}
+    return {
+        group.id: (_group_display_name(group), _group_avatar_url(group.avatar_key))
+        for group in groups
+    }
 
 
 def _event_to_dto(
@@ -161,6 +180,7 @@ def _event_to_dto(
     fallback: bool = False,
     participant_count: int = 0,
     is_joined: Optional[bool] = None,
+    group_name: Optional[str] = None,
     group_avatar_url: Optional[str] = None,
 ) -> EventDTO:
     return EventDTO(
@@ -185,6 +205,7 @@ def _event_to_dto(
             event.image_url, resource_id=event.id, resource_type="event"
         ),
         image_url=event.image_url,
+        group_name=group_name,
         group_avatar_url=group_avatar_url,
         participant_count=participant_count,
         is_joined=is_joined,
@@ -289,7 +310,7 @@ def get_events_service(
         )
         event_ids = [event.id for event in events]
         counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
-        avatar_by_group = _group_avatar_map(db, [event.group_id for event in events])
+        group_cards = _group_card_map(db, [event.group_id for event in events])
 
         joined_ids: set[UUID] = set()
         if current_user:
@@ -309,7 +330,8 @@ def get_events_service(
                     fallback=fallback,
                     participant_count=counts_by_event.get(event.id, 0),
                     is_joined=(event.id in joined_ids) if current_user else None,
-                    group_avatar_url=avatar_by_group.get(event.group_id),
+                    group_name=group_cards.get(event.group_id, (None, None))[0],
+                    group_avatar_url=group_cards.get(event.group_id, (None, None))[1],
                 )
                 for event in events
             ],
@@ -419,13 +441,16 @@ def get_event_by_id_service(
             is_joined = is_user_joined_event(
                 db=db, event_id=event_id, user_id=current_user.id
             )
-        group_avatar_url = _group_avatar_map(db, [event.group_id]).get(event.group_id)
+        group_name, group_avatar_url = _group_card_map(db, [event.group_id]).get(
+            event.group_id, (None, None)
+        )
         return _event_to_dto(
             event,
             language=language,
             fallback=True,
             participant_count=participant_count,
             is_joined=is_joined,
+            group_name=group_name,
             group_avatar_url=group_avatar_url,
         )
 
@@ -541,7 +566,7 @@ def get_featured_events_service(
         events = get_featured_events(db, limit=limit)
         event_ids = [event.id for event in events]
         counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
-        avatar_by_group = _group_avatar_map(db, [event.group_id for event in events])
+        group_cards = _group_card_map(db, [event.group_id for event in events])
 
         joined_ids: set[UUID] = set()
         if token:
@@ -561,7 +586,8 @@ def get_featured_events_service(
                 fallback=True,
                 participant_count=counts_by_event.get(event.id, 0),
                 is_joined=(event.id in joined_ids) if token else None,
-                group_avatar_url=avatar_by_group.get(event.group_id),
+                group_name=group_cards.get(event.group_id, (None, None))[0],
+                group_avatar_url=group_cards.get(event.group_id, (None, None))[1],
             )
             for event in events
         ]
