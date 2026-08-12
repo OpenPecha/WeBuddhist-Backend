@@ -45,6 +45,7 @@ async def lifespan(api: FastAPI):
                     TextAudio,
                     Group,
                 ],
+                allow_index_dropping=True,
             )
             logging.info("Beanie initialized with the 'terms' collection.")
         except Exception as e:
