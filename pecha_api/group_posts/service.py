@@ -11,6 +11,7 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.plans.groups.follow_scope import resolve_public_group_scope
 from pecha_api.plans.groups.groups_repository import (
     get_group_by_id,
+    get_groups_by_ids,
     get_public_group_ids,
 )
 from pecha_api.plans.response_message import NOT_FOUND
@@ -71,9 +72,48 @@ def _author_display_name(author) -> str:
     return f"{author.first_name} {author.last_name}".strip()
 
 
+def _group_avatar_url(avatar_key: Optional[str]) -> Optional[str]:
+    if not avatar_key:
+        return None
+    try:
+        return generate_presigned_access_url(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=avatar_key,
+        )
+    except Exception:
+        logger.exception("Failed to generate group avatar URL")
+        return None
+
+
+def _group_display_name(group) -> Optional[str]:
+    entries = group.metadata_entries or []
+    if not entries:
+        return group.slug
+
+    def _lang(entry) -> str:
+        value = entry.language
+        return value.value if hasattr(value, "value") else str(value)
+
+    for entry in entries:
+        if _lang(entry).upper() == "EN":
+            return entry.title
+    return entries[0].title
+
+
+def _group_card_map(db: Session, group_ids: List[UUID]) -> Dict[UUID, tuple]:
+    """Map group_id -> (group_name, group_avatar_url), batched."""
+    groups = get_groups_by_ids(db=db, group_ids=list(set(group_ids)))
+    return {
+        group.id: (_group_display_name(group), _group_avatar_url(group.avatar_key))
+        for group in groups
+    }
+
+
 def build_post_dto(
     post: GroupPost,
     *,
+    group_name: Optional[str] = None,
+    group_avatar_url: Optional[str] = None,
     creator_name: Optional[str] = None,
     creator_image_url: Optional[str] = None,
     like_count: int = 0,
@@ -107,6 +147,8 @@ def build_post_dto(
     return GroupPostDTO(
         id=post.id,
         group_id=post.group_id,
+        group_name=group_name,
+        group_avatar_url=group_avatar_url,
         caption=post.caption,
         status=_enum_value(post.status),
         published_at=_isoformat(post.published_at),
@@ -146,6 +188,7 @@ def build_post_dtos(
         author.email: author
         for author in get_authors_by_emails(db=db, emails=emails)
     }
+    group_cards = _group_card_map(db, [post.group_id for post in posts])
     like_counts = get_like_counts_by_post_ids(db=db, post_ids=post_ids)
     comment_counts = get_comment_counts_by_post_ids(db=db, post_ids=post_ids)
     liked_posts = (
@@ -161,9 +204,12 @@ def build_post_dtos(
         creator_image_url = (
             _generate_presigned_url(author.image_url) if author else None
         )
+        group_name, group_avatar_url = group_cards.get(post.group_id, (None, None))
         dtos.append(
             build_post_dto(
                 post,
+                group_name=group_name,
+                group_avatar_url=group_avatar_url,
                 creator_name=creator_name,
                 creator_image_url=creator_image_url,
                 like_count=like_counts.get(post.id, 0),

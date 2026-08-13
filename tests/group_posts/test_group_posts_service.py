@@ -130,6 +130,7 @@ class TestListGroupPostsService:
     @patch('pecha_api.group_posts.like_repository.get_like_counts_by_post_ids')
     @patch('pecha_api.plans.authors.plan_authors_repository.get_authors_by_emails')
     @patch('pecha_api.group_posts.service._generate_presigned_url')
+    @patch('pecha_api.group_posts.service.get_groups_by_ids', return_value=[])
     @patch('pecha_api.group_posts.service.get_group_posts')
     @patch('pecha_api.group_posts.service.get_group_by_id')
     @patch('pecha_api.group_posts.service.SessionLocal')
@@ -138,6 +139,7 @@ class TestListGroupPostsService:
         mock_session,
         mock_get_group,
         mock_get_posts,
+        _mock_groups,
         mock_presign,
         mock_get_authors,
         mock_like_counts,
@@ -302,6 +304,7 @@ class TestGetGroupPostDetailService:
     @patch('pecha_api.group_posts.like_repository.get_like_counts_by_post_ids')
     @patch('pecha_api.plans.authors.plan_authors_repository.get_authors_by_emails')
     @patch('pecha_api.group_posts.service._generate_presigned_url')
+    @patch('pecha_api.group_posts.service.get_groups_by_ids', return_value=[])
     @patch('pecha_api.group_posts.service.get_post_by_id_only')
     @patch('pecha_api.group_posts.service._validate_group_is_public')
     @patch('pecha_api.group_posts.service.SessionLocal')
@@ -310,6 +313,7 @@ class TestGetGroupPostDetailService:
         mock_session,
         mock_validate_group,
         mock_get_post,
+        _mock_groups,
         mock_presign,
         mock_get_authors,
         mock_like_counts,

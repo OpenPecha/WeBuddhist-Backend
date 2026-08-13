@@ -2,7 +2,6 @@ import logging
 import random
 import string
 from typing import Any, Dict, List, Optional
-from uuid import UUID
 
 import jose
 from fastapi import HTTPException, status, UploadFile
@@ -28,10 +27,10 @@ from .users_repository import (
     delete_user,
     find_user_by_username,
     get_user_by_email,
-    get_user_by_id,
     get_user_by_username,
     update_user,
 )
+from .user_resolution import resolve_user_from_payload
 from ..uploads.S3_utils import delete_file, upload_bytes, generate_presigned_access_url
 from ..db.database import SessionLocal
 from ..config import get
@@ -153,19 +152,10 @@ def upload_user_image(token: str, file: UploadFile) -> str:
 
 
 def resolve_user_from_token_payload(db, payload: Dict[str, Any]) -> Users:
-    subject = payload.get("sub")
-    if subject is not None:
-        try:
-            return get_user_by_id(db=db, user_id=UUID(str(subject)))
-        except (TypeError, ValueError):
-            pass
-
-    email = payload.get("email")
-    if isinstance(email, str) and email:
-        return get_user_by_email(db=db, email=email)
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
+    return resolve_user_from_payload(
+        db=db,
+        payload=payload,
+        unauthorized_detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
     )
 
 

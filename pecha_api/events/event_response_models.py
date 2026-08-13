@@ -95,6 +95,8 @@ class EventDTO(BaseModel):
     links: List[EventLinkDTO] = []
     image: Optional[ImageUrlModel] = None
     image_url: Optional[str] = None
+    group_name: Optional[str] = None
+    group_avatar_url: Optional[str] = None
     participant_count: int = 0
     is_joined: Optional[bool] = Field(
         None,

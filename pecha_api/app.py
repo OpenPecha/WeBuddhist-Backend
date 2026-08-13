@@ -12,6 +12,7 @@ from pecha_api.sheets import sheets_views
 from pecha_api.collections import collections_views
 from pecha_api.terms import terms_views
 from pecha_api.texts import texts_views
+from pecha_api.texts import text_audio_views
 from pecha_api.topics import topics_views
 from pecha_api.users import users_views
 from pecha_api.texts.mappings import mappings_views
@@ -104,6 +105,7 @@ api.include_router(sheets_views.sheets_router)
 api.include_router(collections_views.collections_router)
 api.include_router(terms_views.terms_router)
 api.include_router(texts_views.text_router)
+api.include_router(text_audio_views.text_audio_router)
 api.include_router(groups_views.group_router)
 api.include_router(segments_views.segment_router)
 api.include_router(topics_views.topics_router)

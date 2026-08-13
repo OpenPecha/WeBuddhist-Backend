@@ -37,7 +37,7 @@ async def test_get_user_info_success():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "john.doe@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user):
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user):
         response = await get_user_info(token)
         assert response.firstname == "John"
         assert response.lastname == "Doe"
@@ -65,7 +65,7 @@ async def test_get_user_info_with_social_accounts():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "john.doe@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user):
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user):
         response = await get_user_info(token)
         assert response.firstname == "John"
         assert response.lastname == "Doe"
@@ -115,7 +115,7 @@ def test_update_user_info_success():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "john.doe@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user), \
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user), \
             patch("pecha_api.users.users_service.update_user") as mock_update_user:
         update_user_info(token, user_info_request)
         mock_update_user.assert_called_once()
@@ -168,7 +168,7 @@ def test_update_user_info_500_db_error():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "john.doe@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user), \
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user), \
             patch("pecha_api.users.users_service.update_user", side_effect=Exception("Db Error")):
         try:
             update_user_info(token, user_info_request)
@@ -276,7 +276,7 @@ def test_validate_and_extract_user_details_user_not_found():
     token = "valid_token"
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "missing@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=None):
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=None):
         with pytest.raises(HTTPException) as exc_info:
             validate_and_extract_user_details(token)
     assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
@@ -288,7 +288,7 @@ def test_validate_and_extract_user_details_user_not_found_raises_404():
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "missing@example.com"}), \
             patch(
-                "pecha_api.users.users_service.get_user_by_email",
+                "pecha_api.users.user_resolution.get_user_by_email",
                 side_effect=HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=ErrorConstants.USER_NOT_FOUND,
@@ -357,7 +357,7 @@ def test_verify_admin_access_true():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "admin.user@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user):
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user):
         assert verify_admin_access(token) is True
 
 

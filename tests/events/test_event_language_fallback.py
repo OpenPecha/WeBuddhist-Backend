@@ -100,9 +100,10 @@ def test_no_fallback_returns_null_when_selected_language_missing():
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.get_event_participant_counts", return_value={})
 @patch(f"{MODULE}.get_events")
-def test_get_events_service_public_uses_fallback(mock_get_events, _mock_counts, mock_session):
+def test_get_events_service_public_uses_fallback(mock_get_events, _mock_counts, _mock_groups, mock_session):
     mock_session.return_value.__enter__.return_value = MagicMock()
     event = _event([_metadata("en", "English")])
     mock_get_events.return_value = ([event], 1)
@@ -114,9 +115,10 @@ def test_get_events_service_public_uses_fallback(mock_get_events, _mock_counts, 
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.get_event_participant_counts", return_value={})
 @patch(f"{MODULE}.get_events")
-def test_get_events_service_cms_default_no_fallback(mock_get_events, _mock_counts, mock_session):
+def test_get_events_service_cms_default_no_fallback(mock_get_events, _mock_counts, _mock_groups, mock_session):
     mock_session.return_value.__enter__.return_value = MagicMock()
     event = _event([_metadata("en", "English")])
     mock_get_events.return_value = ([event], 1)
@@ -129,9 +131,10 @@ def test_get_events_service_cms_default_no_fallback(mock_get_events, _mock_count
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.get_event_participant_count", return_value=0)
 @patch(f"{MODULE}.get_event_by_id")
-def test_get_event_by_id_service_uses_fallback(mock_get_by_id, _mock_count, mock_session):
+def test_get_event_by_id_service_uses_fallback(mock_get_by_id, _mock_count, _mock_groups, mock_session):
     mock_session.return_value.__enter__.return_value = MagicMock()
     event = _event([_metadata("en", "English")])
     mock_get_by_id.return_value = event

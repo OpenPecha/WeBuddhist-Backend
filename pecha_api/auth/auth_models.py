@@ -9,8 +9,9 @@ from pecha_api.auth.auth_enums import RegistrationSource
 class CreateUserRequest(BaseModel):
     firstname: str
     lastname: str
-    email: str
-    password: str
+    email: Optional[str] = None
+    password: Optional[str] = None
+    phone_number: Optional[str] = None
 
 class CreateSocialUserRequest(BaseModel):
     create_user_request: CreateUserRequest

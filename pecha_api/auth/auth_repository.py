@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from ..config import get_float, get
 from ..users.users_models import Users
+from .auth0_sms import extract_verified_phone_number
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -142,6 +143,10 @@ def verify_auth0_token(token: str):
         email = _extract_email_from_auth0_payload(payload)
         if email and not payload.get("email"):
             payload = {**payload, "email": email}
+
+        phone_number = extract_verified_phone_number(payload)
+        if phone_number and not payload.get("phone_number"):
+            payload = {**payload, "phone_number": phone_number}
 
         return payload
     except (JWTError, KeyError) as e:

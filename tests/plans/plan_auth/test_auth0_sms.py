@@ -6,7 +6,9 @@ from fastapi import HTTPException
 
 from pecha_api.auth.auth0_sms import (
     _decode_auth0_sms_token,
+    extract_verified_phone_number,
     normalize_e164,
+    verified_phone_number,
     verify_auth0_sms_token,
 )
 
@@ -94,6 +96,35 @@ def test_verify_auth0_sms_token_rejects_untrusted_claims(payload):
     assert exc.value.detail == "Invalid Auth0 SMS token"
 
 
+def test_verified_phone_number_requires_configured_claims():
+    payload = _payload()
+
+    with patch("pecha_api.auth.auth0_sms.get", return_value="  "):
+        with pytest.raises(ValueError, match="not configured"):
+            verified_phone_number(payload)
+
+
+def test_extract_verified_phone_number_returns_none_when_claims_are_not_configured():
+    with patch("pecha_api.auth.auth0_sms.get", return_value=""):
+        assert extract_verified_phone_number(_payload()) is None
+
+
+def test_extract_verified_phone_number_returns_normalized_claim():
+    assert extract_verified_phone_number(_payload()) == "+14155552671"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        _payload(**{"https://webuddhist.com/phone_number_verified": False}),
+        _payload(**{"https://webuddhist.com/phone_number": "4155552671"}),
+        {"sub": "auth0|abc", "email": "person@example.com"},
+    ],
+)
+def test_extract_verified_phone_number_returns_none_for_unusable_claims(payload):
+    assert extract_verified_phone_number(payload) is None
+
+
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
@@ -103,3 +134,8 @@ def test_verify_auth0_sms_token_rejects_untrusted_claims(payload):
 )
 def test_normalize_e164(value, expected):
     assert normalize_e164(value) == expected
+
+
+def test_normalize_e164_rejects_non_string_claims():
+    with pytest.raises(ValueError, match="must be a string"):
+        normalize_e164(14155552671)

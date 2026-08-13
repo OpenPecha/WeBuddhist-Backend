@@ -32,6 +32,8 @@ class GroupPostDTO(BaseModel):
     """DTO for a single post with media, creator, and engagement counts."""
     id: UUID
     group_id: UUID
+    group_name: Optional[str] = None
+    group_avatar_url: Optional[str] = None
     caption: Optional[str] = None
     status: str
     published_at: str

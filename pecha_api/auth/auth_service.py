@@ -1,12 +1,11 @@
 import logging
 import secrets
-import random
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
-from uuid import UUID
 
 import jwt
 from jose import JWTError
+from jose.exceptions import ExpiredSignatureError as JoseExpiredSignatureError
 
 from pecha_api.auth.auth0_sms import verify_auth0_sms_token
 from ..config import get
@@ -17,13 +16,13 @@ from ..users.users_models import Users, PasswordReset
 from ..db.database import SessionLocal
 from ..users.users_repository import (
     get_user_by_email,
-    get_user_by_id,
     get_user_by_phone,
     get_user_by_username,
     link_user_phone,
     save_phone_user,
     save_user,
 )
+from ..users.user_resolution import resolve_user_from_payload
 from .auth_repository import (
     create_access_token,
     create_refresh_token,
@@ -52,17 +51,52 @@ def register_user_with_source(create_user_request: CreateUserRequest, registrati
 def create_user(create_user_request: CreateUserRequest, registration_source: RegistrationSource) -> Users:
     logging.debug(f"RegistrationSource: {registration_source.value}")
     logging.debug(f"Creating user with first name: {create_user_request.firstname}")
-    new_user = Users(**create_user_request.model_dump())
+
+    # Validate that either email or phone is provided
+    if not create_user_request.email and not create_user_request.phone_number:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Either email or phone number is required"
+        )
+
+    new_user = Users(**create_user_request.model_dump(exclude_unset=True))
     new_user.is_admin = False
-    
+
     username = generate_and_validate_username(first_name=create_user_request.firstname,
-                                              last_name=create_user_request.lastname)
+                                              last_name=create_user_request.lastname,
+                                              phone_number=create_user_request.phone_number)
     new_user.username = username
+
+    # Handle phone registration
+    if registration_source == RegistrationSource.PHONE:
+        if not create_user_request.phone_number:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number is required for phone registration"
+            )
+        # Check if phone already exists
+        with SessionLocal() as db_session:
+            existing_phone_user = get_user_by_phone(db_session, create_user_request.phone_number)
+            if existing_phone_user:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Phone number already registered"
+                )
+
+    # Handle email registration (traditional)
     if registration_source == RegistrationSource.EMAIL:
-        _validate_password(new_user.password)
-        hashed_password = get_hashed_password(new_user.password)
+        if not create_user_request.email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email is required for email registration"
+            )
+        _validate_password(create_user_request.password)
+        hashed_password = get_hashed_password(create_user_request.password)
         new_user.password = hashed_password
+
+    # For social logins (Google, Facebook, Apple, etc.), password is not required
     new_user.registration_source = registration_source.value
+
     with SessionLocal() as db_session:
         saved_user = save_user(db=db_session, user=new_user)
         return saved_user
@@ -137,26 +171,17 @@ def refresh_access_token(refresh_token: str):
                 access_token=access_token,
                 token_type="Bearer"
             )
-    except jwt.ExpiredSignatureError:
+    except (jwt.ExpiredSignatureError, JoseExpiredSignatureError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
-    except jwt.PyJWTError:
+    except (jwt.PyJWTError, JWTError, KeyError, TypeError, ValueError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
 
 
 def resolve_user_from_backend_payload(db, payload: Dict[str, Any]) -> Users:
-    subject = payload.get("sub")
-    if subject is not None:
-        try:
-            return get_user_by_id(db=db, user_id=UUID(str(subject)))
-        except (TypeError, ValueError):
-            pass
-
-    email = payload.get("email")
-    if isinstance(email, str) and email:
-        return get_user_by_email(db=db, email=email)
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid backend token",
+    return resolve_user_from_payload(
+        db=db,
+        payload=payload,
+        unauthorized_detail="Invalid backend token",
     )
 
 
@@ -314,14 +339,33 @@ def validate_username(username: str) -> bool:
         return user is None
 
 
-def generate_username(first_name: str, last_name: str) -> str:
-    random_suffix = str(random.randint(1, 9999)).zfill(4)
-    return f"{first_name.lower()}_{last_name.lower()}.{random_suffix}"
+def generate_username(first_name: str, last_name: str, phone_number: str = None) -> str:
+    """
+    Generate a username based on the following logic:
+    - If phone_number is present: webuddhist_{firstname}_{lastname}_{phonenumber}
+    - If phone_number is NOT present: webuddhist_user_{random_6_digit}
+
+    Uses cryptographically secure random number generation for username uniqueness.
+    """
+    random_suffix = str(secrets.randbelow(9999) + 1).zfill(4)
+
+    if phone_number:
+        # Sanitize phone number - remove all non-digit characters
+        sanitized_phone = ''.join(filter(str.isdigit, phone_number))
+        return f"webuddhist_{first_name.lower()}_{last_name.lower()}_{sanitized_phone}.{random_suffix}"
+    else:
+        # Use random fallback if no phone number
+        random_num = str(secrets.randbelow(900000) + 100000)
+        return f"webuddhist_user_{random_num}.{random_suffix}"
 
 
-def generate_and_validate_username(first_name: str, last_name: str) -> str:
+def generate_and_validate_username(first_name: str, last_name: str, phone_number: str = None) -> str:
+    """
+    Generate and validate a unique username.
+    Keeps generating new usernames until a unique one is found.
+    """
     while True:  # Loop until a valid username is generated
-        username = generate_username(first_name=first_name, last_name=last_name)
+        username = generate_username(first_name=first_name, last_name=last_name, phone_number=phone_number)
         if validate_username(username=username):
             return username
 

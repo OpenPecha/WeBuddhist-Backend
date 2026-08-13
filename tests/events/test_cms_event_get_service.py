@@ -199,9 +199,10 @@ def test_detail_403_when_not_group_member(
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.get_event_participant_counts")
 @patch(f"{MODULE}.get_events")
-def test_list_attaches_participant_counts(mock_get_events, mock_counts, mock_session):
+def test_list_attaches_participant_counts(mock_get_events, mock_counts, _mock_groups, mock_session):
     from pecha_api.events.event_service import get_events_service
 
     mock_session.return_value.__enter__.return_value = MagicMock()
@@ -220,10 +221,11 @@ def test_list_attaches_participant_counts(mock_get_events, mock_counts, mock_ses
 
 
 @patch(f"{MODULE}.SessionLocal")
+@patch(f"{MODULE}.get_groups_by_ids", return_value=[])
 @patch(f"{MODULE}.get_event_participant_counts")
 @patch(f"{MODULE}.get_events")
 def test_list_event_missing_from_counts_defaults_to_zero(
-    mock_get_events, mock_counts, mock_session
+    mock_get_events, mock_counts, _mock_groups, mock_session
 ):
     from pecha_api.events.event_service import get_events_service
 

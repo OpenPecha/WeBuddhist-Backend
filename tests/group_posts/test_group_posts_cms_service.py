@@ -93,6 +93,7 @@ def _assign_ids(post):
 class TestCmsListGroupPostsService:
 
     @patch('pecha_api.group_posts.service._generate_presigned_url')
+    @patch('pecha_api.group_posts.service.get_groups_by_ids', return_value=[])
     @patch('pecha_api.group_posts.cms_service.get_group_posts')
     @patch('pecha_api.group_posts.cms_service.require_can_read_group_content')
     @patch('pecha_api.group_posts.cms_service.get_group_by_id')
@@ -100,7 +101,7 @@ class TestCmsListGroupPostsService:
     @patch('pecha_api.group_posts.cms_service.SessionLocal')
     def test_list_passes_status_filter(
         self, mock_session, mock_validate, mock_get_group,
-        mock_require_read, mock_get_posts, mock_presign
+        mock_require_read, mock_get_posts, _mock_groups, mock_presign
     ):
         group_id = uuid4()
         author = MockAuthor()
@@ -140,6 +141,7 @@ class TestCmsListGroupPostsService:
 class TestCmsGetGroupPostDetailService:
 
     @patch('pecha_api.group_posts.service._generate_presigned_url')
+    @patch('pecha_api.group_posts.service.get_groups_by_ids', return_value=[])
     @patch('pecha_api.group_posts.cms_service.get_post_by_id')
     @patch('pecha_api.group_posts.cms_service.require_can_read_group_content')
     @patch('pecha_api.group_posts.cms_service.get_group_by_id')
@@ -147,7 +149,7 @@ class TestCmsGetGroupPostDetailService:
     @patch('pecha_api.group_posts.cms_service.SessionLocal')
     def test_detail_includes_hidden_posts(
         self, mock_session, mock_validate, mock_get_group,
-        mock_require_read, mock_get_post, mock_presign
+        mock_require_read, mock_get_post, _mock_groups, mock_presign
     ):
         group_id = uuid4()
         mock_session.return_value.__enter__.return_value = MagicMock()
@@ -300,6 +302,7 @@ class TestCmsCreateGroupPostService:
 class TestCmsUpdateGroupPostService:
 
     @patch('pecha_api.group_posts.service._generate_presigned_url')
+    @patch('pecha_api.group_posts.service.get_groups_by_ids', return_value=[])
     @patch('pecha_api.group_posts.cms_service.update_post')
     @patch('pecha_api.group_posts.cms_service.get_post_by_id')
     @patch('pecha_api.group_posts.cms_service.require_can_change_status')
@@ -309,7 +312,7 @@ class TestCmsUpdateGroupPostService:
     @patch('pecha_api.group_posts.cms_service.SessionLocal')
     def test_update_caption_does_not_require_status_permission(
         self, mock_session, mock_validate, mock_get_group, mock_require_create,
-        mock_require_status, mock_get_post, mock_update_post, mock_presign
+        mock_require_status, mock_get_post, mock_update_post, _mock_groups, mock_presign
     ):
         group_id = uuid4()
         author = MockAuthor()
@@ -333,6 +336,7 @@ class TestCmsUpdateGroupPostService:
         mock_require_status.assert_not_called()
 
     @patch('pecha_api.group_posts.service._generate_presigned_url')
+    @patch('pecha_api.group_posts.service.get_groups_by_ids', return_value=[])
     @patch('pecha_api.group_posts.cms_service.update_post')
     @patch('pecha_api.group_posts.cms_service.get_post_by_id')
     @patch('pecha_api.group_posts.cms_service.require_can_change_status')
@@ -342,7 +346,7 @@ class TestCmsUpdateGroupPostService:
     @patch('pecha_api.group_posts.cms_service.SessionLocal')
     def test_update_status_change_requires_status_permission(
         self, mock_session, mock_validate, mock_get_group, mock_require_create,
-        mock_require_status, mock_get_post, mock_update_post, mock_presign
+        mock_require_status, mock_get_post, mock_update_post, _mock_groups, mock_presign
     ):
         group_id = uuid4()
         author = MockAuthor()
@@ -396,6 +400,7 @@ class TestCmsUpdateGroupPostService:
         mock_update_post.assert_not_called()
 
     @patch('pecha_api.group_posts.service._generate_presigned_url')
+    @patch('pecha_api.group_posts.service.get_groups_by_ids', return_value=[])
     @patch('pecha_api.group_posts.cms_service.update_post')
     @patch('pecha_api.group_posts.cms_service.get_post_by_id')
     @patch('pecha_api.group_posts.cms_service.require_can_change_status')
@@ -405,7 +410,7 @@ class TestCmsUpdateGroupPostService:
     @patch('pecha_api.group_posts.cms_service.SessionLocal')
     def test_update_overrides_published_at(
         self, mock_session, mock_validate, mock_get_group, mock_require_create,
-        mock_require_status, mock_get_post, mock_update_post, mock_presign
+        mock_require_status, mock_get_post, mock_update_post, _mock_groups, mock_presign
     ):
         group_id = uuid4()
         mock_session.return_value.__enter__.return_value = MagicMock()
