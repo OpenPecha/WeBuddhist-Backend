@@ -54,6 +54,8 @@ __all__ = [
     "GroupPracticeType",
     "GroupPracticeCardDTO",
     "GroupPracticesResponse",
+    "GroupPracticeFeedItemDTO",
+    "GroupPracticesFeedResponse",
 ]
 
 
@@ -284,6 +286,7 @@ class GroupPracticeType(str, Enum):
     SERIES = "series"
     ACCUMULATOR = "accumulator"
     COLLECTION = "collection"
+    PLAN = "plan"
 
 
 class GroupPracticeCardDTO(BaseModel):
@@ -298,3 +301,24 @@ class GroupPracticesResponse(BaseModel):
     skip: int
     limit: int
     total: int
+
+
+class GroupPracticeFeedItemDTO(BaseModel):
+    type: GroupPracticeType
+    practice_at: datetime
+    is_joined: bool
+    group_id: UUID
+    group_name: Optional[str] = None
+    group_slug: Optional[str] = None
+    group_avatar_url: Optional[str] = None
+    series: Optional[GroupSeriesListItemDTO] = None
+    accumulator: Optional[GroupAccumulatorDTO] = None
+    plan: Optional[PlanDTO] = None
+
+
+class GroupPracticesFeedResponse(BaseModel):
+    practices: List[GroupPracticeFeedItemDTO]
+    skip: int
+    limit: int
+    total: int
+    include_unfollowed: bool

@@ -45,6 +45,7 @@ from pecha_api.plans.groups.groups_service import (
     get_group_accumulations,
     get_group_member_accumulations,
     get_group_practices,
+    get_group_practices_feed,
     list_group_invites,
     list_my_pending_group_invites,
     reject_group_invite_by_id,
@@ -72,6 +73,7 @@ from pecha_api.plans.groups.groups_service import (
 )
 from pecha_api.plans.platform_enums import PlatformRole
 from pecha_api.plans.plans_enums import LanguageCode, PlanStatus
+from pecha_api.plans.plans_response_models import PlanDTO
 
 
 def _session_local_context(mock_session_local):
@@ -3234,3 +3236,298 @@ async def test_get_group_practices_with_invalid_token_continues_anonymously():
     assert mock_series_to_dtos.call_args.kwargs["user_id"] is None
     assert result.total == 0
     assert result.practices == []
+
+
+def _make_feed_user():
+    user = MagicMock()
+    user.id = uuid4()
+    return user
+
+
+def _make_feed_series(group_id, created_at):
+    series = MagicMock()
+    series.id = uuid4()
+    series.group_id = group_id
+    series.created_at = created_at
+    return series
+
+
+def _make_feed_plan(group_id, created_at):
+    plan = MagicMock()
+    plan.id = uuid4()
+    plan.group_id = group_id
+    plan.created_at = created_at
+    return plan
+
+
+def _make_feed_accumulator(group_id, created_at):
+    accumulator = MagicMock()
+    accumulator.id = uuid4()
+    accumulator.group_id = group_id
+    accumulator.created_at = created_at
+    return accumulator
+
+
+def _feed_series_dto(series):
+    return GroupSeriesListItemDTO(
+        id=series.id,
+        author_id=uuid4(),
+        featured=False,
+        status=PlanStatus.PUBLISHED,
+    )
+
+
+def _feed_accumulator_dto(accumulator, is_joined, member_count):
+    return GroupAccumulatorDTO(
+        id=accumulator.id,
+        group_id=accumulator.group_id,
+        title="Accumulator",
+        is_joined=is_joined,
+        member_count=member_count,
+        created_at=accumulator.created_at,
+    )
+
+
+def _feed_plan_dto(plan_info, group_id):
+    return PlanDTO(
+        id=plan_info.plan.id,
+        title="Plan",
+        description="Desc",
+        language="EN",
+        total_days=1,
+        status=PlanStatus.PUBLISHED,
+        subscription_count=0,
+        group_id=group_id,
+    )
+
+
+def _plan_aggregate(plan):
+    aggregate = MagicMock()
+    aggregate.plan = plan
+    return aggregate
+
+
+def test_get_group_practices_feed_merges_and_sorts_by_created_at():
+    group = _make_group()
+    user = _make_feed_user()
+    series = _make_feed_series(group.id, datetime(2026, 1, 3, tzinfo=timezone.utc))
+    plan = _make_feed_plan(group.id, datetime(2026, 1, 2, tzinfo=timezone.utc))
+    accumulator = _make_feed_accumulator(group.id, datetime(2026, 1, 1, tzinfo=timezone.utc))
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([group.id], {group.id}),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+        return_value=([series], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service._series_to_dtos",
+        return_value=[_feed_series_dto(series)],
+    ) as mock_series_to_dtos, patch(
+        "pecha_api.plans.groups.groups_service.get_standalone_plans_for_group_ids",
+        return_value=([plan], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_plans_with_aggregates_by_ids",
+        return_value=[_plan_aggregate(plan)],
+    ), patch(
+        "pecha_api.plans.groups.groups_service._plan_aggregate_to_dto",
+        side_effect=_feed_plan_dto,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_for_group_ids",
+        return_value=([accumulator], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[accumulator.id],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
+        return_value={accumulator.id: 5},
+    ), patch(
+        "pecha_api.plans.groups.groups_service._group_accumulator_to_dto",
+        side_effect=_feed_accumulator_dto,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_by_ids",
+        return_value=[group],
+    ):
+        _session_local_context(mock_session)
+        result = get_group_practices_feed(token="valid-token", skip=0, limit=20)
+
+    assert result.total == 3
+    assert result.include_unfollowed is False
+    assert [card.type for card in result.practices] == [
+        GroupPracticeType.SERIES,
+        GroupPracticeType.PLAN,
+        GroupPracticeType.ACCUMULATOR,
+    ]
+    assert result.practices[0].series.id == series.id
+    assert result.practices[1].plan.id == plan.id
+    assert result.practices[2].accumulator.id == accumulator.id
+    assert result.practices[2].accumulator.is_joined is True
+    assert result.practices[2].accumulator.member_count == 5
+    assert all(card.is_joined for card in result.practices)
+    assert all(card.group_id == group.id for card in result.practices)
+    assert result.practices[0].group_slug == group.slug
+    assert mock_series_to_dtos.call_args.kwargs["user_id"] == user.id
+    assert mock_series_to_dtos.call_args.kwargs["published_only"] is True
+
+
+def test_get_group_practices_feed_marks_unfollowed_groups():
+    joined_group = _make_group(slug="joined-group")
+    other_group = _make_group(slug="other-group")
+    user = _make_feed_user()
+    accumulator = _make_feed_accumulator(
+        other_group.id, datetime(2026, 1, 1, tzinfo=timezone.utc)
+    )
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([joined_group.id, other_group.id], {joined_group.id}),
+    ) as mock_scope, patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+        return_value=([], 0),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_standalone_plans_for_group_ids",
+        return_value=([], 0),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_plans_with_aggregates_by_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_for_group_ids",
+        return_value=([accumulator], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service._group_accumulator_to_dto",
+        side_effect=_feed_accumulator_dto,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_by_ids",
+        return_value=[other_group],
+    ):
+        _session_local_context(mock_session)
+        result = get_group_practices_feed(
+            token="valid-token", should_include_unfollowed=True
+        )
+
+    assert mock_scope.call_args.kwargs["should_include_unfollowed"] is True
+    assert result.include_unfollowed is True
+    assert result.total == 1
+    assert result.practices[0].is_joined is False
+    assert result.practices[0].group_id == other_group.id
+    assert result.practices[0].group_slug == "other-group"
+
+
+def test_get_group_practices_feed_group_filter_restricts_scope():
+    group_a = _make_group(slug="group-a")
+    group_b = _make_group(slug="group-b")
+    user = _make_feed_user()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([group_a.id, group_b.id], {group_a.id, group_b.id}),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+        return_value=([], 0),
+    ) as mock_series, patch(
+        "pecha_api.plans.groups.groups_service.get_standalone_plans_for_group_ids",
+        return_value=([], 0),
+    ) as mock_plans, patch(
+        "pecha_api.plans.groups.groups_service.get_plans_with_aggregates_by_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_for_group_ids",
+        return_value=([], 0),
+    ) as mock_accumulators, patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_by_ids",
+        return_value=[],
+    ):
+        _session_local_context(mock_session)
+        result = get_group_practices_feed(token="valid-token", group_id=group_b.id)
+
+    assert mock_series.call_args.kwargs["group_ids"] == [group_b.id]
+    assert mock_plans.call_args.kwargs["group_ids"] == [group_b.id]
+    assert mock_accumulators.call_args.kwargs["group_ids"] == [group_b.id]
+    assert result.total == 0
+
+
+def test_get_group_practices_feed_group_filter_outside_scope_returns_empty():
+    group = _make_group()
+    user = _make_feed_user()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([group.id], {group.id}),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+    ) as mock_series:
+        _session_local_context(mock_session)
+        result = get_group_practices_feed(token="valid-token", group_id=uuid4())
+
+    mock_series.assert_not_called()
+    assert result.total == 0
+    assert result.practices == []
+
+
+def test_get_group_practices_feed_pagination():
+    group = _make_group()
+    user = _make_feed_user()
+    older = _make_feed_accumulator(group.id, datetime(2026, 1, 1, tzinfo=timezone.utc))
+    newer = _make_feed_accumulator(group.id, datetime(2026, 1, 2, tzinfo=timezone.utc))
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([group.id], {group.id}),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+        return_value=([], 0),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_standalone_plans_for_group_ids",
+        return_value=([], 0),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_plans_with_aggregates_by_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_for_group_ids",
+        return_value=([older, newer], 2),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service._group_accumulator_to_dto",
+        side_effect=_feed_accumulator_dto,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_by_ids",
+        return_value=[group],
+    ):
+        _session_local_context(mock_session)
+        result = get_group_practices_feed(token="valid-token", skip=1, limit=1)
+
+    assert result.total == 2
+    assert len(result.practices) == 1
+    assert result.practices[0].accumulator.id == older.id

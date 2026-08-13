@@ -65,6 +65,27 @@ def get_group_accumulators(
     return accumulators, total
 
 
+def get_group_accumulators_for_group_ids(
+    db: Session,
+    group_ids: List[UUID],
+    limit: int,
+) -> Tuple[List[GroupAccumulator], int]:
+    """Active group accumulators across the given groups, newest first."""
+    if not group_ids:
+        return [], 0
+    query = (
+        db.query(GroupAccumulator)
+        .options(joinedload(GroupAccumulator.accumulator))
+        .filter(
+            GroupAccumulator.group_id.in_(group_ids),
+            GroupAccumulator.deleted_at.is_(None),
+        )
+    )
+    total = query.count()
+    accumulators = query.order_by(GroupAccumulator.created_at.desc()).limit(limit).all()
+    return accumulators, total
+
+
 def get_group_accumulator_by_id(
     db: Session,
     group_accumulator_id: UUID,

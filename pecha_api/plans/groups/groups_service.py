@@ -29,8 +29,12 @@ from pecha_api.plans.cms.cms_plans_repository import get_plans_with_aggregates_b
 from pecha_api.plans.plans_response_models import AuthorDTO, PlanDTO, PlanWithAggregates
 from pecha_api.plans.series.series_model import Series
 from pecha_api.group_accumulator.group_accumulator_repository import (
+    get_group_accumulator_joiners_counts,
+    get_group_accumulators_for_group_ids,
+    get_joined_group_accumulator_ids_by_user,
     remove_group_accumulator_joins_for_group,
 )
+from pecha_api.plans.groups.follow_scope import resolve_public_group_scope
 from pecha_api.plans.groups.groups_repository import (
     add_group_member,
     create_group,
@@ -52,6 +56,8 @@ from pecha_api.plans.groups.groups_repository import (
     get_plans_by_group_id,
     get_plans_by_ids,
     get_series_by_group_id,
+    get_series_for_group_ids,
+    get_standalone_plans_for_group_ids,
     get_series_partner_id_map_for_group,
     get_user_series_enrollment_partner_map,
     has_pending_invite,
@@ -112,6 +118,8 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupMemberAccumulationsResponse,
     GroupMetadataDTO,
     GroupPracticeCardDTO,
+    GroupPracticeFeedItemDTO,
+    GroupPracticesFeedResponse,
     GroupPracticesResponse,
     GroupPracticeType,
     GroupSocialLinkDTO,
@@ -129,7 +137,10 @@ from pecha_api.plans.groups.groups_response_models import (
     UpdateAuthorGroupRequest,
     UpdateGroupMemberRoleRequest,
 )
-from pecha_api.group_accumulator.group_accumulator_service import get_group_accumulators_service
+from pecha_api.group_accumulator.group_accumulator_service import (
+    _convert_to_dto as _group_accumulator_to_dto,
+    get_group_accumulators_service,
+)
 from pecha_api.group_recitation_collection.service import list_group_collections_service
 from pecha_api.plans.groups.groups_models import author_group_tags
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
@@ -884,6 +895,202 @@ async def get_group_practices(
         skip=skip,
         limit=limit,
         total=total,
+    )
+
+
+def _group_card_title(group: AuthorGroup, language: Optional[str] = None) -> Optional[str]:
+    entries = list(group.metadata_entries or [])
+    if not entries:
+        return group.slug
+    preferred = filter_by_language_with_fallback(
+        entries=entries,
+        language=language,
+        language_of=lambda item: _language_value(item.language),
+    )
+    if preferred:
+        return preferred[0].title
+    for entry in entries:
+        if _language_value(entry.language).upper() == "EN":
+            return entry.title
+    return entries[0].title
+
+
+def get_group_practices_feed(
+    token: str,
+    group_id: Optional[UUID] = None,
+    should_include_unfollowed: bool = False,
+    skip: int = 0,
+    limit: int = 20,
+    language: Optional[str] = None,
+    timezone_name: Optional[str] = None,
+) -> GroupPracticesFeedResponse:
+    """Merged feed of practices (series, group accumulators, and plans that are
+    not part of a series) across the user's joined public groups; with
+    should_include_unfollowed=True, across all public groups."""
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        scope_group_ids, joined_group_id_set = resolve_public_group_scope(
+            db=db,
+            user_id=current_user.id,
+            should_include_unfollowed=should_include_unfollowed,
+        )
+        if group_id is not None:
+            scope_group_ids = [item for item in scope_group_ids if item == group_id]
+        scope_group_ids = filter_items_for_timezone(
+            scope_group_ids,
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.GROUP,
+            id_of=lambda item: item,
+        )
+        if not scope_group_ids:
+            return GroupPracticesFeedResponse(
+                practices=[],
+                skip=skip,
+                limit=limit,
+                total=0,
+                include_unfollowed=should_include_unfollowed,
+            )
+
+        # Fetch enough of each type to fill the requested page after merge.
+        fetch_limit = skip + limit
+
+        series_list, series_total = get_series_for_group_ids(
+            db=db, group_ids=scope_group_ids, limit=fetch_limit
+        )
+        series_list = filter_items_for_timezone(
+            series_list,
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.SERIES,
+            id_of=lambda series: series.id,
+        )
+
+        plans_list, plans_total = get_standalone_plans_for_group_ids(
+            db=db, group_ids=scope_group_ids, limit=fetch_limit
+        )
+        plans_list = filter_items_for_timezone(
+            plans_list,
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.PLAN,
+            id_of=lambda plan: plan.id,
+        )
+
+        accumulators, accumulators_total = get_group_accumulators_for_group_ids(
+            db=db, group_ids=scope_group_ids, limit=fetch_limit
+        )
+        accumulators = filter_items_for_timezone(
+            accumulators,
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.GROUP_ACCUMULATOR,
+            id_of=lambda accumulator: accumulator.id,
+        )
+
+        # Series DTOs are built per owning group because enrollment and partner
+        # lookups are scoped to a group.
+        series_by_group: Dict[UUID, List[Series]] = {}
+        for series in series_list:
+            series_by_group.setdefault(series.group_id, []).append(series)
+        series_pairs = []
+        for owning_group_id, group_series in series_by_group.items():
+            dtos = _series_to_dtos(
+                db=db,
+                series_list=group_series,
+                group_id=owning_group_id,
+                language=language,
+                published_only=True,
+                user_id=current_user.id,
+            )
+            series_pairs.extend(zip(group_series, dtos))
+
+        plan_aggregate_by_id = {
+            item.plan.id: item
+            for item in get_plans_with_aggregates_by_ids(
+                db=db, plan_ids=[plan.id for plan in plans_list]
+            )
+        }
+
+        accumulator_ids = [accumulator.id for accumulator in accumulators]
+        joined_accumulator_ids = set(
+            get_joined_group_accumulator_ids_by_user(
+                db=db,
+                user_id=current_user.id,
+                group_accumulator_ids=accumulator_ids,
+            )
+        )
+        accumulator_member_counts = get_group_accumulator_joiners_counts(
+            db=db, group_accumulator_ids=accumulator_ids
+        )
+
+        card_group_ids = list({
+            *[series.group_id for series, _ in series_pairs],
+            *[plan.group_id for plan in plans_list],
+            *[accumulator.group_id for accumulator in accumulators],
+        })
+        group_by_id = {
+            group.id: group
+            for group in get_groups_by_ids(db=db, group_ids=card_group_ids)
+        }
+
+        def _feed_item(
+            item_group_id: UUID,
+            created_at: datetime,
+            practice_type: GroupPracticeType,
+            **payload,
+        ):
+            group = group_by_id.get(item_group_id)
+            practice_at = _as_aware_utc(created_at)
+            return (
+                practice_at,
+                GroupPracticeFeedItemDTO(
+                    type=practice_type,
+                    practice_at=practice_at,
+                    is_joined=item_group_id in joined_group_id_set,
+                    group_id=item_group_id,
+                    group_name=_group_card_title(group, language=language) if group else None,
+                    group_slug=group.slug if group else None,
+                    group_avatar_url=_generate_group_asset_url(group.avatar_key) if group else None,
+                    **payload,
+                ),
+            )
+
+        cards = [
+            _feed_item(series.group_id, series.created_at, GroupPracticeType.SERIES, series=dto)
+            for series, dto in series_pairs
+        ]
+        cards.extend(
+            _feed_item(
+                plan.group_id,
+                plan.created_at,
+                GroupPracticeType.PLAN,
+                plan=_plan_aggregate_to_dto(plan_aggregate_by_id[plan.id], group_id=plan.group_id),
+            )
+            for plan in plans_list
+            if plan.id in plan_aggregate_by_id
+        )
+        cards.extend(
+            _feed_item(
+                accumulator.group_id,
+                accumulator.created_at,
+                GroupPracticeType.ACCUMULATOR,
+                accumulator=_group_accumulator_to_dto(
+                    accumulator,
+                    is_joined=accumulator.id in joined_accumulator_ids,
+                    member_count=accumulator_member_counts.get(accumulator.id, 0),
+                ),
+            )
+            for accumulator in accumulators
+        )
+
+        cards.sort(key=lambda entry: entry[0], reverse=True)
+        total = series_total + plans_total + accumulators_total
+        page_cards = [card for _, card in cards[skip:skip + limit]]
+
+    return GroupPracticesFeedResponse(
+        practices=page_cards,
+        skip=skip,
+        limit=limit,
+        total=total,
+        include_unfollowed=should_include_unfollowed,
     )
 
 
