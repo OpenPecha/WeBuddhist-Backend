@@ -142,6 +142,11 @@ from pecha_api.group_accumulator.group_accumulator_service import (
     get_group_accumulators_service,
 )
 from pecha_api.group_recitation_collection.service import list_group_collections_service
+from pecha_api.group_recitation_collection.repository import (
+    get_collections_for_group_ids_with_total,
+    get_collection_item_counts,
+)
+from pecha_api.group_recitation_collection.response_models import GroupRecitationCollectionDTO
 from pecha_api.plans.groups.groups_models import author_group_tags
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
@@ -924,9 +929,10 @@ def get_group_practices_feed(
     language: Optional[str] = None,
     timezone_name: Optional[str] = None,
 ) -> GroupPracticesFeedResponse:
-    """Merged feed of practices (series, group accumulators, and plans that are
-    not part of a series) across the user's joined public groups; with
-    should_include_unfollowed=True, across all public groups."""
+    """Merged feed of practices (series, group accumulators, plans that are
+    not part of a series, and recitation collections) across the user's
+    joined public groups; with should_include_unfollowed=True, across all
+    public groups."""
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
@@ -985,6 +991,32 @@ def get_group_practices_feed(
             id_of=lambda accumulator: accumulator.id,
         )
 
+        collections, collections_total = get_collections_for_group_ids_with_total(
+            db=db, group_ids=scope_group_ids, limit=fetch_limit
+        )
+        collections = filter_items_for_timezone(
+            collections,
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.GROUP_RECITATION_COLLECTION,
+            id_of=lambda collection: collection.id,
+        )
+        collection_item_counts = get_collection_item_counts(
+            db=db, collection_ids=[collection.id for collection in collections]
+        )
+        collection_dtos = [
+            GroupRecitationCollectionDTO(
+                id=collection.id,
+                group_id=collection.group_id,
+                name=collection.name,
+                img_url=_generate_group_asset_url(collection.img_url),
+                item_count=collection_item_counts.get(collection.id, 0),
+                created_at=collection.created_at.isoformat()
+                if hasattr(collection.created_at, "isoformat")
+                else str(collection.created_at),
+            )
+            for collection in collections
+        ]
+
         # Series DTOs are built per owning group because enrollment and partner
         # lookups are scoped to a group.
         series_by_group: Dict[UUID, List[Series]] = {}
@@ -1025,6 +1057,7 @@ def get_group_practices_feed(
             *[series.group_id for series, _ in series_pairs],
             *[plan.group_id for plan in plans_list],
             *[accumulator.group_id for accumulator in accumulators],
+            *[collection.group_id for collection in collections],
         })
         group_by_id = {
             group.id: group
@@ -1080,9 +1113,18 @@ def get_group_practices_feed(
             )
             for accumulator in accumulators
         )
+        cards.extend(
+            _feed_item(
+                collection.group_id,
+                collection.created_at,
+                GroupPracticeType.COLLECTION,
+                collection=dto,
+            )
+            for collection, dto in zip(collections, collection_dtos)
+        )
 
         cards.sort(key=lambda entry: entry[0], reverse=True)
-        total = series_total + plans_total + accumulators_total
+        total = series_total + plans_total + accumulators_total + collections_total
         page_cards = [card for _, card in cards[skip:skip + limit]]
 
     return GroupPracticesFeedResponse(

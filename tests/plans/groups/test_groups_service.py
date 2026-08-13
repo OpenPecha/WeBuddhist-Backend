@@ -3307,12 +3307,23 @@ def _plan_aggregate(plan):
     return aggregate
 
 
+def _make_feed_collection(group_id, created_at):
+    collection = MagicMock()
+    collection.id = uuid4()
+    collection.group_id = group_id
+    collection.created_at = created_at
+    collection.name = "Collection"
+    collection.img_url = None
+    return collection
+
+
 def test_get_group_practices_feed_merges_and_sorts_by_created_at():
     group = _make_group()
     user = _make_feed_user()
-    series = _make_feed_series(group.id, datetime(2026, 1, 3, tzinfo=timezone.utc))
-    plan = _make_feed_plan(group.id, datetime(2026, 1, 2, tzinfo=timezone.utc))
-    accumulator = _make_feed_accumulator(group.id, datetime(2026, 1, 1, tzinfo=timezone.utc))
+    series = _make_feed_series(group.id, datetime(2026, 1, 4, tzinfo=timezone.utc))
+    plan = _make_feed_plan(group.id, datetime(2026, 1, 3, tzinfo=timezone.utc))
+    accumulator = _make_feed_accumulator(group.id, datetime(2026, 1, 2, tzinfo=timezone.utc))
+    collection = _make_feed_collection(group.id, datetime(2026, 1, 1, tzinfo=timezone.utc))
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
@@ -3348,24 +3359,33 @@ def test_get_group_practices_feed_merges_and_sorts_by_created_at():
         "pecha_api.plans.groups.groups_service._group_accumulator_to_dto",
         side_effect=_feed_accumulator_dto,
     ), patch(
+        "pecha_api.plans.groups.groups_service.get_collections_for_group_ids_with_total",
+        return_value=([collection], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collection_item_counts",
+        return_value={collection.id: 4},
+    ), patch(
         "pecha_api.plans.groups.groups_service.get_groups_by_ids",
         return_value=[group],
     ):
         _session_local_context(mock_session)
         result = get_group_practices_feed(token="valid-token", skip=0, limit=20)
 
-    assert result.total == 3
+    assert result.total == 4
     assert result.include_unfollowed is False
     assert [card.type for card in result.practices] == [
         GroupPracticeType.SERIES,
         GroupPracticeType.PLAN,
         GroupPracticeType.ACCUMULATOR,
+        GroupPracticeType.COLLECTION,
     ]
     assert result.practices[0].series.id == series.id
     assert result.practices[1].plan.id == plan.id
     assert result.practices[2].accumulator.id == accumulator.id
     assert result.practices[2].accumulator.is_joined is True
     assert result.practices[2].accumulator.member_count == 5
+    assert result.practices[3].collection.id == collection.id
+    assert result.practices[3].collection.item_count == 4
     assert all(card.is_joined for card in result.practices)
     assert all(card.group_id == group.id for card in result.practices)
     assert result.practices[0].group_slug == group.slug
@@ -3408,6 +3428,12 @@ def test_get_group_practices_feed_marks_unfollowed_groups():
     ), patch(
         "pecha_api.plans.groups.groups_service._group_accumulator_to_dto",
         side_effect=_feed_accumulator_dto,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collections_for_group_ids_with_total",
+        return_value=([], 0),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collection_item_counts",
+        return_value={},
     ), patch(
         "pecha_api.plans.groups.groups_service.get_groups_by_ids",
         return_value=[other_group],
@@ -3455,6 +3481,12 @@ def test_get_group_practices_feed_group_filter_restricts_scope():
         "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
         return_value={},
     ), patch(
+        "pecha_api.plans.groups.groups_service.get_collections_for_group_ids_with_total",
+        return_value=([], 0),
+    ) as mock_collections, patch(
+        "pecha_api.plans.groups.groups_service.get_collection_item_counts",
+        return_value={},
+    ), patch(
         "pecha_api.plans.groups.groups_service.get_groups_by_ids",
         return_value=[],
     ):
@@ -3464,6 +3496,7 @@ def test_get_group_practices_feed_group_filter_restricts_scope():
     assert mock_series.call_args.kwargs["group_ids"] == [group_b.id]
     assert mock_plans.call_args.kwargs["group_ids"] == [group_b.id]
     assert mock_accumulators.call_args.kwargs["group_ids"] == [group_b.id]
+    assert mock_collections.call_args.kwargs["group_ids"] == [group_b.id]
     assert result.total == 0
 
 
@@ -3521,6 +3554,12 @@ def test_get_group_practices_feed_pagination():
     ), patch(
         "pecha_api.plans.groups.groups_service._group_accumulator_to_dto",
         side_effect=_feed_accumulator_dto,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collections_for_group_ids_with_total",
+        return_value=([], 0),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collection_item_counts",
+        return_value={},
     ), patch(
         "pecha_api.plans.groups.groups_service.get_groups_by_ids",
         return_value=[group],

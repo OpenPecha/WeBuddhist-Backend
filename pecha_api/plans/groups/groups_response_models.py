@@ -314,6 +314,7 @@ class GroupPracticeFeedItemDTO(BaseModel):
     series: Optional[GroupSeriesListItemDTO] = None
     accumulator: Optional[GroupAccumulatorDTO] = None
     plan: Optional[PlanDTO] = None
+    collection: Optional[GroupRecitationCollectionDTO] = None
 
 
 class GroupPracticesFeedResponse(BaseModel):

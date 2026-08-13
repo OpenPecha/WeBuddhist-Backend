@@ -370,8 +370,9 @@ def get_group_practices_feed_endpoint(
         Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted practices are hidden for Chinese timezones."),
     ] = None,
 ):
-    """Merged feed of practices (series, group accumulators, and plans not in a
-    series) across author groups, sorted newest first.
+    """Merged feed of practices (series, group accumulators, plans not in a
+    series, and recitation collections) across author groups, sorted newest
+    first.
 
     Requires auth. Defaults to groups the user joined. Pass
     ``include_unfollowed=true`` to include all public groups.
