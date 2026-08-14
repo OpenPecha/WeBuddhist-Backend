@@ -210,7 +210,7 @@ def _event_to_dto(
         location=_location_to_dto(event),
         start_date=event.start_date,
         end_date=event.end_date,
-        is_one_day=event.end_date == event.start_date,
+        is_one_day=event.end_date.date() == event.start_date.date(),
         featured=event.featured,
         is_recurring=event.is_recurring,
         recurrence=recurrence_dto,
