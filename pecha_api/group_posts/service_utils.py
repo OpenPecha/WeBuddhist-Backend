@@ -9,7 +9,6 @@ from starlette import status
 
 from pecha_api.plans.groups.groups_repository import get_group_by_id
 from pecha_api.plans.response_message import NOT_FOUND
-from pecha_api.users.users_models import Users
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +28,3 @@ def validate_group_is_public(db: Session, group_id: UUID) -> None:
             status_code=status.HTTP_404_NOT_FOUND,
             detail=NOT_FOUND,
         )
-
-
-def resolve_user_id(db: Session, author_email: str) -> UUID:
-    """Resolve user ID from author email."""
-    user = db.query(Users).filter(Users.email == author_email).first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"User account not found: {author_email}",
-        )
-    return user.id

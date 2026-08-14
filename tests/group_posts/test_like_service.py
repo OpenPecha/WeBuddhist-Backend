@@ -43,7 +43,6 @@ class TestLikePostService:
 
     @patch('pecha_api.group_posts.like_service.count_post_likes')
     @patch('pecha_api.group_posts.like_service.create_like')
-    @patch('pecha_api.group_posts.like_service.resolve_user_id')
     @patch('pecha_api.group_posts.like_service.validate_group_is_public')
     @patch('pecha_api.group_posts.like_service._get_and_validate_post')
     @patch('pecha_api.group_posts.like_service.SessionLocal')
@@ -52,7 +51,6 @@ class TestLikePostService:
         mock_session,
         mock_get_post,
         mock_validate_group,
-        mock_resolve_user,
         mock_create_like,
         mock_count_likes,
     ):
@@ -60,19 +58,18 @@ class TestLikePostService:
         post_id = uuid4()
         group_id = uuid4()
         user_id = uuid4()
-        
+
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_get_post.return_value = (MockPost(post_id, group_id), group_id)
-        mock_resolve_user.return_value = user_id
-        
+
         mock_like = MockLike(post_id, user_id)
         mock_create_like.return_value = (mock_like, True)  # is_new=True
         mock_count_likes.return_value = 1
 
         result = like_post_service(
             post_id=post_id,
-            author_email="user@example.com",
+            user_id=user_id,
         )
 
         assert result.post_id == post_id
@@ -84,7 +81,6 @@ class TestLikePostService:
 
     @patch('pecha_api.group_posts.like_service.count_post_likes')
     @patch('pecha_api.group_posts.like_service.create_like')
-    @patch('pecha_api.group_posts.like_service.resolve_user_id')
     @patch('pecha_api.group_posts.like_service.validate_group_is_public')
     @patch('pecha_api.group_posts.like_service._get_and_validate_post')
     @patch('pecha_api.group_posts.like_service.SessionLocal')
@@ -93,7 +89,6 @@ class TestLikePostService:
         mock_session,
         mock_get_post,
         mock_validate_group,
-        mock_resolve_user,
         mock_create_like,
         mock_count_likes,
     ):
@@ -101,19 +96,18 @@ class TestLikePostService:
         post_id = uuid4()
         group_id = uuid4()
         user_id = uuid4()
-        
+
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_get_post.return_value = (MockPost(post_id, group_id), group_id)
-        mock_resolve_user.return_value = user_id
-        
+
         mock_like = MockLike(post_id, user_id)
         mock_create_like.return_value = (mock_like, False)  # is_new=False (already existed)
         mock_count_likes.return_value = 5
 
         result = like_post_service(
             post_id=post_id,
-            author_email="user@example.com",
+            user_id=user_id,
         )
 
         assert result.post_id == post_id
@@ -136,7 +130,7 @@ class TestLikePostService:
         with pytest.raises(HTTPException) as exc_info:
             like_post_service(
                 post_id=uuid4(),
-                author_email="user@example.com",
+                user_id=uuid4(),
             )
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -145,7 +139,6 @@ class TestLikePostService:
 class TestUnlikePostService:
 
     @patch('pecha_api.group_posts.like_service.delete_like')
-    @patch('pecha_api.group_posts.like_service.resolve_user_id')
     @patch('pecha_api.group_posts.like_service.validate_group_is_public')
     @patch('pecha_api.group_posts.like_service._get_and_validate_post')
     @patch('pecha_api.group_posts.like_service.SessionLocal')
@@ -154,22 +147,20 @@ class TestUnlikePostService:
         mock_session,
         mock_get_post,
         mock_validate_group,
-        mock_resolve_user,
         mock_delete_like,
     ):
         """Test unliking a post succeeds."""
         post_id = uuid4()
         group_id = uuid4()
         user_id = uuid4()
-        
+
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_get_post.return_value = (MockPost(post_id, group_id), group_id)
-        mock_resolve_user.return_value = user_id
 
         unlike_post_service(
             post_id=post_id,
-            author_email="user@example.com",
+            user_id=user_id,
         )
 
         mock_delete_like.assert_called_once_with(db=mock_db, post_id=post_id, user_id=user_id)

@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Literal, Optional, Sequence
 from uuid import UUID
@@ -12,7 +13,10 @@ from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.plans.authors.plan_authors_repository import get_author_by_email
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
 from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin, require_cms_write_access
-from pecha_api.notification.notification_repository import mark_notifications_read_by_reference
+from pecha_api.notification.notification_repository import (
+    mark_notifications_read_by_reference,
+    notification_exists_for_reference,
+)
 from pecha_api.notification.notification_service import create_notification_record
 from pecha_api.plans.groups.group_invite_email import send_group_invitation_email
 from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole, AuthorGroupType
@@ -1597,6 +1601,36 @@ def _mark_invite_notification_read(db, *, recipient_author_id: UUID, invite_id: 
     )
 
 
+def notify_pending_group_invites(author) -> None:
+    """Backfill in-app notifications for any group invites addressed to this
+    author's email that were sent before they had a Studio account. Called
+    once an author becomes verified so the invite is already waiting for them
+    the first time they can see the Studio."""
+    try:
+        with SessionLocal() as db:
+            pending = list_pending_invites_by_email(db=db, target_email=author.email)
+            for invite in pending:
+                if notification_exists_for_reference(
+                    db=db,
+                    recipient_author_id=author.id,
+                    category=NOTIFICATION_CATEGORY_GROUP_INVITE,
+                    reference_id=invite.id,
+                ):
+                    continue
+                group_title = _group_name_from_invite(invite)
+                inviter = get_author_by_email(db=db, email=invite.created_by)
+                inviter_name = _inviter_display_name(inviter) if inviter else invite.created_by
+                create_notification_record(
+                    recipient_author_id=author.id,
+                    title=f"Invitation to join {group_title}",
+                    description=f"{inviter_name} invited you to join {group_title}.",
+                    category=NOTIFICATION_CATEGORY_GROUP_INVITE,
+                    reference_id=invite.id,
+                )
+    except Exception:
+        logging.exception("Failed to backfill group invite notifications for %s", author.email)
+
+
 def create_group_member_invite(
     token: str,
     group_id: UUID,
@@ -1622,12 +1656,7 @@ def create_group_member_invite(
         )
 
         target_author = get_author_by_email(db=db, email=target_email)
-        if not target_author:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No registered author exists with this email address",
-            )
-        if get_group_member(db=db, group_id=group_id, author_id=target_author.id):
+        if target_author and get_group_member(db=db, group_id=group_id, author_id=target_author.id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This author is already a member of this group",
@@ -1650,17 +1679,19 @@ def create_group_member_invite(
         loaded_group = get_group_by_id(db=db, group_id=group_id)
         group_title = _group_title_from_metadata(loaded_group.metadata_entries)
         inviter_name = _inviter_display_name(author)
-        target_author_id = target_author.id
+        target_author_id = target_author.id if target_author else None
         created_invite_id = created.id
         invite_dto = _invite_to_dto(created, group_name=group_title, db=db)
 
-    notification = create_notification_record(
-        recipient_author_id=target_author_id,
-        title=f"Invitation to join {group_title}",
-        description=f"{inviter_name} invited you to join {group_title}.",
-        category=NOTIFICATION_CATEGORY_GROUP_INVITE,
-        reference_id=created_invite_id,
-    )
+    notification = None
+    if target_author_id is not None:
+        notification = create_notification_record(
+            recipient_author_id=target_author_id,
+            title=f"Invitation to join {group_title}",
+            description=f"{inviter_name} invited you to join {group_title}.",
+            category=NOTIFICATION_CATEGORY_GROUP_INVITE,
+            reference_id=created_invite_id,
+        )
 
     send_group_invitation_email(
         target_email=target_email,
@@ -1672,7 +1703,7 @@ def create_group_member_invite(
 
     return GroupInviteCreatedResponse(
         invite=invite_dto,
-        notification_id=notification.id,
+        notification_id=notification.id if notification else None,
     )
 
 

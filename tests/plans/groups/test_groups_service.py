@@ -51,6 +51,7 @@ from pecha_api.plans.groups.groups_service import (
     get_group_practices_feed,
     list_group_invites,
     list_my_pending_group_invites,
+    notify_pending_group_invites,
     reject_group_invite_by_id,
     follow_group,
     get_followed_group,
@@ -2330,9 +2331,27 @@ def test_create_group_member_invite_requires_target_email():
     assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
-def test_create_group_member_invite_unknown_target_email():
+def test_create_group_member_invite_unknown_target_email_still_invites():
+    """An email with no Author account yet must still succeed: the invite is
+    created and the invitation email is sent, but no in-app notification can
+    be created (there's no author id to attach it to) — notification_id is
+    None. See notify_pending_group_invites for the notification backfill
+    that runs once this person registers and verifies."""
     author = _make_author()
     group = _make_group()
+    invite = MagicMock()
+    invite.id = uuid4()
+    invite.group_id = group.id
+    invite.target_email = "missing@example.org"
+    invite.role = AuthorGroupMemberRole.AUTHOR
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    invite.created_at = datetime.now(timezone.utc)
+    invite.created_by = author.email
+    invite.accepted_at = None
+    invite.rejected_at = None
+    invite.revoked_at = None
+
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
@@ -2345,18 +2364,96 @@ def test_create_group_member_invite_unknown_target_email():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_author_by_email",
         return_value=None,
-    ):
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_invite",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_invite",
+        return_value=invite,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_notification_record",
+    ) as mock_create_notification, patch(
+        "pecha_api.plans.groups.groups_service.send_group_invitation_email",
+    ) as mock_send_email:
         _session_local_context(mock_session)
-        with pytest.raises(HTTPException) as exc:
-            create_group_member_invite(
-                token="t",
-                group_id=group.id,
-                request=CreateGroupInviteRequest(
-                    target_email="missing@example.org",
-                    role=AuthorGroupMemberRole.AUTHOR,
-                ),
-            )
-    assert "No registered author" in exc.value.detail
+        result = create_group_member_invite(
+            token="t",
+            group_id=group.id,
+            request=CreateGroupInviteRequest(
+                target_email="missing@example.org",
+                role=AuthorGroupMemberRole.AUTHOR,
+            ),
+        )
+    assert result.invite.target_email == "missing@example.org"
+    assert result.notification_id is None
+    mock_create_notification.assert_not_called()
+    mock_send_email.assert_called_once()
+
+
+def _make_invite_for_email(email, group_name="Test Group", created_by="owner@example.org"):
+    invite = MagicMock()
+    invite.id = uuid4()
+    invite.target_email = email
+    invite.created_by = created_by
+    invite.group = MagicMock()
+    invite.group.metadata_entries = [MagicMock(language="EN", title=group_name)]
+    return invite
+
+
+def test_notify_pending_group_invites_creates_one_notification_per_invite():
+    author = _make_author(email="invitee@example.org")
+    invites = [_make_invite_for_email(author.email), _make_invite_for_email(author.email)]
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.list_pending_invites_by_email",
+        return_value=invites,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.notification_exists_for_reference",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_notification_record",
+    ) as mock_create_notification:
+        _session_local_context(mock_session)
+        notify_pending_group_invites(author)
+
+    assert mock_create_notification.call_count == 2
+    called_reference_ids = {
+        call.kwargs["reference_id"] for call in mock_create_notification.call_args_list
+    }
+    assert called_reference_ids == {invite.id for invite in invites}
+
+
+def test_notify_pending_group_invites_is_idempotent():
+    author = _make_author(email="invitee@example.org")
+    invites = [_make_invite_for_email(author.email)]
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.list_pending_invites_by_email",
+        return_value=invites,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.notification_exists_for_reference",
+        return_value=True,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_notification_record",
+    ) as mock_create_notification:
+        _session_local_context(mock_session)
+        notify_pending_group_invites(author)
+
+    mock_create_notification.assert_not_called()
+
+
+def test_notify_pending_group_invites_swallows_errors():
+    author = _make_author(email="invitee@example.org")
+
+    with patch(
+        "pecha_api.plans.groups.groups_service.SessionLocal",
+        side_effect=RuntimeError("db down"),
+    ):
+        # Must not raise: a notification-layer failure can never break signup/login.
+        notify_pending_group_invites(author)
 
 
 def test_accept_group_invite_group_missing_after_invite_found():
