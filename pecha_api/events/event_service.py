@@ -322,7 +322,8 @@ def get_events_service(
         from_date_obj = from_date.date() if isinstance(from_date, datetime) else from_date
         to_date_obj = to_date.date() if isinstance(to_date, datetime) else to_date
 
-        # Get one-shot events
+        # Get all one-shot events for merged pagination with recurring occurrences
+        # Note: We need all events to properly merge and paginate with recurring occurrences
         one_shot_events, _ = get_events(
             db,
             group_id=group_id,
@@ -335,7 +336,7 @@ def get_events_service(
             to_date=to_date,
             restrict_group_ids=restrict_group_ids,
             skip=0,
-            limit=10000,
+            limit=None,
         )
         
         # Get recurring event templates

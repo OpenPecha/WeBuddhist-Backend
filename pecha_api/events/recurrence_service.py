@@ -72,13 +72,14 @@ def _resolve_lunar_yearly(
     """Find all occurrences of a lunar month/day in the date range."""
     cal_type = CalendarType.PHUGPA if calendar_type == "phugpa" else CalendarType.TSURPHU
     
-    return find_gregorian_dates_for_lunar(
+    occurrences = find_gregorian_dates_for_lunar(
         lunar_month=month,
         lunar_day=day,
         calendar_type=cal_type,
         gregorian_year_start=from_date.year,
         gregorian_year_end=to_date.year,
     )
+    return [d for d in occurrences if from_date <= d <= to_date]
 
 
 def _resolve_lunar_monthly(

@@ -150,7 +150,7 @@ def get_events(
     to_date: Optional = None,
     restrict_group_ids: Optional[List[UUID]] = None,
     skip: int = 0,
-    limit: int = 20,
+    limit: Optional[int] = 20,
     should_sort_newest_first: bool = False,
 ) -> Tuple[List[Event], int]:
     if restrict_group_ids is not None and not restrict_group_ids:
@@ -191,12 +191,10 @@ def get_events(
         if should_sort_newest_first
         else (Event.start_date.asc(),)
     )
-    events = (
-        events_query.order_by(*order_by)
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    events_query = events_query.order_by(*order_by).offset(skip)
+    if limit is not None:
+        events_query = events_query.limit(limit)
+    events = events_query.all()
     return events, total
 
 
