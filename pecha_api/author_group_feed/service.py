@@ -167,30 +167,31 @@ def _get_author_group_feed(
         should_sort_newest_first=True,
     )
     
-    # Get recurring events and expand occurrences
+    # Get recurring events and find next occurrence for each template
     recurring_templates = get_recurring_events(
         db=db,
         restrict_group_ids=group_ids,
     )
     
-    # Expand recurring events (use a reasonable window for feed context)
+    # For feed context, show only the next upcoming occurrence per template
+    # to prevent recurring events from monopolizing the feed
     now = datetime.now(timezone.utc)
-    from_date = now - timedelta(days=30)
-    to_date = now + timedelta(days=365)
-    from_date_obj = from_date.date()
-    to_date_obj = to_date.date()
+    from_date_obj = now.date()
+    to_date_obj = (now + timedelta(days=365)).date()
     
     expanded_recurring = []
     for template in recurring_templates:
         occurrences = expand_occurrences(template, from_date_obj, to_date_obj)
-        for start_d, end_d in occurrences:
+        if occurrences:
+            # Take only the next upcoming occurrence
+            start_d, end_d = occurrences[0]
             expanded_recurring.append({
                 'event': template,
                 'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
                 'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
             })
     
-    # Combine one-shot events with expanded recurring occurrences
+    # Combine one-shot events with next occurrences of recurring templates
     events = one_shot_events
     events_total = one_shot_total + len(expanded_recurring)
     event_ids = [event.id for event in events] + [item['event'].id for item in expanded_recurring]
@@ -257,9 +258,10 @@ def _get_author_group_feed(
         )
     
     # Add expanded recurring event occurrences to feed
+    # Use occurrence start_date for sorting to properly interleave with other content
     for item in expanded_recurring:
         event = item['event']
-        feed_at = _as_aware_utc(event.created_at)
+        feed_at = _as_aware_utc(item['start_date'])  # Use occurrence date, not created_at
         group_info = group_cards.get(event.group_id, {})
         # Temporarily override dates for DTO
         original_start = event.start_date

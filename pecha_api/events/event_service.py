@@ -694,7 +694,8 @@ def get_featured_events_service(
         # Get featured one-shot events
         one_shot_events = get_featured_events(db, limit=None)
         
-        # Get featured recurring events and expand occurrences
+        # Get featured recurring events and find next occurrence for each
+        # Only show one occurrence per template to ensure variety in featured list
         recurring_templates = get_featured_recurring_events(db)
         
         now = datetime.now(timezone.utc)
@@ -704,7 +705,9 @@ def get_featured_events_service(
         expanded_occurrences = []
         for template in recurring_templates:
             occurrences = expand_occurrences(template, from_date_obj, to_date_obj)
-            for start_d, end_d in occurrences:
+            if occurrences:
+                # Take only the next upcoming occurrence per template
+                start_d, end_d = occurrences[0]
                 expanded_occurrences.append({
                     'event': template,
                     'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
@@ -712,7 +715,7 @@ def get_featured_events_service(
                     'occurrence_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
                 })
         
-        # Merge one-shot events and expanded occurrences
+        # Merge one-shot events and next occurrences of recurring templates
         all_event_items = [
             {'event': e, 'start_date': e.start_date, 'end_date': e.end_date, 'occurrence_date': None}
             for e in one_shot_events
