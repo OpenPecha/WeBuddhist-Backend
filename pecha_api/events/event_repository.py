@@ -157,7 +157,7 @@ def get_events(
         return [], 0
 
     count_query = _apply_event_filters(
-        db.query(func.count(Event.id)),
+        db.query(func.count(Event.id)).filter(Event.is_recurring == False),
         group_id=group_id,
         plan_id=plan_id,
         accumulator_id=accumulator_id,
@@ -175,7 +175,7 @@ def get_events(
             selectinload(Event.metadata_entries),
             selectinload(Event.links),
             selectinload(Event.location),
-        ),
+        ).filter(Event.is_recurring == False),
         group_id=group_id,
         plan_id=plan_id,
         accumulator_id=accumulator_id,
@@ -212,6 +212,7 @@ def get_featured_events(
             selectinload(Event.location),
         )
         .filter(Event.featured == True)
+        .filter(Event.is_recurring == False)
         .order_by(Event.start_date.desc())
         .limit(limit)
         .all()

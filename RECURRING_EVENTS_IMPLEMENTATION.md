@@ -262,3 +262,23 @@ alembic downgrade -1
 
 **Implementation Date:** August 14, 2026  
 **Status:** ✅ Production Ready
+
+---
+
+## Bug Fixes
+
+### Duplicate Recurring Events in List (Fixed: August 14, 2026)
+
+**Issue:** Recurring events appeared twice in event lists - once as the template and once as an expanded occurrence.
+
+**Root Cause:** The `get_events()` function was returning ALL events including recurring templates. The `get_events_service()` then:
+1. Fetched all events (including recurring templates) as "one-shot events"
+2. Separately fetched recurring templates via `get_recurring_events()`
+3. Expanded the recurring templates into occurrences
+4. Merged both lists, causing duplicates
+
+**Fix:** Added `is_recurring == False` filter to:
+- `get_events()` - now only returns non-recurring events
+- `get_featured_events()` - now only returns non-recurring featured events
+
+This ensures recurring events are only processed through the expansion logic, not included in the one-shot events list.
