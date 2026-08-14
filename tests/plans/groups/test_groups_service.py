@@ -1475,7 +1475,7 @@ def test_create_group_member_invite_creates_notification():
             MagicMock(role=AuthorGroupMemberRole.OWNER) if author_id == author.id else None
         ),
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=target_author,
     ), patch(
         "pecha_api.plans.groups.groups_service.has_pending_invite",
@@ -1525,7 +1525,7 @@ def test_create_group_member_invite_blocks_existing_member():
         "pecha_api.plans.groups.groups_service.get_group_member",
         side_effect=_get_member,
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=target_author,
     ):
         _session_local_context(mock_session)
@@ -1651,7 +1651,7 @@ def test_create_group_member_invite_blocks_pending_invite():
             MagicMock(role=AuthorGroupMemberRole.OWNER) if author_id == author.id else None
         ),
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=target_author,
     ), patch(
         "pecha_api.plans.groups.groups_service.has_pending_invite",
@@ -2230,7 +2230,7 @@ def test_revoke_group_invite_success():
     ), patch(
         "pecha_api.plans.groups.groups_service.revoke_invite",
     ) as mock_revoke, patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=target_author,
     ), patch(
         "pecha_api.plans.groups.groups_service._mark_invite_notification_read",
@@ -2281,7 +2281,7 @@ def test_create_group_member_invite_builds_notification_with_group_title():
             else None
         ),
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=target_author,
     ), patch(
         "pecha_api.plans.groups.groups_service.has_pending_invite",
@@ -2362,7 +2362,7 @@ def test_create_group_member_invite_unknown_target_email_still_invites():
         "pecha_api.plans.groups.groups_service.get_group_member",
         return_value=MagicMock(role=AuthorGroupMemberRole.OWNER),
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=None,
     ), patch(
         "pecha_api.plans.groups.groups_service.has_pending_invite",
@@ -2390,6 +2390,64 @@ def test_create_group_member_invite_unknown_target_email_still_invites():
     mock_send_email.assert_called_once()
 
 
+def test_create_group_member_invite_unknown_target_email_uses_non_raising_lookup():
+    """Regression guard: the author-lookup used for target_email resolution
+    must be find_author_by_email (returns None on no match), not
+    get_author_by_email (raises HTTPException 404 "Author not found" on no
+    match). Exercises the real find_author_by_email against a db mock that
+    returns no row, instead of mocking the lookup function itself, so a
+    future accidental revert to get_author_by_email is caught here rather
+    than surfacing as a raw 404 in production."""
+    author = _make_author()
+    group = _make_group()
+    invite = MagicMock()
+    invite.id = uuid4()
+    invite.group_id = group.id
+    invite.target_email = "missing@example.org"
+    invite.role = AuthorGroupMemberRole.AUTHOR
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    invite.created_at = datetime.now(timezone.utc)
+    invite.created_by = author.email
+    invite.accepted_at = None
+    invite.rejected_at = None
+    invite.revoked_at = None
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=MagicMock(role=AuthorGroupMemberRole.OWNER),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_invite",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_invite",
+        return_value=invite,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.send_group_invitation_email",
+    ):
+        mock_db = _session_local_context(mock_session)
+        # No mocking of find_author_by_email: the real repository function
+        # runs against this db mock's query chain, which yields no row.
+        mock_db.query.return_value.options.return_value.filter.return_value.first.return_value = None
+
+        result = create_group_member_invite(
+            token="t",
+            group_id=group.id,
+            request=CreateGroupInviteRequest(
+                target_email="missing@example.org",
+                role=AuthorGroupMemberRole.AUTHOR,
+            ),
+        )
+    assert result.invite.target_email == "missing@example.org"
+    assert result.notification_id is None
+
+
 def _make_invite_for_email(email, group_name="Test Group", created_by="owner@example.org"):
     invite = MagicMock()
     invite.id = uuid4()
@@ -2411,7 +2469,7 @@ def test_notify_pending_group_invites_creates_one_notification_per_invite():
         "pecha_api.plans.groups.groups_service.notification_exists_for_reference",
         return_value=False,
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=None,
     ), patch(
         "pecha_api.plans.groups.groups_service.create_notification_record",

@@ -10,7 +10,7 @@ from starlette import status
 from pecha_api.config import get, get_int
 from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.authors.plan_authors_repository import get_author_by_email
+from pecha_api.plans.authors.plan_authors_repository import find_author_by_email
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
 from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin, require_cms_write_access
 from pecha_api.notification.notification_repository import (
@@ -1526,7 +1526,7 @@ def _invite_to_dto(
     inviter_email = invite.created_by
     inviter_name = inviter_email
     if db is not None:
-        inviter = get_author_by_email(db=db, email=inviter_email)
+        inviter = find_author_by_email(db=db, email=inviter_email)
         if inviter:
             display_name = _inviter_display_name(inviter)
             if display_name:
@@ -1618,7 +1618,7 @@ def notify_pending_group_invites(author) -> None:
                 ):
                     continue
                 group_title = _group_name_from_invite(invite)
-                inviter = get_author_by_email(db=db, email=invite.created_by)
+                inviter = find_author_by_email(db=db, email=invite.created_by)
                 inviter_name = _inviter_display_name(inviter) if inviter else invite.created_by
                 create_notification_record(
                     recipient_author_id=author.id,
@@ -1655,7 +1655,7 @@ def create_group_member_invite(
             invite_role=_to_role_value(request.role),
         )
 
-        target_author = get_author_by_email(db=db, email=target_email)
+        target_author = find_author_by_email(db=db, email=target_email)
         if target_author and get_group_member(db=db, group_id=group_id, author_id=target_author.id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -1820,7 +1820,7 @@ def revoke_group_invite(token: str, group_id: UUID, invite_id: UUID) -> None:
                 detail="Only pending invites can be revoked",
             )
         revoke_invite(db=db, invite=invite, revoked_by=author.email)
-        target_author = get_author_by_email(db=db, email=invite.target_email)
+        target_author = find_author_by_email(db=db, email=invite.target_email)
         if target_author:
             _mark_invite_notification_read(
                 db=db,
