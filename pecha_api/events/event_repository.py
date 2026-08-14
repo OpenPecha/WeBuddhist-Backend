@@ -200,9 +200,10 @@ def get_events(
 
 def get_featured_events(
     db: Session,
-    limit: int = 10,
+    limit: Optional[int] = 10,
 ) -> List[Event]:
-    events = (
+    """Get featured one-shot events."""
+    query = (
         db.query(Event)
         .options(
             selectinload(Event.metadata_entries),
@@ -212,10 +213,27 @@ def get_featured_events(
         .filter(Event.featured == True)
         .filter(Event.is_recurring == False)
         .order_by(Event.start_date.desc())
-        .limit(limit)
+    )
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
+
+
+def get_featured_recurring_events(
+    db: Session,
+) -> List[Event]:
+    """Get featured recurring event templates."""
+    return (
+        db.query(Event)
+        .options(
+            selectinload(Event.metadata_entries),
+            selectinload(Event.links),
+            selectinload(Event.location),
+        )
+        .filter(Event.featured == True)
+        .filter(Event.is_recurring == True)
         .all()
     )
-    return events
 
 
 def get_recurring_events(

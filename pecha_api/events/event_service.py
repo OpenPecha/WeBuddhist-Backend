@@ -51,6 +51,7 @@ from .event_repository import (
     delete_event,
     get_events,
     get_featured_events,
+    get_featured_recurring_events,
     get_recurring_events,
 )
 from .event_participant_repository import (
@@ -690,10 +691,42 @@ def get_featured_events_service(
     token: Optional[str] = None,
 ) -> List[EventDTO]:
     with SessionLocal() as db:
-        events = get_featured_events(db, limit=limit)
-        event_ids = [event.id for event in events]
+        # Get featured one-shot events
+        one_shot_events = get_featured_events(db, limit=None)
+        
+        # Get featured recurring events and expand occurrences
+        recurring_templates = get_featured_recurring_events(db)
+        
+        now = datetime.now(timezone.utc)
+        from_date_obj = now.date()
+        to_date_obj = (now + timedelta(days=365)).date()
+        
+        expanded_occurrences = []
+        for template in recurring_templates:
+            occurrences = expand_occurrences(template, from_date_obj, to_date_obj)
+            for start_d, end_d in occurrences:
+                expanded_occurrences.append({
+                    'event': template,
+                    'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                    'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
+                    'occurrence_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                })
+        
+        # Merge one-shot events and expanded occurrences
+        all_event_items = [
+            {'event': e, 'start_date': e.start_date, 'end_date': e.end_date, 'occurrence_date': None}
+            for e in one_shot_events
+        ] + expanded_occurrences
+        
+        # Sort by start_date descending (most recent first)
+        all_event_items.sort(key=lambda x: x['start_date'], reverse=True)
+        
+        # Apply limit
+        paginated_items = all_event_items[:limit]
+        
+        event_ids = list(set(item['event'].id for item in paginated_items))
         counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
-        group_cards = _group_card_map(db, [event.group_id for event in events])
+        group_cards = _group_card_map(db, [item['event'].group_id for item in paginated_items])
 
         joined_ids: set[UUID] = set()
         if token:
@@ -706,18 +739,31 @@ def get_featured_events_service(
                 )
             )
 
-        return [
-            _event_to_dto(
-                event,
-                language=language,
-                fallback=True,
-                participant_count=counts_by_event.get(event.id, 0),
-                is_joined=(event.id in joined_ids) if token else None,
-                group_name=group_cards.get(event.group_id, (None, None))[0],
-                group_avatar_url=group_cards.get(event.group_id, (None, None))[1],
+        result = []
+        for item in paginated_items:
+            event = item['event']
+            original_start = event.start_date
+            original_end = event.end_date
+            event.start_date = item['start_date']
+            event.end_date = item['end_date']
+            
+            result.append(
+                _event_to_dto(
+                    event,
+                    language=language,
+                    fallback=True,
+                    participant_count=counts_by_event.get(event.id, 0),
+                    is_joined=(event.id in joined_ids) if token else None,
+                    group_name=group_cards.get(event.group_id, (None, None))[0],
+                    group_avatar_url=group_cards.get(event.group_id, (None, None))[1],
+                    occurrence_date=item['occurrence_date'],
+                )
             )
-            for event in events
-        ]
+            
+            event.start_date = original_start
+            event.end_date = original_end
+        
+        return result
 
 
 def update_event_featured_service(token: str, event_id: UUID) -> None:
