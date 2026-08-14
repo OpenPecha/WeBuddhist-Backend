@@ -227,3 +227,55 @@ def find_calendar_day_for_gregorian_date(
         if day_data is not None:
             return tibetan_year, day_data
     return None
+
+
+def find_gregorian_dates_for_lunar(
+    lunar_month: int,
+    lunar_day: int,
+    calendar_type: CalendarType,
+    gregorian_year_start: int,
+    gregorian_year_end: int,
+) -> list[date]:
+    """
+    Find all Gregorian dates matching the given lunar month/day within the year range.
+    
+    Args:
+        lunar_month: Tibetan lunar month (1-12)
+        lunar_day: Tibetan lunar day (1-30)
+        calendar_type: Phugpa or Tsurphu calendar
+        gregorian_year_start: Start of Gregorian year range (inclusive)
+        gregorian_year_end: End of Gregorian year range (inclusive)
+    
+    Returns:
+        List of Gregorian date objects matching the lunar date, sorted chronologically.
+        Omitted days are excluded.
+    """
+    matching_dates: list[date] = []
+    
+    for western_year in range(gregorian_year_start, gregorian_year_end + 1):
+        if western_year < MIN_CALENDAR_YEAR or western_year > MAX_CALENDAR_YEAR:
+            continue
+        
+        try:
+            year_data = load_calendar_year(western_year, calendar_type)
+        except FileNotFoundError:
+            continue
+        
+        for gregorian_key, day_data in year_data.items():
+            if day_data.get("gregorian_date") is None:
+                continue
+            
+            day_lunar_month = day_data.get("lunar_month")
+            if not day_lunar_month or day_lunar_month.get("month") != lunar_month:
+                continue
+            
+            if day_data.get("lunar_day") == lunar_day:
+                try:
+                    gregorian_date = datetime.strptime(
+                        day_data["gregorian_date"], "%Y-%m-%d"
+                    ).date()
+                    matching_dates.append(gregorian_date)
+                except (ValueError, KeyError):
+                    continue
+    
+    return sorted(matching_dates)

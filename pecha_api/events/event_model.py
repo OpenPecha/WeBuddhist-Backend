@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, UUID, ForeignKey, Index, Boolean
+from sqlalchemy import Column, String, DateTime, UUID, ForeignKey, Index, Boolean, Integer
 from sqlalchemy.orm import relationship
 from ..db.database import Base
 from uuid import uuid4
@@ -25,6 +25,14 @@ class Event(Base):
     end_date = Column(DateTime(timezone=True), nullable=False)
     image_url = Column(String(1000), nullable=True)
     featured = Column(Boolean, default=False, nullable=False)
+    
+    is_recurring = Column(Boolean, default=False, nullable=False)
+    recurrence_frequency = Column(String(20), nullable=True)
+    recurrence_date_system = Column(String(20), nullable=True)
+    recurrence_calendar_type = Column(String(10), nullable=True)
+    recurrence_month = Column(Integer, nullable=True)
+    recurrence_day = Column(Integer, nullable=True)
+    duration_days = Column(Integer, default=1, nullable=False)
 
     created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False)
     created_by = Column(String(255), nullable=False)

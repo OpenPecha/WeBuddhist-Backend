@@ -217,3 +217,40 @@ def get_featured_events(
         .all()
     )
     return events
+
+
+def get_recurring_events(
+    db: Session,
+    group_id: Optional[UUID] = None,
+    plan_id: Optional[UUID] = None,
+    accumulator_id: Optional[UUID] = None,
+    mantra_id: Optional[UUID] = None,
+    timer_id: Optional[UUID] = None,
+    group_recitation_collection_id: Optional[UUID] = None,
+    restrict_group_ids: Optional[List[UUID]] = None,
+) -> List[Event]:
+    """Get all recurring event templates matching the filters."""
+    query = db.query(Event).options(
+        selectinload(Event.metadata_entries),
+        selectinload(Event.links),
+        selectinload(Event.location),
+    ).filter(Event.is_recurring == True)
+    
+    if restrict_group_ids is not None:
+        query = query.filter(Event.group_id.in_(restrict_group_ids))
+    if group_id:
+        query = query.filter(Event.group_id == group_id)
+    if plan_id:
+        query = query.filter(Event.plan_id == plan_id)
+    if accumulator_id:
+        query = query.filter(Event.accumulator_id == accumulator_id)
+    if mantra_id:
+        query = query.filter(Event.mantra_id == mantra_id)
+    if timer_id:
+        query = query.filter(Event.timer_id == timer_id)
+    if group_recitation_collection_id:
+        query = query.filter(
+            Event.group_recitation_collection_id == group_recitation_collection_id
+        )
+    
+    return query.all()
