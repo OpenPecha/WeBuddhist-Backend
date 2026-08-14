@@ -258,10 +258,11 @@ def _get_author_group_feed(
         )
     
     # Add expanded recurring event occurrences to feed
-    # Use occurrence start_date for sorting to properly interleave with other content
+    # Use template created_at for sorting (like one-shot events) so future occurrences
+    # don't push down newly published content; occurrence date is still in the DTO
     for item in expanded_recurring:
         event = item['event']
-        feed_at = _as_aware_utc(item['start_date'])  # Use occurrence date, not created_at
+        feed_at = _as_aware_utc(event.created_at)  # Use created_at for fair sorting
         group_info = group_cards.get(event.group_id, {})
         # Temporarily override dates for DTO
         original_start = event.start_date
