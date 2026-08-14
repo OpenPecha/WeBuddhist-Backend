@@ -28,12 +28,15 @@ from pecha_api.plans.groups.groups_response_models import (
     UpdateGroupMemberRoleRequest,
 )
 from pecha_api.plans.series.series_response_models import SeriesPartnerDTO
+from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
 from pecha_api.plans.groups.groups_service import (
     GROUP_NOT_FOUND,
     _as_aware_utc,
     _assert_metadata_valid,
+    _restricted_ids_for_timezone,
     _generate_group_asset_url,
     _get_member_or_403,
+    _group_card_title,
     _group_to_detail,
     _is_series_enrolled_for_group_context,
     _series_to_dtos,
@@ -3570,3 +3573,191 @@ def test_get_group_practices_feed_pagination():
     assert result.total == 2
     assert len(result.practices) == 1
     assert result.practices[0].accumulator.id == older.id
+
+
+def test_restricted_ids_for_timezone_returns_none_outside_china_timezone():
+    with patch(
+        "pecha_api.plans.groups.groups_service.is_china_timezone", return_value=False
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_restricted_item_ids"
+    ) as mock_get_restricted_ids:
+        result = _restricted_ids_for_timezone(RestrictedItemType.SERIES, "America/New_York")
+
+    assert result is None
+    mock_get_restricted_ids.assert_not_called()
+
+
+def test_restricted_ids_for_timezone_returns_none_when_no_restricted_items():
+    with patch(
+        "pecha_api.plans.groups.groups_service.is_china_timezone", return_value=True
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_restricted_item_ids",
+        return_value=frozenset(),
+    ):
+        result = _restricted_ids_for_timezone(RestrictedItemType.SERIES, "Asia/Shanghai")
+
+    assert result is None
+
+
+def test_restricted_ids_for_timezone_returns_list_when_china_timezone_has_restrictions():
+    restricted_id = uuid4()
+    with patch(
+        "pecha_api.plans.groups.groups_service.is_china_timezone", return_value=True
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_restricted_item_ids",
+        return_value=frozenset({restricted_id}),
+    ) as mock_get_restricted_ids:
+        result = _restricted_ids_for_timezone(RestrictedItemType.GROUP_ACCUMULATOR, "Asia/Shanghai")
+
+    assert result == [restricted_id]
+    mock_get_restricted_ids.assert_called_once_with(RestrictedItemType.GROUP_ACCUMULATOR)
+
+
+def test_get_group_practices_feed_passes_restricted_ids_to_source_queries():
+    """When the caller is in a China timezone, each source query must receive
+    the restricted-id set to exclude at the query layer, so a fixed fetch
+    window never omits eligible items that fall past a restricted one."""
+    group = _make_group()
+    user = _make_feed_user()
+    restricted_series_id = uuid4()
+    restricted_plan_id = uuid4()
+    restricted_accumulator_id = uuid4()
+    restricted_collection_id = uuid4()
+
+    def _restricted_ids(item_type):
+        return {
+            RestrictedItemType.SERIES: frozenset({restricted_series_id}),
+            RestrictedItemType.PLAN: frozenset({restricted_plan_id}),
+            RestrictedItemType.GROUP_ACCUMULATOR: frozenset({restricted_accumulator_id}),
+            RestrictedItemType.GROUP_RECITATION_COLLECTION: frozenset({restricted_collection_id}),
+        }[item_type]
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([group.id], {group.id}),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.filter_items_for_timezone",
+        side_effect=lambda items, **_: list(items),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_china_timezone", return_value=True
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_restricted_item_ids",
+        side_effect=_restricted_ids,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+        return_value=([], 0),
+    ) as mock_series, patch(
+        "pecha_api.plans.groups.groups_service.get_standalone_plans_for_group_ids",
+        return_value=([], 0),
+    ) as mock_plans, patch(
+        "pecha_api.plans.groups.groups_service.get_plans_with_aggregates_by_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_for_group_ids",
+        return_value=([], 0),
+    ) as mock_accumulators, patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collections_for_group_ids_with_total",
+        return_value=([], 0),
+    ) as mock_collections, patch(
+        "pecha_api.plans.groups.groups_service.get_collection_item_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_by_ids",
+        return_value=[],
+    ):
+        _session_local_context(mock_session)
+        get_group_practices_feed(
+            token="valid-token", timezone_name="Asia/Shanghai"
+        )
+
+    assert mock_series.call_args.kwargs["exclude_ids"] == [restricted_series_id]
+    assert mock_plans.call_args.kwargs["exclude_ids"] == [restricted_plan_id]
+    assert mock_accumulators.call_args.kwargs["exclude_ids"] == [restricted_accumulator_id]
+    assert mock_collections.call_args.kwargs["exclude_ids"] == [restricted_collection_id]
+
+
+def test_get_group_practices_feed_no_exclude_ids_outside_china_timezone():
+    group = _make_group()
+    user = _make_feed_user()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([group.id], {group.id}),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+        return_value=([], 0),
+    ) as mock_series, patch(
+        "pecha_api.plans.groups.groups_service.get_standalone_plans_for_group_ids",
+        return_value=([], 0),
+    ) as mock_plans, patch(
+        "pecha_api.plans.groups.groups_service.get_plans_with_aggregates_by_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_for_group_ids",
+        return_value=([], 0),
+    ) as mock_accumulators, patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collections_for_group_ids_with_total",
+        return_value=([], 0),
+    ) as mock_collections, patch(
+        "pecha_api.plans.groups.groups_service.get_collection_item_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_by_ids",
+        return_value=[],
+    ):
+        _session_local_context(mock_session)
+        get_group_practices_feed(token="valid-token")
+
+    assert mock_series.call_args.kwargs["exclude_ids"] is None
+    assert mock_plans.call_args.kwargs["exclude_ids"] is None
+    assert mock_accumulators.call_args.kwargs["exclude_ids"] is None
+    assert mock_collections.call_args.kwargs["exclude_ids"] is None
+
+
+def _make_metadata_entry(language, title):
+    entry = MagicMock()
+    entry.language = language
+    entry.title = title
+    return entry
+
+
+def test_group_card_title_falls_back_to_slug_without_metadata():
+    group = _make_group(slug="no-metadata-group")
+    group.metadata_entries = []
+
+    assert _group_card_title(group) == "no-metadata-group"
+
+
+def test_group_card_title_returns_entry_matching_requested_language():
+    group = _make_group()
+    group.metadata_entries = [
+        _make_metadata_entry("EN", "English Title"),
+        _make_metadata_entry("BO", "Tibetan Title"),
+    ]
+
+    assert _group_card_title(group, language="BO") == "Tibetan Title"
+
+
+def test_group_card_title_falls_back_to_first_entry_when_no_language_matches():
+    group = _make_group()
+    group.metadata_entries = [_make_metadata_entry("FR", "French Title")]
+
+    assert _group_card_title(group, language="BO") == "French Title"
