@@ -157,18 +157,30 @@ def expand_occurrences(
     calendar_type = event.recurrence_calendar_type
     duration = event.duration_days
     
+    # Expand search window backwards to capture multi-day occurrences that
+    # started before from_date but are still active within the window
+    search_from = from_date - timedelta(days=duration - 1) if duration > 1 else from_date
+    
     if frequency == RecurrenceFrequency.YEARLY.value:
         if date_system == RecurrenceDateSystem.GREGORIAN.value:
-            occurrence_dates = _resolve_gregorian_yearly(month, day, from_date, to_date)
+            occurrence_dates = _resolve_gregorian_yearly(month, day, search_from, to_date)
         else:
-            occurrence_dates = _resolve_lunar_yearly(month, day, calendar_type, from_date, to_date)
+            occurrence_dates = _resolve_lunar_yearly(month, day, calendar_type, search_from, to_date)
     else:
         if date_system == RecurrenceDateSystem.GREGORIAN.value:
-            occurrence_dates = _resolve_gregorian_monthly(day, from_date, to_date)
+            occurrence_dates = _resolve_gregorian_monthly(day, search_from, to_date)
         else:
-            occurrence_dates = _resolve_lunar_monthly(day, calendar_type, from_date, to_date)
+            occurrence_dates = _resolve_lunar_monthly(day, calendar_type, search_from, to_date)
     
-    return [(d, d + timedelta(days=duration - 1)) for d in occurrence_dates]
+    # Build (start, end) tuples and filter to those overlapping the requested window
+    results = []
+    for d in occurrence_dates:
+        end_d = d + timedelta(days=duration - 1)
+        # Include if occurrence overlaps with [from_date, to_date]
+        if end_d >= from_date and d <= to_date:
+            results.append((d, end_d))
+    
+    return results
 
 
 def compute_initial_dates(recurrence: RecurrenceInput) -> tuple[datetime, datetime]:
