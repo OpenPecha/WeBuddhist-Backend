@@ -152,8 +152,12 @@ from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.users.users_repository import get_users_by_ids
 from pecha_api.users.users_models import Users
+from pecha_api.region_restrictions.china_timezone import is_china_timezone
 from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
-from pecha_api.region_restrictions.region_restriction_service import filter_items_for_timezone
+from pecha_api.region_restrictions.region_restriction_service import (
+    filter_items_for_timezone,
+    get_restricted_item_ids,
+)
 
 GROUP_NOT_FOUND = "Group not found"
 INVITE_NOT_FOUND = "Invite not found"
@@ -829,6 +833,18 @@ def _as_aware_utc(value: datetime) -> datetime:
     return value
 
 
+def _restricted_ids_for_timezone(
+    item_type: RestrictedItemType,
+    timezone_name: Optional[str],
+) -> Optional[List[UUID]]:
+    """IDs to exclude at the query layer so restricted items never occupy a
+    fetch-window slot ahead of eligible ones. None means no exclusion needed."""
+    if not is_china_timezone(timezone_name):
+        return None
+    restricted_ids = get_restricted_item_ids(item_type)
+    return list(restricted_ids) if restricted_ids else None
+
+
 async def get_group_practices(
     group_id: UUID,
     skip: int = 0,
@@ -967,52 +983,40 @@ def get_group_practices_feed(
                 include_unfollowed=should_include_unfollowed,
             )
 
-        # Over-fetch relative to the requested page so that timezone filtering
-        # (applied after the DB query) doesn't leave the page short of eligible
-        # items that were truncated by a skip+limit-sized query.
-        series_list, _ = get_series_for_group_ids(
-            db=db, group_ids=scope_group_ids, limit=_PRACTICES_FETCH_LIMIT
-        )
-        series_list = filter_items_for_timezone(
-            series_list,
-            timezone_name=timezone_name,
-            item_type=RestrictedItemType.SERIES,
-            id_of=lambda series: series.id,
-        )
-        series_total = len(series_list)
+        # Restricted items are excluded at the query layer (not after fetching)
+        # so a skip+limit-sized fetch window never omits eligible older items,
+        # and the reported total reflects only eligible rows, at any depth.
+        fetch_limit = skip + limit
 
-        plans_list, _ = get_standalone_plans_for_group_ids(
-            db=db, group_ids=scope_group_ids, limit=_PRACTICES_FETCH_LIMIT
+        series_list, series_total = get_series_for_group_ids(
+            db=db,
+            group_ids=scope_group_ids,
+            limit=fetch_limit,
+            exclude_ids=_restricted_ids_for_timezone(RestrictedItemType.SERIES, timezone_name),
         )
-        plans_list = filter_items_for_timezone(
-            plans_list,
-            timezone_name=timezone_name,
-            item_type=RestrictedItemType.PLAN,
-            id_of=lambda plan: plan.id,
-        )
-        plans_total = len(plans_list)
 
-        accumulators, _ = get_group_accumulators_for_group_ids(
-            db=db, group_ids=scope_group_ids, limit=_PRACTICES_FETCH_LIMIT
+        plans_list, plans_total = get_standalone_plans_for_group_ids(
+            db=db,
+            group_ids=scope_group_ids,
+            limit=fetch_limit,
+            exclude_ids=_restricted_ids_for_timezone(RestrictedItemType.PLAN, timezone_name),
         )
-        accumulators = filter_items_for_timezone(
-            accumulators,
-            timezone_name=timezone_name,
-            item_type=RestrictedItemType.GROUP_ACCUMULATOR,
-            id_of=lambda accumulator: accumulator.id,
-        )
-        accumulators_total = len(accumulators)
 
-        collections, _ = get_collections_for_group_ids_with_total(
-            db=db, group_ids=scope_group_ids, limit=_PRACTICES_FETCH_LIMIT
+        accumulators, accumulators_total = get_group_accumulators_for_group_ids(
+            db=db,
+            group_ids=scope_group_ids,
+            limit=fetch_limit,
+            exclude_ids=_restricted_ids_for_timezone(RestrictedItemType.GROUP_ACCUMULATOR, timezone_name),
         )
-        collections = filter_items_for_timezone(
-            collections,
-            timezone_name=timezone_name,
-            item_type=RestrictedItemType.GROUP_RECITATION_COLLECTION,
-            id_of=lambda collection: collection.id,
+
+        collections, collections_total = get_collections_for_group_ids_with_total(
+            db=db,
+            group_ids=scope_group_ids,
+            limit=fetch_limit,
+            exclude_ids=_restricted_ids_for_timezone(
+                RestrictedItemType.GROUP_RECITATION_COLLECTION, timezone_name
+            ),
         )
-        collections_total = len(collections)
         collection_item_counts = get_collection_item_counts(
             db=db, collection_ids=[collection.id for collection in collections]
         )

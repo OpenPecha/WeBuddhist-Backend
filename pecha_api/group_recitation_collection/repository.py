@@ -55,6 +55,7 @@ def get_collections_for_group_ids_with_total(
     db: Session,
     group_ids: List[UUID],
     limit: int,
+    exclude_ids: Optional[List[UUID]] = None,
 ) -> Tuple[List[GroupRecitationCollection], int]:
     """Get non-deleted collections for the given groups, newest first, with total count."""
     if not group_ids:
@@ -64,6 +65,8 @@ def get_collections_for_group_ids_with_total(
         GroupRecitationCollection.group_id.in_(group_ids),
         GroupRecitationCollection.deleted_at.is_(None),
     )
+    if exclude_ids:
+        query = query.filter(GroupRecitationCollection.id.not_in(exclude_ids))
     total = query.count()
     collections = query.order_by(
         GroupRecitationCollection.created_at.desc(), GroupRecitationCollection.id.desc()

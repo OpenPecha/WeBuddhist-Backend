@@ -90,6 +90,7 @@ def get_standalone_plans_for_group_ids(
     db: Session,
     group_ids: Sequence[UUID],
     limit: int,
+    exclude_ids: Optional[Sequence[UUID]] = None,
 ) -> Tuple[List[Plan], int]:
     """Published plans that are not part of a series, across the given groups."""
     if not group_ids:
@@ -100,6 +101,8 @@ def get_standalone_plans_for_group_ids(
         Plan.series_id.is_(None),
         Plan.status == PlanStatus.PUBLISHED,
     )
+    if exclude_ids:
+        query = query.filter(Plan.id.not_in(exclude_ids))
     total = query.count()
     plans = query.order_by(Plan.created_at.desc(), Plan.id.desc()).limit(limit).all()
     return plans, total
@@ -231,6 +234,7 @@ def get_series_for_group_ids(
     db: Session,
     group_ids: Sequence[UUID],
     limit: int,
+    exclude_ids: Optional[Sequence[UUID]] = None,
 ) -> Tuple[List[Series], int]:
     """Published series owned by the given groups, newest first."""
     if not group_ids:
@@ -240,6 +244,8 @@ def get_series_for_group_ids(
         Series.deleted_at.is_(None),
         Series.status == PlanStatus.PUBLISHED,
     )
+    if exclude_ids:
+        query = query.filter(Series.id.not_in(exclude_ids))
     total = query.count()
     series_list = query.order_by(Series.created_at.desc(), Series.id.desc()).limit(limit).all()
     return series_list, total

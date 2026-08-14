@@ -69,6 +69,7 @@ def get_group_accumulators_for_group_ids(
     db: Session,
     group_ids: List[UUID],
     limit: int,
+    exclude_ids: Optional[List[UUID]] = None,
 ) -> Tuple[List[GroupAccumulator], int]:
     """Active group accumulators across the given groups, newest first."""
     if not group_ids:
@@ -81,6 +82,8 @@ def get_group_accumulators_for_group_ids(
             GroupAccumulator.deleted_at.is_(None),
         )
     )
+    if exclude_ids:
+        query = query.filter(GroupAccumulator.id.not_in(exclude_ids))
     total = query.count()
     accumulators = query.order_by(GroupAccumulator.created_at.desc(), GroupAccumulator.id.desc()).limit(limit).all()
     return accumulators, total
