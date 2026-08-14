@@ -65,7 +65,9 @@ def get_collections_for_group_ids_with_total(
         GroupRecitationCollection.deleted_at.is_(None),
     )
     total = query.count()
-    collections = query.order_by(GroupRecitationCollection.created_at.desc()).limit(limit).all()
+    collections = query.order_by(
+        GroupRecitationCollection.created_at.desc(), GroupRecitationCollection.id.desc()
+    ).limit(limit).all()
     return collections, total
 
 

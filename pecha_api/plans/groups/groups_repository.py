@@ -101,7 +101,7 @@ def get_standalone_plans_for_group_ids(
         Plan.status == PlanStatus.PUBLISHED,
     )
     total = query.count()
-    plans = query.order_by(Plan.created_at.desc()).limit(limit).all()
+    plans = query.order_by(Plan.created_at.desc(), Plan.id.desc()).limit(limit).all()
     return plans, total
 
 
@@ -241,7 +241,7 @@ def get_series_for_group_ids(
         Series.status == PlanStatus.PUBLISHED,
     )
     total = query.count()
-    series_list = query.order_by(Series.created_at.desc()).limit(limit).all()
+    series_list = query.order_by(Series.created_at.desc(), Series.id.desc()).limit(limit).all()
     return series_list, total
 
 

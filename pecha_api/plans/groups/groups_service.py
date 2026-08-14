@@ -860,7 +860,11 @@ async def get_group_practices(
             user_id=user_id,
         )
         series_cards = [
-            (_as_aware_utc(series.created_at), GroupPracticeCardDTO(type=GroupPracticeType.SERIES, series=dto))
+            (
+                _as_aware_utc(series.created_at),
+                str(series.id),
+                GroupPracticeCardDTO(type=GroupPracticeType.SERIES, series=dto),
+            )
             for series, dto in zip(group_series, series_dtos)
         ]
 
@@ -872,7 +876,11 @@ async def get_group_practices(
         timezone_name=timezone_name,
     )
     accumulator_cards = [
-        (_as_aware_utc(acc.created_at), GroupPracticeCardDTO(type=GroupPracticeType.ACCUMULATOR, accumulator=acc))
+        (
+            _as_aware_utc(acc.created_at),
+            str(acc.id),
+            GroupPracticeCardDTO(type=GroupPracticeType.ACCUMULATOR, accumulator=acc),
+        )
         for acc in accumulators_response.accumulators
     ]
 
@@ -885,15 +893,16 @@ async def get_group_practices(
     collection_cards = [
         (
             _as_aware_utc(datetime.fromisoformat(collection.created_at)),
+            str(collection.id),
             GroupPracticeCardDTO(type=GroupPracticeType.COLLECTION, collection=collection),
         )
         for collection in collections_response.collections
     ]
 
     all_cards = series_cards + accumulator_cards + collection_cards
-    all_cards.sort(key=lambda entry: entry[0], reverse=True)
+    all_cards.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
     total = len(all_cards)
-    page_cards = [card for _, card in all_cards[skip:skip + limit]]
+    page_cards = [card for _, _, card in all_cards[skip:skip + limit]]
 
     return GroupPracticesResponse(
         practices=page_cards,
@@ -958,11 +967,11 @@ def get_group_practices_feed(
                 include_unfollowed=should_include_unfollowed,
             )
 
-        # Fetch enough of each type to fill the requested page after merge.
-        fetch_limit = skip + limit
-
-        series_list, series_total = get_series_for_group_ids(
-            db=db, group_ids=scope_group_ids, limit=fetch_limit
+        # Over-fetch relative to the requested page so that timezone filtering
+        # (applied after the DB query) doesn't leave the page short of eligible
+        # items that were truncated by a skip+limit-sized query.
+        series_list, _ = get_series_for_group_ids(
+            db=db, group_ids=scope_group_ids, limit=_PRACTICES_FETCH_LIMIT
         )
         series_list = filter_items_for_timezone(
             series_list,
@@ -970,9 +979,10 @@ def get_group_practices_feed(
             item_type=RestrictedItemType.SERIES,
             id_of=lambda series: series.id,
         )
+        series_total = len(series_list)
 
-        plans_list, plans_total = get_standalone_plans_for_group_ids(
-            db=db, group_ids=scope_group_ids, limit=fetch_limit
+        plans_list, _ = get_standalone_plans_for_group_ids(
+            db=db, group_ids=scope_group_ids, limit=_PRACTICES_FETCH_LIMIT
         )
         plans_list = filter_items_for_timezone(
             plans_list,
@@ -980,9 +990,10 @@ def get_group_practices_feed(
             item_type=RestrictedItemType.PLAN,
             id_of=lambda plan: plan.id,
         )
+        plans_total = len(plans_list)
 
-        accumulators, accumulators_total = get_group_accumulators_for_group_ids(
-            db=db, group_ids=scope_group_ids, limit=fetch_limit
+        accumulators, _ = get_group_accumulators_for_group_ids(
+            db=db, group_ids=scope_group_ids, limit=_PRACTICES_FETCH_LIMIT
         )
         accumulators = filter_items_for_timezone(
             accumulators,
@@ -990,9 +1001,10 @@ def get_group_practices_feed(
             item_type=RestrictedItemType.GROUP_ACCUMULATOR,
             id_of=lambda accumulator: accumulator.id,
         )
+        accumulators_total = len(accumulators)
 
-        collections, collections_total = get_collections_for_group_ids_with_total(
-            db=db, group_ids=scope_group_ids, limit=fetch_limit
+        collections, _ = get_collections_for_group_ids_with_total(
+            db=db, group_ids=scope_group_ids, limit=_PRACTICES_FETCH_LIMIT
         )
         collections = filter_items_for_timezone(
             collections,
@@ -1000,6 +1012,7 @@ def get_group_practices_feed(
             item_type=RestrictedItemType.GROUP_RECITATION_COLLECTION,
             id_of=lambda collection: collection.id,
         )
+        collections_total = len(collections)
         collection_item_counts = get_collection_item_counts(
             db=db, collection_ids=[collection.id for collection in collections]
         )
@@ -1065,6 +1078,7 @@ def get_group_practices_feed(
         }
 
         def _feed_item(
+            item_id,
             item_group_id: UUID,
             created_at: datetime,
             practice_type: GroupPracticeType,
@@ -1074,6 +1088,7 @@ def get_group_practices_feed(
             practice_at = _as_aware_utc(created_at)
             return (
                 practice_at,
+                str(item_id),
                 GroupPracticeFeedItemDTO(
                     type=practice_type,
                     practice_at=practice_at,
@@ -1087,11 +1102,12 @@ def get_group_practices_feed(
             )
 
         cards = [
-            _feed_item(series.group_id, series.created_at, GroupPracticeType.SERIES, series=dto)
+            _feed_item(series.id, series.group_id, series.created_at, GroupPracticeType.SERIES, series=dto)
             for series, dto in series_pairs
         ]
         cards.extend(
             _feed_item(
+                plan.id,
                 plan.group_id,
                 plan.created_at,
                 GroupPracticeType.PLAN,
@@ -1102,6 +1118,7 @@ def get_group_practices_feed(
         )
         cards.extend(
             _feed_item(
+                accumulator.id,
                 accumulator.group_id,
                 accumulator.created_at,
                 GroupPracticeType.ACCUMULATOR,
@@ -1115,6 +1132,7 @@ def get_group_practices_feed(
         )
         cards.extend(
             _feed_item(
+                collection.id,
                 collection.group_id,
                 collection.created_at,
                 GroupPracticeType.COLLECTION,
@@ -1123,9 +1141,9 @@ def get_group_practices_feed(
             for collection, dto in zip(collections, collection_dtos)
         )
 
-        cards.sort(key=lambda entry: entry[0], reverse=True)
+        cards.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
         total = series_total + plans_total + accumulators_total + collections_total
-        page_cards = [card for _, card in cards[skip:skip + limit]]
+        page_cards = [card for _, _, card in cards[skip:skip + limit]]
 
     return GroupPracticesFeedResponse(
         practices=page_cards,

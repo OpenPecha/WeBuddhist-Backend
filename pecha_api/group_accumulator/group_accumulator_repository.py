@@ -82,7 +82,7 @@ def get_group_accumulators_for_group_ids(
         )
     )
     total = query.count()
-    accumulators = query.order_by(GroupAccumulator.created_at.desc()).limit(limit).all()
+    accumulators = query.order_by(GroupAccumulator.created_at.desc(), GroupAccumulator.id.desc()).limit(limit).all()
     return accumulators, total
 
 
