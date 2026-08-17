@@ -1,4 +1,4 @@
-from datetime import datetime, timezone as tz
+from datetime import datetime, timedelta, timezone as tz
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -223,6 +223,145 @@ class TestGetAuthorGroupFeedService:
 
         _, post_kwargs = mock_get_posts.call_args
         assert set(post_kwargs["group_ids"]) == {joined_id, other_id}
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.author_group_feed.service.get_joined_event_ids_by_user")
+    @patch("pecha_api.author_group_feed.service.get_event_participant_counts")
+    @patch("pecha_api.author_group_feed.service._event_to_dto")
+    @patch("pecha_api.author_group_feed.service.build_post_dtos")
+    @patch("pecha_api.author_group_feed.service.resolve_current_or_next_occurrence")
+    @patch("pecha_api.author_group_feed.service.get_recurring_events")
+    @patch("pecha_api.author_group_feed.service.get_events")
+    @patch("pecha_api.author_group_feed.service.get_posts_for_group_ids")
+    @patch("pecha_api.author_group_feed.service.get_groups_by_ids")
+    @patch("pecha_api.author_group_feed.service.get_joined_group_ids_by_user")
+    @patch("pecha_api.author_group_feed.service.validate_and_extract_user_details")
+    async def test_recurring_occurrences_ranked_by_proximity_and_active_start_date(
+        self,
+        mock_validate,
+        mock_joined_group_ids,
+        mock_groups_by_ids,
+        mock_get_posts,
+        mock_get_events,
+        mock_get_recurring,
+        mock_resolve,
+        mock_build_posts,
+        mock_event_dto,
+        mock_counts,
+        mock_joined,
+    ):
+        """A not-yet-started recurring occurrence should rank by how soon it
+        happens (not by the template's created_at), and an active occurrence
+        should rank by its own start_date rather than 'now'."""
+        user = MockUser()
+        joined_id = uuid4()
+        mock_db = MagicMock()
+        mock_validate.return_value = user
+        mock_joined_group_ids.return_value = [joined_id]
+        mock_groups_by_ids.side_effect = [
+            [MockGroup(joined_id)],
+            [MockGroup(joined_id)],
+        ]
+
+        now = datetime.now(tz.utc)
+
+        recent_one_shot = MockEvent(joined_id, created_at=now - timedelta(days=1))
+        old_one_shot = MockEvent(joined_id, created_at=now - timedelta(days=400))
+        soon_template = MockEvent(joined_id, created_at=now)
+        active_template = MockEvent(joined_id, created_at=now - timedelta(days=300))
+
+        mock_get_posts.return_value = ([], 0)
+        mock_build_posts.return_value = []
+        mock_get_events.return_value = ([recent_one_shot, old_one_shot], 2)
+        mock_get_recurring.return_value = [soon_template, active_template]
+        mock_counts.return_value = {}
+        mock_joined.return_value = []
+
+        def _resolve(template, after):
+            if template is soon_template:
+                start = (now + timedelta(days=10)).date()
+                return (start, start, False)
+            if template is active_template:
+                start = (now - timedelta(days=3)).date()
+                return (start, start, True)
+            return None
+
+        mock_resolve.side_effect = _resolve
+
+        dto_by_id = {
+            recent_one_shot.id: EventDTO(
+                id=recent_one_shot.id,
+                group_id=joined_id,
+                start_date=recent_one_shot.start_date,
+                end_date=recent_one_shot.end_date,
+                is_one_day=True,
+                featured=False,
+                metadata=None,
+                links=[],
+                participant_count=0,
+                is_joined=False,
+                created_at=recent_one_shot.created_at,
+                created_by=recent_one_shot.created_by,
+            ),
+            old_one_shot.id: EventDTO(
+                id=old_one_shot.id,
+                group_id=joined_id,
+                start_date=old_one_shot.start_date,
+                end_date=old_one_shot.end_date,
+                is_one_day=True,
+                featured=False,
+                metadata=None,
+                links=[],
+                participant_count=0,
+                is_joined=False,
+                created_at=old_one_shot.created_at,
+                created_by=old_one_shot.created_by,
+            ),
+            soon_template.id: EventDTO(
+                id=soon_template.id,
+                group_id=joined_id,
+                start_date=soon_template.start_date,
+                end_date=soon_template.end_date,
+                is_one_day=True,
+                featured=False,
+                metadata=None,
+                links=[],
+                participant_count=0,
+                is_joined=False,
+                created_at=soon_template.created_at,
+                created_by=soon_template.created_by,
+            ),
+            active_template.id: EventDTO(
+                id=active_template.id,
+                group_id=joined_id,
+                start_date=active_template.start_date,
+                end_date=active_template.end_date,
+                is_one_day=True,
+                featured=False,
+                metadata=None,
+                links=[],
+                participant_count=0,
+                is_joined=False,
+                created_at=active_template.created_at,
+                created_by=active_template.created_by,
+            ),
+        }
+        mock_event_dto.side_effect = lambda event, **kwargs: dto_by_id[event.id]
+
+        result = await get_author_group_feed_service(
+            db=mock_db,
+            token="token",
+            should_include_unfollowed=False,
+            skip=0,
+            limit=20,
+        )
+
+        assert [item.event.id for item in result.items] == [
+            recent_one_shot.id,
+            active_template.id,
+            soon_template.id,
+            old_one_shot.id,
+        ]
 
     @patch("pecha_api.author_group_feed.service.get_posts_for_group_ids")
     @patch("pecha_api.author_group_feed.service.get_groups_by_ids")

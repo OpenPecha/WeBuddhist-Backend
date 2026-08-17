@@ -37,6 +37,9 @@ def _event(group_id=None):
     event.created_at = now
     event.created_by = "author@example.com"
     event.updated_at = None
+    event.is_recurring = False
+    event.featured = False
+    event.links = []
     return event
 
 

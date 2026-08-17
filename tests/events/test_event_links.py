@@ -179,6 +179,7 @@ def _saved_event_stub() -> SimpleNamespace:
         end_date=now,
         image_url=None,
         featured=False,
+        is_recurring=False,
         metadata_entries=[],
         links=[],
         created_at=now,

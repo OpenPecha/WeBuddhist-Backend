@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -35,6 +35,7 @@ def _saved_event_stub(group_id=None, collection_id=None) -> SimpleNamespace:
         end_date=now,
         image_url=None,
         featured=False,
+        is_recurring=False,
         metadata_entries=[],
         links=[],
         created_at=now,
@@ -242,10 +243,17 @@ def test_update_event_with_other_group_collection_rejected() -> None:
 
 def test_get_events_service_forwards_collection_filter_to_repository() -> None:
     collection_id = uuid4()
+    mock_db = MagicMock()
     with patch(
+        "pecha_api.events.event_service.SessionLocal",
+        return_value=mock_db,
+    ), patch(
         "pecha_api.events.event_service.get_events",
         return_value=([], 0),
-    ) as mock_get_events:
+    ) as mock_get_events, patch(
+        "pecha_api.events.event_service.get_recurring_events",
+        return_value=[],
+    ):
         get_events_service(group_recitation_collection_id=collection_id)
 
     _, _, kwargs = mock_get_events.mock_calls[0]
