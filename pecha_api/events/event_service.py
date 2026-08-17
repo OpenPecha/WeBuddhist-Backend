@@ -717,13 +717,18 @@ def get_featured_events_service(
                 })
         
         # Merge one-shot events and next occurrences of recurring templates
+        # Use created_at for sorting so recurring templates with future occurrences
+        # don't displace one-shot events from the limited featured response.
         all_event_items = [
-            {'event': e, 'start_date': e.start_date, 'end_date': e.end_date, 'occurrence_date': None}
+            {'event': e, 'start_date': e.start_date, 'end_date': e.end_date, 'occurrence_date': None, 'sort_date': e.created_at}
             for e in one_shot_events
-        ] + expanded_occurrences
+        ] + [
+            {**item, 'sort_date': item['event'].created_at}
+            for item in expanded_occurrences
+        ]
         
-        # Sort by start_date descending (most recent first)
-        all_event_items.sort(key=lambda x: x['start_date'], reverse=True)
+        # Sort by created_at descending (most recently created first)
+        all_event_items.sort(key=lambda x: x['sort_date'] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
         
         # Apply limit
         paginated_items = all_event_items[:limit]
