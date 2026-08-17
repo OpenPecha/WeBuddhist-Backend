@@ -2,6 +2,7 @@ import io
 import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,7 +10,11 @@ from fastapi import HTTPException, UploadFile
 from pymongo.errors import DuplicateKeyError
 from starlette import status
 
-from pecha_api.texts.text_audio_models import TextAudioOtrResponse, TextAudioResponse
+from pecha_api.texts.text_audio_models import (
+    TextAudioOtrResponse,
+    TextAudioResponse,
+    UpdateTextAudioNameRequest,
+)
 from pecha_api.texts.text_audio_service import (
     INVALID_OTR_DETAIL,
     delete_text_audio,
@@ -21,6 +26,7 @@ from pecha_api.texts.text_audio_service import (
     get_text_audios,
     parse_otr_content,
     to_text_audio_response,
+    update_text_audio_name,
     upload_text_audio,
     upload_text_audio_otr,
     validate_otr_file,
@@ -121,12 +127,19 @@ def text_audio_otr_model():
     return StubTextAudioOtr
 
 
-def _existing_audio(model, audio_key: str = EXISTING_AUDIO_KEY, pending_cleanup_keys=None, text_id: str = TEXT_ID):
+def _existing_audio(
+    model,
+    audio_key: str = EXISTING_AUDIO_KEY,
+    pending_cleanup_keys=None,
+    text_id: str = TEXT_ID,
+    name: Optional[str] = None,
+):
     return model(
         text_id=text_id,
         text_title=TEXT_TITLE,
         audio_key=audio_key,
         file_name="old.mp3",
+        name=name,
         mime_type="audio/mpeg",
         file_size_bytes=1024,
         duration_ms=60000,
@@ -261,7 +274,7 @@ class TestParseOtrContent:
 
 class TestToTextAudioResponse:
     def test_document_is_mapped_with_a_presigned_url(self, audio_env):
-        audio = _existing_audio(audio_env.model)
+        audio = _existing_audio(audio_env.model, name="Morning session")
 
         response = to_text_audio_response(audio)
 
@@ -271,6 +284,7 @@ class TestToTextAudioResponse:
         assert response.text_title == TEXT_TITLE
         assert response.audio_key == EXISTING_AUDIO_KEY
         assert response.audio_url == f"https://cdn.test/{EXISTING_AUDIO_KEY}"
+        assert response.name == "Morning session"
         assert response.file_name == "old.mp3"
         assert response.mime_type == "audio/mpeg"
         assert response.file_size_bytes == 1024
@@ -279,6 +293,15 @@ class TestToTextAudioResponse:
             bucket_name=BUCKET_NAME,
             s3_key=EXISTING_AUDIO_KEY,
         )
+
+    def test_missing_name_falls_back_to_file_name(self, audio_env):
+        """Documents written before the name field existed have name=None;
+        the response must still surface a usable display name."""
+        audio = _existing_audio(audio_env.model, name=None)
+
+        response = to_text_audio_response(audio)
+
+        assert response.name == "old.mp3"
 
 
 class TestGetRequiredText:
@@ -396,6 +419,7 @@ class TestUploadTextAudio:
         assert response.id == AUDIO_ID
         assert response.audio_key == NEW_AUDIO_KEY
         assert response.text_title == TEXT_TITLE
+        assert response.name == "chant.mp3"
         assert response.file_name == "chant.mp3"
         assert response.mime_type == "audio/mpeg"
         assert response.file_size_bytes == file.size
@@ -461,6 +485,85 @@ class TestUploadTextAudio:
 
         assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
         audio_env.upload.assert_not_called()
+
+
+class TestUpdateTextAudioName:
+    @pytest.mark.asyncio
+    async def test_name_is_updated_and_saved(self, audio_env):
+        existing = _existing_audio(audio_env.model, name="old name")
+        audio_env.model.get.return_value = existing
+
+        response = await update_text_audio_name(
+            token=VALID_TOKEN,
+            text_id=TEXT_ID,
+            audio_id=AUDIO_ID,
+            request=UpdateTextAudioNameRequest(name="new name"),
+        )
+
+        assert response.name == "new name"
+        assert existing.name == "new name"
+        existing.save.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_surrounding_whitespace_is_trimmed(self, audio_env):
+        existing = _existing_audio(audio_env.model, name="old name")
+        audio_env.model.get.return_value = existing
+
+        response = await update_text_audio_name(
+            token=VALID_TOKEN,
+            text_id=TEXT_ID,
+            audio_id=AUDIO_ID,
+            request=UpdateTextAudioNameRequest(name="  morning session  "),
+        )
+
+        assert response.name == "morning session"
+
+    def test_blank_name_is_rejected_by_the_request_model(self):
+        with pytest.raises(ValueError, match="Audio name is required"):
+            UpdateTextAudioNameRequest(name="   ")
+
+    @pytest.mark.asyncio
+    async def test_unknown_audio_raises_not_found(self, audio_env):
+        with pytest.raises(HTTPException) as exc:
+            await update_text_audio_name(
+                token=VALID_TOKEN,
+                text_id=TEXT_ID,
+                audio_id=AUDIO_ID,
+                request=UpdateTextAudioNameRequest(name="new name"),
+            )
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_missing_text_raises_not_found(self, audio_env):
+        audio_env.get_text.return_value = None
+
+        with pytest.raises(HTTPException) as exc:
+            await update_text_audio_name(
+                token=VALID_TOKEN,
+                text_id=TEXT_ID,
+                audio_id=AUDIO_ID,
+                request=UpdateTextAudioNameRequest(name="new name"),
+            )
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_author_validation_failure_is_propagated(self, audio_env):
+        audio_env.validate_author.side_effect = HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Author is not active",
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await update_text_audio_name(
+                token="invalid_token",
+                text_id=TEXT_ID,
+                audio_id=AUDIO_ID,
+                request=UpdateTextAudioNameRequest(name="new name"),
+            )
+
+        assert exc.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 class TestDeleteTextAudio:

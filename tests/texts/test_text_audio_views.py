@@ -25,13 +25,14 @@ OTR_ENDPOINT = f"{OTRS_ENDPOINT}/{OTR_ID}"
 OTR_CONTENT = {"text": "<p>transcript</p>", "media": "", "media-time": ""}
 
 
-def _audio_response() -> TextAudioResponse:
+def _audio_response(name: str = "chant.mp3") -> TextAudioResponse:
     return TextAudioResponse(
         id=AUDIO_ID,
         text_id=TEXT_ID,
         text_title="Heart Sutra",
         audio_key=AUDIO_KEY,
         audio_url=f"https://cdn.test/{AUDIO_KEY}",
+        name=name,
         file_name="chant.mp3",
         mime_type="audio/mpeg",
         file_size_bytes=2048,
@@ -198,6 +199,53 @@ class TestRemoveTextAudio:
 
     def test_request_without_a_token_is_rejected(self, unauthenticated_client):
         response = unauthenticated_client.delete(AUDIO_ENDPOINT)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestRenameTextAudio:
+    def test_name_is_updated(self, authenticated_client):
+        with patch(f"{VIEWS}.update_text_audio_name", new_callable=AsyncMock) as rename:
+            rename.return_value = _audio_response(name="Morning session")
+
+            response = authenticated_client.patch(
+                AUDIO_ENDPOINT, json={"name": "Morning session"}
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["name"] == "Morning session"
+        assert rename.await_args.kwargs["token"] == VALID_TOKEN
+        assert rename.await_args.kwargs["text_id"] == TEXT_ID
+        assert rename.await_args.kwargs["audio_id"] == AUDIO_ID
+        assert rename.await_args.kwargs["request"].name == "Morning session"
+
+    def test_blank_name_is_rejected(self, authenticated_client):
+        response = authenticated_client.patch(AUDIO_ENDPOINT, json={"name": "   "})
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_missing_name_is_rejected(self, authenticated_client):
+        response = authenticated_client.patch(AUDIO_ENDPOINT, json={})
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_missing_audio_returns_not_found(self, authenticated_client):
+        with patch(f"{VIEWS}.update_text_audio_name", new_callable=AsyncMock) as rename:
+            rename.side_effect = HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Audio not found.",
+            )
+
+            response = authenticated_client.patch(
+                AUDIO_ENDPOINT, json={"name": "Morning session"}
+            )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_request_without_a_token_is_rejected(self, unauthenticated_client):
+        response = unauthenticated_client.patch(
+            AUDIO_ENDPOINT, json={"name": "Morning session"}
+        )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 

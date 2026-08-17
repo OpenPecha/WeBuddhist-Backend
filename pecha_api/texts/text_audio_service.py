@@ -24,6 +24,7 @@ from .text_audio_models import (
     TextAudioOtr,
     TextAudioOtrResponse,
     TextAudioResponse,
+    UpdateTextAudioNameRequest,
     utc_now,
 )
 from .texts_models import Text
@@ -88,6 +89,7 @@ def to_text_audio_response(audio: TextAudio) -> TextAudioResponse:
             bucket_name=get("AWS_BUCKET_NAME"),
             s3_key=audio.audio_key,
         ),
+        name=audio.name or audio.file_name,
         file_name=audio.file_name,
         mime_type=audio.mime_type,
         file_size_bytes=audio.file_size_bytes,
@@ -179,11 +181,13 @@ async def upload_text_audio(
         ),
     )
 
+    default_file_name = file.filename or f"audio{extension}"
     audio = TextAudio(
         text_id=text_id,
         text_title=text.title,
         audio_key=new_audio_key,
-        file_name=file.filename or f"audio{extension}",
+        file_name=default_file_name,
+        name=default_file_name,
         mime_type=content_type,
         file_size_bytes=file.size,
         duration_ms=duration_ms,
@@ -196,6 +200,21 @@ async def upload_text_audio(
     except Exception:
         await loop.run_in_executor(None, lambda: delete_file(new_audio_key))
         raise
+    return to_text_audio_response(audio)
+
+
+async def update_text_audio_name(
+    token: str,
+    text_id: str,
+    audio_id: str,
+    request: UpdateTextAudioNameRequest,
+) -> TextAudioResponse:
+    validate_cms_author_details(token=token)
+    await get_required_text(text_id=text_id)
+    audio = await get_required_audio(text_id=text_id, audio_id=audio_id)
+    audio.name = request.name
+    audio.updated_at = utc_now()
+    await audio.save()
     return to_text_audio_response(audio)
 
 

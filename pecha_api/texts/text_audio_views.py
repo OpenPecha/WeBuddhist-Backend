@@ -4,13 +4,18 @@ from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
-from .text_audio_models import TextAudioOtrResponse, TextAudioResponse
+from .text_audio_models import (
+    TextAudioOtrResponse,
+    TextAudioResponse,
+    UpdateTextAudioNameRequest,
+)
 from .text_audio_service import (
     delete_text_audio,
     delete_text_audio_otr,
     get_text_audio_otr_content,
     get_text_audio_otrs,
     get_text_audios,
+    update_text_audio_name,
     upload_text_audio,
     upload_text_audio_otr,
 )
@@ -53,6 +58,23 @@ async def add_text_audio(
         text_id=text_id,
         file=file,
         duration_ms=duration_ms,
+    )
+
+
+@text_audio_router.patch("/{text_id}/audios/{audio_id}")
+async def rename_text_audio(
+    text_id: str,
+    audio_id: str,
+    request: UpdateTextAudioNameRequest,
+    authentication_credential: Annotated[
+        HTTPAuthorizationCredentials, Depends(oauth2_scheme)
+    ],
+) -> TextAudioResponse:
+    return await update_text_audio_name(
+        token=authentication_credential.credentials,
+        text_id=text_id,
+        audio_id=audio_id,
+        request=request,
     )
 
 
