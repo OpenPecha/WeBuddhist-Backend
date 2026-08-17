@@ -12,7 +12,7 @@ from pecha_api.events.event_participant_repository import (
 )
 from pecha_api.events.event_repository import get_events, get_recurring_events
 from pecha_api.events.event_service import _event_to_dto
-from pecha_api.events.recurrence_service import resolve_next_occurrence
+from pecha_api.events.recurrence_service import resolve_current_or_next_occurrence
 from pecha_api.group_posts.enums import GroupPostStatus
 from pecha_api.group_posts.repository import get_posts_for_group_ids
 from pecha_api.group_posts.service import build_post_dtos
@@ -173,23 +173,22 @@ def _get_author_group_feed(
         restrict_group_ids=group_ids,
     )
     
-    # For feed context, show only the next upcoming occurrence per template
-    # to prevent recurring events from monopolizing the feed.
-    # Use resolve_next_occurrence (5-year horizon) to handle sparse yearly
-    # recurrences like Feb 29 that may not occur within a 1-year window.
+    # For feed context, show the current (active) or next upcoming occurrence per template.
+    # Use resolve_current_or_next_occurrence (5-year horizon) to handle sparse yearly
+    # recurrences like Feb 29 and include active multi-day occurrences.
     now = datetime.now(timezone.utc)
     today = now.date()
     
     expanded_recurring = []
     for template in recurring_templates:
-        next_start = resolve_next_occurrence(template, after=today)
-        if next_start:
-            duration = template.duration_days or 1
-            next_end = next_start + timedelta(days=duration - 1)
+        result = resolve_current_or_next_occurrence(template, after=today)
+        if result:
+            start_d, end_d, is_active = result
             expanded_recurring.append({
                 'event': template,
-                'start_date': datetime(next_start.year, next_start.month, next_start.day, tzinfo=timezone.utc),
-                'end_date': datetime(next_end.year, next_end.month, next_end.day, 23, 59, 59, tzinfo=timezone.utc),
+                'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
+                'is_active': is_active,
             })
     
     # Combine one-shot events with next occurrences of recurring templates
@@ -259,12 +258,15 @@ def _get_author_group_feed(
         )
     
     # Add expanded recurring event occurrences to feed
-    # Use created_at for sorting (same as one-shot events and posts use published_at).
-    # This ensures recurring events compete fairly with other content based on when
-    # they were created, not when their future occurrence happens.
+    # Active occurrences (happening now) rank by today; upcoming occurrences rank
+    # by their start date. This ensures currently-happening events appear prominently
+    # while future events don't displace recent content.
     for item in expanded_recurring:
         event = item['event']
-        feed_at = _as_aware_utc(event.created_at)
+        if item.get('is_active'):
+            feed_at = now  # Active events rank as "happening now"
+        else:
+            feed_at = item['start_date']  # Upcoming events rank by occurrence
         group_info = group_cards.get(event.group_id, {})
         # Temporarily override dates for DTO
         original_start = event.start_date

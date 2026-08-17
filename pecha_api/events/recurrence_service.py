@@ -107,14 +107,19 @@ def _resolve_lunar_monthly(
 
 def resolve_next_occurrence(event: Event, after: Optional[date] = None) -> Optional[date]:
     """
-    Return the next occurrence date for a recurring event.
+    Return the next upcoming occurrence date for a recurring event.
+    
+    For active multi-day occurrences (started before `after` but still ongoing),
+    this returns the start date of the *next* occurrence that starts on or after
+    `after`, not the currently active one. Use `resolve_current_or_next_occurrence`
+    if you need to include active occurrences.
     
     Args:
         event: The recurring event
-        after: Find occurrence after this date (default: today)
+        after: Find occurrence starting on or after this date (default: today)
     
     Returns:
-        Next occurrence date or None if no future occurrences
+        Next occurrence start date or None if no future occurrences
     """
     if not event.is_recurring:
         return None
@@ -128,12 +133,41 @@ def resolve_next_occurrence(event: Event, after: Optional[date] = None) -> Optio
     
     occurrences = expand_occurrences(event, after, search_end)
     
-    # Return the first occurrence that is active or upcoming:
-    # - Active: started before `after` but end_d >= after (multi-day event still ongoing)
-    # - Upcoming: start_d >= after
+    # Return the first occurrence that starts on or after `after`
+    for start_d, end_d in occurrences:
+        if start_d >= after:
+            return start_d
+    
+    return None
+
+
+def resolve_current_or_next_occurrence(
+    event: Event, after: Optional[date] = None
+) -> Optional[tuple[date, date, bool]]:
+    """
+    Return the current (active) or next upcoming occurrence for a recurring event.
+    
+    Args:
+        event: The recurring event
+        after: Reference date (default: today)
+    
+    Returns:
+        Tuple of (start_date, end_date, is_active) or None if no occurrence found.
+        is_active is True if the occurrence started before `after` but is still ongoing.
+    """
+    if not event.is_recurring:
+        return None
+    
+    if after is None:
+        after = date.today()
+    
+    search_end = date(after.year + 5, 12, 31)
+    occurrences = expand_occurrences(event, after, search_end)
+    
     for start_d, end_d in occurrences:
         if end_d >= after:
-            return start_d
+            is_active = start_d < after
+            return (start_d, end_d, is_active)
     
     return None
 

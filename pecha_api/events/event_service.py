@@ -43,7 +43,7 @@ from .event_response_models import (
     RecurrenceDTO,
     _validate_date_range,
 )
-from .recurrence_service import compute_initial_dates, resolve_next_occurrence, expand_occurrences
+from .recurrence_service import compute_initial_dates, resolve_next_occurrence, resolve_current_or_next_occurrence, expand_occurrences
 from .event_repository import (
     save_event,
     get_event_by_id,
@@ -694,10 +694,9 @@ def get_featured_events_service(
         # Get featured one-shot events
         one_shot_events = get_featured_events(db, limit=None)
         
-        # Get featured recurring events and find next occurrence for each
-        # Use resolve_next_occurrence (2-year horizon) instead of expand_occurrences
-        # to avoid silently dropping valid featured templates whose next occurrence
-        # is beyond a fixed window
+        # Get featured recurring events and find current/next occurrence for each
+        # Use resolve_current_or_next_occurrence (5-year horizon) to include active
+        # multi-day occurrences and handle sparse yearly recurrences like Feb 29
         recurring_templates = get_featured_recurring_events(db)
         
         now = datetime.now(timezone.utc)
@@ -705,25 +704,26 @@ def get_featured_events_service(
         
         expanded_occurrences = []
         for template in recurring_templates:
-            next_start = resolve_next_occurrence(template, after=today)
-            if next_start:
-                duration = template.duration_days or 1
-                next_end = next_start + timedelta(days=duration - 1)
+            result = resolve_current_or_next_occurrence(template, after=today)
+            if result:
+                start_d, end_d, is_active = result
                 expanded_occurrences.append({
                     'event': template,
-                    'start_date': datetime(next_start.year, next_start.month, next_start.day, tzinfo=timezone.utc),
-                    'end_date': datetime(next_end.year, next_end.month, next_end.day, 23, 59, 59, tzinfo=timezone.utc),
-                    'occurrence_date': datetime(next_start.year, next_start.month, next_start.day, tzinfo=timezone.utc),
+                    'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                    'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
+                    'occurrence_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                    'is_active': is_active,
                 })
         
-        # Merge one-shot events and next occurrences of recurring templates
-        # Both use created_at for sorting, ensuring fair competition based on when
-        # content was created, not when future occurrences happen.
+        # Merge one-shot events and recurring occurrences
+        # One-shot events sort by created_at; recurring events sort by occurrence date
+        # (active events use today's date). This prevents future events from displacing
+        # one-shot events while ensuring active events appear prominently.
         all_event_items = [
             {'event': e, 'start_date': e.start_date, 'end_date': e.end_date, 'occurrence_date': None, 'sort_date': e.created_at}
             for e in one_shot_events
         ] + [
-            {**item, 'sort_date': item['event'].created_at}
+            {**item, 'sort_date': now if item.get('is_active') else item['start_date']}
             for item in expanded_occurrences
         ]
         
