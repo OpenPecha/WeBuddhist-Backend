@@ -182,9 +182,12 @@ def _get_author_group_feed(
     expanded_recurring = []
     for template in recurring_templates:
         occurrences = expand_occurrences(template, from_date_obj, to_date_obj)
-        if occurrences:
+        # Filter to occurrences that start on or after today (expand_occurrences
+        # may return currently-active occurrences that started before today)
+        future_occurrences = [(s, e) for s, e in occurrences if s >= from_date_obj]
+        if future_occurrences:
             # Take only the next upcoming occurrence
-            start_d, end_d = occurrences[0]
+            start_d, end_d = future_occurrences[0]
             expanded_recurring.append({
                 'event': template,
                 'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
