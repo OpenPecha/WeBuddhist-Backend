@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from beanie import Document, Indexed
+from beanie import Document
 from pydantic import BaseModel, Field
+from pymongo import ASCENDING, IndexModel
 
 
 def utc_now() -> datetime:
@@ -10,7 +11,7 @@ def utc_now() -> datetime:
 
 
 class TextAudio(Document):
-    text_id: Indexed(str, unique=True)
+    text_id: str
     text_title: str
     audio_key: str
     file_name: str
@@ -20,15 +21,39 @@ class TextAudio(Document):
     created_by: str
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
-    # S3 keys that were displaced (by replacement) but failed to delete.
-    # Retried opportunistically on the next upload/delete for this text.
+    # S3 keys that were displaced but failed to delete. Retried
+    # opportunistically when this audio is deleted.
     pending_cleanup_keys: List[str] = Field(default_factory=list)
 
     class Settings:
         collection = "text_audio"
+        # A text can have many audios now. The compound index (whose name
+        # differs from the old unique text_id_1 index) lets init_beanie's
+        # allow_index_dropping remove the old unique constraint on startup.
+        indexes = [
+            IndexModel([("text_id", ASCENDING), ("created_at", ASCENDING)]),
+        ]
+
+
+class TextAudioOtr(Document):
+    audio_id: str
+    text_id: str
+    name: str
+    file_name: str
+    content: Dict[str, Any]
+    created_by: str
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    class Settings:
+        collection = "text_audio_otr"
+        indexes = [
+            IndexModel([("audio_id", ASCENDING), ("name", ASCENDING)], unique=True),
+        ]
 
 
 class TextAudioResponse(BaseModel):
+    id: str
     text_id: str
     text_title: str
     audio_key: str
@@ -37,4 +62,12 @@ class TextAudioResponse(BaseModel):
     mime_type: Optional[str] = None
     file_size_bytes: Optional[int] = None
     duration_ms: Optional[int] = None
+    updated_at: datetime
+
+
+class TextAudioOtrResponse(BaseModel):
+    id: str
+    audio_id: str
+    name: str
+    file_name: str
     updated_at: datetime

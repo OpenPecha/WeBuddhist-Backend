@@ -1,19 +1,29 @@
 import io
+import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException, UploadFile
+from pymongo.errors import DuplicateKeyError
 from starlette import status
 
-from pecha_api.texts.text_audio_models import TextAudioResponse
+from pecha_api.texts.text_audio_models import TextAudioOtrResponse, TextAudioResponse
 from pecha_api.texts.text_audio_service import (
+    INVALID_OTR_DETAIL,
     delete_text_audio,
+    delete_text_audio_otr,
+    get_required_audio,
     get_required_text,
-    get_text_audio,
+    get_text_audio_otr_content,
+    get_text_audio_otrs,
+    get_text_audios,
+    parse_otr_content,
     to_text_audio_response,
     upload_text_audio,
+    upload_text_audio_otr,
+    validate_otr_file,
     validate_text_audio_file,
 )
 
@@ -25,9 +35,13 @@ TEXT_TITLE = "Heart Sutra"
 AUTHOR_EMAIL = "author@example.com"
 BUCKET_NAME = "test-bucket"
 MAX_AUDIO_FILE_SIZE = 50 * 1024 * 1024
+MAX_OTR_FILE_SIZE = 5 * 1024 * 1024
 GENERATED_UUID = "11111111-1111-1111-1111-111111111111"
 NEW_AUDIO_KEY = f"audio/texts/{GENERATED_UUID}.mp3"
 EXISTING_AUDIO_KEY = "audio/texts/existing-key.mp3"
+AUDIO_ID = "64b000000000000000000001"
+OTR_ID = "64b000000000000000000002"
+OTR_CONTENT = {"text": "<p>transcript</p>", "media": "", "media-time": ""}
 
 
 def _upload_file(
@@ -44,28 +58,72 @@ def _upload_file(
     return file
 
 
+def _otr_file(
+    filename: str = "228.otr",
+    content: bytes = json.dumps(OTR_CONTENT).encode(),
+    size: int = 1024,
+) -> MagicMock:
+    file = MagicMock(spec=UploadFile)
+    file.filename = filename
+    file.content_type = "application/json"
+    file.size = size
+    file.read = AsyncMock(return_value=content)
+    return file
+
+
+def _find_chain(items=None):
+    chain = MagicMock()
+    chain.sort.return_value = chain
+    chain.to_list = AsyncMock(return_value=list(items or []))
+    chain.delete = AsyncMock()
+    return chain
+
+
 @pytest.fixture
 def text_audio_model():
     """A stand-in for the Beanie document, which cannot be built without a live collection."""
 
     class StubTextAudio:
         text_id = "text_id"
+        instances = []
 
         def __init__(self, **fields):
+            self.id = AUDIO_ID
             self.pending_cleanup_keys = []
             for name, value in fields.items():
                 setattr(self, name, value)
             self.insert = AsyncMock()
             self.save = AsyncMock()
             self.delete = AsyncMock()
+            StubTextAudio.instances.append(self)
 
-    StubTextAudio.find_one = AsyncMock(return_value=None)
+    StubTextAudio.get = AsyncMock(return_value=None)
+    StubTextAudio.find = MagicMock(return_value=_find_chain())
     return StubTextAudio
 
 
-def _existing_audio(model, audio_key: str = EXISTING_AUDIO_KEY, pending_cleanup_keys=None):
+@pytest.fixture
+def text_audio_otr_model():
+    class StubTextAudioOtr:
+        audio_id = "audio_id"
+        instances = []
+
+        def __init__(self, **fields):
+            self.id = OTR_ID
+            for name, value in fields.items():
+                setattr(self, name, value)
+            self.insert = AsyncMock()
+            self.delete = AsyncMock()
+            StubTextAudioOtr.instances.append(self)
+
+    StubTextAudioOtr.get = AsyncMock(return_value=None)
+    StubTextAudioOtr.find = MagicMock(return_value=_find_chain())
+    return StubTextAudioOtr
+
+
+def _existing_audio(model, audio_key: str = EXISTING_AUDIO_KEY, pending_cleanup_keys=None, text_id: str = TEXT_ID):
     return model(
-        text_id=TEXT_ID,
+        text_id=text_id,
         text_title=TEXT_TITLE,
         audio_key=audio_key,
         file_name="old.mp3",
@@ -79,10 +137,26 @@ def _existing_audio(model, audio_key: str = EXISTING_AUDIO_KEY, pending_cleanup_
     )
 
 
+def _existing_otr(model, name: str = "228", audio_id: str = AUDIO_ID):
+    return model(
+        audio_id=audio_id,
+        text_id=TEXT_ID,
+        name=name,
+        file_name=f"{name}.otr",
+        content=dict(OTR_CONTENT),
+        created_by=AUTHOR_EMAIL,
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+
+
 @pytest.fixture
-def audio_env(text_audio_model):
+def audio_env(text_audio_model, text_audio_otr_model):
     config = {"AWS_BUCKET_NAME": BUCKET_NAME}
-    int_config = {"MAX_AUDIO_FILE_SIZE": MAX_AUDIO_FILE_SIZE}
+    int_config = {
+        "MAX_AUDIO_FILE_SIZE": MAX_AUDIO_FILE_SIZE,
+        "MAX_OTR_FILE_SIZE": MAX_OTR_FILE_SIZE,
+    }
 
     with patch(f"{SERVICE}.validate_cms_author_details") as validate_author, \
          patch(f"{SERVICE}.get", side_effect=config.get), \
@@ -92,6 +166,7 @@ def audio_env(text_audio_model):
          patch(f"{SERVICE}.generate_presigned_access_url") as presigned_url, \
          patch(f"{SERVICE}.Text.get_text", new_callable=AsyncMock) as get_text, \
          patch(f"{SERVICE}.TextAudio", text_audio_model), \
+         patch(f"{SERVICE}.TextAudioOtr", text_audio_otr_model), \
          patch(f"{SERVICE}.uuid.uuid4", return_value=GENERATED_UUID):
         validate_author.return_value = MagicMock(email=AUTHOR_EMAIL)
         get_text.return_value = MagicMock(title=TEXT_TITLE)
@@ -105,6 +180,7 @@ def audio_env(text_audio_model):
             presigned_url=presigned_url,
             get_text=get_text,
             model=text_audio_model,
+            otr_model=text_audio_otr_model,
         )
 
 
@@ -148,6 +224,41 @@ class TestValidateTextAudioFile:
         assert validate_text_audio_file(_upload_file(size=None)) == ".mp3"
 
 
+class TestValidateOtrFile:
+    @pytest.mark.parametrize("filename", ["228.otr", "228.json", "228.OTR"])
+    def test_supported_extensions_are_accepted(self, audio_env, filename):
+        assert validate_otr_file(_otr_file(filename=filename)) is None
+
+    def test_unsupported_extension_is_rejected(self, audio_env):
+        with pytest.raises(HTTPException) as exc:
+            validate_otr_file(_otr_file(filename="notes.txt"))
+
+        assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert exc.value.detail == INVALID_OTR_DETAIL
+
+    def test_oversized_file_is_rejected(self, audio_env):
+        with pytest.raises(HTTPException) as exc:
+            validate_otr_file(_otr_file(size=MAX_OTR_FILE_SIZE + 1))
+
+        assert exc.value.status_code == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
+
+
+class TestParseOtrContent:
+    def test_json_object_is_returned(self):
+        assert parse_otr_content(json.dumps(OTR_CONTENT).encode()) == OTR_CONTENT
+
+    @pytest.mark.parametrize(
+        "raw",
+        [b"not json at all", b'"just a string"', b"[1, 2, 3]", b"null", b"\xff\xfe"],
+    )
+    def test_invalid_content_is_rejected(self, raw):
+        with pytest.raises(HTTPException) as exc:
+            parse_otr_content(raw)
+
+        assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert exc.value.detail == INVALID_OTR_DETAIL
+
+
 class TestToTextAudioResponse:
     def test_document_is_mapped_with_a_presigned_url(self, audio_env):
         audio = _existing_audio(audio_env.model)
@@ -155,6 +266,7 @@ class TestToTextAudioResponse:
         response = to_text_audio_response(audio)
 
         assert isinstance(response, TextAudioResponse)
+        assert response.id == AUDIO_ID
         assert response.text_id == TEXT_ID
         assert response.text_title == TEXT_TITLE
         assert response.audio_key == EXISTING_AUDIO_KEY
@@ -187,27 +299,66 @@ class TestGetRequiredText:
         assert exc.value.status_code == status.HTTP_404_NOT_FOUND
 
 
-class TestGetTextAudio:
+class TestGetRequiredAudio:
     @pytest.mark.asyncio
-    async def test_returns_none_when_no_audio_is_stored(self, audio_env):
-        assert await get_text_audio(token=VALID_TOKEN, text_id=TEXT_ID) is None
+    async def test_matching_audio_is_returned(self, audio_env):
+        existing = _existing_audio(audio_env.model)
+        audio_env.model.get.return_value = existing
+
+        assert await get_required_audio(text_id=TEXT_ID, audio_id=AUDIO_ID) is existing
+
+    @pytest.mark.asyncio
+    async def test_audio_of_another_text_raises_not_found(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(
+            audio_env.model, text_id="other-text"
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await get_required_audio(text_id=TEXT_ID, audio_id=AUDIO_ID)
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_unknown_audio_raises_not_found(self, audio_env):
+        with pytest.raises(HTTPException) as exc:
+            await get_required_audio(text_id=TEXT_ID, audio_id=AUDIO_ID)
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_malformed_audio_id_raises_not_found_without_a_lookup(self, audio_env):
+        with pytest.raises(HTTPException) as exc:
+            await get_required_audio(text_id=TEXT_ID, audio_id="not-an-object-id")
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+        audio_env.model.get.assert_not_awaited()
+
+
+class TestGetTextAudios:
+    @pytest.mark.asyncio
+    async def test_returns_empty_list_when_no_audio_is_stored(self, audio_env):
+        assert await get_text_audios(token=VALID_TOKEN, text_id=TEXT_ID) == []
         audio_env.validate_author.assert_called_once_with(token=VALID_TOKEN)
 
     @pytest.mark.asyncio
-    async def test_returns_stored_audio(self, audio_env):
-        audio_env.model.find_one.return_value = _existing_audio(audio_env.model)
+    async def test_returns_stored_audios(self, audio_env):
+        audio_env.model.find.return_value = _find_chain(
+            [_existing_audio(audio_env.model)]
+        )
 
-        response = await get_text_audio(token=VALID_TOKEN, text_id=TEXT_ID)
+        responses = await get_text_audios(token=VALID_TOKEN, text_id=TEXT_ID)
 
-        assert response.audio_key == EXISTING_AUDIO_KEY
-        assert response.audio_url == f"https://cdn.test/{EXISTING_AUDIO_KEY}"
+        assert len(responses) == 1
+        assert responses[0].id == AUDIO_ID
+        assert responses[0].audio_key == EXISTING_AUDIO_KEY
+        assert responses[0].audio_url == f"https://cdn.test/{EXISTING_AUDIO_KEY}"
 
     @pytest.mark.asyncio
     async def test_missing_text_raises_not_found(self, audio_env):
         audio_env.get_text.return_value = None
 
         with pytest.raises(HTTPException) as exc:
-            await get_text_audio(token=VALID_TOKEN, text_id=TEXT_ID)
+            await get_text_audios(token=VALID_TOKEN, text_id=TEXT_ID)
 
         assert exc.value.status_code == status.HTTP_404_NOT_FOUND
 
@@ -219,14 +370,14 @@ class TestGetTextAudio:
         )
 
         with pytest.raises(HTTPException) as exc:
-            await get_text_audio(token="invalid_token", text_id=TEXT_ID)
+            await get_text_audios(token="invalid_token", text_id=TEXT_ID)
 
         assert exc.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 class TestUploadTextAudio:
     @pytest.mark.asyncio
-    async def test_first_upload_creates_a_document(self, audio_env):
+    async def test_upload_creates_a_new_document(self, audio_env):
         file = _upload_file()
 
         response = await upload_text_audio(
@@ -242,30 +393,15 @@ class TestUploadTextAudio:
             file=file,
         )
         audio_env.delete.assert_not_called()
+        assert response.id == AUDIO_ID
         assert response.audio_key == NEW_AUDIO_KEY
         assert response.text_title == TEXT_TITLE
         assert response.file_name == "chant.mp3"
         assert response.mime_type == "audio/mpeg"
         assert response.file_size_bytes == file.size
         assert response.duration_ms == 90000
-
-    @pytest.mark.asyncio
-    async def test_upload_replaces_existing_audio_and_removes_the_old_object(self, audio_env):
-        existing = _existing_audio(audio_env.model)
-        audio_env.model.find_one.return_value = existing
-
-        response = await upload_text_audio(
-            token=VALID_TOKEN,
-            text_id=TEXT_ID,
-            file=_upload_file(filename="new-chant.wav", content_type="audio/wav"),
-        )
-
-        existing.save.assert_awaited_once()
-        audio_env.delete.assert_called_once_with(EXISTING_AUDIO_KEY)
-        assert response.audio_key == f"audio/texts/{GENERATED_UUID}.wav"
-        assert response.file_name == "new-chant.wav"
-        assert response.mime_type == "audio/wav"
-        assert response.duration_ms is None
+        created = audio_env.model.instances[-1]
+        created.insert.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_mime_type_is_guessed_when_the_client_omits_it(self, audio_env):
@@ -306,65 +442,6 @@ class TestUploadTextAudio:
         audio_env.delete.assert_called_once_with(NEW_AUDIO_KEY)
 
     @pytest.mark.asyncio
-    async def test_replacement_succeeds_even_if_the_old_object_cannot_be_deleted(self, audio_env):
-        existing = _existing_audio(audio_env.model)
-        audio_env.model.find_one.return_value = existing
-        audio_env.delete.side_effect = HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="S3 delete failed",
-        )
-
-        response = await upload_text_audio(
-            token=VALID_TOKEN,
-            text_id=TEXT_ID,
-            file=_upload_file(),
-        )
-
-        assert response.audio_key == NEW_AUDIO_KEY
-        audio_env.delete.assert_called_once_with(EXISTING_AUDIO_KEY)
-        # The failure must not be silently lost - it's tracked for retry.
-        assert existing.pending_cleanup_keys == [EXISTING_AUDIO_KEY]
-        assert existing.save.await_count == 2
-
-    @pytest.mark.asyncio
-    async def test_replacement_clears_a_previously_pending_key_once_it_deletes(self, audio_env):
-        stale_key = "audio/texts/stale-key.mp3"
-        existing = _existing_audio(audio_env.model, pending_cleanup_keys=[stale_key])
-        audio_env.model.find_one.return_value = existing
-
-        response = await upload_text_audio(
-            token=VALID_TOKEN,
-            text_id=TEXT_ID,
-            file=_upload_file(),
-        )
-
-        assert response.audio_key == NEW_AUDIO_KEY
-        audio_env.delete.assert_any_call(EXISTING_AUDIO_KEY)
-        audio_env.delete.assert_any_call(stale_key)
-        assert existing.pending_cleanup_keys == []
-
-    @pytest.mark.asyncio
-    async def test_replacement_keeps_only_the_keys_that_still_fail_to_delete(self, audio_env):
-        stale_key = "audio/texts/stale-key.mp3"
-        existing = _existing_audio(audio_env.model, pending_cleanup_keys=[stale_key])
-        audio_env.model.find_one.return_value = existing
-        audio_env.delete.side_effect = lambda key: (
-            (_ for _ in ()).throw(HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="S3 error"))
-            if key == stale_key
-            else None
-        )
-
-        response = await upload_text_audio(
-            token=VALID_TOKEN,
-            text_id=TEXT_ID,
-            file=_upload_file(),
-        )
-
-        assert response.audio_key == NEW_AUDIO_KEY
-        # The just-displaced key deleted fine; the stale one is still pending.
-        assert existing.pending_cleanup_keys == [stale_key]
-
-    @pytest.mark.asyncio
     async def test_nothing_is_uploaded_when_the_text_is_missing(self, audio_env):
         audio_env.get_text.return_value = None
         file = _upload_file()
@@ -385,98 +462,31 @@ class TestUploadTextAudio:
         assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
         audio_env.upload.assert_not_called()
 
-    @pytest.mark.asyncio
-    async def test_concurrent_upload_handles_duplicate_key_error(self, audio_env):
-        """When concurrent uploads race, DuplicateKeyError is caught and metadata updated."""
-        from pymongo.errors import DuplicateKeyError
-
-        file = _upload_file()
-        # Patch the __init__ to make insert fail with DuplicateKeyError on first create
-        original_init = audio_env.model.__init__
-
-        def init_with_insert_fail(self, **fields):
-            original_init(self, **fields)
-            self.insert = AsyncMock(side_effect=DuplicateKeyError("Duplicate key error"))
-
-        concurrent_audio = _existing_audio(audio_env.model)
-        audio_env.model.find_one.return_value = concurrent_audio
-
-        with patch.object(audio_env.model, "__init__", init_with_insert_fail):
-            response = await upload_text_audio(token=VALID_TOKEN, text_id=TEXT_ID, file=file)
-
-        # The concurrent document should have been updated
-        concurrent_audio.save.assert_awaited_once()
-        assert response.audio_key == NEW_AUDIO_KEY
-
-    @pytest.mark.asyncio
-    async def test_concurrent_upload_cleans_up_on_duplicate_key_error(self, audio_env):
-        """When DuplicateKeyError occurs and no document found, S3 object is cleaned up."""
-        from pymongo.errors import DuplicateKeyError
-
-        file = _upload_file()
-        # Patch the __init__ to make insert fail with DuplicateKeyError
-        original_init = audio_env.model.__init__
-
-        def init_with_insert_fail(self, **fields):
-            original_init(self, **fields)
-            self.insert = AsyncMock(side_effect=DuplicateKeyError("Duplicate key error"))
-
-        # When find_one returns None, it means the race condition couldn't be resolved
-        audio_env.model.find_one.return_value = None
-
-        with patch.object(audio_env.model, "__init__", init_with_insert_fail):
-            with pytest.raises(HTTPException) as exc:
-                await upload_text_audio(token=VALID_TOKEN, text_id=TEXT_ID, file=file)
-
-        assert exc.value.status_code == status.HTTP_409_CONFLICT
-        # S3 object should be cleaned up on failure
-        audio_env.delete.assert_called_once_with(NEW_AUDIO_KEY)
-
-    @pytest.mark.asyncio
-    async def test_concurrent_replacement_cleans_up_old_audio_key(self, audio_env):
-        """When concurrent upload replaces existing, old S3 object must be cleaned up."""
-        from pymongo.errors import DuplicateKeyError
-
-        file = _upload_file()
-        CONCURRENT_AUDIO_KEY = "audio/texts/concurrent-key.mp3"
-
-        # Patch the __init__ to make insert fail with DuplicateKeyError
-        original_init = audio_env.model.__init__
-
-        def init_with_insert_fail(self, **fields):
-            original_init(self, **fields)
-            self.insert = AsyncMock(side_effect=DuplicateKeyError("Duplicate key error"))
-
-        # When find_one is called, return existing audio with a different key
-        concurrent_audio = _existing_audio(audio_env.model, audio_key=CONCURRENT_AUDIO_KEY)
-        audio_env.model.find_one.return_value = concurrent_audio
-
-        with patch.object(audio_env.model, "__init__", init_with_insert_fail):
-            response = await upload_text_audio(token=VALID_TOKEN, text_id=TEXT_ID, file=file)
-
-        # The old audio key (from concurrent upload) must be cleaned up
-        assert response.audio_key == NEW_AUDIO_KEY
-        concurrent_audio.save.assert_awaited_once()
-        # Both the new object (on failure) and old object (on replace) should be cleaned
-        # We should see the old key deletion
-        audio_env.delete.assert_any_call(CONCURRENT_AUDIO_KEY)
-
 
 class TestDeleteTextAudio:
     @pytest.mark.asyncio
-    async def test_stored_audio_is_removed_from_s3_and_mongo(self, audio_env):
+    async def test_stored_audio_is_removed_with_its_otrs(self, audio_env):
         existing = _existing_audio(audio_env.model)
-        audio_env.model.find_one.return_value = existing
+        audio_env.model.get.return_value = existing
+        otr_chain = _find_chain()
+        audio_env.otr_model.find.return_value = otr_chain
 
-        assert await delete_text_audio(token=VALID_TOKEN, text_id=TEXT_ID) is None
+        assert await delete_text_audio(
+            token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+        ) is None
 
-        audio_env.delete.assert_called_once_with(EXISTING_AUDIO_KEY)
+        otr_chain.delete.assert_awaited_once()
         existing.delete.assert_awaited_once()
+        audio_env.delete.assert_called_once_with(EXISTING_AUDIO_KEY)
 
     @pytest.mark.asyncio
-    async def test_delete_is_a_no_op_when_there_is_no_audio(self, audio_env):
-        assert await delete_text_audio(token=VALID_TOKEN, text_id=TEXT_ID) is None
+    async def test_unknown_audio_raises_not_found(self, audio_env):
+        with pytest.raises(HTTPException) as exc:
+            await delete_text_audio(
+                token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+            )
 
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
         audio_env.delete.assert_not_called()
 
     @pytest.mark.asyncio
@@ -484,7 +494,9 @@ class TestDeleteTextAudio:
         audio_env.get_text.return_value = None
 
         with pytest.raises(HTTPException) as exc:
-            await delete_text_audio(token=VALID_TOKEN, text_id=TEXT_ID)
+            await delete_text_audio(
+                token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+            )
 
         assert exc.value.status_code == status.HTTP_404_NOT_FOUND
         audio_env.delete.assert_not_called()
@@ -495,25 +507,313 @@ class TestDeleteTextAudio:
         longer exists for the app, so a later S3 failure must only orphan
         storage - it must never leave metadata pointing at a missing file."""
         existing = _existing_audio(audio_env.model)
-        audio_env.model.find_one.return_value = existing
-        audio_env.delete.side_effect = HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="S3 error")
+        audio_env.model.get.return_value = existing
+        audio_env.delete.side_effect = HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="S3 error"
+        )
 
-        assert await delete_text_audio(token=VALID_TOKEN, text_id=TEXT_ID) is None
+        assert await delete_text_audio(
+            token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+        ) is None
 
         existing.delete.assert_awaited_once()
         audio_env.delete.assert_called_once_with(EXISTING_AUDIO_KEY)
 
     @pytest.mark.asyncio
+    async def test_audio_survives_when_otr_cleanup_fails(self, audio_env):
+        """A failed OTR bulk delete must propagate rather than being
+        swallowed - the operation must never report success while
+        permanently orphaning transcript records. Nothing should be deleted:
+        the audio document is untouched so the caller can safely retry."""
+        existing = _existing_audio(audio_env.model)
+        audio_env.model.get.return_value = existing
+        otr_chain = _find_chain()
+        otr_chain.delete.side_effect = RuntimeError("mongo is down")
+        audio_env.otr_model.find.return_value = otr_chain
+
+        with pytest.raises(RuntimeError):
+            await delete_text_audio(
+                token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+            )
+
+        existing.delete.assert_not_called()
+        audio_env.delete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_audio_deletion_failure_after_otr_cleanup_is_not_swallowed(self, audio_env):
+        """If the audio delete itself fails after its OTRs are already gone,
+        that must still surface as an error - never a false success - so the
+        caller knows to retry rather than believing the delete completed."""
+        existing = _existing_audio(audio_env.model)
+        audio_env.model.get.return_value = existing
+        existing.delete.side_effect = RuntimeError("mongo is down")
+        otr_chain = _find_chain()
+        audio_env.otr_model.find.return_value = otr_chain
+
+        with pytest.raises(RuntimeError):
+            await delete_text_audio(
+                token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+            )
+
+        otr_chain.delete.assert_awaited_once()
+        audio_env.delete.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_delete_also_retries_cleanup_of_previously_pending_keys(self, audio_env):
-        """A key that failed to delete during an earlier replacement is retried
-        when the text's audio is eventually deleted outright."""
         stale_key = "audio/texts/stale-key.mp3"
         existing = _existing_audio(audio_env.model, pending_cleanup_keys=[stale_key])
-        audio_env.model.find_one.return_value = existing
+        audio_env.model.get.return_value = existing
 
-        assert await delete_text_audio(token=VALID_TOKEN, text_id=TEXT_ID) is None
+        assert await delete_text_audio(
+            token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+        ) is None
 
         existing.delete.assert_awaited_once()
         audio_env.delete.assert_any_call(EXISTING_AUDIO_KEY)
         audio_env.delete.assert_any_call(stale_key)
         assert audio_env.delete.call_count == 2
+
+
+class TestUploadTextAudioOtr:
+    @pytest.mark.asyncio
+    async def test_valid_otr_is_stored_as_json(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+
+        response = await upload_text_audio_otr(
+            token=VALID_TOKEN,
+            text_id=TEXT_ID,
+            audio_id=AUDIO_ID,
+            file=_otr_file(),
+        )
+
+        assert isinstance(response, TextAudioOtrResponse)
+        assert response.id == OTR_ID
+        assert response.audio_id == AUDIO_ID
+        assert response.name == "228"
+        assert response.file_name == "228.otr"
+        created = audio_env.otr_model.instances[-1]
+        created.insert.assert_awaited_once()
+        assert created.content == OTR_CONTENT
+        assert created.created_by == AUTHOR_EMAIL
+
+    @pytest.mark.asyncio
+    async def test_explicit_name_overrides_the_file_name(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+
+        response = await upload_text_audio_otr(
+            token=VALID_TOKEN,
+            text_id=TEXT_ID,
+            audio_id=AUDIO_ID,
+            file=_otr_file(),
+            name="  morning session  ",
+        )
+
+        assert response.name == "morning session"
+
+    @pytest.mark.asyncio
+    async def test_invalid_json_is_rejected(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+
+        with pytest.raises(HTTPException) as exc:
+            await upload_text_audio_otr(
+                token=VALID_TOKEN,
+                text_id=TEXT_ID,
+                audio_id=AUDIO_ID,
+                file=_otr_file(content=b"not json at all"),
+            )
+
+        assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert exc.value.detail == INVALID_OTR_DETAIL
+        assert audio_env.otr_model.instances == []
+
+    @pytest.mark.asyncio
+    async def test_non_object_json_is_rejected(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+
+        with pytest.raises(HTTPException) as exc:
+            await upload_text_audio_otr(
+                token=VALID_TOKEN,
+                text_id=TEXT_ID,
+                audio_id=AUDIO_ID,
+                file=_otr_file(content=b"[1, 2, 3]"),
+            )
+
+        assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert audio_env.otr_model.instances == []
+
+    @pytest.mark.asyncio
+    async def test_unsupported_extension_is_rejected(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+
+        with pytest.raises(HTTPException) as exc:
+            await upload_text_audio_otr(
+                token=VALID_TOKEN,
+                text_id=TEXT_ID,
+                audio_id=AUDIO_ID,
+                file=_otr_file(filename="notes.txt"),
+            )
+
+        assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert exc.value.detail == INVALID_OTR_DETAIL
+
+    @pytest.mark.asyncio
+    async def test_blank_name_is_rejected(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+
+        with pytest.raises(HTTPException) as exc:
+            await upload_text_audio_otr(
+                token=VALID_TOKEN,
+                text_id=TEXT_ID,
+                audio_id=AUDIO_ID,
+                file=_otr_file(),
+                name="   ",
+            )
+
+        assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+        assert audio_env.otr_model.instances == []
+
+    @pytest.mark.asyncio
+    async def test_duplicate_name_raises_conflict(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+        original_init = audio_env.otr_model.__init__
+
+        def failing_init(self, **fields):
+            original_init(self, **fields)
+            self.insert = AsyncMock(side_effect=DuplicateKeyError("duplicate"))
+
+        with patch.object(audio_env.otr_model, "__init__", failing_init):
+            with pytest.raises(HTTPException) as exc:
+                await upload_text_audio_otr(
+                    token=VALID_TOKEN,
+                    text_id=TEXT_ID,
+                    audio_id=AUDIO_ID,
+                    file=_otr_file(),
+                )
+
+        assert exc.value.status_code == status.HTTP_409_CONFLICT
+
+    @pytest.mark.asyncio
+    async def test_unknown_audio_raises_not_found(self, audio_env):
+        with pytest.raises(HTTPException) as exc:
+            await upload_text_audio_otr(
+                token=VALID_TOKEN,
+                text_id=TEXT_ID,
+                audio_id=AUDIO_ID,
+                file=_otr_file(),
+            )
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+        assert audio_env.otr_model.instances == []
+
+
+class TestGetTextAudioOtrs:
+    @pytest.mark.asyncio
+    async def test_returns_empty_list_when_no_otr_is_stored(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+
+        assert await get_text_audio_otrs(
+            token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+        ) == []
+
+    @pytest.mark.asyncio
+    async def test_returns_stored_otrs(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+        audio_env.otr_model.find.return_value = _find_chain(
+            [_existing_otr(audio_env.otr_model)]
+        )
+
+        responses = await get_text_audio_otrs(
+            token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+        )
+
+        assert len(responses) == 1
+        assert responses[0].id == OTR_ID
+        assert responses[0].name == "228"
+        assert responses[0].audio_id == AUDIO_ID
+
+    @pytest.mark.asyncio
+    async def test_unknown_audio_raises_not_found(self, audio_env):
+        with pytest.raises(HTTPException) as exc:
+            await get_text_audio_otrs(
+                token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+            )
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+class TestGetTextAudioOtrContent:
+    @pytest.mark.asyncio
+    async def test_otr_content_is_returned_as_json(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+        audio_env.otr_model.get.return_value = _existing_otr(audio_env.otr_model)
+
+        content = await get_text_audio_otr_content(
+            token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID, otr_id=OTR_ID
+        )
+
+        assert content == OTR_CONTENT
+
+    @pytest.mark.asyncio
+    async def test_otr_of_another_audio_raises_not_found(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+        audio_env.otr_model.get.return_value = _existing_otr(
+            audio_env.otr_model, audio_id="64b000000000000000000009"
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await get_text_audio_otr_content(
+                token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID, otr_id=OTR_ID
+            )
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_unknown_otr_raises_not_found(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+
+        with pytest.raises(HTTPException) as exc:
+            await get_text_audio_otr_content(
+                token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID, otr_id=OTR_ID
+            )
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_malformed_otr_id_raises_not_found_without_a_lookup(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+
+        with pytest.raises(HTTPException) as exc:
+            await get_text_audio_otr_content(
+                token=VALID_TOKEN,
+                text_id=TEXT_ID,
+                audio_id=AUDIO_ID,
+                otr_id="not-an-object-id",
+            )
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+        audio_env.otr_model.get.assert_not_awaited()
+
+
+class TestDeleteTextAudioOtr:
+    @pytest.mark.asyncio
+    async def test_stored_otr_is_removed(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+        existing = _existing_otr(audio_env.otr_model)
+        audio_env.otr_model.get.return_value = existing
+
+        assert await delete_text_audio_otr(
+            token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID, otr_id=OTR_ID
+        ) is None
+
+        existing.delete.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_unknown_otr_raises_not_found(self, audio_env):
+        audio_env.model.get.return_value = _existing_audio(audio_env.model)
+
+        with pytest.raises(HTTPException) as exc:
+            await delete_text_audio_otr(
+                token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID, otr_id=OTR_ID
+            )
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
