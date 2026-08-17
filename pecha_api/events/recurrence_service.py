@@ -122,7 +122,9 @@ def resolve_next_occurrence(event: Event, after: Optional[date] = None) -> Optio
     if after is None:
         after = date.today()
     
-    search_end = date(after.year + 2, 12, 31)
+    # Use 5-year horizon to guarantee coverage of leap-day (Feb 29) recurrences,
+    # which occur every 4 years
+    search_end = date(after.year + 5, 12, 31)
     
     occurrences = expand_occurrences(event, after, search_end)
     
