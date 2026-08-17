@@ -24,11 +24,26 @@ def test_build_invitation_html_contains_group_and_role():
         group_title="Dharma Group",
         invite_role="AUTHOR",
         invitations_url="https://studio.webuddhist.com/groups",
+        login_url="https://studio.webuddhist.com/login",
         logo_url="https://example.com/logo.png",
     )
     assert "Dharma Group" in html
     assert "Author" in html
     assert "alice@example.org" in html
+
+
+def test_build_invitation_html_contains_login_link():
+    html = _build_invitation_html(
+        inviter_name="Alice",
+        inviter_email="alice@example.org",
+        group_title="Dharma Group",
+        invite_role="AUTHOR",
+        invitations_url="https://studio.webuddhist.com/groups",
+        login_url="https://studio.webuddhist.com/login",
+        logo_url="https://example.com/logo.png",
+    )
+    assert 'href="https://studio.webuddhist.com/login"' in html
+    assert "Log in to WeBuddhist Studio" in html
 
 
 def test_send_group_invitation_email_success():
@@ -49,7 +64,9 @@ def test_send_group_invitation_email_success():
             invite_role="AUTHOR",
         )
     mock_send.assert_called_once()
-    assert "Dharma Group" in mock_send.call_args.kwargs["message"]
+    message = mock_send.call_args.kwargs["message"]
+    assert "Dharma Group" in message
+    assert 'href="https://studio.webuddhist.com/login"' in message
 
 
 def test_send_group_invitation_email_logs_failure():

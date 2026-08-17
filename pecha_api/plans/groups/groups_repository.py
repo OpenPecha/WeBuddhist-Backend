@@ -16,6 +16,7 @@ from pecha_api.plans.groups.groups_models import (
     author_group_joins,
     author_group_tags,
 )
+from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.tags.tag_model import Tag
@@ -83,6 +84,28 @@ def get_plans_by_group_id(db: Session, group_id: UUID) -> List[Plan]:
         )
         .all()
     )
+
+
+def get_standalone_plans_for_group_ids(
+    db: Session,
+    group_ids: Sequence[UUID],
+    limit: int,
+    exclude_ids: Optional[Sequence[UUID]] = None,
+) -> Tuple[List[Plan], int]:
+    """Published plans that are not part of a series, across the given groups."""
+    if not group_ids:
+        return [], 0
+    query = db.query(Plan).filter(
+        Plan.group_id.in_(group_ids),
+        Plan.deleted_at.is_(None),
+        Plan.series_id.is_(None),
+        Plan.status == PlanStatus.PUBLISHED,
+    )
+    if exclude_ids:
+        query = query.filter(Plan.id.not_in(exclude_ids))
+    total = query.count()
+    plans = query.order_by(Plan.created_at.desc(), Plan.id.desc()).limit(limit).all()
+    return plans, total
 
 
 def get_series_partner_id_map_for_group(
@@ -205,6 +228,27 @@ def get_series_by_group_id(db: Session, group_id: UUID) -> List[Series]:
         .distinct()
         .all()
     )
+
+
+def get_series_for_group_ids(
+    db: Session,
+    group_ids: Sequence[UUID],
+    limit: int,
+    exclude_ids: Optional[Sequence[UUID]] = None,
+) -> Tuple[List[Series], int]:
+    """Published series owned by the given groups, newest first."""
+    if not group_ids:
+        return [], 0
+    query = db.query(Series).filter(
+        Series.group_id.in_(group_ids),
+        Series.deleted_at.is_(None),
+        Series.status == PlanStatus.PUBLISHED,
+    )
+    if exclude_ids:
+        query = query.filter(Series.id.not_in(exclude_ids))
+    total = query.count()
+    series_list = query.order_by(Series.created_at.desc(), Series.id.desc()).limit(limit).all()
+    return series_list, total
 
 
 def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:

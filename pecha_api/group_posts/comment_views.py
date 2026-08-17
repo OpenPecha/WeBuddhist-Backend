@@ -20,10 +20,7 @@ from pecha_api.group_posts.comment_service import (
     list_post_comments_service,
 )
 from pecha_api.group_posts.comment_websocket import get_broadcaster
-from pecha_api.group_posts.service_utils import resolve_user_id
-from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
-from pecha_api.users.users_models import Users
-from pecha_api.db.database import SessionLocal
+from pecha_api.users.users_service import validate_and_extract_user_details
 
 logger = logging.getLogger(__name__)
 
@@ -58,11 +55,8 @@ def list_post_comments(
     user_id = None
     if authentication_credential:
         try:
-            author = validate_and_extract_author_details(token=authentication_credential.credentials)
-            with SessionLocal() as db:
-                user = db.query(Users).filter(Users.email == author.email).first()
-                if user:
-                    user_id = user.id
+            user = validate_and_extract_user_details(token=authentication_credential.credentials)
+            user_id = user.id
         except Exception:
             pass
     return list_post_comments_service(
@@ -84,10 +78,10 @@ def create_post_comment(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ) -> GroupPostCommentDTO:
     """Create a comment on a post (requires authentication)."""
-    author = validate_and_extract_author_details(token=authentication_credential.credentials)
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
     return create_post_comment_service(
         post_id=post_id,
-        author_email=author.email,
+        user_id=user.id,
         text=request.text,
         parent_comment_id=request.parent_comment_id,
     )
@@ -102,12 +96,10 @@ def delete_post_comment(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ) -> Response:
     """Delete a comment (only the author can delete)."""
-    author = validate_and_extract_author_details(token=authentication_credential.credentials)
-    with SessionLocal() as db:
-        user_id = resolve_user_id(db, author.email)
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
     delete_post_comment_service(
         comment_id=comment_id,
-        user_id=user_id,
+        user_id=user.id,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -121,7 +113,7 @@ async def websocket_post_comments(
     token: str = Query(...),
 ):
     """Live comment stream for a post (WebSocket)."""
-    author = None
+    user = None
 
     try:
         broadcaster = get_broadcaster()
@@ -133,7 +125,7 @@ async def websocket_post_comments(
     try:
         # 1. Authenticate
         try:
-            author = validate_and_extract_author_details(token=token)
+            user = validate_and_extract_user_details(token=token)
         except HTTPException as auth_error:
             logger.error(f"WebSocket auth failed: {auth_error.detail}")
             await websocket.accept()
@@ -158,7 +150,7 @@ async def websocket_post_comments(
 
         # 3. Accept, track connection, and subscribe to Redis channel
         await websocket.accept()
-        await broadcaster.add_connection(post_id, author.id, websocket)
+        await broadcaster.add_connection(post_id, user.id, websocket)
         pubsub = await broadcaster.subscribe_to_post(post_id)
 
         # 4a. Background task: listen for Redis pub/sub messages
@@ -196,7 +188,7 @@ async def websocket_post_comments(
 
                     comment_dto = create_post_comment_service(
                         post_id=post_id,
-                        author_email=author.email,
+                        user_id=user.id,
                         text=data.get("text", ""),
                         parent_comment_id=parent_comment_id,
                     )
@@ -240,5 +232,5 @@ async def websocket_post_comments(
             pass
 
     finally:
-        if author:
-            await broadcaster.remove_connection(post_id, author.id)
+        if user:
+            await broadcaster.remove_connection(post_id, user.id)

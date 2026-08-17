@@ -51,7 +51,9 @@ def test_exchange_creates_verified_inactive_google_profile(
     ), patch(
         "pecha_api.plans.auth.plan_auth_services.save_google_author",
         return_value=saved_author,
-    ) as save:
+    ) as save, patch(
+        "pecha_api.plans.auth.plan_auth_services.notify_pending_group_invites",
+    ) as mock_notify:
         response = exchange_google_token(
             GoogleExchangeRequest(
                 auth0_token="auth0-token",
@@ -71,6 +73,7 @@ def test_exchange_creates_verified_inactive_google_profile(
     assert response.status == AuthorStatus.INACTIVE
     assert response.auth is None
     assert response.email == "ada@example.com"
+    mock_notify.assert_called_once_with(saved_author)
 
 
 @patch("pecha_api.plans.auth.plan_auth_services.SessionLocal")
@@ -152,7 +155,9 @@ def test_exchange_existing_active_author_returns_tokens(
     with patch(
         "pecha_api.plans.auth.plan_auth_services.find_author_by_email",
         return_value=author,
-    ):
+    ), patch(
+        "pecha_api.plans.auth.plan_auth_services.notify_pending_group_invites",
+    ) as mock_notify:
         response = exchange_google_token(
             GoogleExchangeRequest(auth0_token="auth0-token")
         )
@@ -160,3 +165,33 @@ def test_exchange_existing_active_author_returns_tokens(
     assert response.status == AuthorStatus.ACTIVE
     assert response.auth is not None
     assert response.auth.access_token == "access"
+    mock_notify.assert_not_called()
+
+
+@patch("pecha_api.plans.auth.plan_auth_services.SessionLocal")
+@patch("pecha_api.plans.auth.plan_auth_services.verify_auth0_google_token")
+def test_exchange_first_verification_of_existing_author_notifies_pending_invites(
+    verify_google,
+    session_local,
+):
+    verify_google.return_value = Auth0GoogleIdentity(
+        subject="google-oauth2|123",
+        email="ada@example.com",
+    )
+    _session(session_local)
+    author = _author(is_active=False, is_verified=False)
+
+    with patch(
+        "pecha_api.plans.auth.plan_auth_services.find_author_by_email",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.auth.plan_auth_services.update_author",
+        return_value=author,
+    ) as mock_update, patch(
+        "pecha_api.plans.auth.plan_auth_services.notify_pending_group_invites",
+    ) as mock_notify:
+        exchange_google_token(GoogleExchangeRequest(auth0_token="auth0-token"))
+
+    assert author.is_verified is True
+    mock_update.assert_called_once()
+    mock_notify.assert_called_once_with(author)

@@ -25,6 +25,7 @@ from pecha_api.plans.authors.plan_authors_repository import (
 from pecha_api.auth.auth_repository import get_hashed_password, verify_password, create_access_token, create_refresh_token
 from pecha_api.auth.password_reset_repository import save_password_reset, get_password_reset_by_token_for_author
 from pecha_api.auth.auth_service import send_reset_email
+from pecha_api.plans.groups.groups_service import notify_pending_group_invites
 from fastapi import HTTPException
 from starlette import status
 from datetime import datetime, timedelta, timezone
@@ -142,6 +143,7 @@ def verify_author_email(token: str) -> AuthorVerificationResponse:
             if not author.is_verified:
                 author.is_verified = True
                 update_author(db=db_session, author=author)
+                notify_pending_group_invites(author)
                 message = EMAIL_VERIFIED_SUCCESS
             else:
                 message = EMAIL_ALREADY_VERIFIED
@@ -360,6 +362,7 @@ def exchange_phone_token(request: PhoneExchangeRequest) -> PhoneExchangeResponse
             created_by=f"{AUTH0_SMS_PROVIDER}:{sms_identity.subject}",
         )
         author = save_phone_author(db=db, author=author)
+        notify_pending_group_invites(author)
         return _phone_exchange_response(author, sms_identity.phone_number)
 
 
@@ -427,6 +430,7 @@ def exchange_google_token(request: GoogleExchangeRequest) -> GoogleExchangeRespo
             if not author.is_verified:
                 author.is_verified = True
                 author = update_author(db=db, author=author)
+                notify_pending_group_invites(author)
             return _google_exchange_response(author, google_identity.email)
 
         first_name = (request.first_name or google_identity.first_name or "").strip()
@@ -448,5 +452,6 @@ def exchange_google_token(request: GoogleExchangeRequest) -> GoogleExchangeRespo
             created_by=f"{AUTH0_GOOGLE_PROVIDER}:{google_identity.subject}",
         )
         author = save_google_author(db=db, author=author)
+        notify_pending_group_invites(author)
         return _google_exchange_response(author, google_identity.email)
 

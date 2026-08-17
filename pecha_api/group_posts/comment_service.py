@@ -154,7 +154,7 @@ def list_post_comments_service(
 
 def create_post_comment_service(
     post_id: UUID,
-    author_email: str,
+    user_id: UUID,
     text: str,
     parent_comment_id: Optional[UUID] = None,
 ) -> GroupPostCommentDTO:
@@ -175,17 +175,9 @@ def create_post_comment_service(
                     detail="Parent comment not found",
                 )
 
-        # Look up user by email in Users table
-        user = db.query(Users).filter(Users.email == author_email).first()
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=f"User account not found: {author_email}",
-            )
-
         comment = GroupPostComment(
             post_id=post_id,
-            user_id=user.id,
+            user_id=user_id,
             parent_comment_id=parent_comment_id,
             text=text,
         )
