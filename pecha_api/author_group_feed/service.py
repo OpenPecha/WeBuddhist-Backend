@@ -259,14 +259,12 @@ def _get_author_group_feed(
         )
     
     # Add expanded recurring event occurrences to feed
-    # Use min(created_at, occurrence_date) for sorting: this ensures a newly created
-    # template with a distant future occurrence doesn't outrank recent content, while
-    # still allowing recently-created near-term events to appear prominently.
+    # Use occurrence date for sorting: recurring events rank by when they actually
+    # occur, not when the template was created. This prevents distant future events
+    # from displacing recent posts and one-shot events.
     for item in expanded_recurring:
         event = item['event']
-        created_at = _as_aware_utc(event.created_at)
-        occurrence_at = item['start_date']
-        feed_at = min(created_at, occurrence_at)  # Cap ranking at occurrence date
+        feed_at = item['start_date']  # Rank by occurrence date
         group_info = group_cards.get(event.group_id, {})
         # Temporarily override dates for DTO
         original_start = event.start_date

@@ -717,14 +717,13 @@ def get_featured_events_service(
                 })
         
         # Merge one-shot events and next occurrences of recurring templates
-        # Use min(created_at, occurrence_date) for sorting: this ensures a newly
-        # created template with a distant future occurrence doesn't displace older
-        # one-shot featured events, while still allowing near-term events to rank high.
+        # One-shot events sort by created_at; recurring events sort by occurrence date.
+        # This prevents distant future recurring events from displacing one-shot events.
         all_event_items = [
             {'event': e, 'start_date': e.start_date, 'end_date': e.end_date, 'occurrence_date': None, 'sort_date': e.created_at}
             for e in one_shot_events
         ] + [
-            {**item, 'sort_date': min(item['event'].created_at or datetime.min.replace(tzinfo=timezone.utc), item['start_date'])}
+            {**item, 'sort_date': item['start_date']}
             for item in expanded_occurrences
         ]
         
