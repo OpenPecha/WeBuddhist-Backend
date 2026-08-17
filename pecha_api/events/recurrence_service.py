@@ -128,8 +128,11 @@ def resolve_next_occurrence(event: Event, after: Optional[date] = None) -> Optio
     
     occurrences = expand_occurrences(event, after, search_end)
     
-    if occurrences:
-        return occurrences[0][0]
+    # expand_occurrences may return occurrences that started before `after`
+    # (for multi-day events overlapping the window). Filter to starts >= after.
+    for start_d, _ in occurrences:
+        if start_d >= after:
+            return start_d
     
     return None
 
@@ -197,7 +200,8 @@ def compute_initial_dates(recurrence: RecurrenceInput) -> tuple[datetime, dateti
         Tuple of (start_date, end_date) as datetime objects
     """
     today = date.today()
-    search_end = date(today.year + 2, 12, 31)
+    # Use 5-year horizon to guarantee coverage of leap-day (Feb 29) recurrences
+    search_end = date(today.year + 5, 12, 31)
     
     if recurrence.frequency == RecurrenceFrequency.YEARLY:
         if recurrence.date_system == RecurrenceDateSystem.GREGORIAN:
