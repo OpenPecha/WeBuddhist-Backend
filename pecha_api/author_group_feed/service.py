@@ -257,19 +257,24 @@ def _get_author_group_feed(
             )
         )
     
-    # Add expanded recurring event occurrences to feed
-    # Ranking: min(created_at, occurrence_date) ensures templates with distant future
-    # occurrences don't displace recent content. Active events rank by their start_date
-    # (not now) so multiple active events don't all tie at the top.
+    # Add expanded recurring event occurrences to feed.
+    # Non-active (not yet started) occurrences are ranked by proximity to "now"
+    # rather than by the template's created_at: for a future occurrence,
+    # occurrence_date > now > created_at always holds, which made
+    # min(created_at, occurrence_date) collapse to created_at and let a
+    # freshly-created template with a far-future occurrence outrank genuinely
+    # recent content. Mirroring the occurrence date around "now"
+    # (now - (occurrence_date - now)) keeps imminent occurrences competitive
+    # with recent content while distant ones sink below it. Active events rank
+    # by their start_date (not now) so multiple active events don't all tie at
+    # the top.
     for item in expanded_recurring:
         event = item['event']
         if item.get('is_active'):
             feed_at = item['start_date']  # Active events rank by when they started
         else:
-            # Use min so distant future events don't outrank recent content
-            created_at = _as_aware_utc(event.created_at)
             occurrence_at = item['start_date']
-            feed_at = min(created_at, occurrence_at)
+            feed_at = now - (occurrence_at - now)
         group_info = group_cards.get(event.group_id, {})
         # Temporarily override dates for DTO
         original_start = event.start_date
