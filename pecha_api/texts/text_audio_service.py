@@ -203,17 +203,27 @@ async def delete_text_audio(token: str, text_id: str, audio_id: str) -> None:
     validate_cms_author_details(token=token)
     await get_required_text(text_id=text_id)
     audio = await get_required_audio(text_id=text_id, audio_id=audio_id)
+    audio_pk = str(audio.id)
     keys_to_delete = list(dict.fromkeys(
         key for key in [audio.audio_key, *audio.pending_cleanup_keys] if key
     ))
     loop = asyncio.get_event_loop()
 
-    # Delete metadata first (source of truth). Once this succeeds, the audio
-    # no longer exists from the application's perspective, so a subsequent
-    # S3 failure below only orphans storage instead of leaving a record that
-    # still points at a file which no longer exists.
-    await TextAudioOtr.find(TextAudioOtr.audio_id == str(audio.id)).delete()
+    # Delete the audio metadata first (source of truth). Once this succeeds,
+    # the audio no longer exists from the application's perspective - it is
+    # unreachable via get_required_audio - so a subsequent failure to remove
+    # its OTR transcripts or S3 objects below only leaves orphaned data
+    # behind instead of a record that still points at children which no
+    # longer exist (OTRs) or a file that no longer exists (S3).
     await audio.delete()
+
+    try:
+        await TextAudioOtr.find(TextAudioOtr.audio_id == audio_pk).delete()
+    except Exception:
+        logging.exception(
+            "Failed to remove OTR transcripts for deleted audio %s. Records orphaned.",
+            audio_pk,
+        )
 
     for key in keys_to_delete:
         try:

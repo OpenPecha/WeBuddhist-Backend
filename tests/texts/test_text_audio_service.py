@@ -520,6 +520,24 @@ class TestDeleteTextAudio:
         audio_env.delete.assert_called_once_with(EXISTING_AUDIO_KEY)
 
     @pytest.mark.asyncio
+    async def test_audio_metadata_is_deleted_even_if_otr_cleanup_fails(self, audio_env):
+        """The audio document is deleted before its OTRs so a failure here
+        only orphans transcript records - it must never leave the audio
+        document surviving with its transcripts silently gone."""
+        existing = _existing_audio(audio_env.model)
+        audio_env.model.get.return_value = existing
+        otr_chain = _find_chain()
+        otr_chain.delete.side_effect = RuntimeError("mongo is down")
+        audio_env.otr_model.find.return_value = otr_chain
+
+        assert await delete_text_audio(
+            token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+        ) is None
+
+        existing.delete.assert_awaited_once()
+        audio_env.delete.assert_called_once_with(EXISTING_AUDIO_KEY)
+
+    @pytest.mark.asyncio
     async def test_delete_also_retries_cleanup_of_previously_pending_keys(self, audio_env):
         stale_key = "audio/texts/stale-key.mp3"
         existing = _existing_audio(audio_env.model, pending_cleanup_keys=[stale_key])
