@@ -14,6 +14,8 @@ from pecha_api.texts.text_audio_models import (
     TextAudioOtrContentResponse,
     TextAudioOtrResponse,
     TextAudioResponse,
+    TextAudioSegmentsResponse,
+    TextSegmentContent,
     UpdateTextAudioNameRequest,
 )
 from pecha_api.texts.text_audio_service import (
@@ -25,6 +27,7 @@ from pecha_api.texts.text_audio_service import (
     get_text_audio_otr_content,
     get_text_audio_otrs,
     get_text_audios,
+    get_text_segments_in_order,
     parse_otr_content,
     to_text_audio_response,
     update_text_audio_name,
@@ -32,6 +35,11 @@ from pecha_api.texts.text_audio_service import (
     upload_text_audio_otr,
     validate_otr_file,
     validate_text_audio_file,
+)
+from pecha_api.texts.texts_response_models import (
+    Section,
+    TableOfContentType,
+    TextSegment,
 )
 
 SERVICE = "pecha_api.texts.text_audio_service"
@@ -405,6 +413,155 @@ class TestGetTextAudios:
             await get_text_audios(token="invalid_token", text_id=TEXT_ID)
 
         assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def _table_of_content(sections, toc_type=TableOfContentType.TEXT):
+    return SimpleNamespace(type=toc_type, sections=sections)
+
+
+class TestGetTextSegmentsInOrder:
+    @pytest.mark.asyncio
+    async def test_returns_segments_sorted_into_reading_order(self, audio_env):
+        sections = [
+            Section(
+                id="sec-2",
+                title="Two",
+                section_number=2,
+                segments=[TextSegment(segment_id="seg-3", segment_number=1)],
+            ),
+            Section(
+                id="sec-1",
+                title="One",
+                section_number=1,
+                segments=[
+                    TextSegment(segment_id="seg-2", segment_number=2),
+                    TextSegment(segment_id="seg-1", segment_number=1),
+                ],
+            ),
+        ]
+        with patch(f"{SERVICE}.TableOfContent") as mock_toc, patch(
+            f"{SERVICE}.Segment"
+        ) as mock_segment:
+            mock_toc.get_table_of_contents_by_text_id = AsyncMock(
+                return_value=[_table_of_content(sections)]
+            )
+            mock_segment.get_segment_contents_by_ids = AsyncMock(
+                return_value={
+                    "seg-1": (TEXT_ID, "first"),
+                    "seg-2": (TEXT_ID, "second"),
+                    "seg-3": (TEXT_ID, "third"),
+                }
+            )
+
+            response = await get_text_segments_in_order(
+                token=VALID_TOKEN, text_id=TEXT_ID
+            )
+
+        assert response == TextAudioSegmentsResponse(
+            text_id=TEXT_ID,
+            segments=[
+                TextSegmentContent(segment_id="seg-1", content="first"),
+                TextSegmentContent(segment_id="seg-2", content="second"),
+                TextSegmentContent(segment_id="seg-3", content="third"),
+            ],
+        )
+
+    @pytest.mark.asyncio
+    async def test_sheet_tables_of_content_are_skipped(self, audio_env):
+        text_section = [
+            Section(
+                id="sec-1",
+                title="One",
+                section_number=1,
+                segments=[TextSegment(segment_id="seg-1", segment_number=1)],
+            )
+        ]
+        sheet_section = [
+            Section(
+                id="sec-9",
+                title="Sheet",
+                section_number=1,
+                segments=[TextSegment(segment_id="seg-9", segment_number=1)],
+            )
+        ]
+        with patch(f"{SERVICE}.TableOfContent") as mock_toc, patch(
+            f"{SERVICE}.Segment"
+        ) as mock_segment:
+            mock_toc.get_table_of_contents_by_text_id = AsyncMock(
+                return_value=[
+                    _table_of_content(sheet_section, toc_type=TableOfContentType.SHEET),
+                    _table_of_content(text_section, toc_type=TableOfContentType.TEXT),
+                ]
+            )
+            mock_segment.get_segment_contents_by_ids = AsyncMock(
+                return_value={"seg-1": (TEXT_ID, "only the text content")}
+            )
+
+            response = await get_text_segments_in_order(
+                token=VALID_TOKEN, text_id=TEXT_ID
+            )
+
+        mock_segment.get_segment_contents_by_ids.assert_awaited_once_with(
+            segment_ids=["seg-1"]
+        )
+        assert response.segments == [
+            TextSegmentContent(segment_id="seg-1", content="only the text content")
+        ]
+
+    @pytest.mark.asyncio
+    async def test_refs_missing_content_are_dropped(self, audio_env):
+        sections = [
+            Section(
+                id="sec-1",
+                title="One",
+                section_number=1,
+                segments=[
+                    TextSegment(segment_id="seg-1", segment_number=1),
+                    TextSegment(segment_id="seg-missing", segment_number=2),
+                ],
+            )
+        ]
+        with patch(f"{SERVICE}.TableOfContent") as mock_toc, patch(
+            f"{SERVICE}.Segment"
+        ) as mock_segment:
+            mock_toc.get_table_of_contents_by_text_id = AsyncMock(
+                return_value=[_table_of_content(sections)]
+            )
+            mock_segment.get_segment_contents_by_ids = AsyncMock(
+                return_value={"seg-1": (TEXT_ID, "first")}
+            )
+
+            response = await get_text_segments_in_order(
+                token=VALID_TOKEN, text_id=TEXT_ID
+            )
+
+        assert response.segments == [
+            TextSegmentContent(segment_id="seg-1", content="first")
+        ]
+
+    @pytest.mark.asyncio
+    async def test_no_table_of_content_yields_no_segments(self, audio_env):
+        with patch(f"{SERVICE}.TableOfContent") as mock_toc, patch(
+            f"{SERVICE}.Segment"
+        ) as mock_segment:
+            mock_toc.get_table_of_contents_by_text_id = AsyncMock(return_value=[])
+            mock_segment.get_segment_contents_by_ids = AsyncMock(return_value={})
+
+            response = await get_text_segments_in_order(
+                token=VALID_TOKEN, text_id=TEXT_ID
+            )
+
+        assert response == TextAudioSegmentsResponse(text_id=TEXT_ID, segments=[])
+        mock_segment.get_segment_contents_by_ids.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_missing_text_raises_not_found(self, audio_env):
+        audio_env.get_text.return_value = None
+
+        with pytest.raises(HTTPException) as exc:
+            await get_text_segments_in_order(token=VALID_TOKEN, text_id=TEXT_ID)
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 class TestUploadTextAudio:

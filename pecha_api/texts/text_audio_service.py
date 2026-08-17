@@ -20,16 +20,21 @@ from pecha_api.uploads.S3_utils import (
 )
 
 from .otr_transcript_parser import parse_otr_transcript
+from .segments.segments_models import Segment
 from .text_audio_models import (
     TextAudio,
     TextAudioOtr,
     TextAudioOtrContentResponse,
     TextAudioOtrResponse,
     TextAudioResponse,
+    TextAudioSegmentsResponse,
+    TextSegmentContent,
     UpdateTextAudioNameRequest,
     utc_now,
 )
-from .texts_models import Text
+from .texts_models import TableOfContent, Text
+from .texts_response_models import Section, TableOfContentType
+from .texts_toc_utils import iter_segment_refs_in_sections
 
 INVALID_OTR_DETAIL = "Upload a valid OTR/JSON file."
 
@@ -142,6 +147,53 @@ async def get_required_otr(audio_id: str, otr_id: str) -> TextAudioOtr:
             detail="OTR not found.",
         )
     return otr
+
+
+def _sorted_sections(sections: List[Section]) -> List[Section]:
+    ordered = sorted(sections, key=lambda section: section.section_number)
+    for section in ordered:
+        section.segments = sorted(
+            section.segments, key=lambda segment: segment.segment_number
+        )
+        if section.sections:
+            section.sections = _sorted_sections(section.sections)
+    return ordered
+
+
+async def get_text_segments_in_order(
+    token: str, text_id: str
+) -> TextAudioSegmentsResponse:
+    validate_cms_author_details(token=token)
+    await get_required_text(text_id=text_id)
+
+    tables_of_content = await TableOfContent.get_table_of_contents_by_text_id(
+        text_id=text_id
+    )
+    # A text can have more than one table of contents (e.g. sheets); the
+    # sync feature reads the text itself, so sheets are excluded and only
+    # the first remaining table of contents is used as the reading order.
+    table_of_content = next(
+        (toc for toc in tables_of_content if toc.type != TableOfContentType.SHEET),
+        None,
+    )
+    if table_of_content is None:
+        return TextAudioSegmentsResponse(text_id=text_id, segments=[])
+
+    ordered_refs = list(
+        iter_segment_refs_in_sections(_sorted_sections(table_of_content.sections))
+    )
+    if not ordered_refs:
+        return TextAudioSegmentsResponse(text_id=text_id, segments=[])
+
+    contents_by_ref = await Segment.get_segment_contents_by_ids(
+        segment_ids=ordered_refs
+    )
+    segments = [
+        TextSegmentContent(segment_id=ref, content=contents_by_ref[ref][1])
+        for ref in ordered_refs
+        if ref in contents_by_ref
+    ]
+    return TextAudioSegmentsResponse(text_id=text_id, segments=segments)
 
 
 async def get_text_audios(token: str, text_id: str) -> List[TextAudioResponse]:

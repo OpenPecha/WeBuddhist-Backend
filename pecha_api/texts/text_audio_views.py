@@ -8,6 +8,7 @@ from .text_audio_models import (
     TextAudioOtrContentResponse,
     TextAudioOtrResponse,
     TextAudioResponse,
+    TextAudioSegmentsResponse,
     UpdateTextAudioNameRequest,
 )
 from .text_audio_service import (
@@ -16,6 +17,7 @@ from .text_audio_service import (
     get_text_audio_otr_content,
     get_text_audio_otrs,
     get_text_audios,
+    get_text_segments_in_order,
     update_text_audio_name,
     upload_text_audio,
     upload_text_audio_otr,
@@ -96,6 +98,19 @@ async def remove_text_audio(
         audio_id=audio_id,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@text_audio_router.get("/{text_id}/segments")
+async def fetch_text_segments(
+    text_id: str,
+    authentication_credential: Annotated[
+        HTTPAuthorizationCredentials, Depends(oauth2_scheme)
+    ],
+) -> TextAudioSegmentsResponse:
+    return await get_text_segments_in_order(
+        token=authentication_credential.credentials,
+        text_id=text_id,
+    )
 
 
 @text_audio_router.get("/{text_id}/audios/{audio_id}/otr")

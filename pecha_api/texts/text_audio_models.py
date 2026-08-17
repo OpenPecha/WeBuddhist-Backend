@@ -108,3 +108,13 @@ class TextAudioOtrResponse(BaseModel):
 class TextAudioOtrContentResponse(BaseModel):
     text: str
     spans: List[OtrSpanEntry]
+
+
+class TextSegmentContent(BaseModel):
+    segment_id: str
+    content: str
+
+
+class TextAudioSegmentsResponse(BaseModel):
+    text_id: str
+    segments: List[TextSegmentContent]

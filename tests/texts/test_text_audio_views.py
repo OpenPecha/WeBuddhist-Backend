@@ -14,6 +14,8 @@ from pecha_api.texts.text_audio_models import (
     TextAudioOtrContentResponse,
     TextAudioOtrResponse,
     TextAudioResponse,
+    TextAudioSegmentsResponse,
+    TextSegmentContent,
 )
 
 VIEWS = "pecha_api.texts.text_audio_views"
@@ -24,6 +26,7 @@ AUDIO_ID = "64b000000000000000000001"
 OTR_ID = "64b000000000000000000002"
 AUDIO_KEY = "audio/texts/chant.mp3"
 AUDIOS_ENDPOINT = f"/cms/texts/{TEXT_ID}/audios"
+SEGMENTS_ENDPOINT = f"/cms/texts/{TEXT_ID}/segments"
 AUDIO_ENDPOINT = f"{AUDIOS_ENDPOINT}/{AUDIO_ID}"
 OTRS_ENDPOINT = f"{AUDIO_ENDPOINT}/otr"
 OTR_ENDPOINT = f"{OTRS_ENDPOINT}/{OTR_ID}"
@@ -120,6 +123,44 @@ class TestFetchTextAudios:
 
     def test_request_without_a_token_is_rejected(self, unauthenticated_client):
         response = unauthenticated_client.get(AUDIOS_ENDPOINT)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestFetchTextSegments:
+    def test_ordered_segments_are_returned(self, authenticated_client):
+        payload = TextAudioSegmentsResponse(
+            text_id=TEXT_ID,
+            segments=[
+                TextSegmentContent(segment_id="seg-1", content="first"),
+                TextSegmentContent(segment_id="seg-2", content="second"),
+            ],
+        )
+        with patch(
+            f"{VIEWS}.get_text_segments_in_order", new_callable=AsyncMock
+        ) as fetch:
+            fetch.return_value = payload
+
+            response = authenticated_client.get(SEGMENTS_ENDPOINT)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == payload.model_dump()
+        fetch.assert_awaited_once_with(token=VALID_TOKEN, text_id=TEXT_ID)
+
+    def test_missing_text_returns_not_found(self, authenticated_client):
+        with patch(
+            f"{VIEWS}.get_text_segments_in_order", new_callable=AsyncMock
+        ) as fetch:
+            fetch.side_effect = HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Text not found.",
+            )
+
+            response = authenticated_client.get(SEGMENTS_ENDPOINT)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_request_without_a_token_is_rejected(self, unauthenticated_client):
+        response = unauthenticated_client.get(SEGMENTS_ENDPOINT)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
