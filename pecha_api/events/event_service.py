@@ -718,10 +718,10 @@ def get_featured_events_service(
         # Merge one-shot events and recurring occurrences
         # Recurring events use min(created_at, occurrence_date) so templates with
         # distant future occurrences don't displace one-shot events. Active events
-        # rank by now to appear prominently.
+        # rank by their start_date so multiple active events don't all tie at the top.
         def _recurring_sort_date(item):
             if item.get('is_active'):
-                return now
+                return item['start_date']  # Rank by when it started, not now
             created = item['event'].created_at or datetime.min.replace(tzinfo=timezone.utc)
             return min(created, item['start_date'])
         

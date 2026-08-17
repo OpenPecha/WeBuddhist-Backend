@@ -259,11 +259,12 @@ def _get_author_group_feed(
     
     # Add expanded recurring event occurrences to feed
     # Ranking: min(created_at, occurrence_date) ensures templates with distant future
-    # occurrences don't displace recent content. Active events rank by now.
+    # occurrences don't displace recent content. Active events rank by their start_date
+    # (not now) so multiple active events don't all tie at the top.
     for item in expanded_recurring:
         event = item['event']
         if item.get('is_active'):
-            feed_at = now  # Active events rank as "happening now"
+            feed_at = item['start_date']  # Active events rank by when they started
         else:
             # Use min so distant future events don't outrank recent content
             created_at = _as_aware_utc(event.created_at)
