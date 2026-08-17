@@ -128,10 +128,11 @@ def resolve_next_occurrence(event: Event, after: Optional[date] = None) -> Optio
     
     occurrences = expand_occurrences(event, after, search_end)
     
-    # expand_occurrences may return occurrences that started before `after`
-    # (for multi-day events overlapping the window). Filter to starts >= after.
-    for start_d, _ in occurrences:
-        if start_d >= after:
+    # Return the first occurrence that is active or upcoming:
+    # - Active: started before `after` but end_d >= after (multi-day event still ongoing)
+    # - Upcoming: start_d >= after
+    for start_d, end_d in occurrences:
+        if end_d >= after:
             return start_d
     
     return None

@@ -717,13 +717,13 @@ def get_featured_events_service(
                 })
         
         # Merge one-shot events and next occurrences of recurring templates
-        # One-shot events sort by created_at; recurring events sort by occurrence date.
-        # This prevents distant future recurring events from displacing one-shot events.
+        # Both use created_at for sorting, ensuring fair competition based on when
+        # content was created, not when future occurrences happen.
         all_event_items = [
             {'event': e, 'start_date': e.start_date, 'end_date': e.end_date, 'occurrence_date': None, 'sort_date': e.created_at}
             for e in one_shot_events
         ] + [
-            {**item, 'sort_date': item['start_date']}
+            {**item, 'sort_date': item['event'].created_at}
             for item in expanded_occurrences
         ]
         
