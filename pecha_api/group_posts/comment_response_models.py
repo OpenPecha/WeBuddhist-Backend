@@ -18,6 +18,7 @@ class GroupPostCommentDTO(BaseModel):
     id: UUID
     post_id: UUID
     parent_comment_id: Optional[UUID] = None
+    user_email: str
     user: GroupPostCommentUserDTO
     text: str
     created_at: str

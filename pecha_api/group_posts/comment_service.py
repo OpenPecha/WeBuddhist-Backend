@@ -76,11 +76,13 @@ def build_comment_dto(
     liked_by_me: bool = False,
 ) -> GroupPostCommentDTO:
     """Build a comment DTO with public user details."""
+    comment_user = _build_comment_user(comment.user)
     return GroupPostCommentDTO(
         id=comment.id,
         post_id=comment.post_id,
         parent_comment_id=comment.parent_comment_id,
-        user=_build_comment_user(comment.user),
+        user_email=comment_user.email,
+        user=comment_user,
         text=comment.text,
         created_at=_isoformat(comment.created_at),
         updated_at=_isoformat(comment.updated_at),

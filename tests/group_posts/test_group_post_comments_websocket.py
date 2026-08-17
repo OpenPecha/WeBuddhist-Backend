@@ -87,6 +87,7 @@ class TestPostCommentBroadcasterUnit:
         comment_dto = GroupPostCommentDTO(
             id=uuid4(),
             post_id=post_id,
+            user_email="test@example.com",
             user={
                 "first_name": "First",
                 "last_name": "Last",
@@ -210,6 +211,7 @@ class TestPostCommentBroadcasterFailures:
         comment = GroupPostCommentDTO(
             id=uuid4(),
             post_id=post_id,
+            user_email="test@example.com",
             user={
                 "first_name": "First",
                 "last_name": "Last",
