@@ -12,7 +12,7 @@ from pecha_api.events.event_participant_repository import (
 )
 from pecha_api.events.event_repository import get_events, get_recurring_events
 from pecha_api.events.event_service import _event_to_dto
-from pecha_api.events.recurrence_service import expand_occurrences
+from pecha_api.events.recurrence_service import resolve_next_occurrence
 from pecha_api.group_posts.enums import GroupPostStatus
 from pecha_api.group_posts.repository import get_posts_for_group_ids
 from pecha_api.group_posts.service import build_post_dtos
@@ -174,24 +174,22 @@ def _get_author_group_feed(
     )
     
     # For feed context, show only the next upcoming occurrence per template
-    # to prevent recurring events from monopolizing the feed
+    # to prevent recurring events from monopolizing the feed.
+    # Use resolve_next_occurrence (5-year horizon) to handle sparse yearly
+    # recurrences like Feb 29 that may not occur within a 1-year window.
     now = datetime.now(timezone.utc)
-    from_date_obj = now.date()
-    to_date_obj = (now + timedelta(days=365)).date()
+    today = now.date()
     
     expanded_recurring = []
     for template in recurring_templates:
-        occurrences = expand_occurrences(template, from_date_obj, to_date_obj)
-        # Filter to occurrences that start on or after today (expand_occurrences
-        # may return currently-active occurrences that started before today)
-        future_occurrences = [(s, e) for s, e in occurrences if s >= from_date_obj]
-        if future_occurrences:
-            # Take only the next upcoming occurrence
-            start_d, end_d = future_occurrences[0]
+        next_start = resolve_next_occurrence(template, after=today)
+        if next_start:
+            duration = template.duration_days or 1
+            next_end = next_start + timedelta(days=duration - 1)
             expanded_recurring.append({
                 'event': template,
-                'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
-                'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
+                'start_date': datetime(next_start.year, next_start.month, next_start.day, tzinfo=timezone.utc),
+                'end_date': datetime(next_end.year, next_end.month, next_end.day, 23, 59, 59, tzinfo=timezone.utc),
             })
     
     # Combine one-shot events with next occurrences of recurring templates
