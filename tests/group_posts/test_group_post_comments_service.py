@@ -225,14 +225,13 @@ class TestCreatePostCommentService:
         mock_get_post.return_value = MockPost(id=post_id, group_id=group_id)
 
         user = MockUser(email="commenter@example.com")
-        mock_db.query.return_value.filter.return_value.first.return_value = user
         mock_create.return_value = MockComment(
             user=user, user_id=user.id, post_id=post_id, text="Hello"
         )
 
         result = create_post_comment_service(
             post_id=post_id,
-            author_email="commenter@example.com",
+            user_id=user.id,
             text="Hello",
         )
 
@@ -268,7 +267,6 @@ class TestCreatePostCommentService:
         mock_get_comment.return_value = MockComment(post_id=post_id)
 
         user = MockUser(email="commenter@example.com")
-        mock_db.query.return_value.filter.return_value.first.return_value = user
         mock_create.return_value = MockComment(
             user=user,
             user_id=user.id,
@@ -279,7 +277,7 @@ class TestCreatePostCommentService:
 
         result = create_post_comment_service(
             post_id=post_id,
-            author_email=user.email,
+            user_id=user.id,
             text="Nested reply",
             parent_comment_id=parent_comment_id,
         )
@@ -315,41 +313,13 @@ class TestCreatePostCommentService:
         with pytest.raises(HTTPException) as exc_info:
             create_post_comment_service(
                 post_id=post_id,
-                author_email="commenter@example.com",
+                user_id=uuid4(),
                 text="Reply",
                 parent_comment_id=parent_comment_id,
             )
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert exc_info.value.detail == "Parent comment not found"
-
-    @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
-    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
-    @patch('pecha_api.group_posts.comment_service.SessionLocal')
-    def test_create_comment_user_not_found(
-        self, mock_session, mock_get_group, mock_get_post
-    ):
-        group_id = uuid4()
-        mock_db = MagicMock()
-        mock_session.return_value.__enter__.return_value = mock_db
-        mock_get_group.return_value = MockGroup()
-        mock_get_post.return_value = MockPost(group_id=group_id)
-
-        # Mock the db.query().filter().first() chain to return None
-        mock_query = MagicMock()
-        mock_filter = MagicMock()
-        mock_db.query.return_value = mock_query
-        mock_query.filter.return_value = mock_filter
-        mock_filter.first.return_value = None
-
-        with pytest.raises(HTTPException) as exc_info:
-            create_post_comment_service(
-                post_id=uuid4(),
-                author_email="test@example.com",
-                text="Hello",
-            )
-
-        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestDeletePostCommentService:

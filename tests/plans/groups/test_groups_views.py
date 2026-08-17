@@ -19,6 +19,8 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupMemberAccumulationsResponse,
     GroupMetadataDTO,
     GroupPracticeCardDTO,
+    GroupPracticeFeedItemDTO,
+    GroupPracticesFeedResponse,
     GroupPracticesResponse,
     GroupPracticeType,
     GroupSeriesListItemDTO,
@@ -530,6 +532,87 @@ def test_get_public_group_practices():
     assert body["total"] == 3
     types = {card["type"] for card in body["practices"]}
     assert types == {"series", "accumulator", "collection"}
+
+
+def test_get_group_practices_feed_success():
+    group_id = uuid4()
+    feed_response = GroupPracticesFeedResponse(
+        practices=[
+            GroupPracticeFeedItemDTO(
+                type=GroupPracticeType.ACCUMULATOR,
+                practice_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+                is_joined=True,
+                group_id=group_id,
+                group_name="Test Group",
+                group_slug="test-group",
+                accumulator=GroupAccumulatorDTO(
+                    id=uuid4(),
+                    group_id=group_id,
+                    title="Om Mani Padme Hum",
+                    member_count=3,
+                    created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+                ),
+            ),
+        ],
+        skip=0,
+        limit=20,
+        total=1,
+        include_unfollowed=False,
+    )
+    with patch(
+        "pecha_api.plans.groups.groups_views.get_group_practices_feed",
+        return_value=feed_response,
+    ) as mock_service:
+        response = client.get(
+            "/author/groups/practices",
+            headers={"Authorization": "Bearer dummy"},
+        )
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(
+        token="dummy",
+        group_id=None,
+        should_include_unfollowed=False,
+        skip=0,
+        limit=20,
+        language=None,
+        timezone_name=None,
+    )
+    body = response.json()
+    assert body["total"] == 1
+    assert body["include_unfollowed"] is False
+    assert body["practices"][0]["type"] == "accumulator"
+    assert body["practices"][0]["is_joined"] is True
+    assert body["practices"][0]["group_name"] == "Test Group"
+
+
+def test_get_group_practices_feed_passes_filters():
+    group_id = uuid4()
+    feed_response = GroupPracticesFeedResponse(
+        practices=[], skip=5, limit=10, total=0, include_unfollowed=True
+    )
+    with patch(
+        "pecha_api.plans.groups.groups_views.get_group_practices_feed",
+        return_value=feed_response,
+    ) as mock_service:
+        response = client.get(
+            f"/author/groups/practices?group_id={group_id}&include_unfollowed=true&skip=5&limit=10&language=en",
+            headers={"Authorization": "Bearer dummy", "X-Timezone": "Asia/Kolkata"},
+        )
+    assert response.status_code == status.HTTP_200_OK
+    mock_service.assert_called_once_with(
+        token="dummy",
+        group_id=group_id,
+        should_include_unfollowed=True,
+        skip=5,
+        limit=10,
+        language="en",
+        timezone_name="Asia/Kolkata",
+    )
+
+
+def test_get_group_practices_feed_requires_auth():
+    response = client.get("/author/groups/practices")
+    assert response.status_code == status.HTTP_403_FORBIDDEN
 
 
 def test_follow_and_unfollow_group():

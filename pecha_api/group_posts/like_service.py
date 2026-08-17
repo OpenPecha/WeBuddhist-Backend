@@ -28,7 +28,6 @@ from pecha_api.group_posts.repository import get_post_by_id_only
 from pecha_api.group_posts.service_utils import (
     isoformat,
     validate_group_is_public,
-    resolve_user_id,
 )
 
 logger = logging.getLogger(__name__)
@@ -47,14 +46,12 @@ def _get_and_validate_post(db: Session, post_id: UUID) -> tuple:
 
 def like_post_service(
     post_id: UUID,
-    author_email: str,
+    user_id: UUID,
 ) -> LikePostResponse:
     """Like a post. Idempotent - returns 200 if already liked."""
     with SessionLocal() as db:
         post, group_id = _get_and_validate_post(db, post_id)
         validate_group_is_public(db, group_id)
-
-        user_id = resolve_user_id(db, author_email)
 
         like = GroupPostLike(
             post_id=post_id,
@@ -76,14 +73,12 @@ def like_post_service(
 
 def unlike_post_service(
     post_id: UUID,
-    author_email: str,
+    user_id: UUID,
 ) -> None:
     """Unlike a post. Idempotent - succeeds even if not liked."""
     with SessionLocal() as db:
         post, group_id = _get_and_validate_post(db, post_id)
         validate_group_is_public(db, group_id)
-
-        user_id = resolve_user_id(db, author_email)
 
         delete_like(db=db, post_id=post_id, user_id=user_id)
 
