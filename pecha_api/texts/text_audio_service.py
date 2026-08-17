@@ -209,21 +209,20 @@ async def delete_text_audio(token: str, text_id: str, audio_id: str) -> None:
     ))
     loop = asyncio.get_event_loop()
 
-    # Delete the audio metadata first (source of truth). Once this succeeds,
-    # the audio no longer exists from the application's perspective - it is
-    # unreachable via get_required_audio - so a subsequent failure to remove
-    # its OTR transcripts or S3 objects below only leaves orphaned data
-    # behind instead of a record that still points at children which no
-    # longer exist (OTRs) or a file that no longer exists (S3).
-    await audio.delete()
+    # Delete the OTR transcripts before the audio itself, and let a failure
+    # here propagate instead of swallowing it. That keeps the operation
+    # retry-safe rather than truly atomic (which would need a replica-set
+    # transaction this deployment doesn't have): if this fails, the audio
+    # document is untouched - nothing is lost - the caller gets an honest
+    # error instead of a false success, and retrying is a clean no-op delete.
+    await TextAudioOtr.find(TextAudioOtr.audio_id == audio_pk).delete()
 
-    try:
-        await TextAudioOtr.find(TextAudioOtr.audio_id == audio_pk).delete()
-    except Exception:
-        logging.exception(
-            "Failed to remove OTR transcripts for deleted audio %s. Records orphaned.",
-            audio_pk,
-        )
+    # Only now delete the audio metadata. If this fails after the transcripts
+    # are already gone, the caller still gets an honest error (never a false
+    # success); the audio temporarily exists with zero transcripts, which is
+    # a truthful, discoverable state (its OTR list correctly reads empty),
+    # and retrying converges cleanly since the step above is now a no-op.
+    await audio.delete()
 
     for key in keys_to_delete:
         try:

@@ -520,22 +520,43 @@ class TestDeleteTextAudio:
         audio_env.delete.assert_called_once_with(EXISTING_AUDIO_KEY)
 
     @pytest.mark.asyncio
-    async def test_audio_metadata_is_deleted_even_if_otr_cleanup_fails(self, audio_env):
-        """The audio document is deleted before its OTRs so a failure here
-        only orphans transcript records - it must never leave the audio
-        document surviving with its transcripts silently gone."""
+    async def test_audio_survives_when_otr_cleanup_fails(self, audio_env):
+        """A failed OTR bulk delete must propagate rather than being
+        swallowed - the operation must never report success while
+        permanently orphaning transcript records. Nothing should be deleted:
+        the audio document is untouched so the caller can safely retry."""
         existing = _existing_audio(audio_env.model)
         audio_env.model.get.return_value = existing
         otr_chain = _find_chain()
         otr_chain.delete.side_effect = RuntimeError("mongo is down")
         audio_env.otr_model.find.return_value = otr_chain
 
-        assert await delete_text_audio(
-            token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
-        ) is None
+        with pytest.raises(RuntimeError):
+            await delete_text_audio(
+                token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+            )
 
-        existing.delete.assert_awaited_once()
-        audio_env.delete.assert_called_once_with(EXISTING_AUDIO_KEY)
+        existing.delete.assert_not_called()
+        audio_env.delete.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_audio_deletion_failure_after_otr_cleanup_is_not_swallowed(self, audio_env):
+        """If the audio delete itself fails after its OTRs are already gone,
+        that must still surface as an error - never a false success - so the
+        caller knows to retry rather than believing the delete completed."""
+        existing = _existing_audio(audio_env.model)
+        audio_env.model.get.return_value = existing
+        existing.delete.side_effect = RuntimeError("mongo is down")
+        otr_chain = _find_chain()
+        audio_env.otr_model.find.return_value = otr_chain
+
+        with pytest.raises(RuntimeError):
+            await delete_text_audio(
+                token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID
+            )
+
+        otr_chain.delete.assert_awaited_once()
+        audio_env.delete.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_delete_also_retries_cleanup_of_previously_pending_keys(self, audio_env):
