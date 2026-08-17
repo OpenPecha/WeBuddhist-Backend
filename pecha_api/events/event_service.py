@@ -716,13 +716,20 @@ def get_featured_events_service(
                 })
         
         # Merge one-shot events and recurring occurrences
-        # All events sort by created_at for fair ranking. Active recurring events
-        # (happening now) sort by today's date to appear prominently.
+        # Recurring events use min(created_at, occurrence_date) so templates with
+        # distant future occurrences don't displace one-shot events. Active events
+        # rank by now to appear prominently.
+        def _recurring_sort_date(item):
+            if item.get('is_active'):
+                return now
+            created = item['event'].created_at or datetime.min.replace(tzinfo=timezone.utc)
+            return min(created, item['start_date'])
+        
         all_event_items = [
             {'event': e, 'start_date': e.start_date, 'end_date': e.end_date, 'occurrence_date': None, 'sort_date': e.created_at}
             for e in one_shot_events
         ] + [
-            {**item, 'sort_date': now if item.get('is_active') else item['event'].created_at}
+            {**item, 'sort_date': _recurring_sort_date(item)}
             for item in expanded_occurrences
         ]
         
