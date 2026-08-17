@@ -716,14 +716,13 @@ def get_featured_events_service(
                 })
         
         # Merge one-shot events and recurring occurrences
-        # One-shot events sort by created_at; recurring events sort by occurrence date
-        # (active events use today's date). This prevents future events from displacing
-        # one-shot events while ensuring active events appear prominently.
+        # All events sort by created_at for fair ranking. Active recurring events
+        # (happening now) sort by today's date to appear prominently.
         all_event_items = [
             {'event': e, 'start_date': e.start_date, 'end_date': e.end_date, 'occurrence_date': None, 'sort_date': e.created_at}
             for e in one_shot_events
         ] + [
-            {**item, 'sort_date': now if item.get('is_active') else item['start_date']}
+            {**item, 'sort_date': now if item.get('is_active') else item['event'].created_at}
             for item in expanded_occurrences
         ]
         

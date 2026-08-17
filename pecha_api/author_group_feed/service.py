@@ -259,14 +259,14 @@ def _get_author_group_feed(
     
     # Add expanded recurring event occurrences to feed
     # Active occurrences (happening now) rank by today; upcoming occurrences rank
-    # by their start date. This ensures currently-happening events appear prominently
-    # while future events don't displace recent content.
+    # by created_at (same as one-shot events). This ensures currently-happening
+    # events appear prominently while future events don't displace recent content.
     for item in expanded_recurring:
         event = item['event']
         if item.get('is_active'):
             feed_at = now  # Active events rank as "happening now"
         else:
-            feed_at = item['start_date']  # Upcoming events rank by occurrence
+            feed_at = _as_aware_utc(event.created_at)  # Upcoming events rank by creation
         group_info = group_cards.get(event.group_id, {})
         # Temporarily override dates for DTO
         original_start = event.start_date
