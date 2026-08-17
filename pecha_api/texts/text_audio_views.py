@@ -1,10 +1,11 @@
-from typing import Annotated, Any, Dict, List, Optional
+from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
 from .text_audio_models import (
+    TextAudioOtrContentResponse,
     TextAudioOtrResponse,
     TextAudioResponse,
     UpdateTextAudioNameRequest,
@@ -142,7 +143,7 @@ async def fetch_text_audio_otr_json(
     authentication_credential: Annotated[
         HTTPAuthorizationCredentials, Depends(oauth2_scheme)
     ],
-) -> Dict[str, Any]:
+) -> TextAudioOtrContentResponse:
     return await get_text_audio_otr_content(
         token=authentication_credential.credentials,
         text_id=text_id,

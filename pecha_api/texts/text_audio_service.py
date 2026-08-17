@@ -19,9 +19,11 @@ from pecha_api.uploads.S3_utils import (
     upload_file,
 )
 
+from .otr_transcript_parser import parse_otr_transcript
 from .text_audio_models import (
     TextAudio,
     TextAudioOtr,
+    TextAudioOtrContentResponse,
     TextAudioOtrResponse,
     TextAudioResponse,
     UpdateTextAudioNameRequest,
@@ -284,6 +286,7 @@ async def upload_text_audio_otr(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="OTR name is required.",
         )
+    parsed_text, spans = parse_otr_transcript(content.get("text"))
     now = utc_now()
     otr = TextAudioOtr(
         audio_id=str(audio.id),
@@ -291,6 +294,8 @@ async def upload_text_audio_otr(
         name=otr_name,
         file_name=file.filename or f"{otr_name}.json",
         content=content,
+        parsed_text=parsed_text,
+        spans=spans,
         created_by=current_author.email,
         created_at=now,
         updated_at=now,
@@ -310,12 +315,12 @@ async def get_text_audio_otr_content(
     text_id: str,
     audio_id: str,
     otr_id: str,
-) -> Dict[str, Any]:
+) -> TextAudioOtrContentResponse:
     validate_cms_author_details(token=token)
     await get_required_text(text_id=text_id)
     audio = await get_required_audio(text_id=text_id, audio_id=audio_id)
     otr = await get_required_otr(audio_id=str(audio.id), otr_id=otr_id)
-    return otr.content
+    return TextAudioOtrContentResponse(text=otr.parsed_text, spans=otr.spans)
 
 
 async def delete_text_audio_otr(

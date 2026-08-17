@@ -11,6 +11,7 @@ from pymongo.errors import DuplicateKeyError
 from starlette import status
 
 from pecha_api.texts.text_audio_models import (
+    TextAudioOtrContentResponse,
     TextAudioOtrResponse,
     TextAudioResponse,
     UpdateTextAudioNameRequest,
@@ -150,13 +151,21 @@ def _existing_audio(
     )
 
 
-def _existing_otr(model, name: str = "228", audio_id: str = AUDIO_ID):
+def _existing_otr(
+    model,
+    name: str = "228",
+    audio_id: str = AUDIO_ID,
+    parsed_text: str = "transcript",
+    spans: Optional[list] = None,
+):
     return model(
         audio_id=audio_id,
         text_id=TEXT_ID,
         name=name,
         file_name=f"{name}.otr",
         content=dict(OTR_CONTENT),
+        parsed_text=parsed_text,
+        spans=spans if spans is not None else [],
         created_by=AUTHOR_EMAIL,
         created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
@@ -697,6 +706,8 @@ class TestUploadTextAudioOtr:
         created = audio_env.otr_model.instances[-1]
         created.insert.assert_awaited_once()
         assert created.content == OTR_CONTENT
+        assert created.parsed_text == "transcript"
+        assert created.spans == []
         assert created.created_by == AUTHOR_EMAIL
 
     @pytest.mark.asyncio
@@ -854,7 +865,7 @@ class TestGetTextAudioOtrContent:
             token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID, otr_id=OTR_ID
         )
 
-        assert content == OTR_CONTENT
+        assert content == TextAudioOtrContentResponse(text="transcript", spans=[])
 
     @pytest.mark.asyncio
     async def test_otr_of_another_audio_raises_not_found(self, audio_env):

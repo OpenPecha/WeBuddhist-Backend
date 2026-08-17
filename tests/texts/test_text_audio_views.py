@@ -8,7 +8,13 @@ from fastapi.testclient import TestClient
 from starlette import status
 
 from pecha_api.texts import text_audio_views
-from pecha_api.texts.text_audio_models import TextAudioOtrResponse, TextAudioResponse
+from pecha_api.texts.text_audio_models import (
+    OtrSpanEntry,
+    OtrSpanRange,
+    TextAudioOtrContentResponse,
+    TextAudioOtrResponse,
+    TextAudioResponse,
+)
 
 VIEWS = "pecha_api.texts.text_audio_views"
 
@@ -21,8 +27,6 @@ AUDIOS_ENDPOINT = f"/cms/texts/{TEXT_ID}/audios"
 AUDIO_ENDPOINT = f"{AUDIOS_ENDPOINT}/{AUDIO_ID}"
 OTRS_ENDPOINT = f"{AUDIO_ENDPOINT}/otr"
 OTR_ENDPOINT = f"{OTRS_ENDPOINT}/{OTR_ID}"
-
-OTR_CONTENT = {"text": "<p>transcript</p>", "media": "", "media-time": ""}
 
 
 def _audio_response(name: str = "chant.mp3") -> TextAudioResponse:
@@ -348,15 +352,21 @@ class TestAddTextAudioOtr:
 
 class TestFetchTextAudioOtrJson:
     def test_otr_content_is_returned_as_json(self, authenticated_client):
+        parsed = TextAudioOtrContentResponse(
+            text="transcript",
+            spans=[
+                OtrSpanEntry(span=OtrSpanRange(start=0, end=10), timestamp=1.5),
+            ],
+        )
         with patch(
             f"{VIEWS}.get_text_audio_otr_content", new_callable=AsyncMock
         ) as fetch:
-            fetch.return_value = OTR_CONTENT
+            fetch.return_value = parsed
 
             response = authenticated_client.get(OTR_ENDPOINT)
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == OTR_CONTENT
+        assert response.json() == parsed.model_dump()
         fetch.assert_awaited_once_with(
             token=VALID_TOKEN,
             text_id=TEXT_ID,

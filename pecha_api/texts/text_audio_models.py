@@ -39,12 +39,27 @@ class TextAudio(Document):
         ]
 
 
+class OtrSpanRange(BaseModel):
+    start: int
+    end: int
+
+
+class OtrSpanEntry(BaseModel):
+    span: OtrSpanRange
+    timestamp: float
+
+
 class TextAudioOtr(Document):
     audio_id: str
     text_id: str
     name: str
     file_name: str
     content: Dict[str, Any]
+    # Derived from content["text"] at upload time: the transcript with HTML
+    # markup stripped, and the audio-sync spans anchored to its timestamp
+    # markers. Empty for OTRs uploaded before this parsing existed.
+    parsed_text: str = ""
+    spans: List[OtrSpanEntry] = Field(default_factory=list)
     created_by: str
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -88,3 +103,8 @@ class TextAudioOtrResponse(BaseModel):
     name: str
     file_name: str
     updated_at: datetime
+
+
+class TextAudioOtrContentResponse(BaseModel):
+    text: str
+    spans: List[OtrSpanEntry]
