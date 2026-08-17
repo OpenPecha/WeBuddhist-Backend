@@ -695,24 +695,25 @@ def get_featured_events_service(
         one_shot_events = get_featured_events(db, limit=None)
         
         # Get featured recurring events and find next occurrence for each
-        # Only show one occurrence per template to ensure variety in featured list
+        # Use resolve_next_occurrence (2-year horizon) instead of expand_occurrences
+        # to avoid silently dropping valid featured templates whose next occurrence
+        # is beyond a fixed window
         recurring_templates = get_featured_recurring_events(db)
         
         now = datetime.now(timezone.utc)
-        from_date_obj = now.date()
-        to_date_obj = (now + timedelta(days=365)).date()
+        today = now.date()
         
         expanded_occurrences = []
         for template in recurring_templates:
-            occurrences = expand_occurrences(template, from_date_obj, to_date_obj)
-            if occurrences:
-                # Take only the next upcoming occurrence per template
-                start_d, end_d = occurrences[0]
+            next_start = resolve_next_occurrence(template, after=today)
+            if next_start:
+                duration = template.duration_days or 1
+                next_end = next_start + timedelta(days=duration - 1)
                 expanded_occurrences.append({
                     'event': template,
-                    'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
-                    'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
-                    'occurrence_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                    'start_date': datetime(next_start.year, next_start.month, next_start.day, tzinfo=timezone.utc),
+                    'end_date': datetime(next_end.year, next_end.month, next_end.day, 23, 59, 59, tzinfo=timezone.utc),
+                    'occurrence_date': datetime(next_start.year, next_start.month, next_start.day, tzinfo=timezone.utc),
                 })
         
         # Merge one-shot events and next occurrences of recurring templates
