@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Optional, List, Union
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -155,6 +155,12 @@ class CreateEventRequest(BaseModel):
     @model_validator(mode="after")
     def validate_dates(self) -> "CreateEventRequest":
         _validate_date_range(self.start_date, self.end_date)
+        today_utc = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        start_date_utc = self.start_date.astimezone(timezone.utc) if self.start_date.tzinfo else self.start_date.replace(tzinfo=timezone.utc)
+        if start_date_utc < today_utc:
+            raise ValueError("start_date cannot be in the past")
         return self
 
 
