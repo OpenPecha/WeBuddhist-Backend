@@ -36,8 +36,10 @@ DEFAULTS = dict(
     MAX_FILE_SIZE_MB=1,
     MAX_FILE_SIZE = 5 * 1024 * 1024,
     MAX_AUDIO_FILE_SIZE = 50 * 1024 * 1024,
+    MAX_OTR_FILE_SIZE = 5 * 1024 * 1024,
     ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'},
     ALLOWED_AUDIO_EXTENSIONS = {'.mp3', '.m4a', '.wav', '.aac', '.ogg'},
+    ALLOWED_OTR_EXTENSIONS = {'.otr', '.json'},
     MONGO_CONNECTION_STRING="mongodb://admin:pechaAdmin@localhost:27017/pecha?authSource=admin",
 
     WEBUDDHIST_STUDIO_BASE_URL="https://studio.webuddhist.com",
@@ -52,7 +54,7 @@ DEFAULTS = dict(
     CACHE_DEFAULT_TIMEOUT=3000000, # 30 seconds in seconds
     CACHE_CONNECTION_STRING="redis://localhost:6379",
     REDIS_URL="redis://localhost:6379/0",
-    
+
     # Cache timeout configurations for different types (in seconds)
     CACHE_TEXT_TIMEOUT=1800,        # 30 minutes for texts (not frequently changed)
     CACHE_COLLECTION_TIMEOUT=1800,  # 30 minutes for collections (not frequently changed)
@@ -63,7 +65,7 @@ DEFAULTS = dict(
     CACHE_CALENDAR_TIMEOUT=2592000, # 30 days; source calendar files are immutable
 
     SHORT_URL_GENERATION_ENDPOINT="https://pech.as/api/v1",
-    
+
     # External Multilingual Search API Configuration
     EXTERNAL_SEARCH_API_URL="https://pecha-backend-dev.web.app/",  # Change this to your actual external API URL
 
