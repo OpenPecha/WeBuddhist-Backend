@@ -2,6 +2,7 @@ import io
 import json
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,7 +10,15 @@ from fastapi import HTTPException, UploadFile
 from pymongo.errors import DuplicateKeyError
 from starlette import status
 
-from pecha_api.texts.text_audio_models import TextAudioOtrResponse, TextAudioResponse
+from pecha_api.texts.text_audio_models import (
+    TextAudioOtrContentResponse,
+    TextAudioOtrResponse,
+    TextAudioResponse,
+    TextAudioSegmentsResponse,
+    TextSegmentContent,
+    UpdateTextAudioNameRequest,
+)
+from pecha_api.texts.audio_transcoder import TranscodedAudio
 from pecha_api.texts.text_audio_service import (
     INVALID_OTR_DETAIL,
     delete_text_audio,
@@ -19,12 +28,19 @@ from pecha_api.texts.text_audio_service import (
     get_text_audio_otr_content,
     get_text_audio_otrs,
     get_text_audios,
+    get_text_segments_in_order,
     parse_otr_content,
     to_text_audio_response,
+    update_text_audio_name,
     upload_text_audio,
     upload_text_audio_otr,
     validate_otr_file,
     validate_text_audio_file,
+)
+from pecha_api.texts.texts_response_models import (
+    Section,
+    TableOfContentType,
+    TextSegment,
 )
 
 SERVICE = "pecha_api.texts.text_audio_service"
@@ -42,6 +58,7 @@ EXISTING_AUDIO_KEY = "audio/texts/existing-key.mp3"
 AUDIO_ID = "64b000000000000000000001"
 OTR_ID = "64b000000000000000000002"
 OTR_CONTENT = {"text": "<p>transcript</p>", "media": "", "media-time": ""}
+MP3_BYTES = b"converted mp3 bytes"
 
 
 def _upload_file(
@@ -121,12 +138,19 @@ def text_audio_otr_model():
     return StubTextAudioOtr
 
 
-def _existing_audio(model, audio_key: str = EXISTING_AUDIO_KEY, pending_cleanup_keys=None, text_id: str = TEXT_ID):
+def _existing_audio(
+    model,
+    audio_key: str = EXISTING_AUDIO_KEY,
+    pending_cleanup_keys=None,
+    text_id: str = TEXT_ID,
+    name: Optional[str] = None,
+):
     return model(
         text_id=text_id,
         text_title=TEXT_TITLE,
         audio_key=audio_key,
         file_name="old.mp3",
+        name=name,
         mime_type="audio/mpeg",
         file_size_bytes=1024,
         duration_ms=60000,
@@ -137,13 +161,21 @@ def _existing_audio(model, audio_key: str = EXISTING_AUDIO_KEY, pending_cleanup_
     )
 
 
-def _existing_otr(model, name: str = "228", audio_id: str = AUDIO_ID):
+def _existing_otr(
+    model,
+    name: str = "228",
+    audio_id: str = AUDIO_ID,
+    parsed_text: str = "transcript",
+    spans: Optional[list] = None,
+):
     return model(
         audio_id=audio_id,
         text_id=TEXT_ID,
         name=name,
         file_name=f"{name}.otr",
         content=dict(OTR_CONTENT),
+        parsed_text=parsed_text,
+        spans=spans if spans is not None else [],
         created_by=AUTHOR_EMAIL,
         created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         updated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
@@ -161,7 +193,11 @@ def audio_env(text_audio_model, text_audio_otr_model):
     with patch(f"{SERVICE}.validate_cms_author_details") as validate_author, \
          patch(f"{SERVICE}.get", side_effect=config.get), \
          patch(f"{SERVICE}.get_int", side_effect=int_config.get), \
-         patch(f"{SERVICE}.upload_file") as upload, \
+         patch(f"{SERVICE}.upload_bytes") as upload, \
+         patch(
+             f"{SERVICE}.transcode_to_mp3",
+             return_value=TranscodedAudio(content=MP3_BYTES, duration_ms=10580),
+         ) as transcode, \
          patch(f"{SERVICE}.delete_file") as delete, \
          patch(f"{SERVICE}.generate_presigned_access_url") as presigned_url, \
          patch(f"{SERVICE}.Text.get_text", new_callable=AsyncMock) as get_text, \
@@ -176,6 +212,7 @@ def audio_env(text_audio_model, text_audio_otr_model):
         yield SimpleNamespace(
             validate_author=validate_author,
             upload=upload,
+            transcode=transcode,
             delete=delete,
             presigned_url=presigned_url,
             get_text=get_text,
@@ -261,7 +298,7 @@ class TestParseOtrContent:
 
 class TestToTextAudioResponse:
     def test_document_is_mapped_with_a_presigned_url(self, audio_env):
-        audio = _existing_audio(audio_env.model)
+        audio = _existing_audio(audio_env.model, name="Morning session")
 
         response = to_text_audio_response(audio)
 
@@ -271,6 +308,7 @@ class TestToTextAudioResponse:
         assert response.text_title == TEXT_TITLE
         assert response.audio_key == EXISTING_AUDIO_KEY
         assert response.audio_url == f"https://cdn.test/{EXISTING_AUDIO_KEY}"
+        assert response.name == "Morning session"
         assert response.file_name == "old.mp3"
         assert response.mime_type == "audio/mpeg"
         assert response.file_size_bytes == 1024
@@ -279,6 +317,15 @@ class TestToTextAudioResponse:
             bucket_name=BUCKET_NAME,
             s3_key=EXISTING_AUDIO_KEY,
         )
+
+    def test_missing_name_falls_back_to_file_name(self, audio_env):
+        """Documents written before the name field existed have name=None;
+        the response must still surface a usable display name."""
+        audio = _existing_audio(audio_env.model, name=None)
+
+        response = to_text_audio_response(audio)
+
+        assert response.name == "old.mp3"
 
 
 class TestGetRequiredText:
@@ -375,9 +422,158 @@ class TestGetTextAudios:
         assert exc.value.status_code == status.HTTP_403_FORBIDDEN
 
 
+def _table_of_content(sections, toc_type=TableOfContentType.TEXT):
+    return SimpleNamespace(type=toc_type, sections=sections)
+
+
+class TestGetTextSegmentsInOrder:
+    @pytest.mark.asyncio
+    async def test_returns_segments_sorted_into_reading_order(self, audio_env):
+        sections = [
+            Section(
+                id="sec-2",
+                title="Two",
+                section_number=2,
+                segments=[TextSegment(segment_id="seg-3", segment_number=1)],
+            ),
+            Section(
+                id="sec-1",
+                title="One",
+                section_number=1,
+                segments=[
+                    TextSegment(segment_id="seg-2", segment_number=2),
+                    TextSegment(segment_id="seg-1", segment_number=1),
+                ],
+            ),
+        ]
+        with patch(f"{SERVICE}.TableOfContent") as mock_toc, patch(
+            f"{SERVICE}.Segment"
+        ) as mock_segment:
+            mock_toc.get_table_of_contents_by_text_id = AsyncMock(
+                return_value=[_table_of_content(sections)]
+            )
+            mock_segment.get_segment_contents_by_ids = AsyncMock(
+                return_value={
+                    "seg-1": (TEXT_ID, "first"),
+                    "seg-2": (TEXT_ID, "second"),
+                    "seg-3": (TEXT_ID, "third"),
+                }
+            )
+
+            response = await get_text_segments_in_order(
+                token=VALID_TOKEN, text_id=TEXT_ID
+            )
+
+        assert response == TextAudioSegmentsResponse(
+            text_id=TEXT_ID,
+            segments=[
+                TextSegmentContent(segment_id="seg-1", content="first"),
+                TextSegmentContent(segment_id="seg-2", content="second"),
+                TextSegmentContent(segment_id="seg-3", content="third"),
+            ],
+        )
+
+    @pytest.mark.asyncio
+    async def test_sheet_tables_of_content_are_skipped(self, audio_env):
+        text_section = [
+            Section(
+                id="sec-1",
+                title="One",
+                section_number=1,
+                segments=[TextSegment(segment_id="seg-1", segment_number=1)],
+            )
+        ]
+        sheet_section = [
+            Section(
+                id="sec-9",
+                title="Sheet",
+                section_number=1,
+                segments=[TextSegment(segment_id="seg-9", segment_number=1)],
+            )
+        ]
+        with patch(f"{SERVICE}.TableOfContent") as mock_toc, patch(
+            f"{SERVICE}.Segment"
+        ) as mock_segment:
+            mock_toc.get_table_of_contents_by_text_id = AsyncMock(
+                return_value=[
+                    _table_of_content(sheet_section, toc_type=TableOfContentType.SHEET),
+                    _table_of_content(text_section, toc_type=TableOfContentType.TEXT),
+                ]
+            )
+            mock_segment.get_segment_contents_by_ids = AsyncMock(
+                return_value={"seg-1": (TEXT_ID, "only the text content")}
+            )
+
+            response = await get_text_segments_in_order(
+                token=VALID_TOKEN, text_id=TEXT_ID
+            )
+
+        mock_segment.get_segment_contents_by_ids.assert_awaited_once_with(
+            segment_ids=["seg-1"]
+        )
+        assert response.segments == [
+            TextSegmentContent(segment_id="seg-1", content="only the text content")
+        ]
+
+    @pytest.mark.asyncio
+    async def test_refs_missing_content_are_dropped(self, audio_env):
+        sections = [
+            Section(
+                id="sec-1",
+                title="One",
+                section_number=1,
+                segments=[
+                    TextSegment(segment_id="seg-1", segment_number=1),
+                    TextSegment(segment_id="seg-missing", segment_number=2),
+                ],
+            )
+        ]
+        with patch(f"{SERVICE}.TableOfContent") as mock_toc, patch(
+            f"{SERVICE}.Segment"
+        ) as mock_segment:
+            mock_toc.get_table_of_contents_by_text_id = AsyncMock(
+                return_value=[_table_of_content(sections)]
+            )
+            mock_segment.get_segment_contents_by_ids = AsyncMock(
+                return_value={"seg-1": (TEXT_ID, "first")}
+            )
+
+            response = await get_text_segments_in_order(
+                token=VALID_TOKEN, text_id=TEXT_ID
+            )
+
+        assert response.segments == [
+            TextSegmentContent(segment_id="seg-1", content="first")
+        ]
+
+    @pytest.mark.asyncio
+    async def test_no_table_of_content_yields_no_segments(self, audio_env):
+        with patch(f"{SERVICE}.TableOfContent") as mock_toc, patch(
+            f"{SERVICE}.Segment"
+        ) as mock_segment:
+            mock_toc.get_table_of_contents_by_text_id = AsyncMock(return_value=[])
+            mock_segment.get_segment_contents_by_ids = AsyncMock(return_value={})
+
+            response = await get_text_segments_in_order(
+                token=VALID_TOKEN, text_id=TEXT_ID
+            )
+
+        assert response == TextAudioSegmentsResponse(text_id=TEXT_ID, segments=[])
+        mock_segment.get_segment_contents_by_ids.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_missing_text_raises_not_found(self, audio_env):
+        audio_env.get_text.return_value = None
+
+        with pytest.raises(HTTPException) as exc:
+            await get_text_segments_in_order(token=VALID_TOKEN, text_id=TEXT_ID)
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
 class TestUploadTextAudio:
     @pytest.mark.asyncio
-    async def test_upload_creates_a_new_document(self, audio_env):
+    async def test_upload_stores_the_converted_mp3(self, audio_env):
         file = _upload_file()
 
         response = await upload_text_audio(
@@ -387,43 +583,63 @@ class TestUploadTextAudio:
             duration_ms=90000,
         )
 
-        audio_env.upload.assert_called_once_with(
-            bucket_name=BUCKET_NAME,
-            s3_key=NEW_AUDIO_KEY,
-            file=file,
-        )
+        audio_env.transcode.assert_called_once_with(file.file, suffix=".mp3")
+        upload_kwargs = audio_env.upload.call_args.kwargs
+        assert upload_kwargs["bucket_name"] == BUCKET_NAME
+        assert upload_kwargs["s3_key"] == NEW_AUDIO_KEY
+        assert upload_kwargs["content_type"] == "audio/mpeg"
+        assert upload_kwargs["file"].getvalue() == MP3_BYTES
         audio_env.delete.assert_not_called()
         assert response.id == AUDIO_ID
         assert response.audio_key == NEW_AUDIO_KEY
         assert response.text_title == TEXT_TITLE
+        assert response.name == "chant.mp3"
         assert response.file_name == "chant.mp3"
         assert response.mime_type == "audio/mpeg"
-        assert response.file_size_bytes == file.size
-        assert response.duration_ms == 90000
+        assert response.file_size_bytes == len(MP3_BYTES)
+        # The probed duration wins over the one the browser guessed.
+        assert response.duration_ms == 10580
         created = audio_env.model.instances[-1]
         created.insert.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_mime_type_is_guessed_when_the_client_omits_it(self, audio_env):
-        with patch(f"{SERVICE}.mimetypes.guess_type", return_value=("audio/ogg", None)):
-            response = await upload_text_audio(
-                token=VALID_TOKEN,
-                text_id=TEXT_ID,
-                file=_upload_file(filename="chant.ogg", content_type=None),
-            )
+    async def test_other_formats_are_stored_as_mp3(self, audio_env):
+        file = _upload_file(filename="chant.m4a", content_type="audio/x-m4a")
 
-        assert response.mime_type == "audio/ogg"
+        response = await upload_text_audio(token=VALID_TOKEN, text_id=TEXT_ID, file=file)
+
+        audio_env.transcode.assert_called_once_with(file.file, suffix=".m4a")
+        assert audio_env.upload.call_args.kwargs["s3_key"] == NEW_AUDIO_KEY
+        assert response.audio_key.endswith(".mp3")
+        assert response.file_name == "chant.mp3"
+        assert response.name == "chant.mp3"
+        assert response.mime_type == "audio/mpeg"
 
     @pytest.mark.asyncio
-    async def test_mime_type_falls_back_to_mpeg_when_it_cannot_be_guessed(self, audio_env):
-        with patch(f"{SERVICE}.mimetypes.guess_type", return_value=(None, None)):
-            response = await upload_text_audio(
-                token=VALID_TOKEN,
-                text_id=TEXT_ID,
-                file=_upload_file(content_type=None),
-            )
+    async def test_client_duration_is_kept_when_the_file_cannot_be_probed(self, audio_env):
+        audio_env.transcode.return_value = TranscodedAudio(content=MP3_BYTES, duration_ms=None)
 
-        assert response.mime_type == "audio/mpeg"
+        response = await upload_text_audio(
+            token=VALID_TOKEN,
+            text_id=TEXT_ID,
+            file=_upload_file(),
+            duration_ms=90000,
+        )
+
+        assert response.duration_ms == 90000
+
+    @pytest.mark.asyncio
+    async def test_nothing_is_uploaded_when_the_conversion_fails(self, audio_env):
+        audio_env.transcode.side_effect = HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not convert this audio file.",
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await upload_text_audio(token=VALID_TOKEN, text_id=TEXT_ID, file=_upload_file())
+
+        assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+        audio_env.upload.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_uploaded_object_is_removed_when_persistence_fails(self, audio_env):
@@ -461,6 +677,86 @@ class TestUploadTextAudio:
 
         assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
         audio_env.upload.assert_not_called()
+        audio_env.transcode.assert_not_called()
+
+
+class TestUpdateTextAudioName:
+    @pytest.mark.asyncio
+    async def test_name_is_updated_and_saved(self, audio_env):
+        existing = _existing_audio(audio_env.model, name="old name")
+        audio_env.model.get.return_value = existing
+
+        response = await update_text_audio_name(
+            token=VALID_TOKEN,
+            text_id=TEXT_ID,
+            audio_id=AUDIO_ID,
+            request=UpdateTextAudioNameRequest(name="new name"),
+        )
+
+        assert response.name == "new name"
+        assert existing.name == "new name"
+        existing.save.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_surrounding_whitespace_is_trimmed(self, audio_env):
+        existing = _existing_audio(audio_env.model, name="old name")
+        audio_env.model.get.return_value = existing
+
+        response = await update_text_audio_name(
+            token=VALID_TOKEN,
+            text_id=TEXT_ID,
+            audio_id=AUDIO_ID,
+            request=UpdateTextAudioNameRequest(name="  morning session  "),
+        )
+
+        assert response.name == "morning session"
+
+    def test_blank_name_is_rejected_by_the_request_model(self):
+        with pytest.raises(ValueError, match="Audio name is required"):
+            UpdateTextAudioNameRequest(name="   ")
+
+    @pytest.mark.asyncio
+    async def test_unknown_audio_raises_not_found(self, audio_env):
+        with pytest.raises(HTTPException) as exc:
+            await update_text_audio_name(
+                token=VALID_TOKEN,
+                text_id=TEXT_ID,
+                audio_id=AUDIO_ID,
+                request=UpdateTextAudioNameRequest(name="new name"),
+            )
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_missing_text_raises_not_found(self, audio_env):
+        audio_env.get_text.return_value = None
+
+        with pytest.raises(HTTPException) as exc:
+            await update_text_audio_name(
+                token=VALID_TOKEN,
+                text_id=TEXT_ID,
+                audio_id=AUDIO_ID,
+                request=UpdateTextAudioNameRequest(name="new name"),
+            )
+
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_author_validation_failure_is_propagated(self, audio_env):
+        audio_env.validate_author.side_effect = HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Author is not active",
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await update_text_audio_name(
+                token="invalid_token",
+                text_id=TEXT_ID,
+                audio_id=AUDIO_ID,
+                request=UpdateTextAudioNameRequest(name="new name"),
+            )
+
+        assert exc.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 class TestDeleteTextAudio:
@@ -594,6 +890,8 @@ class TestUploadTextAudioOtr:
         created = audio_env.otr_model.instances[-1]
         created.insert.assert_awaited_once()
         assert created.content == OTR_CONTENT
+        assert created.parsed_text == "transcript"
+        assert created.spans == []
         assert created.created_by == AUTHOR_EMAIL
 
     @pytest.mark.asyncio
@@ -751,7 +1049,7 @@ class TestGetTextAudioOtrContent:
             token=VALID_TOKEN, text_id=TEXT_ID, audio_id=AUDIO_ID, otr_id=OTR_ID
         )
 
-        assert content == OTR_CONTENT
+        assert content == TextAudioOtrContentResponse(text="transcript", spans=[])
 
     @pytest.mark.asyncio
     async def test_otr_of_another_audio_raises_not_found(self, audio_env):

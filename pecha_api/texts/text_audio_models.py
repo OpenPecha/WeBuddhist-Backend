@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from beanie import Document
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pymongo import ASCENDING, IndexModel
 
 
@@ -15,6 +15,10 @@ class TextAudio(Document):
     text_title: str
     audio_key: str
     file_name: str
+    # Editable display name, defaulting to file_name at upload time. Optional
+    # so documents written before this field existed still load; callers
+    # should read via TextAudioResponse, which falls back to file_name.
+    name: Optional[str] = None
     mime_type: Optional[str] = None
     file_size_bytes: Optional[int] = None
     duration_ms: Optional[int] = None
@@ -35,12 +39,27 @@ class TextAudio(Document):
         ]
 
 
+class OtrSpanRange(BaseModel):
+    start: int
+    end: int
+
+
+class OtrSpanEntry(BaseModel):
+    span: OtrSpanRange
+    timestamp: float
+
+
 class TextAudioOtr(Document):
     audio_id: str
     text_id: str
     name: str
     file_name: str
     content: Dict[str, Any]
+    # Derived from content["text"] at upload time: the transcript with HTML
+    # markup stripped, and the audio-sync spans anchored to its timestamp
+    # markers. Empty for OTRs uploaded before this parsing existed.
+    parsed_text: str = ""
+    spans: List[OtrSpanEntry] = Field(default_factory=list)
     created_by: str
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
@@ -58,11 +77,24 @@ class TextAudioResponse(BaseModel):
     text_title: str
     audio_key: str
     audio_url: str
+    name: str
     file_name: str
     mime_type: Optional[str] = None
     file_size_bytes: Optional[int] = None
     duration_ms: Optional[int] = None
     updated_at: datetime
+
+
+class UpdateTextAudioNameRequest(BaseModel):
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def validate_name_not_blank(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Audio name is required.")
+        return stripped
 
 
 class TextAudioOtrResponse(BaseModel):
@@ -71,3 +103,18 @@ class TextAudioOtrResponse(BaseModel):
     name: str
     file_name: str
     updated_at: datetime
+
+
+class TextAudioOtrContentResponse(BaseModel):
+    text: str
+    spans: List[OtrSpanEntry]
+
+
+class TextSegmentContent(BaseModel):
+    segment_id: str
+    content: str
+
+
+class TextAudioSegmentsResponse(BaseModel):
+    text_id: str
+    segments: List[TextSegmentContent]

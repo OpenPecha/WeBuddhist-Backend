@@ -8,7 +8,15 @@ from fastapi.testclient import TestClient
 from starlette import status
 
 from pecha_api.texts import text_audio_views
-from pecha_api.texts.text_audio_models import TextAudioOtrResponse, TextAudioResponse
+from pecha_api.texts.text_audio_models import (
+    OtrSpanEntry,
+    OtrSpanRange,
+    TextAudioOtrContentResponse,
+    TextAudioOtrResponse,
+    TextAudioResponse,
+    TextAudioSegmentsResponse,
+    TextSegmentContent,
+)
 
 VIEWS = "pecha_api.texts.text_audio_views"
 
@@ -18,20 +26,20 @@ AUDIO_ID = "64b000000000000000000001"
 OTR_ID = "64b000000000000000000002"
 AUDIO_KEY = "audio/texts/chant.mp3"
 AUDIOS_ENDPOINT = f"/cms/texts/{TEXT_ID}/audios"
+SEGMENTS_ENDPOINT = f"/cms/texts/{TEXT_ID}/segments"
 AUDIO_ENDPOINT = f"{AUDIOS_ENDPOINT}/{AUDIO_ID}"
 OTRS_ENDPOINT = f"{AUDIO_ENDPOINT}/otr"
 OTR_ENDPOINT = f"{OTRS_ENDPOINT}/{OTR_ID}"
 
-OTR_CONTENT = {"text": "<p>transcript</p>", "media": "", "media-time": ""}
 
-
-def _audio_response() -> TextAudioResponse:
+def _audio_response(name: str = "chant.mp3") -> TextAudioResponse:
     return TextAudioResponse(
         id=AUDIO_ID,
         text_id=TEXT_ID,
         text_title="Heart Sutra",
         audio_key=AUDIO_KEY,
         audio_url=f"https://cdn.test/{AUDIO_KEY}",
+        name=name,
         file_name="chant.mp3",
         mime_type="audio/mpeg",
         file_size_bytes=2048,
@@ -115,6 +123,44 @@ class TestFetchTextAudios:
 
     def test_request_without_a_token_is_rejected(self, unauthenticated_client):
         response = unauthenticated_client.get(AUDIOS_ENDPOINT)
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestFetchTextSegments:
+    def test_ordered_segments_are_returned(self, authenticated_client):
+        payload = TextAudioSegmentsResponse(
+            text_id=TEXT_ID,
+            segments=[
+                TextSegmentContent(segment_id="seg-1", content="first"),
+                TextSegmentContent(segment_id="seg-2", content="second"),
+            ],
+        )
+        with patch(
+            f"{VIEWS}.get_text_segments_in_order", new_callable=AsyncMock
+        ) as fetch:
+            fetch.return_value = payload
+
+            response = authenticated_client.get(SEGMENTS_ENDPOINT)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == payload.model_dump()
+        fetch.assert_awaited_once_with(token=VALID_TOKEN, text_id=TEXT_ID)
+
+    def test_missing_text_returns_not_found(self, authenticated_client):
+        with patch(
+            f"{VIEWS}.get_text_segments_in_order", new_callable=AsyncMock
+        ) as fetch:
+            fetch.side_effect = HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Text not found.",
+            )
+
+            response = authenticated_client.get(SEGMENTS_ENDPOINT)
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_request_without_a_token_is_rejected(self, unauthenticated_client):
+        response = unauthenticated_client.get(SEGMENTS_ENDPOINT)
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -198,6 +244,53 @@ class TestRemoveTextAudio:
 
     def test_request_without_a_token_is_rejected(self, unauthenticated_client):
         response = unauthenticated_client.delete(AUDIO_ENDPOINT)
+
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+class TestRenameTextAudio:
+    def test_name_is_updated(self, authenticated_client):
+        with patch(f"{VIEWS}.update_text_audio_name", new_callable=AsyncMock) as rename:
+            rename.return_value = _audio_response(name="Morning session")
+
+            response = authenticated_client.patch(
+                AUDIO_ENDPOINT, json={"name": "Morning session"}
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json()["name"] == "Morning session"
+        assert rename.await_args.kwargs["token"] == VALID_TOKEN
+        assert rename.await_args.kwargs["text_id"] == TEXT_ID
+        assert rename.await_args.kwargs["audio_id"] == AUDIO_ID
+        assert rename.await_args.kwargs["request"].name == "Morning session"
+
+    def test_blank_name_is_rejected(self, authenticated_client):
+        response = authenticated_client.patch(AUDIO_ENDPOINT, json={"name": "   "})
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_missing_name_is_rejected(self, authenticated_client):
+        response = authenticated_client.patch(AUDIO_ENDPOINT, json={})
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def test_missing_audio_returns_not_found(self, authenticated_client):
+        with patch(f"{VIEWS}.update_text_audio_name", new_callable=AsyncMock) as rename:
+            rename.side_effect = HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Audio not found.",
+            )
+
+            response = authenticated_client.patch(
+                AUDIO_ENDPOINT, json={"name": "Morning session"}
+            )
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_request_without_a_token_is_rejected(self, unauthenticated_client):
+        response = unauthenticated_client.patch(
+            AUDIO_ENDPOINT, json={"name": "Morning session"}
+        )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
@@ -300,15 +393,21 @@ class TestAddTextAudioOtr:
 
 class TestFetchTextAudioOtrJson:
     def test_otr_content_is_returned_as_json(self, authenticated_client):
+        parsed = TextAudioOtrContentResponse(
+            text="transcript",
+            spans=[
+                OtrSpanEntry(span=OtrSpanRange(start=0, end=10), timestamp=1.5),
+            ],
+        )
         with patch(
             f"{VIEWS}.get_text_audio_otr_content", new_callable=AsyncMock
         ) as fetch:
-            fetch.return_value = OTR_CONTENT
+            fetch.return_value = parsed
 
             response = authenticated_client.get(OTR_ENDPOINT)
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.json() == OTR_CONTENT
+        assert response.json() == parsed.model_dump()
         fetch.assert_awaited_once_with(
             token=VALID_TOKEN,
             text_id=TEXT_ID,
