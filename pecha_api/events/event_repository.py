@@ -150,14 +150,14 @@ def get_events(
     to_date: Optional = None,
     restrict_group_ids: Optional[List[UUID]] = None,
     skip: int = 0,
-    limit: int = 20,
+    limit: Optional[int] = 20,
     should_sort_newest_first: bool = False,
 ) -> Tuple[List[Event], int]:
     if restrict_group_ids is not None and not restrict_group_ids:
         return [], 0
 
     count_query = _apply_event_filters(
-        db.query(func.count(Event.id)),
+        db.query(func.count(Event.id)).filter(Event.is_recurring == False),
         group_id=group_id,
         plan_id=plan_id,
         accumulator_id=accumulator_id,
@@ -175,7 +175,7 @@ def get_events(
             selectinload(Event.metadata_entries),
             selectinload(Event.links),
             selectinload(Event.location),
-        ),
+        ).filter(Event.is_recurring == False),
         group_id=group_id,
         plan_id=plan_id,
         accumulator_id=accumulator_id,
@@ -191,20 +191,19 @@ def get_events(
         if should_sort_newest_first
         else (Event.start_date.asc(),)
     )
-    events = (
-        events_query.order_by(*order_by)
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
+    events_query = events_query.order_by(*order_by).offset(skip)
+    if limit is not None:
+        events_query = events_query.limit(limit)
+    events = events_query.all()
     return events, total
 
 
 def get_featured_events(
     db: Session,
-    limit: int = 10,
+    limit: Optional[int] = 10,
 ) -> List[Event]:
-    events = (
+    """Get featured one-shot events."""
+    query = (
         db.query(Event)
         .options(
             selectinload(Event.metadata_entries),
@@ -212,8 +211,63 @@ def get_featured_events(
             selectinload(Event.location),
         )
         .filter(Event.featured == True)
+        .filter(Event.is_recurring == False)
         .order_by(Event.start_date.desc())
-        .limit(limit)
+    )
+    if limit is not None:
+        query = query.limit(limit)
+    return query.all()
+
+
+def get_featured_recurring_events(
+    db: Session,
+) -> List[Event]:
+    """Get featured recurring event templates."""
+    return (
+        db.query(Event)
+        .options(
+            selectinload(Event.metadata_entries),
+            selectinload(Event.links),
+            selectinload(Event.location),
+        )
+        .filter(Event.featured == True)
+        .filter(Event.is_recurring == True)
         .all()
     )
-    return events
+
+
+def get_recurring_events(
+    db: Session,
+    group_id: Optional[UUID] = None,
+    plan_id: Optional[UUID] = None,
+    accumulator_id: Optional[UUID] = None,
+    mantra_id: Optional[UUID] = None,
+    timer_id: Optional[UUID] = None,
+    group_recitation_collection_id: Optional[UUID] = None,
+    restrict_group_ids: Optional[List[UUID]] = None,
+) -> List[Event]:
+    """Get all recurring event templates matching the filters."""
+    query = db.query(Event).options(
+        selectinload(Event.metadata_entries),
+        selectinload(Event.links),
+        selectinload(Event.location),
+    ).filter(Event.is_recurring == True)
+    
+    if restrict_group_ids is not None:
+        query = query.filter(Event.group_id.in_(restrict_group_ids))
+    if group_id:
+        query = query.filter(Event.group_id == group_id)
+    if plan_id:
+        query = query.filter(Event.plan_id == plan_id)
+    if accumulator_id:
+        query = query.filter(Event.accumulator_id == accumulator_id)
+    if mantra_id:
+        query = query.filter(Event.mantra_id == mantra_id)
+    if timer_id:
+        query = query.filter(Event.timer_id == timer_id)
+    if group_recitation_collection_id:
+        query = query.filter(
+            Event.group_recitation_collection_id == group_recitation_collection_id
+        )
+    
+    return query.all()

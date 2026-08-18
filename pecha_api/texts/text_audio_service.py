@@ -1,11 +1,12 @@
 import asyncio
+import json
 import logging
 import mimetypes
 import os
 import uuid
-from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
+from beanie import PydanticObjectId
 from fastapi import HTTPException, UploadFile
 from pymongo.errors import DuplicateKeyError
 from starlette import status
@@ -18,8 +19,16 @@ from pecha_api.uploads.S3_utils import (
     upload_file,
 )
 
-from .text_audio_models import TextAudio, TextAudioResponse, utc_now
+from .text_audio_models import (
+    TextAudio,
+    TextAudioOtr,
+    TextAudioOtrResponse,
+    TextAudioResponse,
+    utc_now,
+)
 from .texts_models import Text
+
+INVALID_OTR_DETAIL = "Upload a valid OTR/JSON file."
 
 
 def validate_text_audio_file(file: UploadFile) -> str:
@@ -37,8 +46,41 @@ def validate_text_audio_file(file: UploadFile) -> str:
     return extension
 
 
+def validate_otr_file(file: UploadFile) -> None:
+    extension = os.path.splitext(file.filename or "")[1].lower()
+    if extension not in DEFAULTS["ALLOWED_OTR_EXTENSIONS"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=INVALID_OTR_DETAIL,
+        )
+    if file.size and file.size > get_int("MAX_OTR_FILE_SIZE"):
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="OTR file is too large.",
+        )
+
+
+def parse_otr_content(raw: bytes) -> Dict[str, Any]:
+    """OTR files are JSON documents; only a JSON object is accepted so the
+    content can be stored and served back as JSON."""
+    try:
+        content = json.loads(raw)
+    except (UnicodeDecodeError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=INVALID_OTR_DETAIL,
+        )
+    if not isinstance(content, dict):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=INVALID_OTR_DETAIL,
+        )
+    return content
+
+
 def to_text_audio_response(audio: TextAudio) -> TextAudioResponse:
     return TextAudioResponse(
+        id=str(audio.id),
         text_id=audio.text_id,
         text_title=audio.text_title,
         audio_key=audio.audio_key,
@@ -54,6 +96,16 @@ def to_text_audio_response(audio: TextAudio) -> TextAudioResponse:
     )
 
 
+def to_text_audio_otr_response(otr: TextAudioOtr) -> TextAudioOtrResponse:
+    return TextAudioOtrResponse(
+        id=str(otr.id),
+        audio_id=otr.audio_id,
+        name=otr.name,
+        file_name=otr.file_name,
+        updated_at=otr.updated_at,
+    )
+
+
 async def get_required_text(text_id: str) -> Text:
     text = await Text.get_text(text_id=text_id)
     if not text:
@@ -64,114 +116,39 @@ async def get_required_text(text_id: str) -> Text:
     return text
 
 
-async def get_text_audio(token: str, text_id: str) -> Optional[TextAudioResponse]:
+async def get_required_audio(text_id: str, audio_id: str) -> TextAudio:
+    audio = None
+    if PydanticObjectId.is_valid(audio_id):
+        audio = await TextAudio.get(PydanticObjectId(audio_id))
+    if not audio or audio.text_id != text_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Audio not found.",
+        )
+    return audio
+
+
+async def get_required_otr(audio_id: str, otr_id: str) -> TextAudioOtr:
+    otr = None
+    if PydanticObjectId.is_valid(otr_id):
+        otr = await TextAudioOtr.get(PydanticObjectId(otr_id))
+    if not otr or otr.audio_id != audio_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="OTR not found.",
+        )
+    return otr
+
+
+async def get_text_audios(token: str, text_id: str) -> List[TextAudioResponse]:
     validate_cms_author_details(token=token)
     await get_required_text(text_id=text_id)
-    audio = await TextAudio.find_one(TextAudio.text_id == text_id)
-    return to_text_audio_response(audio) if audio else None
-
-
-def _build_audio_metadata(
-    text_id: str,
-    text_title: str,
-    new_audio_key: str,
-    file: UploadFile,
-    content_type: str,
-    duration_ms: Optional[int],
-    author_email: str,
-    now: datetime,
-) -> TextAudio:
-    """Build a new TextAudio metadata object."""
-    extension = os.path.splitext(file.filename or "")[1].lower()
-    return TextAudio(
-        text_id=text_id,
-        text_title=text_title,
-        audio_key=new_audio_key,
-        file_name=file.filename or f"audio{extension}",
-        mime_type=content_type,
-        file_size_bytes=file.size,
-        duration_ms=duration_ms,
-        created_by=author_email,
-        created_at=now,
-        updated_at=now,
+    audios = (
+        await TextAudio.find(TextAudio.text_id == text_id)
+        .sort("-created_at")
+        .to_list()
     )
-
-
-def _update_audio_metadata(
-    audio: TextAudio,
-    text_title: str,
-    new_audio_key: str,
-    file: UploadFile,
-    content_type: str,
-    duration_ms: Optional[int],
-    author_email: str,
-    now: datetime,
-) -> None:
-    """Update existing TextAudio metadata fields."""
-    extension = os.path.splitext(file.filename or "")[1].lower()
-    audio.text_title = text_title
-    audio.audio_key = new_audio_key
-    audio.file_name = file.filename or f"audio{extension}"
-    audio.mime_type = content_type
-    audio.file_size_bytes = file.size
-    audio.duration_ms = duration_ms
-    audio.created_by = author_email
-    audio.updated_at = now
-
-
-async def _persist_audio_metadata(
-    text_id: str,
-    new_audio_key: str,
-    audio_metadata: TextAudio,
-    loop,
-) -> tuple[TextAudio, Optional[str]]:
-    """Persist audio metadata (insert or update), handling concurrent uploads."""
-    try:
-        await audio_metadata.insert()
-        return audio_metadata, None
-    except DuplicateKeyError:
-        # Concurrent upload detected; fetch and update instead
-        existing = await TextAudio.find_one(TextAudio.text_id == text_id)
-        if existing:
-            old_audio_key = existing.audio_key
-            existing.audio_key = audio_metadata.audio_key
-            existing.text_title = audio_metadata.text_title
-            existing.file_name = audio_metadata.file_name
-            existing.mime_type = audio_metadata.mime_type
-            existing.file_size_bytes = audio_metadata.file_size_bytes
-            existing.duration_ms = audio_metadata.duration_ms
-            existing.created_by = audio_metadata.created_by
-            existing.updated_at = audio_metadata.updated_at
-            await existing.save()
-            return existing, old_audio_key
-        raise
-
-
-async def _cleanup_audio_files(loop, audio: TextAudio, new_audio_key: str, old_audio_key: Optional[str]) -> None:
-    """Best-effort cleanup of S3 objects displaced by a replacement.
-
-    A key that fails to delete (the one just displaced, or one left over from
-    a previous failed cleanup) is persisted on the document instead of only
-    being logged, so it is retried on the next upload rather than lost.
-    """
-    candidates = list(audio.pending_cleanup_keys)
-    if old_audio_key and old_audio_key != new_audio_key:
-        candidates.append(old_audio_key)
-    candidates = list(dict.fromkeys(key for key in candidates if key and key != new_audio_key))
-    if not candidates:
-        return
-
-    still_pending = []
-    for key in candidates:
-        try:
-            await loop.run_in_executor(None, lambda k=key: delete_file(k))
-        except HTTPException:
-            logging.exception("Failed to remove replaced text audio: %s", key)
-            still_pending.append(key)
-
-    if still_pending != audio.pending_cleanup_keys:
-        audio.pending_cleanup_keys = still_pending
-        await audio.save()
+    return [to_text_audio_response(audio) for audio in audios]
 
 
 async def upload_text_audio(
@@ -192,7 +169,6 @@ async def upload_text_audio(
     now = utc_now()
     loop = asyncio.get_event_loop()
 
-    # Upload to S3
     file.file.seek(0)
     await loop.run_in_executor(
         None,
@@ -203,47 +179,49 @@ async def upload_text_audio(
         ),
     )
 
-    # Handle metadata persistence
+    audio = TextAudio(
+        text_id=text_id,
+        text_title=text.title,
+        audio_key=new_audio_key,
+        file_name=file.filename or f"audio{extension}",
+        mime_type=content_type,
+        file_size_bytes=file.size,
+        duration_ms=duration_ms,
+        created_by=current_author.email,
+        created_at=now,
+        updated_at=now,
+    )
     try:
-        existing = await TextAudio.find_one(TextAudio.text_id == text_id)
-        if existing:
-            old_audio_key = existing.audio_key
-            _update_audio_metadata(existing, text.title, new_audio_key, file, content_type, duration_ms, current_author.email, now)
-            await existing.save()
-            audio = existing
-        else:
-            audio_metadata = _build_audio_metadata(text_id, text.title, new_audio_key, file, content_type, duration_ms, current_author.email, now)
-            audio, old_audio_key = await _persist_audio_metadata(text_id, new_audio_key, audio_metadata, loop)
-    except DuplicateKeyError:
-        await loop.run_in_executor(None, lambda: delete_file(new_audio_key))
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Audio for this text is being uploaded concurrently"
-        )
+        await audio.insert()
     except Exception:
         await loop.run_in_executor(None, lambda: delete_file(new_audio_key))
         raise
-
-    # Cleanup old audio if applicable
-    await _cleanup_audio_files(loop, audio, new_audio_key, old_audio_key)
     return to_text_audio_response(audio)
 
 
-async def delete_text_audio(token: str, text_id: str) -> None:
+async def delete_text_audio(token: str, text_id: str, audio_id: str) -> None:
     validate_cms_author_details(token=token)
     await get_required_text(text_id=text_id)
-    audio = await TextAudio.find_one(TextAudio.text_id == text_id)
-    if not audio:
-        return
+    audio = await get_required_audio(text_id=text_id, audio_id=audio_id)
+    audio_pk = str(audio.id)
     keys_to_delete = list(dict.fromkeys(
         key for key in [audio.audio_key, *audio.pending_cleanup_keys] if key
     ))
     loop = asyncio.get_event_loop()
 
-    # Delete metadata first (source of truth). Once this succeeds, the audio
-    # no longer exists from the application's perspective, so a subsequent
-    # S3 failure below only orphans storage instead of leaving a record that
-    # still points at a file which no longer exists.
+    # Delete the OTR transcripts before the audio itself, and let a failure
+    # here propagate instead of swallowing it. That keeps the operation
+    # retry-safe rather than truly atomic (which would need a replica-set
+    # transaction this deployment doesn't have): if this fails, the audio
+    # document is untouched - nothing is lost - the caller gets an honest
+    # error instead of a false success, and retrying is a clean no-op delete.
+    await TextAudioOtr.find(TextAudioOtr.audio_id == audio_pk).delete()
+
+    # Only now delete the audio metadata. If this fails after the transcripts
+    # are already gone, the caller still gets an honest error (never a false
+    # success); the audio temporarily exists with zero transcripts, which is
+    # a truthful, discoverable state (its OTR list correctly reads empty),
+    # and retrying converges cleanly since the step above is now a no-op.
     await audio.delete()
 
     for key in keys_to_delete:
@@ -251,3 +229,84 @@ async def delete_text_audio(token: str, text_id: str) -> None:
             await loop.run_in_executor(None, lambda k=key: delete_file(k))
         except HTTPException as e:
             logging.exception("Failed to remove text audio from S3 %s: %s. Object orphaned.", key, e)
+
+
+async def get_text_audio_otrs(
+    token: str,
+    text_id: str,
+    audio_id: str,
+) -> List[TextAudioOtrResponse]:
+    validate_cms_author_details(token=token)
+    await get_required_text(text_id=text_id)
+    audio = await get_required_audio(text_id=text_id, audio_id=audio_id)
+    otrs = (
+        await TextAudioOtr.find(TextAudioOtr.audio_id == str(audio.id))
+        .sort("+name")
+        .to_list()
+    )
+    return [to_text_audio_otr_response(otr) for otr in otrs]
+
+
+async def upload_text_audio_otr(
+    token: str,
+    text_id: str,
+    audio_id: str,
+    file: UploadFile,
+    name: Optional[str] = None,
+) -> TextAudioOtrResponse:
+    current_author = validate_cms_author_details(token=token)
+    await get_required_text(text_id=text_id)
+    audio = await get_required_audio(text_id=text_id, audio_id=audio_id)
+    validate_otr_file(file)
+    content = parse_otr_content(await file.read())
+    otr_name = (name or os.path.splitext(file.filename or "")[0]).strip()
+    if not otr_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="OTR name is required.",
+        )
+    now = utc_now()
+    otr = TextAudioOtr(
+        audio_id=str(audio.id),
+        text_id=text_id,
+        name=otr_name,
+        file_name=file.filename or f"{otr_name}.json",
+        content=content,
+        created_by=current_author.email,
+        created_at=now,
+        updated_at=now,
+    )
+    try:
+        await otr.insert()
+    except DuplicateKeyError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An OTR with this name already exists for this audio.",
+        )
+    return to_text_audio_otr_response(otr)
+
+
+async def get_text_audio_otr_content(
+    token: str,
+    text_id: str,
+    audio_id: str,
+    otr_id: str,
+) -> Dict[str, Any]:
+    validate_cms_author_details(token=token)
+    await get_required_text(text_id=text_id)
+    audio = await get_required_audio(text_id=text_id, audio_id=audio_id)
+    otr = await get_required_otr(audio_id=str(audio.id), otr_id=otr_id)
+    return otr.content
+
+
+async def delete_text_audio_otr(
+    token: str,
+    text_id: str,
+    audio_id: str,
+    otr_id: str,
+) -> None:
+    validate_cms_author_details(token=token)
+    await get_required_text(text_id=text_id)
+    audio = await get_required_audio(text_id=text_id, audio_id=audio_id)
+    otr = await get_required_otr(audio_id=str(audio.id), otr_id=otr_id)
+    await otr.delete()

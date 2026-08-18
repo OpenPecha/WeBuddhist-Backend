@@ -7,6 +7,7 @@ from uuid import UUID
 from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.plans.media.media_response_models import ImageUrlModel
 from .location_response_models import LocationDTO
+from .event_enums import RecurrenceFrequency, RecurrenceDateSystem
 
 
 class EventMetadataDTO(BaseModel):
@@ -75,6 +76,42 @@ def _validate_date_range(start_date: datetime, end_date: datetime) -> None:
         raise ValueError("end_date must be greater than or equal to start_date")
 
 
+class RecurrenceInput(BaseModel):
+    frequency: RecurrenceFrequency
+    date_system: RecurrenceDateSystem
+    calendar_type: Optional[str] = Field(None, max_length=10)
+    month: Optional[int] = Field(None, ge=1, le=12)
+    day: int = Field(ge=1, le=31)
+    duration_days: int = Field(default=1, ge=1)
+
+    @model_validator(mode="after")
+    def validate_recurrence_rules(self) -> "RecurrenceInput":
+        if self.date_system == RecurrenceDateSystem.TIBETAN_LUNAR:
+            if not self.calendar_type:
+                raise ValueError("calendar_type is required for TIBETAN_LUNAR date system")
+            if self.calendar_type not in ("phugpa", "tsurphu"):
+                raise ValueError("calendar_type must be 'phugpa' or 'tsurphu'")
+            if self.day > 30:
+                raise ValueError("Lunar day must be between 1 and 30")
+        
+        if self.frequency == RecurrenceFrequency.YEARLY:
+            if self.month is None:
+                raise ValueError("month is required for YEARLY frequency")
+        
+        return self
+
+
+class RecurrenceDTO(BaseModel):
+    model_config = ConfigDict(ser_json_exclude_none=True)
+
+    frequency: str
+    date_system: str
+    calendar_type: Optional[str] = None
+    month: Optional[int] = None
+    day: int
+    duration_days: int
+
+
 class EventDTO(BaseModel):
     model_config = ConfigDict(ser_json_exclude_none=True)
 
@@ -91,6 +128,12 @@ class EventDTO(BaseModel):
     end_date: datetime
     is_one_day: bool
     featured: bool
+    is_recurring: bool = False
+    recurrence: Optional[RecurrenceDTO] = None
+    occurrence_date: Optional[datetime] = Field(
+        None,
+        description="For expanded occurrences, the specific occurrence date"
+    )
     metadata: EventMetadataResponse
     links: List[EventLinkDTO] = []
     image: Optional[ImageUrlModel] = None
@@ -133,8 +176,8 @@ class EventParticipantsResponse(BaseModel):
 
 class CreateEventRequest(BaseModel):
     group_id: UUID
-    start_date: datetime
-    end_date: datetime
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
     metadata: List[EventMetadataInput]
     links: List[EventLinkInput] = []
     image_url: Optional[str] = None
@@ -144,6 +187,7 @@ class CreateEventRequest(BaseModel):
     timer_id: Optional[UUID] = None
     group_recitation_collection_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
+    recurrence: Optional[RecurrenceInput] = None
 
     @field_validator("metadata")
     @classmethod
@@ -153,15 +197,23 @@ class CreateEventRequest(BaseModel):
         return _validate_unique_languages(value)
 
     @model_validator(mode="after")
-    def validate_dates(self) -> "CreateEventRequest":
+    
+def validate_dates(self) -> "CreateEventRequest":
+    # Validation for recurrence (from develop)
+    if self.recurrence is None:
+        if self.start_date is None or self.end_date is None:
+            raise ValueError("start_date and end_date are required when recurrence is not provided")
         _validate_date_range(self.start_date, self.end_date)
+        
+        # Past date validation (from feature-bug) - only for non-recurring events
         today_utc = datetime.now(timezone.utc).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
         start_date_utc = self.start_date.astimezone(timezone.utc) if self.start_date.tzinfo else self.start_date.replace(tzinfo=timezone.utc)
         if start_date_utc < today_utc:
             raise ValueError("start_date cannot be in the past")
-        return self
+    
+    return self
 
 
 class UpdateEventRequest(BaseModel):
@@ -177,6 +229,7 @@ class UpdateEventRequest(BaseModel):
     timer_id: Optional[UUID] = None
     group_recitation_collection_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
+    recurrence: Optional[RecurrenceInput] = None
 
     @field_validator("metadata")
     @classmethod

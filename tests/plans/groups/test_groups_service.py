@@ -28,12 +28,15 @@ from pecha_api.plans.groups.groups_response_models import (
     UpdateGroupMemberRoleRequest,
 )
 from pecha_api.plans.series.series_response_models import SeriesPartnerDTO
+from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
 from pecha_api.plans.groups.groups_service import (
     GROUP_NOT_FOUND,
     _as_aware_utc,
     _assert_metadata_valid,
+    _restricted_ids_for_timezone,
     _generate_group_asset_url,
     _get_member_or_403,
+    _group_card_title,
     _group_to_detail,
     _is_series_enrolled_for_group_context,
     _series_to_dtos,
@@ -45,8 +48,10 @@ from pecha_api.plans.groups.groups_service import (
     get_group_accumulations,
     get_group_member_accumulations,
     get_group_practices,
+    get_group_practices_feed,
     list_group_invites,
     list_my_pending_group_invites,
+    notify_pending_group_invites,
     reject_group_invite_by_id,
     follow_group,
     get_followed_group,
@@ -72,6 +77,7 @@ from pecha_api.plans.groups.groups_service import (
 )
 from pecha_api.plans.platform_enums import PlatformRole
 from pecha_api.plans.plans_enums import LanguageCode, PlanStatus
+from pecha_api.plans.plans_response_models import PlanDTO
 
 
 def _session_local_context(mock_session_local):
@@ -1469,7 +1475,7 @@ def test_create_group_member_invite_creates_notification():
             MagicMock(role=AuthorGroupMemberRole.OWNER) if author_id == author.id else None
         ),
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=target_author,
     ), patch(
         "pecha_api.plans.groups.groups_service.has_pending_invite",
@@ -1519,7 +1525,7 @@ def test_create_group_member_invite_blocks_existing_member():
         "pecha_api.plans.groups.groups_service.get_group_member",
         side_effect=_get_member,
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=target_author,
     ):
         _session_local_context(mock_session)
@@ -1645,7 +1651,7 @@ def test_create_group_member_invite_blocks_pending_invite():
             MagicMock(role=AuthorGroupMemberRole.OWNER) if author_id == author.id else None
         ),
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=target_author,
     ), patch(
         "pecha_api.plans.groups.groups_service.has_pending_invite",
@@ -2224,7 +2230,7 @@ def test_revoke_group_invite_success():
     ), patch(
         "pecha_api.plans.groups.groups_service.revoke_invite",
     ) as mock_revoke, patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=target_author,
     ), patch(
         "pecha_api.plans.groups.groups_service._mark_invite_notification_read",
@@ -2275,7 +2281,7 @@ def test_create_group_member_invite_builds_notification_with_group_title():
             else None
         ),
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=target_author,
     ), patch(
         "pecha_api.plans.groups.groups_service.has_pending_invite",
@@ -2325,9 +2331,27 @@ def test_create_group_member_invite_requires_target_email():
     assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
 
 
-def test_create_group_member_invite_unknown_target_email():
+def test_create_group_member_invite_unknown_target_email_still_invites():
+    """An email with no Author account yet must still succeed: the invite is
+    created and the invitation email is sent, but no in-app notification can
+    be created (there's no author id to attach it to) — notification_id is
+    None. See notify_pending_group_invites for the notification backfill
+    that runs once this person registers and verifies."""
     author = _make_author()
     group = _make_group()
+    invite = MagicMock()
+    invite.id = uuid4()
+    invite.group_id = group.id
+    invite.target_email = "missing@example.org"
+    invite.role = AuthorGroupMemberRole.AUTHOR
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    invite.created_at = datetime.now(timezone.utc)
+    invite.created_by = author.email
+    invite.accepted_at = None
+    invite.rejected_at = None
+    invite.revoked_at = None
+
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
@@ -2338,20 +2362,156 @@ def test_create_group_member_invite_unknown_target_email():
         "pecha_api.plans.groups.groups_service.get_group_member",
         return_value=MagicMock(role=AuthorGroupMemberRole.OWNER),
     ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_email",
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=None,
-    ):
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_invite",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_invite",
+        return_value=invite,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_notification_record",
+    ) as mock_create_notification, patch(
+        "pecha_api.plans.groups.groups_service.send_group_invitation_email",
+    ) as mock_send_email:
         _session_local_context(mock_session)
-        with pytest.raises(HTTPException) as exc:
-            create_group_member_invite(
-                token="t",
-                group_id=group.id,
-                request=CreateGroupInviteRequest(
-                    target_email="missing@example.org",
-                    role=AuthorGroupMemberRole.AUTHOR,
-                ),
-            )
-    assert "No registered author" in exc.value.detail
+        result = create_group_member_invite(
+            token="t",
+            group_id=group.id,
+            request=CreateGroupInviteRequest(
+                target_email="missing@example.org",
+                role=AuthorGroupMemberRole.AUTHOR,
+            ),
+        )
+    assert result.invite.target_email == "missing@example.org"
+    assert result.notification_id is None
+    mock_create_notification.assert_not_called()
+    mock_send_email.assert_called_once()
+
+
+def test_create_group_member_invite_unknown_target_email_uses_non_raising_lookup():
+    """Regression guard: the author-lookup used for target_email resolution
+    must be find_author_by_email (returns None on no match), not
+    get_author_by_email (raises HTTPException 404 "Author not found" on no
+    match). Exercises the real find_author_by_email against a db mock that
+    returns no row, instead of mocking the lookup function itself, so a
+    future accidental revert to get_author_by_email is caught here rather
+    than surfacing as a raw 404 in production."""
+    author = _make_author()
+    group = _make_group()
+    invite = MagicMock()
+    invite.id = uuid4()
+    invite.group_id = group.id
+    invite.target_email = "missing@example.org"
+    invite.role = AuthorGroupMemberRole.AUTHOR
+    invite.status = AuthorGroupInviteStatus.PENDING.value
+    invite.expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
+    invite.created_at = datetime.now(timezone.utc)
+    invite.created_by = author.email
+    invite.accepted_at = None
+    invite.rejected_at = None
+    invite.revoked_at = None
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=MagicMock(role=AuthorGroupMemberRole.OWNER),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_invite",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_invite",
+        return_value=invite,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.send_group_invitation_email",
+    ):
+        mock_db = _session_local_context(mock_session)
+        # No mocking of find_author_by_email: the real repository function
+        # runs against this db mock's query chain, which yields no row.
+        mock_db.query.return_value.options.return_value.filter.return_value.first.return_value = None
+
+        result = create_group_member_invite(
+            token="t",
+            group_id=group.id,
+            request=CreateGroupInviteRequest(
+                target_email="missing@example.org",
+                role=AuthorGroupMemberRole.AUTHOR,
+            ),
+        )
+    assert result.invite.target_email == "missing@example.org"
+    assert result.notification_id is None
+
+
+def _make_invite_for_email(email, group_name="Test Group", created_by="owner@example.org"):
+    invite = MagicMock()
+    invite.id = uuid4()
+    invite.target_email = email
+    invite.created_by = created_by
+    invite.group = MagicMock()
+    invite.group.metadata_entries = [MagicMock(language="EN", title=group_name)]
+    return invite
+
+
+def test_notify_pending_group_invites_creates_one_notification_per_invite():
+    author = _make_author(email="invitee@example.org")
+    invites = [_make_invite_for_email(author.email), _make_invite_for_email(author.email)]
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.list_pending_invites_by_email",
+        return_value=invites,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.notification_exists_for_reference",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_notification_record",
+    ) as mock_create_notification:
+        _session_local_context(mock_session)
+        notify_pending_group_invites(author)
+
+    assert mock_create_notification.call_count == 2
+    called_reference_ids = {
+        call.kwargs["reference_id"] for call in mock_create_notification.call_args_list
+    }
+    assert called_reference_ids == {invite.id for invite in invites}
+
+
+def test_notify_pending_group_invites_is_idempotent():
+    author = _make_author(email="invitee@example.org")
+    invites = [_make_invite_for_email(author.email)]
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.list_pending_invites_by_email",
+        return_value=invites,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.notification_exists_for_reference",
+        return_value=True,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_notification_record",
+    ) as mock_create_notification:
+        _session_local_context(mock_session)
+        notify_pending_group_invites(author)
+
+    mock_create_notification.assert_not_called()
+
+
+def test_notify_pending_group_invites_swallows_errors():
+    author = _make_author(email="invitee@example.org")
+
+    with patch(
+        "pecha_api.plans.groups.groups_service.SessionLocal",
+        side_effect=RuntimeError("db down"),
+    ):
+        # Must not raise: a notification-layer failure can never break signup/login.
+        notify_pending_group_invites(author)
 
 
 def test_accept_group_invite_group_missing_after_invite_found():
@@ -3234,3 +3394,525 @@ async def test_get_group_practices_with_invalid_token_continues_anonymously():
     assert mock_series_to_dtos.call_args.kwargs["user_id"] is None
     assert result.total == 0
     assert result.practices == []
+
+
+def _make_feed_user():
+    user = MagicMock()
+    user.id = uuid4()
+    return user
+
+
+def _make_feed_series(group_id, created_at):
+    series = MagicMock()
+    series.id = uuid4()
+    series.group_id = group_id
+    series.created_at = created_at
+    return series
+
+
+def _make_feed_plan(group_id, created_at):
+    plan = MagicMock()
+    plan.id = uuid4()
+    plan.group_id = group_id
+    plan.created_at = created_at
+    return plan
+
+
+def _make_feed_accumulator(group_id, created_at):
+    accumulator = MagicMock()
+    accumulator.id = uuid4()
+    accumulator.group_id = group_id
+    accumulator.created_at = created_at
+    return accumulator
+
+
+def _feed_series_dto(series):
+    return GroupSeriesListItemDTO(
+        id=series.id,
+        author_id=uuid4(),
+        featured=False,
+        status=PlanStatus.PUBLISHED,
+    )
+
+
+def _feed_accumulator_dto(accumulator, is_joined, member_count):
+    return GroupAccumulatorDTO(
+        id=accumulator.id,
+        group_id=accumulator.group_id,
+        title="Accumulator",
+        is_joined=is_joined,
+        member_count=member_count,
+        created_at=accumulator.created_at,
+    )
+
+
+def _feed_plan_dto(plan_info, group_id):
+    return PlanDTO(
+        id=plan_info.plan.id,
+        title="Plan",
+        description="Desc",
+        language="EN",
+        total_days=1,
+        status=PlanStatus.PUBLISHED,
+        subscription_count=0,
+        group_id=group_id,
+    )
+
+
+def _plan_aggregate(plan):
+    aggregate = MagicMock()
+    aggregate.plan = plan
+    return aggregate
+
+
+def _make_feed_collection(group_id, created_at):
+    collection = MagicMock()
+    collection.id = uuid4()
+    collection.group_id = group_id
+    collection.created_at = created_at
+    collection.name = "Collection"
+    collection.img_url = None
+    return collection
+
+
+def test_get_group_practices_feed_merges_and_sorts_by_created_at():
+    group = _make_group()
+    user = _make_feed_user()
+    series = _make_feed_series(group.id, datetime(2026, 1, 4, tzinfo=timezone.utc))
+    plan = _make_feed_plan(group.id, datetime(2026, 1, 3, tzinfo=timezone.utc))
+    accumulator = _make_feed_accumulator(group.id, datetime(2026, 1, 2, tzinfo=timezone.utc))
+    collection = _make_feed_collection(group.id, datetime(2026, 1, 1, tzinfo=timezone.utc))
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([group.id], {group.id}),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+        return_value=([series], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service._series_to_dtos",
+        return_value=[_feed_series_dto(series)],
+    ) as mock_series_to_dtos, patch(
+        "pecha_api.plans.groups.groups_service.get_standalone_plans_for_group_ids",
+        return_value=([plan], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_plans_with_aggregates_by_ids",
+        return_value=[_plan_aggregate(plan)],
+    ), patch(
+        "pecha_api.plans.groups.groups_service._plan_aggregate_to_dto",
+        side_effect=_feed_plan_dto,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_for_group_ids",
+        return_value=([accumulator], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[accumulator.id],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
+        return_value={accumulator.id: 5},
+    ), patch(
+        "pecha_api.plans.groups.groups_service._group_accumulator_to_dto",
+        side_effect=_feed_accumulator_dto,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collections_for_group_ids_with_total",
+        return_value=([collection], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collection_item_counts",
+        return_value={collection.id: 4},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_by_ids",
+        return_value=[group],
+    ):
+        _session_local_context(mock_session)
+        result = get_group_practices_feed(token="valid-token", skip=0, limit=20)
+
+    assert result.total == 4
+    assert result.include_unfollowed is False
+    assert [card.type for card in result.practices] == [
+        GroupPracticeType.SERIES,
+        GroupPracticeType.PLAN,
+        GroupPracticeType.ACCUMULATOR,
+        GroupPracticeType.COLLECTION,
+    ]
+    assert result.practices[0].series.id == series.id
+    assert result.practices[1].plan.id == plan.id
+    assert result.practices[2].accumulator.id == accumulator.id
+    assert result.practices[2].accumulator.is_joined is True
+    assert result.practices[2].accumulator.member_count == 5
+    assert result.practices[3].collection.id == collection.id
+    assert result.practices[3].collection.item_count == 4
+    assert all(card.is_joined for card in result.practices)
+    assert all(card.group_id == group.id for card in result.practices)
+    assert result.practices[0].group_slug == group.slug
+    assert mock_series_to_dtos.call_args.kwargs["user_id"] == user.id
+    assert mock_series_to_dtos.call_args.kwargs["published_only"] is True
+
+
+def test_get_group_practices_feed_marks_unfollowed_groups():
+    joined_group = _make_group(slug="joined-group")
+    other_group = _make_group(slug="other-group")
+    user = _make_feed_user()
+    accumulator = _make_feed_accumulator(
+        other_group.id, datetime(2026, 1, 1, tzinfo=timezone.utc)
+    )
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([joined_group.id, other_group.id], {joined_group.id}),
+    ) as mock_scope, patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+        return_value=([], 0),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_standalone_plans_for_group_ids",
+        return_value=([], 0),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_plans_with_aggregates_by_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_for_group_ids",
+        return_value=([accumulator], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service._group_accumulator_to_dto",
+        side_effect=_feed_accumulator_dto,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collections_for_group_ids_with_total",
+        return_value=([], 0),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collection_item_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_by_ids",
+        return_value=[other_group],
+    ):
+        _session_local_context(mock_session)
+        result = get_group_practices_feed(
+            token="valid-token", should_include_unfollowed=True
+        )
+
+    assert mock_scope.call_args.kwargs["should_include_unfollowed"] is True
+    assert result.include_unfollowed is True
+    assert result.total == 1
+    assert result.practices[0].is_joined is False
+    assert result.practices[0].group_id == other_group.id
+    assert result.practices[0].group_slug == "other-group"
+
+
+def test_get_group_practices_feed_group_filter_restricts_scope():
+    group_a = _make_group(slug="group-a")
+    group_b = _make_group(slug="group-b")
+    user = _make_feed_user()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([group_a.id, group_b.id], {group_a.id, group_b.id}),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+        return_value=([], 0),
+    ) as mock_series, patch(
+        "pecha_api.plans.groups.groups_service.get_standalone_plans_for_group_ids",
+        return_value=([], 0),
+    ) as mock_plans, patch(
+        "pecha_api.plans.groups.groups_service.get_plans_with_aggregates_by_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_for_group_ids",
+        return_value=([], 0),
+    ) as mock_accumulators, patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collections_for_group_ids_with_total",
+        return_value=([], 0),
+    ) as mock_collections, patch(
+        "pecha_api.plans.groups.groups_service.get_collection_item_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_by_ids",
+        return_value=[],
+    ):
+        _session_local_context(mock_session)
+        result = get_group_practices_feed(token="valid-token", group_id=group_b.id)
+
+    assert mock_series.call_args.kwargs["group_ids"] == [group_b.id]
+    assert mock_plans.call_args.kwargs["group_ids"] == [group_b.id]
+    assert mock_accumulators.call_args.kwargs["group_ids"] == [group_b.id]
+    assert mock_collections.call_args.kwargs["group_ids"] == [group_b.id]
+    assert result.total == 0
+
+
+def test_get_group_practices_feed_group_filter_outside_scope_returns_empty():
+    group = _make_group()
+    user = _make_feed_user()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([group.id], {group.id}),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+    ) as mock_series:
+        _session_local_context(mock_session)
+        result = get_group_practices_feed(token="valid-token", group_id=uuid4())
+
+    mock_series.assert_not_called()
+    assert result.total == 0
+    assert result.practices == []
+
+
+def test_get_group_practices_feed_pagination():
+    group = _make_group()
+    user = _make_feed_user()
+    older = _make_feed_accumulator(group.id, datetime(2026, 1, 1, tzinfo=timezone.utc))
+    newer = _make_feed_accumulator(group.id, datetime(2026, 1, 2, tzinfo=timezone.utc))
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([group.id], {group.id}),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+        return_value=([], 0),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_standalone_plans_for_group_ids",
+        return_value=([], 0),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_plans_with_aggregates_by_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_for_group_ids",
+        return_value=([older, newer], 2),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service._group_accumulator_to_dto",
+        side_effect=_feed_accumulator_dto,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collections_for_group_ids_with_total",
+        return_value=([], 0),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collection_item_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_by_ids",
+        return_value=[group],
+    ):
+        _session_local_context(mock_session)
+        result = get_group_practices_feed(token="valid-token", skip=1, limit=1)
+
+    assert result.total == 2
+    assert len(result.practices) == 1
+    assert result.practices[0].accumulator.id == older.id
+
+
+def test_restricted_ids_for_timezone_returns_none_outside_china_timezone():
+    with patch(
+        "pecha_api.plans.groups.groups_service.is_china_timezone", return_value=False
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_restricted_item_ids"
+    ) as mock_get_restricted_ids:
+        result = _restricted_ids_for_timezone(RestrictedItemType.SERIES, "America/New_York")
+
+    assert result is None
+    mock_get_restricted_ids.assert_not_called()
+
+
+def test_restricted_ids_for_timezone_returns_none_when_no_restricted_items():
+    with patch(
+        "pecha_api.plans.groups.groups_service.is_china_timezone", return_value=True
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_restricted_item_ids",
+        return_value=frozenset(),
+    ):
+        result = _restricted_ids_for_timezone(RestrictedItemType.SERIES, "Asia/Shanghai")
+
+    assert result is None
+
+
+def test_restricted_ids_for_timezone_returns_list_when_china_timezone_has_restrictions():
+    restricted_id = uuid4()
+    with patch(
+        "pecha_api.plans.groups.groups_service.is_china_timezone", return_value=True
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_restricted_item_ids",
+        return_value=frozenset({restricted_id}),
+    ) as mock_get_restricted_ids:
+        result = _restricted_ids_for_timezone(RestrictedItemType.GROUP_ACCUMULATOR, "Asia/Shanghai")
+
+    assert result == [restricted_id]
+    mock_get_restricted_ids.assert_called_once_with(RestrictedItemType.GROUP_ACCUMULATOR)
+
+
+def test_get_group_practices_feed_passes_restricted_ids_to_source_queries():
+    """When the caller is in a China timezone, each source query must receive
+    the restricted-id set to exclude at the query layer, so a fixed fetch
+    window never omits eligible items that fall past a restricted one."""
+    group = _make_group()
+    user = _make_feed_user()
+    restricted_series_id = uuid4()
+    restricted_plan_id = uuid4()
+    restricted_accumulator_id = uuid4()
+    restricted_collection_id = uuid4()
+
+    def _restricted_ids(item_type):
+        return {
+            RestrictedItemType.SERIES: frozenset({restricted_series_id}),
+            RestrictedItemType.PLAN: frozenset({restricted_plan_id}),
+            RestrictedItemType.GROUP_ACCUMULATOR: frozenset({restricted_accumulator_id}),
+            RestrictedItemType.GROUP_RECITATION_COLLECTION: frozenset({restricted_collection_id}),
+        }[item_type]
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([group.id], {group.id}),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.filter_items_for_timezone",
+        side_effect=lambda items, **_: list(items),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_china_timezone", return_value=True
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_restricted_item_ids",
+        side_effect=_restricted_ids,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+        return_value=([], 0),
+    ) as mock_series, patch(
+        "pecha_api.plans.groups.groups_service.get_standalone_plans_for_group_ids",
+        return_value=([], 0),
+    ) as mock_plans, patch(
+        "pecha_api.plans.groups.groups_service.get_plans_with_aggregates_by_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_for_group_ids",
+        return_value=([], 0),
+    ) as mock_accumulators, patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collections_for_group_ids_with_total",
+        return_value=([], 0),
+    ) as mock_collections, patch(
+        "pecha_api.plans.groups.groups_service.get_collection_item_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_by_ids",
+        return_value=[],
+    ):
+        _session_local_context(mock_session)
+        get_group_practices_feed(
+            token="valid-token", timezone_name="Asia/Shanghai"
+        )
+
+    assert mock_series.call_args.kwargs["exclude_ids"] == [restricted_series_id]
+    assert mock_plans.call_args.kwargs["exclude_ids"] == [restricted_plan_id]
+    assert mock_accumulators.call_args.kwargs["exclude_ids"] == [restricted_accumulator_id]
+    assert mock_collections.call_args.kwargs["exclude_ids"] == [restricted_collection_id]
+
+
+def test_get_group_practices_feed_no_exclude_ids_outside_china_timezone():
+    group = _make_group()
+    user = _make_feed_user()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.resolve_public_group_scope",
+        return_value=([group.id], {group.id}),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_for_group_ids",
+        return_value=([], 0),
+    ) as mock_series, patch(
+        "pecha_api.plans.groups.groups_service.get_standalone_plans_for_group_ids",
+        return_value=([], 0),
+    ) as mock_plans, patch(
+        "pecha_api.plans.groups.groups_service.get_plans_with_aggregates_by_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulators_for_group_ids",
+        return_value=([], 0),
+    ) as mock_accumulators, patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_accumulator_ids_by_user",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_accumulator_joiners_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_collections_for_group_ids_with_total",
+        return_value=([], 0),
+    ) as mock_collections, patch(
+        "pecha_api.plans.groups.groups_service.get_collection_item_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_by_ids",
+        return_value=[],
+    ):
+        _session_local_context(mock_session)
+        get_group_practices_feed(token="valid-token")
+
+    assert mock_series.call_args.kwargs["exclude_ids"] is None
+    assert mock_plans.call_args.kwargs["exclude_ids"] is None
+    assert mock_accumulators.call_args.kwargs["exclude_ids"] is None
+    assert mock_collections.call_args.kwargs["exclude_ids"] is None
+
+
+def _make_metadata_entry(language, title):
+    entry = MagicMock()
+    entry.language = language
+    entry.title = title
+    return entry
+
+
+def test_group_card_title_falls_back_to_slug_without_metadata():
+    group = _make_group(slug="no-metadata-group")
+    group.metadata_entries = []
+
+    assert _group_card_title(group) == "no-metadata-group"
+
+
+def test_group_card_title_returns_entry_matching_requested_language():
+    group = _make_group()
+    group.metadata_entries = [
+        _make_metadata_entry("EN", "English Title"),
+        _make_metadata_entry("BO", "Tibetan Title"),
+    ]
+
+    assert _group_card_title(group, language="BO") == "Tibetan Title"
+
+
+def test_group_card_title_falls_back_to_first_entry_when_no_language_matches():
+    group = _make_group()
+    group.metadata_entries = [_make_metadata_entry("FR", "French Title")]
+
+    assert _group_card_title(group, language="BO") == "French Title"

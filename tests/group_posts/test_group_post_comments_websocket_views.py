@@ -96,7 +96,7 @@ def _websocket_env(
 
     with ExitStack() as stack:
         mock_validate = stack.enter_context(
-            patch("pecha_api.group_posts.comment_views.validate_and_extract_author_details")
+            patch("pecha_api.group_posts.comment_views.validate_and_extract_user_details")
         )
         if auth_error is not None:
             mock_validate.side_effect = auth_error
@@ -267,7 +267,7 @@ class TestWebSocketPostCommentsMessages:
 
         mock_create.assert_called_once_with(
             post_id=post_id,
-            author_email=author.email,
+            user_id=author.id,
             text="Great post!",
             parent_comment_id=None,
         )
@@ -295,7 +295,7 @@ class TestWebSocketPostCommentsMessages:
 
         mock_create.assert_called_once_with(
             post_id=post_id,
-            author_email=author.email,
+            user_id=author.id,
             text="Nested reply",
             parent_comment_id=parent_comment_id,
         )

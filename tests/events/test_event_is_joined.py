@@ -28,6 +28,7 @@ def _event(event_id=None):
         end_date=now,
         image_url=None,
         featured=False,
+        is_recurring=False,
         metadata_entries=[],
         links=[],
         created_at=now,

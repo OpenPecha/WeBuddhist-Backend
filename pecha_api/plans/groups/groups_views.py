@@ -17,6 +17,7 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupInviteDTO,
     GroupInviteListResponse,
     GroupMemberAccumulationsResponse,
+    GroupPracticesFeedResponse,
     GroupPracticesResponse,
     PublicAuthorGroupDetailDTO,
     PublicAuthorGroupListResponse,
@@ -45,6 +46,7 @@ from pecha_api.plans.groups.groups_service import (
     get_group_accumulations,
     get_group_member_accumulations,
     get_group_practices,
+    get_group_practices_feed,
     get_joined_group,
     join_group,
     leave_group,
@@ -338,6 +340,52 @@ def delete_group_member_by_id(
         author_id=author_id,
     )
     return None
+
+
+# NOTE: must be registered before the "/{group_id}" routes so the literal
+# "practices" path segment is not captured as a group_id.
+@public_groups_router.get(
+    "/practices",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupPracticesFeedResponse,
+)
+def get_group_practices_feed_endpoint(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    group_id: Annotated[Optional[UUID], Query(description="Filter practices to a single group")] = None,
+    should_include_unfollowed: Annotated[
+        bool,
+        Query(
+            alias="include_unfollowed",
+            description=(
+                "false = practices from joined groups only; "
+                "true = practices from all public groups"
+            ),
+        ),
+    ] = False,
+    language: Annotated[Optional[str], Query(description=_LANGUAGE_QUERY_DESCRIPTION)] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted practices are hidden for Chinese timezones."),
+    ] = None,
+):
+    """Merged feed of practices (series, group accumulators, plans not in a
+    series, and recitation collections) across author groups, sorted newest
+    first.
+
+    Requires auth. Defaults to groups the user joined. Pass
+    ``include_unfollowed=true`` to include all public groups.
+    """
+    return get_group_practices_feed(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        should_include_unfollowed=should_include_unfollowed,
+        skip=skip,
+        limit=limit,
+        language=language,
+        timezone_name=x_timezone,
+    )
 
 
 @public_groups_router.get("/{group_id}", status_code=status.HTTP_200_OK, response_model=PublicAuthorGroupDetailDTO)

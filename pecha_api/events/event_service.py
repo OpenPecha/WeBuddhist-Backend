@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date, timedelta
 from typing import List, Optional
 from uuid import UUID
 
@@ -40,8 +40,10 @@ from .event_response_models import (
     EventMetadataDTO,
     EventLinkDTO,
     EventsResponse,
+    RecurrenceDTO,
     _validate_date_range,
 )
+from .recurrence_service import compute_initial_dates, resolve_next_occurrence, resolve_current_or_next_occurrence, expand_occurrences
 from .event_repository import (
     save_event,
     get_event_by_id,
@@ -49,6 +51,8 @@ from .event_repository import (
     delete_event,
     get_events,
     get_featured_events,
+    get_featured_recurring_events,
+    get_recurring_events,
 )
 from .event_participant_repository import (
     get_event_participant_count,
@@ -182,7 +186,19 @@ def _event_to_dto(
     is_joined: Optional[bool] = None,
     group_name: Optional[str] = None,
     group_avatar_url: Optional[str] = None,
+    occurrence_date: Optional[datetime] = None,
 ) -> EventDTO:
+    recurrence_dto = None
+    if event.is_recurring:
+        recurrence_dto = RecurrenceDTO(
+            frequency=event.recurrence_frequency,
+            date_system=event.recurrence_date_system,
+            calendar_type=event.recurrence_calendar_type,
+            month=event.recurrence_month,
+            day=event.recurrence_day,
+            duration_days=event.duration_days,
+        )
+    
     return EventDTO(
         id=event.id,
         plan_id=event.plan_id,
@@ -195,8 +211,11 @@ def _event_to_dto(
         location=_location_to_dto(event),
         start_date=event.start_date,
         end_date=event.end_date,
-        is_one_day=event.end_date == event.start_date,
+        is_one_day=event.end_date.date() == event.start_date.date(),
         featured=event.featured,
+        is_recurring=event.is_recurring,
+        recurrence=recurrence_dto,
+        occurrence_date=occurrence_date,
         metadata=_metadata_response(
             event.metadata_entries, language=language, fallback=fallback
         ),
@@ -294,7 +313,19 @@ def get_events_service(
                     should_include_unfollowed=should_include_unfollowed,
                 )
 
-        events, total = get_events(
+        # Default expansion window: rolling 12 months from today
+        if from_date is None:
+            from_date = datetime.now(timezone.utc)
+        if to_date is None:
+            to_date = from_date + timedelta(days=365)
+        
+        # Convert to date objects for recurrence expansion
+        from_date_obj = from_date.date() if isinstance(from_date, datetime) else from_date
+        to_date_obj = to_date.date() if isinstance(to_date, datetime) else to_date
+
+        # Get all one-shot events for merged pagination with recurring occurrences
+        # Note: We need all events to properly merge and paginate with recurring occurrences
+        one_shot_events, _ = get_events(
             db,
             group_id=group_id,
             plan_id=plan_id,
@@ -305,12 +336,53 @@ def get_events_service(
             from_date=from_date,
             to_date=to_date,
             restrict_group_ids=restrict_group_ids,
-            skip=skip,
-            limit=limit,
+            skip=0,
+            limit=None,
         )
-        event_ids = [event.id for event in events]
+        
+        # Get recurring event templates
+        recurring_templates = get_recurring_events(
+            db,
+            group_id=group_id,
+            plan_id=plan_id,
+            accumulator_id=accumulator_id,
+            mantra_id=mantra_id,
+            timer_id=timer_id,
+            group_recitation_collection_id=group_recitation_collection_id,
+            restrict_group_ids=restrict_group_ids,
+        )
+        
+        # Expand recurring events into occurrences
+        expanded_occurrences = []
+        for template in recurring_templates:
+            occurrences = expand_occurrences(template, from_date_obj, to_date_obj)
+            for start_d, end_d in occurrences:
+                # Create a copy-like structure with occurrence dates
+                expanded_occurrences.append({
+                    'event': template,
+                    'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                    'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
+                    'occurrence_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                })
+        
+        # Merge one-shot events and expanded occurrences
+        all_event_items = [
+            {'event': e, 'start_date': e.start_date, 'end_date': e.end_date, 'occurrence_date': None}
+            for e in one_shot_events
+        ] + expanded_occurrences
+        
+        # Sort by start_date
+        all_event_items.sort(key=lambda x: x['start_date'])
+        
+        # Apply pagination
+        total = len(all_event_items)
+        paginated_items = all_event_items[skip:skip + limit]
+        
+        # Get participant counts for all unique event IDs
+        event_ids = list(set(item['event'].id for item in paginated_items))
         counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
-        group_cards = _group_card_map(db, [event.group_id for event in events])
+        group_ids = list(set(item['event'].group_id for item in paginated_items))
+        group_cards = _group_card_map(db, group_ids)
 
         joined_ids: set[UUID] = set()
         if current_user:
@@ -322,19 +394,35 @@ def get_events_service(
                 )
             )
 
+        # Build DTOs with occurrence-specific dates
+        event_dtos = []
+        for item in paginated_items:
+            event = item['event']
+            # Temporarily override dates for DTO generation
+            original_start = event.start_date
+            original_end = event.end_date
+            event.start_date = item['start_date']
+            event.end_date = item['end_date']
+            
+            dto = _event_to_dto(
+                event,
+                language=language,
+                fallback=fallback,
+                participant_count=counts_by_event.get(event.id, 0),
+                is_joined=(event.id in joined_ids) if current_user else None,
+                group_name=group_cards.get(event.group_id, (None, None))[0],
+                group_avatar_url=group_cards.get(event.group_id, (None, None))[1],
+                occurrence_date=item['occurrence_date'],
+            )
+            
+            # Restore original dates
+            event.start_date = original_start
+            event.end_date = original_end
+            
+            event_dtos.append(dto)
+
         return EventsResponse(
-            events=[
-                _event_to_dto(
-                    event,
-                    language=language,
-                    fallback=fallback,
-                    participant_count=counts_by_event.get(event.id, 0),
-                    is_joined=(event.id in joined_ids) if current_user else None,
-                    group_name=group_cards.get(event.group_id, (None, None))[0],
-                    group_avatar_url=group_cards.get(event.group_id, (None, None))[1],
-                )
-                for event in events
-            ],
+            events=event_dtos,
             total=total,
             skip=skip,
             limit=limit,
@@ -458,6 +546,26 @@ def get_event_by_id_service(
 def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
     current_author = validate_cms_author_details(token=token)
 
+    if request.recurrence:
+        start_date, end_date = compute_initial_dates(request.recurrence)
+        is_recurring = True
+        recurrence_frequency = request.recurrence.frequency.value
+        recurrence_date_system = request.recurrence.date_system.value
+        recurrence_calendar_type = request.recurrence.calendar_type
+        recurrence_month = request.recurrence.month
+        recurrence_day = request.recurrence.day
+        duration_days = request.recurrence.duration_days
+    else:
+        start_date = request.start_date
+        end_date = request.end_date
+        is_recurring = False
+        recurrence_frequency = None
+        recurrence_date_system = None
+        recurrence_calendar_type = None
+        recurrence_month = None
+        recurrence_day = None
+        duration_days = 1
+
     event = Event(
         plan_id=request.plan_id,
         accumulator_id=request.accumulator_id,
@@ -466,9 +574,16 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         group_recitation_collection_id=request.group_recitation_collection_id,
         group_id=request.group_id,
         location_id=request.location_id,
-        start_date=request.start_date,
-        end_date=request.end_date,
+        start_date=start_date,
+        end_date=end_date,
         image_url=request.image_url,
+        is_recurring=is_recurring,
+        recurrence_frequency=recurrence_frequency,
+        recurrence_date_system=recurrence_date_system,
+        recurrence_calendar_type=recurrence_calendar_type,
+        recurrence_month=recurrence_month,
+        recurrence_day=recurrence_day,
+        duration_days=duration_days,
         created_by=current_author.email,
     )
 
@@ -503,16 +618,29 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
 
         _require_can_edit_event(db, event.group_id, current_author)
 
-        start_date = request.start_date if request.start_date is not None else event.start_date
-        end_date = request.end_date if request.end_date is not None else event.end_date
-        _validate_date_range(start_date, end_date)
+        if request.recurrence is not None:
+            start_date, end_date = compute_initial_dates(request.recurrence)
+            event.start_date = start_date
+            event.end_date = end_date
+            event.is_recurring = True
+            event.recurrence_frequency = request.recurrence.frequency.value
+            event.recurrence_date_system = request.recurrence.date_system.value
+            event.recurrence_calendar_type = request.recurrence.calendar_type
+            event.recurrence_month = request.recurrence.month
+            event.recurrence_day = request.recurrence.day
+            event.duration_days = request.recurrence.duration_days
+        else:
+            start_date = request.start_date if request.start_date is not None else event.start_date
+            end_date = request.end_date if request.end_date is not None else event.end_date
+            if request.start_date is not None or request.end_date is not None:
+                _validate_date_range(start_date, end_date)
+                if request.start_date is not None:
+                    event.start_date = request.start_date
+                if request.end_date is not None:
+                    event.end_date = request.end_date
 
         if request.group_id is not None:
             event.group_id = request.group_id
-        if request.start_date is not None:
-            event.start_date = request.start_date
-        if request.end_date is not None:
-            event.end_date = request.end_date
         if request.plan_id is not None:
             event.plan_id = request.plan_id
         if request.accumulator_id is not None:
@@ -563,10 +691,63 @@ def get_featured_events_service(
     token: Optional[str] = None,
 ) -> List[EventDTO]:
     with SessionLocal() as db:
-        events = get_featured_events(db, limit=limit)
-        event_ids = [event.id for event in events]
+        # Get featured one-shot events
+        one_shot_events = get_featured_events(db, limit=None)
+        
+        # Get featured recurring events and find current/next occurrence for each
+        # Use resolve_current_or_next_occurrence (5-year horizon) to include active
+        # multi-day occurrences and handle sparse yearly recurrences like Feb 29
+        recurring_templates = get_featured_recurring_events(db)
+        
+        now = datetime.now(timezone.utc)
+        today = now.date()
+        
+        expanded_occurrences = []
+        for template in recurring_templates:
+            result = resolve_current_or_next_occurrence(template, after=today)
+            if result:
+                start_d, end_d, is_active = result
+                expanded_occurrences.append({
+                    'event': template,
+                    'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                    'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
+                    'occurrence_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                    'is_active': is_active,
+                })
+        
+        # Merge one-shot events and recurring occurrences.
+        # Non-active (not yet started) occurrences are ranked by proximity to "now"
+        # rather than by the template's created_at: for a future occurrence,
+        # occurrence_date > now > created_at always holds, which made
+        # min(created_at, occurrence_date) collapse to created_at and let a
+        # freshly-created template with a far-future occurrence outrank genuinely
+        # recent one-shot content. Mirroring the occurrence date around "now"
+        # (now - (occurrence_date - now)) keeps imminent occurrences competitive
+        # with recent content while distant ones sink below it, without ever
+        # depending on when the template itself was created. Active events rank
+        # by their start_date so multiple active events don't all tie at the top.
+        def _recurring_sort_date(item):
+            if item.get('is_active'):
+                return item['start_date']  # Rank by when it started, not now
+            return now - (item['start_date'] - now)
+        
+        all_event_items = [
+            {'event': e, 'start_date': e.start_date, 'end_date': e.end_date, 'occurrence_date': None, 'sort_date': e.created_at}
+            for e in one_shot_events
+        ] + [
+            {**item, 'sort_date': _recurring_sort_date(item)}
+            for item in expanded_occurrences
+        ]
+        
+        # Sort by sort_date descending
+        all_event_items.sort(key=lambda x: x['sort_date'] or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+        
+        # Apply limit
+        paginated_items = all_event_items[:limit]
+        
+        event_ids = list(set(item['event'].id for item in paginated_items))
         counts_by_event = get_event_participant_counts(db=db, event_ids=event_ids)
-        group_cards = _group_card_map(db, [event.group_id for event in events])
+        group_cards = _group_card_map(db, [item['event'].group_id for item in paginated_items])
 
         joined_ids: set[UUID] = set()
         if token:
@@ -579,18 +760,31 @@ def get_featured_events_service(
                 )
             )
 
-        return [
-            _event_to_dto(
-                event,
-                language=language,
-                fallback=True,
-                participant_count=counts_by_event.get(event.id, 0),
-                is_joined=(event.id in joined_ids) if token else None,
-                group_name=group_cards.get(event.group_id, (None, None))[0],
-                group_avatar_url=group_cards.get(event.group_id, (None, None))[1],
+        result = []
+        for item in paginated_items:
+            event = item['event']
+            original_start = event.start_date
+            original_end = event.end_date
+            event.start_date = item['start_date']
+            event.end_date = item['end_date']
+            
+            result.append(
+                _event_to_dto(
+                    event,
+                    language=language,
+                    fallback=True,
+                    participant_count=counts_by_event.get(event.id, 0),
+                    is_joined=(event.id in joined_ids) if token else None,
+                    group_name=group_cards.get(event.group_id, (None, None))[0],
+                    group_avatar_url=group_cards.get(event.group_id, (None, None))[1],
+                    occurrence_date=item['occurrence_date'],
+                )
             )
-            for event in events
-        ]
+            
+            event.start_date = original_start
+            event.end_date = original_end
+        
+        return result
 
 
 def update_event_featured_service(token: str, event_id: UUID) -> None:

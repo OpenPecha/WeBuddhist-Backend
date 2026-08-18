@@ -8,6 +8,7 @@ from pecha_api.calendar.calendar_parser import (
     MAX_CALENDAR_YEAR,
     MIN_CALENDAR_YEAR,
     find_calendar_day_for_gregorian_date,
+    find_gregorian_dates_for_lunar,
     get_calendar_file_for_year,
     get_calendar_json_for_year,
     get_days_for_gregorian_month,
@@ -207,3 +208,83 @@ class TestFindCalendarDayForGregorianDate:
 
     def test_returns_none_when_day_not_found(self):
         assert find_calendar_day_for_gregorian_date("1800-01-01") is None
+
+
+class TestFindGregorianDatesForLunar:
+    def test_finds_yearly_lunar_date_across_multiple_years(self):
+        dates = find_gregorian_dates_for_lunar(
+            lunar_month=4,
+            lunar_day=15,
+            calendar_type=CalendarType.PHUGPA,
+            gregorian_year_start=2024,
+            gregorian_year_end=2026,
+        )
+        
+        assert len(dates) == 3
+        assert all(isinstance(d, date) for d in dates)
+        assert dates == sorted(dates)
+
+    def test_finds_monthly_full_moon_in_single_year(self):
+        dates = find_gregorian_dates_for_lunar(
+            lunar_month=1,
+            lunar_day=15,
+            calendar_type=CalendarType.PHUGPA,
+            gregorian_year_start=2025,
+            gregorian_year_end=2025,
+        )
+        
+        assert len(dates) >= 1
+        for d in dates:
+            result = find_calendar_day_for_gregorian_date(d, CalendarType.PHUGPA)
+            assert result is not None
+            _, day_data = result
+            assert day_data["lunar_day"] == 15
+            assert day_data["lunar_month"]["month"] == 1
+
+    def test_excludes_omitted_days(self):
+        dates = find_gregorian_dates_for_lunar(
+            lunar_month=1,
+            lunar_day=1,
+            calendar_type=CalendarType.TSURPHU,
+            gregorian_year_start=2025,
+            gregorian_year_end=2025,
+        )
+        
+        for d in dates:
+            result = find_calendar_day_for_gregorian_date(d, CalendarType.TSURPHU)
+            assert result is not None
+            _, day_data = result
+            assert day_data["gregorian_date"] is not None
+
+    def test_returns_empty_list_when_no_matches(self):
+        dates = find_gregorian_dates_for_lunar(
+            lunar_month=13,
+            lunar_day=31,
+            calendar_type=CalendarType.PHUGPA,
+            gregorian_year_start=2025,
+            gregorian_year_end=2025,
+        )
+        
+        assert dates == []
+
+    def test_respects_year_range_boundaries(self):
+        dates = find_gregorian_dates_for_lunar(
+            lunar_month=1,
+            lunar_day=1,
+            calendar_type=CalendarType.PHUGPA,
+            gregorian_year_start=MIN_CALENDAR_YEAR - 1,
+            gregorian_year_end=MIN_CALENDAR_YEAR,
+        )
+        
+        assert all(d.year >= MIN_CALENDAR_YEAR for d in dates)
+
+    def test_handles_tsurphu_calendar(self):
+        dates = find_gregorian_dates_for_lunar(
+            lunar_month=4,
+            lunar_day=15,
+            calendar_type=CalendarType.TSURPHU,
+            gregorian_year_start=2025,
+            gregorian_year_end=2025,
+        )
+        
+        assert len(dates) >= 1

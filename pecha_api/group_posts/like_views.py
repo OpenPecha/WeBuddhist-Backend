@@ -14,7 +14,7 @@ from pecha_api.group_posts.like_service import (
     unlike_post_service,
     list_post_likers_service,
 )
-from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
+from pecha_api.users.users_service import validate_and_extract_user_details
 
 oauth2_scheme = HTTPBearer()
 
@@ -34,10 +34,10 @@ def like_post(
     response: Response,
 ) -> LikePostResponse:
     """Like a post (requires authentication). Returns 201 if newly created, 200 if already liked."""
-    author = validate_and_extract_author_details(token=authentication_credential.credentials)
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
     result = like_post_service(
         post_id=post_id,
-        author_email=author.email,
+        user_id=user.id,
     )
     response.status_code = status.HTTP_201_CREATED if result.is_new else status.HTTP_200_OK
     return result
@@ -52,10 +52,10 @@ def unlike_post(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ) -> Response:
     """Unlike a post (requires authentication). Idempotent - succeeds even if not liked."""
-    author = validate_and_extract_author_details(token=authentication_credential.credentials)
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
     unlike_post_service(
         post_id=post_id,
-        author_email=author.email,
+        user_id=user.id,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

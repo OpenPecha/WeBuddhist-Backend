@@ -56,7 +56,9 @@ def test_exchange_creates_verified_inactive_phone_profile(
     ), patch(
         "pecha_api.plans.auth.plan_auth_services.save_phone_author",
         return_value=saved_author,
-    ) as save:
+    ) as save, patch(
+        "pecha_api.plans.auth.plan_auth_services.notify_pending_group_invites",
+    ) as mock_notify:
         response = exchange_phone_token(
             PhoneExchangeRequest(
                 auth0_token="auth0-token",
@@ -76,6 +78,7 @@ def test_exchange_creates_verified_inactive_phone_profile(
     assert author_arg.is_active is False
     assert response.status == AuthorStatus.INACTIVE
     assert response.auth is None
+    mock_notify.assert_called_once_with(saved_author)
 
 
 def test_exchange_new_profile_requires_both_names():

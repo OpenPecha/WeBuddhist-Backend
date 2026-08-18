@@ -13,7 +13,9 @@ from pecha_api.plans.groups.groups_repository import (
     get_groups_paginated,
     get_plans_by_group_id,
     get_series_by_group_id,
+    get_series_for_group_ids,
     get_series_partner_id_map_for_group,
+    get_standalone_plans_for_group_ids,
     get_user_series_enrollment_partner_map,
     leave_group_membership,
     update_group,
@@ -292,3 +294,97 @@ def test_leave_group_membership_does_not_commit_when_partner_cleanup_fails():
         leave_group_membership(db=db, user_id=user_id, group_id=group_id)
 
     db.commit.assert_not_called()
+
+
+def test_get_series_for_group_ids_empty_group_ids_returns_early():
+    db = _make_session_mock()
+
+    result = get_series_for_group_ids(db=db, group_ids=[], limit=20)
+
+    assert result == ([], 0)
+    db.query.assert_not_called()
+
+
+def test_get_series_for_group_ids_without_exclude_ids():
+    db = _make_session_mock()
+    group_id = uuid.uuid4()
+    series = MagicMock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.count.return_value = 1
+    query.order_by.return_value = query
+    query.limit.return_value = query
+    query.limit.return_value.all.return_value = [series]
+
+    series_list, total = get_series_for_group_ids(db=db, group_ids=[group_id], limit=20)
+
+    assert series_list == [series]
+    assert total == 1
+    query.filter.assert_called_once()
+
+
+def test_get_series_for_group_ids_with_exclude_ids_applies_extra_filter():
+    db = _make_session_mock()
+    group_id = uuid.uuid4()
+    excluded_id = uuid.uuid4()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.count.return_value = 0
+    query.order_by.return_value = query
+    query.limit.return_value = query
+    query.limit.return_value.all.return_value = []
+
+    get_series_for_group_ids(
+        db=db, group_ids=[group_id], limit=20, exclude_ids=[excluded_id]
+    )
+
+    assert query.filter.call_count == 2
+
+
+def test_get_standalone_plans_for_group_ids_empty_group_ids_returns_early():
+    db = _make_session_mock()
+
+    result = get_standalone_plans_for_group_ids(db=db, group_ids=[], limit=20)
+
+    assert result == ([], 0)
+    db.query.assert_not_called()
+
+
+def test_get_standalone_plans_for_group_ids_without_exclude_ids():
+    db = _make_session_mock()
+    group_id = uuid.uuid4()
+    plan = MagicMock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.count.return_value = 1
+    query.order_by.return_value = query
+    query.limit.return_value = query
+    query.limit.return_value.all.return_value = [plan]
+
+    plans, total = get_standalone_plans_for_group_ids(db=db, group_ids=[group_id], limit=20)
+
+    assert plans == [plan]
+    assert total == 1
+    query.filter.assert_called_once()
+
+
+def test_get_standalone_plans_for_group_ids_with_exclude_ids_applies_extra_filter():
+    db = _make_session_mock()
+    group_id = uuid.uuid4()
+    excluded_id = uuid.uuid4()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.count.return_value = 0
+    query.order_by.return_value = query
+    query.limit.return_value = query
+    query.limit.return_value.all.return_value = []
+
+    get_standalone_plans_for_group_ids(
+        db=db, group_ids=[group_id], limit=20, exclude_ids=[excluded_id]
+    )
+
+    assert query.filter.call_count == 2

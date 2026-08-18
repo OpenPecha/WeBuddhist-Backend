@@ -43,7 +43,6 @@ class TestLikeCommentService:
 
     @patch('pecha_api.group_posts.comment_like_service.count_comment_likes')
     @patch('pecha_api.group_posts.comment_like_service.create_like')
-    @patch('pecha_api.group_posts.comment_like_service.resolve_user_id')
     @patch('pecha_api.group_posts.comment_like_service.validate_group_is_public')
     @patch('pecha_api.group_posts.comment_like_service._get_and_validate_comment')
     @patch('pecha_api.group_posts.comment_like_service.SessionLocal')
@@ -52,7 +51,6 @@ class TestLikeCommentService:
         mock_session,
         mock_get_comment,
         mock_validate_group,
-        mock_resolve_user,
         mock_create_like,
         mock_count_likes,
     ):
@@ -61,21 +59,20 @@ class TestLikeCommentService:
         post_id = uuid4()
         group_id = uuid4()
         user_id = uuid4()
-        
+
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_comment = MockComment(comment_id, post_id)
         mock_post = MockPost(post_id, group_id)
         mock_get_comment.return_value = (mock_comment, mock_post, group_id)
-        mock_resolve_user.return_value = user_id
-        
+
         mock_like = MockCommentLike(comment_id, user_id)
         mock_create_like.return_value = (mock_like, True)  # is_new=True
         mock_count_likes.return_value = 1
 
         result = like_comment_service(
             comment_id=comment_id,
-            author_email="user@example.com",
+            user_id=user_id,
         )
 
         assert result.comment_id == comment_id
@@ -87,7 +84,6 @@ class TestLikeCommentService:
 
     @patch('pecha_api.group_posts.comment_like_service.count_comment_likes')
     @patch('pecha_api.group_posts.comment_like_service.create_like')
-    @patch('pecha_api.group_posts.comment_like_service.resolve_user_id')
     @patch('pecha_api.group_posts.comment_like_service.validate_group_is_public')
     @patch('pecha_api.group_posts.comment_like_service._get_and_validate_comment')
     @patch('pecha_api.group_posts.comment_like_service.SessionLocal')
@@ -96,7 +92,6 @@ class TestLikeCommentService:
         mock_session,
         mock_get_comment,
         mock_validate_group,
-        mock_resolve_user,
         mock_create_like,
         mock_count_likes,
     ):
@@ -105,21 +100,20 @@ class TestLikeCommentService:
         post_id = uuid4()
         group_id = uuid4()
         user_id = uuid4()
-        
+
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_comment = MockComment(comment_id, post_id)
         mock_post = MockPost(post_id, group_id)
         mock_get_comment.return_value = (mock_comment, mock_post, group_id)
-        mock_resolve_user.return_value = user_id
-        
+
         mock_like = MockCommentLike(comment_id, user_id)
         mock_create_like.return_value = (mock_like, False)  # is_new=False (already existed)
         mock_count_likes.return_value = 3
 
         result = like_comment_service(
             comment_id=comment_id,
-            author_email="user@example.com",
+            user_id=user_id,
         )
 
         assert result.comment_id == comment_id
@@ -142,7 +136,7 @@ class TestLikeCommentService:
         with pytest.raises(HTTPException) as exc_info:
             like_comment_service(
                 comment_id=uuid4(),
-                author_email="user@example.com",
+                user_id=uuid4(),
             )
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -151,7 +145,6 @@ class TestLikeCommentService:
 class TestUnlikeCommentService:
 
     @patch('pecha_api.group_posts.comment_like_service.delete_like')
-    @patch('pecha_api.group_posts.comment_like_service.resolve_user_id')
     @patch('pecha_api.group_posts.comment_like_service.validate_group_is_public')
     @patch('pecha_api.group_posts.comment_like_service._get_and_validate_comment')
     @patch('pecha_api.group_posts.comment_like_service.SessionLocal')
@@ -160,7 +153,6 @@ class TestUnlikeCommentService:
         mock_session,
         mock_get_comment,
         mock_validate_group,
-        mock_resolve_user,
         mock_delete_like,
     ):
         """Test unliking a comment succeeds."""
@@ -168,17 +160,16 @@ class TestUnlikeCommentService:
         post_id = uuid4()
         group_id = uuid4()
         user_id = uuid4()
-        
+
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_comment = MockComment(comment_id, post_id)
         mock_post = MockPost(post_id, group_id)
         mock_get_comment.return_value = (mock_comment, mock_post, group_id)
-        mock_resolve_user.return_value = user_id
 
         unlike_comment_service(
             comment_id=comment_id,
-            author_email="user@example.com",
+            user_id=user_id,
         )
 
         mock_delete_like.assert_called_once_with(db=mock_db, comment_id=comment_id, user_id=user_id)
