@@ -18,6 +18,7 @@ from pecha_api.texts.text_audio_models import (
     TextSegmentContent,
     UpdateTextAudioNameRequest,
 )
+from pecha_api.texts.audio_transcoder import TranscodedAudio
 from pecha_api.texts.text_audio_service import (
     INVALID_OTR_DETAIL,
     delete_text_audio,
@@ -57,6 +58,7 @@ EXISTING_AUDIO_KEY = "audio/texts/existing-key.mp3"
 AUDIO_ID = "64b000000000000000000001"
 OTR_ID = "64b000000000000000000002"
 OTR_CONTENT = {"text": "<p>transcript</p>", "media": "", "media-time": ""}
+MP3_BYTES = b"converted mp3 bytes"
 
 
 def _upload_file(
@@ -191,7 +193,11 @@ def audio_env(text_audio_model, text_audio_otr_model):
     with patch(f"{SERVICE}.validate_cms_author_details") as validate_author, \
          patch(f"{SERVICE}.get", side_effect=config.get), \
          patch(f"{SERVICE}.get_int", side_effect=int_config.get), \
-         patch(f"{SERVICE}.upload_file") as upload, \
+         patch(f"{SERVICE}.upload_bytes") as upload, \
+         patch(
+             f"{SERVICE}.transcode_to_mp3",
+             return_value=TranscodedAudio(content=MP3_BYTES, duration_ms=10580),
+         ) as transcode, \
          patch(f"{SERVICE}.delete_file") as delete, \
          patch(f"{SERVICE}.generate_presigned_access_url") as presigned_url, \
          patch(f"{SERVICE}.Text.get_text", new_callable=AsyncMock) as get_text, \
@@ -206,6 +212,7 @@ def audio_env(text_audio_model, text_audio_otr_model):
         yield SimpleNamespace(
             validate_author=validate_author,
             upload=upload,
+            transcode=transcode,
             delete=delete,
             presigned_url=presigned_url,
             get_text=get_text,
@@ -566,7 +573,7 @@ class TestGetTextSegmentsInOrder:
 
 class TestUploadTextAudio:
     @pytest.mark.asyncio
-    async def test_upload_creates_a_new_document(self, audio_env):
+    async def test_upload_stores_the_converted_mp3(self, audio_env):
         file = _upload_file()
 
         response = await upload_text_audio(
@@ -576,11 +583,12 @@ class TestUploadTextAudio:
             duration_ms=90000,
         )
 
-        audio_env.upload.assert_called_once_with(
-            bucket_name=BUCKET_NAME,
-            s3_key=NEW_AUDIO_KEY,
-            file=file,
-        )
+        audio_env.transcode.assert_called_once_with(file.file, suffix=".mp3")
+        upload_kwargs = audio_env.upload.call_args.kwargs
+        assert upload_kwargs["bucket_name"] == BUCKET_NAME
+        assert upload_kwargs["s3_key"] == NEW_AUDIO_KEY
+        assert upload_kwargs["content_type"] == "audio/mpeg"
+        assert upload_kwargs["file"].getvalue() == MP3_BYTES
         audio_env.delete.assert_not_called()
         assert response.id == AUDIO_ID
         assert response.audio_key == NEW_AUDIO_KEY
@@ -588,32 +596,50 @@ class TestUploadTextAudio:
         assert response.name == "chant.mp3"
         assert response.file_name == "chant.mp3"
         assert response.mime_type == "audio/mpeg"
-        assert response.file_size_bytes == file.size
-        assert response.duration_ms == 90000
+        assert response.file_size_bytes == len(MP3_BYTES)
+        # The probed duration wins over the one the browser guessed.
+        assert response.duration_ms == 10580
         created = audio_env.model.instances[-1]
         created.insert.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_mime_type_is_guessed_when_the_client_omits_it(self, audio_env):
-        with patch(f"{SERVICE}.mimetypes.guess_type", return_value=("audio/ogg", None)):
-            response = await upload_text_audio(
-                token=VALID_TOKEN,
-                text_id=TEXT_ID,
-                file=_upload_file(filename="chant.ogg", content_type=None),
-            )
+    async def test_other_formats_are_stored_as_mp3(self, audio_env):
+        file = _upload_file(filename="chant.m4a", content_type="audio/x-m4a")
 
-        assert response.mime_type == "audio/ogg"
+        response = await upload_text_audio(token=VALID_TOKEN, text_id=TEXT_ID, file=file)
+
+        audio_env.transcode.assert_called_once_with(file.file, suffix=".m4a")
+        assert audio_env.upload.call_args.kwargs["s3_key"] == NEW_AUDIO_KEY
+        assert response.audio_key.endswith(".mp3")
+        assert response.file_name == "chant.mp3"
+        assert response.name == "chant.mp3"
+        assert response.mime_type == "audio/mpeg"
 
     @pytest.mark.asyncio
-    async def test_mime_type_falls_back_to_mpeg_when_it_cannot_be_guessed(self, audio_env):
-        with patch(f"{SERVICE}.mimetypes.guess_type", return_value=(None, None)):
-            response = await upload_text_audio(
-                token=VALID_TOKEN,
-                text_id=TEXT_ID,
-                file=_upload_file(content_type=None),
-            )
+    async def test_client_duration_is_kept_when_the_file_cannot_be_probed(self, audio_env):
+        audio_env.transcode.return_value = TranscodedAudio(content=MP3_BYTES, duration_ms=None)
 
-        assert response.mime_type == "audio/mpeg"
+        response = await upload_text_audio(
+            token=VALID_TOKEN,
+            text_id=TEXT_ID,
+            file=_upload_file(),
+            duration_ms=90000,
+        )
+
+        assert response.duration_ms == 90000
+
+    @pytest.mark.asyncio
+    async def test_nothing_is_uploaded_when_the_conversion_fails(self, audio_env):
+        audio_env.transcode.side_effect = HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Could not convert this audio file.",
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await upload_text_audio(token=VALID_TOKEN, text_id=TEXT_ID, file=_upload_file())
+
+        assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+        audio_env.upload.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_uploaded_object_is_removed_when_persistence_fails(self, audio_env):
@@ -651,6 +677,7 @@ class TestUploadTextAudio:
 
         assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
         audio_env.upload.assert_not_called()
+        audio_env.transcode.assert_not_called()
 
 
 class TestUpdateTextAudioName:

@@ -1,9 +1,9 @@
 import asyncio
 import json
 import logging
-import mimetypes
 import os
 import uuid
+from io import BytesIO
 from typing import Any, Dict, List, Optional
 
 from beanie import PydanticObjectId
@@ -16,9 +16,10 @@ from pecha_api.plans.authors.plan_authors_service import validate_cms_author_det
 from pecha_api.uploads.S3_utils import (
     delete_file,
     generate_presigned_access_url,
-    upload_file,
+    upload_bytes,
 )
 
+from .audio_transcoder import MP3_EXTENSION, MP3_MIME_TYPE, transcode_to_mp3
 from .otr_transcript_parser import parse_otr_transcript
 from .segments.segments_models import Segment
 from .text_audio_models import (
@@ -216,35 +217,36 @@ async def upload_text_audio(
     current_author = validate_cms_author_details(token=token)
     text = await get_required_text(text_id=text_id)
     extension = validate_text_audio_file(file)
-    content_type = (
-        file.content_type
-        or mimetypes.guess_type(file.filename or "")[0]
-        or "audio/mpeg"
-    )
-    new_audio_key = f"audio/texts/{uuid.uuid4()}{extension}"
     now = utc_now()
     loop = asyncio.get_event_loop()
 
-    file.file.seek(0)
+    # Everything is stored as MP3 - see audio_transcoder for why.
+    converted = await loop.run_in_executor(
+        None,
+        lambda: transcode_to_mp3(file.file, suffix=extension),
+    )
+    new_audio_key = f"audio/texts/{uuid.uuid4()}{MP3_EXTENSION}"
     await loop.run_in_executor(
         None,
-        lambda: upload_file(
+        lambda: upload_bytes(
             bucket_name=get("AWS_BUCKET_NAME"),
             s3_key=new_audio_key,
-            file=file,
+            file=BytesIO(converted.content),
+            content_type=MP3_MIME_TYPE,
         ),
     )
 
-    default_file_name = file.filename or f"audio{extension}"
+    source_name = os.path.splitext(file.filename or "audio")[0] or "audio"
+    default_file_name = f"{source_name}{MP3_EXTENSION}"
     audio = TextAudio(
         text_id=text_id,
         text_title=text.title,
         audio_key=new_audio_key,
         file_name=default_file_name,
         name=default_file_name,
-        mime_type=content_type,
-        file_size_bytes=file.size,
-        duration_ms=duration_ms,
+        mime_type=MP3_MIME_TYPE,
+        file_size_bytes=len(converted.content),
+        duration_ms=converted.duration_ms or duration_ms,
         created_by=current_author.email,
         created_at=now,
         updated_at=now,
