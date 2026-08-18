@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from sqlalchemy import select
@@ -10,7 +10,7 @@ from pecha_api.users.user_metadata_model import UserMetadata
 from pecha_api.users.users_models import Users
 
 
-def _enum_value(value) -> Optional[str]:
+def _enum_value(value: Optional[Any]) -> Optional[str]:
     if value is None:
         return None
     if hasattr(value, "value"):
@@ -21,7 +21,7 @@ def _enum_value(value) -> Optional[str]:
     return raw
 
 
-def _normalize_platform(value) -> str:
+def _normalize_platform(value: Optional[Any]) -> str:
     return (_enum_value(value) or "").lower()
 
 

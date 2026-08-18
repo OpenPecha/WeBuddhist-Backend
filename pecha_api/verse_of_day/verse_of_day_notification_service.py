@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, tzinfo
 from typing import Optional
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from sqlalchemy.orm import Session
 
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
@@ -42,7 +44,7 @@ def get_verse_of_day_notification_targets() -> VerseOfDayNotificationTargetsResp
     return VerseOfDayNotificationTargetsResponse(generated_at=utc_now, users=users)
 
 
-def _resolve_zoneinfo(timezone_name: Optional[str]):
+def _resolve_zoneinfo(timezone_name: Optional[str]) -> tzinfo:
     name = (timezone_name or "").strip()
     if not name or name.upper() == "UTC":
         return timezone.utc
@@ -60,7 +62,7 @@ def _local_time_matches(timezone_name: Optional[str], utc_now: datetime) -> bool
 
 
 def _build_user_targets(
-    db,
+    db: Session,
     matched_rows: list[VerseOfDayDeviceTargetRow],
     utc_now: datetime,
 ) -> list[VerseOfDayNotificationUserTargetDTO]:
@@ -115,9 +117,10 @@ def _resolve_notification_content(
         return None
 
     verses_dict = build_verses_dict(verse.verse_metadata)
+    verses_by_lang = {lang.lower(): text for lang, text in verses_dict.items()}
     effective_lang = (user_language or "EN").lower()
 
-    body = verses_dict.get(effective_lang) or verses_dict.get(DEFAULT_LANG)
+    body = verses_by_lang.get(effective_lang) or verses_by_lang.get(DEFAULT_LANG)
     if body is None:
         logger.warning(
             "No verse-of-day text for lang=%s or fallback '%s' on date=%s; skipping notification",
