@@ -5,10 +5,15 @@ from uuid import UUID
 from sqlalchemy import and_, delete, exists, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupType, AuthorGroupType
+from pecha_api.plans.groups.groups_enums import (
+    AuthorGroupInviteStatus,
+    AuthorGroupJoinRequestStatus,
+    AuthorGroupType,
+)
 from pecha_api.plans.groups.groups_models import (
     AuthorGroup,
     AuthorGroupInvite,
+    AuthorGroupJoinRequest,
     AuthorGroupMember,
     AuthorGroupMetadata,
     AuthorGroupSocialLink,
@@ -587,6 +592,91 @@ def revoke_invite(db: Session, invite: AuthorGroupInvite, revoked_by: str) -> No
     invite.revoked_by = revoked_by
     db.add(invite)
     db.commit()
+
+
+def create_group_join_request(
+    db: Session,
+    join_request: AuthorGroupJoinRequest,
+) -> AuthorGroupJoinRequest:
+    db.add(join_request)
+    db.commit()
+    db.refresh(join_request)
+    return join_request
+
+
+def get_join_request_by_id(
+    db: Session,
+    request_id: UUID,
+    *,
+    load_group: bool = False,
+) -> Optional[AuthorGroupJoinRequest]:
+    query = db.query(AuthorGroupJoinRequest).filter(AuthorGroupJoinRequest.id == request_id)
+    if load_group:
+        query = query.options(
+            selectinload(AuthorGroupJoinRequest.group).selectinload(AuthorGroup.metadata_entries)
+        )
+    return query.first()
+
+
+def list_join_requests_by_group(
+    db: Session,
+    group_id: UUID,
+    skip: int,
+    limit: int,
+    status: Optional[AuthorGroupJoinRequestStatus] = None,
+) -> Tuple[List[AuthorGroupJoinRequest], int]:
+    query = (
+        db.query(AuthorGroupJoinRequest)
+        .options(selectinload(AuthorGroupJoinRequest.user))
+        .filter(AuthorGroupJoinRequest.group_id == group_id)
+    )
+    if status is not None:
+        query = query.filter(AuthorGroupJoinRequest.status == status.value)
+    total = query.count()
+    rows = (
+        query.order_by(AuthorGroupJoinRequest.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return rows, total
+
+
+def has_pending_join_request(db: Session, group_id: UUID, user_id: UUID) -> bool:
+    return (
+        db.query(AuthorGroupJoinRequest.id)
+        .filter(
+            AuthorGroupJoinRequest.group_id == group_id,
+            AuthorGroupJoinRequest.user_id == user_id,
+            AuthorGroupJoinRequest.status == AuthorGroupJoinRequestStatus.PENDING.value,
+        )
+        .first()
+        is not None
+    )
+
+
+def list_pending_join_requests_by_group(
+    db: Session,
+    group_id: UUID,
+) -> List[AuthorGroupJoinRequest]:
+    return (
+        db.query(AuthorGroupJoinRequest)
+        .filter(
+            AuthorGroupJoinRequest.group_id == group_id,
+            AuthorGroupJoinRequest.status == AuthorGroupJoinRequestStatus.PENDING.value,
+        )
+        .all()
+    )
+
+
+def save_join_request(
+    db: Session,
+    join_request: AuthorGroupJoinRequest,
+) -> AuthorGroupJoinRequest:
+    db.add(join_request)
+    db.commit()
+    db.refresh(join_request)
+    return join_request
 
 
 

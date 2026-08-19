@@ -19,10 +19,16 @@ from pecha_api.notification.notification_repository import (
 )
 from pecha_api.notification.notification_service import create_notification_record
 from pecha_api.plans.groups.group_invite_email import send_group_invitation_email
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole, AuthorGroupType
+from pecha_api.plans.groups.groups_enums import (
+    AuthorGroupInviteStatus,
+    AuthorGroupJoinRequestStatus,
+    AuthorGroupMemberRole,
+    AuthorGroupType,
+)
 from pecha_api.plans.groups.groups_models import (
     AuthorGroup,
     AuthorGroupInvite,
+    AuthorGroupJoinRequest,
     AuthorGroupMember,
     AuthorGroupMetadata,
     AuthorGroupSocialLink,
@@ -43,6 +49,7 @@ from pecha_api.plans.groups.groups_repository import (
     add_group_member,
     create_group,
     create_group_invite,
+    create_group_join_request,
     get_followers_count_map,
     get_following_group_ids_by_user,
     get_joined_group_ids_by_user,
@@ -56,6 +63,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_groups_paginated,
     get_member_roles_map,
     get_invite_by_id,
+    get_join_request_by_id,
     get_owner_count,
     get_plans_by_group_id,
     get_plans_by_ids,
@@ -65,13 +73,17 @@ from pecha_api.plans.groups.groups_repository import (
     get_series_partner_id_map_for_group,
     get_user_series_enrollment_partner_map,
     has_pending_invite,
+    has_pending_join_request,
     leave_group_membership,
     list_invites_by_group,
     list_group_joiners_paginated,
+    list_join_requests_by_group,
     list_pending_invites_by_email,
+    list_pending_join_requests_by_group,
     get_series_by_ids,
     get_tags_by_ids,
     save_invite,
+    save_join_request,
     remove_group_follow,
     remove_group_member,
     replace_group_metadata,
@@ -113,10 +125,14 @@ from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupSummaryDTO,
     CreateAuthorGroupRequest,
     CreateGroupInviteRequest,
+    CreateGroupJoinRequest,
     GroupAccumulationsResponse,
     GroupInviteCreatedResponse,
     GroupInviteDTO,
     GroupInviteListResponse,
+    GroupJoinRequestDTO,
+    GroupJoinRequestListResponse,
+    GroupJoinRequestUserDTO,
     GroupMantraAccumulationDTO,
     GroupMemberAccumulationDTO,
     GroupMemberAccumulationsResponse,
@@ -169,6 +185,8 @@ OWNER_ROLE_NOT_ASSIGNABLE = (
     "The OWNER role cannot be assigned via invite or role change; use transfer ownership"
 )
 GROUP_ALREADY_HAS_OWNER = "This group already has an owner"
+JOIN_REQUEST_NOT_FOUND = "Join request not found"
+GROUP_IS_PRIVATE_USE_REQUEST = "This group is private; submit a join request"
 NOTIFICATION_CATEGORY_GROUP_INVITE = "group_invite"
 _PRACTICES_FETCH_LIMIT = 1000
 
@@ -744,7 +762,9 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
                 if existing and existing.id != group.id:
                     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Group slug already exists")
             group.slug = request.slug
+        became_public = False
         if "is_public" in fields_set:
+            became_public = bool(request.is_public) and not group.is_public
             group.is_public = request.is_public
         if "avatar_key" in fields_set:
             group.avatar_key = request.avatar_key
@@ -768,6 +788,8 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
         group.updated_by = author.email
         group.updated_at = datetime.now(timezone.utc)
         update_group(db=db, group=group)
+        if became_public:
+            _approve_pending_join_requests_on_publish(db, group_id=group_id)
         loaded = get_group_by_id(db=db, group_id=group_id)
         followers_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         joiners_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
@@ -1434,9 +1456,14 @@ def join_group(token: str, group_id: UUID) -> None:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group or not group.is_public:
+        if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         _assert_group_allows_engagement(group=group, action="join")
+        if not group.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=GROUP_IS_PRIVATE_USE_REQUEST,
+            )
         upsert_group_join(db=db, group_id=group_id, user_id=user.id)
 
 
@@ -1501,6 +1528,207 @@ def list_joined_groups(
             limit=limit,
             total=total,
         )
+
+
+def _to_join_request_status(status_value) -> AuthorGroupJoinRequestStatus:
+    if hasattr(status_value, "value"):
+        return AuthorGroupJoinRequestStatus(status_value.value)
+    return AuthorGroupJoinRequestStatus(status_value)
+
+
+def _join_request_to_dto(join_request: AuthorGroupJoinRequest) -> GroupJoinRequestDTO:
+    return GroupJoinRequestDTO(
+        id=join_request.id,
+        status=_to_join_request_status(join_request.status),
+    )
+
+
+def _join_request_to_user_dto(join_request: AuthorGroupJoinRequest) -> GroupJoinRequestUserDTO:
+    user = join_request.user
+    return GroupJoinRequestUserDTO(
+        id=join_request.id,
+        user_id=join_request.user_id,
+        user_name=_user_fullname(user) if user else "",
+        user_avatar_url=_user_avatar_url(user) if user else None,
+        message=join_request.message,
+        status=_to_join_request_status(join_request.status),
+        created_at=join_request.created_at,
+    )
+
+
+def _get_join_request_for_group_or_404(db, *, group_id: UUID, request_id: UUID):
+    join_request = get_join_request_by_id(db=db, request_id=request_id, load_group=True)
+    if not join_request or join_request.group_id != group_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=JOIN_REQUEST_NOT_FOUND,
+        )
+    return join_request
+
+
+def _assert_join_request_pending(join_request: AuthorGroupJoinRequest) -> None:
+    if _to_join_request_status(join_request.status) != AuthorGroupJoinRequestStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This join request has already been reviewed",
+        )
+
+
+def _assert_can_manage_join_requests(db, *, group_id: UUID, author) -> None:
+    if is_super_admin(author):
+        return
+    member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
+    _assert_role_allowed(member=member, allowed_roles=_MEMBER_MANAGEMENT_ROLES)
+
+
+def submit_group_join_request(
+    token: str,
+    group_id: UUID,
+    request: CreateGroupJoinRequest,
+) -> GroupJoinRequestDTO:
+    user = validate_and_extract_user_details(token=token)
+    message = request.message.strip() if request.message else None
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        _assert_group_allows_engagement(group=group, action="join")
+        if group.is_public:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This group is public; join it directly",
+            )
+        if is_user_joined_group(db=db, group_id=group_id, user_id=user.id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You are already a member of this group",
+            )
+        if has_pending_join_request(db=db, group_id=group_id, user_id=user.id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A join request is already pending for this group",
+            )
+
+        created = create_group_join_request(
+            db=db,
+            join_request=AuthorGroupJoinRequest(
+                group_id=group_id,
+                user_id=user.id,
+                message=message,
+                status=AuthorGroupJoinRequestStatus.PENDING.value,
+            ),
+        )
+        return _join_request_to_dto(created)
+
+
+def list_group_join_requests(
+    token: str,
+    group_id: UUID,
+    skip: int,
+    limit: int,
+    status_filter: Optional[AuthorGroupJoinRequestStatus] = AuthorGroupJoinRequestStatus.PENDING,
+) -> GroupJoinRequestListResponse:
+    author = validate_and_extract_author_details(token=token)
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        _assert_can_manage_join_requests(db, group_id=group_id, author=author)
+
+        rows, total = list_join_requests_by_group(
+            db=db,
+            group_id=group_id,
+            skip=skip,
+            limit=limit,
+            status=status_filter,
+        )
+        return GroupJoinRequestListResponse(
+            requests=[_join_request_to_user_dto(row) for row in rows],
+            skip=skip,
+            limit=limit,
+            total=total,
+        )
+
+
+def approve_group_join_request(
+    token: str,
+    group_id: UUID,
+    request_id: UUID,
+) -> GroupJoinRequestDTO:
+    author = validate_and_extract_author_details(token=token)
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        _assert_can_manage_join_requests(db, group_id=group_id, author=author)
+
+        join_request = _get_join_request_for_group_or_404(
+            db, group_id=group_id, request_id=request_id
+        )
+        _assert_join_request_pending(join_request)
+
+        upsert_group_join(db=db, group_id=group_id, user_id=join_request.user_id)
+        _mark_join_request_reviewed(
+            join_request,
+            new_status=AuthorGroupJoinRequestStatus.APPROVED,
+            reviewer_id=author.id,
+        )
+        save_join_request(db=db, join_request=join_request)
+        return _join_request_to_dto(join_request)
+
+
+def reject_group_join_request(
+    token: str,
+    group_id: UUID,
+    request_id: UUID,
+) -> GroupJoinRequestDTO:
+    author = validate_and_extract_author_details(token=token)
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        _assert_can_manage_join_requests(db, group_id=group_id, author=author)
+
+        join_request = _get_join_request_for_group_or_404(
+            db, group_id=group_id, request_id=request_id
+        )
+        _assert_join_request_pending(join_request)
+
+        _mark_join_request_reviewed(
+            join_request,
+            new_status=AuthorGroupJoinRequestStatus.REJECTED,
+            reviewer_id=author.id,
+        )
+        save_join_request(db=db, join_request=join_request)
+        return _join_request_to_dto(join_request)
+
+
+def _mark_join_request_reviewed(
+    join_request: AuthorGroupJoinRequest,
+    *,
+    new_status: AuthorGroupJoinRequestStatus,
+    reviewer_id: Optional[UUID],
+) -> None:
+    now = datetime.now(timezone.utc)
+    join_request.status = new_status.value
+    join_request.reviewed_by = reviewer_id
+    join_request.reviewed_at = now
+    join_request.updated_at = now
+
+
+def _approve_pending_join_requests_on_publish(db, *, group_id: UUID) -> None:
+    """A public group is instant-join, so pending requests are admitted on the flip."""
+    pending = list_pending_join_requests_by_group(db=db, group_id=group_id)
+    for join_request in pending:
+        upsert_group_join(db=db, group_id=group_id, user_id=join_request.user_id)
+        _mark_join_request_reviewed(
+            join_request,
+            new_status=AuthorGroupJoinRequestStatus.APPROVED,
+            reviewer_id=None,
+        )
+        db.add(join_request)
+    if pending:
+        db.commit()
 
 
 def _to_invite_status(status_value) -> AuthorGroupInviteStatus:

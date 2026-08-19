@@ -14,10 +14,16 @@ from pecha_api.group_recitation_collection.response_models import (
     GroupRecitationCollectionDTO,
     GroupRecitationCollectionsResponse,
 )
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole, AuthorGroupType
+from pecha_api.plans.groups.groups_enums import (
+    AuthorGroupInviteStatus,
+    AuthorGroupJoinRequestStatus,
+    AuthorGroupMemberRole,
+    AuthorGroupType,
+)
 from pecha_api.plans.groups.groups_response_models import (
     CreateAuthorGroupRequest,
     CreateGroupInviteRequest,
+    CreateGroupJoinRequest,
     GroupMetadataInput,
     GroupPracticeType,
     GroupSeriesListItemDTO,
@@ -30,7 +36,14 @@ from pecha_api.plans.groups.groups_response_models import (
 from pecha_api.plans.series.series_response_models import SeriesPartnerDTO
 from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
 from pecha_api.plans.groups.groups_service import (
+    GROUP_IS_PRIVATE_USE_REQUEST,
     GROUP_NOT_FOUND,
+    JOIN_REQUEST_NOT_FOUND,
+    _approve_pending_join_requests_on_publish,
+    approve_group_join_request,
+    list_group_join_requests,
+    reject_group_join_request,
+    submit_group_join_request,
     _as_aware_utc,
     _assert_metadata_valid,
     _restricted_ids_for_timezone,
@@ -3916,3 +3929,360 @@ def test_group_card_title_falls_back_to_first_entry_when_no_language_matches():
     group.metadata_entries = [_make_metadata_entry("FR", "French Title")]
 
     assert _group_card_title(group, language="BO") == "French Title"
+
+
+def _make_join_request(
+    *,
+    group_id=None,
+    user_id=None,
+    request_status=AuthorGroupJoinRequestStatus.PENDING,
+    message="let me in",
+):
+    join_request = MagicMock()
+    join_request.id = uuid4()
+    join_request.group_id = group_id or uuid4()
+    join_request.user_id = user_id or uuid4()
+    join_request.message = message
+    join_request.status = request_status.value
+    join_request.reviewed_by = None
+    join_request.reviewed_at = None
+    join_request.created_at = datetime.now(timezone.utc)
+    return join_request
+
+
+def test_join_group_private_group_directs_to_request_flow():
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.upsert_group_join",
+    ) as mock_join:
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            join_group(token="t", group_id=group.id)
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert exc.value.detail == GROUP_IS_PRIVATE_USE_REQUEST
+    mock_join.assert_not_called()
+
+
+def test_submit_group_join_request_creates_pending_request():
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    created = _make_join_request(group_id=group.id, user_id=user.id)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_join_request",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_join_request",
+        return_value=created,
+    ) as mock_create:
+        _session_local_context(mock_session)
+        result = submit_group_join_request(
+            token="t",
+            group_id=group.id,
+            request=CreateGroupJoinRequest(message="  let me in  "),
+        )
+
+    assert result.status == AuthorGroupJoinRequestStatus.PENDING
+    assert result.id == created.id
+    assert set(result.model_dump().keys()) == {"id", "status"}
+    assert mock_create.call_args.kwargs["join_request"].message == "let me in"
+
+
+def test_submit_group_join_request_rejects_public_group():
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(is_public=True, group_type=AuthorGroupType.COMMUNITY)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            submit_group_join_request(
+                token="t", group_id=group.id, request=CreateGroupJoinRequest()
+            )
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_submit_group_join_request_rejects_existing_member():
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group",
+        return_value=True,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            submit_group_join_request(
+                token="t", group_id=group.id, request=CreateGroupJoinRequest()
+            )
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert "already a member" in exc.value.detail
+
+
+def test_submit_group_join_request_rejects_duplicate_pending():
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_join_request",
+        return_value=True,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            submit_group_join_request(
+                token="t", group_id=group.id, request=CreateGroupJoinRequest()
+            )
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert "already pending" in exc.value.detail
+
+
+def test_submit_group_join_request_rejects_page_type():
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(is_public=False, group_type=AuthorGroupType.PAGE)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            submit_group_join_request(
+                token="t", group_id=group.id, request=CreateGroupJoinRequest()
+            )
+
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_approve_group_join_request_adds_joiner():
+    author = _make_author(is_admin=True)
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    join_request = _make_join_request(group_id=group.id)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_join_request_by_id",
+        return_value=join_request,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.upsert_group_join",
+    ) as mock_join, patch(
+        "pecha_api.plans.groups.groups_service.save_join_request",
+    ) as mock_save:
+        _session_local_context(mock_session)
+        result = approve_group_join_request(
+            token="t", group_id=group.id, request_id=join_request.id
+        )
+
+    mock_join.assert_called_once()
+    assert mock_join.call_args.kwargs["user_id"] == join_request.user_id
+    assert join_request.status == AuthorGroupJoinRequestStatus.APPROVED.value
+    assert join_request.reviewed_by == author.id
+    assert join_request.reviewed_at is not None
+    mock_save.assert_called_once()
+    assert result.status == AuthorGroupJoinRequestStatus.APPROVED
+
+
+def test_reject_group_join_request_leaves_membership_unchanged():
+    author = _make_author(is_admin=True)
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    join_request = _make_join_request(group_id=group.id)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_join_request_by_id",
+        return_value=join_request,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.upsert_group_join",
+    ) as mock_join, patch(
+        "pecha_api.plans.groups.groups_service.save_join_request",
+    ):
+        _session_local_context(mock_session)
+        result = reject_group_join_request(
+            token="t", group_id=group.id, request_id=join_request.id
+        )
+
+    mock_join.assert_not_called()
+    assert result.status == AuthorGroupJoinRequestStatus.REJECTED
+
+
+def test_approve_group_join_request_rejects_already_reviewed():
+    author = _make_author(is_admin=True)
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    join_request = _make_join_request(
+        group_id=group.id, request_status=AuthorGroupJoinRequestStatus.APPROVED
+    )
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_join_request_by_id",
+        return_value=join_request,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            approve_group_join_request(
+                token="t", group_id=group.id, request_id=join_request.id
+            )
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_approve_group_join_request_rejects_request_from_other_group():
+    author = _make_author(is_admin=True)
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    join_request = _make_join_request(group_id=uuid4())
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_join_request_by_id",
+        return_value=join_request,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            approve_group_join_request(
+                token="t", group_id=group.id, request_id=join_request.id
+            )
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.value.detail == JOIN_REQUEST_NOT_FOUND
+
+
+def test_list_group_join_requests_requires_management_role():
+    author = _make_author()
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    member = MagicMock()
+    member.role = AuthorGroupMemberRole.VIEWER
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=member,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            list_group_join_requests(token="t", group_id=group.id, skip=0, limit=20)
+
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_list_group_join_requests_returns_requester_profile():
+    author = _make_author(is_admin=True)
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    join_request = _make_join_request(group_id=group.id)
+    requester = MagicMock()
+    requester.firstname = "Jane"
+    requester.lastname = "Doe"
+    requester.avatar_url = None
+    join_request.user = requester
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_join_requests_by_group",
+        return_value=([join_request], 1),
+    ):
+        _session_local_context(mock_session)
+        result = list_group_join_requests(token="t", group_id=group.id, skip=0, limit=20)
+
+    assert result.total == 1
+    assert result.requests[0].user_name == "Jane Doe"
+    assert result.requests[0].status == AuthorGroupJoinRequestStatus.PENDING
+
+
+def test_flipping_group_public_approves_pending_join_requests():
+    group_id = uuid4()
+    pending = [_make_join_request(group_id=group_id), _make_join_request(group_id=group_id)]
+    mock_db = MagicMock()
+
+    with patch(
+        "pecha_api.plans.groups.groups_service.list_pending_join_requests_by_group",
+        return_value=pending,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.upsert_group_join",
+    ) as mock_join:
+        _approve_pending_join_requests_on_publish(mock_db, group_id=group_id)
+
+    assert mock_join.call_count == 2
+    assert all(
+        item.status == AuthorGroupJoinRequestStatus.APPROVED.value for item in pending
+    )
+    # auto-approval has no human reviewer
+    assert all(item.reviewed_by is None for item in pending)
+    mock_db.commit.assert_called_once()
