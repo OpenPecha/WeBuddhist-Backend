@@ -53,6 +53,21 @@ class BookmarkTimerDTO(BaseModel):
     duration: int
 
 
+class BookmarkRecitationCollectionDTO(BaseModel):
+    id: UUID
+    title: str
+    image: Optional[str] = None
+    item_count: int
+
+
+class BookmarkGroupRecitationCollectionDTO(BaseModel):
+    id: UUID
+    group_id: UUID
+    title: str
+    image: Optional[str] = None
+    item_count: int
+
+
 class CreateBookmarkRequest(BaseModel):
     type: BookmarkType
     source_id: str
@@ -88,6 +103,8 @@ class BookmarkDTO(BaseModel):
     series: Optional[BookmarkSeriesDTO] = None
     accumulator: Optional[BookmarkAccumulatorDTO] = None
     timer: Optional[BookmarkTimerDTO] = None
+    recitation_collection: Optional[BookmarkRecitationCollectionDTO] = None
+    group_recitation_collection: Optional[BookmarkGroupRecitationCollectionDTO] = None
 
 
 class BookmarksResponse(BaseModel):

@@ -8,6 +8,8 @@ from pecha_api.bookmarks.bookmark_enums import BookmarkType
 from pecha_api.bookmarks.bookmark_models import Bookmark
 from pecha_api.bookmarks.bookmark_response_models import (
     BookmarkAccumulatorDTO,
+    BookmarkGroupRecitationCollectionDTO,
+    BookmarkRecitationCollectionDTO,
     BookmarkPlanDTO,
     BookmarkSegmentDTO,
     BookmarkSeriesDTO,
@@ -52,6 +54,17 @@ from pecha_api.texts.first_segment_preview_service import (
 )
 from pecha_api.mantra.mantra_repository import get_mantra_by_id
 from pecha_api.timers.timer_repository import get_timer_by_id
+from pecha_api.group_recitation_collection.repository import (
+    get_collection_item_counts,
+    get_collection_without_group_filter,
+)
+from pecha_api.group_recitation_collection.service import (
+    _generate_presigned_url as _generate_collection_image_url,
+)
+from pecha_api.plans.users.recitation_collection.recitation_collection_repository import (
+    get_collection_by_id as get_recitation_collection_by_id,
+    get_collection_item_counts as get_recitation_collection_item_counts,
+)
 
 DEFAULT_FALLBACK_LANGUAGE = "EN"
 
@@ -439,6 +452,58 @@ def enrich_timer_bookmark(db: Session, source_id: str) -> dict:
     }
 
 
+def enrich_recitation_collection_bookmark(
+    db: Session,
+    source_id: str,
+    user_id: UUID,
+) -> dict:
+    collection_id = _parse_source_uuid(source_id)
+    if collection_id is None:
+        return {}
+
+    collection = get_recitation_collection_by_id(
+        db=db,
+        collection_id=collection_id,
+        user_id=user_id,
+    )
+    if not collection:
+        return {}
+
+    item_counts = get_recitation_collection_item_counts(
+        db=db,
+        collection_ids=[collection.id],
+    )
+    return {
+        "recitation_collection": BookmarkRecitationCollectionDTO(
+            id=collection.id,
+            title=collection.name,
+            image=_generate_collection_image_url(collection.img_url),
+            item_count=item_counts.get(collection.id, 0),
+        )
+    }
+
+
+def enrich_group_recitation_collection_bookmark(db: Session, source_id: str) -> dict:
+    collection_id = _parse_source_uuid(source_id)
+    if collection_id is None:
+        return {}
+
+    collection = get_collection_without_group_filter(db=db, collection_id=collection_id)
+    if not collection:
+        return {}
+
+    item_counts = get_collection_item_counts(db=db, collection_ids=[collection.id])
+    return {
+        "group_recitation_collection": BookmarkGroupRecitationCollectionDTO(
+            id=collection.id,
+            group_id=collection.group_id,
+            title=collection.name,
+            image=_generate_collection_image_url(collection.img_url),
+            item_count=item_counts.get(collection.id, 0),
+        )
+    }
+
+
 def _parse_source_uuid(source_id: str) -> Optional[UUID]:
     try:
         return UUID(source_id)
@@ -474,4 +539,15 @@ async def enrich_bookmark(
         )
     if bookmark.type == BookmarkType.TIMER:
         return enrich_timer_bookmark(db=db, source_id=bookmark.source_id)
+    if bookmark.type == BookmarkType.RECITATION_COLLECTION:
+        return enrich_recitation_collection_bookmark(
+            db=db,
+            source_id=bookmark.source_id,
+            user_id=bookmark.user_id,
+        )
+    if bookmark.type == BookmarkType.GROUP_RECITATION_COLLECTION:
+        return enrich_group_recitation_collection_bookmark(
+            db=db,
+            source_id=bookmark.source_id,
+        )
     return {}
