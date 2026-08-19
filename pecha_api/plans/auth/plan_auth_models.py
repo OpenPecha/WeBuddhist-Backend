@@ -77,6 +77,21 @@ class GoogleExchangeResponse(BaseModel):
     auth: Optional[TokenResponse] = None
 
 
+class EmailExchangeRequest(BaseModel):
+    auth0_token: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
+class EmailExchangeResponse(BaseModel):
+    author_id: UUID
+    email: str
+    status: AuthorStatus
+    message: str
+    user: AuthorInfo
+    auth: Optional[TokenResponse] = None
+
+
 class AuthorLoginRequest(BaseModel):
     email: str
     password: str
