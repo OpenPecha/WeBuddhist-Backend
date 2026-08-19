@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pecha-api"
-version = "2025.11.21.1225"
+version = "2026.08.19.1114"
 description = ""
 authors = [ "tenzinsamten <iamsamten>",]
 readme = "README.md"
@@ -37,11 +37,9 @@ toml = "^0.10.2"
 mailtrap = "^2.3.0"
 scalar-fastapi = "^1.8.2"
 apscheduler = "^3.11.3"
+
 [tool.poetry.scripts]
 start = "uvicorn:main"
-
-[tool.poetry.plugins.pytest11]
-bookmark-cov = "pecha_api.bookmarks.pytest_cov_plugin"
 
 [tool.coverage.run]
 omit = [ "*/*_repository.py", "*/*_models.py", "*/*_init__.py", "*/db/*", "*/external_clients/*",]
@@ -53,6 +51,9 @@ exclude_lines = [ "pragma: no cover", "def __repr__", "if self.debug:", "raise N
 [tool.poetry.dependencies.uvicorn]
 extras = [ "standard",]
 version = "^0.32.1"
+
+[tool.poetry.plugins.pytest11]
+bookmark-cov = "pecha_api.bookmarks.pytest_cov_plugin"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.6.8"
