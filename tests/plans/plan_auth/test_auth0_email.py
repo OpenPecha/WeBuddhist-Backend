@@ -1,4 +1,6 @@
+from contextlib import AbstractContextManager
 from datetime import datetime, timezone
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -7,7 +9,7 @@ from fastapi import HTTPException
 from pecha_api.auth.auth0_email import verify_auth0_email_token
 
 
-def _payload(**overrides):
+def _payload(**overrides: Any) -> dict:
     base = {
         "sub": "auth0|abc123",
         "aud": "webuddhist-backend",
@@ -21,7 +23,7 @@ def _payload(**overrides):
     return base
 
 
-def _config_patches():
+def _config_patches() -> tuple[AbstractContextManager, AbstractContextManager]:
     return (
         patch(
             "pecha_api.auth.auth0_email.get",
@@ -37,7 +39,7 @@ def _config_patches():
     )
 
 
-def test_verify_auth0_email_token_returns_normalized_identity():
+def test_verify_auth0_email_token_returns_normalized_identity() -> None:
     get_mock, get_int_mock = _config_patches()
     with patch(
         "pecha_api.auth.auth0_email._decode_auth0_token",
@@ -61,7 +63,7 @@ def test_verify_auth0_email_token_returns_normalized_identity():
         _payload(iat=None),
     ],
 )
-def test_verify_auth0_email_token_rejects_untrusted_claims(payload):
+def test_verify_auth0_email_token_rejects_untrusted_claims(payload: dict) -> None:
     get_mock, get_int_mock = _config_patches()
     with patch(
         "pecha_api.auth.auth0_email._decode_auth0_token",
@@ -74,7 +76,7 @@ def test_verify_auth0_email_token_rejects_untrusted_claims(payload):
     assert exc.value.detail == "Invalid Auth0 email token"
 
 
-def test_verify_auth0_email_token_rejects_unverified_email_with_clear_message():
+def test_verify_auth0_email_token_rejects_unverified_email_with_clear_message() -> None:
     get_mock, get_int_mock = _config_patches()
     with patch(
         "pecha_api.auth.auth0_email._decode_auth0_token",

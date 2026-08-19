@@ -33,8 +33,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.execute(
-        "DELETE FROM bookmarks WHERE type = 'GROUP_RECITATION_COLLECTION'"
-    )
     # Note: PostgreSQL doesn't support removing enum values directly.
-    # For safety, we leave the enum value in place during downgrade.
+    # For safety, we leave the enum value in place during downgrade and keep
+    # any GROUP_RECITATION_COLLECTION bookmarks users have created.
+    pass

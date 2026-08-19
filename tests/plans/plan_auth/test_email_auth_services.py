@@ -11,13 +11,18 @@ from pecha_api.plans.auth.plan_auth_services import exchange_email_token
 from pecha_api.plans.auth.plan_auth_models import AuthorLoginResponse, AuthorInfo as AuthAuthorInfo
 
 
-def _session(mock_session_local):
+def _session(mock_session_local: MagicMock) -> MagicMock:
     db = MagicMock()
     mock_session_local.return_value.__enter__.return_value = db
     return db
 
 
-def _author(*, is_active=True, is_verified=True, email="ada@example.com"):
+def _author(
+    *,
+    is_active: bool = True,
+    is_verified: bool = True,
+    email: str = "ada@example.com",
+) -> MagicMock:
     author = MagicMock()
     author.id = uuid4()
     author.first_name = "Ada"
@@ -33,9 +38,9 @@ def _author(*, is_active=True, is_verified=True, email="ada@example.com"):
 @patch("pecha_api.plans.auth.plan_auth_services.SessionLocal")
 @patch("pecha_api.plans.auth.plan_auth_services.verify_auth0_email_token")
 def test_exchange_creates_verified_inactive_email_profile(
-    verify_email,
-    session_local,
-):
+    verify_email: MagicMock,
+    session_local: MagicMock,
+) -> None:
     verify_email.return_value = Auth0EmailIdentity(
         subject="auth0|123",
         email="ada@example.com",
@@ -77,7 +82,7 @@ def test_exchange_creates_verified_inactive_email_profile(
     mock_notify.assert_called_once_with(saved_author)
 
 
-def test_exchange_new_profile_requires_both_names():
+def test_exchange_new_profile_requires_both_names() -> None:
     email_identity = Auth0EmailIdentity(
         subject="auth0|123",
         email="ada@example.com",
@@ -104,10 +109,10 @@ def test_exchange_new_profile_requires_both_names():
 @patch("pecha_api.plans.auth.plan_auth_services.SessionLocal")
 @patch("pecha_api.plans.auth.plan_auth_services.verify_auth0_email_token")
 def test_exchange_existing_active_author_returns_tokens(
-    verify_email,
-    session_local,
-    generate_token,
-):
+    verify_email: MagicMock,
+    session_local: MagicMock,
+    generate_token: MagicMock,
+) -> None:
     verify_email.return_value = Auth0EmailIdentity(
         subject="auth0|123",
         email="ada@example.com",
@@ -143,9 +148,9 @@ def test_exchange_existing_active_author_returns_tokens(
 @patch("pecha_api.plans.auth.plan_auth_services.SessionLocal")
 @patch("pecha_api.plans.auth.plan_auth_services.verify_auth0_email_token")
 def test_exchange_first_verification_of_existing_author_notifies_pending_invites(
-    verify_email,
-    session_local,
-):
+    verify_email: MagicMock,
+    session_local: MagicMock,
+) -> None:
     verify_email.return_value = Auth0EmailIdentity(
         subject="auth0|123",
         email="ada@example.com",

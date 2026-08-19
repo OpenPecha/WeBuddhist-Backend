@@ -53,6 +53,7 @@ from pecha_api.texts.first_segment_preview_service import (
     resolve_segment_by_ref,
 )
 from pecha_api.mantra.mantra_repository import get_mantra_by_id
+from pecha_api.plans.groups.groups_repository import get_group_by_id, get_group_member
 from pecha_api.timers.timer_repository import get_timer_by_id
 from pecha_api.group_recitation_collection.repository import (
     get_collection_item_counts,
@@ -483,13 +484,29 @@ def enrich_recitation_collection_bookmark(
     }
 
 
-def enrich_group_recitation_collection_bookmark(db: Session, source_id: str) -> dict:
+def enrich_group_recitation_collection_bookmark(
+    db: Session,
+    source_id: str,
+    user_id: UUID,
+) -> dict:
     collection_id = _parse_source_uuid(source_id)
     if collection_id is None:
         return {}
 
     collection = get_collection_without_group_filter(db=db, collection_id=collection_id)
     if not collection:
+        return {}
+
+    # Mirror the access rules of group-content reads: collections are visible
+    # only when the group is public or the user is currently a member.
+    group = get_group_by_id(db=db, group_id=collection.group_id)
+    if not group:
+        return {}
+    if not group.is_public and not get_group_member(
+        db=db,
+        group_id=collection.group_id,
+        author_id=user_id,
+    ):
         return {}
 
     item_counts = get_collection_item_counts(db=db, collection_ids=[collection.id])
@@ -549,5 +566,6 @@ async def enrich_bookmark(
         return enrich_group_recitation_collection_bookmark(
             db=db,
             source_id=bookmark.source_id,
+            user_id=bookmark.user_id,
         )
     return {}
