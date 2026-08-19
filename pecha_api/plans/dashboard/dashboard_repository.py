@@ -9,6 +9,7 @@ from sqlalchemy.orm import Query, Session
 from pecha_api.plans.authors.plan_authors_model import Author  # noqa: F401
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.plans_models import Plan
+from pecha_api.plans.public.plan_repository import resolve_plans_language
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
@@ -91,6 +92,7 @@ def _apply_series_filters(
     featured: Optional[bool],
     language: Optional[str],
     group_ids: Optional[Sequence[UUID]] = None,
+    language_fallback: bool = False,
 ) -> Query:
     query = query.filter(Series.deleted_at.is_(None))
     if group_ids is not None:
@@ -111,7 +113,9 @@ def _apply_series_filters(
         query = query.filter(Series.status == status)
     if featured is not None:
         query = query.filter(Series.featured == featured)
-    if language:
+    if language and not language_fallback:
+        # Strict mode (CMS). Public callers skip this so untranslated series
+        # are still returned and rendered in English by the service layer.
         language_upper = language.upper()
         query = query.filter(
             or_(
@@ -215,25 +219,39 @@ def get_dashboard_items(
     language: Optional[str],
     featured: Optional[bool],
     group_ids: Optional[Sequence[UUID]] = None,
+    language_fallback: bool = False,
 ) -> Tuple[List, int]:
-    filter_kwargs = {
+    common_kwargs = {
         "search": search,
         "status": status,
         "featured": featured,
-        "language": language,
         "group_ids": group_ids,
     }
 
-    series_query = _apply_series_filters(_series_base_query(db), **filter_kwargs)
+    # Resolve once so the listing stays in a single language, never mixed.
+    plan_language = (
+        resolve_plans_language(db=db, language=language)
+        if language and language_fallback
+        else language
+    )
+
+    series_query = _apply_series_filters(
+        _series_base_query(db),
+        language=language,
+        language_fallback=language_fallback,
+        **common_kwargs,
+    )
     plan_query = _apply_plan_filters(
         _plan_base_query(db),
+        language=plan_language,
         standalone_only=False,
-        **filter_kwargs,
+        **common_kwargs,
     )
     standalone_plan_query = _apply_plan_filters(
         _plan_base_query(db),
+        language=plan_language,
         standalone_only=True,
-        **filter_kwargs,
+        **common_kwargs,
     )
 
     if tab == "series":

@@ -1,11 +1,11 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
-from pecha_api.daily_log.daily_log_response_models import UserStreakResponse
-from pecha_api.daily_log.daily_log_service import get_user_streak_service
+from pecha_api.daily_log.daily_log_response_models import UserStatsResponse, UserStreakResponse
+from pecha_api.daily_log.daily_log_service import get_user_stats_service, get_user_streak_service
 
 oauth2_scheme = HTTPBearer()
 daily_log_router = APIRouter(
@@ -13,9 +13,29 @@ daily_log_router = APIRouter(
     tags=["Daily Log"],
 )
 
-
 @daily_log_router.get("/streak", status_code=status.HTTP_200_OK, response_model=UserStreakResponse)
 async def get_user_streak(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone for determining today's date."),
+    ] = None,
 ) -> UserStreakResponse:
-    return await get_user_streak_service(token=authentication_credential.credentials)
+    return await get_user_streak_service(
+        token=authentication_credential.credentials,
+        timezone_name=x_timezone,
+    )
+
+
+@daily_log_router.get("/stats", status_code=status.HTTP_200_OK, response_model=UserStatsResponse)
+async def get_user_stats(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone for determining today's date."),
+    ] = None,
+) -> UserStatsResponse:
+    return await get_user_stats_service(
+        token=authentication_credential.credentials,
+        timezone_name=x_timezone,
+    )

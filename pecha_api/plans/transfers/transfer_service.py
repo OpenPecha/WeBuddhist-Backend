@@ -18,6 +18,7 @@ from pecha_api.plans.groups.groups_repository import get_group_by_id
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.series.series_repository import get_series_by_id
+from pecha_api.plans.users.plan_user_series_repository import ensure_series_partner
 from pecha_api.plans.shared.permissions import (
     get_member_role,
     is_super_admin,
@@ -409,6 +410,7 @@ def _apply_transfer_accept(db: Session, transfer) -> None:
         if series:
             series.group_id = transfer.to_group_id
             db.add(series)
+            ensure_series_partner(db, series.id, transfer.to_group_id)
             for plan in series.plans or []:
                 if plan.deleted_at is None:
                     plan.group_id = transfer.to_group_id

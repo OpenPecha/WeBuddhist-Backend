@@ -25,10 +25,16 @@ class CacheType(Enum):
 
     USER_INFO = "user_info"
     USER_DAILY_LOG = "user_daily_log"
+    USER_STATS = "user_stats"
 
     TOPICS = "topics"
     
     # Collection-specific cache types
     COLLECTIONS = "collections"
     COLLECTION_DETAIL = "collection_detail"
+
+    # Plan-specific cache types
+    PLAN_DAY_DETAIL = "plan_day_detail"
+
+    CALENDAR_YEAR = "calendar_year"
     

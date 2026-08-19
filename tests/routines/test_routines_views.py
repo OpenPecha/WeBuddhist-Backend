@@ -13,6 +13,7 @@ from pecha_api.routines.routines_response_models import (
     RoutineResponse,
     TimeBlockDTO,
     SessionDTO,
+    RoutineInfoResponse,
 )
 from pecha_api.routines.routines_enums import SessionType
 
@@ -911,6 +912,26 @@ def test_get_routine_with_pagination(authenticated_client):
         mock_get.assert_called_once()
 
 
+def test_get_routine_forwards_language_query_param(authenticated_client):
+    """The language query param is passed through to the service for fallback rendering."""
+    mock_response = RoutineResponse(
+        id=uuid.uuid4(), time_blocks=[], skip=0, limit=20, total=0
+    )
+
+    with patch(
+        "pecha_api.routines.routines_views.get_user_routine",
+        new_callable=AsyncMock,
+        return_value=mock_response,
+    ) as mock_get:
+        response = authenticated_client.get(
+            "/users/me/routine?language=bo",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert mock_get.call_args.kwargs["language"] == "bo"
+
+
 def test_get_routine_with_multiple_time_blocks(authenticated_client):
     """Test retrieval of routine with multiple time blocks sorted by time."""
     routine_id = uuid.uuid4()
@@ -1050,3 +1071,50 @@ def test_get_routine_invalid_token(authenticated_client):
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_get_routine_info_success(authenticated_client):
+    mock_response = RoutineInfoResponse(series_count=2, recitation_count=3)
+
+    with patch(
+        "pecha_api.routines.routines_views.get_user_routine_info",
+        new_callable=AsyncMock,
+        return_value=mock_response,
+    ) as mock_get:
+        response = authenticated_client.get(
+            "/users/me/routine/info",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["series_count"] == 2
+        assert body["recitation_count"] == 3
+        mock_get.assert_called_once()
+
+
+def test_get_routine_info_unauthorized(unauthenticated_client):
+    response = unauthenticated_client.get("/users/me/routine/info")
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_routine_info_no_routine(authenticated_client):
+    with patch(
+        "pecha_api.routines.routines_views.get_user_routine_info",
+        new_callable=AsyncMock,
+    ) as mock_get:
+        mock_get.side_effect = HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Bad request",
+                "message": "No routine created for this user",
+            },
+        )
+
+        response = authenticated_client.get(
+            "/users/me/routine/info",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json()["detail"]["message"] == "No routine created for this user"

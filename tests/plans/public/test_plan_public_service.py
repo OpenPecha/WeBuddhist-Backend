@@ -1,8 +1,8 @@
 import pytest
 from uuid import uuid4
 from types import SimpleNamespace
-from unittest.mock import patch, MagicMock, Mock, AsyncMock
-from datetime import date as DateType, datetime, timezone
+from unittest.mock import patch, MagicMock, Mock, AsyncMock, call
+from datetime import date as DateType, datetime, timedelta, timezone
 from fastapi import HTTPException
 from starlette import status
 
@@ -779,6 +779,16 @@ def test_filter_series_metadata_without_language_returns_entries():
     assert _filter_series_metadata_by_language(None, "en") == []
 
 
+def test_filter_series_metadata_falls_back_to_en_when_language_missing():
+    entry_en = MagicMock()
+    entry_en.language = MagicMock(value="EN")
+
+    # Requesting 'bo' which is absent -> falls back to the EN entry.
+    filtered = _filter_series_metadata_by_language([entry_en], "bo")
+
+    assert filtered == [entry_en]
+
+
 def test_resolve_daily_plan_returns_entry_when_not_in_series():
     plan_id = uuid4()
     mock_plan = MagicMock()
@@ -992,9 +1002,10 @@ async def test_get_plan_daily_content_resolves_plan_by_date_in_series():
         )
 
     assert result.plan_id == plan_one_id
-    mock_series_plans.assert_called_once_with(
+    mock_series_plans.assert_called_with(
         db=mock_db, series_id=series_id, language="en"
     )
+    assert mock_series_plans.call_count == 2
     mock_day_fn.assert_called_once_with(db=mock_db, plan_id=plan_one_id, day_number=3)
 
 
@@ -1147,13 +1158,17 @@ async def test_get_plan_daily_content_defaults_date_to_today_when_in_window():
     from pecha_api.plans.public import plan_service
 
     plan_id = uuid4()
+    today = plan_service.dt.now(timezone.utc).date()
+    # Anchor the window relative to today so the test stays stable on any date:
+    # start 5 days ago with a 30-day window keeps today inside the window.
+    start = today - timedelta(days=5)
     mock_plan = _standalone_daily_plan(
-        plan_id, start_date=datetime(2026, 6, 1, tzinfo=timezone.utc)
+        plan_id,
+        start_date=datetime(start.year, start.month, start.day, tzinfo=timezone.utc),
     )
     mock_plan_item = MagicMock()
     mock_plan_item.tasks = []
     mock_db = _daily_content_mock_db_session(total_days=30)
-    today = plan_service.dt.now(timezone.utc).date()
 
     with patch("pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db), \
          patch("pecha_api.plans.public.plan_service.get_published_plan_by_id", return_value=mock_plan), \
@@ -1163,7 +1178,7 @@ async def test_get_plan_daily_content_defaults_date_to_today_when_in_window():
         result = await get_plan_daily_content(plan_id=plan_id)
 
     assert result.date == today
-    assert result.day_number == (today - DateType(2026, 6, 1)).days + 1
+    assert result.day_number == (today - start).days + 1
 
 
 @pytest.mark.asyncio
@@ -1210,7 +1225,8 @@ def test_resolve_daily_plan_raises_when_date_resolution_fails():
     assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
-def test_get_plan_day_details_success():
+@pytest.mark.asyncio
+async def test_get_plan_day_details_success():
     """Test successful retrieval of plan day details with tasks and subtasks"""
     plan_id = uuid4()
     day_number = 1
@@ -1236,16 +1252,22 @@ def test_get_plan_day_details_success():
     mock_plan_item.id = uuid4()
     mock_plan_item.day_number = day_number
     mock_plan_item.tasks = [mock_task]
+    mock_plan_item.shareable_images = None
+    mock_plan_item.videos = []
     
     with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
-         patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks") as mock_get_plan_day:
+         patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks") as mock_get_plan_day, \
+         patch("pecha_api.plans.public.plan_service.get_plan_day_detail_cache", return_value=None) as mock_get_cache, \
+         patch("pecha_api.plans.public.plan_service.set_plan_day_detail_cache") as mock_set_cache:
         
         db_session = _mock_session_local(mock_session_local)
         mock_get_plan_day.return_value = mock_plan_item
 
-        response = get_plan_day_details(plan_id=plan_id, day_number=day_number)
+        response = await get_plan_day_details(plan_id=plan_id, day_number=day_number)
 
+        mock_get_cache.assert_awaited_once_with(plan_id=plan_id, day_number=day_number)
         mock_get_plan_day.assert_called_once_with(db=db_session, plan_id=plan_id, day_number=day_number)
+        mock_set_cache.assert_awaited_once()
 
         assert isinstance(response, PlanDayDTO)
         assert response.id == mock_plan_item.id
@@ -1263,21 +1285,78 @@ def test_get_plan_day_details_success():
         assert task.subtasks[0].content_type == ContentType.TEXT
         assert task.subtasks[0].content == "Subtask content 1"
         assert task.subtasks[0].display_order == 1
+        assert response.thumbnail_url is None
+        assert response.shareable_image_url is None
+
+
+@pytest.mark.asyncio
+async def test_get_plan_day_details_includes_shareable_image_urls():
+    plan_id = uuid4()
+    day_number = 1
+
+    mock_shareable_images = MagicMock()
+    mock_shareable_images.thumbnail_key = "images/day_shareable/thumb.webp"
+    mock_shareable_images.shareable_image_key = "images/day_shareable/share.webp"
+
+    mock_plan_item = MagicMock()
+    mock_plan_item.id = uuid4()
+    mock_plan_item.day_number = day_number
+    mock_plan_item.tasks = []
+    mock_plan_item.shareable_images = mock_shareable_images
+    mock_plan_item.videos = []
+
+    with patch("pecha_api.plans.public.plan_service.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.public.plan_service.get_plan_day_with_tasks_and_subtasks") as mock_get_plan_day, \
+         patch("pecha_api.plans.public.plan_service.get_plan_day_detail_cache", return_value=None), \
+         patch("pecha_api.plans.public.plan_service.set_plan_day_detail_cache"), \
+         patch(
+             "pecha_api.plans.public.plan_service.build_plan_day_shareable_image_fields",
+             return_value=(
+                 "https://bucket.s3.amazonaws.com/thumb",
+                 "images/day_shareable/thumb.webp",
+                 "https://bucket.s3.amazonaws.com/share",
+                 "images/day_shareable/share.webp",
+             ),
+         ):
+        _mock_session_local(mock_session_local)
+        mock_get_plan_day.return_value = mock_plan_item
+
+        response = await get_plan_day_details(plan_id=plan_id, day_number=day_number)
+
+        assert response.thumbnail_url == "https://bucket.s3.amazonaws.com/thumb"
+        assert response.shareable_image_url == "https://bucket.s3.amazonaws.com/share"
 
 def test_get_tags_success(mock_db_session):
     """Test successful retrieval of tags."""
+    # Create metadata entries for tag_one
+    meta_one = MagicMock()
+    meta_one.language = MagicMock()
+    meta_one.language.value = "EN"
+    meta_one.name = "meditation"
+    meta_one.description = None
+    
     tag_one = MagicMock()
     tag_one.id = uuid4()
-    tag_one.name = "meditation"
     tag_one.image_key = None
-    tag_one.description = None
     tag_one.deleted_at = None
+    tag_one.metadata_entries = [meta_one]
+    tag_one.featured = False
+    tag_one.display_order = None
+    
+    # Create metadata entries for tag_two
+    meta_two = MagicMock()
+    meta_two.language = MagicMock()
+    meta_two.language.value = "EN"
+    meta_two.name = "sleep"
+    meta_two.description = None
+    
     tag_two = MagicMock()
     tag_two.id = uuid4()
-    tag_two.name = "sleep"
     tag_two.image_key = None
-    tag_two.description = None
     tag_two.deleted_at = None
+    tag_two.metadata_entries = [meta_two]
+    tag_two.featured = False
+    tag_two.display_order = None
 
     with patch(
         "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
@@ -1312,18 +1391,35 @@ def test_get_tags_empty(mock_db_session):
 
 
 def test_get_public_tags_success(mock_db_session):
+    # Create metadata entries for tag_one
+    meta_one = MagicMock()
+    meta_one.language = MagicMock()
+    meta_one.language.value = "EN"
+    meta_one.name = "meditation"
+    meta_one.description = None
+    
     tag_one = MagicMock()
     tag_one.id = uuid4()
-    tag_one.name = "meditation"
     tag_one.image_key = None
-    tag_one.description = None
     tag_one.deleted_at = None
+    tag_one.metadata_entries = [meta_one]
+    tag_one.featured = False
+    tag_one.display_order = None
+    
+    # Create metadata entries for tag_two
+    meta_two = MagicMock()
+    meta_two.language = MagicMock()
+    meta_two.language.value = "EN"
+    meta_two.name = "sleep"
+    meta_two.description = None
+    
     tag_two = MagicMock()
     tag_two.id = uuid4()
-    tag_two.name = "sleep"
     tag_two.image_key = None
-    tag_two.description = None
     tag_two.deleted_at = None
+    tag_two.metadata_entries = [meta_two]
+    tag_two.featured = False
+    tag_two.display_order = None
 
     with patch(
         "pecha_api.plans.public.plan_service.SessionLocal", return_value=mock_db_session
@@ -1688,6 +1784,8 @@ def test_auto_enroll_plan_adds_to_routine_time_blocks(mock_plan_for_enrollment, 
          patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=True), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress") as mock_save, \
          patch("pecha_api.plans.public.plan_service.UserPlanProgress", return_value=mock_new_progress), \
+         patch("pecha_api.plans.public.plan_service.get_plan_by_id", return_value=mock_plan_for_enrollment), \
+         patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_series", return_value=[]), \
          patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_plan", return_value=[mock_time_block]) as mock_get_blocks, \
          patch("pecha_api.plans.public.plan_service.get_max_display_order_in_time_block", return_value=2) as mock_get_max_order, \
          patch("pecha_api.plans.public.plan_service.add_plan_session_to_time_block") as mock_add_session, \
@@ -1730,6 +1828,8 @@ def test_auto_enroll_plan_adds_to_multiple_time_blocks(mock_plan_for_enrollment,
          patch("pecha_api.plans.public.plan_service.is_within_plan_date_range", return_value=True), \
          patch("pecha_api.plans.public.plan_service.save_plan_progress"), \
          patch("pecha_api.plans.public.plan_service.UserPlanProgress", return_value=mock_new_progress), \
+         patch("pecha_api.plans.public.plan_service.get_plan_by_id", return_value=mock_plan_for_enrollment), \
+         patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_series", return_value=[]), \
          patch("pecha_api.plans.public.plan_service.get_time_blocks_containing_plan", return_value=[mock_time_block_1, mock_time_block_2]), \
          patch("pecha_api.plans.public.plan_service.get_max_display_order_in_time_block", return_value=1), \
          patch("pecha_api.plans.public.plan_service.add_plan_session_to_time_block") as mock_add_session, \

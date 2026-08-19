@@ -85,3 +85,65 @@ def test_reset_password():
                                headers={"Authorization": "Bearer test_token"})
 
         assert response.status_code == 200
+
+
+def test_phone_exchange_passes_verified_token_and_names():
+    user_id = "123e4567-e89b-12d3-a456-426614174000"
+    expected = {
+        "user_id": user_id,
+        "phone_number": "+14155552671",
+        "message": "Authentication successful",
+        "user": {"name": "Tashi Dolma", "avatar_url": None},
+        "auth": {
+            "access_token": "access",
+            "refresh_token": "refresh",
+            "token_type": "Bearer",
+        },
+    }
+    with patch(
+        "pecha_api.auth.auth_views.exchange_phone_token",
+        return_value=expected,
+    ) as exchange:
+        response = client.post(
+            "/auth/phone/exchange",
+            json={
+                "auth0_token": "auth0-token",
+                "first_name": "Tashi",
+                "last_name": "Dolma",
+            },
+        )
+
+    assert response.status_code == 200
+    assert response.json()["user_id"] == user_id
+    assert exchange.call_args.args[0].auth0_token == "auth0-token"
+
+
+def test_phone_link_requires_backend_bearer_and_passes_both_tokens():
+    expected = {
+        "user_id": "123e4567-e89b-12d3-a456-426614174000",
+        "phone_number": "+14155552671",
+        "message": "Phone identity linked",
+    }
+    with patch(
+        "pecha_api.auth.auth_views.link_phone_identity",
+        return_value=expected,
+    ) as link:
+        response = client.post(
+            "/auth/phone/link",
+            json={"auth0_token": "auth0-token"},
+            headers={"Authorization": "Bearer backend-token"},
+        )
+
+    assert response.status_code == 200
+    link.assert_called_once_with(
+        backend_token="backend-token",
+        auth0_token="auth0-token",
+    )
+
+
+def test_phone_link_without_backend_token_is_forbidden():
+    response = client.post(
+        "/auth/phone/link",
+        json={"auth0_token": "auth0-token"},
+    )
+    assert response.status_code == 403

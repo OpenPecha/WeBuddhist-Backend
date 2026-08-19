@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import and_, delete, exists, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupType, AuthorGroupType
 from pecha_api.plans.groups.groups_models import (
     AuthorGroup,
     AuthorGroupInvite,
@@ -13,11 +13,15 @@ from pecha_api.plans.groups.groups_models import (
     AuthorGroupMetadata,
     AuthorGroupSocialLink,
     author_group_followers,
+    author_group_joins,
     author_group_tags,
 )
+from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.series.series_model import Series
 from pecha_api.plans.tags.tag_model import Tag
+from pecha_api.plans.users.plan_users_models import SeriesPartner, UserSeriesEnrollment
+from pecha_api.users.users_models import Users
 
 
 def get_group_ids_by_plan_ids(db: Session, plan_ids: Sequence[UUID]) -> Dict[UUID, UUID]:
@@ -73,17 +77,178 @@ def get_author_group_ids(db: Session, author_id: UUID) -> List[UUID]:
 def get_plans_by_group_id(db: Session, group_id: UUID) -> List[Plan]:
     return (
         db.query(Plan)
-        .filter(Plan.group_id == group_id, Plan.deleted_at.is_(None))
+        .filter(
+            Plan.group_id == group_id,
+            Plan.deleted_at.is_(None),
+            Plan.series_id.is_(None),
+        )
         .all()
     )
+
+
+def get_standalone_plans_for_group_ids(
+    db: Session,
+    group_ids: Sequence[UUID],
+    limit: int,
+    exclude_ids: Optional[Sequence[UUID]] = None,
+) -> Tuple[List[Plan], int]:
+    """Published plans that are not part of a series, across the given groups."""
+    if not group_ids:
+        return [], 0
+    query = db.query(Plan).filter(
+        Plan.group_id.in_(group_ids),
+        Plan.deleted_at.is_(None),
+        Plan.series_id.is_(None),
+        Plan.status == PlanStatus.PUBLISHED,
+    )
+    if exclude_ids:
+        query = query.filter(Plan.id.not_in(exclude_ids))
+    total = query.count()
+    plans = query.order_by(Plan.created_at.desc(), Plan.id.desc()).limit(limit).all()
+    return plans, total
+
+
+def get_series_partner_id_map_for_group(
+    db: Session,
+    group_id: UUID,
+    series_ids: Sequence[UUID],
+) -> Dict[UUID, UUID]:
+    if not series_ids:
+        return {}
+    rows = (
+        db.execute(
+            select(SeriesPartner.series_id, SeriesPartner.id).where(
+                SeriesPartner.group_id == group_id,
+                SeriesPartner.series_id.in_(series_ids),
+            )
+        )
+        .all()
+    )
+    return dict(rows)
+
+
+def get_user_series_enrollment_partner_map(
+    db: Session,
+    user_id: UUID,
+    series_ids: Sequence[UUID],
+) -> Dict[UUID, Optional[UUID]]:
+    if not series_ids:
+        return {}
+    rows = (
+        db.execute(
+            select(
+                UserSeriesEnrollment.series_id,
+                UserSeriesEnrollment.series_partner_id,
+            ).where(
+                UserSeriesEnrollment.user_id == user_id,
+                UserSeriesEnrollment.series_id.in_(series_ids),
+            )
+        )
+        .all()
+    )
+    return dict(rows)
+
+
+def _clear_user_series_partner_ids_for_group(
+    db: Session,
+    user_id: UUID,
+    group_id: UUID,
+) -> int:
+    partner_ids = [
+        row[0]
+        for row in db.execute(
+            select(SeriesPartner.id).where(SeriesPartner.group_id == group_id)
+        ).all()
+    ]
+    if not partner_ids:
+        return 0
+
+    return (
+        db.query(UserSeriesEnrollment)
+        .filter(
+            UserSeriesEnrollment.user_id == user_id,
+            UserSeriesEnrollment.series_partner_id.in_(partner_ids),
+        )
+        .update(
+            {
+                UserSeriesEnrollment.series_partner_id: None,
+                UserSeriesEnrollment.updated_at: datetime.now(timezone.utc),
+            },
+            synchronize_session=False,
+        )
+    )
+
+
+def clear_user_series_partner_ids_for_group(
+    db: Session,
+    user_id: UUID,
+    group_id: UUID,
+) -> int:
+    updated_count = _clear_user_series_partner_ids_for_group(
+        db=db, user_id=user_id, group_id=group_id
+    )
+    db.commit()
+    return updated_count
+
+
+def leave_group_membership(
+    db: Session,
+    user_id: UUID,
+    group_id: UUID,
+) -> None:
+    db.execute(
+        delete(author_group_joins).where(
+            author_group_joins.c.group_id == group_id,
+            author_group_joins.c.user_id == user_id,
+        )
+    )
+    _clear_user_series_partner_ids_for_group(
+        db=db, user_id=user_id, group_id=group_id
+    )
+    db.commit()
 
 
 def get_series_by_group_id(db: Session, group_id: UUID) -> List[Series]:
     return (
         db.query(Series)
-        .filter(Series.group_id == group_id, Series.deleted_at.is_(None))
+        .outerjoin(
+            SeriesPartner,
+            and_(
+                SeriesPartner.series_id == Series.id,
+                SeriesPartner.deleted_at.is_(None),
+            ),
+        )
+        .filter(
+            Series.deleted_at.is_(None),
+            or_(
+                Series.group_id == group_id,
+                SeriesPartner.group_id == group_id,
+            ),
+        )
+        .distinct()
         .all()
     )
+
+
+def get_series_for_group_ids(
+    db: Session,
+    group_ids: Sequence[UUID],
+    limit: int,
+    exclude_ids: Optional[Sequence[UUID]] = None,
+) -> Tuple[List[Series], int]:
+    """Published series owned by the given groups, newest first."""
+    if not group_ids:
+        return [], 0
+    query = db.query(Series).filter(
+        Series.group_id.in_(group_ids),
+        Series.deleted_at.is_(None),
+        Series.status == PlanStatus.PUBLISHED,
+    )
+    if exclude_ids:
+        query = query.filter(Series.id.not_in(exclude_ids))
+    total = query.count()
+    series_list = query.order_by(Series.created_at.desc(), Series.id.desc()).limit(limit).all()
+    return series_list, total
 
 
 def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
@@ -93,7 +258,7 @@ def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
             selectinload(AuthorGroup.metadata_entries),
             selectinload(AuthorGroup.members).selectinload(AuthorGroupMember.author),
             selectinload(AuthorGroup.social_links),
-            selectinload(AuthorGroup.tags),
+            selectinload(AuthorGroup.tags).selectinload(Tag.metadata_entries),
         )
         .filter(AuthorGroup.id == group_id, AuthorGroup.deleted_at.is_(None))
         .first()
@@ -115,7 +280,7 @@ def get_groups_by_ids(db: Session, group_ids: Sequence[UUID]) -> List[AuthorGrou
         db.query(AuthorGroup)
         .options(
             selectinload(AuthorGroup.metadata_entries),
-            selectinload(AuthorGroup.tags),
+            selectinload(AuthorGroup.tags).selectinload(Tag.metadata_entries),
             selectinload(AuthorGroup.members),
         )
         .filter(
@@ -124,6 +289,21 @@ def get_groups_by_ids(db: Session, group_ids: Sequence[UUID]) -> List[AuthorGrou
         )
         .all()
     )
+
+
+def get_public_group_ids(
+    db: Session,
+    *,
+    exclude_group_ids: Optional[Sequence[UUID]] = None,
+) -> List[UUID]:
+    """Return IDs of non-deleted public author groups, optionally excluding some."""
+    query = db.query(AuthorGroup.id).filter(
+        AuthorGroup.deleted_at.is_(None),
+        AuthorGroup.is_public.is_(True),
+    )
+    if exclude_group_ids:
+        query = query.filter(AuthorGroup.id.not_in(exclude_group_ids))
+    return [row[0] for row in query.all()]
 
 
 def get_group_member(
@@ -140,6 +320,25 @@ def get_group_member(
         )
         .first()
     )
+
+
+def get_member_roles_map(
+    db: Session,
+    author_id: UUID,
+    group_ids: Sequence[UUID],
+) -> Dict[UUID, str]:
+    """Batch-load the author's role in each group (avoids N detail fetches)."""
+    if not group_ids:
+        return {}
+    rows = (
+        db.query(AuthorGroupMember.group_id, AuthorGroupMember.role)
+        .filter(
+            AuthorGroupMember.author_id == author_id,
+            AuthorGroupMember.group_id.in_(list(group_ids)),
+        )
+        .all()
+    )
+    return {row.group_id: row.role for row in rows}
 
 
 def get_owner_count(db: Session, group_id: UUID) -> int:
@@ -162,11 +361,15 @@ def get_groups_paginated(
     language: Optional[str] = None,
     tag_id: Optional[UUID] = None,
     group_ids: Optional[Sequence[UUID]] = None,
+    exclude_group_ids: Optional[Sequence[UUID]] = None,
     is_public: Optional[bool] = None,
+    group_type: Optional[AuthorGroupType] = None,
 ) -> Tuple[List[AuthorGroup], int]:
     filters = [AuthorGroup.deleted_at.is_(None)]
     if is_public is not None:
         filters.append(AuthorGroup.is_public.is_(is_public))
+    if group_type is not None:
+        filters.append(AuthorGroup.group_type == group_type)
     if language:
         filters.append(
             exists(
@@ -204,13 +407,15 @@ def get_groups_paginated(
         if not group_ids:
             return [], 0
         filters.append(AuthorGroup.id.in_(group_ids))
+    if exclude_group_ids:
+        filters.append(AuthorGroup.id.not_in(exclude_group_ids))
 
     query = (
         db.query(AuthorGroup)
         .options(
             selectinload(AuthorGroup.metadata_entries),
             selectinload(AuthorGroup.members),
-            selectinload(AuthorGroup.tags),
+            selectinload(AuthorGroup.tags).selectinload(Tag.metadata_entries),
         )
         .filter(*filters)
 
@@ -463,6 +668,103 @@ def get_followers_count_map(db: Session, group_ids: Sequence[UUID]) -> dict[UUID
         )
         .filter(author_group_followers.c.group_id.in_(group_ids))
         .group_by(author_group_followers.c.group_id)
+        .all()
+    )
+    return {group_id: int(count or 0) for group_id, count in rows}
+
+
+def upsert_group_join(
+    db: Session,
+    group_id: UUID,
+    user_id: UUID,
+) -> None:
+    exists_row = db.execute(
+        select(author_group_joins.c.group_id).where(
+            author_group_joins.c.group_id == group_id,
+            author_group_joins.c.user_id == user_id,
+        )
+    ).first()
+    if exists_row:
+        return
+    db.execute(
+        author_group_joins.insert().values(
+            group_id=group_id,
+            user_id=user_id,
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    db.commit()
+
+
+def remove_group_join(
+    db: Session,
+    group_id: UUID,
+    user_id: UUID,
+) -> None:
+    db.execute(
+        delete(author_group_joins).where(
+            author_group_joins.c.group_id == group_id,
+            author_group_joins.c.user_id == user_id,
+        )
+    )
+    db.commit()
+
+
+def get_joined_group_ids_by_user(
+    db: Session,
+    user_id: UUID,
+) -> List[UUID]:
+    rows = db.execute(
+        select(author_group_joins.c.group_id).where(author_group_joins.c.user_id == user_id)
+    ).all()
+    return [row[0] for row in rows]
+
+
+def is_user_joined_group(
+    db: Session,
+    group_id: UUID,
+    user_id: UUID,
+) -> bool:
+    row = db.execute(
+        select(author_group_joins.c.group_id).where(
+            author_group_joins.c.group_id == group_id,
+            author_group_joins.c.user_id == user_id,
+        )
+    ).first()
+    return row is not None
+
+
+def list_group_joiners_paginated(
+    db: Session,
+    group_id: UUID,
+    skip: int,
+    limit: int,
+) -> Tuple[List[Users], int]:
+    query = (
+        db.query(Users)
+        .join(author_group_joins, Users.id == author_group_joins.c.user_id)
+        .filter(author_group_joins.c.group_id == group_id)
+    )
+    total = query.count()
+    users = (
+        query.order_by(author_group_joins.c.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return users, total
+
+
+def get_joiners_count_map(db: Session, group_ids: Sequence[UUID]) -> dict[UUID, int]:
+    if not group_ids:
+        return {}
+    rows = (
+        db.query(
+            author_group_joins.c.group_id,
+            func.count(author_group_joins.c.user_id),
+        )
+        .filter(author_group_joins.c.group_id.in_(group_ids))
+        .group_by(author_group_joins.c.group_id)
         .all()
     )
     return {group_id: int(count or 0) for group_id, count in rows}

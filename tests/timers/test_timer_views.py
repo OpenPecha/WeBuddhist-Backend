@@ -11,13 +11,19 @@ from pecha_api.timers.timer_views import (
     get_user_timers,
     create_user_timer,
     update_user_timer,
-    delete_user_timer
+    delete_user_timer,
+    record_timer_stop,
+    get_user_timer_history
 )
 from pecha_api.timers.timer_response_models import (
     TimersResponse,
     TimerDTO,
     CreateTimerRequest,
-    UpdateTimerRequest
+    UpdateTimerRequest,
+    RecordTimerStopRequest,
+    TimerHistoryResponse,
+    TimerHistoryDTO,
+    TimerSessionDTO
 )
 from pecha_api.timers.timer_enums import TimerType
 
@@ -176,6 +182,29 @@ class TestGetAllTimers:
         assert result.total == 10
         
         mock_service.assert_called_once_with(group_id=group_id, skip=5, limit=1)
+    
+    @patch('pecha_api.timers.timer_views.get_all_timers_service')
+    @pytest.mark.asyncio
+    async def test_get_all_timers_without_group_id(self, mock_service):
+        """Test get_all_timers without group_id filter (returns all timers)."""
+        timer1 = TestDataFactory.create_timer_dto(name="Timer 1")
+        timer2 = TestDataFactory.create_timer_dto(name="Timer 2")
+        
+        mock_response = TestDataFactory.create_timers_response(
+            timers=[timer1, timer2],
+            total=2,
+            skip=0,
+            limit=20
+        )
+        mock_service.return_value = mock_response
+        
+        result = await get_all_timers(group_id=None, skip=0, limit=20)
+        
+        assert isinstance(result, TimersResponse)
+        assert len(result.timers) == 2
+        assert result.total == 2
+        
+        mock_service.assert_called_once_with(group_id=None, skip=0, limit=20)
 
 
 class TestGetUserTimers:
@@ -260,6 +289,49 @@ class TestGetUserTimers:
         
         assert len(result.timers) == 0
         assert result.total == 0
+    
+    @patch('pecha_api.timers.timer_views.get_user_timers_service')
+    @patch('pecha_api.timers.timer_views.validate_and_extract_user_details')
+    @pytest.mark.asyncio
+    async def test_get_user_timers_without_group_id(self, mock_validate, mock_service):
+        """Test get_user_timers without group_id filter (returns all user timers)."""
+        user_id = uuid4()
+        token = "valid_token"
+        
+        mock_user = MagicMock()
+        mock_user.id = user_id
+        mock_validate.return_value = mock_user
+        
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        
+        timer1 = TestDataFactory.create_timer_dto(user_id=user_id, name="My Timer 1")
+        timer2 = TestDataFactory.create_timer_dto(user_id=user_id, name="My Timer 2")
+        
+        mock_response = TestDataFactory.create_timers_response(
+            timers=[timer1, timer2],
+            total=2,
+            skip=0,
+            limit=20
+        )
+        mock_service.return_value = mock_response
+        
+        result = await get_user_timers(
+            group_id=None,
+            skip=0,
+            limit=20,
+            credentials=auth_credentials
+        )
+        
+        assert isinstance(result, TimersResponse)
+        assert len(result.timers) == 2
+        
+        mock_validate.assert_called_once_with(token=token)
+        mock_service.assert_called_once_with(
+            user_id=user_id,
+            group_id=None,
+            skip=0,
+            limit=20
+        )
     
     @patch('pecha_api.timers.timer_views.validate_and_extract_user_details')
     @pytest.mark.asyncio
@@ -623,6 +695,198 @@ class TestDeleteUserTimer:
             await delete_user_timer(
                 timer_id=timer_id,
                 credentials=auth_credentials
+            )
+        
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+class TestRecordTimerStop:
+    """Test cases for record_timer_stop endpoint."""
+    
+    @patch('pecha_api.timers.timer_views.record_timer_stop_service')
+    @pytest.mark.asyncio
+    async def test_record_timer_stop_success(self, mock_service):
+        """Test successful recording of timer stop."""
+        token = "valid_token"
+        timer_id = uuid4()
+        
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = RecordTimerStopRequest(timer_id=timer_id, duration=600)
+        
+        mock_service.return_value = None
+        
+        result = await record_timer_stop(request=request, credentials=auth_credentials)
+        
+        assert result == {"message": "Timer session recorded successfully"}
+        mock_service.assert_called_once_with(token=token, request=request)
+    
+    @patch('pecha_api.timers.timer_views.record_timer_stop_service')
+    @pytest.mark.asyncio
+    async def test_record_timer_stop_timer_not_found(self, mock_service):
+        """Test record_timer_stop when timer doesn't exist."""
+        token = "valid_token"
+        timer_id = uuid4()
+        
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = RecordTimerStopRequest(timer_id=timer_id, duration=600)
+        
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "NOT_FOUND", "message": "Timer not found"}
+        )
+        
+        with pytest.raises(HTTPException) as exc_info:
+            await record_timer_stop(request=request, credentials=auth_credentials)
+        
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    
+    @patch('pecha_api.timers.timer_views.record_timer_stop_service')
+    @pytest.mark.asyncio
+    async def test_record_timer_stop_invalid_token(self, mock_service):
+        """Test record_timer_stop with invalid authentication token."""
+        token = "invalid_token"
+        timer_id = uuid4()
+        
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = RecordTimerStopRequest(timer_id=timer_id, duration=600)
+        
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+        
+        with pytest.raises(HTTPException) as exc_info:
+            await record_timer_stop(request=request, credentials=auth_credentials)
+        
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+class TestGetUserTimerHistory:
+    """Test cases for get_user_timer_history endpoint."""
+    
+    @patch('pecha_api.timers.timer_views.get_timer_history_service')
+    @pytest.mark.asyncio
+    async def test_get_user_timer_history_success(self, mock_service):
+        """Test successful retrieval of user's timer history."""
+        token = "valid_token"
+        timer_id = uuid4()
+        
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        
+        mock_response = TimerHistoryResponse(
+            timers=[
+                TimerHistoryDTO(
+                    timer_id=timer_id,
+                    name="Meditation Timer",
+                    description="Daily meditation",
+                    actual_duration=600,
+                    total_time_spent=3600,
+                    sessions=[
+                        TimerSessionDTO(duration=600, created_at=datetime.utcnow()),
+                        TimerSessionDTO(duration=600, created_at=datetime.utcnow())
+                    ]
+                )
+            ],
+            total=1,
+            skip=0,
+            limit=20
+        )
+        mock_service.return_value = mock_response
+        
+        result = await get_user_timer_history(
+            credentials=auth_credentials,
+            skip=0,
+            limit=20
+        )
+        
+        assert isinstance(result, TimerHistoryResponse)
+        assert len(result.timers) == 1
+        assert result.timers[0].name == "Meditation Timer"
+        assert result.timers[0].total_time_spent == 3600
+        assert len(result.timers[0].sessions) == 2
+        
+        mock_service.assert_called_once_with(token=token, skip=0, limit=20)
+    
+    @patch('pecha_api.timers.timer_views.get_timer_history_service')
+    @pytest.mark.asyncio
+    async def test_get_user_timer_history_empty(self, mock_service):
+        """Test get_user_timer_history when user has no history."""
+        token = "valid_token"
+        
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        
+        mock_response = TimerHistoryResponse(
+            timers=[],
+            total=0,
+            skip=0,
+            limit=20
+        )
+        mock_service.return_value = mock_response
+        
+        result = await get_user_timer_history(
+            credentials=auth_credentials,
+            skip=0,
+            limit=20
+        )
+        
+        assert len(result.timers) == 0
+        assert result.total == 0
+    
+    @patch('pecha_api.timers.timer_views.get_timer_history_service')
+    @pytest.mark.asyncio
+    async def test_get_user_timer_history_pagination(self, mock_service):
+        """Test get_user_timer_history with custom pagination."""
+        token = "valid_token"
+        timer_id = uuid4()
+        
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        
+        mock_response = TimerHistoryResponse(
+            timers=[
+                TimerHistoryDTO(
+                    timer_id=timer_id,
+                    name="Timer",
+                    actual_duration=300,
+                    total_time_spent=900,
+                    sessions=[]
+                )
+            ],
+            total=10,
+            skip=5,
+            limit=1
+        )
+        mock_service.return_value = mock_response
+        
+        result = await get_user_timer_history(
+            credentials=auth_credentials,
+            skip=5,
+            limit=1
+        )
+        
+        assert result.skip == 5
+        assert result.limit == 1
+        assert result.total == 10
+        
+        mock_service.assert_called_once_with(token=token, skip=5, limit=1)
+    
+    @patch('pecha_api.timers.timer_views.get_timer_history_service')
+    @pytest.mark.asyncio
+    async def test_get_user_timer_history_invalid_token(self, mock_service):
+        """Test get_user_timer_history with invalid authentication token."""
+        token = "invalid_token"
+        
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+        
+        with pytest.raises(HTTPException) as exc_info:
+            await get_user_timer_history(
+                credentials=auth_credentials,
+                skip=0,
+                limit=20
             )
         
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED

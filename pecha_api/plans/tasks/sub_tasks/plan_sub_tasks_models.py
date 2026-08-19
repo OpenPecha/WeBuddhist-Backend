@@ -20,6 +20,7 @@ class PlanSubTask(Base):
     source_text_id = Column(UUID(as_uuid=True), nullable=True)
     pecha_segment_id = Column(String(255), nullable=True)
     segment_ids = Column(ARRAY(UUID(as_uuid=True)), nullable=True)
+    segment_numbers = Column(ARRAY(Integer), nullable=True)
 
     display_order = Column(Integer, nullable=False)
 
@@ -40,6 +41,12 @@ class PlanSubTask(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+    preset = relationship(
+        "SubTaskPreset",
+        back_populates="sub_task",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
     __table_args__ = (
         Index("idx_sub_tasks_task_order", "task_id", "display_order"),
@@ -48,3 +55,4 @@ class PlanSubTask(Base):
 
 
 from pecha_api.plans.audio.sub_task_timestamps_models import SubTaskTimestamp  # noqa: F401, E402
+from pecha_api.plans.tasks.sub_tasks.subtask_preset_models import SubTaskPreset  # noqa: F401, E402

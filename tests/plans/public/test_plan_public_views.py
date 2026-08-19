@@ -110,7 +110,8 @@ async def test_get_plans_success(sample_plans_response):
             sort_by="title",
             sort_order="asc",
             skip=0,
-            limit=20
+            limit=20,
+            timezone_name=None,
         )
 
 
@@ -132,7 +133,8 @@ async def test_get_plans_with_search_filter(sample_plans_response):
             sort_by="title",
             sort_order="asc",
             skip=0,
-            limit=20
+            limit=20,
+            timezone_name=None,
         )
 
 
@@ -154,7 +156,8 @@ async def test_get_plans_with_language_filter(sample_plans_response):
             sort_by="title",
             sort_order="asc",
             skip=0,
-            limit=20
+            limit=20,
+            timezone_name=None,
         )
 
 
@@ -176,7 +179,8 @@ async def test_get_plans_with_sorting(sample_plans_response):
             sort_by="subscription_count",
             sort_order="desc",
             skip=0,
-            limit=20
+            limit=20,
+            timezone_name=None,
         )
 
 
@@ -196,7 +200,8 @@ async def test_get_plans_with_pagination(sample_plans_response):
             sort_by="title",
             sort_order="asc",
             skip=10,
-            limit=5
+            limit=5,
+            timezone_name=None,
         )
 
 
@@ -218,7 +223,8 @@ async def test_get_plans_with_all_filters(sample_plans_response):
             sort_by="total_days",
             sort_order="desc",
             skip=5,
-            limit=10
+            limit=10,
+            timezone_name=None,
         )
 
 
@@ -310,7 +316,7 @@ async def test_get_plan_details_success(sample_plan_dto):
         assert "image" in data
         assert "image" in data["author"]
         
-        mock_service.assert_called_once_with(plan_id=plan_id)
+        mock_service.assert_called_once_with(plan_id=plan_id, timezone_name=None)
 
 
 @pytest.mark.asyncio
@@ -709,6 +715,7 @@ async def test_get_public_tags_success():
         mock_service.assert_called_once_with(
             featured=None,
             search=None,
+            language='EN',
             skip=0,
             limit=20,
         )
@@ -741,6 +748,7 @@ async def test_get_public_tags_with_filters():
         mock_service.assert_called_once_with(
             featured=True,
             search="med",
+            language='EN',
             skip=5,
             limit=10,
         )
@@ -767,6 +775,7 @@ async def test_get_plans_with_tag_filter(sample_plans_response):
             sort_order="asc",
             skip=0,
             limit=20,
+            timezone_name=None,
         )
 
 
@@ -790,4 +799,74 @@ async def test_get_plans_with_group_filter(sample_plans_response):
             sort_order="asc",
             skip=0,
             limit=20,
+            timezone_name=None,
         )
+
+
+def test_cleanup_plan_day_cache_success():
+    plan_id = uuid4()
+    day_number = 1
+    from pecha_api.config import get as real_config_get
+
+    def _config_get(key: str) -> str:
+        if key == "DEPLOYMENT_MODE":
+            return "DEBUG"
+        return real_config_get(key)
+
+    with patch("pecha_api.plans.public.plan_views.config.get", side_effect=_config_get), patch(
+        "pecha_api.plans.public.plan_views.invalidate_plan_day_detail_cache",
+        new_callable=AsyncMock,
+        return_value=2,
+    ) as mock_invalidate:
+        response = client.delete(f"/api/v1/plans/{plan_id}/days/{day_number}/cache")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {
+        "plan_id": str(plan_id),
+        "day_number": day_number,
+        "keys_deleted": 2,
+    }
+    mock_invalidate.assert_awaited_once_with(plan_id=plan_id, day_number=day_number)
+
+
+def test_cleanup_plan_days_cache_success():
+    plan_id = uuid4()
+    from pecha_api.config import get as real_config_get
+
+    def _config_get(key: str) -> str:
+        if key == "DEPLOYMENT_MODE":
+            return "DEBUG"
+        return real_config_get(key)
+
+    with patch("pecha_api.plans.public.plan_views.config.get", side_effect=_config_get), patch(
+        "pecha_api.plans.public.plan_views.SessionLocal"
+    ) as mock_session_local, patch(
+        "pecha_api.plans.public.plan_views.invalidate_all_plan_day_detail_caches_for_plan",
+        new_callable=AsyncMock,
+        return_value=6,
+    ) as mock_invalidate:
+        mock_session_local.return_value.__enter__.return_value = MagicMock()
+        response = client.delete(f"/api/v1/plans/{plan_id}/cache/plan-days")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {
+        "plan_id": str(plan_id),
+        "day_number": None,
+        "keys_deleted": 6,
+    }
+    mock_invalidate.assert_awaited_once()
+
+
+def test_cleanup_plan_day_cache_forbidden_outside_debug():
+    plan_id = uuid4()
+    from pecha_api.config import get as real_config_get
+
+    def _config_get(key: str) -> str:
+        if key == "DEPLOYMENT_MODE":
+            return "PRODUCTION"
+        return real_config_get(key)
+
+    with patch("pecha_api.plans.public.plan_views.config.get", side_effect=_config_get):
+        response = client.delete(f"/api/v1/plans/{plan_id}/days/1/cache")
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN

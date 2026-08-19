@@ -9,6 +9,7 @@ from pecha_api.plans.tags.tag_model import Tag, plan_tags
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.plans_enums import PlanStatus
+from pecha_api.plans.language_constants import SUPPORTED_LANGUAGE_CODES
 from pecha_api.plans.public.plan_response_models import PlanWithAggregates
 
 DEFAULT_SKIP = 0
@@ -19,6 +20,72 @@ DEFAULT_SORT_BY = "title"
 DEFAULT_SORT_ORDER = "asc"
 DEFAULT_TAG = None
 DEFAULT_GROUP_ID = None
+
+
+def storable_language(language: str) -> Optional[str]:
+
+    requested = language.upper()
+    return requested if requested in SUPPORTED_LANGUAGE_CODES else None
+
+
+def _with_language_fallback(query, language: Optional[str], fetch):
+
+    if not language:
+        return fetch(query)
+
+    requested = storable_language(language)
+    if requested is None:
+        return fetch(query.filter(Plan.language == DEFAULT_LANGUAGE))
+
+    result = fetch(query.filter(Plan.language == requested))
+    if result or requested == DEFAULT_LANGUAGE:
+        return result
+    return fetch(query.filter(Plan.language == DEFAULT_LANGUAGE))
+
+
+def resolve_plans_language(db: Session, language: Optional[str]) -> str:
+
+    if not language:
+        return DEFAULT_LANGUAGE
+
+    requested = storable_language(language)
+    if requested is None or requested == DEFAULT_LANGUAGE:
+        return DEFAULT_LANGUAGE
+
+    has_plans = db.query(
+        exists(
+            select(1).where(
+                and_(
+                    Plan.language == requested,
+                    Plan.deleted_at.is_(None),
+                    Plan.status == PlanStatus.PUBLISHED,
+                )
+            )
+        )
+    ).scalar()
+    return requested if has_plans else DEFAULT_LANGUAGE
+
+
+def _series_published_or_standalone():
+    """Visibility gate for the series a plan belongs to.
+
+    A plan is publicly visible only if it is standalone (``series_id IS NULL``)
+    or its parent series is itself ``PUBLISHED``. This prevents a ``PUBLISHED``
+    plan that lives under a ``DRAFT`` series (e.g. a freshly cloned series)
+    from leaking to end-users before the series is published.
+    """
+    return or_(
+        Plan.series_id.is_(None),
+        exists(
+            select(1).where(
+                and_(
+                    Series.id == Plan.series_id,
+                    Series.status == PlanStatus.PUBLISHED,
+                )
+            )
+        ),
+    )
+
 
 def get_aggregate_counts():
     total_days_label = func.count(func.distinct(PlanItem.id)).label("total_days")
@@ -35,7 +102,8 @@ def get_published_plans_query(db: Session, total_days_label, subscription_count_
         .filter(
             Plan.language == language,
             Plan.deleted_at.is_(None),
-            Plan.status == PlanStatus.PUBLISHED
+            Plan.status == PlanStatus.PUBLISHED,
+            _series_published_or_standalone(),
         )
         .group_by(Plan.id)
     )
@@ -132,7 +200,8 @@ def get_published_plans_count(
     query = db.query(func.count(Plan.id)).filter(
         Plan.deleted_at.is_(None),
         Plan.status == PlanStatus.PUBLISHED,
-        Plan.language == language
+        Plan.language == language,
+        _series_published_or_standalone(),
     )
     if search:
         query = query.filter(Plan.title.ilike(f"%{search}%"))
@@ -150,7 +219,8 @@ def get_published_plan_by_id(db: Session, plan_id: UUID) -> Optional[Plan]:
     return db.query(Plan).options(selectinload(Plan.author), selectinload(Plan.tag_list)).filter(
             Plan.id == plan_id,
             Plan.status == PlanStatus.PUBLISHED,
-            Plan.deleted_at.is_(None)
+            Plan.deleted_at.is_(None),
+            _series_published_or_standalone(),
         ).first()
 
 
@@ -169,11 +239,14 @@ def get_published_plans_in_series(
             Plan.display_order.isnot(None),
             Plan.status == PlanStatus.PUBLISHED,
             Plan.deleted_at.is_(None),
+            _series_published_or_standalone(),
         )
     )
-    if language:
-        query = query.filter(Plan.language == language.upper())
-    return query.order_by(asc(Plan.display_order)).all()
+    return _with_language_fallback(
+        query,
+        language,
+        lambda q: q.order_by(asc(Plan.display_order)).all(),
+    )
 
 
 def get_plan_items_by_plan_id(db: Session, plan_id: UUID) -> list[PlanItem]:
@@ -197,7 +270,12 @@ def get_published_plans_by_author_id(db: Session, author_id: UUID, skip: int, li
         )
         .outerjoin(PlanItem, PlanItem.plan_id == Plan.id)
         .outerjoin(UserPlanProgress, UserPlanProgress.plan_id == Plan.id)
-        .filter(Plan.author_id == author_id, Plan.status == PlanStatus.PUBLISHED, Plan.deleted_at.is_(None))
+        .filter(
+            Plan.author_id == author_id,
+            Plan.status == PlanStatus.PUBLISHED,
+            Plan.deleted_at.is_(None),
+            _series_published_or_standalone(),
+        )
         .group_by(Plan.id)
     )
     total = query.count()
@@ -210,6 +288,7 @@ def get_all_unique_tags(db: Session, language: str = "EN") -> List[str]:
         Plan.deleted_at.is_(None),
         Plan.status == PlanStatus.PUBLISHED,
         Plan.language == language,
+        _series_published_or_standalone(),
     )
     results = query.distinct().all()
     return [row.tag for row in results]
@@ -229,10 +308,13 @@ def get_next_plan_in_series(
         Plan.display_order > current_display_order,
         Plan.status == PlanStatus.PUBLISHED,
         Plan.deleted_at.is_(None),
+        _series_published_or_standalone(),
     )
-    if language:
-        query = query.filter(Plan.language == language.upper())
-    return query.order_by(asc(Plan.display_order)).first()
+    return _with_language_fallback(
+        query,
+        language,
+        lambda q: q.order_by(asc(Plan.display_order)).first(),
+    )
 
 
 def get_previous_plan_in_series(
@@ -249,7 +331,10 @@ def get_previous_plan_in_series(
         Plan.display_order < current_display_order,
         Plan.status == PlanStatus.PUBLISHED,
         Plan.deleted_at.is_(None),
+        _series_published_or_standalone(),
     )
-    if language:
-        query = query.filter(Plan.language == language.upper())
-    return query.order_by(desc(Plan.display_order)).first()
+    return _with_language_fallback(
+        query,
+        language,
+        lambda q: q.order_by(desc(Plan.display_order)).first(),
+    )

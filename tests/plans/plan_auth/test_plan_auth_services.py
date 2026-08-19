@@ -190,7 +190,8 @@ def test_verify_author_email_success():
         patch("pecha_api.plans.auth.plan_auth_services.jwt.decode", return_value=payload) as mock_decode, \
         patch("pecha_api.plans.auth.plan_auth_services.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.auth.plan_auth_services.get_author_by_email") as mock_get_author_by_email, \
-        patch("pecha_api.plans.auth.plan_auth_services.update_author") as mock_update_author:
+        patch("pecha_api.plans.auth.plan_auth_services.update_author") as mock_update_author, \
+        patch("pecha_api.plans.auth.plan_auth_services.notify_pending_group_invites") as mock_notify:
         _mock_session_local(mock_session_local)
         mock_get_author_by_email.return_value = author
 
@@ -199,6 +200,7 @@ def test_verify_author_email_success():
         mock_decode.assert_called_once()
         mock_get_author_by_email.assert_called_once_with(db=ANY, email=payload["email"])
         mock_update_author.assert_called_once_with(db=ANY, author=author)
+        mock_notify.assert_called_once_with(author)
         assert response.email == "john.doe@example.com"
         assert response.status == AuthorStatus.INACTIVE
         assert response.message == EMAIL_VERIFIED_SUCCESS
@@ -219,13 +221,15 @@ def test_verify_author_email_already_verified():
         patch("pecha_api.plans.auth.plan_auth_services.jwt.decode", return_value=payload), \
         patch("pecha_api.plans.auth.plan_auth_services.SessionLocal") as mock_session_local, \
         patch("pecha_api.plans.auth.plan_auth_services.get_author_by_email") as mock_get_author_by_email, \
-        patch("pecha_api.plans.auth.plan_auth_services.update_author") as mock_update_author:
+        patch("pecha_api.plans.auth.plan_auth_services.update_author") as mock_update_author, \
+        patch("pecha_api.plans.auth.plan_auth_services.notify_pending_group_invites") as mock_notify:
         _mock_session_local(mock_session_local)
         mock_get_author_by_email.return_value = author
 
         response: AuthorVerificationResponse  = verify_author_email(token)
 
         mock_update_author.assert_not_called()
+        mock_notify.assert_not_called()
         assert response.email == "john.doe@example.com"
         assert response.status == AuthorStatus.INACTIVE
         assert response.message == EMAIL_ALREADY_VERIFIED
@@ -693,8 +697,6 @@ def test_generate_author_token_data_success():
 
 
 @pytest.mark.parametrize("email,first_name,last_name,test_description", [
-    (None, "John", "Doe", "missing_email"),
-    ("", "John", "Doe", "empty_email"),
     ("john.doe@example.com", None, "Doe", "missing_first_name"),
     ("john.doe@example.com", "", "Doe", "empty_first_name"),
     ("john.doe@example.com", "John", None, "missing_last_name"),

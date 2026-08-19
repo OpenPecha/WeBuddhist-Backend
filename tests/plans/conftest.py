@@ -26,11 +26,13 @@ def make_cms_author(
 _CMS_MODULES = (
     "pecha_api.plans.tasks.plan_tasks_services",
     "pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_services",
+    "pecha_api.plans.tasks.sub_tasks.subtask_preset_service",
     "pecha_api.plans.items.plan_items_services",
     "pecha_api.plans.cms.cms_plans_service",
     "pecha_api.plans.series.series_service",
     "pecha_api.plans.audio.cms_plan_audio_service",
     "pecha_api.plans.audio.plan_day_audio_service",
+    "pecha_api.plans.audio.plan_subtask_audio_service",
     "pecha_api.plans.dashboard.dashboard_service",
 )
 

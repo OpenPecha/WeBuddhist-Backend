@@ -1,7 +1,7 @@
 from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload, joinedload
-from sqlalchemy import func
+from sqlalchemy import desc, func
 from pecha_api.plans.users.plan_users_response_models import EnrolledUserPlan
 from .plan_users_models import UserPlanProgress, UserTaskCompletion, UserDayCompletion, UserSubTaskCompletion
 from pecha_api.plans.plans_models import Plan
@@ -10,7 +10,7 @@ from fastapi import HTTPException
 from starlette import status
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Sequence
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 
@@ -23,6 +23,96 @@ def save_plan_progress(db: Session, plan_progress: EnrolledUserPlan):
         db.rollback()
         print(f"Integrity error: {e.orig}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ResponseError(error=BAD_REQUEST, message=e.orig).model_dump())
+
+def count_user_completed_days_for_plan_ids(
+    db: Session,
+    user_id: UUID,
+    plan_ids: Sequence[UUID],
+) -> int:
+    if not plan_ids:
+        return 0
+    return (
+        db.query(func.count(UserDayCompletion.id))
+        .join(PlanItem, UserDayCompletion.day_id == PlanItem.id)
+        .filter(
+            UserDayCompletion.user_id == user_id,
+            PlanItem.plan_id.in_(plan_ids),
+        )
+        .scalar()
+        or 0
+    )
+
+
+def get_user_completed_days_count_by_series_ids(
+    db: Session,
+    user_id: UUID,
+    series_ids: Sequence[UUID],
+    plan_ids_by_series: Dict[UUID, List[UUID]],
+) -> Dict[UUID, int]:
+    all_plan_ids = [
+        plan_id
+        for series_id in series_ids
+        for plan_id in plan_ids_by_series.get(series_id, [])
+    ]
+    if not all_plan_ids:
+        return dict.fromkeys(series_ids, 0)
+
+    rows = (
+        db.query(
+            Plan.series_id.label("series_id"),
+            func.count(UserDayCompletion.id).label("days_completed"),
+        )
+        .join(PlanItem, UserDayCompletion.day_id == PlanItem.id)
+        .join(Plan, PlanItem.plan_id == Plan.id)
+        .filter(
+            UserDayCompletion.user_id == user_id,
+            PlanItem.plan_id.in_(all_plan_ids),
+            Plan.series_id.in_(series_ids),
+        )
+        .group_by(Plan.series_id)
+        .all()
+    )
+    completed_by_series = dict.fromkeys(series_ids, 0)
+    for series_id, days_completed in rows:
+        completed_by_series[series_id] = days_completed
+    return completed_by_series
+
+
+def get_user_series_days_completed_paginated(
+    db: Session,
+    user_id: UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> Tuple[List[Tuple[UUID, int]], int]:
+    """Return (series_id, days_completed) rows and total series count for pagination."""
+    grouped = (
+        db.query(
+            Plan.series_id.label("series_id"),
+            func.count(func.distinct(PlanItem.day_number)).label("days_completed"),
+            func.max(UserDayCompletion.completed_at).label("last_completed_at"),
+        )
+        .join(PlanItem, UserDayCompletion.day_id == PlanItem.id)
+        .join(Plan, PlanItem.plan_id == Plan.id)
+        .filter(
+            UserDayCompletion.user_id == user_id,
+            Plan.series_id.isnot(None),
+        )
+        .group_by(Plan.series_id)
+        .subquery()
+    )
+
+    total = db.query(func.count()).select_from(grouped).scalar() or 0
+
+    rows = (
+        db.query(grouped.c.series_id, grouped.c.days_completed)
+        .order_by(desc(grouped.c.last_completed_at))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    return rows, total
+
 
 def get_plan_progress(db: Session, plan_id: UUID) -> List[UserPlanProgress]:
     return db.query(UserPlanProgress).filter(UserPlanProgress.plan_id == plan_id).all()

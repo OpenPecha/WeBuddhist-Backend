@@ -8,10 +8,27 @@ from typing import Annotated
 from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, CreatePlanRequest, PlanWithDays, UpdatePlanRequest, \
     PlanStatusUpdate, PlanDayDTO, GeneratePlanAudioRequest
 from pecha_api.plans.cms.cms_plans_service import get_filtered_plans, create_new_plan, get_details_plan, update_plan_details, \
-    delete_selected_plan, update_plan_featured_service, update_selected_plan_status, get_plan_day_details, generate_plan_audio_service
+    delete_selected_plan, update_plan_featured_service, update_selected_plan_status, get_plan_day_details
 from pecha_api.plans.plans_enums import SortBy, SortOrder
 from pecha_api.plans.audio.cms_plan_audio_service import get_cms_plan_audio_list
-from pecha_api.plans.audio.plan_audio_response_models import PlanAudioListResponse
+from pecha_api.plans.audio.plan_audio_response_models import (
+    PlanAudioListResponse,
+    AudioJobAcceptedResponse,
+    AudioJobStatusResponse,
+)
+from pecha_api.plans.audio.audio_job_service import enqueue_plan_audio_job, get_audio_job_status
+from pecha_api.plans.videos.plan_video_service import (
+    add_plan_video,
+    list_plan_videos,
+    remove_plan_video,
+    reorder_plan_videos_entries,
+)
+from pecha_api.plans.videos.plan_video_response_models import (
+    CreatePlanVideoRequest,
+    PlanVideoDTO,
+    PlanVideoListResponse,
+    ReorderPlanVideosRequest,
+)
 
 oauth2_scheme = HTTPBearer()
 # Create router for CMS plan endpoints
@@ -67,16 +84,35 @@ async def list_plan_audio(
         limit=limit,
     )
 
-@cms_plans_router.post("/audio/generate", status_code=status.HTTP_200_OK)
+@cms_plans_router.post(
+    "/audio/generate",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=AudioJobAcceptedResponse,
+)
 async def generate_plan_audio(
     request: GeneratePlanAudioRequest,
 ):
-    return await generate_plan_audio_service(
+    return enqueue_plan_audio_job(
         day_id=request.day_id,
         sub_task_id=request.sub_task_id,
         language=request.language,
         audio_type=request.type,
+        voice_name=request.voice_name,
     )
+
+
+@cms_plans_router.get(
+    "/audio/jobs/{job_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=AudioJobStatusResponse,
+)
+async def get_plan_audio_job_status(
+    job_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    _ = authentication_credential
+    return get_audio_job_status(job_id=job_id)
+
 
 @cms_plans_router.get("/{plan_id}", status_code=status.HTTP_200_OK, response_model=PlanWithDays)
 async def get_plan_details(authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
@@ -134,4 +170,54 @@ def update_plan_featured(authentication_credential: Annotated[HTTPAuthorizationC
     return update_plan_featured_service(
         token=authentication_credential.credentials,
         plan_id=plan_id,
+    )
+
+
+@cms_plans_router.get("/{plan_id}/videos", status_code=status.HTTP_200_OK, response_model=PlanVideoListResponse)
+async def get_plan_videos(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    plan_id: UUID,
+):
+    return list_plan_videos(
+        token=authentication_credential.credentials,
+        plan_id=plan_id,
+    )
+
+
+@cms_plans_router.post("/{plan_id}/videos", status_code=status.HTTP_201_CREATED, response_model=PlanVideoDTO)
+async def create_plan_video(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    plan_id: UUID,
+    create_video_request: CreatePlanVideoRequest,
+):
+    return add_plan_video(
+        token=authentication_credential.credentials,
+        plan_id=plan_id,
+        request=create_video_request,
+    )
+
+
+@cms_plans_router.put("/{plan_id}/videos/order", status_code=status.HTTP_200_OK, response_model=PlanVideoListResponse)
+async def reorder_plan_videos(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    plan_id: UUID,
+    reorder_videos_request: ReorderPlanVideosRequest,
+):
+    return reorder_plan_videos_entries(
+        token=authentication_credential.credentials,
+        plan_id=plan_id,
+        request=reorder_videos_request,
+    )
+
+
+@cms_plans_router.delete("/{plan_id}/videos/{video_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_plan_video(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    plan_id: UUID,
+    video_id: UUID,
+):
+    return remove_plan_video(
+        token=authentication_credential.credentials,
+        plan_id=plan_id,
+        video_id=video_id,
     )

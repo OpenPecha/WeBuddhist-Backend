@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from uuid import uuid4
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
@@ -161,7 +161,9 @@ class TestGetUserRecitationsView:
         assert result.recitations[1].title == "Diamond Sutra"
         assert result.recitations[1].text_id == text_id_2
         
-        mock_service.assert_awaited_once_with(token=token)
+        mock_service.assert_awaited_once_with(
+            token=token,
+        )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
     @pytest.mark.asyncio
@@ -182,7 +184,9 @@ class TestGetUserRecitationsView:
         assert len(result.recitations) == 0
         assert result.recitations == []
         
-        mock_service.assert_awaited_once_with(token=token)
+        mock_service.assert_awaited_once_with(
+            token=token,
+        )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
     @pytest.mark.asyncio
@@ -211,7 +215,9 @@ class TestGetUserRecitationsView:
         assert result.recitations[0].title == "Lotus Sutra"
         assert result.recitations[0].text_id == text_id
         
-        mock_service.assert_awaited_once_with(token=token)
+        mock_service.assert_awaited_once_with(
+            token=token,
+        )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
     @pytest.mark.asyncio
@@ -235,7 +241,9 @@ class TestGetUserRecitationsView:
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
         assert exc_info.value.detail == "Invalid authentication credentials"
         
-        mock_service.assert_awaited_once_with(token=token)
+        mock_service.assert_awaited_once_with(
+            token=token,
+        )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
     @pytest.mark.asyncio
@@ -547,3 +555,43 @@ class TestUpdateRecitationOrderView:
             token=token,
             text_id=text_id
         )
+
+
+class TestGetUserRecitationsService:
+    @pytest.mark.asyncio
+    @patch("pecha_api.plans.users.recitation.user_recitations_services.get_texts_by_ids")
+    @patch("pecha_api.plans.users.recitation.user_recitations_services.get_image_url_map_by_text_ids")
+    @patch("pecha_api.plans.users.recitation.user_recitations_services.get_user_recitations_by_user_id")
+    @patch("pecha_api.plans.users.recitation.user_recitations_services.SessionLocal")
+    @patch("pecha_api.plans.users.recitation.user_recitations_services.validate_and_extract_user_details")
+    async def test_returns_bookmarked_recitations_only(
+        self,
+        mock_validate,
+        mock_session_local,
+        mock_get_user_recitations,
+        mock_image_map,
+        mock_get_texts,
+    ):
+        from types import SimpleNamespace
+        from pecha_api.plans.users.recitation.user_recitations_services import (
+            get_user_recitations_service,
+        )
+
+        user_id = uuid4()
+        text_id = uuid4()
+        mock_validate.return_value = SimpleNamespace(id=user_id)
+        mock_session_local.return_value.__enter__.return_value = MagicMock()
+        mock_session_local.return_value.__exit__.return_value = None
+        mock_get_user_recitations.return_value = [
+            SimpleNamespace(text_id=text_id, display_order=1)
+        ]
+        mock_get_texts.return_value = {
+            str(text_id): SimpleNamespace(title="Heart Sutra", language="bo")
+        }
+        mock_image_map.return_value = {str(text_id): "https://example.com/text.jpg"}
+
+        result = await get_user_recitations_service(token="valid_token")
+
+        assert len(result.recitations) == 1
+        assert result.recitations[0].title == "Heart Sutra"
+        assert result.recitations[0].text_id == text_id

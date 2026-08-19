@@ -1,7 +1,13 @@
 from pydantic import BaseModel, ConfigDict, model_validator
 from typing import Optional, List
 from datetime import datetime
-from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus, ContentType, PlanAudioType
+from pecha_api.plans.plans_enums import (
+    DifficultyLevel,
+    PlanStatus,
+    ContentType,
+    PlanAudioType,
+    MonlamVoiceName,
+)
 from uuid import UUID
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
@@ -37,6 +43,7 @@ class GeneratePlanAudioRequest(BaseModel):
     sub_task_id: Optional[UUID] = None
     language: str
     type: Optional[PlanAudioType] = PlanAudioType.TEXT_READING
+    voice_name: MonlamVoiceName = MonlamVoiceName.DOLKAR_LHASA_FEMALE
 
     @model_validator(mode="after")
     def validate_either_day_or_subtask(self):
@@ -86,10 +93,17 @@ class SubTaskDTO(BaseModel):
 
 class TaskDTO(BaseModel):
     id: UUID
-    title: Optional[str] = None 
+    title: Optional[str] = None
     estimated_time: Optional[int] = None
     display_order: Optional[int] = None
     subtasks: List[SubTaskDTO] = []
+
+class DayVideoSummaryDTO(BaseModel):
+    id: UUID
+    url: str
+    video_id: Optional[str] = None
+    title: Optional[str] = None
+    display_order: int
 
 class PlanDayDTO(BaseModel):
     id: UUID
@@ -99,6 +113,19 @@ class PlanDayDTO(BaseModel):
     audio_duration_ms: Optional[int] = None
     audio_key: Optional[str] = None
     has_audio: Optional[bool] = None
+    thumbnail_url: Optional[str] = None
+    thumbnail_key: Optional[str] = None
+    shareable_image_url: Optional[str] = None
+    shareable_image_key: Optional[str] = None
+    videos: List[DayVideoSummaryDTO] = []
+
+
+class PlanVideoSummaryDTO(BaseModel):
+    id: UUID
+    url: str
+    video_id: Optional[str] = None
+    title: Optional[str] = None
+    display_order: int
 
 
 class PlanWithDays(BaseModel):
@@ -113,6 +140,7 @@ class PlanWithDays(BaseModel):
     tags: List[TagSummaryDTO] = []
     status: PlanStatus
     days: List[PlanDayDTO]
+    videos: List[PlanVideoSummaryDTO] = []
     start_date: Optional[datetime] = None
     series_id: Optional[UUID] = None
     display_order: Optional[int] = None

@@ -9,7 +9,8 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.items.plan_items_repository import get_days_by_plan_id, get_plan_day_with_tasks_and_subtasks
 from datetime import date as DateType, timedelta, datetime as dt, timezone
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO, SeriesMetadataDTO
+from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO, SeriesMetadataDTO, DayVideoSummaryDTO, PlanVideoSummaryDTO
+from pecha_api.plans.tags.tag_response_models import PublicTagDetailDTO, SegmentContentDTO
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.plans_enums import ContentType, UserPlanStatus
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
@@ -22,19 +23,38 @@ from pecha_api.plans.public.plan_repository import (
     get_all_unique_tags,
     get_next_plan_in_series,
     get_previous_plan_in_series,
+    resolve_plans_language,
+)
+from pecha_api.plans.series.series_service import (
+    _series_schedule_from_plans,
+    compute_series_progress,
 )
 from pecha_api.plans.users.plan_users_progress_repository import get_plan_progress_by_user_id_and_plan_id, save_plan_progress
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.routines.routines_repository import (
     get_time_blocks_containing_plan,
+    get_time_blocks_containing_series,
     get_max_display_order_in_time_block,
     add_plan_session_to_time_block,
 )
 from pecha_api.plans.groups.groups_repository import get_group_id_for_plan, get_group_ids_by_plan_ids
-from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
-from pecha_api.plans.tags.tag_repository import get_published_tags_for_language, get_all_tags_paginated
+from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos, generate_tag_image_url
+from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
+from pecha_api.region_restrictions.region_restriction_service import (
+    assert_visible_for_timezone,
+    filter_items_for_timezone,
+)
+from pecha_api.plans.tags.tag_repository import get_published_tags_for_language, get_all_tags_paginated, get_tag_by_id
 from pecha_api.plans.tags.tag_response_models import PublicTagsListResponse
-from pecha_api.plans.shared.metadata_utils import format_metadata_response
+from pecha_api.texts.segments.segments_repository import get_segments_by_ids
+from pecha_api.plans.shared.metadata_utils import (
+    format_metadata_response,
+    filter_by_language_with_fallback,
+)
+from pecha_api.plans.public.plans_cache_service import (
+    get_plan_day_detail_cache,
+    set_plan_day_detail_cache,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,12 +79,13 @@ async def get_published_plans(
     sort_by: str = "title", 
     sort_order: str = "asc", 
     skip: int = 0, 
-    limit: int = 20
+    limit: int = 20,
+    timezone_name: Optional[str] = None,
     ) -> PublicPlansResponse:
     
     try:
         with SessionLocal() as db:
-            language_upper = language.upper()
+            language_upper = resolve_plans_language(db=db, language=language)
             plan_aggregates = get_published_plans_from_db(
                 db=db,
                 skip=skip,
@@ -75,6 +96,12 @@ async def get_published_plans(
                 sort_order=sort_order,
                 tag=tag,
                 group_id=group_id,
+            )
+            plan_aggregates = filter_items_for_timezone(
+                plan_aggregates,
+                timezone_name=timezone_name,
+                item_type=RestrictedItemType.PLAN,
+                id_of=lambda aggregate: aggregate.plan.id,
             )
             
             plan_ids = [plan_aggregate.plan.id for plan_aggregate in plan_aggregates]
@@ -130,9 +157,18 @@ async def get_published_plans(
         )
 
 
-async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
+async def get_published_plan(
+    plan_id: UUID,
+    timezone_name: Optional[str] = None,
+) -> PublicPlanDTO:
 
     try:
+        assert_visible_for_timezone(
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.PLAN,
+            item_id=plan_id,
+            not_found_detail=ErrorConstants.PLAN_NOT_FOUND,
+        )
         with SessionLocal() as db:
             plan = get_published_plan_by_id(db=db, plan_id=plan_id)
             
@@ -155,6 +191,10 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
             total_days = db.query(PlanItem).filter(PlanItem.plan_id == plan_id).count()
             group_id = get_group_id_for_plan(db=db, plan_id=plan.id)
 
+            from pecha_api.plans.videos.plan_video_repository import get_plan_videos_by_plan_id
+
+            plan_videos = get_plan_videos_by_plan_id(db=db, plan_id=plan_id)
+
             return PublicPlanDTO(
                 id=plan.id,
                 title=plan.title,
@@ -165,6 +205,16 @@ async def get_published_plan(plan_id: UUID) -> PublicPlanDTO:
                 total_days=total_days,
                 tags=tags_to_summary_dtos(plan.tag_list),
                 author=author_dto,
+                videos=[
+                    PlanVideoSummaryDTO(
+                        id=video.id,
+                        url=video.url,
+                        video_id=video.video_id,
+                        title=video.title,
+                        display_order=video.display_order,
+                    )
+                    for video in plan_videos
+                ],
                 start_date=plan.start_date,
                 display_order=plan.display_order,
                 group_id=group_id,
@@ -283,8 +333,17 @@ def add_plan_to_routine_time_blocks(
     """
     Add the new plan to all routine time blocks where the previous plan exists.
     The new plan is added after the previous plan in display_order.
+    Skips when the user already has a SERIES session for the plan's series.
     """
     try:
+        new_plan = get_plan_by_id(db=db, plan_id=new_plan_id)
+        if new_plan and new_plan.series_id:
+            series_time_blocks = get_time_blocks_containing_series(
+                db=db, user_id=user_id, series_id=new_plan.series_id
+            )
+            if series_time_blocks:
+                return
+
         time_blocks = get_time_blocks_containing_plan(
             db=db, user_id=user_id, plan_id=previous_plan_id
         )
@@ -324,6 +383,7 @@ async def get_plan_days(plan_id: UUID) -> PlanDaysResponse:
 
 from pecha_api.plans.audio.dto_helpers import (
     build_plan_day_audio_fields,
+    build_plan_day_shareable_image_fields,
     build_subtask_timestamp_fields,
     generate_subtask_content_url,
 )
@@ -348,6 +408,7 @@ def build_task_dto(task) -> TaskDTO:
                 source_text_id=subtask.source_text_id,
                 pecha_segment_id=subtask.pecha_segment_id,
                 segment_ids=subtask.segment_ids,
+                segment_numbers=subtask.segment_numbers,
                 display_order=subtask.display_order,
                 start_ms=start_ms,
                 end_ms=end_ms,
@@ -365,36 +426,56 @@ def build_task_dto(task) -> TaskDTO:
 
 def _build_plan_day_dto(plan_item) -> PlanDayDTO:
     audio_url, audio_duration_ms, _, _ = build_plan_day_audio_fields(plan_item)
+    thumbnail_url, _, shareable_image_url, _ = build_plan_day_shareable_image_fields(
+        getattr(plan_item, "shareable_images", None)
+    )
     return PlanDayDTO(
         id=plan_item.id,
         day_number=plan_item.day_number,
         tasks=[build_task_dto(task) for task in sorted(plan_item.tasks, key=lambda t: t.display_order)],
         audio_url=audio_url,
         audio_duration_ms=audio_duration_ms,
+        thumbnail_url=thumbnail_url,
+        shareable_image_url=shareable_image_url,
+        videos=[
+            DayVideoSummaryDTO(
+                id=video.id,
+                url=video.url,
+                video_id=video.video_id,
+                title=video.title,
+                display_order=video.display_order,
+            )
+            for video in sorted(plan_item.videos, key=lambda v: v.display_order)
+        ],
     )
 
-def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
+async def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
     """Get specific day's content with tasks"""
+
+    cached = await get_plan_day_detail_cache(plan_id=plan_id, day_number=day_number)
+    if cached is not None:
+        return cached
 
     with SessionLocal() as db:
         plan_item = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
-        return _build_plan_day_dto(plan_item)
+        response = _build_plan_day_dto(plan_item)
+
+    await set_plan_day_detail_cache(plan_id=plan_id, day_number=day_number, data=response)
+    return response
 
 
 def _filter_series_metadata_by_language(metadata_entries, language: Optional[str]):
-    if not language or not metadata_entries:
+    if not metadata_entries:
         return metadata_entries or []
-    language_upper = language.upper()
-    return [
-        entry
-        for entry in metadata_entries
-        if (
+    return filter_by_language_with_fallback(
+        entries=list(metadata_entries),
+        language=language,
+        language_of=lambda entry: (
             entry.language.value
             if hasattr(entry.language, "value")
             else str(entry.language)
-        ).upper()
-        == language_upper
-    ]
+        ),
+    )
 
 
 def _to_plan_date(value) -> DateType:
@@ -561,10 +642,25 @@ async def get_plan_daily_content(
                     else str(item.language),
                 )
             ]
+            series_plans = get_published_plans_in_series(
+                db=db,
+                series_id=plan.series_id,
+                language=navigation_language,
+            )
+            series_start, _, series_total_days = _series_schedule_from_plans(
+                series_plans,
+                published_only=True,
+                language=navigation_language,
+            )
             series_dto = SeriesDTO(
                 id=plan.series.id,
                 metadata=format_metadata_response(series_metadata, language=language),
                 image=series_image,
+                progress=compute_series_progress(
+                    start_date=series_start,
+                    total_days=series_total_days,
+                    reference_date=requested_date,
+                ),
             )
 
         previous_date = requested_date - timedelta(days=1) if day_number > 1 else None
@@ -633,6 +729,7 @@ def get_tags(language: str = "en") -> TagsResponse:
 def get_public_tags(
     featured: Optional[bool] = None,
     search: Optional[str] = None,
+    language: str = "EN",
     skip: int = 0,
     limit: int = 20,
 ) -> PublicTagsListResponse:
@@ -646,7 +743,7 @@ def get_public_tags(
                 limit=limit,
             )
             return PublicTagsListResponse(
-                tags=tags_to_summary_dtos(tag_rows, preserve_order=True),
+                tags=tags_to_summary_dtos(tag_rows, preserve_order=True, language=language),
                 skip=skip,
                 limit=limit,
                 total=total,
@@ -656,4 +753,71 @@ def get_public_tags(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to fetch public tags: {str(e)}",
+        )
+
+
+async def get_public_tag_detail(
+    tag_id: UUID,
+    language: str = "EN",
+) -> PublicTagDetailDTO:
+    try:
+        with SessionLocal() as db:
+            tag = get_tag_by_id(db=db, tag_id=tag_id, language=language)
+            if not tag or tag.deleted_at is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Tag with id '{tag_id}' not found",
+                )
+            
+            # Get name and description from metadata for the specified language
+            name = ""
+            description = None
+            
+            if hasattr(tag, 'metadata_entries') and tag.metadata_entries:
+                for meta in tag.metadata_entries:
+                    lang_value = meta.language.value if hasattr(meta.language, 'value') else str(meta.language)
+                    if lang_value == language:
+                        name = meta.name
+                        description = meta.description
+                        break
+                
+                # Fallback to first metadata entry if requested language not found
+                if not name and tag.metadata_entries:
+                    first_meta = tag.metadata_entries[0]
+                    name = first_meta.name
+                    description = first_meta.description
+            
+            # Get segment IDs from tag (same as CMS endpoint uses)
+            segment_ids = tag.segment_ids if hasattr(tag, 'segment_ids') and tag.segment_ids else []
+            
+            # Fetch segment contents using segment_ids from tag
+            segments_data = []
+            if segment_ids:
+                segments_dict = await get_segments_by_ids([str(sid) for sid in segment_ids])
+                for segment_id in segment_ids:
+                    segment = segments_dict.get(str(segment_id))
+                    if segment:
+                        segments_data.append(SegmentContentDTO(
+                            segment_id=segment.id,
+                            text_id=segment.text_id,
+                            content=segment.content
+                        ))
+            
+            return PublicTagDetailDTO(
+                id=tag.id,
+                name=name,
+                image=generate_tag_image_url(tag.image_key),
+                image_key=tag.image_key,
+                description=description,
+                featured=tag.featured,
+                display_order=tag.display_order,
+                segments=segments_data,
+            )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching public tag detail: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch public tag detail: {str(e)}",
         )

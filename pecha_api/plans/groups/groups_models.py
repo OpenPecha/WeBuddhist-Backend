@@ -20,7 +20,7 @@ from sqlalchemy.orm import relationship
 
 from pecha_api.db.database import Base
 
-from .groups_enums import AuthorGroupMemberRoleEnum, AuthorGroupInviteStatusEnum
+from .groups_enums import AuthorGroupMemberRoleEnum, AuthorGroupInviteStatusEnum, AuthorGroupTypeEnum
 
 FK_AUTHOR_GROUPS_ID = "author_groups.id"
 CASCADE_DELETE_ORPHAN = "all, delete-orphan"
@@ -48,6 +48,31 @@ author_group_followers = Table(
         nullable=False,
     ),
     UniqueConstraint("group_id", "user_id", name="uq_author_group_followers_group_user"),
+)
+
+
+author_group_joins = Table(
+    "author_group_joins",
+    Base.metadata,
+    Column(
+        "group_id",
+        UUID(as_uuid=True),
+        ForeignKey(FK_AUTHOR_GROUPS_ID, ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "user_id",
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "created_at",
+        DateTime(timezone=True),
+        default=datetime.now(_datetime.timezone.utc),
+        nullable=False,
+    ),
+    UniqueConstraint("group_id", "user_id", name="uq_author_group_joins_group_user"),
 )
 
 
@@ -113,6 +138,7 @@ class AuthorGroup(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     slug = Column(String(255), nullable=False)
+    group_type = Column(AuthorGroupTypeEnum, nullable=False, default="PAGE")
     is_public = Column(Boolean, nullable=False, default=True)
     avatar_key = Column(String(1000), nullable=True)
     banner_key = Column(String(1000), nullable=True)
@@ -143,6 +169,7 @@ class AuthorGroup(Base):
     )
     tags = relationship("Tag", secondary=author_group_tags, lazy="select")
     followers = relationship("Users", secondary=author_group_followers, lazy="select")
+    joiners = relationship("Users", secondary=author_group_joins, lazy="select")
 
     __table_args__ = (
         Index(
@@ -167,6 +194,7 @@ class AuthorGroupMetadata(Base):
     title = Column(String(255), nullable=False)
     sub_title = Column(String(255), nullable=True)
     description = Column(Text, nullable=True)
+    description_long = Column(Text, nullable=True)
 
     group = relationship("AuthorGroup", back_populates="metadata_entries")
 

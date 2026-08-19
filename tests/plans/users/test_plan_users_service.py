@@ -480,6 +480,7 @@ async def test_get_user_enrolled_plans_includes_group_info():
     from datetime import datetime, timezone
     from pecha_api.plans.users.plan_users_service import get_user_enrolled_plans
     from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO, GroupMetadataDTO
+    from pecha_api.plans.groups.groups_enums import AuthorGroupType
 
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
@@ -504,6 +505,7 @@ async def test_get_user_enrolled_plans_includes_group_info():
     group_summary = AuthorGroupSummaryDTO(
         id=group_id,
         slug="dharma-group",
+        group_type=AuthorGroupType.COMMUNITY,
         is_public=True,
         metadata=[GroupMetadataDTO(id=uuid.uuid4(), title="Dharma Group", description=None, language="EN")],
         tags=[],
@@ -1594,6 +1596,7 @@ def test_get_user_plan_day_details_service_success():
     plan_item = SimpleNamespace(
         id=day_id,
         day_number=3,
+        videos=[],
         tasks=[
             SimpleNamespace(
                 id=task1_id,
@@ -1601,7 +1604,7 @@ def test_get_user_plan_day_details_service_success():
                 estimated_time=10,
                 display_order=1,
                 sub_tasks=[
-                    SimpleNamespace(id=sub1_id, content_type=ContentType.TEXT, content="A", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None, audio_url=None),
+                    SimpleNamespace(id=sub1_id, content_type=ContentType.TEXT, content="A", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None, segment_numbers=None, audio_url=None),
                 ],
             ),
             SimpleNamespace(
@@ -1610,7 +1613,7 @@ def test_get_user_plan_day_details_service_success():
                 estimated_time=5,
                 display_order=2,
                 sub_tasks=[
-                    SimpleNamespace(id=sub2_id, content_type=ContentType.AUDIO, content="B", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None, audio_url=None),
+                    SimpleNamespace(id=sub2_id, content_type=ContentType.AUDIO, content="B", duration=None, display_order=1, source_text_id=None, pecha_segment_id=None, segment_ids=None, segment_numbers=None, audio_url=None),
                 ],
             ),
         ],
@@ -1671,6 +1674,58 @@ def test_get_user_plan_day_details_service_success():
         assert mock_subtask_completions.call_args.kwargs["db"] is db_mock
         assert mock_subtask_completions.call_args.kwargs["user_id"] == user_id
         assert set(mock_subtask_completions.call_args.kwargs["sub_task_ids"]) == {sub1_id, sub2_id}
+
+
+def test_get_user_plan_day_details_service_includes_shareable_image_urls():
+    user_id = uuid.uuid4()
+    plan_id = uuid.uuid4()
+    day_id = uuid.uuid4()
+
+    mock_shareable_images = SimpleNamespace(
+        thumbnail_key="images/day_shareable/thumb.webp",
+        shareable_image_key="images/day_shareable/share.webp",
+    )
+    plan_item = SimpleNamespace(
+        id=day_id,
+        day_number=1,
+        videos=[],
+        shareable_images=mock_shareable_images,
+        tasks=[],
+    )
+
+    db_mock, session_cm = _mock_session_with_db()
+
+    with patch(
+        "pecha_api.plans.users.plan_users_service.validate_and_extract_user_details",
+        return_value=SimpleNamespace(id=user_id),
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.SessionLocal",
+        return_value=session_cm,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_plan_day_with_tasks_and_subtasks",
+        return_value=plan_item,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.is_day_completed",
+        return_value=False,
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_task_completions_by_user_id_and_task_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.users.plan_users_service.get_user_subtask_completions_by_user_id_and_sub_task_ids",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.audio.dto_helpers.build_plan_day_shareable_image_fields",
+        return_value=(
+            "https://bucket.s3.amazonaws.com/thumb",
+            "images/day_shareable/thumb.webp",
+            "https://bucket.s3.amazonaws.com/share",
+            "images/day_shareable/share.webp",
+        ),
+    ):
+        result = get_user_plan_day_details_service(token="tok", plan_id=plan_id, day_number=1)
+
+        assert result.thumbnail_url == "https://bucket.s3.amazonaws.com/thumb"
+        assert result.shareable_image_url == "https://bucket.s3.amazonaws.com/share"
 
 
 def test_is_completion_helpers_boolean_gateways():
@@ -1751,6 +1806,7 @@ def test_get_user_plan_day_details_service_image_subtask_presigned():
     plan_item = SimpleNamespace(
         id=day_id,
         day_number=1,
+        videos=[],
         tasks=[
             SimpleNamespace(
                 id=task_id,
@@ -1767,6 +1823,7 @@ def test_get_user_plan_day_details_service_image_subtask_presigned():
                         source_text_id=None,
                         pecha_segment_id=None,
                         segment_ids=None,
+                        segment_numbers=None,
                         audio_url=None,
                     )
                 ],
@@ -1824,6 +1881,7 @@ def test_get_user_plan_day_details_service_with_segment_fields():
     plan_item = SimpleNamespace(
         id=day_id,
         day_number=1,
+        videos=[],
         tasks=[
             SimpleNamespace(
                 id=task_id,
@@ -1840,6 +1898,7 @@ def test_get_user_plan_day_details_service_with_segment_fields():
                         source_text_id=source_text_id,
                         pecha_segment_id=pecha_segment_id,
                         segment_ids=segment_ids,
+                        segment_numbers=[50, 51],
                         audio_url=None,
                     )
                 ],
@@ -1877,6 +1936,7 @@ def test_get_user_plan_day_details_service_with_segment_fields():
         assert sub.source_text_id == source_text_id
         assert sub.pecha_segment_id == pecha_segment_id
         assert sub.segment_ids == segment_ids
+        assert sub.segment_numbers == [50, 51]
 
 
 def test_unenroll_user_from_plan_success():

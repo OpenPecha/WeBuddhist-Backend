@@ -1,5 +1,6 @@
+import logging
 from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Literal, Optional, Sequence
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -9,13 +10,16 @@ from starlette import status
 from pecha_api.config import get, get_int
 from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.authors.plan_authors_repository import get_author_by_email
+from pecha_api.plans.authors.plan_authors_repository import find_author_by_email
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
 from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin, require_cms_write_access
-from pecha_api.notification.notification_repository import mark_notifications_read_by_reference
+from pecha_api.notification.notification_repository import (
+    mark_notifications_read_by_reference,
+    notification_exists_for_reference,
+)
 from pecha_api.notification.notification_service import create_notification_record
 from pecha_api.plans.groups.group_invite_email import send_group_invitation_email
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole, AuthorGroupType
 from pecha_api.plans.groups.groups_models import (
     AuthorGroup,
     AuthorGroupInvite,
@@ -28,25 +32,42 @@ from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.cms.cms_plans_repository import get_plans_with_aggregates_by_ids
 from pecha_api.plans.plans_response_models import AuthorDTO, PlanDTO, PlanWithAggregates
 from pecha_api.plans.series.series_model import Series
+from pecha_api.group_accumulator.group_accumulator_repository import (
+    get_group_accumulator_joiners_counts,
+    get_group_accumulators_for_group_ids,
+    get_joined_group_accumulator_ids_by_user,
+    remove_group_accumulator_joins_for_group,
+)
+from pecha_api.plans.groups.follow_scope import resolve_public_group_scope
 from pecha_api.plans.groups.groups_repository import (
     add_group_member,
     create_group,
     create_group_invite,
     get_followers_count_map,
     get_following_group_ids_by_user,
+    get_joined_group_ids_by_user,
+    get_joiners_count_map,
     is_user_following_group,
+    is_user_joined_group,
     get_group_by_id,
     get_group_by_slug,
     get_groups_by_ids,
     get_group_member,
     get_groups_paginated,
+    get_member_roles_map,
     get_invite_by_id,
     get_owner_count,
     get_plans_by_group_id,
     get_plans_by_ids,
     get_series_by_group_id,
+    get_series_for_group_ids,
+    get_standalone_plans_for_group_ids,
+    get_series_partner_id_map_for_group,
+    get_user_series_enrollment_partner_map,
     has_pending_invite,
+    leave_group_membership,
     list_invites_by_group,
+    list_group_joiners_paginated,
     list_pending_invites_by_email,
     get_series_by_ids,
     get_tags_by_ids,
@@ -60,29 +81,59 @@ from pecha_api.plans.groups.groups_repository import (
     set_group_member_role,
     update_group,
     upsert_group_follow,
+    upsert_group_join,
+)
+from pecha_api.mantra.mantra_count_repository import get_group_mantra_accumulations
+from pecha_api.mantra.mantra_repository import get_mantras_by_ids
+from pecha_api.group_accumulator.group_accumulator_repository import (
+    get_group_accumulator_by_id,
+    get_group_accumulator_member_contributions,
 )
 from pecha_api.plans.series.series_repository import (
     get_active_plan_count_map_by_series_ids,
-    get_enrolled_count_map_by_series_ids,
+    get_enrolled_count_map_by_group_and_series_ids,
+    get_series_plan_schedule_by_series_ids,
 )
-from pecha_api.plans.series.series_response_models import SeriesListItemDTO
-from pecha_api.plans.series.series_service import _series_to_list_item_dto
-from pecha_api.plans.shared.metadata_utils import format_metadata_response
+from pecha_api.plans.series.series_service import (
+    _series_schedule_from_plans,
+    _series_to_list_item_dto,
+    get_series_partner_dtos_by_series_ids,
+)
+from pecha_api.plans.shared.metadata_utils import (
+    format_metadata_response,
+    filter_by_language_with_fallback,
+)
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
+    GroupSeriesListItemDTO,
     AuthorGroupListResponse,
     AuthorGroupMemberDTO,
+    AuthorGroupMemberProfileDTO,
+    AuthorGroupMembersListResponse,
     AuthorGroupSummaryDTO,
     CreateAuthorGroupRequest,
     CreateGroupInviteRequest,
+    GroupAccumulationsResponse,
     GroupInviteCreatedResponse,
     GroupInviteDTO,
     GroupInviteListResponse,
+    GroupMantraAccumulationDTO,
+    GroupMemberAccumulationDTO,
+    GroupMemberAccumulationsResponse,
     GroupMetadataDTO,
+    GroupPracticeCardDTO,
+    GroupPracticeFeedItemDTO,
+    GroupPracticesFeedResponse,
+    GroupPracticesResponse,
+    GroupPracticeType,
     GroupSocialLinkDTO,
     PublicAuthorGroupDetailDTO,
     PublicAuthorGroupListResponse,
     PublicAuthorGroupSummaryDTO,
+    UserFollowedAuthorGroupDTO,
+    UserFollowedAuthorGroupListResponse,
+    UserJoinedAuthorGroupDTO,
+    UserJoinedAuthorGroupListResponse,
     ReplaceGroupPlansRequest,
     ReplaceGroupSeriesRequest,
     ReplaceGroupSocialLinksRequest,
@@ -90,9 +141,27 @@ from pecha_api.plans.groups.groups_response_models import (
     UpdateAuthorGroupRequest,
     UpdateGroupMemberRoleRequest,
 )
+from pecha_api.group_accumulator.group_accumulator_service import (
+    _convert_to_dto as _group_accumulator_to_dto,
+    get_group_accumulators_service,
+)
+from pecha_api.group_recitation_collection.service import list_group_collections_service
+from pecha_api.group_recitation_collection.repository import (
+    get_collections_for_group_ids_with_total,
+    get_collection_item_counts,
+)
+from pecha_api.group_recitation_collection.response_models import GroupRecitationCollectionDTO
 from pecha_api.plans.groups.groups_models import author_group_tags
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
+from pecha_api.users.users_repository import get_users_by_ids
+from pecha_api.users.users_models import Users
+from pecha_api.region_restrictions.china_timezone import is_china_timezone
+from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
+from pecha_api.region_restrictions.region_restriction_service import (
+    filter_items_for_timezone,
+    get_restricted_item_ids,
+)
 
 GROUP_NOT_FOUND = "Group not found"
 INVITE_NOT_FOUND = "Invite not found"
@@ -101,12 +170,34 @@ OWNER_ROLE_NOT_ASSIGNABLE = (
 )
 GROUP_ALREADY_HAS_OWNER = "This group already has an owner"
 NOTIFICATION_CATEGORY_GROUP_INVITE = "group_invite"
+_PRACTICES_FETCH_LIMIT = 1000
 
 
 def _to_role_value(role: AuthorGroupMemberRole | str) -> str:
     if hasattr(role, "value"):
         return role.value
     return str(role)
+
+
+def _to_group_type(value) -> AuthorGroupType:
+    if hasattr(value, "value"):
+        return AuthorGroupType(value.value)
+    return AuthorGroupType(value)
+
+
+_GROUP_TYPE_ENGAGEMENT = {
+    AuthorGroupType.PAGE: "follow",
+    AuthorGroupType.COMMUNITY: "join",
+}
+
+
+def _assert_group_allows_engagement(group: AuthorGroup, action: Literal["follow", "join"]) -> None:
+    expected = _GROUP_TYPE_ENGAGEMENT[_to_group_type(group.group_type)]
+    if expected != action:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This group does not support that action",
+        )
 
 
 def _generate_group_asset_url(asset_key: Optional[str]) -> Optional[str]:
@@ -118,26 +209,49 @@ def _generate_group_asset_url(asset_key: Optional[str]) -> Optional[str]:
     )
 
 
+def _user_fullname(user: Users) -> str:
+    parts = [user.firstname, user.lastname]
+    return " ".join(part for part in parts if part).strip()
+
+
+def _user_avatar_url(user: Users) -> Optional[str]:
+    if not user.avatar_url:
+        return None
+    return generate_presigned_access_url(
+        bucket_name=get("AWS_BUCKET_NAME"),
+        s3_key=user.avatar_url,
+    )
+
+
 def _optional_metadata_str(value) -> Optional[str]:
     return value if isinstance(value, str) else None
 
 
 def _metadata_to_dtos(metadata_entries, language: Optional[str] = None) -> List[GroupMetadataDTO]:
-    if language:
-        language_upper = language.upper()
-        metadata_entries = [
-            item for item in metadata_entries
-            if _language_value(item.language).upper() == language_upper
-        ]
+    metadata_entries = filter_by_language_with_fallback(
+        entries=list(metadata_entries or []),
+        language=language,
+        language_of=lambda item: _language_value(item.language),
+    )
     return [
         GroupMetadataDTO(
             id=item.id,
             title=item.title,
             sub_title=_optional_metadata_str(getattr(item, "sub_title", None)),
             description=item.description,
+            description_long=_optional_metadata_str(getattr(item, "description_long", None)),
             language=_language_value(item.language),
         )
-        for item in sorted(metadata_entries, key=lambda value: value.language)
+        for item in sorted(
+            metadata_entries,
+            key=lambda value: (
+                0
+                if language
+                and _language_value(value.language).upper() == language.upper()
+                else 1,
+                value.language,
+            ),
+        )
     ]
 
 
@@ -165,11 +279,22 @@ def _social_links_to_dtos(links) -> List[GroupSocialLinkDTO]:
     return [GroupSocialLinkDTO(id=link.id, platform=link.platform, url=link.url) for link in links]
 
 
+def _tag_name(tag, language: str = 'EN') -> str:
+    if not getattr(tag, 'metadata_entries', None):
+        return ""
+    for meta in tag.metadata_entries:
+        lang_value = meta.language.value if hasattr(meta.language, 'value') else str(meta.language)
+        if lang_value == language:
+            return meta.name
+    return tag.metadata_entries[0].name
+
+
 def _group_tag_names(tags) -> List[str]:
     if not tags:
         return []
     active = [tag for tag in tags if tag.deleted_at is None]
-    return sorted((tag.name for tag in active), key=str.lower)
+    names = (name for name in (_tag_name(tag) for tag in active) if name)
+    return sorted(names, key=str.lower)
 
 
 def _assert_metadata_valid(metadata_entries: List) -> None:
@@ -297,28 +422,83 @@ def _validate_group_links(db, tag_ids: Optional[List[UUID]], series_ids: Optiona
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="One or more plans do not exist")
 
 
+def _is_series_enrolled_for_group_context(
+    enrollment_partner_id: Optional[UUID],
+    expected_partner_id: Optional[UUID],
+    *,
+    is_enrolled_in_series: bool,
+) -> Optional[bool]:
+    if not is_enrolled_in_series:
+        return None
+    if enrollment_partner_id is None:
+        return None
+    return enrollment_partner_id == expected_partner_id
+
+
 def _series_to_dtos(
     db: Session,
     series_list: List[Series],
+    group_id: UUID,
     language: Optional[str] = None,
     published_only: bool = False,
-) -> List[SeriesListItemDTO]:
+    user_id: Optional[UUID] = None,
+) -> List[GroupSeriesListItemDTO]:
     if not series_list:
         return []
     series_ids = [series.id for series in series_list]
     plan_count_map = get_active_plan_count_map_by_series_ids(
         db=db, series_ids=series_ids, published_only=published_only
     )
-    enrolled_count_map = get_enrolled_count_map_by_series_ids(db=db, series_ids=series_ids)
-    return [
-        _series_to_list_item_dto(
-            series,
-            plan_count=plan_count_map.get(series.id, 0),
-            enrolled_count=enrolled_count_map.get(series.id, 0),
-            language=language,
+    enrolled_count_map = get_enrolled_count_map_by_group_and_series_ids(
+        db=db, group_id=group_id, series_ids=series_ids
+    )
+    partner_id_map = get_series_partner_id_map_for_group(
+        db=db, group_id=group_id, series_ids=series_ids
+    )
+    enrollment_partner_map: Dict[UUID, Optional[UUID]] = {}
+    if user_id is not None:
+        enrollment_partner_map = get_user_series_enrollment_partner_map(
+            db=db, user_id=user_id, series_ids=series_ids
         )
-        for series in series_list
-    ]
+    plans_by_series_id = get_series_plan_schedule_by_series_ids(
+        db=db,
+        series_ids=series_ids,
+    )
+    partner_by_series_id = get_series_partner_dtos_by_series_ids(
+        db=db,
+        user_id=user_id,
+        series_ids=series_ids,
+        language=language,
+    )
+    series_dtos: List[GroupSeriesListItemDTO] = []
+    for series in series_list:
+        start_date, end_date, total_days = _series_schedule_from_plans(
+            plans_by_series_id.get(series.id, []),
+            published_only=published_only,
+            language=language,
+            fallback=True,
+        )
+        series_dtos.append(
+            GroupSeriesListItemDTO(
+                **_series_to_list_item_dto(
+                    series,
+                    plan_count=plan_count_map.get(series.id, 0),
+                    enrolled_count=enrolled_count_map.get(series.id, 0),
+                    language=language,
+                    start_date=start_date,
+                    end_date=end_date,
+                    total_days=total_days,
+                    fallback=True,
+                    partner=partner_by_series_id.get(series.id),
+                ).model_dump(),
+                is_group_enrolled=_is_series_enrolled_for_group_context(
+                    enrollment_partner_id=enrollment_partner_map.get(series.id),
+                    expected_partner_id=partner_id_map.get(series.id),
+                    is_enrolled_in_series=series.id in enrollment_partner_map,
+                ),
+            )
+        )
+    return series_dtos
 
 
 def _language_value(language) -> str:
@@ -378,14 +558,23 @@ def _plans_to_dtos(db: Session, plan_list: List[Plan], group_id: UUID) -> List[P
 
 def _group_to_summary(
     group: AuthorGroup,
-    follower_count: int = 0, public: bool = False,
+    follower_count: int = 0,
+    joiner_count: int = 0,
+    public: bool = False,
     language: Optional[str] = None,
+    my_role: Optional[AuthorGroupMemberRole | str] = None,
 ) -> AuthorGroupSummaryDTO:
     dto_class = PublicAuthorGroupSummaryDTO if public else AuthorGroupSummaryDTO
     tags = _group_tag_names(group.tags) if public else tags_to_summary_dtos(group.tags)
+    role = (
+        AuthorGroupMemberRole(_to_role_value(my_role))
+        if my_role is not None and not public
+        else None
+    )
     return dto_class(
         id=group.id,
         slug=group.slug,
+        group_type=_to_group_type(group.group_type),
         is_public=group.is_public,
         avatar_key=group.avatar_key,
         banner_key=group.banner_key,
@@ -394,7 +583,39 @@ def _group_to_summary(
         metadata=_metadata_response(group.metadata_entries, language=language),
         tags=tags,
         follower_count=follower_count,
+        joiner_count=joiner_count,
         member_count=len(group.members),
+        my_role=role,
+    )
+
+
+def _group_to_followed_summary(
+    group: AuthorGroup,
+    follower_count: int = 0,
+    language: Optional[str] = None,
+) -> UserFollowedAuthorGroupDTO:
+    return UserFollowedAuthorGroupDTO(
+        id=group.id,
+        avatar_key=group.avatar_key,
+        avatar_url=_generate_group_asset_url(group.avatar_key),
+        metadata=_metadata_response(group.metadata_entries, language=language),
+        follower_count=follower_count,
+        tags=_group_tag_names(group.tags),
+    )
+
+
+def _group_to_joined_summary(
+    group: AuthorGroup,
+    joiner_count: int = 0,
+    language: Optional[str] = None,
+) -> UserJoinedAuthorGroupDTO:
+    return UserJoinedAuthorGroupDTO(
+        id=group.id,
+        avatar_key=group.avatar_key,
+        avatar_url=_generate_group_asset_url(group.avatar_key),
+        metadata=_metadata_response(group.metadata_entries, language=language),
+        joiner_count=joiner_count,
+        tags=_group_tag_names(group.tags),
     )
 
 
@@ -408,10 +629,12 @@ def get_group_summaries_by_ids(
     unique_group_ids = list(dict.fromkeys(group_ids))
     groups = get_groups_by_ids(db=db, group_ids=unique_group_ids)
     follower_count_map = get_followers_count_map(db=db, group_ids=unique_group_ids)
+    joiner_count_map = get_joiners_count_map(db=db, group_ids=unique_group_ids)
     return {
         group.id: _group_to_summary(
             group,
             follower_count=follower_count_map.get(group.id, 0),
+            joiner_count=joiner_count_map.get(group.id, 0),
             language=language,
         )
         for group in groups
@@ -421,14 +644,23 @@ def get_group_summaries_by_ids(
 def _group_to_detail(
     group: AuthorGroup,
     follower_count: int = 0,
+    joiner_count: int = 0,
     db: Optional[Session] = None,
     public: bool = False,
     language: Optional[str] = None,
+    user_id: Optional[UUID] = None,
 ) -> AuthorGroupDetailDTO:
     if db is not None:
         group_series = get_series_by_group_id(db=db, group_id=group.id)
         group_plans = get_plans_by_group_id(db=db, group_id=group.id)
-        series_dtos = _series_to_dtos(db=db, series_list=group_series, language=language, published_only=public)
+        series_dtos = _series_to_dtos(
+            db=db,
+            series_list=group_series,
+            group_id=group.id,
+            language=language,
+            published_only=public,
+            user_id=user_id,
+        )
         plans_dtos = _plans_to_dtos(db=db, plan_list=group_plans, group_id=group.id)
     else:
         series_dtos = []
@@ -439,6 +671,7 @@ def _group_to_detail(
     return dto_class(
         id=group.id,
         slug=group.slug,
+        group_type=_to_group_type(group.group_type),
         is_public=group.is_public,
         avatar_key=group.avatar_key,
         banner_key=group.banner_key,
@@ -451,6 +684,7 @@ def _group_to_detail(
         series=series_dtos,
         plans=plans_dtos,
         follower_count=follower_count,
+        joiner_count=joiner_count,
     )
 
 
@@ -468,11 +702,13 @@ def create_author_group(token: str, request: CreateAuthorGroupRequest) -> Author
                 title=item.title,
                 sub_title=item.sub_title,
                 description=item.description,
+                description_long=item.description_long,
             )
             for item in request.metadata
         ]
         group = AuthorGroup(
             slug=request.slug,
+            group_type=request.group_type.value,
             is_public=request.is_public,
             avatar_key=request.avatar_key,
             banner_key=request.banner_key,
@@ -522,6 +758,7 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
                     title=item.title,
                     sub_title=item.sub_title,
                     description=item.description,
+                    description_long=item.description_long,
                 )
                 for item in request.metadata
             ]
@@ -533,14 +770,49 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
         update_group(db=db, group=group)
         loaded = get_group_by_id(db=db, group_id=group_id)
         followers_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(group=loaded, follower_count=followers_count, db=db)
+        joiners_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_detail(
+            group=loaded,
+            follower_count=followers_count,
+            joiner_count=joiners_count,
+            db=db,
+        )
+
+
+def delete_author_group(token: str, group_id: UUID) -> None:
+    author = validate_and_extract_author_details(token=token)
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        if not is_super_admin(author):
+            member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
+            _assert_role_allowed(
+                member=member,
+                allowed_roles=[AuthorGroupMemberRole.OWNER],
+            )
+
+        now = datetime.now(timezone.utc)
+        group.deleted_at = now
+        group.deleted_by = author.email
+        group.updated_at = now
+        group.updated_by = author.email
+        update_group(db=db, group=group)
 
 
 def get_author_group_detail(
     group_id: UUID,
     require_public: bool = True,
     language: Optional[str] = None,
+    token: Optional[str] = None,
 ) -> PublicAuthorGroupDetailDTO:
+    user_id = None
+    if token:
+        try:
+            user = validate_and_extract_user_details(token=token)
+            user_id = user.id
+        except Exception:
+            pass
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
@@ -548,11 +820,375 @@ def get_author_group_detail(
         if require_public and not group.is_public:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         return _group_to_detail(
             group=group,
             follower_count=follower_count,
+            joiner_count=joiner_count,
             db=db, public=True,
             language=language,
+            user_id=user_id,
+        )
+
+
+def _as_aware_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+def _restricted_ids_for_timezone(
+    item_type: RestrictedItemType,
+    timezone_name: Optional[str],
+) -> Optional[List[UUID]]:
+    """IDs to exclude at the query layer so restricted items never occupy a
+    fetch-window slot ahead of eligible ones. None means no exclusion needed."""
+    if not is_china_timezone(timezone_name):
+        return None
+    restricted_ids = get_restricted_item_ids(item_type)
+    return list(restricted_ids) if restricted_ids else None
+
+
+async def get_group_practices(
+    group_id: UUID,
+    skip: int = 0,
+    limit: int = 20,
+    language: Optional[str] = None,
+    token: Optional[str] = None,
+    timezone_name: Optional[str] = None,
+) -> GroupPracticesResponse:
+    user_id = None
+    if token:
+        try:
+            user = validate_and_extract_user_details(token=token)
+            user_id = user.id
+        except Exception:
+            pass
+
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group or not group.is_public:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+
+        group_series = get_series_by_group_id(db=db, group_id=group_id)
+        series_dtos = _series_to_dtos(
+            db=db,
+            series_list=group_series,
+            group_id=group_id,
+            language=language,
+            published_only=True,
+            user_id=user_id,
+        )
+        series_cards = [
+            (
+                _as_aware_utc(series.created_at),
+                str(series.id),
+                GroupPracticeCardDTO(type=GroupPracticeType.SERIES, series=dto),
+            )
+            for series, dto in zip(group_series, series_dtos)
+        ]
+
+    accumulators_response = get_group_accumulators_service(
+        group_id=group_id,
+        skip=0,
+        limit=_PRACTICES_FETCH_LIMIT,
+        token=token,
+        timezone_name=timezone_name,
+    )
+    accumulator_cards = [
+        (
+            _as_aware_utc(acc.created_at),
+            str(acc.id),
+            GroupPracticeCardDTO(type=GroupPracticeType.ACCUMULATOR, accumulator=acc),
+        )
+        for acc in accumulators_response.accumulators
+    ]
+
+    collections_response = await list_group_collections_service(
+        group_id=group_id,
+        skip=0,
+        limit=_PRACTICES_FETCH_LIMIT,
+        timezone_name=timezone_name,
+    )
+    collection_cards = [
+        (
+            _as_aware_utc(datetime.fromisoformat(collection.created_at)),
+            str(collection.id),
+            GroupPracticeCardDTO(type=GroupPracticeType.COLLECTION, collection=collection),
+        )
+        for collection in collections_response.collections
+    ]
+
+    all_cards = series_cards + accumulator_cards + collection_cards
+    all_cards.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
+    total = len(all_cards)
+    page_cards = [card for _, _, card in all_cards[skip:skip + limit]]
+
+    return GroupPracticesResponse(
+        practices=page_cards,
+        skip=skip,
+        limit=limit,
+        total=total,
+    )
+
+
+def _group_card_title(group: AuthorGroup, language: Optional[str] = None) -> Optional[str]:
+    entries = list(group.metadata_entries or [])
+    if not entries:
+        return group.slug
+    preferred = filter_by_language_with_fallback(
+        entries=entries,
+        language=language,
+        language_of=lambda item: _language_value(item.language),
+    )
+    if preferred:
+        return preferred[0].title
+    for entry in entries:
+        if _language_value(entry.language).upper() == "EN":
+            return entry.title
+    return entries[0].title
+
+
+def get_group_practices_feed(
+    token: str,
+    group_id: Optional[UUID] = None,
+    should_include_unfollowed: bool = False,
+    skip: int = 0,
+    limit: int = 20,
+    language: Optional[str] = None,
+    timezone_name: Optional[str] = None,
+) -> GroupPracticesFeedResponse:
+    """Merged feed of practices (series, group accumulators, plans that are
+    not part of a series, and recitation collections) across the user's
+    joined public groups; with should_include_unfollowed=True, across all
+    public groups."""
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        scope_group_ids, joined_group_id_set = resolve_public_group_scope(
+            db=db,
+            user_id=current_user.id,
+            should_include_unfollowed=should_include_unfollowed,
+        )
+        if group_id is not None:
+            scope_group_ids = [item for item in scope_group_ids if item == group_id]
+        scope_group_ids = filter_items_for_timezone(
+            scope_group_ids,
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.GROUP,
+            id_of=lambda item: item,
+        )
+        if not scope_group_ids:
+            return GroupPracticesFeedResponse(
+                practices=[],
+                skip=skip,
+                limit=limit,
+                total=0,
+                include_unfollowed=should_include_unfollowed,
+            )
+
+        # Restricted items are excluded at the query layer (not after fetching)
+        # so a skip+limit-sized fetch window never omits eligible older items,
+        # and the reported total reflects only eligible rows, at any depth.
+        fetch_limit = skip + limit
+
+        series_list, series_total = get_series_for_group_ids(
+            db=db,
+            group_ids=scope_group_ids,
+            limit=fetch_limit,
+            exclude_ids=_restricted_ids_for_timezone(RestrictedItemType.SERIES, timezone_name),
+        )
+
+        plans_list, plans_total = get_standalone_plans_for_group_ids(
+            db=db,
+            group_ids=scope_group_ids,
+            limit=fetch_limit,
+            exclude_ids=_restricted_ids_for_timezone(RestrictedItemType.PLAN, timezone_name),
+        )
+
+        accumulators, accumulators_total = get_group_accumulators_for_group_ids(
+            db=db,
+            group_ids=scope_group_ids,
+            limit=fetch_limit,
+            exclude_ids=_restricted_ids_for_timezone(RestrictedItemType.GROUP_ACCUMULATOR, timezone_name),
+        )
+
+        collections, collections_total = get_collections_for_group_ids_with_total(
+            db=db,
+            group_ids=scope_group_ids,
+            limit=fetch_limit,
+            exclude_ids=_restricted_ids_for_timezone(
+                RestrictedItemType.GROUP_RECITATION_COLLECTION, timezone_name
+            ),
+        )
+        collection_item_counts = get_collection_item_counts(
+            db=db, collection_ids=[collection.id for collection in collections]
+        )
+        collection_dtos = [
+            GroupRecitationCollectionDTO(
+                id=collection.id,
+                group_id=collection.group_id,
+                name=collection.name,
+                img_url=_generate_group_asset_url(collection.img_url),
+                item_count=collection_item_counts.get(collection.id, 0),
+                created_at=collection.created_at.isoformat()
+                if hasattr(collection.created_at, "isoformat")
+                else str(collection.created_at),
+            )
+            for collection in collections
+        ]
+
+        # Series DTOs are built per owning group because enrollment and partner
+        # lookups are scoped to a group.
+        series_by_group: Dict[UUID, List[Series]] = {}
+        for series in series_list:
+            series_by_group.setdefault(series.group_id, []).append(series)
+        series_pairs = []
+        for owning_group_id, group_series in series_by_group.items():
+            dtos = _series_to_dtos(
+                db=db,
+                series_list=group_series,
+                group_id=owning_group_id,
+                language=language,
+                published_only=True,
+                user_id=current_user.id,
+            )
+            series_pairs.extend(zip(group_series, dtos))
+
+        plan_aggregate_by_id = {
+            item.plan.id: item
+            for item in get_plans_with_aggregates_by_ids(
+                db=db, plan_ids=[plan.id for plan in plans_list]
+            )
+        }
+
+        accumulator_ids = [accumulator.id for accumulator in accumulators]
+        joined_accumulator_ids = set(
+            get_joined_group_accumulator_ids_by_user(
+                db=db,
+                user_id=current_user.id,
+                group_accumulator_ids=accumulator_ids,
+            )
+        )
+        accumulator_member_counts = get_group_accumulator_joiners_counts(
+            db=db, group_accumulator_ids=accumulator_ids
+        )
+
+        card_group_ids = list({
+            *[series.group_id for series, _ in series_pairs],
+            *[plan.group_id for plan in plans_list],
+            *[accumulator.group_id for accumulator in accumulators],
+            *[collection.group_id for collection in collections],
+        })
+        group_by_id = {
+            group.id: group
+            for group in get_groups_by_ids(db=db, group_ids=card_group_ids)
+        }
+
+        def _feed_item(
+            item_id,
+            item_group_id: UUID,
+            created_at: datetime,
+            practice_type: GroupPracticeType,
+            **payload,
+        ):
+            group = group_by_id.get(item_group_id)
+            practice_at = _as_aware_utc(created_at)
+            return (
+                practice_at,
+                str(item_id),
+                GroupPracticeFeedItemDTO(
+                    type=practice_type,
+                    practice_at=practice_at,
+                    is_joined=item_group_id in joined_group_id_set,
+                    group_id=item_group_id,
+                    group_name=_group_card_title(group, language=language) if group else None,
+                    group_slug=group.slug if group else None,
+                    group_avatar_url=_generate_group_asset_url(group.avatar_key) if group else None,
+                    **payload,
+                ),
+            )
+
+        cards = [
+            _feed_item(series.id, series.group_id, series.created_at, GroupPracticeType.SERIES, series=dto)
+            for series, dto in series_pairs
+        ]
+        cards.extend(
+            _feed_item(
+                plan.id,
+                plan.group_id,
+                plan.created_at,
+                GroupPracticeType.PLAN,
+                plan=_plan_aggregate_to_dto(plan_aggregate_by_id[plan.id], group_id=plan.group_id),
+            )
+            for plan in plans_list
+            if plan.id in plan_aggregate_by_id
+        )
+        cards.extend(
+            _feed_item(
+                accumulator.id,
+                accumulator.group_id,
+                accumulator.created_at,
+                GroupPracticeType.ACCUMULATOR,
+                accumulator=_group_accumulator_to_dto(
+                    accumulator,
+                    is_joined=accumulator.id in joined_accumulator_ids,
+                    member_count=accumulator_member_counts.get(accumulator.id, 0),
+                ),
+            )
+            for accumulator in accumulators
+        )
+        cards.extend(
+            _feed_item(
+                collection.id,
+                collection.group_id,
+                collection.created_at,
+                GroupPracticeType.COLLECTION,
+                collection=dto,
+            )
+            for collection, dto in zip(collections, collection_dtos)
+        )
+
+        cards.sort(key=lambda entry: (entry[0], entry[1]), reverse=True)
+        total = series_total + plans_total + accumulators_total + collections_total
+        page_cards = [card for _, _, card in cards[skip:skip + limit]]
+
+    return GroupPracticesFeedResponse(
+        practices=page_cards,
+        skip=skip,
+        limit=limit,
+        total=total,
+        include_unfollowed=should_include_unfollowed,
+    )
+
+
+def list_group_members(
+    group_id: UUID,
+    skip: int,
+    limit: int,
+) -> AuthorGroupMembersListResponse:
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group or not group.is_public:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        users, total = list_group_joiners_paginated(
+            db=db,
+            group_id=group_id,
+            skip=skip,
+            limit=limit,
+        )
+        return AuthorGroupMembersListResponse(
+            total_members=total,
+            list=[
+                AuthorGroupMemberProfileDTO(
+                    username=user.username,
+                    fullname=_user_fullname(user),
+                    avatar_url=_user_avatar_url(user),
+                )
+                for user in users
+            ],
+            skip=skip,
+            limit=limit,
         )
 
 
@@ -569,9 +1205,11 @@ def get_cms_group_detail(
         if not is_super_admin(author) and not is_reviewer(author):
             _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         return _group_to_detail(
             group=group,
             follower_count=follower_count,
+            joiner_count=joiner_count,
             db=db,
             language=language,
         )
@@ -583,24 +1221,46 @@ def list_public_groups(
     search: Optional[str] = None,
     language: Optional[str] = None,
     tag_id: Optional[UUID] = None,
+    group_type: AuthorGroupType = AuthorGroupType.COMMUNITY,
+    token: Optional[str] = None,
+    timezone_name: Optional[str] = None,
 ) -> PublicAuthorGroupListResponse:
     with SessionLocal() as db:
+        exclude_group_ids = None
+        if token:
+            try:
+                user = validate_and_extract_user_details(token=token)
+                joined_ids = get_joined_group_ids_by_user(db=db, user_id=user.id)
+                if joined_ids:
+                    exclude_group_ids = joined_ids
+            except Exception:
+                pass
         groups, total = get_groups_paginated(
             db=db,
             skip=skip,
             limit=limit,
             search=search,
-            language=language,
             tag_id=tag_id,
+            exclude_group_ids=exclude_group_ids,
             is_public=True,
+            group_type=group_type,
+        )
+        groups = filter_items_for_timezone(
+            groups,
+            timezone_name=timezone_name,
+            item_type=RestrictedItemType.GROUP,
+            id_of=lambda group: group.id,
         )
         group_ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=group_ids)
+        joiner_count_map = get_joiners_count_map(db=db, group_ids=group_ids)
         return PublicAuthorGroupListResponse(
             groups=[
                 _group_to_summary(
                     group=item,
-                    follower_count=follower_count_map.get(item.id, 0), public=True,
+                    follower_count=follower_count_map.get(item.id, 0),
+                    joiner_count=joiner_count_map.get(item.id, 0),
+                    public=True,
                     language=language,
                 )
                 for item in groups
@@ -620,6 +1280,7 @@ def list_cms_groups(
     tag_id: Optional[UUID] = None,
     is_public: Optional[bool] = None,
     for_transfer: bool = False,
+    group_type: Optional[AuthorGroupType] = None,
 ) -> AuthorGroupListResponse:
     author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
@@ -638,15 +1299,20 @@ def list_cms_groups(
             tag_id=tag_id,
             group_ids=group_ids,
             is_public=is_public,
+            group_type=group_type,
         )
         ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=ids)
+        joiner_count_map = get_joiners_count_map(db=db, group_ids=ids)
+        my_role_map = get_member_roles_map(db=db, author_id=author.id, group_ids=ids)
         return AuthorGroupListResponse(
             groups=[
                 _group_to_summary(
                     group=item,
                     follower_count=follower_count_map.get(item.id, 0),
+                    joiner_count=joiner_count_map.get(item.id, 0),
                     language=language,
+                    my_role=my_role_map.get(item.id),
                 )
                 for item in groups
             ],
@@ -670,7 +1336,8 @@ def replace_group_tags(token: str, group_id: UUID, request: ReplaceGroupTagsRequ
         db.commit()
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count, db=db)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_detail(loaded, follower_count=follower_count, joiner_count=joiner_count, db=db)
 
 
 def replace_group_social_links_by_id(
@@ -691,7 +1358,8 @@ def replace_group_social_links_by_id(
         db.commit()
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count, db=db)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_detail(loaded, follower_count=follower_count, joiner_count=joiner_count, db=db)
 
 
 def follow_group(token: str, group_id: UUID) -> None:
@@ -700,6 +1368,7 @@ def follow_group(token: str, group_id: UUID) -> None:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group or not group.is_public:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        _assert_group_allows_engagement(group=group, action="follow")
         upsert_group_follow(db=db, group_id=group_id, user_id=user.id)
 
 
@@ -713,7 +1382,7 @@ def get_followed_group(
     token: str,
     group_id: UUID,
     language: Optional[str] = None,
-) -> PublicAuthorGroupSummaryDTO:
+) -> UserFollowedAuthorGroupDTO:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         if not is_user_following_group(db=db, group_id=group_id, user_id=user.id):
@@ -722,15 +1391,19 @@ def get_followed_group(
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_summary(
+        return _group_to_followed_summary(
             group=group,
             follower_count=follower_count,
-            public=True,
             language=language,
         )
 
 
-def list_followed_groups(token: str, skip: int, limit: int) -> PublicAuthorGroupListResponse:
+def list_followed_groups(
+    token: str,
+    skip: int,
+    limit: int,
+    language: Optional[str] = None,
+) -> UserFollowedAuthorGroupListResponse:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         group_ids = get_following_group_ids_by_user(db=db, user_id=user.id)
@@ -739,10 +1412,91 @@ def list_followed_groups(token: str, skip: int, limit: int) -> PublicAuthorGroup
             skip=skip,
             limit=limit,
             group_ids=group_ids,
+            group_type=AuthorGroupType.PAGE,
         )
         follower_count_map = get_followers_count_map(db=db, group_ids=[group.id for group in groups])
-        return PublicAuthorGroupListResponse(
-            groups=[_group_to_summary(group=item, follower_count=follower_count_map.get(item.id, 0), public=True) for item in groups],
+        return UserFollowedAuthorGroupListResponse(
+            groups=[
+                _group_to_followed_summary(
+                    group=item,
+                    follower_count=follower_count_map.get(item.id, 0),
+                    language=language,
+                )
+                for item in groups
+            ],
+            skip=skip,
+            limit=limit,
+            total=total,
+        )
+
+
+def join_group(token: str, group_id: UUID) -> None:
+    user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group or not group.is_public:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        _assert_group_allows_engagement(group=group, action="join")
+        upsert_group_join(db=db, group_id=group_id, user_id=user.id)
+
+
+def leave_group(token: str, group_id: UUID) -> None:
+    user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        remove_group_accumulator_joins_for_group(
+            db=db,
+            user_id=user.id,
+            group_id=group_id,
+        )
+        leave_group_membership(db=db, user_id=user.id, group_id=group_id)
+
+
+def get_joined_group(
+    token: str,
+    group_id: UUID,
+    language: Optional[str] = None,
+) -> UserJoinedAuthorGroupDTO:
+    user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        if not is_user_joined_group(db=db, group_id=group_id, user_id=user.id):
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_joined_summary(
+            group=group,
+            joiner_count=joiner_count,
+            language=language,
+        )
+
+
+def list_joined_groups(
+    token: str,
+    skip: int,
+    limit: int,
+    language: Optional[str] = None,
+) -> UserJoinedAuthorGroupListResponse:
+    user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        group_ids = get_joined_group_ids_by_user(db=db, user_id=user.id)
+        groups, total = get_groups_paginated(
+            db=db,
+            skip=skip,
+            limit=limit,
+            group_ids=group_ids,
+            group_type=AuthorGroupType.COMMUNITY,
+        )
+        joiner_count_map = get_joiners_count_map(db=db, group_ids=[group.id for group in groups])
+        return UserJoinedAuthorGroupListResponse(
+            groups=[
+                _group_to_joined_summary(
+                    group=item,
+                    joiner_count=joiner_count_map.get(item.id, 0),
+                    language=language,
+                )
+                for item in groups
+            ],
             skip=skip,
             limit=limit,
             total=total,
@@ -772,7 +1526,7 @@ def _invite_to_dto(
     inviter_email = invite.created_by
     inviter_name = inviter_email
     if db is not None:
-        inviter = get_author_by_email(db=db, email=inviter_email)
+        inviter = find_author_by_email(db=db, email=inviter_email)
         if inviter:
             display_name = _inviter_display_name(inviter)
             if display_name:
@@ -847,6 +1601,36 @@ def _mark_invite_notification_read(db, *, recipient_author_id: UUID, invite_id: 
     )
 
 
+def notify_pending_group_invites(author) -> None:
+    """Backfill in-app notifications for any group invites addressed to this
+    author's email that were sent before they had a Studio account. Called
+    once an author becomes verified so the invite is already waiting for them
+    the first time they can see the Studio."""
+    try:
+        with SessionLocal() as db:
+            pending = list_pending_invites_by_email(db=db, target_email=author.email)
+            for invite in pending:
+                if notification_exists_for_reference(
+                    db=db,
+                    recipient_author_id=author.id,
+                    category=NOTIFICATION_CATEGORY_GROUP_INVITE,
+                    reference_id=invite.id,
+                ):
+                    continue
+                group_title = _group_name_from_invite(invite)
+                inviter = find_author_by_email(db=db, email=invite.created_by)
+                inviter_name = _inviter_display_name(inviter) if inviter else invite.created_by
+                create_notification_record(
+                    recipient_author_id=author.id,
+                    title=f"Invitation to join {group_title}",
+                    description=f"{inviter_name} invited you to join {group_title}.",
+                    category=NOTIFICATION_CATEGORY_GROUP_INVITE,
+                    reference_id=invite.id,
+                )
+    except Exception:
+        logging.exception("Failed to backfill group invite notifications for %s", author.email)
+
+
 def create_group_member_invite(
     token: str,
     group_id: UUID,
@@ -871,13 +1655,8 @@ def create_group_member_invite(
             invite_role=_to_role_value(request.role),
         )
 
-        target_author = get_author_by_email(db=db, email=target_email)
-        if not target_author:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No registered author exists with this email address",
-            )
-        if get_group_member(db=db, group_id=group_id, author_id=target_author.id):
+        target_author = find_author_by_email(db=db, email=target_email)
+        if target_author and get_group_member(db=db, group_id=group_id, author_id=target_author.id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This author is already a member of this group",
@@ -900,17 +1679,19 @@ def create_group_member_invite(
         loaded_group = get_group_by_id(db=db, group_id=group_id)
         group_title = _group_title_from_metadata(loaded_group.metadata_entries)
         inviter_name = _inviter_display_name(author)
-        target_author_id = target_author.id
+        target_author_id = target_author.id if target_author else None
         created_invite_id = created.id
         invite_dto = _invite_to_dto(created, group_name=group_title, db=db)
 
-    notification = create_notification_record(
-        recipient_author_id=target_author_id,
-        title=f"Invitation to join {group_title}",
-        description=f"{inviter_name} invited you to join {group_title}.",
-        category=NOTIFICATION_CATEGORY_GROUP_INVITE,
-        reference_id=created_invite_id,
-    )
+    notification = None
+    if target_author_id is not None:
+        notification = create_notification_record(
+            recipient_author_id=target_author_id,
+            title=f"Invitation to join {group_title}",
+            description=f"{inviter_name} invited you to join {group_title}.",
+            category=NOTIFICATION_CATEGORY_GROUP_INVITE,
+            reference_id=created_invite_id,
+        )
 
     send_group_invitation_email(
         target_email=target_email,
@@ -922,7 +1703,7 @@ def create_group_member_invite(
 
     return GroupInviteCreatedResponse(
         invite=invite_dto,
-        notification_id=notification.id,
+        notification_id=notification.id if notification else None,
     )
 
 
@@ -999,7 +1780,8 @@ def accept_group_invite_by_id(token: str, invite_id: UUID) -> AuthorGroupDetailD
 
         loaded = get_group_by_id(db=db, group_id=group.id)
         follower_count = get_followers_count_map(db=db, group_ids=[group.id]).get(group.id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count, db=db)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group.id]).get(group.id, 0)
+        return _group_to_detail(loaded, follower_count=follower_count, joiner_count=joiner_count, db=db)
 
 
 def reject_group_invite_by_id(token: str, invite_id: UUID) -> GroupInviteDTO:
@@ -1038,7 +1820,7 @@ def revoke_group_invite(token: str, group_id: UUID, invite_id: UUID) -> None:
                 detail="Only pending invites can be revoked",
             )
         revoke_invite(db=db, invite=invite, revoked_by=author.email)
-        target_author = get_author_by_email(db=db, email=invite.target_email)
+        target_author = find_author_by_email(db=db, email=invite.target_email)
         if target_author:
             _mark_invite_notification_read(
                 db=db,
@@ -1090,7 +1872,8 @@ def update_group_member_role(
         set_group_member_role(db=db, member=target_member, role=request.role.value, updated_by=current_author.email)
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count, db=db)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_detail(loaded, follower_count=follower_count, joiner_count=joiner_count, db=db)
 
 
 def _assert_not_last_owner_removal(db, *, group_id: UUID, member: AuthorGroupMember) -> None:
@@ -1169,7 +1952,8 @@ def transfer_group_ownership(
 
         loaded = get_group_by_id(db=db, group_id=group_id)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
-        return _group_to_detail(loaded, follower_count=follower_count, db=db)
+        joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_detail(loaded, follower_count=follower_count, joiner_count=joiner_count, db=db)
 
 
 def delete_group_member(token: str, group_id: UUID, author_id: UUID) -> None:
@@ -1199,3 +1983,132 @@ def delete_group_member(token: str, group_id: UUID, author_id: UUID) -> None:
             _assert_not_last_owner_removal(db, group_id=group_id, member=member)
 
         remove_group_member(db=db, member=member)
+
+
+def get_group_accumulations(
+    group_id: UUID,
+    language: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+):
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        
+        rows, total, grand_total_count = get_group_mantra_accumulations(db=db, group_id=group_id, skip=skip, limit=limit)
+        
+        if not rows:
+            return GroupAccumulationsResponse(
+                group_id=group_id,
+                mantras=[],
+                total_count=0,
+                total=0,
+                skip=skip,
+                limit=limit,
+            )
+        
+        mantra_ids = [row.mantra_id for row in rows]
+        mantras_map = get_mantras_by_ids(db=db, mantra_ids=mantra_ids)
+        
+        language_code = language.upper() if language else "EN"
+        
+        mantra_dtos = []
+        for row in rows:
+            mantra = mantras_map.get(row.mantra_id)
+            mantra_title = None
+            mantra_slug = None
+            
+            if mantra:
+                metadata_entry = next(
+                    (m for m in mantra.metadata_entries if m.language.value == language_code),
+                    None
+                )
+                if not metadata_entry and mantra.metadata_entries:
+                    metadata_entry = next(
+                        (m for m in mantra.metadata_entries if m.language.value == "EN"),
+                        mantra.metadata_entries[0]
+                    )
+                
+                if metadata_entry:
+                    mantra_title = metadata_entry.title
+                    mantra_slug = f"mantra-{row.mantra_id}"
+            
+            mantra_dtos.append(
+                GroupMantraAccumulationDTO(
+                    mantra_id=row.mantra_id,
+                    mantra_slug=mantra_slug,
+                    mantra_title=mantra_title,
+                    count=row.total_count,
+                )
+            )
+        
+        return GroupAccumulationsResponse(
+            group_id=group_id,
+            mantras=mantra_dtos,
+            total_count=grand_total_count,
+            total=total,
+            skip=skip,
+            limit=limit,
+        )
+
+
+def get_group_member_accumulations(
+    group_id: UUID,
+    accumulation_id: UUID,
+    skip: int = 0,
+    limit: int = 20,
+) -> GroupMemberAccumulationsResponse:
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        
+        group_accumulator = get_group_accumulator_by_id(db=db, group_accumulator_id=accumulation_id)
+        if not group_accumulator:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group accumulator not found")
+        
+        if group_accumulator.group_id != group_id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group accumulator does not belong to this group")
+        
+        rows, total = get_group_accumulator_member_contributions(
+            db=db,
+            group_accumulator_id=accumulation_id,
+            skip=skip,
+            limit=limit,
+        )
+        
+        if not rows:
+            return GroupMemberAccumulationsResponse(
+                total_members=0,
+                list=[],
+                skip=skip,
+                limit=limit,
+            )
+        
+        user_ids = [row.user_id for row in rows]
+        users_map = get_users_by_ids(db=db, user_ids=user_ids)
+        
+        member_dtos = []
+        for row in rows:
+            user = users_map.get(row.user_id)
+            if user:
+                fullname = f"{user.firstname} {user.lastname}".strip()
+                if not fullname:
+                    fullname = user.email
+                
+                member_dtos.append(
+                    GroupMemberAccumulationDTO(
+                        username=user.username,
+                        fullname=fullname,
+                        avatar_url=user.avatar_url,
+                        count=row.total_count,
+                    )
+                )
+        
+        return GroupMemberAccumulationsResponse(
+            total_members=total,
+            list=member_dtos,
+            skip=skip,
+            limit=limit,
+        )

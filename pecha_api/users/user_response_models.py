@@ -25,7 +25,7 @@ class UserInfoResponse(BaseModel):
     firstname: str
     lastname: str
     username: str
-    email: str
+    email: Optional[str] = None
     title: Optional[str] = None
     organization: Optional[str] = None
     location: Optional[str] = None
@@ -71,3 +71,11 @@ class UpdateUsernameResponse(BaseModel):
     message: str
     username: Optional[str] = None
     suggestions: Optional[List[str]] = None
+
+
+class OnboardingStatusResponse(BaseModel):
+    has_seen_onboarding: bool
+
+
+class UpdateOnboardingStatusRequest(BaseModel):
+    has_seen_onboarding: bool

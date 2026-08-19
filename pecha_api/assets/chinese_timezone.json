@@ -1,0 +1,66 @@
+[
+    {
+      "id": "Asia/Shanghai",
+      "type": "Canonical",
+      "region": "Mainland China",
+      "standardName": "China Standard Time",
+      "abbreviation": "CST",
+      "utcOffset": "+08:00"
+    },
+    {
+      "id": "Asia/Urumqi",
+      "type": "Canonical",
+      "region": "Xinjiang (Local unofficial time)",
+      "standardName": "Xinjiang Time",
+      "abbreviation": "XJT",
+      "utcOffset": "+06:00"
+    },
+    {
+      "id": "Asia/Hong_Kong",
+      "type": "Canonical",
+      "region": "Hong Kong SAR",
+      "standardName": "Hong Kong Time",
+      "abbreviation": "HKT",
+      "utcOffset": "+08:00"
+    },
+    {
+      "id": "Asia/Macau",
+      "type": "Canonical",
+      "region": "Macau SAR",
+      "standardName": "Macau Standard Time",
+      "abbreviation": "MST",
+      "utcOffset": "+08:00"
+    },
+    {
+      "id": "Asia/Chongqing",
+      "type": "Link (Alias to Asia/Shanghai)",
+      "region": "Mainland China (Legacy)",
+      "standardName": "China Standard Time",
+      "abbreviation": "CST",
+      "utcOffset": "+08:00"
+    },
+    {
+      "id": "Asia/Harbin",
+      "type": "Link (Alias to Asia/Shanghai)",
+      "region": "Mainland China (Legacy)",
+      "standardName": "China Standard Time",
+      "abbreviation": "CST",
+      "utcOffset": "+08:00"
+    },
+    {
+      "id": "Asia/Kashgar",
+      "type": "Link (Alias to Asia/Urumqi)",
+      "region": "Xinjiang (Legacy)",
+      "standardName": "Xinjiang Time",
+      "abbreviation": "XJT",
+      "utcOffset": "+06:00"
+    },
+    {
+      "id": "PRC",
+      "type": "Link (Alias to Asia/Shanghai)",
+      "region": "Mainland China (System Alias)",
+      "standardName": "China Standard Time",
+      "abbreviation": "CST",
+      "utcOffset": "+08:00"
+    }
+  ]

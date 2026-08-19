@@ -20,7 +20,6 @@ pyjwt = "^2.10.0"
 pydantic = "^2.10.1"
 python-dotenv = "^1.0.1"
 python-jose = "^3.3.0"
-pytest = "^8.3.3"
 sqlalchemy = "^2.0.36"
 starlette = "^0.41.3"
 httpx = "^0.28.1"
@@ -29,22 +28,20 @@ boto3 = "^1.35.97"
 python-multipart = "^0.0.20"
 pillow = "^11.1.0"
 requests = "^2.32.3"
-auth0-python = "^4.7.2"
 motor = "^3.6.1"
 beanie = "^1.29.0"
-pytest-asyncio = "^0.25.2"
-pytest-mock = "^3.14.0"
 redis = "^6.0.0"
 bs4 = "^0.0.2"
 elasticsearch = "^9.0.1"
 toml = "^0.10.2"
 mailtrap = "^2.3.0"
-bophono = "^0.2.0"
-rich = "^14.2.0"
-google-genai = "^2.0"
-
+scalar-fastapi = "^1.8.2"
+apscheduler = "^3.11.3"
 [tool.poetry.scripts]
 start = "uvicorn:main"
+
+[tool.poetry.plugins.pytest11]
+bookmark-cov = "pecha_api.bookmarks.pytest_cov_plugin"
 
 [tool.coverage.run]
 omit = [ "*/*_repository.py", "*/*_models.py", "*/*_init__.py", "*/db/*", "*/external_clients/*",]
@@ -59,5 +56,9 @@ version = "^0.32.1"
 
 [tool.poetry.group.dev.dependencies]
 coverage = "^7.6.8"
+pytest = "^8.3.3"
+pytest-asyncio = "^0.25.2"
+pytest-mock = "^3.14.0"
 pytest-cov = "^6.0.0"
 openapi-python-client = "^0.28.3"
+apscheduler = "^3.11.3"

@@ -12,13 +12,22 @@ DEFAULTS = dict(
     AWS_BUCKET_NAME="app-pecha-backend",
     AWS_BUCKET_OWNER="",
     BASE_URL="https://webuddhist.com/",
-    CLIENT_ID="",
+    CLIENT_ID="u8HNLQDXwcMov8yelYEYXSICn0s52vMu",
+    AUTH0_AUDIENCE="webuddhist-backend",
+    AUTH0_ADDITIONAL_CLIENT_IDS="u8HNLQDXwcMov8yelYEYXSICn0s52vMu",
+    AUTH0_SMS_DOMAIN="dev-vz6o17motc18g45h.us.auth0.com",
+    AUTH0_SMS_AUDIENCE="webuddhist-backend",
+    AUTH0_SMS_PHONE_CLAIM="https://webuddhist.com/phone_number",
+    AUTH0_SMS_PHONE_VERIFIED_CLAIM="https://webuddhist.com/phone_number_verified",
+    AUTH0_SMS_TOKEN_MAX_AGE_SECONDS=300,
+    AUTH0_GOOGLE_EMAIL_CLAIM="https://webuddhist.com/email",
+    AUTH0_GOOGLE_EMAIL_VERIFIED_CLAIM="https://webuddhist.com/email_verified",
     COMPRESSED_QUALITY=80,
     DATABASE_URL="postgresql://admin:pechaAdmin@localhost:5434/pecha",
     DEFAULT_LANGUAGE="en",
     DEFAULT_PAGE_SIZE=10,
     DEPLOYMENT_MODE="DEBUG",
-    DOMAIN_NAME="dev-pecha-esukhai.us.auth0.com",
+    DOMAIN_NAME="dev-vz6o17motc18g45h.us.auth0.com",
     IMAGE_EXPIRATION_IN_SEC=3600,
     JWT_ALGORITHM="HS256",
     JWT_AUD="https://pecha.org",
@@ -27,8 +36,13 @@ DEFAULTS = dict(
     MAX_FILE_SIZE_MB=1,
     MAX_FILE_SIZE = 5 * 1024 * 1024,
     MAX_AUDIO_FILE_SIZE = 50 * 1024 * 1024,
+    MAX_OTR_FILE_SIZE = 5 * 1024 * 1024,
     ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'},
     ALLOWED_AUDIO_EXTENSIONS = {'.mp3', '.m4a', '.wav', '.aac', '.ogg'},
+    AUDIO_MP3_BITRATE="128k",
+    FFMPEG_BINARY="ffmpeg",
+    FFPROBE_BINARY="ffprobe",
+    ALLOWED_OTR_EXTENSIONS = {'.otr', '.json'},
     MONGO_CONNECTION_STRING="mongodb://admin:pechaAdmin@localhost:27017/pecha?authSource=admin",
 
     WEBUDDHIST_STUDIO_BASE_URL="https://studio.webuddhist.com",
@@ -42,16 +56,19 @@ DEFAULTS = dict(
     CACHE_PREFIX="pecha:",
     CACHE_DEFAULT_TIMEOUT=3000000, # 30 seconds in seconds
     CACHE_CONNECTION_STRING="redis://localhost:6379",
-    
+    REDIS_URL="redis://localhost:6379/0",
+
     # Cache timeout configurations for different types (in seconds)
     CACHE_TEXT_TIMEOUT=1800,        # 30 minutes for texts (not frequently changed)
     CACHE_COLLECTION_TIMEOUT=1800,  # 30 minutes for collections (not frequently changed)
     CACHE_USER_TIMEOUT=900,         # 15 minutes for users (not frequently changed)
     CACHE_TOPIC_TIMEOUT=1800,       # 30 minutes for topics (not frequently changed)
     CACHE_SHEET_TIMEOUT=60,         # 1 minute for sheets (frequently edited by users)
+    CACHE_USER_STATS_TIMEOUT=300,   # 5 minutes for user stats
+    CACHE_CALENDAR_TIMEOUT=2592000, # 30 days; source calendar files are immutable
 
     SHORT_URL_GENERATION_ENDPOINT="https://pech.as/api/v1",
-    
+
     # External Multilingual Search API Configuration
     EXTERNAL_SEARCH_API_URL="https://pecha-backend-dev.web.app/",  # Change this to your actual external API URL
 
@@ -87,6 +104,40 @@ DEFAULTS = dict(
 
     GROUP_INVITE_EXPIRY_MINUTES=30,
     WEBUDDHIST_EMAIL_LOGO_URL="https://studio.webuddhist.com/assets/pecha_icon-DkKJLXuA.png",
+
+    # When true, sync_alembic_stamp.py may advance alembic_version to match detected
+    # schema markers. Intended for legacy local databases only; keep false in production.
+    SYNC_ALEMBIC_STAMP="false",
+
+    # Request observability (per-endpoint memory and latency logging)
+    REQUEST_OBSERVABILITY_ENABLED="true",
+    REQUEST_OBSERVABILITY_MEMORY_WARN_MB=50,
+    REQUEST_OBSERVABILITY_SKIP_PATHS="/health",
+
+    # Worker API Configuration
+    WORKER_API_URL="",
+
+    # Audio generation SQS queue (backend producer → worker consumer)
+    AUDIO_SQS_QUEUE_URL="",
+    # Fail pending jobs that never got an SQS MessageId (commit-before-send crash)
+    AUDIO_JOB_DISPATCH_RECONCILE_GRACE_SECONDS=120,
+    AUDIO_JOB_DISPATCH_RECONCILE_INTERVAL_SECONDS=60,
+    AUDIO_JOB_DISPATCH_RECONCILE_BATCH_SIZE=50,
+
+    # Chat notification SQS queue (backend producer → worker consumer)
+    CHAT_NOTIFICATION_SQS_QUEUE_URL="",
+    CHAT_NOTIFICATION_DISPATCH_RECONCILE_GRACE_SECONDS=120,
+    CHAT_NOTIFICATION_DISPATCH_RECONCILE_INTERVAL_SECONDS=60,
+    CHAT_NOTIFICATION_DISPATCH_RECONCILE_BATCH_SIZE=50,
+    CHAT_NOTIFICATION_PREVIEW_MAX_LENGTH=120,
+
+    # Internal routine notification dispatch (worker -> backend)
+    NOTIFICATION_DISPATCH_SECRET_TOKEN="",
+    NOTIFICATION_DEFAULT_TITLE="WebBuddhist",
+    NOTIFICATION_DEFAULT_BODY="Time for your daily practice.",
+
+    # Verse of the day retention (days); scheduler deletes older rows daily
+    VERSE_OF_DAY_EXPIRY_DAYS=7,
 
 )
 

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, model_serializer
-from typing import Optional, List
+from pydantic import BaseModel, Field, model_serializer, model_validator
+from typing import Optional, List, Self
 from uuid import UUID
 from datetime import datetime
 
@@ -9,9 +9,22 @@ from .routines_enums import SessionType
 
 class SessionRequest(BaseModel):
     session_type: SessionType
-    source_id: Optional[UUID] = None  
-    duration_ms: Optional[int] = None  
+    source_id: Optional[UUID] = None
+    accumulator_id: Optional[UUID] = Field(
+        None,
+        description="Preset accumulator id from GET /accumulators/presets (stored as source_id)",
+    )
+    duration_ms: Optional[int] = None
     display_order: int
+
+    @model_validator(mode="after")
+    def resolve_accumulator_fields(self) -> Self:
+        if self.session_type == SessionType.ACCUMULATOR:
+            if self.accumulator_id is not None and self.source_id is None:
+                self.source_id = self.accumulator_id
+            elif self.source_id is not None and self.accumulator_id is None:
+                self.accumulator_id = self.source_id
+        return self
 
 
 class CreateTimeBlockRequest(BaseModel):
@@ -28,11 +41,20 @@ class UpdateTimeBlockRequest(BaseModel):
     sessions: List[SessionRequest]
 
 
+class RoutineFirstSegmentDTO(BaseModel):
+    id: str
+    content: str
+
+
 class SessionDTO(BaseModel):
     id: UUID
     session_type: SessionType
-    source_id: Optional[UUID] = None  
-    title: Optional[str] = None  
+    source_id: Optional[UUID] = None
+    accumulator_id: Optional[UUID] = Field(
+        None,
+        description="Preset accumulator id (same id returned by GET /accumulators/presets)",
+    )
+    title: Optional[str] = None
     language: Optional[str] = None  
     duration_ms: Optional[int] = None  
     image: Optional[ImageUrlModel] = None    
@@ -40,21 +62,81 @@ class SessionDTO(BaseModel):
     start_date: Optional[datetime] = None  # Plan's start_date
     started_at: Optional[datetime] = None  # User's started_at from progress
     item_count: Optional[int] = None  # Recitation collection's item count
+    current_plan_id: Optional[UUID] = None  # SERIES: plan active for today's date
+    current_plan_title: Optional[str] = None  # SERIES: title of the active plan
+    first_segment: Optional[RoutineFirstSegmentDTO] = None
 
     @model_serializer(mode="wrap")
     def _omit_inapplicable_fields(self, serializer):
         data = serializer(self)
         if self.session_type == SessionType.TIMER:
-            for field in ("source_id", "title", "language", "image", "start_date", "started_at", "item_count"):
+            for field in (
+                "source_id",
+                "accumulator_id",
+                "title",
+                "language",
+                "image",
+                "start_date",
+                "started_at",
+                "item_count",
+                "current_plan_id",
+                "current_plan_title",
+                "first_segment",
+            ):
                 data.pop(field, None)
-        elif self.session_type == SessionType.RECITATION_COLLECTION:
-            for field in ("duration_ms", "language", "start_date", "started_at"):
+        elif self.session_type in (
+            SessionType.RECITATION_COLLECTION,
+            SessionType.GROUP_RECITATION_COLLECTION,
+        ):
+            for field in (
+                "duration_ms",
+                "language",
+                "start_date",
+                "started_at",
+                "current_plan_id",
+                "current_plan_title",
+                "accumulator_id",
+                "first_segment",
+            ):
                 data.pop(field, None)
         elif self.session_type == SessionType.RECITATION:
-            for field in ("duration_ms", "start_date", "started_at", "item_count"):
+            for field in (
+                "duration_ms",
+                "start_date",
+                "started_at",
+                "item_count",
+                "current_plan_id",
+                "current_plan_title",
+                "accumulator_id",
+            ):
                 data.pop(field, None)
-        else:  # PLAN
-            for field in ("duration_ms", "item_count"):
+        elif self.session_type == SessionType.ACCUMULATOR:
+            accumulator_id = self.accumulator_id or self.source_id
+            if accumulator_id is not None:
+                data["accumulator_id"] = accumulator_id
+            data.pop("source_id", None)
+            for field in (
+                "duration_ms",
+                "start_date",
+                "started_at",
+                "item_count",
+                "current_plan_id",
+                "current_plan_title",
+                "first_segment",
+            ):
+                data.pop(field, None)
+        elif self.session_type == SessionType.PLAN:
+            for field in (
+                "duration_ms",
+                "item_count",
+                "current_plan_id",
+                "current_plan_title",
+                "accumulator_id",
+                "first_segment",
+            ):
+                data.pop(field, None)
+        else:  # SERIES exposes start_date / started_at and current plan fields
+            for field in ("duration_ms", "item_count", "accumulator_id", "first_segment"):
                 data.pop(field, None)
         return data
 
@@ -78,3 +160,8 @@ class RoutineResponse(BaseModel):
     skip: int
     limit: int
     total: int
+
+
+class RoutineInfoResponse(BaseModel):
+    series_count: int
+    recitation_count: int

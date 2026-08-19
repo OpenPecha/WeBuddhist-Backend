@@ -1065,3 +1065,81 @@ def test_unenroll_from_series_success(authenticated_client):
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert mock_unenroll.call_args.kwargs.get("token") == VALID_TOKEN
         assert mock_unenroll.call_args.kwargs.get("series_id") == series_id
+
+
+def test_get_user_series_days_completed_endpoint_success(authenticated_client):
+    from pecha_api.plans.media.media_response_models import ImageUrlModel
+    from pecha_api.plans.users.plan_users_response_models import (
+        UserSeriesDaysCompletedResponse,
+        UserSeriesDaysCompletedDTO,
+    )
+
+    series_id = uuid.uuid4()
+    mock_response = UserSeriesDaysCompletedResponse(
+        series=[
+            UserSeriesDaysCompletedDTO(
+                series_id=series_id,
+                series_title="Test Series",
+                series_description="Description",
+                image=ImageUrlModel(
+                    thumbnail="https://signed.example.com/series-thumb.jpg",
+                    medium="https://signed.example.com/series-medium.jpg",
+                    original="https://signed.example.com/series.jpg",
+                ),
+                days_completed=15,
+            )
+        ],
+        skip=0,
+        limit=20,
+        total=1,
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_views.get_user_series_days_completed",
+        return_value=mock_response,
+    ) as mock_get:
+        response = authenticated_client.get(
+            "/users/me/series/day-completed",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["total"] == 1
+        assert len(data["series"]) == 1
+        assert data["series"][0]["series_title"] == "Test Series"
+        assert data["series"][0]["days_completed"] == 15
+        assert mock_get.call_args.kwargs.get("token") == VALID_TOKEN
+        assert mock_get.call_args.kwargs.get("skip") == 0
+        assert mock_get.call_args.kwargs.get("limit") == 20
+
+
+def test_get_user_series_days_completed_endpoint_with_filters(authenticated_client):
+    from pecha_api.plans.users.plan_users_response_models import UserSeriesDaysCompletedResponse
+
+    mock_response = UserSeriesDaysCompletedResponse(
+        series=[],
+        skip=5,
+        limit=10,
+        total=0,
+    )
+
+    with patch(
+        "pecha_api.plans.users.plan_users_views.get_user_series_days_completed",
+        return_value=mock_response,
+    ) as mock_get:
+        response = authenticated_client.get(
+            "/users/me/series/day-completed?language=bo&skip=5&limit=10",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert mock_get.call_args.kwargs.get("language") == "bo"
+        assert mock_get.call_args.kwargs.get("skip") == 5
+        assert mock_get.call_args.kwargs.get("limit") == 10
+
+
+def test_get_user_series_days_completed_endpoint_unauthenticated(unauthenticated_client):
+    response = unauthenticated_client.get("/users/me/series/day-completed")
+
+    assert response.status_code == status.HTTP_403_FORBIDDEN

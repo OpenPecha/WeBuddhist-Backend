@@ -1,0 +1,26 @@
+import enum
+from sqlalchemy import Enum
+
+
+class BookmarkType(enum.Enum):
+    TEXT = "TEXT"
+    PLAN = "PLAN"
+    SERIES = "SERIES"
+    ACCUMULATOR = "ACCUMULATOR"
+    TIMER = "TIMER"
+    VERSE = "VERSE"
+    RECITATION_COLLECTION = "RECITATION_COLLECTION"
+    GROUP_RECITATION_COLLECTION = "GROUP_RECITATION_COLLECTION"
+
+
+class BookmarkFilterType(enum.Enum):
+    TEXT = "TEXT"
+    PLAN = "PLAN"
+    SERIES = "SERIES"
+    ACCUMULATOR = "ACCUMULATOR"
+    TIMER = "TIMER"
+    RECITATION_COLLECTION = "RECITATION_COLLECTION"
+    GROUP_RECITATION_COLLECTION = "GROUP_RECITATION_COLLECTION"
+
+
+BookmarkTypeEnum = Enum(BookmarkType, name="bookmark_type")

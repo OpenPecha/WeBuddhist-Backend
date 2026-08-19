@@ -47,6 +47,25 @@ def get_notifications_paginated(
     return rows, total
 
 
+def notification_exists_for_reference(
+    db: Session,
+    *,
+    recipient_author_id: UUID,
+    category: str,
+    reference_id: UUID,
+) -> bool:
+    return (
+        db.query(Notification.id)
+        .filter(
+            Notification.recipient_author_id == recipient_author_id,
+            Notification.category == category,
+            Notification.reference_id == reference_id,
+        )
+        .first()
+        is not None
+    )
+
+
 def mark_notification_read(db: Session, notification: Notification) -> Notification:
     if notification.is_read:
         return notification

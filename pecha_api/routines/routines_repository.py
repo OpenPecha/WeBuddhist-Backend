@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from starlette import status
 from uuid import UUID
 from typing import Optional, List, Tuple
+from datetime import time
 import _datetime
 from _datetime import datetime
 
@@ -164,9 +165,17 @@ def delete_sessions_by_time_block_id(db: Session, time_block_id: UUID) -> None:
     db.commit()
 
 
-def update_time_block(db: Session,time_block: RoutineTimeBlock,time: str,time_int: int,notification_enabled: bool) -> RoutineTimeBlock:
+def update_time_block(
+    db: Session,
+    time_block: RoutineTimeBlock,
+    time: str,
+    time_utc: time,
+    time_int: int,
+    notification_enabled: bool,
+) -> RoutineTimeBlock:
     try:
         time_block.time = time
+        time_block.time_utc = time_utc
         time_block.time_int = time_int
         time_block.notification_enabled = notification_enabled
         db.commit()
@@ -206,6 +215,24 @@ def get_sessions_by_time_block_ids(db: Session, time_block_ids: List[UUID], orde
         query = query.order_by(order_by_field.desc() if order_desc else order_by_field)
     
     return query.all()
+
+
+def get_time_blocks_containing_series(
+    db: Session, user_id: UUID, series_id: UUID
+) -> List[RoutineTimeBlock]:
+    return (
+        db.query(RoutineTimeBlock)
+        .join(Routine, RoutineTimeBlock.routine_id == Routine.id)
+        .join(RoutineSession, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            Routine.user_id == user_id,
+            Routine.deleted_at.is_(None),
+            RoutineTimeBlock.deleted_at.is_(None),
+            RoutineSession.session_type == SessionType.SERIES,
+            RoutineSession.source_id == series_id,
+        )
+        .all()
+    )
 
 
 def get_time_blocks_containing_plan(db: Session, user_id: UUID, plan_id: UUID) -> List[RoutineTimeBlock]:
@@ -251,6 +278,20 @@ def add_plan_session_to_time_block(db: Session, time_block_id: UUID, plan_id: UU
     return session
 
 
+def get_series_source_ids_by_time_block_id(
+    db: Session, time_block_id: UUID
+) -> List[UUID]:
+    sessions = (
+        db.query(RoutineSession.source_id)
+        .filter(
+            RoutineSession.time_block_id == time_block_id,
+            RoutineSession.session_type == SessionType.SERIES,
+        )
+        .all()
+    )
+    return [s.source_id for s in sessions]
+
+
 def get_existing_plan_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
     """Get all plan source_ids in a routine."""
     sessions = (
@@ -284,15 +325,19 @@ def get_existing_plan_source_ids_in_routine(
     return [row[0] for row in query.all()]
 
 
-def get_existing_collection_source_ids(db: Session, routine_id: UUID) -> List[UUID]:
-    """Get all recitation collection source_ids in a routine."""
+def get_existing_collection_source_ids(
+    db: Session,
+    routine_id: UUID,
+    session_type: SessionType = SessionType.RECITATION_COLLECTION,
+) -> List[UUID]:
+    """Get all collection source_ids of a given type in a routine."""
     sessions = (
         db.query(RoutineSession.source_id)
         .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
         .filter(
             RoutineTimeBlock.routine_id == routine_id,
             RoutineTimeBlock.deleted_at.is_(None),
-            RoutineSession.session_type == SessionType.RECITATION_COLLECTION,
+            RoutineSession.session_type == session_type,
         )
         .all()
     )
@@ -300,16 +345,19 @@ def get_existing_collection_source_ids(db: Session, routine_id: UUID) -> List[UU
 
 
 def get_existing_collection_source_ids_in_routine(
-    db: Session, routine_id: UUID, exclude_time_block_id: Optional[UUID] = None
+    db: Session,
+    routine_id: UUID,
+    exclude_time_block_id: Optional[UUID] = None,
+    session_type: SessionType = SessionType.RECITATION_COLLECTION,
 ) -> List[UUID]:
-    """Get all recitation collection source_ids in a routine, optionally excluding a time block."""
+    """Get collection source_ids of a given type in a routine, optionally excluding a time block."""
     query = (
         db.query(RoutineSession.source_id)
         .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
         .filter(
             RoutineTimeBlock.routine_id == routine_id,
             RoutineTimeBlock.deleted_at.is_(None),
-            RoutineSession.session_type == SessionType.RECITATION_COLLECTION,
+            RoutineSession.session_type == session_type,
         )
     )
     if exclude_time_block_id:
@@ -317,14 +365,56 @@ def get_existing_collection_source_ids_in_routine(
     return [row[0] for row in query.all()]
 
 
-def get_collection_source_ids_by_time_block_id(db: Session, time_block_id: UUID) -> List[UUID]:
-    """Get recitation collection source_ids for a specific time block."""
+def get_collection_source_ids_by_time_block_id(
+    db: Session,
+    time_block_id: UUID,
+    session_type: SessionType = SessionType.RECITATION_COLLECTION,
+) -> List[UUID]:
+    """Get collection source_ids of a given type for a specific time block."""
     sessions = (
         db.query(RoutineSession.source_id)
         .filter(
             RoutineSession.time_block_id == time_block_id,
-            RoutineSession.session_type == SessionType.RECITATION_COLLECTION,
+            RoutineSession.session_type == session_type,
         )
         .all()
     )
     return [s.source_id for s in sessions]
+
+
+def get_routine_series_and_recitation_counts(
+    db: Session, routine_id: UUID
+) -> Tuple[int, int]:
+    sessions = (
+        db.query(RoutineSession.session_type, RoutineSession.source_id)
+        .join(RoutineTimeBlock, RoutineSession.time_block_id == RoutineTimeBlock.id)
+        .filter(
+            RoutineTimeBlock.routine_id == routine_id,
+            RoutineTimeBlock.deleted_at.is_(None),
+        )
+        .all()
+    )
+
+    # Use sets to count unique source_ids
+    series_source_ids = {
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.SERIES and session.source_id is not None
+    }
+    plan_source_ids = {
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.PLAN and session.source_id is not None
+    }
+    recitation_source_ids = {
+        session.source_id
+        for session in sessions
+        if session.session_type
+        in (
+            SessionType.RECITATION,
+            SessionType.RECITATION_COLLECTION,
+            SessionType.GROUP_RECITATION_COLLECTION,
+        )
+    }
+
+    return len(series_source_ids) + len(plan_source_ids), len(recitation_source_ids)

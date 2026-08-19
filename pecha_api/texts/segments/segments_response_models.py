@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 from sqlalchemy.orm import strategies
@@ -6,6 +6,7 @@ from .segments_models import Mapping
 
 from .segments_enum import SegmentType
 from pecha_api.texts.texts_response_models import TextDTO
+from pecha_api.plans.videos.plan_video_response_models import PlanVideoDTO
 
 
 class CreateSegment(BaseModel):
@@ -48,6 +49,10 @@ class MappedSegmentDTO(BaseModel):
 
 class SegmentResponse(BaseModel):
     segments: List[SegmentDTO]
+
+
+class SegmentSearchRequest(BaseModel):
+    content: str = Field(..., min_length=1)
 
 class ParentSegment(BaseModel):
     segment_id: str
@@ -124,6 +129,7 @@ class SegmentInfo(BaseModel):
     translations: Optional[int] = 0
     related_text: RelatedText
     resources: Resources
+    videos: List[PlanVideoDTO] = Field(default_factory=list)
 
 class SegmentInfoResponse(BaseModel):
     segment_info: SegmentInfo

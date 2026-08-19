@@ -98,6 +98,8 @@ class DetailTableOfContentResponse(BaseModel):
     pagination_direction: PaginationDirection
     current_segment_position: int
     total_segments: int
+    has_more_up: bool = False
+    has_more_down: bool = False
 
 class TextSegment(BaseModel):
     segment_id: Optional[str] = None
@@ -136,6 +138,8 @@ class TextDetailsRequest(BaseModel):
     section_id: Optional[str] = None
     size: int = 20
     direction: PaginationDirection = PaginationDirection.NEXT
+    start: Optional[int] = None
+    end: Optional[int] = None
 
 # Text Version Response Models
 

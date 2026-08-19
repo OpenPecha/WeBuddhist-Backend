@@ -251,6 +251,7 @@ async def test_get_task_subtasks_service_image_content_uses_presigned_url():
         source_text_id=None,
         pecha_segment_id=None,
         segment_ids=None,
+        segment_numbers=None,
         audio_url=None,
     )
 
@@ -561,6 +562,7 @@ async def test_get_task_subtasks_service_success():
         source_text_id=None,
         pecha_segment_id=None,
         segment_ids=None,
+        segment_numbers=None,
         audio_url=None,
     )
     subtask2 = SimpleNamespace(
@@ -572,6 +574,7 @@ async def test_get_task_subtasks_service_success():
         source_text_id=None,
         pecha_segment_id=None,
         segment_ids=None,
+        segment_numbers=None,
         audio_url=None,
     )
 
@@ -805,11 +808,11 @@ async def test_update_task_title_service_success():
         title=new_title,
         created_by=author_email,
     )
-    
+
     db_mock = MagicMock()
     session_cm = MagicMock()
     session_cm.__enter__.return_value = db_mock
-    
+
     with patch(
         "pecha_api.plans.tasks.plan_tasks_services.validate_cms_author_details",
         return_value=mock_author,
@@ -823,16 +826,16 @@ async def test_update_task_title_service_success():
         "pecha_api.plans.tasks.plan_tasks_services.update_task_title",
         return_value=mock_updated_task,
     ) as mock_update:
-        
+
         result = await update_task_title_service(
             token="valid_token_123",
             task_id=task_id,
             update_request=request,
         )
-        
+
         assert mock_validate.call_count == 1
         assert mock_validate.call_args.kwargs == {"token": "valid_token_123"}
-        
+
         assert mock_get_author_task.call_count == 1
         # title should be set on the task object before repository call
         assert mock_task.title == new_title
@@ -1393,3 +1396,4 @@ async def test_change_task_order_service_database_error():
 @pytest.mark.asyncio
 async def test_change_task_order_service_task_not_in_day():
     pytest.skip("change_task_order_service no longer validates day membership; condition not applicable")
+

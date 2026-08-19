@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel
 
@@ -8,8 +9,9 @@ from pecha_api.auth.auth_enums import RegistrationSource
 class CreateUserRequest(BaseModel):
     firstname: str
     lastname: str
-    email: str
-    password: str
+    email: Optional[str] = None
+    password: Optional[str] = None
+    phone_number: Optional[str] = None
 
 class CreateSocialUserRequest(BaseModel):
     create_user_request: CreateUserRequest
@@ -36,6 +38,30 @@ class UserLoginResponse(BaseModel):
     auth: TokenResponse
 
 
+class PhoneExchangeRequest(BaseModel):
+    auth0_token: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+
+class PhoneExchangeResponse(BaseModel):
+    user_id: UUID
+    phone_number: str
+    message: str
+    user: UserInfo
+    auth: TokenResponse
+
+
+class PhoneLinkRequest(BaseModel):
+    auth0_token: str
+
+
+class PhoneLinkResponse(BaseModel):
+    user_id: UUID
+    phone_number: str
+    message: str
+
+
 class RefreshTokenRequest(BaseModel):
     token: str
 
@@ -55,3 +81,4 @@ class ResetPasswordRequest(BaseModel):
 class PropsResponse(BaseModel):
     client_id: str
     domain: str
+    audience: str

@@ -34,6 +34,7 @@ from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_response_model import (
 from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.response_message import SUBTASK_ORDER_FAILED
 from pecha_api.plans.audio.timestamp_service import apply_sub_task_timestamp
+from pecha_api.plans.public.plans_cache_service import invalidate_plan_day_cache_for_task
 
 async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) -> SubTaskResponse:
     current_author = validate_and_extract_author_details(token=token)
@@ -55,6 +56,7 @@ async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) 
                     source_text_id=sub.source_text_id,          
                     pecha_segment_id=sub.pecha_segment_id,
                     segment_ids=sub.segment_ids,
+                    segment_numbers=sub.segment_numbers,
                     display_order=next_display_order + index,
                     created_by=current_author.email,
                 )
@@ -80,11 +82,13 @@ async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) 
                     source_text_id=item.source_text_id,
                     pecha_segment_id=item.pecha_segment_id,
                     segment_ids=item.segment_ids,
+                    segment_numbers=item.segment_numbers,
                     display_order=item.display_order,
                     start_ms=start_ms,
                     end_ms=end_ms,
                 )
             )
+        await invalidate_plan_day_cache_for_task(db=db, task_id=create_task_request.task_id)
         return SubTaskResponse(
             sub_tasks=created_sub_tasks,
         )
@@ -108,6 +112,7 @@ async def update_sub_task_by_task_id(token: str, update_sub_task_request: Update
                 source_text_id=subtask.source_text_id,
                 pecha_segment_id=subtask.pecha_segment_id,
                 segment_ids=subtask.segment_ids,
+                segment_numbers=subtask.segment_numbers,
                 display_order=subtask.display_order,
                 created_by=current_author.email,
             )
@@ -151,6 +156,8 @@ async def update_sub_task_by_task_id(token: str, update_sub_task_request: Update
                     author_email=current_author.email,
                 )
 
+        await invalidate_plan_day_cache_for_task(db=db, task_id=update_sub_task_request.task_id)
+
 
 async def change_subtask_order_service(token: str, task_id: UUID, update_subtask_order: SubTaskOrderRequest) -> None:
     current_author = validate_and_extract_author_details(token=token)
@@ -158,3 +165,4 @@ async def change_subtask_order_service(token: str, task_id: UUID, update_subtask
         task = _get_author_task(db=db, task_id=task_id, current_author=current_author)
         
         update_sub_task_order_in_bulk_by_task_id(db=db, sub_task_list=update_subtask_order.subtasks,task_id=task.id)
+        await invalidate_plan_day_cache_for_task(db=db, task_id=task_id)

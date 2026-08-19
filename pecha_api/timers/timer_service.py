@@ -1,6 +1,8 @@
 from typing import Optional, List
 from uuid import UUID, uuid4
 import logging
+import _datetime
+from _datetime import datetime
 
 from fastapi import HTTPException
 from starlette import status
@@ -8,21 +10,29 @@ from ..db.database import SessionLocal
 from ..uploads.S3_utils import generate_presigned_access_url
 from ..config import get
 from ..users.users_service import validate_and_extract_user_details
+from pecha_api.daily_log.daily_log_cache_service import schedule_invalidate_user_stats_cache
 from .timer_repository import (
     get_timers_by_group, 
     get_user_timers_by_group,
     save_timer,
     get_timer_by_id,
     update_timer,
-    delete_timer
+    delete_timer,
+    save_timer_history,
+    get_user_timer_history
 )
 from .timer_response_models import (
     TimersResponse, 
     TimerDTO, 
     CreateTimerRequest, 
-    UpdateTimerRequest
+    UpdateTimerRequest,
+    RecordTimerStopRequest,
+    TimerHistoryResponse,
+    TimerHistoryDTO,
+    TimerSessionDTO
 )
 from .timer_model import Timer
+from .timer_history_model import TimerHistory
 from .timer_enums import TimerType
 from .response_message import (
     NOT_FOUND,
@@ -74,7 +84,7 @@ def is_user_created_timer(timer: Timer) -> bool:
 
 
 def get_all_timers_service(
-    group_id: UUID,
+    group_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 20
 ) -> TimersResponse:
@@ -90,7 +100,7 @@ def get_all_timers_service(
 
 def get_user_timers_service(
     user_id: UUID,
-    group_id: UUID,
+    group_id: Optional[UUID] = None,
     skip: int = 0,
     limit: int = 20
 ) -> TimersResponse:
@@ -185,3 +195,63 @@ def delete_timer_service(token: str, timer_id: UUID) -> None:
             )
         
         delete_timer(db, timer)
+
+
+def record_timer_stop_service(token: str, request: RecordTimerStopRequest) -> None:
+    current_user = validate_and_extract_user_details(token=token)
+    
+    with SessionLocal() as db:
+        timer = get_timer_by_id(db, request.timer_id)
+        if not timer:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"error": NOT_FOUND, "message": TIMER_NOT_FOUND}
+            )
+        
+        timer_history = TimerHistory(
+            id=uuid4(),
+            timer_id=request.timer_id,
+            user_id=current_user.id,
+            duration_ms=request.duration,
+            created_at=datetime.now(_datetime.timezone.utc)
+        )
+        
+        save_timer_history(db, timer_history)
+
+    schedule_invalidate_user_stats_cache(user_id=current_user.id)
+
+
+def get_timer_history_service(
+    token: str,
+    skip: int = 0,
+    limit: int = 20
+) -> TimerHistoryResponse:
+    current_user = validate_and_extract_user_details(token=token)
+    
+    with SessionLocal() as db:
+        history_data, total = get_user_timer_history(db, current_user.id, skip, limit)
+        
+        timers = []
+        for timer, total_time_spent, sessions in history_data:
+            timer_history_dto = TimerHistoryDTO(
+                timer_id=timer.id,
+                name=timer.name,
+                description=timer.description,
+                actual_duration=timer.duration,
+                total_time_spent=total_time_spent,
+                sessions=[
+                    TimerSessionDTO(
+                        duration=session.duration_ms,
+                        created_at=session.created_at
+                    )
+                    for session in sessions
+                ]
+            )
+            timers.append(timer_history_dto)
+        
+        return TimerHistoryResponse(
+            timers=timers,
+            total=total,
+            skip=skip,
+            limit=limit
+        )

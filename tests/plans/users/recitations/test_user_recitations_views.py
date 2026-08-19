@@ -160,7 +160,9 @@ class TestGetUserRecitationsView:
         assert result.recitations[1].title == "Diamond Sutra"
         assert result.recitations[1].text_id == text_id_2
         
-        mock_service.assert_awaited_once_with(token=token)
+        mock_service.assert_awaited_once_with(
+            token=token,
+        )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
     @pytest.mark.asyncio
@@ -181,7 +183,9 @@ class TestGetUserRecitationsView:
         assert len(result.recitations) == 0
         assert result.recitations == []
         
-        mock_service.assert_awaited_once_with(token=token)
+        mock_service.assert_awaited_once_with(
+            token=token,
+        )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
     @pytest.mark.asyncio
@@ -210,7 +214,9 @@ class TestGetUserRecitationsView:
         assert result.recitations[0].title == "Lotus Sutra"
         assert result.recitations[0].text_id == text_id
         
-        mock_service.assert_awaited_once_with(token=token)
+        mock_service.assert_awaited_once_with(
+            token=token,
+        )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
     @pytest.mark.asyncio
@@ -234,7 +240,9 @@ class TestGetUserRecitationsView:
         assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
         assert exc_info.value.detail == "Invalid authentication credentials"
         
-        mock_service.assert_awaited_once_with(token=token)
+        mock_service.assert_awaited_once_with(
+            token=token,
+        )
 
     @patch('pecha_api.plans.users.recitation.user_recitations_views.get_user_recitations_service')
     @pytest.mark.asyncio

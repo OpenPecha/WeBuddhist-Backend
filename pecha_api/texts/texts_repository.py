@@ -110,8 +110,20 @@ async def get_texts_by_collection(collection_id: str, skip: int, limit: int) -> 
 async def get_all_texts_by_collection(collection_id: str) -> List[Text]:
     return await Text.get_all_texts_by_collection_id(collection_id=collection_id)
 
-async def get_all_recitation_texts_by_collection(collection_id: str, language: str) -> List[Text]:
-    return await Text.get_all_recitation_texts_by_collection_id(collection_id=collection_id, language=language)
+async def get_all_recitation_texts_by_collection(
+    collection_id: str, 
+    language: str, 
+    search: Optional[str] = None, 
+    skip: int = 0, 
+    limit: int = 10
+) -> tuple[List[Text], int]:
+    return await Text.get_all_recitation_texts_by_collection_id(
+        collection_id=collection_id, 
+        language=language, 
+        search=search, 
+        skip=skip, 
+        limit=limit
+    )
 
 async def get_texts_by_group_id(group_id: str, skip: int, limit: int) -> List[TextDTO]:
     texts = await Text.get_texts_by_group_id(group_id=group_id, skip=skip, limit=limit)
@@ -204,6 +216,17 @@ async def get_contents_by_text_ids(text_ids: List[str]) -> Dict[str, List[TableO
     
 async def get_table_of_content_by_content_id(content_id: str, skip: int = None, limit: int = None) -> Optional[TableOfContent]:
     return await TableOfContent.get_table_of_content_by_content_id(content_id=content_id, skip=skip, limit=limit)
+
+
+async def find_table_of_content_with_segment(text_id: str, segment_id: str) -> Optional[TableOfContent]:
+    return await TableOfContent.find_table_of_content_with_segment(
+        text_id=text_id,
+        segment_id=segment_id,
+    )
+
+
+async def get_first_segment_table_of_content(text_id: str) -> tuple[Optional[str], Optional[TableOfContent]]:
+    return await TableOfContent.get_first_segment_table_of_content(text_id=text_id)
 
 
 async def delete_table_of_content_by_text_id(text_id: str):

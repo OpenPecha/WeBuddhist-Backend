@@ -12,6 +12,10 @@ from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 from pecha_api.plans.audio.plan_item_audio_models import PlanItemAudio
 from pecha_api.plans.audio.sub_task_timestamps_models import SubTaskTimestamp
+from pecha_api.plans.audio.audio_job_models import AudioJob
+from pecha_api.plans.videos.day_video_models import DayVideo
+from pecha_api.plans.videos.plan_video_models import PlanVideo
+from pecha_api.plans.shareable_images.day_shareable_image_models import DayShareableImage
 from pecha_api.plans.reviews.plan_reviews_models import PlanReview
 from pecha_api.plans.favorites.favorites_models import Favorite
 from pecha_api.plans.series.series_model import Series
@@ -19,11 +23,28 @@ from pecha_api.plans.series.series_metadata_model import SeriesMetadata
 from pecha_api.plans.tags.tag_model import Tag
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.users.plan_users_models import UserTaskCompletion
+from pecha_api.plans.users.plan_users_models import SeriesPartner
 from pecha_api.users.users_models import Users, SocialMediaAccount, PasswordReset
 from pecha_api.plans.users.recitation.user_recitations_models import UserRecitations
 from pecha_api.texts.text_images_models import TextImage
 from pecha_api.routines.routines_models import Routine, RoutineTimeBlock, RoutineSession
 from pecha_api.plans.groups.groups_models import AuthorGroup, AuthorGroupMetadata, AuthorGroupMember, AuthorGroupSocialLink, AuthorGroupInvite
+from pecha_api.mantra.mantra_model import Mantra
+from pecha_api.timers.timer_model import Timer
+from pecha_api.accumulator.accumulator_models import Accumulator
+from pecha_api.accumulator.accumulator_metadata_model import AccumulatorMetadata
+from pecha_api.accumulator.mala_image_model import MalaImage
+from pecha_api.events.event_model import Event
+from pecha_api.events.event_metadata_model import EventMetadata
+from pecha_api.events.event_participant_model import GroupEventParticipant
+from pecha_api.events.event_link_model import EventLink
+from pecha_api.events.location_model import Location
+from pecha_api.group_posts.models import GroupPost, GroupPostMedia, GroupPostLink
+from pecha_api.group_posts.comment_models import GroupPostComment
+from pecha_api.group_posts.like_models import GroupPostLike
+from pecha_api.mantra.mantra_metadata_model import MantraMetadata
+from pecha_api.traditions.tradition_models import Tradition, TraditionMetadata, UserTradition
+from pecha_api.region_restrictions.region_restriction_models import ChinaRestrictedItem
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

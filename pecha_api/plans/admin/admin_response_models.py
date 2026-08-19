@@ -10,7 +10,8 @@ class AdminAuthorListItemDTO(BaseModel):
     id: UUID
     firstname: str
     lastname: str
-    email: str
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
     is_verified: bool
     is_active: bool
     platform_role: PlatformRole
@@ -28,7 +29,8 @@ class AdminAuthorDetailDTO(BaseModel):
     id: UUID
     firstname: str
     lastname: str
-    email: str
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
     is_verified: bool
     is_active: bool
     platform_role: PlatformRole

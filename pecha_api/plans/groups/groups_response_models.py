@@ -1,10 +1,11 @@
 from datetime import datetime
+from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole
+from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole, AuthorGroupType
 from pecha_api.plans.groups.group_summary_models import (
     AuthorGroupSummaryDTO,
     GroupMetadataDTO,
@@ -14,6 +15,12 @@ from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.plans.plans_response_models import PlanDTO
 from pecha_api.plans.series.series_response_models import SeriesListItemDTO
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
+from pecha_api.group_accumulator.group_accumulator_response_models import GroupAccumulatorDTO
+from pecha_api.group_recitation_collection.response_models import GroupRecitationCollectionDTO
+
+
+class GroupSeriesListItemDTO(SeriesListItemDTO):
+    is_group_enrolled: Optional[bool] = None
 
 __all__ = [
     "AuthorGroupSummaryDTO",
@@ -28,6 +35,7 @@ __all__ = [
     "CreateAuthorGroupRequest",
     "UpdateAuthorGroupRequest",
     "ReplaceGroupTagsRequest",
+    "GroupSeriesListItemDTO",
     "ReplaceGroupSeriesRequest",
     "ReplaceGroupPlansRequest",
     "ReplaceGroupSocialLinksRequest",
@@ -37,6 +45,17 @@ __all__ = [
     "GroupInviteCreatedResponse",
     "UpdateGroupMemberRoleRequest",
     "TransferGroupOwnershipRequest",
+    "GroupMantraAccumulationDTO",
+    "GroupAccumulationsResponse",
+    "GroupMemberAccumulationDTO",
+    "GroupMemberAccumulationsResponse",
+    "AuthorGroupMemberProfileDTO",
+    "AuthorGroupMembersListResponse",
+    "GroupPracticeType",
+    "GroupPracticeCardDTO",
+    "GroupPracticesResponse",
+    "GroupPracticeFeedItemDTO",
+    "GroupPracticesFeedResponse",
 ]
 
 
@@ -44,6 +63,7 @@ class GroupMetadataInput(BaseModel):
     title: str
     sub_title: Optional[str] = None
     description: Optional[str] = None
+    description_long: Optional[str] = None
     language: LanguageCode
 
 
@@ -69,6 +89,7 @@ class AuthorGroupMemberDTO(BaseModel):
 class AuthorGroupDetailDTO(BaseModel):
     id: UUID
     slug: str
+    group_type: AuthorGroupType
     is_public: bool
     avatar_key: Optional[str] = None
     banner_key: Optional[str] = None
@@ -78,9 +99,10 @@ class AuthorGroupDetailDTO(BaseModel):
     members: List[AuthorGroupMemberDTO] = []
     tags: List[TagSummaryDTO] = []
     social_links: List[GroupSocialLinkDTO] = []
-    series: List[SeriesListItemDTO] = []
+    series: List[GroupSeriesListItemDTO] = []
     plans: List[PlanDTO] = []
     follower_count: int = 0
+    joiner_count: int = 0
 
 
 class PublicAuthorGroupSummaryDTO(AuthorGroupSummaryDTO):
@@ -105,8 +127,41 @@ class PublicAuthorGroupListResponse(BaseModel):
     total: int
 
 
+class UserFollowedAuthorGroupDTO(BaseModel):
+    id: UUID
+    avatar_key: Optional[str] = None
+    avatar_url: Optional[str] = None
+    metadata: GroupMetadataResponse = []
+    follower_count: int = 0
+    tags: List[str] = []
+
+
+class UserJoinedAuthorGroupDTO(BaseModel):
+    id: UUID
+    avatar_key: Optional[str] = None
+    avatar_url: Optional[str] = None
+    metadata: GroupMetadataResponse = []
+    joiner_count: int = 0
+    tags: List[str] = []
+
+
+class UserFollowedAuthorGroupListResponse(BaseModel):
+    groups: List[UserFollowedAuthorGroupDTO]
+    skip: int
+    limit: int
+    total: int
+
+
+class UserJoinedAuthorGroupListResponse(BaseModel):
+    groups: List[UserJoinedAuthorGroupDTO]
+    skip: int
+    limit: int
+    total: int
+
+
 class CreateAuthorGroupRequest(BaseModel):
     slug: str
+    group_type: AuthorGroupType = AuthorGroupType.PAGE
     is_public: bool = True
     avatar_key: Optional[str] = None
     banner_key: Optional[str] = None
@@ -182,3 +237,89 @@ class UpdateGroupMemberRoleRequest(BaseModel):
 
 class TransferGroupOwnershipRequest(BaseModel):
     new_owner_author_id: UUID
+
+
+class GroupMantraAccumulationDTO(BaseModel):
+    mantra_id: UUID
+    mantra_slug: Optional[str] = None
+    mantra_title: Optional[str] = None
+    count: int
+
+
+class GroupAccumulationsResponse(BaseModel):
+    group_id: UUID
+    mantras: List[GroupMantraAccumulationDTO]
+    total_count: int
+    total: int
+    skip: int
+    limit: int
+
+
+class GroupMemberAccumulationDTO(BaseModel):
+    username: Optional[str] = None
+    fullname: str
+    avatar_url: Optional[str] = None
+    count: int
+
+
+class GroupMemberAccumulationsResponse(BaseModel):
+    total_members: int
+    list: List[GroupMemberAccumulationDTO]
+    skip: int
+    limit: int
+
+
+class AuthorGroupMemberProfileDTO(BaseModel):
+    username: Optional[str] = None
+    fullname: str
+    avatar_url: Optional[str] = None
+
+
+class AuthorGroupMembersListResponse(BaseModel):
+    total_members: int
+    list: List[AuthorGroupMemberProfileDTO]
+    skip: int
+    limit: int
+
+
+class GroupPracticeType(str, Enum):
+    SERIES = "series"
+    ACCUMULATOR = "accumulator"
+    COLLECTION = "collection"
+    PLAN = "plan"
+
+
+class GroupPracticeCardDTO(BaseModel):
+    type: GroupPracticeType
+    series: Optional[GroupSeriesListItemDTO] = None
+    accumulator: Optional[GroupAccumulatorDTO] = None
+    collection: Optional[GroupRecitationCollectionDTO] = None
+
+
+class GroupPracticesResponse(BaseModel):
+    practices: List[GroupPracticeCardDTO]
+    skip: int
+    limit: int
+    total: int
+
+
+class GroupPracticeFeedItemDTO(BaseModel):
+    type: GroupPracticeType
+    practice_at: datetime
+    is_joined: bool
+    group_id: UUID
+    group_name: Optional[str] = None
+    group_slug: Optional[str] = None
+    group_avatar_url: Optional[str] = None
+    series: Optional[GroupSeriesListItemDTO] = None
+    accumulator: Optional[GroupAccumulatorDTO] = None
+    plan: Optional[PlanDTO] = None
+    collection: Optional[GroupRecitationCollectionDTO] = None
+
+
+class GroupPracticesFeedResponse(BaseModel):
+    practices: List[GroupPracticeFeedItemDTO]
+    skip: int
+    limit: int
+    total: int
+    include_unfollowed: bool

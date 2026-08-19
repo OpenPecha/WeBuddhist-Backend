@@ -5,7 +5,11 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from pecha_api.app import api
 from pecha_api.error_contants import ErrorConstants
-from pecha_api.users.user_response_models import UserInfoResponse, UpdateUsernameResponse
+from pecha_api.users.user_response_models import (
+    UserInfoResponse,
+    UpdateUsernameResponse,
+    OnboardingStatusResponse,
+)
 from fastapi import HTTPException
 client = TestClient(api)
 
@@ -257,4 +261,42 @@ def test_delete_user_information_server_error():
         response = client.delete("/users/info", headers={"Authorization": "Bearer testtoken"})
         assert response.status_code == 500
         assert response.json()["detail"] == "Failed to delete user account"
+
+
+def test_get_user_onboarding_status():
+    with patch("pecha_api.users.users_views.get_onboarding_status") as mock_get_status:
+        mock_get_status.return_value = OnboardingStatusResponse(has_seen_onboarding=False)
+        response = client.get(
+            "/users/me/onboarding",
+            headers={"Authorization": "Bearer testtoken"},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"has_seen_onboarding": False}
+        mock_get_status.assert_called_once_with(token="testtoken")
+
+
+def test_get_user_onboarding_status_unauthenticated():
+    response = client.get("/users/me/onboarding")
+    assert response.status_code == 403
+
+
+def test_update_user_onboarding_status():
+    with patch("pecha_api.users.users_views.update_onboarding_status") as mock_update_status:
+        mock_update_status.return_value = OnboardingStatusResponse(has_seen_onboarding=True)
+        response = client.put(
+            "/users/me/onboarding",
+            json={"has_seen_onboarding": True},
+            headers={"Authorization": "Bearer testtoken"},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"has_seen_onboarding": True}
+        mock_update_status.assert_called_once()
+
+
+def test_update_user_onboarding_status_unauthenticated():
+    response = client.put(
+        "/users/me/onboarding",
+        json={"has_seen_onboarding": True},
+    )
+    assert response.status_code == 403
 

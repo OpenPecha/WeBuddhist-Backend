@@ -13,6 +13,8 @@ from .texts_repository import (
     get_contents_by_id,
     get_contents_by_text_ids,
     get_table_of_content_by_content_id,
+    find_table_of_content_with_segment,
+    get_first_segment_table_of_content,
     get_sections_count_of_table_of_content,
     delete_table_of_content_by_text_id,
     update_text_details_by_id,
@@ -93,6 +95,7 @@ from pecha_api.sheets.sheets_enum import (
     SortOrder
 )
 from pecha_api.cache.cache_enums import CacheType
+from pecha_api.texts.texts_toc_utils import get_segment_page, iter_segment_positions
 
 from .texts_utils import TextUtils
 from pecha_api.users.users_service import validate_user_exists
@@ -261,6 +264,12 @@ async def get_table_of_contents_by_text_id(text_id: str, language: str = None, s
     
     if language is None:
         language = get("DEFAULT_LANGUAGE")
+
+    cached_data: TableOfContentResponse = await get_table_of_contents_by_text_id_cache(
+        text_id=text_id, language=language, skip=skip, limit=limit, cache_type=CacheType.TEXT_TABLE_OF_CONTENTS
+    )
+    if cached_data is not None:
+        return cached_data
     
     is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
     if not is_valid_text:
@@ -287,7 +296,11 @@ async def get_table_of_contents_by_text_id(text_id: str, language: str = None, s
             for content in table_of_contents
         ]
     )
-    
+
+    await set_table_of_contents_by_text_id_cache(
+        text_id=text_id, language=language, skip=skip, limit=limit,
+        data=response, cache_type=CacheType.TEXT_TABLE_OF_CONTENTS
+    )
     return response
 
 def _get_paginated_sections(sections: List[Section], skip: int, limit: int) -> List[Section]:
@@ -324,7 +337,26 @@ async def get_text_details_by_text_id(
         text_id: str,
         text_details_request: TextDetailsRequest
 ) -> DetailTableOfContentResponse:
-    
+
+    # Cache key encodes all request dimensions so different pages/versions never collide.
+    # We reuse the skip/limit slots for segment_id/range and direction/size respectively.
+    _direction_value = text_details_request.direction.value if text_details_request.direction else None
+    _cache_skip = (
+        f"{text_details_request.segment_id}:"
+        f"{text_details_request.start}:{text_details_request.end}"
+    )
+    _cache_limit = f"{_direction_value}:{text_details_request.size}"
+    cached_data: DetailTableOfContentResponse = await get_text_details_cache(
+        text_id=text_id,
+        content_id=text_details_request.content_id,
+        version_id=text_details_request.version_id,
+        skip=_cache_skip,
+        limit=_cache_limit,
+        cache_type=CacheType.DETAIL_TEXT_TABLE_OF_CONTENT,
+    )
+    if cached_data is not None:
+        return cached_data
+
     await _validate_text_detail_request(
         text_id=text_id,
         text_details_request=text_details_request
@@ -335,20 +367,23 @@ async def get_text_details_by_text_id(
         text_id=text_id,
         text_details_request=text_details_request
     )
-    segments_with_position: List[Tuple[str, int]] = _get_segments_with_position_(
+    (
+        total_segments,
+        current_segment_position,
+        trimmed_segment_dict,
+        has_more_up,
+        has_more_down,
+    ) = get_segment_page(
         table_of_content=table_of_content,
-    )
-    total_segments = len(segments_with_position)
-    trimmed_segment_dict = _get_trimmed_segment_dict_(
-        segments_with_position=segments_with_position,
         segment_id=text_details_request.segment_id,
         direction=text_details_request.direction,
-        size=text_details_request.size
+        size=text_details_request.size,
+        start=text_details_request.start,
+        end=text_details_request.end,
     )
-    current_segment_position = trimmed_segment_dict.get(text_details_request.segment_id)
     paginated_table_of_content: TableOfContent = _generate_paginated_table_of_content_by_segments_(
-        table_of_content = table_of_content,
-        segment_dict = trimmed_segment_dict
+        table_of_content=table_of_content,
+        segment_dict=trimmed_segment_dict,
     )
 
     detail_table_of_content: DetailTableOfContentResponse = await _mapping_table_of_content(
@@ -358,7 +393,19 @@ async def get_text_details_by_text_id(
         size=text_details_request.size,
         total_segments=total_segments,
         current_segment_position=current_segment_position,
-        pagination_direction=text_details_request.direction
+        pagination_direction=text_details_request.direction,
+        has_more_up=has_more_up,
+        has_more_down=has_more_down,
+    )
+
+    await set_text_details_cache(
+        text_id=text_id,
+        content_id=text_details_request.content_id,
+        version_id=text_details_request.version_id,
+        skip=_cache_skip,
+        limit=_cache_limit,
+        data=detail_table_of_content,
+        cache_type=CacheType.DETAIL_TEXT_TABLE_OF_CONTENT,
     )
 
     return detail_table_of_content
@@ -374,15 +421,15 @@ async def get_text_versions_by_group_id(text_id: str, language: str, skip: int, 
     if language is None:
         language = get("DEFAULT_LANGUAGE")
     
-    # cached_data: TextVersionResponse = await get_text_versions_by_group_id_cache(
-    #     text_id = text_id,
-    #     language = language,
-    #     skip = skip,
-    #     limit = limit,
-    #     cache_type = CacheType.TEXT_VERSIONS
-    # )
-    # if cached_data is not None:
-    #     return cached_data
+    cached_data: TextVersionResponse = await get_text_versions_by_group_id_cache(
+        text_id=text_id,
+        language=language,
+        skip=skip,
+        limit=limit,
+        cache_type=CacheType.TEXT_VERSIONS
+    )
+    if cached_data is not None:
+        return cached_data
 
     root_text = await TextUtils.get_text_detail_by_id(text_id=text_id)
     group_id = root_text.group_id
@@ -504,6 +551,8 @@ async def _mapping_table_of_content(
         total_segments: int,
         current_segment_position: int,
         pagination_direction: PaginationDirection,
+        has_more_up: bool = False,
+        has_more_down: bool = False,
 ) -> DetailTableOfContentResponse:
     detail_table_of_content = await SegmentUtils.get_mapped_segment_content_for_table_of_content(
         table_of_content=table_of_content,
@@ -515,7 +564,9 @@ async def _mapping_table_of_content(
         size=size,
         pagination_direction=pagination_direction,
         current_segment_position=current_segment_position,
-        total_segments=total_segments
+        total_segments=total_segments,
+        has_more_up=has_more_up,
+        has_more_down=has_more_down,
     )
     return detail_table_of_content
 
@@ -540,11 +591,45 @@ async def _validate_text_detail_request(text_id: str, text_details_request: Text
             segment_id=text_details_request.segment_id
         )
 
+    if text_details_request.start is not None and text_details_request.start < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="start must be greater than or equal to 1",
+        )
+
+    if text_details_request.end is not None and text_details_request.end < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="end must be greater than or equal to 1",
+        )
+
+    if (
+        text_details_request.start is not None
+        and text_details_request.end is not None
+        and text_details_request.end < text_details_request.start
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="end must be greater than or equal to start",
+        )
+
     await TextUtils.validate_text_exists(text_id=text_id)
 
-async def get_root_text_by_collection_id(collection_id: str, language: str) -> Optional[tuple[str, str]]:
+async def get_root_text_by_collection_id(
+    collection_id: str, 
+    language: str, 
+    search: Optional[str] = None, 
+    skip: int = 0, 
+    limit: int = 10
+) -> RecitationsResponse:
 
-    texts = await get_all_recitation_texts_by_collection(collection_id=collection_id, language=language)
+    texts, total = await get_all_recitation_texts_by_collection(
+        collection_id=collection_id, 
+        language=language, 
+        search=search, 
+        skip=skip, 
+        limit=limit
+    )
     grouped_texts = _group_texts_by_group_id(texts=texts, language=language)
     recitation_text_list = []
     for group_texts in grouped_texts.values():
@@ -553,7 +638,7 @@ async def get_root_text_by_collection_id(collection_id: str, language: str) -> O
         if root_text is None:
             continue
         recitation_text_list.append(RecitationDTO(text_id=root_text.id, title=root_text.title))
-    return RecitationsResponse(recitations=recitation_text_list)
+    return RecitationsResponse(recitations=recitation_text_list, skip=skip, limit=limit, total=total)
 
 
 def _group_texts_by_group_id(texts: List[TextDTO], language: str|None = None) -> Dict[str, List[TextDTO]]:
@@ -692,16 +777,29 @@ async def delete_text_by_text_id(text_id: str):
     await delete_text_by_id(text_id=text_id)
 
 
-def _filter_single_section_(section: Section, wanted_segment_ids: Set[str]) -> Section | None:
+def _filter_single_section_(
+    section: Section,
+    wanted_segment_ids: Set[str],
+    segment_dict: Optional[Dict[str, int]] = None,
+) -> Section | None:
     kept_segments = []
     for segment in section.segments:
         if segment.segment_id in wanted_segment_ids:
-            kept_segments.append(segment)
+            if segment_dict is not None and segment.segment_id in segment_dict:
+                kept_segments.append(
+                    segment.model_copy(update={"segment_number": segment_dict[segment.segment_id]})
+                )
+            else:
+                kept_segments.append(segment)
     
     kept_subsections = []
     if section.sections:
         for subsection in section.sections:
-            filtered_subsection = _filter_single_section_(subsection, wanted_segment_ids)
+            filtered_subsection = _filter_single_section_(
+                subsection,
+                wanted_segment_ids,
+                segment_dict=segment_dict,
+            )
             if filtered_subsection is not None:
                 kept_subsections.append(filtered_subsection)
     
@@ -733,7 +831,11 @@ def _generate_paginated_table_of_content_by_segments_(
     
     filtered_sections = []
     for section in table_of_content.sections:
-        filtered_section = _filter_single_section_(section=section, wanted_segment_ids=wanted_segment_ids)
+        filtered_section = _filter_single_section_(
+            section=section,
+            wanted_segment_ids=wanted_segment_ids,
+            segment_dict=segment_dict,
+        )
         if filtered_section is not None:
             filtered_sections.append(filtered_section)
     
@@ -767,37 +869,27 @@ def _get_trimmed_segment_dict_(segments_with_position:List[Tuple[str,int]], segm
     return trimmed_segments_with_position
 
 def _get_segments_with_position_(table_of_content: TableOfContent) -> List[Tuple[str, int]]:
-    segments_with_position: List[Tuple[str, int]] = []
-    position = 1
-    
-    def get_segment_from_section(section: Section):
-        nonlocal position
-        
-        for segment in section.segments:
-            segments_with_position.append((segment.segment_id, position))
-            position += 1
-        
-        if section.sections:
-            for sub_section in section.sections: 
-                get_segment_from_section(sub_section)
-    
-    for section in table_of_content.sections:
-        get_segment_from_section(section)
-    return segments_with_position
+    return list(iter_segment_positions(table_of_content))
 
 
 async def _receive_table_of_content(text_id: str, text_details_request: TextDetailsRequest) -> TableOfContent:
     table_of_content = None
     if text_details_request.content_id is not None and text_details_request.segment_id is not None:
-        table_of_content:TableOfContent = await get_table_of_content_by_content_id(
+        table_of_content = await get_table_of_content_by_content_id(
             content_id=text_details_request.content_id
         )
     elif text_details_request.segment_id is not None:
-        table_of_contents: List[TableOfContent] = await get_contents_by_id(text_id=text_id)
-        table_of_content: TableOfContent = _search_table_of_content_where_segment_id_exists(table_of_contents=table_of_contents, segment_id=text_details_request.segment_id)
+        table_of_content = await find_table_of_content_with_segment(
+            text_id=text_id,
+            segment_id=text_details_request.segment_id,
+        )
+        if table_of_content is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ErrorConstants.TABLE_OF_CONTENT_NOT_FOUND_MESSAGE,
+            )
     else:
-        table_of_content = await get_contents_by_id(text_id=text_id)
-        segment_id, table_of_content = _get_first_segment_and_table_of_content_(table_of_contents=table_of_content)
+        segment_id, table_of_content = await get_first_segment_table_of_content(text_id=text_id)
         text_details_request.segment_id = segment_id
 
     if table_of_content is None:

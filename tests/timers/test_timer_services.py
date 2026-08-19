@@ -13,15 +13,22 @@ from pecha_api.timers.timer_service import (
     delete_timer_service,
     convert_timer_to_dto,
     generate_audio_presigned_url,
-    is_user_created_timer
+    is_user_created_timer,
+    record_timer_stop_service,
+    get_timer_history_service
 )
 from pecha_api.timers.timer_response_models import (
     TimersResponse,
     TimerDTO,
     CreateTimerRequest,
-    UpdateTimerRequest
+    UpdateTimerRequest,
+    RecordTimerStopRequest,
+    TimerHistoryResponse,
+    TimerHistoryDTO,
+    TimerSessionDTO
 )
 from pecha_api.timers.timer_model import Timer
+from pecha_api.timers.timer_history_model import TimerHistory
 from pecha_api.timers.timer_enums import TimerType
 
 
@@ -92,6 +99,22 @@ class TestDataFactory:
             duration=duration,
             audio_url=audio_url
         )
+    
+    @staticmethod
+    def create_mock_timer_history(
+        history_id=None,
+        timer_id=None,
+        user_id=None,
+        duration=600
+    ):
+        """Create a mock TimerHistory model."""
+        history = MagicMock(spec=TimerHistory)
+        history.id = history_id or uuid4()
+        history.timer_id = timer_id or uuid4()
+        history.user_id = user_id or uuid4()
+        history.duration = duration
+        history.created_at = datetime.utcnow()
+        return history
 
 
 class TestGetAllTimersService:
@@ -158,6 +181,26 @@ class TestGetAllTimersService:
         assert result.total == 10
         
         mock_get_timers.assert_called_once_with(mock_db, group_id, 5, 1)
+    
+    @patch('pecha_api.timers.timer_service.SessionLocal')
+    @patch('pecha_api.timers.timer_service.get_timers_by_group')
+    def test_get_all_timers_service_without_group_id(self, mock_get_timers, mock_session):
+        """Test get_all_timers_service without group_id filter."""
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        
+        timer1 = TestDataFactory.create_mock_timer(name="Timer 1")
+        timer2 = TestDataFactory.create_mock_timer(name="Timer 2")
+        
+        mock_get_timers.return_value = ([timer1, timer2], 2)
+        
+        result = get_all_timers_service(group_id=None, skip=0, limit=20)
+        
+        assert isinstance(result, TimersResponse)
+        assert len(result.timers) == 2
+        assert result.total == 2
+        
+        mock_get_timers.assert_called_once_with(mock_db, None, 0, 20)
 
 
 class TestGetUserTimersService:
@@ -202,6 +245,28 @@ class TestGetUserTimersService:
         
         assert len(result.timers) == 0
         assert result.total == 0
+    
+    @patch('pecha_api.timers.timer_service.SessionLocal')
+    @patch('pecha_api.timers.timer_service.get_user_timers_by_group')
+    def test_get_user_timers_service_without_group_id(self, mock_get_timers, mock_session):
+        """Test get_user_timers_service without group_id filter."""
+        user_id = uuid4()
+        
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        
+        timer1 = TestDataFactory.create_mock_timer(user_id=user_id, name="My Timer 1")
+        timer2 = TestDataFactory.create_mock_timer(user_id=user_id, name="My Timer 2")
+        
+        mock_get_timers.return_value = ([timer1, timer2], 2)
+        
+        result = get_user_timers_service(user_id=user_id, group_id=None, skip=0, limit=20)
+        
+        assert isinstance(result, TimersResponse)
+        assert len(result.timers) == 2
+        assert result.total == 2
+        
+        mock_get_timers.assert_called_once_with(mock_db, user_id, None, 0, 20)
 
 
 class TestCreateTimerService:
@@ -710,3 +775,195 @@ class TestHelperFunctions:
         result = is_user_created_timer(timer)
         
         assert result is False
+
+
+class TestRecordTimerStopService:
+    """Test cases for record_timer_stop_service function."""
+    
+    @patch('pecha_api.timers.timer_service.SessionLocal')
+    @patch('pecha_api.timers.timer_service.get_timer_by_id')
+    @patch('pecha_api.timers.timer_service.save_timer_history')
+    @patch('pecha_api.timers.timer_service.validate_and_extract_user_details')
+    def test_record_timer_stop_service_success(self, mock_validate, mock_save, mock_get, mock_session):
+        """Test successful recording of timer stop."""
+        user_id = uuid4()
+        timer_id = uuid4()
+        token = "valid_token"
+        
+        mock_user = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_validate.return_value = mock_user
+        
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        
+        existing_timer = TestDataFactory.create_mock_timer(timer_id=timer_id)
+        mock_get.return_value = existing_timer
+        
+        request = RecordTimerStopRequest(timer_id=timer_id, duration=600)
+        
+        mock_save.return_value = TestDataFactory.create_mock_timer_history(
+            timer_id=timer_id,
+            user_id=user_id,
+            duration=600
+        )
+        
+        result = record_timer_stop_service(token=token, request=request)
+        
+        assert result is None
+        mock_validate.assert_called_once_with(token=token)
+        mock_get.assert_called_once_with(mock_db, timer_id)
+        mock_save.assert_called_once()
+    
+    @patch('pecha_api.timers.timer_service.SessionLocal')
+    @patch('pecha_api.timers.timer_service.get_timer_by_id')
+    @patch('pecha_api.timers.timer_service.validate_and_extract_user_details')
+    def test_record_timer_stop_service_timer_not_found(self, mock_validate, mock_get, mock_session):
+        """Test record_timer_stop_service when timer doesn't exist."""
+        user_id = uuid4()
+        timer_id = uuid4()
+        token = "valid_token"
+        
+        mock_user = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_validate.return_value = mock_user
+        
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        
+        mock_get.return_value = None
+        
+        request = RecordTimerStopRequest(timer_id=timer_id, duration=600)
+        
+        with pytest.raises(HTTPException) as exc_info:
+            record_timer_stop_service(token=token, request=request)
+        
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    
+    @patch('pecha_api.timers.timer_service.validate_and_extract_user_details')
+    def test_record_timer_stop_service_invalid_token(self, mock_validate):
+        """Test record_timer_stop_service with invalid token."""
+        timer_id = uuid4()
+        token = "invalid_token"
+        
+        mock_validate.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+        
+        request = RecordTimerStopRequest(timer_id=timer_id, duration=600)
+        
+        with pytest.raises(HTTPException) as exc_info:
+            record_timer_stop_service(token=token, request=request)
+        
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+class TestGetTimerHistoryService:
+    """Test cases for get_timer_history_service function."""
+    
+    @patch('pecha_api.timers.timer_service.SessionLocal')
+    @patch('pecha_api.timers.timer_service.get_user_timer_history')
+    @patch('pecha_api.timers.timer_service.validate_and_extract_user_details')
+    def test_get_timer_history_service_success(self, mock_validate, mock_get_history, mock_session):
+        """Test successful retrieval of timer history."""
+        user_id = uuid4()
+        timer_id = uuid4()
+        token = "valid_token"
+        
+        mock_user = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_validate.return_value = mock_user
+        
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        
+        timer = TestDataFactory.create_mock_timer(
+            timer_id=timer_id,
+            name="Meditation Timer",
+            duration=600,
+            description="Daily meditation"
+        )
+        
+        session1 = TestDataFactory.create_mock_timer_history(timer_id=timer_id, duration=600)
+        session2 = TestDataFactory.create_mock_timer_history(timer_id=timer_id, duration=600)
+        
+        mock_get_history.return_value = ([(timer, 1200, [session1, session2])], 1)
+        
+        result = get_timer_history_service(token=token, skip=0, limit=20)
+        
+        assert isinstance(result, TimerHistoryResponse)
+        assert len(result.timers) == 1
+        assert result.timers[0].name == "Meditation Timer"
+        assert result.timers[0].actual_duration == 600
+        assert result.timers[0].total_time_spent == 1200
+        assert len(result.timers[0].sessions) == 2
+        assert result.total == 1
+        
+        mock_validate.assert_called_once_with(token=token)
+        mock_get_history.assert_called_once_with(mock_db, user_id, 0, 20)
+    
+    @patch('pecha_api.timers.timer_service.SessionLocal')
+    @patch('pecha_api.timers.timer_service.get_user_timer_history')
+    @patch('pecha_api.timers.timer_service.validate_and_extract_user_details')
+    def test_get_timer_history_service_empty(self, mock_validate, mock_get_history, mock_session):
+        """Test get_timer_history_service when user has no history."""
+        user_id = uuid4()
+        token = "valid_token"
+        
+        mock_user = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_validate.return_value = mock_user
+        
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        
+        mock_get_history.return_value = ([], 0)
+        
+        result = get_timer_history_service(token=token, skip=0, limit=20)
+        
+        assert len(result.timers) == 0
+        assert result.total == 0
+    
+    @patch('pecha_api.timers.timer_service.SessionLocal')
+    @patch('pecha_api.timers.timer_service.get_user_timer_history')
+    @patch('pecha_api.timers.timer_service.validate_and_extract_user_details')
+    def test_get_timer_history_service_multiple_timers(self, mock_validate, mock_get_history, mock_session):
+        """Test get_timer_history_service with multiple timers."""
+        user_id = uuid4()
+        token = "valid_token"
+        
+        mock_user = TestDataFactory.create_mock_user(user_id=user_id)
+        mock_validate.return_value = mock_user
+        
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        
+        timer1 = TestDataFactory.create_mock_timer(name="Timer 1", duration=300)
+        timer2 = TestDataFactory.create_mock_timer(name="Timer 2", duration=600)
+        
+        session1 = TestDataFactory.create_mock_timer_history(duration=300)
+        session2 = TestDataFactory.create_mock_timer_history(duration=600)
+        
+        mock_get_history.return_value = ([
+            (timer1, 900, [session1]),
+            (timer2, 1200, [session2])
+        ], 2)
+        
+        result = get_timer_history_service(token=token, skip=0, limit=20)
+        
+        assert len(result.timers) == 2
+        assert result.timers[0].name == "Timer 1"
+        assert result.timers[1].name == "Timer 2"
+        assert result.total == 2
+    
+    @patch('pecha_api.timers.timer_service.validate_and_extract_user_details')
+    def test_get_timer_history_service_invalid_token(self, mock_validate):
+        """Test get_timer_history_service with invalid token."""
+        token = "invalid_token"
+        
+        mock_validate.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+        
+        with pytest.raises(HTTPException) as exc_info:
+            get_timer_history_service(token=token, skip=0, limit=20)
+        
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED

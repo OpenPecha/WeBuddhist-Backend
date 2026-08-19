@@ -5,6 +5,7 @@ from uuid import UUID
 from datetime import datetime, date as DateType
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
+from pecha_api.plans.series.series_response_models import SeriesProgressDTO
 
 class PlanDayBasic(BaseModel):
     id: str
@@ -26,6 +27,14 @@ class AuthorDTO(BaseModel):
 
 
     
+class PlanVideoSummaryDTO(BaseModel):
+    id: UUID
+    url: str
+    video_id: Optional[str] = None
+    title: Optional[str] = None
+    display_order: int
+
+
 class PublicPlanDTO(BaseModel):
     id: UUID
     title: str
@@ -36,6 +45,7 @@ class PublicPlanDTO(BaseModel):
     total_days: int
     tags: list[TagSummaryDTO] = []
     author: Optional[AuthorDTO] = None
+    videos: List[PlanVideoSummaryDTO] = []
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
     group_id: Optional[UUID] = None
@@ -50,6 +60,7 @@ class SubTaskDTO(BaseModel):
     source_text_id: Optional[UUID] = None
     pecha_segment_id: Optional[str] = None
     segment_ids: Optional[List[UUID]] = None
+    segment_numbers: Optional[List[int]] = None
     display_order: Optional[int] = None
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None
@@ -61,12 +72,28 @@ class TaskDTO(BaseModel):
     display_order: Optional[int] = None
     subtasks: List[SubTaskDTO] = []
 
+class DayVideoSummaryDTO(BaseModel):
+    id: UUID
+    url: str
+    video_id: Optional[str] = None
+    title: Optional[str] = None
+    display_order: int
+
 class PlanDayDTO(BaseModel):
     id: UUID
     day_number: int
     tasks: List[TaskDTO]
     audio_url: Optional[str] = None
     audio_duration_ms: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+    shareable_image_url: Optional[str] = None
+    videos: List[DayVideoSummaryDTO] = []
+
+
+class PlanDayCacheCleanupResponse(BaseModel):
+    plan_id: UUID
+    day_number: Optional[int] = None
+    keys_deleted: int
 
 
 class PlanWithDays(BaseModel):
@@ -112,6 +139,7 @@ class SeriesDTO(BaseModel):
     id: UUID
     metadata: SeriesMetadataResponse = []
     image: Optional[ImageUrlModel] = None
+    progress: Optional[SeriesProgressDTO] = None
 
 class DailyPlanResponse(BaseModel):
     plan_id: UUID

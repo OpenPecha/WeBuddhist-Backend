@@ -2,20 +2,28 @@ import struct
 from io import BytesIO
 from typing import Optional, List, Dict
 from starlette import status
-from pecha_api.plans.audio.tts_service import generate_tts_audio
 from pecha_api.plans.audio.plan_item_audio_models import PlanItemAudio
 from pecha_api.plans.audio.plan_item_audio_repository import upsert_plan_item_audio
 from pecha_api.plans.audio.sub_task_timestamps_repository import upsert_sub_task_timestamp
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
-from pecha_api.plans.cms.cms_plans_repository import save_plan, get_plan_by_id, get_plans_by_author_id, update_plan
+from pecha_api.plans.cms.cms_plans_repository import save_plan, get_plan_by_id, get_plans_by_author_id, update_plan, \
+    get_next_series_plan_start_date, get_previous_series_plans_schedule
 from pecha_api.plans.groups.groups_repository import get_group_id_for_plan, get_group_ids_by_plan_ids
-from pecha_api.plans.series.series_repository import get_series_by_id
+from pecha_api.plans.series.series_repository import (
+    get_series_by_id,
+    reference_start_date_for_series_plans,
+    _REFERENCE_START_DATE_UNSET,
+)
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.plans.tags.tag_repository import set_plan_tags
 from pecha_api.plans.tags.tag_service import validate_tag_ids
-from pecha_api.plans.items.plan_items_repository import save_plan_items, get_plan_items_by_plan_id, get_plan_day_with_tasks_and_subtasks, get_plan_day_by_id_any_plan
+from pecha_api.plans.items.plan_items_repository import save_plan_items, get_plan_items_by_plan_id, get_plan_day_with_tasks_and_subtasks, get_plan_day_by_id_any_plan, get_last_day_number
+from pecha_api.plans.public.plans_cache_service import (
+    schedule_invalidate_plan_day_cache_for_day,
+    schedule_invalidate_plan_day_cache_for_task,
+)
 from pecha_api.plans.users.plan_users_progress_repository import get_plan_progress
 from pecha_api.plans.authors.plan_authors_model import Author
 from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
@@ -29,9 +37,16 @@ from pecha_api.plans.shared.permissions import (
     require_cms_write_access,
 )
 from pecha_api.plans.groups.groups_repository import get_author_group_ids
-from pecha_api.plans.plans_enums import LanguageCode, PlanStatus, ContentType, PlanAudioType
+from pecha_api.plans.plans_enums import (
+    LanguageCode,
+    PlanStatus,
+    ContentType,
+    PlanAudioType,
+    MonlamVoiceName,
+)
 from pecha_api.plans.plans_response_models import PlansResponse, PlanDTO, CreatePlanRequest, TaskDTO, PlanDayDTO, \
-    PlanWithDays, UpdatePlanRequest, PlanStatusUpdate, PlansRepositoryResponse, PlanWithAggregates, AuthorDTO, SubTaskDTO
+    PlanWithDays, UpdatePlanRequest, PlanStatusUpdate, PlansRepositoryResponse, PlanWithAggregates, AuthorDTO, SubTaskDTO, \
+    DayVideoSummaryDTO, PlanVideoSummaryDTO
     
 from pecha_api.plans.tasks.plan_tasks_repository import get_tasks_by_item_ids
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
@@ -45,8 +60,9 @@ from pecha_api.uploads.S3_utils import generate_presigned_access_url, upload_byt
 from uuid import uuid4, UUID
 from fastapi import HTTPException
 from pecha_api.plans.auth.plan_auth_models import ResponseError
-from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, FORBIDDEN, UNAUTHORIZED_PLAN_DELETE, PLAN_AUTHOR_MISMATCH, PLAN_MUST_HAVE_AT_LEAST_ONE_DAY_WITH_CONTENT_TO_BE_PUBLISHED, PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS
-from datetime import datetime, timezone
+from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, FORBIDDEN, UNAUTHORIZED_PLAN_DELETE, PLAN_AUTHOR_MISMATCH, PLAN_MUST_HAVE_AT_LEAST_ONE_DAY_WITH_CONTENT_TO_BE_PUBLISHED, PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS, \
+    PLAN_SCHEDULE_OVERLAPS_NEXT_PLAN, PLAN_SCHEDULE_OVERLAPS_PREVIOUS_PLAN
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import func
 
 DUMMY_PLANS = [
@@ -114,32 +130,48 @@ DUMMY_DAYS = [
 WAV_CONTENT_TYPE = "audio/wav"
 
 
-def _generate_audio_segments(
-    tasks, audio_type: PlanAudioType
+async def _generate_audio_segments(
+    tasks,
+    audio_type: PlanAudioType,
+    language: str,
+    voice_name: MonlamVoiceName = MonlamVoiceName.DOLKAR_LHASA_FEMALE,
 ) -> tuple[List[bytes], list]:
+    from pecha_api.plans.audio.worker_client import generate_audio_from_text
+
     wav_header_size = 44
     audio_segments: List[bytes] = []
     subtask_refs = []
     allowed_types = {ContentType.TEXT, ContentType.SOURCE_REFERENCE}
+
     for task in tasks:
-        subtask = task.sub_tasks[0] if task.sub_tasks else None
-        if not subtask:
-            continue
-        if subtask.content_type not in allowed_types:
-            continue
+        for subtask in task.sub_tasks:
+            if subtask.content_type not in allowed_types:
+                continue
 
-        if subtask.audio_url:
-            existing_wav = download_bytes(
-                bucket_name=get("AWS_BUCKET_NAME"),
-                s3_key=subtask.audio_url,
-            )
-            raw_pcm = existing_wav[wav_header_size:]
-        else:
-            wav_bytes = generate_tts_audio(subtask.content, audio_type)
-            raw_pcm = wav_bytes[wav_header_size:]
+            if subtask.audio_url:
+                existing_wav = download_bytes(
+                    bucket_name=get("AWS_BUCKET_NAME"),
+                    s3_key=subtask.audio_url,
+                )
+                raw_pcm = existing_wav[wav_header_size:]
+            else:
+                s3_key_prefix = f"audio/plan_subtasks/{subtask.task_id}/{subtask.id}"
+                result = await generate_audio_from_text(
+                    text=subtask.content,
+                    language=language,
+                    audio_type=audio_type,
+                    voice_name=voice_name,
+                    s3_key_prefix=s3_key_prefix,
+                )
+                generated_wav = download_bytes(
+                    bucket_name=get("AWS_BUCKET_NAME"),
+                    s3_key=result["s3_key"],
+                )
+                raw_pcm = generated_wav[wav_header_size:]
 
-        audio_segments.append(raw_pcm)
-        subtask_refs.append(subtask)
+            audio_segments.append(raw_pcm)
+            subtask_refs.append(subtask)
+
     return audio_segments, subtask_refs
 
 
@@ -219,9 +251,15 @@ async def generate_plan_audio_service(
     day_id: Optional[UUID] = None,
     sub_task_id: Optional[UUID] = None,
     audio_type: PlanAudioType = PlanAudioType.TEXT_READING,
+    voice_name: MonlamVoiceName = MonlamVoiceName.DOLKAR_LHASA_FEMALE,
 ):
     if sub_task_id:
-        return await _generate_subtask_audio(sub_task_id=sub_task_id, audio_type=audio_type)
+        return await _generate_subtask_audio(
+            sub_task_id=sub_task_id,
+            audio_type=audio_type,
+            language=language,
+            voice_name=voice_name,
+        )
 
     SAMPLE_RATE = 24000
     BYTES_PER_SAMPLE = 2
@@ -229,7 +267,9 @@ async def generate_plan_audio_service(
     with SessionLocal() as db:
         plan_item: PlanItem = get_plan_day_by_id_any_plan(db=db, day_id=day_id)
 
-        audio_segments, subtask_refs = _generate_audio_segments(plan_item.tasks, audio_type)
+        audio_segments, subtask_refs = await _generate_audio_segments(
+            plan_item.tasks, audio_type, language, voice_name
+        )
         if not audio_segments:
             return []
 
@@ -250,6 +290,7 @@ async def generate_plan_audio_service(
             plan_id=plan_item.plan_id,
             plan_item_id=plan_item.id,
         )
+        schedule_invalidate_plan_day_cache_for_day(db=db, day_id=plan_item.id)
 
     audio_url = generate_presigned_access_url(
         bucket_name=get("AWS_BUCKET_NAME"),
@@ -263,10 +304,13 @@ async def generate_plan_audio_service(
     }
 
 
-async def _generate_subtask_audio(sub_task_id: UUID, audio_type: PlanAudioType):
-    SAMPLE_RATE = 24000
-    BYTES_PER_SAMPLE = 2
-    WAV_HEADER_SIZE = 44
+async def _generate_subtask_audio(
+    sub_task_id: UUID,
+    audio_type: PlanAudioType,
+    language: str,
+    voice_name: MonlamVoiceName = MonlamVoiceName.DOLKAR_LHASA_FEMALE,
+):
+    from pecha_api.plans.audio.worker_client import generate_audio_from_text
 
     with SessionLocal() as db:
         subtask: PlanSubTask = get_sub_task_by_subtask_id(db=db, id=sub_task_id)
@@ -286,21 +330,19 @@ async def _generate_subtask_audio(sub_task_id: UUID, audio_type: PlanAudioType):
                 ).model_dump(),
             )
 
-        wav_bytes = generate_tts_audio(subtask.content, audio_type)
-        raw_pcm = wav_bytes[WAV_HEADER_SIZE:]
-
-        segment_samples = len(raw_pcm) // BYTES_PER_SAMPLE
-        duration_ms = int((segment_samples / SAMPLE_RATE) * 1000)
-
-        combined_wav, _ = _build_combined_wav([raw_pcm])
-
-        s3_key = f"audio/plan_subtasks/{subtask.task_id}/{sub_task_id}/{uuid4()}.wav"
-        upload_bytes(
-            bucket_name=get("AWS_BUCKET_NAME"),
-            s3_key=s3_key,
-            file=BytesIO(combined_wav),
-            content_type=WAV_CONTENT_TYPE,
+        s3_key_prefix = f"audio/plan_subtasks/{subtask.task_id}/{sub_task_id}"
+        
+        result = await generate_audio_from_text(
+            text=subtask.content,
+            language=language,
+            audio_type=audio_type,
+            voice_name=voice_name,
+            s3_key_prefix=s3_key_prefix,
         )
+
+        s3_key = result["s3_key"]
+        duration_ms = result["audio_duration_ms"]
+        audio_url = result["audio_url"]
 
         subtask.audio_url = s3_key
         subtask.duration = str(duration_ms)
@@ -313,11 +355,7 @@ async def _generate_subtask_audio(sub_task_id: UUID, audio_type: PlanAudioType):
             end_ms=duration_ms,
             created_by="system",
         )
-
-    audio_url = generate_presigned_access_url(
-        bucket_name=get("AWS_BUCKET_NAME"),
-        s3_key=s3_key,
-    )
+        schedule_invalidate_plan_day_cache_for_task(db=db, task_id=subtask.task_id)
 
     return {
         "audio_url": audio_url,
@@ -445,6 +483,16 @@ def _apply_create_plan_series_fields(
 ) -> None:
     if not create_plan_request.series_id:
         return
+
+    series = get_series_by_id(db=db, series_id=create_plan_request.series_id)
+    if series:
+        reference_start_date = reference_start_date_for_series_plans(
+            series.plans,
+            exclude_plan_ids={plan.id},
+        )
+        if reference_start_date is not _REFERENCE_START_DATE_UNSET:
+            plan.start_date = reference_start_date
+
     _apply_series_attachment_to_plan(
         db=db,
         plan=plan,
@@ -558,6 +606,24 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
         for row in get_plan_item_audio_by_plan_item_ids(db=db, plan_item_ids=plan_item_ids)
     }
 
+    from pecha_api.plans.videos.day_video_repository import get_day_videos_by_day_ids
+
+    videos_by_item: Dict[UUID, List] = {}
+    for video in get_day_videos_by_day_ids(db=db, day_ids=plan_item_ids):
+        videos_by_item.setdefault(video.day_id, []).append(video)
+
+    from pecha_api.plans.shareable_images.day_shareable_image_repository import (
+        get_day_shareable_images_by_plan_item_ids,
+    )
+    from pecha_api.plans.audio.dto_helpers import build_plan_day_shareable_image_fields
+
+    shareable_images_by_item = {
+        row.plan_item_id: row
+        for row in get_day_shareable_images_by_plan_item_ids(
+            db=db, plan_item_ids=plan_item_ids
+        )
+    }
+
     day_dtos: List[PlanDayDTO] = []
     for item in items:
         audio_row = audio_by_item.get(item.id)
@@ -571,6 +637,11 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
                 s3_key=audio_row.audio_key,
             )
             audio_duration_ms = audio_row.duration_ms
+        thumbnail_url, thumbnail_key, shareable_image_url, shareable_image_key = (
+            build_plan_day_shareable_image_fields(
+                shareable_images_by_item.get(item.id)
+            )
+        )
         day_dtos.append(
             PlanDayDTO(
                 id=item.id,
@@ -578,6 +649,20 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
                 audio_url=audio_url,
                 audio_duration_ms=audio_duration_ms,
                 has_audio=has_audio,
+                thumbnail_url=thumbnail_url,
+                thumbnail_key=thumbnail_key,
+                shareable_image_url=shareable_image_url,
+                shareable_image_key=shareable_image_key,
+                videos=[
+                    DayVideoSummaryDTO(
+                        id=video.id,
+                        url=video.url,
+                        video_id=video.video_id,
+                        title=video.title,
+                        display_order=video.display_order,
+                    )
+                    for video in videos_by_item.get(item.id, [])
+                ],
                 tasks=[
                     TaskDTO(
                         id=task.id,
@@ -592,6 +677,10 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
 
     group_id = plan.group_id
 
+    from pecha_api.plans.videos.plan_video_repository import get_plan_videos_by_plan_id
+
+    plan_videos = get_plan_videos_by_plan_id(db=db, plan_id=plan.id)
+
     return PlanWithDays(
         id=plan.id,
         title=plan.title,
@@ -604,6 +693,16 @@ def _get_plan_details(db: Session, plan_id: UUID) -> PlanWithDays:
         tags=tags_to_summary_dtos(plan.tag_list),
         status=plan.status,
         days=day_dtos,
+        videos=[
+            PlanVideoSummaryDTO(
+                id=video.id,
+                url=video.url,
+                video_id=video.video_id,
+                title=video.title,
+                display_order=video.display_order,
+            )
+            for video in plan_videos
+        ],
         start_date=plan.start_date,
         series_id=plan.series_id,
         display_order=plan.display_order,
@@ -626,6 +725,50 @@ def _validate_start_date_update(db: Session, plan: Plan, plan_id: UUID, new_star
                 detail=ResponseError(
                     error=BAD_REQUEST,
                     message=PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS,
+                ).model_dump(),
+            )
+
+
+def _validate_plan_schedule_within_series(db: Session, plan: Plan) -> None:
+    if plan.series_id is None or plan.start_date is None or plan.display_order is None:
+        return
+
+    last_day_number = get_last_day_number(db=db, plan_id=plan.id)
+    if last_day_number > 0:
+        next_plan_start_date = get_next_series_plan_start_date(
+            db=db,
+            series_id=plan.series_id,
+            display_order=plan.display_order,
+        )
+        if next_plan_start_date is not None:
+            plan_end_date = plan.start_date.date() + timedelta(days=last_day_number - 1)
+            if plan_end_date >= next_plan_start_date.date():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=ResponseError(
+                        error=BAD_REQUEST,
+                        message=PLAN_SCHEDULE_OVERLAPS_NEXT_PLAN.format(
+                            plan_end_date=plan_end_date.isoformat(),
+                            next_start_date=next_plan_start_date.date().isoformat(),
+                        ),
+                    ).model_dump(),
+                )
+
+    previous_schedules = get_previous_series_plans_schedule(
+        db=db,
+        series_id=plan.series_id,
+        display_order=plan.display_order,
+    )
+    for previous_start_date, previous_last_day_number in previous_schedules:
+        previous_end_date = previous_start_date.date() + timedelta(days=previous_last_day_number - 1)
+        if previous_end_date >= plan.start_date.date():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ResponseError(
+                    error=BAD_REQUEST,
+                    message=PLAN_SCHEDULE_OVERLAPS_PREVIOUS_PLAN.format(
+                        previous_end_date=previous_end_date.isoformat(),
+                    ),
                 ).model_dump(),
             )
 
@@ -696,7 +839,10 @@ async def update_plan_details(token: str, plan_id: UUID, update_plan_request: Up
             and plan.series_id is not None
         ):
             plan.display_order = update_plan_request.display_order
-        
+
+        # if {"start_date", "series_id", "display_order"} & update_plan_request.model_fields_set:
+        #     _validate_plan_schedule_within_series(db=db, plan=plan)
+
         plan.updated_at = datetime.now(timezone.utc)
         plan.updated_by = author_details.email
         plan = update_plan(db, plan)
@@ -790,9 +936,15 @@ async def get_plan_day_details(token:str,plan_id: UUID, day_number: int) -> Plan
         plan = _get_plan_or_404(db=db, plan_id=plan_id)
         require_can_read_group_content(db=db, group_id=plan.group_id, author=current_author)
         plan_item: PlanItem = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
-        from pecha_api.plans.audio.dto_helpers import build_plan_day_audio_fields
+        from pecha_api.plans.audio.dto_helpers import (
+            build_plan_day_audio_fields,
+            build_plan_day_shareable_image_fields,
+        )
 
         audio_url, audio_duration_ms, audio_key, has_audio = build_plan_day_audio_fields(plan_item)
+        thumbnail_url, thumbnail_key, shareable_image_url, shareable_image_key = (
+            build_plan_day_shareable_image_fields(plan_item.shareable_images)
+        )
         plan_day_dto: PlanDayDTO = PlanDayDTO(
             id=plan_item.id,
             day_number=plan_item.day_number,
@@ -800,6 +952,20 @@ async def get_plan_day_details(token:str,plan_id: UUID, day_number: int) -> Plan
             audio_duration_ms=audio_duration_ms,
             audio_key=audio_key,
             has_audio=has_audio,
+            thumbnail_url=thumbnail_url,
+            thumbnail_key=thumbnail_key,
+            shareable_image_url=shareable_image_url,
+            shareable_image_key=shareable_image_key,
+            videos=[
+                DayVideoSummaryDTO(
+                    id=video.id,
+                    url=video.url,
+                    video_id=video.video_id,
+                    title=video.title,
+                    display_order=video.display_order,
+                )
+                for video in plan_item.videos
+            ],
             tasks=[
                 TaskDTO(
                     id=task.id,

@@ -1,0 +1,102 @@
+from uuid import uuid4
+from datetime import datetime, timezone
+
+from sqlalchemy import Column, DateTime, UUID, Index, String, Text, ForeignKey, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship
+
+from ..db.database import Base
+from ..plans.plans_enums import LanguageCodeEnum
+
+FK_TRADITION_LIST_ID = "tradition_list.id"
+
+
+class Tradition(Base):
+    """A Buddhist tradition path (e.g. pali, chinese, tibetan).
+    ``code`` is the stable app key. Per-language names live in
+    ``tradition_metadata`` (one row per language)."""
+    __tablename__ = "tradition_list"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    code = Column(String(64), nullable=False, unique=True)
+    parent_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(FK_TRADITION_LIST_ID, ondelete="SET NULL"),
+        nullable=True,
+    )
+    # List of region strings, e.g. ["Tibet", "Bhutan", "Nepal"].
+    regions = Column(JSONB, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    parent = relationship("Tradition", remote_side=[id], backref="children")
+    metadata_entries = relationship(
+        "TraditionMetadata",
+        back_populates="tradition",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        Index("idx_tradition_list_parent_id", "parent_id"),
+    )
+
+
+class TraditionMetadata(Base):
+    """Per-language display name and description for a tradition. One row per
+    (tradition, language). ``other_names`` holds optional aliases for that
+    language."""
+    __tablename__ = "tradition_metadata"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    tradition_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(FK_TRADITION_LIST_ID, ondelete="CASCADE"),
+        nullable=False,
+    )
+    language = Column(LanguageCodeEnum, nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    # List of alias strings for this language.
+    other_names = Column(JSONB, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    tradition = relationship("Tradition", back_populates="metadata_entries")
+
+    __table_args__ = (
+        UniqueConstraint("tradition_id", "language", name="uq_tradition_metadata_tradition_language"),
+        Index("idx_tradition_metadata_language", "language"),
+    )
+
+
+class UserTradition(Base):
+    """Links a user to the traditions they follow. Many traditions per user;
+    ``(user_id, tradition_id)`` is unique so a user cannot follow the same
+    tradition twice."""
+    __tablename__ = "user_traditions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    tradition_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(FK_TRADITION_LIST_ID, ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    user = relationship("Users")
+    tradition = relationship("Tradition")
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "tradition_id", name="uq_user_traditions_user_tradition"),
+        Index("idx_user_traditions_user_id", "user_id"),
+        Index("idx_user_traditions_tradition_id", "tradition_id"),
+    )

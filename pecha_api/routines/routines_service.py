@@ -1,11 +1,12 @@
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from starlette import status
-from typing import List, Dict
+from typing import List, Dict, Optional
 from uuid import UUID
 
 from pecha_api.config import TIME_FORMAT_PATTERN, get
 from pecha_api.plans.authors.plan_authors_service import safe_get_image_url
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.db.database import SessionLocal
 from pecha_api.users.users_service import validate_and_extract_user_details
@@ -13,10 +14,34 @@ from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
 from pecha_api.texts.texts_models import Text
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
-from pecha_api.plans.users.recitation_collection.recitation_collection_models import RecitationCollection
+from pecha_api.plans.users.recitation_collection.recitation_collection_models import (
+    RecitationCollection,
+)
+from pecha_api.group_recitation_collection.models import (
+    GroupRecitationCollection,
+    GroupRecitationCollectionItem,
+)
 from pecha_api.plans.plans_enums import UserPlanStatus
+from datetime import datetime, time, timezone
 from pecha_api.plans.users.plan_users_progress_repository import (
     get_plan_progress_by_user_id_and_plan_ids,
+)
+from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallback
+from pecha_api.timezone_utils import (
+    hhmm_to_time_int,
+    local_hhmm_to_utc_time,
+    normalize_timezone_name,
+    utc_time_to_hhmm,
+    utc_time_to_local_hhmm,
+)
+from pecha_api.accumulator.accumulator_models import Accumulator
+from pecha_api.accumulator.accumulator_enums import AccumulatorType
+from pecha_api.accumulator.accumulator_service import (
+    resolve_accumulator_bookmark_mala_image_url,
+)
+from pecha_api.mantra.mantra_repository import get_mantras_by_ids
+from pecha_api.texts.first_segment_preview_service import (
+    build_first_segment_previews_for_texts,
 )
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
@@ -30,6 +55,7 @@ from .routines_repository import (
     time_block_exists_for_routine,
     get_time_block_by_id_and_routine,
     get_plan_source_ids_by_time_block_id,
+    get_series_source_ids_by_time_block_id,
     get_plans_by_ids,
     get_time_block_by_routine_and_time,
     delete_sessions_by_time_block_id,
@@ -40,10 +66,14 @@ from .routines_repository import (
     update_time_block as update_time_block_repo,
     get_time_blocks,
     get_sessions_by_time_block_ids,
+    get_routine_series_and_recitation_counts,
 )
 from .response_message import (
     DUPLICATE_PLAN,
+    DUPLICATE_SERIES,
     DUPLICATE_RECITATION_COLLECTION,
+    DUPLICATE_GROUP_RECITATION_COLLECTION,
+    DUPLICATE_ACCUMULATOR,
     INVALID_TIME_FORMAT,
     INVALID_TIMER_DURATION,
     ROUTINE_ALREADY_EXISTS,
@@ -54,15 +84,87 @@ from .response_message import (
     TIME_BLOCK_NOT_FOUND,
     TIME_BLOCK_TIME_CONFLICT,
     NO_ROUTINE_CREATED_FOR_USER,
+    SERIES_NOT_FOUND,
+    PRESET_ACCUMULATOR_NOT_FOUND,
+    ACCUMULATOR_ID_REQUIRED,
 )
 from .routines_response_models import (
+    SessionRequest,
     CreateTimeBlockRequest,
     UpdateTimeBlockRequest,
     SessionDTO,
+    RoutineFirstSegmentDTO,
     TimeBlockDTO,
     RoutineWithTimeBlocksResponse,
     RoutineResponse,
+    RoutineInfoResponse,
 )
+
+
+DEFAULT_ROUTINE_TIMEZONE = "UTC"
+
+
+def _resolve_effective_timezone(
+    timezone_name: Optional[str],
+    routine: Optional[Routine] = None,
+) -> str:
+    normalized = normalize_timezone_name(timezone_name)
+    if normalized is not None:
+        return normalized
+    if routine is not None and routine.timezone:
+        return routine.timezone
+    return DEFAULT_ROUTINE_TIMEZONE
+
+
+def _sync_routine_timezone(
+    routine: Routine,
+    timezone_name: Optional[str],
+) -> str:
+    stored_timezone = normalize_timezone_name(timezone_name)
+    if stored_timezone is not None:
+        routine.timezone = stored_timezone
+    return _resolve_effective_timezone(timezone_name, routine)
+
+
+def _build_time_block_storage(
+    *,
+    local_time: str,
+    timezone_name: str,
+    time_int: Optional[int] = None,
+) -> tuple[str, int, time]:
+    resolved_time_int = time_int if time_int is not None else hhmm_to_time_int(local_time)
+    time_utc = local_hhmm_to_utc_time(local_time, timezone_name)
+    return local_time, resolved_time_int, time_utc
+
+
+def _resolve_time_block_display(
+    time_block: RoutineTimeBlock,
+    routine_timezone: Optional[str],
+) -> tuple[str, int]:
+    time_utc = getattr(time_block, "time_utc", None)
+    if time_utc is not None:
+        if routine_timezone:
+            local_hhmm = utc_time_to_local_hhmm(time_utc, routine_timezone)
+        else:
+            local_hhmm = utc_time_to_hhmm(time_utc)
+        return local_hhmm, hhmm_to_time_int(local_hhmm)
+    return time_block.time, time_block.time_int
+
+
+def _time_block_dto(
+    time_block: RoutineTimeBlock,
+    *,
+    effective_timezone: str,
+    sessions: List[SessionDTO],
+) -> TimeBlockDTO:
+    display_time, display_time_int = _resolve_time_block_display(time_block, effective_timezone)
+    return TimeBlockDTO(
+        id=time_block.id,
+        time=display_time,
+        time_int=display_time_int,
+        notification_enabled=time_block.notification_enabled,
+        sessions=sessions,
+    )
 
 
 def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
@@ -84,7 +186,7 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
             ).model_dump(),
         )
 
-    # TIMER sessions carry a positive duration_ms; PLAN/RECITATION carry a source_id
+    # TIMER sessions carry a positive duration_ms; PLAN/SERIES/RECITATION carry a source_id
     for session in request.sessions:
         if session.session_type == SessionType.TIMER:
             if session.duration_ms is None or session.duration_ms <= 0:
@@ -94,17 +196,29 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
                         error=BAD_REQUEST, message=INVALID_TIMER_DURATION
                     ).model_dump(),
                 )
+        elif session.session_type == SessionType.ACCUMULATOR:
+            if session.source_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=ResponseError(
+                        error=BAD_REQUEST, message=ACCUMULATOR_ID_REQUIRED
+                    ).model_dump(),
+                )
         elif session.source_id is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=ResponseError(
                     error=BAD_REQUEST, message=SOURCE_ID_REQUIRED
-                ).model_dump(),
-            )
+            ).model_dump(),
+        )
 
+    _validate_session_uniqueness(request.sessions)
+
+
+def _validate_session_uniqueness(sessions: List[SessionRequest]) -> None:
     plan_source_ids = [
         session.source_id
-        for session in request.sessions
+        for session in sessions
         if session.session_type == SessionType.PLAN
     ]
     if len(plan_source_ids) != len(set(plan_source_ids)):
@@ -115,10 +229,22 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
             ).model_dump(),
         )
 
-    # Duplicate recitation collection source_ids within the request
+    series_source_ids = [
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.SERIES
+    ]
+    if len(series_source_ids) != len(set(series_source_ids)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=DUPLICATE_SERIES
+            ).model_dump(),
+        )
+
     collection_source_ids = [
         session.source_id
-        for session in request.sessions
+        for session in sessions
         if session.session_type == SessionType.RECITATION_COLLECTION
     ]
     if len(collection_source_ids) != len(set(collection_source_ids)):
@@ -129,37 +255,80 @@ def _validate_time_block_request(request: CreateTimeBlockRequest) -> None:
             ).model_dump(),
         )
 
-
-def _check_duplicate_collections(db, routine_id: UUID, sessions: List) -> None:
-    """Check for duplicate recitation collections when adding a new time block."""
-    existing_collection_ids = get_existing_collection_source_ids(db=db, routine_id=routine_id)
-    new_collection_ids = [s.source_id for s in sessions if s.session_type == SessionType.RECITATION_COLLECTION]
-    overlap = set(new_collection_ids) & set(existing_collection_ids)
-    if overlap:
+    group_collection_source_ids = [
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.GROUP_RECITATION_COLLECTION
+    ]
+    if len(group_collection_source_ids) != len(set(group_collection_source_ids)):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=ResponseError(
-                error=BAD_REQUEST, message=DUPLICATE_RECITATION_COLLECTION
+                error=BAD_REQUEST, message=DUPLICATE_GROUP_RECITATION_COLLECTION
             ).model_dump(),
         )
+
+    accumulator_source_ids = [
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.ACCUMULATOR
+    ]
+    if len(accumulator_source_ids) != len(set(accumulator_source_ids)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=DUPLICATE_ACCUMULATOR
+            ).model_dump(),
+        )
+
+
+def _check_duplicate_collections(db, routine_id: UUID, sessions: List) -> None:
+    """Check for duplicate recitation collections when adding a new time block."""
+    for session_type, error_message in (
+        (SessionType.RECITATION_COLLECTION, DUPLICATE_RECITATION_COLLECTION),
+        (SessionType.GROUP_RECITATION_COLLECTION, DUPLICATE_GROUP_RECITATION_COLLECTION),
+    ):
+        existing_collection_ids = get_existing_collection_source_ids(
+            db=db, routine_id=routine_id, session_type=session_type
+        )
+        new_collection_ids = [
+            s.source_id for s in sessions if s.session_type == session_type
+        ]
+        overlap = set(new_collection_ids) & set(existing_collection_ids)
+        if overlap:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=error_message
+                ).model_dump(),
+            )
 
 
 def _check_duplicate_collections_on_update(
     db, routine_id: UUID, time_block_id: UUID, sessions: List
 ) -> None:
     """Check for duplicate recitation collections when updating a time block."""
-    existing_collection_ids = get_existing_collection_source_ids_in_routine(
-        db=db, routine_id=routine_id, exclude_time_block_id=time_block_id
-    )
-    new_collection_ids = [s.source_id for s in sessions if s.session_type == SessionType.RECITATION_COLLECTION]
-    overlap = set(new_collection_ids) & set(existing_collection_ids)
-    if overlap:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=ResponseError(
-                error=BAD_REQUEST, message=DUPLICATE_RECITATION_COLLECTION
-            ).model_dump(),
+    for session_type, error_message in (
+        (SessionType.RECITATION_COLLECTION, DUPLICATE_RECITATION_COLLECTION),
+        (SessionType.GROUP_RECITATION_COLLECTION, DUPLICATE_GROUP_RECITATION_COLLECTION),
+    ):
+        existing_collection_ids = get_existing_collection_source_ids_in_routine(
+            db=db,
+            routine_id=routine_id,
+            exclude_time_block_id=time_block_id,
+            session_type=session_type,
         )
+        new_collection_ids = [
+            s.source_id for s in sessions if s.session_type == session_type
+        ]
+        overlap = set(new_collection_ids) & set(existing_collection_ids)
+        if overlap:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=error_message
+                ).model_dump(),
+            )
 
 
 def _check_duplicate_time(db, routine_id: UUID, time: str) -> None:
@@ -174,6 +343,81 @@ def _check_duplicate_time(db, routine_id: UUID, time: str) -> None:
 
 def _extract_plan_ids(sessions: List) -> List[UUID]:
     return [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
+
+
+def _extract_series_ids(sessions: List) -> List[UUID]:
+    return [s.source_id for s in sessions if s.session_type == SessionType.SERIES]
+
+
+def _normalize_plan_sessions_to_series(db, sessions: List[SessionRequest]) -> List[SessionRequest]:
+    plan_ids = [
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.PLAN and session.source_id is not None
+    ]
+    if not plan_ids:
+        return sessions
+
+    plans = get_plans_by_ids(db=db, plan_ids=plan_ids)
+    plan_series_map = {
+        plan.id: plan.series_id
+        for plan in plans
+        if getattr(plan, "series_id", None) is not None
+    }
+    if not plan_series_map:
+        return sessions
+
+    normalized: List[SessionRequest] = []
+    for session in sessions:
+        if (
+            session.session_type == SessionType.PLAN
+            and session.source_id in plan_series_map
+        ):
+            normalized.append(
+                SessionRequest(
+                    session_type=SessionType.SERIES,
+                    source_id=plan_series_map[session.source_id],
+                    display_order=session.display_order,
+                )
+            )
+        else:
+            normalized.append(session)
+    return normalized
+
+
+def _validate_accumulators(db, sessions: List[SessionRequest]) -> None:
+    preset_ids = [
+        session.source_id
+        for session in sessions
+        if session.session_type == SessionType.ACCUMULATOR and session.source_id is not None
+    ]
+    if not preset_ids:
+        return
+
+    found_ids = {
+        row.id
+        for row in db.query(Accumulator.id)
+        .filter(
+            Accumulator.id.in_(preset_ids),
+            Accumulator.type == AccumulatorType.PRESET,
+            Accumulator.deleted_at.is_(None),
+        )
+        .all()
+    }
+    if set(preset_ids) - found_ids:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ResponseError(
+                error=BAD_REQUEST, message=PRESET_ACCUMULATOR_NOT_FOUND
+            ).model_dump(),
+        )
+
+
+def _prepare_sessions(db, sessions: List[SessionRequest]) -> List[SessionRequest]:
+    sessions = _normalize_plan_sessions_to_series(db=db, sessions=sessions)
+    _validate_session_uniqueness(sessions)
+    _validate_accumulators(db=db, sessions=sessions)
+    return sessions
 
 
 def _enroll_plans(db, user_id: UUID, plan_ids: List[UUID]) -> None:
@@ -208,15 +452,76 @@ def _enroll_plans(db, user_id: UUID, plan_ids: List[UUID]) -> None:
         db.rollback()
 
 
-def _enroll_new_plans_on_update(
+def _enroll_series(db, user_id: UUID, series_ids: List[UUID]) -> None:
+    if not series_ids:
+        return
+
+    from pecha_api.plans.plans_enums import SeriesStatus
+    from pecha_api.plans.series.series_model import Series
+    from pecha_api.plans.users.plan_users_models import UserSeriesEnrollment
+    from pecha_api.plans.users.plan_user_series_repository import (
+        get_user_series_enrollment_by_user_and_series,
+        save_user_series_enrollment,
+        get_first_plan_in_series,
+    )
+    from pecha_api.plans.users.plan_users_service import auto_enroll_in_next_plan
+
+    for series_id in series_ids:
+        series = (
+            db.query(Series)
+            .filter(Series.id == series_id, Series.deleted_at.is_(None))
+            .first()
+        )
+        if not series:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=SERIES_NOT_FOUND
+                ).model_dump(),
+            )
+
+        existing_enrollment = get_user_series_enrollment_by_user_and_series(
+            db=db, user_id=user_id, series_id=series_id
+        )
+        if existing_enrollment:
+            continue
+
+        first_plan = get_first_plan_in_series(db=db, series_id=series_id)
+        enrollment = UserSeriesEnrollment(
+            user_id=user_id,
+            series_id=series_id,
+            status=SeriesStatus.ACTIVE,
+            auto_enroll_next=True,
+            current_plan_id=first_plan.id if first_plan else None,
+            enrolled_at=datetime.now(timezone.utc),
+            created_at=datetime.now(timezone.utc),
+            is_completed=False,
+        )
+        save_user_series_enrollment(db=db, enrollment=enrollment)
+
+        if first_plan:
+            auto_enroll_in_next_plan(
+                db=db,
+                user_id=user_id,
+                plan_id=first_plan.id,
+                series_enrollment_id=enrollment.id,
+            )
+
+
+def _enroll_new_sessions_on_update(
     db, user_id: UUID, time_block_id: UUID, new_sessions: List
 ) -> None:
     old_plan_ids = set(
         get_plan_source_ids_by_time_block_id(db=db, time_block_id=time_block_id)
     )
     new_plan_ids = set(_extract_plan_ids(new_sessions))
-    added_plans = list(new_plan_ids - old_plan_ids)
-    _enroll_plans(db=db, user_id=user_id, plan_ids=added_plans)
+    _enroll_plans(db=db, user_id=user_id, plan_ids=list(new_plan_ids - old_plan_ids))
+
+    old_series_ids = set(
+        get_series_source_ids_by_time_block_id(db=db, time_block_id=time_block_id)
+    )
+    new_series_ids = set(_extract_series_ids(new_sessions))
+    _enroll_series(db=db, user_id=user_id, series_ids=list(new_series_ids - old_series_ids))
 
 
 def _validate_and_sync_update(
@@ -224,12 +529,13 @@ def _validate_and_sync_update(
     user_id: UUID,
     routine_id: UUID,
     time_block_id: UUID,
-    request: UpdateTimeBlockRequest,
+    time: str,
+    sessions: List[SessionRequest],
 ) -> None:
     existing_time_block = get_time_block_by_routine_and_time(
         db=db,
         routine_id=routine_id,
-        time=request.time,
+        time=time,
         exclude_time_block_id=time_block_id,
     )
     if existing_time_block:
@@ -244,14 +550,14 @@ def _validate_and_sync_update(
         db=db,
         routine_id=routine_id,
         time_block_id=time_block_id,
-        sessions=request.sessions,
+        sessions=sessions,
     )
 
-    _enroll_new_plans_on_update(
+    _enroll_new_sessions_on_update(
         db=db,
         user_id=user_id,
         time_block_id=time_block_id,
-        new_sessions=request.sessions,
+        new_sessions=sessions,
     )
 
 
@@ -314,30 +620,49 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
     return resolved
 
 
+def _normalize_text_id(text_id) -> str:
+    try:
+        return str(UUID(str(text_id)))
+    except (ValueError, TypeError):
+        return str(text_id)
+
+
 async def _resolve_recitation_sessions(
     recitation_sessions: List[RoutineSession],
 ) -> List[SessionDTO]:
     if not recitation_sessions:
         return []
 
-    text_ids = [str(session.source_id) for session in recitation_sessions]
+    text_ids = [_normalize_text_id(session.source_id) for session in recitation_sessions]
     texts = await Text.get_texts_by_ids(text_ids)
-    text_map = {str(text.id): text for text in texts}
+    text_map = {_normalize_text_id(text.id): text for text in texts}
+    previews_by_text_id = await build_first_segment_previews_for_texts(text_ids)
 
     resolved = []
     for session in recitation_sessions:
-        text = text_map.get(str(session.source_id))
+        text_id = _normalize_text_id(session.source_id)
+        text = text_map.get(text_id)
         if text is None:
             continue
+
+        preview = previews_by_text_id.get(text_id)
+        if preview is None:
+            continue
+
+        first_segment_id, preview_content = preview
         resolved.append(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=session.source_id,
+                source_id=UUID(text_id),
                 title=text.title,
                 language=text.language or "en",
                 image=None,
                 display_order=session.display_order,
+                first_segment=RoutineFirstSegmentDTO(
+                    id=first_segment_id,
+                    content=preview_content,
+                ),
             )
         )
     return resolved
@@ -359,7 +684,7 @@ def _resolve_timer_sessions(timer_sessions: List[RoutineSession]) -> List[Sessio
 def _resolve_recitation_collection_sessions(
     db, collection_sessions: List[RoutineSession], user_id: UUID
 ) -> List[SessionDTO]:
-    """Resolve recitation collection sessions by fetching collection details."""
+    """Resolve individual recitation collection sessions by fetching collection details."""
     if not collection_sessions:
         return []
 
@@ -415,9 +740,290 @@ def _resolve_recitation_collection_sessions(
     return resolved
 
 
-async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -> List[SessionDTO]:
+def _resolve_group_recitation_collection_sessions(
+    db, collection_sessions: List[RoutineSession]
+) -> List[SessionDTO]:
+    """Resolve group recitation collection sessions; source_id is the collection id."""
+    if not collection_sessions:
+        return []
+
+    from sqlalchemy import func
+
+    collection_ids = [session.source_id for session in collection_sessions]
+    collections = (
+        db.query(GroupRecitationCollection)
+        .filter(
+            GroupRecitationCollection.id.in_(collection_ids),
+            GroupRecitationCollection.deleted_at.is_(None),
+        )
+        .all()
+    )
+    collection_map = {collection.id: collection for collection in collections}
+
+    item_counts = dict(
+        db.query(
+            GroupRecitationCollectionItem.group_recitation_collection_id,
+            func.count(GroupRecitationCollectionItem.id),
+        )
+        .filter(
+            GroupRecitationCollectionItem.group_recitation_collection_id.in_(
+                collection_ids
+            ),
+            GroupRecitationCollectionItem.deleted_at.is_(None),
+        )
+        .group_by(GroupRecitationCollectionItem.group_recitation_collection_id)
+        .all()
+    )
+
+    resolved = []
+    for session in collection_sessions:
+        collection = collection_map.get(session.source_id)
+        if collection is None:
+            continue
+
+        collection_image = safe_get_image_url(
+            collection.img_url,
+            resource_id=collection.id,
+            resource_type="collection",
+        )
+        resolved.append(
+            SessionDTO(
+                id=session.id,
+                session_type=session.session_type,
+                source_id=session.source_id,
+                title=collection.name,
+                image=collection_image,
+                display_order=session.display_order,
+                item_count=item_counts.get(collection.id, 0),
+            )
+        )
+    return resolved
+
+
+def _accumulator_mala_image(
+    db, accumulator: Accumulator
+) -> Optional[ImageUrlModel]:
+    mala_image_url = resolve_accumulator_bookmark_mala_image_url(db, accumulator)
+    if not mala_image_url:
+        return None
+    return ImageUrlModel(
+        thumbnail=mala_image_url,
+        medium=mala_image_url,
+        original=mala_image_url,
+    )
+
+
+def _mantra_metadata_language(metadata) -> Optional[str]:
+    if metadata is None:
+        return None
+    return (
+        metadata.language.value
+        if hasattr(metadata.language, "value")
+        else str(metadata.language)
+    )
+
+
+def _select_mantra_metadata(metadata_entries, language: Optional[str]):
+    if not metadata_entries:
+        return None
+    matched = filter_by_language_with_fallback(
+        entries=list(metadata_entries),
+        language=language,
+        language_of=_mantra_metadata_language,
+    )
+    return matched[0] if matched else metadata_entries[0]
+
+
+def _preset_session_title_and_language(
+    mantra,
+    language: Optional[str] = None,
+) -> tuple[str, Optional[str]]:
+    if mantra is not None and mantra.metadata_entries:
+        mantra_metadata = _select_mantra_metadata(mantra.metadata_entries, language)
+        if mantra_metadata and mantra_metadata.title:
+            return (
+                mantra_metadata.title,
+                _mantra_metadata_language(mantra_metadata),
+            )
+
+    return "Untitled", None
+
+
+def _resolve_accumulator_sessions(
+    db,
+    accumulator_sessions: List[RoutineSession],
+    user_id: UUID,
+    language: Optional[str] = None,
+) -> List[SessionDTO]:
+    if not accumulator_sessions:
+        return []
+
+    preset_ids = [session.source_id for session in accumulator_sessions]
+    presets = (
+        db.query(Accumulator)
+        .filter(
+            Accumulator.id.in_(preset_ids),
+            Accumulator.type == AccumulatorType.PRESET,
+            Accumulator.deleted_at.is_(None),
+        )
+        .all()
+    )
+    preset_map = {preset.id: preset for preset in presets}
+
+    mantra_ids = [
+        preset.mantra_id
+        for preset in presets
+        if preset.mantra_id is not None
+    ]
+    mantras_by_id = get_mantras_by_ids(db, mantra_ids)
+
+    resolved = []
+    for session in accumulator_sessions:
+        preset = preset_map.get(session.source_id)
+        if preset is None:
+            continue
+
+        mantra = (
+            mantras_by_id.get(preset.mantra_id)
+            if preset.mantra_id is not None
+            else None
+        )
+        title, session_language = _preset_session_title_and_language(
+            mantra, language
+        )
+        resolved.append(
+            SessionDTO(
+                id=session.id,
+                session_type=session.session_type,
+                source_id=session.source_id,
+                accumulator_id=session.source_id,
+                title=title,
+                language=session_language,
+                image=_accumulator_mala_image(db, preset),
+                display_order=session.display_order,
+            )
+        )
+    return resolved
+
+
+def _series_metadata_language(metadata) -> Optional[str]:
+    if metadata is None:
+        return None
+    return (
+        metadata.language.value
+        if hasattr(metadata.language, "value")
+        else str(metadata.language)
+    )
+
+
+def _select_series_metadata(metadata_entries, language: Optional[str]):
+    """Pick the metadata entry for ``language``, falling back to 'en', then first."""
+    if not metadata_entries:
+        return None
+    matched = filter_by_language_with_fallback(
+        entries=list(metadata_entries),
+        language=language,
+        language_of=_series_metadata_language,
+    )
+    return matched[0] if matched else metadata_entries[0]
+
+
+def _plan_language(plan) -> str:
+    return (
+        plan.language.value
+        if hasattr(plan.language, "value")
+        else str(plan.language)
+    )
+
+
+def _filter_plans_by_language(plans: List, language: Optional[str]) -> List:
+    if not plans:
+        return []
+    return filter_by_language_with_fallback(
+        entries=list(plans),
+        language=language,
+        language_of=_plan_language,
+    )
+
+
+def _build_series_session_dto(
+    session, series, first_plan, progress, current_plan, language: Optional[str] = None
+) -> SessionDTO:
+    metadata = _select_series_metadata(series.metadata_entries, language)
+    series_image = safe_get_image_url(
+        series.image, resource_id=series.id, resource_type="series"
+    )
+    return SessionDTO(
+        id=session.id,
+        session_type=session.session_type,
+        source_id=session.source_id,
+        title=metadata.title if metadata else "Untitled Series",
+        language=_series_metadata_language(metadata),
+        image=series_image,
+        display_order=session.display_order,
+        start_date=first_plan.start_date if first_plan else None,  # First plan's start_date
+        started_at=progress.started_at if progress else None,  # User's started_at for first plan
+        current_plan_id=current_plan.id if current_plan else None,
+        current_plan_title=current_plan.title if current_plan else None,
+    )
+
+
+def _resolve_series_sessions(
+    db, series_sessions: List[RoutineSession], user_id: UUID, language: Optional[str] = None
+) -> List[SessionDTO]:
+    if not series_sessions:
+        return []
+
+    from pecha_api.plans.public.plan_service import _resolve_plan_for_date_in_series
+    from pecha_api.plans.series.series_repository import get_series_by_ids
+    from pecha_api.plans.users.plan_user_series_repository import get_plans_by_series_ids
+
+    series_ids = [session.source_id for session in series_sessions]
+    series_list = get_series_by_ids(db=db, series_ids=series_ids)
+    series_map = {series.id: series for series in series_list}
+
+    plans_by_series = get_plans_by_series_ids(db=db, series_ids=series_ids)
+    today = datetime.now(timezone.utc).date()
+    language_plans_by_series = {
+        series_id: _filter_plans_by_language(plans, language)
+        for series_id, plans in plans_by_series.items()
+    }
+    current_plan_map = {
+        series_id: _resolve_plan_for_date_in_series(language_plans, today)
+        for series_id, language_plans in language_plans_by_series.items()
+    }
+    first_plan_map = {
+        series_id: language_plans[0] if language_plans else None
+        for series_id, language_plans in language_plans_by_series.items()
+    }
+    first_plan_ids = [plan.id for plan in first_plan_map.values() if plan is not None]
+    progress_map = get_plan_progress_by_user_id_and_plan_ids(
+        db=db, user_id=user_id, plan_ids=first_plan_ids
+    )
+
+    resolved = []
+    for session in series_sessions:
+        series = series_map.get(session.source_id)
+        if series is None:
+            continue
+
+        first_plan = first_plan_map.get(session.source_id)
+        progress = progress_map.get(first_plan.id) if first_plan else None
+        current_plan = current_plan_map.get(session.source_id)
+        resolved.append(
+            _build_series_session_dto(
+                session, series, first_plan, progress, current_plan, language=language
+            )
+        )
+    return resolved
+
+
+async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID, language: Optional[str] = None) -> List[SessionDTO]:
     plan_sessions = [
         session for session in sessions if session.session_type == SessionType.PLAN
+    ]
+    series_sessions = [
+        session for session in sessions if session.session_type == SessionType.SERIES
     ]
     recitation_sessions = [
         session
@@ -429,20 +1035,48 @@ async def _resolve_sessions(db, sessions: List[RoutineSession], user_id: UUID) -
         for session in sessions
         if session.session_type == SessionType.RECITATION_COLLECTION
     ]
+    group_recitation_collection_sessions = [
+        session
+        for session in sessions
+        if session.session_type == SessionType.GROUP_RECITATION_COLLECTION
+    ]
     timer_sessions = [
         session for session in sessions if session.session_type == SessionType.TIMER
     ]
+    accumulator_sessions = [
+        session
+        for session in sessions
+        if session.session_type == SessionType.ACCUMULATOR
+    ]
 
     resolved_plans = _resolve_plan_sessions(db=db, plan_sessions=plan_sessions, user_id=user_id)
+    resolved_series = _resolve_series_sessions(db=db, series_sessions=series_sessions, user_id=user_id, language=language)
     resolved_recitations = await _resolve_recitation_sessions(
         recitation_sessions=recitation_sessions
     )
     resolved_collections = _resolve_recitation_collection_sessions(
         db=db, collection_sessions=recitation_collection_sessions, user_id=user_id
     )
+    resolved_group_collections = _resolve_group_recitation_collection_sessions(
+        db=db, collection_sessions=group_recitation_collection_sessions
+    )
     resolved_timers = _resolve_timer_sessions(timer_sessions=timer_sessions)
+    resolved_accumulators = _resolve_accumulator_sessions(
+        db=db,
+        accumulator_sessions=accumulator_sessions,
+        user_id=user_id,
+        language=language,
+    )
 
-    resolved = resolved_plans + resolved_recitations + resolved_collections + resolved_timers
+    resolved = (
+        resolved_plans
+        + resolved_series
+        + resolved_recitations
+        + resolved_collections
+        + resolved_group_collections
+        + resolved_timers
+        + resolved_accumulators
+    )
     resolved.sort(key=lambda session: session.display_order)
 
     return resolved
@@ -460,27 +1094,37 @@ def group_sessions_by_block(
 
 
 async def build_time_block_dto(
-    db, time_block: RoutineTimeBlock, sessions: List[RoutineSession], user_id: UUID
+    db,
+    time_block: RoutineTimeBlock,
+    sessions: List[RoutineSession],
+    user_id: UUID,
+    language: Optional[str] = None,
+    routine_timezone: Optional[str] = None,
 ) -> TimeBlockDTO:
-    resolved_sessions = await _resolve_sessions(db=db, sessions=sessions, user_id=user_id)
+    resolved_sessions = await _resolve_sessions(db=db, sessions=sessions, user_id=user_id, language=language)
+    display_time, display_time_int = _resolve_time_block_display(time_block, routine_timezone)
     return TimeBlockDTO(
         id=time_block.id,
-        time=time_block.time,
-        time_int=time_block.time_int,
+        time=display_time,
+        time_int=display_time_int,
         notification_enabled=time_block.notification_enabled,
         sessions=resolved_sessions,
     )
 
 
 async def create_routine_with_time_block(
-    token: str, request: CreateTimeBlockRequest
+    token: str, request: CreateTimeBlockRequest, timezone_name: Optional[str] = None
 ) -> RoutineWithTimeBlocksResponse:
 
     current_user = validate_and_extract_user_details(token=token)
 
     _validate_time_block_request(request)
+    stored_timezone = normalize_timezone_name(timezone_name)
+    effective_timezone = _resolve_effective_timezone(timezone_name)
 
     with SessionLocal() as db:
+        prepared_sessions = _prepare_sessions(db=db, sessions=request.sessions)
+
         # Check routine doesn't already exist (business rule: exclude soft-deleted)
         existing_routine = get_routine_by_user_id(
             db=db, user_id=current_user.id, include_deleted=False
@@ -493,31 +1137,44 @@ async def create_routine_with_time_block(
                 ).model_dump(),
             )
 
+        local_time, time_int, time_utc = _build_time_block_storage(
+            local_time=request.time,
+            timezone_name=effective_timezone,
+            time_int=request.time_int,
+        )
+
         # Create routine
-        routine = Routine(user_id=current_user.id)
+        routine = Routine(user_id=current_user.id, timezone=stored_timezone)
         saved_routine = save_routine(db=db, routine=routine)
 
         # Create time block
         time_block = RoutineTimeBlock(
             routine_id=saved_routine.id,
-            time=request.time,
-            time_int=request.time_int,
+            time=local_time,
+            time_utc=time_utc,
+            time_int=time_int,
             notification_enabled=request.notification_enabled,
         )
         saved_time_block = save_time_block(db=db, time_block=time_block)
 
         session_models = build_session_models(
-            time_block_id=saved_time_block.id, sessions=request.sessions
+            time_block_id=saved_time_block.id, sessions=prepared_sessions
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
-        # Auto-enroll plans
         _enroll_plans(
-            db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(request.sessions)
+            db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(prepared_sessions)
+        )
+        _enroll_series(
+            db=db, user_id=current_user.id, series_ids=_extract_series_ids(prepared_sessions)
         )
 
         time_block_dto = await build_time_block_dto(
-            db=db, time_block=saved_time_block, sessions=saved_sessions, user_id=current_user.id
+            db=db,
+            time_block=saved_time_block,
+            sessions=saved_sessions,
+            user_id=current_user.id,
+            routine_timezone=stored_timezone,
         )
 
         return RoutineWithTimeBlocksResponse(
@@ -527,7 +1184,7 @@ async def create_routine_with_time_block(
 
 
 async def get_user_routine(
-    token: str, skip: int = 0, limit: int = 20
+    token: str, skip: int = 0, limit: int = 20, language: Optional[str] = None
 ) -> RoutineResponse:
 
     current_user = validate_and_extract_user_details(token=token)
@@ -571,7 +1228,12 @@ async def get_user_routine(
 
         time_block_dtos = [
             await build_time_block_dto(
-                db=db, time_block=tb, sessions=sessions_by_block.get(tb.id, []), user_id=current_user.id
+                db=db,
+                time_block=tb,
+                sessions=sessions_by_block.get(tb.id, []),
+                user_id=current_user.id,
+                language=language,
+                routine_timezone=routine.timezone,
             )
             for tb in time_blocks
         ]
@@ -585,8 +1247,34 @@ async def get_user_routine(
         )
 
 
+async def get_user_routine_info(token: str) -> RoutineInfoResponse:
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        routine = get_routine_by_user_id(
+            db=db, user_id=current_user.id, include_deleted=False
+        )
+
+        if routine is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ResponseError(
+                    error=BAD_REQUEST, message=NO_ROUTINE_CREATED_FOR_USER
+                ).model_dump(),
+            )
+
+        series_count, recitation_count = get_routine_series_and_recitation_counts(
+            db=db, routine_id=routine.id
+        )
+
+        return RoutineInfoResponse(
+            series_count=series_count,
+            recitation_count=recitation_count,
+        )
+
+
 async def add_time_block_to_routine(
-    token: str, routine_id: UUID, request: CreateTimeBlockRequest
+    token: str, routine_id: UUID, request: CreateTimeBlockRequest, timezone_name: Optional[str] = None
 ) -> TimeBlockDTO:
 
     current_user = validate_and_extract_user_details(token=token)
@@ -606,35 +1294,45 @@ async def add_time_block_to_routine(
                 ).model_dump(),
             )
 
+        effective_timezone = _sync_routine_timezone(routine, timezone_name)
+
+        local_time, time_int, time_utc = _build_time_block_storage(
+            local_time=request.time,
+            timezone_name=effective_timezone,
+            time_int=request.time_int,
+        )
+
         _check_duplicate_collections(db=db, routine_id=routine_id, sessions=request.sessions)
-        _check_duplicate_time(db=db, routine_id=routine_id, time=request.time)
+        _check_duplicate_time(db=db, routine_id=routine_id, time=local_time)
+
+        prepared_sessions = _prepare_sessions(db=db, sessions=request.sessions)
 
         # Save time block
         time_block = RoutineTimeBlock(
             routine_id=routine_id,
-            time=request.time,
-            time_int=request.time_int,
+            time=local_time,
+            time_utc=time_utc,
+            time_int=time_int,
             notification_enabled=request.notification_enabled,
         )
         saved_time_block = save_time_block(db=db, time_block=time_block)
 
         session_models = build_session_models(
-            time_block_id=saved_time_block.id, sessions=request.sessions
+            time_block_id=saved_time_block.id, sessions=prepared_sessions
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
-        # Auto-enroll plans
         _enroll_plans(
-            db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(request.sessions)
+            db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(prepared_sessions)
+        )
+        _enroll_series(
+            db=db, user_id=current_user.id, series_ids=_extract_series_ids(prepared_sessions)
         )
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions, user_id=current_user.id)
-
-        return TimeBlockDTO(
-            id=saved_time_block.id,
-            time=saved_time_block.time,
-            time_int=saved_time_block.time_int,
-            notification_enabled=saved_time_block.notification_enabled,
+        return _time_block_dto(
+            saved_time_block,
+            effective_timezone=effective_timezone,
             sessions=resolved_sessions,
         )
 
@@ -671,7 +1369,11 @@ def delete_time_block(token: str, routine_id: UUID, time_block_id: UUID) -> None
 
 
 async def update_time_block_service(
-    token: str, routine_id: UUID, time_block_id: UUID, request: UpdateTimeBlockRequest
+    token: str,
+    routine_id: UUID,
+    time_block_id: UUID,
+    request: UpdateTimeBlockRequest,
+    timezone_name: Optional[str] = None,
 ) -> TimeBlockDTO:
 
     current_user = validate_and_extract_user_details(token=token)
@@ -690,6 +1392,14 @@ async def update_time_block_service(
                 ).model_dump(),
             )
 
+        effective_timezone = _sync_routine_timezone(routine, timezone_name)
+
+        local_time, time_int, time_utc = _build_time_block_storage(
+            local_time=request.time,
+            timezone_name=effective_timezone,
+            time_int=request.time_int,
+        )
+
         time_block = get_time_block_by_id_and_routine(
             db=db, time_block_id=time_block_id, routine_id=routine_id
         )
@@ -701,12 +1411,15 @@ async def update_time_block_service(
                 ).model_dump(),
             )
 
+        prepared_sessions = _prepare_sessions(db=db, sessions=request.sessions)
+
         _validate_and_sync_update(
             db=db,
             user_id=current_user.id,
             routine_id=routine_id,
             time_block_id=time_block_id,
-            request=request,
+            time=local_time,
+            sessions=prepared_sessions,
         )
 
         delete_sessions_by_time_block_id(db=db, time_block_id=time_block_id)
@@ -714,22 +1427,20 @@ async def update_time_block_service(
         updated_time_block = update_time_block_repo(
             db=db,
             time_block=time_block,
-            time=request.time,
-            time_int=request.time_int,
+            time=local_time,
+            time_utc=time_utc,
+            time_int=time_int,
             notification_enabled=request.notification_enabled,
         )
 
         session_models = build_session_models(
-            time_block_id=updated_time_block.id, sessions=request.sessions
+            time_block_id=updated_time_block.id, sessions=prepared_sessions
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
 
         resolved_sessions = await _resolve_sessions(db=db, sessions=saved_sessions, user_id=current_user.id)
-
-        return TimeBlockDTO(
-            id=updated_time_block.id,
-            time=updated_time_block.time,
-            time_int=updated_time_block.time_int,
-            notification_enabled=updated_time_block.notification_enabled,
+        return _time_block_dto(
+            updated_time_block,
+            effective_timezone=effective_timezone,
             sessions=resolved_sessions,
         )

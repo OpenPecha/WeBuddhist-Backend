@@ -1,7 +1,10 @@
 import jose
 import jwt
 from datetime import datetime, timezone, timedelta
+from unittest.mock import patch, MagicMock
+from uuid import uuid4
 
+import pytest
 
 from pecha_api.users.users_models import Users
 from pecha_api.auth.auth_repository import (
@@ -10,8 +13,9 @@ from pecha_api.auth.auth_repository import (
     create_access_token,
     create_refresh_token,
     generate_token_data,
-    decode_backend_token, verify_auth0_token
-
+    decode_backend_token,
+    verify_auth0_token,
+    _allowed_auth0_audiences,
 )
 from pecha_api.users.users_service import validate_token
 
@@ -173,7 +177,9 @@ def test_create_refresh_token_with_custom_expiry():
 
 
 def test_generate_token_data_success():
+    user_id = uuid4()
     user = Users(
+        id=user_id,
         email="test@example.com",
         firstname="John",
         lastname="Doe",
@@ -182,6 +188,7 @@ def test_generate_token_data_success():
     token_data = generate_token_data(user)
 
     assert token_data is not None
+    assert token_data["sub"] == str(user_id)
     assert token_data["email"] == "test@example.com"
     assert token_data["name"] == "John Doe"
     assert token_data["iss"] == PECHA_JWT_ISSUER
@@ -190,29 +197,30 @@ def test_generate_token_data_success():
 
 
 def test_generate_token_data_missing_email():
-    # Create a valid user first, then modify the email to None
+    user_id = uuid4()
     user = Users(
+        id=user_id,
         email="test@example.com",
         firstname="John",
         lastname="Doe",
         registration_source="email"
     )
-    # Simulate missing email by setting it to None after creation
     user.email = None
     token_data = generate_token_data(user)
 
-    assert token_data is None
+    assert token_data is not None
+    assert token_data["sub"] == str(user_id)
+    assert "email" not in token_data
 
 
 def test_generate_token_data_missing_firstname():
-    # Create a valid user first, then modify the firstname to None
     user = Users(
+        id=uuid4(),
         email="test@example.com",
         firstname="John",
         lastname="Doe",
         registration_source="email"
     )
-    # Simulate missing firstname by setting it to None after creation
     user.firstname = None
     token_data = generate_token_data(user)
 
@@ -221,6 +229,7 @@ def test_generate_token_data_missing_firstname():
 
 def test_generate_token_data_missing_lastname():
     user = Users(
+        id=uuid4(),
         email="test@example.com",
         firstname="John",
         lastname=None,
@@ -392,6 +401,32 @@ def test_decode_backend_token_expired():
         assert False, "Expected jose.exceptions.ExpiredSignatureError"
     except jose.exceptions.ExpiredSignatureError:
         pass
+
+
+def test_verify_auth0_token_exposes_verified_phone_number_for_sms_logins():
+    auth0_payload = {
+        "sub": "sms|6a744811b6f40222b44b0bf3",
+        "aud": "webuddhist-backend",
+        "https://webuddhist.com/phone_number": "+1 (415) 555-2671",
+        "https://webuddhist.com/phone_number_verified": True,
+    }
+    with patch(
+        "pecha_api.auth.auth_repository.get_auth0_public_key",
+        return_value={"key-1": {"kid": "key-1"}},
+    ), patch(
+        "pecha_api.auth.auth_repository.jwt.get_unverified_header",
+        return_value={"kid": "key-1"},
+    ), patch(
+        "pecha_api.auth.auth_repository.jwt.decode",
+        return_value=auth0_payload,
+    ), patch(
+        "pecha_api.auth.auth_repository._allowed_auth0_audiences",
+        return_value=["webuddhist-backend"],
+    ):
+        payload = verify_auth0_token("token")
+
+    assert payload["phone_number"] == "+14155552671"
+    assert "email" not in payload
 
 
 def test_decode_backend_token_invalid_audience():
