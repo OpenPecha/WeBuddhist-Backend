@@ -134,14 +134,12 @@ class TestGetCompletionDayCountService:
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.SessionLocal')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.validate_and_extract_user_details')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_member')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_collection_by_id')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.count_unique_completion_days')
     def test_get_day_count_success(
         self,
         mock_count_days,
         mock_get_collection,
-        mock_get_member,
         mock_get_group,
         mock_validate_user,
         mock_session,
@@ -156,7 +154,6 @@ class TestGetCompletionDayCountService:
         mock_session.return_value.__enter__.return_value = mock_db
         mock_validate_user.return_value = MockUser(id=user_id)
         mock_get_group.return_value = MockGroup(id=group_id)
-        mock_get_member.return_value = MockGroupMember(user_id=user_id, group_id=group_id)
         mock_get_collection.return_value = MockCollection(id=collection_id, group_id=group_id)
         mock_count_days.return_value = 7
 
@@ -202,41 +199,10 @@ class TestGetCompletionDayCountService:
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.SessionLocal')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.validate_and_extract_user_details')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_member')
-    def test_get_day_count_not_member(
-        self,
-        mock_get_member,
-        mock_get_group,
-        mock_validate_user,
-        mock_session,
-    ):
-        """Test error when user is not a group member."""
-        group_id = uuid4()
-
-        mock_db = MagicMock()
-        mock_session.return_value.__enter__.return_value = mock_db
-        mock_validate_user.return_value = MockUser()
-        mock_get_group.return_value = MockGroup(id=group_id)
-        mock_get_member.return_value = None
-
-        with pytest.raises(HTTPException) as exc_info:
-            get_completion_day_count_service(
-                token="valid_token",
-                group_id=group_id,
-                collection_id=uuid4(),
-            )
-
-        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
-
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.SessionLocal')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.validate_and_extract_user_details')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_member')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_collection_by_id')
     def test_get_day_count_collection_not_found(
         self,
         mock_get_collection,
-        mock_get_member,
         mock_get_group,
         mock_validate_user,
         mock_session,
@@ -249,7 +215,6 @@ class TestGetCompletionDayCountService:
         mock_session.return_value.__enter__.return_value = mock_db
         mock_validate_user.return_value = MockUser(id=user_id)
         mock_get_group.return_value = MockGroup(id=group_id)
-        mock_get_member.return_value = MockGroupMember(user_id=user_id, group_id=group_id)
         mock_get_collection.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:

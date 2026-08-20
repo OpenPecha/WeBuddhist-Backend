@@ -92,9 +92,6 @@ def get_completion_day_count_service(
                 detail=NOT_FOUND,
             )
 
-        # Validate user is a member of the group
-        _validate_group_membership(db=db, group_id=group_id, user_id=user.id)
-
         # Validate collection exists and belongs to group
         collection = get_collection_by_id(
             db=db,
