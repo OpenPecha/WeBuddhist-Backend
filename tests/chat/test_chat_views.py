@@ -283,3 +283,108 @@ class TestRoomDetailAndProfile:
 
         assert response.status_code == status.HTTP_200_OK
         assert response.json()["total"] == 0
+
+
+class TestMessageReactions:
+
+    @patch('pecha_api.chat.views.add_message_reaction_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_add_reaction(self, mock_validate, mock_service):
+        from pecha_api.chat.response_models import ChatMessageReactionDTO
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = [
+            ChatMessageReactionDTO(emoji="🙏", count=2, reacted_by_me=True)
+        ]
+
+        response = client.post(
+            f"/chat/rooms/{uuid4()}/messages/{uuid4()}/reactions",
+            json={"emoji": "🙏"},
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data[0]["emoji"] == "🙏"
+        assert data[0]["count"] == 2
+        assert data[0]["reacted_by_me"] is True
+
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_add_reaction_empty_emoji_rejected(self, mock_validate):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+
+        response = client.post(
+            f"/chat/rooms/{uuid4()}/messages/{uuid4()}/reactions",
+            json={"emoji": "   "},
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    @patch('pecha_api.chat.views.remove_message_reaction_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_remove_reaction(self, mock_validate, mock_service):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = []
+
+        response = client.delete(
+            f"/chat/rooms/{uuid4()}/messages/{uuid4()}/reactions/🙏",
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.json() == []
+
+
+class TestReportMessage:
+
+    @patch('pecha_api.chat.views.report_message_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_report_message(self, mock_validate, mock_service):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = None
+
+        response = client.post(
+            f"/chat/rooms/{uuid4()}/messages/{uuid4()}/report",
+            json={"reason": "SPAM", "description": "Repeated ads"},
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        mock_service.assert_called_once()
+
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_report_invalid_reason_rejected(self, mock_validate):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+
+        response = client.post(
+            f"/chat/rooms/{uuid4()}/messages/{uuid4()}/report",
+            json={"reason": "NOT_A_REASON"},
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+class TestSendReplyViaRest:
+
+    @patch('pecha_api.chat.views.send_group_message_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_send_group_reply_passes_parent(self, mock_validate, mock_service):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        parent_id = uuid4()
+        mock_service.return_value = _message_dto()
+
+        response = client.post(
+            f"/chat/groups/{uuid4()}/messages",
+            json={"body": "A reply", "parent_message_id": str(parent_id)},
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert mock_service.call_args.kwargs["parent_message_id"] == parent_id

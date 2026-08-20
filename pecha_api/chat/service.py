@@ -28,6 +28,8 @@ from pecha_api.chat.repository import (
 )
 from pecha_api.chat.response_models import (
     ChatMessageDTO,
+    ChatMessageParentDTO,
+    ChatMessageReactionDTO,
     ChatPeopleResponse,
     ChatPersonDTO,
     ChatRoomDTO,
@@ -68,7 +70,41 @@ def _generate_presigned_url(s3_key: Optional[str]) -> Optional[str]:
         return None
 
 
-def build_message_dto(message: ChatMessage) -> ChatMessageDTO:
+def _build_reaction_dtos(reactions, viewer_id: Optional[UUID]) -> list:
+    """Aggregate reaction rows into per-emoji summaries (first-seen order)."""
+    if not reactions:
+        return []
+    summaries: dict = {}
+    for reaction in reactions:
+        summary = summaries.setdefault(
+            reaction.emoji,
+            ChatMessageReactionDTO(emoji=reaction.emoji, count=0, reacted_by_me=False),
+        )
+        summary.count += 1
+        if viewer_id is not None and reaction.user_id == viewer_id:
+            summary.reacted_by_me = True
+    return list(summaries.values())
+
+
+def _build_parent_dto(message: ChatMessage) -> Optional[ChatMessageParentDTO]:
+    has_parent = getattr(message, "parent_message_id", None) is not None
+    parent = getattr(message, "parent", None) if has_parent else None
+    if parent is None or parent.deleted_at is not None:
+        return None
+    return ChatMessageParentDTO(
+        id=parent.id,
+        sender_id=parent.sender_id,
+        sender_email=parent.sender.email if parent.sender else "unknown@example.com",
+        body=parent.body,
+        created_at=_isoformat(parent.created_at),
+    )
+
+
+def build_message_dto(
+    message: ChatMessage,
+    reactions=None,
+    viewer_id: Optional[UUID] = None,
+) -> ChatMessageDTO:
     sender_email = message.sender.email if message.sender else "unknown@example.com"
     return ChatMessageDTO(
         id=message.id,
@@ -77,6 +113,8 @@ def build_message_dto(message: ChatMessage) -> ChatMessageDTO:
         sender_email=sender_email,
         body=message.body,
         created_at=_isoformat(message.created_at),
+        parent=_build_parent_dto(message),
+        reactions=_build_reaction_dtos(reactions, viewer_id),
     )
 
 

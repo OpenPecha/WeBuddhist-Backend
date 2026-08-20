@@ -15,19 +15,25 @@ from pecha_api.chat.member_service import (
     remove_room_member_service,
 )
 from pecha_api.chat.message_service import (
+    add_message_reaction_service,
     delete_message_service,
     list_room_messages_service,
+    remove_message_reaction_service,
+    report_message_service,
     send_direct_message_service,
     send_group_message_service,
 )
 from pecha_api.chat.response_models import (
+    AddChatMessageReactionRequest,
     AddChatRoomMembersRequest,
     ChatMessageDTO,
+    ChatMessageReactionDTO,
     ChatMessagesResponse,
     ChatPeopleResponse,
     ChatRoomDTO,
     ChatRoomMembersResponse,
     ChatRoomsResponse,
+    ReportChatMessageRequest,
     SendChatMessageRequest,
     UpdateChatRoomRequest,
 )
@@ -142,6 +148,67 @@ def delete_room_message(
 
 
 @chat_router.post(
+    "/chat/rooms/{room_id}/messages/{message_id}/reactions",
+    status_code=status.HTTP_200_OK,
+    response_model=list[ChatMessageReactionDTO],
+)
+def add_message_reaction(
+    room_id: UUID,
+    message_id: UUID,
+    request: AddChatMessageReactionRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """React to a message with an emoji (idempotent). Active member only.
+    Returns the message's updated reaction summary."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    return add_message_reaction_service(
+        room_id=room_id, message_id=message_id, user=user, emoji=request.emoji
+    )
+
+
+@chat_router.delete(
+    "/chat/rooms/{room_id}/messages/{message_id}/reactions/{emoji}",
+    status_code=status.HTTP_200_OK,
+    response_model=list[ChatMessageReactionDTO],
+)
+def remove_message_reaction(
+    room_id: UUID,
+    message_id: UUID,
+    emoji: str,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Remove the caller's emoji reaction from a message (idempotent).
+    Returns the message's updated reaction summary."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    return remove_message_reaction_service(
+        room_id=room_id, message_id=message_id, user=user, emoji=emoji
+    )
+
+
+@chat_router.post(
+    "/chat/rooms/{room_id}/messages/{message_id}/report",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def report_message(
+    room_id: UUID,
+    message_id: UUID,
+    request: ReportChatMessageRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Report a message for moderation. Active member only; one report per
+    user per message; you cannot report your own message."""
+    user = validate_and_extract_user_details(token=authentication_credential.credentials)
+    report_message_service(
+        room_id=room_id,
+        message_id=message_id,
+        user=user,
+        reason=request.reason,
+        description=request.description,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@chat_router.post(
     "/chat/groups/{group_id}/messages",
     status_code=status.HTTP_201_CREATED,
     response_model=ChatMessageDTO,
@@ -152,9 +219,15 @@ def send_group_chat_message(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
     """Send a message to a group's chat room. Auto-creates the room (caller
-    becomes CREATOR) on the first message from an eligible group joiner/follower."""
+    becomes CREATOR) on the first message from an eligible group joiner/follower.
+    Pass parent_message_id in the body to send it as a reply."""
     user = validate_and_extract_user_details(token=authentication_credential.credentials)
-    return send_group_message_service(group_id=group_id, user=user, body=request.body)
+    return send_group_message_service(
+        group_id=group_id,
+        user=user,
+        body=request.body,
+        parent_message_id=request.parent_message_id,
+    )
 
 
 @chat_router.post(
@@ -168,9 +241,14 @@ def send_direct_chat_message(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
     """Send a direct message to another user. Auto-creates (and reuses) the
-    normalized-pair DM room."""
+    normalized-pair DM room. Pass parent_message_id in the body to send it as a reply."""
     user = validate_and_extract_user_details(token=authentication_credential.credentials)
-    return send_direct_message_service(receiver_id=user_id, user=user, body=request.body)
+    return send_direct_message_service(
+        receiver_id=user_id,
+        user=user,
+        body=request.body,
+        parent_message_id=request.parent_message_id,
+    )
 
 
 @chat_router.get(
@@ -248,7 +326,7 @@ async def websocket_chat_live(
     chat) or receiver_id (DM) — the room is resolved/auto-created on connect.
 
     Client -> server messages:
-      {"type": "message", "body": "..."}
+      {"type": "message", "body": "...", "parent_message_id": "..."}   (parent_message_id optional; makes it a reply)
       {"type": "typing", "is_typing": true|false}   (ephemeral, not persisted)
 
     Server -> client events:
@@ -367,14 +445,31 @@ async def websocket_chat_live(
                     })
                     continue
 
+                raw_parent_id = data.get("parent_message_id")
+                try:
+                    parent_message_id = UUID(str(raw_parent_id)) if raw_parent_id else None
+                except (ValueError, TypeError):
+                    await websocket.send_json({
+                        "type": "error",
+                        "code": "INVALID_PARENT_MESSAGE_ID",
+                        "message": "parent_message_id must be a valid UUID",
+                    })
+                    continue
+
                 try:
                     if group_id is not None:
                         message_dto = send_group_message_service(
-                            group_id=group_id, user=user, body=data.get("body", "")
+                            group_id=group_id,
+                            user=user,
+                            body=data.get("body", ""),
+                            parent_message_id=parent_message_id,
                         )
                     else:
                         message_dto = send_direct_message_service(
-                            receiver_id=receiver_id, user=user, body=data.get("body", "")
+                            receiver_id=receiver_id,
+                            user=user,
+                            body=data.get("body", ""),
+                            parent_message_id=parent_message_id,
                         )
                 except HTTPException as e:
                     logger.error(f"Message send failed: {e.detail}")

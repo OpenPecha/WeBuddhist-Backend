@@ -23,6 +23,8 @@ from .enums import ChatRoomMemberRoleEnum
 FK_AUTHOR_GROUPS_ID = "author_groups.id"
 FK_USERS_ID = "users.id"
 FK_CHAT_ROOMS_ID = "chat_rooms.id"
+FK_CHAT_MESSAGES_ID = "chat_messages.id"
+CASCADE_DELETE_ORPHAN = "all, delete-orphan"
 
 
 class ChatRoom(Base):
@@ -67,12 +69,12 @@ class ChatRoom(Base):
     members = relationship(
         "ChatRoomMember",
         back_populates="room",
-        cascade="all, delete-orphan",
+        cascade=CASCADE_DELETE_ORPHAN,
     )
     messages = relationship(
         "ChatMessage",
         back_populates="room",
-        cascade="all, delete-orphan",
+        cascade=CASCADE_DELETE_ORPHAN,
     )
 
     __table_args__ = (
@@ -113,6 +115,11 @@ class ChatMessage(Base):
         ForeignKey(FK_USERS_ID, ondelete="CASCADE"),
         nullable=False,
     )
+    parent_message_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(FK_CHAT_MESSAGES_ID, ondelete="SET NULL"),
+        nullable=True,
+    )
     body = Column(Text, nullable=False)
 
     created_at = Column(
@@ -126,6 +133,12 @@ class ChatMessage(Base):
 
     room = relationship("ChatRoom", back_populates="messages")
     sender = relationship("Users")
+    parent = relationship("ChatMessage", remote_side="ChatMessage.id", foreign_keys=[parent_message_id])
+    reactions = relationship(
+        "ChatMessageReaction",
+        back_populates="message",
+        cascade=CASCADE_DELETE_ORPHAN,
+    )
 
     __table_args__ = (
         Index("idx_chat_messages_room_created", "room_id", sql_text("created_at DESC")),
@@ -175,4 +188,80 @@ class ChatRoomMember(Base):
         UniqueConstraint("room_id", "user_id", name="uq_chat_room_members_room_user"),
         Index("idx_chat_room_members_room_id", "room_id"),
         Index("idx_chat_room_members_user_id", "user_id"),
+    )
+
+
+class ChatMessageReaction(Base):
+    __tablename__ = "chat_message_reactions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    message_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(FK_CHAT_MESSAGES_ID, ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(FK_USERS_ID, ondelete="CASCADE"),
+        nullable=False,
+    )
+    emoji = Column(String(16), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(dt.timezone.utc),
+        nullable=False,
+    )
+
+    message = relationship("ChatMessage", back_populates="reactions")
+    user = relationship("Users")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "message_id",
+            "user_id",
+            "emoji",
+            name="uq_chat_message_reactions_message_user_emoji",
+        ),
+        Index("idx_chat_message_reactions_message_id", "message_id"),
+    )
+
+
+class ChatMessageReport(Base):
+    __tablename__ = "chat_message_reports"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    message_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(FK_CHAT_MESSAGES_ID, ondelete="CASCADE"),
+        nullable=False,
+    )
+    reporter_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(FK_USERS_ID, ondelete="CASCADE"),
+        nullable=False,
+    )
+    reason = Column(String(32), nullable=False)
+    description = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(dt.timezone.utc),
+        nullable=False,
+    )
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+
+    message = relationship("ChatMessage")
+    reporter = relationship("Users")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "message_id",
+            "reporter_id",
+            name="uq_chat_message_reports_message_reporter",
+        ),
+        Index("idx_chat_message_reports_message_id", "message_id"),
+        Index(
+            "idx_chat_message_reports_unresolved",
+            "created_at",
+            postgresql_where=sql_text("resolved_at IS NULL"),
+        ),
     )

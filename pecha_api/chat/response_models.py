@@ -3,6 +3,24 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
+from pecha_api.chat.enums import ChatMessageReportReason
+
+
+class ChatMessageParentDTO(BaseModel):
+    """Compact DTO for the message a reply points to (the quoted message)."""
+    id: UUID
+    sender_id: UUID
+    sender_email: str
+    body: str
+    created_at: str
+
+
+class ChatMessageReactionDTO(BaseModel):
+    """Aggregated reactions of one emoji on a message."""
+    emoji: str
+    count: int
+    reacted_by_me: bool = False
+
 
 class ChatMessageDTO(BaseModel):
     """DTO for a single chat message."""
@@ -12,6 +30,8 @@ class ChatMessageDTO(BaseModel):
     sender_email: str
     body: str
     created_at: str
+    parent: Optional[ChatMessageParentDTO] = None
+    reactions: List[ChatMessageReactionDTO] = []
 
 
 class ChatMessagesResponse(BaseModel):
@@ -87,8 +107,10 @@ class ChatPeopleResponse(BaseModel):
 
 
 class SendChatMessageRequest(BaseModel):
-    """Request to send a message to a room (group or DM)."""
+    """Request to send a message to a room (group or DM). Pass
+    parent_message_id to send it as a reply to that message."""
     body: str
+    parent_message_id: Optional[UUID] = None
 
     @field_validator("body")
     @classmethod
@@ -98,6 +120,39 @@ class SendChatMessageRequest(BaseModel):
             raise ValueError("Message body must not be empty")
         if len(value) > 4000:
             raise ValueError("Message body must not exceed 4000 characters")
+        return value
+
+
+class AddChatMessageReactionRequest(BaseModel):
+    """Request to add an emoji reaction to a message."""
+    emoji: str
+
+    @field_validator("emoji")
+    @classmethod
+    def validate_emoji(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("emoji must not be empty")
+        if len(value) > 16:
+            raise ValueError("emoji must not exceed 16 characters")
+        return value
+
+
+class ReportChatMessageRequest(BaseModel):
+    """Request to report a message for moderation."""
+    reason: ChatMessageReportReason
+    description: Optional[str] = None
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            return None
+        if len(value) > 1000:
+            raise ValueError("description must not exceed 1000 characters")
         return value
 
 

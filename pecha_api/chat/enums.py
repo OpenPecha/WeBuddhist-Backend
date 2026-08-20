@@ -12,3 +12,11 @@ ChatRoomMemberRoleEnum = Enum(
     ChatRoomMemberRole,
     name="chat_room_member_role",
 )
+
+
+class ChatMessageReportReason(enum.Enum):
+    SPAM = "SPAM"
+    HARASSMENT = "HARASSMENT"
+    HATE_SPEECH = "HATE_SPEECH"
+    INAPPROPRIATE = "INAPPROPRIATE"
+    OTHER = "OTHER"
