@@ -28,6 +28,7 @@ def _comment_dto(
         id=uuid4(),
         post_id=post_id or uuid4(),
         parent_comment_id=parent_comment_id,
+        user_email=user_email,
         user={
             "first_name": "First",
             "last_name": "Last",

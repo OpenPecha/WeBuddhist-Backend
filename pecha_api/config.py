@@ -39,6 +39,9 @@ DEFAULTS = dict(
     MAX_OTR_FILE_SIZE = 5 * 1024 * 1024,
     ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'},
     ALLOWED_AUDIO_EXTENSIONS = {'.mp3', '.m4a', '.wav', '.aac', '.ogg'},
+    AUDIO_MP3_BITRATE="128k",
+    FFMPEG_BINARY="ffmpeg",
+    FFPROBE_BINARY="ffprobe",
     ALLOWED_OTR_EXTENSIONS = {'.otr', '.json'},
     MONGO_CONNECTION_STRING="mongodb://admin:pechaAdmin@localhost:27017/pecha?authSource=admin",
 

@@ -8,7 +8,7 @@ from starlette import status
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.response_message import NOT_FOUND
 from pecha_api.users.users_service import validate_and_extract_user_details
-from pecha_api.plans.groups.groups_repository import get_group_by_id, get_group_member
+from pecha_api.plans.groups.groups_repository import get_group_by_id
 
 from pecha_api.group_recitation_collection.repository import (
     get_collection_by_id,
@@ -27,19 +27,8 @@ from pecha_api.group_recitation_collection.user_chant_completion_response_models
 
 logger = logging.getLogger(__name__)
 
-_NO_GROUP_MEMBERSHIP = "NO_GROUP_MEMBERSHIP"
 _CHANT_NOT_IN_COLLECTION = "CHANT_NOT_IN_COLLECTION"
 _ALREADY_COMPLETED_TODAY = "ALREADY_COMPLETED_TODAY"
-
-
-def _validate_group_membership(db, group_id: UUID, user_id: UUID) -> None:
-    """Validate that user is a member of the group."""
-    member = get_group_member(db=db, group_id=group_id, author_id=user_id)
-    if not member:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=_NO_GROUP_MEMBERSHIP,
-        )
 
 
 def get_today_completions_service(
@@ -59,9 +48,6 @@ def get_today_completions_service(
                 detail=NOT_FOUND,
             )
         
-        # Validate user is a member of the group
-        _validate_group_membership(db=db, group_id=group_id, user_id=user.id)
-        
         # Validate collection exists and belongs to group
         collection = get_collection_by_id(
             db=db,
@@ -73,7 +59,7 @@ def get_today_completions_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=NOT_FOUND,
             )
-        
+
         # Get today's completions
         today = date.today()
         completed_chant_ids = get_user_completions_today(
@@ -151,9 +137,6 @@ def create_chant_completion_service(
                 detail=NOT_FOUND,
             )
         
-        # Validate user is a member of the group
-        _validate_group_membership(db=db, group_id=group_id, user_id=user.id)
-        
         # Validate collection exists and belongs to group
         collection = get_collection_by_id(
             db=db,
@@ -165,7 +148,7 @@ def create_chant_completion_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=NOT_FOUND,
             )
-        
+
         # Validate chant exists in collection
         chant_item = get_collection_item_by_id(
             db=db,

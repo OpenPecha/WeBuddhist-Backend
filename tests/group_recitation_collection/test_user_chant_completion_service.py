@@ -59,14 +59,12 @@ class TestGetTodayCompletionsService:
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.SessionLocal')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.validate_and_extract_user_details')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_member')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_collection_by_id')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_user_completions_today')
     def test_get_today_completions_success(
         self,
         mock_get_completions,
         mock_get_collection,
-        mock_get_member,
         mock_get_group,
         mock_validate_user,
         mock_session,
@@ -83,7 +81,6 @@ class TestGetTodayCompletionsService:
         mock_session.return_value.__enter__.return_value = mock_db
         mock_validate_user.return_value = MockUser(id=user_id)
         mock_get_group.return_value = MockGroup(id=group_id)
-        mock_get_member.return_value = MockGroupMember(user_id=user_id, group_id=group_id)
         mock_get_collection.return_value = MockCollection(id=collection_id, group_id=group_id)
         mock_get_completions.return_value = [chant_id_1, chant_id_2]
 
@@ -100,7 +97,6 @@ class TestGetTodayCompletionsService:
         assert result.date == date.today().isoformat()
         mock_validate_user.assert_called_once_with(token=token)
         mock_get_group.assert_called_once_with(db=mock_db, group_id=group_id)
-        mock_get_member.assert_called_once_with(db=mock_db, group_id=group_id, author_id=user_id)
 
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.SessionLocal')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.validate_and_extract_user_details')
@@ -130,38 +126,6 @@ class TestGetTodayCompletionsService:
             )
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
-
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.SessionLocal')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.validate_and_extract_user_details')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_member')
-    def test_get_today_completions_not_member(
-        self,
-        mock_get_member,
-        mock_get_group,
-        mock_validate_user,
-        mock_session,
-    ):
-        """Test error when user is not a group member."""
-        token = "valid_token"
-        user_id = uuid4()
-        group_id = uuid4()
-        collection_id = uuid4()
-
-        mock_db = MagicMock()
-        mock_session.return_value.__enter__.return_value = mock_db
-        mock_validate_user.return_value = MockUser(id=user_id)
-        mock_get_group.return_value = MockGroup(id=group_id)
-        mock_get_member.return_value = None
-
-        with pytest.raises(HTTPException) as exc_info:
-            get_today_completions_service(
-                token=token,
-                group_id=group_id,
-                collection_id=collection_id,
-            )
-
-        assert exc_info.value.status_code == status.HTTP_403_FORBIDDEN
 
 
 class TestGetCompletionDayCountService:
@@ -304,7 +268,6 @@ class TestCreateChantCompletionService:
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.SessionLocal')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.validate_and_extract_user_details')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_member')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_collection_by_id')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_collection_item_by_id')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.check_completion_exists')
@@ -315,7 +278,6 @@ class TestCreateChantCompletionService:
         mock_check_exists,
         mock_get_item,
         mock_get_collection,
-        mock_get_member,
         mock_get_group,
         mock_validate_user,
         mock_session,
@@ -331,7 +293,6 @@ class TestCreateChantCompletionService:
         mock_session.return_value.__enter__.return_value = mock_db
         mock_validate_user.return_value = MockUser(id=user_id)
         mock_get_group.return_value = MockGroup(id=group_id)
-        mock_get_member.return_value = MockGroupMember(user_id=user_id, group_id=group_id)
         mock_get_collection.return_value = MockCollection(id=collection_id, group_id=group_id)
         mock_get_item.return_value = MockCollectionItem(id=chant_id, collection_id=collection_id)
         mock_check_exists.return_value = False
@@ -353,7 +314,6 @@ class TestCreateChantCompletionService:
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.SessionLocal')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.validate_and_extract_user_details')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_member')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_collection_by_id')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_collection_item_by_id')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.check_completion_exists')
@@ -364,7 +324,6 @@ class TestCreateChantCompletionService:
         mock_check_exists,
         mock_get_item,
         mock_get_collection,
-        mock_get_member,
         mock_get_group,
         mock_validate_user,
         mock_session,
@@ -380,7 +339,6 @@ class TestCreateChantCompletionService:
         mock_session.return_value.__enter__.return_value = mock_db
         mock_validate_user.return_value = MockUser(id=user_id)
         mock_get_group.return_value = MockGroup(id=group_id)
-        mock_get_member.return_value = MockGroupMember(user_id=user_id, group_id=group_id)
         mock_get_collection.return_value = MockCollection(id=collection_id, group_id=group_id)
         mock_get_item.return_value = MockCollectionItem(id=chant_id, collection_id=collection_id)
         mock_check_exists.return_value = True
@@ -397,14 +355,12 @@ class TestCreateChantCompletionService:
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.SessionLocal')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.validate_and_extract_user_details')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_member')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_collection_by_id')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_collection_item_by_id')
     def test_create_completion_chant_not_in_collection(
         self,
         mock_get_item,
         mock_get_collection,
-        mock_get_member,
         mock_get_group,
         mock_validate_user,
         mock_session,
@@ -420,7 +376,6 @@ class TestCreateChantCompletionService:
         mock_session.return_value.__enter__.return_value = mock_db
         mock_validate_user.return_value = MockUser(id=user_id)
         mock_get_group.return_value = MockGroup(id=group_id)
-        mock_get_member.return_value = MockGroupMember(user_id=user_id, group_id=group_id)
         mock_get_collection.return_value = MockCollection(id=collection_id, group_id=group_id)
         mock_get_item.return_value = None
 

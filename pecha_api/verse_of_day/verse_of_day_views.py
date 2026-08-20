@@ -8,6 +8,7 @@ from starlette import status
 from .verse_of_day_response_models import VerseOfDayPublicResponse, VerseOfDayListResponse, CreateVerseOfDayRequest, UpdateVerseOfDayRequest, VerseOfDayDTO
 from .verse_of_day_enums import SortOrder
 from .verse_of_day_service import get_verse_of_day, get_verses_of_day_list_service, get_verse_of_day_by_id_service, get_verse_of_day_today_service, create_verse_of_day_service, update_verse_of_day_service, delete_verse_of_day_service
+from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
 from pecha_api.users.users_service import validate_and_extract_user_details
 
 oauth2_scheme = HTTPBearer()
@@ -92,7 +93,7 @@ def cms_get_verse_of_day_endpoint(
     skip: Annotated[int, Query(description="Number of records to skip", ge=0)] = 0,
     limit: Annotated[int, Query(description="Maximum number of records to return", ge=1, le=100)] = 100,
 ):
-    validate_and_extract_user_details(credentials.credentials)
+    validate_cms_author_details(credentials.credentials)
     return get_verses_of_day_list_service(group_id=group_id, filter_date=date, lang=lang, search=search, sort_order=sort_order, skip=skip, limit=limit)
 
 
@@ -106,7 +107,7 @@ def cms_get_verse_of_day_by_id_endpoint(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     lang: Annotated[Optional[str], Query(description="Filter by language (en, bo, zh, hi, ne, mn). Returns all languages if not specified.")] = None,
 ):
-    validate_and_extract_user_details(credentials.credentials)
+    validate_cms_author_details(credentials.credentials)
     return get_verse_of_day_by_id_service(verse_id=id, lang=lang)
 
 
@@ -120,8 +121,8 @@ def create_verse_of_day_endpoint(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
 ):
 
-    user = validate_and_extract_user_details(credentials.credentials)
-    return create_verse_of_day_service(request=request, created_by=user.email)
+    author = validate_cms_author_details(credentials.credentials)
+    return create_verse_of_day_service(request=request, created_by=author.email)
 
 
 @cms_verse_of_day_router.put(
@@ -135,8 +136,8 @@ def update_verse_of_day_endpoint(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
 ):
 
-    user = validate_and_extract_user_details(credentials.credentials)
-    return update_verse_of_day_service(verse_id=id, request=request, updated_by=user.email)
+    author = validate_cms_author_details(credentials.credentials)
+    return update_verse_of_day_service(verse_id=id, request=request, updated_by=author.email)
 
 
 @cms_verse_of_day_router.delete(
@@ -148,5 +149,5 @@ def delete_verse_of_day_endpoint(
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
 ):
 
-    validate_and_extract_user_details(credentials.credentials)
+    validate_cms_author_details(credentials.credentials)
     delete_verse_of_day_service(verse_id=id)
