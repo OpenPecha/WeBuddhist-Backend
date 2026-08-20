@@ -8,10 +8,12 @@ from starlette import status
 from pecha_api.group_recitation_collection.user_chant_completion_response_models import (
     CreateChantCompletionRequest,
     TodayChantCompletionsResponse,
+    ChantCompletionDayCountResponse,
 )
 from pecha_api.group_recitation_collection.user_chant_completion_service import (
     get_today_completions_service,
     create_chant_completion_service,
+    get_completion_day_count_service,
 )
 
 oauth2_scheme = HTTPBearer()
@@ -36,6 +38,26 @@ def get_today_chant_completions(
 ):
     """Get list of chants completed today by the authenticated user."""
     return get_today_completions_service(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        collection_id=collection_id,
+    )
+
+
+@user_chant_completion_router.get(
+    "/days-count",
+    status_code=status.HTTP_200_OK,
+    response_model=ChantCompletionDayCountResponse,
+)
+def get_chant_completion_day_count(
+    group_id: UUID,
+    collection_id: UUID,
+    authentication_credential: Annotated[
+        HTTPAuthorizationCredentials, Depends(oauth2_scheme)
+    ],
+):
+    """Get the number of unique days the user completed at least one chant in the collection."""
+    return get_completion_day_count_service(
         token=authentication_credential.credentials,
         group_id=group_id,
         collection_id=collection_id,

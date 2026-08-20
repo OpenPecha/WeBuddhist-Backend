@@ -18,9 +18,11 @@ from pecha_api.group_recitation_collection.user_chant_completion_repository impo
     get_user_completions_today,
     create_chant_completion,
     check_completion_exists,
+    count_unique_completion_days,
 )
 from pecha_api.group_recitation_collection.user_chant_completion_response_models import (
     TodayChantCompletionsResponse,
+    ChantCompletionDayCountResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -84,6 +86,50 @@ def get_today_completions_service(
         return TodayChantCompletionsResponse(
             completed_chant_ids=completed_chant_ids,
             date=today.isoformat(),
+        )
+
+
+def get_completion_day_count_service(
+    token: str,
+    group_id: UUID,
+    collection_id: UUID,
+) -> ChantCompletionDayCountResponse:
+    """Get the number of unique days the user completed at least one chant in the collection."""
+    user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        # Validate group exists
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=NOT_FOUND,
+            )
+
+        # Validate user is a member of the group
+        _validate_group_membership(db=db, group_id=group_id, user_id=user.id)
+
+        # Validate collection exists and belongs to group
+        collection = get_collection_by_id(
+            db=db,
+            collection_id=collection_id,
+            group_id=group_id,
+        )
+        if not collection:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=NOT_FOUND,
+            )
+
+        day_count = count_unique_completion_days(
+            db=db,
+            user_id=user.id,
+            collection_id=collection_id,
+        )
+
+        return ChantCompletionDayCountResponse(
+            collection_id=collection_id,
+            day_count=day_count,
         )
 
 
