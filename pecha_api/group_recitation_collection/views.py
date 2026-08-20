@@ -18,6 +18,11 @@ public_group_recitation_collection_router = APIRouter(
     tags=["Public Group Recitation Collections"],
 )
 
+public_group_recitation_collection_detail_router = APIRouter(
+    prefix="/author/groups/recitation-collections",
+    tags=["Public Group Recitation Collections"],
+)
+
 
 @public_group_recitation_collection_router.get(
     "",
@@ -50,8 +55,31 @@ async def list_group_recitation_collections(
     status_code=status.HTTP_200_OK,
     response_model=GroupRecitationCollectionDetailDTO,
 )
-async def get_group_recitation_collection_detail(
+async def get_group_recitation_collection_detail_by_group(
     group_id: UUID,
+    collection_id: UUID,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(
+            alias="X-Timezone",
+            description="IANA timezone (e.g. Asia/Shanghai). Restricted collections are hidden for Chinese timezones.",
+        ),
+    ] = None,
+):
+    """Get a specific recitation collection with its items (group-scoped)."""
+    return await get_group_collection_detail_service(
+        collection_id=collection_id,
+        timezone_name=x_timezone,
+        group_id=group_id,
+    )
+
+
+@public_group_recitation_collection_detail_router.get(
+    "/{collection_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupRecitationCollectionDetailDTO,
+)
+async def get_group_recitation_collection_detail(
     collection_id: UUID,
     x_timezone: Annotated[
         Optional[str],
@@ -63,7 +91,6 @@ async def get_group_recitation_collection_detail(
 ):
     """Get a specific recitation collection with its items."""
     return await get_group_collection_detail_service(
-        group_id=group_id,
         collection_id=collection_id,
         timezone_name=x_timezone,
     )
