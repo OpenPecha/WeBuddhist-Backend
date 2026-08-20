@@ -1,5 +1,6 @@
 import logging
 from datetime import date, datetime, timezone
+from typing import Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -10,9 +11,10 @@ from pecha_api.plans.response_message import NOT_FOUND
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.plans.groups.groups_repository import get_group_by_id
 
+from pecha_api.group_recitation_collection.models import GroupRecitationCollection
 from pecha_api.group_recitation_collection.repository import (
-    get_collection_by_id,
     get_collection_item_by_id,
+    get_collection_without_group_filter,
 )
 from pecha_api.group_recitation_collection.user_chant_completion_repository import (
     get_user_completions_today,
@@ -31,34 +33,42 @@ _CHANT_NOT_IN_COLLECTION = "CHANT_NOT_IN_COLLECTION"
 _ALREADY_COMPLETED_TODAY = "ALREADY_COMPLETED_TODAY"
 
 
+def _get_collection_or_404(
+    db,
+    collection_id: UUID,
+    group_id: Optional[UUID] = None,
+) -> GroupRecitationCollection:
+    """Resolve the collection by id and validate its owning group exists.
+
+    When ``group_id`` is provided (legacy group-scoped routes), the collection
+    must belong to that group.
+    """
+    collection = get_collection_without_group_filter(db=db, collection_id=collection_id)
+    if not collection or (group_id is not None and collection.group_id != group_id):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=NOT_FOUND,
+        )
+
+    group = get_group_by_id(db=db, group_id=collection.group_id)
+    if not group:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=NOT_FOUND,
+        )
+    return collection
+
+
 def get_today_completions_service(
     token: str,
-    group_id: UUID,
     collection_id: UUID,
+    group_id: Optional[UUID] = None,
 ) -> TodayChantCompletionsResponse:
     """Get list of chants completed today by the authenticated user."""
     user = validate_and_extract_user_details(token=token)
-    
+
     with SessionLocal() as db:
-        # Validate group exists
-        group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=NOT_FOUND,
-            )
-        
-        # Validate collection exists and belongs to group
-        collection = get_collection_by_id(
-            db=db,
-            collection_id=collection_id,
-            group_id=group_id,
-        )
-        if not collection:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=NOT_FOUND,
-            )
+        _get_collection_or_404(db=db, collection_id=collection_id, group_id=group_id)
 
         # Get today's completions
         today = date.today()
@@ -77,32 +87,14 @@ def get_today_completions_service(
 
 def get_completion_day_count_service(
     token: str,
-    group_id: UUID,
     collection_id: UUID,
+    group_id: Optional[UUID] = None,
 ) -> ChantCompletionDayCountResponse:
     """Get the number of unique days the user completed at least one chant in the collection."""
     user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
-        # Validate group exists
-        group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=NOT_FOUND,
-            )
-
-        # Validate collection exists and belongs to group
-        collection = get_collection_by_id(
-            db=db,
-            collection_id=collection_id,
-            group_id=group_id,
-        )
-        if not collection:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=NOT_FOUND,
-            )
+        _get_collection_or_404(db=db, collection_id=collection_id, group_id=group_id)
 
         day_count = count_unique_completion_days(
             db=db,
@@ -118,33 +110,15 @@ def get_completion_day_count_service(
 
 def create_chant_completion_service(
     token: str,
-    group_id: UUID,
     collection_id: UUID,
     chant_id: UUID,
+    group_id: Optional[UUID] = None,
 ) -> None:
     """Create a new chant completion log for the authenticated user."""
     user = validate_and_extract_user_details(token=token)
-    
+
     with SessionLocal() as db:
-        # Validate group exists
-        group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=NOT_FOUND,
-            )
-        
-        # Validate collection exists and belongs to group
-        collection = get_collection_by_id(
-            db=db,
-            collection_id=collection_id,
-            group_id=group_id,
-        )
-        if not collection:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=NOT_FOUND,
-            )
+        _get_collection_or_404(db=db, collection_id=collection_id, group_id=group_id)
 
         # Validate chant exists in collection
         chant_item = get_collection_item_by_id(
