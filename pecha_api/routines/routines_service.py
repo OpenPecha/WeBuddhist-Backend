@@ -1117,7 +1117,6 @@ async def create_routine_with_time_block(
 ) -> RoutineWithTimeBlocksResponse:
 
     current_user = validate_and_extract_user_details(token=token)
-
     _validate_time_block_request(request)
     stored_timezone = normalize_timezone_name(timezone_name)
     effective_timezone = _resolve_effective_timezone(timezone_name)
@@ -1142,7 +1141,6 @@ async def create_routine_with_time_block(
             timezone_name=effective_timezone,
             time_int=request.time_int,
         )
-
         # Create routine
         routine = Routine(user_id=current_user.id, timezone=stored_timezone)
         saved_routine = save_routine(db=db, routine=routine)
@@ -1156,12 +1154,10 @@ async def create_routine_with_time_block(
             notification_enabled=request.notification_enabled,
         )
         saved_time_block = save_time_block(db=db, time_block=time_block)
-
         session_models = build_session_models(
             time_block_id=saved_time_block.id, sessions=prepared_sessions
         )
         saved_sessions = save_sessions(db=db, sessions=session_models)
-
         _enroll_plans(
             db=db, user_id=current_user.id, plan_ids=_extract_plan_ids(prepared_sessions)
         )
@@ -1188,7 +1184,6 @@ async def get_user_routine(
 ) -> RoutineResponse:
 
     current_user = validate_and_extract_user_details(token=token)
-
     with SessionLocal() as db:
         routine = get_routine_by_user_id(
             db=db, user_id=current_user.id, include_deleted=False
@@ -1201,7 +1196,6 @@ async def get_user_routine(
                     error=BAD_REQUEST, message=NO_ROUTINE_CREATED_FOR_USER
                 ).model_dump(),
             )
-
         time_blocks, total = get_time_blocks(
             db=db,
             routine_id=routine.id,
@@ -1216,7 +1210,6 @@ async def get_user_routine(
             return RoutineResponse(
                 id=routine.id, time_blocks=[], skip=skip, limit=limit, total=total
             )
-
         time_block_ids = [tb.id for tb in time_blocks]
         all_sessions = get_sessions_by_time_block_ids(
             db=db,
@@ -1225,7 +1218,6 @@ async def get_user_routine(
             order_desc=False,
         )
         sessions_by_block = group_sessions_by_block(all_sessions)
-
         time_block_dtos = [
             await build_time_block_dto(
                 db=db,
@@ -1237,7 +1229,6 @@ async def get_user_routine(
             )
             for tb in time_blocks
         ]
-
         return RoutineResponse(
             id=routine.id,
             time_blocks=time_block_dtos,

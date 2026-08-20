@@ -236,6 +236,28 @@ class TestGetGroupCollectionDetailService:
     @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
     @patch('pecha_api.group_recitation_collection.service.get_collection_without_group_filter')
     @pytest.mark.asyncio
+    async def test_get_detail_group_mismatch(self, mock_get_collection, mock_get_group, mock_session):
+        """Test 404 when the legacy group-scoped call passes a different group_id."""
+        collection_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_collection.return_value = MockGroupRecitationCollection(
+            id=collection_id, group_id=uuid4()
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_group_collection_detail_service(
+                collection_id=collection_id,
+                group_id=uuid4(),  # different group
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        mock_get_group.assert_not_called()
+
+    @patch('pecha_api.group_recitation_collection.service.SessionLocal')
+    @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
+    @patch('pecha_api.group_recitation_collection.service.get_collection_without_group_filter')
+    @pytest.mark.asyncio
     async def test_get_detail_group_not_public(self, mock_get_collection, mock_get_group, mock_session):
         """Test get collection detail when the owning group is not public."""
         group_id = uuid4()

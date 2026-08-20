@@ -27,7 +27,6 @@ user_chant_completion_router = APIRouter(
 @user_chant_completion_router.get(
     "/today",
     status_code=status.HTTP_200_OK,
-    response_model=TodayChantCompletionsResponse,
 )
 def get_today_chant_completions(
     group_id: UUID,
@@ -35,7 +34,7 @@ def get_today_chant_completions(
     authentication_credential: Annotated[
         HTTPAuthorizationCredentials, Depends(oauth2_scheme)
     ],
-):
+) -> TodayChantCompletionsResponse:
     """Get list of chants completed today by the authenticated user."""
     return get_today_completions_service(
         token=authentication_credential.credentials,
@@ -47,7 +46,6 @@ def get_today_chant_completions(
 @user_chant_completion_router.get(
     "/days-count",
     status_code=status.HTTP_200_OK,
-    response_model=ChantCompletionDayCountResponse,
 )
 def get_chant_completion_day_count(
     group_id: UUID,
@@ -55,7 +53,7 @@ def get_chant_completion_day_count(
     authentication_credential: Annotated[
         HTTPAuthorizationCredentials, Depends(oauth2_scheme)
     ],
-):
+) -> ChantCompletionDayCountResponse:
     """Get the number of unique days the user completed at least one chant in the collection."""
     return get_completion_day_count_service(
         token=authentication_credential.credentials,
@@ -75,7 +73,7 @@ def create_chant_completion(
     authentication_credential: Annotated[
         HTTPAuthorizationCredentials, Depends(oauth2_scheme)
     ],
-):
+) -> None:
     """Log a chant completion for the authenticated user."""
     create_chant_completion_service(
         token=authentication_credential.credentials,
