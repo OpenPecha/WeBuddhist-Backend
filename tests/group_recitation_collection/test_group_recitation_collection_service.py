@@ -157,7 +157,7 @@ class TestGetGroupCollectionDetailService:
 
     @patch('pecha_api.group_recitation_collection.service.SessionLocal')
     @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.service.get_collection_by_id')
+    @patch('pecha_api.group_recitation_collection.service.get_collection_without_group_filter')
     @patch('pecha_api.group_recitation_collection.service.get_collection_items')
     @patch('pecha_api.group_recitation_collection.service._build_items_dto')
     @patch('pecha_api.group_recitation_collection.service.filter_items_for_timezone')
@@ -203,38 +203,58 @@ class TestGetGroupCollectionDetailService:
         ]
 
         result = await get_group_collection_detail_service(
-            group_id=group_id,
             collection_id=collection_id,
         )
 
         assert isinstance(result, GroupRecitationCollectionDetailDTO)
         assert result.id == collection_id
         assert result.name == "My Collection"
+        assert result.group_id == group_id
         assert len(result.items) == 2
-        mock_get_collection.assert_called_once_with(db=mock_db, collection_id=collection_id, group_id=group_id)
+        mock_get_collection.assert_called_once_with(db=mock_db, collection_id=collection_id)
+        mock_get_group.assert_called_once_with(db=mock_db, group_id=group_id)
         mock_get_items.assert_called_once_with(db=mock_db, collection_id=collection_id)
 
     @patch('pecha_api.group_recitation_collection.service.SessionLocal')
     @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.service.get_collection_by_id')
+    @patch('pecha_api.group_recitation_collection.service.get_collection_without_group_filter')
     @pytest.mark.asyncio
     async def test_get_detail_not_found(self, mock_get_collection, mock_get_group, mock_session):
         """Test get collection detail when collection doesn't exist."""
+        collection_id = uuid4()
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__.return_value = mock_db
+        mock_get_collection.return_value = None
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_group_collection_detail_service(collection_id=collection_id)
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        mock_get_group.assert_not_called()
+
+    @patch('pecha_api.group_recitation_collection.service.SessionLocal')
+    @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
+    @patch('pecha_api.group_recitation_collection.service.get_collection_without_group_filter')
+    @pytest.mark.asyncio
+    async def test_get_detail_group_not_public(self, mock_get_collection, mock_get_group, mock_session):
+        """Test get collection detail when the owning group is not public."""
         group_id = uuid4()
         collection_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
-        mock_get_group.return_value = MockGroup(id=group_id, is_public=True)
-        mock_get_collection.return_value = None
+        mock_get_collection.return_value = MockGroupRecitationCollection(
+            id=collection_id, group_id=group_id
+        )
+        mock_get_group.return_value = MockGroup(id=group_id, is_public=False)
 
         with pytest.raises(HTTPException) as exc_info:
-            await get_group_collection_detail_service(group_id=group_id, collection_id=collection_id)
+            await get_group_collection_detail_service(collection_id=collection_id)
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
     @patch('pecha_api.group_recitation_collection.service.SessionLocal')
     @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.service.get_collection_by_id')
+    @patch('pecha_api.group_recitation_collection.service.get_collection_without_group_filter')
     @patch('pecha_api.group_recitation_collection.service.filter_items_for_timezone')
     @pytest.mark.asyncio
     async def test_get_detail_region_restricted(
@@ -246,14 +266,13 @@ class TestGetGroupCollectionDetailService:
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_get_group.return_value = MockGroup(id=group_id, is_public=True)
-        
+
         collection = MockGroupRecitationCollection(id=collection_id, group_id=group_id)
         mock_get_collection.return_value = collection
         mock_filter.return_value = []  # Filtered out
 
         with pytest.raises(HTTPException) as exc_info:
             await get_group_collection_detail_service(
-                group_id=group_id,
                 collection_id=collection_id,
                 timezone_name="Asia/Shanghai"
             )
