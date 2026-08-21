@@ -2122,13 +2122,16 @@ def get_group_member_accumulations(
 
 
 def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
-    user = validate_and_extract_user_details(token=token)
+    try:
+        author = validate_and_extract_author_details(token=token)
+    except HTTPException:
+        author = None
+
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
 
-        author = find_author_by_email(db=db, email=user.email)
         if author is None:
             return GroupPermissionDTO(
                 group_id=group_id,
