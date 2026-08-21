@@ -18,12 +18,15 @@ from .plan_auth_models import (
     PhoneLinkResponse,
     GoogleExchangeRequest,
     GoogleExchangeResponse,
+    EmailExchangeRequest,
+    EmailExchangeResponse,
     RefreshTokenRequest,
     RefreshTokenResponse,
     ResetPasswordRequest,
 )
 from .plan_auth_services import (
     authenticate_and_generate_tokens,
+    exchange_email_token,
     exchange_google_token,
     exchange_phone_token,
     link_phone_identity,
@@ -72,6 +75,11 @@ def phone_exchange(request: PhoneExchangeRequest) -> PhoneExchangeResponse:
 @plan_auth_router.post("/google/exchange", status_code=status.HTTP_200_OK)
 def google_exchange(request: GoogleExchangeRequest) -> GoogleExchangeResponse:
     return exchange_google_token(request)
+
+
+@plan_auth_router.post("/email/exchange", status_code=status.HTTP_200_OK)
+def email_exchange(request: EmailExchangeRequest) -> EmailExchangeResponse:
+    return exchange_email_token(request)
 
 
 @plan_auth_router.post("/phone/link", status_code=status.HTTP_200_OK)

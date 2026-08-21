@@ -2,6 +2,7 @@ from datetime import date, datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
+from sqlalchemy import func, distinct
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -27,6 +28,22 @@ def get_user_completions_today(
         .all()
     )
     return [completion.chant_id for completion in completions]
+
+
+def count_unique_completion_days(
+    db: Session,
+    user_id: UUID,
+    collection_id: UUID,
+) -> int:
+    """Count distinct days on which the user completed at least one chant in the collection."""
+    return (
+        db.query(func.count(distinct(UserChantCompletion.completion_date)))
+        .filter(
+            UserChantCompletion.user_id == user_id,
+            UserChantCompletion.chant_collection_id == collection_id,
+        )
+        .scalar()
+    ) or 0
 
 
 def check_completion_exists(

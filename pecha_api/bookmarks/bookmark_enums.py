@@ -9,6 +9,8 @@ class BookmarkType(enum.Enum):
     ACCUMULATOR = "ACCUMULATOR"
     TIMER = "TIMER"
     VERSE = "VERSE"
+    RECITATION_COLLECTION = "RECITATION_COLLECTION"
+    GROUP_RECITATION_COLLECTION = "GROUP_RECITATION_COLLECTION"
 
 
 class BookmarkFilterType(enum.Enum):
@@ -17,6 +19,8 @@ class BookmarkFilterType(enum.Enum):
     SERIES = "SERIES"
     ACCUMULATOR = "ACCUMULATOR"
     TIMER = "TIMER"
+    RECITATION_COLLECTION = "RECITATION_COLLECTION"
+    GROUP_RECITATION_COLLECTION = "GROUP_RECITATION_COLLECTION"
 
 
 BookmarkTypeEnum = Enum(BookmarkType, name="bookmark_type")

@@ -191,7 +191,7 @@ class TestListGroupRecitationCollections:
 
 
 class TestGetGroupRecitationCollectionDetail:
-    """Test cases for GET /author/groups/{group_id}/recitation-collections/{collection_id} endpoint."""
+    """Test cases for GET /author/groups/recitation-collections/{collection_id} endpoint."""
 
     @patch('pecha_api.group_recitation_collection.views.get_group_collection_detail_service')
     @pytest.mark.asyncio
@@ -210,7 +210,7 @@ class TestGetGroupRecitationCollectionDetail:
             items=items,
         )
 
-        response = client.get(f"/author/groups/{group_id}/recitation-collections/{collection_id}")
+        response = client.get(f"/author/groups/recitation-collections/{collection_id}")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -220,21 +220,47 @@ class TestGetGroupRecitationCollectionDetail:
         assert len(data["items"]) == 2
         assert data["items"][0]["title"] == "Text 1"
         assert data["items"][1]["title"] == "Text 2"
-        mock_service.assert_called_once()
+        mock_service.assert_called_once_with(
+            collection_id=collection_id,
+            timezone_name=None,
+        )
+
+    @patch('pecha_api.group_recitation_collection.views.get_group_collection_detail_service')
+    @pytest.mark.asyncio
+    async def test_get_collection_detail_legacy_group_scoped_route(self, mock_service):
+        """Test the legacy group-scoped detail URL still works and scopes by group."""
+        group_id = uuid4()
+        collection_id = uuid4()
+        mock_service.return_value = TestDataFactory.create_collection_detail_dto(
+            id=collection_id,
+            group_id=group_id,
+            name="My Collection",
+        )
+
+        response = client.get(f"/author/groups/{group_id}/recitation-collections/{collection_id}")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["id"] == str(collection_id)
+        assert data["group_id"] == str(group_id)
+        mock_service.assert_called_once_with(
+            collection_id=collection_id,
+            timezone_name=None,
+            group_id=group_id,
+        )
 
     @patch('pecha_api.group_recitation_collection.views.get_group_collection_detail_service')
     @pytest.mark.asyncio
     async def test_get_collection_detail_not_found(self, mock_service):
         """Test get collection detail when collection doesn't exist."""
         from fastapi import HTTPException
-        group_id = uuid4()
         collection_id = uuid4()
         mock_service.side_effect = HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": "NOT_FOUND", "message": "Collection not found"}
         )
 
-        response = client.get(f"/author/groups/{group_id}/recitation-collections/{collection_id}")
+        response = client.get(f"/author/groups/recitation-collections/{collection_id}")
 
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
@@ -242,17 +268,18 @@ class TestGetGroupRecitationCollectionDetail:
     @pytest.mark.asyncio
     async def test_get_collection_detail_with_timezone(self, mock_service):
         """Test get collection detail with timezone header."""
-        group_id = uuid4()
         collection_id = uuid4()
         mock_service.return_value = TestDataFactory.create_collection_detail_dto(
             id=collection_id,
-            group_id=group_id,
         )
 
         response = client.get(
-            f"/author/groups/{group_id}/recitation-collections/{collection_id}",
+            f"/author/groups/recitation-collections/{collection_id}",
             headers={"X-Timezone": "Asia/Shanghai"}
         )
 
         assert response.status_code == status.HTTP_200_OK
-        mock_service.assert_called_once()
+        mock_service.assert_called_once_with(
+            collection_id=collection_id,
+            timezone_name="Asia/Shanghai",
+        )

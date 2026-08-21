@@ -18,9 +18,9 @@ from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 from pecha_api.group_recitation_collection.models import GroupRecitationCollectionItem
 from pecha_api.group_recitation_collection.repository import (
-    get_collection_by_id,
     get_collection_item_counts,
     get_collection_items,
+    get_collection_without_group_filter,
     get_group_collections,
 )
 from pecha_api.group_recitation_collection.response_models import (
@@ -135,25 +135,29 @@ async def list_group_collections_service(
 
 
 async def get_group_collection_detail_service(
-    group_id: UUID,
     collection_id: UUID,
     timezone_name: Optional[str] = None,
+    group_id: Optional[UUID] = None,
     user_id: Optional[UUID] = None,
 ) -> GroupRecitationCollectionDetailDTO:
-    """Get collection detail with items."""
+    """Get collection detail with items.
+
+    When ``group_id`` is provided (legacy group-scoped route), the collection
+    must belong to that group.
+    """
     with SessionLocal() as db:
-        _validate_group_access(db, group_id, user_id)
-        collection = get_collection_by_id(
+        collection = get_collection_without_group_filter(
             db=db,
             collection_id=collection_id,
-            group_id=group_id,
         )
 
-        if not collection:
+        if not collection or (group_id is not None and collection.group_id != group_id):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=NOT_FOUND,
             )
+
+        _validate_group_access(db, collection.group_id, user_id)
 
         filtered_collections = filter_items_for_timezone(
             [collection],

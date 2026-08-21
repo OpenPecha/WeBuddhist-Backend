@@ -1,6 +1,8 @@
+from typing import Optional
+
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from pecha_api.bookmarks.bookmark_enums import BookmarkType
 from pecha_api.texts.first_segment_preview_service import resolve_segment_by_ref
@@ -731,6 +733,290 @@ def test_enrich_timer_bookmark_returns_empty_when_not_found():
     assert result == {}
 
 
+def test_enrich_recitation_collection_bookmark_success() -> None:
+    from pecha_api.bookmarks.bookmark_utils import (
+        enrich_recitation_collection_bookmark,
+    )
+
+    collection_id = uuid4()
+    user_id = uuid4()
+    mock_collection = MagicMock()
+    mock_collection.id = collection_id
+    mock_collection.name = "My Daily Recitations"
+    mock_collection.img_url = "collections/daily.jpg"
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_recitation_collection_by_id",
+        return_value=mock_collection,
+    ) as mock_get, patch(
+        "pecha_api.bookmarks.bookmark_utils.get_recitation_collection_item_counts",
+        return_value={collection_id: 3},
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils._generate_collection_image_url",
+        return_value="https://cdn.example.com/daily.jpg",
+    ):
+        result = enrich_recitation_collection_bookmark(
+            db=MagicMock(),
+            source_id=str(collection_id),
+            user_id=user_id,
+        )
+
+    assert mock_get.call_args.kwargs["user_id"] == user_id
+    dto = result["recitation_collection"]
+    assert dto.id == collection_id
+    assert dto.title == "My Daily Recitations"
+    assert dto.image == "https://cdn.example.com/daily.jpg"
+    assert dto.item_count == 3
+
+
+def test_enrich_recitation_collection_bookmark_returns_empty_when_not_found() -> None:
+    from pecha_api.bookmarks.bookmark_utils import (
+        enrich_recitation_collection_bookmark,
+    )
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_recitation_collection_by_id",
+        return_value=None,
+    ):
+        result = enrich_recitation_collection_bookmark(
+            db=MagicMock(),
+            source_id=str(uuid4()),
+            user_id=uuid4(),
+        )
+
+    assert result == {}
+
+
+def test_enrich_recitation_collection_bookmark_returns_empty_for_invalid_uuid() -> None:
+    from pecha_api.bookmarks.bookmark_utils import (
+        enrich_recitation_collection_bookmark,
+    )
+
+    result = enrich_recitation_collection_bookmark(
+        db=MagicMock(),
+        source_id="not-a-uuid",
+        user_id=uuid4(),
+    )
+
+    assert result == {}
+
+
+def _mock_group_collection(
+    collection_id: UUID,
+    group_id: UUID,
+    name: str,
+    img_url: Optional[str],
+) -> MagicMock:
+    mock_collection = MagicMock()
+    mock_collection.id = collection_id
+    mock_collection.group_id = group_id
+    mock_collection.name = name
+    mock_collection.img_url = img_url
+    return mock_collection
+
+
+def _mock_group(*, is_public: bool) -> MagicMock:
+    mock_group = MagicMock()
+    mock_group.is_public = is_public
+    return mock_group
+
+
+def test_enrich_group_recitation_collection_bookmark_success() -> None:
+    from pecha_api.bookmarks.bookmark_utils import (
+        enrich_group_recitation_collection_bookmark,
+    )
+
+    collection_id = uuid4()
+    group_id = uuid4()
+    mock_collection = _mock_group_collection(
+        collection_id, group_id, "Morning Chants", "collections/morning.jpg"
+    )
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_collection_without_group_filter",
+        return_value=mock_collection,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_by_id",
+        return_value=_mock_group(is_public=True),
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_collection_item_counts",
+        return_value={collection_id: 5},
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils._generate_collection_image_url",
+        return_value="https://cdn.example.com/morning.jpg",
+    ):
+        result = enrich_group_recitation_collection_bookmark(
+            db=MagicMock(),
+            source_id=str(collection_id),
+            user_id=uuid4(),
+        )
+
+    dto = result["group_recitation_collection"]
+    assert dto.id == collection_id
+    assert dto.group_id == group_id
+    assert dto.title == "Morning Chants"
+    assert dto.image == "https://cdn.example.com/morning.jpg"
+    assert dto.item_count == 5
+
+
+def test_enrich_group_recitation_collection_bookmark_allows_private_group_member() -> None:
+    from pecha_api.bookmarks.bookmark_utils import (
+        enrich_group_recitation_collection_bookmark,
+    )
+
+    collection_id = uuid4()
+    user_id = uuid4()
+    mock_collection = _mock_group_collection(
+        collection_id, uuid4(), "Private Chants", None
+    )
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_collection_without_group_filter",
+        return_value=mock_collection,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_by_id",
+        return_value=_mock_group(is_public=False),
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_member",
+        return_value=MagicMock(),
+    ) as mock_get_member, patch(
+        "pecha_api.bookmarks.bookmark_utils.get_collection_item_counts",
+        return_value={collection_id: 2},
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils._generate_collection_image_url",
+        return_value=None,
+    ):
+        result = enrich_group_recitation_collection_bookmark(
+            db=MagicMock(),
+            source_id=str(collection_id),
+            user_id=user_id,
+        )
+
+    assert mock_get_member.call_args.kwargs["author_id"] == user_id
+    assert result["group_recitation_collection"].id == collection_id
+
+
+def test_enrich_group_recitation_collection_bookmark_returns_empty_for_non_member() -> None:
+    from pecha_api.bookmarks.bookmark_utils import (
+        enrich_group_recitation_collection_bookmark,
+    )
+
+    collection_id = uuid4()
+    mock_collection = _mock_group_collection(
+        collection_id, uuid4(), "Private Chants", None
+    )
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_collection_without_group_filter",
+        return_value=mock_collection,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_by_id",
+        return_value=_mock_group(is_public=False),
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_member",
+        return_value=None,
+    ):
+        result = enrich_group_recitation_collection_bookmark(
+            db=MagicMock(),
+            source_id=str(collection_id),
+            user_id=uuid4(),
+        )
+
+    assert result == {}
+
+
+def test_enrich_group_recitation_collection_bookmark_returns_empty_when_group_missing() -> None:
+    from pecha_api.bookmarks.bookmark_utils import (
+        enrich_group_recitation_collection_bookmark,
+    )
+
+    collection_id = uuid4()
+    mock_collection = _mock_group_collection(
+        collection_id, uuid4(), "Orphan Chants", None
+    )
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_collection_without_group_filter",
+        return_value=mock_collection,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_by_id",
+        return_value=None,
+    ):
+        result = enrich_group_recitation_collection_bookmark(
+            db=MagicMock(),
+            source_id=str(collection_id),
+            user_id=uuid4(),
+        )
+
+    assert result == {}
+
+
+def test_enrich_group_recitation_collection_bookmark_returns_empty_when_not_found() -> None:
+    from pecha_api.bookmarks.bookmark_utils import (
+        enrich_group_recitation_collection_bookmark,
+    )
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_collection_without_group_filter",
+        return_value=None,
+    ):
+        result = enrich_group_recitation_collection_bookmark(
+            db=MagicMock(),
+            source_id=str(uuid4()),
+            user_id=uuid4(),
+        )
+
+    assert result == {}
+
+
+def test_enrich_group_recitation_collection_bookmark_returns_empty_for_invalid_uuid() -> None:
+    from pecha_api.bookmarks.bookmark_utils import (
+        enrich_group_recitation_collection_bookmark,
+    )
+
+    result = enrich_group_recitation_collection_bookmark(
+        db=MagicMock(),
+        source_id="not-a-uuid",
+        user_id=uuid4(),
+    )
+
+    assert result == {}
+
+
+def test_enrich_group_recitation_collection_bookmark_defaults_item_count_to_zero() -> None:
+    from pecha_api.bookmarks.bookmark_utils import (
+        enrich_group_recitation_collection_bookmark,
+    )
+
+    collection_id = uuid4()
+    mock_collection = _mock_group_collection(
+        collection_id, uuid4(), "Empty Collection", None
+    )
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.get_collection_without_group_filter",
+        return_value=mock_collection,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_group_by_id",
+        return_value=_mock_group(is_public=True),
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_collection_item_counts",
+        return_value={},
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils._generate_collection_image_url",
+        return_value=None,
+    ):
+        result = enrich_group_recitation_collection_bookmark(
+            db=MagicMock(),
+            source_id=str(collection_id),
+            user_id=uuid4(),
+        )
+
+    dto = result["group_recitation_collection"]
+    assert dto.item_count == 0
+    assert dto.image is None
+
+
 @pytest.mark.asyncio
 async def test_resolve_localized_text_returns_matching_group_text():
     from pecha_api.bookmarks.bookmark_utils import _resolve_localized_text
@@ -831,6 +1117,14 @@ async def test_enrich_text_bookmark_falls_back_when_localized_text_missing():
         (BookmarkType.SERIES, "enrich_series_bookmark"),
         (BookmarkType.ACCUMULATOR, "enrich_accumulator_bookmark"),
         (BookmarkType.TIMER, "enrich_timer_bookmark"),
+        (
+            BookmarkType.RECITATION_COLLECTION,
+            "enrich_recitation_collection_bookmark",
+        ),
+        (
+            BookmarkType.GROUP_RECITATION_COLLECTION,
+            "enrich_group_recitation_collection_bookmark",
+        ),
     ],
 )
 async def test_enrich_bookmark_dispatches_by_type(bookmark_type, patch_target):
@@ -855,6 +1149,25 @@ async def test_enrich_bookmark_dispatches_by_type(bookmark_type, patch_target):
                 language=" bo ",
             )
         mock_enrich.assert_awaited_once_with(bookmark, language="BO")
+    elif bookmark_type in (
+        BookmarkType.RECITATION_COLLECTION,
+        BookmarkType.GROUP_RECITATION_COLLECTION,
+    ):
+        with patch.object(
+            bookmark_utils,
+            patch_target,
+            return_value=expected,
+        ) as mock_enrich:
+            result = await bookmark_utils.enrich_bookmark(
+                bookmark=bookmark,
+                db=mock_db,
+                language="EN",
+            )
+        mock_enrich.assert_called_once_with(
+            db=mock_db,
+            source_id=bookmark.source_id,
+            user_id=bookmark.user_id,
+        )
     elif bookmark_type == BookmarkType.TIMER:
         with patch.object(
             bookmark_utils,

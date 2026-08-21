@@ -71,6 +71,7 @@ from pecha_api.routines.routine_notifications import internal_views as routine_n
 from pecha_api.plans.audio import internal_views as audio_job_internal_views
 from pecha_api.notification import notification_views as cms_notification_views
 from pecha_api.verse_of_day import verse_of_day_views
+from pecha_api.verse_of_day import verse_of_day_notification_internal_views
 from pecha_api.calendar import calendar_views
 from pecha_api.timers import timer_router
 from pecha_api.accumulator import accumulator_router, accumulator_cms_router
@@ -151,8 +152,10 @@ api.include_router(user_follow_views.user_follow_router)
 api.include_router(user_recitations_views.user_recitation_router)
 api.include_router(recitation_collection_views.recitation_collection_router)
 api.include_router(group_recitation_collection_views.public_group_recitation_collection_router)
+api.include_router(group_recitation_collection_views.public_group_recitation_collection_detail_router)
 api.include_router(cms_group_recitation_collection_views.cms_group_recitation_collection_router)
 api.include_router(user_chant_completion_views.user_chant_completion_router)
+api.include_router(user_chant_completion_views.legacy_user_chant_completion_router)
 api.include_router(group_posts_views.public_group_posts_list_router)
 api.include_router(group_posts_views.public_group_posts_detail_router)
 api.include_router(cms_group_posts_views.cms_group_posts_router)
@@ -180,6 +183,7 @@ api.include_router(texts_openpecha_views.texts_v2_router)
 api.include_router(segments_openpecha_views.segments_v2_router)
 api.include_router(verse_of_day_views.verse_of_day_router)
 api.include_router(verse_of_day_views.cms_verse_of_day_router)
+api.include_router(verse_of_day_notification_internal_views.internal_verse_of_day_notifications_router)
 api.include_router(calendar_views.calendar_router)
 api.include_router(timer_router)
 api.include_router(accumulator_router)
