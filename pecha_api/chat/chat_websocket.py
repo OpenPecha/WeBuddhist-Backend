@@ -96,6 +96,32 @@ class ChatBroadcaster:
             logger.error(f"Failed to broadcast message to Redis: {e}")
             raise
 
+    async def broadcast_reactions(
+        self,
+        room_id: UUID,
+        message_id: UUID,
+        reactions: list,
+    ) -> None:
+        """Publish a message's updated reaction summary to the room.
+
+        reacted_by_me is viewer-specific, so it is forced False here; clients
+        must derive their own state from each summary's user_ids."""
+        channel = f"chat:room:{room_id}:messages"
+        payload = {
+            "type": "reactions_updated",
+            "message_id": str(message_id),
+            "reactions": [
+                {**reaction.model_dump(mode="json"), "reacted_by_me": False}
+                for reaction in reactions
+            ],
+        }
+
+        try:
+            await self.redis.publish(channel, json.dumps(payload))
+        except Exception as e:
+            logger.error(f"Failed to broadcast reactions to Redis: {e}")
+            raise
+
     async def broadcast_typing(
         self,
         room_id: UUID,

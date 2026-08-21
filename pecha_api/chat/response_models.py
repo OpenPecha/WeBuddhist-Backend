@@ -3,6 +3,37 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
+from pecha_api.chat.enums import ChatMessageReportReason
+
+
+class ChatMessageParentDTO(BaseModel):
+    """Compact DTO for the message a reply points to (the quoted message)."""
+    id: UUID
+    sender_id: UUID
+    sender_email: str
+    body: str
+    created_at: str
+
+
+class ChatMessageReactionUserDTO(BaseModel):
+    """Identity of one reactor, for showing who reacted."""
+    user_id: UUID
+    email: Optional[str] = None
+    name: Optional[str] = None
+
+
+class ChatMessageReactionDTO(BaseModel):
+    """Aggregated reactions of one emoji on a message.
+
+    user_ids lets a client receiving a shared broadcast (where reacted_by_me
+    cannot be viewer-specific) work out its own reacted state; users carries
+    the same people with display identity for who-reacted UI."""
+    emoji: str
+    count: int
+    reacted_by_me: bool = False
+    user_ids: List[UUID] = []
+    users: List[ChatMessageReactionUserDTO] = []
+
 
 class ChatMessageDTO(BaseModel):
     """DTO for a single chat message."""
@@ -12,6 +43,8 @@ class ChatMessageDTO(BaseModel):
     sender_email: str
     body: str
     created_at: str
+    parent: Optional[ChatMessageParentDTO] = None
+    reactions: List[ChatMessageReactionDTO] = []
 
 
 class ChatMessagesResponse(BaseModel):
@@ -86,9 +119,47 @@ class ChatPeopleResponse(BaseModel):
     total: int
 
 
+class AdminChatReportUserDTO(BaseModel):
+    """Identity of a user involved in a moderation report."""
+    user_id: UUID
+    email: Optional[str] = None
+    firstname: Optional[str] = None
+    lastname: Optional[str] = None
+
+
+class AdminChatMessageReportDTO(BaseModel):
+    """One moderation report, for the CMS admin reports screen.
+
+    reporter is None for AUTOMATIC (system-generated) reports; message_text
+    carries the reported content even when the message itself was never
+    stored (profanity rejections) or has been deleted since."""
+    id: UUID
+    source: str
+    reason: str
+    description: Optional[str] = None
+    message_id: Optional[UUID] = None
+    message_text: Optional[str] = None
+    room_id: Optional[UUID] = None
+    room_name: Optional[str] = None
+    reporter: Optional[AdminChatReportUserDTO] = None
+    reported_user: Optional[AdminChatReportUserDTO] = None
+    created_at: str
+    resolved_at: Optional[str] = None
+
+
+class AdminChatMessageReportsResponse(BaseModel):
+    """Response for the CMS admin list-reports endpoint."""
+    reports: List[AdminChatMessageReportDTO]
+    skip: int
+    limit: int
+    total: int
+
+
 class SendChatMessageRequest(BaseModel):
-    """Request to send a message to a room (group or DM)."""
+    """Request to send a message to a room (group or DM). Pass
+    parent_message_id to send it as a reply to that message."""
     body: str
+    parent_message_id: Optional[UUID] = None
 
     @field_validator("body")
     @classmethod
@@ -98,6 +169,39 @@ class SendChatMessageRequest(BaseModel):
             raise ValueError("Message body must not be empty")
         if len(value) > 4000:
             raise ValueError("Message body must not exceed 4000 characters")
+        return value
+
+
+class AddChatMessageReactionRequest(BaseModel):
+    """Request to add an emoji reaction to a message."""
+    emoji: str
+
+    @field_validator("emoji")
+    @classmethod
+    def validate_emoji(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("emoji must not be empty")
+        if len(value) > 16:
+            raise ValueError("emoji must not exceed 16 characters")
+        return value
+
+
+class ReportChatMessageRequest(BaseModel):
+    """Request to report a message for moderation."""
+    reason: ChatMessageReportReason
+    description: Optional[str] = None
+
+    @field_validator("description")
+    @classmethod
+    def validate_description(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            return None
+        if len(value) > 1000:
+            raise ValueError("description must not exceed 1000 characters")
         return value
 
 

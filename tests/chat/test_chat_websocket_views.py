@@ -259,7 +259,9 @@ class TestWebSocketChatMessages:
                 websocket.receive_json()
                 websocket.send_json({"type": "message", "body": "Hello"})
 
-        mock_send_group.assert_called_once_with(group_id=group_id, user=user, body="Hello")
+        mock_send_group.assert_called_once_with(
+            group_id=group_id, user=user, body="Hello", parent_message_id=None
+        )
         broadcaster.broadcast_message.assert_awaited_once_with(room.id, dto)
 
     def test_sends_and_broadcasts_direct_message(self):
@@ -274,7 +276,9 @@ class TestWebSocketChatMessages:
                 websocket.receive_json()
                 websocket.send_json({"type": "message", "body": "Hey"})
 
-        mock_send_direct.assert_called_once_with(receiver_id=receiver_id, user=user, body="Hey")
+        mock_send_direct.assert_called_once_with(
+            receiver_id=receiver_id, user=user, body="Hey", parent_message_id=None
+        )
         broadcaster.broadcast_message.assert_awaited_once_with(room.id, dto)
 
     def test_reports_message_send_failure(self):
