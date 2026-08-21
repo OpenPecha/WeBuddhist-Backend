@@ -324,6 +324,7 @@ def remove_reaction(db: Session, reaction: ChatMessageReaction) -> None:
 def list_message_reactions(db: Session, message_id: UUID) -> List[ChatMessageReaction]:
     return (
         db.query(ChatMessageReaction)
+        .options(selectinload(ChatMessageReaction.user))
         .filter(ChatMessageReaction.message_id == message_id)
         .order_by(ChatMessageReaction.created_at.asc())
         .all()
@@ -339,6 +340,7 @@ def get_reactions_map(
         return {}
     reactions = (
         db.query(ChatMessageReaction)
+        .options(selectinload(ChatMessageReaction.user))
         .filter(ChatMessageReaction.message_id.in_(message_ids))
         .order_by(ChatMessageReaction.created_at.asc())
         .all()

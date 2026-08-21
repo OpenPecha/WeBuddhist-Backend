@@ -946,7 +946,11 @@ _CHAT_VIEWER_HTML = """
             reactions.forEach(r => {
                 const chip = document.createElement("button");
                 chip.className = "reaction-chip" + (r.reacted_by_me ? " mine" : "");
-                chip.title = r.reacted_by_me ? "Click to remove your reaction" : "Click to react too";
+                const names = (r.users || [])
+                    .map(u => u.name || u.email || u.user_id)
+                    .filter(Boolean);
+                const action = r.reacted_by_me ? "Click to remove your reaction" : "Click to react too";
+                chip.title = names.length ? `${names.join(", ")}\\n${action}` : action;
                 const emojiSpan = document.createElement("span");
                 emojiSpan.textContent = r.emoji;
                 const countSpan = document.createElement("span");

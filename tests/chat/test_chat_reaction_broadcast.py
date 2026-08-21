@@ -20,9 +20,11 @@ class MockUser:
 
 
 class MockReaction:
-    def __init__(self, user_id=None, emoji="🙏"):
+    def __init__(self, user_id=None, emoji="🙏", user=None):
         self.user_id = user_id or uuid4()
         self.emoji = emoji
+        if user is not None:
+            self.user = user
 
 
 class TestBuildReactionDtosUserIds:
@@ -45,6 +47,30 @@ class TestBuildReactionDtosUserIds:
         assert dtos[1].emoji == "👍"
         assert dtos[1].user_ids == [other]
         assert dtos[1].reacted_by_me is False
+
+    def test_includes_reactor_identity_when_user_loaded(self):
+        user = MagicMock()
+        user.email = "alice@example.com"
+        user.firstname = "Alice"
+        user.lastname = "Lee"
+        reaction = MockReaction(emoji="🙏", user=user)
+
+        dtos = _build_reaction_dtos([reaction], viewer_id=None)
+
+        assert dtos[0].users[0].user_id == reaction.user_id
+        assert dtos[0].users[0].email == "alice@example.com"
+        assert dtos[0].users[0].name == "Alice Lee"
+
+    def test_reactor_name_falls_back_to_email(self):
+        user = MagicMock()
+        user.email = "bob@example.com"
+        user.firstname = ""
+        user.lastname = None
+        reaction = MockReaction(emoji="🙏", user=user)
+
+        dtos = _build_reaction_dtos([reaction], viewer_id=None)
+
+        assert dtos[0].users[0].name == "bob@example.com"
 
 
 class TestBroadcastReactions:
@@ -78,6 +104,7 @@ class TestBroadcastReactions:
                 "count": 1,
                 "reacted_by_me": False,
                 "user_ids": [str(user_id)],
+                "users": [],
             }
         ]
 

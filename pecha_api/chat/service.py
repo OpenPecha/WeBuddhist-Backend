@@ -30,6 +30,7 @@ from pecha_api.chat.response_models import (
     ChatMessageDTO,
     ChatMessageParentDTO,
     ChatMessageReactionDTO,
+    ChatMessageReactionUserDTO,
     ChatPeopleResponse,
     ChatPersonDTO,
     ChatRoomDTO,
@@ -82,6 +83,18 @@ def _build_reaction_dtos(reactions, viewer_id: Optional[UUID]) -> list:
         )
         summary.count += 1
         summary.user_ids.append(reaction.user_id)
+        user = getattr(reaction, "user", None)
+        summary.users.append(
+            ChatMessageReactionUserDTO(
+                user_id=reaction.user_id,
+                email=user.email if user else None,
+                name=(
+                    f"{user.firstname} {user.lastname or ''}".strip() or user.email
+                )
+                if user
+                else None,
+            )
+        )
         if viewer_id is not None and reaction.user_id == viewer_id:
             summary.reacted_by_me = True
     return list(summaries.values())

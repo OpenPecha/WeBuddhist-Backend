@@ -15,15 +15,24 @@ class ChatMessageParentDTO(BaseModel):
     created_at: str
 
 
+class ChatMessageReactionUserDTO(BaseModel):
+    """Identity of one reactor, for showing who reacted."""
+    user_id: UUID
+    email: Optional[str] = None
+    name: Optional[str] = None
+
+
 class ChatMessageReactionDTO(BaseModel):
     """Aggregated reactions of one emoji on a message.
 
     user_ids lets a client receiving a shared broadcast (where reacted_by_me
-    cannot be viewer-specific) work out its own reacted state."""
+    cannot be viewer-specific) work out its own reacted state; users carries
+    the same people with display identity for who-reacted UI."""
     emoji: str
     count: int
     reacted_by_me: bool = False
     user_ids: List[UUID] = []
+    users: List[ChatMessageReactionUserDTO] = []
 
 
 class ChatMessageDTO(BaseModel):
