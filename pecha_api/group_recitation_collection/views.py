@@ -88,10 +88,20 @@ async def get_group_recitation_collection_detail_by_group(
     ] = None,
 ):
     """Get a specific recitation collection with its items (group-scoped)."""
+    user_id = None
+    if authentication_credential:
+        try:
+            user = validate_and_extract_user_details(
+                token=authentication_credential.credentials
+            )
+            user_id = user.id
+        except Exception:
+            pass
     return await get_group_collection_detail_service(
         collection_id=collection_id,
         timezone_name=x_timezone,
         group_id=group_id,
+        user_id=user_id,
     )
 
 
@@ -108,6 +118,9 @@ async def get_group_recitation_collection_detail(
             alias="X-Timezone",
             description="IANA timezone (e.g. Asia/Shanghai). Restricted collections are hidden for Chinese timezones.",
         ),
+    ] = None,
+    authentication_credential: Annotated[
+        Optional[HTTPAuthorizationCredentials], Depends(oauth2_scheme_optional)
     ] = None,
 ):
     """Get a specific recitation collection with its items."""
