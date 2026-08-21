@@ -198,6 +198,35 @@ class TestSendMessageProfanityFiltering:
         _profanity_error(exc_info)
         mock_create_report.assert_not_called()
 
+    @patch('pecha_api.chat.moderation_service.create_report')
+    @patch('pecha_api.chat.moderation_service.get_unresolved_automatic_report')
+    @patch('pecha_api.chat.message_service._require_active_member')
+    @patch('pecha_api.chat.message_service.resolve_or_create_group_room')
+    @patch('pecha_api.chat.message_service.SessionLocal')
+    def test_concurrent_duplicate_report_insert_is_swallowed(
+        self, mock_session, mock_resolve, mock_require_member,
+        mock_get_auto_report, mock_create_report,
+    ):
+        """A concurrent identical submission that wins the race past the
+        lookup hits the partial unique index; the losing insert must roll
+        back quietly while the message is still rejected."""
+        from sqlalchemy.exc import IntegrityError
+
+        db = MagicMock()
+        mock_session.return_value.__enter__.return_value = db
+        room = MagicMock(id=uuid4())
+        mock_resolve.return_value = room
+        user = MockUser()
+        mock_require_member.return_value = MockMember(room_id=room.id, user_id=user.id)
+        mock_get_auto_report.return_value = None
+        mock_create_report.side_effect = IntegrityError("stmt", {}, Exception("dup"))
+
+        with pytest.raises(HTTPException) as exc_info:
+            send_group_message_service(group_id=uuid4(), user=user, body=PROFANE_MESSAGE)
+
+        _profanity_error(exc_info)
+        db.rollback.assert_called_once()
+
 
 class TestProfanityRestEndpoint:
 

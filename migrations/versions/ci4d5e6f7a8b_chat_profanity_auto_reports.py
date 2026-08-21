@@ -83,6 +83,17 @@ def upgrade() -> None:
             unique=False,
         )
 
+    if not index_exists(TABLE, "uq_chat_message_reports_auto_unresolved"):
+        op.create_index(
+            "uq_chat_message_reports_auto_unresolved",
+            TABLE,
+            ["room_id", "reported_user_id", sa.text("md5(message_text)")],
+            unique=True,
+            postgresql_where=sa.text(
+                "source = 'AUTOMATIC' AND resolved_at IS NULL"
+            ),
+        )
+
     op.execute(
         f"""
         DO $$
@@ -102,6 +113,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute(f"ALTER TABLE {TABLE} DROP CONSTRAINT IF EXISTS {CHECK_CONSTRAINT}")
+    if index_exists(TABLE, "uq_chat_message_reports_auto_unresolved"):
+        op.drop_index("uq_chat_message_reports_auto_unresolved", table_name=TABLE)
     if index_exists(TABLE, "idx_chat_message_reports_reported_user"):
         op.drop_index("idx_chat_message_reports_reported_user", table_name=TABLE)
     # Automatic reports have no message/reporter and cannot survive the columns

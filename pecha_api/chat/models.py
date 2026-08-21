@@ -282,6 +282,18 @@ class ChatMessageReport(Base):
         ),
         Index("idx_chat_message_reports_message_id", "message_id"),
         Index("idx_chat_message_reports_reported_user", "reported_user_id"),
+        # One open automatic report per (room, user, text): the service dedupes
+        # with a lookup first, but only this index makes concurrent identical
+        # submissions safe. md5() keeps arbitrarily long texts within btree
+        # index limits.
+        Index(
+            "uq_chat_message_reports_auto_unresolved",
+            "room_id",
+            "reported_user_id",
+            sql_text("md5(message_text)"),
+            unique=True,
+            postgresql_where=sql_text("source = 'AUTOMATIC' AND resolved_at IS NULL"),
+        ),
         Index(
             "idx_chat_message_reports_unresolved",
             "created_at",

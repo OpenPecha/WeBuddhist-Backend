@@ -8,6 +8,7 @@ import logging
 
 from better_profanity import profanity
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette import status
 
@@ -58,16 +59,23 @@ def _create_automatic_report(db: Session, room: ChatRoom, user: Users, body: str
     if existing:
         return
 
-    create_report(
-        db=db,
-        report=ChatMessageReport(
-            reported_user_id=user.id,
-            room_id=room.id,
-            source=ChatMessageReportSource.AUTOMATIC.value,
-            reason=ChatMessageReportReason.INAPPROPRIATE_LANGUAGE.value,
-            message_text=body,
-        ),
-    )
+    try:
+        create_report(
+            db=db,
+            report=ChatMessageReport(
+                reported_user_id=user.id,
+                room_id=room.id,
+                source=ChatMessageReportSource.AUTOMATIC.value,
+                reason=ChatMessageReportReason.INAPPROPRIATE_LANGUAGE.value,
+                message_text=body,
+            ),
+        )
+    except IntegrityError:
+        # A concurrent identical submission won the race past the lookup; the
+        # partial unique index (uq_chat_message_reports_auto_unresolved)
+        # guarantees one open report, which is exactly the state we wanted.
+        db.rollback()
+        return
     logger.info(
         "Auto-filed inappropriate-language report for user %s in room %s",
         user.id,
