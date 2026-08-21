@@ -4158,11 +4158,18 @@ def test_get_group_permission_group_not_found():
 
 def test_get_group_permission_group_not_found_no_author():
     """Unknown/deleted group with no author → 404 (not has_permission: false)"""
+    user = _make_user(email="test@example.org")
     group_id = uuid4()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=None,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=None,
@@ -4173,3 +4180,16 @@ def test_get_group_permission_group_not_found_no_author():
 
     assert exc.value.status_code == status.HTTP_404_NOT_FOUND
     assert exc.value.detail == GROUP_NOT_FOUND
+
+
+def test_get_group_permission_invalid_token():
+    """Invalid/expired token → 401 (not has_permission: false)"""
+    with patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or no token found"),
+    ):
+        with pytest.raises(HTTPException) as exc:
+            get_group_permission(token="invalid", group_id=uuid4())
+
+    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
+    assert exc.value.detail == "Invalid or no token found"

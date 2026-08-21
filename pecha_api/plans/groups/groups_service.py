@@ -2121,12 +2121,21 @@ def get_group_member_accumulations(
         )
 
 
+def _is_user_not_found_error(exc: HTTPException) -> bool:
+    """Check if the exception indicates 'user/author not found' vs token validation failure."""
+    if exc.status_code != status.HTTP_401_UNAUTHORIZED:
+        return False
+    detail = str(exc.detail) if exc.detail else ""
+    return "not found" in detail.lower() or "does not exist" in detail.lower()
+
+
 def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     author = None
     try:
         author = validate_and_extract_author_details(token=token)
-    except HTTPException:
-        pass
+    except HTTPException as exc:
+        if not _is_user_not_found_error(exc):
+            raise
 
     with SessionLocal() as db:
         if author is None:
@@ -2134,8 +2143,9 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
                 user = validate_and_extract_user_details(token=token)
                 if user.email:
                     author = find_author_by_email(db=db, email=user.email)
-            except HTTPException:
-                pass
+            except HTTPException as exc:
+                if not _is_user_not_found_error(exc):
+                    raise
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
