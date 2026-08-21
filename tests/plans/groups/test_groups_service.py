@@ -3916,3 +3916,155 @@ def test_group_card_title_falls_back_to_first_entry_when_no_language_matches():
     group.metadata_entries = [_make_metadata_entry("FR", "French Title")]
 
     assert _group_card_title(group, language="BO") == "French Title"
+
+
+# --- get_group_permission tests ---
+
+from pecha_api.plans.groups.groups_service import get_group_permission
+
+
+def _make_user(user_id=None, email="user@example.org"):
+    user = MagicMock()
+    user.id = user_id or uuid4()
+    user.email = email
+    return user
+
+
+def test_get_group_permission_no_author_account():
+    """User has no matching Author account → has_permission: false, author_id: null"""
+    user = _make_user(email="noauthor@example.org")
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is False
+    assert result.role is None
+    assert result.is_super_admin is False
+    assert result.author_id is None
+
+
+def test_get_group_permission_super_admin():
+    """Super admin → has_permission: true, role: OWNER, is_super_admin: true"""
+    user = _make_user(email="admin@example.org")
+    author = _make_author(email="admin@example.org", is_admin=True)
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=author,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is True
+    assert result.role == AuthorGroupMemberRole.OWNER
+    assert result.is_super_admin is True
+    assert result.author_id == author.id
+
+
+def test_get_group_permission_group_member():
+    """Group member → has_permission: true with actual role"""
+    user = _make_user(email="member@example.org")
+    author = _make_author(email="member@example.org")
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=AuthorGroupMemberRole.ADMIN,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is True
+    assert result.role == AuthorGroupMemberRole.ADMIN
+    assert result.is_super_admin is False
+    assert result.author_id == author.id
+
+
+def test_get_group_permission_author_not_member():
+    """Author account exists but not a member of this group → has_permission: false"""
+    user = _make_user(email="notmember@example.org")
+    author = _make_author(email="notmember@example.org")
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is False
+    assert result.role is None
+    assert result.is_super_admin is False
+    assert result.author_id == author.id
+
+
+def test_get_group_permission_group_not_found():
+    """Unknown/deleted group → 404"""
+    user = _make_user()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_group_permission(token="t", group_id=uuid4())
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc.value.detail == GROUP_NOT_FOUND
+
+
+def test_get_group_permission_invalid_token():
+    """Invalid token → 401"""
+    with patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"),
+    ):
+        with pytest.raises(HTTPException) as exc:
+            get_group_permission(token="invalid", group_id=uuid4())
+
+    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
