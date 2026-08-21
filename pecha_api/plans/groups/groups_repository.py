@@ -346,6 +346,25 @@ def get_member_roles_map(
     return {row.group_id: row.role for row in rows}
 
 
+def list_group_member_ids_by_roles(
+    db: Session,
+    group_id: UUID,
+    roles: Sequence[str],
+) -> List[UUID]:
+    """Author IDs holding any of the given roles in a group."""
+    if not roles:
+        return []
+    rows = (
+        db.query(AuthorGroupMember.author_id)
+        .filter(
+            AuthorGroupMember.group_id == group_id,
+            AuthorGroupMember.role.in_(list(roles)),
+        )
+        .all()
+    )
+    return [row[0] for row in rows]
+
+
 def get_owner_count(db: Session, group_id: UUID) -> int:
     return (
         db.query(func.count(AuthorGroupMember.id))

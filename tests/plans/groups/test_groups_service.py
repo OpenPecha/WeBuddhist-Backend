@@ -3990,6 +3990,8 @@ def test_join_group_private_group_directs_to_request_flow():
 def test_submit_group_join_request_creates_pending_request():
     user = MagicMock()
     user.id = uuid4()
+    user.firstname = "Tenzin"
+    user.lastname = "Tib"
     group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
     created = _make_join_request(group_id=group.id, user_id=user.id)
 
@@ -4008,7 +4010,10 @@ def test_submit_group_join_request_creates_pending_request():
     ), patch(
         "pecha_api.plans.groups.groups_service.create_group_join_request",
         return_value=created,
-    ) as mock_create:
+    ) as mock_create, patch(
+        "pecha_api.plans.groups.groups_service.list_group_member_ids_by_roles",
+        return_value=[],
+    ):
         _session_local_context(mock_session)
         result = submit_group_join_request(
             token="t",
@@ -4257,8 +4262,8 @@ def test_list_group_join_requests_returns_requester_profile():
     group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
     join_request = _make_join_request(group_id=group.id)
     requester = MagicMock()
-    requester.firstname = "Jane"
-    requester.lastname = "Doe"
+    requester.firstname = "Tenzin"
+    requester.lastname = "Tib"
     requester.avatar_url = None
     join_request.user = requester
 
@@ -4276,7 +4281,7 @@ def test_list_group_join_requests_returns_requester_profile():
         result = list_group_join_requests(token="t", group_id=group.id, skip=0, limit=20)
 
     assert result.total == 1
-    assert result.requests[0].user_name == "Jane Doe"
+    assert result.requests[0].user_name == "Tenzin Tib"
     assert result.requests[0].status == AuthorGroupJoinRequestStatus.PENDING
 
 
@@ -4300,3 +4305,113 @@ def test_flipping_group_public_approves_pending_join_requests():
     # auto-approval has no human reviewer
     assert all(item.reviewed_by is None for item in pending)
     mock_db.commit.assert_called_once()
+
+
+def test_submit_group_join_request_notifies_moderators():
+    user = MagicMock()
+    user.id = uuid4()
+    user.firstname = "Tenzin"
+    user.lastname = "Tib"
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    group.metadata_entries = [_make_metadata_entry("EN", "Chanting Circle")]
+    created = _make_join_request(group_id=group.id, user_id=user.id)
+    owner_id, admin_id = uuid4(), uuid4()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group", return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_join_request", return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_join_request", return_value=created,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_group_member_ids_by_roles",
+        return_value=[owner_id, admin_id],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_notification_record",
+    ) as mock_notify:
+        _session_local_context(mock_session)
+        result = submit_group_join_request(
+            token="t", group_id=group.id, request=CreateGroupJoinRequest()
+        )
+
+    assert result.status == AuthorGroupJoinRequestStatus.PENDING
+    assert mock_notify.call_count == 2
+    recipients = {call.kwargs["recipient_author_id"] for call in mock_notify.call_args_list}
+    assert recipients == {owner_id, admin_id}
+    first = mock_notify.call_args_list[0].kwargs
+    assert first["category"] == "group_join_request"
+    assert first["reference_id"] == created.id
+    assert "Chanting Circle" in first["title"]
+    assert "Tenzin Tib" in first["description"]
+
+
+def test_submit_group_join_request_survives_notification_failure():
+    """A notification outage must not lose the join request."""
+    user = MagicMock()
+    user.id = uuid4()
+    user.firstname = "Tenzin"
+    user.lastname = "Tib"
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    created = _make_join_request(group_id=group.id, user_id=user.id)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group", return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_join_request", return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_join_request", return_value=created,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_group_member_ids_by_roles",
+        return_value=[uuid4()],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_notification_record",
+        side_effect=RuntimeError("notification service down"),
+    ):
+        _session_local_context(mock_session)
+        result = submit_group_join_request(
+            token="t", group_id=group.id, request=CreateGroupJoinRequest()
+        )
+
+    assert result.id == created.id
+
+
+def test_submit_group_join_request_without_moderators_sends_nothing():
+    user = MagicMock()
+    user.id = uuid4()
+    user.firstname = "Tenzin"
+    user.lastname = "Tib"
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    created = _make_join_request(group_id=group.id, user_id=user.id)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group", return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_join_request", return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_join_request", return_value=created,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_group_member_ids_by_roles", return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_notification_record",
+    ) as mock_notify:
+        _session_local_context(mock_session)
+        submit_group_join_request(
+            token="t", group_id=group.id, request=CreateGroupJoinRequest()
+        )
+
+    mock_notify.assert_not_called()

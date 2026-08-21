@@ -77,6 +77,7 @@ from pecha_api.plans.groups.groups_repository import (
     leave_group_membership,
     list_invites_by_group,
     list_group_joiners_paginated,
+    list_group_member_ids_by_roles,
     list_join_requests_by_group,
     list_pending_invites_by_email,
     list_pending_join_requests_by_group,
@@ -188,6 +189,7 @@ GROUP_ALREADY_HAS_OWNER = "This group already has an owner"
 JOIN_REQUEST_NOT_FOUND = "Join request not found"
 GROUP_IS_PRIVATE_USE_REQUEST = "This group is private; submit a join request"
 NOTIFICATION_CATEGORY_GROUP_INVITE = "group_invite"
+NOTIFICATION_CATEGORY_GROUP_JOIN_REQUEST = "group_join_request"
 _PRACTICES_FETCH_LIMIT = 1000
 
 
@@ -1577,6 +1579,29 @@ def _assert_can_manage_join_requests(db, *, group_id: UUID, author) -> None:
     _assert_role_allowed(member=member, allowed_roles=_MEMBER_MANAGEMENT_ROLES)
 
 
+def _notify_moderators_of_join_request(
+    *,
+    group_title: str,
+    requester_name: str,
+    join_request_id: UUID,
+    moderator_ids: List[UUID],
+) -> None:
+    """Best-effort: a notification failure must not lose the join request."""
+    for author_id in moderator_ids:
+        try:
+            create_notification_record(
+                recipient_author_id=author_id,
+                title=f"Request to join {group_title}",
+                description=f"{requester_name} asked to join {group_title}.",
+                category=NOTIFICATION_CATEGORY_GROUP_JOIN_REQUEST,
+                reference_id=join_request_id,
+            )
+        except Exception:
+            logging.exception(
+                "Failed to notify author %s of join request %s", author_id, join_request_id
+            )
+
+
 def submit_group_join_request(
     token: str,
     group_id: UUID,
@@ -1614,7 +1639,23 @@ def submit_group_join_request(
                 status=AuthorGroupJoinRequestStatus.PENDING.value,
             ),
         )
-        return _join_request_to_dto(created)
+        dto = _join_request_to_dto(created)
+        group_title = _group_title_from_metadata(group.metadata_entries)
+        requester_name = _user_fullname(user) or "Someone"
+        moderator_ids = list_group_member_ids_by_roles(
+            db=db,
+            group_id=group_id,
+            roles=[_to_role_value(role) for role in _MEMBER_MANAGEMENT_ROLES],
+        )
+        join_request_id = created.id
+
+    _notify_moderators_of_join_request(
+        group_title=group_title,
+        requester_name=requester_name,
+        join_request_id=join_request_id,
+        moderator_ids=moderator_ids,
+    )
+    return dto
 
 
 def list_group_join_requests(
