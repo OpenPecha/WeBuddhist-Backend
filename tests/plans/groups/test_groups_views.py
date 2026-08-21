@@ -434,7 +434,7 @@ def test_get_public_group_by_id():
     assert response.status_code == status.HTTP_200_OK
     assert response.headers.get("Cache-Control") == "no-store"
     assert response.json()["slug"] == "bodhichitta-authors"
-    mock_service.assert_called_once_with(group_id=group_id, require_public=True, language=None, token=None)
+    mock_service.assert_called_once_with(group_id=group_id, language=None, token=None)
 
 
 def test_get_public_group_by_id_with_language():
@@ -445,7 +445,7 @@ def test_get_public_group_by_id_with_language():
     ) as mock_service:
         response = client.get(f"/author/groups/{group_id}?language=bo")
     assert response.status_code == status.HTTP_200_OK
-    mock_service.assert_called_once_with(group_id=group_id, require_public=True, language="bo", token=None)
+    mock_service.assert_called_once_with(group_id=group_id, language="bo", token=None)
 
 
 def test_get_public_group_members():

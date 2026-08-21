@@ -9,7 +9,7 @@ from pecha_api.group_recitation_collection.service import (
     list_group_collections_service,
     get_group_collection_detail_service,
     _build_items_dto,
-    _validate_group_is_public,
+    _validate_group_access,
 )
 from pecha_api.group_recitation_collection.response_models import (
     GroupRecitationCollectionsResponse,
@@ -57,7 +57,7 @@ class TestListGroupCollectionsService:
     """Test cases for list_group_collections_service function."""
 
     @patch('pecha_api.group_recitation_collection.service.SessionLocal')
-    @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_recitation_collection.service.get_group_collections')
     @patch('pecha_api.group_recitation_collection.service.get_collection_item_counts')
     @patch('pecha_api.group_recitation_collection.service.filter_items_for_timezone')
@@ -91,7 +91,7 @@ class TestListGroupCollectionsService:
         mock_get_collections.assert_called_once_with(db=mock_db, group_id=group_id, skip=0, limit=20)
 
     @patch('pecha_api.group_recitation_collection.service.SessionLocal')
-    @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_recitation_collection.service.get_group_collections')
     @pytest.mark.asyncio
     async def test_list_collections_empty(self, mock_get_collections, mock_get_group, mock_session):
@@ -108,10 +108,10 @@ class TestListGroupCollectionsService:
         assert result.total == 0
 
     @patch('pecha_api.group_recitation_collection.service.SessionLocal')
-    @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @pytest.mark.asyncio
-    async def test_list_collections_group_not_public(self, mock_get_group, mock_session):
-        """Test list collections when group is not public."""
+    async def test_list_collections_private_group_blocks_anonymous(self, mock_get_group, mock_session):
+        """A private group's collections stay closed to non-joiners."""
         group_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
@@ -123,7 +123,7 @@ class TestListGroupCollectionsService:
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
     @patch('pecha_api.group_recitation_collection.service.SessionLocal')
-    @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_recitation_collection.service.get_group_collections')
     @patch('pecha_api.group_recitation_collection.service.get_collection_item_counts')
     @patch('pecha_api.group_recitation_collection.service.filter_items_for_timezone')
@@ -156,7 +156,7 @@ class TestGetGroupCollectionDetailService:
     """Test cases for get_group_collection_detail_service function."""
 
     @patch('pecha_api.group_recitation_collection.service.SessionLocal')
-    @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_recitation_collection.service.get_collection_by_id')
     @patch('pecha_api.group_recitation_collection.service.get_collection_items')
     @patch('pecha_api.group_recitation_collection.service._build_items_dto')
@@ -215,7 +215,7 @@ class TestGetGroupCollectionDetailService:
         mock_get_items.assert_called_once_with(db=mock_db, collection_id=collection_id)
 
     @patch('pecha_api.group_recitation_collection.service.SessionLocal')
-    @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_recitation_collection.service.get_collection_by_id')
     @pytest.mark.asyncio
     async def test_get_detail_not_found(self, mock_get_collection, mock_get_group, mock_session):
@@ -233,7 +233,7 @@ class TestGetGroupCollectionDetailService:
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
     @patch('pecha_api.group_recitation_collection.service.SessionLocal')
-    @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_recitation_collection.service.get_collection_by_id')
     @patch('pecha_api.group_recitation_collection.service.filter_items_for_timezone')
     @pytest.mark.asyncio
@@ -298,40 +298,59 @@ class TestBuildItemsDto:
         assert result == []
 
 
-class TestValidateGroupIsPublic:
-    """Test cases for _validate_group_is_public function."""
+class TestValidateGroupAccess:
+    """Content access: public to everyone, private to joiners only."""
 
-    @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
-    def test_validate_group_is_public_success(self, mock_get_group):
-        """Test validation passes for public group."""
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
+    def test_public_group_allows_anonymous(self, mock_get_group):
         group_id = uuid4()
         mock_db = MagicMock()
         mock_get_group.return_value = MockGroup(id=group_id, is_public=True)
 
-        # Should not raise exception
-        _validate_group_is_public(mock_db, group_id)
-        mock_get_group.assert_called_once_with(db=mock_db, group_id=group_id)
+        _validate_group_access(mock_db, group_id, None)
 
-    @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
-    def test_validate_group_is_public_non_public_group(self, mock_get_group):
-        """Test validation fails for non-public group."""
+    @patch('pecha_api.group_posts.service_utils.is_user_joined_group')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
+    def test_private_group_allows_joiner(self, mock_get_group, mock_joined):
+        group_id = uuid4()
+        mock_db = MagicMock()
+        mock_get_group.return_value = MockGroup(id=group_id, is_public=False)
+        mock_joined.return_value = True
+
+        _validate_group_access(mock_db, group_id, uuid4())
+
+    @patch('pecha_api.group_posts.service_utils.is_user_joined_group')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
+    def test_private_group_blocks_non_joiner(self, mock_get_group, mock_joined):
+        group_id = uuid4()
+        mock_db = MagicMock()
+        mock_get_group.return_value = MockGroup(id=group_id, is_public=False)
+        mock_joined.return_value = False
+
+        with pytest.raises(HTTPException) as exc_info:
+            _validate_group_access(mock_db, group_id, uuid4())
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
+    def test_private_group_blocks_anonymous(self, mock_get_group):
         group_id = uuid4()
         mock_db = MagicMock()
         mock_get_group.return_value = MockGroup(id=group_id, is_public=False)
 
         with pytest.raises(HTTPException) as exc_info:
-            _validate_group_is_public(mock_db, group_id)
+            _validate_group_access(mock_db, group_id, None)
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
-    @patch('pecha_api.group_recitation_collection.service.get_group_by_id')
-    def test_validate_group_is_public_non_existent_group(self, mock_get_group):
-        """Test validation fails for non-existent group."""
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
+    def test_non_existent_group(self, mock_get_group):
         group_id = uuid4()
         mock_db = MagicMock()
         mock_get_group.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
-            _validate_group_is_public(mock_db, group_id)
+            _validate_group_access(mock_db, group_id, uuid4())
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+

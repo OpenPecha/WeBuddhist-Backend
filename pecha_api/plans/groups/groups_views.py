@@ -469,7 +469,6 @@ def get_public_group(
     response.headers["Cache-Control"] = "no-store"
     return get_author_group_detail(
         group_id=group_id,
-        require_public=True,
         language=language,
         token=authentication_credential.credentials if authentication_credential else None,
     )

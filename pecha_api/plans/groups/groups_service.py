@@ -824,7 +824,6 @@ def delete_author_group(token: str, group_id: UUID) -> None:
 
 def get_author_group_detail(
     group_id: UUID,
-    require_public: bool = True,
     language: Optional[str] = None,
     token: Optional[str] = None,
 ) -> PublicAuthorGroupDetailDTO:
@@ -838,8 +837,6 @@ def get_author_group_detail(
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        if require_public and not group.is_public:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
@@ -1264,7 +1261,6 @@ def list_public_groups(
             search=search,
             tag_id=tag_id,
             exclude_group_ids=exclude_group_ids,
-            is_public=True,
             group_type=group_type,
         )
         groups = filter_items_for_timezone(

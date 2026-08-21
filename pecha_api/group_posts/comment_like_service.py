@@ -27,7 +27,7 @@ from pecha_api.group_posts.comment_repository import get_comment_by_id_only
 from pecha_api.group_posts.repository import get_post_by_id_only
 from pecha_api.group_posts.service_utils import (
     isoformat,
-    validate_group_is_public,
+    validate_group_content_access,
 )
 
 logger = logging.getLogger(__name__)
@@ -59,7 +59,7 @@ def like_comment_service(
     """Like a comment. Idempotent - returns 200 if already liked."""
     with SessionLocal() as db:
         comment, post, group_id = _get_and_validate_comment(db, comment_id)
-        validate_group_is_public(db, group_id)
+        validate_group_content_access(db=db, group_id=group_id, user_id=user_id)
 
         like = GroupPostCommentLike(
             comment_id=comment_id,
@@ -86,7 +86,7 @@ def unlike_comment_service(
     """Unlike a comment. Idempotent - succeeds even if not liked."""
     with SessionLocal() as db:
         comment, post, group_id = _get_and_validate_comment(db, comment_id)
-        validate_group_is_public(db, group_id)
+        validate_group_content_access(db=db, group_id=group_id, user_id=user_id)
 
         delete_like(db=db, comment_id=comment_id, user_id=user_id)
 
@@ -95,11 +95,12 @@ def list_comment_likers_service(
     comment_id: UUID,
     skip: int = 0,
     limit: int = 20,
+    user_id: Optional[UUID] = None,
 ) -> CommentLikersResponse:
-    """Public list of users who liked a comment."""
+    """List users who liked a comment."""
     with SessionLocal() as db:
         comment, post, group_id = _get_and_validate_comment(db, comment_id)
-        validate_group_is_public(db, group_id)
+        validate_group_content_access(db=db, group_id=group_id, user_id=user_id)
 
         likes, total = get_comment_likers(
             db=db,

@@ -348,16 +348,30 @@ def test_get_author_group_detail_not_found():
     assert exc.value.detail == GROUP_NOT_FOUND
 
 
-def test_get_author_group_detail_private_group_hidden():
+def test_get_author_group_detail_returns_private_group():
+    """Private groups are discoverable so a user can request to join them."""
     private_group = _make_group(is_public=False)
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=private_group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map",
+        return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_by_group_id",
+        return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_plans_by_group_id",
+        return_value=[],
     ):
         _session_local_context(mock_session)
-        with pytest.raises(HTTPException) as exc:
-            get_author_group_detail(group_id=private_group.id, require_public=True)
-    assert exc.value.detail == GROUP_NOT_FOUND
+        result = get_author_group_detail(group_id=private_group.id)
+
+    assert result.id == private_group.id
+    assert result.is_public is False
 
 
 def test_list_group_members_not_found():

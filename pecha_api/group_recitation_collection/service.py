@@ -10,6 +10,7 @@ from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.groups.groups_repository import get_group_by_id
 from pecha_api.plans.response_message import NOT_FOUND
+from pecha_api.group_posts.service_utils import validate_group_content_access
 from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
 from pecha_api.region_restrictions.region_restriction_service import filter_items_for_timezone
 from pecha_api.texts.texts_repository import get_texts_by_ids
@@ -46,14 +47,8 @@ def _generate_presigned_url(s3_key: Optional[str]) -> Optional[str]:
         return None
 
 
-def _validate_group_is_public(db: Session, group_id: UUID) -> None:
-    """Validate that group exists and is public."""
-    group = get_group_by_id(db=db, group_id=group_id)
-    if not group or not group.is_public:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=NOT_FOUND,
-        )
+def _validate_group_access(db: Session, group_id: UUID, user_id: Optional[UUID]) -> None:
+    validate_group_content_access(db=db, group_id=group_id, user_id=user_id)
 
 
 async def _build_items_dto(
@@ -89,10 +84,11 @@ async def list_group_collections_service(
     skip: int = 0,
     limit: int = 20,
     timezone_name: Optional[str] = None,
+    user_id: Optional[UUID] = None,
 ) -> GroupRecitationCollectionsResponse:
-    """List all collections for a public group with region filtering."""
+    """List a group's collections with region filtering."""
     with SessionLocal() as db:
-        _validate_group_is_public(db, group_id)
+        _validate_group_access(db, group_id, user_id)
         collections, total = get_group_collections(
             db=db,
             group_id=group_id,
@@ -142,10 +138,11 @@ async def get_group_collection_detail_service(
     group_id: UUID,
     collection_id: UUID,
     timezone_name: Optional[str] = None,
+    user_id: Optional[UUID] = None,
 ) -> GroupRecitationCollectionDetailDTO:
-    """Get collection detail with items for a public group."""
+    """Get collection detail with items."""
     with SessionLocal() as db:
-        _validate_group_is_public(db, group_id)
+        _validate_group_access(db, group_id, user_id)
         collection = get_collection_by_id(
             db=db,
             collection_id=collection_id,

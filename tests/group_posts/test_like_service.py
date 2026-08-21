@@ -43,7 +43,7 @@ class TestLikePostService:
 
     @patch('pecha_api.group_posts.like_service.count_post_likes')
     @patch('pecha_api.group_posts.like_service.create_like')
-    @patch('pecha_api.group_posts.like_service.validate_group_is_public')
+    @patch('pecha_api.group_posts.like_service.validate_group_content_access')
     @patch('pecha_api.group_posts.like_service._get_and_validate_post')
     @patch('pecha_api.group_posts.like_service.SessionLocal')
     def test_like_post_creates_new_like(
@@ -77,11 +77,11 @@ class TestLikePostService:
         assert result.liked is True
         assert result.like_count == 1
         assert result.is_new is True
-        mock_validate_group.assert_called_once_with(mock_db, group_id)
+        mock_validate_group.assert_called_once_with(db=mock_db, group_id=group_id, user_id=user_id)
 
     @patch('pecha_api.group_posts.like_service.count_post_likes')
     @patch('pecha_api.group_posts.like_service.create_like')
-    @patch('pecha_api.group_posts.like_service.validate_group_is_public')
+    @patch('pecha_api.group_posts.like_service.validate_group_content_access')
     @patch('pecha_api.group_posts.like_service._get_and_validate_post')
     @patch('pecha_api.group_posts.like_service.SessionLocal')
     def test_like_post_already_liked(
@@ -139,7 +139,7 @@ class TestLikePostService:
 class TestUnlikePostService:
 
     @patch('pecha_api.group_posts.like_service.delete_like')
-    @patch('pecha_api.group_posts.like_service.validate_group_is_public')
+    @patch('pecha_api.group_posts.like_service.validate_group_content_access')
     @patch('pecha_api.group_posts.like_service._get_and_validate_post')
     @patch('pecha_api.group_posts.like_service.SessionLocal')
     def test_unlike_post_success(
@@ -169,7 +169,7 @@ class TestUnlikePostService:
 class TestListPostLikersService:
 
     @patch('pecha_api.group_posts.like_service.get_post_likers')
-    @patch('pecha_api.group_posts.like_service.validate_group_is_public')
+    @patch('pecha_api.group_posts.like_service.validate_group_content_access')
     @patch('pecha_api.group_posts.like_service._get_and_validate_post')
     @patch('pecha_api.group_posts.like_service.SessionLocal')
     def test_list_post_likers_success(
