@@ -16,10 +16,14 @@ class ChatMessageParentDTO(BaseModel):
 
 
 class ChatMessageReactionDTO(BaseModel):
-    """Aggregated reactions of one emoji on a message."""
+    """Aggregated reactions of one emoji on a message.
+
+    user_ids lets a client receiving a shared broadcast (where reacted_by_me
+    cannot be viewer-specific) work out its own reacted state."""
     emoji: str
     count: int
     reacted_by_me: bool = False
+    user_ids: List[UUID] = []
 
 
 class ChatMessageDTO(BaseModel):

@@ -478,6 +478,7 @@ _CHAT_VIEWER_HTML = """
 
         let token = null;
         let myEmail = null;
+        let myUserId = null;
         let ws = null;
         let roomId = null;
         let typingTimeout = null;
@@ -778,6 +779,8 @@ _CHAT_VIEWER_HTML = """
                 } else if (message.type === "message_created") {
                     addMessage(message.message);
                     if (message.message.sender_email !== myEmail) setTyping(false);
+                } else if (message.type === "reactions_updated") {
+                    applyReactionsUpdate(message.message_id, message.reactions || []);
                 } else if (message.type === "typing") {
                     if (message.email !== myEmail) setTyping(message.is_typing, message.email);
                 } else if (message.type === "presence") {
@@ -836,6 +839,9 @@ _CHAT_VIEWER_HTML = """
                 badge.className = "online-badge";
                 statusRow.insertBefore(badge, statusRow.querySelector(".back-btn"));
             }
+            (online || []).forEach(p => {
+                if (p.email === myEmail) myUserId = p.user_id;
+            });
             const names = (online || []).map(p => p.email === myEmail ? "you" : p.email.split("@")[0]);
             badge.textContent = `${count} online` + (names.length ? ` (${names.join(", ")})` : "");
         }
@@ -920,6 +926,17 @@ _CHAT_VIEWER_HTML = """
         }
 
         /* ---------- Reactions ---------- */
+
+        function applyReactionsUpdate(messageId, reactions) {
+            // Broadcast payloads carry user_ids instead of a viewer-specific
+            // reacted_by_me, so recompute it for this client.
+            const messageEl = messagesSection.querySelector(`[data-message-id="${messageId}"]`);
+            if (!messageEl) return;
+            renderReactions(messageEl, reactions.map(r => ({
+                ...r,
+                reacted_by_me: myUserId != null && (r.user_ids || []).includes(myUserId),
+            })));
+        }
 
         function renderReactions(messageEl, reactions) {
             const row = messageEl.querySelector(".message-reactions");

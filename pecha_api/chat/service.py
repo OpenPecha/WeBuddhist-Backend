@@ -81,6 +81,7 @@ def _build_reaction_dtos(reactions, viewer_id: Optional[UUID]) -> list:
             ChatMessageReactionDTO(emoji=reaction.emoji, count=0, reacted_by_me=False),
         )
         summary.count += 1
+        summary.user_ids.append(reaction.user_id)
         if viewer_id is not None and reaction.user_id == viewer_id:
             summary.reacted_by_me = True
     return list(summaries.values())

@@ -53,6 +53,19 @@ oauth2_scheme = HTTPBearer()
 chat_router = APIRouter(tags=["Chat"])
 
 
+async def _broadcast_reactions_safe(room_id: UUID, message_id: UUID, reactions) -> None:
+    """Push a reactions_updated event to the room's live stream. Best-effort:
+    the reaction is already persisted, so a broadcast failure must not fail
+    the request."""
+    try:
+        broadcaster = get_broadcaster()
+        await broadcaster.broadcast_reactions(
+            room_id=room_id, message_id=message_id, reactions=reactions
+        )
+    except Exception as e:
+        logger.error(f"Failed to broadcast reactions for message {message_id}: {e}")
+
+
 @chat_router.get(
     "/chat/rooms",
     status_code=status.HTTP_200_OK,
@@ -152,7 +165,7 @@ def delete_room_message(
     status_code=status.HTTP_200_OK,
     response_model=list[ChatMessageReactionDTO],
 )
-def add_message_reaction(
+async def add_message_reaction(
     room_id: UUID,
     message_id: UUID,
     request: AddChatMessageReactionRequest,
@@ -161,9 +174,11 @@ def add_message_reaction(
     """React to a message with an emoji (idempotent). Active member only.
     Returns the message's updated reaction summary."""
     user = validate_and_extract_user_details(token=authentication_credential.credentials)
-    return add_message_reaction_service(
+    reactions = add_message_reaction_service(
         room_id=room_id, message_id=message_id, user=user, emoji=request.emoji
     )
+    await _broadcast_reactions_safe(room_id=room_id, message_id=message_id, reactions=reactions)
+    return reactions
 
 
 @chat_router.delete(
@@ -171,7 +186,7 @@ def add_message_reaction(
     status_code=status.HTTP_200_OK,
     response_model=list[ChatMessageReactionDTO],
 )
-def remove_message_reaction(
+async def remove_message_reaction(
     room_id: UUID,
     message_id: UUID,
     emoji: str,
@@ -180,9 +195,11 @@ def remove_message_reaction(
     """Remove the caller's emoji reaction from a message (idempotent).
     Returns the message's updated reaction summary."""
     user = validate_and_extract_user_details(token=authentication_credential.credentials)
-    return remove_message_reaction_service(
+    reactions = remove_message_reaction_service(
         room_id=room_id, message_id=message_id, user=user, emoji=emoji
     )
+    await _broadcast_reactions_safe(room_id=room_id, message_id=message_id, reactions=reactions)
+    return reactions
 
 
 @chat_router.post(
@@ -332,6 +349,7 @@ async def websocket_chat_live(
     Server -> client events:
       {"type": "room_info", "room_id": "..."}   (sent once, right after connect)
       {"type": "message_created", "message": {...}}
+      {"type": "reactions_updated", "message_id": "...", "reactions": [{"emoji": "...", "count": N, "user_ids": [...]}]}
       {"type": "typing", "user_id": "...", "email": "...", "is_typing": true|false}
       {"type": "presence", "count": N, "online": [{"user_id": "...", "email": "..."}]}
       {"type": "error", "code": "...", "message": "..."}
