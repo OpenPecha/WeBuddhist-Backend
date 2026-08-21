@@ -106,6 +106,42 @@ class ChatPeopleResponse(BaseModel):
     total: int
 
 
+class AdminChatReportUserDTO(BaseModel):
+    """Identity of a user involved in a moderation report."""
+    user_id: UUID
+    email: Optional[str] = None
+    firstname: Optional[str] = None
+    lastname: Optional[str] = None
+
+
+class AdminChatMessageReportDTO(BaseModel):
+    """One moderation report, for the CMS admin reports screen.
+
+    reporter is None for AUTOMATIC (system-generated) reports; message_text
+    carries the reported content even when the message itself was never
+    stored (profanity rejections) or has been deleted since."""
+    id: UUID
+    source: str
+    reason: str
+    description: Optional[str] = None
+    message_id: Optional[UUID] = None
+    message_text: Optional[str] = None
+    room_id: Optional[UUID] = None
+    room_name: Optional[str] = None
+    reporter: Optional[AdminChatReportUserDTO] = None
+    reported_user: Optional[AdminChatReportUserDTO] = None
+    created_at: str
+    resolved_at: Optional[str] = None
+
+
+class AdminChatMessageReportsResponse(BaseModel):
+    """Response for the CMS admin list-reports endpoint."""
+    reports: List[AdminChatMessageReportDTO]
+    skip: int
+    limit: int
+    total: int
+
+
 class SendChatMessageRequest(BaseModel):
     """Request to send a message to a room (group or DM). Pass
     parent_message_id to send it as a reply to that message."""

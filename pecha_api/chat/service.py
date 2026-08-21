@@ -165,25 +165,49 @@ def _default_group_room_name(group: AuthorGroup) -> str:
     return group.slug
 
 
+def _is_eligible_for_group_chat(db: Session, group_id: UUID, user_id: UUID) -> bool:
+    return is_user_joined_group(
+        db=db, group_id=group_id, user_id=user_id
+    ) or is_user_following_group(db=db, group_id=group_id, user_id=user_id)
+
+
+def _require_group_chat_eligibility(db: Session, group_id: UUID, user_id: UUID) -> None:
+    if not _is_eligible_for_group_chat(db=db, group_id=group_id, user_id=user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only joined or following members of this group can send messages in its chat",
+        )
+
+
 def resolve_or_create_group_room(db: Session, group_id: UUID, user: Users) -> ChatRoom:
     """Get the group's chat room, auto-creating it (with the caller as CREATOR)
-    on the first message if the caller is a joiner/follower of the group."""
+    on the first message if the caller is a joiner/follower of the group. Any
+    other joiner/follower is auto-added (or re-activated) as a MEMBER the
+    first time they reach an already-existing room."""
     room = get_room_by_group_id(db=db, group_id=group_id)
     if room is not None:
+        member = get_member(db=db, room_id=room.id, user_id=user.id)
+        if member is None or member.left_at is not None:
+            _require_group_chat_eligibility(db=db, group_id=group_id, user_id=user.id)
+            if member is None:
+                add_member(
+                    db=db,
+                    member=ChatRoomMember(
+                        room_id=room.id,
+                        user_id=user.id,
+                        role=ChatRoomMemberRole.MEMBER.value,
+                    ),
+                )
+            else:
+                member.left_at = None
+                db.commit()
         return room
 
     group = get_group_by_id(db=db, group_id=group_id)
     if not group:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
-    is_eligible = is_user_joined_group(
-        db=db, group_id=group_id, user_id=user.id
-    ) or is_user_following_group(db=db, group_id=group_id, user_id=user.id)
-    if not is_eligible:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only joined or following members of this group can send messages in its chat",
-        )
+    _require_group_chat_eligibility(db=db, group_id=group_id, user_id=user.id)
 
     room = ChatRoom(
         group_id=group_id,

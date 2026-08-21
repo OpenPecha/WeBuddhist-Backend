@@ -364,6 +364,42 @@ def get_report_by_message_and_reporter(
     )
 
 
+def list_reports(
+    db: Session,
+    skip: int = 0,
+    limit: int = 20,
+    source: Optional[str] = None,
+    reason: Optional[str] = None,
+    resolved: Optional[bool] = None,
+) -> Tuple[List[ChatMessageReport], int]:
+    """Paginated moderation reports, newest first, with the people and
+    message context eagerly loaded for display."""
+    query = db.query(ChatMessageReport)
+    if source:
+        query = query.filter(ChatMessageReport.source == source)
+    if reason:
+        query = query.filter(ChatMessageReport.reason == reason)
+    if resolved is True:
+        query = query.filter(ChatMessageReport.resolved_at.isnot(None))
+    elif resolved is False:
+        query = query.filter(ChatMessageReport.resolved_at.is_(None))
+    total = query.with_entities(func.count(ChatMessageReport.id)).scalar() or 0
+    reports = (
+        query.options(
+            selectinload(ChatMessageReport.reporter),
+            selectinload(ChatMessageReport.reported_user),
+            selectinload(ChatMessageReport.room),
+            selectinload(ChatMessageReport.message).selectinload(ChatMessage.sender),
+            selectinload(ChatMessageReport.message).selectinload(ChatMessage.room),
+        )
+        .order_by(ChatMessageReport.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return reports, total
+
+
 def get_unresolved_automatic_report(
     db: Session,
     room_id: UUID,

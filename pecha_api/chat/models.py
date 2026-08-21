@@ -267,6 +267,7 @@ class ChatMessageReport(Base):
     message = relationship("ChatMessage", foreign_keys=[message_id])
     reporter = relationship("Users", foreign_keys=[reporter_id])
     reported_user = relationship("Users", foreign_keys=[reported_user_id])
+    room = relationship("ChatRoom", foreign_keys=[room_id])
 
     __table_args__ = (
         UniqueConstraint(
