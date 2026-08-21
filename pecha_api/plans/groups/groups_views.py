@@ -612,7 +612,7 @@ def get_group_member_accumulations_endpoint(
 def get_my_group_permission(
     group_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
+) -> GroupPermissionDTO:
     """Check if the authenticated user has CMS permission to manage the specified group.
 
     Returns permission details including the user's role and whether they can manage the group.
