@@ -49,6 +49,7 @@ class PublicPlanDTO(BaseModel):
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
     group_id: Optional[UUID] = None
+    series_id: Optional[UUID] = None  # Set when the plan is part of a series
 
 class SubTaskDTO(BaseModel):
     id: UUID
@@ -88,6 +89,7 @@ class PlanDayDTO(BaseModel):
     thumbnail_url: Optional[str] = None
     shareable_image_url: Optional[str] = None
     videos: List[DayVideoSummaryDTO] = []
+    series_id: Optional[UUID] = None  # Set when the plan is part of a series
 
 
 class PlanDayCacheCleanupResponse(BaseModel):
