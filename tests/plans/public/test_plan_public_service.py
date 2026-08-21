@@ -36,6 +36,7 @@ from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.plans_enums import ContentType
 
 FIXTURE_GROUP_ID = uuid4()
+FIXTURE_SERIES_ID = uuid4()
 
 @pytest.fixture
 def sample_author():
@@ -70,6 +71,7 @@ def sample_plan(sample_author):
     plan.deleted_at = None
     plan.start_date = None
     plan.group_id = FIXTURE_GROUP_ID
+    plan.series_id = FIXTURE_SERIES_ID
     return plan
 
 
@@ -213,6 +215,7 @@ async def test_get_published_plans_sort_by_title_asc(sample_plan_aggregate, mock
     plan1.status = PlanStatus.PUBLISHED
     plan1.tag_list = []
     plan1.author = None
+    plan1.series_id = None
     
     plan2 = MagicMock()
     plan2.id = uuid4()
@@ -224,6 +227,7 @@ async def test_get_published_plans_sort_by_title_asc(sample_plan_aggregate, mock
     plan2.status = PlanStatus.PUBLISHED
     plan2.tag_list = []
     plan2.author = None
+    plan2.series_id = None
     
     agg1 = MagicMock()
     agg1.plan = plan1
@@ -260,6 +264,7 @@ async def test_get_published_plans_sort_by_title_desc(sample_plan_aggregate, moc
     plan1.status = PlanStatus.PUBLISHED
     plan1.tag_list = []
     plan1.author = None
+    plan1.series_id = None
     
     plan2 = MagicMock()
     plan2.id = uuid4()
@@ -271,6 +276,7 @@ async def test_get_published_plans_sort_by_title_desc(sample_plan_aggregate, moc
     plan2.status = PlanStatus.PUBLISHED
     plan2.tag_list = []
     plan2.author = None
+    plan2.series_id = None
     
     agg1 = MagicMock()
     agg1.plan = plan1
@@ -308,6 +314,7 @@ async def test_get_published_plans_sort_by_total_days(sample_plan_aggregate, moc
     plan1.status = PlanStatus.PUBLISHED
     plan1.tag_list = []
     plan1.author = None
+    plan1.series_id = None
     
     plan2 = MagicMock()
     plan2.id = uuid4()
@@ -319,6 +326,7 @@ async def test_get_published_plans_sort_by_total_days(sample_plan_aggregate, moc
     plan2.status = PlanStatus.PUBLISHED
     plan2.tag_list = []
     plan2.author = None
+    plan2.series_id = None
     
     agg1 = MagicMock()
     agg1.plan = plan1
@@ -355,6 +363,7 @@ async def test_get_published_plans_sort_by_subscription_count(sample_plan_aggreg
     plan1.status = PlanStatus.PUBLISHED
     plan1.tag_list = []
     plan1.author = None
+    plan1.series_id = None
     
     plan2 = MagicMock()
     plan2.id = uuid4()
@@ -366,6 +375,7 @@ async def test_get_published_plans_sort_by_subscription_count(sample_plan_aggreg
     plan2.status = PlanStatus.PUBLISHED
     plan2.tag_list = []
     plan2.author = None
+    plan2.series_id = None
     
     agg1 = MagicMock()
     agg1.plan = plan1
@@ -416,7 +426,8 @@ async def test_get_published_plans_without_author(mock_db_session):
     plan_no_author.status = PlanStatus.PUBLISHED
     plan_no_author.tag_list = []
     plan_no_author.author = None
-    
+    plan_no_author.series_id = None
+
     aggregate = MagicMock()
     aggregate.plan = plan_no_author
     aggregate.total_days = 10
@@ -512,7 +523,8 @@ async def test_get_published_plan_success(sample_plan, sample_author, mock_db_se
         assert result.author.lastname == "Doe"
         assert result.author.image is not None
         assert result.author.image.thumbnail == "https://bucket.s3.amazonaws.com/presigned-url"
-        
+        assert result.series_id == FIXTURE_SERIES_ID
+
         mock_repo.assert_called_once_with(db=mock_db_session.__enter__.return_value, plan_id=plan_id)
 
 
@@ -544,7 +556,8 @@ async def test_get_published_plan_without_author(mock_db_session):
     plan_no_author.author = None
     plan_no_author.deleted_at = None
     plan_no_author.group_id = FIXTURE_GROUP_ID
-    
+    plan_no_author.series_id = None
+
     mock_query = MagicMock()
     mock_db_session.__enter__.return_value.query.return_value = mock_query
     mock_query.filter.return_value.count.return_value = 10
@@ -1262,12 +1275,15 @@ async def test_get_plan_day_details_success():
         
         db_session = _mock_session_local(mock_session_local)
         mock_get_plan_day.return_value = mock_plan_item
+        series_id = uuid4()
+        db_session.query.return_value.filter.return_value.scalar.return_value = series_id
 
         response = await get_plan_day_details(plan_id=plan_id, day_number=day_number)
 
         mock_get_cache.assert_awaited_once_with(plan_id=plan_id, day_number=day_number)
         mock_get_plan_day.assert_called_once_with(db=db_session, plan_id=plan_id, day_number=day_number)
         mock_set_cache.assert_awaited_once()
+        assert response.series_id == series_id
 
         assert isinstance(response, PlanDayDTO)
         assert response.id == mock_plan_item.id
@@ -1287,6 +1303,22 @@ async def test_get_plan_day_details_success():
         assert task.subtasks[0].display_order == 1
         assert response.thumbnail_url is None
         assert response.shareable_image_url is None
+
+
+@pytest.mark.asyncio
+async def test_get_plan_day_details_cache_hit_resolves_series_id():
+    """Cached entries written before series_id existed still get it filled in."""
+    plan_id = uuid4()
+    series_id = uuid4()
+    cached = PlanDayDTO(id=uuid4(), day_number=1, tasks=[])
+
+    with patch("pecha_api.plans.public.plan_service.get_plan_day_detail_cache", return_value=cached), \
+         patch("pecha_api.plans.public.plan_service._get_plan_series_id", return_value=series_id):
+
+        response = await get_plan_day_details(plan_id=plan_id, day_number=1)
+
+    assert response is cached
+    assert response.series_id == series_id
 
 
 @pytest.mark.asyncio

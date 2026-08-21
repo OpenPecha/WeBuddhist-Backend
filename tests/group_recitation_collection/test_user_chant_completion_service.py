@@ -95,59 +95,23 @@ class TestGetTodayCompletionsService:
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.validate_and_extract_user_details')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_by_id')
     @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_collection_without_group_filter')
-    def test_get_today_completions_legacy_group_scoped(
+    def test_get_today_completions_collection_not_found(
         self,
         mock_get_collection,
         mock_get_group,
         mock_validate_user,
         mock_session,
     ):
-        """Test the legacy group-scoped call validates the collection's group."""
-        group_id = uuid4()
-        collection_id = uuid4()
-
+        """Test error when the collection doesn't exist."""
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_validate_user.return_value = MockUser()
-        mock_get_group.return_value = MockGroup(id=group_id)
-        mock_get_collection.return_value = MockCollection(id=collection_id, group_id=group_id)
-
-        with patch(
-            'pecha_api.group_recitation_collection.user_chant_completion_service.get_user_completions_today',
-            return_value=[],
-        ):
-            result = get_today_completions_service(
-                token="valid_token",
-                collection_id=collection_id,
-                group_id=group_id,
-            )
-
-        assert result.completed_chant_ids == []
-
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.SessionLocal')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.validate_and_extract_user_details')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_collection_without_group_filter')
-    def test_get_today_completions_group_mismatch(
-        self,
-        mock_get_collection,
-        mock_get_group,
-        mock_validate_user,
-        mock_session,
-    ):
-        """Test 404 when the legacy call passes a different group_id."""
-        collection_id = uuid4()
-
-        mock_db = MagicMock()
-        mock_session.return_value.__enter__.return_value = mock_db
-        mock_validate_user.return_value = MockUser()
-        mock_get_collection.return_value = MockCollection(id=collection_id, group_id=uuid4())
+        mock_get_collection.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
             get_today_completions_service(
                 token="valid_token",
-                collection_id=collection_id,
-                group_id=uuid4(),  # different group
+                collection_id=uuid4(),
             )
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
@@ -393,35 +357,6 @@ class TestCreateChantCompletionService:
                 token="valid_token",
                 collection_id=collection_id,
                 chant_id=uuid4(),
-            )
-
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
-
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.SessionLocal')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.validate_and_extract_user_details')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_group_by_id')
-    @patch('pecha_api.group_recitation_collection.user_chant_completion_service.get_collection_without_group_filter')
-    def test_create_completion_group_mismatch(
-        self,
-        mock_get_collection,
-        mock_get_group,
-        mock_validate_user,
-        mock_session,
-    ):
-        """Test 404 when the legacy call passes a different group_id."""
-        collection_id = uuid4()
-
-        mock_db = MagicMock()
-        mock_session.return_value.__enter__.return_value = mock_db
-        mock_validate_user.return_value = MockUser()
-        mock_get_collection.return_value = MockCollection(id=collection_id, group_id=uuid4())
-
-        with pytest.raises(HTTPException) as exc_info:
-            create_chant_completion_service(
-                token="valid_token",
-                collection_id=collection_id,
-                chant_id=uuid4(),
-                group_id=uuid4(),  # different group
             )
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
