@@ -2123,7 +2123,7 @@ def get_group_member_accumulations(
 
 def _is_user_not_found_error(exc: HTTPException) -> bool:
     """Check if the exception indicates 'user/author not found' vs token validation failure."""
-    if exc.status_code != status.HTTP_401_UNAUTHORIZED:
+    if exc.status_code not in (status.HTTP_401_UNAUTHORIZED, status.HTTP_404_NOT_FOUND):
         return False
     detail = str(exc.detail) if exc.detail else ""
     return "not found" in detail.lower() or "does not exist" in detail.lower()
