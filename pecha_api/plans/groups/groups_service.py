@@ -12,7 +12,7 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.plans.authors.plan_authors_repository import find_author_by_email
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
-from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin, require_cms_write_access
+from pecha_api.plans.shared.permissions import get_member_role, is_reviewer, is_super_admin, require_cms_write_access
 from pecha_api.notification.notification_repository import (
     mark_notifications_read_by_reference,
     notification_exists_for_reference,
@@ -140,6 +140,7 @@ from pecha_api.plans.groups.groups_response_models import (
     ReplaceGroupTagsRequest,
     UpdateAuthorGroupRequest,
     UpdateGroupMemberRoleRequest,
+    GroupPermissionDTO,
 )
 from pecha_api.group_accumulator.group_accumulator_service import (
     _convert_to_dto as _group_accumulator_to_dto,
@@ -2111,4 +2112,40 @@ def get_group_member_accumulations(
             list=member_dtos,
             skip=skip,
             limit=limit,
+        )
+
+
+def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
+    user = validate_and_extract_user_details(token=token)
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+
+        author = find_author_by_email(db=db, email=user.email)
+        if author is None:
+            return GroupPermissionDTO(
+                group_id=group_id,
+                has_permission=False,
+                role=None,
+                is_super_admin=False,
+                author_id=None,
+            )
+
+        if is_super_admin(author):
+            return GroupPermissionDTO(
+                group_id=group_id,
+                has_permission=True,
+                role=AuthorGroupMemberRole.OWNER,
+                is_super_admin=True,
+                author_id=author.id,
+            )
+
+        role = get_member_role(db=db, group_id=group_id, author_id=author.id)
+        return GroupPermissionDTO(
+            group_id=group_id,
+            has_permission=role is not None,
+            role=role,
+            is_super_admin=False,
+            author_id=author.id,
         )
