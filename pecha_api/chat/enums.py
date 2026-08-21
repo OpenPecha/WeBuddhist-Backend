@@ -19,4 +19,10 @@ class ChatMessageReportReason(enum.Enum):
     HARASSMENT = "HARASSMENT"
     HATE_SPEECH = "HATE_SPEECH"
     INAPPROPRIATE = "INAPPROPRIATE"
+    INAPPROPRIATE_LANGUAGE = "INAPPROPRIATE_LANGUAGE"
     OTHER = "OTHER"
+
+
+class ChatMessageReportSource(enum.Enum):
+    MANUAL = "MANUAL"
+    AUTOMATIC = "AUTOMATIC"

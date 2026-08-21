@@ -473,11 +473,16 @@ async def websocket_chat_live(
                         )
                 except HTTPException as e:
                     logger.error(f"Message send failed: {e.detail}")
-                    await websocket.send_json({
-                        "type": "error",
-                        "code": e.detail if isinstance(e.detail, str) else "ERROR",
-                        "message": e.detail if isinstance(e.detail, str) else str(e.detail),
-                    })
+                    if isinstance(e.detail, dict) and "code" in e.detail:
+                        # Structured rejection (e.g. INAPPROPRIATE_LANGUAGE) with
+                        # its own code/message fields
+                        await websocket.send_json({"type": "error", **e.detail})
+                    else:
+                        await websocket.send_json({
+                            "type": "error",
+                            "code": e.detail if isinstance(e.detail, str) else "ERROR",
+                            "message": e.detail if isinstance(e.detail, str) else str(e.detail),
+                        })
                     continue
 
                 try:

@@ -219,6 +219,146 @@ _CHAT_VIEWER_HTML = """
         .message-body { color: #374151; line-height: 1.4; word-break: break-word; }
         .message-time { font-size: 11px; color: #9ca3af; margin-top: 4px; }
 
+        .message-parent {
+            border-left: 3px solid #a5b4fc;
+            background: rgba(102, 126, 234, 0.08);
+            border-radius: 6px;
+            padding: 6px 10px;
+            margin-bottom: 6px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .message-parent:hover { background: rgba(102, 126, 234, 0.15); }
+        .message-parent-sender { font-weight: 600; color: #4f46e5; }
+        .message-parent-body { color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 380px; }
+
+        .message-reactions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+        .reaction-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 2px 8px;
+            font-size: 13px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .reaction-chip:hover { border-color: #a5b4fc; }
+        .reaction-chip.mine { background: #e0e7ff; border-color: #667eea; }
+        .reaction-chip .reaction-count { font-size: 11px; color: #6b7280; font-weight: 600; }
+
+        .message-actions { display: none; gap: 6px; margin-top: 6px; }
+        .message:hover .message-actions { display: flex; }
+        .action-btn {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 12px;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        .action-btn:hover { border-color: #667eea; color: #4f46e5; }
+        .action-btn.danger:hover { border-color: #dc2626; color: #dc2626; }
+
+        .emoji-picker {
+            position: absolute;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            padding: 6px;
+            display: flex;
+            gap: 4px;
+            z-index: 50;
+        }
+        .emoji-picker button {
+            border: none;
+            background: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 6px;
+        }
+        .emoji-picker button:hover { background: #f3f4f6; }
+
+        .reply-bar {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #eef2ff;
+            border-top: 1px solid #e5e7eb;
+            font-size: 13px;
+        }
+        .reply-bar.active { display: flex; }
+        .reply-bar-text { flex: 1; min-width: 0; color: #4b5563; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .reply-bar-text b { color: #4f46e5; }
+        .reply-bar-cancel {
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: #6b7280;
+            font-size: 16px;
+            padding: 0 4px;
+        }
+        .reply-bar-cancel:hover { color: #dc2626; }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .modal h2 { font-size: 16px; color: #1f2937; }
+        .modal .modal-target { font-size: 13px; color: #6b7280; background: #f3f4f6; border-radius: 6px; padding: 8px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .modal select, .modal textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+        }
+        .modal textarea { resize: vertical; min-height: 70px; }
+        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; }
+        .modal-buttons .secondary {
+            padding: 10px 18px;
+            background: #f3f4f6;
+            color: #374151;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin: 8px 12px;
+            border-left: 4px solid #10b981;
+            font-size: 13px;
+        }
+
         .typing-indicator {
             padding: 4px 20px;
             font-size: 13px;
@@ -303,9 +443,32 @@ _CHAT_VIEWER_HTML = """
         <div class="chat-view" id="chatView">
             <div class="messages-section" id="messagesSection"></div>
             <div class="typing-indicator" id="typingIndicator"></div>
+            <div class="reply-bar" id="replyBar">
+                <div class="reply-bar-text" id="replyBarText"></div>
+                <button class="reply-bar-cancel" id="replyBarCancel" title="Cancel reply">&#10005;</button>
+            </div>
             <div class="input-section">
                 <textarea id="messageInput" placeholder="Type a message... (max 4000 characters)" maxlength="4000"></textarea>
                 <button class="primary" id="sendBtn">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="reportModal">
+        <div class="modal">
+            <h2>Report message</h2>
+            <div class="modal-target" id="reportTarget"></div>
+            <select id="reportReason">
+                <option value="SPAM">Spam</option>
+                <option value="HARASSMENT">Harassment</option>
+                <option value="HATE_SPEECH">Hate speech</option>
+                <option value="INAPPROPRIATE">Inappropriate</option>
+                <option value="OTHER">Other</option>
+            </select>
+            <textarea id="reportDescription" placeholder="Optional description (max 1000 characters)" maxlength="1000"></textarea>
+            <div class="modal-buttons">
+                <button class="secondary" id="reportCancelBtn">Cancel</button>
+                <button class="primary" id="reportSubmitBtn">Report</button>
             </div>
         </div>
     </div>
@@ -338,6 +501,20 @@ _CHAT_VIEWER_HTML = """
         const typingIndicator = document.getElementById("typingIndicator");
         const messageInput = document.getElementById("messageInput");
         const sendBtn = document.getElementById("sendBtn");
+        const replyBar = document.getElementById("replyBar");
+        const replyBarText = document.getElementById("replyBarText");
+        const replyBarCancel = document.getElementById("replyBarCancel");
+        const reportModal = document.getElementById("reportModal");
+        const reportTarget = document.getElementById("reportTarget");
+        const reportReason = document.getElementById("reportReason");
+        const reportDescription = document.getElementById("reportDescription");
+        const reportCancelBtn = document.getElementById("reportCancelBtn");
+        const reportSubmitBtn = document.getElementById("reportSubmitBtn");
+
+        const REACTION_EMOJIS = ["\\ud83d\\udc4d", "\\u2764\\ufe0f", "\\ud83d\\ude02", "\\ud83c\\udf89", "\\ud83d\\ude22", "\\ud83d\\ude4f"];
+        let replyTo = null;
+        let reportMessage = null;
+        let openPicker = null;
 
         function authHeaders() {
             return { "Authorization": `Bearer ${token}` };
@@ -565,6 +742,8 @@ _CHAT_VIEWER_HTML = """
             }
             roomId = null;
             lastTypingSent = false;
+            cancelReply();
+            closeEmojiPicker();
             messagesSection.innerHTML = '<div class="loading">Connecting...</div>';
             typingIndicator.textContent = "";
 
@@ -636,6 +815,8 @@ _CHAT_VIEWER_HTML = """
                 ws = null;
             }
             roomId = null;
+            cancelReply();
+            closeEmojiPicker();
             chatView.classList.remove("active");
             lobby.classList.add("active");
             updateStatus(false, "Not connected");
@@ -683,16 +864,242 @@ _CHAT_VIEWER_HTML = """
             const div = document.createElement("div");
             const isMine = message.sender_email === myEmail;
             div.className = "message" + (isMine ? " mine" : "");
+            div.dataset.messageId = message.id;
 
             const date = new Date(message.created_at).toLocaleString();
+
+            let parentHtml = "";
+            if (message.parent) {
+                parentHtml = `
+                    <div class="message-parent" data-parent-id="${escapeHtml(String(message.parent.id))}" title="Go to original message">
+                        <div class="message-parent-sender">${escapeHtml(message.parent.sender_email)}</div>
+                        <div class="message-parent-body">${escapeHtml(message.parent.body)}</div>
+                    </div>
+                `;
+            }
+
             div.innerHTML = `
+                ${parentHtml}
                 <div class="message-sender">${escapeHtml(message.sender_email)}</div>
                 <div class="message-body">${escapeHtml(message.body)}</div>
                 <div class="message-time">${date}</div>
+                <div class="message-reactions"></div>
+                <div class="message-actions">
+                    <button class="action-btn" data-action="react" title="Add reaction">+ React</button>
+                    <button class="action-btn" data-action="reply" title="Reply to this message">Reply</button>
+                    ${isMine ? "" : '<button class="action-btn danger" data-action="report" title="Report this message">Report</button>'}
+                </div>
             `;
+
+            const parentEl = div.querySelector(".message-parent");
+            if (parentEl) {
+                parentEl.addEventListener("click", () => scrollToMessage(parentEl.dataset.parentId));
+            }
+            div.querySelector('[data-action="react"]').addEventListener("click", (e) => showEmojiPicker(e.currentTarget, message.id));
+            div.querySelector('[data-action="reply"]').addEventListener("click", () => startReply(message));
+            const reportBtn = div.querySelector('[data-action="report"]');
+            if (reportBtn) {
+                reportBtn.addEventListener("click", () => openReportModal(message));
+            }
+
+            renderReactions(div, message.reactions || []);
 
             messagesSection.appendChild(div);
             messagesSection.scrollTop = messagesSection.scrollHeight;
+        }
+
+        function scrollToMessage(messageId) {
+            const el = messagesSection.querySelector(`[data-message-id="${messageId}"]`);
+            if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+                el.style.transition = "background 0.3s";
+                const original = el.style.background;
+                el.style.background = "#fde68a";
+                setTimeout(() => { el.style.background = original; }, 900);
+            }
+        }
+
+        /* ---------- Reactions ---------- */
+
+        function renderReactions(messageEl, reactions) {
+            const row = messageEl.querySelector(".message-reactions");
+            if (!row) return;
+            row.innerHTML = "";
+            const messageId = messageEl.dataset.messageId;
+            reactions.forEach(r => {
+                const chip = document.createElement("button");
+                chip.className = "reaction-chip" + (r.reacted_by_me ? " mine" : "");
+                chip.title = r.reacted_by_me ? "Click to remove your reaction" : "Click to react too";
+                const emojiSpan = document.createElement("span");
+                emojiSpan.textContent = r.emoji;
+                const countSpan = document.createElement("span");
+                countSpan.className = "reaction-count";
+                countSpan.textContent = r.count;
+                chip.appendChild(emojiSpan);
+                chip.appendChild(countSpan);
+                chip.addEventListener("click", () => toggleReaction(messageId, r.emoji, r.reacted_by_me));
+                row.appendChild(chip);
+            });
+        }
+
+        async function toggleReaction(messageId, emoji, reactedByMe) {
+            if (!roomId) return;
+            try {
+                let response;
+                if (reactedByMe) {
+                    response = await fetch(
+                        `${apiBase}/chat/rooms/${roomId}/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`,
+                        { method: "DELETE", headers: authHeaders() }
+                    );
+                } else {
+                    response = await fetch(
+                        `${apiBase}/chat/rooms/${roomId}/messages/${messageId}/reactions`,
+                        {
+                            method: "POST",
+                            headers: { ...authHeaders(), "Content-Type": "application/json" },
+                            body: JSON.stringify({ emoji: emoji }),
+                        }
+                    );
+                }
+                if (!response.ok) {
+                    showError(messagesSection, "Reaction failed: " + await readApiError(response));
+                    return;
+                }
+                const reactions = await response.json();
+                const messageEl = messagesSection.querySelector(`[data-message-id="${messageId}"]`);
+                if (messageEl) renderReactions(messageEl, reactions);
+            } catch (err) {
+                showError(messagesSection, "Reaction failed: " + err.message);
+            }
+        }
+
+        function showEmojiPicker(anchorBtn, messageId) {
+            closeEmojiPicker();
+            const picker = document.createElement("div");
+            picker.className = "emoji-picker";
+            REACTION_EMOJIS.forEach(emoji => {
+                const btn = document.createElement("button");
+                btn.textContent = emoji;
+                btn.addEventListener("click", () => {
+                    closeEmojiPicker();
+                    toggleReaction(messageId, emoji, false);
+                });
+                picker.appendChild(btn);
+            });
+            document.body.appendChild(picker);
+            const rect = anchorBtn.getBoundingClientRect();
+            const pickerRect = picker.getBoundingClientRect();
+            let left = rect.left;
+            if (left + pickerRect.width > window.innerWidth - 10) {
+                left = window.innerWidth - pickerRect.width - 10;
+            }
+            let top = rect.top - pickerRect.height - 6;
+            if (top < 10) top = rect.bottom + 6;
+            picker.style.left = `${left}px`;
+            picker.style.top = `${top}px`;
+            openPicker = picker;
+            setTimeout(() => {
+                document.addEventListener("click", closeEmojiPickerOnOutsideClick);
+            }, 0);
+        }
+
+        function closeEmojiPickerOnOutsideClick(e) {
+            if (openPicker && !openPicker.contains(e.target)) closeEmojiPicker();
+        }
+
+        function closeEmojiPicker() {
+            if (openPicker) {
+                openPicker.remove();
+                openPicker = null;
+                document.removeEventListener("click", closeEmojiPickerOnOutsideClick);
+            }
+        }
+
+        /* ---------- Reply ---------- */
+
+        function startReply(message) {
+            replyTo = message;
+            replyBarText.innerHTML = `Replying to <b>${escapeHtml(message.sender_email)}</b>: ${escapeHtml(message.body)}`;
+            replyBar.classList.add("active");
+            messageInput.focus();
+        }
+
+        function cancelReply() {
+            replyTo = null;
+            replyBar.classList.remove("active");
+        }
+
+        replyBarCancel.addEventListener("click", cancelReply);
+
+        /* ---------- Report ---------- */
+
+        function openReportModal(message) {
+            reportMessage = message;
+            reportTarget.textContent = `${message.sender_email}: ${message.body}`;
+            reportReason.value = "SPAM";
+            reportDescription.value = "";
+            reportModal.classList.add("active");
+        }
+
+        function closeReportModal() {
+            reportMessage = null;
+            reportModal.classList.remove("active");
+        }
+
+        reportCancelBtn.addEventListener("click", closeReportModal);
+        reportModal.addEventListener("click", (e) => {
+            if (e.target === reportModal) closeReportModal();
+        });
+
+        reportSubmitBtn.addEventListener("click", async () => {
+            if (!reportMessage || !roomId) return;
+            const payload = { reason: reportReason.value };
+            const description = reportDescription.value.trim();
+            if (description) payload.description = description;
+
+            reportSubmitBtn.disabled = true;
+            try {
+                const response = await fetch(
+                    `${apiBase}/chat/rooms/${roomId}/messages/${reportMessage.id}/report`,
+                    {
+                        method: "POST",
+                        headers: { ...authHeaders(), "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                    }
+                );
+                if (response.ok) {
+                    closeReportModal();
+                    showSuccess(messagesSection, "Message reported. Thank you.");
+                } else {
+                    closeReportModal();
+                    showError(messagesSection, "Report failed: " + await readApiError(response));
+                }
+            } catch (err) {
+                closeReportModal();
+                showError(messagesSection, "Report failed: " + err.message);
+            } finally {
+                reportSubmitBtn.disabled = false;
+            }
+        });
+
+        async function readApiError(response) {
+            try {
+                const data = await response.json();
+                if (data.detail) {
+                    return typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+                }
+                return `HTTP ${response.status}`;
+            } catch (e) {
+                return `HTTP ${response.status}`;
+            }
+        }
+
+        function showSuccess(container, message) {
+            const div = document.createElement("div");
+            div.className = "success";
+            div.textContent = message;
+            container.parentElement.insertBefore(div, container);
+            setTimeout(() => div.remove(), 5000);
         }
 
         function setTyping(isTyping, email) {
@@ -704,8 +1111,11 @@ _CHAT_VIEWER_HTML = """
             if (!body) return;
 
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: "message", body: body }));
+                const payload = { type: "message", body: body };
+                if (replyTo) payload.parent_message_id = replyTo.id;
+                ws.send(JSON.stringify(payload));
                 messageInput.value = "";
+                cancelReply();
                 sendTypingState(false);
             } else {
                 showError(messagesSection, "Not connected. Please wait...");

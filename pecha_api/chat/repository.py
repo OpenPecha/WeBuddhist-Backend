@@ -5,7 +5,7 @@ from uuid import UUID
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, selectinload
 
-from pecha_api.chat.enums import ChatRoomMemberRole
+from pecha_api.chat.enums import ChatMessageReportSource, ChatRoomMemberRole
 from pecha_api.chat.models import (
     ChatMessage,
     ChatMessageReaction,
@@ -359,6 +359,27 @@ def get_report_by_message_and_reporter(
         .filter(
             ChatMessageReport.message_id == message_id,
             ChatMessageReport.reporter_id == reporter_id,
+        )
+        .first()
+    )
+
+
+def get_unresolved_automatic_report(
+    db: Session,
+    room_id: UUID,
+    reported_user_id: UUID,
+    message_text: str,
+) -> Optional[ChatMessageReport]:
+    """An open system-generated report for the same rejected content, used to
+    keep retried sends of the same message from piling up duplicate reports."""
+    return (
+        db.query(ChatMessageReport)
+        .filter(
+            ChatMessageReport.source == ChatMessageReportSource.AUTOMATIC.value,
+            ChatMessageReport.room_id == room_id,
+            ChatMessageReport.reported_user_id == reported_user_id,
+            ChatMessageReport.message_text == message_text,
+            ChatMessageReport.resolved_at.is_(None),
         )
         .first()
     )

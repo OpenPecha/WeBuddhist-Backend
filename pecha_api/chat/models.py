@@ -230,16 +230,31 @@ class ChatMessageReport(Base):
     __tablename__ = "chat_message_reports"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    # MANUAL reports point at a stored message; AUTOMATIC (system) reports are
+    # filed for rejected messages that were never stored, so message_id and
+    # reporter_id are absent and message_text/room_id carry the context instead.
     message_id = Column(
         UUID(as_uuid=True),
         ForeignKey(FK_CHAT_MESSAGES_ID, ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
     reporter_id = Column(
         UUID(as_uuid=True),
         ForeignKey(FK_USERS_ID, ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
     )
+    reported_user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(FK_USERS_ID, ondelete="CASCADE"),
+        nullable=True,
+    )
+    room_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(FK_CHAT_ROOMS_ID, ondelete="CASCADE"),
+        nullable=True,
+    )
+    source = Column(String(16), nullable=False, default="MANUAL", server_default="MANUAL")
+    message_text = Column(Text, nullable=True)
     reason = Column(String(32), nullable=False)
     description = Column(Text, nullable=True)
     created_at = Column(
@@ -249,8 +264,9 @@ class ChatMessageReport(Base):
     )
     resolved_at = Column(DateTime(timezone=True), nullable=True)
 
-    message = relationship("ChatMessage")
-    reporter = relationship("Users")
+    message = relationship("ChatMessage", foreign_keys=[message_id])
+    reporter = relationship("Users", foreign_keys=[reporter_id])
+    reported_user = relationship("Users", foreign_keys=[reported_user_id])
 
     __table_args__ = (
         UniqueConstraint(
@@ -258,7 +274,13 @@ class ChatMessageReport(Base):
             "reporter_id",
             name="uq_chat_message_reports_message_reporter",
         ),
+        CheckConstraint(
+            "(source = 'MANUAL' AND message_id IS NOT NULL AND reporter_id IS NOT NULL) OR "
+            "(source = 'AUTOMATIC' AND reported_user_id IS NOT NULL)",
+            name="ck_chat_message_reports_source_shape",
+        ),
         Index("idx_chat_message_reports_message_id", "message_id"),
+        Index("idx_chat_message_reports_reported_user", "reported_user_id"),
         Index(
             "idx_chat_message_reports_unresolved",
             "created_at",

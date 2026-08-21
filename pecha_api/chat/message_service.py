@@ -6,13 +6,14 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from starlette import status
 
-from pecha_api.chat.enums import ChatMessageReportReason
+from pecha_api.chat.enums import ChatMessageReportReason, ChatMessageReportSource
 from pecha_api.chat.models import (
     ChatMessage,
     ChatMessageReaction,
     ChatMessageReport,
     ChatRoom,
 )
+from pecha_api.chat.moderation_service import validate_message_content
 from pecha_api.chat.notification_dispatch_service import enqueue_chat_message_notification
 from pecha_api.chat.repository import (
     add_reaction,
@@ -99,6 +100,7 @@ def _persist_message(
     body: str,
     parent_message_id: Optional[UUID] = None,
 ) -> ChatMessageDTO:
+    validate_message_content(db=db, room=room, user=user, body=body)
     parent = _resolve_parent_message(db=db, room=room, parent_message_id=parent_message_id)
     message = ChatMessage(
         room_id=room.id,
@@ -259,6 +261,9 @@ def report_message_service(
                 report=ChatMessageReport(
                     message_id=message.id,
                     reporter_id=user.id,
+                    reported_user_id=message.sender_id,
+                    room_id=message.room_id,
+                    source=ChatMessageReportSource.MANUAL.value,
                     reason=reason.value,
                     description=description,
                 ),
