@@ -4010,6 +4010,64 @@ def test_get_group_permission_group_member():
     assert result.author_id == author.id
 
 
+def test_get_group_permission_author_role_no_management():
+    """AUTHOR role can create content but cannot manage group → has_permission: false"""
+    user = _make_user(email="author@example.org")
+    author = _make_author(email="author@example.org")
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=AuthorGroupMemberRole.AUTHOR,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is False
+    assert result.role == AuthorGroupMemberRole.AUTHOR
+    assert result.is_super_admin is False
+    assert result.author_id == author.id
+
+
+def test_get_group_permission_viewer_role_no_management():
+    """VIEWER role can only read → has_permission: false"""
+    user = _make_user(email="viewer@example.org")
+    author = _make_author(email="viewer@example.org")
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=AuthorGroupMemberRole.VIEWER,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is False
+    assert result.role == AuthorGroupMemberRole.VIEWER
+    assert result.is_super_admin is False
+    assert result.author_id == author.id
+
+
 def test_get_group_permission_author_not_member():
     """Author account exists but not a member of this group → has_permission: false"""
     user = _make_user(email="notmember@example.org")

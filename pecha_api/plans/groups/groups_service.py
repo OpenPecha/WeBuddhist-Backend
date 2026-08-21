@@ -12,7 +12,13 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.plans.authors.plan_authors_repository import find_author_by_email
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
-from pecha_api.plans.shared.permissions import get_member_role, is_reviewer, is_super_admin, require_cms_write_access
+from pecha_api.plans.shared.permissions import (
+    _STATUS_CHANGE_ROLES,
+    get_member_role,
+    is_reviewer,
+    is_super_admin,
+    require_cms_write_access,
+)
 from pecha_api.notification.notification_repository import (
     mark_notifications_read_by_reference,
     notification_exists_for_reference,
@@ -2144,7 +2150,7 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
         role = get_member_role(db=db, group_id=group_id, author_id=author.id)
         return GroupPermissionDTO(
             group_id=group_id,
-            has_permission=role is not None,
+            has_permission=role in _STATUS_CHANGE_ROLES,
             role=role,
             is_super_admin=False,
             author_id=author.id,
