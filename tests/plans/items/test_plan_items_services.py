@@ -2,7 +2,7 @@ from pecha_api.plans.platform_enums import PlatformRole
 import uuid
 import pytest
 from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock, call, ANY
 from fastapi import HTTPException
 
 from pecha_api.plans.items.plan_items_services import create_plan_item, delete_plan_days, update_plans_day_number
@@ -252,7 +252,7 @@ def test_create_plan_item_cascade_shifts_next_plan_then_creates_days():
             create_days_request=CreateDaysRequest(number_of_days=2, cascade=True),
         )
 
-        mock_shift.assert_called_once_with(db=db_session, plan=plan, shift_days=1)
+        mock_shift.assert_called_once_with(db=db_session, plan=plan, shift_days=1, author=author)
         mock_save_plan_items.assert_called_once()
         assert len(resp) == 1
 
@@ -741,6 +741,105 @@ def test_create_plan_item_with_source_day_copies_tasks():
         )
 
 
+def test_create_plan_item_missing_source_day_creates_nothing():
+    """If source_day_id doesn't resolve, no days/shifts should ever be staged or committed."""
+    plan_id = uuid.uuid4()
+    source_day_id = uuid.uuid4()
+
+    plan = MagicMock()
+    plan.id = plan_id
+    plan.deleted_at = None
+    plan.group_id = uuid.uuid4()
+    plan.series_id = None
+
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.platform_role = PlatformRole.CREATOR
+    plan.author_id = author.id
+
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_cms_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan, \
+         patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_last_day, \
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_day_by_id_any_plan") as mock_get_source:
+        db_session = _mock_session_local(mock_session_local)
+
+        mock_validate_author.return_value = author
+        mock_get_plan.return_value = plan
+        mock_last_day.return_value = 0
+        mock_get_source.side_effect = HTTPException(status_code=404, detail="Plan day not found")
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_plan_item(
+                token="dummy-token",
+                plan_id=plan_id,
+                create_days_request=CreateDaysRequest(number_of_days=1, source_day_id=source_day_id),
+            )
+
+    assert exc_info.value.status_code == 404
+    mock_save.assert_not_called()
+    db_session.commit.assert_not_called()
+
+
+def test_create_plan_item_copy_failure_rolls_back_new_days():
+    """If copying the source day's tasks fails, the newly created days and any pending
+    cascade shifts must not be committed — the whole create-and-copy operation is atomic."""
+    plan_id = uuid.uuid4()
+    source_day_id = uuid.uuid4()
+    saved_item_id = uuid.uuid4()
+
+    plan = MagicMock()
+    plan.id = plan_id
+    plan.deleted_at = None
+    plan.group_id = uuid.uuid4()
+    plan.series_id = None
+
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.platform_role = PlatformRole.CREATOR
+    plan.author_id = author.id
+
+    source_day = MagicMock()
+    source_day.plan_id = plan_id
+
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_cms_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan, \
+         patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_last_day, \
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_day_by_id_any_plan") as mock_get_source, \
+         patch("pecha_api.plans.items.plan_items_services._copy_tasks_and_subtasks_to_days") as mock_copy:
+        db_session = _mock_session_local(mock_session_local)
+
+        mock_validate_author.return_value = author
+        mock_get_plan.return_value = plan
+        mock_last_day.return_value = 0
+        mock_get_source.return_value = source_day
+
+        saved_item = MagicMock()
+        saved_item.id = saved_item_id
+        saved_item.plan_id = plan_id
+        saved_item.day_number = 1
+        mock_save.return_value = [saved_item]
+
+        mock_copy.side_effect = Exception("copy failed")
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_plan_item(
+                token="dummy-token",
+                plan_id=plan_id,
+                create_days_request=CreateDaysRequest(number_of_days=1, source_day_id=source_day_id),
+            )
+
+    assert exc_info.value.status_code == 400
+    mock_save.assert_called_once_with(db=db_session, plan_items=ANY, commit=False)
+    db_session.commit.assert_not_called()
+    db_session.rollback.assert_called_once()
+
+
 def test_delete_plan_days_empty_day_ids_returns_early():
     with patch("pecha_api.plans.items.plan_items_services.validate_cms_author_details") as mock_validate_author:
         delete_plan_days(
@@ -824,7 +923,7 @@ def test_copy_tasks_and_subtasks_copies_correctly():
 
     assert db.add.call_count == 2
     assert db.flush.call_count == 2
-    db.commit.assert_called_once()
+    db.commit.assert_not_called()
 
 
 def test_copy_tasks_and_subtasks_with_timestamp():
@@ -867,10 +966,12 @@ def test_copy_tasks_and_subtasks_with_timestamp():
     )
 
     assert db.add.call_count == 3
-    db.commit.assert_called_once()
+    db.commit.assert_not_called()
 
 
-def test_copy_tasks_and_subtasks_db_error_raises_400():
+def test_copy_tasks_and_subtasks_db_error_propagates():
+    """The function no longer commits/rolls back itself; errors bubble up so the
+    caller (create_plan_item) can roll back the whole create-and-copy operation atomically."""
     from pecha_api.plans.items.plan_items_services import _copy_tasks_and_subtasks_to_days
 
     source_task = MagicMock()
@@ -889,7 +990,7 @@ def test_copy_tasks_and_subtasks_db_error_raises_400():
     db = MagicMock()
     db.flush.side_effect = Exception("db error")
 
-    with pytest.raises(HTTPException) as exc_info:
+    with pytest.raises(Exception, match="db error"):
         _copy_tasks_and_subtasks_to_days(
             db=db,
             source_day=source_day,
@@ -897,8 +998,8 @@ def test_copy_tasks_and_subtasks_db_error_raises_400():
             created_by="author@example.com",
         )
 
-    assert exc_info.value.status_code == 400
-    db.rollback.assert_called_once()
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
 
 
 def test_update_plans_day_number_duplicate_payload_raises_400():

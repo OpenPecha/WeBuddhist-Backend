@@ -729,11 +729,12 @@ def _validate_start_date_update(db: Session, plan: Plan, plan_id: UUID, new_star
             )
 
 
-def shift_subsequent_series_plans(db: Session, plan: Plan, shift_days: int) -> None:
+def shift_subsequent_series_plans(db: Session, plan: Plan, shift_days: int, author: Author) -> None:
     """Push every later-in-series active plan's start_date forward by shift_days.
 
     Used to make room when adding days would otherwise overlap the next plan.
-    Raises 400 (without changing anything) if any of those plans can't be moved,
+    Raises 403 if the author isn't allowed to edit one of the affected plans,
+    or 400 (without changing anything) if any of those plans can't be moved,
     e.g. a published plan with active subscribers.
     """
     if shift_days <= 0 or plan.series_id is None or plan.display_order is None:
@@ -748,6 +749,14 @@ def shift_subsequent_series_plans(db: Session, plan: Plan, shift_days: int) -> N
         )
         if subsequent_plan.start_date is not None
     ]
+
+    for subsequent_plan in subsequent_plans:
+        require_can_edit_content(
+            db=db,
+            group_id=subsequent_plan.group_id,
+            author=author,
+            content_status=subsequent_plan.status,
+        )
 
     for subsequent_plan in subsequent_plans:
         new_start_date = subsequent_plan.start_date + timedelta(days=shift_days)
