@@ -178,6 +178,85 @@ def test_create_plan_item_rejects_days_overlapping_next_series_plan():
         mock_save_plan_items.assert_not_called()
 
 
+def test_create_plan_item_rejects_days_overlap_reports_cascade_metadata():
+    """The overlap error includes machine-readable fields so the caller can offer a cascade retry"""
+    plan_id = uuid.uuid4()
+
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.platform_role = PlatformRole.CREATOR
+
+    plan = _mock_series_plan(plan_id, author, start_date=datetime(2026, 6, 14, tzinfo=timezone.utc))
+
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_cms_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_get_last_day_number, \
+         patch("pecha_api.plans.items.plan_items_services.get_next_series_plan_start_date") as mock_next_start, \
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save_plan_items:
+        _mock_session_local(mock_session_local)
+
+        mock_validate_author.return_value = author
+        mock_get_plan_by_id.return_value = plan
+        mock_get_last_day_number.return_value = 25
+        mock_next_start.return_value = datetime(2026, 7, 10, tzinfo=timezone.utc)
+
+        with pytest.raises(HTTPException) as exc_info:
+            create_plan_item(
+                token="dummy-token",
+                plan_id=plan_id,
+                create_days_request=CreateDaysRequest(number_of_days=2),
+            )
+
+        assert exc_info.value.detail["code"] == "PLAN_DAYS_OVERLAP_NEXT_PLAN"
+        assert exc_info.value.detail["overflow_days"] == 1
+        assert exc_info.value.detail["next_plan_start_date"] == "2026-07-10"
+        mock_save_plan_items.assert_not_called()
+
+
+def test_create_plan_item_cascade_shifts_next_plan_then_creates_days():
+    """With cascade=True, the overflow is absorbed by pushing the rest of the series forward"""
+    plan_id = uuid.uuid4()
+
+    author = MagicMock()
+    author.id = uuid.uuid4()
+    author.email = "author@example.com"
+    author.platform_role = PlatformRole.CREATOR
+
+    plan = _mock_series_plan(plan_id, author, start_date=datetime(2026, 6, 14, tzinfo=timezone.utc))
+
+    with patch("pecha_api.plans.items.plan_items_services.SessionLocal") as mock_session_local, \
+         patch("pecha_api.plans.items.plan_items_services.validate_cms_author_details") as mock_validate_author, \
+         patch("pecha_api.plans.items.plan_items_services.get_plan_by_id") as mock_get_plan_by_id, \
+         patch("pecha_api.plans.items.plan_items_services.get_last_day_number") as mock_get_last_day_number, \
+         patch("pecha_api.plans.items.plan_items_services.get_next_series_plan_start_date") as mock_next_start, \
+         patch("pecha_api.plans.items.plan_items_services.shift_subsequent_series_plans") as mock_shift, \
+         patch("pecha_api.plans.items.plan_items_services.save_plan_items") as mock_save_plan_items:
+        db_session = _mock_session_local(mock_session_local)
+
+        mock_validate_author.return_value = author
+        mock_get_plan_by_id.return_value = plan
+        mock_get_last_day_number.return_value = 25
+        mock_next_start.return_value = datetime(2026, 7, 10, tzinfo=timezone.utc)
+
+        saved_item = MagicMock()
+        saved_item.id = uuid.uuid4()
+        saved_item.plan_id = plan_id
+        saved_item.day_number = 26
+        mock_save_plan_items.return_value = [saved_item]
+
+        resp = create_plan_item(
+            token="dummy-token",
+            plan_id=plan_id,
+            create_days_request=CreateDaysRequest(number_of_days=2, cascade=True),
+        )
+
+        mock_shift.assert_called_once_with(db=db_session, plan=plan, shift_days=1)
+        mock_save_plan_items.assert_called_once()
+        assert len(resp) == 1
+
+
 def test_create_plan_item_allows_days_up_to_next_series_plan_start():
     plan_id = uuid.uuid4()
 

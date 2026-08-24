@@ -18,7 +18,7 @@ from pecha_api.plans.cms.cms_plans_service import (
     update_plan_details, update_selected_plan_status, delete_selected_plan, get_plan_day_details,
     DUMMY_PLANS, DUMMY_DAYS,
     _get_subscription_count, _validate_start_date_update, _apply_plan_field_updates, _generate_plan_image_url,
-    _validate_plan_schedule_within_series,
+    _validate_plan_schedule_within_series, shift_subsequent_series_plans,
     generate_plan_audio_service, _generate_subtask_audio, _generate_audio_segments,
     _build_combined_wav, _update_subtask_timestamps, _upload_and_persist_audio,
 )
@@ -191,6 +191,67 @@ def test_validate_plan_schedule_skips_plans_outside_series():
         _validate_plan_schedule_within_series(db=mock_db, plan=mock_plan)
 
     mock_last_day.assert_not_called()
+
+
+def test_shift_subsequent_series_plans_noop_when_no_shift_needed():
+    """shift_days <= 0, or plan not in a series, should not touch the repository"""
+    mock_db = MagicMock()
+
+    with patch("pecha_api.plans.cms.cms_plans_service.get_subsequent_series_plans") as mock_get_subsequent:
+        shift_subsequent_series_plans(db=mock_db, plan=_mock_series_plan_for_schedule(datetime(2026, 7, 1, tzinfo=timezone.utc)), shift_days=0)
+        mock_get_subsequent.assert_not_called()
+
+        no_series_plan = _mock_series_plan_for_schedule(datetime(2026, 7, 1, tzinfo=timezone.utc))
+        no_series_plan.series_id = None
+        shift_subsequent_series_plans(db=mock_db, plan=no_series_plan, shift_days=3)
+        mock_get_subsequent.assert_not_called()
+
+
+def test_shift_subsequent_series_plans_shifts_all_when_none_blocked():
+    """Pushes every later plan's start_date forward by shift_days when none are published with subscribers"""
+    mock_db = MagicMock()
+    plan = _mock_series_plan_for_schedule(datetime(2026, 7, 1, tzinfo=timezone.utc))
+
+    next_plan = MagicMock()
+    next_plan.id = uuid.uuid4()
+    next_plan.title = "Next Plan"
+    next_plan.status = PlanStatus.DRAFT
+    next_plan.start_date = datetime(2026, 7, 10, tzinfo=timezone.utc)
+
+    later_plan = MagicMock()
+    later_plan.id = uuid.uuid4()
+    later_plan.title = "Later Plan"
+    later_plan.status = PlanStatus.DRAFT
+    later_plan.start_date = datetime(2026, 7, 20, tzinfo=timezone.utc)
+
+    with patch("pecha_api.plans.cms.cms_plans_service.get_subsequent_series_plans", return_value=[next_plan, later_plan]), \
+         patch("pecha_api.plans.cms.cms_plans_service._get_subscription_count", return_value=0):
+        shift_subsequent_series_plans(db=mock_db, plan=plan, shift_days=3)
+
+    assert next_plan.start_date == datetime(2026, 7, 13, tzinfo=timezone.utc)
+    assert later_plan.start_date == datetime(2026, 7, 23, tzinfo=timezone.utc)
+
+
+def test_shift_subsequent_series_plans_blocked_by_published_plan_with_subscribers():
+    """Raises identifying the blocking plan and leaves every start_date untouched"""
+    mock_db = MagicMock()
+    plan = _mock_series_plan_for_schedule(datetime(2026, 7, 1, tzinfo=timezone.utc))
+
+    next_plan = MagicMock()
+    next_plan.id = uuid.uuid4()
+    next_plan.title = "Locked Plan"
+    next_plan.status = PlanStatus.PUBLISHED
+    original_next_start = datetime(2026, 7, 10, tzinfo=timezone.utc)
+    next_plan.start_date = original_next_start
+
+    with patch("pecha_api.plans.cms.cms_plans_service.get_subsequent_series_plans", return_value=[next_plan]), \
+         patch("pecha_api.plans.cms.cms_plans_service._get_subscription_count", return_value=5):
+        with pytest.raises(HTTPException) as exc_info:
+            shift_subsequent_series_plans(db=mock_db, plan=plan, shift_days=3)
+
+    assert exc_info.value.status_code == 400
+    assert "Locked Plan" in exc_info.value.detail["message"]
+    assert next_plan.start_date == original_next_start
 
 
 def test_apply_plan_field_updates_updates_all_fields():

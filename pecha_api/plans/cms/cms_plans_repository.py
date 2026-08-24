@@ -191,6 +191,27 @@ def get_previous_series_plans_schedule(db: Session, series_id: UUID, display_ord
             detail=f"Failed to get previous series plans schedule: {str(e)}"
         )
 
+def get_subsequent_series_plans(db: Session, series_id: UUID, display_order: int) -> List[Plan]:
+    """Return active plans later in the series than display_order, ordered ascending."""
+    try:
+        return (
+            db.query(Plan)
+            .filter(
+                Plan.series_id == series_id,
+                Plan.display_order > display_order,
+                Plan.deleted_at.is_(None),
+            )
+            .order_by(Plan.display_order.asc())
+            .all()
+        )
+    except Exception as e:
+        db.rollback()
+        print(f"Error getting subsequent series plans: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get subsequent series plans: {str(e)}"
+        )
+
 def get_plan_by_id_and_created_by(db: Session, plan_id: UUID, author: Author) -> Optional[Plan]:
     try:
         plan = db.query(Plan).options(selectinload(Plan.tag_list)).filter(Plan.id == plan_id).first()

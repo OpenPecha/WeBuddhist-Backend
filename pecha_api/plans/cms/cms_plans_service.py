@@ -9,7 +9,7 @@ from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.cms.cms_plans_repository import save_plan, get_plan_by_id, get_plans_by_author_id, update_plan, \
-    get_next_series_plan_start_date, get_previous_series_plans_schedule
+    get_next_series_plan_start_date, get_previous_series_plans_schedule, get_subsequent_series_plans
 from pecha_api.plans.groups.groups_repository import get_group_id_for_plan, get_group_ids_by_plan_ids
 from pecha_api.plans.series.series_repository import (
     get_series_by_id,
@@ -61,7 +61,7 @@ from uuid import uuid4, UUID
 from fastapi import HTTPException
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST, PLAN_NOT_FOUND, FORBIDDEN, UNAUTHORIZED_PLAN_DELETE, PLAN_AUTHOR_MISMATCH, PLAN_MUST_HAVE_AT_LEAST_ONE_DAY_WITH_CONTENT_TO_BE_PUBLISHED, PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS, \
-    PLAN_SCHEDULE_OVERLAPS_NEXT_PLAN, PLAN_SCHEDULE_OVERLAPS_PREVIOUS_PLAN
+    PLAN_SCHEDULE_OVERLAPS_NEXT_PLAN, PLAN_SCHEDULE_OVERLAPS_PREVIOUS_PLAN, PLAN_CASCADE_SHIFT_BLOCKED
 from datetime import datetime, timezone, timedelta
 from sqlalchemy import func
 
@@ -727,6 +727,45 @@ def _validate_start_date_update(db: Session, plan: Plan, plan_id: UUID, new_star
                     message=PLAN_START_DATE_UPDATE_NOT_ALLOWED_FOR_PUBLISHED_WITH_SUBSCRIBERS,
                 ).model_dump(),
             )
+
+
+def shift_subsequent_series_plans(db: Session, plan: Plan, shift_days: int) -> None:
+    """Push every later-in-series active plan's start_date forward by shift_days.
+
+    Used to make room when adding days would otherwise overlap the next plan.
+    Raises 400 (without changing anything) if any of those plans can't be moved,
+    e.g. a published plan with active subscribers.
+    """
+    if shift_days <= 0 or plan.series_id is None or plan.display_order is None:
+        return
+
+    subsequent_plans = [
+        subsequent_plan
+        for subsequent_plan in get_subsequent_series_plans(
+            db=db,
+            series_id=plan.series_id,
+            display_order=plan.display_order,
+        )
+        if subsequent_plan.start_date is not None
+    ]
+
+    for subsequent_plan in subsequent_plans:
+        new_start_date = subsequent_plan.start_date + timedelta(days=shift_days)
+        try:
+            _validate_start_date_update(db, subsequent_plan, subsequent_plan.id, new_start_date)
+        except HTTPException:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ResponseError(
+                    error=BAD_REQUEST,
+                    message=PLAN_CASCADE_SHIFT_BLOCKED.format(blocking_plan_title=subsequent_plan.title),
+                ).model_dump(),
+            )
+
+    for subsequent_plan in subsequent_plans:
+        subsequent_plan.start_date = subsequent_plan.start_date + timedelta(days=shift_days)
+        subsequent_plan.updated_at = datetime.now(timezone.utc)
+        db.add(subsequent_plan)
 
 
 def _validate_plan_schedule_within_series(db: Session, plan: Plan) -> None:

@@ -1,5 +1,6 @@
 from uuid import UUID
-from typing import List
+from typing import List, Optional, Tuple
+from datetime import datetime
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
@@ -17,6 +18,7 @@ from .plan_items_repository import (
     get_plan_day_by_id_any_plan,
 )
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id, get_next_series_plan_start_date
+from pecha_api.plans.cms.cms_plans_service import shift_subsequent_series_plans
 from .plan_items_models import PlanItem
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.authors.plan_authors_model import Author
@@ -29,9 +31,13 @@ from pecha_api.plans.audio.sub_task_timestamps_models import SubTaskTimestamp
 from pecha_api.db.database import SessionLocal
 
 
-def _validate_days_within_series_schedule(db: Session, plan: Plan, last_day_number: int, number_of_days: int) -> None:
+def _get_series_schedule_overflow(
+    db: Session, plan: Plan, last_day_number: int, number_of_days: int
+) -> Optional[Tuple[int, datetime]]:
+    """Return (overflow_days, next_plan_start_date) if adding number_of_days would reach or
+    pass the next series plan's start date, else None."""
     if plan.series_id is None or plan.start_date is None or plan.display_order is None:
-        return
+        return None
 
     next_plan_start_date = get_next_series_plan_start_date(
         db=db,
@@ -39,20 +45,44 @@ def _validate_days_within_series_schedule(db: Session, plan: Plan, last_day_numb
         display_order=plan.display_order,
     )
     if next_plan_start_date is None:
-        return
+        return None
 
     available_days = (next_plan_start_date.date() - plan.start_date.date()).days - last_day_number
-    if number_of_days > available_days:
+    overflow_days = number_of_days - available_days
+    if overflow_days <= 0:
+        return None
+    return overflow_days, next_plan_start_date
+
+
+def _validate_days_within_series_schedule(
+    db: Session, plan: Plan, last_day_number: int, number_of_days: int, cascade: bool
+) -> None:
+    overflow = _get_series_schedule_overflow(
+        db=db, plan=plan, last_day_number=last_day_number, number_of_days=number_of_days
+    )
+    if overflow is None:
+        return
+
+    overflow_days, next_plan_start_date = overflow
+    if not cascade:
+        available_days = number_of_days - overflow_days
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=ResponseError(
-                error=BAD_REQUEST,
-                message=PLAN_DAYS_OVERLAP_NEXT_PLAN.format(
-                    next_start_date=next_plan_start_date.date().isoformat(),
-                    available_days=max(available_days, 0),
-                ),
-            ).model_dump(),
+            detail={
+                **ResponseError(
+                    error=BAD_REQUEST,
+                    message=PLAN_DAYS_OVERLAP_NEXT_PLAN.format(
+                        next_start_date=next_plan_start_date.date().isoformat(),
+                        available_days=max(available_days, 0),
+                    ),
+                ).model_dump(),
+                "code": "PLAN_DAYS_OVERLAP_NEXT_PLAN",
+                "overflow_days": overflow_days,
+                "next_plan_start_date": next_plan_start_date.date().isoformat(),
+            },
         )
+
+    shift_subsequent_series_plans(db=db, plan=plan, shift_days=overflow_days)
 
 
 def create_plan_item(token: str, plan_id: UUID, create_days_request: CreateDaysRequest) -> List[ItemDTO]:
@@ -67,6 +97,7 @@ def create_plan_item(token: str, plan_id: UUID, create_days_request: CreateDaysR
             plan=plan,
             last_day_number=last_day_number,
             number_of_days=create_days_request.number_of_days,
+            cascade=create_days_request.cascade,
         )
 
         new_plan_items = [
