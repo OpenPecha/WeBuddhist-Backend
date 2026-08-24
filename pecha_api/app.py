@@ -51,6 +51,7 @@ from pecha_api.group_posts import views as group_posts_views
 from pecha_api.group_posts import cms_views as cms_group_posts_views
 from pecha_api.group_posts import comment_views as group_post_comments_views
 from pecha_api.group_posts import viewer as group_posts_viewer
+from pecha_api.group_posts import notification_internal_views as group_post_notification_internal_views
 from pecha_api.author_group_feed import views as author_group_feed_views
 from pecha_api.group_posts import like_views as group_post_like_views
 from pecha_api.group_posts import comment_like_views as group_post_comment_like_views
@@ -81,6 +82,7 @@ from pecha_api.daily_log import daily_log_views
 from pecha_api.mantra import mantra_views
 from pecha_api.mantra.mantra_count_views import user_mantra_count_router
 from pecha_api.events import events_router, cms_events_router, cms_locations_router
+from pecha_api.events import notification_internal_views as event_notification_internal_views
 from pecha_api.traditions import tradition_views
 from pecha_api.languages import language_views
 from pecha_api.plans.admin.admin_views import cms_admin_router
@@ -167,6 +169,7 @@ api.include_router(group_post_comment_like_views.public_group_post_comment_likes
 api.include_router(chat_views.chat_router)
 api.include_router(chat_viewer_views.chat_viewer_router)
 api.include_router(chat_notification_internal_views.internal_chat_notifications_router)
+api.include_router(group_post_notification_internal_views.internal_group_post_notifications_router)
 api.include_router(group_posts_viewer.viewer_router)
 api.include_router(bookmark_views.bookmark_router)
 api.include_router(push_device_views.push_device_router)
@@ -197,6 +200,7 @@ api.include_router(mantra_views.cms_mantra_router)
 api.include_router(user_mantra_count_router)
 api.include_router(events_router)
 api.include_router(cms_events_router)
+api.include_router(event_notification_internal_views.internal_event_notifications_router)
 api.include_router(cms_locations_router)
 api.include_router(tradition_views.tradition_router)
 api.include_router(tradition_views.user_tradition_router)

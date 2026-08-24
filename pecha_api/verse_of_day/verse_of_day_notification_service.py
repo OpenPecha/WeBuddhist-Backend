@@ -131,7 +131,7 @@ def _resolve_notification_content(
         return None
 
     return VerseOfDayNotificationContentDTO(
-        title=get("NOTIFICATION_DEFAULT_TITLE"),
+        title=get("VERSE_OF_DAY_NOTIFICATION_TITLE"),
         body=body,
         image_url=_generate_verse_image_url(verse.image_urls),
     )

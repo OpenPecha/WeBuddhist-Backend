@@ -8,6 +8,12 @@ from pecha_api.chat.notification_dispatch_service import (
     reconcile_undispatched_chat_notifications,
 )
 from pecha_api.config import get_int
+from pecha_api.events.notification_dispatch_service import (
+    reconcile_undispatched_event_notifications,
+)
+from pecha_api.group_posts.notification_dispatch_service import (
+    reconcile_undispatched_group_post_notifications,
+)
 from pecha_api.plans.audio.audio_job_service import reconcile_undispatched_audio_jobs
 from pecha_api.verse_of_day.verse_of_day_service import cleanup_expired_verses_of_day
 
@@ -52,15 +58,43 @@ def setup_scheduler() -> None:
         replace_existing=True,
     )
 
+    group_post_reconcile_interval = max(
+        get_int("GROUP_POST_NOTIFICATION_DISPATCH_RECONCILE_INTERVAL_SECONDS"),
+        1,
+    )
+    scheduler.add_job(
+        reconcile_undispatched_group_post_notifications,
+        IntervalTrigger(seconds=group_post_reconcile_interval),
+        id="reconcile_undispatched_group_post_notifications",
+        name="Re-enqueue undispatched group post notifications",
+        replace_existing=True,
+    )
+
+    event_reconcile_interval = max(
+        get_int("EVENT_NOTIFICATION_DISPATCH_RECONCILE_INTERVAL_SECONDS"),
+        1,
+    )
+    scheduler.add_job(
+        reconcile_undispatched_event_notifications,
+        IntervalTrigger(seconds=event_reconcile_interval),
+        id="reconcile_undispatched_event_notifications",
+        name="Re-enqueue undispatched event notifications",
+        replace_existing=True,
+    )
+
     if not scheduler.running:
         scheduler.start()
     logger.info(
         "Scheduler started: cleaning verses of the day older than %s day(s) daily at midnight; "
         "failing undispatched audio jobs every %s second(s); "
-        "re-enqueueing undispatched chat notifications every %s second(s)",
+        "re-enqueueing undispatched chat notifications every %s second(s); "
+        "re-enqueueing undispatched group post notifications every %s second(s); "
+        "re-enqueueing undispatched event notifications every %s second(s)",
         expiry_days,
         reconcile_interval,
         chat_reconcile_interval,
+        group_post_reconcile_interval,
+        event_reconcile_interval,
     )
 
 
