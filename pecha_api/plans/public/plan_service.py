@@ -12,6 +12,7 @@ from datetime import date as DateType, timedelta, datetime as dt, timezone
 from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO, PlanDayDTO, AuthorDTO,PlanDaysResponse, PlanDayBasic, SubTaskDTO, TaskDTO, ImageUrlModel, TagsResponse, DailyPlanResponse, SeriesDTO, SeriesMetadataDTO, DayVideoSummaryDTO, PlanVideoSummaryDTO
 from pecha_api.plans.tags.tag_response_models import PublicTagDetailDTO, SegmentContentDTO
 from pecha_api.plans.items.plan_items_models import PlanItem
+from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.plans_enums import ContentType, UserPlanStatus
 from pecha_api.plans.cms.cms_plans_repository import get_plan_by_id
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
@@ -136,6 +137,7 @@ async def get_published_plans(
                     start_date=plan.start_date,
                     display_order=plan.display_order,
                     group_id=group_id_by_plan_id.get(plan.id),
+                    series_id=plan.series_id,
                 )
                 plan_dtos.append(plan_dto)
             
@@ -218,8 +220,9 @@ async def get_published_plan(
                 start_date=plan.start_date,
                 display_order=plan.display_order,
                 group_id=group_id,
+                series_id=plan.series_id,
             )
-    
+
     except Exception as e:
         logger.error(f"Error fetching published plan details: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -449,16 +452,26 @@ def _build_plan_day_dto(plan_item) -> PlanDayDTO:
         ],
     )
 
+def _get_plan_series_id(plan_id: UUID) -> Optional[UUID]:
+    with SessionLocal() as db:
+        return db.query(Plan.series_id).filter(Plan.id == plan_id).scalar()
+
+
 async def get_plan_day_details(plan_id: UUID, day_number: int) -> PlanDayDTO:
     """Get specific day's content with tasks"""
 
     cached = await get_plan_day_detail_cache(plan_id=plan_id, day_number=day_number)
     if cached is not None:
+        # Entries cached before series_id existed (or for non-series plans) carry
+        # None; resolve it fresh so stale cache entries stay correct.
+        if cached.series_id is None:
+            cached.series_id = _get_plan_series_id(plan_id)
         return cached
 
     with SessionLocal() as db:
         plan_item = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
         response = _build_plan_day_dto(plan_item)
+        response.series_id = db.query(Plan.series_id).filter(Plan.id == plan_id).scalar()
 
     await set_plan_day_detail_cache(plan_id=plan_id, day_number=day_number, data=response)
     return response

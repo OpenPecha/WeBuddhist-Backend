@@ -1,6 +1,5 @@
 import logging
 from datetime import date, datetime, timezone
-from typing import Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -36,15 +35,10 @@ _ALREADY_COMPLETED_TODAY = "ALREADY_COMPLETED_TODAY"
 def _get_collection_or_404(
     db,
     collection_id: UUID,
-    group_id: Optional[UUID] = None,
 ) -> GroupRecitationCollection:
-    """Resolve the collection by id and validate its owning group exists.
-
-    When ``group_id`` is provided (legacy group-scoped routes), the collection
-    must belong to that group.
-    """
+    """Resolve the collection by id and validate its owning group exists."""
     collection = get_collection_without_group_filter(db=db, collection_id=collection_id)
-    if not collection or (group_id is not None and collection.group_id != group_id):
+    if not collection:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=NOT_FOUND,
@@ -62,13 +56,12 @@ def _get_collection_or_404(
 def get_today_completions_service(
     token: str,
     collection_id: UUID,
-    group_id: Optional[UUID] = None,
 ) -> TodayChantCompletionsResponse:
     """Get list of chants completed today by the authenticated user."""
     user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
-        _get_collection_or_404(db=db, collection_id=collection_id, group_id=group_id)
+        _get_collection_or_404(db=db, collection_id=collection_id)
 
         # Get today's completions
         today = date.today()
@@ -88,13 +81,12 @@ def get_today_completions_service(
 def get_completion_day_count_service(
     token: str,
     collection_id: UUID,
-    group_id: Optional[UUID] = None,
 ) -> ChantCompletionDayCountResponse:
     """Get the number of unique days the user completed at least one chant in the collection."""
     user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
-        _get_collection_or_404(db=db, collection_id=collection_id, group_id=group_id)
+        _get_collection_or_404(db=db, collection_id=collection_id)
 
         day_count = count_unique_completion_days(
             db=db,
@@ -112,13 +104,12 @@ def create_chant_completion_service(
     token: str,
     collection_id: UUID,
     chant_id: UUID,
-    group_id: Optional[UUID] = None,
 ) -> None:
     """Create a new chant completion log for the authenticated user."""
     user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:
-        _get_collection_or_404(db=db, collection_id=collection_id, group_id=group_id)
+        _get_collection_or_404(db=db, collection_id=collection_id)
 
         # Validate chant exists in collection
         chant_item = get_collection_item_by_id(
