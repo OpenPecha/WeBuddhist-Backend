@@ -2125,15 +2125,12 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     author = None
 
     try:
-        author = validate_and_extract_author_details(token=token)
-    except HTTPException:
-        pass
-
-    if author is None:
+        validate_and_extract_user_details(token=token)
+    except HTTPException as user_exc:
         try:
-            validate_and_extract_user_details(token=token)
+            author = validate_and_extract_author_details(token=token)
         except HTTPException:
-            raise
+            raise user_exc from None
 
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
