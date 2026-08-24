@@ -2123,14 +2123,20 @@ def get_group_member_accumulations(
 
 def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     author = None
+    token_error: HTTPException | None = None
 
     try:
-        validate_and_extract_user_details(token=token)
-    except HTTPException as user_exc:
+        author = validate_and_extract_author_details(token=token)
+    except HTTPException as exc:
+        token_error = exc
+
+    if author is None:
         try:
-            author = validate_and_extract_author_details(token=token)
+            validate_and_extract_user_details(token=token)
         except HTTPException:
-            raise user_exc from None
+            if token_error is not None:
+                raise token_error from None
+            raise
 
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
@@ -2165,10 +2171,10 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
             )
 
         role = get_member_role(db=db, group_id=group_id, author_id=author.id)
-        has_write_access = role in _STATUS_CHANGE_ROLES and not is_reviewer(author)
+        is_owner = role == AuthorGroupMemberRole.OWNER and not is_reviewer(author)
         return GroupPermissionDTO(
             group_id=group_id,
-            has_permission=has_write_access,
+            has_permission=is_owner,
             role=role,
             is_super_admin=False,
             author_id=author.id,

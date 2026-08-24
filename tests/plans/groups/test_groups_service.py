@@ -4027,7 +4027,7 @@ def test_get_group_permission_reviewer_no_write_access():
 
 
 def test_get_group_permission_group_member():
-    """Group member with ADMIN role → has_permission: true"""
+    """Group member with ADMIN role → has_permission: false (only OWNER gets true)"""
     author = _make_author(email="member@example.org")
     group = _make_group()
 
@@ -4045,7 +4045,7 @@ def test_get_group_permission_group_member():
         result = get_group_permission(token="t", group_id=group.id)
 
     assert result.group_id == group.id
-    assert result.has_permission is True
+    assert result.has_permission is False
     assert result.role == AuthorGroupMemberRole.ADMIN
     assert result.is_super_admin is False
     assert result.author_id == author.id
