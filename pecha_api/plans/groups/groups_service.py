@@ -2131,20 +2131,21 @@ def _is_user_not_found_error(exc: HTTPException) -> bool:
 
 def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     author = None
-    try:
-        author = validate_and_extract_author_details(token=token)
-    except HTTPException as exc:
-        if not _is_user_not_found_error(exc):
-            raise
 
     with SessionLocal() as db:
+        try:
+            user = validate_and_extract_user_details(token=token)
+            if user.email:
+                author = find_author_by_email(db=db, email=user.email)
+            if author is None and user.phone_number:
+                author = get_author_by_phone(db=db, phone_number=user.phone_number)
+        except HTTPException as exc:
+            if not _is_user_not_found_error(exc):
+                raise
+
         if author is None:
             try:
-                user = validate_and_extract_user_details(token=token)
-                if user.email:
-                    author = find_author_by_email(db=db, email=user.email)
-                if author is None and user.phone_number:
-                    author = get_author_by_phone(db=db, phone_number=user.phone_number)
+                author = validate_and_extract_author_details(token=token)
             except HTTPException as exc:
                 if not _is_user_not_found_error(exc):
                     raise

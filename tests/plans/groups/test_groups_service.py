@@ -4036,6 +4036,9 @@ def test_get_group_permission_inactive_author():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4058,6 +4061,9 @@ def test_get_group_permission_super_admin():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4080,6 +4086,9 @@ def test_get_group_permission_reviewer_no_write_access():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4105,6 +4114,9 @@ def test_get_group_permission_group_member():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4130,6 +4142,9 @@ def test_get_group_permission_owner_role():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4155,6 +4170,9 @@ def test_get_group_permission_author_role_no_management():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4180,6 +4198,9 @@ def test_get_group_permission_viewer_role_no_management():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4205,6 +4226,9 @@ def test_get_group_permission_author_not_member():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4229,6 +4253,9 @@ def test_get_group_permission_group_not_found():
     author = _make_author()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4249,14 +4276,17 @@ def test_get_group_permission_group_not_found_no_author():
     group_id = uuid4()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
-    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         return_value=user,
     ), patch(
         "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=None,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_author_by_phone",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=None,
