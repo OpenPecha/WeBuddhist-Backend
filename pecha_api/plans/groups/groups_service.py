@@ -2161,6 +2161,15 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
                 author_id=None,
             )
 
+        if not author.is_active:
+            return GroupPermissionDTO(
+                group_id=group_id,
+                has_permission=False,
+                role=None,
+                is_super_admin=False,
+                author_id=author.id,
+            )
+
         if is_super_admin(author):
             return GroupPermissionDTO(
                 group_id=group_id,

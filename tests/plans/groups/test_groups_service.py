@@ -93,6 +93,7 @@ def _make_author(
     *,
     platform_role: PlatformRole = PlatformRole.CREATOR,
     is_admin: bool = False,
+    is_active: bool = True,
 ):
     author = MagicMock()
     author.id = author_id or uuid4()
@@ -100,7 +101,7 @@ def _make_author(
     author.platform_role = PlatformRole.SUPER_ADMIN if is_admin else platform_role
     author.first_name = None
     author.last_name = None
-    author.is_active = True
+    author.is_active = is_active
     return author
 
 
@@ -4025,6 +4026,28 @@ def test_get_group_permission_app_user_with_author_account():
     assert result.group_id == group.id
     assert result.has_permission is True
     assert result.role == AuthorGroupMemberRole.ADMIN
+    assert result.is_super_admin is False
+    assert result.author_id == author.id
+
+
+def test_get_group_permission_inactive_author():
+    """Inactive author → has_permission: false even if they have a role"""
+    author = _make_author(email="inactive@example.org", is_active=False)
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is False
+    assert result.role is None
     assert result.is_super_admin is False
     assert result.author_id == author.id
 
