@@ -3932,9 +3932,9 @@ def _make_user(user_id=None, email="user@example.org", phone_number=None):
     return user
 
 
-def test_get_group_permission_no_author_account():
-    """User has no matching Author account → has_permission: false, author_id: null"""
-    user = _make_user(email="noauthor@example.org", phone_number=None)
+def test_get_group_permission_app_user_no_author():
+    """App user token (no CMS author) → has_permission: false, author_id: null"""
+    user = _make_user(email="appuser@example.org")
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
@@ -3946,12 +3946,6 @@ def test_get_group_permission_no_author_account():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.find_author_by_email",
-        return_value=None,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_phone",
-        return_value=None,
     ):
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
@@ -3963,82 +3957,12 @@ def test_get_group_permission_no_author_account():
     assert result.author_id is None
 
 
-def test_get_group_permission_app_user_phone_fallback():
-    """App user with null email but matching phone → resolves Author correctly"""
-    user = _make_user(email=None, phone_number="+1234567890")
-    author = _make_author(email="different@example.org")
-    group = _make_group()
-
-    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
-    ), patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        return_value=user,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_group_by_id",
-        return_value=group,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.find_author_by_email",
-        return_value=None,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_phone",
-        return_value=author,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_member_role",
-        return_value=AuthorGroupMemberRole.OWNER,
-    ):
-        _session_local_context(mock_session)
-        result = get_group_permission(token="t", group_id=group.id)
-
-    assert result.group_id == group.id
-    assert result.has_permission is True
-    assert result.role == AuthorGroupMemberRole.OWNER
-    assert result.is_super_admin is False
-    assert result.author_id == author.id
-
-
-def test_get_group_permission_app_user_with_author_account():
-    """App user token with matching Author via email → resolves correctly"""
-    user = _make_user(email="member@example.org")
-    author = _make_author(email="member@example.org")
-    group = _make_group()
-
-    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
-    ), patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        return_value=user,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_group_by_id",
-        return_value=group,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.find_author_by_email",
-        return_value=author,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_member_role",
-        return_value=AuthorGroupMemberRole.ADMIN,
-    ):
-        _session_local_context(mock_session)
-        result = get_group_permission(token="t", group_id=group.id)
-
-    assert result.group_id == group.id
-    assert result.has_permission is True
-    assert result.role == AuthorGroupMemberRole.ADMIN
-    assert result.is_super_admin is False
-    assert result.author_id == author.id
-
-
 def test_get_group_permission_inactive_author():
     """Inactive author → has_permission: false even if they have a role"""
     author = _make_author(email="inactive@example.org", is_active=False)
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
-    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4061,9 +3985,6 @@ def test_get_group_permission_super_admin():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
-    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4086,9 +4007,6 @@ def test_get_group_permission_reviewer_no_write_access():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
-    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4114,9 +4032,6 @@ def test_get_group_permission_group_member():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
-    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4142,9 +4057,6 @@ def test_get_group_permission_owner_role():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
-    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4170,9 +4082,6 @@ def test_get_group_permission_author_role_no_management():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
-    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4198,9 +4107,6 @@ def test_get_group_permission_viewer_role_no_management():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
-    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4226,9 +4132,6 @@ def test_get_group_permission_author_not_member():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
-    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4253,9 +4156,6 @@ def test_get_group_permission_group_not_found():
     author = _make_author()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
-    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         return_value=author,
     ), patch(
@@ -4271,22 +4171,16 @@ def test_get_group_permission_group_not_found():
 
 
 def test_get_group_permission_group_not_found_no_author():
-    """Unknown/deleted group with no author → 404 (not has_permission: false)"""
+    """Unknown/deleted group with app user token → 404 (not has_permission: false)"""
     user = _make_user(email="test@example.org")
     group_id = uuid4()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        return_value=user,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.find_author_by_email",
-        return_value=None,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.get_author_by_phone",
-        return_value=None,
-    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
         side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=None,
@@ -4303,6 +4197,9 @@ def test_get_group_permission_invalid_token():
     """Invalid/expired token → 401 (not has_permission: false)"""
     with patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or no token found"),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or no token found"),
     ):
         with pytest.raises(HTTPException) as exc:

@@ -10,7 +10,7 @@ from starlette import status
 from pecha_api.config import get, get_int
 from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.authors.plan_authors_repository import find_author_by_email, get_author_by_phone
+from pecha_api.plans.authors.plan_authors_repository import find_author_by_email
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
 from pecha_api.plans.shared.permissions import (
     _STATUS_CHANGE_ROLES,
@@ -2121,34 +2121,24 @@ def get_group_member_accumulations(
         )
 
 
-def _is_user_not_found_error(exc: HTTPException) -> bool:
-    """Check if the exception indicates 'user/author not found' vs token validation failure."""
-    if exc.status_code not in (status.HTTP_401_UNAUTHORIZED, status.HTTP_404_NOT_FOUND):
-        return False
-    detail = str(exc.detail) if exc.detail else ""
-    return "not found" in detail.lower() or "does not exist" in detail.lower()
-
-
 def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     author = None
+    first_error: HTTPException | None = None
+
+    try:
+        author = validate_and_extract_author_details(token=token)
+    except HTTPException as exc:
+        first_error = exc
+
+    if author is None:
+        try:
+            validate_and_extract_user_details(token=token)
+        except HTTPException as exc:
+            if first_error is None:
+                raise
+            raise first_error from None
 
     with SessionLocal() as db:
-        try:
-            user = validate_and_extract_user_details(token=token)
-            if user.email:
-                author = find_author_by_email(db=db, email=user.email)
-            if author is None and user.phone_number:
-                author = get_author_by_phone(db=db, phone_number=user.phone_number)
-        except HTTPException as exc:
-            if not _is_user_not_found_error(exc):
-                raise
-
-        if author is None:
-            try:
-                author = validate_and_extract_author_details(token=token)
-            except HTTPException as exc:
-                if not _is_user_not_found_error(exc):
-                    raise
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
