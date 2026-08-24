@@ -10,7 +10,8 @@ from starlette import status
 from pecha_api.config import get, get_int
 from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.authors.plan_authors_repository import find_author_by_email
+from pecha_api.plans.authors.plan_authors_repository import find_author_by_email, find_author_by_id
+from pecha_api.auth.auth_repository import validate_token
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
 from pecha_api.plans.shared.permissions import (
     _STATUS_CHANGE_ROLES,
@@ -2122,28 +2123,47 @@ def get_group_member_accumulations(
 
 
 def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
-    author = None
-    token_error: HTTPException | None = None
+    """Check CMS permission for a group.
 
+    Resolution strategy (fixes cross-domain subject confusion):
+    1. Validate the token and extract the subject UUID.
+    2. Look up Author by UUID only - no contact-based fallbacks to prevent
+       matching unrelated Authors via shared email/phone.
+    3. If no Author matches the UUID, validate as a regular user token.
+    4. Return has_permission=True only for OWNER role (not ADMIN) to match
+       owner-only operation semantics.
+    """
     try:
-        author = validate_and_extract_author_details(token=token)
-    except HTTPException as exc:
-        token_error = exc
+        payload = validate_token(token)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
 
-    if author is None:
-        try:
-            validate_and_extract_user_details(token=token)
-        except HTTPException:
-            if token_error is not None:
-                raise token_error from None
-            raise
+    subject = payload.get("sub")
+    try:
+        subject_uuid = UUID(str(subject)) if subject is not None else None
+    except (TypeError, ValueError):
+        subject_uuid = None
 
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
 
+        author = None
+        if subject_uuid is not None:
+            author = find_author_by_id(db=db, author_id=subject_uuid)
+
         if author is None:
+            try:
+                validate_and_extract_user_details(token=token)
+            except HTTPException:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid or expired token",
+                )
             return GroupPermissionDTO(
                 group_id=group_id,
                 has_permission=False,
@@ -2161,7 +2181,8 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
                 author_id=author.id,
             )
 
-        if is_super_admin(author):
+        author_is_super_admin = is_super_admin(author)
+        if author_is_super_admin:
             return GroupPermissionDTO(
                 group_id=group_id,
                 has_permission=True,

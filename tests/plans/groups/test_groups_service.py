@@ -3938,8 +3938,11 @@ def test_get_group_permission_app_user_no_author():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(user.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
+        return_value=None,
     ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         return_value=user,
@@ -3963,7 +3966,10 @@ def test_get_group_permission_inactive_author():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(author.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
@@ -3985,7 +3991,10 @@ def test_get_group_permission_super_admin():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(author.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
@@ -4007,7 +4016,10 @@ def test_get_group_permission_reviewer_no_write_access():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(author.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
@@ -4032,7 +4044,10 @@ def test_get_group_permission_group_member():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(author.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
@@ -4057,7 +4072,10 @@ def test_get_group_permission_owner_role():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(author.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
@@ -4082,7 +4100,10 @@ def test_get_group_permission_author_role_no_management():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(author.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
@@ -4107,7 +4128,10 @@ def test_get_group_permission_viewer_role_no_management():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(author.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
@@ -4132,7 +4156,10 @@ def test_get_group_permission_author_not_member():
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(author.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
@@ -4156,7 +4183,10 @@ def test_get_group_permission_group_not_found():
     author = _make_author()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(author.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
@@ -4176,8 +4206,11 @@ def test_get_group_permission_group_not_found_no_author():
     group_id = uuid4()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(user.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
+        return_value=None,
     ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         return_value=user,
@@ -4196,14 +4229,75 @@ def test_get_group_permission_group_not_found_no_author():
 def test_get_group_permission_invalid_token():
     """Invalid/expired token → 401 (not has_permission: false)"""
     with patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or no token found"),
-    ), patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or no token found"),
+        "pecha_api.plans.groups.groups_service.validate_token",
+        side_effect=Exception("Invalid token"),
     ):
         with pytest.raises(HTTPException) as exc:
             get_group_permission(token="invalid", group_id=uuid4())
 
     assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
-    assert exc.value.detail == "Invalid or no token found"
+    assert exc.value.detail == "Invalid or expired token"
+
+
+def test_get_group_permission_user_uuid_matches_unrelated_author():
+    """User token with UUID that doesn't match any Author → has_permission: false
+    
+    This tests Issue 3 & 8: Cross-domain subject confusion prevention.
+    A regular user's UUID should not resolve to an unrelated Author.
+    """
+    user = _make_user(email="regularuser@example.org")
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(user.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
+        return_value=None,  # UUID doesn't match any Author
+    ), patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is False
+    assert result.role is None
+    assert result.is_super_admin is False
+    assert result.author_id is None
+
+
+def test_get_group_permission_no_email_fallback():
+    """Token with email but no matching Author UUID → has_permission: false
+    
+    This tests Issue 2 & 5: Contact field mismatch prevention.
+    Email-based fallback should not be used for permission checks.
+    """
+    user = _make_user(email="shared@example.org")
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(user.id), "email": "shared@example.org"},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
+        return_value=None,  # UUID doesn't match any Author (email fallback not used)
+    ), patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    # Should NOT resolve to an Author via email fallback
+    assert result.group_id == group.id
+    assert result.has_permission is False
+    assert result.role is None
+    assert result.author_id is None
