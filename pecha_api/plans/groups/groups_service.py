@@ -19,6 +19,10 @@ from pecha_api.notification.notification_repository import (
 )
 from pecha_api.notification.notification_service import create_notification_record
 from pecha_api.plans.groups.group_invite_email import send_group_invitation_email
+from pecha_api.plans.groups.join_request_dispatch_service import (
+    enqueue_join_request_created,
+    enqueue_join_request_decided,
+)
 from pecha_api.plans.groups.groups_enums import (
     AuthorGroupInviteStatus,
     AuthorGroupJoinRequestStatus,
@@ -1655,6 +1659,7 @@ def submit_group_join_request(
         join_request_id=join_request_id,
         moderator_ids=moderator_ids,
     )
+    enqueue_join_request_created(join_request_id)
     return dto
 
 
@@ -1711,7 +1716,10 @@ def approve_group_join_request(
             reviewer_id=author.id,
         )
         save_join_request(db=db, join_request=join_request)
-        return _join_request_to_dto(join_request)
+        dto = _join_request_to_dto(join_request)
+
+    enqueue_join_request_decided(request_id)
+    return dto
 
 
 def reject_group_join_request(
@@ -1737,7 +1745,10 @@ def reject_group_join_request(
             reviewer_id=author.id,
         )
         save_join_request(db=db, join_request=join_request)
-        return _join_request_to_dto(join_request)
+        dto = _join_request_to_dto(join_request)
+
+    enqueue_join_request_decided(request_id)
+    return dto
 
 
 def _mark_join_request_reviewed(

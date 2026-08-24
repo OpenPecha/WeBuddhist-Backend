@@ -698,6 +698,48 @@ def save_join_request(
     return join_request
 
 
+def mark_join_request_notification_dispatched(
+    db: Session,
+    join_request_id: UUID,
+    sqs_message_id: str,
+    *,
+    decision: bool = False,
+) -> None:
+    join_request = (
+        db.query(AuthorGroupJoinRequest)
+        .filter(AuthorGroupJoinRequest.id == join_request_id)
+        .first()
+    )
+    if not join_request:
+        return
+    now = datetime.now(timezone.utc)
+    if decision:
+        join_request.decision_sqs_message_id = sqs_message_id
+        join_request.decision_dispatched_at = now
+    else:
+        join_request.notification_sqs_message_id = sqs_message_id
+        join_request.notification_dispatched_at = now
+    db.add(join_request)
+    db.commit()
+
+
+def list_undispatched_join_request_notifications(
+    db: Session,
+    older_than: datetime,
+    limit: int,
+) -> List[AuthorGroupJoinRequest]:
+    return (
+        db.query(AuthorGroupJoinRequest)
+        .filter(
+            AuthorGroupJoinRequest.notification_sqs_message_id.is_(None),
+            AuthorGroupJoinRequest.created_at < older_than,
+        )
+        .order_by(AuthorGroupJoinRequest.created_at)
+        .limit(limit)
+        .all()
+    )
+
+
 
 def add_group_member(db: Session, member: AuthorGroupMember) -> AuthorGroupMember:
     db.add(member)

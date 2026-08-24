@@ -320,6 +320,10 @@ class AuthorGroupJoinRequest(Base):
         nullable=True,
     )
     reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    notification_sqs_message_id = Column(String(128), nullable=True)
+    notification_dispatched_at = Column(DateTime(timezone=True), nullable=True)
+    decision_sqs_message_id = Column(String(128), nullable=True)
+    decision_dispatched_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(
         DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False
     )
