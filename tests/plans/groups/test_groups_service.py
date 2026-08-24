@@ -4361,6 +4361,8 @@ def test_flipping_group_public_approves_pending_join_requests():
     # same atomicity guarantee as moderator approval
     assert mock_list.call_args.kwargs["for_update"] is True
     assert all(c.kwargs["commit"] is False for c in mock_join.call_args_list)
+    # the caller's update_group commit closes the transaction
+    mock_db.commit.assert_not_called()
 
     assert mock_join.call_count == 2
     assert all(
@@ -4368,7 +4370,6 @@ def test_flipping_group_public_approves_pending_join_requests():
     )
     # auto-approval has no human reviewer
     assert all(item.reviewed_by is None for item in pending)
-    mock_db.commit.assert_called_once()
 
 
 def test_submit_group_join_request_notifies_moderators():

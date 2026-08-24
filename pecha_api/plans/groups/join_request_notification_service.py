@@ -1,5 +1,5 @@
 import logging
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -103,6 +103,7 @@ def get_join_request_notification_targets(
     join_request_id: UUID,
     skip: int,
     limit: int,
+    event_type: Optional[str] = None,
 ) -> JoinRequestNotificationTargetsResponse:
     with SessionLocal() as db:
         join_request = (
@@ -117,11 +118,14 @@ def get_join_request_notification_targets(
             )
 
         status_value = _status_value(join_request.status)
-        event_type = (
-            JOIN_REQUEST_CREATED_EVENT
-            if status_value == AuthorGroupJoinRequestStatus.PENDING.value
-            else JOIN_REQUEST_DECIDED_EVENT
-        )
+        # The queued event decides who is notified. Inferring it from current
+        # status would turn a late CREATED event into a duplicate decision push.
+        if event_type not in (JOIN_REQUEST_CREATED_EVENT, JOIN_REQUEST_DECIDED_EVENT):
+            event_type = (
+                JOIN_REQUEST_CREATED_EVENT
+                if status_value == AuthorGroupJoinRequestStatus.PENDING.value
+                else JOIN_REQUEST_DECIDED_EVENT
+            )
 
         group_name = _group_title(join_request.group)
         requester = db.query(Users).filter(Users.id == join_request.user_id).first()

@@ -201,3 +201,30 @@ def test_reconcile_covers_created_and_decided_events():
     assert requeued == 2
     mock_created.assert_called_once_with(created.id)
     mock_decided.assert_called_once_with(decided.id)
+
+
+def test_late_created_event_still_targets_moderators():
+    """A CREATED event delivered after review must notify moderators, not
+    re-notify the applicant with a duplicate decision push."""
+    jr = _join_request(AuthorGroupJoinRequestStatus.APPROVED)
+    moderator_id = uuid4()
+
+    with patch(f"{_NOTIF}.SessionLocal") as mock_session, patch(
+        f"{_NOTIF}._moderator_user_ids", return_value=[moderator_id],
+    ), patch(
+        f"{_NOTIF}.get_active_push_devices_by_user_ids", return_value={},
+    ):
+        db = MagicMock()
+        mock_session.return_value.__enter__.return_value = db
+        db.query.return_value.filter.return_value.first.side_effect = [jr, None]
+        result = get_join_request_notification_targets(
+            join_request_id=jr.id,
+            skip=0,
+            limit=100,
+            event_type=JOIN_REQUEST_CREATED_EVENT,
+        )
+
+    assert result.event_type == JOIN_REQUEST_CREATED_EVENT
+    assert result.status == AuthorGroupJoinRequestStatus.APPROVED.value
+    assert "asked to join" in result.body
+    assert result.total == 1

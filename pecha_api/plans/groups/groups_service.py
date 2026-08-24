@@ -796,9 +796,11 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
 
         group.updated_by = author.email
         group.updated_at = datetime.now(timezone.utc)
-        update_group(db=db, group=group)
+        # Admit pending applicants in the same transaction as the visibility
+        # flip, so the group can never be public with applicants left waiting.
         if became_public:
             _approve_pending_join_requests_on_publish(db, group_id=group_id)
+        update_group(db=db, group=group)
         loaded = get_group_by_id(db=db, group_id=group_id)
         followers_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         joiners_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
@@ -1799,8 +1801,6 @@ def _approve_pending_join_requests_on_publish(db, *, group_id: UUID) -> None:
             reviewer_id=None,
         )
         db.add(join_request)
-    if pending:
-        db.commit()
 
 
 def _to_invite_status(status_value) -> AuthorGroupInviteStatus:

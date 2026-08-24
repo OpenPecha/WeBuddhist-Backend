@@ -1,3 +1,4 @@
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -25,10 +26,19 @@ def join_request_notification_targets(
     join_request_id: UUID,
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
+    event_type: Optional[str] = Query(
+        None,
+        description=(
+            "The queued event type (JOIN_REQUEST_CREATED or JOIN_REQUEST_DECIDED). "
+            "Pass it so a late event notifies the right audience; omitted, the "
+            "current request status decides."
+        ),
+    ),
     _: None = Depends(verify_dispatch_token),
 ) -> JoinRequestNotificationTargetsResponse:
     return get_join_request_notification_targets(
         join_request_id=join_request_id,
         skip=skip,
         limit=limit,
+        event_type=event_type,
     )
