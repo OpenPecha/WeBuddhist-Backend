@@ -2123,20 +2123,17 @@ def get_group_member_accumulations(
 
 def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     author = None
-    first_error: HTTPException | None = None
 
     try:
         author = validate_and_extract_author_details(token=token)
-    except HTTPException as exc:
-        first_error = exc
+    except HTTPException:
+        pass
 
     if author is None:
         try:
             validate_and_extract_user_details(token=token)
-        except HTTPException as exc:
-            if first_error is None:
-                raise
-            raise first_error from None
+        except HTTPException:
+            raise
 
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
