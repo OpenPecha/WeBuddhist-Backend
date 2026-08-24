@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,6 +11,7 @@ from pecha_api.plans.groups.groups_repository import (
     create_group_join_request,
     has_pending_join_request,
     list_join_requests_by_group,
+    list_undispatched_join_request_notifications,
     get_group_id_for_plan,
     get_group_id_for_series,
     get_group_ids_by_plan_ids,
@@ -451,3 +453,19 @@ def test_create_group_join_request_commits_and_refreshes():
     db.commit.assert_called_once()
     db.refresh.assert_called_once_with(join_request)
     assert result is join_request
+
+
+def test_undispatched_notifications_excludes_reviewed_rows():
+    """A reviewed row belongs to the decision sweep; listing it in both
+    loops would double-send the notification."""
+    db = _make_session_mock()
+    query = db.query.return_value.filter.return_value
+    query.order_by.return_value.limit.return_value.all.return_value = []
+
+    list_undispatched_join_request_notifications(
+        db=db, older_than=datetime.now(timezone.utc), limit=50
+    )
+
+    filters = db.query.return_value.filter.call_args[0]
+    rendered = " ".join(str(f) for f in filters)
+    assert "reviewed_at IS NULL" in rendered

@@ -4353,10 +4353,14 @@ def test_flipping_group_public_approves_pending_join_requests():
     with patch(
         "pecha_api.plans.groups.groups_service.list_pending_join_requests_by_group",
         return_value=pending,
-    ), patch(
+    ) as mock_list, patch(
         "pecha_api.plans.groups.groups_service.upsert_group_join",
     ) as mock_join:
         _approve_pending_join_requests_on_publish(mock_db, group_id=group_id)
+
+    # same atomicity guarantee as moderator approval
+    assert mock_list.call_args.kwargs["for_update"] is True
+    assert all(c.kwargs["commit"] is False for c in mock_join.call_args_list)
 
     assert mock_join.call_count == 2
     assert all(

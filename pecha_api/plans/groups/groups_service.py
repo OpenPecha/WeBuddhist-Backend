@@ -1784,9 +1784,15 @@ def _mark_join_request_reviewed(
 
 def _approve_pending_join_requests_on_publish(db, *, group_id: UUID) -> None:
     """A public group is instant-join, so pending requests are admitted on the flip."""
-    pending = list_pending_join_requests_by_group(db=db, group_id=group_id)
+    pending = list_pending_join_requests_by_group(
+        db=db, group_id=group_id, for_update=True
+    )
     for join_request in pending:
-        upsert_group_join(db=db, group_id=group_id, user_id=join_request.user_id)
+        # commit=False keeps the row locks held until every membership and
+        # status change lands in the same transaction, as moderator approval does.
+        upsert_group_join(
+            db=db, group_id=group_id, user_id=join_request.user_id, commit=False
+        )
         _mark_join_request_reviewed(
             join_request,
             new_status=AuthorGroupJoinRequestStatus.APPROVED,

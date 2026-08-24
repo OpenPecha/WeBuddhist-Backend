@@ -682,15 +682,16 @@ def has_pending_join_request(db: Session, group_id: UUID, user_id: UUID) -> bool
 def list_pending_join_requests_by_group(
     db: Session,
     group_id: UUID,
+    *,
+    for_update: bool = False,
 ) -> List[AuthorGroupJoinRequest]:
-    return (
-        db.query(AuthorGroupJoinRequest)
-        .filter(
-            AuthorGroupJoinRequest.group_id == group_id,
-            AuthorGroupJoinRequest.status == AuthorGroupJoinRequestStatus.PENDING.value,
-        )
-        .all()
+    query = db.query(AuthorGroupJoinRequest).filter(
+        AuthorGroupJoinRequest.group_id == group_id,
+        AuthorGroupJoinRequest.status == AuthorGroupJoinRequestStatus.PENDING.value,
     )
+    if for_update:
+        query = query.with_for_update(of=AuthorGroupJoinRequest)
+    return query.all()
 
 
 def save_join_request(
@@ -737,6 +738,9 @@ def list_undispatched_join_request_notifications(
         db.query(AuthorGroupJoinRequest)
         .filter(
             AuthorGroupJoinRequest.notification_sqs_message_id.is_(None),
+            # Once reviewed, the decision sweep owns this row — otherwise a
+            # request missing both markers would be re-sent by both loops.
+            AuthorGroupJoinRequest.reviewed_at.is_(None),
             AuthorGroupJoinRequest.created_at < older_than,
         )
         .order_by(AuthorGroupJoinRequest.created_at)
