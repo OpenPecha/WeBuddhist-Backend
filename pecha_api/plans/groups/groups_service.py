@@ -10,7 +10,7 @@ from starlette import status
 from pecha_api.config import get, get_int
 from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.authors.plan_authors_repository import find_author_by_email
+from pecha_api.plans.authors.plan_authors_repository import find_author_by_email, get_author_by_phone
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
 from pecha_api.plans.shared.permissions import (
     _STATUS_CHANGE_ROLES,
@@ -2143,6 +2143,8 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
                 user = validate_and_extract_user_details(token=token)
                 if user.email:
                     author = find_author_by_email(db=db, email=user.email)
+                if author is None and user.phone_number:
+                    author = get_author_by_phone(db=db, phone_number=user.phone_number)
             except HTTPException as exc:
                 if not _is_user_not_found_error(exc):
                     raise

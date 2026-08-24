@@ -3923,16 +3923,17 @@ def test_group_card_title_falls_back_to_first_entry_when_no_language_matches():
 from pecha_api.plans.groups.groups_service import get_group_permission
 
 
-def _make_user(user_id=None, email="user@example.org"):
+def _make_user(user_id=None, email="user@example.org", phone_number=None):
     user = MagicMock()
     user.id = user_id or uuid4()
     user.email = email
+    user.phone_number = phone_number
     return user
 
 
 def test_get_group_permission_no_author_account():
     """User has no matching Author account → has_permission: false, author_id: null"""
-    user = _make_user(email="noauthor@example.org")
+    user = _make_user(email="noauthor@example.org", phone_number=None)
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
@@ -3947,6 +3948,9 @@ def test_get_group_permission_no_author_account():
     ), patch(
         "pecha_api.plans.groups.groups_service.find_author_by_email",
         return_value=None,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_author_by_phone",
+        return_value=None,
     ):
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
@@ -3956,6 +3960,41 @@ def test_get_group_permission_no_author_account():
     assert result.role is None
     assert result.is_super_admin is False
     assert result.author_id is None
+
+
+def test_get_group_permission_app_user_phone_fallback():
+    """App user with null email but matching phone → resolves Author correctly"""
+    user = _make_user(email=None, phone_number="+1234567890")
+    author = _make_author(email="different@example.org")
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_email",
+        return_value=None,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_author_by_phone",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=AuthorGroupMemberRole.OWNER,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is True
+    assert result.role == AuthorGroupMemberRole.OWNER
+    assert result.is_super_admin is False
+    assert result.author_id == author.id
 
 
 def test_get_group_permission_app_user_with_author_account():
