@@ -134,6 +134,7 @@ DEFAULTS = dict(
     # Group join request notification SQS queue (backend producer → worker consumer)
     JOIN_REQUEST_NOTIFICATION_SQS_QUEUE_URL="",
     JOIN_REQUEST_NOTIFICATION_DISPATCH_RECONCILE_GRACE_SECONDS=120,
+    JOIN_REQUEST_NOTIFICATION_DISPATCH_RECONCILE_INTERVAL_SECONDS=60,
     JOIN_REQUEST_NOTIFICATION_DISPATCH_RECONCILE_BATCH_SIZE=50,
 
     # Internal routine notification dispatch (worker -> backend)

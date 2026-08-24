@@ -12,6 +12,7 @@ def _get_int_side_effect(key: str) -> int:
         "AUDIO_JOB_DISPATCH_RECONCILE_GRACE_SECONDS": 120,
         "AUDIO_JOB_DISPATCH_RECONCILE_BATCH_SIZE": 50,
         "CHAT_NOTIFICATION_DISPATCH_RECONCILE_INTERVAL_SECONDS": 30,
+        "JOIN_REQUEST_NOTIFICATION_DISPATCH_RECONCILE_INTERVAL_SECONDS": 60,
     }
     return defaults[key]
 
@@ -55,17 +56,19 @@ def test_setup_scheduler_registers_cleanup_and_reconcile_jobs():
 
         setup_scheduler()
 
-        assert mock_scheduler.add_job.call_count == 3
+        assert mock_scheduler.add_job.call_count == 4
         job_ids = [call.kwargs["id"] for call in mock_scheduler.add_job.call_args_list]
         assert job_ids == [
             "cleanup_expired_verses_of_day",
             "reconcile_undispatched_audio_jobs",
             "reconcile_undispatched_chat_notifications",
+            "reconcile_undispatched_join_request_notifications",
         ]
         assert mock_scheduler.add_job.call_args_list[0].kwargs["args"] == [7]
         assert [call.kwargs for call in mock_interval_trigger.call_args_list] == [
             {"seconds": 60},
             {"seconds": 30},
+            {"seconds": 60},
         ]
         mock_scheduler.start.assert_called_once()
 

@@ -628,12 +628,17 @@ def get_join_request_by_id(
     request_id: UUID,
     *,
     load_group: bool = False,
+    for_update: bool = False,
 ) -> Optional[AuthorGroupJoinRequest]:
     query = db.query(AuthorGroupJoinRequest).filter(AuthorGroupJoinRequest.id == request_id)
     if load_group:
         query = query.options(
             selectinload(AuthorGroupJoinRequest.group).selectinload(AuthorGroup.metadata_entries)
         )
+    if for_update:
+        # Serialise concurrent reviews so two moderators cannot both act on the
+        # same pending request and leave membership out of step with the status.
+        query = query.with_for_update(of=AuthorGroupJoinRequest)
     return query.first()
 
 

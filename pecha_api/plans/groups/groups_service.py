@@ -673,7 +673,10 @@ def _group_to_detail(
     public: bool = False,
     language: Optional[str] = None,
     user_id: Optional[UUID] = None,
+    teaser: bool = False,
 ) -> AuthorGroupDetailDTO:
+    if teaser:
+        db = None
     if db is not None:
         group_series = get_series_by_group_id(db=db, group_id=group.id)
         group_plans = get_plans_by_group_id(db=db, group_id=group.id)
@@ -702,9 +705,9 @@ def _group_to_detail(
         avatar_url=_generate_group_asset_url(group.avatar_key),
         banner_url=_generate_group_asset_url(group.banner_key),
         metadata=_metadata_response(group.metadata_entries, language=language),
-        members=_members_to_dtos(group.members),
+        members=[] if teaser else _members_to_dtos(group.members),
         tags=tags,
-        social_links=_social_links_to_dtos(group.social_links),
+        social_links=[] if teaser else _social_links_to_dtos(group.social_links),
         series=series_dtos,
         plans=plans_dtos,
         follower_count=follower_count,
@@ -844,6 +847,12 @@ def get_author_group_detail(
         group = get_group_by_id(db=db, group_id=group_id)
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        # A private group is discoverable so it can be requested, but a
+        # non-joiner only sees the teaser: no members, contacts or content.
+        teaser = not group.is_public and not (
+            user_id is not None
+            and is_user_joined_group(db=db, group_id=group_id, user_id=user_id)
+        )
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         return _group_to_detail(
@@ -853,6 +862,7 @@ def get_author_group_detail(
             db=db, public=True,
             language=language,
             user_id=user_id,
+            teaser=teaser,
         )
 
 
@@ -1558,8 +1568,12 @@ def _join_request_to_user_dto(join_request: AuthorGroupJoinRequest) -> GroupJoin
     )
 
 
-def _get_join_request_for_group_or_404(db, *, group_id: UUID, request_id: UUID):
-    join_request = get_join_request_by_id(db=db, request_id=request_id, load_group=True)
+def _get_join_request_for_group_or_404(
+    db, *, group_id: UUID, request_id: UUID, for_update: bool = False
+):
+    join_request = get_join_request_by_id(
+        db=db, request_id=request_id, load_group=True, for_update=for_update
+    )
     if not join_request or join_request.group_id != group_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -1705,7 +1719,7 @@ def approve_group_join_request(
         _assert_can_manage_join_requests(db, group_id=group_id, author=author)
 
         join_request = _get_join_request_for_group_or_404(
-            db, group_id=group_id, request_id=request_id
+            db, group_id=group_id, request_id=request_id, for_update=True
         )
         _assert_join_request_pending(join_request)
 
@@ -1735,7 +1749,7 @@ def reject_group_join_request(
         _assert_can_manage_join_requests(db, group_id=group_id, author=author)
 
         join_request = _get_join_request_for_group_or_404(
-            db, group_id=group_id, request_id=request_id
+            db, group_id=group_id, request_id=request_id, for_update=True
         )
         _assert_join_request_pending(join_request)
 
