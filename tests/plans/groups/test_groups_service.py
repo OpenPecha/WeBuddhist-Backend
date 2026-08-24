@@ -4421,7 +4421,8 @@ def test_submit_group_join_request_notifies_moderators():
     assert recipients == {owner_id, admin_id}
     first = mock_notify.call_args_list[0].kwargs
     assert first["category"] == "group_join_request"
-    assert first["reference_id"] == created.id
+    # reference_id is the GROUP, so Studio can route to its review screen
+    assert first["reference_id"] == group.id
     assert "Chanting Circle" in first["title"]
     assert "Tenzin Tib" in first["description"]
 

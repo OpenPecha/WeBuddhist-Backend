@@ -1605,12 +1605,16 @@ def _assert_can_manage_join_requests(db, *, group_id: UUID, author) -> None:
 
 def _notify_moderators_of_join_request(
     *,
+    group_id: UUID,
     group_title: str,
     requester_name: str,
     join_request_id: UUID,
     moderator_ids: List[UUID],
 ) -> None:
-    """Best-effort: a notification failure must not lose the join request."""
+    """Best-effort: a notification failure must not lose the join request.
+
+    reference_id is the group, not the request: notifications carry no other
+    id field, and Studio needs the group to route to its review screen."""
     for author_id in moderator_ids:
         try:
             create_notification_record(
@@ -1618,7 +1622,7 @@ def _notify_moderators_of_join_request(
                 title=f"Request to join {group_title}",
                 description=f"{requester_name} asked to join {group_title}.",
                 category=NOTIFICATION_CATEGORY_GROUP_JOIN_REQUEST,
-                reference_id=join_request_id,
+                reference_id=group_id,
             )
         except Exception:
             logging.exception(
@@ -1679,6 +1683,7 @@ def submit_group_join_request(
         join_request_id = created.id
 
     _notify_moderators_of_join_request(
+        group_id=group_id,
         group_title=group_title,
         requester_name=requester_name,
         join_request_id=join_request_id,
