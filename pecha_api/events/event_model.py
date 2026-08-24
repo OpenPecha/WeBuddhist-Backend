@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, DateTime, UUID, ForeignKey, Index, Boolean, Integer
+from sqlalchemy import Column, String, DateTime, UUID, ForeignKey, Index, Boolean, Integer, text
 from sqlalchemy.orm import relationship
 from ..db.database import Base
 from uuid import uuid4
@@ -38,6 +38,9 @@ class Event(Base):
     created_by = Column(String(255), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc))
 
+    notification_sqs_message_id = Column(String(128), nullable=True)
+    notification_dispatched_at = Column(DateTime(timezone=True), nullable=True)
+
     metadata_entries = relationship(
         "EventMetadata",
         back_populates="event",
@@ -68,4 +71,9 @@ class Event(Base):
         Index("idx_events_end_date", "end_date"),
         Index("idx_events_group_recitation_collection_id", "group_recitation_collection_id"),
         Index("idx_events_featured", "featured"),
+        Index(
+            "idx_events_undispatched_notifications",
+            "created_at",
+            postgresql_where=text("notification_sqs_message_id IS NULL"),
+        ),
     )

@@ -44,6 +44,7 @@ from .event_response_models import (
     _validate_date_range,
 )
 from .recurrence_service import compute_initial_dates, resolve_next_occurrence, resolve_current_or_next_occurrence, expand_occurrences
+from .notification_dispatch_service import enqueue_event_notification
 from .event_repository import (
     save_event,
     get_event_by_id,
@@ -602,6 +603,7 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
             db=db, location_id=request.location_id, group_id=request.group_id
         )
         saved = save_event(db, event, request.metadata, request.links)
+        enqueue_event_notification(saved.id)
         return _event_to_dto(saved)
 
 

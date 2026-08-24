@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List, Tuple, Optional
 from uuid import UUID
 
@@ -101,6 +102,39 @@ def delete_event(db: Session, event: Event) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": "BAD_REQUEST", "message": str(e)},
         )
+
+
+def mark_event_notification_dispatched(
+    db: Session,
+    event_id: UUID,
+    sqs_message_id: str,
+) -> Optional[Event]:
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        return None
+    event.notification_sqs_message_id = sqs_message_id
+    event.notification_dispatched_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(event)
+    return event
+
+
+def list_undispatched_event_notifications(
+    db: Session,
+    *,
+    older_than: datetime,
+    limit: int,
+) -> List[Event]:
+    return (
+        db.query(Event)
+        .filter(
+            Event.notification_sqs_message_id.is_(None),
+            Event.created_at <= older_than,
+        )
+        .order_by(Event.created_at.asc())
+        .limit(limit)
+        .all()
+    )
 
 
 def _apply_event_filters(

@@ -69,12 +69,11 @@ class TestPreviewAndCopy:
 
     @patch("pecha_api.group_posts.notification_service.get_int", return_value=120)
     def test_copy_uses_caption_preview_when_present(self, _get_int):
-        body = _build_notification_copy(author_name="Alice Doe", caption="A new teaching")
-        assert body == "Alice Doe: A new teaching"
+        assert _build_notification_copy(caption="A new teaching") == "A new teaching"
 
     def test_copy_falls_back_when_no_caption(self):
-        assert _build_notification_copy(author_name="Alice Doe", caption=None) == "Alice Doe shared a new post"
-        assert _build_notification_copy(author_name="Alice Doe", caption="   ") == "Alice Doe shared a new post"
+        assert _build_notification_copy(caption=None) == "New post"
+        assert _build_notification_copy(caption="   ") == "New post"
 
 
 class TestBuildEventBody:
@@ -157,7 +156,7 @@ class TestGetGroupPostNotificationTargets:
         assert result.group_id == post.group_id
         assert result.author_id == author.id
         assert result.title == "Sangha"
-        assert result.body == "Alice Doe: Hello group"
+        assert result.body == "Hello group"
         assert len(result.recipients) == 1
         assert result.recipients[0].user_id == joiner_with_device
         assert result.total == 2

@@ -10,17 +10,17 @@ from pecha_api.chat.notification_repository import (
 )
 from pecha_api.config import get_int
 from pecha_api.db.database import SessionLocal
-from pecha_api.group_posts.enums import GroupPostStatus
+from pecha_api.events.event_metadata_model import EventMetadata
+from pecha_api.events.event_repository import get_event_by_id
+from pecha_api.events.notification_response_models import (
+    EventNotificationRecipientDTO,
+    EventNotificationTargetsResponse,
+    EventPushDeviceTargetDTO,
+)
 from pecha_api.group_posts.notification_repository import (
     get_group_notification_title,
     get_user_by_email,
 )
-from pecha_api.group_posts.notification_response_models import (
-    GroupPostNotificationRecipientDTO,
-    GroupPostNotificationTargetsResponse,
-    GroupPostPushDeviceTargetDTO,
-)
-from pecha_api.group_posts.repository import get_post_by_id_only
 from pecha_api.plans.response_message import NOT_FOUND
 
 
@@ -31,21 +31,35 @@ def _preview_body(body: str, max_length: int) -> str:
     return text[: max(max_length - 1, 1)].rstrip() + "…"
 
 
-def _build_notification_copy(*, caption: str | None) -> str:
-    if not caption or not caption.strip():
-        return "New post"
+def _get_event_name(db, event_id: UUID) -> str:
+    entries = (
+        db.query(EventMetadata)
+        .filter(EventMetadata.event_id == event_id)
+        .all()
+    )
+    for entry in entries:
+        language = entry.language
+        lang_value = language.value if hasattr(language, "value") else str(language)
+        if lang_value.upper() == "EN":
+            return entry.name
+    if entries:
+        return entries[0].name
+    return "New event"
+
+
+def _build_notification_copy(*, event_name: str) -> str:
     return _preview_body(
-        caption,
-        max(get_int("GROUP_POST_NOTIFICATION_PREVIEW_MAX_LENGTH"), 1),
+        event_name,
+        max(get_int("EVENT_NOTIFICATION_PREVIEW_MAX_LENGTH"), 1),
     )
 
 
-def get_group_post_notification_targets(
+def get_event_notification_targets(
     *,
-    post_id: UUID,
+    event_id: UUID,
     skip: int = 0,
     limit: int = 100,
-) -> GroupPostNotificationTargetsResponse:
+) -> EventNotificationTargetsResponse:
     if skip < 0:
         skip = 0
     if limit < 1:
@@ -54,50 +68,37 @@ def get_group_post_notification_targets(
         limit = 500
 
     with SessionLocal() as db:
-        post = get_post_by_id_only(db=db, post_id=post_id)
-        if not post:
+        event = get_event_by_id(db, event_id)
+        if not event:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
-        author = get_user_by_email(db, post.created_by)
+        author = get_user_by_email(db, event.created_by)
         if not author:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
-        if post.status != GroupPostStatus.PUBLISHED:
-            return GroupPostNotificationTargetsResponse(
-                post_id=post.id,
-                group_id=post.group_id,
-                author_id=author.id,
-                title="",
-                body="",
-                recipients=[],
-                skip=skip,
-                limit=limit,
-                total=0,
-                has_more=False,
-            )
-
-        title = get_group_notification_title(db, post.group_id)
-        body = _build_notification_copy(caption=post.caption)
+        title = get_group_notification_title(db, event.group_id)
+        event_name = _get_event_name(db, event.id)
+        body = _build_notification_copy(event_name=event_name)
 
         recipient_ids, total = list_group_chat_recipient_user_ids(
             db=db,
-            group_id=post.group_id,
+            group_id=event.group_id,
             sender_id=author.id,
             skip=skip,
             limit=limit,
         )
 
         devices_by_user = get_active_push_devices_by_user_ids(db=db, user_ids=recipient_ids)
-        recipients: list[GroupPostNotificationRecipientDTO] = []
+        recipients: list[EventNotificationRecipientDTO] = []
         for user_id in recipient_ids:
             devices = devices_by_user.get(user_id) or []
             if not devices:
                 continue
             recipients.append(
-                GroupPostNotificationRecipientDTO(
+                EventNotificationRecipientDTO(
                     user_id=user_id,
                     push_devices=[
-                        GroupPostPushDeviceTargetDTO(
+                        EventPushDeviceTargetDTO(
                             id=device.id,
                             token=device.token,
                             platform=normalize_platform(device.platform),
@@ -107,9 +108,9 @@ def get_group_post_notification_targets(
                 )
             )
 
-        return GroupPostNotificationTargetsResponse(
-            post_id=post.id,
-            group_id=post.group_id,
+        return EventNotificationTargetsResponse(
+            event_id=event.id,
+            group_id=event.group_id,
             author_id=author.id,
             title=title,
             body=body,
