@@ -1723,7 +1723,11 @@ def approve_group_join_request(
         )
         _assert_join_request_pending(join_request)
 
-        upsert_group_join(db=db, group_id=group_id, user_id=join_request.user_id)
+        # One transaction: the row lock taken above must hold until both the
+        # membership and the APPROVED status are committed together.
+        upsert_group_join(
+            db=db, group_id=group_id, user_id=join_request.user_id, commit=False
+        )
         _mark_join_request_reviewed(
             join_request,
             new_status=AuthorGroupJoinRequestStatus.APPROVED,

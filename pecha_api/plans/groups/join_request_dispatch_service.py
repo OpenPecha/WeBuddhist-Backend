@@ -6,6 +6,7 @@ from uuid import UUID
 from pecha_api.config import get_int
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.groups.groups_repository import (
+    list_undispatched_join_request_decisions,
     list_undispatched_join_request_notifications,
     mark_join_request_notification_dispatched,
 )
@@ -85,18 +86,30 @@ def reconcile_undispatched_join_request_notifications() -> int:
     older_than = datetime.now(timezone.utc) - timedelta(seconds=grace_seconds)
 
     with SessionLocal() as db:
-        pending = list_undispatched_join_request_notifications(
-            db=db,
-            older_than=older_than,
-            limit=batch_size,
-        )
-        join_request_ids = [item.id for item in pending]
+        created_ids = [
+            item.id
+            for item in list_undispatched_join_request_notifications(
+                db=db, older_than=older_than, limit=batch_size
+            )
+        ]
+        decided_ids = [
+            item.id
+            for item in list_undispatched_join_request_decisions(
+                db=db, older_than=older_than, limit=batch_size
+            )
+        ]
 
     requeued = 0
-    for join_request_id in join_request_ids:
+    for join_request_id in created_ids:
         if enqueue_join_request_created(join_request_id):
             requeued += 1
             logger.info(
                 "Re-enqueued undispatched join request notification for %s", join_request_id
+            )
+    for join_request_id in decided_ids:
+        if enqueue_join_request_decided(join_request_id):
+            requeued += 1
+            logger.info(
+                "Re-enqueued undispatched join request decision for %s", join_request_id
             )
     return requeued

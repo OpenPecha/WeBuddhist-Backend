@@ -8,6 +8,7 @@ from pecha_api.plans.groups.groups_enums import AuthorGroupJoinRequestStatus
 from pecha_api.plans.groups.join_request_dispatch_service import (
     enqueue_join_request_created,
     enqueue_join_request_decided,
+    reconcile_undispatched_join_request_notifications,
 )
 from pecha_api.plans.groups.join_request_notification_service import (
     get_join_request_notification_targets,
@@ -176,3 +177,27 @@ def test_rejected_request_copy_differs_from_approved():
     assert "declined" in result.title
     assert result.total == 1
     assert result.recipients == []
+
+
+def test_reconcile_covers_created_and_decided_events():
+    """A crash after approval must not lose the requester's notification."""
+    created = MagicMock(id=uuid4())
+    decided = MagicMock(id=uuid4())
+
+    with patch(f"{_SVC}.is_join_request_notification_sqs_configured", return_value=True), patch(
+        f"{_SVC}.get_int", return_value=60,
+    ), patch(f"{_SVC}.SessionLocal") as mock_session, patch(
+        f"{_SVC}.list_undispatched_join_request_notifications", return_value=[created],
+    ), patch(
+        f"{_SVC}.list_undispatched_join_request_decisions", return_value=[decided],
+    ), patch(
+        f"{_SVC}.enqueue_join_request_created", return_value="sqs-1",
+    ) as mock_created, patch(
+        f"{_SVC}.enqueue_join_request_decided", return_value="sqs-2",
+    ) as mock_decided:
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        requeued = reconcile_undispatched_join_request_notifications()
+
+    assert requeued == 2
+    mock_created.assert_called_once_with(created.id)
+    mock_decided.assert_called_once_with(decided.id)

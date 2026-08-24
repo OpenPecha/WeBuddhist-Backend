@@ -4475,3 +4475,32 @@ def test_submit_group_join_request_without_moderators_sends_nothing():
         )
 
     mock_notify.assert_not_called()
+
+
+def test_approve_join_request_keeps_row_lock_until_commit():
+    """upsert must not commit mid-transaction: that would release the FOR UPDATE
+    lock while the request is still PENDING, letting a second moderator in."""
+    author = _make_author(is_admin=True)
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    join_request = _make_join_request(group_id=group.id)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_join_request_by_id",
+        return_value=join_request,
+    ) as mock_get, patch(
+        "pecha_api.plans.groups.groups_service.upsert_group_join",
+    ) as mock_join, patch(
+        "pecha_api.plans.groups.groups_service.save_join_request",
+    ):
+        _session_local_context(mock_session)
+        approve_group_join_request(
+            token="t", group_id=group.id, request_id=join_request.id
+        )
+
+    assert mock_get.call_args.kwargs["for_update"] is True
+    assert mock_join.call_args.kwargs["commit"] is False

@@ -745,6 +745,25 @@ def list_undispatched_join_request_notifications(
     )
 
 
+def list_undispatched_join_request_decisions(
+    db: Session,
+    older_than: datetime,
+    limit: int,
+) -> List[AuthorGroupJoinRequest]:
+    """Reviewed requests whose decision event never reached SQS."""
+    return (
+        db.query(AuthorGroupJoinRequest)
+        .filter(
+            AuthorGroupJoinRequest.decision_sqs_message_id.is_(None),
+            AuthorGroupJoinRequest.reviewed_at.isnot(None),
+            AuthorGroupJoinRequest.reviewed_at < older_than,
+        )
+        .order_by(AuthorGroupJoinRequest.reviewed_at)
+        .limit(limit)
+        .all()
+    )
+
+
 
 def add_group_member(db: Session, member: AuthorGroupMember) -> AuthorGroupMember:
     db.add(member)
@@ -833,7 +852,10 @@ def upsert_group_join(
     db: Session,
     group_id: UUID,
     user_id: UUID,
+    *,
+    commit: bool = True,
 ) -> None:
+    """Add a joiner. Pass commit=False to keep an enclosing transaction open."""
     exists_row = db.execute(
         select(author_group_joins.c.group_id).where(
             author_group_joins.c.group_id == group_id,
@@ -849,7 +871,8 @@ def upsert_group_join(
             created_at=datetime.now(timezone.utc),
         )
     )
-    db.commit()
+    if commit:
+        db.commit()
 
 
 def remove_group_join(
