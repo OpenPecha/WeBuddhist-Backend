@@ -4062,6 +4062,9 @@ def test_submit_group_join_request_creates_pending_request():
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
     ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_visibility",
+        return_value=False,
+    ), patch(
         "pecha_api.plans.groups.groups_service.is_user_joined_group",
         return_value=False,
     ), patch(
@@ -4120,6 +4123,9 @@ def test_submit_group_join_request_rejects_existing_member():
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
     ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_visibility",
+        return_value=False,
+    ), patch(
         "pecha_api.plans.groups.groups_service.is_user_joined_group",
         return_value=True,
     ):
@@ -4144,6 +4150,9 @@ def test_submit_group_join_request_rejects_duplicate_pending():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_visibility",
+        return_value=False,
     ), patch(
         "pecha_api.plans.groups.groups_service.is_user_joined_group",
         return_value=False,
@@ -4388,6 +4397,8 @@ def test_submit_group_join_request_notifies_moderators():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
     ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_visibility", return_value=False,
+    ), patch(
         "pecha_api.plans.groups.groups_service.is_user_joined_group", return_value=False,
     ), patch(
         "pecha_api.plans.groups.groups_service.has_pending_join_request", return_value=False,
@@ -4430,6 +4441,8 @@ def test_submit_group_join_request_survives_notification_failure():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
     ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_visibility", return_value=False,
+    ), patch(
         "pecha_api.plans.groups.groups_service.is_user_joined_group", return_value=False,
     ), patch(
         "pecha_api.plans.groups.groups_service.has_pending_join_request", return_value=False,
@@ -4463,6 +4476,8 @@ def test_submit_group_join_request_without_moderators_sends_nothing():
         return_value=user,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_visibility", return_value=False,
     ), patch(
         "pecha_api.plans.groups.groups_service.is_user_joined_group", return_value=False,
     ), patch(
@@ -4509,3 +4524,63 @@ def test_approve_join_request_keeps_row_lock_until_commit():
 
     assert mock_get.call_args.kwargs["for_update"] is True
     assert mock_join.call_args.kwargs["commit"] is False
+
+
+def test_submit_join_request_locks_group_against_concurrent_publish():
+    """Publication must not flip the group public between our read and insert."""
+    user = MagicMock()
+    user.id = uuid4()
+    user.firstname = "Tenzin"
+    user.lastname = "Tib"
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    created = _make_join_request(group_id=group.id, user_id=user.id)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_visibility", return_value=False,
+    ) as mock_lock, patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group", return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.has_pending_join_request", return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_join_request", return_value=created,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_group_member_ids_by_roles", return_value=[],
+    ):
+        _session_local_context(mock_session)
+        submit_group_join_request(
+            token="t", group_id=group.id, request=CreateGroupJoinRequest()
+        )
+
+    mock_lock.assert_called_once()
+
+
+def test_submit_join_request_rejects_group_published_under_us():
+    """The locked read is authoritative, not the earlier unlocked one."""
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_visibility", return_value=True,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_join_request",
+    ) as mock_create:
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            submit_group_join_request(
+                token="t", group_id=group.id, request=CreateGroupJoinRequest()
+            )
+
+    assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
+    assert "public" in exc.value.detail
+    mock_create.assert_not_called()

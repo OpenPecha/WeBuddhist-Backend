@@ -60,6 +60,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_joiners_count_map,
     is_user_following_group,
     is_user_joined_group,
+    lock_group_visibility,
     get_group_by_id,
     get_group_by_slug,
     get_groups_by_ids,
@@ -798,7 +799,10 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
         group.updated_at = datetime.now(timezone.utc)
         # Admit pending applicants in the same transaction as the visibility
         # flip, so the group can never be public with applicants left waiting.
+        # The group lock also blocks a concurrent submission from inserting a
+        # new PENDING row after this sweep.
         if became_public:
+            lock_group_visibility(db=db, group_id=group_id)
             _approve_pending_join_requests_on_publish(db, group_id=group_id)
         update_group(db=db, group=group)
         loaded = get_group_by_id(db=db, group_id=group_id)
@@ -1634,7 +1638,12 @@ def submit_group_join_request(
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         _assert_group_allows_engagement(group=group, action="join")
-        if group.is_public:
+        # Lock the group so a concurrent publish cannot flip it public after we
+        # read it, which would strand this request as PENDING on a public group.
+        is_public = lock_group_visibility(db=db, group_id=group_id)
+        if is_public is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        if is_public:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="This group is public; join it directly",

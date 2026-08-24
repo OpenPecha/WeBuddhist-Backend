@@ -270,6 +270,18 @@ def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
     )
 
 
+def lock_group_visibility(db: Session, group_id: UUID) -> Optional[bool]:
+    """Lock a group row and return its is_public, serialising submission
+    against the private -> public flip. Returns None when the group is gone."""
+    row = (
+        db.query(AuthorGroup.is_public)
+        .filter(AuthorGroup.id == group_id, AuthorGroup.deleted_at.is_(None))
+        .with_for_update()
+        .first()
+    )
+    return None if row is None else row[0]
+
+
 def get_group_by_slug(db: Session, slug: str) -> Optional[AuthorGroup]:
     return (
         db.query(AuthorGroup)
