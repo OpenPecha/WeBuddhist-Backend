@@ -138,6 +138,7 @@ DEFAULTS = dict(
 
     # Verse of the day retention (days); scheduler deletes older rows daily
     VERSE_OF_DAY_EXPIRY_DAYS=7,
+    VERSE_OF_DAY_NOTIFICATION_TITLE="Verse of the Day",
 
 )
 
