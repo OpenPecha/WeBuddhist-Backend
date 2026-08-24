@@ -2180,9 +2180,10 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
             )
 
         role = get_member_role(db=db, group_id=group_id, author_id=author.id)
+        has_write_access = role in _STATUS_CHANGE_ROLES and not is_reviewer(author)
         return GroupPermissionDTO(
             group_id=group_id,
-            has_permission=role in _STATUS_CHANGE_ROLES,
+            has_permission=has_write_access,
             role=role,
             is_super_admin=False,
             author_id=author.id,

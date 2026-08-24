@@ -4074,6 +4074,31 @@ def test_get_group_permission_super_admin():
     assert result.author_id == author.id
 
 
+def test_get_group_permission_reviewer_no_write_access():
+    """Reviewer with OWNER role → has_permission: false (read-only platform role)"""
+    author = _make_author(email="reviewer@example.org", platform_role=PlatformRole.REVIEWER)
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=AuthorGroupMemberRole.OWNER,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is False
+    assert result.role == AuthorGroupMemberRole.OWNER
+    assert result.is_super_admin is False
+    assert result.author_id == author.id
+
+
 def test_get_group_permission_group_member():
     """Group member with ADMIN role → has_permission: true"""
     author = _make_author(email="member@example.org")
