@@ -4287,7 +4287,9 @@ def test_get_group_permission_user_uuid_matches_unrelated_author():
     """A regular user's id happens to collide with an unrelated Author's id →
     the User match must win; the token must never be evaluated with that
     unrelated Author's permissions (even though find_author_by_id *does*
-    return a match here).
+    return a match here). The token carries the live user's own email, as
+    any real token minted for this account would - it is what lets the
+    code positively rule out the colliding Author.
 
     This tests Issue 3 & 8: Cross-domain subject confusion prevention.
     """
@@ -4299,7 +4301,7 @@ def test_get_group_permission_user_uuid_matches_unrelated_author():
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_token",
-        return_value={"sub": str(user.id)},
+        return_value={"sub": str(user.id), "email": user.email},
     ), patch(
         "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=colliding_author,  # same id, unrelated Author record
@@ -4318,6 +4320,73 @@ def test_get_group_permission_user_uuid_matches_unrelated_author():
     assert result.role is None
     assert result.is_super_admin is False
     assert result.author_id is None
+
+
+def test_get_group_permission_deleted_user_token_does_not_inherit_author():
+    """A token minted for a User account that has since been deleted must
+    not be evaluated with an unrelated Author's permissions just because
+    the (now free-floating) id happens to match that Author's id. The
+    token still carries the deleted user's own email, which does not match
+    the colliding Author's - that mismatch is enough to reject the Author
+    match even though the User row is gone and can't be looked up anymore.
+    """
+    deleted_user_id = uuid4()
+    colliding_author = _make_author(
+        author_id=deleted_user_id, email="unrelated-author@example.org", is_admin=True
+    )
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(deleted_user_id), "email": "deleted-user@example.org"},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
+        return_value=colliding_author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="deleted"),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ) as mock_get_group:
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_group_permission(token="t", group_id=group.id)
+
+    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
+    mock_get_group.assert_not_called()
+
+
+def test_get_group_permission_phone_only_author_no_collision():
+    """A legitimate Author with no email on record (phone-only) and no
+    colliding User must still resolve to their real Author permissions.
+    There is no email claim to corroborate against, so the id match alone
+    is trusted - matching how Author tokens are validated everywhere else.
+    """
+    author = _make_author(author_id=uuid4(), email=None, is_admin=False)
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(author.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=AuthorGroupMemberRole.OWNER,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is True
+    assert result.role == AuthorGroupMemberRole.OWNER
+    assert result.is_super_admin is False
+    assert result.author_id == author.id
 
 
 def test_get_group_permission_author_uuid_collides_with_user_resolves_as_author():

@@ -2127,22 +2127,24 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
 
     Resolution strategy (fixes cross-domain subject confusion):
     1. User and Author accounts are independent tables whose ids can
-       coincide, and their tokens carry no distinguishing claim. So we
-       always look up BOTH domains by the subject UUID rather than
-       stopping at the first match - checking only one domain is exactly
-       what lets a same-id row in the other domain get silently ignored,
-       whichever way the priority is picked.
-    2. If the id matches only one domain, that match is unambiguous and is
-       used directly.
-    3. If the id matches both a User and an Author (a genuine collision),
-       the token's own "email" claim - populated from the real account at
-       mint time - tells us which domain actually issued this token: it is
-       treated as an Author only when the email matches the Author's own
-       email and not the colliding User's. Otherwise (no email claim, or
-       an inconclusive match) we fail closed and treat it as the User, so
-       a colliding id can never be evaluated with an unrelated Author's
-       permissions.
-    4. has_permission mirrors the OWNER/ADMIN "manage group" role set used
+       coincide, and their tokens carry no distinguishing claim, so an id
+       match against Author records is corroborated against the token's
+       own "email" claim - populated from the real account at mint time -
+       rather than trusted on id alone:
+         - If the Author has no email on record (a phone-only Author), or
+           the token carries no email claim at all, there is nothing to
+           check it against, so the id match is trusted as-is. This keeps
+           phone-only Authors working and matches how Author tokens are
+           validated everywhere else in this codebase.
+         - If both are present, they must match. A mismatch means this
+           token was minted for a different account (a colliding User's,
+           live or since deleted) and the Author match is rejected - so
+           neither a live colliding User nor a stale token from a deleted
+           one can ever be evaluated with an unrelated Author's group or
+           super-admin permissions.
+    2. Only when the subject does not resolve to a confirmed Author do we
+       fall back to the User domain.
+    3. has_permission mirrors the OWNER/ADMIN "manage group" role set used
        elsewhere in this module (see _GROUP_SETTINGS_ROLES), with the same
        super-admin bypass those checks use. It does not represent the
        stricter, non-bypassable OWNER-only check that guards ownership
@@ -2167,24 +2169,20 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
         token_email = None
 
     with SessionLocal() as db:
-        try:
-            user = validate_and_extract_user_details(token=token)
-        except HTTPException:
-            user = None
-
         author = None
         if subject_uuid is not None:
-            author = find_author_by_id(db=db, author_id=subject_uuid)
+            candidate_author = find_author_by_id(db=db, author_id=subject_uuid)
+            if candidate_author is not None:
+                candidate_email = getattr(candidate_author, "email", None)
+                if token_email is None or candidate_email is None or token_email == candidate_email:
+                    author = candidate_author
 
-        if user is not None and author is not None:
-            # Same id resolved in both domains: only trust the Author match
-            # when the token's own email is a positive, exclusive match for
-            # that Author - never as a lookup, just as a tie-break between
-            # the two records this id already resolved to.
-            if token_email is not None and token_email == getattr(author, "email", None) and token_email != getattr(user, "email", None):
+        user = None
+        if author is None:
+            try:
+                user = validate_and_extract_user_details(token=token)
+            except HTTPException:
                 user = None
-            else:
-                author = None
 
         if author is None and user is None:
             # Resolve identity before touching the group so a token whose
