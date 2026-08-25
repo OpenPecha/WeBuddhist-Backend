@@ -4329,39 +4329,37 @@ def test_get_group_permission_user_uuid_matches_unrelated_author():
     assert result.author_id is None
 
 
-def test_get_group_permission_deleted_user_token_does_not_inherit_author():
-    """A token minted for a User account that has since been deleted must
-    not be evaluated with an unrelated Author's permissions just because
-    the (now free-floating) id happens to match that Author's id. The
-    token still carries the deleted user's own email, which does not match
-    the colliding Author's - that mismatch is enough to reject the Author
-    match even though the User row is gone and can't be looked up anymore.
+def test_get_group_permission_stale_email_claim_does_not_deny_rightful_author():
+    """A token whose email claim no longer matches the Author's current
+    record (e.g. their profile changed after the token was minted) must
+    still resolve as that Author when no live User competes for the same
+    id - there is no other live account this token could actually belong
+    to, so the mismatch is just staleness, not evidence of impersonation.
     """
-    deleted_user_id = uuid4()
-    colliding_author = _make_author(
-        author_id=deleted_user_id, email="unrelated-author@example.org", is_admin=True
-    )
+    author = _make_author(author_id=uuid4(), email="new-email@example.org", is_admin=False)
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_token",
-        return_value={"sub": str(deleted_user_id), "email": "deleted-user@example.org"},
+        return_value={"sub": str(author.id), "email": "old-email@example.org"},
     ), patch(
         "pecha_api.plans.groups.groups_service.find_author_by_id",
-        return_value=colliding_author,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="deleted"),
+        return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
-    ) as mock_get_group:
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=AuthorGroupMemberRole.OWNER,
+    ), _no_matching_user():
         _session_local_context(mock_session)
-        with pytest.raises(HTTPException) as exc:
-            get_group_permission(token="t", group_id=group.id)
+        result = get_group_permission(token="t", group_id=group.id)
 
-    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
-    mock_get_group.assert_not_called()
+    assert result.group_id == group.id
+    assert result.has_permission is True
+    assert result.role == AuthorGroupMemberRole.OWNER
+    assert result.is_super_admin is False
+    assert result.author_id == author.id
 
 
 def test_get_group_permission_phone_only_author_no_collision():
@@ -4509,38 +4507,39 @@ def test_get_group_permission_phone_only_author_uuid_collides_with_user_resolves
     assert result.author_id == author.id
 
 
-def test_get_group_permission_deleted_phone_only_user_token_does_not_inherit_author():
-    """A token minted for a phone-only User account that has since been
-    deleted must not inherit an unrelated Author's permissions just
-    because the id happens to match, even though there's no email claim
-    to check. The token's own phone_number claim (the deleted user's real
-    phone) doesn't match the colliding Author's phone - that mismatch
-    rejects the Author match even though the User row is gone.
+def test_get_group_permission_stale_phone_claim_does_not_deny_rightful_author():
+    """A token whose phone_number claim no longer matches the Author's
+    current record (e.g. they linked/changed their phone after the token
+    was minted, which does not force reissuance - see link_phone_identity)
+    must still resolve as that Author when no live User competes for the
+    same id. Mirrors the email case: staleness alone is never grounds for
+    rejection when there's no other live account the token could belong to.
     """
-    deleted_user_id = uuid4()
-    colliding_author = _make_author(author_id=deleted_user_id, email=None, is_admin=True)
-    colliding_author.phone_number = "+15551234567"
+    author = _make_author(author_id=uuid4(), email=None, is_admin=False)
+    author.phone_number = "+15559998888"
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
         "pecha_api.plans.groups.groups_service.validate_token",
-        return_value={"sub": str(deleted_user_id), "phone_number": "+15559998888"},
+        return_value={"sub": str(author.id), "phone_number": "+15551234567"},
     ), patch(
         "pecha_api.plans.groups.groups_service.find_author_by_id",
-        return_value=colliding_author,
-    ), patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="deleted"),
+        return_value=author,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
-    ) as mock_get_group:
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=AuthorGroupMemberRole.ADMIN,
+    ), _no_matching_user():
         _session_local_context(mock_session)
-        with pytest.raises(HTTPException) as exc:
-            get_group_permission(token="t", group_id=group.id)
+        result = get_group_permission(token="t", group_id=group.id)
 
-    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
-    mock_get_group.assert_not_called()
+    assert result.group_id == group.id
+    assert result.has_permission is True
+    assert result.role == AuthorGroupMemberRole.ADMIN
+    assert result.is_super_admin is False
+    assert result.author_id == author.id
 
 
 def test_get_group_permission_no_email_fallback():

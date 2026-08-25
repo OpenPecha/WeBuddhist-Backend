@@ -2127,38 +2127,39 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
 
     Resolution strategy (fixes cross-domain subject confusion):
     1. User and Author accounts are independent tables whose ids can
-       coincide, and their tokens carry no distinguishing claim, so an id
-       match against Author records is corroborated against the token's
-       own contact claims - "email" and "phone_number", each populated
-       from the real account at mint time - rather than trusted on id
-       alone once a live User also resolves to that same id:
-         - A claim that matches the Author's own email or phone is direct,
-           positive proof of the Author's identity and is trusted even if
-           a User row also happens to share the id (a genuine Author,
-           phone-only or not, is never denied just because their id
-           collides with some User's).
-         - A claim that contradicts the Author's own email or phone (the
-           token belongs to a different account - a colliding User's, live
-           or since deleted) rejects the Author match outright, regardless
-           of whether that User can still be looked up.
-         - If neither claim gives any evidence at all and there is no
-           competing live User for this id, the id match is trusted as-is
-           (this is what keeps ids that simply belong to no User - live or
-           deleted - working with nothing to check).
-         - Otherwise - a live User shares this id and neither claim gives
-           any evidence either way - the Author match is rejected and
-           resolution falls back to that User. A colliding id can
-           therefore never be evaluated with an unrelated Author's group
-           or super-admin permissions, in either direction.
-    2. Only when the subject does not resolve to a confirmed Author do we
+       coincide, and their tokens carry no distinguishing claim. An id
+       match against Author records is trusted outright whenever no live
+       User currently resolves to that same id - a contact claim that no
+       longer matches the Author's current record is not treated as
+       evidence of a different account in that case, since there is no
+       other live account for the token to actually belong to; it just
+       means the Author's profile changed after their token was minted
+       (e.g. linking/changing a phone number does not force a new token to
+       be issued, so a routine profile update must never turn into a false
+       "unauthorized" for the same, rightful Author).
+    2. Only when a live User *also* resolves to that same id (a genuine,
+       currently-exploitable collision) do we require positive evidence
+       before trusting the Author match: the token's own contact claims -
+       "email" and "phone_number", each populated from the real account at
+       mint time - must positively match the Author's own email or phone.
+       Without that, the match is rejected and resolution falls back to
+       the User, so a live colliding User's token can never be evaluated
+       with an unrelated Author's group or super-admin permissions.
+    3. Only when the subject does not resolve to a confirmed Author do we
        fall back to the User domain.
-    3. has_permission mirrors the OWNER/ADMIN "manage group" role set used
+    4. has_permission mirrors the OWNER/ADMIN "manage group" role set used
        elsewhere in this module (see _GROUP_SETTINGS_ROLES), with the same
        super-admin bypass those checks use - reviewer platform role is not
        a blocker here since none of the actual group-settings/member-
        management guards this endpoint represents check it (only content
-       operations do). It does not represent the stricter, non-bypassable
-       OWNER-only check that guards ownership transfer.
+       operations do). has_permission is a coarse "can manage this group"
+       summary, not per-operation: several sub-actions (assigning/revoking
+       ADMIN, removing an OWNER/ADMIN member, transferring ownership) are
+       gated to the literal OWNER role only, with no ADMIN or super-admin
+       bypass. Callers needing that precise distinction should check
+       role == OWNER themselves - exactly how the Studio frontend derives
+       its own owner-only affordances (e.g. canTransferOwnership) from the
+       member's role rather than from a single coarse permission flag.
     """
     try:
         payload = validate_token(token)
@@ -2201,14 +2202,23 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
 
         author = None
         if candidate_author is not None:
-            email_match = _claim_confirms(token_email, getattr(candidate_author, "email", None))
-            phone_match = _claim_confirms(token_phone, getattr(candidate_author, "phone_number", None))
-            if email_match or phone_match:
+            if user is None:
+                # No live competing User for this id - trust the id match
+                # unconditionally. A contact claim that no longer matches
+                # the Author's current record is not evidence of a
+                # different account here, since there is no other live
+                # account for the token to actually belong to - it just
+                # means the Author's profile changed after their token was
+                # minted (linking/changing a phone number, for instance,
+                # does not force a new token to be issued).
                 author = candidate_author
-            elif email_match is False or phone_match is False:
-                author = None
-            elif user is None:
-                author = candidate_author
+            else:
+                # A live User also resolves to this id: only trust the
+                # Author when a contact claim positively identifies it.
+                email_match = _claim_confirms(token_email, getattr(candidate_author, "email", None))
+                phone_match = _claim_confirms(token_phone, getattr(candidate_author, "phone_number", None))
+                if email_match or phone_match:
+                    author = candidate_author
 
         if author is not None:
             user = None
