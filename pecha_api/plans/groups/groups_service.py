@@ -162,7 +162,7 @@ from pecha_api.group_recitation_collection.response_models import GroupRecitatio
 from pecha_api.plans.groups.groups_models import author_group_tags
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
-from pecha_api.users.users_repository import get_users_by_ids
+from pecha_api.users.users_repository import get_users_by_ids, get_user_by_id
 from pecha_api.users.users_models import Users
 from pecha_api.region_restrictions.china_timezone import is_china_timezone
 from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
@@ -2127,9 +2127,17 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
 
     Resolution strategy (fixes cross-domain subject confusion):
     1. User and Author accounts are independent tables whose ids can
-       coincide, and their tokens carry no distinguishing claim. An id
-       match against Author records is trusted outright whenever no live
-       User currently resolves to that same id - a contact claim that no
+       coincide, and their tokens carry no distinguishing claim. Whether a
+       live User competes for a given id is decided by an exact-id lookup
+       (get_user_by_id on the subject UUID) - never through validate_and_
+       extract_user_details's own broader resolution rules, which also
+       fall back to matching a phone/email claim for non-UUID subjects
+       (Auth0-issued tokens). Collision detection here is id-only by
+       construction, so it can never be satisfied "through" a claim - a
+       stale or coincidentally-matching contact claim carries no weight in
+       deciding whether a competing User exists at all.
+    2. An id match against Author records is trusted outright whenever
+       that exact-id lookup finds no live User - a contact claim that no
        longer matches the Author's current record is not treated as
        evidence of a different account in that case, since there is no
        other live account for the token to actually belong to; it just
@@ -2137,17 +2145,20 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
        (e.g. linking/changing a phone number does not force a new token to
        be issued, so a routine profile update must never turn into a false
        "unauthorized" for the same, rightful Author).
-    2. Only when a live User *also* resolves to that same id (a genuine,
-       currently-exploitable collision) do we require positive evidence
-       before trusting the Author match: the token's own contact claims -
-       "email" and "phone_number", each populated from the real account at
-       mint time - must positively match the Author's own email or phone.
-       Without that, the match is rejected and resolution falls back to
-       the User, so a live colliding User's token can never be evaluated
-       with an unrelated Author's group or super-admin permissions.
-    3. Only when the subject does not resolve to a confirmed Author do we
-       fall back to the User domain.
-    4. has_permission mirrors the OWNER/ADMIN "manage group" role set used
+    3. Only when a live User *also* resolves to that exact same id (a
+       genuine, currently-exploitable collision) do we require positive
+       evidence before trusting the Author match: the token's own contact
+       claims - "email" and "phone_number", each populated from the real
+       account at mint time - must positively match the Author's own email
+       or phone. Without that, the match is rejected and resolution falls
+       back to the User, so a live colliding User's token can never be
+       evaluated with an unrelated Author's group or super-admin
+       permissions.
+    4. Only when the subject does not resolve to a confirmed Author do we
+       fall back to the User domain - reusing the exact-id User match when
+       there is one, or validate_and_extract_user_details's broader rules
+       otherwise (e.g. a non-UUID Auth0 subject).
+    5. has_permission mirrors the OWNER/ADMIN "manage group" role set used
        elsewhere in this module (see _GROUP_SETTINGS_ROLES), with the same
        super-admin bypass those checks use - reviewer platform role is not
        a blocker here since none of the actual group-settings/member-
@@ -2194,15 +2205,22 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
         if subject_uuid is not None:
             candidate_author = find_author_by_id(db=db, author_id=subject_uuid)
 
-        user = None
-        try:
-            user = validate_and_extract_user_details(token=token)
-        except HTTPException:
-            user = None
+        # Exact-id collision check, independent of validate_and_extract_
+        # user_details's own resolution rules (which fall back to phone/
+        # email for non-UUID subjects such as Auth0-issued tokens). We only
+        # want to know one thing here: is there a live Users row at this
+        # precise id - never a claim-based match - so this check can never
+        # be satisfied "through" a stale or coincidental contact claim.
+        live_user_at_id = None
+        if subject_uuid is not None:
+            try:
+                live_user_at_id = get_user_by_id(db=db, user_id=subject_uuid)
+            except HTTPException:
+                live_user_at_id = None
 
         author = None
         if candidate_author is not None:
-            if user is None:
+            if live_user_at_id is None:
                 # No live competing User for this id - trust the id match
                 # unconditionally. A contact claim that no longer matches
                 # the Author's current record is not evidence of a
@@ -2220,8 +2238,15 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
                 if email_match or phone_match:
                     author = candidate_author
 
-        if author is not None:
-            user = None
+        user = None
+        if author is None:
+            if live_user_at_id is not None:
+                user = live_user_at_id
+            else:
+                try:
+                    user = validate_and_extract_user_details(token=token)
+                except HTTPException:
+                    user = None
 
         if author is None and user is None:
             # Resolve identity before touching the group so a token whose

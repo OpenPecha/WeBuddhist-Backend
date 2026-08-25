@@ -3944,6 +3944,9 @@ def test_get_group_permission_app_user_no_author():
         "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=None,
     ), patch(
+        "pecha_api.plans.groups.groups_service.get_user_by_id",
+        side_effect=HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found"),
+    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         return_value=user,
     ), patch(
@@ -3961,10 +3964,16 @@ def test_get_group_permission_app_user_no_author():
 
 
 def _no_matching_user():
-    """Simulate an Author-only token: the subject UUID does not resolve to a User."""
-    return patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="not a user"),
+    """Simulate an Author-only token: no live Users row exists at the subject id
+    (exact-id lookup) and the broader user resolver also finds nothing."""
+    return patch.multiple(
+        "pecha_api.plans.groups.groups_service",
+        get_user_by_id=MagicMock(
+            side_effect=HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+        ),
+        validate_and_extract_user_details=MagicMock(
+            side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="not a user")
+        ),
     )
 
 
@@ -4263,6 +4272,9 @@ def test_get_group_permission_group_not_found_no_author():
         "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=None,
     ), patch(
+        "pecha_api.plans.groups.groups_service.get_user_by_id",
+        side_effect=HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found"),
+    ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         return_value=user,
     ), patch(
@@ -4312,6 +4324,9 @@ def test_get_group_permission_user_uuid_matches_unrelated_author():
     ), patch(
         "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=colliding_author,  # same id, unrelated Author record
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_user_by_id",
+        return_value=user,  # live Users row exists at this exact id
     ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         return_value=user,
@@ -4414,7 +4429,7 @@ def test_get_group_permission_author_uuid_collides_with_user_resolves_as_author(
         "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=author,
     ), patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=colliding_user,  # same id also resolves as a User
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
@@ -4453,8 +4468,8 @@ def test_get_group_permission_phone_only_user_uuid_collides_with_author():
         "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=colliding_author,
     ), patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
-        return_value=phone_user,
+        "pecha_api.plans.groups.groups_service.get_user_by_id",
+        return_value=phone_user,  # live Users row exists at this exact id
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
@@ -4488,7 +4503,7 @@ def test_get_group_permission_phone_only_author_uuid_collides_with_user_resolves
         "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=author,
     ), patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=colliding_user,  # same id also resolves as a User
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
@@ -4558,7 +4573,7 @@ def test_get_group_permission_no_email_fallback():
         "pecha_api.plans.groups.groups_service.find_author_by_id",
         return_value=None,  # UUID doesn't match any Author (email fallback not used)
     ), patch(
-        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        "pecha_api.plans.groups.groups_service.get_user_by_id",
         return_value=user,
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
