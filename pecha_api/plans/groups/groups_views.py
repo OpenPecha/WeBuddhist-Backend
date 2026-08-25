@@ -513,6 +513,7 @@ def get_public_group_members(
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
+    """List a group's members, for both public and private groups."""
     return list_group_members(group_id=group_id, skip=skip, limit=limit)
 
 

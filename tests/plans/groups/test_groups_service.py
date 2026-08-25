@@ -474,6 +474,29 @@ def test_list_group_members_returns_paginated_profiles():
     assert result.list[0].avatar_url == "https://example.com/avatar.webp"
 
 
+def test_list_group_members_private_group_returns_members_without_token():
+    group = _make_group(is_public=False)
+    user = MagicMock()
+    user.username = "bob"
+    user.firstname = "Bob"
+    user.lastname = "Jones"
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.list_group_joiners_paginated",
+        return_value=([user], 1),
+    ), patch(
+        "pecha_api.plans.groups.groups_service._user_avatar_url",
+        return_value=None,
+    ):
+        _session_local_context(mock_session)
+        result = list_group_members(group_id=group.id, skip=0, limit=20)
+
+    assert result.total_members == 1
+    assert result.list[0].username == "bob"
+
+
 def test_list_public_groups_defaults_to_community_type():
     group = _make_group(group_type=AuthorGroupType.COMMUNITY)
     group.metadata_entries = []

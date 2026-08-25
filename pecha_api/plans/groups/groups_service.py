@@ -1229,7 +1229,9 @@ def list_group_members(
 ) -> AuthorGroupMembersListResponse:
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group or not group.is_public:
+        # Intentionally unfiltered by is_public: members are listed for
+        # private groups too. Visibility is gated on the frontend.
+        if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         users, total = list_group_joiners_paginated(
             db=db,
