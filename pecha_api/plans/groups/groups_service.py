@@ -2123,15 +2123,20 @@ def get_group_member_accumulations(
 
 
 def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
-    """Check CMS permission for a group.
+    """Check CMS management permission for a group.
 
     Resolution strategy (fixes cross-domain subject confusion):
-    1. Validate the token and extract the subject UUID.
-    2. Look up Author by UUID only - no contact-based fallbacks to prevent
-       matching unrelated Authors via shared email/phone.
-    3. If no Author matches the UUID, validate as a regular user token.
-    4. Return has_permission=True only for OWNER role (not ADMIN) to match
-       owner-only operation semantics.
+    1. Always resolve the token against the User domain first. User and
+       Author accounts are independent tables whose ids can coincide, and
+       their tokens carry no distinguishing claim, so a real User match
+       always wins - it is never re-evaluated as an unrelated Author.
+    2. Only when no User matches the subject do we look up an Author by
+       the subject UUID.
+    3. has_permission mirrors the OWNER/ADMIN "manage group" role set used
+       elsewhere in this module (see _GROUP_SETTINGS_ROLES), with the same
+       super-admin bypass those checks use. It does not represent the
+       stricter, non-bypassable OWNER-only check that guards ownership
+       transfer.
     """
     try:
         payload = validate_token(token)
@@ -2152,14 +2157,17 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
 
+        try:
+            user = validate_and_extract_user_details(token=token)
+        except HTTPException:
+            user = None
+
         author = None
-        if subject_uuid is not None:
+        if user is None and subject_uuid is not None:
             author = find_author_by_id(db=db, author_id=subject_uuid)
 
         if author is None:
-            try:
-                validate_and_extract_user_details(token=token)
-            except HTTPException:
+            if user is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid or expired token",
@@ -2181,22 +2189,15 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
                 author_id=author.id,
             )
 
-        author_is_super_admin = is_super_admin(author)
-        if author_is_super_admin:
-            return GroupPermissionDTO(
-                group_id=group_id,
-                has_permission=True,
-                role=AuthorGroupMemberRole.OWNER,
-                is_super_admin=True,
-                author_id=author.id,
-            )
-
         role = get_member_role(db=db, group_id=group_id, author_id=author.id)
-        is_owner = role == AuthorGroupMemberRole.OWNER and not is_reviewer(author)
+        author_is_super_admin = is_super_admin(author)
+        has_permission = not is_reviewer(author) and (
+            author_is_super_admin or role in _GROUP_SETTINGS_ROLES
+        )
         return GroupPermissionDTO(
             group_id=group_id,
-            has_permission=is_owner,
+            has_permission=has_permission,
             role=role,
-            is_super_admin=False,
+            is_super_admin=author_is_super_admin,
             author_id=author.id,
         )

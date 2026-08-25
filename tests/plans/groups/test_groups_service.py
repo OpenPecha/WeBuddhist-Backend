@@ -3960,6 +3960,14 @@ def test_get_group_permission_app_user_no_author():
     assert result.author_id is None
 
 
+def _no_matching_user():
+    """Simulate an Author-only token: the subject UUID does not resolve to a User."""
+    return patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="not a user"),
+    )
+
+
 def test_get_group_permission_inactive_author():
     """Inactive author → has_permission: false even if they have a role"""
     author = _make_author(email="inactive@example.org", is_active=False)
@@ -3974,7 +3982,7 @@ def test_get_group_permission_inactive_author():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
-    ):
+    ), _no_matching_user():
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
@@ -3985,8 +3993,13 @@ def test_get_group_permission_inactive_author():
     assert result.author_id == author.id
 
 
-def test_get_group_permission_super_admin():
-    """Super admin → has_permission: true, role: OWNER, is_super_admin: true"""
+def test_get_group_permission_super_admin_not_a_member():
+    """Super admin who isn't a member of this group → has_permission: true (bypass),
+    but role reflects their real (absent) membership rather than a fabricated OWNER.
+
+    Owner-only operations like ownership transfer have no super-admin bypass, so
+    this DTO must not claim an OWNER role the super admin does not actually hold.
+    """
     author = _make_author(email="admin@example.org", is_admin=True)
     group = _make_group()
 
@@ -3999,13 +4012,16 @@ def test_get_group_permission_super_admin():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=group,
-    ):
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=None,
+    ), _no_matching_user():
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
     assert result.group_id == group.id
     assert result.has_permission is True
-    assert result.role == AuthorGroupMemberRole.OWNER
+    assert result.role is None
     assert result.is_super_admin is True
     assert result.author_id == author.id
 
@@ -4027,7 +4043,7 @@ def test_get_group_permission_reviewer_no_write_access():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_member_role",
         return_value=AuthorGroupMemberRole.OWNER,
-    ):
+    ), _no_matching_user():
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
@@ -4039,7 +4055,7 @@ def test_get_group_permission_reviewer_no_write_access():
 
 
 def test_get_group_permission_group_member():
-    """Group member with ADMIN role → has_permission: false (only OWNER gets true)"""
+    """Group member with ADMIN role → has_permission: true (ADMIN can manage group settings/members)"""
     author = _make_author(email="member@example.org")
     group = _make_group()
 
@@ -4055,12 +4071,12 @@ def test_get_group_permission_group_member():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_member_role",
         return_value=AuthorGroupMemberRole.ADMIN,
-    ):
+    ), _no_matching_user():
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
     assert result.group_id == group.id
-    assert result.has_permission is False
+    assert result.has_permission is True
     assert result.role == AuthorGroupMemberRole.ADMIN
     assert result.is_super_admin is False
     assert result.author_id == author.id
@@ -4083,7 +4099,7 @@ def test_get_group_permission_owner_role():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_member_role",
         return_value=AuthorGroupMemberRole.OWNER,
-    ):
+    ), _no_matching_user():
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
@@ -4111,7 +4127,7 @@ def test_get_group_permission_author_role_no_management():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_member_role",
         return_value=AuthorGroupMemberRole.AUTHOR,
-    ):
+    ), _no_matching_user():
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
@@ -4139,7 +4155,7 @@ def test_get_group_permission_viewer_role_no_management():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_member_role",
         return_value=AuthorGroupMemberRole.VIEWER,
-    ):
+    ), _no_matching_user():
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
@@ -4167,7 +4183,7 @@ def test_get_group_permission_author_not_member():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_member_role",
         return_value=None,
-    ):
+    ), _no_matching_user():
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
@@ -4240,12 +4256,17 @@ def test_get_group_permission_invalid_token():
 
 
 def test_get_group_permission_user_uuid_matches_unrelated_author():
-    """User token with UUID that doesn't match any Author → has_permission: false
-    
+    """A regular user's id happens to collide with an unrelated Author's id →
+    the User match must win; the token must never be evaluated with that
+    unrelated Author's permissions (even though find_author_by_id *does*
+    return a match here).
+
     This tests Issue 3 & 8: Cross-domain subject confusion prevention.
-    A regular user's UUID should not resolve to an unrelated Author.
     """
     user = _make_user(email="regularuser@example.org")
+    colliding_author = _make_author(
+        author_id=user.id, email="unrelated-author@example.org", is_admin=True
+    )
     group = _make_group()
 
     with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
@@ -4253,7 +4274,7 @@ def test_get_group_permission_user_uuid_matches_unrelated_author():
         return_value={"sub": str(user.id)},
     ), patch(
         "pecha_api.plans.groups.groups_service.find_author_by_id",
-        return_value=None,  # UUID doesn't match any Author
+        return_value=colliding_author,  # same id, unrelated Author record
     ), patch(
         "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
         return_value=user,
