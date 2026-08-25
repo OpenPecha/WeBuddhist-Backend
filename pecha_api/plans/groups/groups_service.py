@@ -1229,8 +1229,13 @@ def list_group_members(
 ) -> AuthorGroupMembersListResponse:
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
-        # Intentionally unfiltered by is_public: members are listed for
-        # private groups too. Visibility is gated on the frontend.
+        # Intended behaviour, not an oversight: this endpoint is unauthenticated
+        # and lists members for private groups as well as public ones. Product
+        # decision — the frontend gates who is shown the members list, so the
+        # backend deliberately does not filter by is_public or check membership.
+        # Note the trade-off this accepts: member profiles (username, fullname,
+        # avatar) for a private group are readable by anyone holding the group id.
+        # Revisit here, not in the frontend, if that ever stops being acceptable.
         if not group:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         users, total = list_group_joiners_paginated(

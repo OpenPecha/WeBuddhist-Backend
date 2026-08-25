@@ -513,7 +513,11 @@ def get_public_group_members(
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
-    """List a group's members, for both public and private groups."""
+    """List a group's members, for both public and private groups.
+
+    Intentionally unauthenticated: the frontend gates who sees the members
+    list. See list_group_members for the rationale and its trade-off.
+    """
     return list_group_members(group_id=group_id, skip=skip, limit=limit)
 
 
