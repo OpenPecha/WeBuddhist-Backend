@@ -10,9 +10,16 @@ from starlette import status
 from pecha_api.config import get, get_int
 from pecha_api.db.database import SessionLocal
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
-from pecha_api.plans.authors.plan_authors_repository import find_author_by_email
+from pecha_api.plans.authors.plan_authors_repository import find_author_by_email, find_author_by_id
+from pecha_api.auth.auth_repository import validate_token
 from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details, validate_cms_author_details
-from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin, require_cms_write_access
+from pecha_api.plans.shared.permissions import (
+    _STATUS_CHANGE_ROLES,
+    get_member_role,
+    is_reviewer,
+    is_super_admin,
+    require_cms_write_access,
+)
 from pecha_api.notification.notification_repository import (
     mark_notifications_read_by_reference,
     notification_exists_for_reference,
@@ -163,6 +170,7 @@ from pecha_api.plans.groups.groups_response_models import (
     ReplaceGroupTagsRequest,
     UpdateAuthorGroupRequest,
     UpdateGroupMemberRoleRequest,
+    GroupPermissionDTO,
 )
 from pecha_api.group_accumulator.group_accumulator_service import (
     _convert_to_dto as _group_accumulator_to_dto,
@@ -177,7 +185,7 @@ from pecha_api.group_recitation_collection.response_models import GroupRecitatio
 from pecha_api.plans.groups.groups_models import author_group_tags
 from pecha_api.plans.tags.tag_helpers import tags_to_summary_dtos
 from pecha_api.users.users_service import validate_and_extract_user_details
-from pecha_api.users.users_repository import get_users_by_ids
+from pecha_api.users.users_repository import get_users_by_ids, get_user_by_id
 from pecha_api.users.users_models import Users
 from pecha_api.region_restrictions.china_timezone import is_china_timezone
 from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
@@ -2469,4 +2477,173 @@ def get_group_member_accumulations(
             list=member_dtos,
             skip=skip,
             limit=limit,
+        )
+
+
+def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
+    """Check CMS management permission for a group.
+
+    Resolution strategy (fixes cross-domain subject confusion):
+    1. User and Author accounts are independent tables whose ids can
+       coincide, and their tokens carry no distinguishing claim. Whether a
+       live User competes for a given id is decided by an exact-id lookup
+       (get_user_by_id on the subject UUID) - never through validate_and_
+       extract_user_details's own broader resolution rules, which also
+       fall back to matching a phone/email claim for non-UUID subjects
+       (Auth0-issued tokens). Collision detection here is id-only by
+       construction, so it can never be satisfied "through" a claim - a
+       stale or coincidentally-matching contact claim carries no weight in
+       deciding whether a competing User exists at all.
+    2. An id match against Author records is trusted outright whenever
+       that exact-id lookup finds no live User - a contact claim that no
+       longer matches the Author's current record is not treated as
+       evidence of a different account in that case, since there is no
+       other live account for the token to actually belong to; it just
+       means the Author's profile changed after their token was minted
+       (e.g. linking/changing a phone number does not force a new token to
+       be issued, so a routine profile update must never turn into a false
+       "unauthorized" for the same, rightful Author).
+    3. Only when a live User *also* resolves to that exact same id (a
+       genuine, currently-exploitable collision) do we require positive
+       evidence before trusting the Author match: the token's own contact
+       claims - "email" and "phone_number", each populated from the real
+       account at mint time - must positively match the Author's own email
+       or phone. Without that, the match is rejected and resolution falls
+       back to the User, so a live colliding User's token can never be
+       evaluated with an unrelated Author's group or super-admin
+       permissions.
+    4. Only when the subject does not resolve to a confirmed Author do we
+       fall back to the User domain - reusing the exact-id User match when
+       there is one, or validate_and_extract_user_details's broader rules
+       otherwise (e.g. a non-UUID Auth0 subject).
+    5. has_permission mirrors the OWNER/ADMIN "manage group" role set used
+       elsewhere in this module (see _GROUP_SETTINGS_ROLES), with the same
+       super-admin bypass those checks use - reviewer platform role is not
+       a blocker here since none of the actual group-settings/member-
+       management guards this endpoint represents check it (only content
+       operations do). has_permission is a coarse "can manage this group"
+       summary, not per-operation: several sub-actions (assigning/revoking
+       ADMIN, removing an OWNER/ADMIN member, transferring ownership) are
+       gated to the literal OWNER role only, with no ADMIN or super-admin
+       bypass. Callers needing that precise distinction should check
+       role == OWNER themselves - exactly how the Studio frontend derives
+       its own owner-only affordances (e.g. canTransferOwnership) from the
+       member's role rather than from a single coarse permission flag.
+    """
+    try:
+        payload = validate_token(token)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+        )
+
+    subject = payload.get("sub")
+    try:
+        subject_uuid = UUID(str(subject)) if subject is not None else None
+    except (TypeError, ValueError):
+        subject_uuid = None
+
+    def _claim(name: str):
+        value = payload.get(name)
+        return value if isinstance(value, str) and value else None
+
+    token_email = _claim("email")
+    token_phone = _claim("phone_number")
+
+    def _claim_confirms(token_value, record_value):
+        """True/False when the claim is a definitive match/mismatch against
+        the record, or None when there is no evidence either way."""
+        if token_value is None or not record_value:
+            return None
+        return token_value == record_value
+
+    with SessionLocal() as db:
+        candidate_author = None
+        if subject_uuid is not None:
+            candidate_author = find_author_by_id(db=db, author_id=subject_uuid)
+
+        # Exact-id collision check, independent of validate_and_extract_
+        # user_details's own resolution rules (which fall back to phone/
+        # email for non-UUID subjects such as Auth0-issued tokens). We only
+        # want to know one thing here: is there a live Users row at this
+        # precise id - never a claim-based match - so this check can never
+        # be satisfied "through" a stale or coincidental contact claim.
+        live_user_at_id = None
+        if subject_uuid is not None:
+            try:
+                live_user_at_id = get_user_by_id(db=db, user_id=subject_uuid)
+            except HTTPException:
+                live_user_at_id = None
+
+        author = None
+        if candidate_author is not None:
+            if live_user_at_id is None:
+                # No live competing User for this id - trust the id match
+                # unconditionally. A contact claim that no longer matches
+                # the Author's current record is not evidence of a
+                # different account here, since there is no other live
+                # account for the token to actually belong to - it just
+                # means the Author's profile changed after their token was
+                # minted (linking/changing a phone number, for instance,
+                # does not force a new token to be issued).
+                author = candidate_author
+            else:
+                # A live User also resolves to this id: only trust the
+                # Author when a contact claim positively identifies it.
+                email_match = _claim_confirms(token_email, getattr(candidate_author, "email", None))
+                phone_match = _claim_confirms(token_phone, getattr(candidate_author, "phone_number", None))
+                if email_match or phone_match:
+                    author = candidate_author
+
+        user = None
+        if author is None:
+            if live_user_at_id is not None:
+                user = live_user_at_id
+            else:
+                try:
+                    user = validate_and_extract_user_details(token=token)
+                except HTTPException:
+                    user = None
+
+        if author is None and user is None:
+            # Resolve identity before touching the group so a token whose
+            # account no longer exists (or never did) always gets 401,
+            # instead of leaking whether group_id exists via 404-vs-401.
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
+
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+
+        if author is None:
+            return GroupPermissionDTO(
+                group_id=group_id,
+                has_permission=False,
+                role=None,
+                is_super_admin=False,
+                author_id=None,
+            )
+
+        if not author.is_active:
+            return GroupPermissionDTO(
+                group_id=group_id,
+                has_permission=False,
+                role=None,
+                is_super_admin=False,
+                author_id=author.id,
+            )
+
+        role = get_member_role(db=db, group_id=group_id, author_id=author.id)
+        author_is_super_admin = is_super_admin(author)
+        has_permission = author_is_super_admin or role in _GROUP_SETTINGS_ROLES
+        return GroupPermissionDTO(
+            group_id=group_id,
+            has_permission=has_permission,
+            role=role,
+            is_super_admin=author_is_super_admin,
+            author_id=author.id,
         )

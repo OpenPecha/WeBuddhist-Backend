@@ -24,6 +24,7 @@ from pecha_api.plans.groups.groups_response_models import (
     GroupJoinRequestDTO,
     GroupJoinRequestListResponse,
     GroupMemberAccumulationsResponse,
+    GroupPermissionDTO,
     GroupPracticesFeedResponse,
     GroupPracticesResponse,
     PublicAuthorGroupDetailDTO,
@@ -53,6 +54,7 @@ from pecha_api.plans.groups.groups_service import (
     get_followed_group,
     get_group_accumulations,
     get_group_member_accumulations,
+    get_group_permission,
     get_group_practices,
     get_group_practices_feed,
     get_joined_group,
@@ -94,6 +96,10 @@ user_groups_router = APIRouter(
 user_joined_groups_router = APIRouter(
     prefix="/users/me/joined/author/groups",
     tags=["User Author Groups"],
+)
+user_permission_router = APIRouter(
+    prefix="/users/me/permission",
+    tags=["User Group Permission"],
 )
 
 
@@ -689,3 +695,21 @@ def get_group_member_accumulations_endpoint(
     )
 
 
+@user_permission_router.get(
+    "/{group_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupPermissionDTO,
+)
+def get_my_group_permission(
+    group_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+) -> GroupPermissionDTO:
+    """Check if the authenticated user has CMS permission to manage the specified group.
+
+    Returns permission details including the user's role and whether they can manage the group.
+    Never returns 403 - denied users receive has_permission=false instead.
+    """
+    return get_group_permission(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+    )

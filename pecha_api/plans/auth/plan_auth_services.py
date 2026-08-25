@@ -200,6 +200,8 @@ def generate_author_token_data(author: Author):
     }
     if author.email:
         data["email"] = author.email
+    if author.phone_number:
+        data["phone_number"] = author.phone_number
     return data
 
 def generate_token_author(author: Author):
