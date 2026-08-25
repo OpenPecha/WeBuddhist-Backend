@@ -61,6 +61,13 @@ def get_author_by_id(db: Session, author_id: UUID) -> Author:
     return author
 
 
+def find_author_by_id(db: Session, author_id: UUID) -> Optional[Author]:
+    """Return the Author with the given ID, or None if not found."""
+    return db.query(Author).options(joinedload(Author.social_media_accounts)).filter(
+        Author.id == author_id,
+    ).first()
+
+
 def get_author_by_phone(
     db: Session,
     phone_number: str,

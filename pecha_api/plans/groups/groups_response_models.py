@@ -56,6 +56,7 @@ __all__ = [
     "GroupPracticesResponse",
     "GroupPracticeFeedItemDTO",
     "GroupPracticesFeedResponse",
+    "GroupPermissionDTO",
 ]
 
 
@@ -323,3 +324,11 @@ class GroupPracticesFeedResponse(BaseModel):
     limit: int
     total: int
     include_unfollowed: bool
+
+
+class GroupPermissionDTO(BaseModel):
+    group_id: UUID
+    has_permission: bool
+    role: Optional[AuthorGroupMemberRole] = None
+    is_super_admin: bool
+    author_id: Optional[UUID] = None
