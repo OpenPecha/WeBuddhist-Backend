@@ -4026,8 +4026,15 @@ def test_get_group_permission_super_admin_not_a_member():
     assert result.author_id == author.id
 
 
-def test_get_group_permission_reviewer_no_write_access():
-    """Reviewer with OWNER role → has_permission: false (read-only platform role)"""
+def test_get_group_permission_reviewer_with_owner_role_can_manage():
+    """Reviewer platform role with an OWNER group membership → has_permission: true.
+
+    The actual group-settings/member-management guards this endpoint
+    represents (_assert_role_allowed) only check group role and the
+    super-admin bypass; they never check the reviewer platform role (that
+    gate only exists on content operations). Reporting has_permission:
+    false here would contradict what those real guards actually allow.
+    """
     author = _make_author(email="reviewer@example.org", platform_role=PlatformRole.REVIEWER)
     group = _make_group()
 
@@ -4048,7 +4055,7 @@ def test_get_group_permission_reviewer_no_write_access():
         result = get_group_permission(token="t", group_id=group.id)
 
     assert result.group_id == group.id
-    assert result.has_permission is False
+    assert result.has_permission is True
     assert result.role == AuthorGroupMemberRole.OWNER
     assert result.is_super_admin is False
     assert result.author_id == author.id
@@ -4378,7 +4385,7 @@ def test_get_group_permission_phone_only_author_no_collision():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_member_role",
         return_value=AuthorGroupMemberRole.OWNER,
-    ):
+    ), _no_matching_user():
         _session_local_context(mock_session)
         result = get_group_permission(token="t", group_id=group.id)
 
@@ -4426,6 +4433,42 @@ def test_get_group_permission_author_uuid_collides_with_user_resolves_as_author(
     assert result.role == AuthorGroupMemberRole.OWNER
     assert result.is_super_admin is False
     assert result.author_id == author.id
+
+
+def test_get_group_permission_phone_only_user_uuid_collides_with_author():
+    """A live phone-only User (no email at all, so their real token carries
+    no email claim) whose id collides with an Author must resolve as the
+    User, not the Author - even though there's no email evidence available
+    on either side. With a live competing User and no way to positively
+    confirm the Author, id alone must not be trusted, in either direction.
+    """
+    phone_user = _make_user(email=None, phone_number="+15550001111")
+    colliding_author = _make_author(
+        author_id=phone_user.id, email="unrelated-author@example.org", is_admin=True
+    )
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(phone_user.id)},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
+        return_value=colliding_author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=phone_user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is False
+    assert result.role is None
+    assert result.is_super_admin is False
+    assert result.author_id is None
 
 
 def test_get_group_permission_no_email_fallback():

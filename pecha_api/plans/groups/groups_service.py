@@ -2128,27 +2128,33 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     Resolution strategy (fixes cross-domain subject confusion):
     1. User and Author accounts are independent tables whose ids can
        coincide, and their tokens carry no distinguishing claim, so an id
-       match against Author records is corroborated against the token's
-       own "email" claim - populated from the real account at mint time -
-       rather than trusted on id alone:
-         - If the Author has no email on record (a phone-only Author), or
-           the token carries no email claim at all, there is nothing to
-           check it against, so the id match is trusted as-is. This keeps
-           phone-only Authors working and matches how Author tokens are
-           validated everywhere else in this codebase.
-         - If both are present, they must match. A mismatch means this
-           token was minted for a different account (a colliding User's,
-           live or since deleted) and the Author match is rejected - so
-           neither a live colliding User nor a stale token from a deleted
-           one can ever be evaluated with an unrelated Author's group or
-           super-admin permissions.
+       match against Author records is never trusted on id alone once a
+       live User also resolves to that same id:
+         - If the token's own "email" claim - populated from the real
+           account at mint time - matches the Author's own email, that is
+           direct, positive proof of the Author's identity and is trusted
+           even if a User row also happens to share the id (a genuine
+           Author is never denied just because their id collides).
+         - If there is no competing live User for this id at all, the id
+           match is trusted as-is even without an email claim (this is
+           what keeps phone-only Authors, and ids that simply belong to no
+           User - live or deleted - working with nothing to check).
+         - Otherwise - a live User shares this id and the token has no
+           email evidence that positively identifies the Author (e.g. a
+           phone-only User's token, which carries no email claim at all,
+           or an email that doesn't match) - the Author match is rejected
+           and resolution falls back to that User. A colliding id can
+           therefore never be evaluated with an unrelated Author's group
+           or super-admin permissions, in either direction.
     2. Only when the subject does not resolve to a confirmed Author do we
        fall back to the User domain.
     3. has_permission mirrors the OWNER/ADMIN "manage group" role set used
        elsewhere in this module (see _GROUP_SETTINGS_ROLES), with the same
-       super-admin bypass those checks use. It does not represent the
-       stricter, non-bypassable OWNER-only check that guards ownership
-       transfer.
+       super-admin bypass those checks use - reviewer platform role is not
+       a blocker here since none of the actual group-settings/member-
+       management guards this endpoint represents check it (only content
+       operations do). It does not represent the stricter, non-bypassable
+       OWNER-only check that guards ownership transfer.
     """
     try:
         payload = validate_token(token)
@@ -2169,20 +2175,27 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
         token_email = None
 
     with SessionLocal() as db:
-        author = None
+        candidate_author = None
         if subject_uuid is not None:
             candidate_author = find_author_by_id(db=db, author_id=subject_uuid)
-            if candidate_author is not None:
-                candidate_email = getattr(candidate_author, "email", None)
-                if token_email is None or candidate_email is None or token_email == candidate_email:
-                    author = candidate_author
 
         user = None
-        if author is None:
-            try:
-                user = validate_and_extract_user_details(token=token)
-            except HTTPException:
-                user = None
+        try:
+            user = validate_and_extract_user_details(token=token)
+        except HTTPException:
+            user = None
+
+        author = None
+        if candidate_author is not None:
+            candidate_email = getattr(candidate_author, "email", None)
+            if token_email is not None and candidate_email is not None:
+                if token_email == candidate_email:
+                    author = candidate_author
+            elif user is None:
+                author = candidate_author
+
+        if author is not None:
+            user = None
 
         if author is None and user is None:
             # Resolve identity before touching the group so a token whose
@@ -2217,9 +2230,7 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
 
         role = get_member_role(db=db, group_id=group_id, author_id=author.id)
         author_is_super_admin = is_super_admin(author)
-        has_permission = not is_reviewer(author) and (
-            author_is_super_admin or role in _GROUP_SETTINGS_ROLES
-        )
+        has_permission = author_is_super_admin or role in _GROUP_SETTINGS_ROLES
         return GroupPermissionDTO(
             group_id=group_id,
             has_permission=has_permission,
