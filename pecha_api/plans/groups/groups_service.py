@@ -1297,6 +1297,10 @@ def list_public_groups(
                     exclude_group_ids = joined_ids
             except Exception:
                 pass
+        # Intentionally unfiltered by is_public: a private group must be
+        # discoverable or nobody can request to join it. Summaries carry only
+        # public metadata (name, avatar, description, tags, counts) — never
+        # members, emails or content, which stay gated to joiners.
         groups, total = get_groups_paginated(
             db=db,
             skip=skip,

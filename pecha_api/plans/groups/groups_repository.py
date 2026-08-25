@@ -780,8 +780,12 @@ def list_undispatched_join_request_notifications(
         db.query(AuthorGroupJoinRequest)
         .filter(
             AuthorGroupJoinRequest.notification_sqs_message_id.is_(None),
-            # Once reviewed, the decision sweep owns this row — otherwise a
-            # request missing both markers would be re-sent by both loops.
+            # Intentional: once reviewed, the decision sweep owns this row.
+            # Dropping this filter makes a request missing both dispatch
+            # markers eligible for both sweeps, double-notifying the applicant.
+            # Moderators are not stranded either — they are notified
+            # synchronously via the Studio bell at submit time, independent of
+            # SQS, so a failed push never hides a request from them.
             AuthorGroupJoinRequest.reviewed_at.is_(None),
             AuthorGroupJoinRequest.created_at < older_than,
         )
