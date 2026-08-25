@@ -780,12 +780,21 @@ def list_undispatched_join_request_notifications(
         db.query(AuthorGroupJoinRequest)
         .filter(
             AuthorGroupJoinRequest.notification_sqs_message_id.is_(None),
-            # Intentional: once reviewed, the decision sweep owns this row.
-            # Dropping this filter makes a request missing both dispatch
-            # markers eligible for both sweeps, double-notifying the applicant.
-            # Moderators are not stranded either — they are notified
-            # synchronously via the Studio bell at submit time, independent of
-            # SQS, so a failed push never hides a request from them.
+            # Intentional trade-off; do not remove. Once reviewed, the decision
+            # sweep owns this row. Without this filter a request missing both
+            # dispatch markers is picked up by both sweeps and the applicant is
+            # notified twice — the bug this filter was added to fix.
+            #
+            # The cost is a lost moderator push when a creation enqueue fails
+            # and review happens before recovery. That is acceptable: moderators
+            # already have the request in the Studio bell, written synchronously
+            # at submit time and independent of SQS, so nothing is hidden from
+            # them. Moderators are Studio (desktop) users and rarely have a
+            # registered push device, so the lost push seldom had a recipient.
+            #
+            # Covering both would need separate dispatch markers per sweep
+            # rather than inferring ownership from reviewed_at — a schema change
+            # not warranted by this edge case.
             AuthorGroupJoinRequest.reviewed_at.is_(None),
             AuthorGroupJoinRequest.created_at < older_than,
         )
