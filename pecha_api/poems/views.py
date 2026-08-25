@@ -29,7 +29,7 @@ def list_poems(
         Optional[str],
         Query(description="Filter by author name (exact match)"),
     ] = None,
-):
+) -> PoemsResponse:
     """List published poems, newest first."""
     return list_poems_service(
         skip=skip,
@@ -44,6 +44,6 @@ def list_poems(
     status_code=status.HTTP_200_OK,
     response_model=PoemDTO,
 )
-def get_poem_detail(poem_id: UUID):
+def get_poem_detail(poem_id: UUID) -> PoemDTO:
     """Get a published poem by ID with presigned image URL."""
     return get_poem_detail_service(poem_id=poem_id)

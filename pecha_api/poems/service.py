@@ -9,10 +9,11 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.poems.enums import PoemStatus
 from pecha_api.poems.repository import get_poem_by_id, get_poems_list
 from pecha_api.poems.response_models import PoemDTO, PoemsResponse
+from pecha_api.poems.models import Poem
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 
-def _build_poem_dto(poem) -> PoemDTO:
+def _build_poem_dto(poem: Poem) -> PoemDTO:
     """Build poem DTO with presigned image URL."""
     image_url = None
     if poem.image_key:

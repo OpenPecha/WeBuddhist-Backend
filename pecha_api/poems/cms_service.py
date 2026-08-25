@@ -119,9 +119,9 @@ def cms_update_poem_service(
             poem.content = request.content
         if request.author_name is not None:
             poem.author_name = request.author_name
-        if request.chapter_name is not None:
+        if "chapter_name" in request.model_fields_set:
             poem.chapter_name = request.chapter_name
-        if request.image_key is not None:
+        if "image_key" in request.model_fields_set:
             poem.image_key = request.image_key
         if request.status is not None:
             old_status = poem.status

@@ -49,7 +49,7 @@ def cms_list_poems(
         Optional[str],
         Query(description="Filter by author name (exact match)"),
     ] = None,
-):
+) -> PoemsResponse:
     """List poems for CMS (all statuses)."""
     return cms_list_poems_service(
         token=authentication_credential.credentials,
@@ -69,7 +69,7 @@ def cms_list_poems(
 def cms_get_poem_detail(
     poem_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
+) -> PoemDTO:
     """Get a specific poem (CMS)."""
     return cms_get_poem_detail_service(
         token=authentication_credential.credentials,
@@ -85,7 +85,7 @@ def cms_get_poem_detail(
 def cms_create_poem(
     request: CreatePoemRequest,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
+) -> PoemDTO:
     """Create a new poem."""
     return cms_create_poem_service(
         token=authentication_credential.credentials,
@@ -102,7 +102,7 @@ def cms_update_poem(
     poem_id: UUID,
     request: UpdatePoemRequest,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
+) -> PoemDTO:
     """Update a poem (partial update)."""
     return cms_update_poem_service(
         token=authentication_credential.credentials,
@@ -118,7 +118,7 @@ def cms_update_poem(
 def cms_delete_poem(
     poem_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
+) -> Response:
     """Soft delete a poem."""
     cms_delete_poem_service(
         token=authentication_credential.credentials,
