@@ -11,6 +11,7 @@ from pecha_api.plans.groups.groups_repository import (
     create_group_join_request,
     has_pending_join_request,
     list_join_requests_by_group,
+    list_undispatched_join_request_decisions,
     list_undispatched_join_request_notifications,
     get_group_id_for_plan,
     get_group_id_for_series,
@@ -469,3 +470,19 @@ def test_undispatched_notifications_excludes_reviewed_rows():
     filters = db.query.return_value.filter.call_args[0]
     rendered = " ".join(str(f) for f in filters)
     assert "reviewed_at IS NULL" in rendered
+
+
+def test_undispatched_decisions_excludes_publish_sweep_rows():
+    """Auto-approved rows (reviewed_by NULL) are admitted silently by design;
+    recovering them would send the notification that path skips."""
+    db = _make_session_mock()
+    query = db.query.return_value.filter.return_value
+    query.order_by.return_value.limit.return_value.all.return_value = []
+
+    list_undispatched_join_request_decisions(
+        db=db, older_than=datetime.now(timezone.utc), limit=50
+    )
+
+    filters = db.query.return_value.filter.call_args[0]
+    rendered = " ".join(str(f) for f in filters)
+    assert "reviewed_by IS NOT NULL" in rendered

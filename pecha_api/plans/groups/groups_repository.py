@@ -809,12 +809,18 @@ def list_undispatched_join_request_decisions(
     older_than: datetime,
     limit: int,
 ) -> List[AuthorGroupJoinRequest]:
-    """Reviewed requests whose decision event never reached SQS."""
+    """Moderator decisions whose decision event never reached SQS.
+
+    reviewed_by is NULL only for the publish sweep, which admits applicants
+    silently by design; recovering those would send the approval notification
+    that path deliberately skips.
+    """
     return (
         db.query(AuthorGroupJoinRequest)
         .filter(
             AuthorGroupJoinRequest.decision_sqs_message_id.is_(None),
             AuthorGroupJoinRequest.reviewed_at.isnot(None),
+            AuthorGroupJoinRequest.reviewed_by.isnot(None),
             AuthorGroupJoinRequest.reviewed_at < older_than,
         )
         .order_by(AuthorGroupJoinRequest.reviewed_at)
