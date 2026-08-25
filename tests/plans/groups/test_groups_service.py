@@ -4207,13 +4207,41 @@ def test_get_group_permission_group_not_found():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_by_id",
         return_value=None,
-    ):
+    ), _no_matching_user():
         _session_local_context(mock_session)
         with pytest.raises(HTTPException) as exc:
             get_group_permission(token="t", group_id=uuid4())
 
     assert exc.value.status_code == status.HTTP_404_NOT_FOUND
     assert exc.value.detail == GROUP_NOT_FOUND
+
+
+def test_get_group_permission_unresolvable_identity_no_group_existence_oracle():
+    """A cryptographically valid token whose subject matches neither a User
+    nor an Author (e.g. a deleted account) must always get 401 - regardless
+    of whether the requested group exists. Group lookup must never run
+    before identity resolution, or a 404-vs-401 split would let such a
+    token enumerate which group ids (including private ones) exist.
+    """
+    unresolvable_subject = uuid4()
+
+    for group_lookup_result in (None, _make_group()):
+        with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+            "pecha_api.plans.groups.groups_service.validate_token",
+            return_value={"sub": str(unresolvable_subject)},
+        ), patch(
+            "pecha_api.plans.groups.groups_service.find_author_by_id",
+            return_value=None,
+        ), patch(
+            "pecha_api.plans.groups.groups_service.get_group_by_id",
+            return_value=group_lookup_result,
+        ) as mock_get_group, _no_matching_user():
+            _session_local_context(mock_session)
+            with pytest.raises(HTTPException) as exc:
+                get_group_permission(token="t", group_id=uuid4())
+
+        assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
+        mock_get_group.assert_not_called()
 
 
 def test_get_group_permission_group_not_found_no_author():

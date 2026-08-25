@@ -2153,10 +2153,6 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
         subject_uuid = None
 
     with SessionLocal() as db:
-        group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-
         try:
             user = validate_and_extract_user_details(token=token)
         except HTTPException:
@@ -2166,12 +2162,20 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
         if user is None and subject_uuid is not None:
             author = find_author_by_id(db=db, author_id=subject_uuid)
 
+        if author is None and user is None:
+            # Resolve identity before touching the group so a token whose
+            # account no longer exists (or never did) always gets 401,
+            # instead of leaking whether group_id exists via 404-vs-401.
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid or expired token",
+            )
+
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+
         if author is None:
-            if user is None:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid or expired token",
-                )
             return GroupPermissionDTO(
                 group_id=group_id,
                 has_permission=False,
