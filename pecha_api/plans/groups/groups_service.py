@@ -1826,7 +1826,13 @@ def _mark_join_request_reviewed(
 
 
 def _approve_pending_join_requests_on_publish(db, *, group_id: UUID) -> None:
-    """A public group is instant-join, so pending requests are admitted on the flip."""
+    """A public group is instant-join, so pending requests are admitted on the flip.
+
+    Intentionally dispatches no decision notification: this is a system-level
+    sweep triggered by a visibility change, not a per-request moderation
+    decision, so applicants are admitted silently. reviewer_id is None for the
+    same reason. Only approve/reject by a moderator notifies the applicant.
+    """
     pending = list_pending_join_requests_by_group(
         db=db, group_id=group_id, for_update=True
     )
