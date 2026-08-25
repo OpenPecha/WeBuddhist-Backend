@@ -54,6 +54,9 @@ class GroupPost(Base):
     updated_by = Column(String(255), nullable=True)
     deleted_by = Column(String(255), nullable=True)
 
+    notification_sqs_message_id = Column(String(128), nullable=True)
+    notification_dispatched_at = Column(DateTime(timezone=True), nullable=True)
+
     media = relationship(
         "GroupPostMedia",
         back_populates="post",
@@ -75,6 +78,13 @@ class GroupPost(Base):
             text("published_at DESC"),
             text("id DESC"),
             postgresql_where=text("deleted_at IS NULL AND status = 'PUBLISHED'"),
+        ),
+        Index(
+            "idx_group_posts_undispatched_notifications",
+            "created_at",
+            postgresql_where=text(
+                "deleted_at IS NULL AND notification_sqs_message_id IS NULL AND status = 'PUBLISHED'"
+            ),
         ),
     )
 
