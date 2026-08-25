@@ -38,6 +38,7 @@ mailtrap = "^2.3.0"
 scalar-fastapi = "^1.8.2"
 apscheduler = "^3.11.3"
 better-profanity = "^0.7.0"
+sentry-sdk = "^2.68.1"
 [tool.poetry.scripts]
 start = "uvicorn:main"
 
