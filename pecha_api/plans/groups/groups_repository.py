@@ -678,6 +678,36 @@ def list_join_requests_by_group(
     return rows, total
 
 
+def get_join_request_status_map(
+    db: Session,
+    user_id: UUID,
+    group_ids: Sequence[UUID],
+) -> Dict[UUID, str]:
+    """The user's latest join request status per group (avoids N queries)."""
+    if not group_ids:
+        return {}
+    rows = (
+        db.query(
+            AuthorGroupJoinRequest.group_id,
+            AuthorGroupJoinRequest.status,
+            AuthorGroupJoinRequest.created_at,
+        )
+        .filter(
+            AuthorGroupJoinRequest.user_id == user_id,
+            AuthorGroupJoinRequest.group_id.in_(list(group_ids)),
+        )
+        .order_by(AuthorGroupJoinRequest.created_at.desc())
+        .all()
+    )
+    latest: Dict[UUID, str] = {}
+    for group_id, status_value, _ in rows:
+        if group_id not in latest:
+            latest[group_id] = (
+                status_value.value if hasattr(status_value, "value") else str(status_value)
+            )
+    return latest
+
+
 def has_pending_join_request(db: Session, group_id: UUID, user_id: UUID) -> bool:
     return (
         db.query(AuthorGroupJoinRequest.id)

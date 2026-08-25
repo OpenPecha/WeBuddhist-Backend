@@ -4585,3 +4585,86 @@ def test_submit_join_request_rejects_group_published_under_us():
     assert exc.value.status_code == status.HTTP_400_BAD_REQUEST
     assert "public" in exc.value.detail
     mock_create.assert_not_called()
+
+
+def test_group_detail_exposes_my_pending_join_request():
+    """The app renders the button from this, so a pending request must show."""
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group", return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_join_request_status_map",
+        return_value={group.id: "PENDING"},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map", return_value={},
+    ):
+        _session_local_context(mock_session)
+        result = get_author_group_detail(group_id=group.id, token="t")
+
+    assert result.my_join_request_status == AuthorGroupJoinRequestStatus.PENDING
+
+
+def test_group_detail_status_is_none_for_anonymous():
+    group = _make_group(is_public=True)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_join_request_status_map",
+    ) as mock_map, patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_series_by_group_id", return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_plans_by_group_id", return_value=[],
+    ):
+        _session_local_context(mock_session)
+        result = get_author_group_detail(group_id=group.id)
+
+    assert result.my_join_request_status is None
+    mock_map.assert_not_called()
+
+
+def test_group_listing_exposes_join_request_status_per_group():
+    user = MagicMock()
+    user.id = uuid4()
+    requested = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+    untouched = _make_group(is_public=False, group_type=AuthorGroupType.COMMUNITY)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_ids_by_user", return_value=[],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_paginated",
+        return_value=([requested, untouched], 2),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.filter_items_for_timezone",
+        side_effect=lambda items, **kw: items,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_join_request_status_map",
+        return_value={requested.id: "PENDING"},
+    ):
+        _session_local_context(mock_session)
+        result = list_public_groups(skip=0, limit=20, token="t")
+
+    by_id = {g.id: g.my_join_request_status for g in result.groups}
+    assert by_id[requested.id] == AuthorGroupJoinRequestStatus.PENDING
+    assert by_id[untouched.id] is None

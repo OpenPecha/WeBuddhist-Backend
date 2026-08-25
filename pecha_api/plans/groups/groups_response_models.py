@@ -116,10 +116,13 @@ class AuthorGroupDetailDTO(BaseModel):
 
 class PublicAuthorGroupSummaryDTO(AuthorGroupSummaryDTO):
     tags: List[str] = []
+    # None when the caller is anonymous or has never requested to join.
+    my_join_request_status: Optional[AuthorGroupJoinRequestStatus] = None
 
 
 class PublicAuthorGroupDetailDTO(AuthorGroupDetailDTO):
     tags: List[str] = []
+    my_join_request_status: Optional[AuthorGroupJoinRequestStatus] = None
 
 
 class AuthorGroupListResponse(BaseModel):

@@ -69,6 +69,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_member_roles_map,
     get_invite_by_id,
     get_join_request_by_id,
+    get_join_request_status_map,
     get_owner_count,
     get_plans_by_group_id,
     get_plans_by_ids,
@@ -588,6 +589,7 @@ def _group_to_summary(
     public: bool = False,
     language: Optional[str] = None,
     my_role: Optional[AuthorGroupMemberRole | str] = None,
+    my_join_request_status: Optional[str] = None,
 ) -> AuthorGroupSummaryDTO:
     dto_class = PublicAuthorGroupSummaryDTO if public else AuthorGroupSummaryDTO
     tags = _group_tag_names(group.tags) if public else tags_to_summary_dtos(group.tags)
@@ -611,6 +613,11 @@ def _group_to_summary(
         joiner_count=joiner_count,
         member_count=len(group.members),
         my_role=role,
+        **(
+            {"my_join_request_status": my_join_request_status}
+            if public and my_join_request_status
+            else {}
+        ),
     )
 
 
@@ -675,6 +682,7 @@ def _group_to_detail(
     language: Optional[str] = None,
     user_id: Optional[UUID] = None,
     teaser: bool = False,
+    my_join_request_status: Optional[str] = None,
 ) -> AuthorGroupDetailDTO:
     if teaser:
         db = None
@@ -713,6 +721,11 @@ def _group_to_detail(
         plans=plans_dtos,
         follower_count=follower_count,
         joiner_count=joiner_count,
+        **(
+            {"my_join_request_status": my_join_request_status}
+            if public and my_join_request_status
+            else {}
+        ),
     )
 
 
@@ -861,6 +874,11 @@ def get_author_group_detail(
         )
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        join_request_status = (
+            get_join_request_status_map(db=db, user_id=user_id, group_ids=[group_id]).get(group_id)
+            if user_id is not None
+            else None
+        )
         return _group_to_detail(
             group=group,
             follower_count=follower_count,
@@ -869,6 +887,7 @@ def get_author_group_detail(
             language=language,
             user_id=user_id,
             teaser=teaser,
+            my_join_request_status=join_request_status,
         )
 
 
@@ -1268,9 +1287,11 @@ def list_public_groups(
 ) -> PublicAuthorGroupListResponse:
     with SessionLocal() as db:
         exclude_group_ids = None
+        user_id = None
         if token:
             try:
                 user = validate_and_extract_user_details(token=token)
+                user_id = user.id
                 joined_ids = get_joined_group_ids_by_user(db=db, user_id=user.id)
                 if joined_ids:
                     exclude_group_ids = joined_ids
@@ -1294,6 +1315,11 @@ def list_public_groups(
         group_ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=group_ids)
         joiner_count_map = get_joiners_count_map(db=db, group_ids=group_ids)
+        join_request_status_map = (
+            get_join_request_status_map(db=db, user_id=user_id, group_ids=group_ids)
+            if user_id is not None
+            else {}
+        )
         return PublicAuthorGroupListResponse(
             groups=[
                 _group_to_summary(
@@ -1302,6 +1328,7 @@ def list_public_groups(
                     joiner_count=joiner_count_map.get(item.id, 0),
                     public=True,
                     language=language,
+                    my_join_request_status=join_request_status_map.get(item.id),
                 )
                 for item in groups
             ],
