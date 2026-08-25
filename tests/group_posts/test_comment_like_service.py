@@ -43,7 +43,7 @@ class TestLikeCommentService:
 
     @patch('pecha_api.group_posts.comment_like_service.count_comment_likes')
     @patch('pecha_api.group_posts.comment_like_service.create_like')
-    @patch('pecha_api.group_posts.comment_like_service.validate_group_is_public')
+    @patch('pecha_api.group_posts.comment_like_service.validate_group_content_access')
     @patch('pecha_api.group_posts.comment_like_service._get_and_validate_comment')
     @patch('pecha_api.group_posts.comment_like_service.SessionLocal')
     def test_like_comment_creates_new_like(
@@ -80,11 +80,11 @@ class TestLikeCommentService:
         assert result.liked is True
         assert result.like_count == 1
         assert result.is_new is True
-        mock_validate_group.assert_called_once_with(mock_db, group_id)
+        mock_validate_group.assert_called_once_with(db=mock_db, group_id=group_id, user_id=user_id)
 
     @patch('pecha_api.group_posts.comment_like_service.count_comment_likes')
     @patch('pecha_api.group_posts.comment_like_service.create_like')
-    @patch('pecha_api.group_posts.comment_like_service.validate_group_is_public')
+    @patch('pecha_api.group_posts.comment_like_service.validate_group_content_access')
     @patch('pecha_api.group_posts.comment_like_service._get_and_validate_comment')
     @patch('pecha_api.group_posts.comment_like_service.SessionLocal')
     def test_like_comment_already_liked(
@@ -145,7 +145,7 @@ class TestLikeCommentService:
 class TestUnlikeCommentService:
 
     @patch('pecha_api.group_posts.comment_like_service.delete_like')
-    @patch('pecha_api.group_posts.comment_like_service.validate_group_is_public')
+    @patch('pecha_api.group_posts.comment_like_service.validate_group_content_access')
     @patch('pecha_api.group_posts.comment_like_service._get_and_validate_comment')
     @patch('pecha_api.group_posts.comment_like_service.SessionLocal')
     def test_unlike_comment_success(
@@ -178,7 +178,7 @@ class TestUnlikeCommentService:
 class TestListCommentLikersService:
 
     @patch('pecha_api.group_posts.comment_like_service.get_comment_likers')
-    @patch('pecha_api.group_posts.comment_like_service.validate_group_is_public')
+    @patch('pecha_api.group_posts.comment_like_service.validate_group_content_access')
     @patch('pecha_api.group_posts.comment_like_service._get_and_validate_comment')
     @patch('pecha_api.group_posts.comment_like_service.SessionLocal')
     def test_list_comment_likers_success(

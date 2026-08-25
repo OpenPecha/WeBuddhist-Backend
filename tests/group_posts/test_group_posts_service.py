@@ -190,7 +190,7 @@ class TestListGroupPostsService:
         assert kwargs["status"] == GroupPostStatus.PUBLISHED
         assert kwargs["group_id"] == group_id
 
-    @patch('pecha_api.group_posts.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.service.SessionLocal')
     def test_list_group_not_found(self, mock_session, mock_get_group):
         mock_session.return_value.__enter__.return_value = MagicMock()
@@ -201,9 +201,9 @@ class TestListGroupPostsService:
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
-    @patch('pecha_api.group_posts.service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.service.SessionLocal')
-    def test_list_private_group_returns_404(self, mock_session, mock_get_group):
+    def test_list_private_group_returns_404_for_non_joiner(self, mock_session, mock_get_group):
         mock_session.return_value.__enter__.return_value = MagicMock()
         mock_get_group.return_value = MockGroup(is_public=False)
 
@@ -211,6 +211,23 @@ class TestListGroupPostsService:
             list_group_posts_service(group_id=uuid4())
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.group_posts.service.get_group_posts')
+    @patch('pecha_api.group_posts.service_utils.is_user_joined_group')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
+    @patch('pecha_api.group_posts.service.SessionLocal')
+    def test_list_private_group_allows_joiner(
+        self, mock_session, mock_get_group, mock_joined, mock_get_posts
+    ):
+        """An approved joiner sees a private group's posts."""
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_get_group.return_value = MockGroup(is_public=False)
+        mock_joined.return_value = True
+        mock_get_posts.return_value = ([], 0)
+
+        result = list_group_posts_service(group_id=uuid4(), user_id=uuid4())
+
+        assert result.total == 0
 
     @patch('pecha_api.group_posts.service.get_posts_for_group_ids')
     @patch('pecha_api.group_posts.service.resolve_public_group_scope')
@@ -306,7 +323,7 @@ class TestGetGroupPostDetailService:
     @patch('pecha_api.group_posts.service._generate_presigned_url')
     @patch('pecha_api.group_posts.service.get_groups_by_ids', return_value=[])
     @patch('pecha_api.group_posts.service.get_post_by_id_only')
-    @patch('pecha_api.group_posts.service._validate_group_is_public')
+    @patch('pecha_api.group_posts.service._validate_group_access')
     @patch('pecha_api.group_posts.service.SessionLocal')
     def test_detail_success(
         self,

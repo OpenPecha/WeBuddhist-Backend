@@ -20,7 +20,12 @@ from sqlalchemy.orm import relationship
 
 from pecha_api.db.database import Base
 
-from .groups_enums import AuthorGroupMemberRoleEnum, AuthorGroupInviteStatusEnum, AuthorGroupTypeEnum
+from .groups_enums import (
+    AuthorGroupMemberRoleEnum,
+    AuthorGroupInviteStatusEnum,
+    AuthorGroupJoinRequestStatusEnum,
+    AuthorGroupTypeEnum,
+)
 
 FK_AUTHOR_GROUPS_ID = "author_groups.id"
 CASCADE_DELETE_ORPHAN = "all, delete-orphan"
@@ -288,4 +293,53 @@ class AuthorGroupInvite(Base):
         Index("idx_author_group_invites_target_email", "target_email"),
         Index("idx_author_group_invites_group_status", "group_id", "status"),
         Index("idx_author_group_invites_target_email_status", "target_email", "status"),
+    )
+
+
+class AuthorGroupJoinRequest(Base):
+    """An app user's request to join a private COMMUNITY group, reviewed in Studio."""
+
+    __tablename__ = "author_group_join_requests"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    group_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey(FK_AUTHOR_GROUPS_ID, ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    message = Column(Text, nullable=True)
+    status = Column(AuthorGroupJoinRequestStatusEnum, nullable=False, default="PENDING")
+    reviewed_by = Column(
+        UUID(as_uuid=True),
+        ForeignKey("authors.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+    notification_sqs_message_id = Column(String(128), nullable=True)
+    notification_dispatched_at = Column(DateTime(timezone=True), nullable=True)
+    decision_sqs_message_id = Column(String(128), nullable=True)
+    decision_dispatched_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc), nullable=False
+    )
+    updated_at = Column(DateTime(timezone=True), nullable=True)
+
+    group = relationship("AuthorGroup")
+    user = relationship("Users")
+
+    __table_args__ = (
+        Index("idx_author_group_join_requests_group_status", "group_id", "status"),
+        Index("idx_author_group_join_requests_user_status", "user_id", "status"),
+        Index(
+            "uq_author_group_join_requests_pending_group_user",
+            "group_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("status = 'PENDING'"),
+        ),
     )

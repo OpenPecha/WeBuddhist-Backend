@@ -6,16 +6,23 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
 from pecha_api.plans.language_constants import language_query_description
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupType
+from pecha_api.plans.groups.groups_enums import (
+    AuthorGroupInviteStatus,
+    AuthorGroupJoinRequestStatus,
+    AuthorGroupType,
+)
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
     AuthorGroupListResponse,
     CreateAuthorGroupRequest,
     CreateGroupInviteRequest,
+    CreateGroupJoinRequest,
     GroupAccumulationsResponse,
     GroupInviteCreatedResponse,
     GroupInviteDTO,
     GroupInviteListResponse,
+    GroupJoinRequestDTO,
+    GroupJoinRequestListResponse,
     GroupMemberAccumulationsResponse,
     GroupPermissionDTO,
     GroupPracticesFeedResponse,
@@ -36,6 +43,7 @@ from pecha_api.plans.groups.groups_response_models import (
 )
 from pecha_api.plans.groups.groups_service import (
     accept_group_invite_by_id,
+    approve_group_join_request,
     create_author_group,
     create_group_member_invite,
     delete_author_group,
@@ -57,9 +65,12 @@ from pecha_api.plans.groups.groups_service import (
     list_joined_groups,
     list_group_members,
     list_group_invites,
+    list_group_join_requests,
     list_my_pending_group_invites,
     list_public_groups,
     reject_group_invite_by_id,
+    reject_group_join_request,
+    submit_group_join_request,
     replace_group_social_links_by_id,
     replace_group_tags,
     revoke_group_invite,
@@ -288,6 +299,64 @@ def post_reject_group_invite_by_id(
     )
 
 
+@cms_groups_router.get(
+    "/{group_id}/join-requests",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupJoinRequestListResponse,
+)
+def get_cms_group_join_requests(
+    group_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    status_filter: Annotated[
+        Optional[AuthorGroupJoinRequestStatus],
+        Query(alias="status", description="Filter by request status; defaults to PENDING"),
+    ] = AuthorGroupJoinRequestStatus.PENDING,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+):
+    return list_group_join_requests(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        skip=skip,
+        limit=limit,
+        status_filter=status_filter,
+    )
+
+
+@cms_groups_router.post(
+    "/{group_id}/join-requests/{request_id}/approve",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupJoinRequestDTO,
+)
+def post_cms_approve_group_join_request(
+    group_id: UUID,
+    request_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return approve_group_join_request(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        request_id=request_id,
+    )
+
+
+@cms_groups_router.post(
+    "/{group_id}/join-requests/{request_id}/reject",
+    status_code=status.HTTP_200_OK,
+    response_model=GroupJoinRequestDTO,
+)
+def post_cms_reject_group_join_request(
+    group_id: UUID,
+    request_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    return reject_group_join_request(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        request_id=request_id,
+    )
+
+
 @cms_groups_router.post("/{group_id}/members/invites/{invite_id}/revoke", status_code=status.HTTP_204_NO_CONTENT)
 def post_revoke_group_invite(
     group_id: UUID,
@@ -406,7 +475,6 @@ def get_public_group(
     response.headers["Cache-Control"] = "no-store"
     return get_author_group_detail(
         group_id=group_id,
-        require_public=True,
         language=language,
         token=authentication_credential.credentials if authentication_credential else None,
     )
@@ -451,6 +519,11 @@ def get_public_group_members(
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ):
+    """List a group's members, for both public and private groups.
+
+    Intentionally unauthenticated: the frontend gates who sees the members
+    list. See list_group_members for the rationale and its trade-off.
+    """
     return list_group_members(group_id=group_id, skip=skip, limit=limit)
 
 
@@ -519,6 +592,24 @@ def delete_join_group(
 ):
     leave_group(token=authentication_credential.credentials, group_id=group_id)
     return None
+
+
+@public_groups_router.post(
+    "/{group_id}/join-requests",
+    status_code=status.HTTP_201_CREATED,
+    response_model=GroupJoinRequestDTO,
+)
+def post_group_join_request(
+    group_id: UUID,
+    request: CreateGroupJoinRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+):
+    """Ask to join a private COMMUNITY group; a Studio moderator reviews it."""
+    return submit_group_join_request(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        request=request,
+    )
 
 
 @user_groups_router.get(

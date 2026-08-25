@@ -83,19 +83,20 @@ def _resolve_feed_group_ids(
     should_include_unfollowed: bool,
     db: Session,
 ) -> Tuple[List[UUID], Set[UUID]]:
-    """Return (group_ids_to_query, joined_id_set)."""
-    public_joined = [
-        group.id
-        for group in get_groups_by_ids(db=db, group_ids=joined_ids)
-        if group.is_public
+    """Return (group_ids_to_query, joined_id_set).
+
+    Joined groups count regardless of visibility; unjoined groups only when
+    they are public."""
+    resolved_joined = [
+        group.id for group in get_groups_by_ids(db=db, group_ids=joined_ids)
     ]
-    joined_set = set(public_joined)
+    joined_set = set(resolved_joined)
 
     if not should_include_unfollowed:
-        return public_joined, joined_set
+        return resolved_joined, joined_set
 
     public_ids = get_public_group_ids(db=db)
-    return public_ids, joined_set
+    return list({*public_ids, *resolved_joined}), joined_set
 
 
 def _build_group_card_map(
