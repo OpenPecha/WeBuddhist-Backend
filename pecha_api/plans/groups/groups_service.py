@@ -2126,13 +2126,23 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     """Check CMS management permission for a group.
 
     Resolution strategy (fixes cross-domain subject confusion):
-    1. Always resolve the token against the User domain first. User and
-       Author accounts are independent tables whose ids can coincide, and
-       their tokens carry no distinguishing claim, so a real User match
-       always wins - it is never re-evaluated as an unrelated Author.
-    2. Only when no User matches the subject do we look up an Author by
-       the subject UUID.
-    3. has_permission mirrors the OWNER/ADMIN "manage group" role set used
+    1. User and Author accounts are independent tables whose ids can
+       coincide, and their tokens carry no distinguishing claim. So we
+       always look up BOTH domains by the subject UUID rather than
+       stopping at the first match - checking only one domain is exactly
+       what lets a same-id row in the other domain get silently ignored,
+       whichever way the priority is picked.
+    2. If the id matches only one domain, that match is unambiguous and is
+       used directly.
+    3. If the id matches both a User and an Author (a genuine collision),
+       the token's own "email" claim - populated from the real account at
+       mint time - tells us which domain actually issued this token: it is
+       treated as an Author only when the email matches the Author's own
+       email and not the colliding User's. Otherwise (no email claim, or
+       an inconclusive match) we fail closed and treat it as the User, so
+       a colliding id can never be evaluated with an unrelated Author's
+       permissions.
+    4. has_permission mirrors the OWNER/ADMIN "manage group" role set used
        elsewhere in this module (see _GROUP_SETTINGS_ROLES), with the same
        super-admin bypass those checks use. It does not represent the
        stricter, non-bypassable OWNER-only check that guards ownership
@@ -2152,6 +2162,10 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     except (TypeError, ValueError):
         subject_uuid = None
 
+    token_email = payload.get("email")
+    if not isinstance(token_email, str) or not token_email:
+        token_email = None
+
     with SessionLocal() as db:
         try:
             user = validate_and_extract_user_details(token=token)
@@ -2159,8 +2173,18 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
             user = None
 
         author = None
-        if user is None and subject_uuid is not None:
+        if subject_uuid is not None:
             author = find_author_by_id(db=db, author_id=subject_uuid)
+
+        if user is not None and author is not None:
+            # Same id resolved in both domains: only trust the Author match
+            # when the token's own email is a positive, exclusive match for
+            # that Author - never as a lookup, just as a tie-break between
+            # the two records this id already resolved to.
+            if token_email is not None and token_email == getattr(author, "email", None) and token_email != getattr(user, "email", None):
+                user = None
+            else:
+                author = None
 
         if author is None and user is None:
             # Resolve identity before touching the group so a token whose

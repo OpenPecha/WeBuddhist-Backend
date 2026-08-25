@@ -4320,6 +4320,45 @@ def test_get_group_permission_user_uuid_matches_unrelated_author():
     assert result.author_id is None
 
 
+def test_get_group_permission_author_uuid_collides_with_user_resolves_as_author():
+    """A genuine CMS Author whose id also happens to match a Users row must
+    keep their Author role and permission - the token's own email claim
+    (the Author's real email, set at mint time) positively identifies this
+    as an Author token, not a User token, even though the User lookup also
+    succeeds for the same id.
+    """
+    colliding_user = _make_user(email="unrelated-user@example.org")
+    author = _make_author(
+        author_id=colliding_user.id, email="author@example.org", is_admin=False
+    )
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(author.id), "email": "author@example.org"},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=colliding_user,  # same id also resolves as a User
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=AuthorGroupMemberRole.OWNER,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is True
+    assert result.role == AuthorGroupMemberRole.OWNER
+    assert result.is_super_admin is False
+    assert result.author_id == author.id
+
+
 def test_get_group_permission_no_email_fallback():
     """Token with email but no matching Author UUID → has_permission: false
     
