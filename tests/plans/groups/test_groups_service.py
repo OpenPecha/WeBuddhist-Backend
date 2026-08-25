@@ -4471,6 +4471,78 @@ def test_get_group_permission_phone_only_user_uuid_collides_with_author():
     assert result.author_id is None
 
 
+def test_get_group_permission_phone_only_author_uuid_collides_with_user_resolves_as_author():
+    """A genuine phone-only CMS Author (no email) whose id also happens to
+    match a Users row must keep their Author role and permission - the
+    token's own phone_number claim (the Author's real phone, set at mint
+    time) positively identifies this as an Author token, exactly like the
+    email channel does for Authors who have an email.
+    """
+    colliding_user = _make_user(email="unrelated-user@example.org", phone_number="+15559998888")
+    author = _make_author(author_id=colliding_user.id, email=None, is_admin=False)
+    author.phone_number = "+15551234567"
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(author.id), "phone_number": "+15551234567"},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=colliding_user,  # same id also resolves as a User
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_role",
+        return_value=AuthorGroupMemberRole.ADMIN,
+    ):
+        _session_local_context(mock_session)
+        result = get_group_permission(token="t", group_id=group.id)
+
+    assert result.group_id == group.id
+    assert result.has_permission is True
+    assert result.role == AuthorGroupMemberRole.ADMIN
+    assert result.is_super_admin is False
+    assert result.author_id == author.id
+
+
+def test_get_group_permission_deleted_phone_only_user_token_does_not_inherit_author():
+    """A token minted for a phone-only User account that has since been
+    deleted must not inherit an unrelated Author's permissions just
+    because the id happens to match, even though there's no email claim
+    to check. The token's own phone_number claim (the deleted user's real
+    phone) doesn't match the colliding Author's phone - that mismatch
+    rejects the Author match even though the User row is gone.
+    """
+    deleted_user_id = uuid4()
+    colliding_author = _make_author(author_id=deleted_user_id, email=None, is_admin=True)
+    colliding_author.phone_number = "+15551234567"
+    group = _make_group()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_token",
+        return_value={"sub": str(deleted_user_id), "phone_number": "+15559998888"},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.find_author_by_id",
+        return_value=colliding_author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="deleted"),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id",
+        return_value=group,
+    ) as mock_get_group:
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_group_permission(token="t", group_id=group.id)
+
+    assert exc.value.status_code == status.HTTP_401_UNAUTHORIZED
+    mock_get_group.assert_not_called()
+
+
 def test_get_group_permission_no_email_fallback():
     """Token with email but no matching Author UUID → has_permission: false
     

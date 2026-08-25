@@ -2128,22 +2128,26 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     Resolution strategy (fixes cross-domain subject confusion):
     1. User and Author accounts are independent tables whose ids can
        coincide, and their tokens carry no distinguishing claim, so an id
-       match against Author records is never trusted on id alone once a
-       live User also resolves to that same id:
-         - If the token's own "email" claim - populated from the real
-           account at mint time - matches the Author's own email, that is
-           direct, positive proof of the Author's identity and is trusted
-           even if a User row also happens to share the id (a genuine
-           Author is never denied just because their id collides).
-         - If there is no competing live User for this id at all, the id
-           match is trusted as-is even without an email claim (this is
-           what keeps phone-only Authors, and ids that simply belong to no
-           User - live or deleted - working with nothing to check).
-         - Otherwise - a live User shares this id and the token has no
-           email evidence that positively identifies the Author (e.g. a
-           phone-only User's token, which carries no email claim at all,
-           or an email that doesn't match) - the Author match is rejected
-           and resolution falls back to that User. A colliding id can
+       match against Author records is corroborated against the token's
+       own contact claims - "email" and "phone_number", each populated
+       from the real account at mint time - rather than trusted on id
+       alone once a live User also resolves to that same id:
+         - A claim that matches the Author's own email or phone is direct,
+           positive proof of the Author's identity and is trusted even if
+           a User row also happens to share the id (a genuine Author,
+           phone-only or not, is never denied just because their id
+           collides with some User's).
+         - A claim that contradicts the Author's own email or phone (the
+           token belongs to a different account - a colliding User's, live
+           or since deleted) rejects the Author match outright, regardless
+           of whether that User can still be looked up.
+         - If neither claim gives any evidence at all and there is no
+           competing live User for this id, the id match is trusted as-is
+           (this is what keeps ids that simply belong to no User - live or
+           deleted - working with nothing to check).
+         - Otherwise - a live User shares this id and neither claim gives
+           any evidence either way - the Author match is rejected and
+           resolution falls back to that User. A colliding id can
            therefore never be evaluated with an unrelated Author's group
            or super-admin permissions, in either direction.
     2. Only when the subject does not resolve to a confirmed Author do we
@@ -2170,9 +2174,19 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
     except (TypeError, ValueError):
         subject_uuid = None
 
-    token_email = payload.get("email")
-    if not isinstance(token_email, str) or not token_email:
-        token_email = None
+    def _claim(name: str):
+        value = payload.get(name)
+        return value if isinstance(value, str) and value else None
+
+    token_email = _claim("email")
+    token_phone = _claim("phone_number")
+
+    def _claim_confirms(token_value, record_value):
+        """True/False when the claim is a definitive match/mismatch against
+        the record, or None when there is no evidence either way."""
+        if token_value is None or not record_value:
+            return None
+        return token_value == record_value
 
     with SessionLocal() as db:
         candidate_author = None
@@ -2187,10 +2201,12 @@ def get_group_permission(token: str, group_id: UUID) -> GroupPermissionDTO:
 
         author = None
         if candidate_author is not None:
-            candidate_email = getattr(candidate_author, "email", None)
-            if token_email is not None and candidate_email is not None:
-                if token_email == candidate_email:
-                    author = candidate_author
+            email_match = _claim_confirms(token_email, getattr(candidate_author, "email", None))
+            phone_match = _claim_confirms(token_phone, getattr(candidate_author, "phone_number", None))
+            if email_match or phone_match:
+                author = candidate_author
+            elif email_match is False or phone_match is False:
+                author = None
             elif user is None:
                 author = candidate_author
 
