@@ -50,25 +50,40 @@ def _reminder(fire_at=None, canceled_at=None):
 
 class TestReminderSuperseded:
     @patch(f"{MODULE}.get_event_reminder")
-    def test_false_for_a_due_uncanceled_reminder(self, mock_get):
-        mock_get.return_value = _reminder()
-        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO) is False
+    def test_false_when_fire_at_matches_and_not_canceled(self, mock_get):
+        fire_at = datetime.now(timezone.utc) - timedelta(seconds=5)
+        mock_get.return_value = _reminder(fire_at=fire_at)
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO, fire_at) is False
 
     @patch(f"{MODULE}.get_event_reminder")
     def test_true_when_canceled(self, mock_get):
-        mock_get.return_value = _reminder(canceled_at=datetime.now(timezone.utc))
-        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO) is True
+        fire_at = datetime.now(timezone.utc)
+        mock_get.return_value = _reminder(fire_at=fire_at, canceled_at=datetime.now(timezone.utc))
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO, fire_at) is True
 
     @patch(f"{MODULE}.get_event_reminder")
-    def test_true_when_fire_at_moved_into_the_future(self, mock_get):
-        """Only a reschedule's upsert can push fire_at past now on a row
-        that was legitimately due at dispatch time."""
+    def test_true_when_fire_at_moved_since_this_message_was_queued(self, mock_get):
+        """A reschedule's upsert overwrites fire_at on the same row - the
+        row itself can look perfectly valid (uncanceled, due) while no
+        longer matching what this specific delivery attempt was queued
+        for."""
+        queued_for = datetime.now(timezone.utc) - timedelta(days=2)
         mock_get.return_value = _reminder(fire_at=datetime.now(timezone.utc) + timedelta(days=3))
-        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO) is True
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO, queued_for) is True
 
     @patch(f"{MODULE}.get_event_reminder", return_value=None)
     def test_true_when_row_no_longer_exists(self, _mock_get):
-        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO) is True
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO, datetime.now(timezone.utc)) is True
+
+    @patch(f"{MODULE}.get_event_reminder")
+    def test_true_when_fire_at_is_missing(self, mock_get):
+        """Regression guard: a caller with no schedule identity at all (only
+        possible for a message queued before fire_at existed) must not fall
+        back to a weaker "not yet due" heuristic and accept whatever
+        reminder happens to be due now - that reopens exactly the race this
+        check exists to close."""
+        mock_get.return_value = _reminder(fire_at=datetime.now(timezone.utc) - timedelta(seconds=5))
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO, None) is True
 
     @patch(f"{MODULE}.get_event_reminder")
     def test_false_when_fire_at_matches_the_claimed_value(self, mock_get):

@@ -116,8 +116,16 @@ def list_undispatched_reminders_missing_sqs_id(
 
 
 def get_event_reminder(db: Session, event_id: UUID, reminder_type: str) -> Optional[EventReminder]:
+    """populate_existing() forces the row's current column values onto the
+    returned object even if it's already in this session's identity map -
+    without it, a second call in the same session (e.g. a freshness recheck
+    against a row already loaded once) would silently hand back the first
+    call's cached in-memory object instead of observing a concurrent
+    update, since SQLAlchemy does not overwrite already-loaded attributes
+    on a plain query by default."""
     return (
         db.query(EventReminder)
+        .populate_existing()
         .filter(
             EventReminder.event_id == event_id,
             EventReminder.reminder_type == reminder_type,

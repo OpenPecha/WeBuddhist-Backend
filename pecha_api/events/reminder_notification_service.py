@@ -54,7 +54,7 @@ def _reminder_superseded(
     db: Session,
     event_id: UUID,
     reminder_type: str,
-    fire_at: Optional[datetime] = None,
+    fire_at: Optional[datetime],
 ) -> bool:
     """Final check right before targets are handed back for actual push
     delivery - the closest point in the pipeline to real publication, and
@@ -64,28 +64,30 @@ def _reminder_superseded(
 
     A canceled row means delivery must be suppressed outright regardless.
 
-    When the caller knows the exact fire_at its delivery attempt was queued
-    for (threaded through the SQS message body), any mismatch against the
-    row's current fire_at means this row was claimed again for a different
-    schedule since - e.g. a message that outlived a cancel and was
-    superseded by a fresh dispatch of the same (event_id, reminder_type)
-    row, which a bare "not canceled" check can't tell apart from the
-    delivery this message was actually queued for. The comparison is exact:
-    fire_at round-trips losslessly (same microsecond precision and offset)
-    through isoformat -> SQS JSON -> query param -> datetime parsing, so a
-    tolerance window would only risk treating two distinct schedules that
-    happen to land close together as the same occurrence.
+    fire_at is the exact schedule this delivery attempt was queued for
+    (threaded through the SQS message body end to end). Any mismatch
+    against the row's current fire_at - including a missing fire_at, which
+    can never equal a real timestamp - means this row was claimed again
+    for a different schedule since: e.g. a message that outlived a cancel
+    and was superseded by a fresh dispatch of the same (event_id,
+    reminder_type) row, which a bare "not canceled" check can't tell apart
+    from the delivery this message was actually queued for. A caller with
+    no fire_at at all (only possible for a message queued before this
+    field existed) is failed closed rather than falling back to a weaker
+    "not yet due" heuristic, since that heuristic can't detect the exact
+    race this check exists for - every current dispatch path always
+    supplies fire_at, so this only affects messages already stale before
+    this check could apply to them anyway.
 
-    Without a fire_at (an older caller mid-rollout), fall back to the
-    weaker heuristic: a legitimately due row always has fire_at <= now, so
-    one now in the future can only mean a reschedule's upsert overwrote it
-    after being claimed."""
+    The comparison is exact: fire_at round-trips losslessly (same
+    microsecond precision and offset) through isoformat -> SQS JSON ->
+    query param -> datetime parsing, so a tolerance window would only risk
+    treating two distinct schedules that happen to land close together as
+    the same occurrence."""
     reminder = get_event_reminder(db, event_id, reminder_type)
     if reminder is None or reminder.canceled_at is not None:
         return True
-    if fire_at is not None:
-        return reminder.fire_at != fire_at
-    return reminder.fire_at > datetime.now(timezone.utc)
+    return reminder.fire_at != fire_at
 
 
 def get_event_reminder_targets(

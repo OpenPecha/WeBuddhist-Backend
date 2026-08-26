@@ -47,7 +47,11 @@ def event_reminder_targets(
             "The exact fire_at this dispatch was queued for. Used to detect "
             "a message that outlived a cancel/reschedule of the same "
             "reminder and was superseded by a later dispatch before it was "
-            "processed."
+            "processed. Every current dispatch path supplies this; omitting "
+            "it (only possible for a message queued before this field "
+            "existed) returns zero recipients rather than falling back to a "
+            "weaker check, since there is no way to verify such a request "
+            "targets the schedule it was originally queued for."
         ),
     ),
     skip: int = Query(0, ge=0),
