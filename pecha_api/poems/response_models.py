@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 
+from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.poems.enums import PoemStatus
 
 
@@ -14,6 +15,7 @@ class PoemDTO(BaseModel):
     content: str
     author_name: str
     chapter_name: Optional[str] = None
+    language: str
     image_url: Optional[str] = None
     status: str
     published_at: Optional[str] = None
@@ -35,6 +37,7 @@ class CreatePoemRequest(BaseModel):
     content: str
     author_name: str
     chapter_name: Optional[str] = None
+    language: LanguageCode = LanguageCode.EN
     image_key: Optional[str] = None
     status: PoemStatus = PoemStatus.DRAFT
 
@@ -66,6 +69,7 @@ class UpdatePoemRequest(BaseModel):
     content: Optional[str] = None
     author_name: Optional[str] = None
     chapter_name: Optional[str] = None
+    language: Optional[LanguageCode] = None
     image_key: Optional[str] = None
     status: Optional[PoemStatus] = None
 

@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 from starlette import status
 
+from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.poems.response_models import PoemDTO, PoemsResponse
 from pecha_api.poems.service import get_poem_detail_service, list_poems_service
 
@@ -29,6 +30,10 @@ def list_poems(
         Optional[str],
         Query(description="Filter by author name (exact match)"),
     ] = None,
+    language: Annotated[
+        Optional[LanguageCode],
+        Query(description="Filter by language code"),
+    ] = None,
 ) -> PoemsResponse:
     """List published poems, newest first."""
     return list_poems_service(
@@ -36,6 +41,7 @@ def list_poems(
         limit=limit,
         chapter_name=chapter_name,
         author_name=author_name,
+        language=language,
     )
 
 

@@ -7,6 +7,7 @@ from starlette import status
 
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.authors.plan_authors_service import validate_cms_author_details
+from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.poems.enums import PoemStatus
 from pecha_api.poems.models import Poem
 from pecha_api.poems.repository import (
@@ -32,6 +33,7 @@ def cms_list_poems_service(
     status_filter: Optional[PoemStatus] = None,
     chapter_name: Optional[str] = None,
     author_name: Optional[str] = None,
+    language: Optional[LanguageCode] = None,
 ) -> PoemsResponse:
     """List poems for CMS (all statuses)."""
     validate_cms_author_details(token=token)
@@ -44,6 +46,7 @@ def cms_list_poems_service(
             status=status_filter,
             chapter_name=chapter_name,
             author_name=author_name,
+            language=language,
         )
 
         poem_dtos = [_build_poem_dto(poem) for poem in poems]
@@ -85,6 +88,7 @@ def cms_create_poem_service(token: str, request: CreatePoemRequest) -> PoemDTO:
         content=request.content,
         author_name=request.author_name,
         chapter_name=request.chapter_name,
+        language=request.language,
         image_key=request.image_key,
         status=request.status,
         published_at=published_at,
@@ -121,6 +125,8 @@ def cms_update_poem_service(
             poem.author_name = request.author_name
         if "chapter_name" in request.model_fields_set:
             poem.chapter_name = request.chapter_name
+        if request.language is not None:
+            poem.language = request.language
         if "image_key" in request.model_fields_set:
             poem.image_key = request.image_key
         if request.status is not None:

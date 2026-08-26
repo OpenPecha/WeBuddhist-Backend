@@ -123,13 +123,14 @@ def test_cms_list_poems_service_success(sample_poem_model, mock_db_session, mock
             content=sample_poem_model.content,
             author_name=sample_poem_model.author_name,
             chapter_name=sample_poem_model.chapter_name,
+            language="EN",
             image_url="https://presigned.url",
             status="PUBLISHED",
             published_at="2025-06-05T12:00:00+00:00",
             created_at="2025-06-01T10:00:00+00:00",
             updated_at="2025-06-05T12:00:00+00:00",
         )
-        
+
         result = cms_list_poems_service(token="valid_token", skip=0, limit=20)
         
         assert isinstance(result, PoemsResponse)
@@ -150,13 +151,14 @@ def test_cms_list_poems_service_with_status_filter(sample_draft_poem, mock_db_se
             content=sample_draft_poem.content,
             author_name=sample_draft_poem.author_name,
             chapter_name=None,
+            language="EN",
             image_url=None,
             status="DRAFT",
             published_at=None,
             created_at="2025-06-07T10:00:00+00:00",
             updated_at="2025-06-07T10:00:00+00:00",
         )
-        
+
         result = cms_list_poems_service(
             token="valid_token",
             skip=0,
@@ -199,15 +201,16 @@ def test_cms_get_poem_detail_service_success(sample_poem_model, mock_db_session,
             content=sample_poem_model.content,
             author_name=sample_poem_model.author_name,
             chapter_name=sample_poem_model.chapter_name,
+            language="EN",
             image_url="https://presigned.url",
             status="PUBLISHED",
             published_at="2025-06-05T12:00:00+00:00",
             created_at="2025-06-01T10:00:00+00:00",
             updated_at="2025-06-05T12:00:00+00:00",
         )
-        
+
         result = cms_get_poem_detail_service(token="valid_token", poem_id=poem_id)
-        
+
         assert isinstance(result, PoemDTO)
         assert result.id == poem_id
 
@@ -227,15 +230,16 @@ def test_cms_get_poem_detail_service_draft(sample_draft_poem, mock_db_session, m
             content=sample_draft_poem.content,
             author_name=sample_draft_poem.author_name,
             chapter_name=None,
+            language="EN",
             image_url=None,
             status="DRAFT",
             published_at=None,
             created_at="2025-06-07T10:00:00+00:00",
             updated_at="2025-06-07T10:00:00+00:00",
         )
-        
+
         result = cms_get_poem_detail_service(token="valid_token", poem_id=poem_id)
-        
+
         assert result.status == "DRAFT"
 
 
@@ -284,6 +288,7 @@ def test_cms_create_poem_service_draft(sample_create_request, mock_db_session, m
             content=created_poem.content,
             author_name=created_poem.author_name,
             chapter_name=created_poem.chapter_name,
+            language="EN",
             image_url="https://presigned.url",
             status="DRAFT",
             published_at=None,
@@ -331,6 +336,7 @@ def test_cms_create_poem_service_published(mock_db_session, mock_author):
             content=created_poem.content,
             author_name=created_poem.author_name,
             chapter_name=None,
+            language="EN",
             image_url=None,
             status="PUBLISHED",
             published_at=created_poem.published_at.isoformat(),
@@ -380,6 +386,7 @@ def test_cms_update_poem_service_success(sample_poem_model, sample_update_reques
             content=sample_update_request.content,
             author_name=sample_poem_model.author_name,
             chapter_name=sample_poem_model.chapter_name,
+            language="EN",
             image_url="https://presigned.url",
             status="PUBLISHED",
             published_at="2025-06-05T12:00:00+00:00",
@@ -414,6 +421,7 @@ def test_cms_update_poem_service_publish_sets_published_at(sample_draft_poem, mo
             content=sample_draft_poem.content,
             author_name=sample_draft_poem.author_name,
             chapter_name=None,
+            language="EN",
             image_url=None,
             status="PUBLISHED",
             published_at=datetime.now(timezone.utc).isoformat(),

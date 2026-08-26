@@ -6,6 +6,7 @@ from sqlalchemy import Column, DateTime, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 
 from pecha_api.db.database import Base
+from pecha_api.plans.plans_enums import LanguageCodeEnum
 
 from .enums import PoemStatusEnum
 
@@ -18,6 +19,7 @@ class Poem(Base):
     content = Column(Text, nullable=False)
     author_name = Column(String(255), nullable=False)
     chapter_name = Column(String(255), nullable=True)
+    language = Column(LanguageCodeEnum, nullable=False, default="EN")
     image_key = Column(String(1000), nullable=True)
     status = Column(PoemStatusEnum, nullable=False, default="DRAFT")
     published_at = Column(DateTime(timezone=True), nullable=True)
@@ -52,6 +54,11 @@ class Poem(Base):
         Index(
             "idx_poems_author_name",
             "author_name",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "idx_poems_language",
+            "language",
             postgresql_where=text("deleted_at IS NULL"),
         ),
     )
