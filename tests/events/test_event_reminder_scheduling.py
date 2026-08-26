@@ -70,7 +70,12 @@ def _recurrence() -> RecurrenceInput:
 
 
 class TestCreateEventSchedulesReminders:
-    def test_non_recurring_event_schedules_reminders_and_commits(self) -> None:
+    """save_event is called with an after_flush hook; save_event itself (not
+    covered here, see test_event_repository.py) invokes it after the event
+    is flushed but before its own commit, so the reminder insert and the
+    event insert land in the same commit."""
+
+    def test_non_recurring_event_registers_reminder_scheduling_hook(self) -> None:
         group_id = uuid4()
         saved = _event_stub(group_id=group_id, is_recurring=False)
         request = _create_request(group_id)
@@ -80,7 +85,7 @@ class TestCreateEventSchedulesReminders:
             f"{MODULE}.require_can_create_content"
         ), patch(f"{MODULE}.SessionLocal") as mock_session, patch(
             f"{MODULE}.save_event", return_value=saved
-        ), patch(
+        ) as mock_save, patch(
             f"{MODULE}.enqueue_event_notification"
         ), patch(
             f"{MODULE}.schedule_event_reminders"
@@ -89,10 +94,14 @@ class TestCreateEventSchedulesReminders:
 
             create_event_service(token="token", request=request)
 
-        mock_schedule.assert_called_once_with(mock_db, saved.id, saved.start_date)
-        mock_db.commit.assert_called_once()
+            after_flush = mock_save.call_args.kwargs["after_flush"]
+            mock_schedule.assert_not_called()
 
-    def test_recurring_event_skips_reminder_scheduling(self) -> None:
+            after_flush(saved)
+
+            mock_schedule.assert_called_once_with(mock_db, saved.id, saved.start_date)
+
+    def test_recurring_event_hook_skips_reminder_scheduling(self) -> None:
         group_id = uuid4()
         saved = _event_stub(group_id=group_id, is_recurring=True)
         request = _create_request(group_id, recurrence=_recurrence())
@@ -102,7 +111,7 @@ class TestCreateEventSchedulesReminders:
             f"{MODULE}.require_can_create_content"
         ), patch(f"{MODULE}.SessionLocal") as mock_session, patch(
             f"{MODULE}.save_event", return_value=saved
-        ), patch(
+        ) as mock_save, patch(
             f"{MODULE}.enqueue_event_notification"
         ), patch(
             f"{MODULE}.schedule_event_reminders"
@@ -111,8 +120,11 @@ class TestCreateEventSchedulesReminders:
 
             create_event_service(token="token", request=request)
 
-        mock_schedule.assert_not_called()
-        mock_db.commit.assert_not_called()
+            after_flush = mock_save.call_args.kwargs["after_flush"]
+
+            after_flush(saved)
+
+            mock_schedule.assert_not_called()
 
 
 class TestUpdateEventReminderBranches:

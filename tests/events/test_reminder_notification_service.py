@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -8,6 +10,7 @@ from pecha_api.events.event_reminder_service import REMINDER_TYPE_T_MINUS_10, RE
 from pecha_api.events.reminder_notification_service import (
     _build_reminder_copy,
     _get_event_name,
+    _reminder_superseded,
     get_event_reminder_targets,
 )
 
@@ -36,6 +39,36 @@ class MockDevice:
         self.user_id = user_id
         self.token = token
         self.platform = platform
+
+
+def _reminder(fire_at=None, canceled_at=None):
+    return SimpleNamespace(
+        fire_at=fire_at or datetime.now(timezone.utc) - timedelta(seconds=5),
+        canceled_at=canceled_at,
+    )
+
+
+class TestReminderSuperseded:
+    @patch(f"{MODULE}.get_event_reminder")
+    def test_false_for_a_due_uncanceled_reminder(self, mock_get):
+        mock_get.return_value = _reminder()
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO) is False
+
+    @patch(f"{MODULE}.get_event_reminder")
+    def test_true_when_canceled(self, mock_get):
+        mock_get.return_value = _reminder(canceled_at=datetime.now(timezone.utc))
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO) is True
+
+    @patch(f"{MODULE}.get_event_reminder")
+    def test_true_when_fire_at_moved_into_the_future(self, mock_get):
+        """Only a reschedule's upsert can push fire_at past now on a row
+        that was legitimately due at dispatch time."""
+        mock_get.return_value = _reminder(fire_at=datetime.now(timezone.utc) + timedelta(days=3))
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO) is True
+
+    @patch(f"{MODULE}.get_event_reminder", return_value=None)
+    def test_true_when_row_no_longer_exists(self, _mock_get):
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO) is True
 
 
 class TestGetEventName:
@@ -86,6 +119,7 @@ class TestGetEventReminderTargets:
             get_event_reminder_targets(event_id=uuid4(), reminder_type=REMINDER_TYPE_T_ZERO, minutes_before=10)
         assert exc.value.status_code == 404
 
+    @patch(f"{MODULE}._reminder_superseded", return_value=False)
     @patch(f"{MODULE}.normalize_platform", side_effect=lambda p: p)
     @patch(f"{MODULE}.get_active_push_devices_by_user_ids")
     @patch(f"{MODULE}.get_event_participants_paginated")
@@ -93,7 +127,7 @@ class TestGetEventReminderTargets:
     @patch(f"{MODULE}.get_event_by_id")
     @patch(f"{MODULE}.SessionLocal")
     def test_skips_recipients_without_devices_and_builds_body(
-        self, mock_session, mock_get_event, _mock_name, mock_participants, mock_devices, _mock_platform,
+        self, mock_session, mock_get_event, _mock_name, mock_participants, mock_devices, _mock_platform, _superseded,
     ):
         mock_session.return_value.__enter__.return_value = MagicMock()
         event = MockEvent()
@@ -117,13 +151,14 @@ class TestGetEventReminderTargets:
         assert result.total == 2
         assert result.has_more is False
 
+    @patch(f"{MODULE}._reminder_superseded", return_value=False)
     @patch(f"{MODULE}.get_active_push_devices_by_user_ids", return_value={})
     @patch(f"{MODULE}.get_event_participants_paginated", return_value=([], 0))
     @patch(f"{MODULE}._get_event_name", return_value="Event")
     @patch(f"{MODULE}.get_event_by_id")
     @patch(f"{MODULE}.SessionLocal")
     def test_clamps_out_of_range_pagination(
-        self, mock_session, mock_get_event, _mock_name, mock_participants, _mock_devices,
+        self, mock_session, mock_get_event, _mock_name, mock_participants, _mock_devices, _superseded,
     ):
         mock_session.return_value.__enter__.return_value = MagicMock()
         event = MockEvent()
@@ -142,13 +177,14 @@ class TestGetEventReminderTargets:
         assert mock_participants.call_args.kwargs["skip"] == 0
         assert mock_participants.call_args.kwargs["limit"] == 500
 
+    @patch(f"{MODULE}._reminder_superseded", return_value=False)
     @patch(f"{MODULE}.get_active_push_devices_by_user_ids", return_value={})
     @patch(f"{MODULE}.get_event_participants_paginated", return_value=([], 0))
     @patch(f"{MODULE}._get_event_name", return_value="Event")
     @patch(f"{MODULE}.get_event_by_id")
     @patch(f"{MODULE}.SessionLocal")
     def test_limit_below_one_floors_to_one(
-        self, mock_session, mock_get_event, _mock_name, mock_participants, _mock_devices,
+        self, mock_session, mock_get_event, _mock_name, mock_participants, _mock_devices, _superseded,
     ):
         mock_session.return_value.__enter__.return_value = MagicMock()
         event = MockEvent()
@@ -162,3 +198,25 @@ class TestGetEventReminderTargets:
         )
 
         assert result.limit == 1
+
+    @patch(f"{MODULE}._reminder_superseded", return_value=True)
+    @patch(f"{MODULE}.get_event_participants_paginated")
+    @patch(f"{MODULE}.get_event_by_id")
+    @patch(f"{MODULE}.SessionLocal")
+    def test_superseded_reminder_returns_no_recipients(
+        self, mock_session, mock_get_event, mock_participants, _superseded,
+    ):
+        """Regression guard: this is the final gate closest to actual push
+        delivery - a canceled or rescheduled reminder must not reach anyone,
+        even if a stale SQS message already made it this far."""
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        event = MockEvent()
+        mock_get_event.return_value = event
+
+        result = get_event_reminder_targets(
+            event_id=event.id, reminder_type=REMINDER_TYPE_T_MINUS_10, minutes_before=10,
+        )
+
+        assert result.recipients == []
+        assert result.total == 0
+        mock_participants.assert_not_called()

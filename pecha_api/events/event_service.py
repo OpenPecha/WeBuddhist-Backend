@@ -609,11 +609,19 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         _validate_location(
             db=db, location_id=request.location_id, group_id=request.group_id
         )
-        saved = save_event(db, event, request.metadata, request.links)
+        def _schedule_reminders_after_flush(flushed_event: Event) -> None:
+            # Runs after the event is flushed (so its id/FK target exists)
+            # but before save_event's commit, so a reminder failure rolls
+            # back the event too instead of leaving it persisted without
+            # reminders.
+            if not is_recurring:
+                schedule_event_reminders(db, flushed_event.id, flushed_event.start_date)
+
+        saved = save_event(
+            db, event, request.metadata, request.links,
+            after_flush=_schedule_reminders_after_flush,
+        )
         enqueue_event_notification(saved.id)
-        if not is_recurring:
-            schedule_event_reminders(db, saved.id, saved.start_date)
-            db.commit()
         return _event_to_dto(saved)
 
 

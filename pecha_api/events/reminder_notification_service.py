@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -11,6 +12,7 @@ from pecha_api.chat.notification_repository import (
 from pecha_api.db.database import SessionLocal
 from pecha_api.events.event_metadata_model import EventMetadata
 from pecha_api.events.event_participant_repository import get_event_participants_paginated
+from pecha_api.events.event_reminder_repository import get_event_reminder
 from pecha_api.events.event_repository import get_event_by_id
 from pecha_api.events.event_reminder_service import REMINDER_TYPE_T_MINUS_10, REMINDER_TYPE_T_ZERO
 from pecha_api.events.notification_response_models import (
@@ -47,6 +49,23 @@ def _build_reminder_copy(*, reminder_type: str, event_name: str, minutes_before:
     return template.format(minutes=minutes_before)
 
 
+def _reminder_superseded(db: Session, event_id: UUID, reminder_type: str) -> bool:
+    """Final check right before targets are handed back for actual push
+    delivery - the closest point in the pipeline to real publication, and
+    the last chance to catch a cancellation or reschedule that committed
+    after the dispatcher's own best-effort pre-send check (see
+    event_reminder_dispatch_service._reminder_still_due) already passed. A
+    canceled row means delivery must be suppressed outright; a fire_at now
+    in the future means a reschedule's upsert overwrote this row after it
+    was claimed - a legitimately due row always has fire_at <= now, so a
+    future fire_at can only mean this claim targets a schedule that no
+    longer holds."""
+    reminder = get_event_reminder(db, event_id, reminder_type)
+    if reminder is None or reminder.canceled_at is not None:
+        return True
+    return reminder.fire_at > datetime.now(timezone.utc)
+
+
 def get_event_reminder_targets(
     *,
     event_id: UUID,
@@ -66,6 +85,19 @@ def get_event_reminder_targets(
         event = get_event_by_id(db, event_id)
         if not event:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+
+        if _reminder_superseded(db, event_id, reminder_type):
+            return EventReminderTargetsResponse(
+                event_id=event.id,
+                reminder_type=reminder_type,
+                title="",
+                body="",
+                recipients=[],
+                skip=skip,
+                limit=limit,
+                total=0,
+                has_more=False,
+            )
 
         event_name = _get_event_name(db, event.id)
         title = event_name
