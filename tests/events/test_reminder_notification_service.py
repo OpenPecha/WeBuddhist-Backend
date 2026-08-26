@@ -91,10 +91,15 @@ class TestReminderSuperseded:
         assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO, queued_for) is True
 
     @patch(f"{MODULE}.get_event_reminder")
-    def test_tolerates_sub_second_serialization_drift(self, mock_get):
+    def test_true_when_fire_at_differs_by_even_a_millisecond(self, mock_get):
+        """The comparison is exact, not a tolerance window: fire_at
+        round-trips losslessly through the SQS message and query param, so
+        any mismatch - however small - means the row now belongs to a
+        different schedule than the one this delivery attempt was queued
+        for."""
         fire_at = datetime.now(timezone.utc)
-        mock_get.return_value = _reminder(fire_at=fire_at + timedelta(milliseconds=200))
-        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO, fire_at) is False
+        mock_get.return_value = _reminder(fire_at=fire_at + timedelta(milliseconds=1))
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO, fire_at) is True
 
 
 class TestGetEventName:
@@ -195,9 +200,12 @@ class TestGetEventReminderTargets:
             event_id=event.id, reminder_type=REMINDER_TYPE_T_ZERO, minutes_before=10, fire_at=fire_at,
         )
 
-        mock_superseded.assert_called_once_with(
+        # Checked twice (fail-fast, then the authoritative recheck below) -
+        # both calls must carry the same fire_at.
+        mock_superseded.assert_called_with(
             mock_session.return_value.__enter__.return_value, event.id, REMINDER_TYPE_T_ZERO, fire_at,
         )
+        assert mock_superseded.call_count == 2
 
     @patch(f"{MODULE}._reminder_superseded", return_value=False)
     @patch(f"{MODULE}.get_active_push_devices_by_user_ids", return_value={})
@@ -268,3 +276,30 @@ class TestGetEventReminderTargets:
         assert result.recipients == []
         assert result.total == 0
         mock_participants.assert_not_called()
+
+    @patch(f"{MODULE}._reminder_superseded")
+    @patch(f"{MODULE}.get_active_push_devices_by_user_ids", return_value={})
+    @patch(f"{MODULE}.get_event_participants_paginated", return_value=([], 0))
+    @patch(f"{MODULE}._get_event_name", return_value="Event")
+    @patch(f"{MODULE}.get_event_by_id")
+    @patch(f"{MODULE}.SessionLocal")
+    def test_authoritative_recheck_catches_a_change_during_participant_lookup(
+        self, mock_session, mock_get_event, _mock_name, mock_participants, _mock_devices, mock_superseded,
+    ):
+        """Regression guard: a cancellation or reschedule landing while
+        participant/device data is being resolved (which can take a while
+        for large groups or multiple pages) must still be caught - not just
+        one that happened before the fail-fast check ran."""
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        event = MockEvent()
+        mock_get_event.return_value = event
+        mock_superseded.side_effect = [False, True]
+
+        result = get_event_reminder_targets(
+            event_id=event.id, reminder_type=REMINDER_TYPE_T_ZERO, minutes_before=10,
+        )
+
+        assert result.recipients == []
+        assert result.total == 0
+        mock_participants.assert_called_once()
+        assert mock_superseded.call_count == 2

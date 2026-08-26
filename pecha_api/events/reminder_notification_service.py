@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -65,12 +65,16 @@ def _reminder_superseded(
     A canceled row means delivery must be suppressed outright regardless.
 
     When the caller knows the exact fire_at its delivery attempt was queued
-    for (threaded through the SQS message body), an exact mismatch against
-    the row's current fire_at means this row was claimed again for a
-    different schedule since - e.g. a message that outlived a cancel and
-    was superseded by a fresh dispatch of the same (event_id, reminder_type)
+    for (threaded through the SQS message body), any mismatch against the
+    row's current fire_at means this row was claimed again for a different
+    schedule since - e.g. a message that outlived a cancel and was
+    superseded by a fresh dispatch of the same (event_id, reminder_type)
     row, which a bare "not canceled" check can't tell apart from the
-    delivery this message was actually queued for.
+    delivery this message was actually queued for. The comparison is exact:
+    fire_at round-trips losslessly (same microsecond precision and offset)
+    through isoformat -> SQS JSON -> query param -> datetime parsing, so a
+    tolerance window would only risk treating two distinct schedules that
+    happen to land close together as the same occurrence.
 
     Without a fire_at (an older caller mid-rollout), fall back to the
     weaker heuristic: a legitimately due row always has fire_at <= now, so
@@ -80,7 +84,7 @@ def _reminder_superseded(
     if reminder is None or reminder.canceled_at is not None:
         return True
     if fire_at is not None:
-        return abs(reminder.fire_at - fire_at) > timedelta(seconds=1)
+        return reminder.fire_at != fire_at
     return reminder.fire_at > datetime.now(timezone.utc)
 
 
@@ -100,23 +104,28 @@ def get_event_reminder_targets(
     if limit > 500:
         limit = 500
 
+    def _suppressed() -> EventReminderTargetsResponse:
+        return EventReminderTargetsResponse(
+            event_id=event_id,
+            reminder_type=reminder_type,
+            title="",
+            body="",
+            recipients=[],
+            skip=skip,
+            limit=limit,
+            total=0,
+            has_more=False,
+        )
+
     with SessionLocal() as db:
         event = get_event_by_id(db, event_id)
         if not event:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
+        # Fail fast: skip the participant/device work below entirely for a
+        # reminder already known stale.
         if _reminder_superseded(db, event_id, reminder_type, fire_at):
-            return EventReminderTargetsResponse(
-                event_id=event.id,
-                reminder_type=reminder_type,
-                title="",
-                body="",
-                recipients=[],
-                skip=skip,
-                limit=limit,
-                total=0,
-                has_more=False,
-            )
+            return _suppressed()
 
         event_name = _get_event_name(db, event.id)
         title = event_name
@@ -150,6 +159,14 @@ def get_event_reminder_targets(
                     ],
                 )
             )
+
+        # Authoritative recheck: the participant/device queries above can
+        # take long enough (large groups, multiple pages) for a
+        # cancellation or reschedule to land after the fail-fast check but
+        # before targets are handed back for actual delivery. This is the
+        # last point backend code controls before that happens.
+        if _reminder_superseded(db, event_id, reminder_type, fire_at):
+            return _suppressed()
 
         return EventReminderTargetsResponse(
             event_id=event.id,
