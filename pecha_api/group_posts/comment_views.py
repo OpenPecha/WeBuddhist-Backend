@@ -140,13 +140,13 @@ async def websocket_post_comments(
         # 2. Validate post & group exist (synchronous)
         from pecha_api.db.database import SessionLocal
         from pecha_api.group_posts.comment_service import (
-            _validate_group_is_public,
+            _validate_group_access,
             _get_and_validate_post,
         )
 
         with SessionLocal() as db:
             post, group_id = _get_and_validate_post(db, post_id)
-            _validate_group_is_public(db, group_id)
+            _validate_group_access(db, group_id, user.id)
 
         # 3. Accept, track connection, and subscribe to Redis channel
         await websocket.accept()

@@ -72,7 +72,7 @@ class TestListPostCommentsService:
     @patch('pecha_api.group_posts.comment_service.batch_count_comment_likes')
     @patch('pecha_api.group_posts.comment_service.get_post_comments')
     @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
-    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_list_comments_success(
         self, mock_session, mock_get_group, mock_get_post, mock_get_comments,
@@ -101,10 +101,10 @@ class TestListPostCommentsService:
         assert result.total == 1
         assert result.comments[0].user.email == "commenter@example.com"
 
-    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
-    def test_list_comments_private_group_returns_404(self, mock_session, mock_get_post, mock_get_group):
+    def test_list_comments_private_group_returns_404_for_non_joiner(self, mock_session, mock_get_post, mock_get_group):
         group_id = uuid4()
         post_id = uuid4()
         mock_session.return_value.__enter__.return_value = MagicMock()
@@ -122,7 +122,7 @@ class TestListPostCommentsService:
     @patch('pecha_api.group_posts.comment_service.batch_count_comment_likes')
     @patch('pecha_api.group_posts.comment_service.get_post_comments')
     @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
-    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_list_comments_empty(
         self, mock_session, mock_get_group, mock_get_post, mock_get_comments,
@@ -212,7 +212,7 @@ class TestCreatePostCommentService:
 
     @patch('pecha_api.group_posts.comment_service.create_comment')
     @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
-    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_create_comment_success(
         self, mock_session, mock_get_group, mock_get_post, mock_create
@@ -247,7 +247,7 @@ class TestCreatePostCommentService:
     @patch('pecha_api.group_posts.comment_service.create_comment')
     @patch('pecha_api.group_posts.comment_service.get_comment_by_id')
     @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
-    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_create_multilevel_reply_success(
         self,
@@ -293,7 +293,7 @@ class TestCreatePostCommentService:
 
     @patch('pecha_api.group_posts.comment_service.get_comment_by_id')
     @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
-    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_create_reply_rejects_parent_outside_post(
         self,
@@ -327,7 +327,7 @@ class TestDeletePostCommentService:
     @patch('pecha_api.group_posts.comment_service.soft_delete_comment')
     @patch('pecha_api.group_posts.comment_service.get_comment_by_id_only')
     @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
-    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_delete_own_comment_success(
         self, mock_session, mock_get_group, mock_get_post,
@@ -354,7 +354,7 @@ class TestDeletePostCommentService:
 
     @patch('pecha_api.group_posts.comment_service.get_comment_by_id_only')
     @patch('pecha_api.group_posts.comment_service.get_post_by_id_only')
-    @patch('pecha_api.group_posts.comment_service.get_group_by_id')
+    @patch('pecha_api.group_posts.service_utils.get_group_by_id')
     @patch('pecha_api.group_posts.comment_service.SessionLocal')
     def test_delete_comment_permission_denied(
         self, mock_session, mock_get_group, mock_get_post, mock_get_comment

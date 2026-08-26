@@ -3,9 +3,14 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupMemberRole, AuthorGroupType
+from pecha_api.plans.groups.groups_enums import (
+    AuthorGroupInviteStatus,
+    AuthorGroupJoinRequestStatus,
+    AuthorGroupMemberRole,
+    AuthorGroupType,
+)
 from pecha_api.plans.groups.group_summary_models import (
     AuthorGroupSummaryDTO,
     GroupMetadataDTO,
@@ -43,6 +48,10 @@ __all__ = [
     "GroupInviteDTO",
     "GroupInviteListResponse",
     "GroupInviteCreatedResponse",
+    "CreateGroupJoinRequest",
+    "GroupJoinRequestDTO",
+    "GroupJoinRequestUserDTO",
+    "GroupJoinRequestListResponse",
     "UpdateGroupMemberRoleRequest",
     "TransferGroupOwnershipRequest",
     "GroupMantraAccumulationDTO",
@@ -56,6 +65,7 @@ __all__ = [
     "GroupPracticesResponse",
     "GroupPracticeFeedItemDTO",
     "GroupPracticesFeedResponse",
+    "GroupPermissionDTO",
 ]
 
 
@@ -107,10 +117,13 @@ class AuthorGroupDetailDTO(BaseModel):
 
 class PublicAuthorGroupSummaryDTO(AuthorGroupSummaryDTO):
     tags: List[str] = []
+    # None when the caller is anonymous or has never requested to join.
+    my_join_request_status: Optional[AuthorGroupJoinRequestStatus] = None
 
 
 class PublicAuthorGroupDetailDTO(AuthorGroupDetailDTO):
     tags: List[str] = []
+    my_join_request_status: Optional[AuthorGroupJoinRequestStatus] = None
 
 
 class AuthorGroupListResponse(BaseModel):
@@ -231,6 +244,32 @@ class GroupInviteCreatedResponse(BaseModel):
     notification_id: Optional[UUID] = None
 
 
+class CreateGroupJoinRequest(BaseModel):
+    message: Optional[str] = Field(default=None, max_length=1000)
+
+
+class GroupJoinRequestDTO(BaseModel):
+    id: UUID
+    status: AuthorGroupJoinRequestStatus
+
+
+class GroupJoinRequestUserDTO(BaseModel):
+    id: UUID
+    user_id: UUID
+    user_name: str
+    user_avatar_url: Optional[str] = None
+    message: Optional[str] = None
+    status: AuthorGroupJoinRequestStatus
+    created_at: datetime
+
+
+class GroupJoinRequestListResponse(BaseModel):
+    requests: List[GroupJoinRequestUserDTO]
+    skip: int
+    limit: int
+    total: int
+
+
 class UpdateGroupMemberRoleRequest(BaseModel):
     role: AuthorGroupMemberRole
 
@@ -323,3 +362,11 @@ class GroupPracticesFeedResponse(BaseModel):
     limit: int
     total: int
     include_unfollowed: bool
+
+
+class GroupPermissionDTO(BaseModel):
+    group_id: UUID
+    has_permission: bool
+    role: Optional[AuthorGroupMemberRole] = None
+    is_super_admin: bool
+    author_id: Optional[UUID] = None

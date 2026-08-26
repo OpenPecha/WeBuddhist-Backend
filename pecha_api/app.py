@@ -5,6 +5,7 @@ from scalar_fastapi import get_scalar_api_reference
 from pecha_api.openapi_config import configure_openapi_tag_groups
 from pecha_api.auth.auth_service import retrieve_client_info
 from pecha_api.middleware.request_observability import RequestObservabilityMiddleware
+from pecha_api.middleware.sentry import init_sentry
 
 from pecha_api.db.mongo_database import lifespan
 from pecha_api.auth import auth_views
@@ -40,6 +41,7 @@ from pecha_api.plans.notifications import day_notification_views
 from pecha_api.plans.dashboard import dashboard_views as cms_dashboard_views
 from pecha_api.plans.analytics import analytics_views as cms_analytics_views
 from pecha_api.plans.groups import groups_views as author_groups_views
+from pecha_api.plans.groups import join_request_internal_views
 from pecha_api.recitations import recitations_view
 from pecha_api.user_follows import user_follow_views
 from pecha_api.plans.users.recitation import user_recitations_views
@@ -97,6 +99,8 @@ from pecha_api.plans.transfers.transfer_views import (
 )
 import uvicorn
 
+init_sentry()
+
 api = FastAPI(
     title="Pecha API",
     description="This is the API documentation for Pecha application",
@@ -144,6 +148,7 @@ api.include_router(author_group_feed_views.author_group_feed_router)
 api.include_router(author_groups_views.public_groups_router)
 api.include_router(author_groups_views.user_groups_router)
 api.include_router(author_groups_views.user_joined_groups_router)
+api.include_router(author_groups_views.user_permission_router)
 api.include_router(user_plans_views.user_progress_router)
 api.include_router(plan_items_views.items_router)
 api.include_router(plan_tasks_views.plans_router)
@@ -171,6 +176,7 @@ api.include_router(group_post_comment_like_views.public_group_post_comment_likes
 api.include_router(chat_views.chat_router)
 api.include_router(chat_viewer_views.chat_viewer_router)
 api.include_router(chat_notification_internal_views.internal_chat_notifications_router)
+api.include_router(join_request_internal_views.internal_join_request_notifications_router)
 api.include_router(group_post_notification_internal_views.internal_group_post_notifications_router)
 api.include_router(group_posts_viewer.viewer_router)
 api.include_router(bookmark_views.bookmark_router)

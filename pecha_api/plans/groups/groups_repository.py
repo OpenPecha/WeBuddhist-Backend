@@ -5,10 +5,15 @@ from uuid import UUID
 from sqlalchemy import and_, delete, exists, func, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupInviteStatus, AuthorGroupType, AuthorGroupType
+from pecha_api.plans.groups.groups_enums import (
+    AuthorGroupInviteStatus,
+    AuthorGroupJoinRequestStatus,
+    AuthorGroupType,
+)
 from pecha_api.plans.groups.groups_models import (
     AuthorGroup,
     AuthorGroupInvite,
+    AuthorGroupJoinRequest,
     AuthorGroupMember,
     AuthorGroupMetadata,
     AuthorGroupSocialLink,
@@ -265,6 +270,18 @@ def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
     )
 
 
+def lock_group_visibility(db: Session, group_id: UUID) -> Optional[bool]:
+    """Lock a group row and return its is_public, serialising submission
+    against the private -> public flip. Returns None when the group is gone."""
+    row = (
+        db.query(AuthorGroup.is_public)
+        .filter(AuthorGroup.id == group_id, AuthorGroup.deleted_at.is_(None))
+        .with_for_update()
+        .first()
+    )
+    return None if row is None else row[0]
+
+
 def get_group_by_slug(db: Session, slug: str) -> Optional[AuthorGroup]:
     return (
         db.query(AuthorGroup)
@@ -339,6 +356,25 @@ def get_member_roles_map(
         .all()
     )
     return {row.group_id: row.role for row in rows}
+
+
+def list_group_member_ids_by_roles(
+    db: Session,
+    group_id: UUID,
+    roles: Sequence[str],
+) -> List[UUID]:
+    """Author IDs holding any of the given roles in a group."""
+    if not roles:
+        return []
+    rows = (
+        db.query(AuthorGroupMember.author_id)
+        .filter(
+            AuthorGroupMember.group_id == group_id,
+            AuthorGroupMember.role.in_(list(roles)),
+        )
+        .all()
+    )
+    return [row[0] for row in rows]
 
 
 def get_owner_count(db: Session, group_id: UUID) -> int:
@@ -589,6 +625,210 @@ def revoke_invite(db: Session, invite: AuthorGroupInvite, revoked_by: str) -> No
     db.commit()
 
 
+def create_group_join_request(
+    db: Session,
+    join_request: AuthorGroupJoinRequest,
+) -> AuthorGroupJoinRequest:
+    db.add(join_request)
+    db.commit()
+    db.refresh(join_request)
+    return join_request
+
+
+def get_join_request_by_id(
+    db: Session,
+    request_id: UUID,
+    *,
+    load_group: bool = False,
+    for_update: bool = False,
+) -> Optional[AuthorGroupJoinRequest]:
+    query = db.query(AuthorGroupJoinRequest).filter(AuthorGroupJoinRequest.id == request_id)
+    if load_group:
+        query = query.options(
+            selectinload(AuthorGroupJoinRequest.group).selectinload(AuthorGroup.metadata_entries)
+        )
+    if for_update:
+        # Serialise concurrent reviews so two moderators cannot both act on the
+        # same pending request and leave membership out of step with the status.
+        query = query.with_for_update(of=AuthorGroupJoinRequest)
+    return query.first()
+
+
+def list_join_requests_by_group(
+    db: Session,
+    group_id: UUID,
+    skip: int,
+    limit: int,
+    status: Optional[AuthorGroupJoinRequestStatus] = None,
+) -> Tuple[List[AuthorGroupJoinRequest], int]:
+    query = (
+        db.query(AuthorGroupJoinRequest)
+        .options(selectinload(AuthorGroupJoinRequest.user))
+        .filter(AuthorGroupJoinRequest.group_id == group_id)
+    )
+    if status is not None:
+        query = query.filter(AuthorGroupJoinRequest.status == status.value)
+    total = query.count()
+    rows = (
+        query.order_by(AuthorGroupJoinRequest.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    return rows, total
+
+
+def get_join_request_status_map(
+    db: Session,
+    user_id: UUID,
+    group_ids: Sequence[UUID],
+) -> Dict[UUID, str]:
+    """The user's latest join request status per group (avoids N queries)."""
+    if not group_ids:
+        return {}
+    rows = (
+        db.query(
+            AuthorGroupJoinRequest.group_id,
+            AuthorGroupJoinRequest.status,
+            AuthorGroupJoinRequest.created_at,
+        )
+        .filter(
+            AuthorGroupJoinRequest.user_id == user_id,
+            AuthorGroupJoinRequest.group_id.in_(list(group_ids)),
+        )
+        .order_by(AuthorGroupJoinRequest.created_at.desc())
+        .all()
+    )
+    latest: Dict[UUID, str] = {}
+    for group_id, status_value, _ in rows:
+        if group_id not in latest:
+            latest[group_id] = (
+                status_value.value if hasattr(status_value, "value") else str(status_value)
+            )
+    return latest
+
+
+def has_pending_join_request(db: Session, group_id: UUID, user_id: UUID) -> bool:
+    return (
+        db.query(AuthorGroupJoinRequest.id)
+        .filter(
+            AuthorGroupJoinRequest.group_id == group_id,
+            AuthorGroupJoinRequest.user_id == user_id,
+            AuthorGroupJoinRequest.status == AuthorGroupJoinRequestStatus.PENDING.value,
+        )
+        .first()
+        is not None
+    )
+
+
+def list_pending_join_requests_by_group(
+    db: Session,
+    group_id: UUID,
+    *,
+    for_update: bool = False,
+) -> List[AuthorGroupJoinRequest]:
+    query = db.query(AuthorGroupJoinRequest).filter(
+        AuthorGroupJoinRequest.group_id == group_id,
+        AuthorGroupJoinRequest.status == AuthorGroupJoinRequestStatus.PENDING.value,
+    )
+    if for_update:
+        query = query.with_for_update(of=AuthorGroupJoinRequest)
+    return query.all()
+
+
+def save_join_request(
+    db: Session,
+    join_request: AuthorGroupJoinRequest,
+) -> AuthorGroupJoinRequest:
+    db.add(join_request)
+    db.commit()
+    db.refresh(join_request)
+    return join_request
+
+
+def mark_join_request_notification_dispatched(
+    db: Session,
+    join_request_id: UUID,
+    sqs_message_id: str,
+    *,
+    decision: bool = False,
+) -> None:
+    join_request = (
+        db.query(AuthorGroupJoinRequest)
+        .filter(AuthorGroupJoinRequest.id == join_request_id)
+        .first()
+    )
+    if not join_request:
+        return
+    now = datetime.now(timezone.utc)
+    if decision:
+        join_request.decision_sqs_message_id = sqs_message_id
+        join_request.decision_dispatched_at = now
+    else:
+        join_request.notification_sqs_message_id = sqs_message_id
+        join_request.notification_dispatched_at = now
+    db.add(join_request)
+    db.commit()
+
+
+def list_undispatched_join_request_notifications(
+    db: Session,
+    older_than: datetime,
+    limit: int,
+) -> List[AuthorGroupJoinRequest]:
+    return (
+        db.query(AuthorGroupJoinRequest)
+        .filter(
+            AuthorGroupJoinRequest.notification_sqs_message_id.is_(None),
+            # Intentional trade-off; do not remove. Once reviewed, the decision
+            # sweep owns this row. Without this filter a request missing both
+            # dispatch markers is picked up by both sweeps and the applicant is
+            # notified twice — the bug this filter was added to fix.
+            #
+            # The cost is a lost moderator push when a creation enqueue fails
+            # and review happens before recovery. That is acceptable: moderators
+            # already have the request in the Studio bell, written synchronously
+            # at submit time and independent of SQS, so nothing is hidden from
+            # them. Moderators are Studio (desktop) users and rarely have a
+            # registered push device, so the lost push seldom had a recipient.
+            #
+            # Covering both would need separate dispatch markers per sweep
+            # rather than inferring ownership from reviewed_at — a schema change
+            # not warranted by this edge case.
+            AuthorGroupJoinRequest.reviewed_at.is_(None),
+            AuthorGroupJoinRequest.created_at < older_than,
+        )
+        .order_by(AuthorGroupJoinRequest.created_at)
+        .limit(limit)
+        .all()
+    )
+
+
+def list_undispatched_join_request_decisions(
+    db: Session,
+    older_than: datetime,
+    limit: int,
+) -> List[AuthorGroupJoinRequest]:
+    """Moderator decisions whose decision event never reached SQS.
+
+    reviewed_by is NULL only for the publish sweep, which admits applicants
+    silently by design; recovering those would send the approval notification
+    that path deliberately skips.
+    """
+    return (
+        db.query(AuthorGroupJoinRequest)
+        .filter(
+            AuthorGroupJoinRequest.decision_sqs_message_id.is_(None),
+            AuthorGroupJoinRequest.reviewed_at.isnot(None),
+            AuthorGroupJoinRequest.reviewed_by.isnot(None),
+            AuthorGroupJoinRequest.reviewed_at < older_than,
+        )
+        .order_by(AuthorGroupJoinRequest.reviewed_at)
+        .limit(limit)
+        .all()
+    )
+
+
 
 def add_group_member(db: Session, member: AuthorGroupMember) -> AuthorGroupMember:
     db.add(member)
@@ -677,7 +917,10 @@ def upsert_group_join(
     db: Session,
     group_id: UUID,
     user_id: UUID,
+    *,
+    commit: bool = True,
 ) -> None:
+    """Add a joiner. Pass commit=False to keep an enclosing transaction open."""
     exists_row = db.execute(
         select(author_group_joins.c.group_id).where(
             author_group_joins.c.group_id == group_id,
@@ -693,7 +936,8 @@ def upsert_group_join(
             created_at=datetime.now(timezone.utc),
         )
     )
-    db.commit()
+    if commit:
+        db.commit()
 
 
 def remove_group_join(

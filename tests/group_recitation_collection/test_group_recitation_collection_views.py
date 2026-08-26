@@ -223,6 +223,7 @@ class TestGetGroupRecitationCollectionDetail:
         mock_service.assert_called_once_with(
             collection_id=collection_id,
             timezone_name=None,
+            user_id=None,
         )
 
     @patch('pecha_api.group_recitation_collection.views.get_group_collection_detail_service')
@@ -247,6 +248,7 @@ class TestGetGroupRecitationCollectionDetail:
             collection_id=collection_id,
             timezone_name=None,
             group_id=group_id,
+            user_id=None,
         )
 
     @patch('pecha_api.group_recitation_collection.views.get_group_collection_detail_service')
@@ -282,4 +284,5 @@ class TestGetGroupRecitationCollectionDetail:
         mock_service.assert_called_once_with(
             collection_id=collection_id,
             timezone_name="Asia/Shanghai",
+            user_id=None,
         )
