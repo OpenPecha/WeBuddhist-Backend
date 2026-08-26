@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from typing import Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -49,20 +50,37 @@ def _build_reminder_copy(*, reminder_type: str, event_name: str, minutes_before:
     return template.format(minutes=minutes_before)
 
 
-def _reminder_superseded(db: Session, event_id: UUID, reminder_type: str) -> bool:
+def _reminder_superseded(
+    db: Session,
+    event_id: UUID,
+    reminder_type: str,
+    fire_at: Optional[datetime] = None,
+) -> bool:
     """Final check right before targets are handed back for actual push
     delivery - the closest point in the pipeline to real publication, and
     the last chance to catch a cancellation or reschedule that committed
     after the dispatcher's own best-effort pre-send check (see
-    event_reminder_dispatch_service._reminder_still_due) already passed. A
-    canceled row means delivery must be suppressed outright; a fire_at now
-    in the future means a reschedule's upsert overwrote this row after it
-    was claimed - a legitimately due row always has fire_at <= now, so a
-    future fire_at can only mean this claim targets a schedule that no
-    longer holds."""
+    event_reminder_dispatch_service._reminder_still_due) already passed.
+
+    A canceled row means delivery must be suppressed outright regardless.
+
+    When the caller knows the exact fire_at its delivery attempt was queued
+    for (threaded through the SQS message body), an exact mismatch against
+    the row's current fire_at means this row was claimed again for a
+    different schedule since - e.g. a message that outlived a cancel and
+    was superseded by a fresh dispatch of the same (event_id, reminder_type)
+    row, which a bare "not canceled" check can't tell apart from the
+    delivery this message was actually queued for.
+
+    Without a fire_at (an older caller mid-rollout), fall back to the
+    weaker heuristic: a legitimately due row always has fire_at <= now, so
+    one now in the future can only mean a reschedule's upsert overwrote it
+    after being claimed."""
     reminder = get_event_reminder(db, event_id, reminder_type)
     if reminder is None or reminder.canceled_at is not None:
         return True
+    if fire_at is not None:
+        return abs(reminder.fire_at - fire_at) > timedelta(seconds=1)
     return reminder.fire_at > datetime.now(timezone.utc)
 
 
@@ -73,6 +91,7 @@ def get_event_reminder_targets(
     minutes_before: int,
     skip: int = 0,
     limit: int = 100,
+    fire_at: Optional[datetime] = None,
 ) -> EventReminderTargetsResponse:
     if skip < 0:
         skip = 0
@@ -86,7 +105,7 @@ def get_event_reminder_targets(
         if not event:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
-        if _reminder_superseded(db, event_id, reminder_type):
+        if _reminder_superseded(db, event_id, reminder_type, fire_at):
             return EventReminderTargetsResponse(
                 event_id=event.id,
                 reminder_type=reminder_type,

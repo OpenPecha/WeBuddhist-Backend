@@ -39,10 +39,12 @@ def _reminder_still_due(reminder_id: UUID, expected_fire_at: datetime) -> bool:
     )
 
 
-def _send_reminder(reminder_id: UUID, event_id: UUID, reminder_type: str) -> str | None:
+def _send_reminder(reminder_id: UUID, event_id: UUID, reminder_type: str, fire_at: datetime) -> str | None:
     try:
         sqs_message_id = send_event_notification_message(
-            build_event_reminder_event_body(event_id=str(event_id), reminder_type=reminder_type)
+            build_event_reminder_event_body(
+                event_id=str(event_id), reminder_type=reminder_type, fire_at=fire_at.isoformat(),
+            )
         )
     except Exception:
         logger.exception(
@@ -94,7 +96,7 @@ def dispatch_due_event_reminders() -> int:
                 reminder_id, reminder_type, event_id,
             )
             continue
-        if _send_reminder(reminder_id, event_id, reminder_type):
+        if _send_reminder(reminder_id, event_id, reminder_type, fire_at):
             dispatched += 1
             logger.info("Dispatched event reminder %s (%s) for event %s", reminder_id, reminder_type, event_id)
 
@@ -126,7 +128,7 @@ def reconcile_undispatched_event_reminders() -> int:
                 reminder_id, reminder_type, event_id,
             )
             continue
-        if _send_reminder(reminder_id, event_id, reminder_type):
+        if _send_reminder(reminder_id, event_id, reminder_type, fire_at):
             requeued += 1
             logger.info("Re-enqueued undispatched event reminder %s for event %s", reminder_id, event_id)
 

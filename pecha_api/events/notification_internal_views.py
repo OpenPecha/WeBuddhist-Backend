@@ -1,4 +1,5 @@
-from typing import Literal
+from datetime import datetime
+from typing import Literal, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -40,6 +41,15 @@ def event_notification_targets(
 def event_reminder_targets(
     event_id: UUID,
     reminder_type: Literal[REMINDER_TYPE_T_MINUS_10, REMINDER_TYPE_T_ZERO] = Query(...),
+    fire_at: Optional[datetime] = Query(
+        None,
+        description=(
+            "The exact fire_at this dispatch was queued for. Used to detect "
+            "a message that outlived a cancel/reschedule of the same "
+            "reminder and was superseded by a later dispatch before it was "
+            "processed."
+        ),
+    ),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     _: None = Depends(verify_dispatch_token),
@@ -50,4 +60,5 @@ def event_reminder_targets(
         minutes_before=max(get_int("EVENT_REMINDER_MINUTES_BEFORE"), 1),
         skip=skip,
         limit=limit,
+        fire_at=fire_at,
     )

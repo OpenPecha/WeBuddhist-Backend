@@ -63,19 +63,25 @@ class TestReminderStillDue:
 class TestSendReminder:
     @patch(f"{MODULE}.SessionLocal")
     @patch(f"{MODULE}.mark_reminder_sqs_message_id")
+    @patch(f"{MODULE}.build_event_reminder_event_body")
     @patch(f"{MODULE}.send_event_notification_message", return_value="sqs-1")
-    def test_sends_and_marks_dispatched(self, mock_send, mock_mark, mock_session):
+    def test_sends_and_marks_dispatched(self, mock_send, mock_build, mock_mark, mock_session):
         mock_session.return_value.__enter__.return_value = MagicMock()
+        fire_at = datetime.now(timezone.utc)
+        event_id = uuid4()
 
-        result = _send_reminder(uuid4(), uuid4(), "T_MINUS_10")
+        result = _send_reminder(uuid4(), event_id, "T_MINUS_10", fire_at)
 
         assert result == "sqs-1"
+        mock_build.assert_called_once_with(
+            event_id=str(event_id), reminder_type="T_MINUS_10", fire_at=fire_at.isoformat(),
+        )
         mock_send.assert_called_once()
         mock_mark.assert_called_once()
 
     @patch(f"{MODULE}.send_event_notification_message", side_effect=RuntimeError("boom"))
     def test_returns_none_when_send_fails(self, _mock_send):
-        assert _send_reminder(uuid4(), uuid4(), "T_ZERO") is None
+        assert _send_reminder(uuid4(), uuid4(), "T_ZERO", datetime.now(timezone.utc)) is None
 
     @patch(f"{MODULE}.SessionLocal")
     @patch(f"{MODULE}.mark_reminder_sqs_message_id", side_effect=RuntimeError("db down"))
@@ -83,7 +89,7 @@ class TestSendReminder:
     def test_still_returns_message_id_when_marking_fails(self, _mock_send, _mock_mark, mock_session):
         mock_session.return_value.__enter__.return_value = MagicMock()
 
-        assert _send_reminder(uuid4(), uuid4(), "T_ZERO") == "sqs-2"
+        assert _send_reminder(uuid4(), uuid4(), "T_ZERO", datetime.now(timezone.utc)) == "sqs-2"
 
 
 class TestDispatchDueEventReminders:
@@ -106,7 +112,9 @@ class TestDispatchDueEventReminders:
         mock_list.return_value = [reminder]
 
         assert dispatch_due_event_reminders() == 1
-        mock_send.assert_called_once_with(reminder.id, reminder.event_id, reminder.reminder_type)
+        mock_send.assert_called_once_with(
+            reminder.id, reminder.event_id, reminder.reminder_type, reminder.fire_at,
+        )
 
     @patch(f"{MODULE}.get_int", return_value=50)
     @patch(f"{MODULE}.is_event_notification_sqs_configured", return_value=True)
@@ -162,7 +170,9 @@ class TestReconcileUndispatchedEventReminders:
         mock_list.return_value = [reminder]
 
         assert reconcile_undispatched_event_reminders() == 1
-        mock_send.assert_called_once_with(reminder.id, reminder.event_id, reminder.reminder_type)
+        mock_send.assert_called_once_with(
+            reminder.id, reminder.event_id, reminder.reminder_type, reminder.fire_at,
+        )
 
     @patch(f"{MODULE}.get_int", return_value=60)
     @patch(f"{MODULE}.is_event_notification_sqs_configured", return_value=True)

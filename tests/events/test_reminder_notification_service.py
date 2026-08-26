@@ -70,6 +70,32 @@ class TestReminderSuperseded:
     def test_true_when_row_no_longer_exists(self, _mock_get):
         assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO) is True
 
+    @patch(f"{MODULE}.get_event_reminder")
+    def test_false_when_fire_at_matches_the_claimed_value(self, mock_get):
+        fire_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+        mock_get.return_value = _reminder(fire_at=fire_at)
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO, fire_at) is False
+
+    @patch(f"{MODULE}.get_event_reminder")
+    def test_true_when_row_reclaimed_for_a_different_schedule_since_this_message_was_queued(
+        self, mock_get,
+    ):
+        """Regression guard: a message that outlived a cancel + fresh
+        dispatch of the same (event_id, reminder_type) row must not be
+        delivered just because the row looks currently valid - it now
+        belongs to a different, newer dispatch."""
+        queued_for = datetime.now(timezone.utc) - timedelta(days=2)
+        current_row = _reminder(fire_at=datetime.now(timezone.utc) - timedelta(seconds=5))
+        mock_get.return_value = current_row
+
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO, queued_for) is True
+
+    @patch(f"{MODULE}.get_event_reminder")
+    def test_tolerates_sub_second_serialization_drift(self, mock_get):
+        fire_at = datetime.now(timezone.utc)
+        mock_get.return_value = _reminder(fire_at=fire_at + timedelta(milliseconds=200))
+        assert _reminder_superseded(MagicMock(), uuid4(), REMINDER_TYPE_T_ZERO, fire_at) is False
+
 
 class TestGetEventName:
     def test_prefers_english_entry(self):
@@ -150,6 +176,28 @@ class TestGetEventReminderTargets:
         assert result.recipients[0].user_id == with_device.id
         assert result.total == 2
         assert result.has_more is False
+
+    @patch(f"{MODULE}._reminder_superseded", return_value=False)
+    @patch(f"{MODULE}.get_active_push_devices_by_user_ids", return_value={})
+    @patch(f"{MODULE}.get_event_participants_paginated", return_value=([], 0))
+    @patch(f"{MODULE}._get_event_name", return_value="Event")
+    @patch(f"{MODULE}.get_event_by_id")
+    @patch(f"{MODULE}.SessionLocal")
+    def test_forwards_fire_at_to_the_superseded_check(
+        self, mock_session, mock_get_event, _mock_name, _mock_participants, _mock_devices, mock_superseded,
+    ):
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        event = MockEvent()
+        mock_get_event.return_value = event
+        fire_at = datetime.now(timezone.utc)
+
+        get_event_reminder_targets(
+            event_id=event.id, reminder_type=REMINDER_TYPE_T_ZERO, minutes_before=10, fire_at=fire_at,
+        )
+
+        mock_superseded.assert_called_once_with(
+            mock_session.return_value.__enter__.return_value, event.id, REMINDER_TYPE_T_ZERO, fire_at,
+        )
 
     @patch(f"{MODULE}._reminder_superseded", return_value=False)
     @patch(f"{MODULE}.get_active_push_devices_by_user_ids", return_value={})

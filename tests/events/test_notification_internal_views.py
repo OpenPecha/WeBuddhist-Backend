@@ -51,4 +51,39 @@ def test_event_reminder_targets_returns_targets_with_computed_minutes_before():
         minutes_before=10,
         skip=0,
         limit=100,
+        fire_at=None,
     )
+
+
+def test_event_reminder_targets_forwards_fire_at_when_provided():
+    event_id = uuid4()
+    fire_at = datetime(2026, 6, 15, 5, 50, tzinfo=timezone.utc)
+    empty_response = EventReminderTargetsResponse(
+        event_id=event_id,
+        reminder_type="T_ZERO",
+        title="",
+        body="",
+        recipients=[],
+        skip=0,
+        limit=100,
+        total=0,
+        has_more=False,
+    )
+
+    with patch(
+        "pecha_api.routines.routine_notifications.dependencies.get",
+        return_value="expected-secret",
+    ), patch(
+        "pecha_api.events.notification_internal_views.get_int", return_value=10,
+    ), patch(
+        "pecha_api.events.notification_internal_views.get_event_reminder_targets",
+        return_value=empty_response,
+    ) as mock_targets:
+        response = client.get(
+            f"/internal/event-reminder-targets/{event_id}",
+            params={"reminder_type": "T_ZERO", "fire_at": fire_at.isoformat()},
+            headers={"X-Dispatch-Token": "expected-secret"},
+        )
+
+    assert response.status_code == 200
+    assert mock_targets.call_args.kwargs["fire_at"] == fire_at
