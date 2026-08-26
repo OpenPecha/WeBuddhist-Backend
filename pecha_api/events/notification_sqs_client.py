@@ -6,6 +6,7 @@ from pecha_api.config import get
 from pecha_api.shared.sqs_client import send_sqs_message
 
 EVENT_CREATED_EVENT = "EVENT_CREATED"
+EVENT_REMINDER_EVENT = "EVENT_REMINDER"
 EVENT_NOTIFICATION_EVENT_VERSION = 1
 
 
@@ -22,6 +23,15 @@ def build_event_notification_event_body(*, event_id: str) -> Dict[str, Any]:
         "event_type": EVENT_CREATED_EVENT,
         "version": EVENT_NOTIFICATION_EVENT_VERSION,
         "event_id": event_id,
+    }
+
+
+def build_event_reminder_event_body(*, event_id: str, reminder_type: str) -> Dict[str, Any]:
+    return {
+        "event_type": EVENT_REMINDER_EVENT,
+        "version": EVENT_NOTIFICATION_EVENT_VERSION,
+        "event_id": event_id,
+        "reminder_type": reminder_type,
     }
 
 

@@ -45,6 +45,11 @@ from .event_response_models import (
 )
 from .recurrence_service import compute_initial_dates, resolve_next_occurrence, resolve_current_or_next_occurrence, expand_occurrences
 from .notification_dispatch_service import enqueue_event_notification
+from .event_reminder_service import (
+    cancel_event_reminders,
+    reschedule_event_reminders,
+    schedule_event_reminders,
+)
 from .event_repository import (
     save_event,
     get_event_by_id,
@@ -212,6 +217,7 @@ def _event_to_dto(
         location=_location_to_dto(event),
         start_date=event.start_date,
         end_date=event.end_date,
+        timezone=getattr(event, "timezone", None),
         is_one_day=event.end_date.date() == event.start_date.date(),
         featured=event.featured,
         is_recurring=event.is_recurring,
@@ -577,6 +583,7 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         location_id=request.location_id,
         start_date=start_date,
         end_date=end_date,
+        timezone=request.timezone,
         image_url=request.image_url,
         is_recurring=is_recurring,
         recurrence_frequency=recurrence_frequency,
@@ -604,6 +611,8 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         )
         saved = save_event(db, event, request.metadata, request.links)
         enqueue_event_notification(saved.id)
+        if not is_recurring:
+            schedule_event_reminders(saved.id, saved.start_date)
         return _event_to_dto(saved)
 
 
@@ -631,15 +640,25 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
             event.recurrence_month = request.recurrence.month
             event.recurrence_day = request.recurrence.day
             event.duration_days = request.recurrence.duration_days
+            # Reminders are out of scope for recurring events.
+            cancel_event_reminders(event.id)
         else:
             start_date = request.start_date if request.start_date is not None else event.start_date
             end_date = request.end_date if request.end_date is not None else event.end_date
+            start_date_changed = (
+                request.start_date is not None and request.start_date != event.start_date
+            )
             if request.start_date is not None or request.end_date is not None:
                 _validate_date_range(start_date, end_date)
                 if request.start_date is not None:
                     event.start_date = request.start_date
                 if request.end_date is not None:
                     event.end_date = request.end_date
+            if start_date_changed and not event.is_recurring:
+                reschedule_event_reminders(event.id, event.start_date)
+
+        if request.timezone is not None:
+            event.timezone = request.timezone
 
         if request.group_id is not None:
             event.group_id = request.group_id
