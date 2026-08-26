@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional, Dict, Any, List, Tuple
 
@@ -14,18 +15,15 @@ from pecha_api.texts.texts_response_models import (
 from pecha_api.collections.collections_response_models import V2CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
 from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
-from pecha_api.texts.texts_openpecha_api import fetch_critical_editions, fetch_text_detail, fetch_editions_segmentation, fetch_segmentation_segments, fetch_edition_content
-from pecha_api.texts.text_openpecha_response_models import (
-    SegmentationSegmentResponseModel,
-    SegmentContentModel,
-    SegmentContentResponse,
-    TextDetailResponse,
-    TextDetailWithContentResponse,
-    TextDetailDTO,
-    ContentDTO,
-    SectionDTO,
-    SegmentDTO,
+from pecha_api.texts.texts_openpecha_api import (
+    fetch_critical_editions,
+    fetch_editions_segmentation,
+    fetch_edition_content,
+    fetch_segmentation_segments,
+    fetch_text_detail,
+    fetch_text_source_link,
 )
+from pecha_api.texts.text_openpecha_response_models import SegmentationSegmentResponseModel, SegmentContentModel, SegmentContentResponse, TextDetailResponse
 
 logger = logging.getLogger(__name__)
 
@@ -74,10 +72,24 @@ def map_external_text_to_dto(item: Dict[str, Any], language: Optional[str] = Non
         categories=[item.get("category_id")] if item.get("category_id") else [],
         views=0,
         likes=[],
-        source_link=None,
+        source_link=item.get("source_link"),
         ranking=None,
         license=item.get("license"),
     )
+
+
+async def _fetch_text_detail_with_source(text_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        data = await fetch_text_by_id(text_id)
+        if not data:
+            return None
+        source_link = await fetch_text_source_link(text_id)
+        if source_link:
+            data["source_link"] = source_link
+        return data
+    except Exception as e:
+        logger.warning("Failed to fetch text %s: %s", text_id, e)
+        return None
 
 
 async def _get_texts_by_collection_id(
@@ -159,7 +171,7 @@ async def get_text_by_id_from_openpecha(text_id: str) -> V2TextDTO:
     return _map_external_text_to_dto(data, data.get("language"))
 
 
-async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDetailWithContentResponse:
+async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDetailResponse:
     text_detail = await fetch_text_detail(text_id=text_id)
     edition_details = await fetch_critical_editions(text_id=text_id)
     if not edition_details:
@@ -167,80 +179,13 @@ async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDe
             status_code=status.HTTP_404_NOT_FOUND, 
             detail=f"No critical editions found for text with id '{text_id}'",
         )
+    text_detail.edition_details = edition_details
     segmentations = await fetch_editions_segmentation(edition_id=edition_details[0].id)
     edition_content = await fetch_edition_content(edition_id=edition_details[0].id)
-    segments = await fetch_segmentation_segments(segmentation_id=segmentations[0].id, limit=limit, offset=offset)
-    
-    # Build segment DTOs
-    segment_dtos = []
-    for i, segment in enumerate(segments.items):
-        content = "".join(edition_content.content[line.start:line.end] for line in segment.lines)
-        segment_dtos.append(SegmentDTO(
-            segment_id=segment.id,
-            segment_number=offset + i + 1,
-            content=content,
-            translation=None
-        ))
-    
-    # Extract title as string
-    title_str = _extract_title(text_detail.title, text_detail.language)
-    date_str = text_detail.date or ""
-    
-    # Build TextDetailDTO
-    text_detail_dto = TextDetailDTO(
-        id=text_detail.id,
-        pecha_text_id=text_detail.bdrc or text_detail.id,
-        title=title_str,
-        language=text_detail.language,
-        group_id=text_detail.category_id,
-        type="version",
-        summary="",
-        is_published=True,
-        created_date=date_str,
-        updated_date=date_str,
-        published_date=date_str,
-        published_by="",
-        categories=[text_detail.category_id] if text_detail.category_id else [],
-        views=0,
-        likes=[],
-        source_link=text_detail.wiki or "unknown",
-        ranking=None,
-        license=text_detail.license or "unknown"
-    )
-    
-    # Build a single section containing all segments
-    section = SectionDTO(
-        id=segmentations[0].id if segmentations else "",
-        title="1",
-        section_number=1,
-        parent_id=None,
-        segments=segment_dtos,
-        sections=[],
-        created_date=None,
-        updated_date=None,
-        published_date=None
-    )
-    
-    # Build ContentDTO
-    content_dto = ContentDTO(
-        id=edition_details[0].id,
-        text_id=text_detail.id,
-        sections=[section]
-    )
-    
-    # Calculate total segments (estimate based on has_more)
-    total_segments = offset + len(segment_dtos)
-    if segments.has_more:
-        total_segments += 1  # Indicate there are more
-    
-    return TextDetailWithContentResponse(
-        text_detail=text_detail_dto,
-        content=content_dto,
-        size=len(segment_dtos),
-        pagination_direction="next",
-        current_segment_position=offset + 1 if segment_dtos else 0,
-        total_segments=total_segments
-    )
+    segments = await fetch_segmentation_segments(segmentation_id=segmentations[0].id, limit=limit, offset=offset)  # noqa: F841
+    segment_contents = trim_segment_content(edition_content=edition_content.content, segments=segments)
+    text_detail.segments = segment_contents
+    return text_detail
 
 
 def trim_segment_content(edition_content: str, segments: SegmentationSegmentResponseModel) -> SegmentContentResponse:
@@ -250,16 +195,10 @@ def trim_segment_content(edition_content: str, segments: SegmentationSegmentResp
         result.append(SegmentContentModel(id=segment.id, content=content, segment_number=i+1))
     return SegmentContentResponse(contents=result, has_more=segments.has_more, offset=segments.offset, limit=segments.limit)
 async def fetch_translation_details(translation_ids: List[str]) -> List[Dict[str, Any]]:
-    translation_details = []
-    for translation_id in translation_ids:
-        try:
-            data = await fetch_text_by_id(translation_id)
-            if data:
-                translation_details.append(data)
-        except Exception as e:
-            logger.warning(f"Failed to fetch translation {translation_id}: {e}")
-            continue
-    return translation_details
+    results = await asyncio.gather(
+        *[_fetch_text_detail_with_source(translation_id) for translation_id in translation_ids]
+    )
+    return [item for item in results if item is not None]
 
 
 def map_external_text_to_text_version(item: Dict[str, Any], language: Optional[str] = None) -> TextVersion:
@@ -280,7 +219,7 @@ def map_external_text_to_text_version(item: Dict[str, Any], language: Optional[s
         updated_date=date_value,
         published_date=date_value,
         published_by="",
-        source_link=None,
+        source_link=item.get("source_link"),
         ranking=None,
         license=item.get("license"),
     )
@@ -353,16 +292,10 @@ async def get_text_versions_from_openpecha(
 
 
 async def fetch_commentary_details(commentary_ids: List[str]) -> List[Dict[str, Any]]:
-    commentary_details = []
-    for commentary_id in commentary_ids:
-        try:
-            data = await fetch_text_by_id(commentary_id)
-            if data:
-                commentary_details.append(data)
-        except Exception as e:
-            logger.warning(f"Failed to fetch commentary {commentary_id}: {e}")
-            continue
-    return commentary_details
+    results = await asyncio.gather(
+        *[_fetch_text_detail_with_source(commentary_id) for commentary_id in commentary_ids]
+    )
+    return [item for item in results if item is not None]
 
 
 async def get_text_commentaries_from_openpecha(

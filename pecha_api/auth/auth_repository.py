@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from ..config import get_float, get
 from ..users.users_models import Users
+from .auth0_sms import extract_verified_phone_number
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -57,15 +58,19 @@ def validate_token(token: str) -> Dict[str, Any]:
         return decode_backend_token(token)
 
 def generate_token_data(user: Users):
-    if not all([user.email, user.firstname, user.lastname]):
+    if not all([user.id, user.firstname, user.lastname]):
         return None
     data = {
-        "email": user.email,
+        "sub": str(user.id),
         "name": user.firstname + " " + user.lastname,
         "iss": get("JWT_ISSUER"),
         "aud": get("JWT_AUD"),
         "iat": datetime.now(timezone.utc)
     }
+    if user.email:
+        data["email"] = user.email
+    if user.phone_number:
+        data["phone_number"] = user.phone_number
     return data
 
 
@@ -79,12 +84,46 @@ def get_auth0_public_key():
     return {key["kid"]: key for key in jwks["keys"]}
 
 
+def _allowed_auth0_audiences() -> list[str]:
+    audiences: list[str] = []
+    for key in ("AUTH0_AUDIENCE", "CLIENT_ID"):
+        value = get(key)
+        if value:
+            audiences.append(value.strip())
+    extra = get("AUTH0_ADDITIONAL_CLIENT_IDS")
+    if extra:
+        audiences.extend(v.strip() for v in extra.split(",") if v.strip())
+    return audiences
+
+
+def _token_audiences(aud) -> list[str]:
+    if aud is None:
+        return []
+    if isinstance(aud, list):
+        return [str(a) for a in aud]
+    return [str(aud)]
+
+
+def _extract_email_from_auth0_payload(payload: Dict[str, Any]) -> str | None:
+    email = payload.get("email")
+    if isinstance(email, str) and email:
+        return email
+    for key, value in payload.items():
+        if isinstance(value, str) and value and key.endswith("/email"):
+            return value
+    return None
+
+
 def verify_auth0_token(token: str):
     try:
         jwks = get_auth0_public_key()
         unverified_header = jwt.get_unverified_header(token)
-        rsa_key = jwks.get(unverified_header["kid"])
-
+        kid = unverified_header.get("kid")
+        if not kid:
+            raise ValueError(
+                "Token header missing key id (kid); request an API access token with audience"
+            )
+        rsa_key = jwks.get(kid)
         if not rsa_key:
             raise ValueError("Unable to find appropriate key")
 
@@ -92,9 +131,25 @@ def verify_auth0_token(token: str):
             token,
             rsa_key,
             algorithms=["RS256"],
-            audience=get("CLIENT_ID"),
-            issuer=f"https://{get('DOMAIN_NAME')}/"
+            issuer=f"https://{get('DOMAIN_NAME')}/",
+            options={"verify_aud": False},
         )
+
+        allowed = set(_allowed_auth0_audiences())
+        token_auds = _token_audiences(payload.get("aud"))
+        if not allowed.intersection(token_auds):
+            raise ValueError(
+                f"Token audience {token_auds} not in allowed audiences {sorted(allowed)}"
+            )
+
+        email = _extract_email_from_auth0_payload(payload)
+        if email and not payload.get("email"):
+            payload = {**payload, "email": email}
+
+        phone_number = extract_verified_phone_number(payload)
+        if phone_number and not payload.get("phone_number"):
+            payload = {**payload, "phone_number": phone_number}
+
         return payload
-    except JWTError as e:
+    except (JWTError, KeyError) as e:
         raise ValueError(f"Token validation failed: {e}")

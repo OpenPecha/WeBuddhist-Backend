@@ -1,6 +1,8 @@
 import uuid
-import pytest
+from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
+
+import pytest
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -8,6 +10,7 @@ from starlette import status
 
 from pecha_api.app import api
 from pecha_api.plans.plans_enums import PlanStatus, LanguageCode, DifficultyLevel
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.plans.series.series_response_models import (
     SeriesDTO,
     SeriesListItemDTO,
@@ -50,8 +53,12 @@ def sample_series_dto():
             _metadata("Foundations of Meditation", "EN"),
             _metadata("སྒོམ་", "BO"),
         ],
-        image="https://example.com/presigned/series.jpg",
-        image_key="series/cover.jpg",
+        image=ImageUrlModel(
+            thumbnail="https://example.com/presigned/series-thumb.jpg",
+            medium="https://example.com/presigned/series-medium.jpg",
+            original="https://example.com/presigned/series.jpg",
+        ),
+        image_key="images/series_images/sid/uuid/original/cover.jpg",
         author_id=uuid.uuid4(),
         featured=True,
         status=PlanStatus.DRAFT,
@@ -90,7 +97,7 @@ def test_get_series_list_success(sample_series_list_response):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=None)
+        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=None, token=None, timezone_name=None)
 
         assert "series" in data
         assert data["skip"] == 0
@@ -105,8 +112,93 @@ def test_get_series_list_success(sample_series_list_response):
         assert item["author_id"] == str(sample_series_list_response.series[0].author_id)
         assert item["featured"] is True
         assert item["status"] == PlanStatus.DRAFT.value
-        assert item["image"] == sample_series_list_response.series[0].image
+        assert item["image"] == sample_series_list_response.series[0].image.model_dump()
         assert item["image_key"] == sample_series_list_response.series[0].image_key
+
+
+def test_get_featured_series_success(sample_series_list_response):
+    featured_item = sample_series_list_response.series[0]
+    with patch(
+        "pecha_api.plans.series.public_series_view.get_random_featured_series",
+        return_value=sample_series_list_response,
+    ) as mock_service:
+        response = client.get("/series/featured")
+
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+
+        mock_service.assert_called_once_with(language="en", limit=10, token=None)
+        assert len(data["series"]) == 1
+        item = data["series"][0]
+        assert item["id"] == str(featured_item.id)
+        assert item["featured"] is True
+        assert "plans" not in item
+        assert item["plan_count"] == featured_item.plan_count
+        assert item["start_date"] is None
+        assert item["end_date"] is None
+        assert item["total_days"] == featured_item.total_days
+        assert data["skip"] == 0
+        assert data["limit"] == 10
+        assert data["total"] == 1
+
+
+def test_get_featured_series_includes_schedule_fields():
+    series_start = datetime(2026, 6, 1, tzinfo=timezone.utc)
+    series_end = datetime(2026, 6, 5, tzinfo=timezone.utc)
+    list_item = SeriesListItemDTO(
+        id=uuid.uuid4(),
+        metadata=[_metadata("Featured Series")],
+        author_id=uuid.uuid4(),
+        featured=True,
+        status=PlanStatus.PUBLISHED,
+        plan_count=2,
+        total_days=5,
+        start_date=series_start,
+        end_date=series_end,
+    )
+    featured_response = SeriesListResponse(
+        series=[list_item],
+        skip=0,
+        limit=10,
+        total=1,
+    )
+
+    with patch(
+        "pecha_api.plans.series.public_series_view.get_random_featured_series",
+        return_value=featured_response,
+    ):
+        response = client.get("/series/featured")
+
+    assert response.status_code == status.HTTP_200_OK
+    item = response.json()["series"][0]
+    assert item["start_date"] == "2026-06-01T00:00:00Z"
+    assert item["end_date"] == "2026-06-05T00:00:00Z"
+    assert item["total_days"] == 5
+
+
+def test_get_featured_series_with_language(sample_series_list_response):
+    with patch(
+        "pecha_api.plans.series.public_series_view.get_random_featured_series",
+        return_value=sample_series_list_response,
+    ) as mock_service:
+        response = client.get("/series/featured", params={"language": "en"})
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(language="en", limit=10, token=None)
+
+
+def test_get_featured_series_not_found():
+    with patch(
+        "pecha_api.plans.series.public_series_view.get_random_featured_series",
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No featured series found",
+        ),
+    ):
+        response = client.get("/series/featured")
+
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json()["detail"] == "No featured series found"
 
 
 def test_get_series_list_with_search_pagination(sample_series_dto):
@@ -120,7 +212,7 @@ def test_get_series_list_with_search_pagination(sample_series_dto):
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_service.assert_called_once_with(search="meditation", skip=2, limit=5, language=None, group_id=None)
+        mock_service.assert_called_once_with(search="meditation", skip=2, limit=5, language=None, group_id=None, token=None, timezone_name=None)
 
         assert data["series"] == []
         assert data["skip"] == 2
@@ -131,6 +223,7 @@ def test_get_series_list_with_search_pagination(sample_series_dto):
 def test_create_series_success(sample_series_dto):
     author_id = uuid.uuid4()
     payload = {
+        "group_id": str(uuid.uuid4()),
         "metadata": [{"title": "New Series", "language": "EN"}],
         "image_key": "series/uploads/key.jpg",
         "featured": False,
@@ -143,7 +236,7 @@ def test_create_series_success(sample_series_dto):
         "pecha_api.plans.series.series_view.create_new_series",
         return_value=sample_series_dto,
     ) as mock_create, patch(
-        "pecha_api.plans.series.series_service.validate_and_extract_author_details",
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
         return_value=mock_author,
     ):
         response = client.post(
@@ -170,6 +263,7 @@ def test_create_series_success(sample_series_dto):
 def test_create_series_defaults_optional_featured(sample_series_dto):
     author_id = uuid.uuid4()
     payload = {
+        "group_id": str(uuid.uuid4()),
         "metadata": [{"title": "Minimal", "language": "EN"}],
     }
 
@@ -180,7 +274,7 @@ def test_create_series_defaults_optional_featured(sample_series_dto):
         "pecha_api.plans.series.series_view.create_new_series",
         return_value=sample_series_dto,
     ) as mock_create, patch(
-        "pecha_api.plans.series.series_service.validate_and_extract_author_details",
+        "pecha_api.plans.series.series_service.validate_cms_author_details",
         return_value=mock_author,
     ):
         response = client.post(
@@ -213,7 +307,7 @@ def test_get_series_by_id_success(sample_series_dto):
         response = client.get(f"/series/{series_id}")
 
         assert response.status_code == status.HTTP_200_OK
-        mock_detail.assert_called_once_with(series_id=series_id)
+        mock_detail.assert_called_once_with(series_id=series_id, language=None, token=None, timezone_name=None)
 
         data = response.json()
         assert data["id"] == str(sample_series_dto.id)
@@ -246,7 +340,7 @@ def test_get_series_by_id_includes_total_days_in_response():
         description="First plan",
         language=LanguageCode.EN.value,
         difficulty_level=DifficultyLevel.BEGINNER,
-        image_url=None,
+        image=None,
         image_key=None,
         tags=[],
         status=PlanStatus.DRAFT,
@@ -262,7 +356,7 @@ def test_get_series_by_id_includes_total_days_in_response():
         description="Second plan",
         language=LanguageCode.EN.value,
         difficulty_level=DifficultyLevel.INTERMEDIATE,
-        image_url=None,
+        image=None,
         image_key=None,
         tags=[],
         status=PlanStatus.PUBLISHED,
@@ -293,7 +387,7 @@ def test_get_series_by_id_includes_total_days_in_response():
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
 
-        mock_detail.assert_called_once_with(series_id=series_id)
+        mock_detail.assert_called_once_with(series_id=series_id, language=None, token=None, timezone_name=None)
 
         assert data["total_days"] == 8
         assert len(data["plans"]) == 2
@@ -332,7 +426,7 @@ def test_get_series_list_returns_plan_count_not_plans():
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=None)
+        mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=None, token=None, timezone_name=None)
 
         assert len(data["series"]) == 1
         assert data["series"][0]["plan_count"] == 0
@@ -350,7 +444,7 @@ def test_get_series_list_with_group_filter():
         response = client.get("/series", params={"group_id": str(group_id)})
 
     assert response.status_code == status.HTTP_200_OK
-    mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=group_id)
+    mock_service.assert_called_once_with(search=None, skip=0, limit=10, language=None, group_id=group_id, token=None, timezone_name=None)
 
 
 def test_update_series_accepts_empty_body():
@@ -526,6 +620,18 @@ def test_get_cms_series_by_id_forbidden():
         )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_series_by_id_passes_language_param(sample_series_dto):
+    series_id = sample_series_dto.id
+    with patch(
+        "pecha_api.plans.series.public_series_view.get_series_detail",
+        return_value=sample_series_dto,
+    ) as mock_detail:
+        response = client.get(f"/series/{series_id}", params={"language": "bo"})
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_detail.assert_called_once_with(series_id=series_id, language="bo", token=None, timezone_name=None)
 
 
 def test_get_cms_series_by_id_passes_language_param(sample_series_dto):
@@ -733,3 +839,142 @@ def test_update_series_featured_forbidden():
         )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_clone_series_plans_success(sample_series_dto):
+    series_id = uuid.uuid4()
+    payload = {
+        "source_language": "EN",
+        "target_language": "BO",
+    }
+
+    with patch(
+        "pecha_api.plans.series.series_view.clone_series_plans_for_language",
+        return_value=sample_series_dto,
+    ) as mock_clone:
+        response = client.post(
+            f"/cms/series/{series_id}/clone-plans",
+            json=payload,
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    mock_clone.assert_called_once_with(
+        token="dummy",
+        series_id=series_id,
+        clone_request=mock_clone.call_args.kwargs["clone_request"],
+    )
+    assert response.json()["id"] == str(sample_series_dto.id)
+
+# --- Series partner CMS endpoints ---
+
+def _partner_item(is_owner: bool = False):
+    from pecha_api.plans.series.series_response_models import SeriesPartnerItemDTO
+    return SeriesPartnerItemDTO(
+        id=uuid.uuid4(),
+        group_id=uuid.uuid4(),
+        group_name="Partner Group",
+        group_image=None,
+        is_owner=is_owner,
+    )
+
+
+def test_list_series_partners_success():
+    from pecha_api.plans.series.series_response_models import SeriesPartnerListResponse
+
+    series_id = uuid.uuid4()
+    owner = _partner_item(is_owner=True)
+    added = _partner_item(is_owner=False)
+    response_model = SeriesPartnerListResponse(partners=[owner, added])
+
+    with patch(
+        "pecha_api.plans.series.series_view.list_series_partners_for_cms",
+        return_value=response_model,
+    ) as mock_list:
+        response = client.get(
+            f"/cms/series/{series_id}/partners",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    data = response.json()
+    assert len(data["partners"]) == 2
+    assert data["partners"][0]["is_owner"] is True
+    mock_list.assert_called_once()
+    assert mock_list.call_args.kwargs["token"] == "dummy"
+    assert mock_list.call_args.kwargs["series_id"] == series_id
+
+
+def test_add_series_partner_success():
+    series_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+    item = _partner_item(is_owner=False)
+
+    with patch(
+        "pecha_api.plans.series.series_view.add_series_partner",
+        return_value=item,
+    ) as mock_add:
+        response = client.post(
+            f"/cms/series/{series_id}/partners",
+            json={"group_id": str(group_id)},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_201_CREATED
+    data = response.json()
+    assert data["id"] == str(item.id)
+    mock_add.assert_called_once()
+    call_kwargs = mock_add.call_args.kwargs
+    assert call_kwargs["token"] == "dummy"
+    assert call_kwargs["series_id"] == series_id
+    assert call_kwargs["add_request"].group_id == group_id
+
+
+def test_add_series_partner_validation_error_missing_group_id():
+    series_id = uuid.uuid4()
+    response = client.post(
+        f"/cms/series/{series_id}/partners",
+        json={},
+        headers={"Authorization": "Bearer dummy"},
+    )
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+
+
+def test_delete_series_partner_success():
+    series_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.plans.series.series_view.remove_series_partner",
+        return_value=None,
+    ) as mock_remove:
+        response = client.delete(
+            f"/cms/series/{series_id}/partners/{group_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    mock_remove.assert_called_once_with(
+        token="dummy",
+        series_id=series_id,
+        group_id=group_id,
+    )
+
+
+def test_delete_series_partner_owner_rejected():
+    series_id = uuid.uuid4()
+    group_id = uuid.uuid4()
+
+    with patch(
+        "pecha_api.plans.series.series_view.remove_series_partner",
+        side_effect=HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The series' owning group cannot be removed as a partner",
+        ),
+    ):
+        response = client.delete(
+            f"/cms/series/{series_id}/partners/{group_id}",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST

@@ -1,6 +1,6 @@
 import uuid
 from uuid import UUID
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from .texts_response_models import Section
 
@@ -18,11 +18,25 @@ class TableOfContent(Document):
 
     class Settings:
         collection = "table_of_contents"
+        indexes = [
+            "text_id",
+        ]
     
     @classmethod
     async def get_table_of_contents_by_text_id(cls, text_id: str) -> List["TableOfContent"]: # this methods is getting all the available table of content for a text
         query = cls.find(cls.text_id == text_id)
         return await query.to_list()
+
+    @classmethod
+    async def get_table_of_contents_by_text_ids(cls, text_ids: List[str]) -> Dict[str, List["TableOfContent"]]:
+        if not text_ids:
+            return {}
+        contents = await cls.find({"text_id": {"$in": text_ids}}).to_list()
+        result: Dict[str, List["TableOfContent"]] = {text_id: [] for text_id in text_ids}
+        for content in contents:
+            if content.text_id in result:
+                result[content.text_id].append(content)
+        return result
 
     @classmethod
     async def delete_table_of_content_by_text_id(cls, text_id: str):
@@ -44,6 +58,32 @@ class TableOfContent(Document):
                 return None
             contents.sections = contents.sections[skip * limit:skip+limit]
         return contents
+
+    @classmethod
+    async def find_table_of_content_with_segment(
+        cls,
+        text_id: str,
+        segment_id: str,
+    ) -> Optional["TableOfContent"]:
+        from pecha_api.texts.texts_toc_utils import section_contains_segment
+
+        async for table_of_content in cls.find(cls.text_id == text_id):
+            if section_contains_segment(table_of_content.sections, segment_id):
+                return table_of_content
+        return None
+
+    @classmethod
+    async def get_first_segment_table_of_content(
+        cls,
+        text_id: str,
+    ) -> tuple[Optional[str], Optional["TableOfContent"]]:
+        from pecha_api.texts.texts_toc_utils import find_first_segment_in_sections
+
+        async for table_of_content in cls.find(cls.text_id == text_id):
+            segment_id = find_first_segment_in_sections(table_of_content.sections)
+            if segment_id:
+                return segment_id, table_of_content
+        return None, None
 
 
 class Text(Document):
@@ -67,6 +107,9 @@ class Text(Document):
 
     class Settings:
         collection = "texts"
+        indexes = [
+            "group_id",
+        ]
 
     @classmethod
     async def get_texts_by_pecha_text_ids(cls, pecha_text_ids: List[str]) -> List["Text"]:
@@ -163,15 +206,28 @@ class Text(Document):
         ).to_list()
 
     @classmethod
-    async def get_all_recitation_texts_by_collection_id(cls, collection_id: str, language: str):
+    async def get_all_recitation_texts_by_collection_id(
+        cls, 
+        collection_id: str, 
+        language: str, 
+        search: Optional[str] = None, 
+        skip: int = 0, 
+        limit: int = 10
+    ) -> Tuple[List["Text"], int]:
         
         query = {
             "categories": collection_id,
             "language": language
         }
-        return await cls.find(
-            query
-        ).to_list()
+        
+        if search:
+            query["title"] = {"$regex": search, "$options": "i"}
+        
+        total = await cls.find(query).count()
+        
+        texts = await cls.find(query).skip(skip).limit(limit).to_list()
+        
+        return texts, total
 
     @classmethod
     async def get_texts_by_group_id(cls, group_id: str, skip: int, limit: int) -> List["Text"]:

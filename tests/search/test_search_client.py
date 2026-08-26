@@ -5,15 +5,16 @@ from pecha_api.config import get
 
 @pytest.mark.asyncio
 async def test_search_client_success():
-    mock_es = AsyncMock()
-    mock_es_class = AsyncMock(return_value=mock_es)
-    with patch('pecha_api.search.search_client.AsyncElasticsearch', mock_es_class):
+    mock_es = MagicMock()
+    mock_es_class = MagicMock(return_value=mock_es)
+    with patch('elasticsearch.AsyncElasticsearch', mock_es_class):
         with patch('pecha_api.search.search_client.get', side_effect=lambda key: {
             'ELASTICSEARCH_URL': 'test_elasticsearch_url',
             'ELASTICSEARCH_API': 'test_api_key'
         }[key]):
-            # First call should create new client
-            client = await search_client()
+            import pecha_api.search.search_client as search_client_module
+            search_client_module._search_client = None
+            client = search_client()
             assert client == mock_es
             mock_es_class.assert_called_once_with(
                 hosts=['test_elasticsearch_url'],

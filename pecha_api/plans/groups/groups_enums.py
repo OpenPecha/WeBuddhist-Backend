@@ -28,3 +28,26 @@ AuthorGroupInviteStatusEnum = Enum(
     AuthorGroupInviteStatus,
     name="author_group_invite_status",
 )
+
+
+class AuthorGroupJoinRequestStatus(enum.Enum):
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+AuthorGroupJoinRequestStatusEnum = Enum(
+    AuthorGroupJoinRequestStatus,
+    name="author_group_join_request_status",
+)
+
+
+class AuthorGroupType(enum.Enum):
+    PAGE = "PAGE"
+    COMMUNITY = "COMMUNITY"
+
+
+AuthorGroupTypeEnum = Enum(
+    AuthorGroupType,
+    name="author_group_type",
+)

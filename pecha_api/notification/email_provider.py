@@ -2,9 +2,11 @@ import logging
 from ..config import get
 from fastapi import HTTPException
 from starlette import status
-import mailtrap as mt
+
 
 def send_email(to_email: str, subject: str, message: str):
+    import mailtrap as mt
+
     mail = mt.Mail(
         sender=mt.Address(email=get('SENDER_EMAIL'), name=get('SENDER_NAME')),
         to=[mt.Address(email=to_email)],

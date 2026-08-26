@@ -1,10 +1,11 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List
+from typing import Optional, List, Union
 from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus,ContentType
 from uuid import UUID
 from datetime import datetime, date as DateType
 from pecha_api.plans.plans_models import Plan
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
+from pecha_api.plans.series.series_response_models import SeriesProgressDTO
 
 class PlanDayBasic(BaseModel):
     id: str
@@ -26,6 +27,14 @@ class AuthorDTO(BaseModel):
 
 
     
+class PlanVideoSummaryDTO(BaseModel):
+    id: UUID
+    url: str
+    video_id: Optional[str] = None
+    title: Optional[str] = None
+    display_order: int
+
+
 class PublicPlanDTO(BaseModel):
     id: UUID
     title: str
@@ -36,9 +45,11 @@ class PublicPlanDTO(BaseModel):
     total_days: int
     tags: list[TagSummaryDTO] = []
     author: Optional[AuthorDTO] = None
+    videos: List[PlanVideoSummaryDTO] = []
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
     group_id: Optional[UUID] = None
+    series_id: Optional[UUID] = None  # Set when the plan is part of a series
 
 class SubTaskDTO(BaseModel):
     id: UUID
@@ -50,6 +61,7 @@ class SubTaskDTO(BaseModel):
     source_text_id: Optional[UUID] = None
     pecha_segment_id: Optional[str] = None
     segment_ids: Optional[List[UUID]] = None
+    segment_numbers: Optional[List[int]] = None
     display_order: Optional[int] = None
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None
@@ -61,12 +73,29 @@ class TaskDTO(BaseModel):
     display_order: Optional[int] = None
     subtasks: List[SubTaskDTO] = []
 
+class DayVideoSummaryDTO(BaseModel):
+    id: UUID
+    url: str
+    video_id: Optional[str] = None
+    title: Optional[str] = None
+    display_order: int
+
 class PlanDayDTO(BaseModel):
     id: UUID
     day_number: int
     tasks: List[TaskDTO]
     audio_url: Optional[str] = None
     audio_duration_ms: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+    shareable_image_url: Optional[str] = None
+    videos: List[DayVideoSummaryDTO] = []
+    series_id: Optional[UUID] = None  # Set when the plan is part of a series
+
+
+class PlanDayCacheCleanupResponse(BaseModel):
+    plan_id: UUID
+    day_number: Optional[int] = None
+    keys_deleted: int
 
 
 class PlanWithDays(BaseModel):
@@ -100,14 +129,19 @@ class PlansRepositoryResponse(BaseModel):
 class SeriesMetadataDTO(BaseModel):
     id: UUID
     title: str
+    sub_title: Optional[str] = None
     description: Optional[str] = None
     language: str
 
 
+SeriesMetadataResponse = Union[SeriesMetadataDTO, List[SeriesMetadataDTO], None]
+
+
 class SeriesDTO(BaseModel):
     id: UUID
-    metadata: List[SeriesMetadataDTO] = []
+    metadata: SeriesMetadataResponse = []
     image: Optional[ImageUrlModel] = None
+    progress: Optional[SeriesProgressDTO] = None
 
 class DailyPlanResponse(BaseModel):
     plan_id: UUID

@@ -1,7 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import func, asc, desc
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Tuple
 from uuid import UUID
 from datetime import datetime, timezone
 from pecha_api.plans.authors.plan_authors_model import Author
@@ -11,7 +11,9 @@ from pecha_api.plans.items.plan_items_models import PlanItem
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from fastapi import HTTPException
 from starlette import status
+from pecha_api.plans.groups.groups_repository import get_author_group_ids
 from pecha_api.plans.plans_response_models import PlansRepositoryResponse, PlanWithAggregates
+from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin
 
 def save_plan(db: Session, plan: Plan):
     try:
@@ -28,19 +30,26 @@ def save_plan(db: Session, plan: Plan):
 def get_plans_by_author_id(
     db: Session,
     search: Optional[str],
-    author_id: UUID,
-    is_admin: bool,
+    author: Author,
     sort_by: str,
     sort_order: str,
     skip: int,
     limit: int,
     tag: Optional[str] = None,
     language: Optional[str] = None,
+    group_id: Optional[UUID] = None,
 ) -> PlansRepositoryResponse:
-    # Filters
+    from pecha_api.plans.shared.permissions import is_reviewer, is_super_admin
+    from pecha_api.plans.groups.groups_repository import get_author_group_ids
+
     filters = [Plan.deleted_at.is_(None)]
-    if not is_admin:
-        filters.append(Plan.author_id == author_id)
+    if group_id is not None:
+        filters.append(Plan.group_id == group_id)
+    if not is_super_admin(author) and not is_reviewer(author):
+        member_group_ids = get_author_group_ids(db=db, author_id=author.id)
+        if not member_group_ids:
+            return PlansRepositoryResponse(plan_info=[], total=0)
+        filters.append(Plan.group_id.in_(member_group_ids))
     if search:
         filters.append(Plan.title.ilike(f"%{search}%"))
     if tag:
@@ -139,12 +148,81 @@ def get_plan_by_id(db: Session, plan_id: UUID) -> Plan:
             detail=f"Failed to get plan by id: {str(e)}"
         )
 
-def get_plan_by_id_and_created_by(db: Session, plan_id: UUID, created_by: str, is_admin: bool) -> Plan:
+def get_next_series_plan_start_date(db: Session, series_id: UUID, display_order: int) -> Optional[datetime]:
     try:
-        if not is_admin:
-            return db.query(Plan).filter(Plan.id == plan_id, Plan.created_by == created_by).first()
-        else:
-            return db.query(Plan).options(selectinload(Plan.tag_list)).filter(Plan.id == plan_id).first()
+        return (
+            db.query(func.min(Plan.start_date))
+            .filter(
+                Plan.series_id == series_id,
+                Plan.display_order > display_order,
+                Plan.start_date.isnot(None),
+                Plan.deleted_at.is_(None),
+            )
+            .scalar()
+        )
+    except Exception as e:
+        db.rollback()
+        print(f"Error getting next series plan start date: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get next series plan start date: {str(e)}"
+        )
+
+def get_previous_series_plans_schedule(db: Session, series_id: UUID, display_order: int) -> List[Tuple[datetime, int]]:
+    """Return (start_date, last_day_number) for active earlier plans in the series that have days."""
+    try:
+        return (
+            db.query(Plan.start_date, func.max(PlanItem.day_number))
+            .join(PlanItem, PlanItem.plan_id == Plan.id)
+            .filter(
+                Plan.series_id == series_id,
+                Plan.display_order < display_order,
+                Plan.start_date.isnot(None),
+                Plan.deleted_at.is_(None),
+            )
+            .group_by(Plan.id, Plan.start_date)
+            .all()
+        )
+    except Exception as e:
+        db.rollback()
+        print(f"Error getting previous series plans schedule: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get previous series plans schedule: {str(e)}"
+        )
+
+def get_subsequent_series_plans(db: Session, series_id: UUID, display_order: int) -> List[Plan]:
+    """Return active plans later in the series than display_order, ordered ascending."""
+    try:
+        return (
+            db.query(Plan)
+            .filter(
+                Plan.series_id == series_id,
+                Plan.display_order > display_order,
+                Plan.deleted_at.is_(None),
+            )
+            .order_by(Plan.display_order.asc())
+            .all()
+        )
+    except Exception as e:
+        db.rollback()
+        print(f"Error getting subsequent series plans: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get subsequent series plans: {str(e)}"
+        )
+
+def get_plan_by_id_and_created_by(db: Session, plan_id: UUID, author: Author) -> Optional[Plan]:
+    try:
+        plan = db.query(Plan).options(selectinload(Plan.tag_list)).filter(Plan.id == plan_id).first()
+        if not plan:
+            return None
+        if is_super_admin(author) or is_reviewer(author):
+            return plan
+        member_group_ids = get_author_group_ids(db=db, author_id=author.id)
+        if plan.group_id in member_group_ids:
+            return plan
+        return None
     except Exception as e:
         db.rollback()
         print(f"Error getting plan by id and created by: {str(e)}")

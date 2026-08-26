@@ -5,6 +5,7 @@ from starlette import status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated
 
+from pecha_api.plans.language_constants import language_query_description
 from pecha_api.plans.plans_response_models import PlansResponse
 from pecha_api.plans.users.plan_users_response_models import (
     UserPlanEnrollRequest, 
@@ -15,7 +16,8 @@ from pecha_api.plans.users.plan_users_response_models import (
     UserSeriesEnrollRequest,
     UserSeriesEnrollmentsResponse,
     UserSeriesProgressResponse,
-    UpdateSeriesEnrollmentRequest
+    UpdateSeriesEnrollmentRequest,
+    UserSeriesDaysCompletedResponse,
 )
 
 from pecha_api.plans.users.plan_users_service import (
@@ -31,6 +33,7 @@ from pecha_api.plans.users.plan_users_service import (
     enroll_user_in_series,
     get_user_series_enrollments,
     get_user_series_progress,
+    get_user_series_days_completed,
     update_user_series_enrollment_service,
     unenroll_user_from_series
 )
@@ -49,11 +52,22 @@ async def get_user_plans(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     status_filter: Optional[str] = Query(None, description="Filter by series enrollment status (ACTIVE, PAUSED, COMPLETED, CANCELLED)"),
     series_id: Optional[UUID] = Query(None, description="Filter by series ID to only get plans from that series"),
+    language: Annotated[
+        Optional[str],
+        Query(description=language_query_description("Filter group metadata by language", lowercase_example=True)),
+    ] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50)
 ):
 
-    return await get_user_enrolled_plans(token=authentication_credential.credentials, status_filter=status_filter, series_id=series_id, skip=skip, limit=limit)
+    return await get_user_enrolled_plans(
+        token=authentication_credential.credentials,
+        status_filter=status_filter,
+        series_id=series_id,
+        language=language,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @user_progress_router.post("/plans", status_code=status.HTTP_204_NO_CONTENT)
@@ -157,6 +171,10 @@ def enroll_in_series(
 async def get_user_series_enrollments_endpoint(
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
     status_filter: Annotated[Optional[str], Query(description="Filter by series enrollment status")] = None,
+    language: Annotated[
+        Optional[str],
+        Query(description=language_query_description("Filter group metadata by language", lowercase_example=True)),
+    ] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
 ):
@@ -164,20 +182,49 @@ async def get_user_series_enrollments_endpoint(
     return get_user_series_enrollments(
         token=authentication_credential.credentials,
         status_filter=status_filter,
+        language=language,
         skip=skip,
         limit=limit
+    )
+
+
+@user_progress_router.get(
+    "/series/day-completed",
+    status_code=status.HTTP_200_OK,
+    response_model=UserSeriesDaysCompletedResponse,
+)
+async def get_user_series_days_completed_endpoint(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    language: Annotated[
+        Optional[str],
+        Query(description=language_query_description("Filter group metadata by language", lowercase_example=True)),
+    ] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+):
+    """Get paginated list of series with completed day counts for the current user."""
+    return get_user_series_days_completed(
+        token=authentication_credential.credentials,
+        language=language,
+        skip=skip,
+        limit=limit,
     )
 
 
 @user_progress_router.get("/series/{series_id}", status_code=status.HTTP_200_OK, response_model=UserSeriesProgressResponse)
 async def get_user_series_progress_endpoint(
     series_id: UUID,
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    language: Annotated[
+        Optional[str],
+        Query(description=language_query_description("Filter group metadata by language", lowercase_example=True)),
+    ] = None,
 ):
     """Get detailed progress for a specific series"""
     return get_user_series_progress(
         token=authentication_credential.credentials,
-        series_id=series_id
+        series_id=series_id,
+        language=language,
     )
 
 

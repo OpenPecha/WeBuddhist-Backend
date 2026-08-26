@@ -9,7 +9,7 @@ from pecha_api.plans.response_message import (
     AUTHOR_ALREADY_EXISTS,
     BAD_REQUEST,
 )
-from typing import List
+from typing import List, Optional
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.authors.plan_authors_model import Author, AuthorSocialMediaAccount
 
@@ -30,10 +30,23 @@ def get_all_authors(db: Session) -> List[Author]:
     return authors
 
 def get_author_by_email(db: Session, email: str) -> Author:
-    author = db.query(Author).options(joinedload(Author.social_media_accounts)).filter(Author.email == email).first()
+    author = find_author_by_email(db=db, email=email)
     if author is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=AUTHOR_NOT_FOUND)
     return author
+
+
+def find_author_by_email(db: Session, email: str) -> Optional[Author]:
+    return db.query(Author).options(joinedload(Author.social_media_accounts)).filter(
+        Author.email == email,
+    ).first()
+
+
+def get_authors_by_emails(db: Session, emails: List[str]) -> List[Author]:
+    """Return authors matching any of the given emails. Missing emails are omitted."""
+    if not emails:
+        return []
+    return db.query(Author).filter(Author.email.in_(emails)).all()
 
 def check_author_exists(db: Session, email: str):
     author = db.query(Author).filter(Author.email == email).first()
@@ -46,6 +59,75 @@ def get_author_by_id(db: Session, author_id: UUID) -> Author:
     if author is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=AUTHOR_NOT_FOUND)
     return author
+
+
+def find_author_by_id(db: Session, author_id: UUID) -> Optional[Author]:
+    """Return the Author with the given ID, or None if not found."""
+    return db.query(Author).options(joinedload(Author.social_media_accounts)).filter(
+        Author.id == author_id,
+    ).first()
+
+
+def get_author_by_phone(
+    db: Session,
+    phone_number: str,
+) -> Optional[Author]:
+    return db.query(Author).options(joinedload(Author.social_media_accounts)).filter(
+        Author.phone_number == phone_number,
+    ).first()
+
+
+def save_phone_author(
+    db: Session,
+    author: Author,
+) -> Author:
+    try:
+        db.add(author)
+        db.commit()
+        db.refresh(author)
+        return author
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Phone identity is already linked to another author",
+        )
+
+
+def save_google_author(
+    db: Session,
+    author: Author,
+) -> Author:
+    try:
+        db.add(author)
+        db.commit()
+        db.refresh(author)
+        return author
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email is already linked to another author",
+        )
+
+
+def link_author_phone(
+    db: Session,
+    author: Author,
+    phone_number: str,
+) -> Author:
+    try:
+        author.phone_number = phone_number
+        db.add(author)
+        db.commit()
+        db.refresh(author)
+        return author
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Phone identity is already linked to another author",
+        )
 
 
 def update_author(db: Session, author: Author) -> Author:

@@ -22,6 +22,7 @@ from .segments_response_models import (
     V2SegmentTextGroup,
     V2SegmentTranslationsResponse,
 )
+from ..texts_openpecha_api import fetch_text_source_link
 from ..texts_openpecha_service import _extract_title
 
 logger = logging.getLogger(__name__)
@@ -104,14 +105,16 @@ async def _get_related_segments_grouped_by_type(
             seen_text_ids.add(text_id)
             unique_text_ids.append(text_id)
 
-    text_payloads = await asyncio.gather(
-        *[_fetch_text_safe(text_id) for text_id in unique_text_ids]
+    text_payloads, source_links = await asyncio.gather(
+        asyncio.gather(*[_fetch_text_safe(text_id) for text_id in unique_text_ids]),
+        asyncio.gather(*[fetch_text_source_link(text_id) for text_id in unique_text_ids]),
     )
     text_by_id: Dict[str, Dict[str, Any]] = {
         text_id: payload
         for text_id, payload in zip(unique_text_ids, text_payloads)
         if payload is not None
     }
+    source_by_id: Dict[str, Optional[str]] = dict(zip(unique_text_ids, source_links))
 
     filtered_items = [
         item
@@ -138,6 +141,8 @@ async def _get_related_segments_grouped_by_type(
                 text_id=text_id,
                 title=_extract_title(text_payload.get("title", {})),
                 language=text_payload.get("language"),
+                source_link=source_by_id.get(text_id),
+                license=text_payload.get("license"),
                 segments=[],
             )
             group_order.append(text_id)

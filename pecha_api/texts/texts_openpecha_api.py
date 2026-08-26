@@ -84,6 +84,28 @@ async def fetch_text_detail(text_id: str) -> TextDetailResponse:
     return _parse_text_detail(response.json())
 
 
+async def fetch_text_source_link(text_id: str) -> str | None:
+    client = get_authenticated_open_pecha_client()
+
+    try:
+        response = await client.get_async_httpx_client().get(
+            f"/v2/texts/{text_id}/editions",
+            params={"edition_type": "critical"},
+        )
+    except Exception:
+        logger.warning("Failed to fetch source for text %s", text_id)
+        return None
+
+    if response.status_code != 200:
+        return None
+
+    data = response.json()
+    if not data:
+        return None
+
+    return data[0].get("source")
+
+
 async def fetch_critical_editions(text_id: str) -> list[CriticalEditionModel]:
     client = get_authenticated_open_pecha_client()
 

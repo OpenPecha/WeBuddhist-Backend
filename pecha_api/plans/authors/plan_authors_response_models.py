@@ -2,23 +2,20 @@ from typing import Optional, List
 
 from pydantic import BaseModel
 from uuid import UUID
+from pecha_api.plans.platform_enums import PlatformRole
 from pecha_api.users.users_enums import SocialProfile
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 
 
 class SocialMediaProfile(BaseModel):
     account: SocialProfile
     url: str
 
-class ImageUrlModel(BaseModel):
-    thumbnail: str
-    medium: str
-    original: str 
-
 class AuthorUpdateResponse(BaseModel):
     id: UUID
     firstname: str
     lastname: str
-    email: str
+    email: Optional[str] = None
     image_url: str
     image_key: str
     bio: Optional[str] = None
@@ -35,8 +32,12 @@ class AuthorInfoResponse(BaseModel):
     id: UUID
     firstname: str
     lastname: str
-    email: str
-    is_admin: bool = False
+    email: Optional[str] = None
+    platform_role: PlatformRole = PlatformRole.CREATOR
+    is_verified: bool = False
+    is_active: bool = False
+    has_group: bool = False
+    can_create_content: bool = False
     image_url: Optional[str] = None
     bio: Optional[str] = None
     social_profiles: List[SocialMediaProfile]
@@ -45,7 +46,7 @@ class AuthorInfoPublicResponse(BaseModel):
     id: UUID
     firstname: str
     lastname: str
-    email: str
+    email: Optional[str] = None
     image: Optional[ImageUrlModel] = None
     bio: Optional[str] = None
     social_profiles: List[SocialMediaProfile]

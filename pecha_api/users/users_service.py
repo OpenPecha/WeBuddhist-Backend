@@ -1,5 +1,7 @@
 import logging
-from typing import List, Optional
+import random
+import string
+from typing import Any, Dict, List, Optional
 
 import jose
 from fastapi import HTTPException, status, UploadFile
@@ -8,11 +10,27 @@ from jose.exceptions import JWTClaimsError
 from jwt import ExpiredSignatureError
 
 from pecha_api.error_contants import ErrorConstants
-from .user_response_models import UserInfoRequest, UserInfoResponse, SocialMediaProfile, PublisherInfoResponse
+from .user_response_models import (
+    UserInfoRequest,
+    UserInfoResponse,
+    SocialMediaProfile,
+    PublisherInfoResponse,
+    UpdateUsernameRequest,
+    UpdateUsernameResponse,
+    OnboardingStatusResponse,
+    UpdateOnboardingStatusRequest,
+)
 from .users_enums import SocialProfile
 from .users_models import Users, SocialMediaAccount
 from ..auth.auth_repository import validate_token
-from .users_repository import get_user_by_email, update_user, get_user_by_username, delete_user
+from .users_repository import (
+    delete_user,
+    find_user_by_username,
+    get_user_by_email,
+    get_user_by_username,
+    update_user,
+)
+from .user_resolution import resolve_user_from_payload
 from ..uploads.S3_utils import delete_file, upload_bytes, generate_presigned_access_url
 from ..db.database import SessionLocal
 from ..config import get
@@ -115,13 +133,13 @@ def upload_user_image(token: str, file: UploadFile) -> str:
     # Validate and compress the uploaded image
     image_utils = ImageUtils()
     compressed_image = image_utils.validate_and_compress_image(file=file, content_type=file.content_type)
-    file_path = f'images/profile_images/{current_user.id}.jpg'
+    file_path = f'images/profile_images/{current_user.id}.webp'
     delete_file(file_path=file_path)
     upload_key = upload_bytes(
         bucket_name=get("AWS_BUCKET_NAME"),
         s3_key=file_path,
         file=compressed_image,
-        content_type=file.content_type
+        content_type="image/webp"
     )
     presigned_url = generate_presigned_access_url(
         bucket_name=get("AWS_BUCKET_NAME"),
@@ -133,14 +151,32 @@ def upload_user_image(token: str, file: UploadFile) -> str:
         return presigned_url
 
 
+def resolve_user_from_token_payload(db, payload: Dict[str, Any]) -> Users:
+    return resolve_user_from_payload(
+        db=db,
+        payload=payload,
+        unauthorized_detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
+    )
+
+
 def validate_and_extract_user_details(token: str) -> Users:
     try:
         payload = validate_token(token)
-        email = payload.get("email")
-        if email is None:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=ErrorConstants.TOKEN_ERROR_MESSAGE)
         with SessionLocal() as db_session:
-            user = get_user_by_email(db=db_session, email=email)
+            try:
+                user = resolve_user_from_token_payload(db_session, payload)
+            except HTTPException as exception:
+                if exception.status_code == status.HTTP_404_NOT_FOUND:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
+                    ) from exception
+                raise
+            if user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail=ErrorConstants.TOKEN_ERROR_MESSAGE,
+                )
             return user
     except ExpiredSignatureError as exception:
         logging.debug(f"exception: {exception}")
@@ -217,3 +253,64 @@ def get_publisher_info_by_username(username: str) -> Optional[PublisherInfoRespo
     except Exception as e:
         logging.error(f"Error getting publisher info by username: {e}")
     return None
+
+
+def _generate_username_suggestions(base: str, count: int = 3) -> List[str]:
+    base = "".join(base.split())
+    suggestions: List[str] = []
+    attempts = 0
+    with SessionLocal() as db_session:
+        while len(suggestions) < count and attempts < 20:
+            suffix = ''.join(random.choices(string.digits, k=4))
+            candidate = f"{base}{suffix}"
+            if not find_user_by_username(db=db_session, username=candidate):
+                suggestions.append(candidate)
+            attempts += 1
+    return suggestions
+
+
+def get_onboarding_status(token: str) -> OnboardingStatusResponse:
+    current_user = validate_and_extract_user_details(token=token)
+    return OnboardingStatusResponse(has_seen_onboarding=current_user.has_seen_onboarding)
+
+
+def update_onboarding_status(token: str, request: UpdateOnboardingStatusRequest) -> OnboardingStatusResponse:
+    current_user = validate_and_extract_user_details(token=token)
+    current_user.has_seen_onboarding = request.has_seen_onboarding
+    with SessionLocal() as db_session:
+        try:
+            updated_user = update_user(db=db_session, user=current_user)
+            return OnboardingStatusResponse(has_seen_onboarding=updated_user.has_seen_onboarding)
+        except Exception as e:
+            logging.exception(f"Failed to update onboarding status: {e}")
+            raise HTTPException(status_code=500, detail="Internal Server Error")
+
+
+def update_username(token: str, request: UpdateUsernameRequest) -> UpdateUsernameResponse:
+    current_user = validate_and_extract_user_details(token=token)
+    new_username = request.username
+
+    with SessionLocal() as db_session:
+        existing = find_user_by_username(db=db_session, username=new_username)
+
+    if existing and existing.id != current_user.id:
+        suggestions = _generate_username_suggestions(base=new_username)
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": ErrorConstants.USER_ALREADY_EXISTS,
+                "suggestions": suggestions,
+            },
+        )
+
+    current_user.username = new_username
+    with SessionLocal() as db_session:
+        try:
+            updated_user = update_user(db=db_session, user=current_user)
+            return UpdateUsernameResponse(
+                message="Username updated successfully",
+                username=updated_user.username,
+            )
+        except Exception as e:
+            logging.exception(f"Failed to update username: {e}")
+            raise HTTPException(status_code=500, detail="Internal Server Error")

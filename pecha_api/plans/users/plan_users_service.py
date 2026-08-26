@@ -28,7 +28,9 @@ from pecha_api.plans.users.plan_users_response_models import (
     UserSeriesEnrollmentDTO,
     UserSeriesEnrollmentsResponse,
     UserSeriesProgressResponse,
-    UpdateSeriesEnrollmentRequest
+    UpdateSeriesEnrollmentRequest,
+    UserSeriesDaysCompletedDTO,
+    UserSeriesDaysCompletedResponse,
 )
 
 
@@ -43,6 +45,7 @@ from pecha_api.plans.users.plan_users_subtasks_repository import (
 )
 
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
+from pecha_api.plans.authors.plan_authors_service import safe_get_image_url
 from pecha_api.plans.plans_enums import ContentType
 
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_repository import get_sub_task_by_subtask_id, get_sub_tasks_by_task_id
@@ -64,6 +67,8 @@ from pecha_api.plans.response_message import (
 )
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.users.plan_user_day_repository import get_completed_day_ids_by_user_id_and_day_ids, save_user_day_completion, delete_user_day_completion, get_user_day_completion_by_user_id_and_day_id
+from pecha_api.daily_log.daily_log_cache_service import schedule_invalidate_user_stats_cache
+from pecha_api.plans.users.plan_user_series_day_sync_service import sync_series_day_completion
 from pecha_api.plans.users.plan_users_subtasks_repository import (
     save_user_sub_task_completions, 
     get_user_subtask_completions_by_user_id_and_sub_task_ids, 
@@ -75,7 +80,10 @@ from pecha_api.plans.users.plan_users_progress_repository import (
     get_plan_progress_by_user_id_and_plan_ids,
     save_plan_progress,
     get_user_enrolled_plans_with_details,
-    delete_user_plan_progress
+    delete_user_plan_progress,
+    get_user_series_days_completed_paginated,
+    count_user_completed_days_for_plan_ids,
+    get_user_completed_days_count_by_series_ids,
 )
 from pecha_api.plans.users.plan_user_series_repository import (
     get_user_series_enrollment_by_user_and_series,
@@ -91,13 +99,128 @@ from pecha_api.plans.users.plan_user_series_repository import (
     get_plans_by_series_id,
     get_plans_by_series_ids,
     get_paginated_plans_from_enrolled_series,
+    get_series_partner,
+    get_group_ids_by_series_partner_ids,
 )
-from pecha_api.plans.series.series_repository import get_series_by_ids, get_plans_by_ids
+from pecha_api.plans.series.series_repository import (
+    get_series_by_ids,
+    get_plans_by_ids,
+    get_enrolled_count_map_by_series_ids,
+)
+from pecha_api.plans.shared.metadata_utils import filter_by_language_with_fallback
+from pecha_api.plans.groups.groups_repository import (
+    get_group_ids_by_plan_ids,
+    get_group_ids_by_series_ids,
+    get_user_series_enrollment_partner_map,
+    upsert_group_join,
+)
+from pecha_api.plans.groups.groups_service import get_group_summaries_by_ids
+from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
+from pecha_api.plans.series.series_service import (
+    build_series_partner_dto,
+    get_language_filtered_series_plan_ids,
+)
+from pecha_api.plans.users.series_user_progress import (
+    load_series_partner_context,
+    resolve_series_group_for_user,
+    series_progress_from_plans,
+)
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.config import get
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_plan_group_id(
+    plan,
+    plan_group_ids: dict[UUID, UUID],
+    series_group_ids: dict[UUID, UUID],
+) -> Optional[UUID]:
+    plan_group_id = plan_group_ids.get(plan.id)
+    if plan_group_id:
+        return plan_group_id
+    series_id = getattr(plan, "series_id", None)
+    if series_id:
+        return series_group_ids.get(series_id)
+    return None
+
+
+def _group_summary_for_id(
+    group_id: Optional[UUID],
+    group_summaries: dict[UUID, AuthorGroupSummaryDTO],
+) -> Optional[AuthorGroupSummaryDTO]:
+    if not group_id:
+        return None
+    group_summary = group_summaries.get(group_id)
+    if not group_summary:
+        return None
+    return AuthorGroupSummaryDTO.model_validate(group_summary.model_dump())
+
+
+def _series_progress_from_plans(
+    plans: list,
+    language: Optional[str] = None,
+    *,
+    completed_day_count: int = 0,
+):
+    return series_progress_from_plans(
+        plans=plans,
+        language=language,
+        completed_day_count=completed_day_count,
+    )
+
+
+def _load_series_partner_context(
+    db,
+    user_id: UUID,
+    series_ids: list[UUID],
+    *,
+    language: Optional[str] = None,
+):
+    return load_series_partner_context(
+        db=db,
+        user_id=user_id,
+        series_ids=series_ids,
+        language=language,
+    )
+
+
+def _resolve_series_group_for_user(
+    series_id: UUID,
+    *,
+    series_group_ids: dict[UUID, UUID],
+    group_summaries: dict[UUID, AuthorGroupSummaryDTO],
+    partner_group_by_series: dict[UUID, Optional[AuthorGroupSummaryDTO]],
+    enrollment_partner_map: dict[UUID, Optional[UUID]],
+) -> Optional[AuthorGroupSummaryDTO]:
+    return resolve_series_group_for_user(
+        series_id,
+        series_group_ids=series_group_ids,
+        group_summaries=group_summaries,
+        partner_group_by_series=partner_group_by_series,
+        enrollment_partner_map=enrollment_partner_map,
+        group_summary_for_id=_group_summary_for_id,
+    )
+
+
+def _load_group_summaries_for_plans(
+    db,
+    plans: list,
+    *,
+    extra_series_ids: Optional[list[UUID]] = None,
+    language: Optional[str] = None,
+) -> tuple[dict[UUID, AuthorGroupSummaryDTO], dict[UUID, UUID], dict[UUID, UUID]]:
+    if not plans and not extra_series_ids:
+        return {}, {}, {}
+    plan_ids = [plan.id for plan in plans]
+    series_ids = list({getattr(plan, "series_id", None) for plan in plans if getattr(plan, "series_id", None)})
+    if extra_series_ids:
+        series_ids = list(dict.fromkeys(series_ids + extra_series_ids))
+    plan_group_ids = get_group_ids_by_plan_ids(db=db, plan_ids=plan_ids)
+    series_group_ids = get_group_ids_by_series_ids(db=db, series_ids=series_ids)
+    all_group_ids = list(set(plan_group_ids.values()) | set(series_group_ids.values()))
+    return get_group_summaries_by_ids(db=db, group_ids=all_group_ids, language=language), plan_group_ids, series_group_ids
 
 # Helper functions for enrollment checking
 
@@ -207,7 +330,14 @@ def auto_enroll_in_next_plan(db: SessionLocal, user_id: UUID, plan_id: UUID, ser
     return save_plan_progress(db, new_progress)
 
 
-async def get_user_enrolled_plans(token: str, status_filter: Optional[str] = None, series_id: Optional[UUID] = None, skip: int = 0, limit: int = 20) -> UserPlansResponse:
+async def get_user_enrolled_plans(
+    token: str,
+    status_filter: Optional[str] = None,
+    series_id: Optional[UUID] = None,
+    language: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+) -> UserPlansResponse:
 
     from sqlalchemy import func
     from pecha_api.plans.items.plan_items_models import PlanItem
@@ -222,8 +352,9 @@ async def get_user_enrolled_plans(token: str, status_filter: Optional[str] = Non
             user_id=current_user.id,
             status_filter=normalized_status,
             series_id=series_id,
+            language=language,
             skip=skip,
-            limit=limit
+            limit=limit,
         )
         
         if not plans:
@@ -245,24 +376,16 @@ async def get_user_enrolled_plans(token: str, status_filter: Optional[str] = Non
         days_count_map = {row.plan_id: row.total_days for row in days_count_query}
         
         progress_map = get_plan_progress_by_user_id_and_plan_ids(db, current_user.id, plan_ids)
+        group_summaries, plan_group_ids, series_group_ids = _load_group_summaries_for_plans(
+            db, plans, language=language
+        )
         
         enrolled_plans = []
-        bucket_name = get("AWS_BUCKET_NAME")
         
         for plan in plans:
-            image_url = ""
-            if plan.image_url:
-                try:
-                    image_url = generate_presigned_access_url(
-                        bucket_name=bucket_name,
-                        s3_key=plan.image_url
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to generate presigned URL for plan {plan.id}: {e}", exc_info=True)
-                    image_url = ""
-            
             progress = progress_map.get(plan.id)
-            started_at = progress.started_at if progress else plan.created_at
+            started_at = progress.started_at if progress else None
+            plan_group_id = _resolve_plan_group_id(plan, plan_group_ids, series_group_ids)
             
             user_plan = UserPlanDTO(
                 id=plan.id,
@@ -270,12 +393,13 @@ async def get_user_enrolled_plans(token: str, status_filter: Optional[str] = Non
                 description=plan.description or "",
                 language=plan.language.value if hasattr(plan.language, 'value') else str(plan.language),
                 difficulty_level=plan.difficulty_level.value if hasattr(plan.difficulty_level, 'value') else str(plan.difficulty_level),
-                image_url=image_url,
+                image=safe_get_image_url(plan.image_url, resource_id=plan.id, resource_type="plan"),
                 started_at=started_at,
                 total_days=days_count_map.get(plan.id, 0),
                 tags=tags_to_summary_dtos(plan.tag_list),
                 start_date=plan.start_date,
-                display_order=plan.display_order
+                display_order=plan.display_order,
+                group=_group_summary_for_id(plan_group_id, group_summaries),
             )
             enrolled_plans.append(user_plan)
         
@@ -359,16 +483,14 @@ def get_user_plan_progress(token: str, plan_id: UUID) -> UserPlanProgressRespons
                 ).model_dump()
             )
         
-        # Generate presigned URL for plan image if exists
-        plan_image_url = None
-        if plan.image_url:
-            try:
-                plan_image_url = generate_presigned_access_url(
-                    bucket_name=get("AWS_BUCKET_NAME"),
-                    s3_key=plan.image_url
-                )
-            except Exception:
-                plan_image_url = None
+        plan_image = safe_get_image_url(
+            plan.image_url, resource_id=plan.id, resource_type="plan"
+        )
+
+        from pecha_api.plans.videos.plan_video_repository import get_plan_videos_by_plan_id
+        from pecha_api.plans.public.plan_response_models import PlanVideoSummaryDTO
+
+        plan_videos = get_plan_videos_by_plan_id(db=db, plan_id=plan_id)
         
         # Build plan details dict
         plan_details = {
@@ -377,8 +499,18 @@ def get_user_plan_progress(token: str, plan_id: UUID) -> UserPlanProgressRespons
             "description": plan.description,
             "language": plan.language.value if plan.language else None,
             "difficulty_level": plan.difficulty_level.value if plan.difficulty_level else None,
-            "image_url": plan_image_url,
-            "tags": [t.model_dump() for t in tags_to_summary_dtos(plan.tag_list)]
+            "image": plan_image.model_dump() if plan_image else None,
+            "tags": [t.model_dump() for t in tags_to_summary_dtos(plan.tag_list)],
+            "videos": [
+                PlanVideoSummaryDTO(
+                    id=video.id,
+                    url=video.url,
+                    video_id=video.video_id,
+                    title=video.title,
+                    display_order=video.display_order,
+                ).model_dump()
+                for video in plan_videos
+            ],
         }
         
         return UserPlanProgressResponse(
@@ -470,9 +602,13 @@ def check_day_completion(db:SessionLocal(), user_id: UUID, day_id: UUID) -> None
     
     if len(uncompleted_task_ids) == 0:
         save_user_day_completion(db=db, user_day_completion=UserDayCompletion(user_id=user_id, day_id=day_id))
-        
-        # Check if plan is now completed
+        schedule_invalidate_user_stats_cache(user_id=user_id)
+
+        sibling_day_ids = sync_series_day_completion(db=db, user_id=user_id, completed_day_id=day_id)
+
         check_plan_completion(db, user_id, day_id)
+        for sibling_day_id in sibling_day_ids:
+            check_plan_completion(db, user_id, sibling_day_id)
     else:
         return
 
@@ -509,6 +645,7 @@ def delete_task_service(token: str, task_id: UUID) -> None:
         delete_user_task_completion(db=db, user_id=current_user.id, task_id=task.id)
 
         delete_user_day_completion(db=db, user_id=current_user.id, day_id=task.plan_item_id)
+        schedule_invalidate_user_stats_cache(user_id=current_user.id)
 
         sub_tasks = get_sub_tasks_by_task_id(db=db, task_id=task.id)
         sub_tasks_ids = [sub_task.id for sub_task in sub_tasks]
@@ -559,15 +696,24 @@ def get_user_plan_day_details_service(token: str, plan_id: UUID, day_number: int
             user_subtask_completions = get_user_subtask_completions_by_user_id_and_sub_task_ids(db=db, user_id=current_user.id, sub_task_ids=sub_task_ids)
             completed_subtask_ids = [completion.sub_task_id for completion in user_subtask_completions]
 
-        from pecha_api.plans.audio.dto_helpers import build_plan_day_audio_fields
+        from pecha_api.plans.audio.dto_helpers import (
+            build_plan_day_audio_fields,
+            build_plan_day_shareable_image_fields,
+        )
 
         audio_url, audio_duration_ms, _, _ = build_plan_day_audio_fields(plan_item)
+        thumbnail_url, _, shareable_image_url, _ = build_plan_day_shareable_image_fields(
+            getattr(plan_item, "shareable_images", None)
+        )
+        from pecha_api.plans.public.plan_response_models import DayVideoSummaryDTO
         user_day_details = UserPlanDayDetailsResponse(
             id=plan_item.id,
             day_number=plan_item.day_number,
             is_completed=is_day_completed(db=db, user_id=current_user.id, day_id=plan_item.id),
             audio_url=audio_url,
             audio_duration_ms=audio_duration_ms,
+            thumbnail_url=thumbnail_url,
+            shareable_image_url=shareable_image_url,
             tasks=[
                 UserTaskDTO(
                     id=task.id,
@@ -577,7 +723,17 @@ def get_user_plan_day_details_service(token: str, plan_id: UUID, day_number: int
                     is_completed=(task.id in completed_task_ids),
                     sub_tasks=_get_user_sub_tasks_dto_bulk(sub_tasks=task.sub_tasks, completed_subtask_ids=completed_subtask_ids)
                 ) for task in plan_item.tasks
-            ]
+            ],
+            videos=[
+                DayVideoSummaryDTO(
+                    id=video.id,
+                    url=video.url,
+                    video_id=video.video_id,
+                    title=video.title,
+                    display_order=video.display_order,
+                )
+                for video in sorted(plan_item.videos, key=lambda v: v.display_order)
+            ],
         )
         return user_day_details
 
@@ -607,6 +763,7 @@ def _get_user_sub_tasks_dto_bulk(sub_tasks: List[PlanSubTask], completed_subtask
                 source_text_id=sub_task.source_text_id,
                 pecha_segment_id=sub_task.pecha_segment_id,
                 segment_ids=sub_task.segment_ids,
+                segment_numbers=sub_task.segment_numbers,
                 start_ms=start_ms,
                 end_ms=end_ms,
             )
@@ -622,16 +779,6 @@ def _get_presigned_url(content: str) -> str:
 
 # Series Enrollment Service Functions
 
-def _generate_presigned_image_url(bucket_name: str, s3_key: Optional[str], resource_id: UUID, resource_type: str) -> str:
-    if not s3_key:
-        return ""
-    try:
-        return generate_presigned_access_url(bucket_name=bucket_name, s3_key=s3_key)
-    except Exception:
-        logger.exception(f"Failed to generate presigned URL for {resource_type} {resource_id}")
-        return ""
-
-
 def _compute_series_plan_progress(all_plans: list, progress_by_plan_id: dict) -> tuple[int, int, float]:
     total_plans = len(all_plans)
     if total_plans == 0:
@@ -644,16 +791,39 @@ def _compute_series_plan_progress(all_plans: list, progress_by_plan_id: dict) ->
     return total_plans, completed_plans, completed_plans / total_plans * 100
 
 
+def _series_metadata_language(metadata) -> str:
+    language = metadata.language
+    return language.value if hasattr(language, "value") else str(language)
+
+
+def _select_series_metadata(metadata_entries, language: Optional[str]):
+    """Pick a series metadata entry for ``language``, falling back to 'en', then first."""
+    if not metadata_entries:
+        return None
+    matched = filter_by_language_with_fallback(
+        entries=list(metadata_entries),
+        language=language,
+        language_of=_series_metadata_language,
+    )
+    return matched[0] if matched else metadata_entries[0]
+
+
 def _build_user_series_enrollment_dto(
     enrollment: UserSeriesEnrollment,
     series: Series,
     current_plan_title_by_id: dict,
     plans_by_series_id: dict,
     progress_by_plan_id: dict,
-    bucket_name: str,
+    group: Optional[AuthorGroupSummaryDTO] = None,
+    language: Optional[str] = None,
+    partner_group_id: Optional[UUID] = None,
+    enrolled_count: int = 0,
+    completed_day_count: int = 0,
 ) -> UserSeriesEnrollmentDTO:
-    series_metadata = series.metadata_entries[0] if series.metadata_entries else None
-    image_url = _generate_presigned_image_url(bucket_name, series.image, series.id, "series")
+    series_metadata = _select_series_metadata(series.metadata_entries, language)
+    series_image = safe_get_image_url(
+        series.image, resource_id=series.id, resource_type="series"
+    )
     current_plan_title = (
         current_plan_title_by_id.get(enrollment.current_plan_id)
         if enrollment.current_plan_id
@@ -663,13 +833,23 @@ def _build_user_series_enrollment_dto(
     total_plans, completed_plans, progress_percentage = _compute_series_plan_progress(
         all_plans, progress_by_plan_id
     )
+    series_progress = _series_progress_from_plans(
+        all_plans,
+        language=language,
+        completed_day_count=completed_day_count,
+    )
+    partner = (
+        build_series_partner_dto(group, language=language)
+        if partner_group_id
+        else None
+    )
     return UserSeriesEnrollmentDTO(
         id=enrollment.id,
         user_id=enrollment.user_id,
         series_id=enrollment.series_id,
         series_title=series_metadata.title if series_metadata else "Untitled Series",
         series_description=series_metadata.description if series_metadata else None,
-        series_image_url=image_url,
+        image=series_image,
         enrolled_at=enrollment.enrolled_at,
         status=enrollment.status.value if hasattr(enrollment.status, 'value') else str(enrollment.status),
         auto_enroll_next=enrollment.auto_enroll_next,
@@ -680,12 +860,21 @@ def _build_user_series_enrollment_dto(
         total_plans=total_plans,
         completed_plans=completed_plans,
         progress_percentage=progress_percentage,
+        enrolled_count=enrolled_count,
+        group=group,
+        series_partner_id=partner_group_id,
+        progress=series_progress,
+        partner=partner,
     )
 
 
-def _build_series_plan_dto_for_progress(db, plan, user_id: UUID, bucket_name: str) -> UserPlanDTO:
+def _build_series_plan_dto_for_progress(
+    db,
+    plan,
+    user_id: UUID,
+    group: Optional[AuthorGroupSummaryDTO] = None,
+) -> UserPlanDTO:
     total_days = len(get_days_by_plan_id(db, plan.id))
-    image_url = _generate_presigned_image_url(bucket_name, plan.image_url, plan.id, "plan")
     progress = get_plan_progress_by_user_id_and_plan_id(db, user_id, plan.id)
     started_at = progress.started_at if progress else None
     return UserPlanDTO(
@@ -694,63 +883,96 @@ def _build_series_plan_dto_for_progress(db, plan, user_id: UUID, bucket_name: st
         description=plan.description or "",
         language=plan.language.value if hasattr(plan.language, 'value') else str(plan.language),
         difficulty_level=plan.difficulty_level.value if hasattr(plan.difficulty_level, 'value') else str(plan.difficulty_level),
-        image_url=image_url,
+        image=safe_get_image_url(plan.image_url, resource_id=plan.id, resource_type="plan"),
         started_at=started_at,
         total_days=total_days,
         tags=tags_to_summary_dtos(plan.tag_list),
         start_date=plan.start_date,
         display_order=plan.display_order,
+        group=group,
     )
 
 
+def _resolve_series_partner_id(
+    db,
+    series_id: UUID,
+    group_id: Optional[UUID],
+) -> Optional[UUID]:
+    if group_id is None:
+        return None
+    series_partner = get_series_partner(db, series_id, group_id)
+    if series_partner is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ResponseError(
+                error=BAD_REQUEST,
+                message="Group is not a partner of this series",
+            ).model_dump(),
+        )
+    return series_partner.id
+
+
 def enroll_user_in_series(token: str, enroll_request: UserSeriesEnrollRequest) -> None:
-    """Enroll user in a series"""
+    """Enroll user in a series, or update partner group when already enrolled."""
     current_user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
-        # Check if series exists
         series = db.query(Series).filter(Series.id == enroll_request.series_id).first()
         if not series:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=ResponseError(error=BAD_REQUEST, message="Series not found").model_dump()
             )
-        
-        # Check if already enrolled
+
         existing_enrollment = get_user_series_enrollment_by_user_and_series(
             db, current_user.id, enroll_request.series_id
         )
         if existing_enrollment:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=ResponseError(error=BAD_REQUEST, message="Already enrolled in series").model_dump()
+            if "group_id" not in enroll_request.model_fields_set:
+                return
+
+            new_partner_id = _resolve_series_partner_id(
+                db, enroll_request.series_id, enroll_request.group_id
             )
-        
-        # Get first plan in series if starting immediately
+            if existing_enrollment.series_partner_id != new_partner_id:
+                existing_enrollment.series_partner_id = new_partner_id
+                update_user_series_enrollment(db, existing_enrollment)
+
+            if enroll_request.group_id is not None:
+                upsert_group_join(db, enroll_request.group_id, current_user.id)
+            return
+
+        new_partner_id = _resolve_series_partner_id(
+            db, enroll_request.series_id, enroll_request.group_id
+        )
+
         first_plan = None
         if enroll_request.start_immediately:
             first_plan = get_first_plan_in_series(db, enroll_request.series_id)
-        
-        # Create series enrollment
+
         new_enrollment = UserSeriesEnrollment(
             user_id=current_user.id,
             series_id=enroll_request.series_id,
             status=SeriesStatus.ACTIVE,
             auto_enroll_next=enroll_request.auto_enroll_next,
             current_plan_id=first_plan.id if first_plan else None,
+            series_partner_id=new_partner_id,
             enrolled_at=datetime.now(timezone.utc),
             created_at=datetime.now(timezone.utc),
             is_completed=False,
         )
         save_user_series_enrollment(db, new_enrollment)
-        
-        # Auto-enroll in first plan if requested
+
+        if enroll_request.group_id is not None:
+            upsert_group_join(db, enroll_request.group_id, current_user.id)
+
         if enroll_request.start_immediately and first_plan:
             auto_enroll_in_next_plan(db, current_user.id, first_plan.id, new_enrollment.id)
 
 
 def get_user_series_enrollments(
     token: str, 
-    status_filter: Optional[str] = None, 
+    status_filter: Optional[str] = None,
+    language: Optional[str] = None,
     skip: int = 0, 
     limit: int = 20
 ) -> UserSeriesEnrollmentsResponse:
@@ -792,8 +1014,34 @@ def get_user_series_enrollments(
             plan.id: plan.title
             for plan in get_plans_by_ids(db, current_plan_ids)
         }
+        series_group_ids = get_group_ids_by_series_ids(db=db, series_ids=series_ids)
+        series_partner_ids = [
+            enrollment.series_partner_id
+            for enrollment in enrollments
+            if getattr(enrollment, "series_partner_id", None)
+        ]
+        partner_group_id_by_series_partner_id = get_group_ids_by_series_partner_ids(
+            db=db, series_partner_ids=series_partner_ids
+        )
+        group_ids_for_summaries = set(series_group_ids.values())
+        group_ids_for_summaries.update(partner_group_id_by_series_partner_id.values())
+        group_summaries = get_group_summaries_by_ids(
+            db=db, group_ids=list(group_ids_for_summaries), language=language
+        )
+        enrolled_count_map = get_enrolled_count_map_by_series_ids(
+            db=db, series_ids=series_ids
+        )
+        plan_ids_by_series = {
+            series_id: get_language_filtered_series_plan_ids(plans, language=language)
+            for series_id, plans in plans_by_series_id.items()
+        }
+        completed_days_by_series = get_user_completed_days_count_by_series_ids(
+            db=db,
+            user_id=current_user.id,
+            series_ids=series_ids,
+            plan_ids_by_series=plan_ids_by_series,
+        )
 
-        bucket_name = get("AWS_BUCKET_NAME")
         enrollment_dtos = [
             _build_user_series_enrollment_dto(
                 enrollment,
@@ -801,7 +1049,20 @@ def get_user_series_enrollments(
                 current_plan_title_by_id,
                 plans_by_series_id,
                 progress_by_plan_id,
-                bucket_name,
+                group=_group_summary_for_id(
+                    partner_group_id_by_series_partner_id.get(enrollment.series_partner_id)
+                    if getattr(enrollment, "series_partner_id", None)
+                    else series_group_ids.get(enrollment.series_id),
+                    group_summaries,
+                ),
+                language=language,
+                partner_group_id=(
+                    partner_group_id_by_series_partner_id.get(enrollment.series_partner_id)
+                    if getattr(enrollment, "series_partner_id", None)
+                    else None
+                ),
+                enrolled_count=enrolled_count_map.get(enrollment.series_id, 0),
+                completed_day_count=completed_days_by_series.get(enrollment.series_id, 0),
             )
             for enrollment in enrollments
             if (series := series_by_id.get(enrollment.series_id))
@@ -815,7 +1076,109 @@ def get_user_series_enrollments(
         )
 
 
-def get_user_series_progress(token: str, series_id: UUID) -> UserSeriesProgressResponse:
+def get_user_series_days_completed(
+    token: str,
+    language: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 20,
+) -> UserSeriesDaysCompletedResponse:
+    """Get paginated list of series with completed day counts for the current user."""
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        rows, total = get_user_series_days_completed_paginated(
+            db=db,
+            user_id=current_user.id,
+            skip=skip,
+            limit=limit,
+        )
+
+        if not rows:
+            return UserSeriesDaysCompletedResponse(
+                series=[],
+                skip=skip,
+                limit=limit,
+                total=total,
+            )
+
+        series_ids = [series_id for series_id, _ in rows]
+        series_by_id = {series.id: series for series in get_series_by_ids(db, series_ids)}
+        plans_by_series_id = get_plans_by_series_ids(db, series_ids)
+        series_group_ids = get_group_ids_by_series_ids(db=db, series_ids=series_ids)
+        group_summaries = get_group_summaries_by_ids(
+            db=db, group_ids=list(series_group_ids.values()), language=language
+        )
+        enrolled_count_map = get_enrolled_count_map_by_series_ids(
+            db=db, series_ids=series_ids
+        )
+        enrollment_partner_map = get_user_series_enrollment_partner_map(
+            db=db,
+            user_id=current_user.id,
+            series_ids=series_ids,
+        )
+        partner_group_by_series, partner_dto_by_series = _load_series_partner_context(
+            db=db,
+            user_id=current_user.id,
+            series_ids=series_ids,
+            language=language,
+        )
+
+        series_dtos = []
+        for series_id, _days_completed in rows:
+            series = series_by_id.get(series_id)
+            if not series:
+                continue
+            series_metadata = _select_series_metadata(series.metadata_entries, language)
+            series_plans = plans_by_series_id.get(series_id, [])
+            language_plan_ids = get_language_filtered_series_plan_ids(
+                series_plans,
+                language=language,
+            )
+            completed_day_count = count_user_completed_days_for_plan_ids(
+                db=db,
+                user_id=current_user.id,
+                plan_ids=language_plan_ids,
+            )
+            series_progress = _series_progress_from_plans(
+                series_plans,
+                language=language,
+                completed_day_count=completed_day_count,
+            )
+            series_dtos.append(
+                UserSeriesDaysCompletedDTO(
+                    series_id=series_id,
+                    series_title=series_metadata.title if series_metadata else "Untitled Series",
+                    series_description=series_metadata.description if series_metadata else None,
+                    image=safe_get_image_url(
+                        series.image, resource_id=series.id, resource_type="series"
+                    ),
+                    days_completed=completed_day_count,
+                    enrolled_count=enrolled_count_map.get(series_id, 0),
+                    group=_resolve_series_group_for_user(
+                        series_id,
+                        series_group_ids=series_group_ids,
+                        group_summaries=group_summaries,
+                        partner_group_by_series=partner_group_by_series,
+                        enrollment_partner_map=enrollment_partner_map,
+                    ),
+                    progress=series_progress,
+                    partner=partner_dto_by_series.get(series_id),
+                )
+            )
+
+        return UserSeriesDaysCompletedResponse(
+            series=series_dtos,
+            skip=skip,
+            limit=limit,
+            total=total,
+        )
+
+
+def get_user_series_progress(
+    token: str,
+    series_id: UUID,
+    language: Optional[str] = None,
+) -> UserSeriesProgressResponse:
     """Get detailed progress for a specific series"""
     current_user = validate_and_extract_user_details(token=token)
     
@@ -836,13 +1199,52 @@ def get_user_series_progress(token: str, series_id: UUID) -> UserSeriesProgressR
                 detail=ResponseError(error="NOT_FOUND", message="Series not found").model_dump()
             )
         
-        series_metadata = series.metadata_entries[0] if series.metadata_entries else None
-        bucket_name = get("AWS_BUCKET_NAME")
+        series_metadata = _select_series_metadata(series.metadata_entries, language)
         all_plans = get_plans_by_series_id(db, series_id)
+        group_summaries, plan_group_ids, series_group_ids = _load_group_summaries_for_plans(
+            db, all_plans, extra_series_ids=[series_id], language=language
+        )
+        series_group_id = series_group_ids.get(series_id)
+        series_group = _group_summary_for_id(series_group_id, group_summaries)
         plan_dtos = [
-            _build_series_plan_dto_for_progress(db, plan, current_user.id, bucket_name)
+            _build_series_plan_dto_for_progress(
+                db,
+                plan,
+                current_user.id,
+                group=_group_summary_for_id(
+                    _resolve_plan_group_id(plan, plan_group_ids, series_group_ids),
+                    group_summaries,
+                ),
+            )
             for plan in all_plans
         ]
+        enrolled_count = get_enrolled_count_map_by_series_ids(
+            db=db, series_ids=[series_id]
+        ).get(series_id, 0)
+        language_plan_ids = get_language_filtered_series_plan_ids(
+            all_plans,
+            language=language,
+        )
+        completed_day_count = count_user_completed_days_for_plan_ids(
+            db=db,
+            user_id=current_user.id,
+            plan_ids=language_plan_ids,
+        )
+        series_progress = _series_progress_from_plans(
+            all_plans,
+            language=language,
+            completed_day_count=completed_day_count,
+        )
+        partner_group = None
+        if getattr(enrollment, "series_partner_id", None):
+            partner_group_id = get_group_ids_by_series_partner_ids(
+                db=db, series_partner_ids=[enrollment.series_partner_id]
+            ).get(enrollment.series_partner_id)
+            if partner_group_id:
+                partner_summaries = get_group_summaries_by_ids(
+                    db=db, group_ids=[partner_group_id], language=language
+                )
+                partner_group = partner_summaries.get(partner_group_id)
 
         return UserSeriesProgressResponse(
             id=enrollment.id,
@@ -855,7 +1257,11 @@ def get_user_series_progress(token: str, series_id: UUID) -> UserSeriesProgressR
             current_plan_id=enrollment.current_plan_id,
             is_completed=enrollment.is_completed,
             completed_at=enrollment.completed_at,
-            plans=plan_dtos
+            plans=plan_dtos,
+            enrolled_count=enrolled_count,
+            group=series_group,
+            progress=series_progress,
+            partner=build_series_partner_dto(partner_group, language=language),
         )
 
 

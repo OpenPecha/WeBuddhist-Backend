@@ -17,6 +17,7 @@ class Plan(Base):
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     author_id = Column(UUID(as_uuid=True), ForeignKey('authors.id', ondelete='RESTRICT'), nullable=False)
+    group_id = Column(UUID(as_uuid=True), ForeignKey('author_groups.id', ondelete='RESTRICT'), nullable=False)
     series_id = Column(UUID(as_uuid=True), ForeignKey('series.id', ondelete='SET NULL'), nullable=True)
     language = Column(LanguageCodeEnum, nullable=False, default='EN')
     difficulty_level = Column(DifficultyLevelEnum, default='BEGINNER')
@@ -41,6 +42,12 @@ class Plan(Base):
     series = relationship("Series", back_populates="plans")
     items = relationship("PlanItem", backref="plan", lazy="select")
     tag_list = relationship("Tag", secondary="plan_tags", back_populates="plans")
+    videos = relationship(
+        "PlanVideo",
+        back_populates="plan",
+        lazy="select",
+        order_by="PlanVideo.display_order",
+    )
 
     __table_args__ = (
         Index("idx_plans_discovery", "status"),
@@ -48,3 +55,6 @@ class Plan(Base):
         Index("idx_plans_search", text("to_tsvector('english', title || ' ' || COALESCE(description, ''))"),
               postgresql_using="gin"),
     )
+
+
+from pecha_api.plans.videos.plan_video_models import PlanVideo  # noqa: F401, E402

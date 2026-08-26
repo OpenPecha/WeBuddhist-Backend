@@ -1,5 +1,6 @@
 import logging
-from typing import List
+from typing import Dict, List, Optional
+from uuid import UUID
 from sqlalchemy.exc import InvalidRequestError, IntegrityError
 from sqlalchemy.orm import Session
 from .users_models import Users, SocialMediaAccount
@@ -41,11 +42,56 @@ def get_user_by_email(db: Session, email: str) -> Users:
     return user
 
 
+def get_user_by_id(db: Session, user_id: UUID) -> Users:
+    user = db.query(Users).filter(Users.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.USER_NOT_FOUND)
+    return user
+
+
+def get_user_by_phone(db: Session, phone_number: str) -> Optional[Users]:
+    return db.query(Users).filter(Users.phone_number == phone_number).first()
+
+
+def save_phone_user(db: Session, user: Users) -> Users:
+    try:
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Phone number is already linked to another user",
+        )
+
+
+def link_user_phone(db: Session, user: Users, phone_number: str) -> Users:
+    try:
+        user.phone_number = phone_number
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Phone number is already linked to another user",
+        )
+
+
 def get_user_by_username(db: Session, username: str) -> Users:
     user = db.query(Users).filter(Users.username == username).first()
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.USER_NOT_FOUND)
     return user
+
+
+def find_user_by_username(db: Session, username: str) -> Optional[Users]:
+    return db.query(Users).filter(Users.username == username).first()
+
 
 def get_user_social_account(db: Session, user_id: str) -> List[SocialMediaAccount]:
     social_accounts = db.query(SocialMediaAccount).filter(SocialMediaAccount.user_id == user_id).all()
@@ -62,3 +108,11 @@ def delete_user(db: Session, user: Users) -> None:
         db.rollback()
         logging.exception(f"Failed to delete user {user.id}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=ErrorConstants.USER_DELETE_FAILED)
+
+
+def get_users_by_ids(db: Session, user_ids: List[UUID]) -> Dict[UUID, Users]:
+    """Get users by list of IDs and return as a dictionary keyed by user ID"""
+    if not user_ids:
+        return {}
+    users = db.query(Users).filter(Users.id.in_(user_ids)).all()
+    return {user.id: user for user in users}

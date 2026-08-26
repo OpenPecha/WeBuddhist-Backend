@@ -5,12 +5,13 @@ from jwt import ExpiredSignatureError
 from starlette import status
 from pecha_api.image_utils import ImageUtils
 from pecha_api.utils import Utils
+from pecha_api.error_contants import ErrorConstants
 from pecha_api.users.users_service import get_user_info, update_user_info, \
     validate_and_extract_user_details, verify_admin_access, get_social_profile, update_social_profiles, \
     get_publisher_info_by_username, fetch_user_by_email, validate_user_exists, get_user_info_by_username, \
-    delete_user_account
+    update_username, _generate_username_suggestions, delete_user_account
 from pecha_api.users.user_response_models import UserInfoRequest, SocialMediaProfile, PublisherInfoResponse, \
-    UserInfoResponse
+    UserInfoResponse, UpdateUsernameRequest, UpdateUsernameResponse
 from pecha_api.users.users_models import Users, SocialMediaAccount
 from pecha_api.users.users_enums import SocialProfile
 from unittest.mock import patch, MagicMock, AsyncMock
@@ -36,7 +37,7 @@ async def test_get_user_info_success():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "john.doe@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user):
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user):
         response = await get_user_info(token)
         assert response.firstname == "John"
         assert response.lastname == "Doe"
@@ -64,7 +65,7 @@ async def test_get_user_info_with_social_accounts():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "john.doe@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user):
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user):
         response = await get_user_info(token)
         assert response.firstname == "John"
         assert response.lastname == "Doe"
@@ -114,7 +115,7 @@ def test_update_user_info_success():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "john.doe@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user), \
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user), \
             patch("pecha_api.users.users_service.update_user") as mock_update_user:
         update_user_info(token, user_info_request)
         mock_update_user.assert_called_once()
@@ -167,7 +168,7 @@ def test_update_user_info_500_db_error():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "john.doe@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user), \
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user), \
             patch("pecha_api.users.users_service.update_user", side_effect=Exception("Db Error")):
         try:
             update_user_info(token, user_info_request)
@@ -191,7 +192,7 @@ def test_upload_user_image_success():
                   return_value="http://example.com/presigned_url"):
         response = upload_user_image(token, file)
         mock_update_user.assert_called_once()
-        mock_delete_file.assert_called_once_with(file_path="images/profile_images/user_id.jpg")
+        mock_delete_file.assert_called_once_with(file_path="images/profile_images/user_id.webp")
         assert response == "http://example.com/presigned_url"
 
 
@@ -222,7 +223,7 @@ def test_validate_and_compress_image_success():
         image_utils = ImageUtils()
         compressed_image = image_utils.validate_and_compress_image(file=file, content_type="image/jpeg")
         assert isinstance(compressed_image, io.BytesIO)
-        mock_image.save.assert_called_once_with(compressed_image, format="JPEG", quality=75)
+        mock_image.save.assert_called_once_with(compressed_image, format="WEBP", quality=75)
 
 
 def test_validate_and_compress_image_invalid_file_type():
@@ -269,6 +270,34 @@ def test_validate_and_extract_user_details_invalid_token():
             validate_and_extract_user_details(token)
     assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
     assert exc_info.value.detail == "Invalid or no token found"
+
+
+def test_validate_and_extract_user_details_user_not_found():
+    token = "valid_token"
+
+    with patch("pecha_api.users.users_service.validate_token", return_value={"email": "missing@example.com"}), \
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=None):
+        with pytest.raises(HTTPException) as exc_info:
+            validate_and_extract_user_details(token)
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+    assert exc_info.value.detail == ErrorConstants.TOKEN_ERROR_MESSAGE
+
+
+def test_validate_and_extract_user_details_user_not_found_raises_404():
+    token = "valid_token"
+
+    with patch("pecha_api.users.users_service.validate_token", return_value={"email": "missing@example.com"}), \
+            patch(
+                "pecha_api.users.user_resolution.get_user_by_email",
+                side_effect=HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=ErrorConstants.USER_NOT_FOUND,
+                ),
+            ):
+        with pytest.raises(HTTPException) as exc_info:
+            validate_and_extract_user_details(token)
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+    assert exc_info.value.detail == ErrorConstants.TOKEN_ERROR_MESSAGE
 
 
 def test_validate_and_extract_user_details_expired_signature():
@@ -328,7 +357,7 @@ def test_verify_admin_access_true():
     )
 
     with patch("pecha_api.users.users_service.validate_token", return_value={"email": "admin.user@example.com"}), \
-            patch("pecha_api.users.users_service.get_user_by_email", return_value=user):
+            patch("pecha_api.users.user_resolution.get_user_by_email", return_value=user):
         assert verify_admin_access(token) is True
 
 
@@ -766,6 +795,186 @@ async def test_get_user_info_by_username_database_error():
             await get_user_info_by_username(username)
         
         mock_get_user.assert_called_once_with(db=mock_db_session, username=username)
+
+
+def _mock_session_ctx(mock_session_cls):
+    mock_db = MagicMock()
+    mock_session_cls.return_value.__enter__.return_value = mock_db
+    mock_session_cls.return_value.__exit__.return_value = None
+    return mock_db
+
+
+def test_update_username_success():
+    token = "valid_token"
+    request = UpdateUsernameRequest(username="newuser")
+    current_user = Users(
+        id="user-id-123",
+        firstname="John",
+        lastname="Doe",
+        username="olduser",
+        email="john@example.com",
+        social_media_accounts=[]
+    )
+    updated_user = Users(
+        id="user-id-123",
+        firstname="John",
+        lastname="Doe",
+        username="newuser",
+        email="john@example.com",
+        social_media_accounts=[]
+    )
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details", return_value=current_user), \
+         patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.find_user_by_username", return_value=None), \
+         patch("pecha_api.users.users_service.update_user", return_value=updated_user):
+
+        _mock_session_ctx(mock_session)
+        result = update_username(token=token, request=request)
+
+    assert isinstance(result, UpdateUsernameResponse)
+    assert result.message == "Username updated successfully"
+    assert result.username == "newuser"
+
+
+def test_update_username_conflict_raises_409_with_suggestions():
+    token = "valid_token"
+    request = UpdateUsernameRequest(username="takenuser")
+    current_user = Users(
+        id="user-id-123",
+        firstname="John",
+        lastname="Doe",
+        username="olduser",
+        email="john@example.com",
+        social_media_accounts=[]
+    )
+    existing_user = Users(
+        id="other-id",
+        username="takenuser",
+        email="other@example.com",
+        social_media_accounts=[]
+    )
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details", return_value=current_user), \
+         patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.find_user_by_username", return_value=existing_user), \
+         patch("pecha_api.users.users_service._generate_username_suggestions",
+               return_value=["takenuser1234", "takenuser5678", "takenuser9012"]):
+
+        _mock_session_ctx(mock_session)
+        with pytest.raises(HTTPException) as exc_info:
+            update_username(token=token, request=request)
+
+    assert exc_info.value.status_code == status.HTTP_409_CONFLICT
+    detail = exc_info.value.detail
+    assert detail["message"] == ErrorConstants.USER_ALREADY_EXISTS
+    assert detail["suggestions"] == ["takenuser1234", "takenuser5678", "takenuser9012"]
+
+
+def test_update_username_invalid_token_raises_401():
+    token = "bad_token"
+    request = UpdateUsernameRequest(username="anyuser")
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details",
+               side_effect=HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or no token found")):
+        with pytest.raises(HTTPException) as exc_info:
+            update_username(token=token, request=request)
+
+    assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_update_username_db_error_raises_500():
+    token = "valid_token"
+    request = UpdateUsernameRequest(username="newuser")
+    current_user = Users(
+        id="user-id-123",
+        firstname="John",
+        lastname="Doe",
+        username="olduser",
+        email="john@example.com",
+        social_media_accounts=[]
+    )
+
+    with patch("pecha_api.users.users_service.validate_and_extract_user_details", return_value=current_user), \
+         patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.find_user_by_username", return_value=None), \
+         patch("pecha_api.users.users_service.update_user", side_effect=Exception("DB failure")):
+
+        _mock_session_ctx(mock_session)
+        with pytest.raises(HTTPException) as exc_info:
+            update_username(token=token, request=request)
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "Internal Server Error"
+
+
+def test_generate_username_suggestions_returns_three_unique():
+    with patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.find_user_by_username", return_value=None):
+
+        _mock_session_ctx(mock_session)
+        suggestions = _generate_username_suggestions(base="testuser", count=3)
+
+    assert len(suggestions) == 3
+    for suggestion in suggestions:
+        assert suggestion.startswith("testuser")
+        assert len(suggestion) == len("testuser") + 4
+        assert " " not in suggestion
+
+
+def test_generate_username_suggestions_strip_spaces_from_base():
+    with patch("pecha_api.users.users_service.SessionLocal") as mock_session, \
+         patch("pecha_api.users.users_service.find_user_by_username", return_value=None):
+
+        _mock_session_ctx(mock_session)
+        suggestions = _generate_username_suggestions(base="john doe", count=3)
+
+    assert len(suggestions) == 3
+    for suggestion in suggestions:
+        assert " " not in suggestion
+        assert suggestion.startswith("johndoe")
+        assert len(suggestion) == len("johndoe") + 4
+
+
+def test_update_username_request_normalizes_to_lowercase():
+    req = UpdateUsernameRequest(username="HelloWorld")
+    assert req.username == "helloworld"
+
+
+def test_update_username_request_rejects_spaces():
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="  hello  ")
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="hello world")
+
+
+def test_update_username_request_rejects_emojis():
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="user😀123")
+
+
+def test_update_username_request_rejects_invalid_characters():
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="user@name")
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username=".username")
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="username-")
+
+
+def test_update_username_request_allows_valid_special_characters():
+    req = UpdateUsernameRequest(username="test.user-123")
+    assert req.username == "test.user-123"
+
+
+def test_update_username_request_too_short():
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="ab")
+
+
+def test_update_username_request_empty():
+    with pytest.raises(Exception):
+        UpdateUsernameRequest(username="   ")
 
 
 def test_delete_user_account_success_with_avatar():

@@ -1,11 +1,26 @@
-from fastapi import APIRouter, Query, Depends, Request
+from fastapi import APIRouter, HTTPException, Query, Depends, Request, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated, Optional
 from uuid import UUID
 from datetime import date as DateType
 from starlette import status
 
-from pecha_api.plans.public.plan_response_models import PublicPlansResponse, PublicPlanDTO,PlanDaysResponse , PlanDayDTO, TagsResponse, DailyPlanResponse
+from pecha_api import config
+from pecha_api.db.database import SessionLocal
+from pecha_api.plans.language_constants import language_query_description
+from pecha_api.plans.public.plan_response_models import (
+    PublicPlansResponse,
+    PublicPlanDTO,
+    PlanDaysResponse,
+    PlanDayDTO,
+    PlanDayCacheCleanupResponse,
+    TagsResponse,
+    DailyPlanResponse,
+)
+from pecha_api.plans.public.plans_cache_service import (
+    invalidate_all_plan_day_detail_caches_for_plan,
+    invalidate_plan_day_detail_cache,
+)
 from pecha_api.plans.public.plan_service import (
     get_published_plans, 
     get_published_plan, 
@@ -18,6 +33,14 @@ from pecha_api.plans.public.plan_service import (
 from pecha_api.users.users_service import validate_and_extract_user_details
 
 optional_oauth2_scheme = HTTPBearer(auto_error=False)
+
+
+def _require_debug_deployment_mode() -> None:
+    if config.get("DEPLOYMENT_MODE").upper() != "DEBUG":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cache cleanup is only available when DEPLOYMENT_MODE is DEBUG.",
+        )
 
 
 # Create router for public plan endpoints
@@ -40,6 +63,10 @@ async def get_plans(
     sort_order: Annotated[str, Query(enum=["asc", "desc"])] = "asc",
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted plans are hidden for Chinese timezones."),
+    ] = None,
 ):
     return await get_published_plans(
         tag=tag,
@@ -50,6 +77,7 @@ async def get_plans(
         sort_order=sort_order,
         skip=skip,
         limit=limit,
+        timezone_name=x_timezone,
     )
 
 
@@ -66,8 +94,14 @@ def get_plan_tags(
 
 
 @public_plans_router.get("/{plan_id}", status_code=status.HTTP_200_OK, response_model=PublicPlanDTO)
-async def get_plan_details(plan_id: UUID):
-    return await get_published_plan(plan_id=plan_id)
+async def get_plan_details(
+    plan_id: UUID,
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone (e.g. Asia/Shanghai). Restricted plans are hidden for Chinese timezones."),
+    ] = None,
+):
+    return await get_published_plan(plan_id=plan_id, timezone_name=x_timezone)
 
 
 @public_plans_router.get("/{plan_id}/daily", status_code=status.HTTP_200_OK, response_model=DailyPlanResponse)
@@ -77,8 +111,41 @@ async def get_plan_daily(
         Optional[DateType],
         Query(description="Date in YYYY-MM-DD format. Defaults to today if not provided."),
     ] = None,
+    language: Annotated[
+        Optional[str],
+        Query(description=language_query_description("Filter series navigation and metadata by language", lowercase_example=True)),
+    ] = None,
 ):
-    return await get_plan_daily_content(plan_id=plan_id, requested_date=date)
+    return await get_plan_daily_content(plan_id=plan_id, requested_date=date, language=language)
+
+
+@public_plans_router.delete(
+    "/{plan_id}/cache/plan-days",
+    status_code=status.HTTP_200_OK,
+    response_model=PlanDayCacheCleanupResponse,
+)
+async def cleanup_plan_days_cache(plan_id: UUID):
+    """Invalidate cached public plan day responses for every day in a plan (DEBUG only)."""
+    _require_debug_deployment_mode()
+    with SessionLocal() as db:
+        keys_deleted = await invalidate_all_plan_day_detail_caches_for_plan(db=db, plan_id=plan_id)
+    return PlanDayCacheCleanupResponse(plan_id=plan_id, keys_deleted=keys_deleted)
+
+
+@public_plans_router.delete(
+    "/{plan_id}/days/{day_number}/cache",
+    status_code=status.HTTP_200_OK,
+    response_model=PlanDayCacheCleanupResponse,
+)
+async def cleanup_plan_day_cache(plan_id: UUID, day_number: int):
+    """Invalidate the cached public plan day response for one day (DEBUG only)."""
+    _require_debug_deployment_mode()
+    keys_deleted = await invalidate_plan_day_detail_cache(plan_id=plan_id, day_number=day_number)
+    return PlanDayCacheCleanupResponse(
+        plan_id=plan_id,
+        day_number=day_number,
+        keys_deleted=keys_deleted,
+    )
 
 
 @public_plans_router.get("/{plan_id}/days", status_code=status.HTTP_200_OK, response_model=PlanDaysResponse)
@@ -101,4 +168,4 @@ async def get_plan_days_list(
 @public_plans_router.get("/{plan_id}/days/{day_number}", status_code=status.HTTP_200_OK, response_model=PlanDayDTO)
 async def get_plan_day_content(plan_id: UUID, day_number: int):
     """Get specific day's content with tasks"""
-    return get_plan_day_details(plan_id=plan_id, day_number=day_number)
+    return await get_plan_day_details(plan_id=plan_id, day_number=day_number)

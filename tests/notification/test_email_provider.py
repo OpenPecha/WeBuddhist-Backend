@@ -5,7 +5,7 @@ import pytest
 
 
 def test_send_email_success():
-    with patch('pecha_api.notification.email_provider.mt.MailtrapClient') as mock_client:
+    with patch('mailtrap.MailtrapClient') as mock_client:
         mock_instance = mock_client.return_value
         mock_response = Mock()
         mock_response.status_code = 200
@@ -19,7 +19,7 @@ def test_send_email_success():
 
 
 def test_send_email_failure():
-    with patch('pecha_api.notification.email_provider.mt.MailtrapClient') as mock_client:
+    with patch('mailtrap.MailtrapClient') as mock_client:
         mock_instance = mock_client.return_value
         mock_instance.send.side_effect = Exception("Send failed")
 

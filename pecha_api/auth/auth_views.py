@@ -4,9 +4,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from ..db import database
 from starlette import status
 from .auth_service import authenticate_and_generate_tokens, refresh_access_token, register_user_with_source, \
-    request_reset_password, update_password, create_user
+    request_reset_password, update_password, create_user, exchange_phone_token, link_phone_identity
 from .auth_models import CreateUserRequest, UserLoginRequest, RefreshTokenRequest, PasswordResetRequest, \
-    ResetPasswordRequest, UserLoginResponse, RefreshTokenResponse, CreateSocialUserRequest
+    ResetPasswordRequest, UserLoginResponse, RefreshTokenResponse, CreateSocialUserRequest, \
+    PhoneExchangeRequest, PhoneExchangeResponse, PhoneLinkRequest, PhoneLinkResponse
 from .auth_enums import RegistrationSource
 from typing import Annotated
 
@@ -48,6 +49,22 @@ def login_user(user_login_request: UserLoginRequest) -> UserLoginResponse:
     return authenticate_and_generate_tokens(
         email=user_login_request.email,
         password=user_login_request.password
+    )
+
+
+@auth_router.post("/phone/exchange", status_code=status.HTTP_200_OK)
+def phone_exchange(request: PhoneExchangeRequest) -> PhoneExchangeResponse:
+    return exchange_phone_token(request)
+
+
+@auth_router.post("/phone/link", status_code=status.HTTP_200_OK)
+def phone_link(
+    request: PhoneLinkRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+) -> PhoneLinkResponse:
+    return link_phone_identity(
+        backend_token=authentication_credential.credentials,
+        auth0_token=request.auth0_token,
     )
 
 

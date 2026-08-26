@@ -7,11 +7,13 @@ from fastapi.security import HTTPAuthorizationCredentials
 from fastapi import HTTPException, FastAPI
 from starlette import status
 
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.routines.routines_response_models import (
     RoutineWithTimeBlocksResponse,
     RoutineResponse,
     TimeBlockDTO,
     SessionDTO,
+    RoutineInfoResponse,
 )
 from pecha_api.routines.routines_enums import SessionType
 
@@ -75,7 +77,11 @@ def test_create_routine_success(authenticated_client):
                         source_id=source_id,
                         title="Daily Routine",
                         language="EN",
-                        image_url="https://example.com/image.jpg",
+                        image=ImageUrlModel(
+                            thumbnail="https://example.com/image-thumb.jpg",
+                            medium="https://example.com/image-medium.jpg",
+                            original="https://example.com/image.jpg",
+                        ),
                         display_order=0,
                     )
                 ],
@@ -113,6 +119,68 @@ def test_create_routine_success(authenticated_client):
         assert body["time_blocks"][0]["time_int"] == 1200
         assert body["time_blocks"][0]["sessions"][0]["title"] == "Daily Routine"
         assert body["time_blocks"][0]["sessions"][0]["language"] == "EN"
+        mock_create.assert_called_once()
+
+
+def test_create_routine_with_timer_success(authenticated_client):
+    routine_id = uuid.uuid4()
+    time_block_id = uuid.uuid4()
+    session_id = uuid.uuid4()
+
+    mock_response = RoutineWithTimeBlocksResponse(
+        id=routine_id,
+        time_blocks=[
+            TimeBlockDTO(
+                id=time_block_id,
+                time="12:00",
+                time_int=1200,
+                notification_enabled=True,
+                sessions=[
+                    SessionDTO(
+                        id=session_id,
+                        session_type=SessionType.TIMER,
+                        source_id=None,
+                        duration_ms=900000,
+                        display_order=0,
+                    )
+                ],
+            )
+        ],
+    )
+
+    with patch(
+        "pecha_api.routines.routines_views.create_routine_with_time_block",
+        new_callable=AsyncMock,
+        return_value=mock_response,
+    ) as mock_create:
+        response = authenticated_client.post(
+            "/routines",
+            json={
+                "time": "12:00",
+                "time_int": 1200,
+                "notification_enabled": True,
+                "sessions": [
+                    {
+                        "session_type": "TIMER",
+                        "duration_ms": 900000,
+                        "display_order": 0,
+                    }
+                ],
+            },
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        body = response.json()
+        timer_session = body["time_blocks"][0]["sessions"][0]
+        assert timer_session["session_type"] == "TIMER"
+        assert timer_session["duration_ms"] == 900000
+        assert "source_id" not in timer_session
+        assert "title" not in timer_session
+        assert "language" not in timer_session
+        assert "image" not in timer_session
+        assert "start_date" not in timer_session
+        assert "started_at" not in timer_session
         mock_create.assert_called_once()
 
 
@@ -232,49 +300,6 @@ def test_create_routine_invalid_time(authenticated_client):
         )
 
 
-def test_create_routine_duplicate_plan(authenticated_client):
-    duplicate_source_id = uuid.uuid4()
-
-    with patch(
-        "pecha_api.routines.routines_views.create_routine_with_time_block",
-        new_callable=AsyncMock,
-    ) as mock_create:
-        mock_create.side_effect = HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "Bad request",
-                "message": "A plan can only appear once across the entire routine",
-            },
-        )
-
-        response = authenticated_client.post(
-            "/routines",
-            json={
-                "time": "12:00",
-                "time_int": 1200,
-                "sessions": [
-                    {
-                        "session_type": "PLAN",
-                        "source_id": str(duplicate_source_id),
-                        "display_order": 0,
-                    },
-                    {
-                        "session_type": "PLAN",
-                        "source_id": str(duplicate_source_id),
-                        "display_order": 1,
-                    },
-                ],
-            },
-            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
-        )
-
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        assert (
-            response.json()["detail"]["message"]
-            == "A plan can only appear once across the entire routine"
-        )
-
-
 def test_create_time_block_success(authenticated_client):
     routine_id = uuid.uuid4()
     time_block_id = uuid.uuid4()
@@ -293,7 +318,11 @@ def test_create_time_block_success(authenticated_client):
                 source_id=source_id,
                 title="Morning Plan",
                 language="EN",
-                image_url="https://example.com/morning.jpg",
+                image=ImageUrlModel(
+                    thumbnail="https://example.com/morning-thumb.jpg",
+                    medium="https://example.com/morning-medium.jpg",
+                    original="https://example.com/morning.jpg",
+                ),
                 display_order=0,
             )
         ],
@@ -432,38 +461,6 @@ def test_create_time_block_duplicate_time(authenticated_client):
         )
 
 
-def test_create_time_block_duplicate_plan(authenticated_client):
-    with patch(
-        "pecha_api.routines.routines_views.add_time_block_to_routine",
-        new_callable=AsyncMock,
-    ) as mock_add:
-        mock_add.side_effect = HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={
-                "error": "Bad request",
-                "message": "A plan can only appear once across the entire routine",
-            },
-        )
-
-        response = authenticated_client.post(
-            f"/routines/{uuid.uuid4()}/time-blocks",
-            json={
-                "time": "08:00",
-                "time_int": 800,
-                "sessions": [
-                    {
-                        "session_type": "PLAN",
-                        "source_id": str(uuid.uuid4()),
-                        "display_order": 0,
-                    }
-                ],
-            },
-            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
-        )
-
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-
-
 def test_delete_time_block_success(authenticated_client):
     routine_id = uuid.uuid4()
     time_block_id = uuid.uuid4()
@@ -572,7 +569,11 @@ def test_update_time_block_success(authenticated_client):
                 source_id=source_id,
                 title="Updated Routine",
                 language="EN",
-                image_url="https://example.com/image.jpg",
+                image=ImageUrlModel(
+                    thumbnail="https://example.com/image-thumb.jpg",
+                    medium="https://example.com/image-medium.jpg",
+                    original="https://example.com/image.jpg",
+                ),
                 display_order=0,
             )
         ],
@@ -731,39 +732,6 @@ def test_update_time_block_time_conflict(authenticated_client):
         assert response.json()["detail"]["message"] == "Time block with this time already exists"
 
 
-def test_update_time_block_duplicate_plan(authenticated_client):
-    routine_id = uuid.uuid4()
-    time_block_id = uuid.uuid4()
-
-    with patch(
-        "pecha_api.routines.routines_views.update_time_block_service",
-        new_callable=AsyncMock,
-    ) as mock_update:
-        mock_update.side_effect = HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail={"error": "Bad request", "message": "A plan can only appear once across the entire routine"},
-        )
-
-        response = authenticated_client.put(
-            f"/routines/{routine_id}/time-blocks/{time_block_id}",
-            json={
-                "time": "14:00",
-                "time_int": 1400,
-                "sessions": [
-                    {
-                        "session_type": "PLAN",
-                        "source_id": str(uuid.uuid4()),
-                        "display_order": 0,
-                    }
-                ],
-            },
-            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
-        )
-
-        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
-        assert response.json()["detail"]["message"] == "A plan can only appear once across the entire routine"
-
-
 def test_update_time_block_empty_sessions(authenticated_client):
     routine_id = uuid.uuid4()
     time_block_id = uuid.uuid4()
@@ -818,7 +786,11 @@ def test_get_routine_success(authenticated_client):
                         source_id=source_id,
                         title="Morning Meditation",
                         language="EN",
-                        image_url="https://example.com/image.jpg",
+                        image=ImageUrlModel(
+                            thumbnail="https://example.com/image-thumb.jpg",
+                            medium="https://example.com/image-medium.jpg",
+                            original="https://example.com/image.jpg",
+                        ),
                         display_order=0,
                     )
                 ],
@@ -911,7 +883,7 @@ def test_get_routine_with_pagination(authenticated_client):
                         source_id=source_id,
                         title="Daily Recitation",
                         language="BO",
-                        image_url=None,
+                        image=None,
                         display_order=0,
                     )
                 ],
@@ -940,6 +912,26 @@ def test_get_routine_with_pagination(authenticated_client):
         mock_get.assert_called_once()
 
 
+def test_get_routine_forwards_language_query_param(authenticated_client):
+    """The language query param is passed through to the service for fallback rendering."""
+    mock_response = RoutineResponse(
+        id=uuid.uuid4(), time_blocks=[], skip=0, limit=20, total=0
+    )
+
+    with patch(
+        "pecha_api.routines.routines_views.get_user_routine",
+        new_callable=AsyncMock,
+        return_value=mock_response,
+    ) as mock_get:
+        response = authenticated_client.get(
+            "/users/me/routine?language=bo",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert mock_get.call_args.kwargs["language"] == "bo"
+
+
 def test_get_routine_with_multiple_time_blocks(authenticated_client):
     """Test retrieval of routine with multiple time blocks sorted by time."""
     routine_id = uuid.uuid4()
@@ -965,7 +957,11 @@ def test_get_routine_with_multiple_time_blocks(authenticated_client):
                         source_id=source_id_1,
                         title="Morning Practice",
                         language="EN",
-                        image_url="https://example.com/morning.jpg",
+                        image=ImageUrlModel(
+                    thumbnail="https://example.com/morning-thumb.jpg",
+                    medium="https://example.com/morning-medium.jpg",
+                    original="https://example.com/morning.jpg",
+                ),
                         display_order=0,
                     )
                 ],
@@ -982,7 +978,7 @@ def test_get_routine_with_multiple_time_blocks(authenticated_client):
                         source_id=source_id_2,
                         title="Evening Recitation",
                         language="BO",
-                        image_url=None,
+                        image=None,
                         display_order=0,
                     )
                 ],
@@ -1075,3 +1071,50 @@ def test_get_routine_invalid_token(authenticated_client):
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_get_routine_info_success(authenticated_client):
+    mock_response = RoutineInfoResponse(series_count=2, recitation_count=3)
+
+    with patch(
+        "pecha_api.routines.routines_views.get_user_routine_info",
+        new_callable=AsyncMock,
+        return_value=mock_response,
+    ) as mock_get:
+        response = authenticated_client.get(
+            "/users/me/routine/info",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        body = response.json()
+        assert body["series_count"] == 2
+        assert body["recitation_count"] == 3
+        mock_get.assert_called_once()
+
+
+def test_get_routine_info_unauthorized(unauthenticated_client):
+    response = unauthenticated_client.get("/users/me/routine/info")
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_get_routine_info_no_routine(authenticated_client):
+    with patch(
+        "pecha_api.routines.routines_views.get_user_routine_info",
+        new_callable=AsyncMock,
+    ) as mock_get:
+        mock_get.side_effect = HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "Bad request",
+                "message": "No routine created for this user",
+            },
+        )
+
+        response = authenticated_client.get(
+            "/users/me/routine/info",
+            headers={"Authorization": f"Bearer {VALID_TOKEN}"},
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert response.json()["detail"]["message"] == "No routine created for this user"

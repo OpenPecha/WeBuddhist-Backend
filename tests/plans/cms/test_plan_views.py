@@ -3,11 +3,12 @@ import pytest
 from unittest.mock import patch, AsyncMock
 from datetime import datetime, timezone
 
-from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus
-from pecha_api.plans.plans_response_models import CreatePlanRequest, PlanDTO, PlansResponse, PlanDayDTO
-from pecha_api.plans.cms.cms_plans_views import create_plan, get_plans, get_plan_day_content
+from pecha_api.plans.plans_enums import DifficultyLevel, PlanStatus, PlanAudioType, MonlamVoiceName, AudioJobStatus
+from pecha_api.plans.plans_response_models import CreatePlanRequest, PlanDTO, PlansResponse, PlanDayDTO, GeneratePlanAudioRequest
+from pecha_api.plans.cms.cms_plans_views import create_plan, get_plans, get_plan_day_content, generate_plan_audio, get_plan_audio_job_status
 from pecha_api.plans.plans_response_models import UpdatePlanRequest, PlanStatusUpdate, PlanWithDays
 from pecha_api.plans.cms.cms_plans_views import get_plan_details, update_plan, delete_plan, update_plan_status
+from pecha_api.plans.audio.plan_audio_response_models import AudioJobAcceptedResponse, AudioJobStatusResponse
 
 
 class _Creds:
@@ -18,6 +19,7 @@ class _Creds:
 @pytest.mark.asyncio
 async def test_create_plan_success():
     request = CreatePlanRequest(
+        group_id=uuid.uuid4(),
         title="Mindfulness Basics",
         description="A simple plan to get started with mindfulness.",
         difficulty_level=DifficultyLevel.BEGINNER,
@@ -61,8 +63,7 @@ async def test_create_plan_success():
 
 
 
-@pytest.mark.asyncio
-async def test_get_plans_success_with_params():
+def test_get_plans_success_with_params():
     creds = _Creds(token="token123")
 
     plan1 = PlanDTO(
@@ -87,8 +88,8 @@ async def test_get_plans_success_with_params():
     )
     expected = PlansResponse(plans=[plan1, plan2], skip=1, limit=5, total=2)
 
-    with patch("pecha_api.plans.cms.cms_plans_views.get_filtered_plans", return_value=expected, new_callable=AsyncMock) as mock_service:
-        resp = await get_plans(
+    with patch("pecha_api.plans.cms.cms_plans_views.get_filtered_plans", return_value=expected) as mock_service:
+        resp = get_plans(
             authentication_credential=creds,
             search="plan",
             language="en",
@@ -113,14 +114,13 @@ async def test_get_plans_success_with_params():
         assert resp == expected
 
 
-@pytest.mark.asyncio
-async def test_get_plans_defaults():
+def test_get_plans_defaults():
     creds = _Creds(token="tkn")
     expected = PlansResponse(plans=[], skip=0, limit=10, total=0)
 
-    with patch("pecha_api.plans.cms.cms_plans_views.get_filtered_plans", return_value=expected, new_callable=AsyncMock) as mock_service:
+    with patch("pecha_api.plans.cms.cms_plans_views.get_filtered_plans", return_value=expected) as mock_service:
         # Pass explicit defaults to avoid FastAPI Query objects when calling directly
-        resp = await get_plans(
+        resp = get_plans(
             authentication_credential=creds,
             search=None,
             language=None,
@@ -295,4 +295,109 @@ async def test_update_plan_status_success():
             "plan_status_update": status_update,
         }
         assert resp == expected
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_audio_endpoint_with_day_id():
+    day_id = uuid.uuid4()
+    job_id = uuid.uuid4()
+    request = GeneratePlanAudioRequest(
+        day_id=day_id,
+        language="bo",
+        type=PlanAudioType.TEXT_READING,
+        voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE,
+    )
+
+    expected = AudioJobAcceptedResponse(job_id=job_id, status=AudioJobStatus.PENDING)
+
+    with patch(
+        "pecha_api.plans.cms.cms_plans_views.enqueue_plan_audio_job",
+        return_value=expected,
+    ) as mock_service:
+        resp = await generate_plan_audio(request=request)
+
+        mock_service.assert_called_once_with(
+            day_id=day_id,
+            sub_task_id=None,
+            language="bo",
+            audio_type=PlanAudioType.TEXT_READING,
+            voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE,
+        )
+        assert resp == expected
+
+
+@pytest.mark.asyncio
+async def test_generate_plan_audio_endpoint_with_subtask_id():
+    sub_task_id = uuid.uuid4()
+    job_id = uuid.uuid4()
+    request = GeneratePlanAudioRequest(
+        sub_task_id=sub_task_id,
+        language="en",
+        type=PlanAudioType.RECITATION,
+        voice_name=MonlamVoiceName.YANGCHEN_LHASA_FEMALE,
+    )
+
+    expected = AudioJobAcceptedResponse(job_id=job_id, status=AudioJobStatus.PENDING)
+
+    with patch(
+        "pecha_api.plans.cms.cms_plans_views.enqueue_plan_audio_job",
+        return_value=expected,
+    ) as mock_service:
+        resp = await generate_plan_audio(request=request)
+
+        mock_service.assert_called_once_with(
+            day_id=None,
+            sub_task_id=sub_task_id,
+            language="en",
+            audio_type=PlanAudioType.RECITATION,
+            voice_name=MonlamVoiceName.YANGCHEN_LHASA_FEMALE,
+        )
+        assert resp == expected
+
+
+@pytest.mark.asyncio
+async def test_get_plan_audio_job_status_endpoint():
+    job_id = uuid.uuid4()
+    now = datetime.now(timezone.utc)
+    expected = AudioJobStatusResponse(
+        job_id=job_id,
+        status=AudioJobStatus.COMPLETED,
+        language="bo",
+        type=PlanAudioType.TEXT_READING.value,
+        voice_name=MonlamVoiceName.DOLKAR_LHASA_FEMALE.value,
+        audio_url="https://s3.example.com/audio.wav",
+        audio_duration_ms=5000,
+        s3_key="audio/plan_days/test.wav",
+        created_at=now,
+        updated_at=now,
+    )
+
+    with patch(
+        "pecha_api.plans.cms.cms_plans_views.get_audio_job_status",
+        return_value=expected,
+    ) as mock_service:
+        resp = await get_plan_audio_job_status(
+            job_id=job_id,
+            authentication_credential=_Creds("token"),
+        )
+        mock_service.assert_called_once_with(job_id=job_id)
+        assert resp == expected
+
+
+def test_generate_plan_audio_request_validation_requires_day_or_subtask():
+    with pytest.raises(ValueError, match="Either day_id or sub_task_id must be provided"):
+        GeneratePlanAudioRequest(
+            language="bo",
+            type=PlanAudioType.TEXT_READING,
+        )
+
+
+def test_generate_plan_audio_request_validation_rejects_both_ids():
+    with pytest.raises(ValueError, match="Provide either day_id or sub_task_id, not both"):
+        GeneratePlanAudioRequest(
+            day_id=uuid.uuid4(),
+            sub_task_id=uuid.uuid4(),
+            language="bo",
+            type=PlanAudioType.TEXT_READING,
+        )
 

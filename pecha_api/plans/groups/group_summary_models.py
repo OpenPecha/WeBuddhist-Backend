@@ -1,0 +1,37 @@
+from typing import List, Optional, Union
+from uuid import UUID
+
+from pydantic import BaseModel
+
+from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole, AuthorGroupType
+from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
+
+
+class GroupMetadataDTO(BaseModel):
+    id: UUID
+    title: str
+    sub_title: Optional[str] = None
+    description: Optional[str] = None
+    description_long: Optional[str] = None
+    language: str
+
+
+GroupMetadataResponse = Union[GroupMetadataDTO, List[GroupMetadataDTO], None]
+
+
+class AuthorGroupSummaryDTO(BaseModel):
+    id: UUID
+    slug: str
+    group_type: AuthorGroupType
+    is_public: bool
+    avatar_key: Optional[str] = None
+    banner_key: Optional[str] = None
+    avatar_url: Optional[str] = None
+    banner_url: Optional[str] = None
+    metadata: GroupMetadataResponse = []
+    tags: List[TagSummaryDTO] = []
+    follower_count: int = 0
+    joiner_count: int = 0
+    member_count: int = 0
+    # Current CMS author's membership role in this group (null when not a member).
+    my_role: Optional[AuthorGroupMemberRole] = None

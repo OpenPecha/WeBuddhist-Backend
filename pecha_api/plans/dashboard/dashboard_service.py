@@ -1,10 +1,22 @@
 import json
-from typing import List, Optional
+from typing import List, Optional, Sequence
 from uuid import UUID
+
+from sqlalchemy.orm import Session
 
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
-from pecha_api.plans.authors.plan_authors_service import validate_and_extract_author_details
+from pecha_api.plans.authors.plan_authors_model import Author
+from pecha_api.plans.authors.plan_authors_service import (
+    safe_get_image_url,
+    validate_cms_author_details,
+)
+from pecha_api.plans.groups.groups_repository import get_author_group_ids
+from pecha_api.plans.shared.permissions import (
+    is_reviewer,
+    is_super_admin,
+    require_can_read_group_content,
+)
 from pecha_api.plans.dashboard.dashboard_repository import get_dashboard_items, total_pages
 from pecha_api.plans.dashboard.dashboard_response_models import (
     DashboardItemDTO,
@@ -15,10 +27,16 @@ from pecha_api.plans.dashboard.dashboard_response_models import (
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.series.series_repository import get_series_with_plans_by_ids
 from pecha_api.plans.series.series_response_models import SeriesMetadataDTO
-from pecha_api.plans.series.series_service import _get_sorted_active_plans, _plan_to_dto
-from pecha_api.uploads.S3_utils import generate_presigned_access_url
-
-
+from pecha_api.plans.series.series_service import (
+    _get_sorted_active_plans,
+    _plan_to_dto,
+    _series_schedule_from_plans,
+    compute_series_progress,
+)
+from pecha_api.plans.shared.metadata_utils import (
+    filter_by_language_with_fallback,
+    format_metadata_response,
+)
 def _parse_languages(item_type: str, languages_raw: Optional[str]) -> List[str]:
     if not languages_raw:
         return []
@@ -33,31 +51,42 @@ def _to_plan_status(status_value) -> PlanStatus:
     return PlanStatus(status_value)
 
 
-def _image_url(image_key: Optional[str]) -> Optional[str]:
-    if not image_key:
-        return None
-    return generate_presigned_access_url(
-        bucket_name=get("AWS_BUCKET_NAME"),
-        s3_key=image_key,
-    )
-
-
-def _parse_metadata(raw) -> List[SeriesMetadataDTO]:
+def _parse_metadata(raw, language: Optional[str] = None, fallback: bool = False):
     if raw is None:
-        return []
-    if isinstance(raw, str):
-        raw = json.loads(raw)
-    if not raw:
-        return []
-    return [SeriesMetadataDTO(**item) for item in raw]
+        metadata_list: List[SeriesMetadataDTO] = []
+    elif isinstance(raw, str):
+        parsed = json.loads(raw)
+        metadata_list = [SeriesMetadataDTO(**item) for item in parsed] if parsed else []
+    elif not raw:
+        metadata_list = []
+    else:
+        metadata_list = [SeriesMetadataDTO(**item) for item in raw]
+
+    if fallback:
+        metadata_list = filter_by_language_with_fallback(
+            entries=metadata_list,
+            language=language,
+            language_of=lambda item: item.language,
+        )
+    elif language:
+        language_upper = language.upper()
+        metadata_list = [
+            item for item in metadata_list
+            if item.language.upper() == language_upper
+        ]
+    return format_metadata_response(metadata_list, language=language)
 
 
-def _row_to_dto(row) -> DashboardItemDTO:
+def _row_to_dto(
+    row, language: Optional[str] = None, fallback: bool = False
+) -> DashboardItemDTO:
     item_type = row.item_type
     common = dict(
         id=row.id,
         type=item_type,
-        image_url=_image_url(row.image_key),
+        image=safe_get_image_url(
+            row.image_key, resource_id=row.id, resource_type=item_type
+        ),
         image_key=row.image_key,
         status=_to_plan_status(row.status),
         featured=bool(row.featured),
@@ -70,12 +99,39 @@ def _row_to_dto(row) -> DashboardItemDTO:
     if item_type == "series":
         return DashboardItemDTO(
             **common,
-            metadata=_parse_metadata(row.metadata_json),
+            metadata=_parse_metadata(
+                row.metadata_json, language=language, fallback=fallback
+            ),
             author_id=row.author_id,
         )
     return DashboardItemDTO(
         **common,
         title=row.title or "",
+    )
+
+
+def _resolve_dashboard_group_ids(
+    db: Session,
+    author: Author,
+    group_id: Optional[UUID] = None,
+) -> Optional[Sequence[UUID]]:
+    if group_id is not None:
+        require_can_read_group_content(db=db, group_id=group_id, author=author)
+        return [group_id]
+    if is_super_admin(author) or is_reviewer(author):
+        return None
+    return get_author_group_ids(db=db, author_id=author.id)
+
+
+def _empty_dashboard_response(page: int, page_size: int) -> DashboardItemsResponse:
+    return DashboardItemsResponse(
+        items=[],
+        pagination=DashboardPaginationDTO(
+            page=page,
+            page_size=page_size,
+            total=0,
+            total_pages=0,
+        ),
     )
 
 
@@ -88,14 +144,21 @@ def get_dashboard_items_list(
     status: Optional[PlanStatus] = None,
     language: Optional[str] = None,
     featured: Optional[bool] = None,
+    group_id: Optional[UUID] = None,
 ) -> DashboardItemsResponse:
-    current_author = validate_and_extract_author_details(token=token)
-    author_id = None if current_author.is_admin else current_author.id
-
+    current_author = validate_cms_author_details(token=token)
     page = max(page, 1)
     page_size = max(page_size, 1)
 
     with SessionLocal() as db_session:
+        group_ids = _resolve_dashboard_group_ids(
+            db=db_session,
+            author=current_author,
+            group_id=group_id,
+        )
+        if group_ids is not None and len(group_ids) == 0:
+            return _empty_dashboard_response(page=page, page_size=page_size)
+
         rows, total = get_dashboard_items(
             db_session,
             tab=tab,
@@ -105,10 +168,10 @@ def get_dashboard_items_list(
             status=status,
             language=language,
             featured=featured,
-            author_id=author_id,
+            group_ids=group_ids,
         )
 
-    items = [_row_to_dto(row) for row in rows]
+    items = [_row_to_dto(row, language=language) for row in rows]
     return DashboardItemsResponse(
         items=items,
         pagination=DashboardPaginationDTO(
@@ -120,18 +183,51 @@ def get_dashboard_items_list(
     )
 
 
-def _row_to_public_dto(row) -> DashboardItemDTO:
-    return _row_to_dto(row).model_copy(update={"author_id": None})
+def _row_to_public_dto(
+    row, language: Optional[str] = None, fallback: bool = False
+) -> DashboardItemDTO:
+    return _row_to_dto(row, language=language, fallback=fallback).model_copy(
+        update={"author_id": None}
+    )
 
 
-def _published_plans_by_series(db_session, series_ids: List[UUID]) -> dict:
+def _published_plans_by_series(
+    db_session,
+    series_ids: List[UUID],
+    language: Optional[str] = None,
+) -> dict:
     return {
         series.id: [
             _plan_to_dto(plan)
-            for plan in _get_sorted_active_plans(series.plans, published_only=True)
+            for plan in _get_sorted_active_plans(
+                series.plans,
+                published_only=True,
+                language=language,
+                fallback=True,
+            )
         ]
         for series in get_series_with_plans_by_ids(db_session, series_ids)
     }
+
+
+def _series_progress_by_ids(
+    db_session,
+    series_ids: List[UUID],
+    language: Optional[str] = None,
+) -> dict:
+    progress_map = {}
+    for series in get_series_with_plans_by_ids(db_session, series_ids):
+        start_date, _, total_days = _series_schedule_from_plans(
+            series.plans,
+            published_only=True,
+            language=language,
+            fallback=True,
+        )
+        progress_map[series.id] = compute_series_progress(
+            start_date=start_date,
+            total_days=total_days,
+        )
+    return progress_map
 
 
 def get_practice_items_list(
@@ -155,16 +251,28 @@ def get_practice_items_list(
             status=PlanStatus.PUBLISHED,
             language=language,
             featured=featured,
-            author_id=None,
+            language_fallback=True,
         )
 
-        items = [_row_to_public_dto(row) for row in rows]
+        items = [
+            _row_to_public_dto(row, language=language, fallback=True) for row in rows
+        ]
         series_ids = [item.id for item in items if item.type == "series"]
-        plans_by_series = _published_plans_by_series(db_session, series_ids)
+        plans_by_series = _published_plans_by_series(
+            db_session,
+            series_ids,
+            language=language,
+        )
+        progress_by_series = _series_progress_by_ids(
+            db_session,
+            series_ids,
+            language=language,
+        )
 
     for item in items:
         if item.type == "series":
             item.plans = plans_by_series.get(item.id, [])
+            item.progress = progress_by_series.get(item.id)
 
     return DashboardItemsResponse(
         items=items,

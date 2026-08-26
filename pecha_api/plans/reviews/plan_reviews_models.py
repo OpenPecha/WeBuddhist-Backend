@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, DateTime, Boolean, Text, ForeignKey, Index, UniqueConstraint, UUID, CheckConstraint, text,String
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from uuid import uuid4
 from ...db.database import Base
 from _datetime import datetime
@@ -27,7 +27,7 @@ class PlanReview(Base):
     deleted_at = Column(DateTime(timezone=True))
     deleted_by = Column(String(255))
 
-    user = relationship("Users", backref="reviews")
+    user = relationship("Users", backref=backref("reviews", cascade="all, delete-orphan"))
 
     __table_args__ = (
         UniqueConstraint("user_id", "plan_id", name="uq_plan_reviews_user_plan"),

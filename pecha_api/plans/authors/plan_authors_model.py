@@ -2,6 +2,7 @@ from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, Boolean, U
 from sqlalchemy.orm import relationship
 
 from pecha_api.db.database import Base
+from pecha_api.plans.platform_enums import PlatformRoleEnum
 from uuid import uuid4
 import _datetime
 from _datetime import datetime
@@ -14,11 +15,12 @@ class Author(Base):
     last_name = Column(String(200), nullable=False)
     bio = Column(Text, nullable=True)
     image_url = Column(String(1000), nullable=True)
-    email = Column(String(255), nullable=False, unique=True, index=True)
-    password = Column(String(255), nullable=False)
+    email = Column(String(255), nullable=True, unique=True, index=True)
+    phone_number = Column(String(16), nullable=True, unique=True, index=True)
+    password = Column(String(255), nullable=True)
     is_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=False)
-    is_admin = Column(Boolean, default=False)
+    platform_role = Column(PlatformRoleEnum, nullable=False, default="CREATOR")
     created_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc),nullable=False)
     created_by = Column(String(255), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=datetime.now(_datetime.timezone.utc))

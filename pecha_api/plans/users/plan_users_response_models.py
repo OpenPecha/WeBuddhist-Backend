@@ -1,9 +1,13 @@
 from typing import List, Optional
 from pydantic import BaseModel
+from pecha_api.plans.media.media_response_models import ImageUrlModel
 from uuid import UUID
 from datetime import datetime
 from pecha_api.plans.plans_enums import ContentType, SeriesStatus
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
+from pecha_api.plans.groups.group_summary_models import AuthorGroupSummaryDTO
+from pecha_api.plans.public.plan_response_models import DayVideoSummaryDTO
+from pecha_api.plans.series.series_response_models import SeriesProgressDTO, SeriesPartnerDTO
 
 
 
@@ -51,12 +55,13 @@ class UserPlanDTO(BaseModel):
     description: str
     language: str
     difficulty_level: str
-    image_url: str
-    started_at: datetime
+    image: Optional[ImageUrlModel] = None
+    started_at: Optional[datetime] = None
     total_days: int
     tags: list[TagSummaryDTO] = []
     start_date: Optional[datetime] = None
     display_order: Optional[int] = None
+    group: Optional[AuthorGroupSummaryDTO] = None
 
 
 class UserPlansResponse(BaseModel):
@@ -80,6 +85,7 @@ class UserSubTaskDTO(BaseModel):
     source_text_id: Optional[UUID] = None
     pecha_segment_id: Optional[str] = None
     segment_ids: Optional[List[UUID]] = None
+    segment_numbers: Optional[List[int]] = None
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None
 
@@ -98,12 +104,16 @@ class UserPlanDayDetailsResponse(BaseModel):
     is_completed: bool
     audio_url: Optional[str] = None
     audio_duration_ms: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+    shareable_image_url: Optional[str] = None
+    videos: List[DayVideoSummaryDTO] = []
 
 
 # Series Enrollment Models
 
 class UserSeriesEnrollRequest(BaseModel):
     series_id: UUID
+    group_id: Optional[UUID] = None
     auto_enroll_next: Optional[bool] = True
     start_immediately: Optional[bool] = False
 
@@ -114,7 +124,7 @@ class UserSeriesEnrollmentDTO(BaseModel):
     series_id: UUID
     series_title: str
     series_description: Optional[str] = None
-    series_image_url: Optional[str] = None
+    image: Optional[ImageUrlModel] = None
     enrolled_at: datetime
     status: str  # ACTIVE, PAUSED, COMPLETED, CANCELLED
     auto_enroll_next: bool
@@ -125,6 +135,11 @@ class UserSeriesEnrollmentDTO(BaseModel):
     total_plans: int
     completed_plans: int
     progress_percentage: float
+    enrolled_count: int = 0
+    group: Optional[AuthorGroupSummaryDTO] = None
+    series_partner_id: Optional[UUID] = None  # Partner group ID when enrolled via a partner group
+    progress: Optional[SeriesProgressDTO] = None
+    partner: Optional[SeriesPartnerDTO] = None
 
 
 class UserSeriesEnrollmentsResponse(BaseModel):
@@ -146,8 +161,31 @@ class UserSeriesProgressResponse(BaseModel):
     is_completed: bool
     completed_at: Optional[datetime] = None
     plans: List[UserPlanDTO]  # All plans in series with completion status
+    enrolled_count: int = 0
+    group: Optional[AuthorGroupSummaryDTO] = None
+    progress: Optional[SeriesProgressDTO] = None
+    partner: Optional[SeriesPartnerDTO] = None
 
 
 class UpdateSeriesEnrollmentRequest(BaseModel):
     auto_enroll_next: Optional[bool] = None
     status: Optional[SeriesStatus] = None
+
+
+class UserSeriesDaysCompletedDTO(BaseModel):
+    series_id: UUID
+    series_title: str
+    series_description: Optional[str] = None
+    image: Optional[ImageUrlModel] = None
+    days_completed: int
+    enrolled_count: int = 0
+    group: Optional[AuthorGroupSummaryDTO] = None
+    progress: Optional[SeriesProgressDTO] = None
+    partner: Optional[SeriesPartnerDTO] = None
+
+
+class UserSeriesDaysCompletedResponse(BaseModel):
+    series: List[UserSeriesDaysCompletedDTO]
+    skip: int
+    limit: int
+    total: int

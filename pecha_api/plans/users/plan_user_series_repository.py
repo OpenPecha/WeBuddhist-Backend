@@ -1,11 +1,11 @@
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc, asc
+from sqlalchemy import and_, desc, asc, select
 from datetime import datetime, timezone
 
-from .plan_users_models import UserSeriesEnrollment
+from .plan_users_models import UserSeriesEnrollment, SeriesPartner
 from ..plans_models import Plan
 from ..plans_enums import SeriesStatus
 from ..public.plan_repository import get_next_plan_in_series as get_next_plan_by_display_order
@@ -29,6 +29,80 @@ def get_user_series_enrollment_by_user_and_series(
             UserSeriesEnrollment.series_id == series_id
         )
     ).first()
+
+
+def get_group_ids_by_series_partner_ids(
+    db: Session,
+    series_partner_ids: Sequence[UUID],
+) -> Dict[UUID, UUID]:
+    """Map series_partner row IDs to the partner group ID for each enrollment."""
+    if not series_partner_ids:
+        return {}
+    rows = (
+        db.execute(
+            select(SeriesPartner.id, SeriesPartner.group_id).where(
+                SeriesPartner.id.in_(series_partner_ids),
+            )
+        )
+        .all()
+    )
+    return dict(rows)
+
+
+def get_series_partner(db: Session, series_id: UUID, group_id: UUID) -> Optional[SeriesPartner]:
+    """Return the series_partner row for the given series and group, if the group is its partner."""
+    return db.query(SeriesPartner).filter(
+        and_(
+            SeriesPartner.series_id == series_id,
+            SeriesPartner.group_id == group_id,
+        )
+    ).first()
+
+
+def ensure_series_partner(db: Session, series_id: UUID, group_id: UUID) -> SeriesPartner:
+    """Create the series_partner row when missing (idempotent)."""
+    partner = get_series_partner(db, series_id, group_id)
+    if partner is not None:
+        if partner.deleted_at is not None:
+            partner.deleted_at = None
+            db.flush()
+        return partner
+    partner = SeriesPartner(series_id=series_id, group_id=group_id)
+    db.add(partner)
+    db.flush()
+    return partner
+
+
+def list_active_series_partners(db: Session, series_id: UUID) -> List[SeriesPartner]:
+    return (
+        db.query(SeriesPartner)
+        .filter(
+            and_(
+                SeriesPartner.series_id == series_id,
+                SeriesPartner.deleted_at.is_(None),
+            )
+        )
+        .all()
+    )
+
+
+def soft_delete_series_partner(db: Session, series_id: UUID, group_id: UUID) -> Optional[SeriesPartner]:
+    partner = (
+        db.query(SeriesPartner)
+        .filter(
+            and_(
+                SeriesPartner.series_id == series_id,
+                SeriesPartner.group_id == group_id,
+                SeriesPartner.deleted_at.is_(None),
+            )
+        )
+        .first()
+    )
+    if partner is None:
+        return None
+    partner.deleted_at = datetime.now(timezone.utc)
+    db.flush()
+    return partner
 
 
 def get_user_series_enrollments_by_user_id(
@@ -211,8 +285,9 @@ def get_paginated_plans_from_enrolled_series(
     user_id: UUID,
     status_filter: Optional[str] = None,
     series_id: Optional[UUID] = None,
+    language: Optional[str] = None,
     skip: int = 0,
-    limit: int = 20
+    limit: int = 20,
 ) -> Tuple[List[Plan], int]:
     from sqlalchemy.orm import selectinload
     from sqlalchemy import func, case, literal
@@ -237,7 +312,7 @@ def get_paginated_plans_from_enrolled_series(
     enrollment_subquery = enrollment_query.subquery()
     
     # Get all plans from enrolled series
-    all_plans_query = (
+    plans_query = (
         db.query(Plan)
         .join(enrollment_subquery, Plan.series_id == enrollment_subquery.c.series_id)
         .filter(Plan.deleted_at.is_(None))
@@ -246,8 +321,10 @@ def get_paginated_plans_from_enrolled_series(
             enrollment_subquery.c.series_id,
             asc(func.coalesce(Plan.display_order, 999))
         )
-        .all()
     )
+    if language:
+        plans_query = plans_query.filter(Plan.language == language.upper())
+    all_plans_query = plans_query.all()
     
     if not all_plans_query:
         return [], 0
@@ -267,8 +344,9 @@ def get_paginated_plans_from_enrolled_series(
 def _filter_plans_by_date_availability(plans: List[Plan]) -> List[Plan]:
     """
     Filter plans to only include:
-    1. Prior plans: Plans that have started and either completed or should have been completed (next plan started)
-    2. Current active plans: Plans that are currently active (started but next plan hasn't started)
+    1. Plans with display_order > 0 (first plan in a series is excluded from /users/me/plans)
+    2. Prior plans: Plans that have started and either completed or should have been completed (next plan started)
+    3. Current active plans: Plans that are currently active (started but next plan hasn't started)
     """
     from datetime import datetime, timezone
     
@@ -288,6 +366,9 @@ def _filter_plans_by_date_availability(plans: List[Plan]) -> List[Plan]:
         sorted_plans = sorted(series_plan_list, key=lambda p: p.display_order or 999)
         
         for i, plan in enumerate(sorted_plans):
+            if plan.display_order == 0:
+                continue
+
             if not plan.start_date:
                 # Plans without start date are not date-restricted, skip them
                 continue

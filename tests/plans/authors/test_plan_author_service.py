@@ -1,7 +1,5 @@
 import pytest
 from unittest.mock import MagicMock, patch
-import sys
-import types
 from fastapi import HTTPException
 from jose import JWTError
 from jose.exceptions import JWTClaimsError
@@ -10,17 +8,7 @@ from starlette import status
 from uuid import uuid4
 from typing import List
 
-# Stub heavy repository module before importing the service to avoid ORM initialization during import
-_stub_repo_module = types.ModuleType("pecha_api.plans.public.plan_repository")
-setattr(_stub_repo_module, "get_published_plans_by_author_id", MagicMock())
-# Ensure other imports from this module in unrelated tests still work
-setattr(_stub_repo_module, "get_published_plans_from_db", MagicMock())
-setattr(_stub_repo_module, "get_published_plans_count", MagicMock())
-setattr(_stub_repo_module, "get_published_plan_by_id", MagicMock())
-setattr(_stub_repo_module, "get_plan_items_by_plan_id", MagicMock())
-setattr(_stub_repo_module, "get_plan_item_by_day_number", MagicMock())
-sys.modules["pecha_api.plans.public.plan_repository"] = _stub_repo_module
-
+from pecha_api.plans.platform_enums import PlatformRole
 from pecha_api.plans.authors.plan_authors_service import (
     validate_and_extract_author_details,
     get_author_details,
@@ -250,6 +238,29 @@ class TestValidateAndExtractAuthorDetails:
     @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
     @patch('pecha_api.plans.authors.plan_authors_service.get_author_by_email')
     @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
+    def test_validate_and_extract_author_details_author_lookup_returns_none(
+        self,
+        mock_validate_token,
+        mock_get_author_by_email,
+        mock_session_local
+    ):
+        """A well-formed token for an email with no author row is unauthorized."""
+        # Arrange
+        token = "valid_token"
+        mock_session_local.return_value.__enter__.return_value = MagicMock()
+        mock_validate_token.return_value = {"email": "nonexistent@example.com"}
+        mock_get_author_by_email.return_value = None
+
+        # Act & Assert
+        with pytest.raises(HTTPException) as exc_info:
+            validate_and_extract_author_details(token)
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+        assert "nonexistent@example.com" in exc_info.value.detail
+
+    @patch('pecha_api.plans.authors.plan_authors_service.SessionLocal')
+    @patch('pecha_api.plans.authors.plan_authors_service.get_author_by_email')
+    @patch('pecha_api.plans.authors.plan_authors_service.validate_token')
     def test_validate_and_extract_author_details_logging_debug_called(
         self, 
         mock_validate_token, 
@@ -465,14 +476,22 @@ class TestGetAuthorDetails:
     @patch('pecha_api.plans.authors.plan_authors_service.generate_presigned_access_url')
     @patch('pecha_api.plans.authors.plan_authors_service.get')
     @patch('pecha_api.plans.authors.plan_authors_service._get_author_social_profile')
+    @patch('pecha_api.plans.authors.plan_authors_service.build_author_access_context', return_value={
+        'platform_role': PlatformRole.CREATOR,
+        'is_verified': True,
+        'is_active': True,
+        'has_group': True,
+        'can_create_content': True,
+    })
     @patch('pecha_api.plans.authors.plan_authors_service.validate_and_extract_author_details')
     @pytest.mark.asyncio
     async def test_get_author_details_success(
         self,
         mock_validate_and_extract,
+        mock_build_author_access_context,
         mock_get_social_profile,
         mock_get_config,
-        mock_generate_presigned_url
+        mock_generate_presigned_url,
     ):
         """Test successful retrieval of author details."""
         # Arrange

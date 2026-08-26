@@ -2,7 +2,7 @@ from sqlalchemy import Column, DateTime, Boolean, Integer, Index, UniqueConstrai
 from uuid import uuid4
 from _datetime import datetime
 import _datetime
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 
 from ...db.database import Base
 from ...plans.plans_enums import UserPlanStatusEnum, EnrollmentSourceEnum, SeriesStatusEnum
@@ -44,7 +44,7 @@ class UserPlanProgress(Base):
         default=lambda: datetime.now(_datetime.timezone.utc),
     )
 
-    user = relationship("Users", backref="plan_progress")
+    user = relationship("Users", backref=backref("plan_progress", cascade="all, delete-orphan"))
     series_enrollment = relationship("UserSeriesEnrollment", back_populates="plan_progress_records")
 
     __table_args__ = (
@@ -74,7 +74,7 @@ class UserTaskCompletion(Base):
         nullable=False,
     )
 
-    user = relationship("Users", backref="completed_tasks")
+    user = relationship("Users", backref=backref("completed_tasks", cascade="all, delete-orphan"))
     task = relationship("PlanTask", back_populates="user_task_completions")
 
     __table_args__ = (
@@ -101,7 +101,7 @@ class UserDayCompletion(Base):
         nullable=False,
     )
 
-    user = relationship("Users", backref="day_completions")
+    user = relationship("Users", backref=backref("day_completions", cascade="all, delete-orphan"))
     item = relationship("PlanItem", backref="user_day_completions")
 
     __table_args__ = (
@@ -127,7 +127,7 @@ class UserSubTaskCompletion(Base):
         nullable=False,
     )
 
-    user = relationship("Users", backref="sub_task_completions")
+    user = relationship("Users", backref=backref("sub_task_completions", cascade="all, delete-orphan"))
     sub_task = relationship("PlanSubTask", back_populates="user_sub_task_completions")
 
     __table_args__ = (
@@ -153,6 +153,8 @@ class UserSeriesEnrollment(Base):
     status = Column(SeriesStatusEnum, default='ACTIVE', nullable=False)
     auto_enroll_next = Column(Boolean, default=True, nullable=False)
     current_plan_id = Column(UUID(as_uuid=True), ForeignKey('plans.id', ondelete='SET NULL'), nullable=True)
+    # Partner group the user enrolled through (when enrolled via a partner group page).
+    series_partner_id = Column(UUID(as_uuid=True), ForeignKey('series_partner.id', ondelete='SET NULL'), nullable=True)
     
     # Completion tracking
     is_completed = Column(Boolean, default=False, nullable=False)
@@ -169,14 +171,43 @@ class UserSeriesEnrollment(Base):
     )
 
     # Relationships
-    user = relationship("Users", backref="series_enrollments")
+    user = relationship("Users", backref=backref("series_enrollments", cascade="all, delete-orphan"))
     series = relationship("Series", backref="user_enrollments")
     current_plan = relationship("Plan", foreign_keys=[current_plan_id])
     plan_progress_records = relationship("UserPlanProgress", back_populates="series_enrollment")
+    series_partner = relationship("SeriesPartner")
 
     __table_args__ = (
         UniqueConstraint("user_id", "series_id", name="uq_user_series_enrollment"),
         Index("idx_user_series_enrollment_user_status", "user_id", "status"),
         Index("idx_user_series_enrollment_series", "series_id"),
         Index("idx_user_series_enrollment_current_plan", "current_plan_id"),
+        Index("idx_user_series_enrollment_series_partner", "series_partner_id"),
+    )
+
+
+class SeriesPartner(Base):
+    __tablename__ = "series_partner"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    series_id = Column(UUID(as_uuid=True), ForeignKey('series.id', ondelete='CASCADE'), nullable=False)
+    group_id = Column(UUID(as_uuid=True), ForeignKey('author_groups.id', ondelete='CASCADE'), nullable=False)
+
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(_datetime.timezone.utc),
+        nullable=False,
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(_datetime.timezone.utc),
+    )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+
+    series = relationship("Series", backref="series_partners")
+    group = relationship("AuthorGroup")
+
+    __table_args__ = (
+        UniqueConstraint("series_id", "group_id", name="uq_series_partner_series_group"),
+        Index("idx_series_partner_group", "group_id"),
     )

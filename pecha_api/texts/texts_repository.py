@@ -12,6 +12,10 @@ from .texts_response_models import (
     TextDTO,
     UpdateTextRequest
 )
+from pecha_api.sheets.sheets_enum import (
+    SortBy, 
+    SortOrder
+)
 from .texts_models import Text, TableOfContent
 from datetime import datetime, timezone
 from pecha_api.utils import Utils
@@ -29,6 +33,9 @@ async def get_text_by_pecha_text_id(pecha_text_id: str) -> Text | None:
     except CollectionWasNotInitialized as e:
         logging.debug(e)
         return None
+
+async def get_sections_count_of_table_of_content(content_id: str) -> int:
+    return await TableOfContent.get_sections_count(content_id=content_id)
 
 async def get_texts_by_id(text_id: str) -> Text | None:
     try:
@@ -62,6 +69,25 @@ async def get_texts_by_ids(text_ids: List[str]) -> Dict[str, TextDTO]:
         for text in list_of_texts_detail
     }
 
+async def fetch_sheets_from_db(
+    published_by: Optional[str] = None, 
+    is_published: Optional[bool] = None, 
+    sort_by: Optional[SortBy] = None, 
+    sort_order: Optional[SortOrder] = None,
+    skip: int = 0, 
+    limit: int = 10
+) -> List[Text]:
+    sheets = await Text.get_sheets(
+        published_by=published_by, 
+        is_published=is_published, 
+        sort_by=sort_by,
+        sort_order=sort_order,
+        skip=skip, 
+        limit=limit
+    )
+    return sheets
+
+
 async def check_text_exists(text_id: UUID) -> bool:
     try:
         is_text_exits = await Text.check_exists(text_id=text_id)
@@ -78,12 +104,57 @@ async def check_all_text_exists(text_ids: List[UUID]) -> bool:
         logging.debug(e)
         return False
 
+async def get_texts_by_collection(collection_id: str, skip: int, limit: int) -> List[Text]:
+    return await Text.get_texts_by_collection_id(collection_id=collection_id, skip=skip, limit=limit)
+
 async def get_all_texts_by_collection(collection_id: str) -> List[Text]:
     return await Text.get_all_texts_by_collection_id(collection_id=collection_id)
 
-async def get_all_recitation_texts_by_collection(collection_id: str, language: str) -> List[Text]:
-    return await Text.get_all_recitation_texts_by_collection_id(collection_id=collection_id, language=language)
+async def get_all_recitation_texts_by_collection(
+    collection_id: str, 
+    language: str, 
+    search: Optional[str] = None, 
+    skip: int = 0, 
+    limit: int = 10
+) -> tuple[List[Text], int]:
+    return await Text.get_all_recitation_texts_by_collection_id(
+        collection_id=collection_id, 
+        language=language, 
+        search=search, 
+        skip=skip, 
+        limit=limit
+    )
 
+async def get_texts_by_group_id(group_id: str, skip: int, limit: int) -> List[TextDTO]:
+    texts = await Text.get_texts_by_group_id(group_id=group_id, skip=skip, limit=limit)
+    return [
+        TextDTO(
+            id=str(text.id),
+            pecha_text_id=str(text.pecha_text_id),
+            title=text.title,
+            language=text.language,
+            group_id=text.group_id,
+            type=text.type,
+            is_published=text.is_published,
+            created_date=text.created_date,
+            updated_date=text.updated_date,
+            published_date=text.published_date,
+            published_by=text.published_by,
+            categories=text.categories,
+            views=text.views,
+            source_link=text.source_link,
+            ranking=text.ranking,
+            license=text.license
+        )
+        for text in texts
+    ]
+
+async def get_texts_by_titles(titles: List[str]) -> List[Text]:
+    if not titles:
+        return []
+    return await Text.find({"title": {"$in": titles}}).to_list()
+
+    
 async def get_all_texts_by_group_id(group_id: str) -> List[TextDTO]:
     texts = await Text.get_all_texts_by_group_id(group_id=group_id)
     return [
@@ -136,7 +207,28 @@ async def create_table_of_content_detail(table_of_content_request: TableOfConten
 
 async def get_contents_by_id(text_id: str) -> List[TableOfContent]:
     return await TableOfContent.get_table_of_contents_by_text_id(text_id=text_id)
+
+
+async def get_contents_by_text_ids(text_ids: List[str]) -> Dict[str, List[TableOfContent]]:
+    if not text_ids:
+        return {}
+    return await TableOfContent.get_table_of_contents_by_text_ids(text_ids=text_ids)
     
+async def get_table_of_content_by_content_id(content_id: str, skip: int = None, limit: int = None) -> Optional[TableOfContent]:
+    return await TableOfContent.get_table_of_content_by_content_id(content_id=content_id, skip=skip, limit=limit)
+
+
+async def find_table_of_content_with_segment(text_id: str, segment_id: str) -> Optional[TableOfContent]:
+    return await TableOfContent.find_table_of_content_with_segment(
+        text_id=text_id,
+        segment_id=segment_id,
+    )
+
+
+async def get_first_segment_table_of_content(text_id: str) -> tuple[Optional[str], Optional[TableOfContent]]:
+    return await TableOfContent.get_first_segment_table_of_content(text_id=text_id)
+
+
 async def delete_table_of_content_by_text_id(text_id: str):
     return await TableOfContent.delete_table_of_content_by_text_id(text_id=text_id)
 

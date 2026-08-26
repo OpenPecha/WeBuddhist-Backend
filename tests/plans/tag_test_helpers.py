@@ -13,13 +13,23 @@ def make_tag_summaries(names: List[str]) -> List[TagSummaryDTO]:
     return [make_tag_summary(name) for name in names]
 
 
-def mock_tag_entity(name: str, tag_id: Optional[UUID] = None) -> MagicMock:
+def mock_tag_entity(name: str, tag_id: Optional[UUID] = None, language: str = "EN", description: Optional[str] = None) -> MagicMock:
     tag = MagicMock()
     tag.id = tag_id or uuid4()
     tag.name = name
     tag.image_key = None
-    tag.description = None
+    tag.description = description
     tag.deleted_at = None
+    
+    # Add metadata_entries for the new metadata-based structure
+    meta = MagicMock()
+    meta.id = uuid4()
+    meta.name = name
+    meta.description = description
+    meta.language = MagicMock()
+    meta.language.value = language
+    tag.metadata_entries = [meta]
+    
     return tag
 
 

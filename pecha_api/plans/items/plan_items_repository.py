@@ -1,6 +1,6 @@
 import logging
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from .plan_items_models import PlanItem
 from pecha_api.plans.tasks.plan_tasks_models import PlanTask
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
@@ -16,12 +16,15 @@ from .plan_items_response_models import ItemDayNumberDTO
 logger = logging.getLogger(__name__)
 
 
-def save_plan_items(db: Session, plan_items: List[PlanItem]):
+def save_plan_items(db: Session, plan_items: List[PlanItem], commit: bool = True):
     try:
         db.add_all(plan_items)
-        db.commit()
-        for item in plan_items:
-            db.refresh(item)
+        if commit:
+            db.commit()
+            for item in plan_items:
+                db.refresh(item)
+        else:
+            db.flush()
         return plan_items
     except IntegrityError as e:
         db.rollback()
@@ -86,6 +89,8 @@ def get_plan_day_with_tasks_and_subtasks(db: Session, plan_id: UUID, day_number:
         db.query(PlanItem)
         .options(
             joinedload(PlanItem.audio),
+            joinedload(PlanItem.shareable_images),
+            selectinload(PlanItem.videos),
             joinedload(PlanItem.tasks).joinedload(PlanTask.sub_tasks).joinedload(PlanSubTask.timestamp),
         )
         .filter(PlanItem.plan_id == plan_id, PlanItem.day_number == day_number)
@@ -159,7 +164,7 @@ def get_days_by_plan_id_and_day_ids(db: Session, plan_id: UUID, day_ids: List[UU
     )
 
 
-def delete_days_by_ids(db: Session, plan_id: UUID, day_ids: List[UUID]) -> None:
+def delete_days_by_ids(db: Session, plan_id: UUID, day_ids: List[UUID], *, commit: bool = True) -> None:
     if not day_ids:
         return
     try:
@@ -167,7 +172,8 @@ def delete_days_by_ids(db: Session, plan_id: UUID, day_ids: List[UUID]) -> None:
             PlanItem.id.in_(day_ids),
             PlanItem.plan_id == plan_id,
         ).delete(synchronize_session=False)
-        db.commit()
+        if commit:
+            db.commit()
     except Exception as e:
         db.rollback()
         raise HTTPException(
@@ -201,16 +207,26 @@ def update_day_by_id(db: Session, plan_id: UUID, day_id: UUID, day_number: int) 
         )
 
 
-def update_days_in_bulk_by_plan_id(db: Session, plan_id: UUID, days: List[ItemDayNumberDTO]) -> None:
+def update_days_in_bulk_by_plan_id(
+    db: Session,
+    plan_id: UUID,
+    days: List[ItemDayNumberDTO],
+    *,
+    commit: bool = True,
+) -> None:
+    if not days:
+        return
     try:
-        db.execute(
+        # Use connection.execute to avoid SQLAlchemy's ORM "bulk update by primary key"
+        # mode, which requires `id` in each param dict instead of our bindparam keys.
+        db.connection().execute(
             update(PlanItem)
             .where(PlanItem.plan_id == plan_id, PlanItem.id == bindparam("b_id"))
-            .values(day_number=bindparam("b_day_number"))
-            .execution_options(synchronize_session=False),
+            .values(day_number=bindparam("b_day_number")),
             [{"b_id": day.id, "b_day_number": day.day_number} for day in days],
         )
-        db.commit()
+        if commit:
+            db.commit()
     except Exception as e:
         db.rollback()
         raise HTTPException(

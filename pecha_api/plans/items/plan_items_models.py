@@ -25,10 +25,34 @@ class PlanItem(Base):
         cascade="all, delete-orphan",
     )
 
+    notification = relationship(
+        "DayNotification",
+        back_populates="plan_item",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+    videos = relationship(
+        "DayVideo",
+        back_populates="plan_item",
+        order_by="DayVideo.display_order",
+        cascade="all, delete-orphan",
+    )
+
+    shareable_images = relationship(
+        "DayShareableImage",
+        back_populates="plan_item",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
     __table_args__ = (
         Index("idx_plan_items_plan_day", "plan_id", "day_number"),
     )
 
 
 from pecha_api.plans.audio.plan_item_audio_models import PlanItemAudio  # noqa: F401, E402
+from pecha_api.plans.notifications.day_notification_models import DayNotification  # noqa: F401, E402
+from pecha_api.plans.videos.day_video_models import DayVideo  # noqa: F401, E402
+from pecha_api.plans.shareable_images.day_shareable_image_models import DayShareableImage  # noqa: F401, E402
 

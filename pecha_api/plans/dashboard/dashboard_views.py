@@ -1,4 +1,5 @@
 from typing import Annotated, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -40,7 +41,7 @@ async def list_dashboard_items(
     status: Annotated[Optional[PlanStatus], Query()] = None,
     language: Annotated[Optional[str], Query()] = None,
     featured: Annotated[Optional[bool], Query()] = None,
-   
+    group_id: Annotated[Optional[UUID], Query(description="Filter by author group")] = None,
 ):
     return get_dashboard_items_list(
         token=authentication_credential.credentials,
@@ -51,6 +52,7 @@ async def list_dashboard_items(
         status=status,
         language=language,
         featured=featured,
+        group_id=group_id,
     )
 
 

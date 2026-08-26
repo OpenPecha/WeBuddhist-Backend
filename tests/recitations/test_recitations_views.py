@@ -7,6 +7,7 @@ from pecha_api.recitations.recitations_view import get_list_of_recitations, get_
 from pecha_api.recitations.recitations_response_models import (
     RecitationDTO,
     RecitationsResponse,
+    ListRecitationsRequest,
     RecitationDetailsRequest,
     RecitationDetailsResponse,
     Segment,
@@ -21,7 +22,10 @@ async def test_get_list_of_recitations_success():
         recitations=[
             RecitationDTO(title="First Recitation", text_id=uuid.uuid4()),
             RecitationDTO(title="Second Recitation", text_id=uuid.uuid4())
-        ]
+        ],
+        skip=0,
+        limit=10,
+        total=2
     )
 
     with patch(
@@ -29,11 +33,25 @@ async def test_get_list_of_recitations_success():
         return_value=expected,
         new_callable=AsyncMock,
     ) as mock_service:
-        resp = await get_list_of_recitations(search=None, language="en")
+        resp = await get_list_of_recitations(search=None, language="en", skip=0, limit=10)
 
-        mock_service.assert_awaited_once_with(search=None, language="en")
+        mock_service.assert_awaited_once_with(
+            request=ListRecitationsRequest(
+                search=None,
+                language="en",
+                skip=0,
+                limit=10,
+                timezone_name=None,
+                token=None,
+                should_include_collections=False,
+                should_include_group_collections=False,
+            )
+        )
         assert resp == expected
         assert len(resp.recitations) == 2
+        assert resp.skip == 0
+        assert resp.limit == 10
+        assert resp.total == 2
         assert resp.recitations[0].title == "First Recitation"
         assert resp.recitations[1].title == "Second Recitation"
 
@@ -45,7 +63,10 @@ async def test_get_list_of_recitations_single_recitation():
     expected = RecitationsResponse(
         recitations=[
             RecitationDTO(title="Single Recitation", text_id=text_id)
-        ]
+        ],
+        skip=0,
+        limit=10,
+        total=1
     )
 
     with patch(
@@ -53,11 +74,23 @@ async def test_get_list_of_recitations_single_recitation():
         return_value=expected,
         new_callable=AsyncMock,
     ) as mock_service:
-        resp = await get_list_of_recitations(search=None, language="bo")
+        resp = await get_list_of_recitations(search=None, language="bo", skip=0, limit=10)
 
-        mock_service.assert_awaited_once_with(search=None, language="bo")
+        mock_service.assert_awaited_once_with(
+            request=ListRecitationsRequest(
+                search=None,
+                language="bo",
+                skip=0,
+                limit=10,
+                timezone_name=None,
+                token=None,
+                should_include_collections=False,
+                should_include_group_collections=False,
+            )
+        )
         assert resp == expected
         assert len(resp.recitations) == 1
+        assert resp.total == 1
         assert resp.recitations[0].title == "Single Recitation"
         assert resp.recitations[0].text_id == text_id
 
@@ -69,7 +102,10 @@ async def test_get_list_of_recitations_with_search():
     expected = RecitationsResponse(
         recitations=[
             RecitationDTO(title="Prayer Recitation", text_id=text_id)
-        ]
+        ],
+        skip=0,
+        limit=10,
+        total=1
     )
 
     with patch(
@@ -77,12 +113,67 @@ async def test_get_list_of_recitations_with_search():
         return_value=expected,
         new_callable=AsyncMock,
     ) as mock_service:
-        resp = await get_list_of_recitations(search="prayer", language="en")
+        resp = await get_list_of_recitations(search="prayer", language="en", skip=0, limit=10)
 
-        mock_service.assert_awaited_once_with(search="prayer", language="en")
+        mock_service.assert_awaited_once_with(
+            request=ListRecitationsRequest(
+                search="prayer",
+                language="en",
+                skip=0,
+                limit=10,
+                timezone_name=None,
+                token=None,
+                should_include_collections=False,
+                should_include_group_collections=False,
+            )
+        )
         assert resp == expected
         assert len(resp.recitations) == 1
+        assert resp.total == 1
         assert resp.recitations[0].title == "Prayer Recitation"
+
+
+@pytest.mark.asyncio
+async def test_get_list_of_recitations_with_token_passes_credentials():
+    """Authenticated list request forwards the bearer token to the service."""
+    from fastapi.security import HTTPAuthorizationCredentials
+
+    expected = RecitationsResponse(
+        recitations=[RecitationDTO(title="First Recitation", text_id=uuid.uuid4())],
+        skip=0,
+        limit=10,
+        total=1,
+    )
+    credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials="valid_token")
+
+    with patch(
+        "pecha_api.recitations.recitations_view.get_list_of_recitations_service",
+        return_value=expected,
+        new_callable=AsyncMock,
+    ) as mock_service:
+        resp = await get_list_of_recitations(
+            search=None,
+            language="en",
+            skip=0,
+            limit=10,
+            should_include_collections=True,
+            should_include_group_collections=True,
+            credentials=credentials,
+        )
+
+        mock_service.assert_awaited_once_with(
+            request=ListRecitationsRequest(
+                search=None,
+                language="en",
+                skip=0,
+                limit=10,
+                timezone_name=None,
+                token="valid_token",
+                should_include_collections=True,
+                should_include_group_collections=True,
+            )
+        )
+        assert resp == expected
 
 
 @pytest.mark.asyncio
@@ -117,7 +208,9 @@ async def test_get_recitation_details_success():
     ) as mock_service:
         resp = await get_recitation_details(text_id=text_id, recitation_details_request=request)
         
-        mock_service.assert_awaited_once_with(text_id=text_id, recitation_details_request=request)
+        mock_service.assert_awaited_once_with(
+            text_id=text_id, recitation_details_request=request, timezone_name=None
+        )
         assert resp == expected_response
         assert resp.text_id == UUID(text_id)
         assert resp.title == "Test Recitation"
@@ -162,7 +255,9 @@ async def test_get_recitation_details_with_multiple_segments():
     ) as mock_service:
         resp = await get_recitation_details(text_id=text_id, recitation_details_request=request)
         
-        mock_service.assert_awaited_once_with(text_id=text_id, recitation_details_request=request)
+        mock_service.assert_awaited_once_with(
+            text_id=text_id, recitation_details_request=request, timezone_name=None
+        )
         assert resp == expected_response
         assert len(resp.segments) == 2
 
@@ -202,7 +297,9 @@ async def test_get_recitation_details_with_all_types():
     ) as mock_service:
         resp = await get_recitation_details(text_id=text_id, recitation_details_request=request)
         
-        mock_service.assert_awaited_once_with(text_id=text_id, recitation_details_request=request)
+        mock_service.assert_awaited_once_with(
+            text_id=text_id, recitation_details_request=request, timezone_name=None
+        )
         assert resp == expected_response
         assert len(resp.segments[0].recitation) == 1
         assert len(resp.segments[0].translations) == 2

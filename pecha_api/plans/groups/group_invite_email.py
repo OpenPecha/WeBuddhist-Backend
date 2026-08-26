@@ -24,6 +24,7 @@ def _build_invitation_html(
     group_title: str,
     invite_role: str,
     invitations_url: str,
+    login_url: str,
     logo_url: str,
 ) -> str:
     expiry_label = _invite_expiry_label()
@@ -80,6 +81,11 @@ def _build_invitation_html(
               <p style="margin:0 0 24px;font-size:14px;word-break:break-all;">
                 <a href="{invitations_url}" style="color:{BRAND_PRIMARY};">{invitations_url}</a>
               </p>
+              <p style="margin:0;font-size:14px;line-height:1.5;color:#333333;">
+                Already have a WeBuddhist account?
+                <a href="{login_url}" style="color:{BRAND_PRIMARY};font-weight:600;text-decoration:none;">Log in to WeBuddhist Studio</a>
+                to view and respond to this invitation. New to WeBuddhist? The login page has a link to sign up.
+              </p>
             </td>
           </tr>
           <tr>
@@ -110,6 +116,7 @@ def send_group_invitation_email(
 ) -> None:
     base_url = get("WEBUDDHIST_STUDIO_BASE_URL").rstrip("/")
     invitations_url = f"{base_url}/groups"
+    login_url = f"{base_url}/login"
     logo_url = get("WEBUDDHIST_EMAIL_LOGO_URL")
     subject = f"You have been invited to join {group_title}"
     html = _build_invitation_html(
@@ -118,6 +125,7 @@ def send_group_invitation_email(
         group_title=group_title,
         invite_role=invite_role,
         invitations_url=invitations_url,
+        login_url=login_url,
         logo_url=logo_url,
     )
     try:

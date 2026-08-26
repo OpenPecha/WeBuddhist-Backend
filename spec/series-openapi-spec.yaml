@@ -382,10 +382,21 @@ paths:
         Public, unauthenticated retrieval of a single Series. Only attached
         plans that are published and active are included in the response.
 
+        Optional `language` query filters the returned plans (and
+        `total_days`) to those matching the given language code (e.g. `en`,
+        `bo`, `zh`); case-insensitive.
+
         Returns 404 if the Series does not exist, is soft-deleted, OR exists
         but does not have status PUBLISHED. A non-published Series is
         deliberately indistinguishable from a missing one on this endpoint.
       security: []
+      parameters:
+        - name: language
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter plans by language (EN, BO, ZH, HI, NE, MN, LA). Case-insensitive.
       responses:
         '200':
           description: The requested Series.
@@ -443,6 +454,9 @@ components:
         - EN
         - BO
         - ZH
+        - HI
+        - NE
+        - MN
 
     TagSummaryDTO:
       type: object
@@ -473,6 +487,9 @@ components:
       properties:
         title:
           type: string
+        sub_title:
+          type: string
+          nullable: true
         description:
           type: string
           nullable: true
@@ -491,6 +508,9 @@ components:
           format: uuid
         title:
           type: string
+        sub_title:
+          type: string
+          nullable: true
         description:
           type: string
           nullable: true
@@ -498,7 +518,7 @@ components:
           type: string
           description: >-
             Language code of the metadata row. In practice the server emits a
-            LanguageCode enum value (`EN`, `BO`, `ZH`), but the response model
+            LanguageCode enum value (`EN`, `BO`, `ZH`, `HI`, `NE`, `MN`, `LA`), but the response model
             is typed as a plain string and is not enum-validated.
 
     CreateSeriesRequest:
@@ -521,7 +541,7 @@ components:
           type: object
           nullable: true
           description: >-
-            Map of language code (EN/BO/ZH) to an ordered list of plan UUIDs.
+            Map of language code (EN/BO/ZH/HI/NE/MN/LA) to an ordered list of plan UUIDs.
             Keys are validated against LanguageCode.
           additionalProperties:
             type: array
@@ -548,7 +568,7 @@ components:
           type: object
           nullable: true
           description: >-
-            Map of language code (EN/BO/ZH) to an ordered list of plan UUIDs.
+            Map of language code (EN/BO/ZH/HI/NE/MN/LA) to an ordered list of plan UUIDs.
             Keys are validated against LanguageCode.
           additionalProperties:
             type: array
@@ -585,7 +605,7 @@ components:
           type: string
           description: >-
             Language code of the plan. In practice the server emits a
-            LanguageCode enum value (`EN`, `BO`, `ZH`), but the response model
+            LanguageCode enum value (`EN`, `BO`, `ZH`, `HI`, `NE`, `MN`, `LA`), but the response model
             is typed as a plain string and is not enum-validated.
         difficulty_level:
           allOf:

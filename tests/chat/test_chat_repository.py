@@ -1,0 +1,263 @@
+from datetime import datetime, timezone as tz
+from unittest.mock import MagicMock
+from uuid import uuid4
+
+import pecha_api.app  # noqa: F401
+
+from pecha_api.chat.repository import (
+    add_member,
+    count_active_members,
+    count_unread_messages,
+    create_message,
+    create_room,
+    get_active_member,
+    get_creator,
+    get_last_message,
+    get_last_messages_map,
+    get_member,
+    get_message_by_id,
+    get_room_by_group_id,
+    get_room_by_id,
+    get_room_by_pair,
+    get_room_messages,
+    leave_member,
+    list_active_members,
+    list_my_active_rooms,
+    mark_read,
+    soft_delete_message,
+    touch_room,
+    update_room,
+)
+
+
+def _query_chain(db, total=0, results=None, first=None):
+    query = MagicMock()
+    db.query.return_value = query
+    for method in ("filter", "order_by", "options", "offset", "limit", "join"):
+        getattr(query, method).return_value = query
+    query.count.return_value = total
+    query.all.return_value = results if results is not None else []
+    query.first.return_value = first
+    query.scalar.return_value = total
+    return query
+
+
+class TestRoomLookups:
+
+    def test_get_room_by_id(self):
+        db = MagicMock()
+        room = MagicMock()
+        _query_chain(db, first=room)
+
+        assert get_room_by_id(db=db, room_id=uuid4()) is room
+
+    def test_get_room_by_group_id(self):
+        db = MagicMock()
+        room = MagicMock()
+        _query_chain(db, first=room)
+
+        assert get_room_by_group_id(db=db, group_id=uuid4()) is room
+
+    def test_get_room_by_pair(self):
+        db = MagicMock()
+        room = MagicMock()
+        _query_chain(db, first=room)
+
+        assert get_room_by_pair(db=db, low_id=uuid4(), high_id=uuid4()) is room
+
+
+class TestRoomWrites:
+
+    def test_create_room_commits_and_refreshes(self):
+        db = MagicMock()
+        room = MagicMock()
+
+        assert create_room(db=db, room=room) is room
+        db.add.assert_called_once_with(room)
+        db.commit.assert_called_once()
+        db.refresh.assert_called_once_with(room)
+
+    def test_update_room_sets_updated_at(self):
+        db = MagicMock()
+        room = MagicMock(updated_at=None)
+
+        assert update_room(db=db, room=room) is room
+        assert room.updated_at is not None
+        db.commit.assert_called_once()
+        db.refresh.assert_called_once_with(room)
+
+    def test_touch_room_updates_timestamp(self):
+        db = MagicMock()
+        room = MagicMock(updated_at=None)
+
+        touch_room(db=db, room=room)
+
+        assert room.updated_at is not None
+        db.commit.assert_called_once()
+
+
+class TestMemberQueries:
+
+    def test_add_member_commits_and_refreshes(self):
+        db = MagicMock()
+        member = MagicMock()
+
+        assert add_member(db=db, member=member) is member
+        db.add.assert_called_once_with(member)
+        db.commit.assert_called_once()
+
+    def test_get_member(self):
+        db = MagicMock()
+        member = MagicMock()
+        _query_chain(db, first=member)
+
+        assert get_member(db=db, room_id=uuid4(), user_id=uuid4()) is member
+
+    def test_get_active_member(self):
+        db = MagicMock()
+        member = MagicMock()
+        _query_chain(db, first=member)
+
+        assert get_active_member(db=db, room_id=uuid4(), user_id=uuid4()) is member
+
+    def test_get_creator(self):
+        db = MagicMock()
+        member = MagicMock()
+        _query_chain(db, first=member)
+
+        assert get_creator(db=db, room_id=uuid4()) is member
+
+    def test_list_active_members(self):
+        db = MagicMock()
+        members = [MagicMock(), MagicMock()]
+        query = _query_chain(db, total=2, results=members)
+
+        result, total = list_active_members(db=db, room_id=uuid4(), skip=0, limit=20)
+
+        assert result == members
+        assert total == 2
+        query.offset.assert_called_once_with(0)
+        query.limit.assert_called_once_with(20)
+
+    def test_count_active_members_returns_zero_when_scalar_none(self):
+        db = MagicMock()
+        query = _query_chain(db)
+        query.scalar.return_value = None
+
+        assert count_active_members(db=db, room_id=uuid4()) == 0
+
+    def test_leave_member_sets_left_at(self):
+        db = MagicMock()
+        member = MagicMock(left_at=None)
+
+        leave_member(db=db, member=member)
+
+        assert member.left_at is not None
+        db.commit.assert_called_once()
+
+    def test_mark_read_sets_last_read_at(self):
+        db = MagicMock()
+        member = MagicMock(last_read_at=None)
+
+        mark_read(db=db, member=member)
+
+        assert member.last_read_at is not None
+        db.commit.assert_called_once()
+
+
+class TestRoomLists:
+
+    def test_list_my_active_rooms(self):
+        db = MagicMock()
+        rooms = [MagicMock()]
+        query = _query_chain(db, total=1, results=rooms)
+
+        result, total = list_my_active_rooms(db=db, user_id=uuid4(), skip=0, limit=20)
+
+        assert result == rooms
+        assert total == 1
+        query.join.assert_called_once()
+
+
+class TestMessages:
+
+    def test_create_message(self):
+        db = MagicMock()
+        message = MagicMock()
+
+        assert create_message(db=db, message=message) is message
+        db.add.assert_called_once_with(message)
+
+    def test_get_room_messages(self):
+        db = MagicMock()
+        messages = [MagicMock()]
+        query = _query_chain(db, total=1, results=messages)
+
+        result, total = get_room_messages(db=db, room_id=uuid4(), skip=0, limit=20)
+
+        assert result == messages
+        assert total == 1
+        query.options.assert_called()
+
+    def test_get_message_by_id(self):
+        db = MagicMock()
+        message = MagicMock()
+        _query_chain(db, first=message)
+
+        assert get_message_by_id(db=db, message_id=uuid4(), room_id=uuid4()) is message
+
+    def test_soft_delete_message(self):
+        db = MagicMock()
+        message = MagicMock(deleted_at=None)
+
+        soft_delete_message(db=db, message=message)
+
+        assert message.deleted_at is not None
+        db.commit.assert_called_once()
+
+    def test_get_last_message(self):
+        db = MagicMock()
+        message = MagicMock()
+        _query_chain(db, first=message)
+
+        assert get_last_message(db=db, room_id=uuid4()) is message
+
+    def test_get_last_messages_map_empty_ids(self):
+        assert get_last_messages_map(db=MagicMock(), room_ids=[]) == {}
+
+    def test_get_last_messages_map_keeps_first_per_room(self):
+        db = MagicMock()
+        room_a = uuid4()
+        room_b = uuid4()
+        first_a = MagicMock(room_id=room_a)
+        second_a = MagicMock(room_id=room_a)
+        first_b = MagicMock(room_id=room_b)
+        _query_chain(db, results=[first_a, second_a, first_b])
+
+        result = get_last_messages_map(db=db, room_ids=[room_a, room_b])
+
+        assert result == {room_a: first_a, room_b: first_b}
+
+    def test_count_unread_without_last_read(self):
+        db = MagicMock()
+        query = _query_chain(db)
+        query.scalar.return_value = 3
+
+        assert count_unread_messages(db=db, room_id=uuid4(), last_read_at=None) == 3
+        assert query.filter.call_count == 1
+
+    def test_count_unread_with_last_read(self):
+        db = MagicMock()
+        query = _query_chain(db)
+        query.scalar.return_value = 1
+        last_read = datetime.now(tz.utc)
+
+        assert count_unread_messages(db=db, room_id=uuid4(), last_read_at=last_read) == 1
+        assert query.filter.call_count == 2
+
+    def test_count_unread_returns_zero_when_scalar_none(self):
+        db = MagicMock()
+        query = _query_chain(db)
+        query.scalar.return_value = None
+
+        assert count_unread_messages(db=db, room_id=uuid4(), last_read_at=None) == 0

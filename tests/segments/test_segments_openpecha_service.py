@@ -27,6 +27,7 @@ def _translation_text(text_id: str) -> dict:
         "id": text_id,
         "title": {"en": f"Translation {text_id}"},
         "language": "en",
+        "license": "cc-by",
         "translation_of": "root-text-id",
         "commentary_of": None,
     }
@@ -37,6 +38,7 @@ def _commentary_text(text_id: str) -> dict:
         "id": text_id,
         "title": {"en": f"Commentary {text_id}"},
         "language": "bo",
+        "license": "cc0",
         "translation_of": None,
         "commentary_of": "root-text-id",
     }
@@ -188,6 +190,10 @@ class TestGetOpenpechaSegmentDetailsById:
 class TestGetTranslationsBySegmentIdFromOpenpecha:
     @pytest.mark.asyncio
     @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_source_link",
+        new_callable=AsyncMock,
+    )
+    @patch(
         "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
         new_callable=AsyncMock,
     )
@@ -204,6 +210,7 @@ class TestGetTranslationsBySegmentIdFromOpenpecha:
         mock_fetch_related,
         mock_fetch_content,
         mock_fetch_text,
+        mock_fetch_source,
     ):
         mock_fetch_related.return_value = _related_page(
             [
@@ -232,6 +239,7 @@ class TestGetTranslationsBySegmentIdFromOpenpecha:
             return None
 
         mock_fetch_text.side_effect = text_side_effect
+        mock_fetch_source.return_value = "https://example.com/source"
 
         result = await get_translations_by_segment_id_from_openpecha(
             segment_id=PARENT_SEGMENT_ID,
@@ -246,6 +254,8 @@ class TestGetTranslationsBySegmentIdFromOpenpecha:
         assert result.translations[0].text_id == TRANSLATION_TEXT_ID
         assert result.translations[0].title == f"Translation {TRANSLATION_TEXT_ID}"
         assert result.translations[0].language == "en"
+        assert result.translations[0].license == "cc-by"
+        assert result.translations[0].source_link == "https://example.com/source"
         assert len(result.translations[0].segments) == 2
         assert result.translations[0].segments[0].id == "seg-trans-1"
         assert result.translations[0].segments[0].content == "Translation segment 1"
@@ -292,6 +302,11 @@ class TestGetTranslationsBySegmentIdFromOpenpecha:
 
     @pytest.mark.asyncio
     @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_source_link",
+        new_callable=AsyncMock,
+        return_value=None,
+    )
+    @patch(
         "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
         new_callable=AsyncMock,
     )
@@ -308,6 +323,7 @@ class TestGetTranslationsBySegmentIdFromOpenpecha:
         mock_fetch_related,
         mock_fetch_content,
         mock_fetch_text,
+        mock_fetch_source,
     ):
         mock_fetch_related.return_value = _related_page(
             [_related_item("seg-comm-1", COMMENTARY_TEXT_ID)]
@@ -412,6 +428,10 @@ class TestGetTranslationsBySegmentIdFromOpenpecha:
 class TestGetCommentariesBySegmentIdFromOpenpecha:
     @pytest.mark.asyncio
     @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_source_link",
+        new_callable=AsyncMock,
+    )
+    @patch(
         "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
         new_callable=AsyncMock,
     )
@@ -428,6 +448,7 @@ class TestGetCommentariesBySegmentIdFromOpenpecha:
         mock_fetch_related,
         mock_fetch_content,
         mock_fetch_text,
+        mock_fetch_source,
     ):
         mock_fetch_related.return_value = _related_page(
             [
@@ -455,6 +476,7 @@ class TestGetCommentariesBySegmentIdFromOpenpecha:
             return None
 
         mock_fetch_text.side_effect = text_side_effect
+        mock_fetch_source.return_value = "https://example.com/commentary-source"
 
         result = await get_commentaries_by_segment_id_from_openpecha(
             segment_id=PARENT_SEGMENT_ID,
@@ -466,11 +488,18 @@ class TestGetCommentariesBySegmentIdFromOpenpecha:
         assert result.commentaries[0].text_id == COMMENTARY_TEXT_ID
         assert result.commentaries[0].title == f"Commentary {COMMENTARY_TEXT_ID}"
         assert result.commentaries[0].language == "bo"
+        assert result.commentaries[0].license == "cc0"
+        assert result.commentaries[0].source_link == "https://example.com/commentary-source"
         assert len(result.commentaries[0].segments) == 2
         assert result.commentaries[0].segments[0].id == "seg-comm-1"
         assert result.commentaries[0].segments[1].content == "Commentary segment 2"
 
     @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_source_link",
+        new_callable=AsyncMock,
+        return_value=None,
+    )
     @patch(
         "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
         new_callable=AsyncMock,
@@ -488,6 +517,7 @@ class TestGetCommentariesBySegmentIdFromOpenpecha:
         mock_fetch_related,
         mock_fetch_content,
         mock_fetch_text,
+        mock_fetch_source,
     ):
         mock_fetch_related.return_value = _related_page(
             [
@@ -514,6 +544,11 @@ class TestGetCommentariesBySegmentIdFromOpenpecha:
 
     @pytest.mark.asyncio
     @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_text_source_link",
+        new_callable=AsyncMock,
+        return_value=None,
+    )
+    @patch(
         "pecha_api.texts.segments.segments_openpecha_service.fetch_text_by_id",
         new_callable=AsyncMock,
     )
@@ -535,6 +570,7 @@ class TestGetCommentariesBySegmentIdFromOpenpecha:
         mock_fetch_related,
         mock_fetch_content,
         mock_fetch_text,
+        mock_fetch_source,
     ):
         item_without_text_id = _related_item("seg-trans-1", TRANSLATION_TEXT_ID)
         del item_without_text_id["text_id"]

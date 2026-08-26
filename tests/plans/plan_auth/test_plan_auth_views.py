@@ -8,6 +8,13 @@ from pecha_api.plans.auth.plan_auth_models import AuthorDetails
 from pecha_api.plans.auth.plan_auth_enums import AuthorStatus
 from pecha_api.plans.auth.plan_auth_models import AuthorVerificationResponse, EmailReVerificationResponse
 from pecha_api.plans.auth.plan_auth_models import RefreshTokenResponse
+from pecha_api.plans.auth.plan_auth_models import (
+    AuthorInfo,
+    GoogleExchangeResponse,
+    PhoneExchangeResponse,
+    PhoneLinkResponse,
+    TokenResponse,
+)
 from pecha_api.plans.response_message import EMAIL_VERIFIED_SUCCESS, EMAIL_IS_SENT, BAD_REQUEST, AUTHOR_NOT_FOUND
 
 client = TestClient(api)
@@ -305,3 +312,87 @@ def test_refresh_token_invalid_401():
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         assert response.json()["detail"] == "Invalid refresh token"
+
+
+def test_phone_exchange_passes_auth0_token_and_profile_names():
+    author_id = "123e4567-e89b-12d3-a456-426614174000"
+    expected = PhoneExchangeResponse(
+        author_id=author_id,
+        phone_number="+14155552671",
+        status=AuthorStatus.INACTIVE,
+        message="Author not active",
+        user=AuthorInfo(name="Tashi Dolma"),
+    )
+    payload = {
+        "auth0_token": "auth0-token",
+        "first_name": "Tashi",
+        "last_name": "Dolma",
+    }
+    with patch(
+        "pecha_api.plans.auth.plan_auth_views.exchange_phone_token",
+        return_value=expected,
+    ) as exchange:
+        response = client.post("/cms/auth/phone/exchange", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["auth"] is None
+    assert exchange.call_args.args[0].auth0_token == "auth0-token"
+
+
+def test_phone_link_requires_backend_bearer_and_passes_both_tokens():
+    author_id = "123e4567-e89b-12d3-a456-426614174000"
+    expected = PhoneLinkResponse(
+        author_id=author_id,
+        phone_number="+14155552671",
+        message="Phone identity linked",
+    )
+    with patch(
+        "pecha_api.plans.auth.plan_auth_views.link_phone_identity",
+        return_value=expected,
+    ) as link:
+        response = client.post(
+            "/cms/auth/phone/link",
+            json={"auth0_token": "auth0-token"},
+            headers={"Authorization": "Bearer backend-token"},
+        )
+
+    assert response.status_code == 200
+    link.assert_called_once_with(
+        backend_token="backend-token",
+        auth0_token="auth0-token",
+    )
+
+
+def test_phone_link_without_backend_token_is_forbidden():
+    response = client.post(
+        "/cms/auth/phone/link",
+        json={"auth0_token": "auth0-token"},
+    )
+    assert response.status_code == 403
+
+
+def test_google_exchange_passes_auth0_token_and_profile_names():
+    author_id = "123e4567-e89b-12d3-a456-426614174000"
+    expected = GoogleExchangeResponse(
+        author_id=author_id,
+        email="ada@example.com",
+        status=AuthorStatus.INACTIVE,
+        message="Author not active",
+        user=AuthorInfo(name="Ada Lovelace"),
+    )
+    payload = {
+        "auth0_token": "auth0-token",
+        "first_name": "Ada",
+        "last_name": "Lovelace",
+    }
+    with patch(
+        "pecha_api.plans.auth.plan_auth_views.exchange_google_token",
+        return_value=expected,
+    ) as exchange:
+        response = client.post("/cms/auth/google/exchange", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["auth"] is None
+    assert exchange.call_args.args[0].auth0_token == "auth0-token"
+    assert exchange.call_args.args[0].first_name == "Ada"
+    assert exchange.call_args.args[0].last_name == "Lovelace"
