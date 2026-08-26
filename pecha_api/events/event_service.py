@@ -629,6 +629,9 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
 
         _require_can_edit_event(db, event.group_id, current_author)
 
+        should_cancel_reminders = False
+        should_reschedule_reminders = False
+
         if request.recurrence is not None:
             start_date, end_date = compute_initial_dates(request.recurrence)
             event.start_date = start_date
@@ -641,7 +644,7 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
             event.recurrence_day = request.recurrence.day
             event.duration_days = request.recurrence.duration_days
             # Reminders are out of scope for recurring events.
-            cancel_event_reminders(event.id)
+            should_cancel_reminders = True
         else:
             start_date = request.start_date if request.start_date is not None else event.start_date
             end_date = request.end_date if request.end_date is not None else event.end_date
@@ -655,7 +658,7 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
                 if request.end_date is not None:
                     event.end_date = request.end_date
             if start_date_changed and not event.is_recurring:
-                reschedule_event_reminders(event.id, event.start_date)
+                should_reschedule_reminders = True
 
         if request.timezone is not None:
             event.timezone = request.timezone
@@ -688,6 +691,12 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
         event.updated_at = datetime.now(timezone.utc)
 
         saved = update_event(db, event, metadata_entries=request.metadata, link_entries=request.links)
+
+        if should_cancel_reminders:
+            cancel_event_reminders(saved.id)
+        elif should_reschedule_reminders:
+            reschedule_event_reminders(saved.id, saved.start_date)
+
         return _event_to_dto(saved)
 
 

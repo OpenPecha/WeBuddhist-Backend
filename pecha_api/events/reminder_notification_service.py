@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 from starlette import status
 
 from pecha_api.chat.notification_repository import (
@@ -25,7 +26,7 @@ _REMINDER_COPY = {
 }
 
 
-def _get_event_name(db, event_id: UUID) -> str:
+def _get_event_name(db: Session, event_id: UUID) -> str:
     entries = (
         db.query(EventMetadata)
         .filter(EventMetadata.event_id == event_id)
