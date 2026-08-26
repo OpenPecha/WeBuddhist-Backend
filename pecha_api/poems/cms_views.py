@@ -12,6 +12,7 @@ from pecha_api.poems.cms_service import (
     cms_list_poems_service,
     cms_update_poem_service,
 )
+from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.poems.enums import PoemStatus
 from pecha_api.poems.response_models import (
     CreatePoemRequest,
@@ -49,6 +50,10 @@ def cms_list_poems(
         Optional[str],
         Query(description="Filter by author name (exact match)"),
     ] = None,
+    language: Annotated[
+        Optional[LanguageCode],
+        Query(description="Filter by language code"),
+    ] = None,
 ) -> PoemsResponse:
     """List poems for CMS (all statuses)."""
     return cms_list_poems_service(
@@ -58,6 +63,7 @@ def cms_list_poems(
         status_filter=status_filter,
         chapter_name=chapter_name,
         author_name=author_name,
+        language=language,
     )
 
 

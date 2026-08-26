@@ -5,6 +5,7 @@ from unittest.mock import patch, MagicMock, Mock
 
 from fastapi import HTTPException
 
+from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.poems.enums import PoemStatus
 from pecha_api.poems.service import (
     list_poems_service,
@@ -36,6 +37,7 @@ def sample_poem_model():
     poem.content = "# Chapter 1\n\nAll beings have Buddha nature..."
     poem.author_name = "Gampopa"
     poem.chapter_name = "Buddha Nature"
+    poem.language = LanguageCode.EN
     poem.image_key = "images/poem_images/uuid1/cover.jpg"
     poem.status = PoemStatus.PUBLISHED
     poem.published_at = datetime(2025, 6, 5, 12, 0, 0, tzinfo=timezone.utc)
@@ -56,6 +58,7 @@ def sample_poem_without_image():
     poem.content = "A simple verse without an image."
     poem.author_name = "Unknown"
     poem.chapter_name = None
+    poem.language = LanguageCode.BO
     poem.image_key = None
     poem.status = PoemStatus.PUBLISHED
     poem.published_at = datetime(2025, 6, 6, 10, 0, 0, tzinfo=timezone.utc)
@@ -76,6 +79,7 @@ def sample_draft_poem():
     poem.content = "This is a draft."
     poem.author_name = "Author"
     poem.chapter_name = None
+    poem.language = LanguageCode.EN
     poem.image_key = None
     poem.status = PoemStatus.DRAFT
     poem.published_at = None
@@ -164,6 +168,7 @@ def test_list_poems_service_success(sample_poem_list, mock_db_session):
             status=PoemStatus.PUBLISHED,
             chapter_name=None,
             author_name=None,
+            language=None,
         )
 
 
@@ -192,6 +197,7 @@ def test_list_poems_service_with_filters(sample_poem_list, mock_db_session):
             status=PoemStatus.PUBLISHED,
             chapter_name="Buddha Nature",
             author_name="Gampopa",
+            language=None,
         )
 
 
@@ -227,6 +233,7 @@ def test_list_poems_service_pagination(sample_poem_list, mock_db_session):
             status=PoemStatus.PUBLISHED,
             chapter_name=None,
             author_name=None,
+            language=None,
         )
 
 

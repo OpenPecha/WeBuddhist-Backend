@@ -244,6 +244,7 @@ def test_poem_dto_creation():
         content="Test content",
         author_name="Test Author",
         chapter_name="Chapter 1",
+        language="EN",
         image_url="https://example.com/image.jpg",
         status="PUBLISHED",
         published_at="2025-06-05T12:00:00+00:00",
@@ -265,6 +266,7 @@ def test_poem_dto_optional_fields():
         content="Content",
         author_name="Author",
         chapter_name=None,
+        language="EN",
         image_url=None,
         status="DRAFT",
         published_at=None,
@@ -289,11 +291,12 @@ def test_poems_response_creation():
         title="Test",
         content="Content",
         author_name="Author",
+        language="EN",
         status="PUBLISHED",
         created_at="2025-06-01T10:00:00+00:00",
         updated_at="2025-06-01T10:00:00+00:00",
     )
-    
+
     response = PoemsResponse(
         poems=[dto],
         skip=0,

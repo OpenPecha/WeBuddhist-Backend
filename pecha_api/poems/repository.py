@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.poems.enums import PoemStatus
 from pecha_api.poems.models import Poem
 
@@ -15,6 +16,7 @@ def get_poems_list(
     status: Optional[PoemStatus] = None,
     chapter_name: Optional[str] = None,
     author_name: Optional[str] = None,
+    language: Optional[LanguageCode] = None,
 ) -> Tuple[List[Poem], int]:
     """Get paginated poems, newest first, excluding soft-deleted."""
     query = db.query(Poem).filter(Poem.deleted_at.is_(None))
@@ -27,6 +29,9 @@ def get_poems_list(
 
     if author_name is not None:
         query = query.filter(Poem.author_name == author_name)
+
+    if language is not None:
+        query = query.filter(Poem.language == language)
 
     query = query.order_by(Poem.published_at.desc(), Poem.id.desc())
 

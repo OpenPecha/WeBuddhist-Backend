@@ -6,6 +6,7 @@ from starlette import status
 
 from pecha_api.config import get
 from pecha_api.db.database import SessionLocal
+from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.poems.enums import PoemStatus
 from pecha_api.poems.repository import get_poem_by_id, get_poems_list
 from pecha_api.poems.response_models import PoemDTO, PoemsResponse
@@ -31,6 +32,7 @@ def _build_poem_dto(poem: Poem) -> PoemDTO:
         content=poem.content,
         author_name=poem.author_name,
         chapter_name=poem.chapter_name,
+        language=poem.language.value,
         image_url=image_url,
         status=poem.status.value,
         published_at=poem.published_at.isoformat() if poem.published_at else None,
@@ -44,6 +46,7 @@ def list_poems_service(
     limit: int = 20,
     chapter_name: Optional[str] = None,
     author_name: Optional[str] = None,
+    language: Optional[LanguageCode] = None,
 ) -> PoemsResponse:
     """List published poems for public consumption."""
     with SessionLocal() as db:
@@ -54,6 +57,7 @@ def list_poems_service(
             status=PoemStatus.PUBLISHED,
             chapter_name=chapter_name,
             author_name=author_name,
+            language=language,
         )
 
         poem_dtos = [_build_poem_dto(poem) for poem in poems]
