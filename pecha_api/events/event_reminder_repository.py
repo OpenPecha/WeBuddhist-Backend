@@ -41,11 +41,15 @@ def create_or_replace_reminder(
 
 
 def cancel_reminders_for_event(db: Session, event_id: UUID) -> None:
-    """Does not commit; callers own the transaction boundary so this can be
-    composed atomically with other writes in the same session."""
+    """Marks every not-yet-canceled reminder row for the event as canceled,
+    including one a concurrent dispatcher may have just claimed (stamped
+    dispatched_at) but not yet sent - that in-flight claim still needs a
+    signal to skip the send, which the caller checks via get_reminder_by_id
+    right before dispatching. Does not commit; callers own the transaction
+    boundary so this can be composed atomically with other writes in the
+    same session."""
     db.query(EventReminder).filter(
         EventReminder.event_id == event_id,
-        EventReminder.dispatched_at.is_(None),
         EventReminder.canceled_at.is_(None),
     ).update(
         {EventReminder.canceled_at: datetime.now(timezone.utc)},
@@ -120,3 +124,7 @@ def get_event_reminder(db: Session, event_id: UUID, reminder_type: str) -> Optio
         )
         .first()
     )
+
+
+def get_reminder_by_id(db: Session, reminder_id: UUID) -> Optional[EventReminder]:
+    return db.query(EventReminder).filter(EventReminder.id == reminder_id).first()

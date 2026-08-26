@@ -7,6 +7,7 @@ from pecha_api.db.database import SessionLocal
 
 from .event_reminder_repository import (
     claim_reminder_for_dispatch,
+    get_reminder_by_id,
     list_due_reminders,
     list_undispatched_reminders_missing_sqs_id,
     mark_reminder_sqs_message_id,
@@ -18,6 +19,24 @@ from .notification_sqs_client import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _reminder_still_due(reminder_id: UUID, expected_fire_at: datetime) -> bool:
+    """Re-checks the reminder immediately before sending, right after it was
+    claimed. Closes the race where an event update's cancel/reschedule
+    commits after the claim: a concurrent cancel stamps canceled_at even on
+    an already-claimed row (see cancel_reminders_for_event), and a
+    concurrent reschedule replaces fire_at via upsert. Either means this
+    claim is stale for the schedule it was read against, so the send must
+    be skipped - any superseded reminder is re-created fresh and will be
+    dispatched on its own next due poll."""
+    with SessionLocal() as db:
+        reminder = get_reminder_by_id(db, reminder_id)
+    return (
+        reminder is not None
+        and reminder.canceled_at is None
+        and reminder.fire_at == expected_fire_at
+    )
 
 
 def _send_reminder(reminder_id: UUID, event_id: UUID, reminder_type: str) -> str | None:
@@ -58,13 +77,22 @@ def dispatch_due_event_reminders() -> int:
 
     with SessionLocal() as db:
         due = list_due_reminders(db, now=now, limit=batch_size)
-        candidates = [(reminder.id, reminder.event_id, reminder.reminder_type) for reminder in due]
+        candidates = [
+            (reminder.id, reminder.event_id, reminder.reminder_type, reminder.fire_at)
+            for reminder in due
+        ]
 
     dispatched = 0
-    for reminder_id, event_id, reminder_type in candidates:
+    for reminder_id, event_id, reminder_type, fire_at in candidates:
         with SessionLocal() as db:
             claimed = claim_reminder_for_dispatch(db, reminder_id)
         if not claimed:
+            continue
+        if not _reminder_still_due(reminder_id, fire_at):
+            logger.info(
+                "Skipping event reminder %s (%s) for event %s: superseded by a concurrent event update",
+                reminder_id, reminder_type, event_id,
+            )
             continue
         if _send_reminder(reminder_id, event_id, reminder_type):
             dispatched += 1
@@ -85,10 +113,19 @@ def reconcile_undispatched_event_reminders() -> int:
 
     with SessionLocal() as db:
         stuck = list_undispatched_reminders_missing_sqs_id(db, older_than=older_than, limit=batch_size)
-        candidates = [(reminder.id, reminder.event_id, reminder.reminder_type) for reminder in stuck]
+        candidates = [
+            (reminder.id, reminder.event_id, reminder.reminder_type, reminder.fire_at)
+            for reminder in stuck
+        ]
 
     requeued = 0
-    for reminder_id, event_id, reminder_type in candidates:
+    for reminder_id, event_id, reminder_type, fire_at in candidates:
+        if not _reminder_still_due(reminder_id, fire_at):
+            logger.info(
+                "Skipping stuck event reminder %s (%s) for event %s: superseded by a concurrent event update",
+                reminder_id, reminder_type, event_id,
+            )
+            continue
         if _send_reminder(reminder_id, event_id, reminder_type):
             requeued += 1
             logger.info("Re-enqueued undispatched event reminder %s for event %s", reminder_id, event_id)
