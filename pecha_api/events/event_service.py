@@ -612,7 +612,8 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         saved = save_event(db, event, request.metadata, request.links)
         enqueue_event_notification(saved.id)
         if not is_recurring:
-            schedule_event_reminders(saved.id, saved.start_date)
+            schedule_event_reminders(db, saved.id, saved.start_date)
+            db.commit()
         return _event_to_dto(saved)
 
 
@@ -690,13 +691,16 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
 
         event.updated_at = datetime.now(timezone.utc)
 
-        saved = update_event(db, event, metadata_entries=request.metadata, link_entries=request.links)
-
+        # Queued in the same session as the event write below (not committed
+        # here) so a later validation or persistence failure rolls back the
+        # reminder change along with the event, instead of leaving reminders
+        # stale/canceled against an unchanged event.
         if should_cancel_reminders:
-            cancel_event_reminders(saved.id)
+            cancel_event_reminders(db, event.id)
         elif should_reschedule_reminders:
-            reschedule_event_reminders(saved.id, saved.start_date)
+            reschedule_event_reminders(db, event.id, event.start_date)
 
+        saved = update_event(db, event, metadata_entries=request.metadata, link_entries=request.links)
         return _event_to_dto(saved)
 
 

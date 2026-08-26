@@ -15,7 +15,9 @@ def create_or_replace_reminder(
     fire_at: datetime,
 ) -> None:
     """Upsert a reminder row for (event_id, reminder_type), resetting its
-    dispatch/cancel state so a rescheduled event gets a fresh reminder."""
+    dispatch/cancel state so a rescheduled event gets a fresh reminder. Does
+    not commit; callers own the transaction boundary so this can be composed
+    atomically with other writes in the same session."""
     now = datetime.now(timezone.utc)
     stmt = insert(EventReminder).values(
         event_id=event_id,
@@ -36,10 +38,11 @@ def create_or_replace_reminder(
         },
     )
     db.execute(stmt)
-    db.commit()
 
 
 def cancel_reminders_for_event(db: Session, event_id: UUID) -> None:
+    """Does not commit; callers own the transaction boundary so this can be
+    composed atomically with other writes in the same session."""
     db.query(EventReminder).filter(
         EventReminder.event_id == event_id,
         EventReminder.dispatched_at.is_(None),
@@ -48,7 +51,6 @@ def cancel_reminders_for_event(db: Session, event_id: UUID) -> None:
         {EventReminder.canceled_at: datetime.now(timezone.utc)},
         synchronize_session=False,
     )
-    db.commit()
 
 
 def list_due_reminders(db: Session, *, now: datetime, limit: int) -> List[EventReminder]:
