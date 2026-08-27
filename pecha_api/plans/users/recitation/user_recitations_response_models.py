@@ -9,7 +9,8 @@ class CreateUserRecitationRequest(BaseModel):
 
 class UserRecitationDTO(BaseModel):
     title: Optional[str] = None
-    text_id: Optional[UUID] = None
+    # str, not UUID: text_id can hold a non-UUID pecha-style text id.
+    text_id: Optional[str] = None
     image_url: Optional[str] = None
     language: Optional[str] = None
     display_order: Optional[int] = None

@@ -74,7 +74,7 @@ def test_create_routine_success(authenticated_client):
                     SessionDTO(
                         id=session_id,
                         session_type=SessionType.PLAN,
-                        source_id=source_id,
+                        source_id=str(source_id),
                         title="Daily Routine",
                         language="EN",
                         image=ImageUrlModel(
@@ -315,7 +315,7 @@ def test_create_time_block_success(authenticated_client):
             SessionDTO(
                 id=session_id,
                 session_type=SessionType.PLAN,
-                source_id=source_id,
+                source_id=str(source_id),
                 title="Morning Plan",
                 language="EN",
                 image=ImageUrlModel(
@@ -566,7 +566,7 @@ def test_update_time_block_success(authenticated_client):
             SessionDTO(
                 id=session_id,
                 session_type=SessionType.PLAN,
-                source_id=source_id,
+                source_id=str(source_id),
                 title="Updated Routine",
                 language="EN",
                 image=ImageUrlModel(
@@ -783,7 +783,7 @@ def test_get_routine_success(authenticated_client):
                     SessionDTO(
                         id=session_id,
                         session_type=SessionType.PLAN,
-                        source_id=source_id,
+                        source_id=str(source_id),
                         title="Morning Meditation",
                         language="EN",
                         image=ImageUrlModel(
@@ -880,7 +880,7 @@ def test_get_routine_with_pagination(authenticated_client):
                     SessionDTO(
                         id=session_id,
                         session_type=SessionType.RECITATION,
-                        source_id=source_id,
+                        source_id=str(source_id),
                         title="Daily Recitation",
                         language="BO",
                         image=None,
@@ -954,7 +954,7 @@ def test_get_routine_with_multiple_time_blocks(authenticated_client):
                     SessionDTO(
                         id=session_id_1,
                         session_type=SessionType.PLAN,
-                        source_id=source_id_1,
+                        source_id=str(source_id_1),
                         title="Morning Practice",
                         language="EN",
                         image=ImageUrlModel(
@@ -975,7 +975,7 @@ def test_get_routine_with_multiple_time_blocks(authenticated_client):
                     SessionDTO(
                         id=session_id_2,
                         session_type=SessionType.RECITATION,
-                        source_id=source_id_2,
+                        source_id=str(source_id_2),
                         title="Evening Recitation",
                         language="BO",
                         image=None,

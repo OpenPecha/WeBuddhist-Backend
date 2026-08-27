@@ -49,7 +49,8 @@ class RoutineFirstSegmentDTO(BaseModel):
 class SessionDTO(BaseModel):
     id: UUID
     session_type: SessionType
-    source_id: Optional[UUID] = None
+    # str, not UUID: RECITATION sessions can hold a non-UUID pecha-style text id.
+    source_id: Optional[str] = None
     accumulator_id: Optional[UUID] = Field(
         None,
         description="Preset accumulator id (same id returned by GET /accumulators/presets)",

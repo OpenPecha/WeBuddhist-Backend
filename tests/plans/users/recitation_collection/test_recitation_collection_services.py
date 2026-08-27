@@ -43,7 +43,7 @@ class MockCollectionItem:
     def __init__(self, id=None, recitation_collection_id=None, text_id=None, display_order=1):
         self.id = id or uuid4()
         self.recitation_collection_id = recitation_collection_id or uuid4()
-        self.text_id = text_id or uuid4()
+        self.text_id = str(text_id or uuid4())
         self.display_order = display_order
 
 

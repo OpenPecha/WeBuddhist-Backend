@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, UUID, Index, Integer, ForeignKey
+from sqlalchemy import Column, DateTime, UUID, Index, Integer, ForeignKey, String
 from sqlalchemy.orm import relationship
 from ..db.database import Base
 from uuid import uuid4
@@ -23,7 +23,9 @@ class Accumulator(Base):
     type = Column(AccumulatorTypeEnum, nullable=False)
     target_count = Column(Integer, nullable=True)
     current_count = Column(Integer, nullable=False, default=0)
-    text_id = Column(UUID(as_uuid=True), nullable=True)
+    # Not UUID-only: can hold an external (pecha-style) text id too, not just
+    # an internal Text UUID.
+    text_id = Column(String(255), nullable=True)
     mantra_id = Column(
         UUID(as_uuid=True),
         ForeignKey("mantra.id", ondelete="SET NULL"),

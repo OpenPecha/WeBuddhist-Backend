@@ -42,7 +42,7 @@ class MockGroupRecitationCollectionItem:
     """Mock GroupRecitationCollectionItem model."""
     def __init__(self, id=None, text_id=None, display_order=1):
         self.id = id or uuid4()
-        self.text_id = text_id or uuid4()
+        self.text_id = str(text_id or uuid4())
         self.display_order = display_order
         self.deleted_at = None
 
@@ -590,7 +590,7 @@ class TestCmsAddItemsService:
         mock_build_items.return_value = [
             GroupRecitationCollectionItemDTO(
                 id=saved_items[0].id,
-                text_id=text_id1,
+                text_id=str(text_id1),
                 title="Text 1",
                 language="bo",
                 type="sutra",
@@ -598,7 +598,7 @@ class TestCmsAddItemsService:
             ),
             GroupRecitationCollectionItemDTO(
                 id=saved_items[1].id,
-                text_id=text_id2,
+                text_id=str(text_id2),
                 title="Text 2",
                 language="bo",
                 type="sutra",
@@ -795,7 +795,7 @@ class TestCmsReorderItemsService:
         mock_build_items.return_value = [
             GroupRecitationCollectionItemDTO(
                 id=item_id2,
-                text_id=uuid4(),
+                text_id=str(uuid4()),
                 title="Text 2",
                 language="bo",
                 type="sutra",
@@ -803,7 +803,7 @@ class TestCmsReorderItemsService:
             ),
             GroupRecitationCollectionItemDTO(
                 id=item_id1,
-                text_id=uuid4(),
+                text_id=str(uuid4()),
                 title="Text 1",
                 language="bo",
                 type="sutra",

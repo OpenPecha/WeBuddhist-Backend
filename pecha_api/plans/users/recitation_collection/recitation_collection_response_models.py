@@ -29,7 +29,8 @@ class AddItemsResponse(BaseModel):
 class RecitationCollectionItemDTO(BaseModel):
     """DTO for collection item with text details from MongoDB"""
     id: UUID
-    text_id: UUID
+    # str, not UUID: text_id can hold a non-UUID pecha-style text id.
+    text_id: str
     title: str
     language: Optional[str] = None
     type: Optional[str] = None
