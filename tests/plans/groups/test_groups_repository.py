@@ -5,7 +5,10 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.orm import Session
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupJoinRequestStatus
+from pecha_api.plans.groups.groups_enums import (
+    AuthorGroupJoinRequestStatus,
+    AuthorGroupStatus,
+)
 from pecha_api.plans.groups.groups_repository import (
     clear_user_series_partner_ids_for_group,
     create_group_join_request,
@@ -18,6 +21,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_group_ids_by_plan_ids,
     get_group_ids_by_series_ids,
     get_groups_paginated,
+    get_public_group_ids,
     get_plans_by_group_id,
     get_series_by_group_id,
     get_series_for_group_ids,
@@ -486,3 +490,58 @@ def test_undispatched_decisions_excludes_publish_sweep_rows():
     filters = db.query.return_value.filter.call_args[0]
     rendered = " ".join(str(f) for f in filters)
     assert "reviewed_by IS NOT NULL" in rendered
+
+
+def _paginated_query_mock(db):
+    query = MagicMock()
+    db.query.return_value = query
+    query.options.return_value = query
+    query.filter.return_value = query
+    query.count.return_value = 0
+    query.order_by.return_value = query
+    query.offset.return_value = query
+    query.limit.return_value.all.return_value = []
+    return query
+
+
+def _rendered_filters(query) -> str:
+    """Compile the clauses passed to .filter() into comparable SQL."""
+    return " ".join(
+        str(clause.compile(compile_kwargs={"literal_binds": True}))
+        for clause in query.filter.call_args.args
+    )
+
+
+def test_get_groups_paginated_filters_by_status_when_given():
+    db = _make_session_mock()
+    query = _paginated_query_mock(db)
+
+    get_groups_paginated(
+        db=db, skip=0, limit=10, status=AuthorGroupStatus.PUBLISHED
+    )
+
+    assert "status" in _rendered_filters(query)
+
+
+def test_get_groups_paginated_omits_status_filter_by_default():
+    """CMS listings must still return drafts, so status is opt-in."""
+    db = _make_session_mock()
+    query = _paginated_query_mock(db)
+
+    get_groups_paginated(db=db, skip=0, limit=10)
+
+    assert "status" not in _rendered_filters(query)
+
+
+def test_get_public_group_ids_returns_only_published_public_groups():
+    db = _make_session_mock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.all.return_value = []
+
+    get_public_group_ids(db=db)
+
+    rendered = _rendered_filters(query)
+    assert "status" in rendered
+    assert "is_public" in rendered

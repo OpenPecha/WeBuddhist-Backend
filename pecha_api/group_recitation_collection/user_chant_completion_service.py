@@ -8,7 +8,7 @@ from starlette import status
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.response_message import NOT_FOUND
 from pecha_api.users.users_service import validate_and_extract_user_details
-from pecha_api.plans.groups.groups_repository import get_group_by_id
+from pecha_api.plans.groups.groups_repository import get_group_by_id, is_group_published
 
 from pecha_api.group_recitation_collection.models import GroupRecitationCollection
 from pecha_api.group_recitation_collection.repository import (
@@ -45,7 +45,7 @@ def _get_collection_or_404(
         )
 
     group = get_group_by_id(db=db, group_id=collection.group_id)
-    if not group:
+    if not group or not is_group_published(group):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=NOT_FOUND,

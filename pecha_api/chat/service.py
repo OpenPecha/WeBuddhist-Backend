@@ -41,6 +41,7 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.plans.groups.groups_models import AuthorGroup
 from pecha_api.plans.groups.groups_repository import (
     get_group_by_id,
+    is_group_published,
     is_user_following_group,
     is_user_joined_group,
     list_group_joiners_paginated,
@@ -218,7 +219,7 @@ def resolve_or_create_group_room(db: Session, group_id: UUID, user: Users) -> Ch
         return room
 
     group = get_group_by_id(db=db, group_id=group_id)
-    if not group:
+    if not group or not is_group_published(group):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
     _require_group_chat_eligibility(db=db, group_id=group_id, user_id=user.id)
@@ -359,7 +360,7 @@ def list_group_people_service(
     client can start a direct chat without already knowing a user_id."""
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
+        if not group or not is_group_published(group):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
         users, total = list_group_joiners_paginated(db=db, group_id=group_id, skip=skip, limit=limit)

@@ -34,6 +34,7 @@ from pecha_api.plans.groups.groups_enums import (
     AuthorGroupInviteStatus,
     AuthorGroupJoinRequestStatus,
     AuthorGroupMemberRole,
+    AuthorGroupStatus,
     AuthorGroupType,
 )
 from pecha_api.plans.groups.groups_models import (
@@ -66,6 +67,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_joined_group_ids_by_user,
     get_joiners_count_map,
     is_user_following_group,
+    is_group_published,
     is_user_joined_group,
     lock_group_visibility,
     get_group_by_id,
@@ -169,6 +171,7 @@ from pecha_api.plans.groups.groups_response_models import (
     ReplaceGroupSocialLinksRequest,
     ReplaceGroupTagsRequest,
     UpdateAuthorGroupRequest,
+    UpdateAuthorGroupStatusRequest,
     UpdateGroupMemberRoleRequest,
     GroupPermissionDTO,
 )
@@ -217,6 +220,12 @@ def _to_group_type(value) -> AuthorGroupType:
     if hasattr(value, "value"):
         return AuthorGroupType(value.value)
     return AuthorGroupType(value)
+
+
+def _to_group_status(value) -> AuthorGroupStatus:
+    if hasattr(value, "value"):
+        return AuthorGroupStatus(value.value)
+    return AuthorGroupStatus(value)
 
 
 _GROUP_TYPE_ENGAGEMENT = {
@@ -611,6 +620,7 @@ def _group_to_summary(
         slug=group.slug,
         group_type=_to_group_type(group.group_type),
         is_public=group.is_public,
+        status=_to_group_status(group.status),
         avatar_key=group.avatar_key,
         banner_key=group.banner_key,
         avatar_url=_generate_group_asset_url(group.avatar_key),
@@ -717,6 +727,7 @@ def _group_to_detail(
         slug=group.slug,
         group_type=_to_group_type(group.group_type),
         is_public=group.is_public,
+        status=_to_group_status(group.status),
         avatar_key=group.avatar_key,
         banner_key=group.banner_key,
         avatar_url=_generate_group_asset_url(group.avatar_key),
@@ -837,6 +848,41 @@ def update_author_group(token: str, group_id: UUID, request: UpdateAuthorGroupRe
         )
 
 
+def update_group_status(
+    token: str,
+    group_id: UUID,
+    request: UpdateAuthorGroupStatusRequest,
+) -> AuthorGroupDetailDTO:
+    """Publish or hide a group.
+
+    Kept separate from update_author_group so a routine settings edit can never
+    publish or hide a group by accident. is_public is untouched.
+    """
+    author = validate_and_extract_author_details(token=token)
+    with SessionLocal() as db:
+        group = get_group_by_id(db=db, group_id=group_id)
+        if not group:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
+        if not is_super_admin(author):
+            member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
+            _assert_role_allowed(member=member, allowed_roles=_GROUP_SETTINGS_ROLES)
+
+        group.status = request.status
+        group.updated_by = author.email
+        group.updated_at = datetime.now(timezone.utc)
+        update_group(db=db, group=group)
+
+        loaded = get_group_by_id(db=db, group_id=group_id)
+        followers_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        joiners_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
+        return _group_to_detail(
+            group=loaded,
+            follower_count=followers_count,
+            joiner_count=joiners_count,
+            db=db,
+        )
+
+
 def delete_author_group(token: str, group_id: UUID) -> None:
     author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
@@ -872,7 +918,7 @@ def get_author_group_detail(
             pass
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
+        if not group or not is_group_published(group):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         # A private group is discoverable so it can be requested, but a
         # non-joiner only sees the teaser: no members, contacts or content.
@@ -935,7 +981,7 @@ async def get_group_practices(
 
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group or not group.is_public:
+        if not group or not group.is_public or not is_group_published(group):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
 
         group_series = get_series_by_group_id(db=db, group_id=group_id)
@@ -1244,7 +1290,8 @@ def list_group_members(
         # Note the trade-off this accepts: member profiles (username, fullname,
         # avatar) for a private group are readable by anyone holding the group id.
         # Revisit here, not in the frontend, if that ever stops being acceptable.
-        if not group:
+        # Status is still enforced: an unpublished group lists no members.
+        if not group or not is_group_published(group):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         users, total = list_group_joiners_paginated(
             db=db,
@@ -1312,10 +1359,9 @@ def list_public_groups(
                     exclude_group_ids = joined_ids
             except Exception:
                 pass
-        # Intentionally unfiltered by is_public: a private group must be
-        # discoverable or nobody can request to join it. Summaries carry only
-        # public metadata (name, avatar, description, tags, counts) — never
-        # members, emails or content, which stay gated to joiners.
+        # status is filtered, is_public deliberately is not: a private group must
+        # stay discoverable or nobody can request to join it. Summaries carry only
+        # public metadata — members and content stay gated to joiners.
         groups, total = get_groups_paginated(
             db=db,
             skip=skip,
@@ -1324,6 +1370,7 @@ def list_public_groups(
             tag_id=tag_id,
             exclude_group_ids=exclude_group_ids,
             group_type=group_type,
+            status=AuthorGroupStatus.PUBLISHED,
         )
         groups = filter_items_for_timezone(
             groups,
@@ -1367,6 +1414,7 @@ def list_cms_groups(
     is_public: Optional[bool] = None,
     for_transfer: bool = False,
     group_type: Optional[AuthorGroupType] = None,
+    group_status: Optional[AuthorGroupStatus] = None,
 ) -> AuthorGroupListResponse:
     author = validate_and_extract_author_details(token=token)
     with SessionLocal() as db:
@@ -1386,6 +1434,8 @@ def list_cms_groups(
             group_ids=group_ids,
             is_public=is_public,
             group_type=group_type,
+            # Unset means Studio sees every status.
+            status=group_status,
         )
         ids = [group.id for group in groups]
         follower_count_map = get_followers_count_map(db=db, group_ids=ids)
@@ -1452,7 +1502,7 @@ def follow_group(token: str, group_id: UUID) -> None:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group or not group.is_public:
+        if not group or not group.is_public or not is_group_published(group):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         _assert_group_allows_engagement(group=group, action="follow")
         upsert_group_follow(db=db, group_id=group_id, user_id=user.id)
@@ -1474,7 +1524,7 @@ def get_followed_group(
         if not is_user_following_group(db=db, group_id=group_id, user_id=user.id):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
+        if not group or not is_group_published(group):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         follower_count = get_followers_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         return _group_to_followed_summary(
@@ -1499,6 +1549,7 @@ def list_followed_groups(
             limit=limit,
             group_ids=group_ids,
             group_type=AuthorGroupType.PAGE,
+            status=AuthorGroupStatus.PUBLISHED,
         )
         follower_count_map = get_followers_count_map(db=db, group_ids=[group.id for group in groups])
         return UserFollowedAuthorGroupListResponse(
@@ -1520,7 +1571,7 @@ def join_group(token: str, group_id: UUID) -> None:
     user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
+        if not group or not is_group_published(group):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         _assert_group_allows_engagement(group=group, action="join")
         if not group.is_public:
@@ -1552,7 +1603,7 @@ def get_joined_group(
         if not is_user_joined_group(db=db, group_id=group_id, user_id=user.id):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
+        if not group or not is_group_published(group):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         joiner_count = get_joiners_count_map(db=db, group_ids=[group_id]).get(group_id, 0)
         return _group_to_joined_summary(
@@ -1577,6 +1628,7 @@ def list_joined_groups(
             limit=limit,
             group_ids=group_ids,
             group_type=AuthorGroupType.COMMUNITY,
+            status=AuthorGroupStatus.PUBLISHED,
         )
         joiner_count_map = get_joiners_count_map(db=db, group_ids=[group.id for group in groups])
         return UserJoinedAuthorGroupListResponse(
@@ -1685,7 +1737,7 @@ def submit_group_join_request(
     message = request.message.strip() if request.message else None
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
+        if not group or not is_group_published(group):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
         _assert_group_allows_engagement(group=group, action="join")
         # Lock the group so a concurrent publish cannot flip it public after we
@@ -2359,9 +2411,9 @@ def get_group_accumulations(
 ):
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
+        if not group or not is_group_published(group):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        
+
         rows, total, grand_total_count = get_group_mantra_accumulations(db=db, group_id=group_id, skip=skip, limit=limit)
         
         if not rows:
@@ -2427,9 +2479,9 @@ def get_group_member_accumulations(
 ) -> GroupMemberAccumulationsResponse:
     with SessionLocal() as db:
         group = get_group_by_id(db=db, group_id=group_id)
-        if not group:
+        if not group or not is_group_published(group):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=GROUP_NOT_FOUND)
-        
+
         group_accumulator = get_group_accumulator_by_id(db=db, group_accumulator_id=accumulation_id)
         if not group_accumulator:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group accumulator not found")

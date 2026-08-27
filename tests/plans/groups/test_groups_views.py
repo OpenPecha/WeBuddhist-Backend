@@ -6,7 +6,11 @@ from fastapi.testclient import TestClient
 from starlette import status
 
 from pecha_api.app import api
-from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole, AuthorGroupType
+from pecha_api.plans.groups.groups_enums import (
+    AuthorGroupMemberRole,
+    AuthorGroupStatus,
+    AuthorGroupType,
+)
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.groups.groups_response_models import (
     AuthorGroupDetailDTO,
@@ -365,6 +369,7 @@ def test_get_cms_groups_with_filters():
         tag_id=tag_id,
         is_public=None,
         group_type=None,
+        group_status=None,
         for_transfer=False,
         skip=5,
         limit=10,
@@ -1130,3 +1135,54 @@ def test_reject_cms_group_join_request_delegates_to_service():
     )
 
 
+
+
+def test_patch_cms_group_status_delegates_to_service():
+    group_id = uuid4()
+    detail = _group_detail()
+    detail.status = AuthorGroupStatus.PUBLISHED
+    with patch(
+        "pecha_api.plans.groups.groups_views.update_group_status",
+        return_value=detail,
+    ) as mock_service:
+        response = client.patch(
+            f"/cms/author/groups/{group_id}/status",
+            json={"status": "PUBLISHED"},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["status"] == "PUBLISHED"
+    kwargs = mock_service.call_args.kwargs
+    assert kwargs["token"] == "dummy"
+    assert kwargs["group_id"] == group_id
+    assert kwargs["request"].status == AuthorGroupStatus.PUBLISHED
+
+
+def test_patch_cms_group_status_rejects_unknown_status():
+    with patch(
+        "pecha_api.plans.groups.groups_views.update_group_status",
+    ) as mock_service:
+        response = client.patch(
+            f"/cms/author/groups/{uuid4()}/status",
+            json={"status": "NOT_A_STATUS"},
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
+    mock_service.assert_not_called()
+
+
+def test_get_cms_groups_passes_status_filter():
+    listing = AuthorGroupListResponse(groups=[], skip=0, limit=20, total=0)
+    with patch(
+        "pecha_api.plans.groups.groups_views.list_cms_groups",
+        return_value=listing,
+    ) as mock_service:
+        response = client.get(
+            "/cms/author/groups?status=DRAFT",
+            headers={"Authorization": "Bearer dummy"},
+        )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert mock_service.call_args.kwargs["group_status"] == AuthorGroupStatus.DRAFT

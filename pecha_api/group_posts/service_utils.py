@@ -7,7 +7,11 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
 
-from pecha_api.plans.groups.groups_repository import get_group_by_id, is_user_joined_group
+from pecha_api.plans.groups.groups_repository import (
+    get_group_by_id,
+    is_group_published,
+    is_user_joined_group,
+)
 from pecha_api.plans.response_message import NOT_FOUND
 
 logger = logging.getLogger(__name__)
@@ -21,9 +25,9 @@ def isoformat(value: Any) -> Optional[str]:
 
 
 def validate_group_is_public(db: Session, group_id: UUID) -> None:
-    """Validate that group exists and is public."""
+    """Validate that group exists, is published and is public."""
     group = get_group_by_id(db=db, group_id=group_id)
-    if not group or not group.is_public:
+    if not group or not group.is_public or not is_group_published(group):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=NOT_FOUND,
@@ -35,9 +39,10 @@ def validate_group_content_access(
     group_id: UUID,
     user_id: Optional[UUID] = None,
 ) -> None:
-    """Gate a group's content: public to everyone, private to joiners only."""
+    """Gate a group's content: published only, then public to everyone and
+    private to joiners."""
     group = get_group_by_id(db=db, group_id=group_id)
-    if not group:
+    if not group or not is_group_published(group):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=NOT_FOUND,

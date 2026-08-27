@@ -51,6 +51,8 @@ class MockGroup:
         self.avatar_key = avatar_key
         self.metadata_entries = metadata_entries or []
         self.slug = slug
+        # Published by default; these cases test is_public on live groups.
+        self.status = "PUBLISHED"
 
 
 class TestBuildMessageDTO:

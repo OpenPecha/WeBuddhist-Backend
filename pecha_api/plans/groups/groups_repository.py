@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from pecha_api.plans.groups.groups_enums import (
     AuthorGroupInviteStatus,
     AuthorGroupJoinRequestStatus,
+    AuthorGroupStatus,
     AuthorGroupType,
 )
 from pecha_api.plans.groups.groups_models import (
@@ -270,6 +271,18 @@ def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
     )
 
 
+def is_group_published(group) -> bool:
+    """Shared app-side gate, so posts, chat, recitations, accumulators and
+    bookmarks all apply the same rule. Takes a string or the enum, since
+    SQLAlchemy returns either depending on how the row was loaded."""
+    if group is None:
+        return False
+    value = group.status
+    if hasattr(value, "value"):
+        value = value.value
+    return value == AuthorGroupStatus.PUBLISHED.value
+
+
 def lock_group_visibility(db: Session, group_id: UUID) -> Optional[bool]:
     """Lock a group row and return its is_public, serialising submission
     against the private -> public flip. Returns None when the group is gone."""
@@ -313,10 +326,15 @@ def get_public_group_ids(
     *,
     exclude_group_ids: Optional[Sequence[UUID]] = None,
 ) -> List[UUID]:
-    """Return IDs of non-deleted public author groups, optionally excluding some."""
+    """Return IDs of non-deleted, published public author groups.
+
+    Shared chokepoint behind the feed, public posts and follow scope, so the
+    PUBLISHED gate lives here instead of in each caller.
+    """
     query = db.query(AuthorGroup.id).filter(
         AuthorGroup.deleted_at.is_(None),
         AuthorGroup.is_public.is_(True),
+        AuthorGroup.status == AuthorGroupStatus.PUBLISHED,
     )
     if exclude_group_ids:
         query = query.filter(AuthorGroup.id.not_in(exclude_group_ids))
@@ -400,10 +418,14 @@ def get_groups_paginated(
     exclude_group_ids: Optional[Sequence[UUID]] = None,
     is_public: Optional[bool] = None,
     group_type: Optional[AuthorGroupType] = None,
+    status: Optional[AuthorGroupStatus] = None,
 ) -> Tuple[List[AuthorGroup], int]:
     filters = [AuthorGroup.deleted_at.is_(None)]
     if is_public is not None:
         filters.append(AuthorGroup.is_public.is_(is_public))
+    # Optional, not defaulted to PUBLISHED: CMS listings must still see drafts.
+    if status is not None:
+        filters.append(AuthorGroup.status == status)
     if group_type is not None:
         filters.append(AuthorGroup.group_type == group_type)
     if language:

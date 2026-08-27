@@ -815,9 +815,11 @@ def _mock_group_collection(
     return mock_collection
 
 
-def _mock_group(*, is_public: bool) -> MagicMock:
+def _mock_group(*, is_public: bool, group_status: str = "PUBLISHED") -> MagicMock:
     mock_group = MagicMock()
     mock_group.is_public = is_public
+    # Published by default; these cases cover is_public on a live group.
+    mock_group.status = group_status
     return mock_group
 
 
