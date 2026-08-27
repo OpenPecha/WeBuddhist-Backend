@@ -17,7 +17,7 @@ def _mock_db(rowcount: int = 0, skipped_rows=None):
 
 
 class TestRemapSegmentIdsAcceptsPlainStrings:
-    def test_non_uuid_segment_id_skips_uuid_typed_columns(self):
+    def test_non_uuid_segment_id_updates_segment_ids_and_bookmarks_only(self):
         db = _mock_db(rowcount=1)
 
         updated, skipped = remap_segment_ids(
@@ -26,16 +26,19 @@ class TestRemapSegmentIdsAcceptsPlainStrings:
             new_segment_id="OP005678-also-not-a-uuid",
         )
 
-        # String-typed targets still run for a plain external segment id.
-        assert "sub_tasks.pecha_segment_id" in updated
+        # segment_ids and bookmarks(VERSE) are plain string columns and
+        # always run, regardless of UUID-ness.
+        assert "sub_tasks.segment_ids" in updated
         assert "bookmarks(VERSE)" in updated
 
-        # UUID-typed columns can't hold a non-UUID value, so they're skipped
-        # rather than erroring.
-        assert "sub_tasks.segment_ids" not in updated
+        # pecha_segment_id is never touched by the remap anymore.
+        assert "sub_tasks.pecha_segment_id" not in updated
+
+        # tag_segments.segment_id is a native UUID column and can't hold a
+        # non-UUID value, so it's skipped rather than erroring.
         assert "tag_segments" not in updated
 
-    def test_uuid_segment_id_also_touches_uuid_typed_columns(self):
+    def test_uuid_segment_id_also_touches_tag_segments(self):
         db = _mock_db(rowcount=1)
 
         updated, skipped = remap_segment_ids(
@@ -44,10 +47,10 @@ class TestRemapSegmentIdsAcceptsPlainStrings:
             new_segment_id="22222222-2222-2222-2222-222222222222",
         )
 
-        assert "sub_tasks.pecha_segment_id" in updated
-        assert "bookmarks(VERSE)" in updated
         assert "sub_tasks.segment_ids" in updated
+        assert "bookmarks(VERSE)" in updated
         assert "tag_segments" in updated
+        assert "sub_tasks.pecha_segment_id" not in updated
 
     def test_non_uuid_segment_id_does_not_raise(self):
         db = _mock_db(rowcount=0)

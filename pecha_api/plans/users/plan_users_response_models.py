@@ -84,7 +84,7 @@ class UserSubTaskDTO(BaseModel):
     audio_url: Optional[str] = None
     source_text_id: Optional[UUID] = None
     pecha_segment_id: Optional[str] = None
-    segment_ids: Optional[List[UUID]] = None
+    segment_ids: Optional[List[str]] = None
     segment_numbers: Optional[List[int]] = None
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None

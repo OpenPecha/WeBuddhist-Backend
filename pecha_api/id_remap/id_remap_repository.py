@@ -1,7 +1,7 @@
 import uuid
 from typing import Callable, List, Optional, Tuple
 
-from sqlalchemy import and_, cast, exists, func, select, update
+from sqlalchemy import and_, exists, func, select, update
 from sqlalchemy.orm import Session
 
 from pecha_api.accumulator.accumulator_models import Accumulator
@@ -69,31 +69,25 @@ def remap_segment_ids(
     updated: dict = {}
     skipped: List[dict] = []
 
+    # segment_ids holds both internal Segment UUIDs and external pecha-style
+    # ids as plain strings, so this replace runs unconditionally.
     result = db.execute(
         update(PlanSubTask)
-        .where(PlanSubTask.pecha_segment_id == old_segment_id)
-        .values(pecha_segment_id=new_segment_id)
+        .where(PlanSubTask.segment_ids.any(old_segment_id))
+        .values(
+            segment_ids=func.array_replace(
+                PlanSubTask.segment_ids,
+                old_segment_id,
+                new_segment_id,
+            )
+        )
     )
-    updated["sub_tasks.pecha_segment_id"] = result.rowcount
+    updated["sub_tasks.segment_ids"] = result.rowcount
 
     old_uuid = try_parse_uuid(old_segment_id)
     new_uuid = try_parse_uuid(new_segment_id)
 
     if old_uuid is not None and new_uuid is not None:
-        item_type = PlanSubTask.segment_ids.type.item_type
-        result = db.execute(
-            update(PlanSubTask)
-            .where(PlanSubTask.segment_ids.any(old_uuid))
-            .values(
-                segment_ids=func.array_replace(
-                    PlanSubTask.segment_ids,
-                    cast(old_uuid, item_type),
-                    cast(new_uuid, item_type),
-                )
-            )
-        )
-        updated["sub_tasks.segment_ids"] = result.rowcount
-
         count, conflicts = _conflict_aware_update(
             db=db,
             table=tag_segments,
