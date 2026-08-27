@@ -582,7 +582,7 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
     if not plan_sessions:
         return []
 
-    plan_ids = [UUID(session.source_id) for session in plan_sessions]
+    plan_ids = [_as_uuid(session.source_id) for session in plan_sessions]
     plans = get_plans_by_ids(db=db, plan_ids=plan_ids)
     plan_map = {plan.id: plan for plan in plans}
 
@@ -593,7 +593,7 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
 
     resolved = []
     for session in plan_sessions:
-        plan_id = UUID(session.source_id)
+        plan_id = _as_uuid(session.source_id)
         plan = plan_map.get(plan_id)
         if plan is None:
             continue
@@ -609,7 +609,7 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=session.source_id,
+                source_id=str(session.source_id) if session.source_id is not None else None,
                 title=plan.title,
                 language=(
                     plan.language.value
@@ -623,6 +623,13 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
             )
         )
     return resolved
+
+
+def _as_uuid(value) -> UUID:
+    """RoutineSession.source_id is read back as a plain str, but tolerate an
+    already-UUID value too (e.g. an in-memory session not yet round-tripped
+    through the DB)."""
+    return value if isinstance(value, UUID) else UUID(value)
 
 
 def _normalize_text_id(text_id) -> str:
@@ -693,7 +700,7 @@ def _resolve_recitation_collection_sessions(
     if not collection_sessions:
         return []
 
-    collection_ids = [UUID(session.source_id) for session in collection_sessions]
+    collection_ids = [_as_uuid(session.source_id) for session in collection_sessions]
 
     # Fetch collections owned by the user
     collections = (
@@ -722,7 +729,7 @@ def _resolve_recitation_collection_sessions(
 
     resolved = []
     for session in collection_sessions:
-        collection = collection_map.get(UUID(session.source_id))
+        collection = collection_map.get(_as_uuid(session.source_id))
         if collection is None:
             continue
         
@@ -735,7 +742,7 @@ def _resolve_recitation_collection_sessions(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=session.source_id,
+                source_id=str(session.source_id) if session.source_id is not None else None,
                 title=collection.name,
                 image=collection_image,
                 display_order=session.display_order,
@@ -754,7 +761,7 @@ def _resolve_group_recitation_collection_sessions(
 
     from sqlalchemy import func
 
-    collection_ids = [UUID(session.source_id) for session in collection_sessions]
+    collection_ids = [_as_uuid(session.source_id) for session in collection_sessions]
     collections = (
         db.query(GroupRecitationCollection)
         .filter(
@@ -782,7 +789,7 @@ def _resolve_group_recitation_collection_sessions(
 
     resolved = []
     for session in collection_sessions:
-        collection = collection_map.get(UUID(session.source_id))
+        collection = collection_map.get(_as_uuid(session.source_id))
         if collection is None:
             continue
 
@@ -795,7 +802,7 @@ def _resolve_group_recitation_collection_sessions(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=session.source_id,
+                source_id=str(session.source_id) if session.source_id is not None else None,
                 title=collection.name,
                 image=collection_image,
                 display_order=session.display_order,
@@ -863,7 +870,7 @@ def _resolve_accumulator_sessions(
     if not accumulator_sessions:
         return []
 
-    preset_ids = [UUID(session.source_id) for session in accumulator_sessions]
+    preset_ids = [_as_uuid(session.source_id) for session in accumulator_sessions]
     presets = (
         db.query(Accumulator)
         .filter(
@@ -884,7 +891,7 @@ def _resolve_accumulator_sessions(
 
     resolved = []
     for session in accumulator_sessions:
-        preset_id = UUID(session.source_id)
+        preset_id = _as_uuid(session.source_id)
         preset = preset_map.get(preset_id)
         if preset is None:
             continue
@@ -901,7 +908,7 @@ def _resolve_accumulator_sessions(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=session.source_id,
+                source_id=str(session.source_id) if session.source_id is not None else None,
                 accumulator_id=preset_id,
                 title=title,
                 language=session_language,
@@ -962,7 +969,7 @@ def _build_series_session_dto(
     return SessionDTO(
         id=session.id,
         session_type=session.session_type,
-        source_id=session.source_id,
+        source_id=str(session.source_id) if session.source_id is not None else None,
         title=metadata.title if metadata else "Untitled Series",
         language=_series_metadata_language(metadata),
         image=series_image,
@@ -984,7 +991,7 @@ def _resolve_series_sessions(
     from pecha_api.plans.series.series_repository import get_series_by_ids
     from pecha_api.plans.users.plan_user_series_repository import get_plans_by_series_ids
 
-    series_ids = [UUID(session.source_id) for session in series_sessions]
+    series_ids = [_as_uuid(session.source_id) for session in series_sessions]
     series_list = get_series_by_ids(db=db, series_ids=series_ids)
     series_map = {series.id: series for series in series_list}
 
@@ -1009,7 +1016,7 @@ def _resolve_series_sessions(
 
     resolved = []
     for session in series_sessions:
-        series_id = UUID(session.source_id)
+        series_id = _as_uuid(session.source_id)
         series = series_map.get(series_id)
         if series is None:
             continue
