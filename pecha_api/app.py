@@ -90,6 +90,7 @@ from pecha_api.events import notification_internal_views as event_notification_i
 from pecha_api.traditions import tradition_views
 from pecha_api.languages import language_views
 from pecha_api.plans.admin.admin_views import cms_admin_router
+from pecha_api.id_remap.id_remap_views import id_remap_router
 from pecha_api.region_restrictions.region_restriction_views import cms_china_restrictions_router
 from pecha_api.plans.transfers.transfer_views import (
     cms_transfers_router,
@@ -133,6 +134,7 @@ api.include_router(cms_analytics_views.analytics_router)
 api.include_router(author_groups_views.cms_groups_router)
 api.include_router(cms_notification_views.cms_notifications_router)
 api.include_router(cms_admin_router)
+api.include_router(id_remap_router)
 api.include_router(cms_china_restrictions_router)
 api.include_router(cms_chat_reports_router)
 api.include_router(cms_transfers_router)
