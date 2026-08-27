@@ -455,3 +455,28 @@ class TestRoomServices:
         mark_room_read_service(room_id=uuid4(), user=MockUser())
 
         mock_mark.assert_called_once_with(db=mock_session.return_value.__enter__.return_value, member=member)
+
+
+class TestGroupRoomStatusLocking:
+
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=True)
+    def test_lock_group_requests_row_lock(self, mock_published, mock_get_room):
+        """The message-send path locks the group row so a concurrent hide
+        cannot land between the status check and the commit."""
+        mock_get_room.return_value = MagicMock()
+
+        resolve_or_create_group_room(
+            db=MagicMock(), group_id=uuid4(), user=MockUser(), lock_group=True
+        )
+
+        assert mock_published.call_args.kwargs["for_update"] is True
+
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=True)
+    def test_read_only_path_does_not_lock(self, mock_published, mock_get_room):
+        mock_get_room.return_value = MagicMock()
+
+        resolve_or_create_group_room(db=MagicMock(), group_id=uuid4(), user=MockUser())
+
+        assert mock_published.call_args.kwargs["for_update"] is False

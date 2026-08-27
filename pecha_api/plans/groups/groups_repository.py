@@ -271,17 +271,24 @@ def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
     )
 
 
-def is_group_id_published(db: Session, group_id: UUID) -> bool:
+def is_group_id_published(
+    db: Session,
+    group_id: UUID,
+    for_update: bool = False,
+) -> bool:
     """Status-only check that avoids get_group_by_id's eager loads.
 
     Use on hot paths (e.g. sending a chat message) that only need the gate and
-    not the full group object.
+    not the full group object. Pass for_update=True to lock the group row for
+    the rest of the transaction, so a concurrent hide cannot land between the
+    check and a dependent write.
     """
-    row = (
-        db.query(AuthorGroup.status)
-        .filter(AuthorGroup.id == group_id, AuthorGroup.deleted_at.is_(None))
-        .first()
+    query = db.query(AuthorGroup.status).filter(
+        AuthorGroup.id == group_id, AuthorGroup.deleted_at.is_(None)
     )
+    if for_update:
+        query = query.with_for_update()
+    row = query.first()
     if row is None:
         return False
     value = row[0]
@@ -300,6 +307,14 @@ def is_group_published(group: Optional[AuthorGroup]) -> bool:
     if hasattr(value, "value"):
         value = value.value
     return value == AuthorGroupStatus.PUBLISHED.value
+
+
+def lock_group_status(db: Session, group_id: UUID) -> None:
+    """Lock a group row for the rest of the transaction, serialising a status
+    change against in-flight writes that already passed their status check."""
+    db.query(AuthorGroup.id).filter(
+        AuthorGroup.id == group_id, AuthorGroup.deleted_at.is_(None)
+    ).with_for_update().first()
 
 
 def lock_group_visibility(db: Session, group_id: UUID) -> Optional[bool]:

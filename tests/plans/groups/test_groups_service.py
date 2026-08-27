@@ -5420,6 +5420,8 @@ def test_update_group_status_publishes_as_owner():
         "pecha_api.plans.groups.groups_service.get_group_member",
         return_value=MagicMock(role=AuthorGroupMemberRole.OWNER),
     ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_status",
+    ), patch(
         "pecha_api.plans.groups.groups_service.update_group",
     ) as mock_update, patch(
         "pecha_api.plans.groups.groups_service.get_followers_count_map", return_value={},
@@ -5450,6 +5452,8 @@ def test_update_group_status_allows_admin():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_member",
         return_value=MagicMock(role=AuthorGroupMemberRole.ADMIN),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_status",
     ), patch(
         "pecha_api.plans.groups.groups_service.update_group",
     ), patch(
@@ -5530,6 +5534,8 @@ def test_update_group_status_leaves_is_public_untouched():
     ), patch(
         "pecha_api.plans.groups.groups_service.get_group_member",
         return_value=MagicMock(role=AuthorGroupMemberRole.OWNER),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_status",
     ), patch(
         "pecha_api.plans.groups.groups_service.update_group",
     ) as mock_update, patch(

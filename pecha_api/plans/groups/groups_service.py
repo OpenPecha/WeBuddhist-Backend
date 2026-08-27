@@ -69,6 +69,7 @@ from pecha_api.plans.groups.groups_repository import (
     is_user_following_group,
     is_group_published,
     is_user_joined_group,
+    lock_group_status,
     lock_group_visibility,
     get_group_by_id,
     get_group_by_slug,
@@ -866,6 +867,10 @@ def update_group_status(
         if not is_super_admin(author):
             member = _get_member_or_403(db=db, group_id=group_id, author_id=author.id)
             _assert_role_allowed(member=member, allowed_roles=_GROUP_SETTINGS_ROLES)
+
+        # Lock the row so an in-flight chat send that already passed its status
+        # check cannot commit a message after this hide lands.
+        lock_group_status(db=db, group_id=group_id)
 
         group.status = request.status
         group.updated_by = author.email

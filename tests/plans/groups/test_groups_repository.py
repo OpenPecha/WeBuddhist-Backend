@@ -23,6 +23,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_groups_paginated,
     get_public_group_ids,
     is_group_id_published,
+    lock_group_status,
     get_plans_by_group_id,
     get_series_by_group_id,
     get_series_for_group_ids,
@@ -571,3 +572,30 @@ def test_is_group_id_published_false_for_draft_and_missing():
 
     query.first.return_value = None
     assert is_group_id_published(db=db, group_id=uuid.uuid4()) is False
+
+
+def test_is_group_id_published_locks_row_when_requested():
+    """for_update serialises a status change against an in-flight write that
+    already passed its check (e.g. a chat message mid-send)."""
+    db = _make_session_mock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.with_for_update.return_value = query
+    query.first.return_value = ("PUBLISHED",)
+
+    assert is_group_id_published(db=db, group_id=uuid.uuid4(), for_update=True) is True
+    query.with_for_update.assert_called_once()
+
+
+def test_is_group_id_published_does_not_lock_by_default():
+    """Read-only callers must not take a row lock."""
+    db = _make_session_mock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.first.return_value = ("PUBLISHED",)
+
+    is_group_id_published(db=db, group_id=uuid.uuid4())
+
+    query.with_for_update.assert_not_called()

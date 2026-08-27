@@ -58,7 +58,11 @@ def send_group_message_service(
     parent_message_id: Optional[UUID] = None,
 ) -> ChatMessageDTO:
     with SessionLocal() as db:
-        room = resolve_or_create_group_room(db=db, group_id=group_id, user=user)
+        # lock_group holds the group row until this transaction commits, so a
+        # concurrent hide cannot slip in before the message is persisted.
+        room = resolve_or_create_group_room(
+            db=db, group_id=group_id, user=user, lock_group=True
+        )
         _require_active_member(db=db, room_id=room.id, user_id=user.id)
         return _persist_message(
             db=db, room=room, user=user, body=body, parent_message_id=parent_message_id

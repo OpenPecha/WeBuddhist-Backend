@@ -195,15 +195,22 @@ def _require_group_chat_eligibility(db: Session, group_id: UUID, user_id: UUID) 
         )
 
 
-def resolve_or_create_group_room(db: Session, group_id: UUID, user: Users) -> ChatRoom:
+def resolve_or_create_group_room(
+    db: Session,
+    group_id: UUID,
+    user: Users,
+    lock_group: bool = False,
+) -> ChatRoom:
     """Get the group's chat room, auto-creating it (with the caller as CREATOR)
     on the first message if the caller is a joiner/follower of the group. Any
     other joiner/follower is auto-added (or re-activated) as a MEMBER the
     first time they reach an already-existing room."""
     # Checked before the existing-room shortcut: a room created while the group
     # was live must stop serving once the group is hidden. Status-only lookup,
-    # since this runs on every message send.
-    if not is_group_id_published(db=db, group_id=group_id):
+    # since this runs on every message send. Callers that go on to write (i.e.
+    # sending a message) pass lock_group=True so a concurrent hide cannot land
+    # between this check and the commit.
+    if not is_group_id_published(db=db, group_id=group_id, for_update=lock_group):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
     room = get_room_by_group_id(db=db, group_id=group_id)
