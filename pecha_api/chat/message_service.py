@@ -43,6 +43,7 @@ from pecha_api.chat.service import (
     resolve_or_create_private_room,
 )
 from pecha_api.db.database import SessionLocal
+from pecha_api.plans.groups.groups_repository import is_group_id_published
 from pecha_api.plans.response_message import NOT_FOUND
 from pecha_api.users.users_models import Users
 
@@ -58,12 +59,12 @@ def send_group_message_service(
     parent_message_id: Optional[UUID] = None,
 ) -> ChatMessageDTO:
     with SessionLocal() as db:
-        # lock_group holds the group row until this transaction commits, so a
-        # concurrent hide cannot slip in before the message is persisted.
         room = resolve_or_create_group_room(
             db=db, group_id=group_id, user=user, lock_group=True
         )
         _require_active_member(db=db, room_id=room.id, user_id=user.id)
+        # The binding status check happens inside _persist_message, in the same
+        # transaction as the INSERT.
         return _persist_message(
             db=db, room=room, user=user, body=body, parent_message_id=parent_message_id
         )
@@ -112,6 +113,15 @@ def _persist_message(
         body=body,
         parent_message_id=parent.id if parent else None,
     )
+    # The status gate has to live in the same transaction as the INSERT.
+    # Room creation, member reactivation and touch_room all commit, ending any
+    # earlier transaction and releasing its lock, so a check made before them
+    # cannot bind this write. create_message commits immediately below, so the
+    # lock taken here is the one that actually holds until the row lands.
+    if room.group_id is not None and not is_group_id_published(
+        db=db, group_id=room.group_id, for_update=True
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
     message = create_message(db=db, message=message)
     message.sender = user
     touch_room(db=db, room=room)

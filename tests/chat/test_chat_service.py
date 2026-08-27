@@ -480,3 +480,28 @@ class TestGroupRoomStatusLocking:
         resolve_or_create_group_room(db=MagicMock(), group_id=uuid4(), user=MockUser())
 
         assert mock_published.call_args.kwargs["for_update"] is False
+
+
+class TestRoomIdRoutesRespectGroupStatus:
+
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=False)
+    @patch('pecha_api.chat.service.get_room_by_id')
+    def test_group_room_404s_when_group_hidden(self, mock_get_room, _mock_published):
+        """Every room-id route resolves through _get_room_or_404, so detail,
+        history, reactions, reports and member ops close together."""
+        mock_get_room.return_value = MagicMock(group_id=uuid4())
+
+        with pytest.raises(HTTPException) as exc_info:
+            _get_room_or_404(db=MagicMock(), room_id=uuid4())
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.chat.service.is_group_id_published')
+    @patch('pecha_api.chat.service.get_room_by_id')
+    def test_dm_room_skips_the_group_check(self, mock_get_room, mock_published):
+        """DM rooms have no group_id and must never consult group status."""
+        room = MagicMock(group_id=None)
+        mock_get_room.return_value = room
+
+        assert _get_room_or_404(db=MagicMock(), room_id=uuid4()) is room
+        mock_published.assert_not_called()

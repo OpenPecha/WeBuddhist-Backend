@@ -299,6 +299,13 @@ def _get_room_or_404(db: Session, room_id: UUID) -> ChatRoom:
     room = get_room_by_id(db=db, room_id=room_id)
     if not room:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+    # Every room-id route resolves through here, so gating the group's
+    # publication status once closes detail, history, reactions, reports and
+    # member operations together. DM rooms have no group_id and are unaffected.
+    if room.group_id is not None and not is_group_id_published(
+        db=db, group_id=room.group_id
+    ):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
     return room
 
 
