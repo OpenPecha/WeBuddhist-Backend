@@ -1874,7 +1874,7 @@ def test_get_user_plan_day_details_service_with_segment_fields():
     day_id = uuid.uuid4()
     task_id = uuid.uuid4()
     sub_id = uuid.uuid4()
-    source_text_id = uuid.uuid4()
+    source_text_id = str(uuid.uuid4())
     pecha_segment_id = "pecha-segment-456"  # String field
     segment_ids = [str(uuid.uuid4()), str(uuid.uuid4())]  # List of segment id strings
 

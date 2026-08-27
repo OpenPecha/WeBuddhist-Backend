@@ -33,7 +33,7 @@ class MockGroupRecitationCollectionItem:
     """Mock GroupRecitationCollectionItem model."""
     def __init__(self, id=None, text_id=None, display_order=1):
         self.id = id or uuid4()
-        self.text_id = text_id or uuid4()
+        self.text_id = str(text_id or uuid4())
         self.display_order = display_order
         self.deleted_at = None
 
@@ -324,7 +324,7 @@ class TestBuildItemsDto:
         result = await _build_items_dto(items)
 
         assert len(result) == 2
-        assert result[0].text_id == text_id1
+        assert result[0].text_id == str(text_id1)
         assert result[0].title == "Text 1"
         assert result[0].language == "bo"
         assert result[0].type == "sutra"
