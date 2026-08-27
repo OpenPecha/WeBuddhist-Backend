@@ -40,7 +40,14 @@ def upgrade() -> None:
             server_default="DRAFT",
         ),
     )
-    # Backfill so existing public groups stay reachable by the app.
+    # Backfill from is_public. Public groups stay reachable by the app.
+    #
+    # Private groups are INTENTIONALLY set to DRAFT: they go hidden on deploy
+    # until an OWNER/ADMIN publishes each one from Studio. This is a deliberate
+    # product decision, not an oversight -- coordinators asked to review their
+    # private groups before they go live under the new visibility rules.
+    # Nothing is deleted; members and content are restored on publish.
+    # Change the second statement to 'PUBLISHED' if that trade-off is revisited.
     op.execute(
         "UPDATE author_groups SET status = 'PUBLISHED' WHERE is_public = true"
     )

@@ -165,9 +165,10 @@ class TestResolveOrCreateGroupRoom:
     @patch('pecha_api.chat.service.is_user_following_group')
     @patch('pecha_api.chat.service.is_user_joined_group')
     @patch('pecha_api.chat.service.get_group_by_id')
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=True)
     @patch('pecha_api.chat.service.get_room_by_group_id')
     def test_creates_room_and_creator_membership_on_first_message(
-        self, mock_get_room, mock_get_group, mock_joined, mock_following,
+        self, mock_get_room, _mock_published, mock_get_group, mock_joined, mock_following,
         mock_create_room, mock_add_member,
     ):
         group_id = uuid4()
@@ -188,8 +189,9 @@ class TestResolveOrCreateGroupRoom:
         assert member_arg.role == "CREATOR"
         assert member_arg.user_id == user.id
 
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=True)
     @patch('pecha_api.chat.service.get_room_by_group_id')
-    def test_reuses_existing_room(self, mock_get_room):
+    def test_reuses_existing_room(self, mock_get_room, _mock_published):
         existing_room = MagicMock()
         mock_get_room.return_value = existing_room
 
@@ -197,12 +199,25 @@ class TestResolveOrCreateGroupRoom:
 
         assert result is existing_room
 
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=False)
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    def test_existing_room_rejected_when_group_hidden(self, mock_get_room, _mock_published):
+        """A room created while the group was live must stop serving once the
+        group is hidden, so members cannot keep messaging through it."""
+        mock_get_room.return_value = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            resolve_or_create_group_room(db=MagicMock(), group_id=uuid4(), user=MockUser())
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
     @patch('pecha_api.chat.service.is_user_following_group')
     @patch('pecha_api.chat.service.is_user_joined_group')
     @patch('pecha_api.chat.service.get_group_by_id')
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=True)
     @patch('pecha_api.chat.service.get_room_by_group_id')
     def test_ineligible_user_forbidden(
-        self, mock_get_room, mock_get_group, mock_joined, mock_following
+        self, mock_get_room, _mock_published, mock_get_group, mock_joined, mock_following
     ):
         mock_get_room.return_value = None
         mock_get_group.return_value = MockGroup()

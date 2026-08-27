@@ -271,7 +271,26 @@ def get_group_by_id(db: Session, group_id: UUID) -> Optional[AuthorGroup]:
     )
 
 
-def is_group_published(group) -> bool:
+def is_group_id_published(db: Session, group_id: UUID) -> bool:
+    """Status-only check that avoids get_group_by_id's eager loads.
+
+    Use on hot paths (e.g. sending a chat message) that only need the gate and
+    not the full group object.
+    """
+    row = (
+        db.query(AuthorGroup.status)
+        .filter(AuthorGroup.id == group_id, AuthorGroup.deleted_at.is_(None))
+        .first()
+    )
+    if row is None:
+        return False
+    value = row[0]
+    if hasattr(value, "value"):
+        value = value.value
+    return value == AuthorGroupStatus.PUBLISHED.value
+
+
+def is_group_published(group: Optional[AuthorGroup]) -> bool:
     """Shared app-side gate, so posts, chat, recitations, accumulators and
     bookmarks all apply the same rule. Takes a string or the enum, since
     SQLAlchemy returns either depending on how the row was loaded."""

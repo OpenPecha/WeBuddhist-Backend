@@ -22,6 +22,7 @@ from pecha_api.plans.groups.groups_repository import (
     get_group_ids_by_series_ids,
     get_groups_paginated,
     get_public_group_ids,
+    is_group_id_published,
     get_plans_by_group_id,
     get_series_by_group_id,
     get_series_for_group_ids,
@@ -545,3 +546,28 @@ def test_get_public_group_ids_returns_only_published_public_groups():
     rendered = _rendered_filters(query)
     assert "status" in rendered
     assert "is_public" in rendered
+
+
+def test_is_group_id_published_only_selects_status_column():
+    """Hot-path helper: must avoid get_group_by_id's eager loads."""
+    db = _make_session_mock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+    query.first.return_value = ("PUBLISHED",)
+
+    assert is_group_id_published(db=db, group_id=uuid.uuid4()) is True
+    query.options.assert_not_called()
+
+
+def test_is_group_id_published_false_for_draft_and_missing():
+    db = _make_session_mock()
+    query = MagicMock()
+    db.query.return_value = query
+    query.filter.return_value = query
+
+    query.first.return_value = ("DRAFT",)
+    assert is_group_id_published(db=db, group_id=uuid.uuid4()) is False
+
+    query.first.return_value = None
+    assert is_group_id_published(db=db, group_id=uuid.uuid4()) is False

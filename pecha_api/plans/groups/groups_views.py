@@ -164,7 +164,7 @@ def patch_cms_group_status(
     group_id: UUID,
     update_group_status_request: UpdateAuthorGroupStatusRequest,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
+) -> AuthorGroupDetailDTO:
     """Publish a group or hide it again. OWNER and ADMIN only.
 
     Only PUBLISHED groups appear on the app side, independent of is_public.

@@ -41,6 +41,7 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.plans.groups.groups_models import AuthorGroup
 from pecha_api.plans.groups.groups_repository import (
     get_group_by_id,
+    is_group_id_published,
     is_group_published,
     is_user_following_group,
     is_user_joined_group,
@@ -199,6 +200,12 @@ def resolve_or_create_group_room(db: Session, group_id: UUID, user: Users) -> Ch
     on the first message if the caller is a joiner/follower of the group. Any
     other joiner/follower is auto-added (or re-activated) as a MEMBER the
     first time they reach an already-existing room."""
+    # Checked before the existing-room shortcut: a room created while the group
+    # was live must stop serving once the group is hidden. Status-only lookup,
+    # since this runs on every message send.
+    if not is_group_id_published(db=db, group_id=group_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
+
     room = get_room_by_group_id(db=db, group_id=group_id)
     if room is not None:
         member = get_member(db=db, room_id=room.id, user_id=user.id)
@@ -218,11 +225,12 @@ def resolve_or_create_group_room(db: Session, group_id: UUID, user: Users) -> Ch
                 db.commit()
         return room
 
-    group = get_group_by_id(db=db, group_id=group_id)
-    if not group or not is_group_published(group):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
-
     _require_group_chat_eligibility(db=db, group_id=group_id, user_id=user.id)
+
+    # Full object needed here for the room's name and avatar.
+    group = get_group_by_id(db=db, group_id=group_id)
+    if group is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
     room = ChatRoom(
         group_id=group_id,
