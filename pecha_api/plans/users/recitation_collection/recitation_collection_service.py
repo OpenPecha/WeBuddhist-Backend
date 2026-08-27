@@ -213,7 +213,7 @@ def create_collection_items(
     return [
         RecitationCollectionItem(
             recitation_collection_id=collection_id,
-            text_id=text_id,
+            text_id=str(text_id),
             display_order=start_order + idx
         )
         for idx, text_id in enumerate(text_ids)

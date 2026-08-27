@@ -1,4 +1,3 @@
-import uuid
 from typing import List
 
 from fastapi import HTTPException
@@ -71,15 +70,6 @@ async def remap_text_id(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="old_text_id and new_text_id must differ",
-        )
-
-    try:
-        uuid.UUID(old_text_id)
-        uuid.UUID(new_text_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="old_text_id and new_text_id must be valid UUIDs",
         )
 
     updated, skipped = _run_postgres_remap(

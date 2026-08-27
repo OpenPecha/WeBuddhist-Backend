@@ -566,7 +566,11 @@ def build_session_models(time_block_id: UUID, sessions: List) -> List[RoutineSes
         RoutineSession(
             time_block_id=time_block_id,
             session_type=session.session_type,
-            source_id=None if session.session_type == SessionType.TIMER else session.source_id,
+            source_id=(
+                str(session.source_id)
+                if session.session_type != SessionType.TIMER and session.source_id is not None
+                else None
+            ),
             duration_ms=session.duration_ms if session.session_type == SessionType.TIMER else None,
             display_order=session.display_order,
         )
@@ -578,27 +582,28 @@ def _resolve_plan_sessions(db, plan_sessions: List[RoutineSession], user_id: UUI
     if not plan_sessions:
         return []
 
-    plan_ids = [session.source_id for session in plan_sessions]
+    plan_ids = [UUID(session.source_id) for session in plan_sessions]
     plans = get_plans_by_ids(db=db, plan_ids=plan_ids)
     plan_map = {plan.id: plan for plan in plans}
-    
+
     # Fetch user progress data for all plan sessions
     progress_map = get_plan_progress_by_user_id_and_plan_ids(
         db=db, user_id=user_id, plan_ids=plan_ids
     )
-    
+
     resolved = []
     for session in plan_sessions:
-        plan = plan_map.get(session.source_id)
+        plan_id = UUID(session.source_id)
+        plan = plan_map.get(plan_id)
         if plan is None:
             continue
 
         plan_image = safe_get_image_url(
             plan.image_url, resource_id=plan.id, resource_type="plan"
         )
-        
+
         # Get user progress for this plan
-        progress = progress_map.get(session.source_id)
+        progress = progress_map.get(plan_id)
         
         resolved.append(
             SessionDTO(
@@ -654,7 +659,7 @@ async def _resolve_recitation_sessions(
             SessionDTO(
                 id=session.id,
                 session_type=session.session_type,
-                source_id=UUID(text_id),
+                source_id=text_id,
                 title=text.title,
                 language=text.language or "en",
                 image=None,
@@ -688,8 +693,8 @@ def _resolve_recitation_collection_sessions(
     if not collection_sessions:
         return []
 
-    collection_ids = [session.source_id for session in collection_sessions]
-    
+    collection_ids = [UUID(session.source_id) for session in collection_sessions]
+
     # Fetch collections owned by the user
     collections = (
         db.query(RecitationCollection)
@@ -700,11 +705,11 @@ def _resolve_recitation_collection_sessions(
         .all()
     )
     collection_map = {collection.id: collection for collection in collections}
-    
+
     # Get item counts for each collection
     from sqlalchemy import func
     from pecha_api.plans.users.recitation_collection.recitation_collection_models import RecitationCollectionItem
-    
+
     item_counts = dict(
         db.query(
             RecitationCollectionItem.recitation_collection_id,
@@ -717,7 +722,7 @@ def _resolve_recitation_collection_sessions(
 
     resolved = []
     for session in collection_sessions:
-        collection = collection_map.get(session.source_id)
+        collection = collection_map.get(UUID(session.source_id))
         if collection is None:
             continue
         
@@ -749,7 +754,7 @@ def _resolve_group_recitation_collection_sessions(
 
     from sqlalchemy import func
 
-    collection_ids = [session.source_id for session in collection_sessions]
+    collection_ids = [UUID(session.source_id) for session in collection_sessions]
     collections = (
         db.query(GroupRecitationCollection)
         .filter(
@@ -777,7 +782,7 @@ def _resolve_group_recitation_collection_sessions(
 
     resolved = []
     for session in collection_sessions:
-        collection = collection_map.get(session.source_id)
+        collection = collection_map.get(UUID(session.source_id))
         if collection is None:
             continue
 
@@ -858,7 +863,7 @@ def _resolve_accumulator_sessions(
     if not accumulator_sessions:
         return []
 
-    preset_ids = [session.source_id for session in accumulator_sessions]
+    preset_ids = [UUID(session.source_id) for session in accumulator_sessions]
     presets = (
         db.query(Accumulator)
         .filter(
@@ -879,7 +884,8 @@ def _resolve_accumulator_sessions(
 
     resolved = []
     for session in accumulator_sessions:
-        preset = preset_map.get(session.source_id)
+        preset_id = UUID(session.source_id)
+        preset = preset_map.get(preset_id)
         if preset is None:
             continue
 
@@ -896,7 +902,7 @@ def _resolve_accumulator_sessions(
                 id=session.id,
                 session_type=session.session_type,
                 source_id=session.source_id,
-                accumulator_id=session.source_id,
+                accumulator_id=preset_id,
                 title=title,
                 language=session_language,
                 image=_accumulator_mala_image(db, preset),
@@ -978,7 +984,7 @@ def _resolve_series_sessions(
     from pecha_api.plans.series.series_repository import get_series_by_ids
     from pecha_api.plans.users.plan_user_series_repository import get_plans_by_series_ids
 
-    series_ids = [session.source_id for session in series_sessions]
+    series_ids = [UUID(session.source_id) for session in series_sessions]
     series_list = get_series_by_ids(db=db, series_ids=series_ids)
     series_map = {series.id: series for series in series_list}
 
@@ -1003,13 +1009,14 @@ def _resolve_series_sessions(
 
     resolved = []
     for session in series_sessions:
-        series = series_map.get(session.source_id)
+        series_id = UUID(session.source_id)
+        series = series_map.get(series_id)
         if series is None:
             continue
 
-        first_plan = first_plan_map.get(session.source_id)
+        first_plan = first_plan_map.get(series_id)
         progress = progress_map.get(first_plan.id) if first_plan else None
-        current_plan = current_plan_map.get(session.source_id)
+        current_plan = current_plan_map.get(series_id)
         resolved.append(
             _build_series_session_dto(
                 session, series, first_plan, progress, current_plan, language=language

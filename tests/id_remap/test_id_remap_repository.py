@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from pecha_api.id_remap.id_remap_repository import remap_segment_ids
+from pecha_api.id_remap.id_remap_repository import remap_segment_ids, remap_text_ids
 
 
 def _mock_db(rowcount: int = 0, skipped_rows=None):
@@ -60,6 +60,40 @@ class TestRemapSegmentIdsAcceptsPlainStrings:
             db=db,
             old_segment_id="some-arbitrary-external-id",
             new_segment_id="another-arbitrary-external-id",
+        )
+
+        assert isinstance(updated, dict)
+        assert isinstance(skipped, list)
+
+
+class TestRemapTextIdsAcceptsPlainStrings:
+    def test_non_uuid_text_id_updates_every_text_id_column(self):
+        db = _mock_db(rowcount=1)
+
+        updated, skipped = remap_text_ids(
+            db=db,
+            old_text_id="OP-text-0001-not-a-uuid",
+            new_text_id="OP-text-0002-also-not-a-uuid",
+        )
+
+        # All text_id-holding columns are plain strings now and run
+        # unconditionally, regardless of UUID-ness.
+        assert updated["accumulators.text_id"] == 1
+        assert updated["sub_tasks.source_text_id"] == 1
+        assert updated["text_images.text_id"] == 1
+        assert updated["routine_sessions.source_id"] == 1
+        assert updated["user_recitations"] == 1
+        assert updated["recitation_collection_items"] == 1
+        assert updated["group_recitation_collection_items"] == 2  # active + soft-deleted rows
+        assert updated["bookmarks(TEXT)"] == 1
+
+    def test_uuid_text_id_does_not_raise(self):
+        db = _mock_db(rowcount=0)
+
+        updated, skipped = remap_text_ids(
+            db=db,
+            old_text_id="11111111-1111-1111-1111-111111111111",
+            new_text_id="22222222-2222-2222-2222-222222222222",
         )
 
         assert isinstance(updated, dict)

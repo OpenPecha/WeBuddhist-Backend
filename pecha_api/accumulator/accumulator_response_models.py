@@ -17,7 +17,7 @@ class AccumulatorMetadataDTO(BaseModel):
 class CreatePresetAccumulatorRequest(BaseModel):
     """CMS request to create a public preset accumulator."""
     target_count: Optional[int] = Field(None, ge=1)
-    text_id: Optional[UUID] = None
+    text_id: Optional[str] = None
     mantra_id: Optional[UUID] = None
     mala_image_id: Optional[UUID] = None
     metadata: List[AccumulatorMetadataDTO] = Field(..., min_length=1)
@@ -35,7 +35,7 @@ class CreatePresetAccumulatorRequest(BaseModel):
 class UpdatePresetAccumulatorRequest(BaseModel):
     """CMS request to update a public preset accumulator."""
     target_count: Optional[int] = Field(None, ge=1)
-    text_id: Optional[UUID] = None
+    text_id: Optional[str] = None
     mantra_id: Optional[UUID] = None
     mala_image_id: Optional[UUID] = None
     metadata: Optional[List[AccumulatorMetadataDTO]] = Field(None, min_length=1)
@@ -74,7 +74,7 @@ class AccumulatorDTO(BaseModel):
     type: AccumulatorType
     target_count: Optional[int] = None
     current_count: int
-    text_id: Optional[UUID] = None
+    text_id: Optional[str] = None
     mantra_id: Optional[UUID] = None
     mala_image_id: Optional[UUID] = None
     mala_image_url: Optional[str] = Field(None, description="Presigned S3 URL for the chosen mala image (None when no image is set)")
@@ -100,7 +100,7 @@ class PublicAccumulatorDTO(BaseModel):
     type: AccumulatorType
     target_count: Optional[int] = None
     current_count: int
-    text_id: Optional[UUID] = None
+    text_id: Optional[str] = None
     mantra: Optional[PresetMantraDTO] = None
     mala_image_id: Optional[UUID] = None
     mala_image_url: Optional[str] = Field(None, description="Presigned S3 URL for the chosen mala image (None when no image is set)")
@@ -123,7 +123,7 @@ class CreateAccumulatorRequest(BaseModel):
 class UpdateAccumulatorRequest(BaseModel):
     target_count: Optional[int] = None
     current_count: Optional[int] = Field(None, ge=0, description="New absolute current count")
-    text_id: Optional[UUID] = None
+    text_id: Optional[str] = None
     mantra_id: Optional[UUID] = None
 
 

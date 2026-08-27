@@ -17,7 +17,9 @@ class PlanSubTask(Base):
     content_type = Column(ContentTypeEnum, nullable=False)
     content = Column(Text, nullable=True)
     duration=Column(String(255), nullable=True)
-    source_text_id = Column(UUID(as_uuid=True), nullable=True)
+    # Not UUID-only: can hold an external (pecha-style) text id too, not just
+    # an internal Text UUID.
+    source_text_id = Column(String(255), nullable=True)
     pecha_segment_id = Column(String(255), nullable=True)
     # Not UUID-only: can hold external (pecha-style) segment ids too, not just
     # internal Segment UUIDs.

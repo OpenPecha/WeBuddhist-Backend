@@ -113,7 +113,7 @@ class TestRemapTextId:
 
     @pytest.mark.asyncio
     async def test_allows_new_text_id_not_present_in_mongo(self):
-        """new_text_id is never checked against Mongo; only UUID format is validated."""
+        """new_text_id is never checked against Mongo, and no format is enforced."""
         caller = _make_author()
         old_id = "11111111-1111-1111-1111-111111111111"
         new_id = "33333333-3333-3333-3333-333333333333"
@@ -127,13 +127,18 @@ class TestRemapTextId:
         assert result.new_id == new_id
 
     @pytest.mark.asyncio
-    async def test_rejects_non_uuid_ids(self):
+    async def test_allows_non_uuid_text_ids(self):
+        """text_id-holding columns are plain strings now, so non-UUID ids are accepted."""
         caller = _make_author()
-        with patch(f"{MODULE}.validate_and_extract_author_details", return_value=caller):
-            with pytest.raises(HTTPException) as exc_info:
-                await remap_text_id(token="token", old_text_id="not-a-uuid", new_text_id="also-not-a-uuid")
+        with patch(f"{MODULE}.validate_and_extract_author_details", return_value=caller), \
+                patch(f"{MODULE}.SessionLocal") as mock_session_local, \
+                patch(f"{MODULE}.remap_text_ids_postgres", return_value=({}, [])) as mock_pg:
+            mock_db = _session_local_context(mock_session_local)
 
-        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+            result = await remap_text_id(token="token", old_text_id="not-a-uuid", new_text_id="also-not-a-uuid")
+
+        mock_pg.assert_called_once_with(db=mock_db, old_text_id="not-a-uuid", new_text_id="also-not-a-uuid")
+        assert result.new_id == "also-not-a-uuid"
 
     @pytest.mark.asyncio
     async def test_reports_skipped_conflicts_from_postgres(self):

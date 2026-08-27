@@ -121,23 +121,20 @@ def remap_segment_ids(
 
 
 def remap_text_ids(db: Session, old_text_id: str, new_text_id: str) -> Tuple[dict, List[dict]]:
+    """Every text_id-holding column is a plain string now, so this replace
+    runs unconditionally regardless of whether old/new_text_id are UUIDs."""
     updated: dict = {}
     skipped: List[dict] = []
 
-    old_uuid = try_parse_uuid(old_text_id)
-    new_uuid = try_parse_uuid(new_text_id)
-    if old_uuid is None or new_uuid is None:
-        raise ValueError("old_text_id and new_text_id must both be valid UUIDs")
-
     result = db.execute(
-        update(Accumulator).where(Accumulator.text_id == old_uuid).values(text_id=new_uuid)
+        update(Accumulator).where(Accumulator.text_id == old_text_id).values(text_id=new_text_id)
     )
     updated["accumulators.text_id"] = result.rowcount
 
     result = db.execute(
         update(PlanSubTask)
-        .where(PlanSubTask.source_text_id == old_uuid)
-        .values(source_text_id=new_uuid)
+        .where(PlanSubTask.source_text_id == old_text_id)
+        .values(source_text_id=new_text_id)
     )
     updated["sub_tasks.source_text_id"] = result.rowcount
 
@@ -149,8 +146,8 @@ def remap_text_ids(db: Session, old_text_id: str, new_text_id: str) -> Tuple[dic
     result = db.execute(
         update(RoutineSession)
         .where(RoutineSession.session_type == SessionType.RECITATION)
-        .where(RoutineSession.source_id == old_uuid)
-        .values(source_id=new_uuid)
+        .where(RoutineSession.source_id == old_text_id)
+        .values(source_id=new_text_id)
     )
     updated["routine_sessions.source_id"] = result.rowcount
 
@@ -159,8 +156,8 @@ def remap_text_ids(db: Session, old_text_id: str, new_text_id: str) -> Tuple[dic
         table=UserRecitations.__table__,
         id_column="text_id",
         owner_columns=["user_id"],
-        old_value=old_uuid,
-        new_value=new_uuid,
+        old_value=old_text_id,
+        new_value=new_text_id,
     )
     updated["user_recitations"] = count
     skipped.extend(
@@ -173,8 +170,8 @@ def remap_text_ids(db: Session, old_text_id: str, new_text_id: str) -> Tuple[dic
         table=RecitationCollectionItem.__table__,
         id_column="text_id",
         owner_columns=["recitation_collection_id"],
-        old_value=old_uuid,
-        new_value=new_uuid,
+        old_value=old_text_id,
+        new_value=new_text_id,
     )
     updated["recitation_collection_items"] = count
     skipped.extend(
@@ -190,9 +187,9 @@ def remap_text_ids(db: Session, old_text_id: str, new_text_id: str) -> Tuple[dic
     # non-deleted rows, so soft-deleted rows can be renamed unconditionally.
     result = db.execute(
         update(GroupRecitationCollectionItem)
-        .where(GroupRecitationCollectionItem.text_id == old_uuid)
+        .where(GroupRecitationCollectionItem.text_id == old_text_id)
         .where(GroupRecitationCollectionItem.deleted_at.isnot(None))
-        .values(text_id=new_uuid)
+        .values(text_id=new_text_id)
     )
     deleted_row_count = result.rowcount
 
@@ -201,8 +198,8 @@ def remap_text_ids(db: Session, old_text_id: str, new_text_id: str) -> Tuple[dic
         table=GroupRecitationCollectionItem.__table__,
         id_column="text_id",
         owner_columns=["group_recitation_collection_id"],
-        old_value=old_uuid,
-        new_value=new_uuid,
+        old_value=old_text_id,
+        new_value=new_text_id,
         extra_where=lambda t: t.c.deleted_at.is_(None),
     )
     updated["group_recitation_collection_items"] = count + deleted_row_count
