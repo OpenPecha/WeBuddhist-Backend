@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
@@ -192,12 +193,18 @@ def resolve_titles_for_rows(
     return {}
 
 
-def _get_ordered_recitations_response(**kwargs):
-    from pecha_api.recitations.order.recitation_order_loader import (
-        get_ordered_recitations_response,
+def _fetch_recitations_sync(
+    *, language: str, search: Optional[str], skip: int, limit: int
+) -> Tuple[list, int]:
+    from pecha_api.recitations.recitations_services import (
+        _fetch_recitation_texts_from_openpecha,
     )
 
-    return get_ordered_recitations_response(**kwargs)
+    return asyncio.run(
+        _fetch_recitation_texts_from_openpecha(
+            language=language, search=search, skip=skip, limit=limit
+        )
+    )
 
 
 def _resolve_recitation_titles(*, item_ids: Sequence[str]) -> Dict[str, str]:
@@ -205,7 +212,7 @@ def _resolve_recitation_titles(*, item_ids: Sequence[str]) -> Dict[str, str]:
     found: Dict[str, str] = {}
     for language in ("en", "bo"):
         try:
-            response = _get_ordered_recitations_response(
+            recitations, _ = _fetch_recitations_sync(
                 language=language,
                 search=None,
                 skip=0,
@@ -213,7 +220,7 @@ def _resolve_recitation_titles(*, item_ids: Sequence[str]) -> Dict[str, str]:
             )
         except (OSError, ValueError, TypeError, KeyError, AttributeError, HTTPException):
             continue
-        for recitation in response.recitations:
+        for recitation in recitations:
             text_id = str(recitation.text_id)
             if text_id in wanted and text_id not in found and recitation.title:
                 found[text_id] = recitation.title.strip()
@@ -450,7 +457,7 @@ def _search_recitations(
     *, term: Optional[str], skip: int, limit: int
 ) -> Tuple[List[ChinaRestrictionCandidateDTO], int]:
     try:
-        response = _get_ordered_recitations_response(
+        recitations, total = _fetch_recitations_sync(
             language="en",
             search=term,
             skip=skip,
@@ -464,6 +471,6 @@ def _search_recitations(
             id=str(recitation.text_id),
             title=recitation.title or "Untitled recitation",
         )
-        for recitation in response.recitations
+        for recitation in recitations
     ]
-    return items, response.total
+    return items, total

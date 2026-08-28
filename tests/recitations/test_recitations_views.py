@@ -193,7 +193,7 @@ async def test_get_recitation_details_success():
         title="Test Recitation",
         segments=[
             RecitationSegment(
-                recitation={"en": Segment(id=uuid.uuid4(), content="Test content")},
+                recitation={"en": Segment(id=str(uuid.uuid4()), content="Test content")},
                 translations={},
                 transliterations={},
                 adaptations={}
@@ -234,13 +234,13 @@ async def test_get_recitation_details_with_multiple_segments():
         title="Multi Segment Recitation",
         segments=[
             RecitationSegment(
-                recitation={"en": Segment(id=uuid.uuid4(), content="Segment 1")},
+                recitation={"en": Segment(id=str(uuid.uuid4()), content="Segment 1")},
                 translations={},
                 transliterations={},
                 adaptations={}
             ),
             RecitationSegment(
-                recitation={"en": Segment(id=uuid.uuid4(), content="Segment 2")},
+                recitation={"en": Segment(id=str(uuid.uuid4()), content="Segment 2")},
                 translations={},
                 transliterations={},
                 adaptations={}
@@ -279,13 +279,13 @@ async def test_get_recitation_details_with_all_types():
         title="Complete Recitation",
         segments=[
             RecitationSegment(
-                recitation={"en": Segment(id=uuid.uuid4(), content="Recitation content")},
+                recitation={"en": Segment(id=str(uuid.uuid4()), content="Recitation content")},
                 translations={
-                    "bo": Segment(id=uuid.uuid4(), content="Tibetan translation"),
-                    "en": Segment(id=uuid.uuid4(), content="English translation")
+                    "bo": Segment(id=str(uuid.uuid4()), content="Tibetan translation"),
+                    "en": Segment(id=str(uuid.uuid4()), content="English translation")
                 },
-                transliterations={"bo": Segment(id=uuid.uuid4(), content="Transliteration")},
-                adaptations={"en": Segment(id=uuid.uuid4(), content="Adaptation")}
+                transliterations={"bo": Segment(id=str(uuid.uuid4()), content="Transliteration")},
+                adaptations={"en": Segment(id=str(uuid.uuid4()), content="Adaptation")}
             )
         ]
     )

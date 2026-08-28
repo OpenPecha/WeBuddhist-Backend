@@ -102,8 +102,8 @@ class TestSetRecitationByTextIdCache:
     async def test_set_recitation_by_text_id_cache_with_multiple_segments(self):
         """Test setting cache with multiple segments."""
         text_id = str(uuid4())
-        segment_id_1 = uuid4()
-        segment_id_2 = uuid4()
+        segment_id_1 = str(uuid4())
+        segment_id_2 = str(uuid4())
         
         recitation_request = RecitationDetailsRequest(
             language="en",
@@ -485,8 +485,8 @@ class TestRecitationCacheIntegration:
             title="Integration Test Recitation",
             segments=[
                 RecitationSegment(
-                    recitation={"en": Segment(id=segment_id, content="Test content")},
-                    translations={"bo": Segment(id=segment_id, content="བོད་ཡིག")},
+                    recitation={"en": Segment(id=str(segment_id), content="Test content")},
+                    translations={"bo": Segment(id=str(segment_id), content="བོད་ཡིག")},
                     transliterations={},
                     adaptations={}
                 )

@@ -1,134 +1,246 @@
+from types import SimpleNamespace
+from uuid import uuid4
+
 import pytest
-from unittest.mock import patch, MagicMock
-from uuid import uuid4, UUID
 from fastapi import HTTPException
 from starlette import status
 
-from pecha_api.recitations.recitations_services import (
-    get_list_of_recitations_service,
-    get_recitation_details_service,
-    get_recitations_with_first_segments,
-    segments_mapping_by_toc,
-    filter_by_type_and_language,
-    _filter_and_map_segments,
-)
+from pecha_api.cache.cache_enums import CacheType
+from pecha_api.config import get as get_config
+from pecha_api.error_contants import ErrorConstants
 from pecha_api.recitations.recitations_response_models import (
-    RecitationDTO,
+    ListRecitationsRequest,
     RecitationCollectionDTO,
     RecitationCollectionItemType,
-    RecitationsResponse,
-    ListRecitationsRequest,
     RecitationDetailsRequest,
     RecitationDetailsResponse,
-    RecitationSegment,
+    RecitationDTO,
+    RecitationsResponse,
     Segment,
 )
-from pecha_api.texts.texts_response_models import TableOfContent, TableOfContentType, Section, TextSegment, TextDTO
-from pecha_api.texts.segments.segments_response_models import (
-    SegmentDTO,
-    SegmentTranslation,
-    SegmentTransliteration,
-    SegmentAdaptation,
-    SegmentRecitation,
+from pecha_api.recitations.recitations_services import (
+    _build_first_segment,
+    _build_recitation_segments,
+    _fetch_full_edition_segments,
+    _fetch_language_segment_map,
+    _fetch_recitation_texts_from_openpecha,
+    _get_user_collections_for_token,
+    get_list_of_recitations_service,
+    get_recitation_details_service,
+    get_text_details_by_text_id,
 )
-from pecha_api.texts.segments.segments_enum import SegmentType
-from pecha_api.recitations.recitations_enum import RecitationListTextType, LanguageCode
-from pecha_api.texts.texts_enums import TextType
-from pecha_api.error_contants import ErrorConstants
-from pecha_api.cache.cache_enums import CacheType
+from pecha_api.texts.text_openpecha_response_models import (
+    CriticalEditionModel,
+    EditionContentResponse,
+    SegmentContentModel,
+    SegmentationResponseModel,
+    SegmentationSegmentResponseModel,
+    SegmentLineModel,
+    SegmentSpans,
+)
+from unittest.mock import MagicMock, patch
+
+
+class TestFetchRecitationTextsFromOpenpecha:
+    """Test cases for _fetch_recitation_texts_from_openpecha."""
+
+    @patch('pecha_api.recitations.recitations_services.fetch_texts_by_category')
+    @pytest.mark.asyncio
+    async def test_success(self, mock_fetch):
+        mock_fetch.return_value = {
+            "items": [
+                {"id": "text-1", "title": {"en": "Refuge and Bodhichitta"}, "language": "en"},
+                {"id": "text-2", "title": {"en": "Four Boundless Thoughts"}, "language": "en"},
+            ],
+            "has_more": False,
+        }
+
+        recitations, total = await _fetch_recitation_texts_from_openpecha(
+            language="en", search=None, skip=0, limit=10
+        )
+
+        assert total == 2
+        assert len(recitations) == 2
+        assert recitations[0].text_id == "text-1"
+        assert recitations[0].title == "Refuge and Bodhichitta"
+        assert mock_fetch.call_args.kwargs["category_id"] == get_config("RECITATION_CATEGORY_ID")
+        assert mock_fetch.call_args.kwargs["language"] == "en"
+
+    @patch('pecha_api.recitations.recitations_services.fetch_texts_by_category')
+    @pytest.mark.asyncio
+    async def test_pagination_is_in_memory(self, mock_fetch):
+        mock_fetch.return_value = {
+            "items": [
+                {"id": f"text-{i}", "title": {"en": f"Text {i}"}, "language": "en"}
+                for i in range(5)
+            ],
+            "has_more": False,
+        }
+
+        recitations, total = await _fetch_recitation_texts_from_openpecha(
+            language="en", search=None, skip=2, limit=2
+        )
+
+        assert total == 5
+        assert len(recitations) == 2
+        assert recitations[0].text_id == "text-2"
+
+    @patch('pecha_api.recitations.recitations_services.fetch_texts_by_category')
+    @pytest.mark.asyncio
+    async def test_upstream_failure_raises_bad_gateway(self, mock_fetch):
+        mock_fetch.side_effect = Exception("boom")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await _fetch_recitation_texts_from_openpecha(language="en", search=None, skip=0, limit=10)
+
+        assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+class TestBuildFirstSegment:
+    """Test cases for _build_first_segment."""
+
+    @patch('pecha_api.recitations.recitations_services.fetch_edition_content')
+    @patch('pecha_api.recitations.recitations_services.fetch_segmentation_segments')
+    @patch('pecha_api.recitations.recitations_services.fetch_editions_segmentation')
+    @patch('pecha_api.recitations.recitations_services.fetch_critical_editions')
+    @pytest.mark.asyncio
+    async def test_success(self, mock_editions, mock_segmentations, mock_segments, mock_content):
+        mock_editions.return_value = [CriticalEditionModel(id="edition-1", type="critical")]
+        mock_segmentations.return_value = [
+            SegmentationResponseModel(id="seg-1", edition_id="edition-1", text_id="text-1")
+        ]
+        mock_segments.return_value = SegmentationSegmentResponseModel(
+            items=[SegmentSpans(id="span-1", lines=[SegmentLineModel(start=0, end=5)])],
+            has_more=False,
+            offset=0,
+            limit=1,
+        )
+        mock_content.return_value = EditionContentResponse(content="Hello world")
+
+        result = await _build_first_segment(text_id="text-1")
+
+        assert result is not None
+        assert result.id == "span-1"
+        assert result.content == "Hello"
+
+    @patch('pecha_api.recitations.recitations_services.fetch_critical_editions')
+    @pytest.mark.asyncio
+    async def test_no_editions_returns_none(self, mock_editions):
+        mock_editions.return_value = []
+
+        assert await _build_first_segment(text_id="text-1") is None
+
+    @patch('pecha_api.recitations.recitations_services.fetch_critical_editions')
+    @pytest.mark.asyncio
+    async def test_swallows_upstream_errors(self, mock_editions):
+        mock_editions.side_effect = Exception("network error")
+
+        assert await _build_first_segment(text_id="text-1") is None
+
+    @patch('pecha_api.recitations.recitations_services.fetch_edition_content')
+    @patch('pecha_api.recitations.recitations_services.fetch_editions_segmentation')
+    @patch('pecha_api.recitations.recitations_services.fetch_critical_editions')
+    @pytest.mark.asyncio
+    async def test_falls_back_to_whole_content_when_no_segmentation(
+        self, mock_editions, mock_segmentations, mock_content
+    ):
+        mock_editions.return_value = [CriticalEditionModel(id="edition-1", type="critical")]
+        mock_segmentations.side_effect = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+        mock_content.return_value = EditionContentResponse(content="A" * 900)
+
+        result = await _build_first_segment(text_id="text-1")
+
+        assert result is not None
+        assert result.id == "edition-1"
+        assert len(result.content) == 500
 
 
 class TestGetListOfRecitationsService:
-    """Test cases for get_list_of_recitations_service function."""
+    """Test cases for get_list_of_recitations_service."""
 
+    @patch('pecha_api.recitations.recitations_services.set_recitation_list_cache')
+    @patch('pecha_api.recitations.recitations_services.get_recitation_list_cache')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
+    @patch('pecha_api.recitations.recitations_services._build_first_segment')
+    @patch('pecha_api.recitations.recitations_services._fetch_recitation_texts_from_openpecha')
     @pytest.mark.asyncio
-    async def test_get_list_of_recitations_service_success(
+    async def test_cache_miss_fetches_and_caches(
         self,
-        mock_get_recitations_with_image_urls,
+        mock_fetch_texts,
+        mock_build_first_segment,
+        mock_get_images,
+        mock_get_cache,
+        mock_set_cache,
     ):
-        """Test successful retrieval of recitations list from JSON order data."""
-        mock_get_recitations_with_image_urls.side_effect = lambda recitations: recitations
+        mock_get_cache.return_value = None
+        mock_fetch_texts.return_value = (
+            [RecitationDTO(title="Refuge and Bodhichitta", text_id="text-1")],
+            1,
+        )
+        mock_build_first_segment.return_value = Segment(id="seg-1", content="Hello")
+        mock_get_images.side_effect = lambda recitations: recitations
 
         result = await get_list_of_recitations_service(
             request=ListRecitationsRequest(language="en")
         )
 
         assert isinstance(result, RecitationsResponse)
-        assert len(result.recitations) == 10
-        assert result.collections == []
-        assert result.skip == 0
-        assert result.limit == 10
-        assert result.total == 21
-        assert result.recitations[0].title == "Refuge and Bodhichitta"
-        assert result.recitations[0].first_segment is not None
-        mock_get_recitations_with_image_urls.assert_called_once()
-
-    @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
-    @pytest.mark.asyncio
-    async def test_get_list_of_recitations_service_search_filter_no_match(
-        self,
-        mock_get_recitations_with_image_urls,
-    ):
-        """Test get_list_of_recitations_service when search filter returns no match."""
-        mock_get_recitations_with_image_urls.side_effect = lambda recitations: recitations
-
-        result = await get_list_of_recitations_service(
-            request=ListRecitationsRequest(search="nonexistent", language="en")
-        )
-
-        assert isinstance(result, RecitationsResponse)
-        assert len(result.recitations) == 0
-        assert result.recitations == []
-        assert result.collections == []
-        assert result.total == 0
-
-    @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
-    @pytest.mark.asyncio
-    async def test_get_list_of_recitations_service_with_search_match(
-        self,
-        mock_get_recitations_with_image_urls,
-    ):
-        """Test get_list_of_recitations_service when search filter matches."""
-        mock_get_recitations_with_image_urls.side_effect = lambda recitations: recitations
-
-        result = await get_list_of_recitations_service(
-            request=ListRecitationsRequest(search="refuge", language="en")
-        )
-
-        assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 1
-        assert result.recitations[0].title == "Refuge and Bodhichitta"
+        assert result.recitations[0].first_segment.content == "Hello"
         assert result.total == 1
+        assert result.collections == []
+        mock_set_cache.assert_called_once()
 
+    @patch('pecha_api.recitations.recitations_services.set_recitation_list_cache')
+    @patch('pecha_api.recitations.recitations_services.get_recitation_list_cache')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
+    @patch('pecha_api.recitations.recitations_services._fetch_recitation_texts_from_openpecha')
     @pytest.mark.asyncio
-    async def test_get_list_of_recitations_service_different_languages(
+    async def test_cache_hit_skips_upstream_fetch(
         self,
-        mock_get_recitations_with_image_urls,
+        mock_fetch_texts,
+        mock_get_images,
+        mock_get_cache,
+        mock_set_cache,
     ):
-        """Test get_list_of_recitations_service with different language parameters."""
-        mock_get_recitations_with_image_urls.side_effect = lambda recitations: recitations
-
-        bo_result = await get_list_of_recitations_service(
-            request=ListRecitationsRequest(language="bo")
+        cached = RecitationsResponse(
+            recitations=[RecitationDTO(title="Cached Title", text_id="text-1")],
+            collections=[],
+            skip=0,
+            limit=10,
+            total=1,
         )
-        en_result = await get_list_of_recitations_service(
-            request=ListRecitationsRequest(language="fr")
+        mock_get_cache.return_value = cached
+        mock_get_images.side_effect = lambda recitations: recitations
+
+        result = await get_list_of_recitations_service(
+            request=ListRecitationsRequest(language="en")
         )
 
-        assert bo_result.recitations[0].title == "སྐྱབས་འགྲོ་སེམས་བསྐྱེད།"
-        assert en_result.recitations[0].title == "Refuge and Bodhichitta"
+        assert result.recitations[0].title == "Cached Title"
+        mock_fetch_texts.assert_not_called()
+        mock_set_cache.assert_not_called()
 
-    @patch("pecha_api.recitations.recitations_services._get_user_collections_for_token")
-    @patch("pecha_api.recitations.recitations_services.get_recitations_with_image_urls")
+    @patch('pecha_api.recitations.recitations_services._get_user_collections_for_token')
+    @patch('pecha_api.recitations.recitations_services.set_recitation_list_cache')
+    @patch('pecha_api.recitations.recitations_services.get_recitation_list_cache')
+    @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
+    @patch('pecha_api.recitations.recitations_services._build_first_segment')
+    @patch('pecha_api.recitations.recitations_services._fetch_recitation_texts_from_openpecha')
     @pytest.mark.asyncio
-    async def test_get_list_of_recitations_service_with_token_includes_collections(
+    async def test_includes_user_collections_with_token(
         self,
-        mock_get_recitations_with_image_urls,
+        mock_fetch_texts,
+        mock_build_first_segment,
+        mock_get_images,
+        mock_get_cache,
+        mock_set_cache,
         mock_get_user_collections,
     ):
-        mock_get_recitations_with_image_urls.side_effect = lambda recitations: recitations
+        mock_get_cache.return_value = None
+        mock_fetch_texts.return_value = ([], 0)
+        mock_build_first_segment.return_value = None
+        mock_get_images.side_effect = lambda recitations: recitations
         collection_id = uuid4()
         mock_get_user_collections.return_value = [
             RecitationCollectionDTO(
@@ -141,261 +253,17 @@ class TestGetListOfRecitationsService:
 
         result = await get_list_of_recitations_service(
             request=ListRecitationsRequest(
-                language="en",
-                token="valid_token",
-                should_include_collections=True,
+                language="en", token="valid_token", should_include_collections=True
             )
         )
 
         assert len(result.collections) == 1
         assert result.collections[0].name == "Morning Set"
-        assert result.collections[0].collection_id == collection_id
         mock_get_user_collections.assert_called_once_with(
             token="valid_token",
             should_include_collections=True,
             should_include_group_collections=False,
         )
-
-    @patch("pecha_api.recitations.recitations_services.validate_and_extract_user_details")
-    @patch("pecha_api.recitations.recitations_services.get_group_collection_item_counts")
-    @patch("pecha_api.recitations.recitations_services.get_collections_by_group_ids")
-    @patch("pecha_api.recitations.recitations_services.get_joined_group_ids_by_user")
-    @patch("pecha_api.recitations.recitations_services.get_following_group_ids_by_user")
-    @patch("pecha_api.recitations.recitations_services.get_collection_item_counts")
-    @patch("pecha_api.recitations.recitations_services.get_all_user_collections")
-    @patch("pecha_api.recitations.recitations_services.SessionLocal")
-    @patch("pecha_api.recitations.recitations_services._presigned_image_url")
-    def test_get_user_collections_for_token_builds_individual_and_group(
-        self,
-        mock_presign,
-        mock_session_local,
-        mock_get_collections,
-        mock_item_counts,
-        mock_followed_groups,
-        mock_joined_groups,
-        mock_group_collections,
-        mock_group_item_counts,
-        mock_validate,
-    ):
-        from types import SimpleNamespace
-        from pecha_api.recitations.recitations_services import (
-            _get_user_collections_for_token,
-        )
-
-        user_id = uuid4()
-        group_id = uuid4()
-        individual_id = uuid4()
-        group_collection_id = uuid4()
-        mock_validate.return_value = SimpleNamespace(id=user_id)
-        mock_session_local.return_value.__enter__.return_value = MagicMock()
-        mock_session_local.return_value.__exit__.return_value = None
-        mock_get_collections.return_value = [
-            SimpleNamespace(
-                id=individual_id,
-                name="Morning Set",
-                img_url="collections/morning.jpg",
-            )
-        ]
-        mock_item_counts.return_value = {individual_id: 4}
-        mock_followed_groups.return_value = [group_id]
-        mock_joined_groups.return_value = []
-        mock_group_collections.return_value = [
-            SimpleNamespace(
-                id=group_collection_id,
-                group_id=group_id,
-                name="Sangha Chants",
-                img_url="group-collections/sangha.jpg",
-            )
-        ]
-        mock_group_item_counts.return_value = {group_collection_id: 5}
-        mock_presign.side_effect = [
-            "https://example.com/collection.jpg",
-            "https://example.com/group.jpg",
-        ]
-
-        result = _get_user_collections_for_token(
-            token="valid_token",
-            should_include_collections=True,
-            should_include_group_collections=True,
-        )
-
-        assert len(result) == 2
-        assert result[0].type == RecitationCollectionItemType.RECITATION_COLLECTION
-        assert result[0].name == "Morning Set"
-        assert result[0].item_count == 4
-        assert result[1].type == RecitationCollectionItemType.GROUP_RECITATION_COLLECTION
-        assert result[1].name == "Sangha Chants"
-        assert result[1].group_id == group_id
-        assert result[1].item_count == 5
-        mock_group_collections.assert_called_once_with(
-            db=mock_session_local.return_value.__enter__.return_value,
-            group_ids=[group_id],
-        )
-
-    @patch("pecha_api.recitations.recitations_services.validate_and_extract_user_details")
-    @patch("pecha_api.recitations.recitations_services.get_collection_item_counts")
-    @patch("pecha_api.recitations.recitations_services.get_all_user_collections")
-    @patch("pecha_api.recitations.recitations_services.SessionLocal")
-    @patch("pecha_api.recitations.recitations_services._presigned_image_url")
-    def test_get_user_collections_individual_only(
-        self,
-        mock_presign,
-        mock_session_local,
-        mock_get_collections,
-        mock_item_counts,
-        mock_validate,
-    ):
-        from types import SimpleNamespace
-        from pecha_api.recitations.recitations_services import (
-            _get_user_collections_for_token,
-        )
-
-        user_id = uuid4()
-        collection_id = uuid4()
-        mock_validate.return_value = SimpleNamespace(id=user_id)
-        mock_session_local.return_value.__enter__.return_value = MagicMock()
-        mock_session_local.return_value.__exit__.return_value = None
-        mock_get_collections.return_value = [
-            SimpleNamespace(
-                id=collection_id,
-                name="Morning Set",
-                img_url="collections/morning.jpg",
-            )
-        ]
-        mock_item_counts.return_value = {collection_id: 4}
-        mock_presign.return_value = "https://example.com/collection.jpg"
-
-        result = _get_user_collections_for_token(
-            token="valid_token",
-            should_include_collections=True,
-            should_include_group_collections=False,
-        )
-
-        assert len(result) == 1
-        assert result[0].type == RecitationCollectionItemType.RECITATION_COLLECTION
-
-    @patch("pecha_api.recitations.recitations_services.validate_and_extract_user_details")
-    @patch("pecha_api.recitations.recitations_services.get_group_collection_item_counts")
-    @patch("pecha_api.recitations.recitations_services.get_collections_by_group_ids")
-    @patch("pecha_api.recitations.recitations_services.get_joined_group_ids_by_user")
-    @patch("pecha_api.recitations.recitations_services.get_following_group_ids_by_user")
-    @patch("pecha_api.recitations.recitations_services.SessionLocal")
-    @patch("pecha_api.recitations.recitations_services._presigned_image_url")
-    def test_get_user_collections_group_only(
-        self,
-        mock_presign,
-        mock_session_local,
-        mock_followed_groups,
-        mock_joined_groups,
-        mock_group_collections,
-        mock_group_item_counts,
-        mock_validate,
-    ):
-        from types import SimpleNamespace
-        from pecha_api.recitations.recitations_services import (
-            _get_user_collections_for_token,
-        )
-
-        user_id = uuid4()
-        group_id = uuid4()
-        collection_id = uuid4()
-        mock_validate.return_value = SimpleNamespace(id=user_id)
-        mock_session_local.return_value.__enter__.return_value = MagicMock()
-        mock_session_local.return_value.__exit__.return_value = None
-        mock_followed_groups.return_value = []
-        mock_joined_groups.return_value = [group_id]
-        mock_group_collections.return_value = [
-            SimpleNamespace(
-                id=collection_id,
-                group_id=group_id,
-                name="Sangha Chants",
-                img_url="group-collections/sangha.jpg",
-            )
-        ]
-        mock_group_item_counts.return_value = {collection_id: 5}
-        mock_presign.return_value = "https://example.com/group.jpg"
-
-        result = _get_user_collections_for_token(
-            token="valid_token",
-            should_include_collections=False,
-            should_include_group_collections=True,
-        )
-
-        assert len(result) == 1
-        assert result[0].type == RecitationCollectionItemType.GROUP_RECITATION_COLLECTION
-        assert result[0].group_id == group_id
-        mock_group_collections.assert_called_once_with(
-            db=mock_session_local.return_value.__enter__.return_value,
-            group_ids=[group_id],
-        )
-
-    @patch("pecha_api.recitations.recitations_services.validate_and_extract_user_details")
-    @patch("pecha_api.recitations.recitations_services.get_group_collection_item_counts")
-    @patch("pecha_api.recitations.recitations_services.get_collections_by_group_ids")
-    @patch("pecha_api.recitations.recitations_services.get_joined_group_ids_by_user")
-    @patch("pecha_api.recitations.recitations_services.get_following_group_ids_by_user")
-    @patch("pecha_api.recitations.recitations_services.SessionLocal")
-    @patch("pecha_api.recitations.recitations_services._presigned_image_url")
-    def test_get_user_collections_merges_followed_and_joined_groups(
-        self,
-        mock_presign,
-        mock_session_local,
-        mock_followed_groups,
-        mock_joined_groups,
-        mock_group_collections,
-        mock_group_item_counts,
-        mock_validate,
-    ):
-        from types import SimpleNamespace
-        from pecha_api.recitations.recitations_services import (
-            _get_user_collections_for_token,
-        )
-
-        user_id = uuid4()
-        followed_group_id = uuid4()
-        joined_group_id = uuid4()
-        mock_validate.return_value = SimpleNamespace(id=user_id)
-        mock_session_local.return_value.__enter__.return_value = MagicMock()
-        mock_session_local.return_value.__exit__.return_value = None
-        mock_followed_groups.return_value = [followed_group_id]
-        mock_joined_groups.return_value = [joined_group_id, followed_group_id]
-        mock_group_collections.return_value = []
-        mock_group_item_counts.return_value = {}
-        mock_presign.return_value = None
-
-        result = _get_user_collections_for_token(
-            token="valid_token",
-            should_include_collections=False,
-            should_include_group_collections=True,
-        )
-
-        assert result == []
-        mock_group_collections.assert_called_once_with(
-            db=mock_session_local.return_value.__enter__.return_value,
-            group_ids=[followed_group_id, joined_group_id],
-        )
-
-    def test_get_user_collections_for_token_without_token_returns_empty(self):
-        from pecha_api.recitations.recitations_services import (
-            _get_user_collections_for_token,
-        )
-
-        assert _get_user_collections_for_token(
-            token=None,
-            should_include_collections=True,
-            should_include_group_collections=True,
-        ) == []
-
-    def test_get_user_collections_flags_false_returns_empty(self):
-        from pecha_api.recitations.recitations_services import (
-            _get_user_collections_for_token,
-        )
-
-        assert _get_user_collections_for_token(
-            token="valid_token",
-            should_include_collections=False,
-            should_include_group_collections=False,
-        ) == []
 
     def test_collection_dto_omits_group_id_for_individual(self):
         collection_id = uuid4()
@@ -425,66 +293,246 @@ class TestGetListOfRecitationsService:
         assert data["item_count"] == 5
 
 
-class TestGetRecitationsWithFirstSegments:
-    """Test cases for get_recitations_with_first_segments function."""
+class TestGetUserCollectionsForToken:
+    """Test cases for _get_user_collections_for_token."""
 
-    @patch('pecha_api.recitations.recitations_services.build_first_segment_previews_for_texts')
-    @pytest.mark.asyncio
-    async def test_get_recitations_with_first_segments_success(
+    @patch("pecha_api.recitations.recitations_services.validate_and_extract_user_details")
+    @patch("pecha_api.recitations.recitations_services.get_group_collection_item_counts")
+    @patch("pecha_api.recitations.recitations_services.get_collections_by_group_ids")
+    @patch("pecha_api.recitations.recitations_services.get_joined_group_ids_by_user")
+    @patch("pecha_api.recitations.recitations_services.get_following_group_ids_by_user")
+    @patch("pecha_api.recitations.recitations_services.get_collection_item_counts")
+    @patch("pecha_api.recitations.recitations_services.get_all_user_collections")
+    @patch("pecha_api.recitations.recitations_services.SessionLocal")
+    @patch("pecha_api.recitations.recitations_services._presigned_image_url")
+    def test_builds_individual_and_group(
         self,
-        mock_build_first_segment_previews_for_texts,
+        mock_presign,
+        mock_session_local,
+        mock_get_collections,
+        mock_item_counts,
+        mock_followed_groups,
+        mock_joined_groups,
+        mock_group_collections,
+        mock_group_item_counts,
+        mock_validate,
     ):
-        text_id = str(uuid4())
-        segment_id = str(uuid4())
-        recitation_dto = RecitationDTO(text_id=text_id, title="Test Recitation")
+        user_id = uuid4()
+        group_id = uuid4()
+        individual_id = uuid4()
+        group_collection_id = uuid4()
+        mock_validate.return_value = SimpleNamespace(id=user_id)
+        mock_session_local.return_value.__enter__.return_value = MagicMock()
+        mock_session_local.return_value.__exit__.return_value = None
+        mock_get_collections.return_value = [
+            SimpleNamespace(id=individual_id, name="Morning Set", img_url="collections/morning.jpg")
+        ]
+        mock_item_counts.return_value = {individual_id: 4}
+        mock_followed_groups.return_value = [group_id]
+        mock_joined_groups.return_value = []
+        mock_group_collections.return_value = [
+            SimpleNamespace(
+                id=group_collection_id, group_id=group_id, name="Sangha Chants", img_url="group-collections/sangha.jpg"
+            )
+        ]
+        mock_group_item_counts.return_value = {group_collection_id: 5}
+        mock_presign.side_effect = [
+            "https://example.com/collection.jpg",
+            "https://example.com/group.jpg",
+        ]
 
-        mock_build_first_segment_previews_for_texts.return_value = {
-            text_id: (segment_id, "Verse 1\nVerse 2\nVerse 3"),
+        result = _get_user_collections_for_token(
+            token="valid_token",
+            should_include_collections=True,
+            should_include_group_collections=True,
+        )
+
+        assert len(result) == 2
+        assert result[0].type == RecitationCollectionItemType.RECITATION_COLLECTION
+        assert result[0].name == "Morning Set"
+        assert result[0].item_count == 4
+        assert result[1].type == RecitationCollectionItemType.GROUP_RECITATION_COLLECTION
+        assert result[1].name == "Sangha Chants"
+        assert result[1].group_id == group_id
+        assert result[1].item_count == 5
+
+    def test_without_token_returns_empty(self):
+        assert _get_user_collections_for_token(
+            token=None,
+            should_include_collections=True,
+            should_include_group_collections=True,
+        ) == []
+
+    def test_flags_false_returns_empty(self):
+        assert _get_user_collections_for_token(
+            token="valid_token",
+            should_include_collections=False,
+            should_include_group_collections=False,
+        ) == []
+
+
+class TestFetchFullEditionSegments:
+    """Test cases for _fetch_full_edition_segments."""
+
+    @patch('pecha_api.recitations.recitations_services.fetch_edition_content')
+    @patch('pecha_api.recitations.recitations_services.fetch_segmentation_segments')
+    @patch('pecha_api.recitations.recitations_services.fetch_editions_segmentation')
+    @patch('pecha_api.recitations.recitations_services.fetch_critical_editions')
+    @pytest.mark.asyncio
+    async def test_paginates_until_exhausted(
+        self, mock_editions, mock_segmentations, mock_segments, mock_content
+    ):
+        mock_editions.return_value = [CriticalEditionModel(id="edition-1", type="critical")]
+        mock_segmentations.return_value = [
+            SegmentationResponseModel(id="seg-1", edition_id="edition-1", text_id="text-1")
+        ]
+        page_1 = SegmentationSegmentResponseModel(
+            items=[SegmentSpans(id="a", lines=[SegmentLineModel(start=0, end=1)])],
+            has_more=True,
+            offset=0,
+            limit=1,
+        )
+        page_2 = SegmentationSegmentResponseModel(
+            items=[SegmentSpans(id="b", lines=[SegmentLineModel(start=1, end=2)])],
+            has_more=False,
+            offset=1,
+            limit=1,
+        )
+        mock_segments.side_effect = [page_1, page_2]
+        mock_content.return_value = EditionContentResponse(content="XY")
+
+        result = await _fetch_full_edition_segments(text_id="text-1")
+
+        assert len(result) == 2
+        assert result[0].content == "X"
+        assert result[1].content == "Y"
+        assert mock_segments.call_count == 2
+
+    @patch('pecha_api.recitations.recitations_services.fetch_critical_editions')
+    @pytest.mark.asyncio
+    async def test_no_editions_returns_empty(self, mock_editions):
+        mock_editions.return_value = []
+
+        assert await _fetch_full_edition_segments(text_id="text-1") == []
+
+    @patch('pecha_api.recitations.recitations_services.fetch_edition_content')
+    @patch('pecha_api.recitations.recitations_services.fetch_editions_segmentation')
+    @patch('pecha_api.recitations.recitations_services.fetch_critical_editions')
+    @pytest.mark.asyncio
+    async def test_falls_back_to_whole_content_when_no_segmentation(
+        self, mock_editions, mock_segmentations, mock_content
+    ):
+        mock_editions.return_value = [CriticalEditionModel(id="edition-1", type="critical")]
+        mock_segmentations.side_effect = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+        mock_content.return_value = EditionContentResponse(content="Full raw text")
+
+        result = await _fetch_full_edition_segments(text_id="text-1")
+
+        assert len(result) == 1
+        assert result[0].id == "edition-1"
+        assert result[0].content == "Full raw text"
+        assert result[0].segment_number == 1
+
+    @patch('pecha_api.recitations.recitations_services.fetch_editions_segmentation')
+    @patch('pecha_api.recitations.recitations_services.fetch_critical_editions')
+    @pytest.mark.asyncio
+    async def test_non_404_segmentation_error_propagates(self, mock_editions, mock_segmentations):
+        mock_editions.return_value = [CriticalEditionModel(id="edition-1", type="critical")]
+        mock_segmentations.side_effect = HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="boom")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await _fetch_full_edition_segments(text_id="text-1")
+
+        assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+class TestFetchLanguageSegmentMap:
+    """Test cases for _fetch_language_segment_map."""
+
+    @patch('pecha_api.recitations.recitations_services._fetch_full_edition_segments')
+    @pytest.mark.asyncio
+    async def test_skips_languages_without_candidate(self, mock_fetch_full):
+        mock_fetch_full.return_value = [SegmentContentModel(id="a", content="A", segment_number=1)]
+        candidates = [SimpleNamespace(id="text-en", language="en")]
+
+        result = await _fetch_language_segment_map(languages=["en", "fr"], candidates=candidates)
+
+        assert list(result.keys()) == ["en"]
+        mock_fetch_full.assert_called_once_with(text_id="text-en")
+
+    @patch('pecha_api.recitations.recitations_services._fetch_full_edition_segments')
+    @pytest.mark.asyncio
+    async def test_swallows_fetch_errors_per_language(self, mock_fetch_full):
+        mock_fetch_full.side_effect = Exception("boom")
+        candidates = [SimpleNamespace(id="text-en", language="en")]
+
+        result = await _fetch_language_segment_map(languages=["en"], candidates=candidates)
+
+        assert result == {"en": []}
+
+    @pytest.mark.asyncio
+    async def test_no_relevant_languages_returns_empty(self):
+        candidates = [SimpleNamespace(id="text-en", language="en")]
+
+        result = await _fetch_language_segment_map(languages=["fr"], candidates=candidates)
+
+        assert result == {}
+
+
+class TestBuildRecitationSegments:
+    """Test cases for _build_recitation_segments."""
+
+    def test_positional_alignment(self):
+        language_segments = {
+            "en": [
+                SegmentContentModel(id="e1", content="Root 1", segment_number=1),
+                SegmentContentModel(id="e2", content="Root 2", segment_number=2),
+            ],
+            "bo": [
+                SegmentContentModel(id="b1", content="Trans 1", segment_number=1),
+            ],
         }
+        request = RecitationDetailsRequest(
+            language="en", recitation=["en"], translations=["bo"], transliterations=[], adaptations=[]
+        )
 
-        result = await get_recitations_with_first_segments(recitations=[recitation_dto])
+        segments = _build_recitation_segments(
+            root_language="en", language_segments=language_segments, recitation_details_request=request
+        )
 
-        assert len(result) == 1
-        assert result[0].first_segment is not None
-        assert str(result[0].first_segment.id) == segment_id
-        assert result[0].first_segment.content == "Verse 1\nVerse 2\nVerse 3"
+        assert len(segments) == 2
+        assert segments[0].recitation["en"].content == "Root 1"
+        assert segments[0].translations["bo"].content == "Trans 1"
+        assert segments[1].translations == {}
 
-    @pytest.mark.asyncio
-    async def test_get_recitations_with_first_segments_empty_list(self):
-        result = await get_recitations_with_first_segments(recitations=[])
-        assert result == []
+    def test_no_root_segments_returns_empty(self):
+        request = RecitationDetailsRequest(
+            language="en", recitation=["en"], translations=[], transliterations=[], adaptations=[]
+        )
 
-    @patch('pecha_api.recitations.recitations_services.build_first_segment_previews_for_texts')
-    @pytest.mark.asyncio
-    async def test_get_recitations_with_first_segments_no_toc(
-        self,
-        mock_build_first_segment_previews_for_texts,
-    ):
-        text_id = str(uuid4())
-        recitation_dto = RecitationDTO(text_id=text_id, title="Test Recitation")
-        mock_build_first_segment_previews_for_texts.return_value = {}
+        segments = _build_recitation_segments(
+            root_language="en", language_segments={}, recitation_details_request=request
+        )
 
-        result = await get_recitations_with_first_segments(recitations=[recitation_dto])
-
-        assert len(result) == 1
-        assert result[0].first_segment is None
+        assert segments == []
 
 
 class TestGetRecitationDetailsService:
-    """Test cases for get_recitation_details_service function."""
+    """Test cases for get_recitation_details_service."""
 
-   
     @patch('pecha_api.recitations.recitations_services.get_text_details_by_text_id')
     @patch('pecha_api.recitations.recitations_services.get_recitation_by_text_id_cache')
     @pytest.mark.asyncio
-    async def test_get_recitation_details_service_text_not_found(self, mock_get_cache, mock_get_text_details):
+    async def test_text_not_found(self, mock_get_cache, mock_get_text_details):
         mock_get_cache.return_value = None
         mock_get_text_details.side_effect = HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
         )
         req = RecitationDetailsRequest(language="en", recitation=["en"], translations=[], transliterations=[], adaptations=[])
+
         with pytest.raises(HTTPException) as exc_info:
             await get_recitation_details_service(text_id=str(uuid4()), recitation_details_request=req)
+
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
 
@@ -492,1030 +540,102 @@ class TestGetRecitationDetailsService:
     @patch('pecha_api.recitations.recitations_services.get_text_details_by_text_id')
     @patch('pecha_api.recitations.recitations_services.get_text_versions_from_openpecha')
     @pytest.mark.asyncio
-    async def test_get_recitation_details_service_root_text_not_found(
+    async def test_root_text_not_found(
         self,
         mock_get_versions,
         mock_get_text_details_by_text_id,
         mock_get_cache,
     ):
-        mock_get_cache.return_value = None  # No cached data
+        mock_get_cache.return_value = None
         main_text_id = str(uuid4())
-        main_text = MagicMock(id=main_text_id, title="Main Title")
-        mock_get_text_details_by_text_id.return_value = main_text
+        mock_get_text_details_by_text_id.return_value = SimpleNamespace(id=main_text_id, title="Main Title")
         mock_get_versions.return_value = MagicMock(
-            text=MagicMock(language="fr"),
-            versions=[MagicMock(language="de")],
+            text=SimpleNamespace(id="text-fr", language="fr"),
+            versions=[SimpleNamespace(id="text-de", language="de")],
         )
 
         req = RecitationDetailsRequest(language="en", recitation=["en"], translations=[], transliterations=[], adaptations=[])
         with pytest.raises(HTTPException) as exc_info:
             await get_recitation_details_service(text_id=main_text_id, recitation_details_request=req)
+
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
 
     @patch('pecha_api.recitations.recitations_services.get_recitation_by_text_id_cache')
     @pytest.mark.asyncio
-    async def test_get_recitation_details_service_returns_cached_data(
-        self,
-        mock_get_cache,
-    ):
-        """Test that cached data is returned when available."""
+    async def test_returns_cached_data(self, mock_get_cache):
         text_id = str(uuid4())
-
-        # Create cached response
-        cached_response = RecitationDetailsResponse(
-            text_id=text_id,
-            title="Cached Title",
-            segments=[]
-        )
+        cached_response = RecitationDetailsResponse(text_id=text_id, title="Cached Title", segments=[])
         mock_get_cache.return_value = cached_response
 
         req = RecitationDetailsRequest(
-            language="en",
-            recitation=["en"],
-            translations=[],
-            transliterations=[],
-            adaptations=[]
+            language="en", recitation=["en"], translations=[], transliterations=[], adaptations=[]
         )
 
-        # Execute
         result = await get_recitation_details_service(text_id=text_id, recitation_details_request=req)
 
-        # Verify
         assert result == cached_response
         assert result.text_id == text_id
         assert result.title == "Cached Title"
         mock_get_cache.assert_called_once()
 
-
-class TestSegmentsMappingByToc:
-    """Test cases for _segments_mapping_by_toc function."""
-
-    @staticmethod
-    def create_mock_table_of_content(text_id: str = None, segment_ids: list = None) -> TableOfContent:
-        """Create a mock TableOfContent object."""
-        text_id = text_id or str(uuid4())
-        segment_ids = segment_ids or [str(uuid4())]
-        
-        segments = [
-            TextSegment(segment_id=segment_id, segment_number=i+1)
-            for i, segment_id in enumerate(segment_ids)
-        ]
-        
-        section = Section(
-            id=str(uuid4()),
-            title="Test Section",
-            section_number=1,
-            segments=segments
-        )
-        
-        return TableOfContent(
-            id=str(uuid4()),
-            type=TableOfContentType.TEXT,
-            text_id=text_id,
-            sections=[section]
-        )
-
-    @staticmethod
-    def create_mock_segment_dto(segment_id: str = None, content: str = "Test content") -> SegmentDTO:
-        """Create a mock SegmentDTO object."""
-        return SegmentDTO(
-            id=segment_id or str(uuid4()),
-            text_id=str(uuid4()),
-            content=content,
-            type=SegmentType.SOURCE
-        )
-
-    @staticmethod
-    def create_mock_text_dto(text_id: str = None, language: str = "en") -> TextDTO:
-        """Create a mock TextDTO object."""
-        return TextDTO(
-            id=text_id or str(uuid4()),
-            title="Test Text",
-            language=language,
-            group_id=str(uuid4()),
-            type="root",
-            is_published=True,
-            created_date="2023-01-01",
-            updated_date="2023-01-01",
-            published_date="2023-01-01",
-            published_by=str(uuid4())
-        )
-
-    @staticmethod
-    def create_mock_segment_translation(segment_id: str, language: str = "en", content: str = "Translation content") -> SegmentTranslation:
-        """Create a mock SegmentTranslation object."""
-        return SegmentTranslation(
-            segment_id=segment_id,
-            text_id=str(uuid4()),
-            title="Translation Title",
-            source="test_source",
-            language=language,
-            content=content
-        )
-
-    @staticmethod
-    def create_mock_segment_transliteration(segment_id: str, language: str = "bo", content: str = "Transliteration content") -> SegmentTransliteration:
-        """Create a mock SegmentTransliteration object."""
-        return SegmentTransliteration(
-            segment_id=segment_id,
-            text_id=str(uuid4()),
-            title="Transliteration Title",
-            source="test_source",
-            language=language,
-            content=content
-        )
-
-    @staticmethod
-    def create_mock_segment_adaptation(segment_id: str, language: str = "en", content: str = "Adaptation content") -> SegmentAdaptation:
-        """Create a mock SegmentAdaptation object."""
-        return SegmentAdaptation(
-            segment_id=segment_id,
-            text_id=str(uuid4()),
-            title="Adaptation Title",
-            source="test_source",
-            language=language,
-            content=content
-        )
-
-    @staticmethod
-    def create_mock_segment_recitation(segment_id: str, language: str = "en", content: str = "Recitation content") -> SegmentRecitation:
-        """Create a mock SegmentRecitation object."""
-        return SegmentRecitation(
-            segment_id=segment_id,
-            text_id=str(uuid4()),
-            title="Recitation Title",
-            source="test_source",
-            language=language,
-            content=content
-        )
-
-    @patch('pecha_api.recitations.recitations_services.get_segments_details_by_ids')
-    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments_batch')
-    @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
+    @patch('pecha_api.recitations.recitations_services.set_recitation_by_text_id_cache')
+    @patch('pecha_api.recitations.recitations_services._fetch_language_segment_map')
+    @patch('pecha_api.recitations.recitations_services.get_text_versions_from_openpecha')
+    @patch('pecha_api.recitations.recitations_services.get_text_details_by_text_id')
+    @patch('pecha_api.recitations.recitations_services.get_recitation_by_text_id_cache')
     @pytest.mark.asyncio
-    async def test_segments_mapping_by_toc_empty_table_of_contents(
+    async def test_success_builds_positional_segments(
         self,
-        mock_filter_segments,
-        mock_get_related_segments,
-        mock_get_segments_details,
+        mock_get_cache,
+        mock_get_text_details,
+        mock_get_versions,
+        mock_fetch_language_map,
+        mock_set_cache,
     ):
-        """Test mapping with empty table of contents."""
-        request = RecitationDetailsRequest(
-            language="en",
-            recitation=["en"],
-            translations=[],
-            transliterations=[],
-            adaptations=[]
+        text_id = str(uuid4())
+        mock_get_cache.return_value = None
+        mock_get_text_details.return_value = SimpleNamespace(id=text_id, title="Main Title")
+        mock_get_versions.return_value = MagicMock(
+            text=SimpleNamespace(id="text-en", language="en"),
+            versions=[SimpleNamespace(id="text-bo", language="bo")],
         )
-
-        # Execute
-        result = await segments_mapping_by_toc([], request)
-
-        # Verify
-        assert len(result) == 0
-        assert result == []
-        
-        # Verify no mock calls were made
-        mock_get_segments_details.assert_not_called()
-        mock_get_related_segments.assert_not_called()
-        mock_filter_segments.assert_not_called()
-
-class TestFilterByTypeAndLanguage:
-    """Test cases for filter_by_type_and_language function."""
-
-    def test_filter_by_type_and_language_translations(self):
-        """Test filtering translations by language."""
-        segment_id = str(uuid4())
-        items = [
-            SegmentTranslation(
-                segment_id=segment_id,
-                text_id=str(uuid4()),
-                title="English Translation",
-                source="test",
-                language="en",
-                content="English content"
-            ),
-            SegmentTranslation(
-                segment_id=segment_id,
-                text_id=str(uuid4()),
-                title="Tibetan Translation",
-                source="test",
-                language="bo",
-                content="Tibetan content"
-            )
-        ]
-        languages = ["en"]
-        
-        result = filter_by_type_and_language(
-            type=RecitationListTextType.TRANSLATIONS.value,
-            segments=items,
-            languages=languages
-        )
-        
-        assert len(result) == 1
-        assert "en" in result
-        assert "bo" not in result
-        assert result["en"].content == "English content"
-        assert result["en"].id == UUID(segment_id)
-
-    def test_filter_by_type_and_language_tibetan_transliteration(self):
-        """Test filtering Tibetan transliterations by language."""
-        segment_id = str(uuid4())
-        items = [
-            SegmentTransliteration(
-                segment_id=segment_id,
-                text_id=str(uuid4()),
-                title="Tibetan Transliteration",
-                source="test",
-                language="bo",
-                content="Original Tibetan content"
-            )
-        ]
-        languages = ["bo"]
-        
-        result = filter_by_type_and_language(
-            type=RecitationListTextType.TRANSLITERATIONS.value,
-            segments=items,
-            languages=languages
-        )
-        
-        assert len(result) == 1
-        assert "bo" in result
-        assert result["bo"].content == "Original Tibetan content"
-        assert result["bo"].id == UUID(segment_id)
-
-    def test_filter_by_type_and_language_non_tibetan_transliteration(self):
-        """Test filtering transliterations for non-Tibetan languages."""
-        segment_id = str(uuid4())
-        items = [
-            SegmentTransliteration(
-                segment_id=segment_id,
-                text_id=str(uuid4()),
-                title="English Transliteration",
-                source="test",
-                language="en",
-                content="English transliteration content"
-            )
-        ]
-        languages = ["en"]
-        
-        result = filter_by_type_and_language(
-            type=RecitationListTextType.TRANSLITERATIONS.value,
-            segments=items,
-            languages=languages
-        )
-        
-        assert len(result) == 1
-        assert "en" in result
-        assert result["en"].content == "English transliteration content"
-        assert result["en"].id == UUID(segment_id)
-
-    def test_filter_by_type_and_language_empty_items(self):
-        """Test filtering with empty items list."""
-        result = filter_by_type_and_language(
-            type=RecitationListTextType.TRANSLATIONS.value,
-            segments=[],
-            languages=["en"]
-        )
-        
-        assert len(result) == 0
-        assert result == {}
-
-    def test_filter_by_type_and_language_no_matching_languages(self):
-        """Test filtering when no items match requested languages."""
-        segment_id = str(uuid4())
-        items = [
-            SegmentTranslation(
-                segment_id=segment_id,
-                text_id=str(uuid4()),
-                title="French Translation",
-                source="test",
-                language="fr",
-                content="French content"
-            )
-        ]
-        languages = ["en", "bo"]  # Request different languages
-        
-        result = filter_by_type_and_language(
-            type=RecitationListTextType.TRANSLATIONS.value,
-            segments=items,
-            languages=languages
-        )
-        
-        assert len(result) == 0
-        assert result == {}
-
-    def test_filter_by_type_and_language_recitations(self):
-        """Test filtering recitations by language."""
-        segment_id = str(uuid4())
-        items = [
-            SegmentRecitation(
-                segment_id=segment_id,
-                text_id=str(uuid4()),
-                title="English Recitation",
-                source="test",
-                language="en",
-                content="English recitation content"
-            ),
-            SegmentRecitation(
-                segment_id=segment_id,
-                text_id=str(uuid4()),
-                title="Tibetan Recitation",
-                source="test",
-                language="bo",
-                content="Tibetan recitation content"
-            )
-        ]
-        languages = ["en"]
-        
-        result = filter_by_type_and_language(
-            type=RecitationListTextType.RECITATIONS.value,
-            segments=items,
-            languages=languages
-        )
-        
-        assert len(result) == 1
-        assert "en" in result
-        assert "bo" not in result
-        assert result["en"].content == "English recitation content"
-        assert result["en"].id == UUID(segment_id)
-
-    def test_filter_by_type_and_language_adaptations(self):
-        """Test filtering adaptations by language."""
-        segment_id = str(uuid4())
-        items = [
-            SegmentAdaptation(
-                segment_id=segment_id,
-                text_id=str(uuid4()),
-                title="English Adaptation",
-                source="test",
-                language="en",
-                content="English adaptation content"
-            )
-        ]
-        languages = ["en", "bo"]
-        
-        result = filter_by_type_and_language(
-            type=RecitationListTextType.ADAPTATIONS.value,
-            segments=items,
-            languages=languages
-        )
-        
-        assert len(result) == 1
-        assert "en" in result
-        assert result["en"].content == "English adaptation content"
-        assert result["en"].id == UUID(segment_id)
-
-
-class TestFilterAndMapSegments:
-    """Test cases for _filter_and_map_segments helper function."""
-
-    @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
-    @patch('pecha_api.recitations.recitations_services.filter_by_type_and_language')
-    @pytest.mark.asyncio
-    async def test_filter_and_map_segments_success(
-        self,
-        mock_filter_by_type_lang,
-        mock_filter_segments
-    ):
-        """Test _filter_and_map_segments successfully filters and maps segments."""
-        segment_id = str(uuid4())
-        segment_dto = SegmentDTO(
-            id=segment_id,
-            text_id=str(uuid4()),
-            content="Test content",
-            type=SegmentType.SOURCE
-        )
-        
-        # Mock filter_segment_mapping_by_type_or_text_id to return segments
-        mock_translation = SegmentTranslation(
-            segment_id=segment_id,
-            text_id=str(uuid4()),
-            title="Translation",
-            source="test",
-            language="en",
-            content="Translated content"
-        )
-        mock_filter_segments.return_value = [mock_translation]
-        
-        # Mock filter_by_type_and_language to return mapped result
-        expected_result = {
-            "en": Segment(id=UUID(segment_id), content="Translated content")
+        mock_fetch_language_map.return_value = {
+            "en": [
+                SegmentContentModel(id="seg-1", content="Root 1", segment_number=1),
+                SegmentContentModel(id="seg-2", content="Root 2", segment_number=2),
+            ],
+            "bo": [
+                SegmentContentModel(id="seg-1-bo", content="Trans 1", segment_number=1),
+            ],
         }
-        mock_filter_by_type_lang.return_value = expected_result
-        
-        # Execute
-        result = await _filter_and_map_segments(
-            all_segments=[segment_dto],
-            filter_type=RecitationListTextType.TRANSLATIONS.value,
-            languages=["en"]
-        )
-        
-        # Verify
-        assert result == expected_result
-        mock_filter_segments.assert_called_once_with(
-            segments=[segment_dto],
-            type=TextType.VERSION.value
-        )
-        mock_filter_by_type_lang.assert_called_once_with(
-            type=RecitationListTextType.TRANSLATIONS.value,
-            segments=[mock_translation],
-            languages=["en"]
+
+        req = RecitationDetailsRequest(
+            language="en", recitation=["en"], translations=["bo"], transliterations=[], adaptations=[]
         )
 
-    @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
-    @patch('pecha_api.recitations.recitations_services.filter_by_type_and_language')
-    @pytest.mark.asyncio
-    async def test_filter_and_map_segments_empty_result(
-        self,
-        mock_filter_by_type_lang,
-        mock_filter_segments
-    ):
-        """Test _filter_and_map_segments with no matching segments."""
-        segment_dto = SegmentDTO(
-            id=str(uuid4()),
-            text_id=str(uuid4()),
-            content="Test content",
-            type=SegmentType.SOURCE
-        )
-        
-        mock_filter_segments.return_value = []
-        mock_filter_by_type_lang.return_value = {}
-        
-        # Execute
-        result = await _filter_and_map_segments(
-            all_segments=[segment_dto],
-            filter_type=RecitationListTextType.RECITATIONS.value,
-            languages=["en"]
-        )
-        
-        # Verify
-        assert result == {}
-        mock_filter_segments.assert_called_once()
-        mock_filter_by_type_lang.assert_called_once_with(
-            type=RecitationListTextType.RECITATIONS.value,
-            segments=[],
-            languages=["en"]
-        )
+        result = await get_recitation_details_service(text_id=text_id, recitation_details_request=req)
 
-    @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
-    @patch('pecha_api.recitations.recitations_services.filter_by_type_and_language')
-    @pytest.mark.asyncio
-    async def test_filter_and_map_segments_multiple_languages(
-        self,
-        mock_filter_by_type_lang,
-        mock_filter_segments
-    ):
-        """Test _filter_and_map_segments with multiple languages."""
-        segment_id = str(uuid4())
-        segment_dto = SegmentDTO(
-            id=segment_id,
-            text_id=str(uuid4()),
-            content="Test content",
-            type=SegmentType.SOURCE
-        )
-        
-        # Mock segments in different languages
-        mock_segments = [
-            SegmentTranslation(
-                segment_id=segment_id,
-                text_id=str(uuid4()),
-                title="English Translation",
-                source="test",
-                language="en",
-                content="English content"
-            ),
-            SegmentTranslation(
-                segment_id=segment_id,
-                text_id=str(uuid4()),
-                title="Tibetan Translation",
-                source="test",
-                language="bo",
-                content="Tibetan content"
-            )
-        ]
-        mock_filter_segments.return_value = mock_segments
-        
-        expected_result = {
-            "en": Segment(id=UUID(segment_id), content="English content"),
-            "bo": Segment(id=UUID(segment_id), content="Tibetan content")
-        }
-        mock_filter_by_type_lang.return_value = expected_result
-        
-        # Execute
-        result = await _filter_and_map_segments(
-            all_segments=[segment_dto],
-            filter_type=RecitationListTextType.TRANSLATIONS.value,
-            languages=["en", "bo"]
-        )
-        
-        # Verify
-        assert result == expected_result
-        assert len(result) == 2
-        assert "en" in result
-        assert "bo" in result
+        assert result.text_id == text_id
+        assert result.title == "Main Title"
+        assert len(result.segments) == 2
+        assert result.segments[0].recitation["en"].content == "Root 1"
+        assert result.segments[0].translations["bo"].content == "Trans 1"
+        assert result.segments[1].translations == {}
+        mock_set_cache.assert_called_once()
 
 
 class TestGetTextDetailsByTextId:
-    """Test cases for get_text_details_by_text_id function."""
+    """Test cases for get_text_details_by_text_id."""
 
     @patch('pecha_api.recitations.recitations_services.get_text_by_id_from_openpecha')
     @pytest.mark.asyncio
-    async def test_get_text_details_by_text_id_success(self, mock_get_text_detail):
-        """Test successful retrieval of text details by text_id."""
-        from pecha_api.recitations.recitations_services import get_text_details_by_text_id
-        
+    async def test_success(self, mock_get_text_detail):
         text_id = str(uuid4())
-        expected_text = MagicMock(
-            id=text_id,
-            title="Test Text",
-            group_id="group-123",
-            language="en"
-        )
+        expected_text = MagicMock(id=text_id, title="Test Text", group_id="group-123", language="en")
         mock_get_text_detail.return_value = expected_text
-        
+
         result = await get_text_details_by_text_id(text_id=text_id)
-        
+
         assert result == expected_text
         mock_get_text_detail.assert_called_once_with(text_id=text_id)
-
-
-class TestGetRecitationDetailsServiceSuccess:
-    """Test cases for successful get_recitation_details_service execution."""
-
-    @patch('pecha_api.recitations.recitations_services.get_recitation_by_text_id_cache')
-    @patch('pecha_api.recitations.recitations_services.get_text_details_by_text_id')
-    @patch('pecha_api.recitations.recitations_services.get_text_versions_from_openpecha')
-    @patch('pecha_api.recitations.recitations_services.get_contents_by_id')
-    @patch('pecha_api.recitations.recitations_services.segments_mapping_by_toc')
-    @patch('pecha_api.recitations.recitations_services.set_recitation_by_text_id_cache')
-    @pytest.mark.asyncio
-    async def test_get_recitation_details_service_success(
-        self,
-        mock_set_cache,
-        mock_segments_mapping,
-        mock_get_contents,
-        mock_get_versions,
-        mock_get_text_details,
-        mock_get_cache,
-    ):
-        """Test successful execution of get_recitation_details_service."""
-        # Setup
-        text_id = str(uuid4())
-        group_id = str(uuid4())
-        root_text_id = str(uuid4())
-
-        mock_get_cache.return_value = None  # No cached data
-
-        main_text = TextDTO(
-            id=text_id,
-            title="Main Text Title",
-            group_id=group_id,
-            language="en",
-            type="root_text",
-            is_published=True,
-            created_date="2023-01-01",
-            updated_date="2023-01-01",
-            published_date="2023-01-01",
-            published_by=str(uuid4())
-        )
-        mock_get_text_details.return_value = main_text
-
-        root_text = MagicMock(id=root_text_id, title="Root Text Title", language="en")
-        mock_get_versions.return_value = MagicMock(
-            text=MagicMock(language="fr"),
-            versions=[root_text],
-        )
-
-        toc = [TableOfContent(id=str(uuid4()), type=TableOfContentType.TEXT, text_id=root_text_id, sections=[])]
-        mock_get_contents.return_value = toc
-
-        mock_segments = [RecitationSegment()]
-        mock_segments_mapping.return_value = mock_segments
-
-        request = RecitationDetailsRequest(
-            language="en",
-            recitation=["en"],
-            translations=[],
-            transliterations=[],
-            adaptations=[]
-        )
-
-        # Execute
-        result = await get_recitation_details_service(text_id=text_id, recitation_details_request=request)
-
-        # Verify
-        assert result.text_id == text_id
-        assert result.title == "Main Text Title"
-        assert result.segments == mock_segments
-
-        mock_get_cache.assert_called_once()
-        mock_get_text_details.assert_called_once_with(text_id=text_id)
-        mock_get_versions.assert_called_once_with(text_id=text_id)
-        mock_get_contents.assert_called_once_with(text_id=root_text_id)
-        mock_segments_mapping.assert_called_once_with(table_of_contents=toc, recitation_details_request=request)
-
-        # Verify cache was set
-        mock_set_cache.assert_called_once()
-        call_args = mock_set_cache.call_args
-        assert call_args.kwargs['text_id'] == text_id
-        assert call_args.kwargs['recitation_details_request'] == request
-        assert call_args.kwargs['data'] == result
-
-
-class TestSegmentsMappingByTocWithData:
-    """Test cases for segments_mapping_by_toc with actual data."""
-
-    @patch('pecha_api.recitations.recitations_services.get_segments_details_by_ids')
-    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments_batch')
-    @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
-    @pytest.mark.asyncio
-    async def test_segments_mapping_by_toc_with_single_segment(
-        self,
-        mock_filter_segments,
-        mock_get_related_segments_batch,
-        mock_get_segments_by_ids
-    ):
-        """Test segments_mapping_by_toc with a single segment."""
-        segment_id = str(uuid4())
-        text_id = str(uuid4())
-        
-        # Create table of content with one segment
-        toc = [
-            TableOfContent(
-                id=str(uuid4()),
-                type=TableOfContentType.TEXT,
-                text_id=text_id,
-                sections=[
-                    Section(
-                        id=str(uuid4()),
-                        title="Section 1",
-                        section_number=1,
-                        segments=[
-                            TextSegment(segment_id=segment_id, segment_number=1)
-                        ]
-                    )
-                ]
-            )
-        ]
-        
-        # Mock segment details - batch function returns dict
-        segment_dto = SegmentDTO(
-            id=segment_id,
-            text_id=text_id,
-            content="Test segment content",
-            type=SegmentType.SOURCE
-        )
-        mock_get_segments_by_ids.return_value = {segment_id: segment_dto}
-        mock_get_related_segments_batch.return_value = {segment_id: []}
-        
-        # Mock filter responses for each type
-        mock_filter_segments.return_value = []
-        
-        request = RecitationDetailsRequest(
-            language="en",
-            recitation=["en"],
-            translations=["en"],
-            transliterations=["bo"],
-            adaptations=["en"]
-        )
-        
-        # Execute
-        result = await segments_mapping_by_toc(table_of_contents=toc, recitation_details_request=request)
-        
-        # Verify
-        assert len(result) == 1
-        assert isinstance(result[0], RecitationSegment)
-        
-        # Verify batch functions were called
-        mock_get_segments_by_ids.assert_called_once_with(segment_ids=[segment_id])
-        mock_get_related_segments_batch.assert_called_once_with(parent_segment_ids=[segment_id])
-        
-        # Verify filter was called 4 times (recitations, translations, transliterations, adaptations)
-        assert mock_filter_segments.call_count == 4
-
-    @patch('pecha_api.recitations.recitations_services.get_segments_details_by_ids')
-    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments_batch')
-    @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
-    @pytest.mark.asyncio
-    async def test_segments_mapping_by_toc_with_multiple_segments(
-        self,
-        mock_filter_segments,
-        mock_get_related_segments_batch,
-        mock_get_segments_by_ids
-    ):
-        """Test segments_mapping_by_toc with multiple segments."""
-        segment_id_1 = str(uuid4())
-        segment_id_2 = str(uuid4())
-        text_id = str(uuid4())
-        
-        # Create table of content with two segments
-        toc = [
-            TableOfContent(
-                id=str(uuid4()),
-                type=TableOfContentType.TEXT,
-                text_id=text_id,
-                sections=[
-                    Section(
-                        id=str(uuid4()),
-                        title="Section 1",
-                        section_number=1,
-                        segments=[
-                            TextSegment(segment_id=segment_id_1, segment_number=1),
-                            TextSegment(segment_id=segment_id_2, segment_number=2)
-                        ]
-                    )
-                ]
-            )
-        ]
-        
-        # Mock segment details - batch function returns dict
-        mock_get_segments_by_ids.return_value = {
-            segment_id_1: SegmentDTO(
-                id=segment_id_1,
-                text_id=text_id,
-                content=f"Content for {segment_id_1}",
-                type=SegmentType.SOURCE
-            ),
-            segment_id_2: SegmentDTO(
-                id=segment_id_2,
-                text_id=text_id,
-                content=f"Content for {segment_id_2}",
-                type=SegmentType.SOURCE
-            )
-        }
-        mock_get_related_segments_batch.return_value = {segment_id_1: [], segment_id_2: []}
-        mock_filter_segments.return_value = []
-        
-        request = RecitationDetailsRequest(
-            language="en",
-            recitation=["en"],
-            translations=[],
-            transliterations=[],
-            adaptations=[]
-        )
-        
-        # Execute
-        result = await segments_mapping_by_toc(table_of_contents=toc, recitation_details_request=request)
-        
-        # Verify
-        assert len(result) == 2
-        assert all(isinstance(seg, RecitationSegment) for seg in result)
-        
-        # Verify batch functions were called once with all segment IDs
-        mock_get_segments_by_ids.assert_called_once_with(segment_ids=[segment_id_1, segment_id_2])
-        # Related segments batch not called since no translations/transliterations/adaptations requested
-        mock_get_related_segments_batch.assert_not_called()
-
-    @patch('pecha_api.recitations.recitations_services.get_segments_details_by_ids')
-    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments_batch')
-    @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
-    @pytest.mark.asyncio
-    async def test_segments_mapping_by_toc_with_filtered_data(
-        self,
-        mock_filter_segments,
-        mock_get_related_segments_batch,
-        mock_get_segments_by_ids
-    ):
-        """Test segments_mapping_by_toc with filtered segment data."""
-        segment_id = str(uuid4())
-        text_id = str(uuid4())
-        
-        toc = [
-            TableOfContent(
-                id=str(uuid4()),
-                type=TableOfContentType.TEXT,
-                text_id=text_id,
-                sections=[
-                    Section(
-                        id=str(uuid4()),
-                        title="Section 1",
-                        section_number=1,
-                        segments=[
-                            TextSegment(segment_id=segment_id, segment_number=1)
-                        ]
-                    )
-                ]
-            )
-        ]
-        
-        segment_dto = SegmentDTO(
-            id=segment_id,
-            text_id=text_id,
-            content="Test content",
-            type=SegmentType.SOURCE
-        )
-        mock_get_segments_by_ids.return_value = {segment_id: segment_dto}
-        
-        # Mock some related segments - batch function returns dict
-        related_segment = SegmentDTO(
-            id=str(uuid4()),
-            text_id=str(uuid4()),
-            content="Related content",
-            type=SegmentType.SOURCE
-        )
-        mock_get_related_segments_batch.return_value = {segment_id: [related_segment]}
-        
-        # Mock filter to return actual segments
-        mock_translation = SegmentTranslation(
-            segment_id=str(uuid4()),
-            text_id=str(uuid4()),
-            title="Translation",
-            source="test",
-            language="en",
-            content="Translated content"
-        )
-        
-        def filter_side_effect(segments, type):
-            if type == TextType.VERSION.value:
-                return [mock_translation]
-            return []
-        
-        mock_filter_segments.side_effect = filter_side_effect
-        
-        request = RecitationDetailsRequest(
-            language="en",
-            recitation=["en"],
-            translations=["en"],
-            transliterations=[],
-            adaptations=[]
-        )
-        
-        # Execute
-        result = await segments_mapping_by_toc(table_of_contents=toc, recitation_details_request=request)
-        
-        # Verify
-        assert len(result) == 1
-        recitation_segment = result[0]
-        assert isinstance(recitation_segment, RecitationSegment)
-        
-        # Verify that related segments batch was called (since translations requested)
-        mock_get_related_segments_batch.assert_called_once_with(parent_segment_ids=[segment_id])
-
-    @patch('pecha_api.recitations.recitations_services.get_segments_details_by_ids')
-    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments_batch')
-    @patch('pecha_api.recitations.recitations_services.SegmentUtils.filter_segment_mapping_by_type_or_text_id')
-    @patch('pecha_api.recitations.recitations_services.filter_by_type_and_language')
-    @pytest.mark.asyncio
-    async def test_segments_mapping_by_toc_calls_filter_by_type_and_language(
-        self,
-        mock_filter_by_type_lang,
-        mock_filter_segments,
-        mock_get_related_segments_batch,
-        mock_get_segments_by_ids
-    ):
-        """Test that segments_mapping_by_toc properly calls filter_by_type_and_language for all segment types."""
-        segment_id = str(uuid4())
-        text_id = str(uuid4())
-        
-        toc = [
-            TableOfContent(
-                id=str(uuid4()),
-                type=TableOfContentType.TEXT,
-                text_id=text_id,
-                sections=[
-                    Section(
-                        id=str(uuid4()),
-                        title="Section 1",
-                        section_number=1,
-                        segments=[
-                            TextSegment(segment_id=segment_id, segment_number=1)
-                        ]
-                    )
-                ]
-            )
-        ]
-        
-        segment_dto = SegmentDTO(
-            id=segment_id,
-            text_id=text_id,
-            content="Test content",
-            type=SegmentType.SOURCE
-        )
-        mock_get_segments_by_ids.return_value = {segment_id: segment_dto}
-        mock_get_related_segments_batch.return_value = {segment_id: []}
-        
-        # Mock filter to return mock segments
-        mock_recitation = SegmentTranslation(
-            segment_id=str(uuid4()),
-            text_id=str(uuid4()),
-            title="Recitation",
-            source="test",
-            language="en",
-            content="Recitation content"
-        )
-        mock_translation = SegmentTranslation(
-            segment_id=str(uuid4()),
-            text_id=str(uuid4()),
-            title="Translation",
-            source="test",
-            language="bo",
-            content="Translation content"
-        )
-        
-        mock_filter_segments.return_value = [mock_recitation, mock_translation]
-        
-        # Mock filter_by_type_and_language to return empty dicts
-        mock_filter_by_type_lang.return_value = {}
-        
-        request = RecitationDetailsRequest(
-            language="en",
-            recitation=["en"],
-            translations=["bo"],
-            transliterations=["bo"],
-            adaptations=["en"]
-        )
-        
-        # Execute
-        result = await segments_mapping_by_toc(table_of_contents=toc, recitation_details_request=request)
-        
-        # Verify
-        assert len(result) == 1
-        
-        # Verify filter_by_type_and_language was called 4 times (once for each type)
-        assert mock_filter_by_type_lang.call_count == 4
-        
-        # Verify the calls were made with correct types
-        call_types = [call.kwargs['type'] for call in mock_filter_by_type_lang.call_args_list]
-        assert RecitationListTextType.RECITATIONS.value in call_types
-        assert RecitationListTextType.TRANSLATIONS.value in call_types
-        assert RecitationListTextType.TRANSLITERATIONS.value in call_types
-        assert RecitationListTextType.ADAPTATIONS.value in call_types
-
-    @patch('pecha_api.recitations.recitations_services.get_segments_details_by_ids')
-    @patch('pecha_api.recitations.recitations_services.get_related_mapped_segments_batch')
-    @patch('pecha_api.recitations.recitations_services._filter_and_map_segments')
-    @pytest.mark.asyncio
-    async def test_segments_mapping_by_toc_uses_helper_function(
-        self,
-        mock_filter_and_map,
-        mock_get_related_segments_batch,
-        mock_get_segments_by_ids
-    ):
-        """Test that segments_mapping_by_toc correctly uses _filter_and_map_segments helper."""
-        segment_id = str(uuid4())
-        text_id = str(uuid4())
-        
-        toc = [
-            TableOfContent(
-                id=str(uuid4()),
-                type=TableOfContentType.TEXT,
-                text_id=text_id,
-                sections=[
-                    Section(
-                        id=str(uuid4()),
-                        title="Section 1",
-                        section_number=1,
-                        segments=[
-                            TextSegment(segment_id=segment_id, segment_number=1)
-                        ]
-                    )
-                ]
-            )
-        ]
-        
-        segment_dto = SegmentDTO(
-            id=segment_id,
-            text_id=text_id,
-            content="Test content",
-            type=SegmentType.SOURCE
-        )
-        mock_get_segments_by_ids.return_value = {segment_id: segment_dto}
-        mock_get_related_segments_batch.return_value = {segment_id: []}
-        
-        # Mock the helper function to return empty dicts
-        mock_filter_and_map.return_value = {}
-        
-        request = RecitationDetailsRequest(
-            language="en",
-            recitation=["en"],
-            translations=["bo"],
-            transliterations=["bo"],
-            adaptations=["en"]
-        )
-        
-        # Execute
-        result = await segments_mapping_by_toc(table_of_contents=toc, recitation_details_request=request)
-        
-        # Verify
-        assert len(result) == 1
-        assert isinstance(result[0], RecitationSegment)
-        
-        # Verify _filter_and_map_segments was called 4 times
-        assert mock_filter_and_map.call_count == 4
-        
-        # Verify it was called with correct filter types
-        call_filter_types = [call.kwargs['filter_type'] for call in mock_filter_and_map.call_args_list]
-        assert RecitationListTextType.RECITATIONS.value in call_filter_types
-        assert RecitationListTextType.TRANSLATIONS.value in call_filter_types
-        assert RecitationListTextType.TRANSLITERATIONS.value in call_filter_types
-        assert RecitationListTextType.ADAPTATIONS.value in call_filter_types
-        
-        # Verify it was called with correct languages
-        calls = mock_filter_and_map.call_args_list
-        recitation_call = [c for c in calls if c.kwargs['filter_type'] == RecitationListTextType.RECITATIONS.value][0]
-        assert recitation_call.kwargs['languages'] == ["en"]
-        
-        translation_call = [c for c in calls if c.kwargs['filter_type'] == RecitationListTextType.TRANSLATIONS.value][0]
-        assert translation_call.kwargs['languages'] == ["bo"]

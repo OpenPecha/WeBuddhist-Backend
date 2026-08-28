@@ -170,14 +170,10 @@ def test_resolve_titles_for_accumulator_uses_metadata():
 
 def test_resolve_titles_for_recitation():
     text_id = uuid.uuid4()
-    fake_response = SimpleNamespace(
-        recitations=[SimpleNamespace(text_id=text_id, title="Heart Sutra")],
-        total=1,
-    )
 
     with patch(
-        "pecha_api.region_restrictions.region_restriction_item_lookup._get_ordered_recitations_response",
-        return_value=fake_response,
+        "pecha_api.region_restrictions.region_restriction_item_lookup._fetch_recitations_sync",
+        return_value=([SimpleNamespace(text_id=text_id, title="Heart Sutra")], 1),
     ):
         titles = resolve_titles_for_rows(
             MagicMock(),
@@ -215,14 +211,10 @@ def test_search_restriction_candidates_plans():
 
 def test_search_recitations_uses_order_loader():
     text_id = uuid.uuid4()
-    fake_response = SimpleNamespace(
-        recitations=[SimpleNamespace(text_id=text_id, title="Heart Sutra")],
-        total=1,
-    )
 
     with patch(
-        "pecha_api.region_restrictions.region_restriction_item_lookup._get_ordered_recitations_response",
-        return_value=fake_response,
+        "pecha_api.region_restrictions.region_restriction_item_lookup._fetch_recitations_sync",
+        return_value=([SimpleNamespace(text_id=text_id, title="Heart Sutra")], 1),
     ):
         items, total = search_restriction_candidates(
             MagicMock(),
@@ -239,7 +231,7 @@ def test_search_recitations_uses_order_loader():
 
 def test_search_recitations_returns_empty_on_loader_failure():
     with patch(
-        "pecha_api.region_restrictions.region_restriction_item_lookup._get_ordered_recitations_response",
+        "pecha_api.region_restrictions.region_restriction_item_lookup._fetch_recitations_sync",
         side_effect=ValueError("boom"),
     ):
         items, total = search_restriction_candidates(

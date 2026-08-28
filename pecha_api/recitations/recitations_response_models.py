@@ -5,7 +5,7 @@ from uuid import UUID
 
 
 class Segment(BaseModel):
-    id: UUID
+    id: str
     content: str
 
 
