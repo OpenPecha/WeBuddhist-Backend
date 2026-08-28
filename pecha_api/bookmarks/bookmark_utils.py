@@ -22,11 +22,12 @@ from pecha_api.texts.segments.segments_repository import (
     get_related_mapped_segments,
     get_segment_by_id,
 )
-from pecha_api.texts.texts_repository import (
-    get_all_texts_by_group_id,
-    get_first_segment_table_of_content,
-    get_texts_by_id,
+from fastapi import HTTPException
+from pecha_api.texts.texts_openpecha_service import (
+    get_text_by_id_from_openpecha,
+    get_text_versions_from_openpecha,
 )
+from pecha_api.texts.texts_repository import get_first_segment_table_of_content
 from pecha_api.plans.public.plan_repository import get_published_plan_by_id
 from pecha_api.plans.plans_enums import PlanStatus
 from pecha_api.plans.items.plan_items_models import PlanItem
@@ -109,6 +110,13 @@ def _text_language_code(text) -> str:
     return text.language if isinstance(text.language, str) else str(text.language)
 
 
+async def _try_get_openpecha_text(text_id: str):
+    try:
+        return await get_text_by_id_from_openpecha(text_id=text_id)
+    except HTTPException:
+        return None
+
+
 async def _resolve_text_segment(
     text_id: str,
     verse_id: Optional[str],
@@ -170,9 +178,9 @@ async def enrich_text_bookmark(
         if text:
             text_id = str(text.id)
         else:
-            text = await get_texts_by_id(text_id=text_id)
+            text = await _try_get_openpecha_text(text_id=text_id)
     else:
-        text = await get_texts_by_id(text_id=text_id)
+        text = await _try_get_openpecha_text(text_id=text_id)
 
     if not use_first_segment_preview and language and segment and text_id != segment.text_id:
         localized_segment = await _resolve_localized_segment(
@@ -209,14 +217,16 @@ async def enrich_text_bookmark(
 
 
 async def _resolve_localized_text(text_id: str, language: Optional[str]):
-    text = await get_texts_by_id(text_id=text_id)
+    text = await _try_get_openpecha_text(text_id=text_id)
     if not text or not language:
         return text
 
-    group_texts = await get_all_texts_by_group_id(group_id=text.group_id)
-    if not group_texts:
+    try:
+        version_response = await get_text_versions_from_openpecha(text_id=text_id)
+    except HTTPException:
         return text
 
+    group_texts = [version_response.text] + list(version_response.versions or [])
     matched = filter_by_language_with_fallback(
         entries=group_texts,
         language=language,

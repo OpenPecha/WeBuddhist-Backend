@@ -7,7 +7,7 @@ from .search_client import search_client
 from pecha_api.config import get
 from typing import List, Dict, Optional
 from pecha_api.texts.segments.segments_models import Segment
-from pecha_api.texts.texts_models import Text
+from pecha_api.texts.texts_openpecha_service import get_text_by_id_from_openpecha
 
 import logging
 from .search_response_models import (
@@ -180,14 +180,16 @@ def _sheet_search(query: str, skip: int, limit: int) -> SearchResponse:
 async def fetch_text_info(text_ids: List[str]) -> Dict[str, TextIndex]:
     text_info_map: Dict[str, TextIndex] = {}
     for text_id in text_ids:
-        text = await Text.get_text(text_id)
-        if text:
-            text_info_map[text_id] = TextIndex(
-                text_id=text_id,
-                language=text.language,
-                title=text.title,
-                published_date=str(text.created_at) if hasattr(text, 'created_at') else ""
-            )
+        try:
+            text = await get_text_by_id_from_openpecha(text_id=text_id)
+        except HTTPException:
+            continue
+        text_info_map[text_id] = TextIndex(
+            text_id=text_id,
+            language=text.language,
+            title=text.title,
+            published_date=str(text.created_at) if hasattr(text, 'created_at') else ""
+        )
     return text_info_map
 
 
