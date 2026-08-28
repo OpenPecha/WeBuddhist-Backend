@@ -205,11 +205,9 @@ def resolve_or_create_group_room(
     on the first message if the caller is a joiner/follower of the group. Any
     other joiner/follower is auto-added (or re-activated) as a MEMBER the
     first time they reach an already-existing room."""
-    # Checked before the existing-room shortcut: a room created while the group
-    # was live must stop serving once the group is hidden. Status-only lookup,
-    # since this runs on every message send. Callers that go on to write (i.e.
-    # sending a message) pass lock_group=True so a concurrent hide cannot land
-    # between this check and the commit.
+    # Before the existing-room shortcut, so a room created while the group was
+    # live stops serving once it is hidden. Writers pass lock_group=True to keep
+    # a concurrent hide out of the gap before their commit.
     if not is_group_id_published(db=db, group_id=group_id, for_update=lock_group):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
 
@@ -299,14 +297,33 @@ def _get_room_or_404(db: Session, room_id: UUID) -> ChatRoom:
     room = get_room_by_id(db=db, room_id=room_id)
     if not room:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
-    # Every room-id route resolves through here, so gating the group's
-    # publication status once closes detail, history, reactions, reports and
-    # member operations together. DM rooms have no group_id and are unaffected.
+    # Every room-id route resolves through here, so one gate closes detail,
+    # history, reactions, reports and member ops. DM rooms have no group_id.
     if room.group_id is not None and not is_group_id_published(
         db=db, group_id=room.group_id
     ):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=NOT_FOUND)
     return room
+
+
+async def close_group_chat_sockets(group_id: UUID) -> None:
+    """Drop live chat sockets for a group that is no longer published.
+
+    Best-effort: a Redis failure must not fail the hide. Worst case the socket
+    survives to its next frame, where the request-layer gate ends it.
+    """
+    try:
+        with SessionLocal() as db:
+            room = get_room_by_group_id(db=db, group_id=group_id)
+        if room is None:
+            return
+        from pecha_api.chat.chat_websocket import get_broadcaster
+
+        await get_broadcaster().broadcast_room_closed(
+            room_id=room.id, reason="GROUP_UNPUBLISHED"
+        )
+    except Exception:
+        logger.exception(f"Failed to close chat sockets for group {group_id}")
 
 
 def _require_active_member(db: Session, room_id: UUID, user_id: UUID) -> ChatRoomMember:

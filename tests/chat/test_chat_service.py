@@ -1,5 +1,6 @@
+import asyncio
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import AsyncMock, patch, MagicMock
 from uuid import uuid4
 from datetime import datetime, timezone as tz
 from fastapi import HTTPException
@@ -21,6 +22,7 @@ from pecha_api.chat.service import (
     list_group_people_service,
     list_my_rooms_service,
     mark_room_read_service,
+    close_group_chat_sockets,
     resolve_or_create_group_room,
     resolve_or_create_private_room,
     update_room_profile_service,
@@ -505,3 +507,49 @@ class TestRoomIdRoutesRespectGroupStatus:
 
         assert _get_room_or_404(db=MagicMock(), room_id=uuid4()) is room
         mock_published.assert_not_called()
+
+
+class TestCloseGroupChatSockets:
+
+    @patch('pecha_api.chat.chat_websocket.get_broadcaster')
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    @patch('pecha_api.chat.service.SessionLocal')
+    def test_publishes_room_closed_for_the_groups_room(
+        self, mock_session, mock_get_room, mock_get_broadcaster
+    ):
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        room = MagicMock(id=uuid4())
+        mock_get_room.return_value = room
+        broadcaster = AsyncMock()
+        mock_get_broadcaster.return_value = broadcaster
+
+        asyncio.run(close_group_chat_sockets(group_id=uuid4()))
+
+        broadcaster.broadcast_room_closed.assert_awaited_once()
+        assert broadcaster.broadcast_room_closed.await_args.kwargs["room_id"] == room.id
+
+    @patch('pecha_api.chat.chat_websocket.get_broadcaster')
+    @patch('pecha_api.chat.service.get_room_by_group_id', return_value=None)
+    @patch('pecha_api.chat.service.SessionLocal')
+    def test_no_room_means_nothing_to_close(
+        self, mock_session, _mock_get_room, mock_get_broadcaster
+    ):
+        mock_session.return_value.__enter__.return_value = MagicMock()
+
+        asyncio.run(close_group_chat_sockets(group_id=uuid4()))
+
+        mock_get_broadcaster.assert_not_called()
+
+    @patch('pecha_api.chat.chat_websocket.get_broadcaster')
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    @patch('pecha_api.chat.service.SessionLocal')
+    def test_broadcast_failure_never_fails_the_hide(
+        self, mock_session, mock_get_room, mock_get_broadcaster
+    ):
+        """The room is already gated at the request layer, so a Redis outage
+        must not stop a coordinator hiding their group."""
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_get_room.return_value = MagicMock(id=uuid4())
+        mock_get_broadcaster.side_effect = RuntimeError("redis down")
+
+        asyncio.run(close_group_chat_sockets(group_id=uuid4()))

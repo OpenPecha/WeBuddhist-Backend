@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from typing import Annotated, Optional
 from uuid import UUID
@@ -390,6 +391,7 @@ async def websocket_chat_live(
 
         from pecha_api.db.database import SessionLocal
         from pecha_api.chat.service import (
+            _get_room_or_404,
             _require_active_member,
             resolve_or_create_group_room,
             resolve_or_create_private_room,
@@ -418,7 +420,12 @@ async def websocket_chat_live(
         await broadcaster.add_connection(room_id, user.id, user.email, websocket)
         await broadcaster.broadcast_presence(room_id)
 
+        # Tells the cleanup below to close the socket rather than leave it open.
+        room_unreachable = False
+        closed_remotely = asyncio.Event()
+
         async def listen_redis():
+            nonlocal room_unreachable
             try:
                 async for message in pubsub.listen():
                     if message["type"] == "message":
@@ -426,6 +433,15 @@ async def websocket_chat_live(
                             await websocket.send_text(message["data"])
                         except (ConnectionClosedOK, ConnectionClosedError):
                             break
+                        # Published when the group is hidden, so every server
+                        # drops its own sockets for this room.
+                        try:
+                            if json.loads(message["data"]).get("type") == "room_closed":
+                                room_unreachable = True
+                                closed_remotely.set()
+                                break
+                        except (ValueError, TypeError):
+                            pass
             except Exception as e:
                 logger.error(f"Error listening to Redis: {e}")
 
@@ -433,11 +449,26 @@ async def websocket_chat_live(
 
         try:
             while True:
-                data = await websocket.receive_json()
+                # Race the next frame against eviction, so a hidden group
+                # drops idle sockets too.
+                receive_task = asyncio.create_task(websocket.receive_json())
+                closed_task = asyncio.create_task(closed_remotely.wait())
+                done, pending = await asyncio.wait(
+                    {receive_task, closed_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                for task in pending:
+                    task.cancel()
+                if closed_task in done:
+                    receive_task.cancel()
+                    break
+                data = receive_task.result()
 
                 if data.get("type") == "typing":
                     try:
                         with SessionLocal() as db:
+                            # Carries the group-publication gate.
+                            _get_room_or_404(db=db, room_id=room_id)
                             _require_active_member(db=db, room_id=room_id, user_id=user.id)
                         await broadcaster.broadcast_typing(
                             room_id,
@@ -451,6 +482,9 @@ async def websocket_chat_live(
                             "code": e.detail if isinstance(e.detail, str) else "ERROR",
                             "message": e.detail if isinstance(e.detail, str) else str(e.detail),
                         })
+                        # Room no longer reachable: end the session.
+                        room_unreachable = True
+                        break
                     except Exception as e:
                         logger.error(f"Failed to broadcast typing indicator: {e}")
                     continue
@@ -501,6 +535,11 @@ async def websocket_chat_live(
                             "code": e.detail if isinstance(e.detail, str) else "ERROR",
                             "message": e.detail if isinstance(e.detail, str) else str(e.detail),
                         })
+                    # 404 means the room is gone; other rejections (profanity,
+                    # bad parent id) are per-message and keep the socket usable.
+                    if e.status_code == status.HTTP_404_NOT_FOUND:
+                        room_unreachable = True
+                        break
                     continue
 
                 try:
@@ -519,6 +558,12 @@ async def websocket_chat_live(
                 await pubsub.unsubscribe(f"chat:room:{room_id}:messages")
             except Exception as e:
                 logger.error(f"Error unsubscribing from Redis: {e}")
+            if room_unreachable:
+                # Ended by eviction, not by the client, so close it here.
+                try:
+                    await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                except Exception:
+                    pass
 
     except Exception as e:
         logger.error(f"WebSocket error: {e}")

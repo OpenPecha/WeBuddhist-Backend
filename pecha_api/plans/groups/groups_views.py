@@ -6,6 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
 from pecha_api.plans.language_constants import language_query_description
+from pecha_api.chat.service import close_group_chat_sockets
 from pecha_api.plans.groups.groups_enums import (
     AuthorGroupInviteStatus,
     AuthorGroupJoinRequestStatus,
@@ -160,7 +161,7 @@ def patch_cms_group(
     status_code=status.HTTP_200_OK,
     response_model=AuthorGroupDetailDTO,
 )
-def patch_cms_group_status(
+async def patch_cms_group_status(
     group_id: UUID,
     update_group_status_request: UpdateAuthorGroupStatusRequest,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
@@ -169,11 +170,14 @@ def patch_cms_group_status(
 
     Only PUBLISHED groups appear on the app side, independent of is_public.
     """
-    return update_group_status(
+    detail = update_group_status(
         token=authentication_credential.credentials,
         group_id=group_id,
         request=update_group_status_request,
     )
+    if detail.status != AuthorGroupStatus.PUBLISHED:
+        await close_group_chat_sockets(group_id=group_id)
+    return detail
 
 
 @cms_groups_router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
