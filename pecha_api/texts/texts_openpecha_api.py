@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import HTTPException
 from starlette import status
 
-from pecha_api.external_clients import get_authenticated_open_pecha_client
+from pecha_api.external_clients import get_open_pecha_client
 from pecha_api.texts.text_openpecha_response_models import (
     ContributionModel,
     CriticalEditionModel,
@@ -57,7 +57,7 @@ def _parse_text_detail(data: dict[str, Any]) -> TextDetailResponse:
 
 
 async def fetch_text_detail(text_id: str) -> TextDetailResponse:
-    client = get_authenticated_open_pecha_client()
+    client = get_open_pecha_client()
 
     try:
         response = await client.get_async_httpx_client().get(f"/v2/texts/{text_id}")
@@ -85,7 +85,7 @@ async def fetch_text_detail(text_id: str) -> TextDetailResponse:
 
 
 async def fetch_text_source_link(text_id: str) -> str | None:
-    client = get_authenticated_open_pecha_client()
+    client = get_open_pecha_client()
 
     try:
         response = await client.get_async_httpx_client().get(
@@ -107,7 +107,7 @@ async def fetch_text_source_link(text_id: str) -> str | None:
 
 
 async def fetch_critical_editions(text_id: str) -> list[CriticalEditionModel]:
-    client = get_authenticated_open_pecha_client()
+    client = get_open_pecha_client()
 
     try:
         response = await client.get_async_httpx_client().get(
@@ -146,7 +146,7 @@ async def fetch_critical_editions(text_id: str) -> list[CriticalEditionModel]:
 
 
 async def fetch_editions_segmentation(edition_id: str) -> list[SegmentationResponseModel]:
-    client = get_authenticated_open_pecha_client()
+    client = get_open_pecha_client()
 
     try:
         response = await client.get_async_httpx_client().get(
@@ -180,7 +180,7 @@ async def fetch_editions_segmentation(edition_id: str) -> list[SegmentationRespo
 
 
 async def fetch_segmentation_segments(segmentation_id: str, limit: int, offset: int) -> SegmentationSegmentResponseModel:
-    client = get_authenticated_open_pecha_client()
+    client = get_open_pecha_client()
 
     try:
         response = await client.get_async_httpx_client().get(
@@ -223,7 +223,7 @@ async def fetch_segmentation_segments(segmentation_id: str, limit: int, offset: 
 
 
 async def fetch_edition_content(edition_id: str) -> EditionContentResponse:
-    client = get_authenticated_open_pecha_client()
+    client = get_open_pecha_client()
 
     try:
         response = await client.get_async_httpx_client().get(

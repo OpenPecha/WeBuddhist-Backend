@@ -1,7 +1,7 @@
 import logging
 from typing import Optional, Dict, Any
 
-from pecha_api.external_clients import get_authenticated_open_pecha_client
+from pecha_api.external_clients import get_open_pecha_client
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +24,7 @@ async def fetch_texts_by_category(
     if title:
         params["title"] = title
 
-    client = get_authenticated_open_pecha_client()
+    client = get_open_pecha_client()
     http_client = client.get_async_httpx_client()
     response = await http_client.get("/v2/texts", params=params)
     response.raise_for_status()
@@ -32,7 +32,7 @@ async def fetch_texts_by_category(
 
 
 async def fetch_text_by_id(text_id: str) -> Optional[Dict[str, Any]]:
-    client = get_authenticated_open_pecha_client()
+    client = get_open_pecha_client()
     http_client = client.get_async_httpx_client()
     response = await http_client.get(f"/v2/texts/{text_id}")
     response.raise_for_status()
@@ -58,7 +58,7 @@ async def search_by_content(
     if edition_id:
         params["edition_id"] = edition_id
         
-    client = get_authenticated_open_pecha_client()
+    client = get_open_pecha_client()
     http_client = client.get_async_httpx_client()
     response = await http_client.get("/v2/content-search", params=params)
     response.raise_for_status()
