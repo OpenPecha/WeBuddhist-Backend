@@ -18,8 +18,6 @@ class CacheType(Enum):
     USER_DAILY_LOG = "user_daily_log"
     USER_STATS = "user_stats"
 
-    TOPICS = "topics"
-    
     # Collection-specific cache types
     COLLECTIONS = "collections"
     COLLECTION_DETAIL = "collection_detail"
