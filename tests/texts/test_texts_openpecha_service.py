@@ -733,7 +733,7 @@ class TestFetchVersionsFromParent:
             {"id": "trans-2", "title": {"en": "Trans 2"}, "language": "zh"}
         ]
 
-        result = await _fetch_versions_from_parent("root-123", original_text, 0, 10)
+        result = await _fetch_versions_from_parent("root-123", original_text, None, 0, 10)
 
         assert result.text == original_text
         assert len(result.versions) == 2
@@ -744,7 +744,7 @@ class TestFetchVersionsFromParent:
         original_text = MagicMock(spec=TextDTO)
         mock_fetch_text.return_value = None
 
-        result = await _fetch_versions_from_parent("missing", original_text, 0, 10)
+        result = await _fetch_versions_from_parent("missing", original_text, None, 0, 10)
 
         assert result.text == original_text
         assert len(result.versions) == 0
@@ -755,7 +755,7 @@ class TestFetchVersionsFromParent:
         original_text = MagicMock(spec=TextDTO)
         mock_fetch_text.side_effect = Exception("Connection error")
 
-        result = await _fetch_versions_from_parent("root-123", original_text, 0, 10)
+        result = await _fetch_versions_from_parent("root-123", original_text, None, 0, 10)
 
         assert result.text == original_text
         assert len(result.versions) == 0

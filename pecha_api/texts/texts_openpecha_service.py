@@ -231,6 +231,15 @@ def map_external_text_to_text_version(item: Dict[str, Any], language: Optional[s
     )
 
 
+def filter_versions_by_language(
+    versions: List[TextVersion],
+    language: Optional[str]
+) -> List[TextVersion]:
+    if not language:
+        return versions
+    return [v for v in versions if v.language == language]
+
+
 def paginate_versions(
     versions: List[TextVersion],
     skip: int,
@@ -241,6 +250,7 @@ def paginate_versions(
 
 async def get_text_versions_from_openpecha(
     text_id: str,
+    language: Optional[str] = None,
     skip: int = 0,
     limit: int = 10
 ) -> TextVersionResponse:
@@ -267,7 +277,7 @@ async def get_text_versions_from_openpecha(
 
     # If translation_of is not null, fetch versions from the parent text
     if translation_of:
-        return await _fetch_versions_from_parent(translation_of, root_text, skip, limit)
+        return await _fetch_versions_from_parent(translation_of, root_text, language, skip, limit)
 
     # If both commentary_of and translation_of are null, check translations and commentaries lists
     if not commentary_of and not translation_of:
@@ -278,7 +288,7 @@ async def get_text_versions_from_openpecha(
         related_ids = translation_ids + commentary_ids
         if related_ids:
             # Fetch versions from the first related text
-            return await _fetch_versions_from_related(related_ids[0], root_text, skip, limit)
+            return await _fetch_versions_from_related(related_ids[0], root_text, language, skip, limit)
 
     # Default: fetch translations directly from this text
     translation_ids = text_data.get("translations", [])
@@ -296,7 +306,9 @@ async def get_text_versions_from_openpecha(
         for item in translation_details
     ]
 
-    paginated_versions = paginate_versions(versions, skip, limit)
+    filtered_versions = filter_versions_by_language(versions, language)
+
+    paginated_versions = paginate_versions(filtered_versions, skip, limit)
 
     return TextVersionResponse(
         text=root_text,
@@ -307,6 +319,7 @@ async def get_text_versions_from_openpecha(
 async def _fetch_versions_from_parent(
     parent_id: str,
     original_text: TextDTO,
+    language: Optional[str],
     skip: int,
     limit: int
 ) -> TextVersionResponse:
@@ -332,7 +345,9 @@ async def _fetch_versions_from_parent(
         for item in translation_details
     ]
 
-    paginated_versions = paginate_versions(versions, skip, limit)
+    filtered_versions = filter_versions_by_language(versions, language)
+
+    paginated_versions = paginate_versions(filtered_versions, skip, limit)
 
     return TextVersionResponse(
         text=original_text,
@@ -343,6 +358,7 @@ async def _fetch_versions_from_parent(
 async def _fetch_versions_from_related(
     related_id: str,
     original_text: TextDTO,
+    language: Optional[str],
     skip: int,
     limit: int
 ) -> TextVersionResponse:
@@ -359,7 +375,7 @@ async def _fetch_versions_from_related(
     # Check if the related text has a translation_of pointing to a parent
     translation_of = related_data.get("translation_of")
     if translation_of:
-        return await _fetch_versions_from_parent(translation_of, original_text, skip, limit)
+        return await _fetch_versions_from_parent(translation_of, original_text, language, skip, limit)
 
     # Otherwise, get translations from the related text itself
     translation_ids = related_data.get("translations", [])
@@ -374,7 +390,9 @@ async def _fetch_versions_from_related(
         for item in translation_details
     ]
 
-    paginated_versions = paginate_versions(versions, skip, limit)
+    filtered_versions = filter_versions_by_language(versions, language)
+
+    paginated_versions = paginate_versions(filtered_versions, skip, limit)
 
     return TextVersionResponse(
         text=original_text,
