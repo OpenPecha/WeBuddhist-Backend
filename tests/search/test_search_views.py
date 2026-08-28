@@ -607,16 +607,17 @@ def test_get_url_link_with_special_characters():
         assert data["segment_id"] == "seg_456_xyz"
 
 
-def test_get_url_link_service_error():
-    """Test get_url_link endpoint when service raises an exception"""
+def test_get_url_link_upstream_error():
+    """Test get_url_link endpoint when the OpenPecha segment lookup fails"""
     with patch(
-        "pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id",
+        "pecha_api.search.search_service.fetch_segment_details",
         new_callable=AsyncMock,
         side_effect=Exception("Service error"),
     ):
         response = client.get("/search/chat/error_segment_id")
 
-        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+        assert response.json()["detail"] == "Pecha segment not found"
 
 
 def test_get_url_link_with_uuid_format():
