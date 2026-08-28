@@ -1,7 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, status, Depends, Query, Form
 from uuid import UUID
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from .media_services import upload_plan_image, upload_series_image, upload_text_image
+from .media_services import upload_plan_image, upload_series_image, upload_text_image, upload_poem_image
 from .media_response_models import PlanUploadResponse, TextImageUploadResponse, PlanDayAudioUploadResponse, SubTaskAudioUploadResponse
 from pecha_api.plans.shareable_images.day_shareable_image_enums import DayShareableImageType
 from pecha_api.plans.shareable_images.day_shareable_image_response_models import PlanDayShareableImageUploadResponse
@@ -39,6 +39,19 @@ async def upload_series_media_image(
 @media_router.post("/upload/text", status_code=status.HTTP_201_CREATED)
 async def upload_text_media_image(authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)], text_id: str = Form(...), file: UploadFile = File(...)) -> TextImageUploadResponse:
     return await upload_text_image(token=authentication_credential.credentials, text_id=text_id, file=file)
+
+
+@media_router.post("/upload/poem", status_code=status.HTTP_201_CREATED)
+async def upload_poem_media_image(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    poem_id: Optional[str] = Query(None),
+    file: UploadFile = File(...),
+) -> PlanUploadResponse:
+    return upload_poem_image(
+        token=authentication_credential.credentials,
+        poem_id=poem_id,
+        file=file,
+    )
 
 
 @media_router.post("/upload/day-audio", status_code=status.HTTP_201_CREATED)

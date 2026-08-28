@@ -58,9 +58,9 @@ class SubTaskDTO(BaseModel):
     duration: Optional[str] = None
     image_url: Optional[str] = None
     audio_url: Optional[str] = None
-    source_text_id: Optional[UUID] = None
+    source_text_id: Optional[str] = None
     pecha_segment_id: Optional[str] = None
-    segment_ids: Optional[List[UUID]] = None
+    segment_ids: Optional[List[str]] = None
     segment_numbers: Optional[List[int]] = None
     display_order: Optional[int] = None
     start_ms: Optional[int] = None
