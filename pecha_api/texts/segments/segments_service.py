@@ -29,6 +29,7 @@ from starlette import status
 
 from .segments_utils import SegmentUtils
 from ..texts_utils import TextUtils
+from ..texts_response_models import TextDTO
 from pecha_api.plans.videos.plan_video_service import get_public_plan_videos_by_segment_id
 
 from typing import List, Dict
@@ -83,24 +84,110 @@ async def search_segments_by_content_service(
 
 
 async def get_segment_details_by_id(segment_id: str, text_details: bool = False) -> SegmentDTO:
+    """
+    Get segment details by ID using OpenPecha API (Neo4j).
+    """
+    from openpecha_api.segments.openpecha_segment_service import (
+        fetch_segment_details,
+        fetch_segment_content,
+        fetch_related_segments,
+    )
+    from openpecha_api.text.openpecha_text_service import fetch_text_by_id
+    from pecha_api.texts.texts_openpecha_service import _extract_title
+    import logging
+    logger = logging.getLogger(__name__)
     
-    segment = await get_segment_by_id(segment_id=segment_id)
-    if not segment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE)
-    mapping_responses: List[MappingResponse] = [
-        MappingResponse(**mapping.model_dump()) for mapping in segment.mapping
-    ]
+    # Fetch segment details and content from OpenPecha API
+    try:
+        segment_details = await fetch_segment_details(segment_id)
+    except Exception as e:
+        logger.error(f"Failed to fetch segment {segment_id} from OpenPecha API: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail=f"Segment not found: {str(e)}"
+        )
+    
+    if not segment_details:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE
+        )
+    
+    # Fetch content separately
+    try:
+        content = await fetch_segment_content(segment_id)
+    except Exception:
+        content = ""
+    
+    text_id = segment_details.get("text_id", "")
+    
+    # Build mapping from related segments
+    mapping_responses: List[MappingResponse] = []
+    try:
+        related_page = await fetch_related_segments(segment_id=segment_id, limit=100, offset=0)
+        items = related_page.get("items", []) or []
+        
+        # Group related segments by text_id
+        mapping_by_text: Dict[str, List[str]] = {}
+        for item in items:
+            item_text_id = item.get("text_id")
+            item_segment_id = item.get("id")
+            if item_text_id and item_segment_id:
+                if item_text_id not in mapping_by_text:
+                    mapping_by_text[item_text_id] = []
+                mapping_by_text[item_text_id].append(item_segment_id)
+        
+        mapping_responses = [
+            MappingResponse(text_id=tid, segments=seg_ids)
+            for tid, seg_ids in mapping_by_text.items()
+        ]
+    except Exception:
+        # If related segments fetch fails, return empty mapping
+        mapping_responses = []
+    
+    # Determine segment type from OpenPecha response
+    segment_type_str = segment_details.get("type", "source")
+    try:
+        segment_type = SegmentType(segment_type_str)
+    except ValueError:
+        segment_type = SegmentType.SOURCE
+    
+    # Fetch text details if requested
     text = None
-    if text_details:
-        text = await TextUtils.get_text_details_by_id(text_id=segment.text_id)
+    if text_details and text_id:
+        try:
+            text_payload = await fetch_text_by_id(text_id)
+            if text_payload:
+                text = TextDTO(
+                    id=text_id,
+                    pecha_text_id=text_payload.get("pecha_text_id"),
+                    title=_extract_title(text_payload.get("title", {})),
+                    language=text_payload.get("language"),
+                    group_id=text_payload.get("group_id", ""),
+                    type=text_payload.get("type", ""),
+                    summary=text_payload.get("summary", ""),
+                    is_published=text_payload.get("is_published", False),
+                    created_date=text_payload.get("created_date", ""),
+                    updated_date=text_payload.get("updated_date", ""),
+                    published_date=text_payload.get("published_date", ""),
+                    published_by=text_payload.get("published_by", ""),
+                    categories=text_payload.get("categories"),
+                    views=text_payload.get("views", 0),
+                    likes=text_payload.get("likes", []),
+                    source_link=text_payload.get("source_link"),
+                    ranking=text_payload.get("ranking"),
+                    license=text_payload.get("license"),
+                )
+        except Exception:
+            text = None
     
     response = SegmentDTO(
-        id=str(segment.id),
-        pecha_segment_id=str(segment.pecha_segment_id),
-        text_id=segment.text_id,
-        content=segment.content,
+        id=segment_id,
+        pecha_segment_id=segment_details.get("pecha_segment_id", segment_id),
+        text_id=text_id,
+        content=content or "",
         mapping=mapping_responses,
-        type=segment.type,
+        type=segment_type,
         text=text
     )
     return response
