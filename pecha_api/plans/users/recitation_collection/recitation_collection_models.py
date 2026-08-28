@@ -28,7 +28,7 @@ class RecitationCollectionItem(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     recitation_collection_id = Column(UUID(as_uuid=True), ForeignKey("recitation_collections.id", ondelete="CASCADE"), nullable=False)
-    text_id = Column(UUID(as_uuid=True), nullable=False)
+    text_id = Column(String(255), nullable=False)
     display_order = Column(Integer, nullable=False)
 
     collection = relationship("RecitationCollection", back_populates="items")

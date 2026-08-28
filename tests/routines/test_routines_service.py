@@ -71,7 +71,7 @@ def test_session_dto_serializer_omits_plan_fields_for_timer():
     dto = SessionDTO(
         id=uuid.uuid4(),
         session_type=SessionType.TIMER,
-        source_id=uuid.uuid4(),
+        source_id=str(uuid.uuid4()),
         title="Should be omitted",
         language="EN",
         duration_ms=900000,
@@ -97,7 +97,7 @@ def test_session_dto_serializer_omits_duration_for_plan():
     dto = SessionDTO(
         id=uuid.uuid4(),
         session_type=SessionType.PLAN,
-        source_id=uuid.uuid4(),
+        source_id=str(uuid.uuid4()),
         title="Morning Plan",
         language="EN",
         duration_ms=900000,
@@ -816,7 +816,7 @@ async def test_resolve_recitation_sessions_success():
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
         assert len(result) == 1
-        assert result[0].source_id == text_id
+        assert result[0].source_id == str(text_id)
         assert result[0].title == "Heart Sutra"
         assert result[0].language == "bo"
         assert result[0].image is None
@@ -956,7 +956,7 @@ def test_build_session_models_sanitises_inapplicable_fields():
     result = build_session_models(time_block_id=time_block_id, sessions=sessions)
 
     plan_model, timer_model = result
-    assert plan_model.source_id == plan_source_id
+    assert plan_model.source_id == str(plan_source_id)
     assert plan_model.duration_ms is None
     assert timer_model.source_id is None
     assert timer_model.duration_ms == 600000
@@ -1232,7 +1232,7 @@ async def test_add_time_block_allows_same_plan_in_different_time_block():
 
         assert result.id == time_block_id
         assert len(result.sessions) == 1
-        assert result.sessions[0].source_id == existing_plan_id
+        assert result.sessions[0].source_id == str(existing_plan_id)
 
 
 @pytest.mark.asyncio
@@ -1314,7 +1314,7 @@ async def test_add_time_block_allows_same_series_in_different_time_block():
 
         assert result.id == time_block_id
         assert len(result.sessions) == 1
-        assert result.sessions[0].source_id == existing_series_id
+        assert result.sessions[0].source_id == str(existing_series_id)
 
 
 @pytest.mark.asyncio
@@ -1367,7 +1367,7 @@ def test_session_dto_serializer_exposes_start_fields_for_series():
     dto = SessionDTO(
         id=uuid.uuid4(),
         session_type=SessionType.SERIES,
-        source_id=uuid.uuid4(),
+        source_id=str(uuid.uuid4()),
         title="AIY Series",
         language="EN",
         duration_ms=900000,
@@ -1482,7 +1482,7 @@ def test_resolve_series_sessions_uses_first_plan_start_fields():
 
     assert len(result) == 1
     assert result[0].session_type == SessionType.SERIES
-    assert result[0].source_id == series_id
+    assert result[0].source_id == str(series_id)
     assert result[0].title == "Morning Series"
     assert result[0].language == "EN"
     assert result[0].start_date == plan_start_date
@@ -2191,7 +2191,7 @@ async def test_update_time_block_service_allows_same_plan_in_different_time_bloc
 
         assert result.id == time_block_id
         assert len(result.sessions) == 1
-        assert result.sessions[0].source_id == existing_plan_id
+        assert result.sessions[0].source_id == str(existing_plan_id)
 
 
 @pytest.mark.asyncio
@@ -2686,7 +2686,7 @@ async def test_resolve_sessions_mixed_types():
         assert result[0].display_order == 0  # Recitation first
         assert result[1].display_order == 1  # Plan second
         assert result[2].display_order == 2  # Timer last
-        assert result[0].source_id == recitation_source_id
+        assert result[0].source_id == str(recitation_source_id)
         assert result[0].title == "Recitation Title"
         assert result[0].first_segment.content == "Recitation opening verse"
         assert result[1].title == "Plan Title"
@@ -2767,7 +2767,7 @@ def test_resolve_recitation_collection_sessions_success():
     dto = result[0]
     assert dto.id == session_id
     assert dto.session_type == SessionType.RECITATION_COLLECTION
-    assert dto.source_id == collection_id
+    assert dto.source_id == str(collection_id)
     assert dto.title == "My Collection"
     assert dto.image == collection_image
     assert dto.display_order == 3
@@ -2867,7 +2867,7 @@ def test_resolve_group_recitation_collection_sessions_success():
     dto = result[0]
     assert dto.id == session_id
     assert dto.session_type == SessionType.GROUP_RECITATION_COLLECTION
-    assert dto.source_id == collection_id
+    assert dto.source_id == str(collection_id)
     assert dto.title == "Group Chants"
     assert dto.image == collection_image
     assert dto.display_order == 2
@@ -2896,7 +2896,7 @@ def test_session_dto_serializer_keeps_item_count_for_group_collection():
     dto = SessionDTO(
         id=uuid.uuid4(),
         session_type=SessionType.GROUP_RECITATION_COLLECTION,
-        source_id=uuid.uuid4(),
+        source_id=str(uuid.uuid4()),
         title="Group Collection",
         display_order=0,
         item_count=3,
@@ -2925,7 +2925,7 @@ def test_session_dto_serializer_exposes_accumulator_id_for_accumulator():
     dto = SessionDTO(
         id=uuid.uuid4(),
         session_type=SessionType.ACCUMULATOR,
-        source_id=accumulator_id,
+        source_id=str(accumulator_id),
         accumulator_id=accumulator_id,
         title="Mani Counter",
         language="en",

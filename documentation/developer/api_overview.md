@@ -11,7 +11,7 @@ The API root path is `/api/v1` (see `pecha_api/app.py`).
 
 Routers are included in `pecha_api/app.py`:
 - Auth: `pecha_api/auth/auth_views.py`
-- Core: texts, groups, segments, topics, users, collections, terms
+- Core: texts, groups, segments, users, collections
 - Search: `pecha_api/search/search_views.py`
 - Plans: public, users, CMS, items, tasks, featured
 - Share: `pecha_api/share/share_views.py`

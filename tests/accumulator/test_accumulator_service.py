@@ -770,7 +770,7 @@ class TestUpdateAccumulatorService:
         request = TestDataFactory.create_update_request(text_id=text_id)
         await update_accumulator_service(token=token, accumulator_id=accumulator_id, request=request)
 
-        assert existing.text_id == text_id
+        assert existing.text_id == str(text_id)
         mock_validate_text.assert_awaited_once_with(text_id=str(text_id))
 
     @patch('pecha_api.accumulator.accumulator_service.validate_mantra_exists')

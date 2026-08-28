@@ -65,7 +65,7 @@ class TestDataFactory:
     ) -> GroupRecitationCollectionItemDTO:
         return GroupRecitationCollectionItemDTO(
             id=id or uuid4(),
-            text_id=text_id or uuid4(),
+            text_id=str(text_id or uuid4()),
             title=title,
             language=language,
             type=type,

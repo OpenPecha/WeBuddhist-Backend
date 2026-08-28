@@ -196,6 +196,27 @@ def upload_series_image(token: str, series_id: Optional[str], file: UploadFile) 
     )
 
 
+def upload_poem_image(token: str, poem_id: Optional[str], file: UploadFile) -> PlanUploadResponse:
+    validate_and_extract_author_details(token=token)
+    validate_file(file)
+
+    unique_id = str(uuid.uuid4())
+    path = "images/poem_images"
+    image_path_full = f"{path}/{poem_id}/{unique_id}" if poem_id is not None else f"{path}/{unique_id}"
+
+    image_url_model, original_key = prepare_image_upload(
+        file=file,
+        image_path_full=image_path_full,
+    )
+
+    return PlanUploadResponse(
+        image=image_url_model,
+        key=original_key,
+        path=image_path_full,
+        message=IMAGE_UPLOAD_SUCCESS,
+    )
+
+
 async def upload_text_image(token: str, text_id: str, file: UploadFile) -> TextImageUploadResponse:
 
     validate_and_extract_author_details(token=token)

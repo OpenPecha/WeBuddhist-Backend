@@ -6,9 +6,7 @@ from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo.errors import ConfigurationError
 
-from ..topics.topics_models import Topic
 from ..collections.collections_models import Collection
-from ..terms.terms_models import Term
 from ..texts.texts_models import Text
 from ..texts.segments.segments_models import Segment
 from ..texts.texts_models import TableOfContent
@@ -26,8 +24,6 @@ mongodb = None
 
 BEANIE_DOCUMENT_MODELS = [
     Collection,
-    Term,
-    Topic,
     Text,
     Segment,
     TableOfContent,
@@ -74,8 +70,6 @@ async def lifespan(api: FastAPI):
             database=mongodb,
             document_models=[
                 Collection,
-                Term,
-                Topic,
                 Text,
                 Segment,
                 TableOfContent,

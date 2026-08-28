@@ -331,7 +331,7 @@ async def cms_add_items_service(
         new_items = [
             GroupRecitationCollectionItem(
                 group_recitation_collection_id=collection_id,
-                text_id=text_id,
+                text_id=str(text_id),
                 display_order=max_order + idx + 1,
             )
             for idx, text_id in enumerate(text_ids)
