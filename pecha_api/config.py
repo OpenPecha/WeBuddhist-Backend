@@ -43,7 +43,7 @@ DEFAULTS = dict(
     FFMPEG_BINARY="ffmpeg",
     FFPROBE_BINARY="ffprobe",
     ALLOWED_OTR_EXTENSIONS = {'.otr', '.json'},
-    MONGO_CONNECTION_STRING="mongodb://admin:pechaAdmin@localhost:27017/pecha?authSource=admin",
+    MONGO_CONNECTION_STRING="",
 
     WEBUDDHIST_STUDIO_BASE_URL="https://studio.webuddhist.com",
     MONGO_DATABASE_NAME="webuddhist",
