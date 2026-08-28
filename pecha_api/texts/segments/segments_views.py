@@ -1,8 +1,6 @@
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import APIRouter, Depends
+from fastapi.security import HTTPBearer
+from fastapi import APIRouter
 from starlette import status
-
-from typing import Annotated
 
 from .segments_service import (
     get_translations_by_segment_id,
