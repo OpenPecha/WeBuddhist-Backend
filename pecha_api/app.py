@@ -10,9 +10,7 @@ from pecha_api.middleware.sentry import init_sentry
 from pecha_api.db.mongo_database import lifespan
 from pecha_api.auth import auth_views
 from pecha_api.sheets import sheets_views
-from pecha_api.collections import collections_views
 from pecha_api.terms import terms_views
-from pecha_api.texts import texts_views
 from pecha_api.texts import text_audio_views
 from pecha_api.topics import topics_views
 from pecha_api.users import users_views
@@ -63,7 +61,6 @@ from pecha_api.chat import viewer as chat_viewer_views
 from pecha_api.chat import internal_views as chat_notification_internal_views
 from pecha_api.bookmarks import bookmark_views
 from pecha_api.push_devices import push_device_views
-from pecha_api.text_uploader import text_uploader_views
 from pecha_api.cataloger import cataloger_views
 from pecha_api.text_uploader.text_metadata import text_metadata_views
 from pecha_api.text_uploader.collections import uploader_collections_views
@@ -110,9 +107,7 @@ api = FastAPI(
 )
 api.include_router(auth_views.auth_router)
 api.include_router(sheets_views.sheets_router)
-api.include_router(collections_views.collections_router)
 api.include_router(terms_views.terms_router)
-api.include_router(texts_views.text_router)
 api.include_router(text_audio_views.text_audio_router)
 api.include_router(groups_views.group_router)
 api.include_router(segments_views.segment_router)
@@ -180,7 +175,6 @@ api.include_router(group_posts_viewer.viewer_router)
 api.include_router(bookmark_views.bookmark_router)
 api.include_router(push_device_views.push_device_router)
 api.include_router(push_device_views.cms_push_device_router)
-api.include_router(text_uploader_views.text_uploader_router)
 api.include_router(cataloger_views.cataloger_router)
 api.include_router(text_metadata_views.text_metadata_router)
 api.include_router(uploader_collections_views.text_uploader_collections_router)

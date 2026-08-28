@@ -173,6 +173,14 @@ class V2SegmentTranslationsResponse(BaseModel):
     has_more: bool = False
 
 
+class V2SegmentRootTextResponse(BaseModel):
+    parent_segment: ParentSegment
+    root_text: List[V2SegmentTextGroup]
+    skip: int
+    limit: int
+    has_more: bool = False
+
+
 class V2SegmentCommentariesResponse(BaseModel):
     parent_segment: ParentSegment
     commentaries: List[V2SegmentTextGroup]
