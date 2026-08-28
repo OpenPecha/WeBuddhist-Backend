@@ -2,9 +2,9 @@ from fastapi import HTTPException
 import io
 from pecha_api.error_contants import ErrorConstants
 from starlette.responses import StreamingResponse
-from pecha_api.texts.texts_utils import TextUtils
 from .pecha_text_image_generator import generate_segment_image
 from pecha_api.texts.segments.segments_openpecha_service import get_openpecha_segment_details_by_id
+from pecha_api.texts.texts_openpecha_service import get_text_by_id_from_openpecha
 from pecha_api.config import get
 import anyio
 
@@ -72,7 +72,7 @@ async def _generate_segment_content_image_(share_request: ShareRequest):
         reference_text = segment_details.text.title
         language = segment_details.text.language
     elif share_request.text_id is not None:
-        text_detail = await TextUtils.get_text_detail_by_id(text_id=share_request.text_id)
+        text_detail = await get_text_by_id_from_openpecha(text_id=share_request.text_id)
         main_content_text = text_detail.title
         language = text_detail.language
 
