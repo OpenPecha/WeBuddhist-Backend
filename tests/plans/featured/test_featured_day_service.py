@@ -60,7 +60,7 @@ async def test_get_featured_day_service_success(sample_plan_item, mock_db_sessio
         
         mock_datetime.now.return_value.date.return_value = mock_date
         
-        result = get_featured_day_service(language="EN")
+        result = await get_featured_day_service(language="EN")
         
         assert isinstance(result, PlanDayDTO)
         assert result.id == sample_plan_item.id
@@ -135,7 +135,7 @@ async def test_get_featured_day_service_multiple_tasks():
         
         mock_datetime.now.return_value.date.return_value = mock_date
         
-        result = get_featured_day_service(language="EN")
+        result = await get_featured_day_service(language="EN")
         
         assert result.day_number == 7
         assert len(result.tasks) == 2
@@ -157,7 +157,7 @@ async def test_get_featured_day_service_no_featured_plans(mock_db_session):
          patch("pecha_api.plans.featured.featured_day_service.get_all_featured_plan_days", return_value=[]) as mock_repo:
         
         with pytest.raises(HTTPException) as exc_info:
-            get_featured_day_service(language="EN")
+            await get_featured_day_service(language="EN")
         
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert exc_info.value.detail == "No featured plans with days found"
@@ -181,7 +181,7 @@ async def test_get_featured_day_service_empty_tasks(mock_db_session):
         
         mock_datetime.now.return_value.date.return_value = mock_date
         
-        result = get_featured_day_service(language="EN")
+        result = await get_featured_day_service(language="EN")
         
         assert result.day_number == 1
         assert result.tasks == []
@@ -228,7 +228,7 @@ async def test_get_featured_day_service_task_sorting():
         
         mock_datetime.now.return_value.date.return_value = mock_date
         
-        result = get_featured_day_service(language="EN")
+        result = await get_featured_day_service(language="EN")
         
         assert len(result.tasks) == 3
         assert result.tasks[0].title == "Task 1"
@@ -287,7 +287,7 @@ async def test_get_featured_day_service_subtask_sorting():
         
         mock_datetime.now.return_value.date.return_value = mock_date
         
-        result = get_featured_day_service(language="EN")
+        result = await get_featured_day_service(language="EN")
         
         assert len(result.tasks[0].subtasks) == 3
         assert result.tasks[0].subtasks[0].content == "Subtask 1"
@@ -325,8 +325,8 @@ async def test_get_featured_day_service_date_based_selection_from_multiple():
     with patch("pecha_api.plans.featured.featured_day_service.SessionLocal", return_value=mock_db_session), \
          patch("pecha_api.plans.featured.featured_day_service.get_all_featured_plan_days", return_value=featured_days):
         
-        result1 = get_featured_day_service(language="EN")
-        result2 = get_featured_day_service(language="EN")
+        result1 = await get_featured_day_service(language="EN")
+        result2 = await get_featured_day_service(language="EN")
         
         assert result1.id == result2.id
         assert result1.day_number == result2.day_number
@@ -391,7 +391,7 @@ async def test_get_featured_day_service_with_all_content_types():
         
         mock_datetime.now.return_value.date.return_value = mock_date
         
-        result = get_featured_day_service(language="EN")
+        result = await get_featured_day_service(language="EN")
         
         subtasks = result.tasks[0].subtasks
         assert len(subtasks) == 4
@@ -435,7 +435,7 @@ async def test_get_featured_day_service_with_optional_fields_none():
         
         mock_datetime.now.return_value.date.return_value = mock_date
         
-        result = get_featured_day_service(language="EN")
+        result = await get_featured_day_service(language="EN")
         
         assert result.tasks[0].title is None
         assert result.tasks[0].estimated_time is None
@@ -451,7 +451,7 @@ async def test_get_featured_day_service_database_error(mock_db_session):
          patch("pecha_api.plans.featured.featured_day_service.get_all_featured_plan_days", side_effect=Exception("Database connection error")):
         
         with pytest.raises(Exception) as exc_info:
-            get_featured_day_service(language="EN")
+            await get_featured_day_service(language="EN")
         
         assert str(exc_info.value) == "Database connection error"
 
@@ -472,7 +472,7 @@ async def test_get_featured_day_service_large_day_number(mock_db_session):
         
         mock_datetime.now.return_value.date.return_value = mock_date
         
-        result = get_featured_day_service(language="EN")
+        result = await get_featured_day_service(language="EN")
         
         assert result.day_number == 365
 
@@ -514,7 +514,7 @@ async def test_get_featured_day_service_many_subtasks():
         
         mock_datetime.now.return_value.date.return_value = mock_date
         
-        result = get_featured_day_service(language="EN")
+        result = await get_featured_day_service(language="EN")
         
         assert len(result.tasks[0].subtasks) == 20
         for i, subtask in enumerate(result.tasks[0].subtasks, 1):

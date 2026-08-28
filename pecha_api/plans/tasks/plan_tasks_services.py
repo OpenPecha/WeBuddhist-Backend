@@ -23,6 +23,7 @@ from pecha_api.plans.public.plans_cache_service import (
     schedule_invalidate_plan_day_cache_for_day,
     schedule_invalidate_plan_day_cache_for_task,
 )
+from pecha_api.plans.shared.subtask_content_resolver import resolve_subtasks_content
 
 def _get_max_display_order(plan_item_id: UUID) -> int:
     with SessionLocal() as db:
@@ -144,11 +145,13 @@ async def get_task_subtasks_service(task_id: UUID, token: str) -> GetTaskRespons
 
         from pecha_api.plans.audio.dto_helpers import build_subtask_timestamp_fields
 
+        resolved_contents = await resolve_subtasks_content(task.sub_tasks)
+
         subtasks_dto = []
-        for sub_task in task.sub_tasks:
+        for sub_task, resolved_content in zip(task.sub_tasks, resolved_contents):
             content_and_image_url = _generate_image_url_content_type(
                 content_type=sub_task.content_type,
-                content=sub_task.content,
+                content=resolved_content,
             )
             start_ms, end_ms = build_subtask_timestamp_fields(sub_task)
             audio_url = (

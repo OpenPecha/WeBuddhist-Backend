@@ -35,6 +35,7 @@ from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.response_message import SUBTASK_ORDER_FAILED
 from pecha_api.plans.audio.timestamp_service import apply_sub_task_timestamp
 from pecha_api.plans.public.plans_cache_service import invalidate_plan_day_cache_for_task
+from pecha_api.plans.shared.subtask_content_resolver import resolve_subtasks_content
 
 async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) -> SubTaskResponse:
     current_author = validate_and_extract_author_details(token=token)
@@ -63,8 +64,9 @@ async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) 
             )
 
         saved_sub_tasks = save_sub_tasks_bulk(db=db, sub_tasks=new_sub_tasks)
+        resolved_contents = await resolve_subtasks_content(saved_sub_tasks)
         created_sub_tasks = []
-        for item, sub_request in zip(saved_sub_tasks, create_task_request.sub_tasks):
+        for item, sub_request, resolved_content in zip(saved_sub_tasks, create_task_request.sub_tasks, resolved_contents):
             start_ms, end_ms = apply_sub_task_timestamp(
                 db=db,
                 sub_task_id=item.id,
@@ -77,7 +79,7 @@ async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) 
                 SubTaskDTO(
                     id=item.id,
                     content_type=item.content_type,
-                    content=item.content,
+                    content=resolved_content,
                     duration=item.duration,
                     source_text_id=item.source_text_id,
                     pecha_segment_id=item.pecha_segment_id,

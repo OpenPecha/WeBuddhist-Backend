@@ -1,3 +1,4 @@
+import asyncio
 from typing import Optional
 from uuid import UUID
 from datetime import datetime, timezone
@@ -6,6 +7,7 @@ from starlette import status
 from typing import List
 from typing import Set
 from pecha_api.config import get
+from pecha_api.plans.shared.subtask_content_resolver import resolve_subtasks_content
 
 from pecha_api.plans.tasks.sub_tasks.plan_sub_tasks_models import PlanSubTask
 
@@ -680,7 +682,7 @@ async def get_user_plan_days_completion_status_service(token: str, plan_id: UUID
             start_date=plan.start_date
         )
     
-def get_user_plan_day_details_service(token: str, plan_id: UUID, day_number: int) -> UserPlanDayDetailsResponse:
+async def get_user_plan_day_details_service(token: str, plan_id: UUID, day_number: int) -> UserPlanDayDetailsResponse:
     current_user = validate_and_extract_user_details(token=token)
     with SessionLocal() as db:
         plan_item = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
@@ -706,6 +708,12 @@ def get_user_plan_day_details_service(token: str, plan_id: UUID, day_number: int
             getattr(plan_item, "shareable_images", None)
         )
         from pecha_api.plans.public.plan_response_models import DayVideoSummaryDTO
+        tasks_sub_tasks = await asyncio.gather(
+            *[
+                _get_user_sub_tasks_dto_bulk(sub_tasks=task.sub_tasks, completed_subtask_ids=completed_subtask_ids)
+                for task in plan_item.tasks
+            ]
+        )
         user_day_details = UserPlanDayDetailsResponse(
             id=plan_item.id,
             day_number=plan_item.day_number,
@@ -721,8 +729,8 @@ def get_user_plan_day_details_service(token: str, plan_id: UUID, day_number: int
                     estimated_time=task.estimated_time,
                     display_order=task.display_order,
                     is_completed=(task.id in completed_task_ids),
-                    sub_tasks=_get_user_sub_tasks_dto_bulk(sub_tasks=task.sub_tasks, completed_subtask_ids=completed_subtask_ids)
-                ) for task in plan_item.tasks
+                    sub_tasks=sub_tasks_dto
+                ) for task, sub_tasks_dto in zip(plan_item.tasks, tasks_sub_tasks)
             ],
             videos=[
                 DayVideoSummaryDTO(
@@ -741,11 +749,13 @@ def is_day_completed(db: SessionLocal(), user_id: UUID, day_id: UUID) -> bool:
     user_day_completion = get_user_day_completion_by_user_id_and_day_id(db=db, user_id=user_id, day_id=day_id)
     return user_day_completion is not None
 
-def _get_user_sub_tasks_dto_bulk(sub_tasks: List[PlanSubTask], completed_subtask_ids: Set[UUID]) -> List[UserSubTaskDTO]:
+async def _get_user_sub_tasks_dto_bulk(sub_tasks: List[PlanSubTask], completed_subtask_ids: Set[UUID]) -> List[UserSubTaskDTO]:
     from pecha_api.plans.audio.dto_helpers import build_subtask_timestamp_fields
 
+    resolved_contents = await resolve_subtasks_content(sub_tasks)
+
     result = []
-    for sub_task in sub_tasks:
+    for sub_task, resolved_content in zip(sub_tasks, resolved_contents):
         start_ms, end_ms = build_subtask_timestamp_fields(sub_task)
         audio_url = (
             _get_presigned_url(content=sub_task.audio_url)
@@ -755,7 +765,7 @@ def _get_user_sub_tasks_dto_bulk(sub_tasks: List[PlanSubTask], completed_subtask
             UserSubTaskDTO(
                 id=sub_task.id,
                 content_type=sub_task.content_type,
-                content=_get_presigned_url(content=sub_task.content) if sub_task.content_type == ContentType.IMAGE else sub_task.content,
+                content=_get_presigned_url(content=sub_task.content) if sub_task.content_type == ContentType.IMAGE else resolved_content,
                 duration=sub_task.duration,
                 display_order=sub_task.display_order,
                 is_completed=(sub_task.id in completed_subtask_ids),
