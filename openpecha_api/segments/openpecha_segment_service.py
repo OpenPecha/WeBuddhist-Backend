@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 
-from pecha_api.external_clients import get_authenticated_open_pecha_client
+from pecha_api.external_clients import get_open_pecha_client
 
 async def fetch_related_segments(
     segment_id: str,
@@ -15,7 +15,7 @@ async def fetch_related_segments(
     }
     if text_id:
         params["text_id"] = text_id
-    client = get_authenticated_open_pecha_client()
+    client = get_open_pecha_client()
     http_client = client.get_async_httpx_client()
     response = await http_client.get(
         f"/v2/segments/{segment_id}/related",
@@ -26,7 +26,7 @@ async def fetch_related_segments(
 
 
 async def fetch_segment_content(segment_id: str) -> Optional[str]:
-    client = get_authenticated_open_pecha_client()
+    client = get_open_pecha_client()
     http_client = client.get_async_httpx_client()
     response = await http_client.get(f"/v2/segments/{segment_id}/content")
     response.raise_for_status()
@@ -41,8 +41,8 @@ async def fetch_segment_content(segment_id: str) -> Optional[str]:
     return None
 
 async def fetch_segment_details(segment_id:str) :
-    client=get_authenticated_open_pecha_client()
-    http_client=client.get_async_httpx_client()
-    response=await http_client.get(f"/v2/segments/{segment_id}")
+    client = get_open_pecha_client()
+    http_client = client.get_async_httpx_client()
+    response = await http_client.get(f"/v2/segments/{segment_id}")
     response.raise_for_status()
     return response.json()

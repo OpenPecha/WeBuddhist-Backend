@@ -1,28 +1,25 @@
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi import APIRouter, Depends
+from fastapi.security import HTTPBearer
+from fastapi import APIRouter
 from starlette import status
 
-from typing import Annotated
-
 from .segments_service import (
-    create_new_segment,
-    get_translations_by_segment_id,
-    get_commentaries_by_segment_id,
     get_segment_details_by_id, 
     get_info_by_segment_id,
-    get_root_text_mapping_by_segment_id,
-    update_segments_service,
     search_segments_by_content_service,
 )
+from .segments_openpecha_service import (
+    get_root_text_by_segment_id_from_openpecha,
+    get_translations_by_segment_id_from_openpecha,
+    get_commentaries_by_segment_id_from_openpecha,
+)
 from .segments_response_models import (
-    CreateSegmentRequest,
     SegmentDTO,
     SegmentResponse,
     SegmentInfoResponse,
-    SegmentTranslationsResponse,
-    SegmentCommentariesResponse,
-    SegmentUpdateRequest,
     SegmentSearchRequest,
+    V2SegmentRootTextResponse,
+    V2SegmentTranslationsResponse,
+    V2SegmentCommentariesResponse,
 )
 
 oauth2_scheme = HTTPBearer()
@@ -34,15 +31,7 @@ segment_router = APIRouter(
 from fastapi import Query
 
 
-@segment_router.post("", status_code=status.HTTP_201_CREATED)
-async def create_segment(
-    create_segment_request: CreateSegmentRequest,
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-) -> SegmentResponse:
-    return await create_new_segment(create_segment_request=create_segment_request, token=authentication_credential.credentials)
-
-
-@segment_router.post("/search", status_code=status.HTTP_200_OK)
+@segment_router.post("/search", status_code=status.HTTP_200_OK, deprecated=True)
 async def search_segments(
     segment_search_request: SegmentSearchRequest,
 ) -> SegmentResponse:
@@ -58,42 +47,50 @@ async def get_segment(
 ) -> SegmentDTO:
     return await get_segment_details_by_id(segment_id=segment_id, text_details=text_details)
 
+
 @segment_router.get("/{segment_id}/info", status_code=status.HTTP_200_OK)
 async def get_info_for_segment(
     segment_id: str
 ) -> SegmentInfoResponse:
     return await get_info_by_segment_id(segment_id=segment_id)
 
+
 @segment_router.get("/{segment_id}/root_text", status_code=status.HTTP_200_OK)
 async def get_root_text_for_segment(
-    segment_id: str
-):
-    return await get_root_text_mapping_by_segment_id(segment_id=segment_id)
+    segment_id: str,
+    text_id: str = Query(..., description="The root text ID to fetch segments from"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
+) -> V2SegmentRootTextResponse:
+    return await get_root_text_by_segment_id_from_openpecha(
+        text_id=text_id,
+        segment_id=segment_id,
+        skip=skip,
+        limit=limit,
+    )
+
 
 @segment_router.get("/{segment_id}/translations", status_code=status.HTTP_200_OK)
 async def get_translations_for_segment(
-    segment_id: str
-) -> SegmentTranslationsResponse:
-    return await get_translations_by_segment_id(
-        segment_id=segment_id
+    segment_id: str,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
+) -> V2SegmentTranslationsResponse:
+    return await get_translations_by_segment_id_from_openpecha(
+        segment_id=segment_id,
+        skip=skip,
+        limit=limit,
     )
+
 
 @segment_router.get("/{segment_id}/commentaries", status_code=status.HTTP_200_OK)
 async def get_commentaries_for_segment(
-    segment_id: str
-) -> SegmentCommentariesResponse:
-    return await get_commentaries_by_segment_id(
-        segment_id=segment_id
-    )
-
-
-@segment_router.put("", status_code=status.HTTP_200_OK)
-async def update_segment(
-    segment_update_request: SegmentUpdateRequest,
-    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
-):
-    return await update_segments_service(
-        token=authentication_credential.credentials,
-        segment_update_request=segment_update_request,
-
+    segment_id: str,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
+) -> V2SegmentCommentariesResponse:
+    return await get_commentaries_by_segment_id_from_openpecha(
+        segment_id=segment_id,
+        skip=skip,
+        limit=limit,
     )

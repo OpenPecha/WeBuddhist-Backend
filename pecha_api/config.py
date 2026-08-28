@@ -62,7 +62,6 @@ DEFAULTS = dict(
     CACHE_TEXT_TIMEOUT=1800,        # 30 minutes for texts (not frequently changed)
     CACHE_COLLECTION_TIMEOUT=1800,  # 30 minutes for collections (not frequently changed)
     CACHE_USER_TIMEOUT=900,         # 15 minutes for users (not frequently changed)
-    CACHE_TOPIC_TIMEOUT=1800,       # 30 minutes for topics (not frequently changed)
     CACHE_SHEET_TIMEOUT=60,         # 1 minute for sheets (frequently edited by users)
     CACHE_USER_STATS_TIMEOUT=300,   # 5 minutes for user stats
     CACHE_CALENDAR_TIMEOUT=2592000, # 30 days; source calendar files are immutable
@@ -91,9 +90,9 @@ DEFAULTS = dict(
     APPLICATION = "webuddhist",
 
     #pecha api configuration
-    EXTERNAL_PECHA_API_URL="",
-    EXTERNAL_DEV_PECHA_API_URL="http://13.250.189.160/",
-    EXTERNAL_OPENPECHA_API_KEY="http://13.250.189.160/",
+    EXTERNAL_PECHA_API_URL="https://library.webuddhist.com/",
+    EXTERNAL_DEV_PECHA_API_URL="https://library.webuddhist.com/",
+    EXTERNAL_OPENPECHA_API_KEY="",  # TODO: Get API key from OpenPecha team
     EXTERNAL_PECHA_APP_NAME="webuddhist",
 
     EXTERNAL_TITLE_SEARCH_API_URL="",

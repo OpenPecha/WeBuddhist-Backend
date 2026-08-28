@@ -11,6 +11,10 @@ class CacheType(Enum):
     DETAIL_TEXT_TABLE_OF_CONTENT = "detail_text_table_of_content"
 
     SEGMENTS_DETAILS = "segments_details"
+    SEGMENT_INFO = "segment_info"
+    SEGMENT_TRANSLATIONS = "segment_translations"
+    SEGMENT_COMMENTARIES = "segment_commentaries"
+    SEGMENT_ROOT_TEXT = "segment_root_text"
 
     GROUP_DETAIL = "group_detail"
 
@@ -18,8 +22,6 @@ class CacheType(Enum):
     USER_DAILY_LOG = "user_daily_log"
     USER_STATS = "user_stats"
 
-    TOPICS = "topics"
-    
     # Collection-specific cache types
     COLLECTIONS = "collections"
     COLLECTION_DETAIL = "collection_detail"
