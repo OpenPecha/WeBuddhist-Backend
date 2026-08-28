@@ -41,7 +41,9 @@ from .segments_response_models import (
     RelatedText, 
     Resources, 
     SegmentInfo, 
-    SegmentRootMappingResponse
+    SegmentRootMappingResponse,
+    SegmentRootMapping,
+    MappedSegmentResponseDTO,
 )
 
 from .segments_cache_service import (
@@ -363,25 +365,99 @@ async def get_info_by_segment_id(segment_id: str) -> SegmentInfoResponse:
     return response
 
 async def get_root_text_mapping_by_segment_id(segment_id: str) -> SegmentRootMappingResponse:
-    
-    is_valid_segment = await SegmentUtils.validate_segment_exists(segment_id=segment_id)
-    if not is_valid_segment:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE)
-
+    """
+    Get root text mapping for a segment using OpenPecha API (Neo4j).
+    Returns the root texts that this segment's text is a translation/commentary of.
+    """
     cache_data = await get_segment_root_mapping_by_id_cache(
         segment_id=segment_id, cache_type=CacheType.SEGMENT_ROOT_TEXT
     )
     if cache_data:
         return cache_data
 
-    parent_segment = await get_segment_by_id(segment_id=segment_id)
-    parent_text = await TextUtils.get_text_details_by_id(text_id=parent_segment.text_id)
-    mapped_segments = await get_related_mapped_segments(parent_segment_id=segment_id)
-    segment_root_mapping = await SegmentUtils.get_segment_root_mapping_details(segments=mapped_segments, parent_segment_text=parent_text)
+    # Fetch segment details and content from OpenPecha API
+    try:
+        segment_details = await fetch_segment_details(segment_id)
+    except Exception as e:
+        logger.error(f"Failed to fetch segment {segment_id} from OpenPecha API: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorConstants.SEGMENT_NOT_FOUND_MESSAGE
+        )
+    
+    # Fetch segment content
+    try:
+        segment_content = await fetch_segment_content(segment_id)
+    except Exception:
+        segment_content = ""
+    
+    text_id = segment_details.get("text_id")
+    if not text_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Text ID not found for segment '{segment_id}'"
+        )
+    
+    # Fetch text details to get root text info (translation_of or commentary_of)
+    try:
+        text_payload = await fetch_text_by_id(text_id)
+    except Exception as e:
+        logger.error(f"Failed to fetch text {text_id} from OpenPecha API: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Text with id '{text_id}' not found"
+        )
+    
+    segment_root_mapping: List[SegmentRootMapping] = []
+    
+    # Get root text IDs (the text this is a translation/commentary of)
+    root_text_id = text_payload.get("translation_of") or text_payload.get("commentary_of")
+    
+    if root_text_id:
+        # Fetch root text details
+        try:
+            root_text_payload = await fetch_text_by_id(root_text_id)
+            if root_text_payload:
+                # Fetch related segments from the root text
+                try:
+                    related_page = await fetch_related_segments(
+                        segment_id=segment_id,
+                        limit=100,
+                        offset=0,
+                        text_id=root_text_id
+                    )
+                    items = related_page.get("items", []) or []
+                    
+                    # Build mapped segments list
+                    mapped_segments: List[MappedSegmentResponseDTO] = []
+                    for item in items:
+                        item_content = ""
+                        try:
+                            item_content = await fetch_segment_content(item["id"]) or ""
+                        except Exception:
+                            pass
+                        mapped_segments.append(MappedSegmentResponseDTO(
+                            segment_id=item["id"],
+                            content=item_content
+                        ))
+                    
+                    if mapped_segments:
+                        from pecha_api.texts.texts_openpecha_service import _extract_title
+                        segment_root_mapping.append(SegmentRootMapping(
+                            text_id=root_text_id,
+                            title=_extract_title(root_text_payload.get("title", {})),
+                            language=root_text_payload.get("language", ""),
+                            segments=mapped_segments
+                        ))
+                except Exception as e:
+                    logger.error(f"Failed to fetch related segments for root text {root_text_id}: {e}")
+        except Exception as e:
+            logger.error(f"Failed to fetch root text {root_text_id}: {e}")
+    
     response = SegmentRootMappingResponse(
         parent_segment=ParentSegment(
             segment_id=segment_id,
-            content=parent_segment.content
+            content=segment_content or ""
         ),
         segment_root_mapping=segment_root_mapping
     )

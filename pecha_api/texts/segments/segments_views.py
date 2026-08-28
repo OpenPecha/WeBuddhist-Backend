@@ -7,9 +7,9 @@ from .segments_service import (
     get_commentaries_by_segment_id,
     get_segment_details_by_id, 
     get_info_by_segment_id,
-    get_root_text_mapping_by_segment_id,
     search_segments_by_content_service,
 )
+from .segments_openpecha_service import get_root_text_by_segment_id_from_openpecha
 from .segments_response_models import (
     SegmentDTO,
     SegmentResponse,
@@ -17,6 +17,7 @@ from .segments_response_models import (
     SegmentTranslationsResponse,
     SegmentCommentariesResponse,
     SegmentSearchRequest,
+    V2SegmentRootTextResponse,
 )
 
 oauth2_scheme = HTTPBearer()
@@ -54,9 +55,17 @@ async def get_info_for_segment(
 
 @segment_router.get("/{segment_id}/root_text", status_code=status.HTTP_200_OK)
 async def get_root_text_for_segment(
-    segment_id: str
-):
-    return await get_root_text_mapping_by_segment_id(segment_id=segment_id)
+    segment_id: str,
+    text_id: str = Query(..., description="The root text ID to fetch segments from"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
+) -> V2SegmentRootTextResponse:
+    return await get_root_text_by_segment_id_from_openpecha(
+        text_id=text_id,
+        segment_id=segment_id,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @segment_router.get("/{segment_id}/translations", status_code=status.HTTP_200_OK)
