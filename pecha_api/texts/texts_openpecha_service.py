@@ -9,6 +9,7 @@ from pecha_api.texts.texts_response_models import (
     TextDTO,
     TextVersion,
     TextVersionResponse,
+    TitleSearchResult,
     V2TextDTO,
     V2TextsCategoryResponse,
 )
@@ -525,3 +526,40 @@ async def search_text_content(
 ) -> Dict[str, Any]:
     
  return await search_by_content(query, search_type, limit, text_id, edition_id)
+
+async def get_titles_by_query_from_openpecha(
+    title: str,
+    limit: int = 20,
+    offset: int = 0,
+) -> List[TitleSearchResult]:
+    """Title lookup backed entirely by OpenPecha.
+
+    Replaces the legacy title-search, which fetched titles from OpenPecha and
+    then re-resolved them to ids through Mongo by exact title-string match.
+    """
+    try:
+        data = await fetch_texts_by_category(
+            title=title,
+            limit=limit,
+            offset=offset,
+        )
+    except Exception:
+        logger.exception("Failed to search texts by title from upstream")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to search texts by title from upstream service",
+        )
+
+    results: List[TitleSearchResult] = []
+    for item in data.get("items", []) or []:
+        if not isinstance(item, dict):
+            continue
+        text_id = item.get("id")
+        if not text_id:
+            continue
+        title_value = _extract_title(item.get("title", {}), item.get("language"))
+        if not title_value:
+            continue
+        results.append(TitleSearchResult(id=text_id, title=title_value))
+
+    return results

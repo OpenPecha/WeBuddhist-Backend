@@ -9,6 +9,7 @@ from pecha_api.texts.texts_response_models import (
     TextDTO,
     TextVersion,
     TextVersionResponse,
+    TitleSearchResult,
     V2TextDTO,
     V2TextsCategoryResponse,
 )
@@ -644,3 +645,88 @@ class TestGetTextCommentariesResponseStructure:
         assert data["license"] is None
         assert data["categories"] == []
         assert data["views"] == 0
+
+
+# =============================================================================
+# GET /texts/title-search - View Layer Tests
+# =============================================================================
+
+class TestTitleSearchV2Endpoint:
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_by_query_from_openpecha")
+    def test_title_search_success(self, mock_service):
+        mock_service.return_value = [
+            TitleSearchResult(id="RbdDgw67tA6XwdogCfqaK", title="बुद्ध वन्दना"),
+        ]
+
+        response = client.get("/texts/title-search?title=buddha&limit=10&offset=0")
+
+        assert response.status_code == 200
+        # Bare array, matching the legacy title-search response shape.
+        assert response.json() == [{"id": "RbdDgw67tA6XwdogCfqaK", "title": "बुद्ध वन्दना"}]
+        mock_service.assert_awaited_once_with(title="buddha", limit=10, offset=0)
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_by_query_from_openpecha")
+    def test_title_search_no_matches_returns_empty_list(self, mock_service):
+        mock_service.return_value = []
+
+        response = client.get("/texts/title-search?title=zzzznotathing")
+
+        assert response.status_code == 200
+        assert response.json() == []
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_by_query_from_openpecha")
+    def test_title_search_applies_default_paging(self, mock_service):
+        mock_service.return_value = []
+
+        response = client.get("/texts/title-search?title=buddha")
+
+        assert response.status_code == 200
+        mock_service.assert_awaited_once_with(title="buddha", limit=20, offset=0)
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_by_query_from_openpecha")
+    def test_title_search_rejects_author_filter(self, mock_service):
+        response = client.get("/texts/title-search?title=buddha&author=someone")
+
+        assert response.status_code == 400
+        assert "author" in response.json()["detail"]
+        # Rejected before any upstream call, so results are never silently unfiltered.
+        mock_service.assert_not_awaited()
+
+    def test_title_search_requires_title(self):
+        response = client.get("/texts/title-search?limit=10&offset=0")
+
+        assert response.status_code == 422
+
+    def test_title_search_rejects_limit_above_cap(self):
+        response = client.get("/texts/title-search?title=buddha&limit=500")
+
+        assert response.status_code == 422
+
+    def test_title_search_rejects_negative_offset(self):
+        response = client.get("/texts/title-search?title=buddha&offset=-1")
+
+        assert response.status_code == 422
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_text_by_id_from_openpecha")
+    def test_title_search_is_not_shadowed_by_text_id_route(self, mock_by_id):
+        """/texts/title-search must not be captured by GET /texts/{text_id}."""
+        with patch(
+            "pecha_api.texts.texts_openpecha_views.get_titles_by_query_from_openpecha"
+        ) as mock_search:
+            mock_search.return_value = []
+
+            response = client.get("/texts/title-search?title=buddha")
+
+            assert response.status_code == 200
+            mock_search.assert_awaited_once()
+            mock_by_id.assert_not_awaited()
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_by_query_from_openpecha")
+    def test_title_search_propagates_upstream_error(self, mock_service):
+        mock_service.side_effect = HTTPException(
+            status_code=502, detail="Failed to search texts by title from upstream service"
+        )
+
+        response = client.get("/texts/title-search?title=buddha")
+
+        assert response.status_code == 502

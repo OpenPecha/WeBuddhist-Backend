@@ -334,3 +334,112 @@ def test_trim_segment_content_segment_numbers_are_sequential():
     result = trim_segment_content(edition_content=content, segments=segments)
 
     assert [s.segment_number for s in result.contents] == [1, 2, 3]
+
+
+# =============================================================================
+# get_titles_by_query_from_openpecha - Service Layer Tests
+# =============================================================================
+
+TITLE_SEARCH_PAYLOAD = {
+    "items": [
+        {
+            "id": "RbdDgw67tA6XwdogCfqaK",
+            "title": {"pi": "बुद्ध वन्दना"},
+            "language": "pi",
+            "license": "public",
+        },
+        {
+            "id": "0V1UCd0qNSwwIJOEMcZYO",
+            "title": {"en": "Buddha Vandana", "pi": "पञ्चसील याचना"},
+            "language": "en",
+            "license": "public",
+        },
+    ],
+    "has_more": False,
+    "offset": 0,
+    "limit": 10,
+}
+
+
+@pytest.mark.asyncio
+async def test_get_titles_by_query_from_openpecha_success(mocker):
+    from pecha_api.texts.texts_openpecha_service import get_titles_by_query_from_openpecha
+
+    mock_fetch = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_texts_by_category",
+        new=AsyncMock(return_value=TITLE_SEARCH_PAYLOAD),
+    )
+
+    result = await get_titles_by_query_from_openpecha(title="buddha", limit=10, offset=0)
+
+    assert [item.id for item in result] == ["RbdDgw67tA6XwdogCfqaK", "0V1UCd0qNSwwIJOEMcZYO"]
+    # Title is picked in the item's own language, not the first key.
+    assert [item.title for item in result] == ["बुद्ध वन्दना", "Buddha Vandana"]
+    mock_fetch.assert_awaited_once_with(title="buddha", limit=10, offset=0)
+
+
+@pytest.mark.asyncio
+async def test_get_titles_by_query_from_openpecha_no_matches(mocker):
+    from pecha_api.texts.texts_openpecha_service import get_titles_by_query_from_openpecha
+
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_texts_by_category",
+        new=AsyncMock(return_value={"items": [], "has_more": False, "offset": 0, "limit": 10}),
+    )
+
+    result = await get_titles_by_query_from_openpecha(title="zzzznotathing", limit=10, offset=0)
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_titles_by_query_from_openpecha_skips_unusable_items(mocker):
+    from pecha_api.texts.texts_openpecha_service import get_titles_by_query_from_openpecha
+
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_texts_by_category",
+        new=AsyncMock(
+            return_value={
+                "items": [
+                    {"id": "", "title": {"en": "No id"}, "language": "en"},
+                    {"id": "ok-1", "title": {}, "language": "en"},
+                    "not-a-dict",
+                    {"id": "ok-2", "title": {"en": "Keeps this"}, "language": "en"},
+                ]
+            }
+        ),
+    )
+
+    result = await get_titles_by_query_from_openpecha(title="x", limit=10, offset=0)
+
+    assert [item.id for item in result] == ["ok-2"]
+    assert result[0].title == "Keeps this"
+
+
+@pytest.mark.asyncio
+async def test_get_titles_by_query_from_openpecha_upstream_error_raises_502(mocker):
+    from pecha_api.texts.texts_openpecha_service import get_titles_by_query_from_openpecha
+
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_texts_by_category",
+        new=AsyncMock(side_effect=Exception("upstream down")),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_titles_by_query_from_openpecha(title="buddha", limit=10, offset=0)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+@pytest.mark.asyncio
+async def test_get_titles_by_query_from_openpecha_forwards_paging(mocker):
+    from pecha_api.texts.texts_openpecha_service import get_titles_by_query_from_openpecha
+
+    mock_fetch = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_texts_by_category",
+        new=AsyncMock(return_value={"items": []}),
+    )
+
+    await get_titles_by_query_from_openpecha(title="buddha", limit=50, offset=20)
+
+    mock_fetch.assert_awaited_once_with(title="buddha", limit=50, offset=20)
