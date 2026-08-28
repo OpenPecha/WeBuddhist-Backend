@@ -80,6 +80,29 @@ MOCK_TEXT_VERSION_2 = TextVersion(
 
 class TestTextsV2Endpoint:
     @patch("pecha_api.texts.texts_openpecha_views.get_texts_by_collection_from_openpecha")
+    def test_get_texts_without_collection_id(self, mock_service):
+        mock_service.return_value = V2TextsCategoryResponse(
+            collection=None,
+            texts=[V2TextDTO(id="t1", title="Text 1", language="en")],
+            skip=0,
+            limit=10,
+        )
+
+        response = client.get("/texts")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["collection"] is None
+        assert len(data["texts"]) == 1
+        mock_service.assert_awaited_once_with(
+            collection_id=None,
+            language=None,
+            title=None,
+            skip=0,
+            limit=10,
+        )
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_texts_by_collection_from_openpecha")
     def test_get_texts_by_collection_success(self, mock_service):
         mock_service.return_value = V2TextsCategoryResponse(
             collection=V2CollectionModel(id="cat-1", title="Discourses"),
@@ -97,6 +120,26 @@ class TestTextsV2Endpoint:
         data = response.json()
         assert data["collection"]["title"] == "Discourses"
         assert len(data["texts"]) == 2
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_texts_by_collection_from_openpecha")
+    def test_get_texts_by_collection_with_title_filter(self, mock_service):
+        mock_service.return_value = V2TextsCategoryResponse(
+            collection=V2CollectionModel(id="cat-1", title="Discourses"),
+            texts=[V2TextDTO(id="t1", title="Heart Sutra", language="en")],
+            skip=0,
+            limit=10,
+        )
+
+        response = client.get("/texts?collection_id=cat-1&title=heart&skip=0&limit=10")
+
+        assert response.status_code == 200
+        mock_service.assert_awaited_once_with(
+            collection_id="cat-1",
+            language=None,
+            title="heart",
+            skip=0,
+            limit=10,
+        )
 
     @patch("pecha_api.texts.texts_openpecha_views.get_text_by_id_from_openpecha")
     def test_get_text_by_id_success(self, mock_service):
@@ -178,28 +221,6 @@ class TestGetTextVersionsEndpoint:
         assert data["versions"][1]["id"] == "version-2"
         mock_service.assert_called_once_with(
             text_id="text-123",
-            language=None,
-            skip=0,
-            limit=10
-        )
-
-    @patch('pecha_api.texts.texts_openpecha_views.get_text_versions_from_openpecha')
-    def test_get_text_versions_with_language_filter(self, mock_service):
-        mock_response = TextVersionResponse(
-            text=MOCK_TEXT_DTO,
-            versions=[MOCK_TEXT_VERSION_1]
-        )
-        mock_service.return_value = mock_response
-
-        response = client.get("/texts/text-123/versions?language=en")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["versions"]) == 1
-        assert data["versions"][0]["language"] == "en"
-        mock_service.assert_called_once_with(
-            text_id="text-123",
-            language="en",
             skip=0,
             limit=10
         )
@@ -219,7 +240,6 @@ class TestGetTextVersionsEndpoint:
         assert len(data["versions"]) == 1
         mock_service.assert_called_once_with(
             text_id="text-123",
-            language=None,
             skip=1,
             limit=5
         )
@@ -247,12 +267,11 @@ class TestGetTextVersionsEndpoint:
         )
         mock_service.return_value = mock_response
 
-        response = client.get("/texts/text-123/versions?language=bo&skip=2&limit=20")
+        response = client.get("/texts/text-123/versions?skip=2&limit=20")
 
         assert response.status_code == 200
         mock_service.assert_called_once_with(
             text_id="text-123",
-            language="bo",
             skip=2,
             limit=20
         )

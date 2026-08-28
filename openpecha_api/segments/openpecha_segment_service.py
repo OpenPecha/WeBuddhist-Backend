@@ -6,12 +6,15 @@ async def fetch_related_segments(
     segment_id: str,
     limit: int = 10,
     offset: int = 0,
+    text_id: Optional[str] = None,
 ) -> Dict[str, Any]:
 
     params: Dict[str, Any] = {
         "limit": limit,
         "offset": offset,
     }
+    if text_id:
+        params["text_id"] = text_id
     client = get_authenticated_open_pecha_client()
     http_client = client.get_async_httpx_client()
     response = await http_client.get(

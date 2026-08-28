@@ -6,9 +6,12 @@ from pecha_api.texts.texts_openpecha_service import (
     _extract_title,
     _map_external_text_to_dto,
     _get_texts_by_collection_id,
+    _fetch_versions_from_parent,
+    _fetch_versions_from_related,
+    _fetch_commentaries_from_parent,
+    _fetch_commentaries_from_related,
     map_external_text_to_dto,
     map_external_text_to_text_version,
-    filter_versions_by_language,
     paginate_versions,
     fetch_translation_details,
     fetch_commentary_details,
@@ -182,70 +185,6 @@ class TestMapExternalTextToTextVersion:
         assert result.parent_id == "text-123"
 
 
-class TestFilterVersionsByLanguage:
-    """Tests for filter_versions_by_language function."""
-
-    def test_filter_with_language(self):
-        versions = [
-            TextVersion(
-                id="v1", title="English", parent_id=None, priority=1,
-                language="en", type="translation", group_id="g1",
-                table_of_contents=[], is_published=True,
-                created_date="2025-01-01", updated_date="2025-01-01",
-                published_date="2025-01-01", published_by="user"
-            ),
-            TextVersion(
-                id="v2", title="Tibetan", parent_id=None, priority=2,
-                language="bo", type="translation", group_id="g1",
-                table_of_contents=[], is_published=True,
-                created_date="2025-01-01", updated_date="2025-01-01",
-                published_date="2025-01-01", published_by="user"
-            )
-        ]
-
-        result = filter_versions_by_language(versions, "en")
-
-        assert len(result) == 1
-        assert result[0].language == "en"
-
-    def test_filter_without_language(self):
-        versions = [
-            TextVersion(
-                id="v1", title="English", parent_id=None, priority=1,
-                language="en", type="translation", group_id="g1",
-                table_of_contents=[], is_published=True,
-                created_date="2025-01-01", updated_date="2025-01-01",
-                published_date="2025-01-01", published_by="user"
-            ),
-            TextVersion(
-                id="v2", title="Tibetan", parent_id=None, priority=2,
-                language="bo", type="translation", group_id="g1",
-                table_of_contents=[], is_published=True,
-                created_date="2025-01-01", updated_date="2025-01-01",
-                published_date="2025-01-01", published_by="user"
-            )
-        ]
-
-        result = filter_versions_by_language(versions, None)
-
-        assert len(result) == 2
-
-    def test_filter_no_matches(self):
-        versions = [
-            TextVersion(
-                id="v1", title="English", parent_id=None, priority=1,
-                language="en", type="translation", group_id="g1",
-                table_of_contents=[], is_published=True,
-                created_date="2025-01-01", updated_date="2025-01-01",
-                published_date="2025-01-01", published_by="user"
-            )
-        ]
-
-        result = filter_versions_by_language(versions, "zh")
-
-        assert len(result) == 0
-
-
 class TestPaginateVersions:
     """Tests for paginate_versions function."""
 
@@ -307,8 +246,33 @@ class TestGetTextsByCollectionId:
 
         mock_fetch_texts.assert_awaited_once_with(
             category_id="cat-1",
+            title=None,
             offset=5,
             limit=3,
+        )
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_passes_title_filter_to_upstream(self, mock_fetch_texts):
+        mock_fetch_texts.return_value = {
+            "items": [_text_item("t-en", "en")],
+            "has_more": False,
+        }
+
+        texts, has_more = await _get_texts_by_collection_id(
+            collection_id="cat-1",
+            skip=0,
+            limit=10,
+            title="heart",
+        )
+
+        assert len(texts) == 1
+        assert has_more is False
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id="cat-1",
+            title="heart",
+            offset=0,
+            limit=10,
         )
 
     @pytest.mark.asyncio
@@ -390,6 +354,32 @@ class TestGetTextsByCollectionFromOpenpecha:
 
         mock_fetch_texts.assert_awaited_once_with(
             category_id="cat-1",
+            title=None,
+            offset=0,
+            limit=10,
+        )
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_category_by_id", new_callable=AsyncMock)
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_get_texts_with_title_filter(self, mock_fetch_texts, mock_fetch_category):
+        mock_fetch_texts.return_value = {
+            "items": [{"id": "t-en", "title": {"en": "Heart Sutra"}, "language": "en"}],
+            "has_more": False,
+        }
+        mock_fetch_category.return_value = {"title": {"en": "Collection"}}
+
+        result = await get_texts_by_collection_from_openpecha(
+            collection_id="cat-1",
+            title="heart",
+            skip=0,
+            limit=10,
+        )
+
+        assert len(result.texts) == 1
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id="cat-1",
+            title="heart",
             offset=0,
             limit=10,
         )
@@ -420,6 +410,7 @@ class TestGetTextsByCollectionFromOpenpecha:
 
         mock_fetch_texts.assert_awaited_once_with(
             category_id="cat-1",
+            title=None,
             offset=1,
             limit=1,
         )
@@ -446,6 +437,27 @@ class TestGetTextsByCollectionFromOpenpecha:
 
         assert exc_info.value.status_code == 502
         assert "category" in exc_info.value.detail.lower()
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_category_by_id", new_callable=AsyncMock)
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_get_texts_without_collection_id(self, mock_fetch_texts, mock_fetch_category):
+        mock_fetch_texts.return_value = {
+            "items": [{"id": "t1", "title": {"en": "Text 1"}, "language": "en"}],
+            "has_more": False,
+        }
+
+        result = await get_texts_by_collection_from_openpecha(skip=0, limit=10)
+
+        assert result.collection is None
+        assert len(result.texts) == 1
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id=None,
+            title=None,
+            offset=0,
+            limit=10,
+        )
+        mock_fetch_category.assert_not_awaited()
 
 
 # =============================================================================
@@ -503,12 +515,26 @@ class TestGetTextVersionsFromOpenpecha:
     @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     @patch('pecha_api.texts.texts_openpecha_service.fetch_translation_details')
     async def test_get_text_versions_success(self, mock_fetch_translations, mock_fetch_text):
-        mock_fetch_text.return_value = MOCK_EXTERNAL_TEXT_DATA
+        """Test default behavior when commentary_of is set (skips related text lookup)."""
+        # Text with commentary_of set - goes to default behavior
+        text_data = {
+            "id": "text-123",
+            "bdrc": "bdrc-123",
+            "title": {"en": "Heart Sutra", "bo": "ཤེས་རབ་སྙིང་པོ།"},
+            "language": "bo",
+            "category_id": "cat-1",
+            "date": "2025-01-01",
+            "license": "CC0",
+            "commentary_of": "parent-text",  # Has commentary_of, so default behavior applies
+            "translation_of": None,
+            "translations": ["trans-1", "trans-2"],
+            "commentaries": ["comm-1"]
+        }
+        mock_fetch_text.return_value = text_data
         mock_fetch_translations.return_value = [MOCK_TRANSLATION_DATA]
 
         result = await get_text_versions_from_openpecha(
             text_id="text-123",
-            language=None,
             skip=0,
             limit=10
         )
@@ -527,7 +553,6 @@ class TestGetTextVersionsFromOpenpecha:
         with pytest.raises(HTTPException) as exc_info:
             await get_text_versions_from_openpecha(
                 text_id="nonexistent",
-                language=None,
                 skip=0,
                 limit=10
             )
@@ -543,7 +568,6 @@ class TestGetTextVersionsFromOpenpecha:
         with pytest.raises(HTTPException) as exc_info:
             await get_text_versions_from_openpecha(
                 text_id="text-123",
-                language=None,
                 skip=0,
                 limit=10
             )
@@ -563,33 +587,12 @@ class TestGetTextVersionsFromOpenpecha:
 
         result = await get_text_versions_from_openpecha(
             text_id="text-123",
-            language=None,
             skip=0,
             limit=10
         )
 
         assert result.text is not None
         assert len(result.versions) == 0
-
-    @pytest.mark.asyncio
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
-    @patch('pecha_api.texts.texts_openpecha_service.fetch_translation_details')
-    async def test_get_text_versions_with_language_filter(self, mock_fetch_translations, mock_fetch_text):
-        mock_fetch_text.return_value = MOCK_EXTERNAL_TEXT_DATA
-        mock_fetch_translations.return_value = [
-            {"id": "t1", "title": {"en": "English"}, "language": "en", "translation_of": "text-123"},
-            {"id": "t2", "title": {"bo": "Tibetan"}, "language": "bo", "translation_of": "text-123"}
-        ]
-
-        result = await get_text_versions_from_openpecha(
-            text_id="text-123",
-            language="en",
-            skip=0,
-            limit=10
-        )
-
-        assert len(result.versions) == 1
-        assert result.versions[0].language == "en"
 
     @pytest.mark.asyncio
     @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
@@ -603,12 +606,159 @@ class TestGetTextVersionsFromOpenpecha:
 
         result = await get_text_versions_from_openpecha(
             text_id="text-123",
-            language=None,
             skip=2,
             limit=2
         )
 
         assert len(result.versions) == 2
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_translation_details')
+    async def test_get_text_versions_with_translation_of(self, mock_fetch_translations, mock_fetch_text):
+        """When translation_of is not null, fetch versions from the parent text."""
+        # First call: the requested text has translation_of pointing to parent
+        translation_text = {
+            "id": "trans-1",
+            "title": {"en": "Translation"},
+            "language": "en",
+            "translation_of": "root-text-123",
+            "commentary_of": None,
+            "translations": [],
+            "commentaries": []
+        }
+        # Second call: the parent text has translations
+        parent_text = {
+            "id": "root-text-123",
+            "title": {"bo": "Root Text"},
+            "language": "bo",
+            "translations": ["trans-1", "trans-2"],
+            "commentaries": []
+        }
+        mock_fetch_text.side_effect = [translation_text, parent_text]
+        mock_fetch_translations.return_value = [
+            {"id": "trans-1", "title": {"en": "Translation 1"}, "language": "en", "translation_of": "root-text-123"},
+            {"id": "trans-2", "title": {"en": "Translation 2"}, "language": "zh", "translation_of": "root-text-123"}
+        ]
+
+        result = await get_text_versions_from_openpecha(text_id="trans-1", skip=0, limit=10)
+
+        assert result.text.id == "trans-1"
+        assert len(result.versions) == 2
+        assert result.versions[0].id == "trans-1"
+        assert result.versions[1].id == "trans-2"
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_translation_details')
+    async def test_get_text_versions_both_null_with_translations_list(self, mock_fetch_translations, mock_fetch_text):
+        """When both commentary_of and translation_of are null, check translations list."""
+        # Root text with translations list
+        root_text = {
+            "id": "root-123",
+            "title": {"bo": "Root Text"},
+            "language": "bo",
+            "translation_of": None,
+            "commentary_of": None,
+            "translations": ["trans-1"],
+            "commentaries": []
+        }
+        # The translation has translation_of pointing to a parent
+        translation_text = {
+            "id": "trans-1",
+            "title": {"en": "Translation"},
+            "language": "en",
+            "translation_of": "root-123",
+            "translations": [],
+            "commentaries": []
+        }
+        # Parent text (root-123) has translations
+        parent_text = {
+            "id": "root-123",
+            "title": {"bo": "Root Text"},
+            "language": "bo",
+            "translations": ["trans-1", "trans-2"],
+            "commentaries": []
+        }
+        mock_fetch_text.side_effect = [root_text, translation_text, parent_text]
+        mock_fetch_translations.return_value = [
+            {"id": "trans-1", "title": {"en": "Translation 1"}, "language": "en"},
+            {"id": "trans-2", "title": {"en": "Translation 2"}, "language": "zh"}
+        ]
+
+        result = await get_text_versions_from_openpecha(text_id="root-123", skip=0, limit=10)
+
+        assert result.text.id == "root-123"
+        assert len(result.versions) == 2
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    async def test_get_text_versions_translation_of_parent_not_found(self, mock_fetch_text):
+        """When translation_of parent is not found, return empty versions."""
+        translation_text = {
+            "id": "trans-1",
+            "title": {"en": "Translation"},
+            "language": "en",
+            "translation_of": "missing-parent",
+            "commentary_of": None
+        }
+        mock_fetch_text.side_effect = [translation_text, None]
+
+        result = await get_text_versions_from_openpecha(text_id="trans-1", skip=0, limit=10)
+
+        assert result.text.id == "trans-1"
+        assert len(result.versions) == 0
+
+
+# =============================================================================
+# Service Function Tests - _fetch_versions_from_parent
+# =============================================================================
+
+class TestFetchVersionsFromParent:
+    """Tests for _fetch_versions_from_parent helper function."""
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_translation_details')
+    async def test_fetch_versions_from_parent_success(self, mock_fetch_translations, mock_fetch_text):
+        original_text = MagicMock(spec=TextDTO)
+        original_text.id = "trans-1"
+        parent_data = {
+            "id": "root-123",
+            "translations": ["trans-1", "trans-2"]
+        }
+        mock_fetch_text.return_value = parent_data
+        mock_fetch_translations.return_value = [
+            {"id": "trans-1", "title": {"en": "Trans 1"}, "language": "en"},
+            {"id": "trans-2", "title": {"en": "Trans 2"}, "language": "zh"}
+        ]
+
+        result = await _fetch_versions_from_parent("root-123", original_text, 0, 10)
+
+        assert result.text == original_text
+        assert len(result.versions) == 2
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    async def test_fetch_versions_from_parent_not_found(self, mock_fetch_text):
+        original_text = MagicMock(spec=TextDTO)
+        mock_fetch_text.return_value = None
+
+        result = await _fetch_versions_from_parent("missing", original_text, 0, 10)
+
+        assert result.text == original_text
+        assert len(result.versions) == 0
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    async def test_fetch_versions_from_parent_error(self, mock_fetch_text):
+        original_text = MagicMock(spec=TextDTO)
+        mock_fetch_text.side_effect = Exception("Connection error")
+
+        result = await _fetch_versions_from_parent("root-123", original_text, 0, 10)
+
+        assert result.text == original_text
+        assert len(result.versions) == 0
 
 
 # =============================================================================
@@ -808,6 +958,227 @@ class TestGetTextCommentariesFromOpenpecha:
 
         assert len(result) == 1
         assert result[0].id == "c1"
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
+    async def test_get_commentaries_with_commentary_of(self, mock_fetch_commentaries, mock_fetch_text):
+        """When commentary_of is not null, fetch commentaries from the parent text."""
+        # First call: the requested text has commentary_of pointing to parent
+        commentary_text = {
+            "id": "comm-1",
+            "title": {"en": "Commentary"},
+            "language": "bo",
+            "commentary_of": "root-text-123",
+            "translation_of": None,
+            "translations": [],
+            "commentaries": []
+        }
+        # Second call: the parent text has commentaries
+        parent_text = {
+            "id": "root-text-123",
+            "title": {"bo": "Root Text"},
+            "language": "bo",
+            "commentaries": ["comm-1", "comm-2"]
+        }
+        mock_fetch_text.side_effect = [commentary_text, parent_text]
+        mock_fetch_commentaries.return_value = [
+            {"id": "comm-1", "title": {"en": "Commentary 1"}, "language": "bo"},
+            {"id": "comm-2", "title": {"en": "Commentary 2"}, "language": "bo"}
+        ]
+
+        result = await get_text_commentaries_from_openpecha(text_id="comm-1", skip=0, limit=10)
+
+        assert len(result) == 2
+        assert result[0].id == "comm-1"
+        assert result[1].id == "comm-2"
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
+    async def test_get_commentaries_both_null_with_translations_list(self, mock_fetch_commentaries, mock_fetch_text):
+        """When both commentary_of and translation_of are null, check translations/commentaries list."""
+        # Root text with translations list
+        root_text = {
+            "id": "root-123",
+            "title": {"bo": "Root Text"},
+            "language": "bo",
+            "translation_of": None,
+            "commentary_of": None,
+            "translations": ["trans-1"],
+            "commentaries": []
+        }
+        # The translation has commentary_of pointing to a parent
+        translation_text = {
+            "id": "trans-1",
+            "title": {"en": "Translation"},
+            "language": "en",
+            "commentary_of": "root-123",
+            "translations": [],
+            "commentaries": []
+        }
+        # Parent text (root-123) has commentaries
+        parent_text = {
+            "id": "root-123",
+            "title": {"bo": "Root Text"},
+            "language": "bo",
+            "commentaries": ["comm-1", "comm-2"]
+        }
+        mock_fetch_text.side_effect = [root_text, translation_text, parent_text]
+        mock_fetch_commentaries.return_value = [
+            {"id": "comm-1", "title": {"en": "Commentary 1"}, "language": "bo"},
+            {"id": "comm-2", "title": {"en": "Commentary 2"}, "language": "bo"}
+        ]
+
+        result = await get_text_commentaries_from_openpecha(text_id="root-123", skip=0, limit=10)
+
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    async def test_get_commentaries_commentary_of_parent_not_found(self, mock_fetch_text):
+        """When commentary_of parent is not found, return empty commentaries."""
+        commentary_text = {
+            "id": "comm-1",
+            "title": {"en": "Commentary"},
+            "language": "bo",
+            "commentary_of": "missing-parent",
+            "translation_of": None
+        }
+        mock_fetch_text.side_effect = [commentary_text, None]
+
+        result = await get_text_commentaries_from_openpecha(text_id="comm-1", skip=0, limit=10)
+
+        assert len(result) == 0
+
+
+# =============================================================================
+# Service Function Tests - _fetch_commentaries_from_parent
+# =============================================================================
+
+class TestFetchCommentariesFromParent:
+    """Tests for _fetch_commentaries_from_parent helper function."""
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
+    async def test_fetch_commentaries_from_parent_success(self, mock_fetch_commentaries, mock_fetch_text):
+        parent_data = {
+            "id": "root-123",
+            "commentaries": ["comm-1", "comm-2"]
+        }
+        mock_fetch_text.return_value = parent_data
+        mock_fetch_commentaries.return_value = [
+            {"id": "comm-1", "title": {"en": "Commentary 1"}, "language": "bo"},
+            {"id": "comm-2", "title": {"en": "Commentary 2"}, "language": "bo"}
+        ]
+
+        result = await _fetch_commentaries_from_parent("root-123", 0, 10)
+
+        assert len(result) == 2
+        assert result[0].id == "comm-1"
+        assert result[1].id == "comm-2"
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    async def test_fetch_commentaries_from_parent_not_found(self, mock_fetch_text):
+        mock_fetch_text.return_value = None
+
+        result = await _fetch_commentaries_from_parent("missing", 0, 10)
+
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    async def test_fetch_commentaries_from_parent_error(self, mock_fetch_text):
+        mock_fetch_text.side_effect = Exception("Connection error")
+
+        result = await _fetch_commentaries_from_parent("root-123", 0, 10)
+
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    async def test_fetch_commentaries_from_parent_no_commentaries(self, mock_fetch_text):
+        parent_data = {
+            "id": "root-123",
+            "commentaries": []
+        }
+        mock_fetch_text.return_value = parent_data
+
+        result = await _fetch_commentaries_from_parent("root-123", 0, 10)
+
+        assert len(result) == 0
+
+
+# =============================================================================
+# Service Function Tests - _fetch_commentaries_from_related
+# =============================================================================
+
+class TestFetchCommentariesFromRelated:
+    """Tests for _fetch_commentaries_from_related helper function."""
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
+    async def test_fetch_commentaries_from_related_with_commentary_of(self, mock_fetch_commentaries, mock_fetch_text):
+        """When related text has commentary_of, fetch from that parent."""
+        related_data = {
+            "id": "trans-1",
+            "commentary_of": "root-123",
+            "commentaries": []
+        }
+        parent_data = {
+            "id": "root-123",
+            "commentaries": ["comm-1"]
+        }
+        mock_fetch_text.side_effect = [related_data, parent_data]
+        mock_fetch_commentaries.return_value = [
+            {"id": "comm-1", "title": {"en": "Commentary"}, "language": "bo"}
+        ]
+
+        result = await _fetch_commentaries_from_related("trans-1", 0, 10)
+
+        assert len(result) == 1
+        assert result[0].id == "comm-1"
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_commentary_details')
+    async def test_fetch_commentaries_from_related_direct(self, mock_fetch_commentaries, mock_fetch_text):
+        """When related text has no commentary_of, fetch its own commentaries."""
+        related_data = {
+            "id": "trans-1",
+            "commentary_of": None,
+            "commentaries": ["comm-1", "comm-2"]
+        }
+        mock_fetch_text.return_value = related_data
+        mock_fetch_commentaries.return_value = [
+            {"id": "comm-1", "title": {"en": "Commentary 1"}, "language": "bo"},
+            {"id": "comm-2", "title": {"en": "Commentary 2"}, "language": "bo"}
+        ]
+
+        result = await _fetch_commentaries_from_related("trans-1", 0, 10)
+
+        assert len(result) == 2
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    async def test_fetch_commentaries_from_related_not_found(self, mock_fetch_text):
+        mock_fetch_text.return_value = None
+
+        result = await _fetch_commentaries_from_related("missing", 0, 10)
+
+        assert len(result) == 0
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    async def test_fetch_commentaries_from_related_error(self, mock_fetch_text):
+        mock_fetch_text.side_effect = Exception("Connection error")
+
+        result = await _fetch_commentaries_from_related("trans-1", 0, 10)
+
+        assert len(result) == 0
 
 
 class TestFetchCommentaryDetails:

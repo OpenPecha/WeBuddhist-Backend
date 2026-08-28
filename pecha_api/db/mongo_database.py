@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from beanie import init_beanie
 from fastapi import FastAPI
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo.errors import ConfigurationError
 
 from ..topics.topics_models import Topic
 from ..collections.collections_models import Collection
@@ -18,40 +19,73 @@ from ..scheduler import setup_scheduler, shutdown_scheduler
 from ..group_posts.comment_websocket import init_broadcaster
 from ..chat.chat_websocket import init_broadcaster as init_chat_broadcaster
 
+logger = logging.getLogger(__name__)
+
 mongodb_client = None
 mongodb = None
+
+BEANIE_DOCUMENT_MODELS = [
+    Collection,
+    Term,
+    Topic,
+    Text,
+    Segment,
+    TableOfContent,
+    Group,
+]
+
+
+def _is_mongo_connection_string_configured(connection_string: str) -> bool:
+    return bool(connection_string and connection_string.strip())
 
 
 @asynccontextmanager
 async def lifespan(api: FastAPI):
     global mongodb_client, mongodb
-    # Initialize the MongoDB client and database
-    mongodb_client = AsyncIOMotorClient(get("MONGO_CONNECTION_STRING"))
-    mongodb = mongodb_client[get("MONGO_DATABASE_NAME")]
-    api.mongodb = mongodb  # Attach the database instance to the FastAPI app
+    api.mongodb = None
+
+    connection_string = get("MONGO_CONNECTION_STRING")
+    if not _is_mongo_connection_string_configured(connection_string):
+        logger.warning(
+            "MONGO_CONNECTION_STRING is not set; MongoDB and Beanie will not be initialized."
+        )
+        yield
+        return
 
     try:
-        # Initialize collections and indexes if necessary
-        try:
-            await init_beanie(
-                database=mongodb,
-                document_models=[
-                    Collection,
-                    Term,
-                    Topic,
-                    Text,
-                    Segment,
-                    TableOfContent,
-                    TextAudio,
-                    TextAudioOtr,
-                    Group,
-                ],
-                allow_index_dropping=True,
-            )
-            logging.info("Beanie initialized with the 'terms' collection.")
-        except Exception as e:
-            logging.error(f"Error during collection initialization: {e}")
-            raise
+        mongodb_client = AsyncIOMotorClient(connection_string)
+        mongodb = mongodb_client[get("MONGO_DATABASE_NAME")]
+        api.mongodb = mongodb
+    except ConfigurationError:
+        logger.exception(
+            "Invalid MONGO_CONNECTION_STRING; MongoDB will not be initialized."
+        )
+        yield
+        return
+    except Exception:
+        logger.exception(
+            "Failed to create MongoDB client; MongoDB will not be initialized."
+        )
+        yield
+        return
+
+    try:
+        await init_beanie(
+            database=mongodb,
+            document_models=[
+                Collection,
+                Term,
+                Topic,
+                Text,
+                Segment,
+                TableOfContent,
+                TextAudio,
+                TextAudioOtr,
+                Group,
+            ],
+            allow_index_dropping=True,
+        )
+        logger.info("Beanie initialized with MongoDB document models.")
 
         setup_scheduler()
 

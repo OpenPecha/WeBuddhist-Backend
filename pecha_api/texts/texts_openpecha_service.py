@@ -13,7 +13,7 @@ from pecha_api.texts.texts_response_models import (
     V2TextsCategoryResponse,
 )
 from pecha_api.collections.collections_response_models import V2CollectionModel
-from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id
+from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id, search_by_content
 from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
 from pecha_api.texts.texts_openpecha_api import (
     fetch_critical_editions,
@@ -93,13 +93,15 @@ async def _fetch_text_detail_with_source(text_id: str) -> Optional[Dict[str, Any
 
 
 async def _get_texts_by_collection_id(
-    collection_id: str,
+    collection_id: Optional[str],
     skip: int,
     limit: int,
+    title: Optional[str] = None,
 ) -> Tuple[List[V2TextDTO], bool]:
     try:
         page = await fetch_texts_by_category(
             category_id=collection_id,
+            title=title,
             offset=skip,
             limit=limit,
         )
@@ -117,32 +119,36 @@ async def _get_texts_by_collection_id(
 
 
 async def get_texts_by_collection_from_openpecha(
-    collection_id: str,
+    collection_id: Optional[str] = None,
     language: Optional[str] = None,
+    title: Optional[str] = None,
     skip: int = 0,
     limit: int = 10,
 ) -> V2TextsCategoryResponse:
     texts, has_more = await _get_texts_by_collection_id(
         collection_id=collection_id,
+        title=title,
         skip=skip,
         limit=limit,
     )
 
-    category_title = ""
-    try:
-        category_data = await fetch_category_by_id(collection_id, language=language)
-        if category_data:
-            category_title = _extract_title(category_data.get("title", {}), language)
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Failed to fetch category title from upstream service",
-        )
+    collection: Optional[V2CollectionModel] = None
+    if collection_id:
+        category_title = ""
+        try:
+            category_data = await fetch_category_by_id(collection_id, language=language)
+            if category_data:
+                category_title = _extract_title(category_data.get("title", {}), language)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Failed to fetch category title from upstream service",
+            )
 
-    collection = V2CollectionModel(
-        id=collection_id,
-        title=category_title,
-    )
+        collection = V2CollectionModel(
+            id=collection_id,
+            title=category_title,
+        )
 
     return V2TextsCategoryResponse(
         collection=collection,
@@ -225,15 +231,6 @@ def map_external_text_to_text_version(item: Dict[str, Any], language: Optional[s
     )
 
 
-def filter_versions_by_language(
-    versions: List[TextVersion],
-    language: Optional[str]
-) -> List[TextVersion]:
-    if not language:
-        return versions
-    return [v for v in versions if v.language == language]
-
-
 def paginate_versions(
     versions: List[TextVersion],
     skip: int,
@@ -244,7 +241,6 @@ def paginate_versions(
 
 async def get_text_versions_from_openpecha(
     text_id: str,
-    language: Optional[str] = None,
     skip: int = 0,
     limit: int = 10
 ) -> TextVersionResponse:
@@ -266,6 +262,25 @@ async def get_text_versions_from_openpecha(
 
     root_text = map_external_text_to_dto(text_data, text_data.get("language"))
 
+    commentary_of = text_data.get("commentary_of")
+    translation_of = text_data.get("translation_of")
+
+    # If translation_of is not null, fetch versions from the parent text
+    if translation_of:
+        return await _fetch_versions_from_parent(translation_of, root_text, skip, limit)
+
+    # If both commentary_of and translation_of are null, check translations and commentaries lists
+    if not commentary_of and not translation_of:
+        translation_ids = text_data.get("translations", [])
+        commentary_ids = text_data.get("commentaries", [])
+
+        # If there are translations or commentaries, fetch versions from the first available ID
+        related_ids = translation_ids + commentary_ids
+        if related_ids:
+            # Fetch versions from the first related text
+            return await _fetch_versions_from_related(related_ids[0], root_text, skip, limit)
+
+    # Default: fetch translations directly from this text
     translation_ids = text_data.get("translations", [])
 
     if not translation_ids:
@@ -281,12 +296,88 @@ async def get_text_versions_from_openpecha(
         for item in translation_details
     ]
 
-    filtered_versions = filter_versions_by_language(versions, language)
-
-    paginated_versions = paginate_versions(filtered_versions, skip, limit)
+    paginated_versions = paginate_versions(versions, skip, limit)
 
     return TextVersionResponse(
         text=root_text,
+        versions=paginated_versions
+    )
+
+
+async def _fetch_versions_from_parent(
+    parent_id: str,
+    original_text: TextDTO,
+    skip: int,
+    limit: int
+) -> TextVersionResponse:
+    """Fetch versions from a parent text (translation_of)."""
+    try:
+        parent_data = await fetch_text_by_id(parent_id)
+    except Exception:
+        logger.warning(f"Failed to fetch parent text {parent_id}, returning empty versions")
+        return TextVersionResponse(text=original_text, versions=[])
+
+    if not parent_data:
+        return TextVersionResponse(text=original_text, versions=[])
+
+    translation_ids = parent_data.get("translations", [])
+
+    if not translation_ids:
+        return TextVersionResponse(text=original_text, versions=[])
+
+    translation_details = await fetch_translation_details(translation_ids)
+
+    versions = [
+        map_external_text_to_text_version(item, item.get("language"))
+        for item in translation_details
+    ]
+
+    paginated_versions = paginate_versions(versions, skip, limit)
+
+    return TextVersionResponse(
+        text=original_text,
+        versions=paginated_versions
+    )
+
+
+async def _fetch_versions_from_related(
+    related_id: str,
+    original_text: TextDTO,
+    skip: int,
+    limit: int
+) -> TextVersionResponse:
+    """Fetch versions from a related text (from translations or commentaries list)."""
+    try:
+        related_data = await fetch_text_by_id(related_id)
+    except Exception:
+        logger.warning(f"Failed to fetch related text {related_id}, returning empty versions")
+        return TextVersionResponse(text=original_text, versions=[])
+
+    if not related_data:
+        return TextVersionResponse(text=original_text, versions=[])
+
+    # Check if the related text has a translation_of pointing to a parent
+    translation_of = related_data.get("translation_of")
+    if translation_of:
+        return await _fetch_versions_from_parent(translation_of, original_text, skip, limit)
+
+    # Otherwise, get translations from the related text itself
+    translation_ids = related_data.get("translations", [])
+
+    if not translation_ids:
+        return TextVersionResponse(text=original_text, versions=[])
+
+    translation_details = await fetch_translation_details(translation_ids)
+
+    versions = [
+        map_external_text_to_text_version(item, item.get("language"))
+        for item in translation_details
+    ]
+
+    paginated_versions = paginate_versions(versions, skip, limit)
+
+    return TextVersionResponse(
+        text=original_text,
         versions=paginated_versions
     )
 
@@ -319,6 +410,24 @@ async def get_text_commentaries_from_openpecha(
             detail=f"Text with id '{text_id}' not found",
         )
 
+    commentary_of = text_data.get("commentary_of")
+    translation_of = text_data.get("translation_of")
+
+    # If commentary_of is not null, fetch commentaries from the parent text
+    if commentary_of:
+        return await _fetch_commentaries_from_parent(commentary_of, skip, limit)
+
+    # If both commentary_of and translation_of are null, check translations and commentaries lists
+    if not commentary_of and not translation_of:
+        translation_ids = text_data.get("translations", [])
+        commentary_ids = text_data.get("commentaries", [])
+
+        # If there are translations or commentaries, fetch commentaries from the first available ID
+        related_ids = translation_ids + commentary_ids
+        if related_ids:
+            return await _fetch_commentaries_from_related(related_ids[0], skip, limit)
+
+    # Default: fetch commentaries directly from this text
     commentary_ids = text_data.get("commentaries", [])
 
     if not commentary_ids:
@@ -334,3 +443,85 @@ async def get_text_commentaries_from_openpecha(
     paginated_commentaries = commentaries[skip:skip + limit]
 
     return paginated_commentaries
+
+
+async def _fetch_commentaries_from_parent(
+    parent_id: str,
+    skip: int,
+    limit: int
+) -> List[TextDTO]:
+    """Fetch commentaries from a parent text (commentary_of)."""
+    try:
+        parent_data = await fetch_text_by_id(parent_id)
+    except Exception:
+        logger.warning(f"Failed to fetch parent text {parent_id}, returning empty commentaries")
+        return []
+
+    if not parent_data:
+        return []
+
+    commentary_ids = parent_data.get("commentaries", [])
+
+    if not commentary_ids:
+        return []
+
+    commentary_details = await fetch_commentary_details(commentary_ids)
+
+    commentaries = [
+        map_external_text_to_dto(item, item.get("language"))
+        for item in commentary_details
+    ]
+
+    return commentaries[skip:skip + limit]
+
+
+async def _fetch_commentaries_from_related(
+    related_id: str,
+    skip: int,
+    limit: int
+) -> List[TextDTO]:
+    """Fetch commentaries from a related text (from translations or commentaries list)."""
+    try:
+        related_data = await fetch_text_by_id(related_id)
+    except Exception:
+        logger.warning(f"Failed to fetch related text {related_id}, returning empty commentaries")
+        return []
+
+    if not related_data:
+        return []
+
+    # Check if the related text has a commentary_of pointing to a parent
+    commentary_of = related_data.get("commentary_of")
+    if commentary_of:
+        return await _fetch_commentaries_from_parent(commentary_of, skip, limit)
+
+    # Otherwise, get commentaries from the related text itself
+    commentary_ids = related_data.get("commentaries", [])
+
+    if not commentary_ids:
+        return []
+
+    commentary_details = await fetch_commentary_details(commentary_ids)
+
+    commentaries = [
+        map_external_text_to_dto(item, item.get("language"))
+        for item in commentary_details
+    ]
+
+    return commentaries[skip:skip + limit]
+
+
+
+
+CONTENT_SEARCH_URL = "http://13.250.189.160/v2/content-search"
+
+
+async def search_text_content(
+    query: str,
+    search_type: Optional[str] = None,
+    limit: Optional[int] = 10,
+    text_id: Optional[str] = None,
+    edition_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    
+ return await search_by_content(query, search_type, limit, text_id, edition_id)

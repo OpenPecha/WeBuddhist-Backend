@@ -30,14 +30,16 @@ texts_v2_router = APIRouter(
     description="Retrieve texts for a collection from OpenPecha API. "
 )
 async def get_texts_by_collection(
-    collection_id: Annotated[str, Query(description="Collection ID to filter texts")],
+    collection_id: Annotated[Optional[str], Query(description="Collection ID to filter texts")] = None,
     language: Annotated[Optional[str], Query(description="Language code filter")] = None,
+    title: Annotated[Optional[str], Query(description="Filter texts by title (case-insensitive substring)")] = None,
     skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10,
 ) -> V2TextsCategoryResponse:
     return await get_texts_by_collection_from_openpecha(
         collection_id=collection_id,
         language=language,
+        title=title,
         skip=skip,
         limit=limit,
     )
@@ -66,13 +68,11 @@ async def get_text_by_id(text_id: str) -> V2TextDTO:
 @texts_v2_router.get("/{text_id}/versions", status_code=status.HTTP_200_OK)
 async def get_text_versions(
     text_id: str,
-    language: Annotated[Optional[str], Query(description="Language code filter")] = None,
     skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10
 ) -> TextVersionResponse:
     return await get_text_versions_from_openpecha(
         text_id=text_id,
-        language=language,
         skip=skip,
         limit=limit
     )
@@ -89,3 +89,5 @@ async def get_text_commentaries(
         skip=skip,
         limit=limit
     )
+
+
