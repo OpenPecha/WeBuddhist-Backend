@@ -221,7 +221,7 @@ async def _build_first_segment(text_id: str) -> Optional[Segment]:
             return Segment(id=whole.id, content=whole.content[:FIRST_SEGMENT_PREVIEW_CHAR_LIMIT])
 
         segments_page = await fetch_segmentation_segments(
-            segmentation_id=segmentation_id, limit=1, offset=0
+            edition_id=edition_id, limit=1, offset=0
         )
         if not segments_page.items:
             return None
@@ -343,7 +343,7 @@ async def _fetch_full_edition_segments(text_id: str) -> List[SegmentContentModel
     offset = 0
     while True:
         page = await fetch_segmentation_segments(
-            segmentation_id=segmentation_id, limit=SEGMENTATION_PAGE_SIZE, offset=offset
+            edition_id=edition_id, limit=SEGMENTATION_PAGE_SIZE, offset=offset
         )
         all_segments.extend(page.items)
         if not page.has_more or not page.items:

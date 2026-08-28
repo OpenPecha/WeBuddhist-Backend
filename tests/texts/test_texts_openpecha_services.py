@@ -3,11 +3,12 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import HTTPException, status
 
+from pecha_api.texts.texts_enums import PaginationDirection
 from pecha_api.texts.texts_openpecha_service import get_text_detail_by_id, trim_segment_content
 from pecha_api.texts.text_openpecha_response_models import (
     TextDetailResponse,
     TextDetailWithContentResponse,
-    CriticalEditionModel,
+    TextDetailsRequest,
     ContributionModel,
     SegmentationResponseModel,
     SegmentationSegmentResponseModel,
@@ -32,10 +33,6 @@ MOCK_TEXT_DETAIL = TextDetailResponse(
     translations=[],
 )
 
-MOCK_EDITIONS = [
-    CriticalEditionModel(id=EDITION_ID, type="critical")
-]
-
 MOCK_SEGMENTATIONS = [
     SegmentationResponseModel(id=SEGMENTATION_ID, edition_id=EDITION_ID, text_id=TEXT_ID)
 ]
@@ -46,11 +43,41 @@ MOCK_SEGMENTS = SegmentationSegmentResponseModel(
     items=[
         SegmentSpans(id="span-1", lines=[SegmentLineModel(start=0, end=5)]),
         SegmentSpans(id="span-2", lines=[SegmentLineModel(start=6, end=11)]),
+        SegmentSpans(id="span-3", lines=[SegmentLineModel(start=12, end=15)]),
+        SegmentSpans(id="span-4", lines=[SegmentLineModel(start=16, end=19)]),
     ],
     has_more=False,
     offset=0,
-    limit=30,
+    limit=500,
 )
+
+
+def _patch_common(mocker, segmentations=None, segments_page=MOCK_SEGMENTS):
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=TEXT_ID,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
+        new_callable=AsyncMock,
+        return_value=MOCK_TEXT_DETAIL.model_copy(),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
+        new_callable=AsyncMock,
+        return_value=segmentations if segmentations is not None else MOCK_SEGMENTATIONS,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
+        new_callable=AsyncMock,
+        return_value=MOCK_EDITION_CONTENT,
+    )
+    return mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
+        new_callable=AsyncMock,
+        return_value=segments_page,
+    )
 
 
 # ============================================================================
@@ -58,57 +85,97 @@ MOCK_SEGMENTS = SegmentationSegmentResponseModel(
 # ============================================================================
 
 @pytest.mark.asyncio
-async def test_get_text_detail_by_id_success(mocker):
-    """Test happy path: assembles text detail with edition, segmentation, and segments"""
-    mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
-        new_callable=AsyncMock,
-        return_value=MOCK_TEXT_DETAIL.model_copy(),
-    )
-    mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
-        new_callable=AsyncMock,
-        return_value=MOCK_EDITIONS,
-    )
-    mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
-        new_callable=AsyncMock,
-        return_value=MOCK_SEGMENTATIONS,
-    )
-    mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
-        new_callable=AsyncMock,
-        return_value=MOCK_EDITION_CONTENT,
-    )
-    mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
-        new_callable=AsyncMock,
-        return_value=MOCK_SEGMENTS,
-    )
+async def test_get_text_detail_by_id_defaults_to_first_segment(mocker):
+    """With no segment_id, pagination anchors at the first segment"""
+    _patch_common(mocker)
 
-    result = await get_text_detail_by_id(text_id=TEXT_ID, offset=0, limit=30)
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(size=2),
+    )
 
     assert isinstance(result, TextDetailWithContentResponse)
     assert result.text_detail.id == TEXT_ID
     assert result.text_detail.title == "Test Text"
-    assert result.size == 2
+    assert result.total_segments == 4
     assert result.current_segment_position == 1
-    assert len(result.content.sections) == 1
-    assert len(result.content.sections[0].segments) == 2
+    assert [s.segment_id for s in result.segments] == ["span-1", "span-2"]
+    assert result.segments[0].content == "Hello"
+    assert result.has_more_up is False
+    assert result.has_more_down is True
 
 
 @pytest.mark.asyncio
-async def test_get_text_detail_by_id_passes_offset_and_limit_to_segments(mocker):
-    """Test that offset and limit are forwarded to fetch_segmentation_segments"""
+async def test_get_text_detail_by_id_next_direction_from_segment_id(mocker):
+    """direction=NEXT pages forward from the given segment_id"""
+    _patch_common(mocker)
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(segment_id="span-2", size=2, direction=PaginationDirection.NEXT),
+    )
+
+    assert result.current_segment_position == 2
+    assert [s.segment_id for s in result.segments] == ["span-2", "span-3"]
+    assert [s.segment_number for s in result.segments] == [2, 3]
+    assert result.has_more_up is True
+    assert result.has_more_down is True
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_previous_direction_from_segment_id(mocker):
+    """direction=PREVIOUS pages backward from the given segment_id"""
+    _patch_common(mocker)
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(segment_id="span-3", size=2, direction=PaginationDirection.PREVIOUS),
+    )
+
+    assert result.current_segment_position == 3
+    assert [s.segment_id for s in result.segments] == ["span-2", "span-3"]
+    assert result.has_more_up is True
+    assert result.has_more_down is True
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_no_more_down_at_end(mocker):
+    """has_more_down is False once the window reaches the last segment"""
+    _patch_common(mocker)
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(segment_id="span-4", size=2, direction=PaginationDirection.NEXT),
+    )
+
+    assert [s.segment_id for s in result.segments] == ["span-4"]
+    assert result.has_more_down is False
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_fetches_all_pages_of_segments(mocker):
+    """The full segment list is materialized across multiple upstream pages before windowing"""
+    page_1 = SegmentationSegmentResponseModel(
+        items=[SegmentSpans(id="span-1", lines=[SegmentLineModel(start=0, end=5)])],
+        has_more=True,
+        offset=0,
+        limit=1,
+    )
+    page_2 = SegmentationSegmentResponseModel(
+        items=[SegmentSpans(id="span-2", lines=[SegmentLineModel(start=6, end=11)])],
+        has_more=False,
+        offset=1,
+        limit=1,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=TEXT_ID,
+    )
     mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
         new_callable=AsyncMock,
         return_value=MOCK_TEXT_DETAIL.model_copy(),
-    )
-    mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
-        new_callable=AsyncMock,
-        return_value=MOCK_EDITIONS,
     )
     mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
@@ -123,32 +190,30 @@ async def test_get_text_detail_by_id_passes_offset_and_limit_to_segments(mocker)
     mock_fetch_segments = mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
         new_callable=AsyncMock,
-        return_value=MOCK_SEGMENTS,
+        side_effect=[page_1, page_2],
     )
 
-    await get_text_detail_by_id(text_id=TEXT_ID, offset=10, limit=5)
-
-    mock_fetch_segments.assert_called_once_with(
-        segmentation_id=SEGMENTATION_ID, limit=5, offset=10
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(size=10),
     )
+
+    assert result.total_segments == 2
+    assert mock_fetch_segments.call_count == 2
 
 
 @pytest.mark.asyncio
-async def test_get_text_detail_by_id_uses_first_edition_for_segmentation(mocker):
-    """Test that the first edition's id is used when fetching segmentation and content"""
-    editions = [
-        CriticalEditionModel(id="ed-first", type="critical"),
-        CriticalEditionModel(id="ed-second", type="critical"),
-    ]
+async def test_get_text_detail_by_id_passes_edition_id_to_segmentation_and_content(mocker):
+    """Test that the given edition_id is used directly for segmentation and content, with no edition lookup by text_id"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=TEXT_ID,
+    )
     mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
         new_callable=AsyncMock,
         return_value=MOCK_TEXT_DETAIL.model_copy(),
-    )
-    mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
-        new_callable=AsyncMock,
-        return_value=editions,
     )
     mock_fetch_segmentation = mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
@@ -166,36 +231,78 @@ async def test_get_text_detail_by_id_uses_first_edition_for_segmentation(mocker)
         return_value=MOCK_SEGMENTS,
     )
 
-    await get_text_detail_by_id(text_id=TEXT_ID, offset=0, limit=30)
+    await get_text_detail_by_id(edition_id=EDITION_ID, text_details_request=TextDetailsRequest())
 
-    mock_fetch_segmentation.assert_called_once_with(edition_id="ed-first")
-    mock_fetch_content.assert_called_once_with(edition_id="ed-first")
+    mock_fetch_segmentation.assert_called_once_with(edition_id=EDITION_ID)
+    mock_fetch_content.assert_called_once_with(edition_id=EDITION_ID)
 
 
 @pytest.mark.asyncio
-async def test_get_text_detail_by_id_raises_404_when_no_editions(mocker):
-    """Test 404 is raised when fetch_critical_editions returns an empty list"""
+async def test_get_text_detail_by_id_raises_404_when_no_segmentation(mocker):
+    """Test 404 is raised when fetch_editions_segmentation returns an empty list"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=TEXT_ID,
+    )
     mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
         new_callable=AsyncMock,
         return_value=MOCK_TEXT_DETAIL.model_copy(),
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
+        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
         new_callable=AsyncMock,
         return_value=[],
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_text_detail_by_id(text_id=TEXT_ID, offset=0, limit=30)
+        await get_text_detail_by_id(edition_id=EDITION_ID, text_details_request=TextDetailsRequest())
 
     assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
-    assert TEXT_ID in exc_info.value.detail
+    assert EDITION_ID in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_raises_404_when_segment_id_not_found(mocker):
+    """Test 404 is raised when the requested segment_id doesn't exist in the segmentation"""
+    _patch_common(mocker)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_text_detail_by_id(
+            edition_id=EDITION_ID,
+            text_details_request=TextDetailsRequest(segment_id="missing-segment"),
+        )
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_propagates_fetch_edition_text_id_error(mocker):
+    """Test that an HTTPException from fetch_edition_text_id is propagated"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Edition with id '{EDITION_ID}' not found",
+        ),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_text_detail_by_id(edition_id=EDITION_ID, text_details_request=TextDetailsRequest())
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.asyncio
 async def test_get_text_detail_by_id_propagates_fetch_text_detail_error(mocker):
     """Test that an HTTPException from fetch_text_detail is propagated"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=TEXT_ID,
+    )
     mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
         new_callable=AsyncMock,
@@ -206,32 +313,37 @@ async def test_get_text_detail_by_id_propagates_fetch_text_detail_error(mocker):
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_text_detail_by_id(text_id=TEXT_ID, offset=0, limit=30)
+        await get_text_detail_by_id(edition_id=EDITION_ID, text_details_request=TextDetailsRequest())
 
     assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
 
 
 @pytest.mark.asyncio
-async def test_get_text_detail_by_id_propagates_fetch_editions_error(mocker):
-    """Test that an HTTPException from fetch_critical_editions is propagated"""
+async def test_get_text_detail_by_id_propagates_fetch_editions_segmentation_error(mocker):
+    """Test that an HTTPException from fetch_editions_segmentation is propagated"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=TEXT_ID,
+    )
     mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
         new_callable=AsyncMock,
         return_value=MOCK_TEXT_DETAIL.model_copy(),
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
+        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
         new_callable=AsyncMock,
         side_effect=HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Text with id '{TEXT_ID}' not found",
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch editions segmentation from upstream service",
         ),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await get_text_detail_by_id(text_id=TEXT_ID, offset=0, limit=30)
+        await get_text_detail_by_id(edition_id=EDITION_ID, text_details_request=TextDetailsRequest())
 
-    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
 
 
 # ============================================================================

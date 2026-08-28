@@ -4,6 +4,8 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
+from pecha_api.texts.texts_enums import PaginationDirection
+
 
 class TextDetailRequest(BaseModel):
     offset: int = 0
@@ -85,32 +87,20 @@ class SegmentContentResponse(BaseModel):
 
 
 # ============================================================================
-# New Response Models for /{text_id}/details endpoint
+# Request/Response Models for /{text_id}/details endpoint
 # ============================================================================
+
+class TextDetailsRequest(BaseModel):
+    segment_id: Optional[str] = None
+    size: int = 20
+    direction: PaginationDirection = PaginationDirection.NEXT
+
 
 class SegmentDTO(BaseModel):
     segment_id: str
     segment_number: int
     content: str
     translation: Optional[str] = None
-
-
-class SectionDTO(BaseModel):
-    id: str
-    title: str
-    section_number: int
-    parent_id: Optional[str] = None
-    segments: List[SegmentDTO] = []
-    sections: List["SectionDTO"] = []
-    created_date: Optional[str] = None
-    updated_date: Optional[str] = None
-    published_date: Optional[str] = None
-
-
-class ContentDTO(BaseModel):
-    id: str
-    text_id: str
-    sections: List[SectionDTO] = []
 
 
 class TextDetailDTO(BaseModel):
@@ -136,9 +126,11 @@ class TextDetailDTO(BaseModel):
 
 class TextDetailWithContentResponse(BaseModel):
     text_detail: TextDetailDTO
-    content: ContentDTO
+    segments: List[SegmentDTO] = []
     size: int
     pagination_direction: str
     current_segment_position: int
     total_segments: int
+    has_more_up: bool = False
+    has_more_down: bool = False
 

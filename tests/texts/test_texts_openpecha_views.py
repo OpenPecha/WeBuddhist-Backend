@@ -644,3 +644,100 @@ class TestGetTextCommentariesResponseStructure:
         assert data["license"] is None
         assert data["categories"] == []
         assert data["views"] == 0
+
+
+# =============================================================================
+# POST /v2/texts/{text_id}/details - View Layer Tests
+# =============================================================================
+
+class TestGetTextDetailsEndpoint:
+    """Tests for POST /v2/texts/{edition_id}/details endpoint."""
+
+    MOCK_TEXT_DETAIL_DTO = {
+        "id": "text-123",
+        "pecha_text_id": "text-123",
+        "title": "Heart Sutra",
+        "language": "bo",
+        "group_id": "cat-1",
+        "type": "root_text",
+        "summary": "",
+        "is_published": True,
+        "created_date": "",
+        "updated_date": "",
+        "published_date": "",
+        "published_by": "",
+        "categories": ["cat-1"],
+        "views": 0,
+        "likes": [],
+    }
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_detail_by_id')
+    def test_get_text_details_success(self, mock_service):
+        from pecha_api.texts.text_openpecha_response_models import (
+            TextDetailWithContentResponse,
+            TextDetailDTO,
+            SegmentDTO,
+        )
+
+        mock_service.return_value = TextDetailWithContentResponse(
+            text_detail=TextDetailDTO(**self.MOCK_TEXT_DETAIL_DTO),
+            segments=[SegmentDTO(segment_id="span-1", segment_number=1, content="Hello")],
+            size=20,
+            pagination_direction="next",
+            current_segment_position=1,
+            total_segments=4,
+            has_more_up=False,
+            has_more_down=True,
+        )
+
+        response = client.post("/texts/edition-123/details", json={})
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["text_detail"]["id"] == "text-123"
+        assert len(data["segments"]) == 1
+        assert data["total_segments"] == 4
+        assert data["has_more_down"] is True
+        mock_service.assert_called_once()
+        call_kwargs = mock_service.call_args.kwargs
+        assert call_kwargs["edition_id"] == "edition-123"
+        assert call_kwargs["text_details_request"].segment_id is None
+        assert call_kwargs["text_details_request"].size == 20
+        assert call_kwargs["text_details_request"].direction.value == "next"
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_detail_by_id')
+    def test_get_text_details_passes_segment_id_size_and_direction(self, mock_service):
+        from pecha_api.texts.text_openpecha_response_models import (
+            TextDetailWithContentResponse,
+            TextDetailDTO,
+        )
+
+        mock_service.return_value = TextDetailWithContentResponse(
+            text_detail=TextDetailDTO(**self.MOCK_TEXT_DETAIL_DTO),
+            segments=[],
+            size=5,
+            pagination_direction="previous",
+            current_segment_position=3,
+            total_segments=4,
+            has_more_up=True,
+            has_more_down=True,
+        )
+
+        response = client.post(
+            "/texts/text-123/details",
+            json={"segment_id": "span-3", "size": 5, "direction": "previous"},
+        )
+
+        assert response.status_code == 200
+        call_kwargs = mock_service.call_args.kwargs
+        assert call_kwargs["text_details_request"].segment_id == "span-3"
+        assert call_kwargs["text_details_request"].size == 5
+        assert call_kwargs["text_details_request"].direction.value == "previous"
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_detail_by_id')
+    def test_get_text_details_segment_not_found_propagates_404(self, mock_service):
+        mock_service.side_effect = HTTPException(status_code=404, detail="Segment with id 'missing' not found")
+
+        response = client.post("/texts/text-123/details", json={"segment_id": "missing"})
+
+        assert response.status_code == 404

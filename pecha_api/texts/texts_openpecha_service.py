@@ -15,15 +15,26 @@ from pecha_api.texts.texts_response_models import (
 from pecha_api.collections.collections_response_models import V2CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id, search_by_content
 from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
+from pecha_api.texts.texts_enums import PaginationDirection
 from pecha_api.texts.texts_openpecha_api import (
-    fetch_critical_editions,
+    fetch_edition_text_id,
     fetch_editions_segmentation,
     fetch_edition_content,
     fetch_segmentation_segments,
     fetch_text_detail,
     fetch_text_source_link,
 )
-from pecha_api.texts.text_openpecha_response_models import SegmentationSegmentResponseModel, SegmentContentModel, SegmentContentResponse, TextDetailResponse
+from pecha_api.texts.text_openpecha_response_models import (
+    SegmentationSegmentResponseModel,
+    SegmentContentModel,
+    SegmentContentResponse,
+    SegmentSpans,
+    SegmentDTO,
+    TextDetailDTO,
+    TextDetailResponse,
+    TextDetailsRequest,
+    TextDetailWithContentResponse,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -177,21 +188,131 @@ async def get_text_by_id_from_openpecha(text_id: str) -> V2TextDTO:
     return _map_external_text_to_dto(data, data.get("language"))
 
 
-async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDetailResponse:
-    text_detail = await fetch_text_detail(text_id=text_id)
-    edition_details = await fetch_critical_editions(text_id=text_id)
-    if not edition_details:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
-            detail=f"No critical editions found for text with id '{text_id}'",
+_ALL_SEGMENTS_PAGE_SIZE = 500
+
+
+async def _fetch_all_segments(edition_id: str) -> List[SegmentSpans]:
+    all_segments: List[SegmentSpans] = []
+    offset = 0
+    while True:
+        page = await fetch_segmentation_segments(
+            edition_id=edition_id, limit=_ALL_SEGMENTS_PAGE_SIZE, offset=offset
         )
-    text_detail.edition_details = edition_details
-    segmentations = await fetch_editions_segmentation(edition_id=edition_details[0].id)
-    edition_content = await fetch_edition_content(edition_id=edition_details[0].id)
-    segments = await fetch_segmentation_segments(segmentation_id=segmentations[0].id, limit=limit, offset=offset)  # noqa: F841
-    segment_contents = trim_segment_content(edition_content=edition_content.content, segments=segments)
-    text_detail.segments = segment_contents
-    return text_detail
+        all_segments.extend(page.items)
+        if not page.has_more:
+            break
+        offset += len(page.items)
+    return all_segments
+
+
+def _map_text_detail_dto(text_detail: TextDetailResponse) -> TextDetailDTO:
+    title = _extract_title(text_detail.title, text_detail.language)
+    date_value = text_detail.date or ""
+
+    return TextDetailDTO(
+        id=text_detail.id,
+        pecha_text_id=text_detail.bdrc or text_detail.id,
+        title=title,
+        language=text_detail.language or "",
+        group_id=text_detail.category_id or "",
+        type="root_text",
+        summary="",
+        is_published=True,
+        created_date=date_value,
+        updated_date=date_value,
+        published_date=date_value,
+        published_by="",
+        categories=[text_detail.category_id] if text_detail.category_id else [],
+        views=0,
+        likes=[],
+        source_link=None,
+        ranking=None,
+        license=text_detail.license,
+    )
+
+
+def _trim_windowed_segments(
+    edition_content: str,
+    segments: List[SegmentSpans],
+    start_position: int,
+) -> List[SegmentDTO]:
+    return [
+        SegmentDTO(
+            segment_id=segment.id,
+            segment_number=start_position + i,
+            content="".join(edition_content[line.start:line.end] for line in segment.lines),
+        )
+        for i, segment in enumerate(segments)
+    ]
+
+
+async def get_text_detail_by_id(
+    edition_id: str,
+    text_details_request: TextDetailsRequest,
+) -> TextDetailWithContentResponse:
+    text_id = await fetch_edition_text_id(edition_id=edition_id)
+    text_detail = await fetch_text_detail(text_id=text_id)
+
+    segmentations = await fetch_editions_segmentation(edition_id=edition_id)
+    if not segmentations:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No segmentation found for edition '{edition_id}'",
+        )
+
+    edition_content = await fetch_edition_content(edition_id=edition_id)
+    all_segments = await _fetch_all_segments(edition_id=edition_id)
+
+    text_detail_dto = _map_text_detail_dto(text_detail)
+    total_segments = len(all_segments)
+    size = text_details_request.size
+
+    if total_segments == 0:
+        return TextDetailWithContentResponse(
+            text_detail=text_detail_dto,
+            segments=[],
+            size=size,
+            pagination_direction=text_details_request.direction.value,
+            current_segment_position=0,
+            total_segments=0,
+        )
+
+    if text_details_request.segment_id:
+        anchor_index = next(
+            (i for i, segment in enumerate(all_segments) if segment.id == text_details_request.segment_id),
+            None,
+        )
+        if anchor_index is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Segment with id '{text_details_request.segment_id}' not found",
+            )
+    else:
+        anchor_index = 0
+
+    if text_details_request.direction == PaginationDirection.NEXT:
+        window_start = anchor_index
+        window_end = min(anchor_index + size, total_segments)
+    else:
+        window_start = max(0, anchor_index - size + 1)
+        window_end = anchor_index + 1
+
+    windowed_segments = _trim_windowed_segments(
+        edition_content=edition_content.content,
+        segments=all_segments[window_start:window_end],
+        start_position=window_start + 1,
+    )
+
+    return TextDetailWithContentResponse(
+        text_detail=text_detail_dto,
+        segments=windowed_segments,
+        size=size,
+        pagination_direction=text_details_request.direction.value,
+        current_segment_position=anchor_index + 1,
+        total_segments=total_segments,
+        has_more_up=window_start > 0,
+        has_more_down=window_end < total_segments,
+    )
 
 
 def trim_segment_content(edition_content: str, segments: SegmentationSegmentResponseModel) -> SegmentContentResponse:
