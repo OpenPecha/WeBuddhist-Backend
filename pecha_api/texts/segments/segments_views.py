@@ -13,13 +13,11 @@ from .segments_service import (
     search_segments_by_content_service,
 )
 from .segments_response_models import (
-    CreateSegmentRequest,
     SegmentDTO,
     SegmentResponse,
     SegmentInfoResponse,
     SegmentTranslationsResponse,
     SegmentCommentariesResponse,
-    SegmentUpdateRequest,
     SegmentSearchRequest,
 )
 
