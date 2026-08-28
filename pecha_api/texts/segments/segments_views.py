@@ -3,7 +3,6 @@ from fastapi import APIRouter
 from starlette import status
 
 from .segments_service import (
-    get_commentaries_by_segment_id,
     get_segment_details_by_id, 
     get_info_by_segment_id,
     search_segments_by_content_service,
@@ -11,15 +10,16 @@ from .segments_service import (
 from .segments_openpecha_service import (
     get_root_text_by_segment_id_from_openpecha,
     get_translations_by_segment_id_from_openpecha,
+    get_commentaries_by_segment_id_from_openpecha,
 )
 from .segments_response_models import (
     SegmentDTO,
     SegmentResponse,
     SegmentInfoResponse,
-    SegmentCommentariesResponse,
     SegmentSearchRequest,
     V2SegmentRootTextResponse,
     V2SegmentTranslationsResponse,
+    V2SegmentCommentariesResponse,
 )
 
 oauth2_scheme = HTTPBearer()
@@ -85,8 +85,12 @@ async def get_translations_for_segment(
 
 @segment_router.get("/{segment_id}/commentaries", status_code=status.HTTP_200_OK)
 async def get_commentaries_for_segment(
-    segment_id: str
-) -> SegmentCommentariesResponse:
-    return await get_commentaries_by_segment_id(
-        segment_id=segment_id
+    segment_id: str,
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=10, ge=1, le=100),
+) -> V2SegmentCommentariesResponse:
+    return await get_commentaries_by_segment_id_from_openpecha(
+        segment_id=segment_id,
+        skip=skip,
+        limit=limit,
     )
