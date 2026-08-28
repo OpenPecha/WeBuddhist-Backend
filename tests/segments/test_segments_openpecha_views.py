@@ -6,11 +6,11 @@ from fastapi.testclient import TestClient
 from pecha_api.app import api
 from pecha_api.texts.segments.segments_response_models import (
     ParentSegment,
-    SegmentInfo,
     SegmentRelatedText,
     SegmentResources,
     V2RelatedSegmentItem,
     V2SegmentCommentariesResponse,
+    V2SegmentInfo,
     V2SegmentInfoResponse,
     V2SegmentResponse,
     V2SegmentTextDetail,
@@ -274,7 +274,7 @@ class TestSegmentsV2InfoEndpoint:
     def test_get_segment_info_success(self, mock_service):
         """Test successful retrieval of segment info."""
         mock_service.return_value = V2SegmentInfoResponse(
-            segment_info=SegmentInfo(
+            segment_info=V2SegmentInfo(
                 segment_id="048576e2-b2bc-4275-9d6c-220ca7357f3c",
                 text_id="e159959d-2c0c-4f48-b02c-fbdc8c4a98e3",
                 translations=5,
@@ -310,7 +310,7 @@ class TestSegmentsV2InfoEndpoint:
     def test_get_segment_info_with_root_text(self, mock_service):
         """Test segment info when text is a translation (has root_text)."""
         mock_service.return_value = V2SegmentInfoResponse(
-            segment_info=SegmentInfo(
+            segment_info=V2SegmentInfo(
                 segment_id="seg-trans-1",
                 text_id="text-trans-1",
                 translations=0,
@@ -338,7 +338,7 @@ class TestSegmentsV2InfoEndpoint:
     def test_get_segment_info_with_no_related_texts(self, mock_service):
         """Test segment info when text has no translations or commentaries."""
         mock_service.return_value = V2SegmentInfoResponse(
-            segment_info=SegmentInfo(
+            segment_info=V2SegmentInfo(
                 segment_id="seg-1",
                 text_id="text-1",
                 translations=0,

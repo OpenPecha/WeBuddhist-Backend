@@ -14,11 +14,11 @@ from openpecha_api.text.openpecha_text_service import fetch_text_by_id
 
 from .segments_response_models import (
     ParentSegment,
-    SegmentInfo,
     SegmentRelatedText,
     SegmentResources,
     V2RelatedSegmentItem,
     V2SegmentCommentariesResponse,
+    V2SegmentInfo,
     V2SegmentInfoResponse,
     V2SegmentResponse,
     V2SegmentRootTextResponse,
@@ -332,7 +332,7 @@ async def get_segment_info_by_id_from_openpecha(
     if text_payload.get("commentary_of") or text_payload.get("translation_of"):
         root_text_count = 1
 
-    segment_info = SegmentInfo(
+    segment_info = V2SegmentInfo(
         segment_id=segment_id,
         text_id=text_id,
         translations=translations_count,

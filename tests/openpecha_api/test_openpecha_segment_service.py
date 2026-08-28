@@ -19,7 +19,7 @@ def _mock_http_client(response_payload):
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.segments.openpecha_segment_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.segments.openpecha_segment_service.get_open_pecha_client")
 async def test_fetch_related_segments(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"items": [{"id": "seg-1"}]}
@@ -36,7 +36,7 @@ async def test_fetch_related_segments(mock_get_client):
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.segments.openpecha_segment_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.segments.openpecha_segment_service.get_open_pecha_client")
 async def test_fetch_segment_content_string_response(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         "segment text"
@@ -48,7 +48,7 @@ async def test_fetch_segment_content_string_response(mock_get_client):
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.segments.openpecha_segment_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.segments.openpecha_segment_service.get_open_pecha_client")
 async def test_fetch_segment_content_dict_with_content_key(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"content": "from content key"}
@@ -60,7 +60,7 @@ async def test_fetch_segment_content_dict_with_content_key(mock_get_client):
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.segments.openpecha_segment_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.segments.openpecha_segment_service.get_open_pecha_client")
 async def test_fetch_segment_content_dict_with_text_key(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"text": "from text key"}
@@ -72,7 +72,7 @@ async def test_fetch_segment_content_dict_with_text_key(mock_get_client):
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.segments.openpecha_segment_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.segments.openpecha_segment_service.get_open_pecha_client")
 async def test_fetch_segment_content_dict_with_value_key(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"value": "from value key"}
@@ -84,7 +84,7 @@ async def test_fetch_segment_content_dict_with_value_key(mock_get_client):
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.segments.openpecha_segment_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.segments.openpecha_segment_service.get_open_pecha_client")
 async def test_fetch_segment_content_unrecognized_dict_returns_none(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"other": "value"}
@@ -96,7 +96,7 @@ async def test_fetch_segment_content_unrecognized_dict_returns_none(mock_get_cli
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.segments.openpecha_segment_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.segments.openpecha_segment_service.get_open_pecha_client")
 async def test_fetch_segment_details(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"id": "seg-1", "type": "segment"}

@@ -588,7 +588,7 @@ async def test_fetch_sheets_community_page_all_published():
     with patch("pecha_api.sheets.sheets_service.get_sheet", new_callable=AsyncMock, return_value=mock_sheets), \
         patch("pecha_api.sheets.sheets_service.Utils.time_passed", return_value="time passed"), \
         patch("pecha_api.sheets.sheets_service.fetch_user_by_email", new_callable=MagicMock, return_value=mock_user), \
-        patch("pecha_api.texts.texts_models.Text.get_published_sheets_count_from_db", new_callable=AsyncMock, return_value=5):
+        patch("pecha_api.texts.texts_models.Text.get_published_sheets_count_from_db", new_callable=AsyncMock, return_value=5, create=True):
         
         result = await fetch_sheets(
             token="valid_token",
@@ -630,7 +630,7 @@ async def test_fetch_sheets_user_own_sheets():
         patch("pecha_api.sheets.sheets_service.Utils.time_passed", return_value="time passed"), \
         patch("pecha_api.sheets.sheets_service.fetch_user_by_email", new_callable=MagicMock, return_value=mock_publisher_details), \
         patch("pecha_api.sheets.sheets_service.get_sheet", new_callable=AsyncMock, return_value=mock_sheets), \
-        patch("pecha_api.texts.texts_models.Text.get_published_sheets_count_from_db", new_callable=AsyncMock, return_value=5):
+        patch("pecha_api.texts.texts_models.Text.get_published_sheets_count_from_db", new_callable=AsyncMock, return_value=5, create=True):
         
         result = await fetch_sheets(
             token="valid_token",
@@ -671,7 +671,7 @@ async def test_fetch_sheets_user_viewing_other_users_sheets_status_logged_in():
         patch("pecha_api.sheets.sheets_service.Utils.time_passed", return_value="time passed"), \
         patch("pecha_api.sheets.sheets_service.fetch_user_by_email", new_callable=MagicMock, return_value=mock_publisher_details), \
         patch("pecha_api.sheets.sheets_service.get_sheet", new_callable=AsyncMock, return_value=mock_sheets), \
-        patch("pecha_api.texts.texts_models.Text.get_published_sheets_count_from_db", new_callable=AsyncMock, return_value=5):
+        patch("pecha_api.texts.texts_models.Text.get_published_sheets_count_from_db", new_callable=AsyncMock, return_value=5, create=True):
         
         result = await fetch_sheets(
             token="valid_token",
@@ -1926,7 +1926,7 @@ async def test_fetch_sheets_with_sort_parameters():
     with patch("pecha_api.sheets.sheets_service.get_sheet", new_callable=AsyncMock, return_value=mock_sheets) as mock_get_sheet, \
          patch("pecha_api.sheets.sheets_service.Utils.time_passed", return_value="1 day ago"), \
          patch("pecha_api.sheets.sheets_service.fetch_user_by_email", return_value=mock_user), \
-         patch("pecha_api.texts.texts_models.Text.get_published_sheets_count_from_db", new_callable=AsyncMock, return_value=5):
+         patch("pecha_api.texts.texts_models.Text.get_published_sheets_count_from_db", new_callable=AsyncMock, return_value=5, create=True):
         
         result = await fetch_sheets(
             token="valid_token",

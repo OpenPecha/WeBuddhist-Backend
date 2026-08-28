@@ -17,6 +17,11 @@ class CacheType(Enum):
     SEGMENT_COMMENTARIES = "segment_commentaries"
     SEGMENT_ROOT_TEXT = "segment_root_text"
 
+    # Sheet-specific cache types
+    SHEET_DETAIL = "sheet_detail"
+    SHEET_TABLE_OF_CONTENT = "sheet_table_of_content"
+    SHEETS = "sheets"
+
     GROUP_DETAIL = "group_detail"
 
     USER_INFO = "user_info"

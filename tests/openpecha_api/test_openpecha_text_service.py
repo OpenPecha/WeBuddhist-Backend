@@ -15,7 +15,7 @@ def _mock_http_client(response_payload):
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.text.openpecha_text_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
 async def test_fetch_texts_by_category(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"items": [{"id": "t1"}]}
@@ -32,7 +32,7 @@ async def test_fetch_texts_by_category(mock_get_client):
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.text.openpecha_text_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
 async def test_fetch_texts_by_category_omits_category_id_when_not_provided(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"items": []}
@@ -47,7 +47,7 @@ async def test_fetch_texts_by_category_omits_category_id_when_not_provided(mock_
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.text.openpecha_text_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
 async def test_fetch_texts_by_category_omits_title_when_not_provided(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"items": []}
@@ -61,7 +61,7 @@ async def test_fetch_texts_by_category_omits_title_when_not_provided(mock_get_cl
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.text.openpecha_text_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
 async def test_fetch_texts_by_category_omits_title_when_empty_string(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"items": []}
@@ -75,7 +75,7 @@ async def test_fetch_texts_by_category_omits_title_when_empty_string(mock_get_cl
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.text.openpecha_text_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
 async def test_fetch_texts_by_category_with_title_filter(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"items": [{"id": "t1"}]}
@@ -100,7 +100,7 @@ async def test_fetch_texts_by_category_with_title_filter(mock_get_client):
 
 
 @pytest.mark.asyncio
-@patch("openpecha_api.text.openpecha_text_service.get_authenticated_open_pecha_client")
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
 async def test_fetch_text_by_id(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"id": "t1", "title": {"en": "Title"}}
