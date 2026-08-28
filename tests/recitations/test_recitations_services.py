@@ -436,7 +436,7 @@ class TestGetRecitationsWithFirstSegments:
     ):
         text_id = str(uuid4())
         segment_id = str(uuid4())
-        recitation_dto = RecitationDTO(text_id=UUID(text_id), title="Test Recitation")
+        recitation_dto = RecitationDTO(text_id=text_id, title="Test Recitation")
 
         mock_build_first_segment_previews_for_texts.return_value = {
             text_id: (segment_id, "Verse 1\nVerse 2\nVerse 3"),
@@ -461,7 +461,7 @@ class TestGetRecitationsWithFirstSegments:
         mock_build_first_segment_previews_for_texts,
     ):
         text_id = str(uuid4())
-        recitation_dto = RecitationDTO(text_id=UUID(text_id), title="Test Recitation")
+        recitation_dto = RecitationDTO(text_id=text_id, title="Test Recitation")
         mock_build_first_segment_previews_for_texts.return_value = {}
 
         result = await get_recitations_with_first_segments(recitations=[recitation_dto])
@@ -474,40 +474,38 @@ class TestGetRecitationDetailsService:
     """Test cases for get_recitation_details_service function."""
 
    
-    @patch('pecha_api.recitations.recitations_services.TextUtils.validate_text_exists')
+    @patch('pecha_api.recitations.recitations_services.get_text_details_by_text_id')
     @patch('pecha_api.recitations.recitations_services.get_recitation_by_text_id_cache')
     @pytest.mark.asyncio
-    async def test_get_recitation_details_service_text_not_found(self, mock_get_cache, mock_validate_text_exists):
-        mock_validate_text_exists.return_value = False
+    async def test_get_recitation_details_service_text_not_found(self, mock_get_cache, mock_get_text_details):
+        mock_get_cache.return_value = None
+        mock_get_text_details.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE
+        )
         req = RecitationDetailsRequest(language="en", recitation=["en"], translations=[], transliterations=[], adaptations=[])
         with pytest.raises(HTTPException) as exc_info:
             await get_recitation_details_service(text_id=str(uuid4()), recitation_details_request=req)
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
-        # Cache should not be checked if text doesn't exist
-        mock_get_cache.assert_not_called()
 
-    @patch('pecha_api.recitations.recitations_services.TextUtils.validate_text_exists')
     @patch('pecha_api.recitations.recitations_services.get_recitation_by_text_id_cache')
     @patch('pecha_api.recitations.recitations_services.get_text_details_by_text_id')
-    @patch('pecha_api.recitations.recitations_services.get_all_texts_by_group_id')
-    @patch('pecha_api.recitations.recitations_services.TextUtils.filter_text_on_root_and_version')
+    @patch('pecha_api.recitations.recitations_services.get_text_versions_from_openpecha')
     @pytest.mark.asyncio
     async def test_get_recitation_details_service_root_text_not_found(
         self,
-        mock_filter_texts_root_version,
-        mock_get_all_texts_by_group_id,
+        mock_get_versions,
         mock_get_text_details_by_text_id,
         mock_get_cache,
-        mock_validate_text_exists,
     ):
-        mock_validate_text_exists.return_value = True
         mock_get_cache.return_value = None  # No cached data
         main_text_id = str(uuid4())
-        main_text = MagicMock(id=main_text_id, title="Main Title", group_id="group-1")
+        main_text = MagicMock(id=main_text_id, title="Main Title")
         mock_get_text_details_by_text_id.return_value = main_text
-        mock_get_all_texts_by_group_id.return_value = [MagicMock()]
-        mock_filter_texts_root_version.return_value = {TextType.ROOT_TEXT.value: None}
+        mock_get_versions.return_value = MagicMock(
+            text=MagicMock(language="fr"),
+            versions=[MagicMock(language="de")],
+        )
 
         req = RecitationDetailsRequest(language="en", recitation=["en"], translations=[], transliterations=[], adaptations=[])
         with pytest.raises(HTTPException) as exc_info:
@@ -515,26 +513,23 @@ class TestGetRecitationDetailsService:
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert exc_info.value.detail == ErrorConstants.TEXT_NOT_FOUND_MESSAGE
 
-    @patch('pecha_api.recitations.recitations_services.TextUtils.validate_text_exists')
     @patch('pecha_api.recitations.recitations_services.get_recitation_by_text_id_cache')
     @pytest.mark.asyncio
     async def test_get_recitation_details_service_returns_cached_data(
         self,
         mock_get_cache,
-        mock_validate_text_exists
     ):
         """Test that cached data is returned when available."""
-        mock_validate_text_exists.return_value = True
         text_id = str(uuid4())
-        
+
         # Create cached response
         cached_response = RecitationDetailsResponse(
-            text_id=UUID(text_id),
+            text_id=text_id,
             title="Cached Title",
             segments=[]
         )
         mock_get_cache.return_value = cached_response
-        
+
         req = RecitationDetailsRequest(
             language="en",
             recitation=["en"],
@@ -542,15 +537,14 @@ class TestGetRecitationDetailsService:
             transliterations=[],
             adaptations=[]
         )
-        
+
         # Execute
         result = await get_recitation_details_service(text_id=text_id, recitation_details_request=req)
-        
+
         # Verify
         assert result == cached_response
-        assert result.text_id == UUID(text_id)
+        assert result.text_id == text_id
         assert result.title == "Cached Title"
-        mock_validate_text_exists.assert_called_once_with(text_id=text_id)
         mock_get_cache.assert_called_once()
 
 
@@ -1026,7 +1020,7 @@ class TestFilterAndMapSegments:
 class TestGetTextDetailsByTextId:
     """Test cases for get_text_details_by_text_id function."""
 
-    @patch('pecha_api.recitations.recitations_services.TextUtils.get_text_detail_by_id')
+    @patch('pecha_api.recitations.recitations_services.get_text_by_id_from_openpecha')
     @pytest.mark.asyncio
     async def test_get_text_details_by_text_id_success(self, mock_get_text_detail):
         """Test successful retrieval of text details by text_id."""
@@ -1050,11 +1044,9 @@ class TestGetTextDetailsByTextId:
 class TestGetRecitationDetailsServiceSuccess:
     """Test cases for successful get_recitation_details_service execution."""
 
-    @patch('pecha_api.recitations.recitations_services.TextUtils.validate_text_exists')
     @patch('pecha_api.recitations.recitations_services.get_recitation_by_text_id_cache')
     @patch('pecha_api.recitations.recitations_services.get_text_details_by_text_id')
-    @patch('pecha_api.recitations.recitations_services.get_all_texts_by_group_id')
-    @patch('pecha_api.recitations.recitations_services.TextUtils.filter_text_on_root_and_version')
+    @patch('pecha_api.recitations.recitations_services.get_text_versions_from_openpecha')
     @patch('pecha_api.recitations.recitations_services.get_contents_by_id')
     @patch('pecha_api.recitations.recitations_services.segments_mapping_by_toc')
     @patch('pecha_api.recitations.recitations_services.set_recitation_by_text_id_cache')
@@ -1064,21 +1056,18 @@ class TestGetRecitationDetailsServiceSuccess:
         mock_set_cache,
         mock_segments_mapping,
         mock_get_contents,
-        mock_filter_texts,
-        mock_get_all_texts,
+        mock_get_versions,
         mock_get_text_details,
         mock_get_cache,
-        mock_validate_text,
     ):
         """Test successful execution of get_recitation_details_service."""
         # Setup
         text_id = str(uuid4())
         group_id = str(uuid4())
         root_text_id = str(uuid4())
-        
-        mock_validate_text.return_value = True
+
         mock_get_cache.return_value = None  # No cached data
-        
+
         main_text = TextDTO(
             id=text_id,
             title="Main Text Title",
@@ -1092,30 +1081,19 @@ class TestGetRecitationDetailsServiceSuccess:
             published_by=str(uuid4())
         )
         mock_get_text_details.return_value = main_text
-        
-        texts = [main_text]
-        mock_get_all_texts.return_value = texts
-        
-        root_text = TextDTO(
-            id=root_text_id,
-            title="Root Text Title",
-            group_id=group_id,
-            language="en",
-            type="root_text",
-            is_published=True,
-            created_date="2023-01-01",
-            updated_date="2023-01-01",
-            published_date="2023-01-01",
-            published_by=str(uuid4())
+
+        root_text = MagicMock(id=root_text_id, title="Root Text Title", language="en")
+        mock_get_versions.return_value = MagicMock(
+            text=MagicMock(language="fr"),
+            versions=[root_text],
         )
-        mock_filter_texts.return_value = {TextType.ROOT_TEXT.value: root_text}
-        
+
         toc = [TableOfContent(id=str(uuid4()), type=TableOfContentType.TEXT, text_id=root_text_id, sections=[])]
         mock_get_contents.return_value = toc
-        
+
         mock_segments = [RecitationSegment()]
         mock_segments_mapping.return_value = mock_segments
-        
+
         request = RecitationDetailsRequest(
             language="en",
             recitation=["en"],
@@ -1123,23 +1101,21 @@ class TestGetRecitationDetailsServiceSuccess:
             transliterations=[],
             adaptations=[]
         )
-        
+
         # Execute
         result = await get_recitation_details_service(text_id=text_id, recitation_details_request=request)
-        
+
         # Verify
-        assert result.text_id == UUID(text_id)
+        assert result.text_id == text_id
         assert result.title == "Main Text Title"
         assert result.segments == mock_segments
-        
-        mock_validate_text.assert_called_once_with(text_id=text_id)
+
         mock_get_cache.assert_called_once()
         mock_get_text_details.assert_called_once_with(text_id=text_id)
-        mock_get_all_texts.assert_called_once_with(group_id=group_id)
-        mock_filter_texts.assert_called_once()
+        mock_get_versions.assert_called_once_with(text_id=text_id)
         mock_get_contents.assert_called_once_with(text_id=root_text_id)
         mock_segments_mapping.assert_called_once_with(table_of_contents=toc, recitation_details_request=request)
-        
+
         # Verify cache was set
         mock_set_cache.assert_called_once()
         call_args = mock_set_cache.call_args

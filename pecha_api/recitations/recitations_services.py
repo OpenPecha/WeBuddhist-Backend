@@ -6,7 +6,11 @@ from pecha_api.recitations.recitations_repository import get_text_images_by_text
 from pecha_api.texts.first_segment_preview_service import (
     build_first_segment_previews_for_texts,
 )
-from pecha_api.texts.texts_repository import get_all_texts_by_group_id, get_contents_by_id
+from pecha_api.texts.texts_repository import get_contents_by_id
+from pecha_api.texts.texts_openpecha_service import (
+    get_text_by_id_from_openpecha,
+    get_text_versions_from_openpecha,
+)
 from pecha_api.texts.segments.segments_service import get_segment_by_id, get_related_mapped_segments, get_segment_details_by_id, get_related_mapped_segments_batch, get_segments_details_by_ids
 from pecha_api.texts.segments.segments_utils import SegmentUtils
 from pecha_api.texts.segments.segments_response_models import SegmentTranslation, SegmentTransliteration, SegmentAdaptation, SegmentRecitation
@@ -32,8 +36,7 @@ from starlette import status
 from uuid import UUID
 
 from pecha_api.error_contants import ErrorConstants
-from pecha_api.texts.texts_utils import TextUtils
-from pecha_api.texts.texts_response_models import TextDTO, TableOfContent
+from pecha_api.texts.texts_response_models import V2TextDTO, TableOfContent
 from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
 from pecha_api.region_restrictions.region_restriction_service import (
     assert_visible_for_timezone,
@@ -227,33 +230,32 @@ async def get_recitation_details_service(
     assert_visible_for_timezone(
         timezone_name=timezone_name,
         item_type=RestrictedItemType.RECITATION,
-        item_id=UUID(text_id),
+        item_id=text_id,
         not_found_detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE,
     )
-    is_valid_text: bool = await TextUtils.validate_text_exists(text_id=text_id)
-    if not is_valid_text:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
-        
+
     cached_data: RecitationDetailsResponse = await get_recitation_by_text_id_cache(text_id=text_id, recitation_details_request=recitation_details_request, cache_type=CacheType.RECITATION_DETAILS)
     if cached_data is not None:
         return cached_data
 
-    text_detail: TextDTO = await get_text_details_by_text_id(text_id=text_id)
+    text_detail: V2TextDTO = await get_text_details_by_text_id(text_id=text_id)
 
-    group_id: str = text_detail.group_id
-    texts: List[TextDTO] = await get_all_texts_by_group_id(group_id=group_id)
-    
-    filtered_text_on_root_and_version = TextUtils.filter_text_on_root_and_version(texts=texts, language=recitation_details_request.language)
-    root_text: TextDTO = filtered_text_on_root_and_version[TextType.ROOT_TEXT.value]
+    version_response = await get_text_versions_from_openpecha(text_id=text_id)
+    candidates = [version_response.text] + list(version_response.versions or [])
+
+    root_text = None
+    for candidate in candidates:
+        if candidate.language == recitation_details_request.language and root_text is None:
+            root_text = candidate
     if root_text is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=ErrorConstants.TEXT_NOT_FOUND_MESSAGE)
     table_of_contents: List[TableOfContent] = await get_contents_by_id(text_id=root_text.id)
     segments = await segments_mapping_by_toc(table_of_contents=table_of_contents, recitation_details_request=recitation_details_request)
 
     recitation_details_response = RecitationDetailsResponse(
-        text_id=UUID(text_detail.id),
+        text_id=text_detail.id,
         title=text_detail.title,
-        segments=segments   
+        segments=segments
     )
 
     await set_recitation_by_text_id_cache(
@@ -266,8 +268,8 @@ async def get_recitation_details_service(
    
     return recitation_details_response
 
-async def get_text_details_by_text_id(text_id: str) -> TextDTO:
-    return await TextUtils.get_text_detail_by_id(text_id=text_id)
+async def get_text_details_by_text_id(text_id: str) -> V2TextDTO:
+    return await get_text_by_id_from_openpecha(text_id=text_id)
 
 
 async def _filter_and_map_segments(

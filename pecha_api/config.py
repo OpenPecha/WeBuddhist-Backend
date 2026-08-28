@@ -90,8 +90,8 @@ DEFAULTS = dict(
     APPLICATION = "webuddhist",
 
     #pecha api configuration
-    EXTERNAL_PECHA_API_URL="",
-    EXTERNAL_DEV_PECHA_API_URL="http://13.250.189.160/",
+    EXTERNAL_PECHA_API_URL="https://library.webuddhist.com/",
+    EXTERNAL_DEV_PECHA_API_URL="https://library.webuddhist.com/",
     EXTERNAL_OPENPECHA_API_KEY="http://13.250.189.160/",
     EXTERNAL_PECHA_APP_NAME="webuddhist",
 

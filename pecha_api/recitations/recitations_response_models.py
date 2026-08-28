@@ -11,7 +11,7 @@ class Segment(BaseModel):
 
 class RecitationDTO(BaseModel):
     title: str
-    text_id: UUID
+    text_id: str
     image_url: Optional[str] = None
     first_segment: Optional[Segment] = None
 
@@ -72,6 +72,6 @@ class RecitationSegment(BaseModel):
 
 
 class RecitationDetailsResponse(BaseModel):
-    text_id: UUID
+    text_id: str
     title: str
     segments: List[RecitationSegment]

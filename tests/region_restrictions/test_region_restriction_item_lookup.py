@@ -72,7 +72,7 @@ def test_resolve_titles_for_plans():
         item_ids=[plan_id],
     )
 
-    assert titles == {plan_id: "Morning Practice"}
+    assert titles == {str(plan_id): "Morning Practice"}
 
 
 def test_resolve_titles_empty_ids():
@@ -113,7 +113,7 @@ def test_resolve_titles_for_series_group_mantra_group_accumulator_collection():
         ]
         assert resolve_titles_for_rows(
             db, item_type=RestrictedItemType.SERIES, item_ids=[series_id]
-        ) == {series_id: "Series A"}
+        ) == {str(series_id): "Series A"}
 
         # GROUP
         db.query.return_value.options.return_value.filter.return_value.all.return_value = [
@@ -121,7 +121,7 @@ def test_resolve_titles_for_series_group_mantra_group_accumulator_collection():
         ]
         assert resolve_titles_for_rows(
             db, item_type=RestrictedItemType.GROUP, item_ids=[group_id]
-        ) == {group_id: "Group A"}
+        ) == {str(group_id): "Group A"}
 
         # MANTRA
         db.query.return_value.options.return_value.filter.return_value.all.return_value = [
@@ -129,19 +129,19 @@ def test_resolve_titles_for_series_group_mantra_group_accumulator_collection():
         ]
         assert resolve_titles_for_rows(
             db, item_type=RestrictedItemType.MANTRA, item_ids=[mantra_id]
-        ) == {mantra_id: "Mantra A"}
+        ) == {str(mantra_id): "Mantra A"}
 
     # GROUP_ACCUMULATOR
     db.query.return_value.filter.return_value.all.return_value = [ga]
     assert resolve_titles_for_rows(
         db, item_type=RestrictedItemType.GROUP_ACCUMULATOR, item_ids=[ga_id]
-    ) == {ga_id: "Group Acc"}
+    ) == {str(ga_id): "Group Acc"}
 
     # RECITATION_COLLECTION
     db.query.return_value.filter.return_value.all.return_value = [collection]
     assert resolve_titles_for_rows(
         db, item_type=RestrictedItemType.RECITATION_COLLECTION, item_ids=[collection_id]
-    ) == {collection_id: "My Collection"}
+    ) == {str(collection_id): "My Collection"}
 
 
 def test_resolve_titles_for_accumulator_uses_metadata():
@@ -165,7 +165,7 @@ def test_resolve_titles_for_accumulator_uses_metadata():
             db, item_type=RestrictedItemType.ACCUMULATOR, item_ids=[acc_id]
         )
 
-    assert titles == {acc_id: "Acc Name"}
+    assert titles == {str(acc_id): "Acc Name"}
 
 
 def test_resolve_titles_for_recitation():
@@ -185,7 +185,7 @@ def test_resolve_titles_for_recitation():
             item_ids=[text_id],
         )
 
-    assert titles == {text_id: "Heart Sutra"}
+    assert titles == {str(text_id): "Heart Sutra"}
 
 
 def test_search_restriction_candidates_plans():
@@ -209,7 +209,7 @@ def test_search_restriction_candidates_plans():
 
     assert total == 1
     assert len(items) == 1
-    assert items[0].id == plan_id
+    assert items[0].id == str(plan_id)
     assert items[0].title == "Morning Practice"
 
 
@@ -233,7 +233,7 @@ def test_search_recitations_uses_order_loader():
         )
 
     assert total == 1
-    assert items[0].id == text_id
+    assert items[0].id == str(text_id)
     assert items[0].title == "Heart Sutra"
 
 
@@ -274,7 +274,7 @@ def test_search_group_accumulators():
     )
 
     assert total == 1
-    assert items[0].id == ga_id
+    assert items[0].id == str(ga_id)
     assert items[0].title == "Group Acc"
 
 
@@ -402,4 +402,4 @@ def test_search_whitespace_search_treated_as_none_for_plans():
     )
 
     assert total == 1
-    assert items[0].id == plan_id
+    assert items[0].id == str(plan_id)

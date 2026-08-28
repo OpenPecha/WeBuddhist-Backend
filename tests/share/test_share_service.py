@@ -74,7 +74,7 @@ async def test_generate_short_url_with_logo():
     )
     
     with patch("pecha_api.share.share_service.get_short_url", new_callable=AsyncMock) as mock_short_url, \
-         patch("pecha_api.share.share_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.share.share_service.get_text_by_id_from_openpecha", new_callable=AsyncMock, return_value=mock_text_detail), \
          patch("pecha_api.share.share_service.generate_segment_image") as mock_generate_image:
         
         mock_short_url.return_value = mock_short_url_response
@@ -148,7 +148,7 @@ async def test_generate_short_url_without_segment_id():
     )
     
     with patch("pecha_api.share.share_service.get_short_url", new_callable=AsyncMock, return_value=mock_short_url_response), \
-         patch("pecha_api.share.share_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+         patch("pecha_api.share.share_service.get_text_by_id_from_openpecha", new_callable=AsyncMock, return_value=mock_text_detail), \
          patch("pecha_api.share.share_service.generate_segment_image") as mock_generate_image:
         
         response = await generate_short_url(share_request=share_request)
@@ -241,7 +241,7 @@ async def test_generate_segment_content_image_without_segment():
         views=0
     )
     
-    with patch("pecha_api.share.share_service.TextUtils.get_text_detail_by_id", new_callable=AsyncMock, return_value=mock_text_detail), \
+    with patch("pecha_api.share.share_service.get_text_by_id_from_openpecha", new_callable=AsyncMock, return_value=mock_text_detail), \
          patch("pecha_api.share.share_service.generate_segment_image") as mock_generate_image:
         
         await _generate_segment_content_image_(share_request)

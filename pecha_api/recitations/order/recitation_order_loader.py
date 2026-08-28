@@ -54,7 +54,7 @@ def _parse_recitations(recitations: list[dict[str, Any]]) -> list[RecitationDTO]
         parsed_recitations.append(
             RecitationDTO(
                 title=recitation["title"],
-                text_id=UUID(recitation["text_id"]),
+                text_id=recitation["text_id"],
                 image_url=recitation.get("image_url"),
                 first_segment=first_segment,
             )

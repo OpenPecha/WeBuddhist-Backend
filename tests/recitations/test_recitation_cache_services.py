@@ -31,7 +31,7 @@ class TestSetRecitationByTextIdCache:
         )
         
         recitation_response = RecitationDetailsResponse(
-            text_id=uuid4(),
+            text_id=str(uuid4()),
             title="Test Recitation",
             segments=[]
         )
@@ -79,7 +79,7 @@ class TestSetRecitationByTextIdCache:
         )
         
         recitation_response = RecitationDetailsResponse(
-            text_id=uuid4(),
+            text_id=str(uuid4()),
             title="Empty Segments Recitation",
             segments=[]
         )
@@ -135,7 +135,7 @@ class TestSetRecitationByTextIdCache:
         ]
         
         recitation_response = RecitationDetailsResponse(
-            text_id=uuid4(),
+            text_id=str(uuid4()),
             title="Multi-Segment Recitation",
             segments=segments
         )
@@ -170,7 +170,7 @@ class TestSetRecitationByTextIdCache:
         )
         
         recitation_response = RecitationDetailsResponse(
-            text_id=uuid4(),
+            text_id=str(uuid4()),
             title="Test Recitation",
             segments=[]
         )
@@ -268,7 +268,7 @@ class TestGetRecitationByTextIdCache:
         
         # Mock cache returning a Pydantic model directly
         mock_cache_response = RecitationDetailsResponse(
-            text_id=response_text_id,
+            text_id=str(response_text_id),
             title="Direct Model Response",
             segments=[]
         )
@@ -481,7 +481,7 @@ class TestRecitationCacheIntegration:
         )
         
         recitation_response = RecitationDetailsResponse(
-            text_id=response_text_id,
+            text_id=str(response_text_id),
             title="Integration Test Recitation",
             segments=[
                 RecitationSegment(
