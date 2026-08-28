@@ -65,6 +65,17 @@ from ..texts_service import TextUtils
 from ..texts_repository import get_text_by_pecha_text_id
 from ...users.users_service import validate_user_exists
 
+import logging
+from openpecha_api.segments.openpecha_segment_service import (
+    fetch_segment_details,
+    fetch_segment_content,
+    fetch_related_segments,
+)
+from openpecha_api.text.openpecha_text_service import fetch_text_by_id
+from pecha_api.texts.texts_openpecha_service import _extract_title
+
+logger = logging.getLogger(__name__)
+
 async def get_segments_details_by_ids(segment_ids: List[str]) -> Dict[str, SegmentDTO]:
     cached_data: Dict[str, SegmentDTO] = await get_segments_details_by_ids_cache(segment_ids=segment_ids, cache_type=CacheType.SEGMENTS_DETAILS)
     if cached_data is not None:
@@ -87,15 +98,6 @@ async def get_segment_details_by_id(segment_id: str, text_details: bool = False)
     """
     Get segment details by ID using OpenPecha API (Neo4j).
     """
-    from openpecha_api.segments.openpecha_segment_service import (
-        fetch_segment_details,
-        fetch_segment_content,
-        fetch_related_segments,
-    )
-    from openpecha_api.text.openpecha_text_service import fetch_text_by_id
-    from pecha_api.texts.texts_openpecha_service import _extract_title
-    import logging
-    logger = logging.getLogger(__name__)
     
     # Fetch segment details and content from OpenPecha API
     try:
