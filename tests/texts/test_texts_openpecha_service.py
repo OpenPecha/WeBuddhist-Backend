@@ -29,6 +29,7 @@ from pecha_api.texts.texts_response_models import (
     V2TextDTO,
     V2TextsCategoryResponse,
 )
+from pecha_api.texts.text_openpecha_response_models import CriticalEditionModel
 
 MOCK_EXTERNAL_TEXT_DATA = {
     "id": "text-123",
@@ -468,8 +469,9 @@ class TestGetTextsByCollectionFromOpenpecha:
 
 class TestGetTitlesAndIdsByQuery:
     @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_critical_editions", new_callable=AsyncMock)
     @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
-    async def test_returns_title_search_results(self, mock_fetch_texts):
+    async def test_returns_edition_id_as_id(self, mock_fetch_texts, mock_fetch_editions):
         mock_fetch_texts.return_value = {
             "items": [
                 {"id": "t-en", "title": {"en": "Heart Sutra"}, "language": "en"},
@@ -478,11 +480,16 @@ class TestGetTitlesAndIdsByQuery:
             "has_more": False,
         }
 
+        async def fake_fetch_editions(text_id):
+            return [CriticalEditionModel(id=f"edition-{text_id}", type="critical")]
+
+        mock_fetch_editions.side_effect = fake_fetch_editions
+
         result = await get_titles_and_ids_by_query(title="heart", limit=20, offset=0)
 
         assert result == [
-            TitleSearchResult(id="t-en", title="Heart Sutra"),
-            TitleSearchResult(id="t-bo", title="ཤེས་རབ་སྙིང་པོ།"),
+            TitleSearchResult(id="edition-t-en", title="Heart Sutra"),
+            TitleSearchResult(id="edition-t-bo", title="ཤེས་རབ་སྙིང་པོ།"),
         ]
         mock_fetch_texts.assert_awaited_once_with(
             category_id=None,
@@ -490,6 +497,45 @@ class TestGetTitlesAndIdsByQuery:
             offset=0,
             limit=20,
         )
+        mock_fetch_editions.assert_any_await(text_id="t-en")
+        mock_fetch_editions.assert_any_await(text_id="t-bo")
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_critical_editions", new_callable=AsyncMock)
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_omits_texts_without_a_critical_edition(self, mock_fetch_texts, mock_fetch_editions):
+        mock_fetch_texts.return_value = {
+            "items": [
+                {"id": "t-with-edition", "title": {"en": "Has Edition"}, "language": "en"},
+                {"id": "t-without-edition", "title": {"en": "No Edition"}, "language": "en"},
+            ],
+            "has_more": False,
+        }
+
+        async def fake_fetch_editions(text_id):
+            if text_id == "t-with-edition":
+                return [CriticalEditionModel(id="edition-1", type="critical")]
+            return []
+
+        mock_fetch_editions.side_effect = fake_fetch_editions
+
+        result = await get_titles_and_ids_by_query(title="edition")
+
+        assert result == [TitleSearchResult(id="edition-1", title="Has Edition")]
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_critical_editions", new_callable=AsyncMock)
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_omits_text_when_edition_fetch_fails(self, mock_fetch_texts, mock_fetch_editions):
+        mock_fetch_texts.return_value = {
+            "items": [{"id": "t-1", "title": {"en": "Text 1"}, "language": "en"}],
+            "has_more": False,
+        }
+        mock_fetch_editions.side_effect = Exception("connection refused")
+
+        result = await get_titles_and_ids_by_query(title="text")
+
+        assert result == []
 
     @pytest.mark.asyncio
     @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)

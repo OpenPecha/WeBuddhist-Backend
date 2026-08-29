@@ -94,6 +94,8 @@ class TextDetailsRequest(BaseModel):
     segment_id: Optional[str] = None
     size: int = 20
     direction: PaginationDirection = PaginationDirection.NEXT
+    start: Optional[int] = None
+    end: Optional[int] = None
 
 
 class SegmentDTO(BaseModel):
@@ -122,17 +124,6 @@ class TextDetailDTO(BaseModel):
     source_link: Optional[str] = None
     ranking: Optional[int] = None
     license: Optional[str] = None
-
-
-class TextDetailsRequest(BaseModel):
-    content_id: Optional[str] = None
-    version_id: Optional[str] = None
-    segment_id: Optional[str] = None
-    section_id: Optional[str] = None
-    size: int = 20
-    direction: PaginationDirection = PaginationDirection.NEXT
-    start: Optional[int] = None
-    end: Optional[int] = None
 
 
 class TextDetailWithContentResponse(BaseModel):

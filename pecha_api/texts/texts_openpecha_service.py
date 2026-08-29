@@ -18,6 +18,7 @@ from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, f
 from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
 from pecha_api.texts.texts_enums import PaginationDirection
 from pecha_api.texts.texts_openpecha_api import (
+    fetch_critical_editions,
     fetch_edition_text_id,
     fetch_editions_segmentation,
     fetch_edition_content,
@@ -188,7 +189,25 @@ async def get_titles_and_ids_by_query(
         skip=offset,
         limit=limit,
     )
-    return [TitleSearchResult(id=text.id, title=text.title) for text in texts]
+    if not texts:
+        return []
+
+    edition_ids = await asyncio.gather(*[_fetch_first_critical_edition_id(text.id) for text in texts])
+
+    return [
+        TitleSearchResult(id=edition_id, title=text.title)
+        for text, edition_id in zip(texts, edition_ids)
+        if edition_id
+    ]
+
+
+async def _fetch_first_critical_edition_id(text_id: str) -> Optional[str]:
+    try:
+        editions = await fetch_critical_editions(text_id=text_id)
+    except Exception:
+        logger.warning("Failed to fetch critical edition for text %s", text_id)
+        return None
+    return editions[0].id if editions else None
 
 
 async def get_text_by_id_from_openpecha(text_id: str) -> V2TextDTO:
