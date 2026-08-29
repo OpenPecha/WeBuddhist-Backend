@@ -720,7 +720,6 @@ async def _fetch_commentaries_from_related(
 
 
 
-CONTENT_SEARCH_URL = "http://13.250.189.160/v2/content-search"
 
 
 async def search_text_content(
