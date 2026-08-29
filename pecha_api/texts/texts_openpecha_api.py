@@ -145,12 +145,12 @@ async def fetch_critical_editions(text_id: str) -> list[CriticalEditionModel]:
     ]
 
 
-async def fetch_editions_segmentation(edition_id: str) -> list[SegmentationResponseModel]:
+async def fetch_editions_segmentation(edition_id: str) -> SegmentationResponseModel:
     client = get_open_pecha_client()
 
     try:
         response = await client.get_async_httpx_client().get(
-            f"/v2/editions/{edition_id}/segmentations",
+            f"/v2/editions/{edition_id}/segmentation",
         )
     except Exception:
         logger.exception("Failed to fetch editions segmentation from OpenPecha API")
@@ -170,21 +170,19 @@ async def fetch_editions_segmentation(edition_id: str) -> list[SegmentationRespo
         )
 
     data = response.json()
-    return [
-        SegmentationResponseModel(
-            id=segmentation["id"],
-            edition_id=segmentation["edition_id"],
-            text_id=segmentation["text_id"]
-        ) for segmentation in data
-    ]
+    return SegmentationResponseModel(
+        id=data["id"],
+        edition_id=data["edition_id"],
+        text_id=data["text_id"],
+    )
 
 
-async def fetch_segmentation_segments(segmentation_id: str, limit: int, offset: int) -> SegmentationSegmentResponseModel:
+async def fetch_segmentation_segments(edition_id: str, limit: int, offset: int) -> SegmentationSegmentResponseModel:
     client = get_open_pecha_client()
 
     try:
         response = await client.get_async_httpx_client().get(
-            f"/v2/segmentations/{segmentation_id}/segments",
+            f"/v2/editions/{edition_id}/segmentation/segments",
             params={"limit": limit, "offset": offset},
         )
     except Exception:
@@ -197,7 +195,7 @@ async def fetch_segmentation_segments(segmentation_id: str, limit: int, offset: 
     if response.status_code == 404:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Segmentation with id '{segmentation_id}' not found",
+            detail=f"Segmentation for edition '{edition_id}' not found",
         )
 
     if response.status_code != 200:

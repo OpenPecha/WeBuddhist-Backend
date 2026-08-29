@@ -13,12 +13,15 @@ from .texts_response_models import (
 from .texts_openpecha_service import (
     get_texts_by_collection_from_openpecha,
     get_text_by_id_from_openpecha,
-    get_text_detail_by_id,
+    get_text_details_by_text_id_from_openpecha,
     get_text_versions_from_openpecha,
     get_text_commentaries_from_openpecha,
     get_titles_by_query_from_openpecha,
 )
-from pecha_api.texts.text_openpecha_response_models import TextDetailWithContentResponse
+from pecha_api.texts.text_openpecha_response_models import (
+    TextDetailsRequest,
+    TextDetailWithContentResponse,
+)
 
 texts_v2_router = APIRouter(
     prefix="/texts",
@@ -72,15 +75,24 @@ async def search_titles(
     )
 
 
-@texts_v2_router.get(
+@texts_v2_router.post(
     "/{text_id}/details",
     response_model=TextDetailWithContentResponse,
     status_code=status.HTTP_200_OK,
-    summary="Get a text with pagination",
-    description="Retrieve a text by its OpenPecha ID, including local edition details with pagination."
+    summary="Get a text with its content and pagination",
+    description=(
+        "Retrieve a text by its OpenPecha ID with a page of segments. "
+        "Paginate with segment_id + direction, or with an explicit start/end position range."
+    ),
 )
-async def read_text_by_id(text_id: str, offset: int = Query(default=0), limit: int = Query(default=20)) -> TextDetailWithContentResponse:
-    return await get_text_detail_by_id(text_id=text_id, offset=offset, limit=limit)
+async def read_text_by_id(
+    text_id: str,
+    text_details_request: TextDetailsRequest,
+) -> TextDetailWithContentResponse:
+    return await get_text_details_by_text_id_from_openpecha(
+        text_id=text_id,
+        text_details_request=text_details_request,
+    )
 
 
 @texts_v2_router.get(

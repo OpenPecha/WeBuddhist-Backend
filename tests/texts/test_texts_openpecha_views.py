@@ -5,6 +5,13 @@ from fastapi.testclient import TestClient
 
 from pecha_api.app import api
 from pecha_api.collections.collections_response_models import V2CollectionModel
+from pecha_api.texts.text_openpecha_response_models import (
+    ContentDTO,
+    SectionDTO,
+    SegmentDTO,
+    TextDetailDTO,
+    TextDetailWithContentResponse,
+)
 from pecha_api.texts.texts_response_models import (
     TextDTO,
     TextVersion,
@@ -730,3 +737,93 @@ class TestTitleSearchV2Endpoint:
         response = client.get("/texts/title-search?title=buddha")
 
         assert response.status_code == 502
+
+
+# =============================================================================
+# POST /texts/{text_id}/details - View Layer Tests
+# =============================================================================
+
+MOCK_DETAILS_RESPONSE = TextDetailWithContentResponse(
+    text_detail=TextDetailDTO(
+        id="t1", pecha_text_id="t1", title="Heart Sutra", language="bo", group_id="",
+        type="root_text", summary="", is_published=True, created_date="", updated_date="",
+        published_date="", published_by="", categories=[], views=0, likes=[],
+    ),
+    content=ContentDTO(
+        id="ed-1",
+        text_id="t1",
+        sections=[SectionDTO(
+            id="ed-1", title="Heart Sutra", section_number=1,
+            segments=[SegmentDTO(segment_id="s1", segment_number=1, content="first")],
+        )],
+    ),
+    size=20,
+    pagination_direction="next",
+    current_segment_position=1,
+    total_segments=33,
+    has_more_up=False,
+    has_more_down=True,
+)
+
+
+class TestTextDetailsV2Endpoint:
+    @patch("pecha_api.texts.texts_openpecha_views.get_text_details_by_text_id_from_openpecha")
+    def test_details_is_a_post_with_the_production_body(self, mock_service):
+        mock_service.return_value = MOCK_DETAILS_RESPONSE
+
+        response = client.post(
+            "/texts/t1/details",
+            json={"segment_id": "s5", "direction": "next", "size": 20, "version_id": "v1"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["text_detail"]["title"] == "Heart Sutra"
+        assert data["total_segments"] == 33
+        assert data["content"]["sections"][0]["segments"][0]["segment_id"] == "s1"
+
+        request_model = mock_service.await_args.kwargs["text_details_request"]
+        assert request_model.segment_id == "s5"
+        assert request_model.size == 20
+        assert request_model.version_id == "v1"
+        assert request_model.direction.value == "next"
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_text_details_by_text_id_from_openpecha")
+    def test_details_defaults_direction_and_size(self, mock_service):
+        mock_service.return_value = MOCK_DETAILS_RESPONSE
+
+        response = client.post("/texts/t1/details", json={})
+
+        assert response.status_code == 200
+        request_model = mock_service.await_args.kwargs["text_details_request"]
+        assert request_model.direction.value == "next"
+        assert request_model.size == 20
+        assert request_model.segment_id is None
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_text_details_by_text_id_from_openpecha")
+    def test_details_accepts_start_end_range(self, mock_service):
+        mock_service.return_value = MOCK_DETAILS_RESPONSE
+
+        response = client.post("/texts/t1/details", json={"start": 5, "end": 8})
+
+        assert response.status_code == 200
+        request_model = mock_service.await_args.kwargs["text_details_request"]
+        assert (request_model.start, request_model.end) == (5, 8)
+
+    def test_details_rejects_unknown_direction(self):
+        response = client.post("/texts/t1/details", json={"direction": "sideways"})
+
+        assert response.status_code == 422
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_text_details_by_text_id_from_openpecha")
+    def test_details_propagates_missing_text(self, mock_service):
+        mock_service.side_effect = HTTPException(status_code=404, detail="No critical editions found")
+
+        response = client.post("/texts/t1/details", json={})
+
+        assert response.status_code == 404
+
+    def test_details_is_not_exposed_as_get(self):
+        response = client.get("/texts/t1/details")
+
+        assert response.status_code == 405
