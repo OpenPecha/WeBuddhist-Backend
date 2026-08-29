@@ -157,6 +157,53 @@ async def test_get_text_detail_by_id_no_more_down_at_end(mocker):
 
 
 @pytest.mark.asyncio
+async def test_get_text_detail_by_id_uses_start_and_end_when_provided(mocker):
+    """start/end select an explicit segment_number window, independent of size"""
+    _patch_common(mocker)
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(start=2, end=3, size=20),
+    )
+
+    assert [s.segment_id for s in _segments(result)] == ["span-2", "span-3"]
+    assert [s.segment_number for s in _segments(result)] == [2, 3]
+    assert result.current_segment_position == 2
+    assert result.has_more_up is True
+    assert result.has_more_down is True
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_start_end_takes_priority_over_segment_id(mocker):
+    """When both are given, start/end wins over segment_id/direction"""
+    _patch_common(mocker)
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(
+            segment_id="span-4", direction=PaginationDirection.PREVIOUS, start=1, end=2,
+        ),
+    )
+
+    assert [s.segment_id for s in _segments(result)] == ["span-1", "span-2"]
+    assert result.has_more_up is False
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_start_end_clamped_to_total_segments(mocker):
+    """An end beyond total_segments is clamped and has_more_down is False"""
+    _patch_common(mocker)
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(start=3, end=10),
+    )
+
+    assert [s.segment_id for s in _segments(result)] == ["span-3", "span-4"]
+    assert result.has_more_down is False
+
+
+@pytest.mark.asyncio
 async def test_get_text_detail_by_id_fetches_all_pages_of_segments(mocker):
     """The full segment list is materialized across multiple upstream pages before windowing"""
     page_1 = SegmentationSegmentResponseModel(

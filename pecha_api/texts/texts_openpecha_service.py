@@ -339,25 +339,31 @@ async def get_text_detail_by_id(
             total_segments=0,
         )
 
-    if text_details_request.segment_id:
-        anchor_index = next(
-            (i for i, segment in enumerate(all_segments) if segment.id == text_details_request.segment_id),
-            None,
-        )
-        if anchor_index is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Segment with id '{text_details_request.segment_id}' not found",
+    if text_details_request.start is not None and text_details_request.end is not None:
+        window_start = max(0, text_details_request.start - 1)
+        window_end = max(window_start, min(text_details_request.end, total_segments))
+        current_position = window_start + 1
+    else:
+        if text_details_request.segment_id:
+            anchor_index = next(
+                (i for i, segment in enumerate(all_segments) if segment.id == text_details_request.segment_id),
+                None,
             )
-    else:
-        anchor_index = 0
+            if anchor_index is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Segment with id '{text_details_request.segment_id}' not found",
+                )
+        else:
+            anchor_index = 0
 
-    if text_details_request.direction == PaginationDirection.NEXT:
-        window_start = anchor_index
-        window_end = min(anchor_index + size, total_segments)
-    else:
-        window_start = max(0, anchor_index - size + 1)
-        window_end = anchor_index + 1
+        if text_details_request.direction == PaginationDirection.NEXT:
+            window_start = anchor_index
+            window_end = min(anchor_index + size, total_segments)
+        else:
+            window_start = max(0, anchor_index - size + 1)
+            window_end = anchor_index + 1
+        current_position = anchor_index + 1
 
     windowed_segments = _trim_windowed_segments(
         edition_content=edition_content.content,
@@ -370,7 +376,7 @@ async def get_text_detail_by_id(
         content=_build_content_dto(edition_id=edition_id, text_id=text_id, segmentation_id=segmentations[0].id, segments=windowed_segments),
         size=size,
         pagination_direction=text_details_request.direction.value,
-        current_segment_position=anchor_index + 1,
+        current_segment_position=current_position,
         total_segments=total_segments,
         has_more_up=window_start > 0,
         has_more_down=window_end < total_segments,
