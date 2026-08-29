@@ -9,6 +9,7 @@ from pecha_api.texts.texts_response_models import (
     TextDTO,
     TextVersion,
     TextVersionResponse,
+    TitleSearchResult,
     V2TextDTO,
     V2TextsCategoryResponse,
 )
@@ -168,6 +169,26 @@ async def get_texts_by_collection_from_openpecha(
         limit=limit,
         has_more=has_more,
     )
+
+
+async def get_titles_and_ids_by_query(
+    title: Optional[str] = None,
+    limit: int = 20,
+    offset: int = 0,
+) -> List[TitleSearchResult]:
+    if not title:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="title is required",
+        )
+
+    texts, _ = await _get_texts_by_collection_id(
+        collection_id=None,
+        title=title,
+        skip=offset,
+        limit=limit,
+    )
+    return [TitleSearchResult(id=text.id, title=text.title) for text in texts]
 
 
 async def get_text_by_id_from_openpecha(text_id: str) -> V2TextDTO:

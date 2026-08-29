@@ -6,6 +6,7 @@ from starlette import status
 from .texts_response_models import (
     TextDTO,
     TextVersionResponse,
+    TitleSearchResult,
     V2TextDTO,
     V2TextsCategoryResponse,
 )
@@ -15,6 +16,7 @@ from .texts_openpecha_service import (
     get_text_detail_by_id,
     get_text_versions_from_openpecha,
     get_text_commentaries_from_openpecha,
+    get_titles_and_ids_by_query,
 )
 from pecha_api.texts.text_openpecha_response_models import TextDetailWithContentResponse, TextDetailsRequest
 
@@ -44,9 +46,26 @@ async def get_texts_by_collection(
         limit=limit,
     )
 
+@texts_v2_router.get(
+    "/title-search",
+    status_code=status.HTTP_200_OK,
+    summary="Search texts by title from OpenPecha",
+    description="Search for texts by title (case-insensitive substring) from the OpenPecha API.",
+)
+async def search_titles(
+    title: Annotated[Optional[str], Query(description="Title to search for")] = None,
+    limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 20,
+    offset: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
+) -> List[TitleSearchResult]:
+    return await get_titles_and_ids_by_query(
+        title=title,
+        limit=limit,
+        offset=offset,
+    )
+
+
 @texts_v2_router.post(
     "/{edition_id}/details",
-    response_model=TextDetailWithContentResponse,
     status_code=status.HTTP_200_OK,
     summary="Get a text edition with bidirectional segment pagination",
     description="Retrieve a text edition by its OpenPecha edition ID, paging through its segments from an optional segment_id cursor in either direction."

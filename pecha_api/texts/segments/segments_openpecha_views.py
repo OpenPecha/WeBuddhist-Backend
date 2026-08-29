@@ -38,7 +38,7 @@ async def get_segment_v2(
 )
 async def get_root_text_for_segment_v2(
     segment_id: str,
-    text_id: str = Query(...),
+    text_id: Annotated[str, Query(...)],
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 10,
 ) -> V2SegmentRootTextResponse:

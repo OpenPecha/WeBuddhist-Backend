@@ -687,16 +687,16 @@ async def get_user_plan_day_details_service(token: str, plan_id: UUID, day_numbe
     with SessionLocal() as db:
         plan_item = get_plan_day_with_tasks_and_subtasks(db=db, plan_id=plan_id, day_number=day_number)
         completed_task_ids = []
-        completed_subtask_ids = []
+        completed_subtask_ids = set()
         task_ids = [task.id for task in plan_item.tasks]
         if task_ids:
             user_task_completions = get_user_task_completions_by_user_id_and_task_ids(db=db, user_id=current_user.id, task_ids=task_ids)
             completed_task_ids = [completion.task_id for completion in user_task_completions]
-        
+
         sub_task_ids = [sub_task.id for task in plan_item.tasks for sub_task in task.sub_tasks]
         if sub_task_ids:
             user_subtask_completions = get_user_subtask_completions_by_user_id_and_sub_task_ids(db=db, user_id=current_user.id, sub_task_ids=sub_task_ids)
-            completed_subtask_ids = [completion.sub_task_id for completion in user_subtask_completions]
+            completed_subtask_ids = {completion.sub_task_id for completion in user_subtask_completions}
 
         from pecha_api.plans.audio.dto_helpers import (
             build_plan_day_audio_fields,

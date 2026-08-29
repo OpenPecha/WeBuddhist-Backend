@@ -9,6 +9,7 @@ from pecha_api.texts.texts_response_models import (
     TextDTO,
     TextVersion,
     TextVersionResponse,
+    TitleSearchResult,
     V2TextDTO,
     V2TextsCategoryResponse,
 )
@@ -191,6 +192,75 @@ class TestTextsV2ErrorHandling:
         response = client.get("/texts/missing")
 
         assert response.status_code == 404
+
+
+# =============================================================================
+# GET /v2/texts/title-search - View Layer Tests
+# =============================================================================
+
+class TestTitleSearchEndpoint:
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_and_ids_by_query")
+    def test_search_titles_success(self, mock_service):
+        mock_service.return_value = [
+            TitleSearchResult(id="t-en", title="Heart Sutra"),
+            TitleSearchResult(id="t-bo", title="ཤེས་རབ་སྙིང་པོ།"),
+        ]
+
+        response = client.get("/texts/title-search?title=heart&limit=20&offset=0")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data) == 2
+        assert data[0]["id"] == "t-en"
+        assert data[0]["title"] == "Heart Sutra"
+        mock_service.assert_awaited_once_with(
+            title="heart",
+            limit=20,
+            offset=0,
+        )
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_and_ids_by_query")
+    def test_search_titles_uses_default_pagination(self, mock_service):
+        mock_service.return_value = []
+
+        response = client.get("/texts/title-search?title=heart")
+
+        assert response.status_code == 200
+        mock_service.assert_awaited_once_with(
+            title="heart",
+            limit=20,
+            offset=0,
+        )
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_and_ids_by_query")
+    def test_search_titles_missing_title_returns_400(self, mock_service):
+        mock_service.side_effect = HTTPException(
+            status_code=400,
+            detail="title is required",
+        )
+
+        response = client.get("/texts/title-search")
+
+        assert response.status_code == 400
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_and_ids_by_query")
+    def test_search_titles_upstream_error(self, mock_service):
+        mock_service.side_effect = HTTPException(
+            status_code=502,
+            detail="Failed to fetch texts from upstream service",
+        )
+
+        response = client.get("/texts/title-search?title=heart")
+
+        assert response.status_code == 502
+
+    def test_search_titles_invalid_limit_returns_422(self):
+        response = client.get("/texts/title-search?title=heart&limit=0")
+        assert response.status_code == 422
+
+    def test_search_titles_invalid_offset_returns_422(self):
+        response = client.get("/texts/title-search?title=heart&offset=-1")
+        assert response.status_code == 422
 
 
 # =============================================================================

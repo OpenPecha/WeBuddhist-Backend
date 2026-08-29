@@ -16,6 +16,7 @@ from pecha_api.texts.texts_openpecha_service import (
     fetch_translation_details,
     fetch_commentary_details,
     get_texts_by_collection_from_openpecha,
+    get_titles_and_ids_by_query,
     get_text_by_id_from_openpecha,
     get_text_versions_from_openpecha,
     get_text_commentaries_from_openpecha,
@@ -24,6 +25,7 @@ from pecha_api.texts.texts_response_models import (
     TextDTO,
     TextVersion,
     TextVersionResponse,
+    TitleSearchResult,
     V2TextDTO,
     V2TextsCategoryResponse,
 )
@@ -458,6 +460,74 @@ class TestGetTextsByCollectionFromOpenpecha:
             limit=10,
         )
         mock_fetch_category.assert_not_awaited()
+
+
+# =============================================================================
+# Service Function Tests - get_titles_and_ids_by_query
+# =============================================================================
+
+class TestGetTitlesAndIdsByQuery:
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_returns_title_search_results(self, mock_fetch_texts):
+        mock_fetch_texts.return_value = {
+            "items": [
+                {"id": "t-en", "title": {"en": "Heart Sutra"}, "language": "en"},
+                {"id": "t-bo", "title": {"bo": "ཤེས་རབ་སྙིང་པོ།"}, "language": "bo"},
+            ],
+            "has_more": False,
+        }
+
+        result = await get_titles_and_ids_by_query(title="heart", limit=20, offset=0)
+
+        assert result == [
+            TitleSearchResult(id="t-en", title="Heart Sutra"),
+            TitleSearchResult(id="t-bo", title="ཤེས་རབ་སྙིང་པོ།"),
+        ]
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id=None,
+            title="heart",
+            offset=0,
+            limit=20,
+        )
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_passes_offset_and_limit_to_upstream(self, mock_fetch_texts):
+        mock_fetch_texts.return_value = {"items": [], "has_more": False}
+
+        await get_titles_and_ids_by_query(title="sutra", limit=5, offset=10)
+
+        mock_fetch_texts.assert_awaited_once_with(
+            category_id=None,
+            title="sutra",
+            offset=10,
+            limit=5,
+        )
+
+    @pytest.mark.asyncio
+    async def test_raises_400_when_title_missing(self):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_titles_and_ids_by_query(title=None)
+
+        assert exc_info.value.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_raises_400_when_title_empty(self):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_titles_and_ids_by_query(title="")
+
+        assert exc_info.value.status_code == 400
+
+    @pytest.mark.asyncio
+    @patch("pecha_api.texts.texts_openpecha_service.fetch_texts_by_category", new_callable=AsyncMock)
+    async def test_upstream_failure_maps_to_502(self, mock_fetch_texts):
+        mock_fetch_texts.side_effect = Exception("connection refused")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_titles_and_ids_by_query(title="heart")
+
+        assert exc_info.value.status_code == 502
 
 
 # =============================================================================
