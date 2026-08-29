@@ -52,6 +52,10 @@ MOCK_SEGMENTS = SegmentationSegmentResponseModel(
 )
 
 
+def _segments(result: TextDetailWithContentResponse):
+    return result.content.sections[0].segments
+
+
 def _patch_common(mocker, segmentations=None, segments_page=MOCK_SEGMENTS):
     mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
@@ -99,8 +103,8 @@ async def test_get_text_detail_by_id_defaults_to_first_segment(mocker):
     assert result.text_detail.title == "Test Text"
     assert result.total_segments == 4
     assert result.current_segment_position == 1
-    assert [s.segment_id for s in result.segments] == ["span-1", "span-2"]
-    assert result.segments[0].content == "Hello"
+    assert [s.segment_id for s in _segments(result)] == ["span-1", "span-2"]
+    assert _segments(result)[0].content == "Hello"
     assert result.has_more_up is False
     assert result.has_more_down is True
 
@@ -116,8 +120,8 @@ async def test_get_text_detail_by_id_next_direction_from_segment_id(mocker):
     )
 
     assert result.current_segment_position == 2
-    assert [s.segment_id for s in result.segments] == ["span-2", "span-3"]
-    assert [s.segment_number for s in result.segments] == [2, 3]
+    assert [s.segment_id for s in _segments(result)] == ["span-2", "span-3"]
+    assert [s.segment_number for s in _segments(result)] == [2, 3]
     assert result.has_more_up is True
     assert result.has_more_down is True
 
@@ -133,7 +137,7 @@ async def test_get_text_detail_by_id_previous_direction_from_segment_id(mocker):
     )
 
     assert result.current_segment_position == 3
-    assert [s.segment_id for s in result.segments] == ["span-2", "span-3"]
+    assert [s.segment_id for s in _segments(result)] == ["span-2", "span-3"]
     assert result.has_more_up is True
     assert result.has_more_down is True
 
@@ -148,7 +152,7 @@ async def test_get_text_detail_by_id_no_more_down_at_end(mocker):
         text_details_request=TextDetailsRequest(segment_id="span-4", size=2, direction=PaginationDirection.NEXT),
     )
 
-    assert [s.segment_id for s in result.segments] == ["span-4"]
+    assert [s.segment_id for s in _segments(result)] == ["span-4"]
     assert result.has_more_down is False
 
 

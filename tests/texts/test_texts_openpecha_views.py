@@ -746,12 +746,25 @@ class TestGetTextDetailsEndpoint:
         from pecha_api.texts.text_openpecha_response_models import (
             TextDetailWithContentResponse,
             TextDetailDTO,
+            ContentDTO,
+            SectionDTO,
             SegmentDTO,
         )
 
         mock_service.return_value = TextDetailWithContentResponse(
             text_detail=TextDetailDTO(**self.MOCK_TEXT_DETAIL_DTO),
-            segments=[SegmentDTO(segment_id="span-1", segment_number=1, content="Hello")],
+            content=ContentDTO(
+                id="edition-123",
+                text_id="text-123",
+                sections=[
+                    SectionDTO(
+                        id="seg-1",
+                        title="1",
+                        section_number=1,
+                        segments=[SegmentDTO(segment_id="span-1", segment_number=1, content="Hello")],
+                    )
+                ],
+            ),
             size=20,
             pagination_direction="next",
             current_segment_position=1,
@@ -765,7 +778,7 @@ class TestGetTextDetailsEndpoint:
         assert response.status_code == 200
         data = response.json()
         assert data["text_detail"]["id"] == "text-123"
-        assert len(data["segments"]) == 1
+        assert len(data["content"]["sections"][0]["segments"]) == 1
         assert data["total_segments"] == 4
         assert data["has_more_down"] is True
         mock_service.assert_called_once()
@@ -780,11 +793,12 @@ class TestGetTextDetailsEndpoint:
         from pecha_api.texts.text_openpecha_response_models import (
             TextDetailWithContentResponse,
             TextDetailDTO,
+            ContentDTO,
         )
 
         mock_service.return_value = TextDetailWithContentResponse(
             text_detail=TextDetailDTO(**self.MOCK_TEXT_DETAIL_DTO),
-            segments=[],
+            content=ContentDTO(id="edition-123", text_id="text-123", sections=[]),
             size=5,
             pagination_direction="previous",
             current_segment_position=3,

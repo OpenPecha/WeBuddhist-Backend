@@ -27,6 +27,8 @@ from pecha_api.texts.texts_openpecha_api import (
     fetch_text_source_link,
 )
 from pecha_api.texts.text_openpecha_response_models import (
+    ContentDTO,
+    SectionDTO,
     SegmentationSegmentResponseModel,
     SegmentContentModel,
     SegmentContentResponse,
@@ -286,6 +288,26 @@ def _trim_windowed_segments(
     ]
 
 
+def _build_content_dto(
+    edition_id: str,
+    text_id: str,
+    segmentation_id: str,
+    segments: List[SegmentDTO],
+) -> ContentDTO:
+    return ContentDTO(
+        id=edition_id,
+        text_id=text_id,
+        sections=[
+            SectionDTO(
+                id=segmentation_id,
+                title="1",
+                section_number=1,
+                segments=segments,
+            )
+        ],
+    )
+
+
 async def get_text_detail_by_id(
     edition_id: str,
     text_details_request: TextDetailsRequest,
@@ -310,7 +332,7 @@ async def get_text_detail_by_id(
     if total_segments == 0:
         return TextDetailWithContentResponse(
             text_detail=text_detail_dto,
-            segments=[],
+            content=_build_content_dto(edition_id=edition_id, text_id=text_id, segmentation_id=segmentations[0].id, segments=[]),
             size=size,
             pagination_direction=text_details_request.direction.value,
             current_segment_position=0,
@@ -345,7 +367,7 @@ async def get_text_detail_by_id(
 
     return TextDetailWithContentResponse(
         text_detail=text_detail_dto,
-        segments=windowed_segments,
+        content=_build_content_dto(edition_id=edition_id, text_id=text_id, segmentation_id=segmentations[0].id, segments=windowed_segments),
         size=size,
         pagination_direction=text_details_request.direction.value,
         current_segment_position=anchor_index + 1,
