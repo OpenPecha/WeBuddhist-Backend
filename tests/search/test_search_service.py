@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch, AsyncMock, Mock, MagicMock
 from uuid import uuid4
 from fastapi import HTTPException
+from starlette import status
 
 from pecha_api.search.search_response_models import (
     SearchResponse,
@@ -15,18 +16,62 @@ from pecha_api.search.search_response_models import (
 )
 from pecha_api.search.search_service import (
     get_search_results,
+    get_url_link,
     apply_pagination_to_sources,
+    flatten_content_search_matches,
 )
+
+TEXT_ID = "BxD11EMUttisysWt8JUyi"
+OTHER_TEXT_ID = "0V1UCd0qNSwwIJOEMcZYO"
+
+
+def _get_mock_content_search_response_():
+    """Payload shape returned by OpenPecha GET /v2/content-search."""
+    return [
+        {
+            "text_id": TEXT_ID,
+            "edition_id": "EFN4ITwQp82MKaPxkzP5c",
+            "segment_ids": ["u8TdJavkWlgv56IL40n0w"],
+            "context_span": {"start": 539000, "end": 539118},
+            "match_span": {"start": 539016, "end": 539019},
+            "score": 3.0705519,
+            "context": "May all beings hear the sound of Dharma",
+        },
+        {
+            "text_id": TEXT_ID,
+            "edition_id": "EFN4ITwQp82MKaPxkzP5c",
+            "segment_ids": ["cGz5CsClCjEB6jOO2Axcq"],
+            "context_span": {"start": 539115, "end": 539315},
+            "match_span": {"start": 539213, "end": 539216},
+            "score": 2.8719563,
+            "context": "Suffering, mental distress, various forms of fear",
+        },
+    ]
+
+
+def _get_mock_text_payload_(text_id=TEXT_ID):
+    """Payload shape returned by OpenPecha GET /v2/texts/{text_id}."""
+    return {
+        "id": text_id,
+        "language": "en",
+        "title": {"en": "The Way of the Bodhisattva Claude AI Draft"},
+        "alt_titles": [],
+        "date": "2025-04-05",
+        "license": "public",
+    }
+
 
 @pytest.mark.asyncio
 async def test_get_search_results_for_source_success():
-
-    mock_elastic_response = _get_mock_elastic_source_response_()
-
-    mock_client = Mock()
-    mock_client.search = AsyncMock(return_value=mock_elastic_response)
-
-    with patch("pecha_api.search.search_service.search_client", new_callable=Mock, return_value=mock_client):
+    with patch(
+        "pecha_api.search.search_service.search_by_content",
+        new_callable=AsyncMock,
+        return_value=_get_mock_content_search_response_(),
+    ), patch(
+        "pecha_api.search.search_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+        return_value=_get_mock_text_payload_(),
+    ):
         response = await get_search_results(query="query", search_type=SearchType.SOURCE, skip=0, limit=2)
 
         assert response is not None
@@ -36,27 +81,34 @@ async def test_get_search_results_for_source_success():
         assert response.sources[0] is not None
         assert isinstance(response.sources[0], SourceResultItem)
         assert response.sources[0].text is not None
-        assert response.sources[0].text.text_id == "e6370d09-aa0c-4a41-96ef-deffb89c7810"
+        assert response.sources[0].text.text_id == TEXT_ID
         assert response.sources[0].text.language == "en"
         assert response.sources[0].text.title == "The Way of the Bodhisattva Claude AI Draft"
+        assert response.sources[0].text.published_date == "2025-04-05"
         assert response.sources[0].segment_match is not None
         assert len(response.sources[0].segment_match) == 2
         assert isinstance(response.sources[0].segment_match[0], SegmentMatch)
-        assert response.sources[0].segment_match[0].segment_id == "2eb76906-f2d5-48ca-9f80-2023ee6b3ad0"
+        assert response.sources[0].segment_match[0].segment_id == "u8TdJavkWlgv56IL40n0w"
+        assert response.total == 2
         assert response.search is not None
         assert response.search.text == "query"
         assert response.search.type == SearchType.SOURCE
 
+
 @pytest.mark.asyncio
 async def test_get_search_results_for_source_within_text_success():
-    text_id = "e6370d09-aa0c-4a41-96ef-deffb89c7810"
-    mock_elastic_response = _get_mock_elastic_source_within_text_response_()
-    mock_client = Mock()
-    mock_client.search = AsyncMock(return_value=mock_elastic_response)
-
-    with patch("pecha_api.search.search_service.search_client", new_callable=Mock, return_value=mock_client):
-
-        response = await get_search_results(query="query", search_type=SearchType.SOURCE, text_id=text_id, skip=0, limit=10)
+    with patch(
+        "pecha_api.search.search_service.search_by_content",
+        new_callable=AsyncMock,
+        return_value=_get_mock_content_search_response_(),
+    ) as mock_search, patch(
+        "pecha_api.search.search_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+        return_value=_get_mock_text_payload_(),
+    ):
+        response = await get_search_results(
+            query="query", search_type=SearchType.SOURCE, text_id=TEXT_ID, skip=0, limit=10
+        )
 
         assert response is not None
         assert isinstance(response, SearchResponse)
@@ -65,151 +117,163 @@ async def test_get_search_results_for_source_within_text_success():
         assert response.sources[0] is not None
         assert isinstance(response.sources[0], SourceResultItem)
         assert response.sources[0].text is not None
-        assert response.sources[0].text.text_id == text_id
+        assert response.sources[0].text.text_id == TEXT_ID
+        assert mock_search.await_args.kwargs["text_id"] == TEXT_ID
 
 
+@pytest.mark.asyncio
+async def test_get_search_results_for_source_paginates_across_matches():
+    with patch(
+        "pecha_api.search.search_service.search_by_content",
+        new_callable=AsyncMock,
+        return_value=_get_mock_content_search_response_(),
+    ), patch(
+        "pecha_api.search.search_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+        return_value=_get_mock_text_payload_(),
+    ):
+        response = await get_search_results(query="query", search_type=SearchType.SOURCE, skip=1, limit=1)
 
-def _get_mock_elastic_source_response_():
-    return {
-        "took": 8,
-        "timed_out": False,
-        "_shards": {"total": 1, "successful": 1, "skipped": 0, "failed": 0},
-        "hits": {
-            "total": {"value": 148, "relation": "eq"},
-            "max_score": 3.0705519,
-            "hits": [
-                {
-                    "_index": "pecha-segments",
-                    "_id": "aLygYpcB3z3vvVmz7u8a",
-                    "_score": 3.0705519,
-                    "_source": {
-                        "id": "2eb76906-f2d5-48ca-9f80-2023ee6b3ad0",
-                        "content": "May all beings hear the sound of Dharma<br>Unceasingly from birds and trees,<br>From all rays of light,<br>And even from the sky itself.",
-                        "text_id": "e6370d09-aa0c-4a41-96ef-deffb89c7810",
-                        "text": {
-                            "title": "The Way of the Bodhisattva Claude AI Draft",
-                            "language": "en",
-                            "parent_id": "032b9a5f-0712-40d8-b7ec-73c8c94f1c15",
-                            "is_published": "true",
-                            "created_date": "2025-04-05 04:38:34.436250+00:00",
-                            "updated_date": "2025-04-05 04:38:34.436269+00:00",
-                            "published_date": "2025-04-05 04:38:34.436287+00:00",
-                            "published_by": "pecha",
-                            "type": "version",
-                            "group_id": "6bdc5225-63c2-4c97-b87f-d68be0b601b3"
-                        }
-                    }
-                },
-                {
-                    "_index": "pecha-segments",
-                    "_id": "u7ygYpcB3z3vvVmz6u2g",
-                    "_score": 2.8719563,
-                    "_source": {
-                        "id": "8d3bc31e-9591-4d67-ab5b-36a239701b10",
-                        "content": "Suffering, mental distress,<br>Various forms of fear,<br>And separation from desires -<br>These arise from engaging in harmful actions.",
-                        "text_id": "e6370d09-aa0c-4a41-96ef-deffb89c7810",
-                        "text": {
-                            "title": "The Way of the Bodhisattva Claude AI Draft",
-                            "language": "en",
-                            "parent_id": "032b9a5f-0712-40d8-b7ec-73c8c94f1c15",
-                            "is_published": "true",
-                            "created_date": "2025-04-05 04:38:34.436250+00:00",
-                            "updated_date": "2025-04-05 04:38:34.436269+00:00",
-                            "published_date": "2025-04-05 04:38:34.436287+00:00",
-                            "published_by": "pecha",
-                            "type": "version",
-                            "group_id": "6bdc5225-63c2-4c97-b87f-d68be0b601b3"
-                        }
-                    }
-                }
-            ]
-        }
-    }
+        assert len(response.sources) == 1
+        assert len(response.sources[0].segment_match) == 1
+        # Second best match, since skip=1 drops the top-scoring one.
+        assert response.sources[0].segment_match[0].segment_id == "cGz5CsClCjEB6jOO2Axcq"
+        assert response.total == 2
 
-def _get_mock_elastic_source_within_text_response_():
-    return {
-        "took": 8,
-        "timed_out": False,
-        "_shards": {"total": 1, "successful": 1, "skipped": 0, "failed": 0},
-        "hits": {
-            "total": {"value": 148, "relation": "eq"},
-            "max_score": 3.0705519,
-            "hits": [
-                {
-                    "_index": "pecha-segments",
-                    "_id": "aLygYpcB3z3vvVmz7u8a",
-                    "_score": 3.0705519,
-                    "_source": {
-                        "id": "2eb76906-f2d5-48ca-9f80-2023ee6b3ad0",
-                        "content": "May all beings hear the sound of Dharma<br>Unceasingly from birds and trees,<br>From all rays of light,<br>And even from the sky itself.",
-                        "text_id": "e6370d09-aa0c-4a41-96ef-deffb89c7810",
-                        "text": {
-                            "title": "The Way of the Bodhisattva Claude AI Draft",
-                            "language": "en",
-                            "parent_id": "032b9a5f-0712-40d8-b7ec-73c8c94f1c15",
-                            "is_published": "true",
-                            "created_date": "2025-04-05 04:38:34.436250+00:00",
-                            "updated_date": "2025-04-05 04:38:34.436269+00:00",
-                            "published_date": "2025-04-05 04:38:34.436287+00:00",
-                            "published_by": "pecha",
-                            "type": "version",
-                            "group_id": "6bdc5225-63c2-4c97-b87f-d68be0b601b3"
-                        }
-                    }
-                },
-                {
-                    "_index": "pecha-segments",
-                    "_id": "u7ygYpcB3z3vvVmz6u2g",
-                    "_score": 2.8719563,
-                    "_source": {
-                        "id": "8d3bc31e-9591-4d67-ab5b-36a239701b10",
-                        "content": "Suffering, mental distress,<br>Various forms of fear,<br>And separation from desires -<br>These arise from engaging in harmful actions.",
-                        "text_id": "e6370d09-aa0c-4a41-96ef-deffb89c7810",
-                        "text": {
-                            "title": "The Way of the Bodhisattva Claude AI Draft",
-                            "language": "en",
-                            "parent_id": "032b9a5f-0712-40d8-b7ec-73c8c94f1c15",
-                            "is_published": "true",
-                            "created_date": "2025-04-05 04:38:34.436250+00:00",
-                            "updated_date": "2025-04-05 04:38:34.436269+00:00",
-                            "published_date": "2025-04-05 04:38:34.436287+00:00",
-                            "published_by": "pecha",
-                            "type": "version",
-                            "group_id": "6bdc5225-63c2-4c97-b87f-d68be0b601b3"
-                        }
-                    }
-                }
-            ]
-        }
-    }
+
+@pytest.mark.asyncio
+async def test_get_search_results_for_source_keeps_match_when_text_lookup_fails():
+    """A stale search index must not silently drop results."""
+    with patch(
+        "pecha_api.search.search_service.search_by_content",
+        new_callable=AsyncMock,
+        return_value=_get_mock_content_search_response_(),
+    ), patch(
+        "pecha_api.search.search_service.fetch_text_by_id",
+        new_callable=AsyncMock,
+        side_effect=Exception("404 Text not found"),
+    ):
+        response = await get_search_results(query="query", search_type=SearchType.SOURCE, skip=0, limit=10)
+
+        assert len(response.sources) == 1
+        assert response.sources[0].text.text_id == TEXT_ID
+        assert response.sources[0].text.title == ""
+        assert response.sources[0].text.language == ""
+        assert len(response.sources[0].segment_match) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_search_results_for_source_upstream_error_returns_empty():
+    with patch(
+        "pecha_api.search.search_service.search_by_content",
+        new_callable=AsyncMock,
+        side_effect=Exception("upstream unavailable"),
+    ):
+        response = await get_search_results(query="query", search_type=SearchType.SOURCE, skip=0, limit=10)
+
+        assert response.sources == []
+        assert response.total == 0
+        assert response.search.type == SearchType.SOURCE
+
+
+@pytest.mark.asyncio
+async def test_get_search_results_for_source_unexpected_payload_returns_empty():
+    with patch(
+        "pecha_api.search.search_service.search_by_content",
+        new_callable=AsyncMock,
+        return_value={"error": "boom"},
+    ):
+        response = await get_search_results(query="query", search_type=SearchType.SOURCE, skip=0, limit=10)
+
+        assert response.sources == []
+        assert response.total == 0
+
+
+@pytest.mark.asyncio
+async def test_get_search_results_for_sheet_returns_empty():
+    response = await get_search_results(query="query", search_type=SearchType.SHEET, skip=0, limit=10)
+
+    assert response.sheets == []
+    assert response.total == 0
+    assert response.search.type == SearchType.SHEET
+
+
+@pytest.mark.asyncio
+async def test_get_search_results_without_search_type_raises_bad_request():
+    with pytest.raises(HTTPException) as exc_info:
+        await get_search_results(query="query", search_type=None, skip=0, limit=10)
+
+    assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_flatten_content_search_matches_ranks_by_score():
+    matches = flatten_content_search_matches(_get_mock_content_search_response_())
+
+    assert [match["pecha_segment_id"] for match in matches] == [
+        "u8TdJavkWlgv56IL40n0w",
+        "cGz5CsClCjEB6jOO2Axcq",
+    ]
+    assert matches[0]["relevance_score"] < matches[1]["relevance_score"]
+    assert matches[0]["text_id"] == TEXT_ID
+
+
+def test_flatten_content_search_matches_expands_multi_segment_hits():
+    matches = flatten_content_search_matches(
+        [{"text_id": TEXT_ID, "segment_ids": ["seg_a", "seg_b"], "score": 1.0, "context": "shared context"}]
+    )
+
+    assert len(matches) == 2
+    assert {match["pecha_segment_id"] for match in matches} == {"seg_a", "seg_b"}
+    assert all(match["content"] == "shared context" for match in matches)
+
+
+def test_flatten_content_search_matches_keeps_best_hit_per_segment():
+    matches = flatten_content_search_matches(
+        [
+            {"text_id": TEXT_ID, "segment_ids": ["seg_a"], "score": 1.0, "context": "weaker"},
+            {"text_id": TEXT_ID, "segment_ids": ["seg_a"], "score": 5.0, "context": "stronger"},
+        ]
+    )
+
+    assert len(matches) == 1
+    assert matches[0]["content"] == "stronger"
+    assert matches[0]["relevance_score"] == -5.0
+
+
+def test_flatten_content_search_matches_skips_hits_without_segments():
+    matches = flatten_content_search_matches(
+        [
+            {"text_id": TEXT_ID, "segment_ids": None, "score": 1.0, "context": "no segments"},
+            {"text_id": TEXT_ID, "segment_ids": [""], "score": 1.0, "context": "blank segment"},
+        ]
+    )
+
+    assert matches == []
+
 
 @pytest.mark.asyncio
 async def test_get_url_link_success():
-    """Test get_url_link service with valid pecha_segment_id"""
-    from pecha_api.search.search_service import get_url_link
-
-    mock_segment = Mock()
-    mock_segment.id = uuid4()
-    mock_segment.text_id = "text123"
-    mock_segment.pecha_segment_id = "pecha_seg_123"
-
-    with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=mock_segment):
-        result = await get_url_link("pecha_seg_123")
+    """get_url_link resolves the owning text through the OpenPecha segment endpoint."""
+    with patch(
+        "pecha_api.search.search_service.fetch_segment_details",
+        new_callable=AsyncMock,
+        return_value={"id": "u8TdJavkWlgv56IL40n0w", "text_id": TEXT_ID},
+    ):
+        result = await get_url_link("u8TdJavkWlgv56IL40n0w")
 
         assert result is not None
-        assert result.text_id == "text123"
-        assert result.segment_id == str(mock_segment.id)
+        assert result.text_id == TEXT_ID
+        assert result.segment_id == "u8TdJavkWlgv56IL40n0w"
 
 
 @pytest.mark.asyncio
 async def test_get_url_link_segment_not_found():
-    """Test get_url_link service when segment is not found"""
-    from fastapi import HTTPException
-    from starlette import status
-
-    from pecha_api.search.search_service import get_url_link
-
-    with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=None):
+    """Upstream 404s surface as a 404, not a 500."""
+    with patch(
+        "pecha_api.search.search_service.fetch_segment_details",
+        new_callable=AsyncMock,
+        side_effect=Exception("404 Segment not found"),
+    ):
         with pytest.raises(HTTPException) as exc_info:
             await get_url_link("nonexistent_segment_id")
 
@@ -218,143 +282,65 @@ async def test_get_url_link_segment_not_found():
 
 
 @pytest.mark.asyncio
-async def test_get_url_link_with_uuid_segment_id():
-    """Test get_url_link service with UUID-formatted segment ID"""
-    from pecha_api.search.search_service import get_url_link
+async def test_get_url_link_segment_without_text_id():
+    with patch(
+        "pecha_api.search.search_service.fetch_segment_details",
+        new_callable=AsyncMock,
+        return_value={"id": "u8TdJavkWlgv56IL40n0w"},
+    ):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_url_link("u8TdJavkWlgv56IL40n0w")
 
-    segment_uuid = uuid4()
-    text_uuid = uuid4()
-
-    mock_segment = Mock()
-    mock_segment.id = segment_uuid
-    mock_segment.text_id = str(text_uuid)
-    mock_segment.pecha_segment_id = str(uuid4())
-
-    with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=mock_segment):
-        result = await get_url_link(mock_segment.pecha_segment_id)
-
-        assert result is not None
-        assert result.text_id == str(text_uuid)
-        assert result.segment_id == str(segment_uuid)
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        assert exc_info.value.detail == "Pecha segment not found"
 
 
 @pytest.mark.asyncio
 async def test_get_url_link_with_special_characters():
-    """Test get_url_link service with special characters in pecha_segment_id"""
-    from pecha_api.search.search_service import get_url_link
-
-    mock_segment = Mock()
-    mock_segment.id = uuid4()
-    mock_segment.text_id = "text-abc-123"
-    mock_segment.pecha_segment_id = "pecha-seg_123-xyz"
-
-    with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=mock_segment):
+    with patch(
+        "pecha_api.search.search_service.fetch_segment_details",
+        new_callable=AsyncMock,
+        return_value={"id": "pecha-seg_123-xyz", "text_id": "text-abc-123"},
+    ):
         result = await get_url_link("pecha-seg_123-xyz")
 
-        assert result is not None
         assert result.text_id == "text-abc-123"
-        assert result.segment_id == str(mock_segment.id)
-
-
-@pytest.mark.asyncio
-async def test_get_url_link_database_exception():
-    """Test get_url_link service when database raises an exception"""
-    from fastapi import HTTPException
-    from starlette import status
-
-    from pecha_api.search.search_service import get_url_link
-
-    with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, side_effect=Exception("Database connection error")):
-        with pytest.raises(HTTPException) as exc_info:
-            await get_url_link("error_segment_id")
-
-        assert exc_info.value.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
-        assert exc_info.value.detail == "Failed to retrieve segment link"
+        assert result.segment_id == "pecha-seg_123-xyz"
 
 
 @pytest.mark.asyncio
 async def test_get_url_link_with_long_pecha_segment_id():
-    """Test get_url_link service with very long pecha_segment_id"""
-    from pecha_api.search.search_service import get_url_link
-
     long_segment_id = "a" * 500
 
-    mock_segment = Mock()
-    mock_segment.id = uuid4()
-    mock_segment.text_id = "text123"
-    mock_segment.pecha_segment_id = long_segment_id
-
-    with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=mock_segment):
+    with patch(
+        "pecha_api.search.search_service.fetch_segment_details",
+        new_callable=AsyncMock,
+        return_value={"id": long_segment_id, "text_id": TEXT_ID},
+    ):
         result = await get_url_link(long_segment_id)
 
-        assert result is not None
-        assert result.text_id == "text123"
-        assert result.segment_id == str(mock_segment.id)
-
-
-@pytest.mark.asyncio
-async def test_get_url_link_with_empty_text_id():
-    """Test get_url_link service when segment has empty text_id"""
-    from pecha_api.search.search_service import get_url_link
-
-    mock_segment = Mock()
-    mock_segment.id = uuid4()
-    mock_segment.text_id = ""
-    mock_segment.pecha_segment_id = "pecha_seg_123"
-
-    with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=mock_segment):
-        result = await get_url_link("pecha_seg_123")
-
-        assert result is not None
-        assert result.text_id == ""
-        assert result.segment_id == str(mock_segment.id)
+        assert result.text_id == TEXT_ID
+        assert result.segment_id == long_segment_id
 
 
 @pytest.mark.asyncio
 async def test_get_url_link_multiple_calls():
-    """Test get_url_link service with multiple sequential calls"""
-    from pecha_api.search.search_service import get_url_link
-
-    mock_segment1 = Mock()
-    mock_segment1.id = uuid4()
-    mock_segment1.text_id = "text1"
-    mock_segment1.pecha_segment_id = "seg1"
-
-    mock_segment2 = Mock()
-    mock_segment2.id = uuid4()
-    mock_segment2.text_id = "text2"
-    mock_segment2.pecha_segment_id = "seg2"
-
-    with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock) as mock_get:
-        mock_get.return_value = mock_segment1
+    with patch(
+        "pecha_api.search.search_service.fetch_segment_details",
+        new_callable=AsyncMock,
+    ) as mock_get:
+        mock_get.return_value = {"id": "seg1", "text_id": "text1"}
         result1 = await get_url_link("seg1")
         assert result1.text_id == "text1"
-        assert result1.segment_id == str(mock_segment1.id)
+        assert result1.segment_id == "seg1"
 
-        mock_get.return_value = mock_segment2
+        mock_get.return_value = {"id": "seg2", "text_id": "text2"}
         result2 = await get_url_link("seg2")
         assert result2.text_id == "text2"
-        assert result2.segment_id == str(mock_segment2.id)
+        assert result2.segment_id == "seg2"
 
-        assert mock_get.call_count == 2
+        assert mock_get.await_count == 2
 
-
-@pytest.mark.asyncio
-async def test_get_url_link_none_segment_id():
-    """Test get_url_link service when segment.id is None"""
-    from pecha_api.search.search_service import get_url_link
-
-    mock_segment = Mock()
-    mock_segment.id = None
-    mock_segment.text_id = "text123"
-    mock_segment.pecha_segment_id = "pecha_seg_123"
-
-    with patch("pecha_api.search.search_service.Segment.get_segment_by_pecha_segment_id", new_callable=AsyncMock, return_value=mock_segment):
-        result = await get_url_link("pecha_seg_123")
-
-        assert result is not None
-        assert result.text_id == "text123"
-        assert result.segment_id == "None"
 
 def test_apply_pagination_to_sources_basic():
     """Test basic pagination with skip and limit"""
