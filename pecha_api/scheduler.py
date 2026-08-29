@@ -14,6 +14,10 @@ from pecha_api.config import get_int
 from pecha_api.events.notification_dispatch_service import (
     reconcile_undispatched_event_notifications,
 )
+from pecha_api.events.event_reminder_dispatch_service import (
+    dispatch_due_event_reminders,
+    reconcile_undispatched_event_reminders,
+)
 from pecha_api.group_posts.notification_dispatch_service import (
     reconcile_undispatched_group_post_notifications,
 )
@@ -97,6 +101,32 @@ def setup_scheduler() -> None:
         replace_existing=True,
     )
 
+    event_reminder_dispatch_interval = max(
+        get_int("EVENT_REMINDER_DISPATCH_INTERVAL_SECONDS"),
+        1,
+    )
+    scheduler.add_job(
+        dispatch_due_event_reminders,
+        IntervalTrigger(seconds=event_reminder_dispatch_interval),
+        id="dispatch_due_event_reminders",
+        name="Dispatch due event reminders",
+        replace_existing=True,
+        max_instances=1,
+    )
+
+    event_reminder_reconcile_interval = max(
+        get_int("EVENT_REMINDER_DISPATCH_RECONCILE_INTERVAL_SECONDS"),
+        1,
+    )
+    scheduler.add_job(
+        reconcile_undispatched_event_reminders,
+        IntervalTrigger(seconds=event_reminder_reconcile_interval),
+        id="reconcile_undispatched_event_reminders",
+        name="Re-enqueue undispatched event reminders",
+        replace_existing=True,
+        max_instances=1,
+    )
+
     if not scheduler.running:
         scheduler.start()
     logger.info(
@@ -104,12 +134,14 @@ def setup_scheduler() -> None:
         "failing undispatched audio jobs every %s second(s); "
         "re-enqueueing undispatched chat notifications every %s second(s); "
         "re-enqueueing undispatched group post notifications every %s second(s); "
-        "re-enqueueing undispatched event notifications every %s second(s)",
+        "re-enqueueing undispatched event notifications every %s second(s); "
+        "dispatching due event reminders every %s second(s)",
         expiry_days,
         reconcile_interval,
         chat_reconcile_interval,
         group_post_reconcile_interval,
         event_reconcile_interval,
+        event_reminder_dispatch_interval,
     )
 
 
