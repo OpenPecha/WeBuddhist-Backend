@@ -51,3 +51,18 @@ AuthorGroupTypeEnum = Enum(
     AuthorGroupType,
     name="author_group_type",
 )
+
+
+class AuthorGroupStatus(enum.Enum):
+    """Whether a group reaches the app at all. Separate from is_public, which
+    only decides how an already-published group is joined and read."""
+
+    DRAFT = "DRAFT"
+    PUBLISHED = "PUBLISHED"
+    UNPUBLISHED = "UNPUBLISHED"
+
+
+AuthorGroupStatusEnum = Enum(
+    AuthorGroupStatus,
+    name="author_group_status",
+)

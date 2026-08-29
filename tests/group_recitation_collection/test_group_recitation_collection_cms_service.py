@@ -51,6 +51,8 @@ class MockGroup:
     """Mock Group model."""
     def __init__(self, id=None):
         self.id = id or uuid4()
+        # Published by default; these cases test is_public on live groups.
+        self.status = "PUBLISHED"
 
 
 class MockAuthor:

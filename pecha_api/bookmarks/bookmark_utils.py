@@ -54,7 +54,11 @@ from pecha_api.texts.first_segment_preview_service import (
     resolve_segment_by_ref,
 )
 from pecha_api.mantra.mantra_repository import get_mantra_by_id
-from pecha_api.plans.groups.groups_repository import get_group_by_id, get_group_member
+from pecha_api.plans.groups.groups_repository import (
+    get_group_by_id,
+    get_group_member,
+    is_group_published,
+)
 from pecha_api.timers.timer_repository import get_timer_by_id
 from pecha_api.group_recitation_collection.repository import (
     get_collection_item_counts,
@@ -510,7 +514,7 @@ def enrich_group_recitation_collection_bookmark(
     # Mirror the access rules of group-content reads: collections are visible
     # only when the group is public or the user is currently a member.
     group = get_group_by_id(db=db, group_id=collection.group_id)
-    if not group:
+    if not group or not is_group_published(group):
         return {}
     if not group.is_public and not get_group_member(
         db=db,

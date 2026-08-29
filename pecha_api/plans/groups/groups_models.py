@@ -24,6 +24,7 @@ from .groups_enums import (
     AuthorGroupMemberRoleEnum,
     AuthorGroupInviteStatusEnum,
     AuthorGroupJoinRequestStatusEnum,
+    AuthorGroupStatusEnum,
     AuthorGroupTypeEnum,
 )
 
@@ -145,6 +146,7 @@ class AuthorGroup(Base):
     slug = Column(String(255), nullable=False)
     group_type = Column(AuthorGroupTypeEnum, nullable=False, default="PAGE")
     is_public = Column(Boolean, nullable=False, default=True)
+    status = Column(AuthorGroupStatusEnum, nullable=False, default="DRAFT")
     avatar_key = Column(String(1000), nullable=True)
     banner_key = Column(String(1000), nullable=True)
 
