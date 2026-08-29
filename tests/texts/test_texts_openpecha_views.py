@@ -5,10 +5,18 @@ from fastapi.testclient import TestClient
 
 from pecha_api.app import api
 from pecha_api.collections.collections_response_models import V2CollectionModel
+from pecha_api.texts.text_openpecha_response_models import (
+    ContentDTO,
+    SectionDTO,
+    SegmentDTO,
+    TextDetailDTO,
+    TextDetailWithContentResponse,
+)
 from pecha_api.texts.texts_response_models import (
     TextDTO,
     TextVersion,
     TextVersionResponse,
+    TitleSearchResult,
     V2TextDTO,
     V2TextsCategoryResponse,
 )
@@ -644,3 +652,178 @@ class TestGetTextCommentariesResponseStructure:
         assert data["license"] is None
         assert data["categories"] == []
         assert data["views"] == 0
+
+
+# =============================================================================
+# GET /texts/title-search - View Layer Tests
+# =============================================================================
+
+class TestTitleSearchV2Endpoint:
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_by_query_from_openpecha")
+    def test_title_search_success(self, mock_service):
+        mock_service.return_value = [
+            TitleSearchResult(id="RbdDgw67tA6XwdogCfqaK", title="बुद्ध वन्दना"),
+        ]
+
+        response = client.get("/texts/title-search?title=buddha&limit=10&offset=0")
+
+        assert response.status_code == 200
+        # Bare array, matching the legacy title-search response shape.
+        assert response.json() == [{"id": "RbdDgw67tA6XwdogCfqaK", "title": "बुद्ध वन्दना"}]
+        mock_service.assert_awaited_once_with(title="buddha", limit=10, offset=0)
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_by_query_from_openpecha")
+    def test_title_search_no_matches_returns_empty_list(self, mock_service):
+        mock_service.return_value = []
+
+        response = client.get("/texts/title-search?title=zzzznotathing")
+
+        assert response.status_code == 200
+        assert response.json() == []
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_by_query_from_openpecha")
+    def test_title_search_applies_default_paging(self, mock_service):
+        mock_service.return_value = []
+
+        response = client.get("/texts/title-search?title=buddha")
+
+        assert response.status_code == 200
+        mock_service.assert_awaited_once_with(title="buddha", limit=20, offset=0)
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_by_query_from_openpecha")
+    def test_title_search_rejects_author_filter(self, mock_service):
+        response = client.get("/texts/title-search?title=buddha&author=someone")
+
+        assert response.status_code == 400
+        assert "author" in response.json()["detail"]
+        # Rejected before any upstream call, so results are never silently unfiltered.
+        mock_service.assert_not_awaited()
+
+    def test_title_search_requires_title(self):
+        response = client.get("/texts/title-search?limit=10&offset=0")
+
+        assert response.status_code == 422
+
+    def test_title_search_rejects_limit_above_cap(self):
+        response = client.get("/texts/title-search?title=buddha&limit=500")
+
+        assert response.status_code == 422
+
+    def test_title_search_rejects_negative_offset(self):
+        response = client.get("/texts/title-search?title=buddha&offset=-1")
+
+        assert response.status_code == 422
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_text_by_id_from_openpecha")
+    def test_title_search_is_not_shadowed_by_text_id_route(self, mock_by_id):
+        """/texts/title-search must not be captured by GET /texts/{text_id}."""
+        with patch(
+            "pecha_api.texts.texts_openpecha_views.get_titles_by_query_from_openpecha"
+        ) as mock_search:
+            mock_search.return_value = []
+
+            response = client.get("/texts/title-search?title=buddha")
+
+            assert response.status_code == 200
+            mock_search.assert_awaited_once()
+            mock_by_id.assert_not_awaited()
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_titles_by_query_from_openpecha")
+    def test_title_search_propagates_upstream_error(self, mock_service):
+        mock_service.side_effect = HTTPException(
+            status_code=502, detail="Failed to search texts by title from upstream service"
+        )
+
+        response = client.get("/texts/title-search?title=buddha")
+
+        assert response.status_code == 502
+
+
+# =============================================================================
+# POST /texts/{text_id}/details - View Layer Tests
+# =============================================================================
+
+MOCK_DETAILS_RESPONSE = TextDetailWithContentResponse(
+    text_detail=TextDetailDTO(
+        id="t1", pecha_text_id="t1", title="Heart Sutra", language="bo", group_id="",
+        type="root_text", summary="", is_published=True, created_date="", updated_date="",
+        published_date="", published_by="", categories=[], views=0, likes=[],
+    ),
+    content=ContentDTO(
+        id="ed-1",
+        text_id="t1",
+        sections=[SectionDTO(
+            id="ed-1", title="Heart Sutra", section_number=1,
+            segments=[SegmentDTO(segment_id="s1", segment_number=1, content="first")],
+        )],
+    ),
+    size=20,
+    pagination_direction="next",
+    current_segment_position=1,
+    total_segments=33,
+    has_more_up=False,
+    has_more_down=True,
+)
+
+
+class TestTextDetailsV2Endpoint:
+    @patch("pecha_api.texts.texts_openpecha_views.get_text_details_by_text_id_from_openpecha")
+    def test_details_is_a_post_with_the_production_body(self, mock_service):
+        mock_service.return_value = MOCK_DETAILS_RESPONSE
+
+        response = client.post(
+            "/texts/t1/details",
+            json={"segment_id": "s5", "direction": "next", "size": 20, "version_id": "v1"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["text_detail"]["title"] == "Heart Sutra"
+        assert data["total_segments"] == 33
+        assert data["content"]["sections"][0]["segments"][0]["segment_id"] == "s1"
+
+        request_model = mock_service.await_args.kwargs["text_details_request"]
+        assert request_model.segment_id == "s5"
+        assert request_model.size == 20
+        assert request_model.version_id == "v1"
+        assert request_model.direction.value == "next"
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_text_details_by_text_id_from_openpecha")
+    def test_details_defaults_direction_and_size(self, mock_service):
+        mock_service.return_value = MOCK_DETAILS_RESPONSE
+
+        response = client.post("/texts/t1/details", json={})
+
+        assert response.status_code == 200
+        request_model = mock_service.await_args.kwargs["text_details_request"]
+        assert request_model.direction.value == "next"
+        assert request_model.size == 20
+        assert request_model.segment_id is None
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_text_details_by_text_id_from_openpecha")
+    def test_details_accepts_start_end_range(self, mock_service):
+        mock_service.return_value = MOCK_DETAILS_RESPONSE
+
+        response = client.post("/texts/t1/details", json={"start": 5, "end": 8})
+
+        assert response.status_code == 200
+        request_model = mock_service.await_args.kwargs["text_details_request"]
+        assert (request_model.start, request_model.end) == (5, 8)
+
+    def test_details_rejects_unknown_direction(self):
+        response = client.post("/texts/t1/details", json={"direction": "sideways"})
+
+        assert response.status_code == 422
+
+    @patch("pecha_api.texts.texts_openpecha_views.get_text_details_by_text_id_from_openpecha")
+    def test_details_propagates_missing_text(self, mock_service):
+        mock_service.side_effect = HTTPException(status_code=404, detail="No critical editions found")
+
+        response = client.post("/texts/t1/details", json={})
+
+        assert response.status_code == 404
+
+    def test_details_is_not_exposed_as_get(self):
+        response = client.get("/texts/t1/details")
+
+        assert response.status_code == 405

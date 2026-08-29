@@ -59,7 +59,7 @@ MOCK_SEGMENTS = SegmentationSegmentResponseModel(
 
 @pytest.mark.asyncio
 async def test_get_text_detail_by_id_success(mocker):
-    """Test happy path: assembles text detail with edition, segmentation, and segments"""
+    """Test happy path: assembles text detail with edition details and paginated segments"""
     mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
         new_callable=AsyncMock,
@@ -69,11 +69,6 @@ async def test_get_text_detail_by_id_success(mocker):
         "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
         new_callable=AsyncMock,
         return_value=MOCK_EDITIONS,
-    )
-    mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
-        new_callable=AsyncMock,
-        return_value=MOCK_SEGMENTATIONS,
     )
     mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
@@ -88,13 +83,15 @@ async def test_get_text_detail_by_id_success(mocker):
 
     result = await get_text_detail_by_id(text_id=TEXT_ID, offset=0, limit=30)
 
-    assert isinstance(result, TextDetailWithContentResponse)
-    assert result.text_detail.id == TEXT_ID
-    assert result.text_detail.title == "Test Text"
-    assert result.size == 2
-    assert result.current_segment_position == 1
-    assert len(result.content.sections) == 1
-    assert len(result.content.sections[0].segments) == 2
+    assert isinstance(result, TextDetailResponse)
+    assert result.id == TEXT_ID
+    assert result.title == {"en": "Test Text"}
+    assert [edition.id for edition in result.edition_details] == [EDITION_ID]
+    # Segment content is sliced out of the edition content by the segment spans.
+    assert [segment.content for segment in result.segments.contents] == ["Hello", "World"]
+    assert [segment.id for segment in result.segments.contents] == ["span-1", "span-2"]
+    assert [segment.segment_number for segment in result.segments.contents] == [1, 2]
+    assert result.segments.has_more is False
 
 
 @pytest.mark.asyncio
@@ -111,11 +108,6 @@ async def test_get_text_detail_by_id_passes_offset_and_limit_to_segments(mocker)
         return_value=MOCK_EDITIONS,
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
-        new_callable=AsyncMock,
-        return_value=MOCK_SEGMENTATIONS,
-    )
-    mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
         new_callable=AsyncMock,
         return_value=MOCK_EDITION_CONTENT,
@@ -129,13 +121,13 @@ async def test_get_text_detail_by_id_passes_offset_and_limit_to_segments(mocker)
     await get_text_detail_by_id(text_id=TEXT_ID, offset=10, limit=5)
 
     mock_fetch_segments.assert_called_once_with(
-        segmentation_id=SEGMENTATION_ID, limit=5, offset=10
+        edition_id=EDITION_ID, limit=5, offset=10
     )
 
 
 @pytest.mark.asyncio
 async def test_get_text_detail_by_id_uses_first_edition_for_segmentation(mocker):
-    """Test that the first edition's id is used when fetching segmentation and content"""
+    """Test that the first edition's id is used when fetching content and segments"""
     editions = [
         CriticalEditionModel(id="ed-first", type="critical"),
         CriticalEditionModel(id="ed-second", type="critical"),
@@ -150,17 +142,12 @@ async def test_get_text_detail_by_id_uses_first_edition_for_segmentation(mocker)
         new_callable=AsyncMock,
         return_value=editions,
     )
-    mock_fetch_segmentation = mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
-        new_callable=AsyncMock,
-        return_value=MOCK_SEGMENTATIONS,
-    )
     mock_fetch_content = mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
         new_callable=AsyncMock,
         return_value=MOCK_EDITION_CONTENT,
     )
-    mocker.patch(
+    mock_fetch_segments = mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
         new_callable=AsyncMock,
         return_value=MOCK_SEGMENTS,
@@ -168,8 +155,8 @@ async def test_get_text_detail_by_id_uses_first_edition_for_segmentation(mocker)
 
     await get_text_detail_by_id(text_id=TEXT_ID, offset=0, limit=30)
 
-    mock_fetch_segmentation.assert_called_once_with(edition_id="ed-first")
     mock_fetch_content.assert_called_once_with(edition_id="ed-first")
+    mock_fetch_segments.assert_called_once_with(edition_id="ed-first", limit=30, offset=0)
 
 
 @pytest.mark.asyncio
@@ -334,3 +321,429 @@ def test_trim_segment_content_segment_numbers_are_sequential():
     result = trim_segment_content(edition_content=content, segments=segments)
 
     assert [s.segment_number for s in result.contents] == [1, 2, 3]
+
+
+# =============================================================================
+# get_titles_by_query_from_openpecha - Service Layer Tests
+# =============================================================================
+
+TITLE_SEARCH_PAYLOAD = {
+    "items": [
+        {
+            "id": "RbdDgw67tA6XwdogCfqaK",
+            "title": {"pi": "बुद्ध वन्दना"},
+            "language": "pi",
+            "license": "public",
+        },
+        {
+            "id": "0V1UCd0qNSwwIJOEMcZYO",
+            "title": {"en": "Buddha Vandana", "pi": "पञ्चसील याचना"},
+            "language": "en",
+            "license": "public",
+        },
+    ],
+    "has_more": False,
+    "offset": 0,
+    "limit": 10,
+}
+
+
+@pytest.mark.asyncio
+async def test_get_titles_by_query_from_openpecha_success(mocker):
+    from pecha_api.texts.texts_openpecha_service import get_titles_by_query_from_openpecha
+
+    mock_fetch = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_texts_by_category",
+        new=AsyncMock(return_value=TITLE_SEARCH_PAYLOAD),
+    )
+
+    result = await get_titles_by_query_from_openpecha(title="buddha", limit=10, offset=0)
+
+    assert [item.id for item in result] == ["RbdDgw67tA6XwdogCfqaK", "0V1UCd0qNSwwIJOEMcZYO"]
+    # Title is picked in the item's own language, not the first key.
+    assert [item.title for item in result] == ["बुद्ध वन्दना", "Buddha Vandana"]
+    mock_fetch.assert_awaited_once_with(title="buddha", limit=10, offset=0)
+
+
+@pytest.mark.asyncio
+async def test_get_titles_by_query_from_openpecha_no_matches(mocker):
+    from pecha_api.texts.texts_openpecha_service import get_titles_by_query_from_openpecha
+
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_texts_by_category",
+        new=AsyncMock(return_value={"items": [], "has_more": False, "offset": 0, "limit": 10}),
+    )
+
+    result = await get_titles_by_query_from_openpecha(title="zzzznotathing", limit=10, offset=0)
+
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_get_titles_by_query_from_openpecha_skips_unusable_items(mocker):
+    from pecha_api.texts.texts_openpecha_service import get_titles_by_query_from_openpecha
+
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_texts_by_category",
+        new=AsyncMock(
+            return_value={
+                "items": [
+                    {"id": "", "title": {"en": "No id"}, "language": "en"},
+                    {"id": "ok-1", "title": {}, "language": "en"},
+                    "not-a-dict",
+                    {"id": "ok-2", "title": {"en": "Keeps this"}, "language": "en"},
+                ]
+            }
+        ),
+    )
+
+    result = await get_titles_by_query_from_openpecha(title="x", limit=10, offset=0)
+
+    assert [item.id for item in result] == ["ok-2"]
+    assert result[0].title == "Keeps this"
+
+
+@pytest.mark.asyncio
+async def test_get_titles_by_query_from_openpecha_upstream_error_raises_502(mocker):
+    from pecha_api.texts.texts_openpecha_service import get_titles_by_query_from_openpecha
+
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_texts_by_category",
+        new=AsyncMock(side_effect=Exception("upstream down")),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_titles_by_query_from_openpecha(title="buddha", limit=10, offset=0)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+@pytest.mark.asyncio
+async def test_get_titles_by_query_from_openpecha_forwards_paging(mocker):
+    from pecha_api.texts.texts_openpecha_service import get_titles_by_query_from_openpecha
+
+    mock_fetch = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_texts_by_category",
+        new=AsyncMock(return_value={"items": []}),
+    )
+
+    await get_titles_by_query_from_openpecha(title="buddha", limit=50, offset=20)
+
+    mock_fetch.assert_awaited_once_with(title="buddha", limit=50, offset=20)
+
+
+def test_trim_segment_content_segment_numbers_continue_across_pages():
+    """segment_number is a position in the whole text, so page 2 does not restart at 1."""
+    segments = SegmentationSegmentResponseModel(
+        items=[
+            SegmentSpans(id="s3", lines=[SegmentLineModel(start=4, end=6)]),
+            SegmentSpans(id="s4", lines=[SegmentLineModel(start=6, end=8)]),
+        ],
+        has_more=False,
+        offset=2,
+        limit=2,
+    )
+
+    result = trim_segment_content(edition_content="aabbccdd", segments=segments)
+
+    assert [s.segment_number for s in result.contents] == [3, 4]
+
+
+# =============================================================================
+# POST /{text_id}/details - pagination + assembly
+# =============================================================================
+
+from pecha_api.texts.text_openpecha_response_models import (
+    TextDetailsRequest,
+    TextDetailWithContentResponse,
+)
+from pecha_api.texts.texts_enums import PaginationDirection
+from pecha_api.texts.texts_openpecha_service import (
+    _count_edition_segments,
+    _resolve_anchor_position,
+    _resolve_page_bounds,
+    get_text_details_by_text_id_from_openpecha,
+)
+
+
+def _bounds(anchor, direction, size, total, start=None, end=None):
+    return _resolve_page_bounds(
+        anchor_position=anchor,
+        direction=direction,
+        size=size,
+        total_segments=total,
+        start=start,
+        end=end,
+    )
+
+
+def test_resolve_page_bounds_next_from_start():
+    assert _bounds(1, PaginationDirection.NEXT, 10, 33) == (1, 10, 1)
+
+
+def test_resolve_page_bounds_next_keeps_anchor_in_page():
+    """Matches the cursor contract: the anchor segment repeats as the page's first."""
+    assert _bounds(10, PaginationDirection.NEXT, 10, 33) == (10, 19, 10)
+
+
+def test_resolve_page_bounds_next_clamps_to_total():
+    assert _bounds(28, PaginationDirection.NEXT, 10, 33) == (28, 33, 28)
+
+
+def test_resolve_page_bounds_next_at_last_segment_signals_stop():
+    """current_segment_position == total_segments is the client's stop condition."""
+    page_start, page_end, current = _bounds(33, PaginationDirection.NEXT, 10, 33)
+    assert (page_start, page_end) == (33, 33)
+    assert current == 33
+
+
+def test_resolve_page_bounds_previous_ends_on_anchor():
+    assert _bounds(19, PaginationDirection.PREVIOUS, 10, 33) == (10, 19, 19)
+
+
+def test_resolve_page_bounds_previous_clamps_at_first_segment():
+    assert _bounds(7, PaginationDirection.PREVIOUS, 10, 33) == (1, 7, 7)
+
+
+def test_resolve_page_bounds_range_start_and_end():
+    assert _bounds(1, PaginationDirection.NEXT, 20, 33, start=5, end=8) == (5, 8, 8)
+
+
+def test_resolve_page_bounds_range_start_only_applies_size():
+    assert _bounds(1, PaginationDirection.NEXT, 4, 33, start=5) == (5, 8, 8)
+
+
+def test_resolve_page_bounds_range_end_only_walks_back_by_size():
+    assert _bounds(1, PaginationDirection.NEXT, 4, 33, end=8) == (5, 8, 8)
+
+
+def test_resolve_page_bounds_range_clamped_to_total():
+    assert _bounds(1, PaginationDirection.NEXT, 20, 33, start=30, end=99) == (30, 33, 33)
+
+
+@pytest.mark.asyncio
+async def test_resolve_anchor_position_uses_segment_reference(mocker):
+    """A segment's `reference` is its 0-based index, so position is reference + 1."""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segment_details",
+        new=AsyncMock(return_value={"id": "seg-9", "reference": "8"}),
+    )
+
+    assert await _resolve_anchor_position("seg-9") == 9
+
+
+@pytest.mark.asyncio
+async def test_resolve_anchor_position_defaults_to_first_without_cursor():
+    assert await _resolve_anchor_position(None) == 1
+
+
+@pytest.mark.asyncio
+async def test_resolve_anchor_position_falls_back_when_upstream_404s(mocker):
+    import httpx
+
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segment_details",
+        new=AsyncMock(
+            side_effect=httpx.HTTPStatusError(
+                "404", request=httpx.Request("GET", "http://x"), response=httpx.Response(404)
+            )
+        ),
+    )
+
+    assert await _resolve_anchor_position("gone") == 1
+
+
+@pytest.mark.asyncio
+async def test_resolve_anchor_position_falls_back_on_non_numeric_reference(mocker):
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segment_details",
+        new=AsyncMock(return_value={"id": "seg-1", "reference": "intro"}),
+    )
+
+    assert await _resolve_anchor_position("seg-1") == 1
+
+
+@pytest.mark.asyncio
+async def test_count_edition_segments_pages_through_upstream(mocker):
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.get_cache_data",
+        new=AsyncMock(return_value=None),
+    )
+    mock_set = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.set_cache",
+        new=AsyncMock(),
+    )
+
+    def page(count, has_more):
+        return SegmentationSegmentResponseModel(
+            items=[SegmentSpans(id=f"s{i}", lines=[SegmentLineModel(start=0, end=1)]) for i in range(count)],
+            has_more=has_more,
+            offset=0,
+            limit=100,
+        )
+
+    mock_fetch = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
+        new=AsyncMock(side_effect=[page(100, True), page(100, True), page(33, False)]),
+    )
+
+    total = await _count_edition_segments(edition_id=EDITION_ID)
+
+    assert total == 233
+    assert mock_fetch.await_count == 3
+    assert [c.kwargs["offset"] for c in mock_fetch.await_args_list] == [0, 100, 200]
+    mock_set.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_count_edition_segments_uses_cached_total(mocker):
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.get_cache_data",
+        new=AsyncMock(return_value=233),
+    )
+    mock_fetch = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
+        new=AsyncMock(),
+    )
+
+    assert await _count_edition_segments(edition_id=EDITION_ID) == 233
+    mock_fetch.assert_not_awaited()
+
+
+def _patch_details_upstream(mocker, total_segments=33, page_items=None):
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
+        new=AsyncMock(return_value=MOCK_TEXT_DETAIL.model_copy()),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
+        new=AsyncMock(return_value=MOCK_EDITIONS),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
+        new=AsyncMock(return_value=MOCK_EDITION_CONTENT),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_text_source_link",
+        new=AsyncMock(return_value="https://example.com/source"),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service._count_edition_segments",
+        new=AsyncMock(return_value=total_segments),
+    )
+    return mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
+        new=AsyncMock(return_value=page_items or MOCK_SEGMENTS),
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_text_details_returns_production_shape(mocker):
+    _patch_details_upstream(mocker)
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service._resolve_anchor_position",
+        new=AsyncMock(return_value=1),
+    )
+
+    result = await get_text_details_by_text_id_from_openpecha(
+        text_id=TEXT_ID,
+        text_details_request=TextDetailsRequest(size=10, direction=PaginationDirection.NEXT),
+    )
+
+    assert isinstance(result, TextDetailWithContentResponse)
+    assert result.text_detail.title == "Test Text"
+    assert result.text_detail.language == "en"
+    assert result.size == 10
+    assert result.pagination_direction == "next"
+    assert result.current_segment_position == 1
+    assert result.total_segments == 33
+    assert result.has_more_up is False
+    assert result.has_more_down is True
+    # Segments arrive under a single synthetic section.
+    assert len(result.content.sections) == 1
+    assert [s.content for s in result.content.sections[0].segments] == ["Hello", "World"]
+    assert [s.segment_id for s in result.content.sections[0].segments] == ["span-1", "span-2"]
+
+
+@pytest.mark.asyncio
+async def test_get_text_details_stubs_fields_openpecha_cannot_supply(mocker):
+    """The Mongo-era engagement/publishing fields are filled with neutral defaults."""
+    _patch_details_upstream(mocker)
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service._resolve_anchor_position",
+        new=AsyncMock(return_value=1),
+    )
+
+    detail = (
+        await get_text_details_by_text_id_from_openpecha(
+            text_id=TEXT_ID,
+            text_details_request=TextDetailsRequest(),
+        )
+    ).text_detail
+
+    assert detail.views == 0
+    assert detail.likes == []
+    assert detail.is_published is True
+    assert detail.group_id == ""
+    assert detail.published_by == ""
+    assert detail.summary == ""
+    # Real values still come from OpenPecha.
+    assert detail.license == "CC0"
+    assert detail.categories == ["cat-1"]
+    assert detail.source_link == "https://example.com/source"
+
+
+@pytest.mark.asyncio
+async def test_get_text_details_requests_page_for_resolved_cursor(mocker):
+    mock_fetch_segments = _patch_details_upstream(mocker)
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service._resolve_anchor_position",
+        new=AsyncMock(return_value=10),
+    )
+
+    result = await get_text_details_by_text_id_from_openpecha(
+        text_id=TEXT_ID,
+        text_details_request=TextDetailsRequest(
+            segment_id="span-10", size=10, direction=PaginationDirection.NEXT
+        ),
+    )
+
+    mock_fetch_segments.assert_awaited_once_with(edition_id=EDITION_ID, limit=10, offset=9)
+    assert result.current_segment_position == 10
+    assert result.has_more_up is True
+
+
+@pytest.mark.asyncio
+async def test_get_text_details_raises_404_without_editions(mocker):
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
+        new=AsyncMock(return_value=MOCK_TEXT_DETAIL.model_copy()),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
+        new=AsyncMock(return_value=[]),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_text_details_by_text_id_from_openpecha(
+            text_id=TEXT_ID, text_details_request=TextDetailsRequest()
+        )
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_get_text_details_handles_edition_with_no_segments(mocker):
+    _patch_details_upstream(mocker, total_segments=0)
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service._resolve_anchor_position",
+        new=AsyncMock(return_value=1),
+    )
+
+    result = await get_text_details_by_text_id_from_openpecha(
+        text_id=TEXT_ID, text_details_request=TextDetailsRequest()
+    )
+
+    assert result.total_segments == 0
+    assert result.current_segment_position == 0
+    assert result.content.sections == []

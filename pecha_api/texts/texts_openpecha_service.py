@@ -1,5 +1,7 @@
 import asyncio
 import logging
+
+import httpx
 from typing import Optional, Dict, Any, List, Tuple
 
 from fastapi import HTTPException
@@ -9,21 +11,38 @@ from pecha_api.texts.texts_response_models import (
     TextDTO,
     TextVersion,
     TextVersionResponse,
+    TitleSearchResult,
     V2TextDTO,
     V2TextsCategoryResponse,
 )
 from pecha_api.collections.collections_response_models import V2CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id, search_by_content
 from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
+from openpecha_api.segments.openpecha_segment_service import fetch_segment_details
 from pecha_api.texts.texts_openpecha_api import (
     fetch_critical_editions,
-    fetch_editions_segmentation,
     fetch_edition_content,
     fetch_segmentation_segments,
     fetch_text_detail,
     fetch_text_source_link,
 )
-from pecha_api.texts.text_openpecha_response_models import SegmentationSegmentResponseModel, SegmentContentModel, SegmentContentResponse, TextDetailResponse
+from pecha_api.texts.text_openpecha_response_models import (
+    ContentDTO,
+    SectionDTO,
+    SegmentationSegmentResponseModel,
+    SegmentContentModel,
+    SegmentContentResponse,
+    SegmentDTO,
+    TextDetailDTO,
+    TextDetailResponse,
+    TextDetailsRequest,
+    TextDetailWithContentResponse,
+)
+from pecha_api.texts.texts_enums import PaginationDirection
+from pecha_api.cache.cache_enums import CacheType
+from pecha_api.cache.cache_repository import get_cache_data, set_cache
+from pecha_api.utils import Utils
+from pecha_api import config
 
 logger = logging.getLogger(__name__)
 
@@ -186,9 +205,10 @@ async def get_text_detail_by_id(text_id: str, offset: int, limit: int) -> TextDe
             detail=f"No critical editions found for text with id '{text_id}'",
         )
     text_detail.edition_details = edition_details
-    segmentations = await fetch_editions_segmentation(edition_id=edition_details[0].id)
-    edition_content = await fetch_edition_content(edition_id=edition_details[0].id)
-    segments = await fetch_segmentation_segments(segmentation_id=segmentations[0].id, limit=limit, offset=offset)  # noqa: F841
+    edition_id = edition_details[0].id
+    # Segments hang off the edition's segmentation, so the edition id addresses them directly.
+    edition_content = await fetch_edition_content(edition_id=edition_id)
+    segments = await fetch_segmentation_segments(edition_id=edition_id, limit=limit, offset=offset)
     segment_contents = trim_segment_content(edition_content=edition_content.content, segments=segments)
     text_detail.segments = segment_contents
     return text_detail
@@ -198,7 +218,8 @@ def trim_segment_content(edition_content: str, segments: SegmentationSegmentResp
     result = []
     for i, segment in enumerate(segments.items):
         content = "".join(edition_content[line.start:line.end] for line in segment.lines)
-        result.append(SegmentContentModel(id=segment.id, content=content, segment_number=i+1))
+        # Numbered by position in the whole text, so paging does not restart at 1.
+        result.append(SegmentContentModel(id=segment.id, content=content, segment_number=segments.offset + i + 1))
     return SegmentContentResponse(contents=result, has_more=segments.has_more, offset=segments.offset, limit=segments.limit)
 async def fetch_translation_details(translation_ids: List[str]) -> List[Dict[str, Any]]:
     results = await asyncio.gather(
@@ -525,3 +546,281 @@ async def search_text_content(
 ) -> Dict[str, Any]:
     
  return await search_by_content(query, search_type, limit, text_id, edition_id)
+
+async def get_titles_by_query_from_openpecha(
+    title: str,
+    limit: int = 20,
+    offset: int = 0,
+) -> List[TitleSearchResult]:
+    """Title lookup backed entirely by OpenPecha.
+
+    Replaces the legacy title-search, which fetched titles from OpenPecha and
+    then re-resolved them to ids through Mongo by exact title-string match.
+    """
+    try:
+        data = await fetch_texts_by_category(
+            title=title,
+            limit=limit,
+            offset=offset,
+        )
+    except Exception:
+        logger.exception("Failed to search texts by title from upstream")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to search texts by title from upstream service",
+        )
+
+    results: List[TitleSearchResult] = []
+    for item in data.get("items", []) or []:
+        if not isinstance(item, dict):
+            continue
+        text_id = item.get("id")
+        if not text_id:
+            continue
+        title_value = _extract_title(item.get("title", {}), item.get("language"))
+        if not title_value:
+            continue
+        results.append(TitleSearchResult(id=text_id, title=title_value))
+
+    return results
+
+
+# ============================================================================
+# POST /{text_id}/details - production-shaped response, sourced from OpenPecha
+# ============================================================================
+
+SEGMENT_PAGE_FETCH_LIMIT = 100  # upstream caps limit at 100
+
+
+async def _count_edition_segments(edition_id: str) -> int:
+    """Total segments in an edition's segmentation.
+
+    Upstream exposes no count, so this pages through at the maximum limit and
+    caches the result per edition to keep it off the per-request path.
+    """
+    cache_key = Utils.generate_hash_key(payload=[edition_id, CacheType.SEGMENTS_DETAILS])
+    cached_total = await get_cache_data(hash_key=cache_key)
+    if isinstance(cached_total, int):
+        return cached_total
+
+    total = 0
+    offset = 0
+    while True:
+        page = await fetch_segmentation_segments(
+            edition_id=edition_id,
+            limit=SEGMENT_PAGE_FETCH_LIMIT,
+            offset=offset,
+        )
+        total += len(page.items)
+        if not page.has_more or not page.items:
+            break
+        offset += SEGMENT_PAGE_FETCH_LIMIT
+
+    await set_cache(
+        hash_key=cache_key,
+        value=total,
+        cache_time_out=config.get_int("CACHE_TEXT_TIMEOUT"),
+    )
+    return total
+
+
+async def _resolve_anchor_position(segment_id: Optional[str]) -> int:
+    """1-based position of the cursor segment; 1 when absent or unresolvable.
+
+    A segment's `reference` is its 0-based index within the segmentation, so a
+    single lookup replaces walking the whole table of contents.
+    """
+    if not segment_id:
+        return 1
+    try:
+        segment = await fetch_segment_details(segment_id)
+    except (httpx.HTTPStatusError, httpx.RequestError):
+        logger.warning("Could not resolve position for segment %s", segment_id)
+        return 1
+
+    reference = (segment or {}).get("reference")
+    try:
+        return int(reference) + 1
+    except (TypeError, ValueError):
+        logger.warning("Segment %s has a non-numeric reference %r", segment_id, reference)
+        return 1
+
+
+def _resolve_range_bounds(
+    start: Optional[int],
+    end: Optional[int],
+    size: int,
+    total_segments: int,
+) -> Tuple[int, int, int]:
+    """Inclusive 1-based page bounds from explicit start/end positions."""
+    if start is not None and end is not None:
+        page_start_pos = max(1, min(start, total_segments))
+        page_end_pos = max(page_start_pos, min(end, total_segments))
+        return page_start_pos, page_end_pos, page_end_pos
+
+    if start is not None:
+        page_start_pos = max(1, min(start, total_segments))
+        page_end_pos = min(page_start_pos + size - 1, total_segments)
+        return page_start_pos, page_end_pos, page_end_pos
+
+    page_end_pos = max(1, min(end, total_segments))
+    page_start_pos = max(1, page_end_pos - size + 1)
+    return page_start_pos, page_end_pos, page_end_pos
+
+
+def _resolve_page_bounds(
+    anchor_position: int,
+    direction: PaginationDirection,
+    size: int,
+    total_segments: int,
+    start: Optional[int] = None,
+    end: Optional[int] = None,
+) -> Tuple[int, int, int]:
+    """Inclusive 1-based page bounds, matching the cursor semantics clients rely on.
+
+    NEXT pages forward from the anchor (which stays in the page); PREVIOUS pages
+    backward and ends on it.
+    """
+    if start is not None or end is not None:
+        return _resolve_range_bounds(
+            start=start,
+            end=end,
+            size=size,
+            total_segments=total_segments,
+        )
+
+    anchor_index = anchor_position - 1
+    if direction == PaginationDirection.PREVIOUS:
+        page_start_pos = max(0, anchor_index - size + 1) + 1
+        page_end_pos = anchor_index + 1
+    else:
+        page_start_pos = anchor_index + 1
+        page_end_pos = min(anchor_index + size, total_segments)
+
+    return page_start_pos, page_end_pos, anchor_position
+
+
+def _build_text_detail_dto(text_id: str, text_payload: TextDetailResponse, source_link: Optional[str]) -> TextDetailDTO:
+    """Map an OpenPecha text onto the client-facing DTO.
+
+    OpenPecha has no equivalent of the publishing/engagement fields, so those are
+    filled with neutral defaults rather than read from a second store.
+    """
+    return TextDetailDTO(
+        id=text_id,
+        pecha_text_id=text_payload.bdrc or text_id,
+        title=_extract_title(text_payload.title, text_payload.language),
+        language=text_payload.language or "",
+        group_id="",
+        type="root_text",
+        summary="",
+        is_published=True,
+        created_date="",
+        updated_date="",
+        published_date=str(text_payload.date or ""),
+        published_by="",
+        categories=[text_payload.category_id] if text_payload.category_id else [],
+        views=0,
+        likes=[],
+        source_link=source_link,
+        ranking=None,
+        license=text_payload.license,
+    )
+
+
+async def get_text_details_by_text_id_from_openpecha(
+    text_id: str,
+    text_details_request: TextDetailsRequest,
+) -> TextDetailWithContentResponse:
+    text_payload = await fetch_text_detail(text_id=text_id)
+    edition_details = await fetch_critical_editions(text_id=text_id)
+    if not edition_details:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No critical editions found for text with id '{text_id}'",
+        )
+    text_payload.edition_details = edition_details
+    edition_id = edition_details[0].id
+
+    total_segments, anchor_position = await asyncio.gather(
+        _count_edition_segments(edition_id=edition_id),
+        _resolve_anchor_position(text_details_request.segment_id),
+    )
+
+    if total_segments == 0:
+        return _build_empty_details_response(
+            text_id=text_id,
+            text_payload=text_payload,
+            text_details_request=text_details_request,
+        )
+
+    page_start_pos, page_end_pos, current_segment_position = _resolve_page_bounds(
+        anchor_position=anchor_position,
+        direction=text_details_request.direction,
+        size=text_details_request.size,
+        total_segments=total_segments,
+        start=text_details_request.start,
+        end=text_details_request.end,
+    )
+    page_length = max(0, page_end_pos - page_start_pos + 1)
+
+    edition_content, segments = await asyncio.gather(
+        fetch_edition_content(edition_id=edition_id),
+        fetch_segmentation_segments(
+            edition_id=edition_id,
+            limit=min(page_length, SEGMENT_PAGE_FETCH_LIMIT),
+            offset=page_start_pos - 1,
+        ),
+    )
+    segment_contents = trim_segment_content(
+        edition_content=edition_content.content,
+        segments=segments,
+    )
+
+    source_link = await fetch_text_source_link(text_id)
+
+    return TextDetailWithContentResponse(
+        text_detail=_build_text_detail_dto(text_id, text_payload, source_link),
+        content=ContentDTO(
+            id=edition_id,
+            text_id=text_id,
+            # Upstream exposes no table-of-contents structure yet, so the page is
+            # returned as one section rather than an invented hierarchy.
+            sections=[
+                SectionDTO(
+                    id=edition_id,
+                    title=_extract_title(text_payload.title, text_payload.language),
+                    section_number=1,
+                    segments=[
+                        SegmentDTO(
+                            segment_id=segment.id,
+                            segment_number=segment.segment_number,
+                            content=segment.content,
+                        )
+                        for segment in segment_contents.contents
+                    ],
+                )
+            ],
+        ),
+        size=text_details_request.size,
+        pagination_direction=text_details_request.direction.value,
+        current_segment_position=current_segment_position,
+        total_segments=total_segments,
+        has_more_up=page_start_pos > 1,
+        has_more_down=page_end_pos < total_segments,
+    )
+
+
+def _build_empty_details_response(
+    text_id: str,
+    text_payload: TextDetailResponse,
+    text_details_request: TextDetailsRequest,
+) -> TextDetailWithContentResponse:
+    return TextDetailWithContentResponse(
+        text_detail=_build_text_detail_dto(text_id, text_payload, None),
+        content=ContentDTO(id="", text_id=text_id, sections=[]),
+        size=text_details_request.size,
+        pagination_direction=text_details_request.direction.value,
+        current_segment_position=0,
+        total_segments=0,
+    )
