@@ -470,19 +470,16 @@ async def get_text_versions_from_openpecha(
     if translation_of:
         return await _fetch_versions_from_parent(translation_of, root_text, language, skip, limit)
 
-    # If both commentary_of and translation_of are null, check translations and commentaries lists
-    if not commentary_of and not translation_of:
-        translation_ids = text_data.get("translations", [])
-        commentary_ids = text_data.get("commentaries", [])
-
-        # If there are translations or commentaries, fetch versions from the first available ID
-        related_ids = translation_ids + commentary_ids
-        if related_ids:
-            # Fetch versions from the first related text
-            return await _fetch_versions_from_related(related_ids[0], root_text, language, skip, limit)
-
-    # Default: fetch translations directly from this text
     translation_ids = text_data.get("translations", [])
+
+    # Only borrow versions from a related commentary when this text has no
+    # translations of its own — a text's own translations must take priority,
+    # otherwise this and get_text_languages_from_openpecha (which counts the
+    # same list) can end up disagreeing about what a text's versions are.
+    if not translation_ids and not commentary_of:
+        commentary_ids = text_data.get("commentaries", [])
+        if commentary_ids:
+            return await _fetch_versions_from_related(commentary_ids[0], root_text, language, skip, limit)
 
     if not translation_ids:
         return TextVersionResponse(
