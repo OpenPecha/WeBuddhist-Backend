@@ -457,7 +457,7 @@ def test_multilingual_search_with_all_parameters():
                new_callable=AsyncMock, return_value=mock_response):
         
         response = client.get(
-            "/search/multilingual?query=full query&search_type=exact&text_id=text_456&edition_id=edition_789&skip=10&limit=25"
+            "/search/multilingual?query=full query&search_type=exact&text_id=text_456&skip=10&limit=25"
         )
         
         assert response.status_code == status.HTTP_200_OK
