@@ -28,6 +28,8 @@ from pecha_api.texts.texts_openpecha_service import (
     get_text_by_id_from_openpecha,
     get_text_versions_from_openpecha,
 )
+from pecha_api.texts.texts_openpecha_api import fetch_edition_text_id
+from pecha_api.recitations.recitations_services import build_first_segment_for_edition
 from pecha_api.texts.texts_repository import get_first_segment_table_of_content
 from pecha_api.plans.public.plan_repository import get_published_plan_by_id
 from pecha_api.plans.plans_enums import PlanStatus
@@ -76,6 +78,7 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_repositor
 logger = logging.getLogger(__name__)
 
 DEFAULT_FALLBACK_LANGUAGE = "EN"
+INVALID_BOOKMARK_TEXT_PLACEHOLDER = "Invalid data"
 
 
 def _normalize_language(language: Optional[str]) -> Optional[str]:
@@ -134,6 +137,60 @@ async def _try_build_first_segment_preview(text_id: str):
         return None
 
 
+async def _resolve_edition_text_id(edition_id: str) -> Optional[str]:
+    """Chant/recitation bookmarks store an edition id as `source_id` (the
+    recitations listing hands out edition ids in place of text ids). Plain
+    text bookmarks store a real text id, which isn't a valid edition, so any
+    failure here just means "not an edition" rather than a hard error.
+    """
+    try:
+        return await fetch_edition_text_id(edition_id=edition_id)
+    except Exception:
+        return None
+
+
+async def _try_build_first_segment_for_edition(edition_id: str):
+    try:
+        return await build_first_segment_for_edition(edition_id=edition_id)
+    except Exception:
+        logger.warning("Failed to build first segment for edition %s", edition_id, exc_info=True)
+        return None
+
+
+def _invalid_text_bookmark_segment(source_id: str) -> BookmarkSegmentDTO:
+    return BookmarkSegmentDTO(id=source_id, content=INVALID_BOOKMARK_TEXT_PLACEHOLDER)
+
+
+async def _enrich_edition_text_bookmark(
+    source_id: str,
+    resolved_text_id: str,
+    language: Optional[str],
+) -> dict:
+    text_id = resolved_text_id
+    if language:
+        text = await _resolve_localized_text(text_id=text_id, language=language)
+        if text:
+            text_id = str(text.id)
+        else:
+            text = await _try_get_openpecha_text(text_id=text_id)
+    else:
+        text = await _try_get_openpecha_text(text_id=text_id)
+
+    segment = await _try_build_first_segment_for_edition(source_id)
+
+    return {
+        "text": BookmarkTextDTO(
+            id=text_id,
+            title=text.title if text else INVALID_BOOKMARK_TEXT_PLACEHOLDER,
+            segment=(
+                BookmarkSegmentDTO(id=segment.id, content=segment.content)
+                if segment
+                else _invalid_text_bookmark_segment(source_id)
+            ),
+        )
+    }
+
+
 async def _resolve_text_segment(
     text_id: str,
     verse_id: Optional[str],
@@ -186,6 +243,13 @@ async def enrich_text_bookmark(
             if not segment_id:
                 return {}
         else:
+            resolved_edition_text_id = await _resolve_edition_text_id(text_id)
+            if resolved_edition_text_id is not None:
+                return await _enrich_edition_text_bookmark(
+                    source_id=text_id,
+                    resolved_text_id=resolved_edition_text_id,
+                    language=language,
+                )
             use_first_segment_preview = True
     else:
         return {}

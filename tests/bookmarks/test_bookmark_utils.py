@@ -184,6 +184,10 @@ async def test_enrich_text_bookmark_without_verse_uses_first_segment():
     mock_segment.content = "Segment content"
 
     with patch(
+        "pecha_api.bookmarks.bookmark_utils._resolve_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=None,
+    ), patch(
         "pecha_api.bookmarks.bookmark_utils.build_first_segment_preview_for_text",
         new_callable=AsyncMock,
         return_value=(segment_id, "Segment content"),
@@ -243,6 +247,10 @@ async def test_enrich_text_bookmark_returns_empty_when_segment_missing():
     bookmark.name = None
 
     with patch(
+        "pecha_api.bookmarks.bookmark_utils._resolve_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=None,
+    ), patch(
         "pecha_api.bookmarks.bookmark_utils.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
         return_value=MagicMock(title="Unused"),
@@ -331,6 +339,10 @@ async def test_enrich_text_bookmark_handles_missing_text_details():
     bookmark.name = None
 
     with patch(
+        "pecha_api.bookmarks.bookmark_utils._resolve_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=None,
+    ), patch(
         "pecha_api.bookmarks.bookmark_utils.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
         side_effect=HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Text not found."),
@@ -362,6 +374,10 @@ async def test_enrich_text_bookmark_with_language_uses_localized_text():
     localized_text.title = "བོད་ཡིག་ཁ་བྱང་"
 
     with patch(
+        "pecha_api.bookmarks.bookmark_utils._resolve_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=None,
+    ), patch(
         "pecha_api.bookmarks.bookmark_utils._resolve_localized_text",
         new_callable=AsyncMock,
         return_value=localized_text,
@@ -375,6 +391,110 @@ async def test_enrich_text_bookmark_with_language_uses_localized_text():
     mock_preview.assert_awaited_once_with(localized_text_id)
     assert result["text"].id == localized_text_id
     assert result["text"].title == "བོད་ཡིག་ཁ་བྱང་"
+
+
+@pytest.mark.asyncio
+async def test_enrich_text_bookmark_resolves_chant_source_id_as_edition():
+    edition_id = str(uuid4())
+    resolved_text_id = str(uuid4())
+    segment_id = str(uuid4())
+
+    bookmark = MagicMock()
+    bookmark.type = BookmarkType.TEXT
+    bookmark.source_id = edition_id
+    bookmark.name = None
+
+    mock_text = MagicMock()
+    mock_text.title = "Heart Sutra Chant"
+
+    mock_segment = MagicMock()
+    mock_segment.id = segment_id
+    mock_segment.content = "Om mani padme hum"
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils._resolve_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=resolved_text_id,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_text_by_id_from_openpecha",
+        new_callable=AsyncMock,
+        return_value=mock_text,
+    ) as mock_get_text, patch(
+        "pecha_api.bookmarks.bookmark_utils.build_first_segment_for_edition",
+        new_callable=AsyncMock,
+        return_value=mock_segment,
+    ) as mock_build_segment:
+        result = await enrich_text_bookmark(bookmark)
+
+    mock_get_text.assert_awaited_once_with(text_id=resolved_text_id)
+    mock_build_segment.assert_awaited_once_with(edition_id=edition_id)
+    assert result["text"].id == resolved_text_id
+    assert result["text"].title == "Heart Sutra Chant"
+    assert result["text"].segment.id == segment_id
+    assert result["text"].segment.content == "Om mani padme hum"
+
+
+@pytest.mark.asyncio
+async def test_enrich_text_bookmark_edition_source_returns_invalid_data_when_lookups_fail():
+    edition_id = str(uuid4())
+    resolved_text_id = str(uuid4())
+
+    bookmark = MagicMock()
+    bookmark.type = BookmarkType.TEXT
+    bookmark.source_id = edition_id
+    bookmark.name = None
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils._resolve_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=resolved_text_id,
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.get_text_by_id_from_openpecha",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Text not found."),
+    ), patch(
+        "pecha_api.bookmarks.bookmark_utils.build_first_segment_for_edition",
+        new_callable=AsyncMock,
+        return_value=None,
+    ):
+        result = await enrich_text_bookmark(bookmark)
+
+    assert result["text"].id == resolved_text_id
+    assert result["text"].title == "Invalid data"
+    assert result["text"].segment.content == "Invalid data"
+
+
+@pytest.mark.asyncio
+async def test_resolve_edition_text_id_returns_none_for_plain_text_id():
+    from pecha_api.bookmarks.bookmark_utils import _resolve_edition_text_id
+
+    text_id = str(uuid4())
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Edition not found."),
+    ):
+        result = await _resolve_edition_text_id(text_id)
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_resolve_edition_text_id_returns_text_id_for_edition():
+    from pecha_api.bookmarks.bookmark_utils import _resolve_edition_text_id
+
+    edition_id = str(uuid4())
+    resolved_text_id = str(uuid4())
+
+    with patch(
+        "pecha_api.bookmarks.bookmark_utils.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=resolved_text_id,
+    ):
+        result = await _resolve_edition_text_id(edition_id)
+
+    assert result == resolved_text_id
 
 
 def test_enrich_plan_bookmark_with_language_uses_matching_sibling():

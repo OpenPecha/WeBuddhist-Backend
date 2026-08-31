@@ -207,7 +207,7 @@ async def _whole_edition_content_as_segments(edition_id: str) -> List[SegmentCon
     return [SegmentContentModel(id=edition_id, content=edition_content.content, segment_number=1)]
 
 
-async def _build_first_segment_for_edition(edition_id: str) -> Optional[Segment]:
+async def build_first_segment_for_edition(edition_id: str) -> Optional[Segment]:
     try:
         segmentation_id = await _fetch_segmentation_id_or_none(edition_id=edition_id)
 
@@ -243,7 +243,7 @@ async def _build_edition_and_first_segment(text_id: str) -> Tuple[Optional[str],
         return None, None
     if edition_id is None:
         return None, None
-    return edition_id, await _build_first_segment_for_edition(edition_id=edition_id)
+    return edition_id, await build_first_segment_for_edition(edition_id=edition_id)
 
 
 async def _build_first_segment(text_id: str) -> Optional[Segment]:
