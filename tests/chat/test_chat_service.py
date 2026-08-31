@@ -30,10 +30,12 @@ from pecha_api.chat.service import (
 
 
 class MockUser:
-    def __init__(self, user_id=None, email="user@example.com", firstname="Alice"):
+    def __init__(self, user_id=None, email="user@example.com", firstname="Alice", lastname=None, avatar_url=None):
         self.id = user_id or uuid4()
         self.email = email
         self.firstname = firstname
+        self.lastname = lastname
+        self.avatar_url = avatar_url
 
 
 class MockMessage:
@@ -65,6 +67,25 @@ class TestBuildMessageDTO:
         dto = build_message_dto(message)
 
         assert dto.sender_email == "unknown@example.com"
+
+    @patch('pecha_api.chat.service.generate_presigned_access_url')
+    def test_sender_avatar_url_is_presigned(self, mock_presign):
+        mock_presign.return_value = "https://s3.example.com/signed?sig=abc"
+        sender = MockUser(avatar_url="avatars/user-123.png")
+        message = MockMessage(sender=sender)
+
+        dto = build_message_dto(message)
+
+        assert mock_presign.call_args.kwargs["s3_key"] == "avatars/user-123.png"
+        assert dto.sender_avatar_url == "https://s3.example.com/signed?sig=abc"
+
+    def test_sender_avatar_url_none_when_sender_has_no_avatar(self):
+        sender = MockUser(avatar_url=None)
+        message = MockMessage(sender=sender)
+
+        dto = build_message_dto(message)
+
+        assert dto.sender_avatar_url is None
 
 
 class MockRoom:
