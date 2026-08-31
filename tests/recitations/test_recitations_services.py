@@ -20,6 +20,7 @@ from pecha_api.recitations.recitations_response_models import (
 )
 from pecha_api.recitations.recitations_services import (
     _build_first_segment,
+    _resolve_recitation_text_id,
     _build_recitation_segments,
     _fetch_full_edition_segments,
     _fetch_language_segment_map,
@@ -38,7 +39,7 @@ from pecha_api.texts.text_openpecha_response_models import (
     SegmentLineModel,
     SegmentSpans,
 )
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestFetchRecitationTextsFromOpenpecha:
@@ -161,13 +162,13 @@ class TestGetListOfRecitationsService:
     @patch('pecha_api.recitations.recitations_services.set_recitation_list_cache')
     @patch('pecha_api.recitations.recitations_services.get_recitation_list_cache')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
-    @patch('pecha_api.recitations.recitations_services._build_first_segment')
+    @patch('pecha_api.recitations.recitations_services._build_edition_and_first_segment')
     @patch('pecha_api.recitations.recitations_services._fetch_recitation_texts_from_openpecha')
     @pytest.mark.asyncio
     async def test_cache_miss_fetches_and_caches(
         self,
         mock_fetch_texts,
-        mock_build_first_segment,
+        mock_build_edition_and_first_segment,
         mock_get_images,
         mock_get_cache,
         mock_set_cache,
@@ -177,7 +178,10 @@ class TestGetListOfRecitationsService:
             [RecitationDTO(title="Refuge and Bodhichitta", text_id="text-1")],
             1,
         )
-        mock_build_first_segment.return_value = Segment(id="seg-1", content="Hello")
+        mock_build_edition_and_first_segment.return_value = (
+            "edition-1",
+            Segment(id="seg-1", content="Hello"),
+        )
         mock_get_images.side_effect = lambda recitations: recitations
 
         result = await get_list_of_recitations_service(
@@ -187,6 +191,8 @@ class TestGetListOfRecitationsService:
         assert isinstance(result, RecitationsResponse)
         assert len(result.recitations) == 1
         assert result.recitations[0].first_segment.content == "Hello"
+        # The response carries the edition id in text_id.
+        assert result.recitations[0].text_id == "edition-1"
         assert result.total == 1
         assert result.collections == []
         mock_set_cache.assert_called_once()
@@ -520,6 +526,15 @@ class TestBuildRecitationSegments:
 class TestGetRecitationDetailsService:
     """Test cases for get_recitation_details_service."""
 
+    @pytest.fixture(autouse=True)
+    def _ids_resolve_to_themselves(self):
+        """These cases pass text ids; the edition lookup is covered separately."""
+        with patch(
+            'pecha_api.recitations.recitations_services._resolve_recitation_text_id',
+            new=AsyncMock(side_effect=lambda recitation_id: recitation_id),
+        ):
+            yield
+
     @patch('pecha_api.recitations.recitations_services.get_text_details_by_text_id')
     @patch('pecha_api.recitations.recitations_services.get_recitation_by_text_id_cache')
     @pytest.mark.asyncio
@@ -639,3 +654,60 @@ class TestGetTextDetailsByTextId:
 
         assert result == expected_text
         mock_get_text_detail.assert_called_once_with(text_id=text_id)
+
+
+class TestResolveRecitationTextId:
+    """The listing exposes edition ids, so details must accept either id."""
+
+    @patch('pecha_api.recitations.recitations_services.fetch_edition_text_id')
+    @pytest.mark.asyncio
+    async def test_edition_id_resolves_to_its_text_id(self, mock_fetch_edition_text_id):
+        mock_fetch_edition_text_id.return_value = "text-1"
+
+        assert await _resolve_recitation_text_id(recitation_id="edition-1") == "text-1"
+        mock_fetch_edition_text_id.assert_awaited_once_with(edition_id="edition-1")
+
+    @patch('pecha_api.recitations.recitations_services.fetch_edition_text_id')
+    @pytest.mark.asyncio
+    async def test_unknown_edition_is_treated_as_a_text_id(self, mock_fetch_edition_text_id):
+        mock_fetch_edition_text_id.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Edition with id 'text-1' not found"
+        )
+
+        assert await _resolve_recitation_text_id(recitation_id="text-1") == "text-1"
+
+    @patch('pecha_api.recitations.recitations_services.get_recitation_by_text_id_cache')
+    @patch('pecha_api.recitations.recitations_services.fetch_edition_text_id')
+    @pytest.mark.asyncio
+    async def test_details_service_resolves_the_edition_id_before_lookup(
+        self, mock_fetch_edition_text_id, mock_get_cache
+    ):
+        """The region check, cache and text fetch must all key on the text id."""
+        mock_fetch_edition_text_id.return_value = "text-1"
+        cached_response = RecitationDetailsResponse(
+            text_id="text-1", title="Cached Title", segments=[]
+        )
+        mock_get_cache.return_value = cached_response
+        req = RecitationDetailsRequest(
+            language="en", recitation=["en"], translations=[], transliterations=[], adaptations=[]
+        )
+
+        result = await get_recitation_details_service(
+            text_id="edition-1", recitation_details_request=req
+        )
+
+        assert result == cached_response
+        mock_fetch_edition_text_id.assert_awaited_once_with(edition_id="edition-1")
+        assert mock_get_cache.await_args.kwargs["text_id"] == "text-1"
+
+    @patch('pecha_api.recitations.recitations_services.fetch_edition_text_id')
+    @pytest.mark.asyncio
+    async def test_upstream_failure_is_not_swallowed(self, mock_fetch_edition_text_id):
+        mock_fetch_edition_text_id.side_effect = HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="upstream"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await _resolve_recitation_text_id(recitation_id="edition-1")
+
+        assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY

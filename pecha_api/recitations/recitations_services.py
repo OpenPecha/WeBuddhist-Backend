@@ -54,6 +54,7 @@ from pecha_api.texts.text_openpecha_response_models import (
 from pecha_api.texts.texts_openpecha_api import (
     fetch_critical_editions,
     fetch_edition_content,
+    fetch_edition_text_id,
     fetch_editions_segmentation,
     fetch_segmentation_segments,
 )
@@ -206,11 +207,8 @@ async def _whole_edition_content_as_segments(edition_id: str) -> List[SegmentCon
     return [SegmentContentModel(id=edition_id, content=edition_content.content, segment_number=1)]
 
 
-async def _build_first_segment(text_id: str) -> Optional[Segment]:
+async def _build_first_segment_for_edition(edition_id: str) -> Optional[Segment]:
     try:
-        edition_id = await _fetch_first_edition_id(text_id=text_id)
-        if edition_id is None:
-            return None
         segmentation_id = await _fetch_segmentation_id_or_none(edition_id=edition_id)
 
         if segmentation_id is None:
@@ -235,6 +233,22 @@ async def _build_first_segment(text_id: str) -> Optional[Segment]:
         return Segment(id=first.id, content=first.content)
     except Exception:
         return None
+
+
+async def _build_edition_and_first_segment(text_id: str) -> Tuple[Optional[str], Optional[Segment]]:
+    """Resolve a recitation's first edition once, reusing it for the preview segment."""
+    try:
+        edition_id = await _fetch_first_edition_id(text_id=text_id)
+    except Exception:
+        return None, None
+    if edition_id is None:
+        return None, None
+    return edition_id, await _build_first_segment_for_edition(edition_id=edition_id)
+
+
+async def _build_first_segment(text_id: str) -> Optional[Segment]:
+    _, first_segment = await _build_edition_and_first_segment(text_id=text_id)
+    return first_segment
 
 
 async def _fetch_recitation_texts_from_openpecha(
@@ -267,6 +281,20 @@ async def _fetch_recitation_texts_from_openpecha(
     return recitations, total
 
 
+def _with_edition_id_as_text_id(recitations: List[RecitationDTO]) -> List[RecitationDTO]:
+    """Expose OpenPecha's edition id as `text_id` on the wire.
+
+    Images, region restrictions and the cache are all keyed on the text id, so the
+    swap happens last and drops `edition_id` from the serialized response.
+    """
+    return [
+        recitation.model_copy(
+            update={"text_id": recitation.edition_id or recitation.text_id, "edition_id": None}
+        )
+        for recitation in recitations
+    ]
+
+
 async def get_list_of_recitations_service(
     request: ListRecitationsRequest,
 ) -> RecitationsResponse:
@@ -288,12 +316,16 @@ async def get_list_of_recitations_service(
             skip=request.skip,
             limit=request.limit,
         )
-        first_segments = await asyncio.gather(
-            *[_build_first_segment(text_id=recitation.text_id) for recitation in recitations]
+        editions_and_first_segments = await asyncio.gather(
+            *[_build_edition_and_first_segment(text_id=recitation.text_id) for recitation in recitations]
         )
         recitations = [
-            recitation.model_copy(update={"first_segment": first_segment})
-            for recitation, first_segment in zip(recitations, first_segments)
+            recitation.model_copy(
+                update={"edition_id": edition_id, "first_segment": first_segment}
+            )
+            for recitation, (edition_id, first_segment) in zip(
+                recitations, editions_and_first_segments
+            )
         ]
         await set_recitation_list_cache(
             language=request.language,
@@ -319,7 +351,7 @@ async def get_list_of_recitations_service(
     )
 
     return RecitationsResponse(
-        recitations=visible_recitations,
+        recitations=_with_edition_id_as_text_id(visible_recitations),
         collections=_get_user_collections_for_token(
             token=request.token,
             should_include_collections=request.should_include_collections,
@@ -431,11 +463,27 @@ def _build_recitation_segments(
     ]
 
 
+async def _resolve_recitation_text_id(recitation_id: str) -> str:
+    """The listing hands out edition ids, so accept either id here.
+
+    OpenPecha 404s /v2/editions/{id} for a text id, which means the caller already
+    gave us one.
+    """
+    try:
+        return await fetch_edition_text_id(edition_id=recitation_id)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_404_NOT_FOUND:
+            return recitation_id
+        raise
+
+
 async def get_recitation_details_service(
     text_id: str,
     recitation_details_request: RecitationDetailsRequest,
     timezone_name: Optional[str] = None,
 ) -> RecitationDetailsResponse:
+    text_id = await _resolve_recitation_text_id(recitation_id=text_id)
+
     assert_visible_for_timezone(
         timezone_name=timezone_name,
         item_type=RestrictedItemType.RECITATION,

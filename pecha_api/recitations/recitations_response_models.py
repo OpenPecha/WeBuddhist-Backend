@@ -12,8 +12,18 @@ class Segment(BaseModel):
 class RecitationDTO(BaseModel):
     title: str
     text_id: str
+    edition_id: Optional[str] = None
     image_url: Optional[str] = None
     first_segment: Optional[Segment] = None
+
+    @model_serializer(mode="wrap")
+    def _omit_internal_edition_id(self, serializer) -> dict:
+        """`edition_id` is plumbing: it rides along so the cached payload keeps both
+        ids, but the service swaps it into `text_id` before responding."""
+        data = serializer(self)
+        if data.get("edition_id") is None:
+            data.pop("edition_id", None)
+        return data
 
 
 class RecitationCollectionItemType(str, Enum):
