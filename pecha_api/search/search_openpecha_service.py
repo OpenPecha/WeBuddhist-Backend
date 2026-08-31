@@ -23,19 +23,24 @@ logger = logging.getLogger(__name__)
 async def _build_sources_from_content_search_matches(
     matches: List[Dict[str, Any]],
 ) -> List[MultilingualSourceResult]:
-    text_to_matches: Dict[str, List[MultilingualSegmentMatch]] = {}
-    text_ids: List[str] = []
+    # The response's `text.text_id` reports the edition_id, not the text_id, so
+    # results are grouped by edition even though metadata is fetched by text_id.
+    edition_to_matches: Dict[str, List[MultilingualSegmentMatch]] = {}
+    edition_to_text_id: Dict[str, str] = {}
+    edition_ids: List[str] = []
 
     for match in matches:
+        edition_id = match.get("edition_id") or match["text_id"]
         text_id = match["text_id"]
-        if not text_id:
+        if not edition_id or not text_id:
             continue
 
-        if text_id not in text_to_matches:
-            text_to_matches[text_id] = []
-            text_ids.append(text_id)
+        if edition_id not in edition_to_matches:
+            edition_to_matches[edition_id] = []
+            edition_to_text_id[edition_id] = text_id
+            edition_ids.append(edition_id)
 
-        text_to_matches[text_id].append(
+        edition_to_matches[edition_id].append(
             MultilingualSegmentMatch(
                 segment_id=match["pecha_segment_id"],
                 content=match["content"],
@@ -44,18 +49,27 @@ async def _build_sources_from_content_search_matches(
             )
         )
 
-    if not text_ids:
+    if not edition_ids:
         return []
 
-    text_info_map = await fetch_text_info(text_ids)
+    unique_text_ids = list(dict.fromkeys(edition_to_text_id.values()))
+    text_info_map = await fetch_text_info(unique_text_ids)
     sources: List[MultilingualSourceResult] = []
 
-    for text_id in text_ids:
-        segment_matches = text_to_matches[text_id]
+    for edition_id in edition_ids:
+        segment_matches = edition_to_matches[edition_id]
         segment_matches.sort(key=lambda item: item.relevance_score)
+
+        text_info = text_info_map.get(edition_to_text_id[edition_id])
+        text = (
+            text_info.model_copy(update={"text_id": edition_id})
+            if text_info
+            else build_placeholder_text_index(edition_id)
+        )
+
         sources.append(
             MultilingualSourceResult(
-                text=text_info_map.get(text_id) or build_placeholder_text_index(text_id),
+                text=text,
                 segment_matches=segment_matches,
             )
         )

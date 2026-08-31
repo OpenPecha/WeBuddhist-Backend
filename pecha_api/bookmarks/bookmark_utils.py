@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from typing import Optional
 from uuid import UUID
@@ -72,6 +73,8 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_repositor
     get_collection_item_counts as get_recitation_collection_item_counts,
 )
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_FALLBACK_LANGUAGE = "EN"
 
 
@@ -118,6 +121,16 @@ async def _try_get_openpecha_text(text_id: str):
     try:
         return await get_text_by_id_from_openpecha(text_id=text_id)
     except HTTPException:
+        return None
+
+
+async def _try_build_first_segment_preview(text_id: str):
+    try:
+        return await build_first_segment_preview_for_text(text_id)
+    except Exception:
+        # A preview is a nice-to-have decoration; don't let a lookup failure
+        # (e.g. Mongo unavailable) 500 the whole bookmarks list.
+        logger.warning("Failed to build first segment preview for text %s", text_id, exc_info=True)
         return None
 
 
@@ -197,7 +210,7 @@ async def enrich_text_bookmark(
 
     segment_dto = None
     if use_first_segment_preview:
-        preview = await build_first_segment_preview_for_text(text_id)
+        preview = await _try_build_first_segment_preview(text_id)
         if not preview:
             return {}
         segment_id, preview_content = preview

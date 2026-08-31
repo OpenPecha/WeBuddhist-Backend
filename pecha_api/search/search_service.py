@@ -112,6 +112,7 @@ def flatten_content_search_matches(
         relevance_score = -result.get("score", 0.0)
         context = result.get("context", "")
         text_id = result.get("text_id", "")
+        edition_id = result.get("edition_id", "")
 
         for pecha_segment_id in result.get("segment_ids", []) or []:
             if not pecha_segment_id:
@@ -119,6 +120,7 @@ def flatten_content_search_matches(
 
             match = {
                 "text_id": text_id,
+                "edition_id": edition_id,
                 "pecha_segment_id": pecha_segment_id,
                 "content": context,
                 "relevance_score": relevance_score,
