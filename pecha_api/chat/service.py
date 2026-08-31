@@ -118,7 +118,7 @@ def _build_parent_dto(message: ChatMessage) -> Optional[ChatMessageParentDTO]:
         sender_id=parent.sender_id,
         sender_email=parent.sender.email if parent.sender else "unknown@example.com",
         sender_name=_sender_name(parent.sender),
-        sender_avatar_url=parent.sender.avatar_url if parent.sender else None,
+        sender_avatar_url=_generate_presigned_url(parent.sender.avatar_url if parent.sender else None),
         body=parent.body,
         created_at=_isoformat(parent.created_at),
     )
@@ -136,7 +136,7 @@ def build_message_dto(
         sender_id=message.sender_id,
         sender_email=sender_email,
         sender_name=_sender_name(message.sender),
-        sender_avatar_url=message.sender.avatar_url if message.sender else None,
+        sender_avatar_url=_generate_presigned_url(message.sender.avatar_url if message.sender else None),
         body=message.body,
         created_at=_isoformat(message.created_at),
         parent=_build_parent_dto(message),
