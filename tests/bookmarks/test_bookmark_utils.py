@@ -428,7 +428,7 @@ async def test_enrich_text_bookmark_resolves_chant_source_id_as_edition():
 
     mock_get_text.assert_awaited_once_with(text_id=resolved_text_id)
     mock_build_segment.assert_awaited_once_with(edition_id=edition_id)
-    assert result["text"].id == resolved_text_id
+    assert result["text"].id == edition_id
     assert result["text"].title == "Heart Sutra Chant"
     assert result["text"].segment.id == segment_id
     assert result["text"].segment.content == "Om mani padme hum"
@@ -459,7 +459,7 @@ async def test_enrich_text_bookmark_edition_source_returns_invalid_data_when_loo
     ):
         result = await enrich_text_bookmark(bookmark)
 
-    assert result["text"].id == resolved_text_id
+    assert result["text"].id == edition_id
     assert result["text"].title == "Invalid data"
     assert result["text"].segment.content == "Invalid data"
 

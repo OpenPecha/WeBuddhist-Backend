@@ -166,21 +166,21 @@ async def _enrich_edition_text_bookmark(
     resolved_text_id: str,
     language: Optional[str],
 ) -> dict:
-    text_id = resolved_text_id
+    lookup_text_id = resolved_text_id
     if language:
-        text = await _resolve_localized_text(text_id=text_id, language=language)
-        if text:
-            text_id = str(text.id)
-        else:
-            text = await _try_get_openpecha_text(text_id=text_id)
+        text = await _resolve_localized_text(text_id=lookup_text_id, language=language)
+        if not text:
+            text = await _try_get_openpecha_text(text_id=lookup_text_id)
     else:
-        text = await _try_get_openpecha_text(text_id=text_id)
+        text = await _try_get_openpecha_text(text_id=lookup_text_id)
 
     segment = await _try_build_first_segment_for_edition(source_id)
 
     return {
         "text": BookmarkTextDTO(
-            id=text_id,
+            # The id on the wire is always the edition id (`source_id`), matching
+            # how chant/recitation listings expose editions as the text id.
+            id=source_id,
             title=text.title if text else INVALID_BOOKMARK_TEXT_PLACEHOLDER,
             segment=(
                 BookmarkSegmentDTO(id=segment.id, content=segment.content)
