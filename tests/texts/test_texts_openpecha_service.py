@@ -19,6 +19,7 @@ from pecha_api.texts.texts_openpecha_service import (
     get_titles_and_ids_by_query,
     get_text_by_id_from_openpecha,
     get_text_versions_from_openpecha,
+    get_text_languages_from_openpecha,
     get_text_commentaries_from_openpecha,
 )
 from pecha_api.texts.texts_response_models import (
@@ -824,6 +825,90 @@ class TestGetTextVersionsFromOpenpecha:
 
         assert result.text.id == "trans-1"
         assert len(result.versions) == 0
+
+
+# =============================================================================
+# Service Function Tests - get_text_languages_from_openpecha
+# =============================================================================
+
+class TestGetTextLanguagesFromOpenpecha:
+    """Tests for get_text_languages_from_openpecha service function."""
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.get_text_versions_from_openpecha', new_callable=AsyncMock)
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_edition_text_id', new_callable=AsyncMock)
+    async def test_get_text_languages_groups_and_counts_by_language(self, mock_fetch_edition_text_id, mock_get_versions):
+        mock_fetch_edition_text_id.return_value = "text-123"
+        mock_get_versions.return_value = TextVersionResponse(
+            text=TextDTO(
+                id="text-123",
+                title="Heart Sutra",
+                language="bo",
+                group_id="group-123",
+                type="root_text",
+                is_published=True,
+                created_date="2025-01-01T00:00:00",
+                updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00",
+                published_by="pecha",
+                categories=["cat-1"],
+                views=0,
+            ),
+            versions=[
+                TextVersion(id="v1", title="English 1", language="en", type="translation", group_id="g", is_published=True,
+                            created_date="d", updated_date="d", published_date="d", published_by="p"),
+                TextVersion(id="v2", title="English 2", language="en", type="translation", group_id="g", is_published=True,
+                            created_date="d", updated_date="d", published_date="d", published_by="p"),
+                TextVersion(id="v3", title="Chinese 1", language="zh", type="translation", group_id="g", is_published=True,
+                            created_date="d", updated_date="d", published_date="d", published_by="p"),
+            ]
+        )
+
+        result = await get_text_languages_from_openpecha(edition_id="edition-abc")
+
+        mock_fetch_edition_text_id.assert_awaited_once_with(edition_id="edition-abc")
+        mock_get_versions.assert_awaited_once_with(text_id="text-123", skip=0, limit=1000)
+        assert result.text_id == "edition-abc"
+        assert result.title == "Heart Sutra"
+        counts = {lang.language: lang.version_count for lang in result.available_languages}
+        assert counts == {"en": 2, "zh": 1}
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.get_text_versions_from_openpecha', new_callable=AsyncMock)
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_edition_text_id', new_callable=AsyncMock)
+    async def test_get_text_languages_no_versions(self, mock_fetch_edition_text_id, mock_get_versions):
+        mock_fetch_edition_text_id.return_value = "text-123"
+        mock_get_versions.return_value = TextVersionResponse(
+            text=TextDTO(
+                id="text-123",
+                title="Heart Sutra",
+                language="bo",
+                group_id="group-123",
+                type="root_text",
+                is_published=True,
+                created_date="2025-01-01T00:00:00",
+                updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00",
+                published_by="pecha",
+                categories=[],
+                views=0,
+            ),
+            versions=[]
+        )
+
+        result = await get_text_languages_from_openpecha(edition_id="edition-abc")
+
+        assert result.available_languages == []
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_edition_text_id', new_callable=AsyncMock)
+    async def test_get_text_languages_edition_not_found(self, mock_fetch_edition_text_id):
+        mock_fetch_edition_text_id.side_effect = HTTPException(status_code=404, detail="Edition with id 'missing' not found")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_text_languages_from_openpecha(edition_id="missing")
+
+        assert exc_info.value.status_code == 404
 
 
 # =============================================================================

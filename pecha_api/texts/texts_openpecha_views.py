@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query
 from starlette import status
 
 from .texts_response_models import (
+    LanguageResponse,
     TextDTO,
     TextVersionResponse,
     TitleSearchResult,
@@ -14,6 +15,7 @@ from .texts_openpecha_service import (
     get_texts_by_collection_from_openpecha,
     get_text_by_id_from_openpecha,
     get_text_detail_by_id,
+    get_text_languages_from_openpecha,
     get_text_versions_from_openpecha,
     get_text_commentaries_from_openpecha,
     get_titles_and_ids_by_query,
@@ -98,6 +100,11 @@ async def get_text_versions(
         skip=skip,
         limit=limit
     )
+
+
+@texts_v2_router.get("/{edition_id}/languages", status_code=status.HTTP_200_OK)
+async def get_languages(edition_id: str) -> LanguageResponse:
+    return await get_text_languages_from_openpecha(edition_id=edition_id)
 
 
 @texts_v2_router.get("/{text_id}/languages/{language}/versions", status_code=status.HTTP_200_OK)

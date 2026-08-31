@@ -6,6 +6,8 @@ from fastapi import HTTPException
 from starlette import status
 
 from pecha_api.texts.texts_response_models import (
+    AvailableLanguage,
+    LanguageResponse,
     TextDTO,
     TextVersion,
     TextVersionResponse,
@@ -502,6 +504,36 @@ async def get_text_versions_from_openpecha(
     return TextVersionResponse(
         text=root_text,
         versions=paginated_versions
+    )
+
+
+async def get_text_languages_from_openpecha(edition_id: str) -> LanguageResponse:
+    text_id = await fetch_edition_text_id(edition_id=edition_id)
+
+    versions_response = await get_text_versions_from_openpecha(
+        text_id=text_id,
+        skip=0,
+        limit=1000
+    )
+
+    language_counts: Dict[str, int] = {}
+    for version in versions_response.versions:
+        if version.language:
+            language_counts[version.language] = language_counts.get(version.language, 0) + 1
+
+    available_languages = [
+        AvailableLanguage(
+            language=lang,
+            language_code=lang,
+            version_count=count
+        )
+        for lang, count in language_counts.items()
+    ]
+
+    return LanguageResponse(
+        text_id=edition_id,
+        title=versions_response.text.title,
+        available_languages=available_languages
     )
 
 

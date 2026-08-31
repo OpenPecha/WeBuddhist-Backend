@@ -6,6 +6,8 @@ from fastapi.testclient import TestClient
 from pecha_api.app import api
 from pecha_api.collections.collections_response_models import V2CollectionModel
 from pecha_api.texts.texts_response_models import (
+    AvailableLanguage,
+    LanguageResponse,
     TextDTO,
     TextVersion,
     TextVersionResponse,
@@ -463,6 +465,73 @@ class TestGetTextVersionsResponseStructure:
         assert version_data["source_link"] is None
         assert version_data["ranking"] is None
         assert version_data["license"] is None
+
+
+# =============================================================================
+# GET /v2/texts/{edition_id}/languages - View Layer Tests
+# =============================================================================
+
+class TestGetLanguagesEndpoint:
+    """Tests for GET /v2/texts/{edition_id}/languages endpoint."""
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_languages_from_openpecha')
+    def test_get_languages_success(self, mock_service):
+        mock_response = LanguageResponse(
+            text_id="edition-123",
+            title="Heart Sutra",
+            available_languages=[
+                AvailableLanguage(language="en", language_code="en", version_count=2),
+                AvailableLanguage(language="bo", language_code="bo", version_count=1),
+            ]
+        )
+        mock_service.return_value = mock_response
+
+        response = client.get("/texts/edition-123/languages")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["text_id"] == "edition-123"
+        assert data["title"] == "Heart Sutra"
+        assert len(data["available_languages"]) == 2
+        assert data["available_languages"][0]["version_count"] == 2
+        mock_service.assert_called_once_with(edition_id="edition-123")
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_languages_from_openpecha')
+    def test_get_languages_empty(self, mock_service):
+        mock_response = LanguageResponse(
+            text_id="edition-123",
+            title="Heart Sutra",
+            available_languages=[]
+        )
+        mock_service.return_value = mock_response
+
+        response = client.get("/texts/edition-123/languages")
+
+        assert response.status_code == 200
+        assert response.json()["available_languages"] == []
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_languages_from_openpecha')
+    def test_get_languages_edition_not_found(self, mock_service):
+        mock_service.side_effect = HTTPException(
+            status_code=404,
+            detail="Edition with id 'nonexistent' not found"
+        )
+
+        response = client.get("/texts/nonexistent/languages")
+
+        assert response.status_code == 404
+        assert "not found" in response.json()["detail"].lower()
+
+    @patch('pecha_api.texts.texts_openpecha_views.get_text_languages_from_openpecha')
+    def test_get_languages_upstream_error(self, mock_service):
+        mock_service.side_effect = HTTPException(
+            status_code=502,
+            detail="Failed to fetch text from upstream service"
+        )
+
+        response = client.get("/texts/edition-123/languages")
+
+        assert response.status_code == 502
 
 
 # =============================================================================
