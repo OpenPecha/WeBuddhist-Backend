@@ -71,8 +71,9 @@ async def test_no_edition_filter_is_sent_when_text_id_is_omitted():
 
 
 @pytest.mark.asyncio
-async def test_results_are_grouped_by_the_text_id_openpecha_returns():
-    """Filtering is by edition, but the response still groups on the upstream text id."""
+async def test_results_are_grouped_by_edition_and_report_the_edition_id():
+    """Filtering is by edition, and the response reports the edition id as text_id
+    (metadata is still fetched from OpenPecha by the real upstream text id)."""
     with patch(
         "pecha_api.search.search_openpecha_service.search_by_content",
         new_callable=AsyncMock,
@@ -87,7 +88,7 @@ async def test_results_are_grouped_by_the_text_id_openpecha_returns():
         )
 
     assert len(response.sources) == 1
-    assert response.sources[0].text.text_id == TEXT_ID
+    assert response.sources[0].text.text_id == EDITION_ID
     assert response.sources[0].segment_matches[0].pecha_segment_id == "u8TdJavkWlgv56IL40n0w"
 
 

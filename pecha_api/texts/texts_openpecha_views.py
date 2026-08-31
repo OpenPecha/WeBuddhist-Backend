@@ -17,6 +17,7 @@ from .texts_openpecha_service import (
     get_text_detail_by_id,
     get_text_languages_from_openpecha,
     get_text_versions_from_openpecha,
+    get_text_versions_by_language_from_openpecha,
     get_text_commentaries_from_openpecha,
     get_titles_and_ids_by_query,
 )
@@ -114,7 +115,7 @@ async def get_text_versions_by_language(
     skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10
 ) -> TextVersionResponse:
-    return await get_text_versions_from_openpecha(
+    return await get_text_versions_by_language_from_openpecha(
         text_id=text_id,
         language=language,
         skip=skip,

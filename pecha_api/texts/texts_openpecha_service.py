@@ -507,6 +507,35 @@ async def get_text_versions_from_openpecha(
     )
 
 
+async def _resolve_text_or_edition_id(text_or_edition_id: str) -> str:
+    """The language listing hands out edition ids, so accept either id here.
+
+    OpenPecha 404s /v2/editions/{id} for a text id, which means the caller
+    already gave us one.
+    """
+    try:
+        return await fetch_edition_text_id(edition_id=text_or_edition_id)
+    except HTTPException as exc:
+        if exc.status_code == status.HTTP_404_NOT_FOUND:
+            return text_or_edition_id
+        raise
+
+
+async def get_text_versions_by_language_from_openpecha(
+    text_id: str,
+    language: str,
+    skip: int = 0,
+    limit: int = 10
+) -> TextVersionResponse:
+    resolved_text_id = await _resolve_text_or_edition_id(text_id)
+    return await get_text_versions_from_openpecha(
+        text_id=resolved_text_id,
+        language=language,
+        skip=skip,
+        limit=limit
+    )
+
+
 async def get_text_languages_from_openpecha(edition_id: str) -> LanguageResponse:
     text_id = await fetch_edition_text_id(edition_id=edition_id)
 
