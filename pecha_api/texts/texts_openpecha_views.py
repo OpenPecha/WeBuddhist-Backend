@@ -16,9 +16,9 @@ from .texts_openpecha_service import (
     get_text_by_id_from_openpecha,
     get_text_detail_by_id,
     get_text_languages_from_openpecha,
-    get_text_versions_from_openpecha,
+    get_text_versions_by_edition_from_openpecha,
     get_text_versions_by_language_from_openpecha,
-    get_text_commentaries_from_openpecha,
+    get_text_commentaries_by_edition_from_openpecha,
     get_titles_and_ids_by_query,
 )
 from pecha_api.texts.text_openpecha_response_models import TextDetailWithContentResponse, TextDetailsRequest
@@ -90,14 +90,14 @@ async def get_text_by_id(text_id: str) -> V2TextDTO:
     return await get_text_by_id_from_openpecha(text_id=text_id)
 
 
-@texts_v2_router.get("/{text_id}/versions", status_code=status.HTTP_200_OK)
+@texts_v2_router.get("/{edition_id}/versions", status_code=status.HTTP_200_OK)
 async def get_text_versions(
-    text_id: str,
+    edition_id: str,
     skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10
 ) -> TextVersionResponse:
-    return await get_text_versions_from_openpecha(
-        text_id=text_id,
+    return await get_text_versions_by_edition_from_openpecha(
+        edition_id=edition_id,
         skip=skip,
         limit=limit
     )
@@ -108,29 +108,29 @@ async def get_languages(edition_id: str) -> LanguageResponse:
     return await get_text_languages_from_openpecha(edition_id=edition_id)
 
 
-@texts_v2_router.get("/{text_id}/languages/{language}/versions", status_code=status.HTTP_200_OK)
+@texts_v2_router.get("/{edition_id}/languages/{language}/versions", status_code=status.HTTP_200_OK)
 async def get_text_versions_by_language(
-    text_id: str,
+    edition_id: str,
     language: str,
     skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10
 ) -> TextVersionResponse:
     return await get_text_versions_by_language_from_openpecha(
-        text_id=text_id,
+        edition_id=edition_id,
         language=language,
         skip=skip,
         limit=limit
     )
 
 
-@texts_v2_router.get("/{text_id}/commentaries", status_code=status.HTTP_200_OK)
+@texts_v2_router.get("/{edition_id}/commentaries", status_code=status.HTTP_200_OK)
 async def get_text_commentaries(
-    text_id: str,
+    edition_id: str,
     skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10
 ) -> List[TextDTO]:
-    return await get_text_commentaries_from_openpecha(
-        text_id=text_id,
+    return await get_text_commentaries_by_edition_from_openpecha(
+        edition_id=edition_id,
         skip=skip,
         limit=limit
     )

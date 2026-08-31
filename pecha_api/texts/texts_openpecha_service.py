@@ -521,13 +521,26 @@ async def _resolve_text_or_edition_id(text_or_edition_id: str) -> str:
         raise
 
 
+async def get_text_versions_by_edition_from_openpecha(
+    edition_id: str,
+    skip: int = 0,
+    limit: int = 10
+) -> TextVersionResponse:
+    resolved_text_id = await _resolve_text_or_edition_id(edition_id)
+    return await get_text_versions_from_openpecha(
+        text_id=resolved_text_id,
+        skip=skip,
+        limit=limit
+    )
+
+
 async def get_text_versions_by_language_from_openpecha(
-    text_id: str,
+    edition_id: str,
     language: str,
     skip: int = 0,
     limit: int = 10
 ) -> TextVersionResponse:
-    resolved_text_id = await _resolve_text_or_edition_id(text_id)
+    resolved_text_id = await _resolve_text_or_edition_id(edition_id)
     return await get_text_versions_from_openpecha(
         text_id=resolved_text_id,
         language=language,
@@ -711,6 +724,19 @@ async def get_text_commentaries_from_openpecha(
     paginated_commentaries = commentaries[skip:skip + limit]
 
     return paginated_commentaries
+
+
+async def get_text_commentaries_by_edition_from_openpecha(
+    edition_id: str,
+    skip: int = 0,
+    limit: int = 10
+) -> List[TextDTO]:
+    resolved_text_id = await _resolve_text_or_edition_id(edition_id)
+    return await get_text_commentaries_from_openpecha(
+        text_id=resolved_text_id,
+        skip=skip,
+        limit=limit
+    )
 
 
 async def _fetch_commentaries_from_parent(
