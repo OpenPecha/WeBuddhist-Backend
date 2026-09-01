@@ -9,7 +9,6 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.config import get
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.texts.texts_repository import get_texts_by_ids
-from pecha_api.texts.texts_utils import TextUtils
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.utils import Utils
 from pecha_api.plans.auth.plan_auth_models import ResponseError
@@ -269,11 +268,6 @@ def validate_collection_exists(collection, collection_id: UUID):
         )
 
 
-async def validate_texts_exist(text_ids: list[str]):
-    for text_id in text_ids:
-        await TextUtils.validate_text_exists(text_id=str(text_id))
-
-
 def create_collection_items(
     collection_id: UUID,
     text_ids: list[str],
@@ -328,9 +322,7 @@ async def add_items_to_collection_service(
             user_id=current_user.id
         )
         validate_collection_exists(collection, collection_id)
-        
-        await validate_texts_exist(request.text_ids)
-        
+
         max_order = get_max_display_order_for_collection(db=db, collection_id=collection_id)
         start_order = (max_order or 0) + 1
         

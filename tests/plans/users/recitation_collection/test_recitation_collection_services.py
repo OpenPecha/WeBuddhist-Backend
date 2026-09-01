@@ -882,7 +882,6 @@ class TestAddItemsToCollectionService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.TextUtils.validate_text_exists')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_max_display_order_for_collection')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection_items')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
@@ -892,7 +891,6 @@ class TestAddItemsToCollectionService:
         mock_get_texts,
         mock_save_items,
         mock_max_order,
-        mock_validate_text,
         mock_get_collection,
         mock_session,
         mock_validate
@@ -911,7 +909,6 @@ class TestAddItemsToCollectionService:
         mock_collection = MockCollection(id=collection_id, user_id=user_id)
         mock_get_collection.return_value = mock_collection
 
-        mock_validate_text.return_value = None
         mock_max_order.return_value = 0
 
         saved_item = MockCollectionItem(
@@ -925,7 +922,7 @@ class TestAddItemsToCollectionService:
             str(text_id): MockTextDTO(title="Heart Sutra", language="bo", type="root_text")
         }
 
-        request = AddItemsRequest(text_ids=[text_id])
+        request = AddItemsRequest(text_ids=[str(text_id)])
         result = await add_items_to_collection_service(
             token="valid_token",
             collection_id=collection_id,
@@ -945,7 +942,6 @@ class TestAddItemsToCollectionService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.TextUtils.validate_text_exists')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_max_display_order_for_collection')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection_items')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
@@ -955,7 +951,6 @@ class TestAddItemsToCollectionService:
         mock_get_texts,
         mock_save_items,
         mock_max_order,
-        mock_validate_text,
         mock_get_collection,
         mock_session,
         mock_validate
@@ -974,7 +969,6 @@ class TestAddItemsToCollectionService:
         mock_collection = MockCollection(id=collection_id, user_id=user_id)
         mock_get_collection.return_value = mock_collection
 
-        mock_validate_text.return_value = None
         mock_max_order.return_value = 0
 
         saved_items = [
@@ -989,7 +983,7 @@ class TestAddItemsToCollectionService:
             str(text_ids[2]): MockTextDTO(title="Text 3", language="sa", type="commentary")
         }
 
-        request = AddItemsRequest(text_ids=text_ids)
+        request = AddItemsRequest(text_ids=[str(t) for t in text_ids])
         result = await add_items_to_collection_service(
             token="valid_token",
             collection_id=collection_id,
@@ -1024,49 +1018,7 @@ class TestAddItemsToCollectionService:
 
         mock_get_collection.return_value = None
 
-        request = AddItemsRequest(text_ids=[text_id])
-
-        with pytest.raises(HTTPException) as exc_info:
-            await add_items_to_collection_service(
-                token="valid_token",
-                collection_id=collection_id,
-                request=request
-            )
-
-        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
-
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.TextUtils.validate_text_exists')
-    @pytest.mark.asyncio
-    async def test_add_items_text_not_found(
-        self,
-        mock_validate_text,
-        mock_get_collection,
-        mock_session,
-        mock_validate
-    ):
-        """Test adding non-existent text to collection"""
-        user_id = uuid4()
-        collection_id = uuid4()
-        text_id = uuid4()
-
-        mock_validate.return_value = MockUser(id=user_id)
-
-        mock_db = MagicMock()
-        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
-        mock_session.return_value.__exit__ = MagicMock(return_value=False)
-
-        mock_collection = MockCollection(id=collection_id, user_id=user_id)
-        mock_get_collection.return_value = mock_collection
-
-        mock_validate_text.side_effect = HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "NOT_FOUND", "message": f"Text with ID {text_id} not found"}
-        )
-
-        request = AddItemsRequest(text_ids=[text_id])
+        request = AddItemsRequest(text_ids=[str(text_id)])
 
         with pytest.raises(HTTPException) as exc_info:
             await add_items_to_collection_service(
@@ -1089,7 +1041,7 @@ class TestAddItemsToCollectionService:
             detail="Invalid authentication credentials"
         )
 
-        request = AddItemsRequest(text_ids=[text_id])
+        request = AddItemsRequest(text_ids=[str(text_id)])
 
         with pytest.raises(HTTPException) as exc_info:
             await add_items_to_collection_service(
@@ -1103,7 +1055,6 @@ class TestAddItemsToCollectionService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.TextUtils.validate_text_exists')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_max_display_order_for_collection')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection_items')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
@@ -1113,7 +1064,6 @@ class TestAddItemsToCollectionService:
         mock_get_texts,
         mock_save_items,
         mock_max_order,
-        mock_validate_text,
         mock_get_collection,
         mock_session,
         mock_validate
@@ -1132,7 +1082,6 @@ class TestAddItemsToCollectionService:
         mock_collection = MockCollection(id=collection_id, user_id=user_id)
         mock_get_collection.return_value = mock_collection
 
-        mock_validate_text.return_value = None
         mock_max_order.return_value = 10
 
         saved_items = [
@@ -1146,7 +1095,7 @@ class TestAddItemsToCollectionService:
             str(text_ids[1]): MockTextDTO(title="Text 2")
         }
 
-        request = AddItemsRequest(text_ids=text_ids)
+        request = AddItemsRequest(text_ids=[str(t) for t in text_ids])
         result = await add_items_to_collection_service(
             token="valid_token",
             collection_id=collection_id,
@@ -1159,7 +1108,6 @@ class TestAddItemsToCollectionService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.TextUtils.validate_text_exists')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_max_display_order_for_collection')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection_items')
     @pytest.mark.asyncio
@@ -1167,7 +1115,6 @@ class TestAddItemsToCollectionService:
         self,
         mock_save_items,
         mock_max_order,
-        mock_validate_text,
         mock_get_collection,
         mock_session,
         mock_validate
@@ -1186,7 +1133,6 @@ class TestAddItemsToCollectionService:
         mock_collection = MockCollection(id=collection_id, user_id=user_id)
         mock_get_collection.return_value = mock_collection
 
-        mock_validate_text.return_value = None
         mock_max_order.return_value = 5
 
         mock_save_items.side_effect = HTTPException(
@@ -1194,7 +1140,7 @@ class TestAddItemsToCollectionService:
             detail={"error": "BAD_REQUEST", "message": "duplicate key value violates unique constraint"}
         )
 
-        request = AddItemsRequest(text_ids=[text_id])
+        request = AddItemsRequest(text_ids=[str(text_id)])
 
         with pytest.raises(HTTPException) as exc_info:
             await add_items_to_collection_service(
