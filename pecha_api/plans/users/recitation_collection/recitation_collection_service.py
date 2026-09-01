@@ -269,14 +269,14 @@ def validate_collection_exists(collection, collection_id: UUID):
         )
 
 
-async def validate_texts_exist(text_ids: list[UUID]):
+async def validate_texts_exist(text_ids: list[str]):
     for text_id in text_ids:
         await TextUtils.validate_text_exists(text_id=str(text_id))
 
 
 def create_collection_items(
     collection_id: UUID,
-    text_ids: list[UUID],
+    text_ids: list[str],
     start_order: int
 ) -> list[RecitationCollectionItem]:
     return [

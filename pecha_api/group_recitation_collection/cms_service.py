@@ -302,7 +302,7 @@ async def cms_add_items_service(
     token: str,
     group_id: UUID,
     collection_id: UUID,
-    text_ids: List[UUID],
+    text_ids: List[str],
 ) -> AddGroupRecitationCollectionItemsResponse:
     """Add items to a collection."""
     author = validate_and_extract_author_details(token=token)
