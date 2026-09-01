@@ -11,6 +11,7 @@ from pecha_api.texts.texts_response_models import (
     TextDTO,
     TextVersion,
     TextVersionResponse,
+    TextLanguageVersionsResponse,
     TitleSearchResult,
     V2TextDTO,
     V2TextsCategoryResponse,
@@ -531,18 +532,37 @@ async def get_text_versions_by_edition_from_openpecha(
     )
 
 
+async def _resolve_version_edition_ids(versions: List[TextVersion]) -> List[TextVersion]:
+    """The reader app loads text details by edition id, so each version's id
+    must be a critical edition id rather than the raw OpenPecha text id.
+    """
+    edition_ids = await asyncio.gather(
+        *[_fetch_first_critical_edition_id(text_id=version.id) for version in versions]
+    )
+    return [
+        version.model_copy(update={"id": edition_id or version.id})
+        for version, edition_id in zip(versions, edition_ids)
+    ]
+
+
 async def get_text_versions_by_language_from_openpecha(
     edition_id: str,
     language: str,
     skip: int = 0,
     limit: int = 10
-) -> TextVersionResponse:
+) -> TextLanguageVersionsResponse:
     resolved_text_id = await _resolve_text_or_edition_id(edition_id)
-    return await get_text_versions_from_openpecha(
+    versions_response = await get_text_versions_from_openpecha(
         text_id=resolved_text_id,
         language=language,
         skip=skip,
         limit=limit
+    )
+    available_versions = await _resolve_version_edition_ids(versions_response.versions or [])
+    return TextLanguageVersionsResponse(
+        text_id=edition_id,
+        language=language,
+        available_versions=available_versions
     )
 
 

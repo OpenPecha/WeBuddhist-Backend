@@ -160,10 +160,16 @@ class TextVersion(BaseModel):
     source_link:Optional[str] = None
     ranking:Optional[int] = None
     license:Optional[str] = None
+    is_selected: bool = False
 
 class TextVersionResponse(BaseModel):
     text: Optional[TextDTO] = None
     versions: Optional[List[TextVersion]] = None
+
+class TextLanguageVersionsResponse(BaseModel):
+    text_id: str = ""
+    language: str = ""
+    available_versions: List[TextVersion] = []
 
 # Texts Category Response Models
 

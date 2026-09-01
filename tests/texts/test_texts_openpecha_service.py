@@ -1094,7 +1094,9 @@ class TestGetTextVersionsByLanguageFromOpenpecha:
 
         mock_fetch_edition_text_id.assert_awaited_once_with(edition_id="edition-abc")
         mock_get_versions.assert_awaited_once_with(text_id="text-123", language="bo", skip=0, limit=10)
-        assert result.text.id == "text-123"
+        assert result.text_id == "edition-abc"
+        assert result.language == "bo"
+        assert result.available_versions == []
 
     @pytest.mark.asyncio
     @patch('pecha_api.texts.texts_openpecha_service.fetch_edition_text_id', new_callable=AsyncMock)
@@ -1105,6 +1107,66 @@ class TestGetTextVersionsByLanguageFromOpenpecha:
             await get_text_versions_by_language_from_openpecha(edition_id="edition-abc", language="bo")
 
         assert exc_info.value.status_code == 502
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service._fetch_first_critical_edition_id', new_callable=AsyncMock)
+    @patch('pecha_api.texts.texts_openpecha_service.get_text_versions_from_openpecha', new_callable=AsyncMock)
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_edition_text_id', new_callable=AsyncMock)
+    async def test_version_ids_are_resolved_to_edition_ids(
+        self, mock_fetch_edition_text_id, mock_get_versions, mock_fetch_first_critical_edition_id
+    ):
+        mock_fetch_edition_text_id.return_value = "text-123"
+        mock_get_versions.return_value = TextVersionResponse(
+            text=TextDTO(
+                id="text-123",
+                title="Heart Sutra",
+                language="bo",
+                group_id="group-123",
+                type="root_text",
+                is_published=True,
+                created_date="2025-01-01T00:00:00",
+                updated_date="2025-01-01T00:00:00",
+                published_date="2025-01-01T00:00:00",
+                published_by="pecha",
+                categories=[],
+                views=0,
+            ),
+            versions=[
+                TextVersion(
+                    id="translation-text-1",
+                    title="English Translation",
+                    language="en",
+                    type="translation",
+                    is_published=True,
+                    created_date="",
+                    updated_date="",
+                    published_date="",
+                    published_by="",
+                ),
+                TextVersion(
+                    id="translation-text-2",
+                    title="Another Translation",
+                    language="en",
+                    type="translation",
+                    is_published=True,
+                    created_date="",
+                    updated_date="",
+                    published_date="",
+                    published_by="",
+                ),
+            ]
+        )
+        mock_fetch_first_critical_edition_id.side_effect = ["edition-1", None]
+
+        result = await get_text_versions_by_language_from_openpecha(
+            edition_id="edition-abc", language="en", skip=0, limit=10
+        )
+
+        assert result.text_id == "edition-abc"
+        assert len(result.available_versions) == 2
+        assert result.available_versions[0].id == "edition-1"
+        # Falls back to the raw text id when no critical edition is found
+        assert result.available_versions[1].id == "translation-text-2"
 
 
 # =============================================================================

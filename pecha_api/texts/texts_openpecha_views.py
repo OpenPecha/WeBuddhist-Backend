@@ -7,6 +7,7 @@ from .texts_response_models import (
     LanguageResponse,
     TextDTO,
     TextVersionResponse,
+    TextLanguageVersionsResponse,
     TitleSearchResult,
     V2TextDTO,
     V2TextsCategoryResponse,
@@ -114,7 +115,7 @@ async def get_text_versions_by_language(
     language: str,
     skip: Annotated[int, Query(ge=0, description="Number of records to skip")] = 0,
     limit: Annotated[int, Query(ge=1, le=100, description="Number of records to return")] = 10
-) -> TextVersionResponse:
+) -> TextLanguageVersionsResponse:
     return await get_text_versions_by_language_from_openpecha(
         edition_id=edition_id,
         language=language,
