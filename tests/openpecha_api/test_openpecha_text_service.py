@@ -33,6 +33,20 @@ async def test_fetch_texts_by_category(mock_get_client):
 
 @pytest.mark.asyncio
 @patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
+async def test_fetch_texts_by_category_lowercases_language(mock_get_client):
+    mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
+        {"items": []}
+    )
+
+    await fetch_texts_by_category("cat-1", language="BO", limit=10, offset=0)
+
+    http = mock_get_client.return_value.get_async_httpx_client.return_value
+    params = http.get.await_args.kwargs["params"]
+    assert params["language"] == "bo"
+
+
+@pytest.mark.asyncio
+@patch("openpecha_api.text.openpecha_text_service.get_open_pecha_client")
 async def test_fetch_texts_by_category_omits_category_id_when_not_provided(mock_get_client):
     mock_get_client.return_value.get_async_httpx_client.return_value = _mock_http_client(
         {"items": []}

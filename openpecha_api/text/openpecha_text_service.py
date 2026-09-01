@@ -20,7 +20,7 @@ async def fetch_texts_by_category(
     if category_id:
         params["category_id"] = category_id
     if language:
-        params["language"] = language
+        params["language"] = language.strip().lower()
     if title:
         params["title"] = title
 

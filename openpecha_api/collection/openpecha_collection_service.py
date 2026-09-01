@@ -10,7 +10,7 @@ async def fetch_category_by_id(category_id: str, language: Optional[str] = None)
     client = get_authenticated_open_pecha_client()
     http_client = client.get_async_httpx_client()
     params: Dict[str, Any] = {
-        "language": language,
+        "language": language.strip().lower() if language else language,
     }
     response = await http_client.get(f"/v2/categories/{category_id}", params=params)
     response.raise_for_status()

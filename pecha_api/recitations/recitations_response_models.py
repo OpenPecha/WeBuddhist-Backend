@@ -1,6 +1,6 @@
 from enum import Enum
 from typing import List, Dict, Optional
-from pydantic import BaseModel, Field, model_serializer
+from pydantic import BaseModel, Field, model_serializer, field_validator
 from uuid import UUID
 
 
@@ -65,6 +65,13 @@ class ListRecitationsRequest(BaseModel):
     should_include_collections: bool = False
     should_include_group_collections: bool = False
 
+    @field_validator("language")
+    @classmethod
+    def _normalize_language(cls, value: str) -> str:
+        """OpenPecha stores language codes lowercase (e.g. "bo"); normalize here
+        so a client sending "BO" doesn't silently miss every match."""
+        return value.strip().lower()
+
 
 class RecitationDetailsRequest(BaseModel):
     language: str
@@ -72,6 +79,11 @@ class RecitationDetailsRequest(BaseModel):
     translations: List[str] = []
     transliterations: List[str] = []
     adaptations: List[str] = []
+
+    @field_validator("language")
+    @classmethod
+    def _normalize_language(cls, value: str) -> str:
+        return value.strip().lower()
 
 
 class RecitationSegment(BaseModel):
