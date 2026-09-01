@@ -2,12 +2,15 @@ import pytest
 from unittest.mock import patch, MagicMock
 from uuid import uuid4
 from fastapi import HTTPException
+from pydantic import ValidationError
 from starlette import status
 
 from pecha_api.plans.users.recitation_collection.recitation_collection_service import (
     get_user_collections_service,
     get_collection_detail_service,
     create_collection_service,
+    update_collection_service,
+    upload_collection_image_service,
     add_items_to_collection_service,
     delete_collection_service,
     _generate_presigned_url
@@ -19,9 +22,11 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_response_
     RecitationCollectionItemDTO,
     CreateCollectionRequest,
     CreateCollectionResponse,
+    UpdateCollectionRequest,
     AddItemsRequest,
     AddItemsResponse
 )
+from pecha_api.plans.media.media_response_models import ImageUrlModel, PlanUploadResponse
 
 
 class MockUser:
@@ -547,6 +552,329 @@ class TestCreateCollectionService:
         result = await create_collection_service(token="valid_token", request=request)
 
         assert result.name == special_name
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
+    @pytest.mark.asyncio
+    async def test_create_collection_stores_key_when_full_url_given(
+        self,
+        mock_presigned_url,
+        mock_save_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Passing a full presigned URL as img_url should store only the S3 key"""
+        user_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        def _save_with_id(db, collection):
+            collection.id = uuid4()
+            return collection
+        mock_save_collection.side_effect = _save_with_id
+        mock_presigned_url.return_value = "https://presigned-url.com/collections/test.jpg"
+
+        full_url = "https://bucket.s3.amazonaws.com/images/collections/test.jpg?X-Amz-Signature=abc123"
+        request = CreateCollectionRequest(name="Morning Prayers", img_url=full_url)
+        await create_collection_service(token="valid_token", request=request)
+
+        saved_collection = mock_save_collection.call_args.kwargs["collection"]
+        assert saved_collection.img_url == "images/collections/test.jpg"
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
+    @pytest.mark.asyncio
+    async def test_create_collection_stores_key_when_plain_key_given(
+        self,
+        mock_presigned_url,
+        mock_save_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Passing a plain S3 key as img_url should store it unchanged"""
+        user_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        def _save_with_id(db, collection):
+            collection.id = uuid4()
+            return collection
+        mock_save_collection.side_effect = _save_with_id
+        mock_presigned_url.return_value = "https://presigned-url.com/collections/test.jpg"
+
+        request = CreateCollectionRequest(name="Morning Prayers", img_url="images/collections/test.jpg")
+        await create_collection_service(token="valid_token", request=request)
+
+        saved_collection = mock_save_collection.call_args.kwargs["collection"]
+        assert saved_collection.img_url == "images/collections/test.jpg"
+
+    def test_create_collection_request_rejects_extra_fields(self):
+        """Only name and img_url should be accepted on create"""
+        with pytest.raises(ValidationError):
+            CreateCollectionRequest(
+                name="Morning Prayers",
+                img_url="images/test.jpg",
+                user_id=str(uuid4()),
+            )
+
+
+class TestUpdateCollectionService:
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.update_collection')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
+    @pytest.mark.asyncio
+    async def test_update_collection_success(
+        self,
+        mock_presigned_url,
+        mock_update_collection,
+        mock_get_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test successful collection update"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        collection = MockCollection(
+            id=collection_id,
+            user_id=user_id,
+            name="Old Name",
+            img_url="images/old.jpg",
+        )
+        mock_get_collection.return_value = collection
+        mock_update_collection.return_value = collection
+        mock_presigned_url.return_value = "https://presigned-url.com/new.jpg"
+
+        request = UpdateCollectionRequest(name="New Name", img_url="images/new.jpg")
+        result = await update_collection_service(
+            token="valid_token",
+            collection_id=collection_id,
+            request=request,
+        )
+
+        assert isinstance(result, CreateCollectionResponse)
+        assert result.name == "New Name"
+        assert collection.name == "New Name"
+        assert collection.img_url == "images/new.jpg"
+        mock_update_collection.assert_called_once_with(db=mock_db, collection=collection)
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.update_collection')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
+    @pytest.mark.asyncio
+    async def test_update_collection_partial_name_only(
+        self,
+        mock_presigned_url,
+        mock_update_collection,
+        mock_get_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test updating only the name leaves img_url untouched"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        collection = MockCollection(
+            id=collection_id,
+            user_id=user_id,
+            name="Old Name",
+            img_url="images/unchanged.jpg",
+        )
+        mock_get_collection.return_value = collection
+        mock_update_collection.return_value = collection
+        mock_presigned_url.return_value = "https://presigned-url.com/unchanged.jpg"
+
+        request = UpdateCollectionRequest(name="New Name")
+        result = await update_collection_service(
+            token="valid_token",
+            collection_id=collection_id,
+            request=request,
+        )
+
+        assert result.name == "New Name"
+        assert collection.img_url == "images/unchanged.jpg"
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
+    @pytest.mark.asyncio
+    async def test_update_collection_not_found(
+        self,
+        mock_get_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Test updating a non-existent collection"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        mock_get_collection.return_value = None
+
+        request = UpdateCollectionRequest(name="New Name")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await update_collection_service(
+                token="valid_token",
+                collection_id=collection_id,
+                request=request,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @pytest.mark.asyncio
+    async def test_update_collection_invalid_token(self, mock_validate):
+        """Test updating a collection with an invalid token"""
+        mock_validate.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+        request = UpdateCollectionRequest(name="New Name")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await update_collection_service(
+                token="invalid_token",
+                collection_id=uuid4(),
+                request=request,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.update_collection')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
+    @pytest.mark.asyncio
+    async def test_update_collection_stores_key_when_full_url_given(
+        self,
+        mock_presigned_url,
+        mock_update_collection,
+        mock_get_collection,
+        mock_session,
+        mock_validate
+    ):
+        """Passing a full presigned URL as img_url should store only the S3 key"""
+        user_id = uuid4()
+        collection_id = uuid4()
+
+        mock_validate.return_value = MockUser(id=user_id)
+
+        mock_db = MagicMock()
+        mock_session.return_value.__enter__ = MagicMock(return_value=mock_db)
+        mock_session.return_value.__exit__ = MagicMock(return_value=False)
+
+        collection = MockCollection(
+            id=collection_id,
+            user_id=user_id,
+            name="Old Name",
+            img_url="images/old.jpg",
+        )
+        mock_get_collection.return_value = collection
+        mock_update_collection.side_effect = lambda db, collection: collection
+        mock_presigned_url.return_value = "https://presigned-url.com/new.jpg"
+
+        full_url = "https://bucket.s3.amazonaws.com/images/collections/new.jpg?X-Amz-Signature=abc123"
+        request = UpdateCollectionRequest(img_url=full_url)
+        await update_collection_service(
+            token="valid_token",
+            collection_id=collection_id,
+            request=request,
+        )
+
+        assert collection.img_url == "images/collections/new.jpg"
+
+    def test_update_collection_request_rejects_extra_fields(self):
+        """Only name and img_url should be accepted on update"""
+        with pytest.raises(ValidationError):
+            UpdateCollectionRequest(
+                name="New Name",
+                id=str(uuid4()),
+            )
+
+
+class TestUploadCollectionImageService:
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_file')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.prepare_image_upload')
+    def test_upload_success(
+        self,
+        mock_prepare_upload,
+        mock_validate_file,
+        mock_validate,
+    ):
+        """Test successful image upload for a user's recitation collection"""
+        user_id = uuid4()
+        mock_validate.return_value = MockUser(id=user_id)
+
+        image_url_model = ImageUrlModel(
+            thumbnail="https://signed/thumb",
+            medium="https://signed/medium",
+            original="https://signed/original",
+        )
+        mock_prepare_upload.return_value = (
+            image_url_model,
+            "images/recitation_collection_images/key",
+        )
+        mock_file = MagicMock()
+
+        result = upload_collection_image_service(token="valid_token", file=mock_file)
+
+        assert isinstance(result, PlanUploadResponse)
+        assert result.key == "images/recitation_collection_images/key"
+        assert result.image.thumbnail == "https://signed/thumb"
+        mock_validate.assert_called_once_with(token="valid_token")
+        mock_validate_file.assert_called_once_with(mock_file)
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
+    def test_upload_invalid_token(self, mock_validate):
+        """Test uploading an image with an invalid token"""
+        mock_validate.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            upload_collection_image_service(token="invalid_token", file=MagicMock())
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
 
 
 class TestAddItemsToCollectionService:

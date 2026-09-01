@@ -104,6 +104,16 @@ def save_collection(
         )
 
 
+def update_collection(
+    db: Session,
+    collection: RecitationCollection
+) -> RecitationCollection:
+
+    db.commit()
+    db.refresh(collection)
+    return collection
+
+
 def get_max_display_order_for_collection(
     db: Session,
     collection_id: UUID

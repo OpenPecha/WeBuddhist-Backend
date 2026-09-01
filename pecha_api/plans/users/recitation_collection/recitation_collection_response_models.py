@@ -1,9 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from uuid import UUID
 
 
 class CreateCollectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     img_url: str
 
@@ -14,6 +16,13 @@ class CreateCollectionResponse(BaseModel):
     img_url: Optional[str] = None
     created_at: str
     updated_at: str
+
+
+class UpdateCollectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: Optional[str] = None
+    img_url: Optional[str] = None
 
 
 class AddItemsRequest(BaseModel):
