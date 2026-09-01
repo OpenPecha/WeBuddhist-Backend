@@ -24,10 +24,11 @@ async def resolve_subtask_content(
 ) -> Optional[str]:
     """Live-resolve SOURCE_REFERENCE subtask content from openpecha segments.
 
-    Falls back to the stored `content` value when segment_ids are absent, the
-    content type isn't SOURCE_REFERENCE, or the upstream fetch fails/returns
-    a missing segment - so stale or malformed pasted-in content never blocks
-    a response, it's just superseded by live data when available.
+    Falls back to the stored `content` value when segment_ids are absent or
+    the content type isn't SOURCE_REFERENCE. Segments that fail to resolve
+    (invalid id or upstream miss) are skipped rather than discarding the
+    whole result, so one bad id doesn't blank out the other valid segments.
+    Only falls back to the stored `content` if none of the segments resolve.
     """
     if content_type != ContentType.SOURCE_REFERENCE or not segment_ids:
         return content
@@ -36,10 +37,14 @@ async def resolve_subtask_content(
         *[_fetch_segment_content_safe(segment_id) for segment_id in segment_ids]
     )
 
-    if any(segment_content is None for segment_content in segment_contents):
+    resolved_contents = [
+        segment_content for segment_content in segment_contents if segment_content is not None
+    ]
+
+    if not resolved_contents:
         return content
 
-    return "\n".join(segment_contents)
+    return "\n".join(resolved_contents)
 
 
 async def resolve_subtasks_content(subtasks) -> List[Optional[str]]:
