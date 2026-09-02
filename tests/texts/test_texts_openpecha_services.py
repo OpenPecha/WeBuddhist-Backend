@@ -6,10 +6,12 @@ from fastapi import HTTPException, status
 from pecha_api.texts.texts_enums import PaginationDirection
 from pecha_api.texts.texts_openpecha_service import get_text_detail_by_id, trim_segment_content
 from pecha_api.texts.text_openpecha_response_models import (
+    CriticalEditionModel,
     TextDetailResponse,
     TextDetailWithContentResponse,
     TextDetailsRequest,
     ContributionModel,
+    EditionAlignmentPairModel,
     SegmentationResponseModel,
     SegmentationSegmentResponseModel,
     EditionContentResponse,
@@ -398,44 +400,34 @@ async def test_get_text_detail_by_id_propagates_fetch_editions_segmentation_erro
 
 
 @pytest.mark.asyncio
-async def test_get_text_detail_by_id_applies_translation_when_version_id_provided(mocker):
-    """When version_id is given, each segment's translation is resolved from the related segment in that edition"""
+async def test_get_text_detail_by_id_applies_translation_direct_alignment(mocker):
+    """A direct edition_id -> version_id alignment is used as-is, resolving translation
+    content per segment via fetch_segment_content."""
     version_id = "ed-translation"
-    translation_content = "Bonjour Monde"
+    translation_by_id = {"trans-span-1": "Bonjour", "trans-span-2": "Monde"}
 
-    async def _content_side_effect(edition_id):
-        if edition_id == version_id:
-            return EditionContentResponse(content=translation_content)
-        return MOCK_EDITION_CONTENT
+    async def _pairs_side_effect(source_edition_id, target_edition_id, limit=500, offset=0):
+        if source_edition_id == EDITION_ID and target_edition_id == version_id:
+            return (
+                [
+                    EditionAlignmentPairModel(source_segment_id="span-1", target_segment_id="trans-span-1"),
+                    EditionAlignmentPairModel(source_segment_id="span-2", target_segment_id="trans-span-2"),
+                ],
+                False,
+            )
+        return [], False
 
-    mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
-        new_callable=AsyncMock,
-        return_value=TEXT_ID,
+    async def _content_side_effect(segment_id):
+        return translation_by_id.get(segment_id)
+
+    _patch_common(mocker)
+    mock_pairs = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_alignment_pairs",
+        side_effect=_pairs_side_effect,
     )
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
-        new_callable=AsyncMock,
-        return_value=MOCK_TEXT_DETAIL.model_copy(),
-    )
-    mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
-        new_callable=AsyncMock,
-        return_value=MOCK_SEGMENTATIONS,
-    )
-    mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
+        "pecha_api.texts.texts_openpecha_service.fetch_segment_content",
         side_effect=_content_side_effect,
-    )
-    mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
-        new_callable=AsyncMock,
-        return_value=MOCK_SEGMENTS,
-    )
-    mock_related = mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_related_segments",
-        new_callable=AsyncMock,
-        return_value=[{"id": "trans-span-1", "text_id": version_id, "lines": [{"start": 0, "end": 7}]}],
     )
 
     result = await get_text_detail_by_id(
@@ -445,17 +437,149 @@ async def test_get_text_detail_by_id_applies_translation_when_version_id_provide
 
     segments = _segments(result)
     assert segments[0].translation == "Bonjour"
-    mock_related.assert_any_call(segment_id="span-1", text_id=version_id)
+    assert segments[1].translation == "Monde"
+    mock_pairs.assert_any_call(source_edition_id=EDITION_ID, target_edition_id=version_id, limit=500, offset=0)
 
 
 @pytest.mark.asyncio
-async def test_get_text_detail_by_id_translation_none_when_no_related_segment(mocker):
-    """A segment with no related segment in the translation edition keeps translation=None"""
+async def test_get_text_detail_by_id_applies_translation_reverse_alignment(mocker):
+    """When there's no direct edition_id -> version_id alignment but one exists the other way
+    round (version_id -> edition_id), it's used and inverted."""
+    version_id = "ed-translation"
+    translation_by_id = {"trans-span-1": "Bonjour", "trans-span-2": "Monde"}
+
+    async def _pairs_side_effect(source_edition_id, target_edition_id, limit=500, offset=0):
+        if source_edition_id == version_id and target_edition_id == EDITION_ID:
+            return (
+                [
+                    EditionAlignmentPairModel(source_segment_id="trans-span-1", target_segment_id="span-1"),
+                    EditionAlignmentPairModel(source_segment_id="trans-span-2", target_segment_id="span-2"),
+                ],
+                False,
+            )
+        return [], False
+
+    async def _content_side_effect(segment_id):
+        return translation_by_id.get(segment_id)
+
     _patch_common(mocker)
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_related_segments",
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_alignment_pairs",
+        side_effect=_pairs_side_effect,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segment_content",
+        side_effect=_content_side_effect,
+    )
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(size=2, version_id=version_id),
+    )
+
+    segments = _segments(result)
+    assert segments[0].translation == "Bonjour"
+    assert segments[1].translation == "Monde"
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_applies_translation_via_shared_root_pivot(mocker):
+    """Two translations of the same root text are typically only aligned to that shared root
+    edition, not to each other directly - translation resolution should compose the mapping
+    edition_id -> root -> version_id through that pivot edition."""
+    version_id = "ed-translation"
+    version_text_id = "version-text-id"
+    root_text_id = "root-text-id"
+    pivot_edition_id = "pivot-edition-id"
+    translation_by_id = {"trans-span-1": "Bonjour", "trans-span-2": "Monde"}
+
+    edition_text_detail = MOCK_TEXT_DETAIL.model_copy(update={"translation_of": root_text_id})
+    version_text_detail = MOCK_TEXT_DETAIL.model_copy(update={"id": version_text_id, "translation_of": root_text_id})
+
+    async def _text_id_side_effect(edition_id):
+        return {EDITION_ID: TEXT_ID, version_id: version_text_id}[edition_id]
+
+    async def _text_detail_side_effect(text_id):
+        return {TEXT_ID: edition_text_detail, version_text_id: version_text_detail}[text_id]
+
+    async def _pairs_side_effect(source_edition_id, target_edition_id, limit=500, offset=0):
+        if source_edition_id == EDITION_ID and target_edition_id == pivot_edition_id:
+            return (
+                [
+                    EditionAlignmentPairModel(source_segment_id="span-1", target_segment_id="root-span-1"),
+                    EditionAlignmentPairModel(source_segment_id="span-2", target_segment_id="root-span-2"),
+                ],
+                False,
+            )
+        if source_edition_id == version_id and target_edition_id == pivot_edition_id:
+            return (
+                [
+                    EditionAlignmentPairModel(source_segment_id="trans-span-1", target_segment_id="root-span-1"),
+                    EditionAlignmentPairModel(source_segment_id="trans-span-2", target_segment_id="root-span-2"),
+                ],
+                False,
+            )
+        return [], False
+
+    async def _content_side_effect(segment_id):
+        return translation_by_id.get(segment_id)
+
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        side_effect=_text_id_side_effect,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
+        side_effect=_text_detail_side_effect,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
         new_callable=AsyncMock,
-        return_value=[],
+        return_value=MOCK_SEGMENTATIONS,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
+        new_callable=AsyncMock,
+        return_value=MOCK_EDITION_CONTENT,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
+        new_callable=AsyncMock,
+        return_value=MOCK_SEGMENTS,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_alignment_pairs",
+        side_effect=_pairs_side_effect,
+    )
+    mock_critical_editions = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
+        new_callable=AsyncMock,
+        return_value=[CriticalEditionModel(id=pivot_edition_id, type="critical")],
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segment_content",
+        side_effect=_content_side_effect,
+    )
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(size=2, version_id=version_id),
+    )
+
+    segments = _segments(result)
+    assert segments[0].translation == "Bonjour"
+    assert segments[1].translation == "Monde"
+    mock_critical_editions.assert_called_once_with(text_id=root_text_id)
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_translation_none_when_no_alignment_found(mocker):
+    """No alignment (direct, reverse, or via a shared root) leaves translation=None on every segment"""
+    _patch_common(mocker)
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_alignment_pairs",
+        new_callable=AsyncMock,
+        return_value=([], False),
     )
 
     result = await get_text_detail_by_id(
@@ -468,10 +592,10 @@ async def test_get_text_detail_by_id_translation_none_when_no_related_segment(mo
 
 @pytest.mark.asyncio
 async def test_get_text_detail_by_id_no_translation_lookup_without_version_id(mocker):
-    """Without version_id, related segments are never fetched and translation stays None"""
+    """Without version_id, alignment pairs are never fetched and translation stays None"""
     _patch_common(mocker)
-    mock_related = mocker.patch(
-        "pecha_api.texts.texts_openpecha_service.fetch_related_segments",
+    mock_pairs = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_alignment_pairs",
         new_callable=AsyncMock,
     )
 
@@ -480,7 +604,7 @@ async def test_get_text_detail_by_id_no_translation_lookup_without_version_id(mo
         text_details_request=TextDetailsRequest(size=2),
     )
 
-    mock_related.assert_not_called()
+    mock_pairs.assert_not_called()
     assert all(s.translation is None for s in _segments(result))
 
 

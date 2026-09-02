@@ -19,10 +19,11 @@ from pecha_api.texts.texts_response_models import (
 from pecha_api.collections.collections_response_models import V2CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id, search_by_content
 from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
-from openpecha_api.segments.openpecha_segment_service import fetch_related_segments
+from openpecha_api.segments.openpecha_segment_service import fetch_segment_content
 from pecha_api.texts.texts_enums import PaginationDirection
 from pecha_api.texts.texts_openpecha_api import (
     fetch_critical_editions,
+    fetch_edition_alignment_pairs,
     fetch_edition_text_id,
     fetch_editions_segmentation,
     fetch_edition_content,
@@ -32,11 +33,11 @@ from pecha_api.texts.texts_openpecha_api import (
 )
 from pecha_api.texts.text_openpecha_response_models import (
     ContentDTO,
+    EditionAlignmentPairModel,
     SectionDTO,
     SegmentationSegmentResponseModel,
     SegmentContentModel,
     SegmentContentResponse,
-    SegmentLineModel,
     SegmentSpans,
     SegmentDTO,
     TextDetailDTO,
@@ -343,45 +344,216 @@ def _build_content_dto(
     )
 
 
-async def _fetch_related_segment_span(segment_id: str, version_id: str) -> Optional[SegmentSpans]:
-    try:
-        related = await fetch_related_segments(segment_id=segment_id, text_id=version_id)
-    except Exception:
-        logger.warning(
-            "Failed to fetch related segment for segment '%s' in edition '%s'",
-            segment_id, version_id, exc_info=True,
-        )
-        return None
-
-    items = related.get("items", []) if isinstance(related, dict) else related
-    if not items:
-        return None
-
-    item = items[0]
-    return SegmentSpans(
-        id=item.get("id", ""),
-        lines=[SegmentLineModel(start=line["start"], end=line["end"]) for line in item.get("lines", [])],
-    )
+_ALL_ALIGNMENT_PAIRS_PAGE_SIZE = 500
 
 
-async def _apply_translations(segments: List[SegmentDTO], version_id: str) -> None:
-    """Populate `translation` on each segment from the given translation edition (version_id).
+async def _fetch_all_alignment_pairs(source_edition_id: str, target_edition_id: str) -> List[EditionAlignmentPairModel]:
+    """Fetch every direct segment alignment pair between two editions.
 
-    A per-segment translation lookup miss is skipped rather than failing the whole
-    request; an invalid version_id itself surfaces as a 404 from fetch_edition_content.
+    A pair of editions with no direct alignment returns an empty list on the very first
+    page (has_more=False), so this is cheap when there's nothing to find.
     """
-    translation_edition_content = await fetch_edition_content(edition_id=version_id)
+    all_pairs: List[EditionAlignmentPairModel] = []
+    offset = 0
+    while True:
+        page, has_more = await fetch_edition_alignment_pairs(
+            source_edition_id=source_edition_id,
+            target_edition_id=target_edition_id,
+            limit=_ALL_ALIGNMENT_PAIRS_PAGE_SIZE,
+            offset=offset,
+        )
+        all_pairs.extend(page)
+        if not has_more:
+            break
+        offset += len(page)
+    return all_pairs
 
-    related_spans = await asyncio.gather(
-        *[_fetch_related_segment_span(segment_id=segment.segment_id, version_id=version_id) for segment in segments]
+
+async def _resolve_pivot_edition_id(
+    edition_id: str,
+    edition_text_id: str,
+    edition_root_text_id: str,
+    version_id: str,
+    version_text_id: str,
+    version_root_text_id: str,
+) -> Optional[str]:
+    """Two translations of the same root text are usually only aligned to that shared root
+    edition, not to each other directly. Find an edition that both `edition_id` and
+    `version_id` are (or are translations of), so their segments can be composed through it.
+    """
+    if edition_root_text_id != version_root_text_id:
+        return None
+    if edition_text_id == edition_root_text_id:
+        return edition_id
+    if version_text_id == version_root_text_id:
+        return version_id
+    critical_editions = await fetch_critical_editions(text_id=edition_root_text_id)
+    return critical_editions[0].id if critical_editions else None
+
+
+async def _map_segment_ids_to_pivot(
+    segment_ids: List[str], edition_id: str, pivot_edition_id: str
+) -> Dict[str, str]:
+    """segment id in `edition_id` -> its aligned segment id in `pivot_edition_id`."""
+    if edition_id == pivot_edition_id:
+        return {segment_id: segment_id for segment_id in segment_ids}
+
+    pairs = await _fetch_all_alignment_pairs(source_edition_id=edition_id, target_edition_id=pivot_edition_id)
+    by_source_id = {pair.source_segment_id: pair.target_segment_id for pair in pairs}
+    return {
+        segment_id: by_source_id[segment_id]
+        for segment_id in segment_ids
+        if segment_id in by_source_id
+    }
+
+
+async def _map_pivot_ids_to_version_segments(
+    pivot_segment_ids: List[str], pivot_edition_id: str, version_id: str
+) -> Dict[str, List[str]]:
+    """segment id in `pivot_edition_id` -> the aligned segment id(s) in `version_id`."""
+    if version_id == pivot_edition_id:
+        return {segment_id: [segment_id] for segment_id in pivot_segment_ids}
+
+    pairs = await _fetch_all_alignment_pairs(source_edition_id=version_id, target_edition_id=pivot_edition_id)
+    by_target_id: Dict[str, List[str]] = {}
+    for pair in pairs:
+        by_target_id.setdefault(pair.target_segment_id, []).append(pair.source_segment_id)
+    return {
+        segment_id: by_target_id[segment_id]
+        for segment_id in pivot_segment_ids
+        if segment_id in by_target_id
+    }
+
+
+async def _resolve_translation_segment_ids_via_pivot(
+    segment_ids: List[str],
+    edition_id: str,
+    edition_text_id: str,
+    edition_root_text_id: str,
+    version_id: str,
+) -> Dict[str, List[str]]:
+    version_text_id = await fetch_edition_text_id(edition_id=version_id)
+    version_text_detail = await fetch_text_detail(text_id=version_text_id)
+    version_root_text_id = version_text_detail.translation_of or version_text_id
+
+    pivot_edition_id = await _resolve_pivot_edition_id(
+        edition_id=edition_id,
+        edition_text_id=edition_text_id,
+        edition_root_text_id=edition_root_text_id,
+        version_id=version_id,
+        version_text_id=version_text_id,
+        version_root_text_id=version_root_text_id,
+    )
+    if pivot_edition_id is None:
+        return {}
+
+    edition_to_pivot = await _map_segment_ids_to_pivot(
+        segment_ids=segment_ids, edition_id=edition_id, pivot_edition_id=pivot_edition_id,
+    )
+    if not edition_to_pivot:
+        return {}
+
+    pivot_to_version = await _map_pivot_ids_to_version_segments(
+        pivot_segment_ids=list(edition_to_pivot.values()), pivot_edition_id=pivot_edition_id, version_id=version_id,
     )
 
-    for segment, span in zip(segments, related_spans):
-        if span is None:
+    return {
+        segment_id: pivot_to_version[pivot_id]
+        for segment_id, pivot_id in edition_to_pivot.items()
+        if pivot_id in pivot_to_version
+    }
+
+
+async def _resolve_translation_segment_ids(
+    segment_ids: List[str],
+    edition_id: str,
+    edition_text_id: str,
+    edition_text_detail: TextDetailResponse,
+    version_id: str,
+) -> Dict[str, List[str]]:
+    """Map each of `segment_ids` (segments of `edition_id`) to the segment id(s) that hold its
+    translation in `version_id`, trying the cheapest path first:
+    1. a direct alignment from edition_id to version_id
+    2. a direct alignment stored the other way round (version_id to edition_id)
+    3. composing through a shared translation root (see _resolve_translation_segment_ids_via_pivot)
+    """
+    direct_pairs = await _fetch_all_alignment_pairs(source_edition_id=edition_id, target_edition_id=version_id)
+    if direct_pairs:
+        by_source_id: Dict[str, List[str]] = {}
+        for pair in direct_pairs:
+            by_source_id.setdefault(pair.source_segment_id, []).append(pair.target_segment_id)
+        result = {segment_id: by_source_id[segment_id] for segment_id in segment_ids if segment_id in by_source_id}
+        if result:
+            return result
+
+    reverse_pairs = await _fetch_all_alignment_pairs(source_edition_id=version_id, target_edition_id=edition_id)
+    if reverse_pairs:
+        by_target_id: Dict[str, List[str]] = {}
+        for pair in reverse_pairs:
+            by_target_id.setdefault(pair.target_segment_id, []).append(pair.source_segment_id)
+        result = {segment_id: by_target_id[segment_id] for segment_id in segment_ids if segment_id in by_target_id}
+        if result:
+            return result
+
+    edition_root_text_id = edition_text_detail.translation_of or edition_text_id
+    return await _resolve_translation_segment_ids_via_pivot(
+        segment_ids=segment_ids,
+        edition_id=edition_id,
+        edition_text_id=edition_text_id,
+        edition_root_text_id=edition_root_text_id,
+        version_id=version_id,
+    )
+
+
+async def _fetch_segment_content_safe(segment_id: str) -> Optional[str]:
+    try:
+        return await fetch_segment_content(segment_id=segment_id)
+    except Exception:
+        logger.warning("Failed to fetch content for segment '%s'", segment_id, exc_info=True)
+        return None
+
+
+async def _apply_translations(
+    windowed_segments: List[SegmentDTO],
+    edition_id: str,
+    edition_text_id: str,
+    edition_text_detail: TextDetailResponse,
+    version_id: str,
+) -> None:
+    """Populate `translation` on each segment from the given translation edition (version_id),
+    using the direct (or root-composed) segment alignment OpenPecha stores between editions.
+
+    A missing alignment or a segment outside its coverage is skipped rather than failing the
+    whole request; an invalid version_id itself surfaces as a 404 from fetch_edition_text_id.
+    """
+    translation_ids_by_segment = await _resolve_translation_segment_ids(
+        segment_ids=[segment.segment_id for segment in windowed_segments],
+        edition_id=edition_id,
+        edition_text_id=edition_text_id,
+        edition_text_detail=edition_text_detail,
+        version_id=version_id,
+    )
+    if not translation_ids_by_segment:
+        logger.warning("No alignment found between edition '%s' and version '%s'", edition_id, version_id)
+        return
+
+    all_translation_ids = sorted({
+        translation_id
+        for translation_ids in translation_ids_by_segment.values()
+        for translation_id in translation_ids
+    })
+    contents = await asyncio.gather(
+        *[_fetch_segment_content_safe(segment_id=translation_id) for translation_id in all_translation_ids]
+    )
+    content_by_id = dict(zip(all_translation_ids, contents))
+
+    for segment in windowed_segments:
+        translation_ids = translation_ids_by_segment.get(segment.segment_id)
+        if not translation_ids:
             continue
-        segment.translation = "".join(
-            translation_edition_content.content[line.start:line.end] for line in span.lines
-        )
+        parts = [content_by_id[translation_id] for translation_id in translation_ids if content_by_id.get(translation_id)]
+        if parts:
+            segment.translation = " ".join(parts)
 
 
 async def get_text_detail_by_id(
@@ -448,7 +620,13 @@ async def get_text_detail_by_id(
     )
 
     if text_details_request.version_id:
-        await _apply_translations(segments=windowed_segments, version_id=text_details_request.version_id)
+        await _apply_translations(
+            windowed_segments=windowed_segments,
+            edition_id=edition_id,
+            edition_text_id=text_id,
+            edition_text_detail=text_detail,
+            version_id=text_details_request.version_id,
+        )
 
     return TextDetailWithContentResponse(
         text_detail=text_detail_dto,

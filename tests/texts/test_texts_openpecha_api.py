@@ -12,6 +12,7 @@ from pecha_api.texts.texts_openpecha_api import (
     fetch_editions_segmentation,
     fetch_segmentation_segments,
     fetch_edition_content,
+    fetch_edition_alignment_pairs,
 )
 from pecha_api.texts.text_openpecha_response_models import (
     TextDetailResponse,
@@ -646,5 +647,118 @@ async def test_fetch_edition_content_network_error_raises_502(mocker):
 
     with pytest.raises(HTTPException) as exc_info:
         await fetch_edition_content(edition_id=EDITION_ID)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+# ============================================================================
+# fetch_edition_alignment_pairs
+# ============================================================================
+
+TARGET_EDITION_ID = "ed-translation"
+
+RAW_ALIGNMENT_PAIRS_RESPONSE = {
+    "items": [
+        {
+            "source_segment": {
+                "id": "span-1",
+                "edition_id": EDITION_ID,
+                "text_id": TEXT_ID,
+                "segmentation_id": SEGMENTATION_ID,
+                "lines": [{"start": 0, "end": 5}],
+            },
+            "target_segment": {
+                "id": "trans-span-1",
+                "edition_id": TARGET_EDITION_ID,
+                "text_id": "translation-text",
+                "segmentation_id": "trans-seg-1",
+                "lines": [{"start": 0, "end": 7}],
+            },
+        }
+    ],
+    "has_more": False,
+    "offset": 0,
+    "limit": 500,
+}
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_alignment_pairs_success(mocker):
+    """Test successful fetch parses source/target segment ids and has_more"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=_make_mock_client(200, RAW_ALIGNMENT_PAIRS_RESPONSE),
+    )
+
+    pairs, has_more = await fetch_edition_alignment_pairs(
+        source_edition_id=EDITION_ID, target_edition_id=TARGET_EDITION_ID,
+    )
+
+    assert has_more is False
+    assert len(pairs) == 1
+    assert pairs[0].source_segment_id == "span-1"
+    assert pairs[0].target_segment_id == "trans-span-1"
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_alignment_pairs_empty_when_no_items(mocker):
+    """Test that a response with no items returns an empty list"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=_make_mock_client(200, {"items": [], "has_more": False, "offset": 0, "limit": 500}),
+    )
+
+    pairs, has_more = await fetch_edition_alignment_pairs(
+        source_edition_id=EDITION_ID, target_edition_id=TARGET_EDITION_ID,
+    )
+
+    assert pairs == []
+    assert has_more is False
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_alignment_pairs_404_returns_empty_list(mocker):
+    """Test that a 404 response (e.g. an unknown edition) returns an empty list rather than raising"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=_make_mock_client(404, {}),
+    )
+
+    pairs, has_more = await fetch_edition_alignment_pairs(
+        source_edition_id=EDITION_ID, target_edition_id=TARGET_EDITION_ID,
+    )
+
+    assert pairs == []
+    assert has_more is False
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_alignment_pairs_unexpected_status_raises_502(mocker):
+    """Test that an unexpected status raises HTTP 502"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=_make_mock_client(500, {}),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await fetch_edition_alignment_pairs(source_edition_id=EDITION_ID, target_edition_id=TARGET_EDITION_ID)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_alignment_pairs_network_error_raises_502(mocker):
+    """Test that a network exception raises HTTP 502"""
+    mock_http_client = AsyncMock()
+    mock_http_client.get = AsyncMock(side_effect=Exception("connection reset"))
+    mock_client = MagicMock()
+    mock_client.get_async_httpx_client.return_value = mock_http_client
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=mock_client,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await fetch_edition_alignment_pairs(source_edition_id=EDITION_ID, target_edition_id=TARGET_EDITION_ID)
 
     assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY

@@ -40,50 +40,9 @@ async def lifespan(api: FastAPI):
     global mongodb_client, mongodb
     api.mongodb = None
 
-    connection_string = get("MONGO_CONNECTION_STRING")
-    if not _is_mongo_connection_string_configured(connection_string):
-        logger.warning(
-            "MONGO_CONNECTION_STRING is not set; MongoDB and Beanie will not be initialized."
-        )
-        yield
-        return
-
     try:
-        mongodb_client = AsyncIOMotorClient(connection_string)
-        mongodb = mongodb_client[get("MONGO_DATABASE_NAME")]
-        api.mongodb = mongodb
-    except ConfigurationError:
-        logger.exception(
-            "Invalid MONGO_CONNECTION_STRING; MongoDB will not be initialized."
-        )
-        yield
-        return
-    except Exception:
-        logger.exception(
-            "Failed to create MongoDB client; MongoDB will not be initialized."
-        )
-        yield
-        return
-
-    try:
-        await init_beanie(
-            database=mongodb,
-            document_models=[
-                Collection,
-                Text,
-                Segment,
-                TableOfContent,
-                TextAudio,
-                TextAudioOtr,
-                Group,
-            ],
-            allow_index_dropping=True,
-        )
-        logger.info("Beanie initialized with MongoDB document models.")
-
-        setup_scheduler()
-
-        # Initialize the comment WebSocket broadcaster (connects to Redis)
+        # Initialize the comment/chat WebSocket broadcasters (connect to Redis).
+        # Independent of MongoDB so chat keeps working even if Mongo is unused/down.
         try:
             redis_url = get("REDIS_URL")
             await init_broadcaster(redis_url=redis_url)
@@ -118,6 +77,48 @@ async def lifespan(api: FastAPI):
             )
             logging.error(error_msg)
             raise RuntimeError(error_msg) from e
+
+        connection_string = get("MONGO_CONNECTION_STRING")
+        if not _is_mongo_connection_string_configured(connection_string):
+            logger.warning(
+                "MONGO_CONNECTION_STRING is not set; MongoDB and Beanie will not be initialized."
+            )
+            yield
+            return
+
+        try:
+            mongodb_client = AsyncIOMotorClient(connection_string)
+            mongodb = mongodb_client[get("MONGO_DATABASE_NAME")]
+            api.mongodb = mongodb
+        except ConfigurationError:
+            logger.exception(
+                "Invalid MONGO_CONNECTION_STRING; MongoDB will not be initialized."
+            )
+            yield
+            return
+        except Exception:
+            logger.exception(
+                "Failed to create MongoDB client; MongoDB will not be initialized."
+            )
+            yield
+            return
+
+        await init_beanie(
+            database=mongodb,
+            document_models=[
+                Collection,
+                Text,
+                Segment,
+                TableOfContent,
+                TextAudio,
+                TextAudioOtr,
+                Group,
+            ],
+            allow_index_dropping=True,
+        )
+        logger.info("Beanie initialized with MongoDB document models.")
+
+        setup_scheduler()
 
         yield
     finally:

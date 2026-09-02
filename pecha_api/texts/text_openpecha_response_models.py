@@ -74,6 +74,11 @@ class EditionContentResponse(BaseModel):
     content: str
 
 
+class EditionAlignmentPairModel(BaseModel):
+    source_segment_id: str
+    target_segment_id: str
+
+
 class SegmentContentModel(BaseModel):
     segment_number: int
     id: str

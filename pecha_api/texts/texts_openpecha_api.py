@@ -16,6 +16,7 @@ from pecha_api.texts.text_openpecha_response_models import (
     SegmentSpans,
     SegmentationSegmentResponseModel,
     EditionContentResponse,
+    EditionAlignmentPairModel,
 )
 
 logger = logging.getLogger(__name__)
@@ -277,3 +278,52 @@ async def fetch_edition_content(edition_id: str) -> EditionContentResponse:
         )
 
     return EditionContentResponse(content=response.json())
+
+
+async def fetch_edition_alignment_pairs(
+    source_edition_id: str,
+    target_edition_id: str,
+    limit: int = 500,
+    offset: int = 0,
+) -> tuple[list[EditionAlignmentPairModel], bool]:
+    """Fetch one page of direct segment-to-segment alignment pairs between two editions.
+
+    Two editions are not always aligned directly - e.g. two translations of the same root
+    text are each typically only aligned to that shared root edition, not to each other - so
+    an empty result here doesn't necessarily mean the editions are unrelated.
+
+    Returns (pairs, has_more).
+    """
+    client = get_open_pecha_client()
+
+    try:
+        response = await client.get_async_httpx_client().get(
+            f"/v2/editions/{source_edition_id}/alignments/{target_edition_id}",
+            params={"limit": limit, "offset": offset},
+        )
+    except Exception:
+        logger.exception("Failed to fetch edition alignment pairs from OpenPecha API")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch edition alignment pairs from upstream service",
+        )
+
+    if response.status_code == 404:
+        return [], False
+
+    if response.status_code != 200:
+        logger.error("Unexpected status %d fetching edition alignment pairs", response.status_code)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_UNEXPECTED_UPSTREAM_RESPONSE,
+        )
+
+    data = response.json()
+    pairs = [
+        EditionAlignmentPairModel(
+            source_segment_id=item["source_segment"]["id"],
+            target_segment_id=item["target_segment"]["id"],
+        )
+        for item in data.get("items", [])
+    ]
+    return pairs, bool(data.get("has_more", False))
