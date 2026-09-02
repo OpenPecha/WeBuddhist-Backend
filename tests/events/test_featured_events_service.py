@@ -34,6 +34,7 @@ def _event(event_id=None, group_id=None, featured=False):
     event.end_date = now
     event.image_url = None
     event.featured = featured
+    event.event_format = None
     event.is_recurring = False
     event.metadata_entries = []
     event.links = []

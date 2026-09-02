@@ -33,6 +33,7 @@ def _event(group_id=None):
     event.start_date = now
     event.end_date = now
     event.image_url = None
+    event.event_format = None
     event.metadata_entries = []
     event.created_at = now
     event.created_by = "author@example.com"
