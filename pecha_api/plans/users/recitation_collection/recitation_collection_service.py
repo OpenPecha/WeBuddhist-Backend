@@ -8,7 +8,7 @@ from starlette import status
 from pecha_api.db.database import SessionLocal
 from pecha_api.config import get
 from pecha_api.users.users_service import validate_and_extract_user_details
-from pecha_api.texts.texts_repository import get_texts_by_ids
+from pecha_api.texts.texts_openpecha_service import get_texts_by_edition_or_text_ids
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 from pecha_api.utils import Utils
 from pecha_api.plans.auth.plan_auth_models import ResponseError
@@ -140,8 +140,8 @@ async def get_collection_detail_service(
             )
         
         text_ids = [str(item.text_id) for item in items]
-        texts_dict = await get_texts_by_ids(text_ids=text_ids)
-        
+        texts_dict = await get_texts_by_edition_or_text_ids(text_ids)
+
         items_dto = []
         for item in items:
             text_id_str = str(item.text_id)
@@ -153,11 +153,11 @@ async def get_collection_detail_service(
                         text_id=item.text_id,
                         title=text.title,
                         language=text.language,
-                        type=text.type,
+                        type=None,
                         display_order=item.display_order
                     )
                 )
-        
+
         return RecitationCollectionDetailDTO(
             id=collection.id,
             name=collection.name,
@@ -287,8 +287,8 @@ async def build_items_dto(
     saved_items: list[RecitationCollectionItem]
 ) -> list[RecitationCollectionItemDTO]:
     text_ids_str = [str(item.text_id) for item in saved_items]
-    texts_dict = await get_texts_by_ids(text_ids=text_ids_str)
-    
+    texts_dict = await get_texts_by_edition_or_text_ids(text_ids_str)
+
     items_dto = []
     for item in saved_items:
         text_id_str = str(item.text_id)
@@ -300,7 +300,7 @@ async def build_items_dto(
                     text_id=item.text_id,
                     title=text.title,
                     language=text.language,
-                    type=text.type,
+                    type=None,
                     display_order=item.display_order
                 )
             )

@@ -217,7 +217,7 @@ class TestGetCollectionDetailService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_items')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_edition_or_text_ids')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
     @pytest.mark.asyncio
     async def test_get_collection_detail_success(
@@ -346,7 +346,7 @@ class TestGetCollectionDetailService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_items')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_edition_or_text_ids')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service._generate_presigned_url')
     @pytest.mark.asyncio
     async def test_get_collection_detail_filters_missing_texts(
@@ -884,7 +884,7 @@ class TestAddItemsToCollectionService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_max_display_order_for_collection')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection_items')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_edition_or_text_ids')
     @pytest.mark.asyncio
     async def test_add_items_single_success(
         self,
@@ -944,7 +944,7 @@ class TestAddItemsToCollectionService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_max_display_order_for_collection')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection_items')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_edition_or_text_ids')
     @pytest.mark.asyncio
     async def test_add_items_multiple_success(
         self,
@@ -1057,7 +1057,7 @@ class TestAddItemsToCollectionService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_max_display_order_for_collection')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.save_collection_items')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_ids')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_texts_by_edition_or_text_ids')
     @pytest.mark.asyncio
     async def test_add_items_display_order_continuation(
         self,

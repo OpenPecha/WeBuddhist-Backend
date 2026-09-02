@@ -233,6 +233,36 @@ async def get_text_by_id_from_openpecha(text_id: str) -> V2TextDTO:
     return _map_external_text_to_dto(data, data.get("language"))
 
 
+async def _fetch_text_summary_by_edition_or_text_id(edition_or_text_id: str) -> Optional[V2TextDTO]:
+    try:
+        resolved_text_id = await _resolve_text_or_edition_id(edition_or_text_id)
+        return await get_text_by_id_from_openpecha(text_id=resolved_text_id)
+    except HTTPException as e:
+        logger.warning(
+            "Failed to fetch OpenPecha text details for %s: %s",
+            edition_or_text_id, e.detail
+        )
+        return None
+
+
+async def get_texts_by_edition_or_text_ids(text_ids: List[str]) -> Dict[str, V2TextDTO]:
+    """Resolve collection-item ids (OpenPecha edition or text ids) to text details.
+
+    Recitation collection items store OpenPecha edition ids as `text_id`, which
+    are never synced into the local Mongo `Text` collection, so details must
+    come straight from OpenPecha rather than a local lookup.
+    """
+    unique_ids = list(dict.fromkeys(text_ids))
+    results = await asyncio.gather(
+        *[_fetch_text_summary_by_edition_or_text_id(text_id) for text_id in unique_ids]
+    )
+    return {
+        text_id: text
+        for text_id, text in zip(unique_ids, results)
+        if text is not None
+    }
+
+
 _ALL_SEGMENTS_PAGE_SIZE = 500
 
 
