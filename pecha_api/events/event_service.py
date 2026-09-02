@@ -217,6 +217,7 @@ def _event_to_dto(
         is_recurring=event.is_recurring,
         recurrence=recurrence_dto,
         occurrence_date=occurrence_date,
+        event_format=event.event_format,
         metadata=_metadata_response(
             event.metadata_entries, language=language, fallback=fallback
         ),
@@ -578,6 +579,7 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         start_date=start_date,
         end_date=end_date,
         image_url=request.image_url,
+        event_format=request.event_format,
         is_recurring=is_recurring,
         recurrence_frequency=recurrence_frequency,
         recurrence_date_system=recurrence_date_system,
@@ -665,6 +667,8 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
             event.location_id = request.location_id
         if request.image_url is not None:
             event.image_url = request.image_url
+        if request.event_format is not None:
+            event.event_format = request.event_format
 
         event.updated_at = datetime.now(timezone.utc)
 

@@ -25,6 +25,7 @@ class Event(Base):
     end_date = Column(DateTime(timezone=True), nullable=False)
     image_url = Column(String(1000), nullable=True)
     featured = Column(Boolean, default=False, nullable=False)
+    event_format = Column(String(10), nullable=True)
     
     is_recurring = Column(Boolean, default=False, nullable=False)
     recurrence_frequency = Column(String(20), nullable=True)

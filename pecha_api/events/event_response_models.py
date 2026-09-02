@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Literal
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from uuid import UUID
@@ -8,6 +8,9 @@ from pecha_api.plans.plans_enums import LanguageCode
 from pecha_api.plans.media.media_response_models import ImageUrlModel
 from .location_response_models import LocationDTO
 from .event_enums import RecurrenceFrequency, RecurrenceDateSystem
+
+
+EventFormat = Literal["online", "offline", "hybrid"]
 
 
 class EventMetadataDTO(BaseModel):
@@ -134,6 +137,7 @@ class EventDTO(BaseModel):
         None,
         description="For expanded occurrences, the specific occurrence date"
     )
+    event_format: Optional[EventFormat] = None
     metadata: EventMetadataResponse
     links: List[EventLinkDTO] = []
     image: Optional[ImageUrlModel] = None
@@ -188,6 +192,7 @@ class CreateEventRequest(BaseModel):
     group_recitation_collection_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
     recurrence: Optional[RecurrenceInput] = None
+    event_format: Optional[EventFormat] = None
 
     @field_validator("metadata")
     @classmethod
@@ -227,6 +232,7 @@ class UpdateEventRequest(BaseModel):
     group_recitation_collection_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
     recurrence: Optional[RecurrenceInput] = None
+    event_format: Optional[EventFormat] = None
 
     @field_validator("metadata")
     @classmethod
