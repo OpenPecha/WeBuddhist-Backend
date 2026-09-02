@@ -436,8 +436,10 @@ async def test_get_text_detail_by_id_applies_translation_direct_alignment(mocker
     )
 
     segments = _segments(result)
-    assert segments[0].translation == "Bonjour"
-    assert segments[1].translation == "Monde"
+    assert segments[0].translation.content == "Bonjour"
+    assert segments[0].translation.text_id == version_id
+    assert segments[0].translation.language == "en"
+    assert segments[1].translation.content == "Monde"
     mock_pairs.assert_any_call(source_edition_id=EDITION_ID, target_edition_id=version_id, limit=500, offset=0)
 
 
@@ -478,8 +480,8 @@ async def test_get_text_detail_by_id_applies_translation_reverse_alignment(mocke
     )
 
     segments = _segments(result)
-    assert segments[0].translation == "Bonjour"
-    assert segments[1].translation == "Monde"
+    assert segments[0].translation.content == "Bonjour"
+    assert segments[1].translation.content == "Monde"
 
 
 @pytest.mark.asyncio
@@ -567,8 +569,10 @@ async def test_get_text_detail_by_id_applies_translation_via_shared_root_pivot(m
     )
 
     segments = _segments(result)
-    assert segments[0].translation == "Bonjour"
-    assert segments[1].translation == "Monde"
+    assert segments[0].translation.content == "Bonjour"
+    assert segments[0].translation.text_id == version_id
+    assert segments[0].translation.language == "en"
+    assert segments[1].translation.content == "Monde"
     mock_critical_editions.assert_called_once_with(text_id=root_text_id)
 
 

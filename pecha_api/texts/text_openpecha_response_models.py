@@ -104,11 +104,17 @@ class TextDetailsRequest(BaseModel):
     version_id: Optional[str] = None
 
 
+class SegmentTranslationDTO(BaseModel):
+    text_id: str
+    language: str
+    content: str
+
+
 class SegmentDTO(BaseModel):
     segment_id: str
     segment_number: int
     content: str
-    translation: Optional[str] = None
+    translation: Optional[SegmentTranslationDTO] = None
 
 
 class SectionDTO(BaseModel):

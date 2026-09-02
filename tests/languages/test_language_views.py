@@ -281,6 +281,13 @@ class TestListLanguagesEndpoint:
 
 
 class TestLanguageCodeSync:
+    # LanguageCode also backs the `language` column on plans/series/mantras/etc.
+    # (see migrations/versions/b0c1d2e3f4a5_add_la_to_languagecode.py), and some of
+    # those codes are intentionally not offered as reader/display languages in
+    # languages.json. Ladakhi ('LA') is such a code: it's a valid plan language but
+    # is deliberately left out of the languages.json listing.
+    ENUM_ONLY_CODES = {"LA"}
+
     def test_language_code_enum_matches_languages_json(self):
         payload = load_languages()
         json_codes = {
@@ -289,8 +296,9 @@ class TestLanguageCodeSync:
         }
         enum_codes = {code.value for code in LanguageCode}
 
-        assert enum_codes == json_codes, (
-            "LanguageCode enum must match pecha_api/languages/languages.json. "
+        assert enum_codes - self.ENUM_ONLY_CODES == json_codes, (
+            "LanguageCode enum must match pecha_api/languages/languages.json, aside from "
+            f"the documented enum-only codes {sorted(self.ENUM_ONLY_CODES)}. "
             f"Missing in enum: {sorted(json_codes - enum_codes)}. "
-            f"Extra in enum: {sorted(enum_codes - json_codes)}."
+            f"Unexpected extra in enum: {sorted(enum_codes - json_codes - self.ENUM_ONLY_CODES)}."
         )

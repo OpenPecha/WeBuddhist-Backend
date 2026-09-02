@@ -40,6 +40,7 @@ from pecha_api.texts.text_openpecha_response_models import (
     SegmentContentResponse,
     SegmentSpans,
     SegmentDTO,
+    SegmentTranslationDTO,
     TextDetailDTO,
     TextDetailResponse,
     TextDetailsRequest,
@@ -431,9 +432,9 @@ async def _resolve_translation_segment_ids_via_pivot(
     edition_text_id: str,
     edition_root_text_id: str,
     version_id: str,
+    version_text_id: str,
+    version_text_detail: TextDetailResponse,
 ) -> Dict[str, List[str]]:
-    version_text_id = await fetch_edition_text_id(edition_id=version_id)
-    version_text_detail = await fetch_text_detail(text_id=version_text_id)
     version_root_text_id = version_text_detail.translation_of or version_text_id
 
     pivot_edition_id = await _resolve_pivot_edition_id(
@@ -470,6 +471,8 @@ async def _resolve_translation_segment_ids(
     edition_text_id: str,
     edition_text_detail: TextDetailResponse,
     version_id: str,
+    version_text_id: str,
+    version_text_detail: TextDetailResponse,
 ) -> Dict[str, List[str]]:
     """Map each of `segment_ids` (segments of `edition_id`) to the segment id(s) that hold its
     translation in `version_id`, trying the cheapest path first:
@@ -502,6 +505,8 @@ async def _resolve_translation_segment_ids(
         edition_text_id=edition_text_id,
         edition_root_text_id=edition_root_text_id,
         version_id=version_id,
+        version_text_id=version_text_id,
+        version_text_detail=version_text_detail,
     )
 
 
@@ -526,12 +531,17 @@ async def _apply_translations(
     A missing alignment or a segment outside its coverage is skipped rather than failing the
     whole request; an invalid version_id itself surfaces as a 404 from fetch_edition_text_id.
     """
+    version_text_id = await fetch_edition_text_id(edition_id=version_id)
+    version_text_detail = await fetch_text_detail(text_id=version_text_id)
+
     translation_ids_by_segment = await _resolve_translation_segment_ids(
         segment_ids=[segment.segment_id for segment in windowed_segments],
         edition_id=edition_id,
         edition_text_id=edition_text_id,
         edition_text_detail=edition_text_detail,
         version_id=version_id,
+        version_text_id=version_text_id,
+        version_text_detail=version_text_detail,
     )
     if not translation_ids_by_segment:
         logger.warning("No alignment found between edition '%s' and version '%s'", edition_id, version_id)
@@ -546,6 +556,7 @@ async def _apply_translations(
         *[_fetch_segment_content_safe(segment_id=translation_id) for translation_id in all_translation_ids]
     )
     content_by_id = dict(zip(all_translation_ids, contents))
+    version_language = version_text_detail.language or ""
 
     for segment in windowed_segments:
         translation_ids = translation_ids_by_segment.get(segment.segment_id)
@@ -553,7 +564,11 @@ async def _apply_translations(
             continue
         parts = [content_by_id[translation_id] for translation_id in translation_ids if content_by_id.get(translation_id)]
         if parts:
-            segment.translation = " ".join(parts)
+            segment.translation = SegmentTranslationDTO(
+                text_id=version_id,
+                language=version_language,
+                content=" ".join(parts),
+            )
 
 
 async def get_text_detail_by_id(
