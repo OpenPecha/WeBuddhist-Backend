@@ -33,6 +33,7 @@ class SubTaskDTO(BaseModel):
     pecha_segment_id: Optional[str] = None
     segment_ids: Optional[List[str]] = None
     segment_numbers: Optional[List[int]] = None
+    segment_refs: Optional[List[Optional[str]]] = None
     display_order: int
     start_ms: Optional[int] = None
     end_ms: Optional[int] = None

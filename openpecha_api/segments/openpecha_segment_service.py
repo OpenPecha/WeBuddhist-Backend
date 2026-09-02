@@ -46,3 +46,22 @@ async def fetch_segment_details(segment_id:str) :
     response = await http_client.get(f"/v2/segments/{segment_id}")
     response.raise_for_status()
     return response.json()
+
+def _extract_segment_reference(segment_details: Dict[str, Any]) -> Optional[str]:
+    if not isinstance(segment_details, dict):
+        return None
+    reference = segment_details.get("reference")
+    if isinstance(reference, str) and reference:
+        return reference
+    lines = segment_details.get("lines")
+    if isinstance(lines, list):
+        for line in lines:
+            if isinstance(line, dict):
+                line_reference = line.get("reference")
+                if isinstance(line_reference, str) and line_reference:
+                    return line_reference
+    return None
+
+async def fetch_segment_reference(segment_id: str) -> Optional[str]:
+    segment_details = await fetch_segment_details(segment_id)
+    return _extract_segment_reference(segment_details)

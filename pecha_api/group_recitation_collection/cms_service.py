@@ -14,7 +14,6 @@ from pecha_api.plans.groups.groups_repository import get_group_by_id
 from pecha_api.plans.response_message import NOT_FOUND
 from pecha_api.plans.shared.permissions import require_can_create_content, require_can_read_group_content
 from pecha_api.texts.texts_openpecha_service import get_texts_by_edition_or_text_ids
-from pecha_api.texts.texts_utils import TextUtils
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 from pecha_api.group_recitation_collection.models import (
@@ -322,9 +321,6 @@ async def cms_add_items_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=NOT_FOUND,
             )
-
-        for text_id in text_ids:
-            await TextUtils.validate_text_exists(text_id=str(text_id))
 
         max_order = get_max_display_order(db=db, collection_id=collection_id)
 

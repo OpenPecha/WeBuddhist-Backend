@@ -35,7 +35,8 @@ from pecha_api.error_contants import ErrorConstants
 from pecha_api.plans.response_message import SUBTASK_ORDER_FAILED
 from pecha_api.plans.audio.timestamp_service import apply_sub_task_timestamp
 from pecha_api.plans.public.plans_cache_service import invalidate_plan_day_cache_for_task
-from pecha_api.plans.shared.subtask_content_resolver import resolve_subtasks_content
+from pecha_api.plans.shared.subtask_content_resolver import resolve_subtasks_content, resolve_subtasks_refs
+import asyncio
 
 async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) -> SubTaskResponse:
     current_author = validate_and_extract_author_details(token=token)
@@ -64,9 +65,12 @@ async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) 
             )
 
         saved_sub_tasks = save_sub_tasks_bulk(db=db, sub_tasks=new_sub_tasks)
-        resolved_contents = await resolve_subtasks_content(saved_sub_tasks)
+        resolved_contents, resolved_refs = await asyncio.gather(
+            resolve_subtasks_content(saved_sub_tasks),
+            resolve_subtasks_refs(saved_sub_tasks),
+        )
         created_sub_tasks = []
-        for item, sub_request, resolved_content in zip(saved_sub_tasks, create_task_request.sub_tasks, resolved_contents):
+        for item, sub_request, resolved_content, segment_refs in zip(saved_sub_tasks, create_task_request.sub_tasks, resolved_contents, resolved_refs):
             start_ms, end_ms = apply_sub_task_timestamp(
                 db=db,
                 sub_task_id=item.id,
@@ -85,6 +89,7 @@ async def create_new_sub_tasks(token: str, create_task_request: SubTaskRequest) 
                     pecha_segment_id=item.pecha_segment_id,
                     segment_ids=item.segment_ids,
                     segment_numbers=item.segment_numbers,
+                    segment_refs=segment_refs,
                     display_order=item.display_order,
                     start_ms=start_ms,
                     end_ms=end_ms,
