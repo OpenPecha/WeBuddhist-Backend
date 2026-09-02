@@ -96,6 +96,7 @@ class TextDetailsRequest(BaseModel):
     direction: PaginationDirection = PaginationDirection.NEXT
     start: Optional[int] = None
     end: Optional[int] = None
+    version_id: Optional[str] = None
 
 
 class SegmentDTO(BaseModel):

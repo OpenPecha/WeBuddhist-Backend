@@ -19,6 +19,7 @@ from pecha_api.texts.texts_response_models import (
 from pecha_api.collections.collections_response_models import V2CollectionModel
 from openpecha_api.text.openpecha_text_service import fetch_texts_by_category, fetch_text_by_id, search_by_content
 from openpecha_api.collection.openpecha_collection_service import fetch_category_by_id
+from openpecha_api.segments.openpecha_segment_service import fetch_related_segments
 from pecha_api.texts.texts_enums import PaginationDirection
 from pecha_api.texts.texts_openpecha_api import (
     fetch_critical_editions,
@@ -35,6 +36,7 @@ from pecha_api.texts.text_openpecha_response_models import (
     SegmentationSegmentResponseModel,
     SegmentContentModel,
     SegmentContentResponse,
+    SegmentLineModel,
     SegmentSpans,
     SegmentDTO,
     TextDetailDTO,
@@ -341,6 +343,47 @@ def _build_content_dto(
     )
 
 
+async def _fetch_related_segment_span(segment_id: str, version_id: str) -> Optional[SegmentSpans]:
+    try:
+        related = await fetch_related_segments(segment_id=segment_id, text_id=version_id)
+    except Exception:
+        logger.warning(
+            "Failed to fetch related segment for segment '%s' in edition '%s'",
+            segment_id, version_id, exc_info=True,
+        )
+        return None
+
+    items = related.get("items", []) if isinstance(related, dict) else related
+    if not items:
+        return None
+
+    item = items[0]
+    return SegmentSpans(
+        id=item.get("id", ""),
+        lines=[SegmentLineModel(start=line["start"], end=line["end"]) for line in item.get("lines", [])],
+    )
+
+
+async def _apply_translations(segments: List[SegmentDTO], version_id: str) -> None:
+    """Populate `translation` on each segment from the given translation edition (version_id).
+
+    A per-segment translation lookup miss is skipped rather than failing the whole
+    request; an invalid version_id itself surfaces as a 404 from fetch_edition_content.
+    """
+    translation_edition_content = await fetch_edition_content(edition_id=version_id)
+
+    related_spans = await asyncio.gather(
+        *[_fetch_related_segment_span(segment_id=segment.segment_id, version_id=version_id) for segment in segments]
+    )
+
+    for segment, span in zip(segments, related_spans):
+        if span is None:
+            continue
+        segment.translation = "".join(
+            translation_edition_content.content[line.start:line.end] for line in span.lines
+        )
+
+
 async def get_text_detail_by_id(
     edition_id: str,
     text_details_request: TextDetailsRequest,
@@ -403,6 +446,9 @@ async def get_text_detail_by_id(
         segments=all_segments[window_start:window_end],
         start_position=window_start + 1,
     )
+
+    if text_details_request.version_id:
+        await _apply_translations(segments=windowed_segments, version_id=text_details_request.version_id)
 
     return TextDetailWithContentResponse(
         text_detail=text_detail_dto,

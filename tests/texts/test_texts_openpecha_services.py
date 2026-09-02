@@ -397,6 +397,93 @@ async def test_get_text_detail_by_id_propagates_fetch_editions_segmentation_erro
     assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
 
 
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_applies_translation_when_version_id_provided(mocker):
+    """When version_id is given, each segment's translation is resolved from the related segment in that edition"""
+    version_id = "ed-translation"
+    translation_content = "Bonjour Monde"
+
+    async def _content_side_effect(edition_id):
+        if edition_id == version_id:
+            return EditionContentResponse(content=translation_content)
+        return MOCK_EDITION_CONTENT
+
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        return_value=TEXT_ID,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
+        new_callable=AsyncMock,
+        return_value=MOCK_TEXT_DETAIL.model_copy(),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
+        new_callable=AsyncMock,
+        return_value=MOCK_SEGMENTATIONS,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
+        side_effect=_content_side_effect,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
+        new_callable=AsyncMock,
+        return_value=MOCK_SEGMENTS,
+    )
+    mock_related = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_related_segments",
+        new_callable=AsyncMock,
+        return_value=[{"id": "trans-span-1", "text_id": version_id, "lines": [{"start": 0, "end": 7}]}],
+    )
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(size=2, version_id=version_id),
+    )
+
+    segments = _segments(result)
+    assert segments[0].translation == "Bonjour"
+    mock_related.assert_any_call(segment_id="span-1", text_id=version_id)
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_translation_none_when_no_related_segment(mocker):
+    """A segment with no related segment in the translation edition keeps translation=None"""
+    _patch_common(mocker)
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_related_segments",
+        new_callable=AsyncMock,
+        return_value=[],
+    )
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(size=2, version_id="ed-translation"),
+    )
+
+    assert all(s.translation is None for s in _segments(result))
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_no_translation_lookup_without_version_id(mocker):
+    """Without version_id, related segments are never fetched and translation stays None"""
+    _patch_common(mocker)
+    mock_related = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_related_segments",
+        new_callable=AsyncMock,
+    )
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(size=2),
+    )
+
+    mock_related.assert_not_called()
+    assert all(s.translation is None for s in _segments(result))
+
+
 # ============================================================================
 # trim_segment_content
 # ============================================================================

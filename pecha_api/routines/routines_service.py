@@ -16,6 +16,7 @@ from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
 from pecha_api.texts.texts_openpecha_service import get_text_by_id_from_openpecha
+from pecha_api.texts.texts_openpecha_api import fetch_edition_text_id
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.users.recitation_collection.recitation_collection_models import (
     RecitationCollection,
@@ -43,7 +44,10 @@ from pecha_api.accumulator.accumulator_service import (
     resolve_accumulator_bookmark_mala_image_url,
 )
 from pecha_api.mantra.mantra_repository import get_mantras_by_ids
-from pecha_api.recitations.recitations_services import get_first_segment_for_text
+from pecha_api.recitations.recitations_services import (
+    build_first_segment_for_edition,
+    get_first_segment_for_text,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -653,6 +657,41 @@ async def _try_get_first_segment_for_text(text_id: str):
         return None
 
 
+async def _try_resolve_edition_text_id(source_id: str) -> Optional[str]:
+    try:
+        return await fetch_edition_text_id(edition_id=source_id)
+    except Exception:
+        return None
+
+
+async def _try_build_first_segment_for_edition(edition_id: str):
+    try:
+        return await build_first_segment_for_edition(edition_id=edition_id)
+    except Exception:
+        logger.warning("Failed to build first segment preview for recitation edition %s", edition_id, exc_info=True)
+        return None
+
+
+async def _resolve_recitation_text_and_segment(source_id: str):
+    """A RECITATION session's `source_id` is polymorphic: the recitations
+    listing hands out OpenPecha edition ids labeled as `text_id` on the wire
+    (see `_with_edition_id_as_text_id` in recitations_services.py), so it's
+    usually an edition id rather than a plain text id. Try it as an edition
+    id first, mirroring the resolution bookmark_utils.py already uses for
+    chant bookmarks, and fall back to treating it as a text id.
+    """
+    edition_text_id = await _try_resolve_edition_text_id(source_id)
+    if edition_text_id is not None:
+        return await asyncio.gather(
+            _try_get_openpecha_text(edition_text_id),
+            _try_build_first_segment_for_edition(source_id),
+        )
+    return await asyncio.gather(
+        _try_get_openpecha_text(source_id),
+        _try_get_first_segment_for_text(source_id),
+    )
+
+
 async def _resolve_recitation_sessions(
     recitation_sessions: List[RoutineSession],
 ) -> List[SessionDTO]:
@@ -661,18 +700,17 @@ async def _resolve_recitation_sessions(
 
     text_ids = [str(session.source_id) for session in recitation_sessions]
     unique_text_ids = list(dict.fromkeys(text_ids))
-    texts, first_segments = await asyncio.gather(
-        asyncio.gather(*(_try_get_openpecha_text(text_id) for text_id in unique_text_ids)),
-        asyncio.gather(*(_try_get_first_segment_for_text(text_id) for text_id in unique_text_ids)),
+    resolved_pairs = await asyncio.gather(
+        *(_resolve_recitation_text_and_segment(text_id) for text_id in unique_text_ids)
     )
     text_map = {
         text_id: text
-        for text_id, text in zip(unique_text_ids, texts)
+        for text_id, (text, _segment) in zip(unique_text_ids, resolved_pairs)
         if text is not None
     }
     previews_by_text_id = {
         text_id: (segment.id, segment.content)
-        for text_id, segment in zip(unique_text_ids, first_segments)
+        for text_id, (_text, segment) in zip(unique_text_ids, resolved_pairs)
         if segment is not None
     }
 
@@ -683,11 +721,19 @@ async def _resolve_recitation_sessions(
         if text is None:
             continue
 
+        # A first-segment preview is a nice-to-have decoration (it depends on
+        # OpenPecha having a critical edition/segmentation for this text); a
+        # recitation session should still show up without one rather than
+        # being dropped entirely.
         preview = previews_by_text_id.get(text_id)
-        if preview is None:
-            continue
+        first_segment = None
+        if preview is not None:
+            first_segment_id, preview_content = preview
+            first_segment = RoutineFirstSegmentDTO(
+                id=first_segment_id,
+                content=preview_content,
+            )
 
-        first_segment_id, preview_content = preview
         resolved.append(
             SessionDTO(
                 id=session.id,
@@ -697,10 +743,7 @@ async def _resolve_recitation_sessions(
                 language=text.language or "en",
                 image=None,
                 display_order=session.display_order,
-                first_segment=RoutineFirstSegmentDTO(
-                    id=first_segment_id,
-                    content=preview_content,
-                ),
+                first_segment=first_segment,
             )
         )
     return resolved
