@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import HTTPException
@@ -42,9 +43,7 @@ from pecha_api.accumulator.accumulator_service import (
     resolve_accumulator_bookmark_mala_image_url,
 )
 from pecha_api.mantra.mantra_repository import get_mantras_by_ids
-from pecha_api.texts.first_segment_preview_service import (
-    build_first_segment_previews_for_texts,
-)
+from pecha_api.recitations.recitations_services import get_first_segment_for_text
 
 logger = logging.getLogger(__name__)
 
@@ -644,14 +643,14 @@ async def _try_get_openpecha_text(text_id: str):
         return None
 
 
-async def _try_build_first_segment_previews(text_ids: List[str]) -> Dict:
+async def _try_get_first_segment_for_text(text_id: str):
     try:
-        return await build_first_segment_previews_for_texts(text_ids)
+        return await get_first_segment_for_text(text_id=text_id)
     except Exception:
         # A preview is a nice-to-have decoration; don't let a lookup failure
-        # (e.g. Mongo unavailable) 500 the whole routine listing.
-        logger.warning("Failed to build first segment previews for recitation texts", exc_info=True)
-        return {}
+        # 500 the whole routine listing.
+        logger.warning("Failed to build first segment preview for recitation text %s", text_id, exc_info=True)
+        return None
 
 
 async def _resolve_recitation_sessions(
@@ -662,15 +661,20 @@ async def _resolve_recitation_sessions(
 
     text_ids = [str(session.source_id) for session in recitation_sessions]
     unique_text_ids = list(dict.fromkeys(text_ids))
+    texts, first_segments = await asyncio.gather(
+        asyncio.gather(*(_try_get_openpecha_text(text_id) for text_id in unique_text_ids)),
+        asyncio.gather(*(_try_get_first_segment_for_text(text_id) for text_id in unique_text_ids)),
+    )
     text_map = {
         text_id: text
-        for text_id, text in zip(
-            unique_text_ids,
-            [await _try_get_openpecha_text(text_id) for text_id in unique_text_ids],
-        )
+        for text_id, text in zip(unique_text_ids, texts)
         if text is not None
     }
-    previews_by_text_id = await _try_build_first_segment_previews(unique_text_ids)
+    previews_by_text_id = {
+        text_id: (segment.id, segment.content)
+        for text_id, segment in zip(unique_text_ids, first_segments)
+        if segment is not None
+    }
 
     resolved = []
     for session in recitation_sessions:

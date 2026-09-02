@@ -246,7 +246,7 @@ async def _build_edition_and_first_segment(text_id: str) -> Tuple[Optional[str],
     return edition_id, await build_first_segment_for_edition(edition_id=edition_id)
 
 
-async def _build_first_segment(text_id: str) -> Optional[Segment]:
+async def get_first_segment_for_text(text_id: str) -> Optional[Segment]:
     _, first_segment = await _build_edition_and_first_segment(text_id=text_id)
     return first_segment
 

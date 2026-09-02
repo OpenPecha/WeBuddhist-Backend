@@ -804,14 +804,12 @@ async def test_resolve_recitation_sessions_success():
         new_callable=AsyncMock,
         return_value=mock_text,
     ), patch(
-        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
         new_callable=AsyncMock,
-        return_value={
-            str(text_id): (
-                str(segment_id),
-                "Verse one\nVerse two\nVerse three",
-            )
-        },
+        return_value=SimpleNamespace(
+            id=str(segment_id),
+            content="Verse one\nVerse two\nVerse three",
+        ),
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
@@ -849,9 +847,9 @@ async def test_resolve_recitation_sessions_null_language():
         new_callable=AsyncMock,
         return_value=mock_text,
     ), patch(
-        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
         new_callable=AsyncMock,
-        return_value={str(text_id): (str(segment_id), "Test content")},
+        return_value=SimpleNamespace(id=str(segment_id), content="Test content"),
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
@@ -873,9 +871,9 @@ async def test_resolve_recitation_sessions_missing_text():
         new_callable=AsyncMock,
         return_value=None,
     ), patch(
-        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
         new_callable=AsyncMock,
-        return_value={},
+        return_value=None,
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
@@ -902,9 +900,9 @@ async def test_resolve_recitation_sessions_skips_when_first_segment_missing():
         new_callable=AsyncMock,
         return_value=mock_text,
     ), patch(
-        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
         new_callable=AsyncMock,
-        return_value={},
+        return_value=None,
     ):
         result = await _resolve_recitation_sessions(recitation_sessions=[session])
 
@@ -2493,11 +2491,9 @@ async def test_get_user_routine_with_multiple_time_blocks():
         new_callable=AsyncMock,
         return_value=mock_text,
     ), patch(
-        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
         new_callable=AsyncMock,
-        return_value={
-            str(source_id_2): (str(uuid.uuid4()), "Evening opening verse"),
-        },
+        return_value=SimpleNamespace(id=str(uuid.uuid4()), content="Evening opening verse"),
     ):
         result = await get_user_routine(token="token123", skip=0, limit=20)
 
@@ -2667,14 +2663,12 @@ async def test_resolve_sessions_mixed_types():
         new_callable=AsyncMock,
         return_value=mock_text,
     ), patch(
-        "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
+        "pecha_api.routines.routines_service.get_first_segment_for_text",
         new_callable=AsyncMock,
-        return_value={
-            str(recitation_source_id): (
-                str(recitation_segment_id),
-                "Recitation opening verse",
-            )
-        },
+        return_value=SimpleNamespace(
+            id=str(recitation_segment_id),
+            content="Recitation opening verse",
+        ),
     ), patch(
         "pecha_api.routines.routines_service.get_plan_progress_by_user_id_and_plan_ids",
         return_value={},

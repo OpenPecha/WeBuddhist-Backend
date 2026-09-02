@@ -19,7 +19,7 @@ from pecha_api.recitations.recitations_response_models import (
     Segment,
 )
 from pecha_api.recitations.recitations_services import (
-    _build_first_segment,
+    get_first_segment_for_text,
     _resolve_recitation_text_id,
     _build_recitation_segments,
     _fetch_full_edition_segments,
@@ -98,7 +98,7 @@ class TestFetchRecitationTextsFromOpenpecha:
 
 
 class TestBuildFirstSegment:
-    """Test cases for _build_first_segment."""
+    """Test cases for get_first_segment_for_text."""
 
     @patch('pecha_api.recitations.recitations_services.fetch_edition_content')
     @patch('pecha_api.recitations.recitations_services.fetch_segmentation_segments')
@@ -118,7 +118,7 @@ class TestBuildFirstSegment:
         )
         mock_content.return_value = EditionContentResponse(content="Hello world")
 
-        result = await _build_first_segment(text_id="text-1")
+        result = await get_first_segment_for_text(text_id="text-1")
 
         assert result is not None
         assert result.id == "span-1"
@@ -129,14 +129,14 @@ class TestBuildFirstSegment:
     async def test_no_editions_returns_none(self, mock_editions):
         mock_editions.return_value = []
 
-        assert await _build_first_segment(text_id="text-1") is None
+        assert await get_first_segment_for_text(text_id="text-1") is None
 
     @patch('pecha_api.recitations.recitations_services.fetch_critical_editions')
     @pytest.mark.asyncio
     async def test_swallows_upstream_errors(self, mock_editions):
         mock_editions.side_effect = Exception("network error")
 
-        assert await _build_first_segment(text_id="text-1") is None
+        assert await get_first_segment_for_text(text_id="text-1") is None
 
     @patch('pecha_api.recitations.recitations_services.fetch_edition_content')
     @patch('pecha_api.recitations.recitations_services.fetch_editions_segmentation')
@@ -149,7 +149,7 @@ class TestBuildFirstSegment:
         mock_segmentations.side_effect = HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
         mock_content.return_value = EditionContentResponse(content="A" * 900)
 
-        result = await _build_first_segment(text_id="text-1")
+        result = await get_first_segment_for_text(text_id="text-1")
 
         assert result is not None
         assert result.id == "edition-1"
@@ -231,7 +231,7 @@ class TestGetListOfRecitationsService:
     @patch('pecha_api.recitations.recitations_services.set_recitation_list_cache')
     @patch('pecha_api.recitations.recitations_services.get_recitation_list_cache')
     @patch('pecha_api.recitations.recitations_services.get_recitations_with_image_urls')
-    @patch('pecha_api.recitations.recitations_services._build_first_segment')
+    @patch('pecha_api.recitations.recitations_services.get_first_segment_for_text')
     @patch('pecha_api.recitations.recitations_services._fetch_recitation_texts_from_openpecha')
     @pytest.mark.asyncio
     async def test_includes_user_collections_with_token(
