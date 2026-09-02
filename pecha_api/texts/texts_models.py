@@ -113,11 +113,11 @@ class Text(Document):
 
     @classmethod
     async def get_texts_by_pecha_text_ids(cls, pecha_text_ids: List[str]) -> List["Text"]:
-        return await cls.find({cls.pecha_text_id: {"$in": pecha_text_ids}}).to_list()
+        return await cls.find({"pecha_text_id": {"$in": pecha_text_ids}}).to_list()
 
     @classmethod
     async def get_text_by_pecha_text_id(cls, pecha_text_id: str) -> Optional["Text"]:
-        return await cls.find_one(cls.pecha_text_id == pecha_text_id)   
+        return await cls.find_one({"pecha_text_id": pecha_text_id})
     @classmethod
     async def get_text(cls, text_id: str) -> Optional["Text"]:
         try:
@@ -146,7 +146,7 @@ class Text(Document):
             texts.extend(await cls.find({"_id": {"$in": valid_text_uuids}}).to_list())
         if pecha_text_ids:
             texts.extend(
-                await cls.find({cls.pecha_text_id: {"$in": pecha_text_ids}}).to_list()
+                await cls.find({"pecha_text_id": {"$in": pecha_text_ids}}).to_list()
             )
         return texts
 
