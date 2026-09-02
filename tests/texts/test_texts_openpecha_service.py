@@ -772,6 +772,39 @@ class TestGetTextVersionsFromOpenpecha:
     @pytest.mark.asyncio
     @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
     @patch('pecha_api.texts.texts_openpecha_service.fetch_translation_details')
+    async def test_get_text_versions_own_translations_win_over_translation_of(
+        self, mock_fetch_translations, mock_fetch_text
+    ):
+        """translation_of only says what this text is a translation OF, not what
+        translations exist of it. A root text that is itself a translation of an
+        earlier source (e.g. a Tibetan root translated from Sanskrit) must still
+        report its own translations directly - it must not climb to that earlier
+        source and report its (unrelated) translations instead."""
+        root_text = {
+            "id": "root-bo",
+            "title": {"bo": "Root Text"},
+            "language": "bo",
+            "translation_of": "grandparent-sa",
+            "commentary_of": None,
+            "translations": ["trans-zh", "trans-en"],
+            "commentaries": [],
+        }
+        mock_fetch_text.return_value = root_text
+        mock_fetch_translations.return_value = [
+            {"id": "trans-zh", "title": {"zh": "Chinese"}, "language": "zh"},
+            {"id": "trans-en", "title": {"en": "English"}, "language": "en"},
+        ]
+
+        result = await get_text_versions_from_openpecha(text_id="root-bo", skip=0, limit=10)
+
+        mock_fetch_text.assert_called_once_with("root-bo")
+        mock_fetch_translations.assert_called_once_with(["trans-zh", "trans-en"])
+        assert result.text.id == "root-bo"
+        assert {v.id for v in result.versions} == {"trans-zh", "trans-en"}
+
+    @pytest.mark.asyncio
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
+    @patch('pecha_api.texts.texts_openpecha_service.fetch_translation_details')
     async def test_get_text_versions_both_null_with_translations_list(self, mock_fetch_translations, mock_fetch_text):
         """When both commentary_of and translation_of are null, check translations list."""
         # Root text with translations list

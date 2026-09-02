@@ -720,12 +720,17 @@ async def get_text_versions_from_openpecha(
 
     commentary_of = text_data.get("commentary_of")
     translation_of = text_data.get("translation_of")
-
-    # If translation_of is not null, fetch versions from the parent text
-    if translation_of:
-        return await _fetch_versions_from_parent(translation_of, root_text, language, skip, limit)
-
     translation_ids = text_data.get("translations", [])
+
+    # A text's own `translations` list is authoritative for "what translations exist
+    # of this text" — prefer it even when the text is itself a translation of something
+    # else (translation_of only says what this text is a translation OF; it says
+    # nothing about what's been translated FROM it). Only climb to the parent to find
+    # sibling translations when this text has none of its own — e.g. a root text that
+    # is itself a translation of an earlier source must still report its own
+    # translations directly, not the translations of that earlier source.
+    if not translation_ids and translation_of:
+        return await _fetch_versions_from_parent(translation_of, root_text, language, skip, limit)
 
     # Only borrow versions from a related commentary when this text has no
     # translations of its own — a text's own translations must take priority,
