@@ -708,7 +708,7 @@ class TestAddItemsToCollectionView:
     async def test_add_items_single_success(self, mock_service):
         token = "valid_token"
         collection_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=[text_id])
@@ -748,7 +748,7 @@ class TestAddItemsToCollectionView:
     async def test_add_items_multiple_success(self, mock_service):
         token = "valid_token"
         collection_id = uuid4()
-        text_ids = [uuid4(), uuid4(), uuid4()]
+        text_ids = [str(uuid4()), str(uuid4()), str(uuid4())]
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=text_ids)
@@ -788,7 +788,7 @@ class TestAddItemsToCollectionView:
     async def test_add_items_collection_not_found(self, mock_service):
         token = "valid_token"
         collection_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=[text_id])
@@ -812,7 +812,7 @@ class TestAddItemsToCollectionView:
     async def test_add_items_text_not_found(self, mock_service):
         token = "valid_token"
         collection_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=[text_id])
@@ -836,7 +836,7 @@ class TestAddItemsToCollectionView:
     async def test_add_items_duplicate_item(self, mock_service):
         token = "valid_token"
         collection_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=[text_id])
@@ -861,7 +861,7 @@ class TestAddItemsToCollectionView:
         """Test adding items with invalid authentication token"""
         token = "invalid_token"
         collection_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=[text_id])
@@ -886,7 +886,7 @@ class TestAddItemsToCollectionView:
         """Test adding large batch of items (50 texts)"""
         token = "valid_token"
         collection_id = uuid4()
-        text_ids = [uuid4() for _ in range(50)]
+        text_ids = [str(uuid4()) for _ in range(50)]
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=text_ids)
@@ -929,7 +929,7 @@ class TestAddItemsToCollectionView:
         """Test that display order continues from existing items"""
         token = "valid_token"
         collection_id = uuid4()
-        text_ids = [uuid4(), uuid4()]
+        text_ids = [str(uuid4()), str(uuid4())]
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=text_ids)
@@ -974,7 +974,7 @@ class TestAddItemsToCollectionView:
         """Test adding items with different text types (root_text, translation, etc.)"""
         token = "valid_token"
         collection_id = uuid4()
-        text_ids = [uuid4(), uuid4(), uuid4()]
+        text_ids = [str(uuid4()), str(uuid4()), str(uuid4())]
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=text_ids)
@@ -1028,7 +1028,7 @@ class TestAddItemsToCollectionView:
         """Test adding items with different languages"""
         token = "valid_token"
         collection_id = uuid4()
-        text_ids = [uuid4(), uuid4(), uuid4()]
+        text_ids = [str(uuid4()), str(uuid4()), str(uuid4())]
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=text_ids)
@@ -1082,7 +1082,7 @@ class TestAddItemsToCollectionView:
         """Test database error handling when adding items"""
         token = "valid_token"
         collection_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=[text_id])
