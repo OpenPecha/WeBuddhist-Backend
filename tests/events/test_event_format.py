@@ -12,7 +12,7 @@ from pecha_api.events.event_response_models import (
 )
 
 
-def test_create_event_request_accepts_valid_event_formats():
+def test_create_event_request_accepts_valid_event_formats() -> None:
     """Test that CreateEventRequest accepts valid event_format values."""
     now = datetime.now(timezone.utc)
     
@@ -27,7 +27,7 @@ def test_create_event_request_accepts_valid_event_formats():
         assert request.event_format == format_value
 
 
-def test_create_event_request_rejects_invalid_event_format():
+def test_create_event_request_rejects_invalid_event_format() -> None:
     """Test that CreateEventRequest rejects invalid event_format values."""
     now = datetime.now(timezone.utc)
     
@@ -43,7 +43,7 @@ def test_create_event_request_rejects_invalid_event_format():
     assert "event_format" in str(exc_info.value)
 
 
-def test_create_event_request_event_format_is_optional():
+def test_create_event_request_event_format_is_optional() -> None:
     """Test that event_format is optional in CreateEventRequest."""
     now = datetime.now(timezone.utc)
     
@@ -56,14 +56,14 @@ def test_create_event_request_event_format_is_optional():
     assert request.event_format is None
 
 
-def test_update_event_request_accepts_valid_event_formats():
+def test_update_event_request_accepts_valid_event_formats() -> None:
     """Test that UpdateEventRequest accepts valid event_format values."""
     for format_value in ["online", "offline", "hybrid"]:
         request = UpdateEventRequest(event_format=format_value)
         assert request.event_format == format_value
 
 
-def test_update_event_request_rejects_invalid_event_format():
+def test_update_event_request_rejects_invalid_event_format() -> None:
     """Test that UpdateEventRequest rejects invalid event_format values."""
     with pytest.raises(ValidationError) as exc_info:
         UpdateEventRequest(event_format="in-person")
@@ -71,13 +71,13 @@ def test_update_event_request_rejects_invalid_event_format():
     assert "event_format" in str(exc_info.value)
 
 
-def test_update_event_request_event_format_is_optional():
+def test_update_event_request_event_format_is_optional() -> None:
     """Test that event_format is optional in UpdateEventRequest."""
     request = UpdateEventRequest()
     assert request.event_format is None
 
 
-def test_event_dto_includes_event_format():
+def test_event_dto_includes_event_format() -> None:
     """Test that EventDTO includes event_format field."""
     now = datetime.now(timezone.utc)
     
@@ -97,7 +97,7 @@ def test_event_dto_includes_event_format():
     assert event.event_format == "online"
 
 
-def test_event_dto_event_format_can_be_none():
+def test_event_dto_event_format_can_be_none() -> None:
     """Test that EventDTO event_format can be None."""
     now = datetime.now(timezone.utc)
     
@@ -117,7 +117,7 @@ def test_event_dto_event_format_can_be_none():
     assert event.event_format is None
 
 
-def test_create_event_service_sets_event_format():
+def test_create_event_service_sets_event_format() -> None:
     """Test that create_event_service properly sets event_format."""
     now = datetime.now(timezone.utc)
     group_id = uuid4()
@@ -173,7 +173,7 @@ def test_create_event_service_sets_event_format():
         assert result.event_format == "hybrid"
 
 
-def test_update_event_service_updates_event_format():
+def test_update_event_service_updates_event_format() -> None:
     """Test that update_event_service properly updates event_format."""
     now = datetime.now(timezone.utc)
     event_id = uuid4()

@@ -667,7 +667,7 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
             event.location_id = request.location_id
         if request.image_url is not None:
             event.image_url = request.image_url
-        if request.event_format is not None:
+        if "event_format" in request.model_fields_set:
             event.event_format = request.event_format
 
         event.updated_at = datetime.now(timezone.utc)
