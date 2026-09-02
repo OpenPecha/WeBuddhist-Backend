@@ -747,6 +747,7 @@ async def get_text_versions_from_openpecha(
     versions = [
         map_external_text_to_text_version(item, item.get("language"))
         for item in translation_details
+        if item.get("id") != root_text.id
     ]
 
     filtered_versions = filter_versions_by_language(versions, language)
@@ -877,6 +878,7 @@ async def _fetch_versions_from_parent(
     versions = [
         map_external_text_to_text_version(item, item.get("language"))
         for item in translation_details
+        if item.get("id") != original_text.id
     ]
 
     filtered_versions = filter_versions_by_language(versions, language)
@@ -922,6 +924,7 @@ async def _fetch_versions_from_related(
     versions = [
         map_external_text_to_text_version(item, item.get("language"))
         for item in translation_details
+        if item.get("id") != original_text.id
     ]
 
     filtered_versions = filter_versions_by_language(versions, language)

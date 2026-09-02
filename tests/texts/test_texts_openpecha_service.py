@@ -764,9 +764,10 @@ class TestGetTextVersionsFromOpenpecha:
         result = await get_text_versions_from_openpecha(text_id="trans-1", skip=0, limit=10)
 
         assert result.text.id == "trans-1"
-        assert len(result.versions) == 2
-        assert result.versions[0].id == "trans-1"
-        assert result.versions[1].id == "trans-2"
+        # trans-1 is the requested text itself, so it must not be listed as
+        # one of its own available versions.
+        assert len(result.versions) == 1
+        assert result.versions[0].id == "trans-2"
 
     @pytest.mark.asyncio
     @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
@@ -1195,7 +1196,10 @@ class TestFetchVersionsFromParent:
         result = await _fetch_versions_from_parent("root-123", original_text, None, 0, 10)
 
         assert result.text == original_text
-        assert len(result.versions) == 2
+        # trans-1 is original_text itself and must be excluded from its own
+        # sibling versions.
+        assert len(result.versions) == 1
+        assert result.versions[0].id == "trans-2"
 
     @pytest.mark.asyncio
     @patch('pecha_api.texts.texts_openpecha_service.fetch_text_by_id')
