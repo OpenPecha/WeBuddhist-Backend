@@ -800,9 +800,9 @@ async def test_resolve_recitation_sessions_success():
     )
 
     with patch(
-        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
-        return_value=[mock_text],
+        return_value=mock_text,
     ), patch(
         "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
         new_callable=AsyncMock,
@@ -845,9 +845,9 @@ async def test_resolve_recitation_sessions_null_language():
     )
 
     with patch(
-        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
-        return_value=[mock_text],
+        return_value=mock_text,
     ), patch(
         "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
         new_callable=AsyncMock,
@@ -869,9 +869,9 @@ async def test_resolve_recitation_sessions_missing_text():
     )
 
     with patch(
-        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
-        return_value=[],
+        return_value=None,
     ), patch(
         "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
         new_callable=AsyncMock,
@@ -898,9 +898,9 @@ async def test_resolve_recitation_sessions_skips_when_first_segment_missing():
     )
 
     with patch(
-        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
-        return_value=[mock_text],
+        return_value=mock_text,
     ), patch(
         "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
         new_callable=AsyncMock,
@@ -2489,9 +2489,9 @@ async def test_get_user_routine_with_multiple_time_blocks():
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
     ), patch(
-        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
-        return_value=[mock_text],
+        return_value=mock_text,
     ), patch(
         "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
         new_callable=AsyncMock,
@@ -2663,9 +2663,9 @@ async def test_resolve_sessions_mixed_types():
         "pecha_api.routines.routines_service.get_plans_by_ids",
         return_value=[mock_plan],
     ), patch(
-        "pecha_api.routines.routines_service.Text.get_texts_by_ids",
+        "pecha_api.routines.routines_service.get_text_by_id_from_openpecha",
         new_callable=AsyncMock,
-        return_value=[mock_text],
+        return_value=mock_text,
     ), patch(
         "pecha_api.routines.routines_service.build_first_segment_previews_for_texts",
         new_callable=AsyncMock,

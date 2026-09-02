@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from starlette import status
@@ -12,7 +14,7 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
-from pecha_api.texts.texts_models import Text
+from pecha_api.texts.texts_openpecha_service import get_text_by_id_from_openpecha
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.users.recitation_collection.recitation_collection_models import (
     RecitationCollection,
@@ -43,6 +45,8 @@ from pecha_api.mantra.mantra_repository import get_mantras_by_ids
 from pecha_api.texts.first_segment_preview_service import (
     build_first_segment_previews_for_texts,
 )
+
+logger = logging.getLogger(__name__)
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
@@ -633,11 +637,21 @@ def _as_uuid(value) -> UUID:
     return value if isinstance(value, UUID) else UUID(value)
 
 
-def _normalize_text_id(text_id) -> str:
+async def _try_get_openpecha_text(text_id: str):
     try:
-        return str(UUID(str(text_id)))
-    except (ValueError, TypeError):
-        return str(text_id)
+        return await get_text_by_id_from_openpecha(text_id=text_id)
+    except HTTPException:
+        return None
+
+
+async def _try_build_first_segment_previews(text_ids: List[str]) -> Dict:
+    try:
+        return await build_first_segment_previews_for_texts(text_ids)
+    except Exception:
+        # A preview is a nice-to-have decoration; don't let a lookup failure
+        # (e.g. Mongo unavailable) 500 the whole routine listing.
+        logger.warning("Failed to build first segment previews for recitation texts", exc_info=True)
+        return {}
 
 
 async def _resolve_recitation_sessions(
@@ -646,19 +660,21 @@ async def _resolve_recitation_sessions(
     if not recitation_sessions:
         return []
 
-    text_ids = [_normalize_text_id(session.source_id) for session in recitation_sessions]
-    texts = await Text.get_texts_by_ids(text_ids)
-    text_map = {}
-    for text in texts:
-        text_map[_normalize_text_id(text.id)] = text
-        pecha_text_id = getattr(text, "pecha_text_id", None)
-        if pecha_text_id:
-            text_map[_normalize_text_id(pecha_text_id)] = text
-    previews_by_text_id = await build_first_segment_previews_for_texts(text_ids)
+    text_ids = [str(session.source_id) for session in recitation_sessions]
+    unique_text_ids = list(dict.fromkeys(text_ids))
+    text_map = {
+        text_id: text
+        for text_id, text in zip(
+            unique_text_ids,
+            [await _try_get_openpecha_text(text_id) for text_id in unique_text_ids],
+        )
+        if text is not None
+    }
+    previews_by_text_id = await _try_build_first_segment_previews(unique_text_ids)
 
     resolved = []
     for session in recitation_sessions:
-        text_id = _normalize_text_id(session.source_id)
+        text_id = str(session.source_id)
         text = text_map.get(text_id)
         if text is None:
             continue
