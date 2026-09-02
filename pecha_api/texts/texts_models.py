@@ -129,20 +129,26 @@ class Text(Document):
     
     @classmethod
     async def get_texts_by_ids(cls, text_ids: List[str]) -> List["Text"]:
-        # Filter out non-UUID text_ids
+        # Ids are polymorphic: either the real Mongo _id (UUID) or a
+        # non-UUID pecha-style edition id stored in pecha_text_id.
         valid_text_uuids = []
+        pecha_text_ids = []
         for text_id in text_ids:
-            try:
-                if text_id is not None:
-                    valid_text_uuids.append(UUID(text_id))
-            except ValueError:
-                # Skip invalid UUIDs
+            if text_id is None:
                 continue
-                
-        if not valid_text_uuids:
-            return []
-            
-        return await cls.find({"_id": {"$in": valid_text_uuids}}).to_list()
+            try:
+                valid_text_uuids.append(UUID(text_id))
+            except ValueError:
+                pecha_text_ids.append(text_id)
+
+        texts: List["Text"] = []
+        if valid_text_uuids:
+            texts.extend(await cls.find({"_id": {"$in": valid_text_uuids}}).to_list())
+        if pecha_text_ids:
+            texts.extend(
+                await cls.find({cls.pecha_text_id: {"$in": pecha_text_ids}}).to_list()
+            )
+        return texts
 
     @classmethod
     async def check_exists(cls, text_id: uuid.UUID) -> bool:

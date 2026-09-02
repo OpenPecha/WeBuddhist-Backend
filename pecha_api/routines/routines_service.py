@@ -292,7 +292,7 @@ def _check_duplicate_collections(db, routine_id: UUID, sessions: List) -> None:
             db=db, routine_id=routine_id, session_type=session_type
         )
         new_collection_ids = [
-            s.source_id for s in sessions if s.session_type == session_type
+            _as_uuid(s.source_id) for s in sessions if s.session_type == session_type
         ]
         overlap = set(new_collection_ids) & set(existing_collection_ids)
         if overlap:
@@ -319,7 +319,7 @@ def _check_duplicate_collections_on_update(
             session_type=session_type,
         )
         new_collection_ids = [
-            s.source_id for s in sessions if s.session_type == session_type
+            _as_uuid(s.source_id) for s in sessions if s.session_type == session_type
         ]
         overlap = set(new_collection_ids) & set(existing_collection_ids)
         if overlap:
@@ -342,16 +342,16 @@ def _check_duplicate_time(db, routine_id: UUID, time: str) -> None:
 
 
 def _extract_plan_ids(sessions: List) -> List[UUID]:
-    return [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
+    return [_as_uuid(s.source_id) for s in sessions if s.session_type == SessionType.PLAN]
 
 
 def _extract_series_ids(sessions: List) -> List[UUID]:
-    return [s.source_id for s in sessions if s.session_type == SessionType.SERIES]
+    return [_as_uuid(s.source_id) for s in sessions if s.session_type == SessionType.SERIES]
 
 
 def _normalize_plan_sessions_to_series(db, sessions: List[SessionRequest]) -> List[SessionRequest]:
     plan_ids = [
-        session.source_id
+        _as_uuid(session.source_id)
         for session in sessions
         if session.session_type == SessionType.PLAN and session.source_id is not None
     ]
@@ -371,12 +371,13 @@ def _normalize_plan_sessions_to_series(db, sessions: List[SessionRequest]) -> Li
     for session in sessions:
         if (
             session.session_type == SessionType.PLAN
-            and session.source_id in plan_series_map
+            and session.source_id is not None
+            and _as_uuid(session.source_id) in plan_series_map
         ):
             normalized.append(
                 SessionRequest(
                     session_type=SessionType.SERIES,
-                    source_id=plan_series_map[session.source_id],
+                    source_id=plan_series_map[_as_uuid(session.source_id)],
                     display_order=session.display_order,
                 )
             )
@@ -647,7 +648,12 @@ async def _resolve_recitation_sessions(
 
     text_ids = [_normalize_text_id(session.source_id) for session in recitation_sessions]
     texts = await Text.get_texts_by_ids(text_ids)
-    text_map = {_normalize_text_id(text.id): text for text in texts}
+    text_map = {}
+    for text in texts:
+        text_map[_normalize_text_id(text.id)] = text
+        pecha_text_id = getattr(text, "pecha_text_id", None)
+        if pecha_text_id:
+            text_map[_normalize_text_id(pecha_text_id)] = text
     previews_by_text_id = await build_first_segment_previews_for_texts(text_ids)
 
     resolved = []

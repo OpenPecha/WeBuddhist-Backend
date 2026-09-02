@@ -1428,7 +1428,7 @@ def test_normalize_plan_sessions_to_series():
 
     assert len(result) == 1
     assert result[0].session_type == SessionType.SERIES
-    assert result[0].source_id == series_id
+    assert result[0].source_id == str(series_id)
 
 
 def test_resolve_series_sessions_uses_first_plan_start_fields():
@@ -2916,7 +2916,7 @@ def test_session_request_accepts_accumulator_id():
         accumulator_id=preset_id,
         display_order=0,
     )
-    assert session.source_id == preset_id
+    assert session.source_id == str(preset_id)
     assert session.accumulator_id == preset_id
 
 
