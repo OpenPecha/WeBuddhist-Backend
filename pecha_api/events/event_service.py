@@ -45,7 +45,14 @@ from .event_response_models import (
     RecurrenceDTO,
     _validate_date_range,
 )
-from .recurrence_service import compute_initial_dates, resolve_next_occurrence, resolve_current_or_next_occurrence, expand_occurrences
+from .recurrence_service import (
+    compute_initial_dates,
+    resolve_next_occurrence,
+    resolve_current_or_next_occurrence,
+    expand_occurrences,
+    combine_date_with_time_of_day,
+    combine_occurrence_window,
+)
 from .notification_dispatch_service import enqueue_event_notification
 from .event_reminder_service import (
     cancel_event_reminders,
@@ -377,12 +384,16 @@ def get_events_service(
         for template in recurring_templates:
             occurrences = expand_occurrences(template, from_date_obj, to_date_obj)
             for start_d, end_d in occurrences:
-                # Create a copy-like structure with occurrence dates
+                # Carry the template's own time-of-day onto each occurrence,
+                # instead of defaulting to midnight / end-of-day.
+                occurrence_start, occurrence_end = combine_occurrence_window(
+                    start_d, end_d, template.start_date, template.end_date
+                )
                 expanded_occurrences.append({
                     'event': template,
-                    'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
-                    'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
-                    'occurrence_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                    'start_date': occurrence_start,
+                    'end_date': occurrence_end,
+                    'occurrence_date': occurrence_start,
                 })
         
         # Merge one-shot events and expanded occurrences
@@ -572,6 +583,16 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
 
     if request.recurrence:
         start_date, end_date = compute_initial_dates(request.recurrence)
+        # The recurrence rule only pins a day/month; the time-of-day rides
+        # along on start_date/end_date if the client sent them.
+        if request.start_date is not None:
+            start_date = combine_date_with_time_of_day(start_date.date(), request.start_date)
+        if request.end_date is not None:
+            end_date = combine_date_with_time_of_day(end_date.date(), request.end_date)
+        # A single-day occurrence (duration_days == 1) lands both times on the
+        # same calendar day, so an end time earlier than the start time would
+        # otherwise persist as an inverted range once expanded for reads.
+        _validate_date_range(start_date, end_date)
         is_recurring = True
         recurrence_frequency = request.recurrence.frequency.value
         recurrence_date_system = request.recurrence.date_system.value
@@ -650,6 +671,33 @@ def _apply_recurrence_or_dates(event: Event, request: UpdateEventRequest) -> tup
     """
     if request.recurrence is not None:
         start_date, end_date = compute_initial_dates(request.recurrence)
+        # The recurrence rule only pins a day/month; the time-of-day rides
+        # along on start_date/end_date if the client sent them, falling back
+        # to the event's own current time-of-day when it didn't — otherwise
+        # every recurrence update would silently reset a timed event to
+        # midnight.
+        start_time_source = (
+            request.start_date if request.start_date is not None else event.start_date
+        )
+        end_time_source = (
+            request.end_date if request.end_date is not None else event.end_date
+        )
+        start_date = combine_date_with_time_of_day(start_date.date(), start_time_source)
+        end_date = combine_date_with_time_of_day(end_date.date(), end_time_source)
+        if request.start_date is not None or request.end_date is not None:
+            # The author supplied new time-of-day input, so an inverted
+            # window is theirs to fix — reject it outright.
+            _validate_date_range(start_date, end_date)
+        elif end_date < start_date:
+            # Both times were inherited from the existing template. A
+            # recurrence-only update (e.g. changing the day) that happens
+            # to inherit an already-invalid legacy window (a one-day
+            # occurrence whose end time preceded its start time, from
+            # before this validation existed) must still succeed — the
+            # author never touched the dates — so clamp instead of
+            # raising, matching how reads already guard against it via
+            # combine_occurrence_window.
+            end_date = start_date
         event.start_date = start_date
         event.end_date = end_date
         event.is_recurring = True
@@ -787,11 +835,16 @@ def get_featured_events_service(
             result = resolve_current_or_next_occurrence(template, after=today)
             if result:
                 start_d, end_d, is_active = result
+                # Carry the template's own time-of-day onto the occurrence,
+                # instead of defaulting to midnight / end-of-day.
+                occurrence_start, occurrence_end = combine_occurrence_window(
+                    start_d, end_d, template.start_date, template.end_date
+                )
                 expanded_occurrences.append({
                     'event': template,
-                    'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
-                    'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
-                    'occurrence_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                    'start_date': occurrence_start,
+                    'end_date': occurrence_end,
+                    'occurrence_date': occurrence_start,
                     'is_active': is_active,
                 })
         
