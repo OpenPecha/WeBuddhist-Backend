@@ -1,5 +1,6 @@
 from unittest.mock import patch
 from typing import Optional
+from uuid import uuid4
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -16,6 +17,7 @@ client = TestClient(api)
 
 def test_get_user_information():
     user_info_response = UserInfoResponse(
+        id=uuid4(),
         firstname="John",
         lastname="Doe",
         username="john.does",
@@ -94,6 +96,7 @@ def test_upload_large_file():
 
 def test_get_user_detail_by_username_success():
     user_info_response = UserInfoResponse(
+        id=uuid4(),
         firstname="Jane",
         lastname="Smith",
         username="jane.smith",
@@ -144,6 +147,7 @@ def test_get_user_detail_by_username_not_found():
 
 def test_get_user_detail_by_username_with_special_characters():
     user_info_response = UserInfoResponse(
+        id=uuid4(),
         firstname="Test",
         lastname="User",
         username="test.user-123",

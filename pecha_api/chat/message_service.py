@@ -155,7 +155,9 @@ def list_room_messages_service(
         )
 
 
-def delete_message_service(room_id: UUID, message_id: UUID, user: Users) -> None:
+def delete_message_service(room_id: UUID, message_id: UUID, user: Users) -> str:
+    """Soft-delete the message and return its deleted_at, so the caller can
+    broadcast a matching timestamp to the room."""
     with SessionLocal() as db:
         _get_room_or_404(db=db, room_id=room_id)
         _require_active_member(db=db, room_id=room_id, user_id=user.id)
@@ -170,7 +172,8 @@ def delete_message_service(room_id: UUID, message_id: UUID, user: Users) -> None
                 detail="You can only delete your own messages",
             )
 
-        soft_delete_message(db=db, message=message)
+        deleted_at = soft_delete_message(db=db, message=message)
+        return deleted_at.isoformat()
 
 
 def _get_room_message_or_404(

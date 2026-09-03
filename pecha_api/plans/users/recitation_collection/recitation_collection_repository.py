@@ -86,6 +86,18 @@ def get_collection_items(
     ).order_by(RecitationCollectionItem.display_order).all()
 
 
+def get_collection_item_by_id(
+    db: Session,
+    item_id: UUID,
+    collection_id: UUID
+) -> Optional[RecitationCollectionItem]:
+
+    return db.query(RecitationCollectionItem).filter(
+        RecitationCollectionItem.id == item_id,
+        RecitationCollectionItem.recitation_collection_id == collection_id
+    ).first()
+
+
 def save_collection(
     db: Session,
     collection: RecitationCollection

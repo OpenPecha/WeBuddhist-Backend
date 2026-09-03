@@ -368,6 +368,7 @@ async def test_get_sheet_by_id_success():
         views=10
     )
     mock_user_details = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="firstname",
         lastname="lastname",
         username="username",
@@ -463,6 +464,7 @@ async def test_get_sheet_by_id_table_of_content_not_found():
         views=10
     )
     mock_user_details = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="firstname",
         lastname="lastname",
         username="username",
@@ -516,6 +518,7 @@ async def test_delete_sheet_success():
         views=10
     )
     mock_user_details = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="firstname",
         lastname="lastname",
         username="username",
@@ -573,6 +576,7 @@ async def test_delete_sheet_invalid_sheet_id():
 @pytest.mark.asyncio
 async def test_fetch_sheets_community_page_all_published():
     mock_user = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="firstname",
         lastname="lastname",
         username="username",
@@ -613,6 +617,7 @@ async def test_fetch_sheets_user_own_sheets():
         "email": "mock_user@gmail.com",
     })
     mock_publisher_details = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="firstname",
         lastname="lastname",
         username="username",
@@ -654,6 +659,7 @@ async def test_fetch_sheets_user_viewing_other_users_sheets_status_logged_in():
         "email": "mock_user@gmail.com",
     })
     mock_publisher_details = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="firstname",
         lastname="lastname",
         username="username",
@@ -1188,6 +1194,7 @@ async def test_generate_sheet_dto_response():
     #Test _generate_sheet_dto_response_#
     mock_sheets = _generate_mock_sheets_response_()
     mock_user = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="Test",
         lastname="User",
         username="testuser",
@@ -1216,6 +1223,7 @@ async def test_generate_sheet_dto_response():
 def test_create_publisher_object():
     #Test _create_publisher_object_#
     mock_user = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="John",
         lastname="Doe",
         username="johndoe",
@@ -1239,6 +1247,7 @@ def test_create_publisher_object():
 def test_create_publisher_object_no_name():
     #Test _create_publisher_object_ when user has no first/last name#
     mock_user = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="",
         lastname="",
         username="johndoe",
@@ -1629,6 +1638,7 @@ async def test_generate_sheet_detail_dto_with_views():
     )
     
     user_details = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="Test",
         lastname="User",
         username="testuser",
@@ -1806,6 +1816,7 @@ async def test_delete_sheet_forbidden_access():
     )
     
     current_user_details = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="Current",
         lastname="User",
         username="currentuser",
@@ -1912,6 +1923,7 @@ def test_get_all_segment_ids_multiple_sections():
 async def test_fetch_sheets_with_sort_parameters():
     #Test fetch_sheets with sorting parameters#
     mock_user = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="Test",
         lastname="User", 
         username="testuser",
@@ -1989,6 +2001,7 @@ async def test_generate_sheet_detail_dto_empty_publisher_name():
     )
     
     user_details = UserInfoResponse(
+        id=uuid.uuid4(),
         firstname="",  # Empty first name
         lastname="",   # Empty last name
         username="testuser",

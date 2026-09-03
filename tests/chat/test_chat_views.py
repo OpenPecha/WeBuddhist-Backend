@@ -220,7 +220,58 @@ class TestRoomMessages:
     def test_delete_message(self, mock_validate, mock_service):
         client = get_client()
         mock_validate.return_value = MagicMock()
-        mock_service.return_value = None
+        mock_service.return_value = datetime.now(tz.utc).isoformat()
+
+        response = client.delete(
+            f"/chat/rooms/{uuid4()}/messages/{uuid4()}",
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+
+    @patch('pecha_api.chat.views.get_broadcaster')
+    @patch('pecha_api.chat.views.delete_message_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_delete_message_broadcasts_deletion(self, mock_validate, mock_service, mock_get_broadcaster):
+        from unittest.mock import AsyncMock
+
+        client = get_client()
+        user = MagicMock()
+        user.id = uuid4()
+        user.email = "sender@example.com"
+        user.firstname = "Sender"
+        user.lastname = "Name"
+        mock_validate.return_value = user
+        deleted_at = datetime.now(tz.utc).isoformat()
+        mock_service.return_value = deleted_at
+        broadcaster = MagicMock()
+        broadcaster.broadcast_message_deleted = AsyncMock()
+        mock_get_broadcaster.return_value = broadcaster
+        room_id, message_id = uuid4(), uuid4()
+
+        response = client.delete(
+            f"/chat/rooms/{room_id}/messages/{message_id}",
+            headers=AUTH_HEADERS,
+        )
+
+        assert response.status_code == status.HTTP_204_NO_CONTENT
+        broadcaster.broadcast_message_deleted.assert_awaited_once_with(
+            room_id=room_id,
+            message_id=message_id,
+            deleted_by={"user_id": str(user.id), "email": user.email, "name": "Sender Name"},
+            deleted_at=deleted_at,
+        )
+
+    @patch('pecha_api.chat.views.get_broadcaster')
+    @patch('pecha_api.chat.views.delete_message_service')
+    @patch('pecha_api.chat.views.validate_and_extract_user_details')
+    def test_delete_message_broadcast_failure_does_not_fail_request(
+        self, mock_validate, mock_service, mock_get_broadcaster
+    ):
+        client = get_client()
+        mock_validate.return_value = MagicMock()
+        mock_service.return_value = datetime.now(tz.utc).isoformat()
+        mock_get_broadcaster.side_effect = RuntimeError("redis down")
 
         response = client.delete(
             f"/chat/rooms/{uuid4()}/messages/{uuid4()}",

@@ -226,9 +226,10 @@ class TestMessages:
         db = MagicMock()
         message = MagicMock(deleted_at=None)
 
-        soft_delete_message(db=db, message=message)
+        result = soft_delete_message(db=db, message=message)
 
         assert message.deleted_at is not None
+        assert result is message.deleted_at
         db.commit.assert_called_once()
 
     def test_get_last_message(self):
