@@ -1,5 +1,5 @@
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 import pytest
 from fastapi import HTTPException
@@ -45,46 +45,148 @@ def clear_languages_cache():
 
 
 class TestListLanguagesService:
-    def test_list_languages_enabled_only_by_default(self):
+    @pytest.mark.asyncio
+    async def test_list_languages_enabled_only_by_default(self):
         with patch.object(
             language_service,
             "load_languages",
             return_value=SAMPLE_LANGUAGES,
         ):
-            response = list_languages_service()
+            response = await list_languages_service()
 
         assert len(response.languages) == 2
         assert [lang.code for lang in response.languages] == ["en", "zh"]
         assert all(lang.enabled for lang in response.languages)
 
-    def test_list_languages_includes_disabled_when_requested(self):
+    @pytest.mark.asyncio
+    async def test_list_languages_includes_disabled_when_requested(self):
         with patch.object(
             language_service,
             "load_languages",
             return_value=SAMPLE_LANGUAGES,
         ):
-            response = list_languages_service(enabled_only=False)
+            response = await list_languages_service(enabled_only=False)
 
         assert len(response.languages) == 3
         assert [lang.code for lang in response.languages] == ["en", "bo", "zh"]
         assert response.languages[1].enabled is False
 
-    def test_list_languages_defaults_enabled_when_missing(self):
+    @pytest.mark.asyncio
+    async def test_list_languages_defaults_enabled_when_missing(self):
         with patch.object(
             language_service,
             "load_languages",
             return_value=SAMPLE_LANGUAGES,
         ):
-            response = list_languages_service(enabled_only=False)
+            response = await list_languages_service(enabled_only=False)
 
         chinese = next(lang for lang in response.languages if lang.code == "zh")
         assert chinese.enabled is True
 
-    def test_list_languages_empty_when_payload_missing_languages_key(self):
+    @pytest.mark.asyncio
+    async def test_list_languages_empty_when_payload_missing_languages_key(self):
         with patch.object(language_service, "load_languages", return_value={}):
-            response = list_languages_service()
+            response = await list_languages_service()
 
         assert response.languages == []
+
+    @pytest.mark.asyncio
+    async def test_list_languages_recitation_only_uses_openpecha_category_languages(self):
+        with patch.object(
+            language_service,
+            "load_languages",
+            return_value=SAMPLE_LANGUAGES,
+        ), patch.object(
+            language_service, "get_cache_data", return_value=None
+        ), patch.object(
+            language_service, "set_cache", return_value=True
+        ), patch.object(
+            language_service, "get_config", return_value="test-category-id"
+        ), patch.object(
+            language_service,
+            "fetch_texts_by_category",
+        ) as mock_fetch:
+            mock_fetch.return_value = {
+                "items": [
+                    {"id": "t1", "language": "en"},
+                    {"id": "t2", "language": "bo"},
+                    {"id": "t3", "language": "en"},
+                ],
+                "has_more": False,
+            }
+
+            response = await list_languages_service(recitation_only=True)
+
+        assert [lang.code for lang in response.languages] == ["en", "bo"]
+        assert response.languages[0].name == "English"
+        assert response.languages[1].name == "Tibetan"
+        mock_fetch.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_list_languages_recitation_only_falls_back_to_code_when_unmapped(self):
+        with patch.object(
+            language_service,
+            "load_languages",
+            return_value=SAMPLE_LANGUAGES,
+        ), patch.object(
+            language_service, "get_cache_data", return_value=None
+        ), patch.object(
+            language_service, "set_cache", return_value=True
+        ), patch.object(
+            language_service, "get_config", return_value="test-category-id"
+        ), patch.object(
+            language_service,
+            "fetch_texts_by_category",
+            return_value={"items": [{"id": "t1", "language": "sa"}], "has_more": False},
+        ):
+            response = await list_languages_service(recitation_only=True)
+
+        assert len(response.languages) == 1
+        assert response.languages[0].code == "sa"
+        assert response.languages[0].name == "sa"
+
+    @pytest.mark.asyncio
+    async def test_list_languages_recitation_only_paginates_until_no_more(self):
+        with patch.object(
+            language_service,
+            "load_languages",
+            return_value=SAMPLE_LANGUAGES,
+        ), patch.object(
+            language_service, "get_cache_data", return_value=None
+        ), patch.object(
+            language_service, "set_cache", return_value=True
+        ), patch.object(
+            language_service, "get_config", return_value="test-category-id"
+        ), patch.object(
+            language_service, "fetch_texts_by_category"
+        ) as mock_fetch:
+            mock_fetch.side_effect = [
+                {"items": [{"id": "t1", "language": "en"}], "has_more": True},
+                {"items": [{"id": "t2", "language": "bo"}], "has_more": False},
+            ]
+
+            response = await list_languages_service(recitation_only=True)
+
+        assert [lang.code for lang in response.languages] == ["en", "bo"]
+        assert mock_fetch.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_list_languages_recitation_only_uses_cache_when_present(self):
+        with patch.object(
+            language_service,
+            "load_languages",
+            return_value=SAMPLE_LANGUAGES,
+        ), patch.object(
+            language_service, "get_cache_data", return_value=["bo"]
+        ), patch.object(
+            language_service, "get_config", return_value="test-category-id"
+        ), patch.object(
+            language_service, "fetch_texts_by_category"
+        ) as mock_fetch:
+            response = await list_languages_service(recitation_only=True)
+
+        assert [lang.code for lang in response.languages] == ["bo"]
+        mock_fetch.assert_not_awaited()
 
 
 class TestLoadLanguages:
@@ -126,6 +228,7 @@ class TestListLanguagesEndpoint:
 
         with patch(
             "pecha_api.languages.language_views.list_languages_service",
+            new_callable=AsyncMock,
             return_value=mock_response,
         ) as mock_service:
             response = client.get("/languages")
@@ -139,19 +242,33 @@ class TestListLanguagesEndpoint:
                 "enabled": True,
             }
         ]
-        mock_service.assert_called_once_with(enabled_only=True)
+        mock_service.assert_called_once_with(enabled_only=True, recitation_only=False)
 
     def test_get_languages_passes_enabled_only_false(self):
         mock_response = LanguageListResponse(languages=[])
 
         with patch(
             "pecha_api.languages.language_views.list_languages_service",
+            new_callable=AsyncMock,
             return_value=mock_response,
         ) as mock_service:
             response = client.get("/languages?enabled_only=false")
 
         assert response.status_code == status.HTTP_200_OK
-        mock_service.assert_called_once_with(enabled_only=False)
+        mock_service.assert_called_once_with(enabled_only=False, recitation_only=False)
+
+    def test_get_languages_passes_recitation_only_true(self):
+        mock_response = LanguageListResponse(languages=[])
+
+        with patch(
+            "pecha_api.languages.language_views.list_languages_service",
+            new_callable=AsyncMock,
+            return_value=mock_response,
+        ) as mock_service:
+            response = client.get("/languages?recitation_only=true")
+
+        assert response.status_code == status.HTTP_200_OK
+        mock_service.assert_called_once_with(enabled_only=True, recitation_only=True)
 
     def test_get_languages_integration_returns_real_data(self):
         response = client.get("/languages")
@@ -164,6 +281,13 @@ class TestListLanguagesEndpoint:
 
 
 class TestLanguageCodeSync:
+    # LanguageCode also backs the `language` column on plans/series/mantras/etc.
+    # (see migrations/versions/b0c1d2e3f4a5_add_la_to_languagecode.py), and some of
+    # those codes are intentionally not offered as reader/display languages in
+    # languages.json. Ladakhi ('LA') is such a code: it's a valid plan language but
+    # is deliberately left out of the languages.json listing.
+    ENUM_ONLY_CODES = {"LA"}
+
     def test_language_code_enum_matches_languages_json(self):
         payload = load_languages()
         json_codes = {
@@ -172,8 +296,9 @@ class TestLanguageCodeSync:
         }
         enum_codes = {code.value for code in LanguageCode}
 
-        assert enum_codes == json_codes, (
-            "LanguageCode enum must match pecha_api/languages/languages.json. "
+        assert enum_codes - self.ENUM_ONLY_CODES == json_codes, (
+            "LanguageCode enum must match pecha_api/languages/languages.json, aside from "
+            f"the documented enum-only codes {sorted(self.ENUM_ONLY_CODES)}. "
             f"Missing in enum: {sorted(json_codes - enum_codes)}. "
-            f"Extra in enum: {sorted(enum_codes - json_codes)}."
+            f"Unexpected extra in enum: {sorted(enum_codes - json_codes - self.ENUM_ONLY_CODES)}."
         )

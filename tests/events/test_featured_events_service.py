@@ -32,6 +32,7 @@ def _event(event_id=None, group_id=None, featured=False):
     event.location = None
     event.start_date = now
     event.end_date = now
+    event.timezone = None
     event.image_url = None
     event.featured = featured
     event.event_format = None

@@ -2,6 +2,8 @@ from enum import Enum
 
 class CacheType(Enum):
     RECITATION_DETAILS = "recitation_details"
+    RECITATION_LIST = "recitation_list"
+    RECITATION_LANGUAGES = "recitation_languages"
     TEXT_DETAIL = "text_detail"
     TEXT_VERSIONS = "text_versions"
     TEXT_LANGUAGES = "text_languages"
@@ -10,25 +12,23 @@ class CacheType(Enum):
     TEXT_TABLE_OF_CONTENTS = "text_table_of_contents"
     DETAIL_TEXT_TABLE_OF_CONTENT = "detail_text_table_of_content"
 
-    SEGMENT_DETAIL = "segment_detail"
     SEGMENTS_DETAILS = "segments_details"
     SEGMENT_INFO = "segment_info"
-    SEGMENT_ROOT_TEXT = "segment_root_text"
     SEGMENT_TRANSLATIONS = "segment_translations"
     SEGMENT_COMMENTARIES = "segment_commentaries"
+    SEGMENT_ROOT_TEXT = "segment_root_text"
 
-    GROUP_DETAIL = "group_detail"
-
-    SHEETS = "sheets"
+    # Sheet-specific cache types
     SHEET_DETAIL = "sheet_detail"
     SHEET_TABLE_OF_CONTENT = "sheet_table_of_content"
+    SHEETS = "sheets"
+
+    GROUP_DETAIL = "group_detail"
 
     USER_INFO = "user_info"
     USER_DAILY_LOG = "user_daily_log"
     USER_STATS = "user_stats"
 
-    TOPICS = "topics"
-    
     # Collection-specific cache types
     COLLECTIONS = "collections"
     COLLECTION_DETAIL = "collection_detail"

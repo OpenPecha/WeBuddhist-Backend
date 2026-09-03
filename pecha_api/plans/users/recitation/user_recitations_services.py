@@ -103,7 +103,7 @@ async def update_recitation_order_service(
         )
 
 
-async def delete_user_recitation_service(token: str, text_id: UUID) -> None:
+async def delete_user_recitation_service(token: str, text_id: str) -> None:
     current_user = validate_and_extract_user_details(token=token)
 
     with SessionLocal() as db:

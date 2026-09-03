@@ -8,9 +8,11 @@ from pecha_api.texts.texts_openpecha_api import (
     fetch_text_detail,
     fetch_text_source_link,
     fetch_critical_editions,
+    fetch_edition_text_id,
     fetch_editions_segmentation,
     fetch_segmentation_segments,
     fetch_edition_content,
+    fetch_edition_alignment_pairs,
 )
 from pecha_api.texts.text_openpecha_response_models import (
     TextDetailResponse,
@@ -53,9 +55,7 @@ RAW_EDITIONS = [
     {"id": EDITION_ID, "type": "critical", "source": "src", "colophon": None, "incipit_title": None, "alt_incipit_titles": None}
 ]
 
-RAW_SEGMENTATIONS = [
-    {"id": SEGMENTATION_ID, "edition_id": EDITION_ID, "text_id": TEXT_ID}
-]
+RAW_SEGMENTATION = {"id": SEGMENTATION_ID, "edition_id": EDITION_ID, "text_id": TEXT_ID}
 
 RAW_SEGMENTS = {
     "items": [
@@ -164,7 +164,7 @@ def test_parse_text_detail_contribution_with_missing_fields():
 async def test_fetch_text_detail_success(mocker):
     """Test successful fetch returns a parsed TextDetailResponse"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(200, RAW_TEXT_DETAIL),
     )
 
@@ -179,7 +179,7 @@ async def test_fetch_text_detail_success(mocker):
 async def test_fetch_text_detail_404_raises_not_found(mocker):
     """Test that a 404 response raises HTTP 404"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(404, {}),
     )
 
@@ -194,7 +194,7 @@ async def test_fetch_text_detail_404_raises_not_found(mocker):
 async def test_fetch_text_detail_unexpected_status_raises_502(mocker):
     """Test that an unexpected non-200/404 status raises HTTP 502"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(500, {}),
     )
 
@@ -213,7 +213,7 @@ async def test_fetch_text_detail_network_error_raises_502(mocker):
     mock_client.get_async_httpx_client.return_value = mock_http_client
     mock_client._base_url = "http://test"
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=mock_client,
     )
 
@@ -231,7 +231,7 @@ async def test_fetch_text_detail_network_error_raises_502(mocker):
 async def test_fetch_text_source_link_success(mocker):
     """Test successful fetch returns source from first critical edition"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(200, [{"id": EDITION_ID, "source": "https://example.com/source"}]),
     )
 
@@ -244,7 +244,7 @@ async def test_fetch_text_source_link_success(mocker):
 async def test_fetch_text_source_link_empty_list_returns_none(mocker):
     """Test that an empty editions list returns None"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(200, []),
     )
 
@@ -257,7 +257,7 @@ async def test_fetch_text_source_link_empty_list_returns_none(mocker):
 async def test_fetch_text_source_link_missing_source_returns_none(mocker):
     """Test that an edition without a source field returns None"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(200, [{"id": EDITION_ID}]),
     )
 
@@ -270,7 +270,7 @@ async def test_fetch_text_source_link_missing_source_returns_none(mocker):
 async def test_fetch_text_source_link_non_200_returns_none(mocker):
     """Test that a non-200 response returns None without raising"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(404, {}),
     )
 
@@ -287,7 +287,7 @@ async def test_fetch_text_source_link_network_error_returns_none(mocker):
     mock_client = MagicMock()
     mock_client.get_async_httpx_client.return_value = mock_http_client
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=mock_client,
     )
 
@@ -304,7 +304,7 @@ async def test_fetch_text_source_link_network_error_returns_none(mocker):
 async def test_fetch_critical_editions_success(mocker):
     """Test successful fetch returns a list of CriticalEditionModel"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(200, RAW_EDITIONS),
     )
 
@@ -320,7 +320,7 @@ async def test_fetch_critical_editions_success(mocker):
 async def test_fetch_critical_editions_empty_list(mocker):
     """Test that an empty response returns an empty list"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(200, []),
     )
 
@@ -333,7 +333,7 @@ async def test_fetch_critical_editions_empty_list(mocker):
 async def test_fetch_critical_editions_404_raises_not_found(mocker):
     """Test that a 404 response raises HTTP 404"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(404, {}),
     )
 
@@ -347,7 +347,7 @@ async def test_fetch_critical_editions_404_raises_not_found(mocker):
 async def test_fetch_critical_editions_unexpected_status_raises_502(mocker):
     """Test that an unexpected status raises HTTP 502"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(503, {}),
     )
 
@@ -365,7 +365,7 @@ async def test_fetch_critical_editions_network_error_re_raises(mocker):
     mock_client = MagicMock()
     mock_client.get_async_httpx_client.return_value = mock_http_client
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=mock_client,
     )
 
@@ -374,15 +374,77 @@ async def test_fetch_critical_editions_network_error_re_raises(mocker):
 
 
 # ============================================================================
+# fetch_edition_text_id
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_fetch_edition_text_id_success(mocker):
+    """Test successful fetch returns the edition's text_id"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=_make_mock_client(200, {"id": EDITION_ID, "type": "critical", "text_id": TEXT_ID}),
+    )
+
+    result = await fetch_edition_text_id(edition_id=EDITION_ID)
+
+    assert result == TEXT_ID
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_text_id_404_raises_not_found(mocker):
+    """Test that a 404 response raises HTTP 404"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=_make_mock_client(404, {}),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await fetch_edition_text_id(edition_id=EDITION_ID)
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    assert EDITION_ID in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_text_id_unexpected_status_raises_502(mocker):
+    """Test that an unexpected status raises HTTP 502"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=_make_mock_client(500, {}),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await fetch_edition_text_id(edition_id=EDITION_ID)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_text_id_network_error_re_raises(mocker):
+    """Test that a network exception is re-raised as-is"""
+    mock_http_client = AsyncMock()
+    mock_http_client.get = AsyncMock(side_effect=ConnectionError("refused"))
+    mock_client = MagicMock()
+    mock_client.get_async_httpx_client.return_value = mock_http_client
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=mock_client,
+    )
+
+    with pytest.raises(ConnectionError):
+        await fetch_edition_text_id(edition_id=EDITION_ID)
+
+
+# ============================================================================
 # fetch_editions_segmentation
 # ============================================================================
 
 @pytest.mark.asyncio
 async def test_fetch_editions_segmentation_success(mocker):
-    """Test successful fetch returns a list of SegmentationResponseModel"""
+    """Test successful fetch returns a single-item list of SegmentationResponseModel"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
-        return_value=_make_mock_client(200, RAW_SEGMENTATIONS),
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=_make_mock_client(200, RAW_SEGMENTATION),
     )
 
     result = await fetch_editions_segmentation(edition_id=EDITION_ID)
@@ -398,7 +460,7 @@ async def test_fetch_editions_segmentation_success(mocker):
 async def test_fetch_editions_segmentation_404_raises_not_found(mocker):
     """Test that a 404 response raises HTTP 404"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(404, {}),
     )
 
@@ -413,7 +475,7 @@ async def test_fetch_editions_segmentation_404_raises_not_found(mocker):
 async def test_fetch_editions_segmentation_unexpected_status_raises_502(mocker):
     """Test that an unexpected status raises HTTP 502"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(500, {}),
     )
 
@@ -431,7 +493,7 @@ async def test_fetch_editions_segmentation_network_error_re_raises(mocker):
     mock_client = MagicMock()
     mock_client.get_async_httpx_client.return_value = mock_http_client
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=mock_client,
     )
 
@@ -447,11 +509,11 @@ async def test_fetch_editions_segmentation_network_error_re_raises(mocker):
 async def test_fetch_segmentation_segments_success(mocker):
     """Test successful fetch returns a parsed SegmentationSegmentResponseModel"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(200, RAW_SEGMENTS),
     )
 
-    result = await fetch_segmentation_segments(segmentation_id=SEGMENTATION_ID, limit=30, offset=0)
+    result = await fetch_segmentation_segments(edition_id=EDITION_ID, limit=30, offset=0)
 
     assert isinstance(result, SegmentationSegmentResponseModel)
     assert len(result.items) == 2
@@ -467,11 +529,11 @@ async def test_fetch_segmentation_segments_success(mocker):
 async def test_fetch_segmentation_segments_empty_items(mocker):
     """Test response with empty items list"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(200, {"items": [], "has_more": False, "offset": 0, "limit": 30}),
     )
 
-    result = await fetch_segmentation_segments(segmentation_id=SEGMENTATION_ID, limit=30, offset=0)
+    result = await fetch_segmentation_segments(edition_id=EDITION_ID, limit=30, offset=0)
 
     assert result.items == []
     assert result.has_more is False
@@ -481,27 +543,27 @@ async def test_fetch_segmentation_segments_empty_items(mocker):
 async def test_fetch_segmentation_segments_404_raises_not_found(mocker):
     """Test that a 404 response raises HTTP 404"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(404, {}),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await fetch_segmentation_segments(segmentation_id=SEGMENTATION_ID, limit=30, offset=0)
+        await fetch_segmentation_segments(edition_id=EDITION_ID, limit=30, offset=0)
 
     assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
-    assert SEGMENTATION_ID in exc_info.value.detail
+    assert EDITION_ID in exc_info.value.detail
 
 
 @pytest.mark.asyncio
 async def test_fetch_segmentation_segments_unexpected_status_raises_502(mocker):
     """Test that an unexpected status raises HTTP 502"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(503, {}),
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await fetch_segmentation_segments(segmentation_id=SEGMENTATION_ID, limit=30, offset=0)
+        await fetch_segmentation_segments(edition_id=EDITION_ID, limit=30, offset=0)
 
     assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
 
@@ -514,12 +576,12 @@ async def test_fetch_segmentation_segments_network_error_raises_502(mocker):
     mock_client = MagicMock()
     mock_client.get_async_httpx_client.return_value = mock_http_client
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=mock_client,
     )
 
     with pytest.raises(HTTPException) as exc_info:
-        await fetch_segmentation_segments(segmentation_id=SEGMENTATION_ID, limit=30, offset=0)
+        await fetch_segmentation_segments(edition_id=EDITION_ID, limit=30, offset=0)
 
     assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
 
@@ -532,7 +594,7 @@ async def test_fetch_segmentation_segments_network_error_raises_502(mocker):
 async def test_fetch_edition_content_success(mocker):
     """Test successful fetch returns an EditionContentResponse"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(200, "Hello World content"),
     )
 
@@ -546,7 +608,7 @@ async def test_fetch_edition_content_success(mocker):
 async def test_fetch_edition_content_404_raises_not_found(mocker):
     """Test that a 404 response raises HTTP 404"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(404, {}),
     )
 
@@ -561,7 +623,7 @@ async def test_fetch_edition_content_404_raises_not_found(mocker):
 async def test_fetch_edition_content_unexpected_status_raises_502(mocker):
     """Test that an unexpected status raises HTTP 502"""
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=_make_mock_client(500, {}),
     )
 
@@ -579,11 +641,124 @@ async def test_fetch_edition_content_network_error_raises_502(mocker):
     mock_client = MagicMock()
     mock_client.get_async_httpx_client.return_value = mock_http_client
     mocker.patch(
-        "pecha_api.texts.texts_openpecha_api.get_authenticated_open_pecha_client",
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
         return_value=mock_client,
     )
 
     with pytest.raises(HTTPException) as exc_info:
         await fetch_edition_content(edition_id=EDITION_ID)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+# ============================================================================
+# fetch_edition_alignment_pairs
+# ============================================================================
+
+TARGET_EDITION_ID = "ed-translation"
+
+RAW_ALIGNMENT_PAIRS_RESPONSE = {
+    "items": [
+        {
+            "source_segment": {
+                "id": "span-1",
+                "edition_id": EDITION_ID,
+                "text_id": TEXT_ID,
+                "segmentation_id": SEGMENTATION_ID,
+                "lines": [{"start": 0, "end": 5}],
+            },
+            "target_segment": {
+                "id": "trans-span-1",
+                "edition_id": TARGET_EDITION_ID,
+                "text_id": "translation-text",
+                "segmentation_id": "trans-seg-1",
+                "lines": [{"start": 0, "end": 7}],
+            },
+        }
+    ],
+    "has_more": False,
+    "offset": 0,
+    "limit": 500,
+}
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_alignment_pairs_success(mocker):
+    """Test successful fetch parses source/target segment ids and has_more"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=_make_mock_client(200, RAW_ALIGNMENT_PAIRS_RESPONSE),
+    )
+
+    pairs, has_more = await fetch_edition_alignment_pairs(
+        source_edition_id=EDITION_ID, target_edition_id=TARGET_EDITION_ID,
+    )
+
+    assert has_more is False
+    assert len(pairs) == 1
+    assert pairs[0].source_segment_id == "span-1"
+    assert pairs[0].target_segment_id == "trans-span-1"
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_alignment_pairs_empty_when_no_items(mocker):
+    """Test that a response with no items returns an empty list"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=_make_mock_client(200, {"items": [], "has_more": False, "offset": 0, "limit": 500}),
+    )
+
+    pairs, has_more = await fetch_edition_alignment_pairs(
+        source_edition_id=EDITION_ID, target_edition_id=TARGET_EDITION_ID,
+    )
+
+    assert pairs == []
+    assert has_more is False
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_alignment_pairs_404_returns_empty_list(mocker):
+    """Test that a 404 response (e.g. an unknown edition) returns an empty list rather than raising"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=_make_mock_client(404, {}),
+    )
+
+    pairs, has_more = await fetch_edition_alignment_pairs(
+        source_edition_id=EDITION_ID, target_edition_id=TARGET_EDITION_ID,
+    )
+
+    assert pairs == []
+    assert has_more is False
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_alignment_pairs_unexpected_status_raises_502(mocker):
+    """Test that an unexpected status raises HTTP 502"""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=_make_mock_client(500, {}),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await fetch_edition_alignment_pairs(source_edition_id=EDITION_ID, target_edition_id=TARGET_EDITION_ID)
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+@pytest.mark.asyncio
+async def test_fetch_edition_alignment_pairs_network_error_raises_502(mocker):
+    """Test that a network exception raises HTTP 502"""
+    mock_http_client = AsyncMock()
+    mock_http_client.get = AsyncMock(side_effect=Exception("connection reset"))
+    mock_client = MagicMock()
+    mock_client.get_async_httpx_client.return_value = mock_http_client
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_api.get_open_pecha_client",
+        return_value=mock_client,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await fetch_edition_alignment_pairs(source_edition_id=EDITION_ID, target_edition_id=TARGET_EDITION_ID)
 
     assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY

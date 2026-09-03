@@ -32,6 +32,7 @@ def _event(group_id=None):
     event.location = None
     event.start_date = now
     event.end_date = now
+    event.timezone = None
     event.image_url = None
     event.event_format = None
     event.metadata_entries = []

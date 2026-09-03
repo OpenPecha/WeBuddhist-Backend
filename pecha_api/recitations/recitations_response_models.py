@@ -1,19 +1,29 @@
 from enum import Enum
 from typing import List, Dict, Optional
-from pydantic import BaseModel, Field, model_serializer
+from pydantic import BaseModel, Field, model_serializer, field_validator
 from uuid import UUID
 
 
 class Segment(BaseModel):
-    id: UUID
+    id: str
     content: str
 
 
 class RecitationDTO(BaseModel):
     title: str
-    text_id: UUID
+    text_id: str
+    edition_id: Optional[str] = None
     image_url: Optional[str] = None
     first_segment: Optional[Segment] = None
+
+    @model_serializer(mode="wrap")
+    def _omit_internal_edition_id(self, serializer) -> dict:
+        """`edition_id` is plumbing: it rides along so the cached payload keeps both
+        ids, but the service swaps it into `text_id` before responding."""
+        data = serializer(self)
+        if data.get("edition_id") is None:
+            data.pop("edition_id", None)
+        return data
 
 
 class RecitationCollectionItemType(str, Enum):
@@ -55,6 +65,13 @@ class ListRecitationsRequest(BaseModel):
     should_include_collections: bool = False
     should_include_group_collections: bool = False
 
+    @field_validator("language")
+    @classmethod
+    def _normalize_language(cls, value: str) -> str:
+        """OpenPecha stores language codes lowercase (e.g. "bo"); normalize here
+        so a client sending "BO" doesn't silently miss every match."""
+        return value.strip().lower()
+
 
 class RecitationDetailsRequest(BaseModel):
     language: str
@@ -62,6 +79,11 @@ class RecitationDetailsRequest(BaseModel):
     translations: List[str] = []
     transliterations: List[str] = []
     adaptations: List[str] = []
+
+    @field_validator("language")
+    @classmethod
+    def _normalize_language(cls, value: str) -> str:
+        return value.strip().lower()
 
 
 class RecitationSegment(BaseModel):
@@ -72,6 +94,6 @@ class RecitationSegment(BaseModel):
 
 
 class RecitationDetailsResponse(BaseModel):
-    text_id: UUID
+    text_id: str
     title: str
     segments: List[RecitationSegment]

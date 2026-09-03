@@ -13,7 +13,7 @@ from pecha_api.plans.response_message import NOT_FOUND
 from pecha_api.group_posts.service_utils import validate_group_content_access
 from pecha_api.region_restrictions.region_restriction_enums import RestrictedItemType
 from pecha_api.region_restrictions.region_restriction_service import filter_items_for_timezone
-from pecha_api.texts.texts_repository import get_texts_by_ids
+from pecha_api.texts.texts_openpecha_service import get_texts_by_edition_or_text_ids
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 from pecha_api.group_recitation_collection.models import GroupRecitationCollectionItem
@@ -54,12 +54,12 @@ def _validate_group_access(db: Session, group_id: UUID, user_id: Optional[UUID])
 async def _build_items_dto(
     items: list[GroupRecitationCollectionItem],
 ) -> list[GroupRecitationCollectionItemDTO]:
-    """Build item DTOs with text metadata from MongoDB."""
+    """Build item DTOs with text metadata fetched from OpenPecha."""
     if not items:
         return []
 
     text_ids_str = [str(item.text_id) for item in items]
-    texts_dict = await get_texts_by_ids(text_ids=text_ids_str)
+    texts_dict = await get_texts_by_edition_or_text_ids(text_ids_str)
 
     items_dto = []
     for item in items:
@@ -72,7 +72,7 @@ async def _build_items_dto(
                     text_id=item.text_id,
                     title=text.title,
                     language=text.language,
-                    type=text.type,
+                    type=None,
                     display_order=item.display_order,
                 )
             )

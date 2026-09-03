@@ -17,6 +17,7 @@ from pecha_api.plans.authors.plan_authors_service import get_image_url
 from pecha_api.plans.groups.groups_enums import AuthorGroupType
 from pecha_api.plans.groups.groups_repository import (
     get_group_by_id,
+    is_group_published,
     is_user_joined_group,
     upsert_group_join,
 )
@@ -384,7 +385,7 @@ def join_group_accumulator_service(
             )
 
         group = get_group_by_id(db=db, group_id=group_accumulator.group_id)
-        if not group:
+        if not group or not is_group_published(group):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"error": "NOT_FOUND", "message": "Group not found"},

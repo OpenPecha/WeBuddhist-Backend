@@ -148,7 +148,7 @@ class TestGetGroupAccumulatorsService:
     def test_get_group_accumulators_success(self, mock_get, mock_session):
         """Test successful retrieval of group accumulators."""
         group_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
         mantra_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
@@ -240,7 +240,7 @@ class TestGetGroupAccumulatorService:
     ):
         """Test successful retrieval of group accumulator."""
         accumulator_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
         mantra_id = uuid4()
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
@@ -1124,7 +1124,7 @@ class TestJoinGroupAccumulatorService:
         mock_session.return_value.__enter__.return_value = mock_db
         mock_auth.return_value = MockUser(id=user_id)
         mock_get_acc.return_value = MockGroupAccumulator(id=accumulator_id, group_id=group_id)
-        mock_get_group.return_value = MagicMock(is_public=True)
+        mock_get_group.return_value = MagicMock(is_public=True, status="PUBLISHED")
 
         join_group_accumulator_service(token="valid_token", group_accumulator_id=accumulator_id)
 

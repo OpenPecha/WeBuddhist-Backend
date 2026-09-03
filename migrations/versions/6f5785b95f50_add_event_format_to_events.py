@@ -10,6 +10,8 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
+from migrations.idempotency import column_exists
+
 
 # revision identifiers, used by Alembic.
 revision: str = '6f5785b95f50'
@@ -19,8 +21,13 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('events', sa.Column('event_format', sa.String(length=10), nullable=True))
+    if not column_exists("events", "event_format"):
+        op.add_column(
+            "events",
+            sa.Column("event_format", sa.String(length=10), nullable=True),
+        )
 
 
 def downgrade() -> None:
-    op.drop_column('events', 'event_format')
+    if column_exists("events", "event_format"):
+        op.drop_column("events", "event_format")

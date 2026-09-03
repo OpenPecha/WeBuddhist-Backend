@@ -23,6 +23,7 @@ class Event(Base):
     location_id = Column(UUID(as_uuid=True), ForeignKey("locations.id", ondelete="RESTRICT"), nullable=True)
     start_date = Column(DateTime(timezone=True), nullable=False)
     end_date = Column(DateTime(timezone=True), nullable=False)
+    timezone = Column(String(64), nullable=True)
     image_url = Column(String(1000), nullable=True)
     featured = Column(Boolean, default=False, nullable=False)
     event_format = Column(String(10), nullable=True)

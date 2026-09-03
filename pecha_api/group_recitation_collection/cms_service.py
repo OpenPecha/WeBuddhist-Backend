@@ -13,8 +13,7 @@ from pecha_api.plans.authors.plan_authors_service import validate_and_extract_au
 from pecha_api.plans.groups.groups_repository import get_group_by_id
 from pecha_api.plans.response_message import NOT_FOUND
 from pecha_api.plans.shared.permissions import require_can_create_content, require_can_read_group_content
-from pecha_api.texts.texts_repository import get_texts_by_ids
-from pecha_api.texts.texts_utils import TextUtils
+from pecha_api.texts.texts_openpecha_service import get_texts_by_edition_or_text_ids
 from pecha_api.uploads.S3_utils import generate_presigned_access_url
 
 from pecha_api.group_recitation_collection.models import (
@@ -76,12 +75,12 @@ def _validate_group_exists(db: Session, group_id: UUID) -> None:
 async def _build_items_dto(
     items: List[GroupRecitationCollectionItem],
 ) -> List[GroupRecitationCollectionItemDTO]:
-    """Build item DTOs with text metadata from MongoDB."""
+    """Build item DTOs with text metadata fetched from OpenPecha."""
     if not items:
         return []
 
     text_ids_str = [str(item.text_id) for item in items]
-    texts_dict = await get_texts_by_ids(text_ids=text_ids_str)
+    texts_dict = await get_texts_by_edition_or_text_ids(text_ids_str)
 
     items_dto = []
     for item in items:
@@ -94,7 +93,7 @@ async def _build_items_dto(
                     text_id=item.text_id,
                     title=text.title,
                     language=text.language,
-                    type=text.type,
+                    type=None,
                     display_order=item.display_order,
                 )
             )
@@ -302,7 +301,7 @@ async def cms_add_items_service(
     token: str,
     group_id: UUID,
     collection_id: UUID,
-    text_ids: List[UUID],
+    text_ids: List[str],
 ) -> AddGroupRecitationCollectionItemsResponse:
     """Add items to a collection."""
     author = validate_and_extract_author_details(token=token)
@@ -322,9 +321,6 @@ async def cms_add_items_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=NOT_FOUND,
             )
-
-        for text_id in text_ids:
-            await TextUtils.validate_text_exists(text_id=str(text_id))
 
         max_order = get_max_display_order(db=db, collection_id=collection_id)
 

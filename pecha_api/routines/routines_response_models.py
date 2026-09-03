@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field, model_serializer, model_validator
-from typing import Optional, List, Self
+from pydantic import BaseModel, Field, field_validator, model_serializer, model_validator
+from typing import Any, Optional, List, Self
 from uuid import UUID
 from datetime import datetime
 
@@ -9,7 +9,8 @@ from .routines_enums import SessionType
 
 class SessionRequest(BaseModel):
     session_type: SessionType
-    source_id: Optional[UUID] = None
+    # str, not UUID: RECITATION sessions can hold a non-UUID pecha-style text id.
+    source_id: Optional[str] = None
     accumulator_id: Optional[UUID] = Field(
         None,
         description="Preset accumulator id from GET /accumulators/presets (stored as source_id)",
@@ -17,13 +18,29 @@ class SessionRequest(BaseModel):
     duration_ms: Optional[int] = None
     display_order: int
 
+    @field_validator("source_id", mode="before")
+    @classmethod
+    def _stringify_source_id(cls, value: Any) -> Any:
+        return str(value) if isinstance(value, UUID) else value
+
     @model_validator(mode="after")
     def resolve_accumulator_fields(self) -> Self:
         if self.session_type == SessionType.ACCUMULATOR:
             if self.accumulator_id is not None and self.source_id is None:
-                self.source_id = self.accumulator_id
+                self.source_id = str(self.accumulator_id)
             elif self.source_id is not None and self.accumulator_id is None:
-                self.accumulator_id = self.source_id
+                self.accumulator_id = UUID(self.source_id)
+        return self
+
+    @model_validator(mode="after")
+    def validate_source_id_format(self) -> Self:
+        if self.source_id is not None and self.session_type != SessionType.RECITATION:
+            try:
+                UUID(self.source_id)
+            except ValueError as exc:
+                raise ValueError(
+                    f"source_id must be a valid UUID for session_type {self.session_type}"
+                ) from exc
         return self
 
 

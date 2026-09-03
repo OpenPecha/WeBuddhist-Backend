@@ -33,7 +33,7 @@ VALIDATE_AUTHOR_PATH = "pecha_api.plans.media.media_services.validate_and_extrac
 UUID_PATH = "pecha_api.plans.media.media_services.uuid.uuid4"
 GET_CONFIG_PATH = "pecha_api.plans.media.media_services.get"
 GET_INT_CONFIG_PATH = "pecha_api.plans.media.media_services.get_int"
-TEXT_GET_PATH = "pecha_api.plans.media.media_services.Text.get_text"
+TEXT_GET_PATH = "pecha_api.plans.media.media_services.get_text_by_id_from_openpecha"
 CREATE_TEXT_IMAGE_PATH = "pecha_api.plans.media.media_services.create_text_image"
 SESSION_LOCAL_PATH = "pecha_api.plans.media.media_services.SessionLocal"
 
@@ -618,7 +618,9 @@ class TestTextImageUploadValidation:
     async def test_text_not_found_raises(self, mock_upload_file):
         with patch(TEXT_GET_PATH, new_callable=AsyncMock) as mock_get_text, \
              patch(VALIDATE_AUTHOR_PATH):
-            mock_get_text.return_value = None
+            mock_get_text.side_effect = HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Text not found."
+            )
 
             from pecha_api.plans.media.media_services import upload_text_image
             with pytest.raises(HTTPException) as exc_info:

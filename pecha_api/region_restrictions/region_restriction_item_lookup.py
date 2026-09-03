@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
@@ -89,8 +90,12 @@ def resolve_titles_for_rows(
     db: Session,
     *,
     item_type: RestrictedItemType,
-    item_ids: Sequence[UUID],
-) -> Dict[UUID, str]:
+    item_ids: Sequence[str],
+) -> Dict[str, str]:
+    # item_id is a plain string column now (it also holds non-UUID OpenPecha
+    # text ids for RECITATION), so every branch below keys its result by
+    # str(id) to match, even though the underlying entities still use native
+    # UUID primary keys.
     ids = list({item_id for item_id in item_ids if item_id is not None})
     if not ids:
         return {}
@@ -101,7 +106,7 @@ def resolve_titles_for_rows(
             .filter(Plan.id.in_(ids), Plan.deleted_at.is_(None))
             .all()
         )
-        return {row.id: row.title for row in rows if row.title}
+        return {str(row.id): row.title for row in rows if row.title}
 
     if item_type == RestrictedItemType.SERIES:
         series_rows = (
@@ -111,7 +116,7 @@ def resolve_titles_for_rows(
             .all()
         )
         return {
-            series.id: title
+            str(series.id): title
             for series in series_rows
             if (title := _pick_metadata_text(series.metadata_entries or []))
         }
@@ -124,7 +129,7 @@ def resolve_titles_for_rows(
             .all()
         )
         return {
-            group.id: title
+            str(group.id): title
             for group in groups
             if (title := _pick_metadata_text(group.metadata_entries or []))
         }
@@ -137,7 +142,7 @@ def resolve_titles_for_rows(
             .all()
         )
         return {
-            mantra.id: title
+            str(mantra.id): title
             for mantra in mantras
             if (title := _mantra_display_title(mantra))
         }
@@ -154,7 +159,7 @@ def resolve_titles_for_rows(
         ]
         mantras_by_id = get_mantras_by_ids(db, mantra_ids)
         return {
-            acc.id: title
+            str(acc.id): title
             for acc in accumulators
             if (title := _accumulator_display_title(acc, mantras_by_id))
         }
@@ -169,7 +174,7 @@ def resolve_titles_for_rows(
             .all()
         )
         return {
-            row.id: row.title.strip()
+            str(row.id): row.title.strip()
             for row in rows
             if row.title and row.title.strip()
         }
@@ -180,7 +185,7 @@ def resolve_titles_for_rows(
             .filter(RecitationCollection.id.in_(ids))
             .all()
         )
-        return {row.id: row.name for row in rows if row.name}
+        return {str(row.id): row.name for row in rows if row.name}
 
     if item_type == RestrictedItemType.RECITATION:
         return _resolve_recitation_titles(item_ids=ids)
@@ -188,20 +193,26 @@ def resolve_titles_for_rows(
     return {}
 
 
-def _get_ordered_recitations_response(**kwargs):
-    from pecha_api.recitations.order.recitation_order_loader import (
-        get_ordered_recitations_response,
+def _fetch_recitations_sync(
+    *, language: str, search: Optional[str], skip: int, limit: int
+) -> Tuple[list, int]:
+    from pecha_api.recitations.recitations_services import (
+        _fetch_recitation_texts_from_openpecha,
     )
 
-    return get_ordered_recitations_response(**kwargs)
+    return asyncio.run(
+        _fetch_recitation_texts_from_openpecha(
+            language=language, search=search, skip=skip, limit=limit
+        )
+    )
 
 
-def _resolve_recitation_titles(*, item_ids: Sequence[UUID]) -> Dict[UUID, str]:
-    wanted = set(item_ids)
-    found: Dict[UUID, str] = {}
+def _resolve_recitation_titles(*, item_ids: Sequence[str]) -> Dict[str, str]:
+    wanted = {str(item_id) for item_id in item_ids}
+    found: Dict[str, str] = {}
     for language in ("en", "bo"):
         try:
-            response = _get_ordered_recitations_response(
+            recitations, _ = _fetch_recitations_sync(
                 language=language,
                 search=None,
                 skip=0,
@@ -209,15 +220,8 @@ def _resolve_recitation_titles(*, item_ids: Sequence[UUID]) -> Dict[UUID, str]:
             )
         except (OSError, ValueError, TypeError, KeyError, AttributeError, HTTPException):
             continue
-        for recitation in response.recitations:
-            try:
-                text_id = (
-                    recitation.text_id
-                    if isinstance(recitation.text_id, UUID)
-                    else UUID(str(recitation.text_id))
-                )
-            except (TypeError, ValueError):
-                continue
+        for recitation in recitations:
+            text_id = str(recitation.text_id)
             if text_id in wanted and text_id not in found and recitation.title:
                 found[text_id] = recitation.title.strip()
         if len(found) == len(wanted):
@@ -263,7 +267,7 @@ def _search_plans(
     total = query.count()
     rows = query.order_by(Plan.created_at.desc()).offset(skip).limit(limit).all()
     return [
-        ChinaRestrictionCandidateDTO(id=row.id, title=row.title or "Untitled plan")
+        ChinaRestrictionCandidateDTO(id=str(row.id), title=row.title or "Untitled plan")
         for row in rows
     ], total
 
@@ -293,7 +297,7 @@ def _search_series(
     rows = query.order_by(Series.created_at.desc()).offset(skip).limit(limit).all()
     return [
         ChinaRestrictionCandidateDTO(
-            id=row.id,
+            id=str(row.id),
             title=_pick_metadata_text(row.metadata_entries or []) or "Untitled series",
         )
         for row in rows
@@ -327,7 +331,7 @@ def _search_groups(
     )
     return [
         ChinaRestrictionCandidateDTO(
-            id=row.id,
+            id=str(row.id),
             title=_pick_metadata_text(row.metadata_entries or []) or "Untitled group",
             subtitle=row.slug,
         )
@@ -357,7 +361,7 @@ def _search_mantras(
     rows = query.order_by(Mantra.created_at.desc()).offset(skip).limit(limit).all()
     return [
         ChinaRestrictionCandidateDTO(
-            id=row.id,
+            id=str(row.id),
             title=_mantra_display_title(row) or "Untitled mantra",
         )
         for row in rows
@@ -401,7 +405,7 @@ def _search_accumulators(
     mantras_by_id = get_mantras_by_ids(db, mantra_ids)
     return [
         ChinaRestrictionCandidateDTO(
-            id=row.id,
+            id=str(row.id),
             title=_accumulator_display_title(row, mantras_by_id) or "Untitled preset",
         )
         for row in rows
@@ -423,7 +427,7 @@ def _search_group_accumulators(
     )
     return [
         ChinaRestrictionCandidateDTO(
-            id=row.id,
+            id=str(row.id),
             title=(row.title.strip() if row.title and row.title.strip() else "Untitled group accumulator"),
         )
         for row in rows
@@ -444,7 +448,7 @@ def _search_recitation_collections(
         .all()
     )
     return [
-        ChinaRestrictionCandidateDTO(id=row.id, title=row.name or "Untitled collection")
+        ChinaRestrictionCandidateDTO(id=str(row.id), title=row.name or "Untitled collection")
         for row in rows
     ], total
 
@@ -453,7 +457,7 @@ def _search_recitations(
     *, term: Optional[str], skip: int, limit: int
 ) -> Tuple[List[ChinaRestrictionCandidateDTO], int]:
     try:
-        response = _get_ordered_recitations_response(
+        recitations, total = _fetch_recitations_sync(
             language="en",
             search=term,
             skip=skip,
@@ -462,20 +466,11 @@ def _search_recitations(
     except (OSError, ValueError, TypeError, KeyError, AttributeError, HTTPException):
         return [], 0
 
-    items: List[ChinaRestrictionCandidateDTO] = []
-    for recitation in response.recitations:
-        try:
-            text_id = (
-                recitation.text_id
-                if isinstance(recitation.text_id, UUID)
-                else UUID(str(recitation.text_id))
-            )
-        except (TypeError, ValueError):
-            continue
-        items.append(
-            ChinaRestrictionCandidateDTO(
-                id=text_id,
-                title=recitation.title or "Untitled recitation",
-            )
+    items: List[ChinaRestrictionCandidateDTO] = [
+        ChinaRestrictionCandidateDTO(
+            id=str(recitation.text_id),
+            title=recitation.title or "Untitled recitation",
         )
-    return items, response.total
+        for recitation in recitations
+    ]
+    return items, total

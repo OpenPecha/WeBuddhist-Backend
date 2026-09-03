@@ -43,7 +43,7 @@ DEFAULTS = dict(
     FFMPEG_BINARY="ffmpeg",
     FFPROBE_BINARY="ffprobe",
     ALLOWED_OTR_EXTENSIONS = {'.otr', '.json'},
-    MONGO_CONNECTION_STRING="mongodb://admin:pechaAdmin@localhost:27017/pecha?authSource=admin",
+    MONGO_CONNECTION_STRING="",
 
     WEBUDDHIST_STUDIO_BASE_URL="https://studio.webuddhist.com",
     MONGO_DATABASE_NAME="webuddhist",
@@ -62,7 +62,6 @@ DEFAULTS = dict(
     CACHE_TEXT_TIMEOUT=1800,        # 30 minutes for texts (not frequently changed)
     CACHE_COLLECTION_TIMEOUT=1800,  # 30 minutes for collections (not frequently changed)
     CACHE_USER_TIMEOUT=900,         # 15 minutes for users (not frequently changed)
-    CACHE_TOPIC_TIMEOUT=1800,       # 30 minutes for topics (not frequently changed)
     CACHE_SHEET_TIMEOUT=60,         # 1 minute for sheets (frequently edited by users)
     CACHE_USER_STATS_TIMEOUT=300,   # 5 minutes for user stats
     CACHE_CALENDAR_TIMEOUT=2592000, # 30 days; source calendar files are immutable
@@ -89,14 +88,13 @@ DEFAULTS = dict(
 
     ### text uploader script configuration
     APPLICATION = "webuddhist",
-    ACCESS_TOKEN="",
-    COLLECTION_LANGUAGES = ["bo", "en", "zh"],
 
     #pecha api configuration
     EXTERNAL_PECHA_API_URL="",
-    EXTERNAL_DEV_PECHA_API_URL="",
-    EXTERNAL_OPENPECHA_API_KEY="",
+    EXTERNAL_DEV_PECHA_API_URL="https://library.webuddhist.com/",
+    EXTERNAL_OPENPECHA_API_KEY="https://library.webuddhist.com/",
     EXTERNAL_PECHA_APP_NAME="webuddhist",
+    RECITATION_CATEGORY_ID="LCorCb2K98p3TICt3UCDm",
 
     EXTERNAL_TITLE_SEARCH_API_URL="",
 
@@ -159,6 +157,13 @@ DEFAULTS = dict(
     EVENT_NOTIFICATION_DISPATCH_RECONCILE_INTERVAL_SECONDS=60,
     EVENT_NOTIFICATION_DISPATCH_RECONCILE_BATCH_SIZE=50,
     EVENT_NOTIFICATION_PREVIEW_MAX_LENGTH=120,
+    EVENT_REMINDER_MINUTES_BEFORE=10,
+    EVENT_REMINDER_DISPATCH_INTERVAL_SECONDS=60,
+    EVENT_REMINDER_DISPATCH_BATCH_SIZE=100,
+    EVENT_REMINDER_DISPATCH_RECONCILE_GRACE_SECONDS=120,
+    EVENT_REMINDER_DISPATCH_RECONCILE_INTERVAL_SECONDS=60,
+    EVENT_REMINDER_DISPATCH_RECONCILE_BATCH_SIZE=50,
+    DEFAULT_EVENT_TIMEZONE="Asia/Kolkata",
 
     # Sentry error tracking (disabled unless SENTRY_DSN is set)
     SENTRY_DSN="",

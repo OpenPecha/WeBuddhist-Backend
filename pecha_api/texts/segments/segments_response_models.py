@@ -173,9 +173,50 @@ class V2SegmentTranslationsResponse(BaseModel):
     has_more: bool = False
 
 
+class V2SegmentRootTextResponse(BaseModel):
+    parent_segment: ParentSegment
+    root_text: List[V2SegmentTextGroup]
+    skip: int
+    limit: int
+    has_more: bool = False
+
+
 class V2SegmentCommentariesResponse(BaseModel):
     parent_segment: ParentSegment
     commentaries: List[V2SegmentTextGroup]
     skip: int
     limit: int
     has_more: bool = False
+
+
+class V2SegmentTextDetail(BaseModel):
+    text_id: str
+    title: str
+    language: Optional[str] = None
+
+
+class V2SegmentResponse(BaseModel):
+    segment_id: str
+    content: str
+    text: Optional[V2SegmentTextDetail] = None
+
+
+class SegmentRelatedText(BaseModel):
+    commentaries: int
+    root_text: int
+
+
+class SegmentResources(BaseModel):
+    sheets: int
+
+
+class V2SegmentInfo(BaseModel):
+    segment_id: str
+    text_id: str
+    translations: int
+    related_text: SegmentRelatedText
+    resources: SegmentResources
+
+
+class V2SegmentInfoResponse(BaseModel):
+    segment_info: V2SegmentInfo
