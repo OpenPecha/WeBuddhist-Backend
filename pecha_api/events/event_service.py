@@ -43,7 +43,13 @@ from .event_response_models import (
     RecurrenceDTO,
     _validate_date_range,
 )
-from .recurrence_service import compute_initial_dates, resolve_next_occurrence, resolve_current_or_next_occurrence, expand_occurrences
+from .recurrence_service import (
+    compute_initial_dates,
+    resolve_next_occurrence,
+    resolve_current_or_next_occurrence,
+    expand_occurrences,
+    combine_date_with_time_of_day,
+)
 from .notification_dispatch_service import enqueue_event_notification
 from .event_repository import (
     save_event,
@@ -358,12 +364,15 @@ def get_events_service(
         for template in recurring_templates:
             occurrences = expand_occurrences(template, from_date_obj, to_date_obj)
             for start_d, end_d in occurrences:
-                # Create a copy-like structure with occurrence dates
+                # Carry the template's own time-of-day onto each occurrence,
+                # instead of defaulting to midnight / end-of-day.
+                occurrence_start = combine_date_with_time_of_day(start_d, template.start_date)
+                occurrence_end = combine_date_with_time_of_day(end_d, template.end_date)
                 expanded_occurrences.append({
                     'event': template,
-                    'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
-                    'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
-                    'occurrence_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                    'start_date': occurrence_start,
+                    'end_date': occurrence_end,
+                    'occurrence_date': occurrence_start,
                 })
         
         # Merge one-shot events and expanded occurrences
@@ -549,6 +558,12 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
 
     if request.recurrence:
         start_date, end_date = compute_initial_dates(request.recurrence)
+        # The recurrence rule only pins a day/month; the time-of-day rides
+        # along on start_date/end_date if the client sent them.
+        if request.start_date is not None:
+            start_date = combine_date_with_time_of_day(start_date.date(), request.start_date)
+        if request.end_date is not None:
+            end_date = combine_date_with_time_of_day(end_date.date(), request.end_date)
         is_recurring = True
         recurrence_frequency = request.recurrence.frequency.value
         recurrence_date_system = request.recurrence.date_system.value
@@ -622,6 +637,12 @@ def update_event_service(token: str, event_id: UUID, request: UpdateEventRequest
 
         if request.recurrence is not None:
             start_date, end_date = compute_initial_dates(request.recurrence)
+            # The recurrence rule only pins a day/month; the time-of-day
+            # rides along on start_date/end_date if the client sent them.
+            if request.start_date is not None:
+                start_date = combine_date_with_time_of_day(start_date.date(), request.start_date)
+            if request.end_date is not None:
+                end_date = combine_date_with_time_of_day(end_date.date(), request.end_date)
             event.start_date = start_date
             event.end_date = end_date
             event.is_recurring = True
@@ -709,11 +730,15 @@ def get_featured_events_service(
             result = resolve_current_or_next_occurrence(template, after=today)
             if result:
                 start_d, end_d, is_active = result
+                # Carry the template's own time-of-day onto the occurrence,
+                # instead of defaulting to midnight / end-of-day.
+                occurrence_start = combine_date_with_time_of_day(start_d, template.start_date)
+                occurrence_end = combine_date_with_time_of_day(end_d, template.end_date)
                 expanded_occurrences.append({
                     'event': template,
-                    'start_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
-                    'end_date': datetime(end_d.year, end_d.month, end_d.day, 23, 59, 59, tzinfo=timezone.utc),
-                    'occurrence_date': datetime(start_d.year, start_d.month, start_d.day, tzinfo=timezone.utc),
+                    'start_date': occurrence_start,
+                    'end_date': occurrence_end,
+                    'occurrence_date': occurrence_start,
                     'is_active': is_active,
                 })
         
