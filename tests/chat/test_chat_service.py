@@ -1,5 +1,6 @@
+import asyncio
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import AsyncMock, patch, MagicMock
 from uuid import uuid4
 from datetime import datetime, timezone as tz
 from fastapi import HTTPException
@@ -21,6 +22,7 @@ from pecha_api.chat.service import (
     list_group_people_service,
     list_my_rooms_service,
     mark_room_read_service,
+    close_group_chat_sockets,
     resolve_or_create_group_room,
     resolve_or_create_private_room,
     update_room_profile_service,
@@ -28,10 +30,12 @@ from pecha_api.chat.service import (
 
 
 class MockUser:
-    def __init__(self, user_id=None, email="user@example.com", firstname="Alice"):
+    def __init__(self, user_id=None, email="user@example.com", firstname="Alice", lastname=None, avatar_url=None):
         self.id = user_id or uuid4()
         self.email = email
         self.firstname = firstname
+        self.lastname = lastname
+        self.avatar_url = avatar_url
 
 
 class MockMessage:
@@ -51,6 +55,8 @@ class MockGroup:
         self.avatar_key = avatar_key
         self.metadata_entries = metadata_entries or []
         self.slug = slug
+        # Published by default; these cases test is_public on live groups.
+        self.status = "PUBLISHED"
 
 
 class TestBuildMessageDTO:
@@ -61,6 +67,25 @@ class TestBuildMessageDTO:
         dto = build_message_dto(message)
 
         assert dto.sender_email == "unknown@example.com"
+
+    @patch('pecha_api.chat.service.generate_presigned_access_url')
+    def test_sender_avatar_url_is_presigned(self, mock_presign):
+        mock_presign.return_value = "https://s3.example.com/signed?sig=abc"
+        sender = MockUser(avatar_url="avatars/user-123.png")
+        message = MockMessage(sender=sender)
+
+        dto = build_message_dto(message)
+
+        assert mock_presign.call_args.kwargs["s3_key"] == "avatars/user-123.png"
+        assert dto.sender_avatar_url == "https://s3.example.com/signed?sig=abc"
+
+    def test_sender_avatar_url_none_when_sender_has_no_avatar(self):
+        sender = MockUser(avatar_url=None)
+        message = MockMessage(sender=sender)
+
+        dto = build_message_dto(message)
+
+        assert dto.sender_avatar_url is None
 
 
 class MockRoom:
@@ -163,9 +188,10 @@ class TestResolveOrCreateGroupRoom:
     @patch('pecha_api.chat.service.is_user_following_group')
     @patch('pecha_api.chat.service.is_user_joined_group')
     @patch('pecha_api.chat.service.get_group_by_id')
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=True)
     @patch('pecha_api.chat.service.get_room_by_group_id')
     def test_creates_room_and_creator_membership_on_first_message(
-        self, mock_get_room, mock_get_group, mock_joined, mock_following,
+        self, mock_get_room, _mock_published, mock_get_group, mock_joined, mock_following,
         mock_create_room, mock_add_member,
     ):
         group_id = uuid4()
@@ -186,8 +212,9 @@ class TestResolveOrCreateGroupRoom:
         assert member_arg.role == "CREATOR"
         assert member_arg.user_id == user.id
 
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=True)
     @patch('pecha_api.chat.service.get_room_by_group_id')
-    def test_reuses_existing_room(self, mock_get_room):
+    def test_reuses_existing_room(self, mock_get_room, _mock_published):
         existing_room = MagicMock()
         mock_get_room.return_value = existing_room
 
@@ -195,12 +222,25 @@ class TestResolveOrCreateGroupRoom:
 
         assert result is existing_room
 
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=False)
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    def test_existing_room_rejected_when_group_hidden(self, mock_get_room, _mock_published):
+        """A room created while the group was live must stop serving once the
+        group is hidden, so members cannot keep messaging through it."""
+        mock_get_room.return_value = MagicMock()
+
+        with pytest.raises(HTTPException) as exc_info:
+            resolve_or_create_group_room(db=MagicMock(), group_id=uuid4(), user=MockUser())
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
     @patch('pecha_api.chat.service.is_user_following_group')
     @patch('pecha_api.chat.service.is_user_joined_group')
     @patch('pecha_api.chat.service.get_group_by_id')
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=True)
     @patch('pecha_api.chat.service.get_room_by_group_id')
     def test_ineligible_user_forbidden(
-        self, mock_get_room, mock_get_group, mock_joined, mock_following
+        self, mock_get_room, _mock_published, mock_get_group, mock_joined, mock_following
     ):
         mock_get_room.return_value = None
         mock_get_group.return_value = MockGroup()
@@ -438,3 +478,99 @@ class TestRoomServices:
         mark_room_read_service(room_id=uuid4(), user=MockUser())
 
         mock_mark.assert_called_once_with(db=mock_session.return_value.__enter__.return_value, member=member)
+
+
+class TestGroupRoomStatusLocking:
+
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=True)
+    def test_lock_group_requests_row_lock(self, mock_published, mock_get_room):
+        """The message-send path locks the group row so a concurrent hide
+        cannot land between the status check and the commit."""
+        mock_get_room.return_value = MagicMock()
+
+        resolve_or_create_group_room(
+            db=MagicMock(), group_id=uuid4(), user=MockUser(), lock_group=True
+        )
+
+        assert mock_published.call_args.kwargs["for_update"] is True
+
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=True)
+    def test_read_only_path_does_not_lock(self, mock_published, mock_get_room):
+        mock_get_room.return_value = MagicMock()
+
+        resolve_or_create_group_room(db=MagicMock(), group_id=uuid4(), user=MockUser())
+
+        assert mock_published.call_args.kwargs["for_update"] is False
+
+
+class TestRoomIdRoutesRespectGroupStatus:
+
+    @patch('pecha_api.chat.service.is_group_id_published', return_value=False)
+    @patch('pecha_api.chat.service.get_room_by_id')
+    def test_group_room_404s_when_group_hidden(self, mock_get_room, _mock_published):
+        """Every room-id route resolves through _get_room_or_404, so detail,
+        history, reactions, reports and member ops close together."""
+        mock_get_room.return_value = MagicMock(group_id=uuid4())
+
+        with pytest.raises(HTTPException) as exc_info:
+            _get_room_or_404(db=MagicMock(), room_id=uuid4())
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.chat.service.is_group_id_published')
+    @patch('pecha_api.chat.service.get_room_by_id')
+    def test_dm_room_skips_the_group_check(self, mock_get_room, mock_published):
+        """DM rooms have no group_id and must never consult group status."""
+        room = MagicMock(group_id=None)
+        mock_get_room.return_value = room
+
+        assert _get_room_or_404(db=MagicMock(), room_id=uuid4()) is room
+        mock_published.assert_not_called()
+
+
+class TestCloseGroupChatSockets:
+
+    @patch('pecha_api.chat.chat_websocket.get_broadcaster')
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    @patch('pecha_api.chat.service.SessionLocal')
+    def test_publishes_room_closed_for_the_groups_room(
+        self, mock_session, mock_get_room, mock_get_broadcaster
+    ):
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        room = MagicMock(id=uuid4())
+        mock_get_room.return_value = room
+        broadcaster = AsyncMock()
+        mock_get_broadcaster.return_value = broadcaster
+
+        asyncio.run(close_group_chat_sockets(group_id=uuid4()))
+
+        broadcaster.broadcast_room_closed.assert_awaited_once()
+        assert broadcaster.broadcast_room_closed.await_args.kwargs["room_id"] == room.id
+
+    @patch('pecha_api.chat.chat_websocket.get_broadcaster')
+    @patch('pecha_api.chat.service.get_room_by_group_id', return_value=None)
+    @patch('pecha_api.chat.service.SessionLocal')
+    def test_no_room_means_nothing_to_close(
+        self, mock_session, _mock_get_room, mock_get_broadcaster
+    ):
+        mock_session.return_value.__enter__.return_value = MagicMock()
+
+        asyncio.run(close_group_chat_sockets(group_id=uuid4()))
+
+        mock_get_broadcaster.assert_not_called()
+
+    @patch('pecha_api.chat.chat_websocket.get_broadcaster')
+    @patch('pecha_api.chat.service.get_room_by_group_id')
+    @patch('pecha_api.chat.service.SessionLocal')
+    def test_broadcast_failure_never_fails_the_hide(
+        self, mock_session, mock_get_room, mock_get_broadcaster
+    ):
+        """The room is already gated at the request layer, so a Redis outage
+        must not stop a coordinator hiding their group."""
+        mock_session.return_value.__enter__.return_value = MagicMock()
+        mock_get_room.return_value = MagicMock(id=uuid4())
+        mock_get_broadcaster.side_effect = RuntimeError("redis down")
+
+        asyncio.run(close_group_chat_sockets(group_id=uuid4()))

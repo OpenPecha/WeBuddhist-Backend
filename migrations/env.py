@@ -38,6 +38,7 @@ from pecha_api.events.event_model import Event
 from pecha_api.events.event_metadata_model import EventMetadata
 from pecha_api.events.event_participant_model import GroupEventParticipant
 from pecha_api.events.event_link_model import EventLink
+from pecha_api.events.event_reminder_model import EventReminder
 from pecha_api.events.location_model import Location
 from pecha_api.group_posts.models import GroupPost, GroupPostMedia, GroupPostLink
 from pecha_api.group_posts.comment_models import GroupPostComment

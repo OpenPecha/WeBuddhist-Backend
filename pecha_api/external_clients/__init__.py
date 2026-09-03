@@ -26,6 +26,7 @@ def get_open_pecha_client() -> Client:
     return Client(
         base_url=_resolve_pecha_base_url(),
         raise_on_unexpected_status=True,
+        follow_redirects=True,
     )
 
 
@@ -55,4 +56,5 @@ def get_authenticated_open_pecha_client() -> AuthenticatedClient:
         auth_header_name="X-API-Key",
         raise_on_unexpected_status=True,
         headers={"X-Application": app_name},
+        follow_redirects=True,
     )

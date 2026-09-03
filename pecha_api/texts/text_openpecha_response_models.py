@@ -4,6 +4,8 @@ from typing import List, Optional, Union
 
 from pydantic import BaseModel
 
+from pecha_api.texts.texts_enums import PaginationDirection
+
 
 class TextDetailRequest(BaseModel):
     offset: int = 0
@@ -72,6 +74,11 @@ class EditionContentResponse(BaseModel):
     content: str
 
 
+class EditionAlignmentPairModel(BaseModel):
+    source_segment_id: str
+    target_segment_id: str
+
+
 class SegmentContentModel(BaseModel):
     segment_number: int
     id: str
@@ -82,4 +89,80 @@ class SegmentContentResponse(BaseModel):
     has_more: bool
     offset: int
     limit: int
+
+
+# ============================================================================
+# Request/Response Models for /{text_id}/details endpoint
+# ============================================================================
+
+class TextDetailsRequest(BaseModel):
+    segment_id: Optional[str] = None
+    size: int = 20
+    direction: PaginationDirection = PaginationDirection.NEXT
+    start: Optional[int] = None
+    end: Optional[int] = None
+    version_id: Optional[str] = None
+
+
+class SegmentTranslationDTO(BaseModel):
+    text_id: str
+    language: str
+    content: str
+
+
+class SegmentDTO(BaseModel):
+    segment_id: str
+    segment_number: int
+    content: str
+    translation: Optional[SegmentTranslationDTO] = None
+
+
+class SectionDTO(BaseModel):
+    id: str
+    title: str
+    section_number: int
+    parent_id: Optional[str] = None
+    segments: List[SegmentDTO] = []
+    sections: List["SectionDTO"] = []
+    created_date: Optional[str] = None
+    updated_date: Optional[str] = None
+    published_date: Optional[str] = None
+
+
+class ContentDTO(BaseModel):
+    id: str
+    text_id: str
+    sections: List[SectionDTO] = []
+
+
+class TextDetailDTO(BaseModel):
+    id: str
+    pecha_text_id: str
+    title: str
+    language: str
+    group_id: str
+    type: str
+    summary: str
+    is_published: bool
+    created_date: str
+    updated_date: str
+    published_date: str
+    published_by: str
+    categories: List[str] = []
+    views: int
+    likes: List[str] = []
+    source_link: Optional[str] = None
+    ranking: Optional[int] = None
+    license: Optional[str] = None
+
+
+class TextDetailWithContentResponse(BaseModel):
+    text_detail: TextDetailDTO
+    content: ContentDTO
+    size: int
+    pagination_direction: str
+    current_segment_position: int
+    total_segments: int
+    has_more_up: bool = False
+    has_more_down: bool = False
 

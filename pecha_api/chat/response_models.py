@@ -11,6 +11,8 @@ class ChatMessageParentDTO(BaseModel):
     id: UUID
     sender_id: UUID
     sender_email: str
+    sender_name: str
+    sender_avatar_url: Optional[str] = None
     body: str
     created_at: str
 
@@ -41,6 +43,8 @@ class ChatMessageDTO(BaseModel):
     room_id: UUID
     sender_id: UUID
     sender_email: str
+    sender_name: str
+    sender_avatar_url: Optional[str] = None
     body: str
     created_at: str
     parent: Optional[ChatMessageParentDTO] = None

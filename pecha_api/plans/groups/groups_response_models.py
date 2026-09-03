@@ -9,6 +9,7 @@ from pecha_api.plans.groups.groups_enums import (
     AuthorGroupInviteStatus,
     AuthorGroupJoinRequestStatus,
     AuthorGroupMemberRole,
+    AuthorGroupStatus,
     AuthorGroupType,
 )
 from pecha_api.plans.groups.group_summary_models import (
@@ -39,6 +40,7 @@ __all__ = [
     "AuthorGroupListResponse",
     "CreateAuthorGroupRequest",
     "UpdateAuthorGroupRequest",
+    "UpdateAuthorGroupStatusRequest",
     "ReplaceGroupTagsRequest",
     "GroupSeriesListItemDTO",
     "ReplaceGroupSeriesRequest",
@@ -101,6 +103,7 @@ class AuthorGroupDetailDTO(BaseModel):
     slug: str
     group_type: AuthorGroupType
     is_public: bool
+    status: AuthorGroupStatus = AuthorGroupStatus.DRAFT
     avatar_key: Optional[str] = None
     banner_key: Optional[str] = None
     avatar_url: Optional[str] = None
@@ -194,6 +197,13 @@ class UpdateAuthorGroupRequest(BaseModel):
     avatar_key: Optional[str] = None
     banner_key: Optional[str] = None
     metadata: Optional[List[GroupMetadataInput]] = None
+
+
+class UpdateAuthorGroupStatusRequest(BaseModel):
+    """Separate from UpdateAuthorGroupRequest so a settings edit can never
+    publish or hide a group."""
+
+    status: AuthorGroupStatus
 
 
 class ReplaceGroupTagsRequest(BaseModel):

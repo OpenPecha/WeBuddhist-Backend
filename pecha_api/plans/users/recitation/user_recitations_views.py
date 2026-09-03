@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 from starlette import status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated
-from uuid import UUID
 
 from pecha_api.plans.users.recitation.user_recitations_response_models import (
     CreateUserRecitationRequest,
@@ -60,7 +59,7 @@ async def update_recitation_order(
 
 @user_recitation_router.delete("/recitations/{text_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user_recitation(
-    text_id: UUID,
+    text_id: str,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
     return await delete_user_recitation_service(

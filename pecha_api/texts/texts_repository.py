@@ -46,9 +46,14 @@ async def get_texts_by_id(text_id: str) -> Text | None:
         return None
 
 async def get_texts_by_ids(text_ids: List[str]) -> Dict[str, TextDTO]:
-    list_of_texts_detail = await Text.get_texts_by_ids(text_ids=text_ids)
-    return {
-        str(text.id): TextDTO(
+    try:
+        list_of_texts_detail = await Text.get_texts_by_ids(text_ids=text_ids)
+    except CollectionWasNotInitialized as e:
+        logging.debug(e)
+        list_of_texts_detail = []
+    result: Dict[str, TextDTO] = {}
+    for text in list_of_texts_detail:
+        dto = TextDTO(
             id=str(text.id),
             pecha_text_id=str(text.pecha_text_id),
             title=text.title,
@@ -66,8 +71,13 @@ async def get_texts_by_ids(text_ids: List[str]) -> Dict[str, TextDTO]:
             ranking=text.ranking,
             license=text.license
         )
-        for text in list_of_texts_detail
-    }
+        # Callers may have stored either the real Mongo id or the
+        # non-UUID pecha-style edition id; index by both so a lookup
+        # by whichever id was originally stored succeeds.
+        result[str(text.id)] = dto
+        if text.pecha_text_id:
+            result[str(text.pecha_text_id)] = dto
+    return result
 
 async def fetch_sheets_from_db(
     published_by: Optional[str] = None, 

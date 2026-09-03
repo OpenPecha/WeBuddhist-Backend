@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 from fastapi import HTTPException
 from sqlalchemy.exc import IntegrityError
 from starlette import status
@@ -12,7 +15,8 @@ from pecha_api.db.database import SessionLocal
 from pecha_api.users.users_service import validate_and_extract_user_details
 from pecha_api.plans.auth.plan_auth_models import ResponseError
 from pecha_api.plans.response_message import BAD_REQUEST
-from pecha_api.texts.texts_models import Text
+from pecha_api.texts.texts_openpecha_service import get_text_by_id_from_openpecha
+from pecha_api.texts.texts_openpecha_api import fetch_edition_text_id
 from pecha_api.plans.users.plan_users_models import UserPlanProgress
 from pecha_api.plans.users.recitation_collection.recitation_collection_models import (
     RecitationCollection,
@@ -40,9 +44,12 @@ from pecha_api.accumulator.accumulator_service import (
     resolve_accumulator_bookmark_mala_image_url,
 )
 from pecha_api.mantra.mantra_repository import get_mantras_by_ids
-from pecha_api.texts.first_segment_preview_service import (
-    build_first_segment_previews_for_texts,
+from pecha_api.recitations.recitations_services import (
+    build_first_segment_for_edition,
+    get_first_segment_for_text,
 )
+
+logger = logging.getLogger(__name__)
 
 from .routines_models import Routine, RoutineTimeBlock, RoutineSession
 from .routines_enums import SessionType
@@ -292,7 +299,7 @@ def _check_duplicate_collections(db, routine_id: UUID, sessions: List) -> None:
             db=db, routine_id=routine_id, session_type=session_type
         )
         new_collection_ids = [
-            s.source_id for s in sessions if s.session_type == session_type
+            _as_uuid(s.source_id) for s in sessions if s.session_type == session_type
         ]
         overlap = set(new_collection_ids) & set(existing_collection_ids)
         if overlap:
@@ -319,7 +326,7 @@ def _check_duplicate_collections_on_update(
             session_type=session_type,
         )
         new_collection_ids = [
-            s.source_id for s in sessions if s.session_type == session_type
+            _as_uuid(s.source_id) for s in sessions if s.session_type == session_type
         ]
         overlap = set(new_collection_ids) & set(existing_collection_ids)
         if overlap:
@@ -342,16 +349,16 @@ def _check_duplicate_time(db, routine_id: UUID, time: str) -> None:
 
 
 def _extract_plan_ids(sessions: List) -> List[UUID]:
-    return [s.source_id for s in sessions if s.session_type == SessionType.PLAN]
+    return [_as_uuid(s.source_id) for s in sessions if s.session_type == SessionType.PLAN]
 
 
 def _extract_series_ids(sessions: List) -> List[UUID]:
-    return [s.source_id for s in sessions if s.session_type == SessionType.SERIES]
+    return [_as_uuid(s.source_id) for s in sessions if s.session_type == SessionType.SERIES]
 
 
 def _normalize_plan_sessions_to_series(db, sessions: List[SessionRequest]) -> List[SessionRequest]:
     plan_ids = [
-        session.source_id
+        _as_uuid(session.source_id)
         for session in sessions
         if session.session_type == SessionType.PLAN and session.source_id is not None
     ]
@@ -371,12 +378,13 @@ def _normalize_plan_sessions_to_series(db, sessions: List[SessionRequest]) -> Li
     for session in sessions:
         if (
             session.session_type == SessionType.PLAN
-            and session.source_id in plan_series_map
+            and session.source_id is not None
+            and _as_uuid(session.source_id) in plan_series_map
         ):
             normalized.append(
                 SessionRequest(
                     session_type=SessionType.SERIES,
-                    source_id=plan_series_map[session.source_id],
+                    source_id=plan_series_map[_as_uuid(session.source_id)],
                     display_order=session.display_order,
                 )
             )
@@ -632,11 +640,56 @@ def _as_uuid(value) -> UUID:
     return value if isinstance(value, UUID) else UUID(value)
 
 
-def _normalize_text_id(text_id) -> str:
+async def _try_get_openpecha_text(text_id: str):
     try:
-        return str(UUID(str(text_id)))
-    except (ValueError, TypeError):
-        return str(text_id)
+        return await get_text_by_id_from_openpecha(text_id=text_id)
+    except HTTPException:
+        return None
+
+
+async def _try_get_first_segment_for_text(text_id: str):
+    try:
+        return await get_first_segment_for_text(text_id=text_id)
+    except Exception:
+        # A preview is a nice-to-have decoration; don't let a lookup failure
+        # 500 the whole routine listing.
+        logger.warning("Failed to build first segment preview for recitation text %s", text_id, exc_info=True)
+        return None
+
+
+async def _try_resolve_edition_text_id(source_id: str) -> Optional[str]:
+    try:
+        return await fetch_edition_text_id(edition_id=source_id)
+    except Exception:
+        return None
+
+
+async def _try_build_first_segment_for_edition(edition_id: str):
+    try:
+        return await build_first_segment_for_edition(edition_id=edition_id)
+    except Exception:
+        logger.warning("Failed to build first segment preview for recitation edition %s", edition_id, exc_info=True)
+        return None
+
+
+async def _resolve_recitation_text_and_segment(source_id: str):
+    """A RECITATION session's `source_id` is polymorphic: the recitations
+    listing hands out OpenPecha edition ids labeled as `text_id` on the wire
+    (see `_with_edition_id_as_text_id` in recitations_services.py), so it's
+    usually an edition id rather than a plain text id. Try it as an edition
+    id first, mirroring the resolution bookmark_utils.py already uses for
+    chant bookmarks, and fall back to treating it as a text id.
+    """
+    edition_text_id = await _try_resolve_edition_text_id(source_id)
+    if edition_text_id is not None:
+        return await asyncio.gather(
+            _try_get_openpecha_text(edition_text_id),
+            _try_build_first_segment_for_edition(source_id),
+        )
+    return await asyncio.gather(
+        _try_get_openpecha_text(source_id),
+        _try_get_first_segment_for_text(source_id),
+    )
 
 
 async def _resolve_recitation_sessions(
@@ -645,23 +698,42 @@ async def _resolve_recitation_sessions(
     if not recitation_sessions:
         return []
 
-    text_ids = [_normalize_text_id(session.source_id) for session in recitation_sessions]
-    texts = await Text.get_texts_by_ids(text_ids)
-    text_map = {_normalize_text_id(text.id): text for text in texts}
-    previews_by_text_id = await build_first_segment_previews_for_texts(text_ids)
+    text_ids = [str(session.source_id) for session in recitation_sessions]
+    unique_text_ids = list(dict.fromkeys(text_ids))
+    resolved_pairs = await asyncio.gather(
+        *(_resolve_recitation_text_and_segment(text_id) for text_id in unique_text_ids)
+    )
+    text_map = {
+        text_id: text
+        for text_id, (text, _segment) in zip(unique_text_ids, resolved_pairs)
+        if text is not None
+    }
+    previews_by_text_id = {
+        text_id: (segment.id, segment.content)
+        for text_id, (_text, segment) in zip(unique_text_ids, resolved_pairs)
+        if segment is not None
+    }
 
     resolved = []
     for session in recitation_sessions:
-        text_id = _normalize_text_id(session.source_id)
+        text_id = str(session.source_id)
         text = text_map.get(text_id)
         if text is None:
             continue
 
+        # A first-segment preview is a nice-to-have decoration (it depends on
+        # OpenPecha having a critical edition/segmentation for this text); a
+        # recitation session should still show up without one rather than
+        # being dropped entirely.
         preview = previews_by_text_id.get(text_id)
-        if preview is None:
-            continue
+        first_segment = None
+        if preview is not None:
+            first_segment_id, preview_content = preview
+            first_segment = RoutineFirstSegmentDTO(
+                id=first_segment_id,
+                content=preview_content,
+            )
 
-        first_segment_id, preview_content = preview
         resolved.append(
             SessionDTO(
                 id=session.id,
@@ -671,10 +743,7 @@ async def _resolve_recitation_sessions(
                 language=text.language or "en",
                 image=None,
                 display_order=session.display_order,
-                first_segment=RoutineFirstSegmentDTO(
-                    id=first_segment_id,
-                    content=preview_content,
-                ),
+                first_segment=first_segment,
             )
         )
     return resolved

@@ -26,3 +26,15 @@ class EventNotificationTargetsResponse(BaseModel):
     limit: int
     total: int
     has_more: bool
+
+
+class EventReminderTargetsResponse(BaseModel):
+    event_id: UUID
+    reminder_type: str
+    title: str
+    body: str
+    recipients: List[EventNotificationRecipientDTO]
+    skip: int
+    limit: int
+    total: int
+    has_more: bool

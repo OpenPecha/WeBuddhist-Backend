@@ -1583,7 +1583,8 @@ def test_get_user_plan_progress_plan_not_found():
         assert exc_info.value.detail["message"] == ErrorConstants.PLAN_NOT_FOUND
 
 
-def test_get_user_plan_day_details_service_success():
+@pytest.mark.asyncio
+async def test_get_user_plan_day_details_service_success():
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
     day_id = uuid.uuid4()
@@ -1640,7 +1641,7 @@ def test_get_user_plan_day_details_service_success():
         "pecha_api.plans.users.plan_users_service.get_user_subtask_completions_by_user_id_and_sub_task_ids",
         return_value=[SimpleNamespace(sub_task_id=sub1_id)],
     ) as mock_subtask_completions:
-        result = get_user_plan_day_details_service(token="tok", plan_id=plan_id, day_number=3)
+        result = await get_user_plan_day_details_service(token="tok", plan_id=plan_id, day_number=3)
 
         # Top-level day details
         assert result.id == day_id
@@ -1676,7 +1677,8 @@ def test_get_user_plan_day_details_service_success():
         assert set(mock_subtask_completions.call_args.kwargs["sub_task_ids"]) == {sub1_id, sub2_id}
 
 
-def test_get_user_plan_day_details_service_includes_shareable_image_urls():
+@pytest.mark.asyncio
+async def test_get_user_plan_day_details_service_includes_shareable_image_urls():
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
     day_id = uuid.uuid4()
@@ -1722,7 +1724,7 @@ def test_get_user_plan_day_details_service_includes_shareable_image_urls():
             "images/day_shareable/share.webp",
         ),
     ):
-        result = get_user_plan_day_details_service(token="tok", plan_id=plan_id, day_number=1)
+        result = await get_user_plan_day_details_service(token="tok", plan_id=plan_id, day_number=1)
 
         assert result.thumbnail_url == "https://bucket.s3.amazonaws.com/thumb"
         assert result.shareable_image_url == "https://bucket.s3.amazonaws.com/share"
@@ -1795,7 +1797,8 @@ def test_check_all_subtasks_completed_false():
         assert _check_all_subtasks_completed(user_id=user_id, task_id=task_id) is False
 
 
-def test_get_user_plan_day_details_service_image_subtask_presigned():
+@pytest.mark.asyncio
+async def test_get_user_plan_day_details_service_image_subtask_presigned():
     from pecha_api.plans.users.plan_users_service import get_user_plan_day_details_service
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
@@ -1858,7 +1861,7 @@ def test_get_user_plan_day_details_service_image_subtask_presigned():
         "pecha_api.plans.users.plan_users_service.generate_presigned_access_url",
         return_value="https://signed.example.com/subtask-image.png",
     ):
-        result = get_user_plan_day_details_service(token="tok", plan_id=plan_id, day_number=1)
+        result = await get_user_plan_day_details_service(token="tok", plan_id=plan_id, day_number=1)
 
         assert len(result.tasks) == 1
         assert len(result.tasks[0].sub_tasks) == 1
@@ -1867,7 +1870,8 @@ def test_get_user_plan_day_details_service_image_subtask_presigned():
         assert sub.content == "https://signed.example.com/subtask-image.png"
 
 
-def test_get_user_plan_day_details_service_with_segment_fields():
+@pytest.mark.asyncio
+async def test_get_user_plan_day_details_service_with_segment_fields():
     """Test that source_text_id, pecha_segment_id, and segment_ids fields are properly returned"""
     user_id = uuid.uuid4()
     plan_id = uuid.uuid4()
@@ -1927,7 +1931,7 @@ def test_get_user_plan_day_details_service_with_segment_fields():
         "pecha_api.plans.users.plan_users_service.get_user_subtask_completions_by_user_id_and_sub_task_ids",
         return_value=[],
     ):
-        result = get_user_plan_day_details_service(token="tok", plan_id=plan_id, day_number=1)
+        result = await get_user_plan_day_details_service(token="tok", plan_id=plan_id, day_number=1)
 
         assert len(result.tasks) == 1
         assert len(result.tasks[0].sub_tasks) == 1

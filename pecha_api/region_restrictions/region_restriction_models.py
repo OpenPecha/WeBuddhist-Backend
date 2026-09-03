@@ -1,7 +1,7 @@
 import datetime as _datetime
 from uuid import uuid4
 
-from sqlalchemy import Column, DateTime, UniqueConstraint
+from sqlalchemy import Column, DateTime, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 
 from pecha_api.db.database import Base
@@ -20,7 +20,9 @@ class ChinaRestrictedItem(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
     item_type = Column(RestrictedItemTypeEnum, nullable=False)
-    item_id = Column(UUID(as_uuid=True), nullable=False)
+    # Holds both real UUIDs (plans, series, accumulators, etc.) and, for
+    # RECITATION, external OpenPecha-style string text ids stored as text.
+    item_id = Column(String(255), nullable=False)
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: _datetime.datetime.now(_datetime.timezone.utc),

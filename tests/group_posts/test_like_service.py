@@ -17,6 +17,8 @@ class MockGroup:
     def __init__(self, id, is_public=True):
         self.id = id
         self.is_public = is_public
+        # Published by default; these cases test is_public on live groups.
+        self.status = "PUBLISHED"
 
 
 class MockPost:

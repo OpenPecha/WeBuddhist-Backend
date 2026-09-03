@@ -3,7 +3,11 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from pecha_api.plans.groups.groups_enums import AuthorGroupMemberRole, AuthorGroupType
+from pecha_api.plans.groups.groups_enums import (
+    AuthorGroupMemberRole,
+    AuthorGroupStatus,
+    AuthorGroupType,
+)
 from pecha_api.plans.tags.tag_response_models import TagSummaryDTO
 
 
@@ -24,6 +28,7 @@ class AuthorGroupSummaryDTO(BaseModel):
     slug: str
     group_type: AuthorGroupType
     is_public: bool
+    status: AuthorGroupStatus = AuthorGroupStatus.DRAFT
     avatar_key: Optional[str] = None
     banner_key: Optional[str] = None
     avatar_url: Optional[str] = None

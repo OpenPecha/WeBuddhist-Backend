@@ -36,7 +36,7 @@ class GroupAccumulatorDTO(BaseModel):
         None,
         description="ID of the linked preset accumulator, if any",
     )
-    text_id: Optional[UUID] = Field(
+    text_id: Optional[str] = Field(
         None,
         description="Text ID from the linked preset accumulator, if any",
     )
@@ -95,7 +95,7 @@ class GroupAccumulatorDetailDTO(BaseModel):
         None,
         description="ID of the linked preset accumulator, if any",
     )
-    text_id: Optional[UUID] = Field(
+    text_id: Optional[str] = Field(
         None,
         description="Text ID from the linked preset accumulator, if any",
     )

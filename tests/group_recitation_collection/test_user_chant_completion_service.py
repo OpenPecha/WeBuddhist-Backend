@@ -28,6 +28,8 @@ class MockGroup:
     def __init__(self, id=None, is_public=True):
         self.id = id or uuid4()
         self.is_public = is_public
+        # Published by default; these cases test is_public on live groups.
+        self.status = "PUBLISHED"
 
 
 class MockCollection:

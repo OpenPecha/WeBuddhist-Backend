@@ -18,10 +18,12 @@ from pecha_api.plans.groups.groups_enums import (
     AuthorGroupInviteStatus,
     AuthorGroupJoinRequestStatus,
     AuthorGroupMemberRole,
+    AuthorGroupStatus,
     AuthorGroupType,
 )
 from pecha_api.plans.groups.groups_response_models import (
     CreateAuthorGroupRequest,
+    UpdateAuthorGroupStatusRequest,
     CreateGroupInviteRequest,
     CreateGroupJoinRequest,
     GroupMetadataInput,
@@ -75,6 +77,7 @@ from pecha_api.plans.groups.groups_service import (
     list_group_members,
     list_followed_groups,
     list_joined_groups,
+    update_group_status,
     list_public_groups,
     replace_group_social_links_by_id,
     replace_group_tags,
@@ -118,12 +121,19 @@ def _make_author(
     return author
 
 
-def _make_group(is_public=True, slug="test-group", group_type=AuthorGroupType.PAGE):
+def _make_group(
+    is_public=True,
+    slug="test-group",
+    group_type=AuthorGroupType.PAGE,
+    group_status=AuthorGroupStatus.PUBLISHED,
+):
+    # Published by default; pass group_status to cover the draft/hidden paths.
     group = MagicMock()
     group.id = uuid4()
     group.slug = slug
     group.group_type = group_type
     group.is_public = is_public
+    group.status = group_status
     group.avatar_key = None
     group.banner_key = None
     group.metadata_entries = []
@@ -5363,3 +5373,471 @@ def test_group_listing_exposes_join_request_status_per_group():
     by_id = {g.id: g.my_join_request_status for g in result.groups}
     assert by_id[requested.id] == AuthorGroupJoinRequestStatus.PENDING
     assert by_id[untouched.id] is None
+
+
+# --- Group publish/draft status ---
+# status decides whether a group reaches the app; is_public decides how a
+# published group behaves.
+
+
+def test_create_author_group_defaults_to_draft_status():
+    author = _make_author()
+    created = _make_group(group_status=AuthorGroupStatus.DRAFT)
+    created.metadata_entries = []
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_slug", return_value=None,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group", return_value=created,
+    ) as mock_create, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=created,
+    ):
+        _session_local_context(mock_session)
+        result = create_author_group(
+            token="t",
+            request=CreateAuthorGroupRequest(slug="s", metadata=[_metadata_input()]),
+        )
+
+    # Left at the model default, so a new group is never live until published.
+    assert mock_create.call_args.kwargs["group"].status is None
+    assert result.status == AuthorGroupStatus.DRAFT
+
+
+def test_update_group_status_publishes_as_owner():
+    author = _make_author()
+    group = _make_group(group_status=AuthorGroupStatus.DRAFT)
+    group.metadata_entries = []
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=MagicMock(role=AuthorGroupMemberRole.OWNER),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_status",
+    ), patch(
+        "pecha_api.plans.groups.groups_service.update_group",
+    ) as mock_update, patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map", return_value={},
+    ):
+        _session_local_context(mock_session)
+        result = update_group_status(
+            token="t",
+            group_id=group.id,
+            request=UpdateAuthorGroupStatusRequest(status=AuthorGroupStatus.PUBLISHED),
+        )
+
+    assert mock_update.call_args.kwargs["group"].status == AuthorGroupStatus.PUBLISHED
+    assert result.status == AuthorGroupStatus.PUBLISHED
+
+
+def test_update_group_status_allows_admin():
+    author = _make_author()
+    group = _make_group(group_status=AuthorGroupStatus.DRAFT)
+    group.metadata_entries = []
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=MagicMock(role=AuthorGroupMemberRole.ADMIN),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_status",
+    ), patch(
+        "pecha_api.plans.groups.groups_service.update_group",
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map", return_value={},
+    ):
+        _session_local_context(mock_session)
+        result = update_group_status(
+            token="t",
+            group_id=group.id,
+            request=UpdateAuthorGroupStatusRequest(status=AuthorGroupStatus.PUBLISHED),
+        )
+
+    assert result.status == AuthorGroupStatus.PUBLISHED
+
+
+@pytest.mark.parametrize(
+    "role", [AuthorGroupMemberRole.AUTHOR, AuthorGroupMemberRole.VIEWER]
+)
+def test_update_group_status_rejects_non_settings_roles(role):
+    author = _make_author()
+    group = _make_group(group_status=AuthorGroupStatus.DRAFT)
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=MagicMock(role=role),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.update_group",
+    ) as mock_update:
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            update_group_status(
+                token="t",
+                group_id=group.id,
+                request=UpdateAuthorGroupStatusRequest(status=AuthorGroupStatus.PUBLISHED),
+            )
+
+    assert exc.value.status_code == status.HTTP_403_FORBIDDEN
+    mock_update.assert_not_called()
+
+
+def test_update_group_status_not_found():
+    author = _make_author()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=None,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            update_group_status(
+                token="t",
+                group_id=uuid4(),
+                request=UpdateAuthorGroupStatusRequest(status=AuthorGroupStatus.PUBLISHED),
+            )
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_update_group_status_leaves_is_public_untouched():
+    """Publishing must not change public/private behaviour."""
+    author = _make_author()
+    group = _make_group(is_public=False, group_status=AuthorGroupStatus.DRAFT)
+    group.metadata_entries = []
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_member",
+        return_value=MagicMock(role=AuthorGroupMemberRole.OWNER),
+    ), patch(
+        "pecha_api.plans.groups.groups_service.lock_group_status",
+    ), patch(
+        "pecha_api.plans.groups.groups_service.update_group",
+    ) as mock_update, patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map", return_value={},
+    ):
+        _session_local_context(mock_session)
+        result = update_group_status(
+            token="t",
+            group_id=group.id,
+            request=UpdateAuthorGroupStatusRequest(status=AuthorGroupStatus.PUBLISHED),
+        )
+
+    assert mock_update.call_args.kwargs["group"].is_public is False
+    assert result.is_public is False
+    assert result.status == AuthorGroupStatus.PUBLISHED
+
+
+def test_list_public_groups_filters_to_published_only():
+    group = _make_group(group_type=AuthorGroupType.COMMUNITY)
+    group.metadata_entries = []
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_groups_paginated",
+        return_value=([group], 1),
+    ) as mock_paginated, patch(
+        "pecha_api.plans.groups.groups_service.filter_items_for_timezone",
+        side_effect=lambda items, **kw: items,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map", return_value={},
+    ):
+        _session_local_context(mock_session)
+        list_public_groups(skip=0, limit=10)
+
+    assert mock_paginated.call_args.kwargs["status"] == AuthorGroupStatus.PUBLISHED
+    # is_public stays unfiltered so private groups can still receive requests.
+    assert mock_paginated.call_args.kwargs.get("is_public") is None
+
+
+@pytest.mark.parametrize(
+    "group_status", [AuthorGroupStatus.DRAFT, AuthorGroupStatus.UNPUBLISHED]
+)
+def test_get_author_group_detail_hides_unpublished_group(group_status):
+    group = _make_group(group_status=group_status)
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_author_group_detail(group_id=group.id)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_get_author_group_detail_hides_draft_group_even_from_joiner():
+    """Drafts are hidden from everyone app-side, joiners included."""
+    group = _make_group(group_status=AuthorGroupStatus.DRAFT)
+    user = MagicMock()
+    user.id = uuid4()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group", return_value=True,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_author_group_detail(group_id=group.id, token="t")
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_get_group_practices_hides_unpublished_group():
+    group = _make_group(group_status=AuthorGroupStatus.DRAFT)
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            await get_group_practices(group_id=group.id)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_list_group_members_hides_unpublished_group():
+    group = _make_group(group_status=AuthorGroupStatus.DRAFT)
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            list_group_members(group_id=group.id, skip=0, limit=10)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_join_group_rejects_unpublished_group():
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(group_type=AuthorGroupType.COMMUNITY, group_status=AuthorGroupStatus.DRAFT)
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.upsert_group_join",
+    ) as mock_join:
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            join_group(token="t", group_id=group.id)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    mock_join.assert_not_called()
+
+
+def test_follow_group_rejects_unpublished_group():
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(group_status=AuthorGroupStatus.UNPUBLISHED)
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.upsert_group_follow",
+    ) as mock_follow:
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            follow_group(token="t", group_id=group.id)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    mock_follow.assert_not_called()
+
+
+def test_submit_group_join_request_rejects_unpublished_group():
+    user = MagicMock()
+    user.id = uuid4()
+    group = _make_group(
+        is_public=False,
+        group_type=AuthorGroupType.COMMUNITY,
+        group_status=AuthorGroupStatus.DRAFT,
+    )
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.create_group_join_request",
+    ) as mock_create:
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            submit_group_join_request(
+                token="t",
+                group_id=group.id,
+                request=CreateGroupJoinRequest(message=None),
+            )
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+    mock_create.assert_not_called()
+
+
+def test_list_joined_groups_filters_to_published():
+    user = MagicMock()
+    user.id = uuid4()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joined_group_ids_by_user",
+        return_value=[uuid4()],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_paginated",
+        return_value=([], 0),
+    ) as mock_paginated, patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map", return_value={},
+    ):
+        _session_local_context(mock_session)
+        list_joined_groups(token="t", skip=0, limit=10)
+
+    assert mock_paginated.call_args.kwargs["status"] == AuthorGroupStatus.PUBLISHED
+
+
+def test_list_followed_groups_filters_to_published():
+    user = MagicMock()
+    user.id = uuid4()
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_following_group_ids_by_user",
+        return_value=[uuid4()],
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_paginated",
+        return_value=([], 0),
+    ) as mock_paginated, patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map", return_value={},
+    ):
+        _session_local_context(mock_session)
+        list_followed_groups(token="t", skip=0, limit=10)
+
+    assert mock_paginated.call_args.kwargs["status"] == AuthorGroupStatus.PUBLISHED
+
+
+def test_list_cms_groups_does_not_filter_status_by_default():
+    """Studio must keep seeing drafts — the gate is app-side only."""
+    author = _make_author(is_admin=True)
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_groups_paginated",
+        return_value=([], 0),
+    ) as mock_paginated, patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_member_roles_map", return_value={},
+    ):
+        _session_local_context(mock_session)
+        list_cms_groups(token="t", skip=0, limit=10)
+
+    assert mock_paginated.call_args.kwargs["status"] is None
+
+
+def test_get_cms_group_detail_returns_draft_group_to_member():
+    author = _make_author(is_admin=True)
+    group = _make_group(group_status=AuthorGroupStatus.DRAFT)
+    group.metadata_entries = []
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_author_details",
+        return_value=author,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map", return_value={},
+    ):
+        _session_local_context(mock_session)
+        result = get_cms_group_detail(token="t", group_id=group.id)
+
+    assert result.status == AuthorGroupStatus.DRAFT
+
+
+def test_published_private_group_still_uses_teaser_flow():
+    """Regression guard: a published private group still shows as a teaser."""
+    group = _make_group(is_public=False, group_status=AuthorGroupStatus.PUBLISHED)
+    group.metadata_entries = []
+    user = MagicMock()
+    user.id = uuid4()
+
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.validate_and_extract_user_details",
+        return_value=user,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.is_user_joined_group", return_value=False,
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_followers_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_joiners_count_map", return_value={},
+    ), patch(
+        "pecha_api.plans.groups.groups_service.get_join_request_status_map", return_value={},
+    ):
+        _session_local_context(mock_session)
+        result = get_author_group_detail(group_id=group.id, token="t")
+
+    assert result.is_public is False
+    assert result.members == []
+    assert result.series == []
+
+
+def test_get_group_accumulations_hides_unpublished_group():
+    group = _make_group(group_status=AuthorGroupStatus.DRAFT)
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_group_accumulations(group_id=group.id)
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+def test_get_group_member_accumulations_hides_unpublished_group():
+    group = _make_group(group_status=AuthorGroupStatus.UNPUBLISHED)
+    with patch("pecha_api.plans.groups.groups_service.SessionLocal") as mock_session, patch(
+        "pecha_api.plans.groups.groups_service.get_group_by_id", return_value=group,
+    ):
+        _session_local_context(mock_session)
+        with pytest.raises(HTTPException) as exc:
+            get_group_member_accumulations(group_id=group.id, accumulation_id=uuid4())
+
+    assert exc.value.status_code == status.HTTP_404_NOT_FOUND

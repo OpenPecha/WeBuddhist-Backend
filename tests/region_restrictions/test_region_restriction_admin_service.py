@@ -28,7 +28,7 @@ def _row(*, item_type=RestrictedItemType.PLAN, item_id=None, title_time=None):
     return SimpleNamespace(
         id=uuid4(),
         item_type=item_type,
-        item_id=item_id or uuid4(),
+        item_id=item_id or str(uuid4()),
         created_at=now,
         updated_at=now,
     )
@@ -48,7 +48,7 @@ def test_list_admin_china_restricted_items_enriches_titles(
 ):
     author = _author()
     mock_validate.return_value = author
-    row = _row(item_id=uuid4())
+    row = _row(item_id=str(uuid4()))
     mock_list.return_value = ([row], 1)
     mock_titles.return_value = {row.item_id: "Morning Practice"}
     db = MagicMock()
@@ -81,7 +81,7 @@ def test_search_admin_china_restriction_candidates(
     mock_search,
 ):
     mock_validate.return_value = _author()
-    candidate = ChinaRestrictionCandidateDTO(id=uuid4(), title="Heart Sutra")
+    candidate = ChinaRestrictionCandidateDTO(id=str(uuid4()), title="Heart Sutra")
     mock_search.return_value = ([candidate], 1)
     db = MagicMock()
     mock_session_local.return_value.__enter__.return_value = db
@@ -124,7 +124,7 @@ def test_create_admin_china_restricted_item_success(
     author = _author()
     mock_validate.return_value = author
     mock_is_restricted.return_value = False
-    item_id = uuid4()
+    item_id = str(uuid4())
     row = _row(item_type=RestrictedItemType.SERIES, item_id=item_id)
     mock_create.return_value = row
     mock_titles.return_value = {item_id: "Series Title"}
@@ -161,7 +161,7 @@ def test_create_admin_china_restricted_item_conflict(
     mock_session_local.return_value.__enter__.return_value = MagicMock()
     body = CreateChinaRestrictedItemRequest(
         item_type=RestrictedItemType.PLAN,
-        item_id=uuid4(),
+        item_id=str(uuid4()),
     )
 
     with pytest.raises(HTTPException) as exc_info:

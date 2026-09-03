@@ -33,8 +33,9 @@ from .text_audio_models import (
     UpdateTextAudioNameRequest,
     utc_now,
 )
-from .texts_models import TableOfContent, Text
-from .texts_response_models import Section, TableOfContentType
+from .texts_models import TableOfContent
+from .texts_openpecha_service import get_text_by_id_from_openpecha
+from .texts_response_models import Section, TableOfContentType, V2TextDTO
 from .texts_toc_utils import iter_segment_refs_in_sections
 
 INVALID_OTR_DETAIL = "Upload a valid OTR/JSON file."
@@ -116,14 +117,8 @@ def to_text_audio_otr_response(otr: TextAudioOtr) -> TextAudioOtrResponse:
     )
 
 
-async def get_required_text(text_id: str) -> Text:
-    text = await Text.get_text(text_id=text_id)
-    if not text:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Text not found.",
-        )
-    return text
+async def get_required_text(text_id: str) -> V2TextDTO:
+    return await get_text_by_id_from_openpecha(text_id=text_id)
 
 
 async def get_required_audio(text_id: str, audio_id: str) -> TextAudio:

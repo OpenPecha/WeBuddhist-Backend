@@ -26,6 +26,8 @@ class MockGroup:
         self.slug = "siddharthas-intent"
         self.avatar_key = "groups/avatar.webp"
         self.metadata_entries = [MagicMock(title=title, language="EN")]
+        # Published by default; these cases test is_public on live groups.
+        self.status = "PUBLISHED"
 
 
 class MockPost:

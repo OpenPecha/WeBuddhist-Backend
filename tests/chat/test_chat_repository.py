@@ -178,6 +178,22 @@ class TestRoomLists:
         assert total == 1
         query.join.assert_called_once()
 
+    def test_list_my_active_rooms_excludes_unpublished_group_rooms(self):
+        """A hidden group's room must drop out of the room list, while DM rooms
+        (which have no group_id) are unaffected."""
+        db = MagicMock()
+        query = _query_chain(db, total=0, results=[])
+
+        list_my_active_rooms(db=db, user_id=uuid4(), skip=0, limit=20)
+
+        rendered = " ".join(
+            str(clause.compile(compile_kwargs={"literal_binds": True}))
+            for clause in query.filter.call_args.args
+        )
+        assert "PUBLISHED" in rendered
+        assert "author_groups" in rendered
+        assert "group_id IS NULL" in rendered
+
 
 class TestMessages:
 

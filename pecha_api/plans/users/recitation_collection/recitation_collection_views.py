@@ -1,14 +1,16 @@
-from fastapi import APIRouter, Query, Depends
+from fastapi import APIRouter, Query, Depends, File, UploadFile
 from starlette import status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Annotated
 from uuid import UUID
 
+from pecha_api.plans.media.media_response_models import PlanUploadResponse
 from pecha_api.plans.users.recitation_collection.recitation_collection_response_models import (
     RecitationCollectionsResponse,
     RecitationCollectionDetailDTO,
     CreateCollectionRequest,
     CreateCollectionResponse,
+    UpdateCollectionRequest,
     AddItemsRequest,
     AddItemsResponse
 )
@@ -16,6 +18,8 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_service i
     get_user_collections_service,
     get_collection_detail_service,
     create_collection_service,
+    update_collection_service,
+    upload_collection_image_service,
     add_items_to_collection_service,
     delete_collection_service
 )
@@ -75,6 +79,44 @@ async def create_collection(
     return await create_collection_service(
         token=authentication_credential.credentials,
         request=request
+    )
+
+
+@recitation_collection_router.put(
+    "/{collection_id}",
+    status_code=status.HTTP_200_OK,
+    response_model=CreateCollectionResponse
+)
+async def update_collection(
+    collection_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    request: UpdateCollectionRequest
+):
+
+    return await update_collection_service(
+        token=authentication_credential.credentials,
+        collection_id=collection_id,
+        request=request
+    )
+
+
+@recitation_collection_router.post(
+    "/upload-image",
+    status_code=status.HTTP_201_CREATED,
+    response_model=PlanUploadResponse
+)
+async def upload_collection_image(
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+    file: UploadFile = File(...)
+):
+    """Upload an image for a recitation collection and get its URL back.
+
+    Call this first, then pass the returned ``key`` as ``img_url`` when
+    creating or updating a collection.
+    """
+    return upload_collection_image_service(
+        token=authentication_credential.credentials,
+        file=file
     )
 
 
