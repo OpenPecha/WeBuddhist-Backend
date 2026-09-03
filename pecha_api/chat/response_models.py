@@ -1,7 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_serializer
 
 from pecha_api.chat.enums import ChatMessageReportReason
 
@@ -47,8 +47,17 @@ class ChatMessageDTO(BaseModel):
     sender_avatar_url: Optional[str] = None
     body: str
     created_at: str
+    deleted_at: Optional[str] = None
     parent: Optional[ChatMessageParentDTO] = None
     reactions: List[ChatMessageReactionDTO] = []
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler):
+        """Omit deleted_at entirely for non-deleted messages instead of sending null."""
+        data = handler(self)
+        if data.get("deleted_at") is None:
+            data.pop("deleted_at", None)
+        return data
 
 
 class ChatMessagesResponse(BaseModel):

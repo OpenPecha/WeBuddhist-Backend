@@ -195,7 +195,7 @@ def get_room_messages(
 ) -> Tuple[List[ChatMessage], int]:
     query = (
         db.query(ChatMessage)
-        .filter(ChatMessage.room_id == room_id, ChatMessage.deleted_at.is_(None))
+        .filter(ChatMessage.room_id == room_id)
         .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
     )
     total = query.count()

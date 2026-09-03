@@ -130,6 +130,7 @@ def build_message_dto(
     viewer_id: Optional[UUID] = None,
 ) -> ChatMessageDTO:
     sender_email = message.sender.email if message.sender else "unknown@example.com"
+    is_deleted = message.deleted_at is not None
     return ChatMessageDTO(
         id=message.id,
         room_id=message.room_id,
@@ -137,8 +138,9 @@ def build_message_dto(
         sender_email=sender_email,
         sender_name=_sender_name(message.sender),
         sender_avatar_url=_generate_presigned_url(message.sender.avatar_url if message.sender else None),
-        body=message.body,
+        body="" if is_deleted else message.body,
         created_at=_isoformat(message.created_at),
+        deleted_at=_isoformat(message.deleted_at),
         parent=_build_parent_dto(message),
         reactions=_build_reaction_dtos(reactions, viewer_id),
     )
