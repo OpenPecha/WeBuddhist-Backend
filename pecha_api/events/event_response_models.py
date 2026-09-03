@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from typing import Optional, List, Union
+from typing import Optional, List, Union, Literal
 from datetime import datetime, timezone
 from urllib.parse import urlparse
 from uuid import UUID
@@ -10,6 +10,9 @@ from pecha_api.plans.media.media_response_models import ImageUrlModel
 from pecha_api.timezone_utils import normalize_timezone_name
 from .location_response_models import LocationDTO
 from .event_enums import RecurrenceFrequency, RecurrenceDateSystem
+
+
+EventFormat = Literal["online", "offline", "hybrid"]
 
 
 class EventMetadataDTO(BaseModel):
@@ -96,10 +99,9 @@ class RecurrenceInput(BaseModel):
             if self.day > 30:
                 raise ValueError("Lunar day must be between 1 and 30")
         
-        if self.frequency == RecurrenceFrequency.YEARLY:
-            if self.month is None:
-                raise ValueError("month is required for YEARLY frequency")
-        
+        if self.frequency == RecurrenceFrequency.YEARLY and self.month is None:
+            raise ValueError("month is required for YEARLY frequency")
+
         return self
 
 
@@ -137,6 +139,7 @@ class EventDTO(BaseModel):
         None,
         description="For expanded occurrences, the specific occurrence date"
     )
+    event_format: Optional[EventFormat] = None
     metadata: EventMetadataResponse
     links: List[EventLinkDTO] = []
     image: Optional[ImageUrlModel] = None
@@ -192,6 +195,7 @@ class CreateEventRequest(BaseModel):
     group_recitation_collection_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
     recurrence: Optional[RecurrenceInput] = None
+    event_format: Optional[EventFormat] = None
 
     @field_validator("metadata")
     @classmethod
@@ -234,6 +238,7 @@ class UpdateEventRequest(BaseModel):
     group_recitation_collection_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
     recurrence: Optional[RecurrenceInput] = None
+    event_format: Optional[EventFormat] = None
 
     @field_validator("metadata")
     @classmethod

@@ -5,6 +5,8 @@ from uuid import uuid4
 import _datetime
 from _datetime import datetime
 
+CASCADE_DELETE_ORPHAN = "all, delete-orphan"
+
 
 class Event(Base):
     __tablename__ = "events"
@@ -26,6 +28,7 @@ class Event(Base):
     timezone = Column(String(64), nullable=True)
     image_url = Column(String(1000), nullable=True)
     featured = Column(Boolean, default=False, nullable=False)
+    event_format = Column(String(10), nullable=True)
     
     is_recurring = Column(Boolean, default=False, nullable=False)
     recurrence_frequency = Column(String(20), nullable=True)
@@ -45,21 +48,21 @@ class Event(Base):
     metadata_entries = relationship(
         "EventMetadata",
         back_populates="event",
-        cascade="all, delete-orphan",
+        cascade=CASCADE_DELETE_ORPHAN,
         passive_deletes=True,
     )
 
     links = relationship(
         "EventLink",
         back_populates="event",
-        cascade="all, delete-orphan",
+        cascade=CASCADE_DELETE_ORPHAN,
         passive_deletes=True,
     )
 
     participants = relationship(
         "GroupEventParticipant",
         back_populates="event",
-        cascade="all, delete-orphan",
+        cascade=CASCADE_DELETE_ORPHAN,
         passive_deletes=True,
     )
 

@@ -16,6 +16,7 @@ from pecha_api.events.event_service import (
     create_event_service,
     update_event_service,
     get_events_service,
+    EventContentFilter,
 )
 
 
@@ -35,6 +36,7 @@ def _saved_event_stub(group_id=None, collection_id=None) -> SimpleNamespace:
         end_date=now,
         image_url=None,
         featured=False,
+        event_format=None,
         is_recurring=False,
         metadata_entries=[],
         links=[],
@@ -254,7 +256,9 @@ def test_get_events_service_forwards_collection_filter_to_repository() -> None:
         "pecha_api.events.event_service.get_recurring_events",
         return_value=[],
     ):
-        get_events_service(group_recitation_collection_id=collection_id)
+        get_events_service(
+            content_filter=EventContentFilter(group_recitation_collection_id=collection_id)
+        )
 
     _, _, kwargs = mock_get_events.mock_calls[0]
     assert kwargs["group_recitation_collection_id"] == collection_id
