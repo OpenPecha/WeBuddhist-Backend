@@ -136,6 +136,7 @@ def test_create_event_service_sets_event_format() -> None:
     mock_event.start_date = now
     mock_event.end_date = now
     mock_event.event_format = "hybrid"
+    mock_event.timezone = None
     mock_event.featured = False
     mock_event.is_recurring = False
     mock_event.metadata_entries = []
@@ -186,6 +187,7 @@ def test_update_event_service_updates_event_format() -> None:
     mock_event.start_date = now
     mock_event.end_date = now
     mock_event.event_format = "online"  # Original value
+    mock_event.timezone = None
     mock_event.featured = False
     mock_event.is_recurring = False
     mock_event.metadata_entries = []
