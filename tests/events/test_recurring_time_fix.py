@@ -122,7 +122,7 @@ def _timed_recurring_event_stub() -> SimpleNamespace:
         id=uuid4(), group_id=uuid4(), plan_id=None, accumulator_id=None,
         mantra_id=None, timer_id=None, group_recitation_collection_id=None,
         location_id=None, location=None, timezone="UTC", image_url=None,
-        featured=False, event_format=None, created_by="a@e.com",
+        featured=False, event_format="hybrid", created_by="a@e.com",
         created_at=datetime.now(timezone.utc), updated_at=None,
         is_recurring=True,
         recurrence_frequency="MONTHLY", recurrence_date_system="GREGORIAN",

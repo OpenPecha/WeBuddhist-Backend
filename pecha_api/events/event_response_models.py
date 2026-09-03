@@ -139,7 +139,7 @@ class EventDTO(BaseModel):
         None,
         description="For expanded occurrences, the specific occurrence date"
     )
-    event_format: Optional[EventFormat] = None
+    event_format: EventFormat = "hybrid"
     metadata: EventMetadataResponse
     links: List[EventLinkDTO] = []
     image: Optional[ImageUrlModel] = None
@@ -195,7 +195,7 @@ class CreateEventRequest(BaseModel):
     group_recitation_collection_id: Optional[UUID] = None
     location_id: Optional[UUID] = None
     recurrence: Optional[RecurrenceInput] = None
-    event_format: Optional[EventFormat] = None
+    event_format: EventFormat = "hybrid"
 
     @field_validator("metadata")
     @classmethod
@@ -239,6 +239,15 @@ class UpdateEventRequest(BaseModel):
     location_id: Optional[UUID] = None
     recurrence: Optional[RecurrenceInput] = None
     event_format: Optional[EventFormat] = None
+
+    @field_validator("event_format")
+    @classmethod
+    def validate_event_format_not_null(cls, value: Optional[EventFormat]) -> Optional[EventFormat]:
+        if value is None:
+            raise ValueError(
+                "event_format cannot be null; omit the field to leave it unchanged"
+            )
+        return value
 
     @field_validator("metadata")
     @classmethod
