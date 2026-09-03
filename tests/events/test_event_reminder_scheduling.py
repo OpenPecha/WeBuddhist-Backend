@@ -36,7 +36,7 @@ def _event_stub(group_id=None, is_recurring=False, start_date=None) -> SimpleNam
         end_date=now,
         timezone=None,
         image_url=None,
-        event_format=None,
+        event_format="hybrid",
         featured=False,
         is_recurring=is_recurring,
         recurrence_frequency="YEARLY" if is_recurring else None,

@@ -43,17 +43,33 @@ def test_create_event_request_rejects_invalid_event_format() -> None:
     assert "event_format" in str(exc_info.value)
 
 
-def test_create_event_request_event_format_is_optional() -> None:
-    """Test that event_format is optional in CreateEventRequest."""
+def test_create_event_request_event_format_defaults_to_hybrid() -> None:
+    """Test that event_format defaults to hybrid when omitted in CreateEventRequest."""
     now = datetime.now(timezone.utc)
-    
+
     request = CreateEventRequest(
         group_id=uuid4(),
         start_date=now,
         end_date=now,
         metadata=[{"name": "Event", "language": "EN"}],
     )
-    assert request.event_format is None
+    assert request.event_format == "hybrid"
+
+
+def test_create_event_request_rejects_null_event_format() -> None:
+    """Test that CreateEventRequest rejects an explicit null event_format."""
+    now = datetime.now(timezone.utc)
+
+    with pytest.raises(ValidationError) as exc_info:
+        CreateEventRequest(
+            group_id=uuid4(),
+            start_date=now,
+            end_date=now,
+            metadata=[{"name": "Event", "language": "EN"}],
+            event_format=None,
+        )
+
+    assert "event_format" in str(exc_info.value)
 
 
 def test_update_event_request_accepts_valid_event_formats() -> None:
@@ -72,9 +88,18 @@ def test_update_event_request_rejects_invalid_event_format() -> None:
 
 
 def test_update_event_request_event_format_is_optional() -> None:
-    """Test that event_format is optional in UpdateEventRequest."""
+    """Test that omitting event_format in UpdateEventRequest leaves it untouched."""
     request = UpdateEventRequest()
     assert request.event_format is None
+    assert "event_format" not in request.model_fields_set
+
+
+def test_update_event_request_rejects_null_event_format() -> None:
+    """Test that UpdateEventRequest rejects an explicit null event_format."""
+    with pytest.raises(ValidationError) as exc_info:
+        UpdateEventRequest(event_format=None)
+
+    assert "event_format" in str(exc_info.value)
 
 
 def test_event_dto_includes_event_format() -> None:
@@ -97,10 +122,10 @@ def test_event_dto_includes_event_format() -> None:
     assert event.event_format == "online"
 
 
-def test_event_dto_event_format_can_be_none() -> None:
-    """Test that EventDTO event_format can be None."""
+def test_event_dto_event_format_defaults_to_hybrid() -> None:
+    """Test that EventDTO event_format defaults to hybrid when omitted."""
     now = datetime.now(timezone.utc)
-    
+
     event = EventDTO(
         id=uuid4(),
         group_id=uuid4(),
@@ -108,13 +133,31 @@ def test_event_dto_event_format_can_be_none() -> None:
         end_date=now,
         is_one_day=True,
         featured=False,
-        event_format=None,
         metadata=[],
         created_at=now,
         created_by="author@example.com",
     )
-    
-    assert event.event_format is None
+
+    assert event.event_format == "hybrid"
+
+
+def test_event_dto_rejects_null_event_format() -> None:
+    """Test that EventDTO rejects an explicit null event_format."""
+    now = datetime.now(timezone.utc)
+
+    with pytest.raises(ValidationError):
+        EventDTO(
+            id=uuid4(),
+            group_id=uuid4(),
+            start_date=now,
+            end_date=now,
+            is_one_day=True,
+            featured=False,
+            event_format=None,
+            metadata=[],
+            created_at=now,
+            created_by="author@example.com",
+        )
 
 
 def test_create_event_service_sets_event_format() -> None:

@@ -50,7 +50,7 @@ def _saved_event_stub(group_id=None, location=None) -> SimpleNamespace:
         end_date=now,
         image_url=None,
         featured=False,
-        event_format=None,
+        event_format="hybrid",
         is_recurring=False,
         metadata_entries=[],
         links=[],
