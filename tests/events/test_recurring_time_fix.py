@@ -36,7 +36,7 @@ def _row(ev, md):
         id=uuid4(), plan_id=None, accumulator_id=None, mantra_id=None, timer_id=None,
         group_recitation_collection_id=None, group_id=ev.group_id, location_id=None,
         location=None, start_date=ev.start_date, end_date=ev.end_date, image_url=None,
-        featured=False, is_recurring=bool(ev.is_recurring),
+        featured=False, event_format=ev.event_format, is_recurring=bool(ev.is_recurring),
         recurrence_frequency=ev.recurrence_frequency,
         recurrence_date_system=ev.recurrence_date_system,
         recurrence_calendar_type=ev.recurrence_calendar_type,
@@ -55,7 +55,10 @@ def _post(payload):
                return_value=SimpleNamespace(id=uuid4(), email="a@e.com")), \
          patch(f"{M}.require_can_create_content"), patch(f"{M}.SessionLocal"), \
          patch(f"{M}.enqueue_event_notification"), \
-         patch(f"{M}.save_event", side_effect=lambda db, e, md, li=None: _row(e, md)):
+         patch(
+             f"{M}.save_event",
+             side_effect=lambda db, e, md, li=None, **_kwargs: _row(e, md),
+         ):
         return client.post("/cms/events", json=payload, headers=AUTH)
 
 
