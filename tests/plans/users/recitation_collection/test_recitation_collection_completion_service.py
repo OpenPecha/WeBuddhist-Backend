@@ -48,8 +48,10 @@ class TestGetTodayCompletionsService:
     @patch(f'{MODULE}.validate_and_extract_user_details')
     @patch(f'{MODULE}.get_collection_by_id')
     @patch(f'{MODULE}.get_user_completions_today')
+    @patch(f'{MODULE}.get_date_in_timezone')
     def test_get_today_completions_success(
         self,
+        mock_get_date,
         mock_get_completions,
         mock_get_collection,
         mock_validate_user,
@@ -61,23 +63,27 @@ class TestGetTodayCompletionsService:
         collection_id = uuid4()
         chant_id_1 = uuid4()
         chant_id_2 = uuid4()
+        today = date(2026, 6, 11)
 
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
         mock_validate_user.return_value = MockUser(id=user_id)
         mock_get_collection.return_value = MockCollection(id=collection_id, user_id=user_id)
         mock_get_completions.return_value = [chant_id_1, chant_id_2]
+        mock_get_date.return_value = today
 
         result = get_today_completions_service(
             token=token,
             collection_id=collection_id,
+            timezone_name="Asia/Kathmandu",
         )
 
         assert isinstance(result, TodayChantCompletionsResponse)
         assert len(result.completed_chant_ids) == 2
         assert chant_id_1 in result.completed_chant_ids
         assert chant_id_2 in result.completed_chant_ids
-        assert result.date == date.today().isoformat()
+        assert result.date == today.isoformat()
+        mock_get_date.assert_called_once_with("Asia/Kathmandu")
         mock_validate_user.assert_called_once_with(token=token)
         mock_get_collection.assert_called_once_with(db=mock_db, collection_id=collection_id, user_id=user_id)
 
@@ -177,8 +183,10 @@ class TestCreateChantCompletionService:
     @patch(f'{MODULE}.get_collection_item_by_id')
     @patch(f'{MODULE}.check_completion_exists')
     @patch(f'{MODULE}.create_chant_completion')
+    @patch(f'{MODULE}.get_date_in_timezone')
     def test_create_completion_success(
         self,
+        mock_get_date,
         mock_create_completion,
         mock_check_exists,
         mock_get_item,
@@ -191,6 +199,7 @@ class TestCreateChantCompletionService:
         user_id = uuid4()
         collection_id = uuid4()
         chant_id = uuid4()
+        today = date(2026, 6, 11)
 
         mock_db = MagicMock()
         mock_session.return_value.__enter__.return_value = mock_db
@@ -198,19 +207,22 @@ class TestCreateChantCompletionService:
         mock_get_collection.return_value = MockCollection(id=collection_id, user_id=user_id)
         mock_get_item.return_value = MockCollectionItem(id=chant_id, collection_id=collection_id)
         mock_check_exists.return_value = False
+        mock_get_date.return_value = today
 
         create_chant_completion_service(
             token=token,
             collection_id=collection_id,
             chant_id=chant_id,
+            timezone_name="Asia/Kathmandu",
         )
 
+        mock_get_date.assert_called_once_with("Asia/Kathmandu")
         mock_create_completion.assert_called_once()
         call_args = mock_create_completion.call_args
         assert call_args.kwargs['user_id'] == user_id
         assert call_args.kwargs['chant_id'] == chant_id
         assert call_args.kwargs['collection_id'] == collection_id
-        assert call_args.kwargs['completion_date'] == date.today()
+        assert call_args.kwargs['completion_date'] == today
 
     @patch(f'{MODULE}.SessionLocal')
     @patch(f'{MODULE}.validate_and_extract_user_details')

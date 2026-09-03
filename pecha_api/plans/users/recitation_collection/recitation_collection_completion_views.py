@@ -1,7 +1,7 @@
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette import status
 
@@ -33,11 +33,16 @@ def get_today_chant_completions(
     authentication_credential: Annotated[
         HTTPAuthorizationCredentials, Depends(oauth2_scheme)
     ],
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone for determining today's date."),
+    ] = None,
 ) -> TodayChantCompletionsResponse:
     """Get list of chants completed today by the authenticated user."""
     return get_today_completions_service(
         token=authentication_credential.credentials,
         collection_id=collection_id,
+        timezone_name=x_timezone,
     )
 
 
@@ -68,10 +73,15 @@ def create_chant_completion(
     authentication_credential: Annotated[
         HTTPAuthorizationCredentials, Depends(oauth2_scheme)
     ],
+    x_timezone: Annotated[
+        Optional[str],
+        Header(alias="X-Timezone", description="IANA timezone for determining today's date."),
+    ] = None,
 ) -> None:
     """Log a chant completion for the authenticated user."""
     create_chant_completion_service(
         token=authentication_credential.credentials,
         collection_id=collection_id,
         chant_id=request.chant_id,
+        timezone_name=x_timezone,
     )

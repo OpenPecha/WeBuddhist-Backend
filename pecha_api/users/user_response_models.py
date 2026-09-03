@@ -1,5 +1,6 @@
 import re
 from typing import List, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, field_validator
 from .users_enums import SocialProfile
@@ -22,6 +23,7 @@ class UserInfoRequest(BaseModel):
     social_profiles: List[SocialMediaProfile]
 
 class UserInfoResponse(BaseModel):
+    id: UUID
     firstname: str
     lastname: str
     username: str

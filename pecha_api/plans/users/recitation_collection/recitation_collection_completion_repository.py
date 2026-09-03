@@ -3,6 +3,7 @@ from typing import List
 from uuid import UUID
 
 from sqlalchemy import func, distinct
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from pecha_api.plans.users.recitation_collection.recitation_collection_completion_models import (
@@ -70,8 +71,13 @@ def create_chant_completion(
     chant_id: UUID,
     collection_id: UUID,
     completion_date: date,
-) -> RecitationCollectionChantCompletion:
-    """Create a new chant completion record."""
+) -> None:
+    """Create a new chant completion record, tolerating a concurrent duplicate.
+
+    A prior check_completion_exists() call can race with another request for
+    the same (user, chant, date); the unique constraint is the real guard, so
+    an IntegrityError here just means someone else already logged it.
+    """
     completion = RecitationCollectionChantCompletion(
         user_id=user_id,
         chant_id=chant_id,
@@ -80,6 +86,7 @@ def create_chant_completion(
         created_at=datetime.now(timezone.utc),
     )
     db.add(completion)
-    db.commit()
-    db.refresh(completion)
-    return completion
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()

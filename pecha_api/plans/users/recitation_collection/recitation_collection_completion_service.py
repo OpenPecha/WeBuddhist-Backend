@@ -1,5 +1,5 @@
 import logging
-from datetime import date
+from typing import Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -7,6 +7,7 @@ from starlette import status
 
 from pecha_api.db.database import SessionLocal
 from pecha_api.plans.response_message import NOT_FOUND
+from pecha_api.timezone_utils import get_date_in_timezone
 from pecha_api.users.users_service import validate_and_extract_user_details
 
 from pecha_api.plans.users.recitation_collection.recitation_collection_models import (
@@ -50,6 +51,7 @@ def _get_collection_or_404(
 def get_today_completions_service(
     token: str,
     collection_id: UUID,
+    timezone_name: Optional[str] = None,
 ) -> TodayChantCompletionsResponse:
     """Get list of chants completed today by the authenticated user."""
     user = validate_and_extract_user_details(token=token)
@@ -57,7 +59,7 @@ def get_today_completions_service(
     with SessionLocal() as db:
         _get_collection_or_404(db=db, collection_id=collection_id, user_id=user.id)
 
-        today = date.today()
+        today = get_date_in_timezone(timezone_name)
         completed_chant_ids = get_user_completions_today(
             db=db,
             user_id=user.id,
@@ -97,6 +99,7 @@ def create_chant_completion_service(
     token: str,
     collection_id: UUID,
     chant_id: UUID,
+    timezone_name: Optional[str] = None,
 ) -> None:
     """Create a new chant completion log for the authenticated user."""
     user = validate_and_extract_user_details(token=token)
@@ -115,7 +118,7 @@ def create_chant_completion_service(
                 detail=_CHANT_NOT_IN_COLLECTION,
             )
 
-        today = date.today()
+        today = get_date_in_timezone(timezone_name)
         if check_completion_exists(
             db=db,
             user_id=user.id,
