@@ -14,7 +14,7 @@ from pecha_api.events.event_repository import get_events, get_recurring_events
 from pecha_api.events.event_service import _event_to_dto
 from pecha_api.events.recurrence_service import (
     resolve_current_or_next_occurrence,
-    combine_date_with_time_of_day,
+    combine_occurrence_window,
 )
 from pecha_api.group_posts.enums import GroupPostStatus
 from pecha_api.group_posts.repository import get_posts_for_group_ids
@@ -190,10 +190,13 @@ def _get_author_group_feed(
             start_d, end_d, is_active = result
             # Carry the template's own time-of-day onto the occurrence,
             # instead of defaulting to midnight / end-of-day.
+            occurrence_start, occurrence_end = combine_occurrence_window(
+                start_d, end_d, template.start_date, template.end_date
+            )
             expanded_recurring.append({
                 'event': template,
-                'start_date': combine_date_with_time_of_day(start_d, template.start_date),
-                'end_date': combine_date_with_time_of_day(end_d, template.end_date),
+                'start_date': occurrence_start,
+                'end_date': occurrence_end,
                 'is_active': is_active,
             })
     

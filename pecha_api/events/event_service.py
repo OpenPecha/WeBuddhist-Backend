@@ -684,7 +684,20 @@ def _apply_recurrence_or_dates(event: Event, request: UpdateEventRequest) -> tup
         )
         start_date = combine_date_with_time_of_day(start_date.date(), start_time_source)
         end_date = combine_date_with_time_of_day(end_date.date(), end_time_source)
-        _validate_date_range(start_date, end_date)
+        if request.start_date is not None or request.end_date is not None:
+            # The author supplied new time-of-day input, so an inverted
+            # window is theirs to fix — reject it outright.
+            _validate_date_range(start_date, end_date)
+        elif end_date < start_date:
+            # Both times were inherited from the existing template. A
+            # recurrence-only update (e.g. changing the day) that happens
+            # to inherit an already-invalid legacy window (a one-day
+            # occurrence whose end time preceded its start time, from
+            # before this validation existed) must still succeed — the
+            # author never touched the dates — so clamp instead of
+            # raising, matching how reads already guard against it via
+            # combine_occurrence_window.
+            end_date = start_date
         event.start_date = start_date
         event.end_date = end_date
         event.is_recurring = True

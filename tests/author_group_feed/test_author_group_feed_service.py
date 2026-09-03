@@ -365,6 +365,97 @@ class TestGetAuthorGroupFeedService:
             old_one_shot.id,
         ]
 
+    @pytest.mark.asyncio
+    @patch("pecha_api.author_group_feed.service.get_joined_event_ids_by_user")
+    @patch("pecha_api.author_group_feed.service.get_event_participant_counts")
+    @patch("pecha_api.author_group_feed.service._event_to_dto")
+    @patch("pecha_api.author_group_feed.service.build_post_dtos")
+    @patch("pecha_api.author_group_feed.service.resolve_current_or_next_occurrence")
+    @patch("pecha_api.author_group_feed.service.get_recurring_events")
+    @patch("pecha_api.author_group_feed.service.get_events")
+    @patch("pecha_api.author_group_feed.service.get_posts_for_group_ids")
+    @patch("pecha_api.author_group_feed.service.get_groups_by_ids")
+    @patch("pecha_api.author_group_feed.service.get_joined_group_ids_by_user")
+    @patch("pecha_api.author_group_feed.service.validate_and_extract_user_details")
+    async def test_recurring_occurrence_clamps_an_inverted_legacy_template(
+        self,
+        mock_validate,
+        mock_joined_group_ids,
+        mock_groups_by_ids,
+        mock_get_posts,
+        mock_get_events,
+        mock_get_recurring,
+        mock_resolve,
+        mock_build_posts,
+        mock_event_dto,
+        mock_counts,
+        mock_joined,
+    ):
+        """A legacy one-day recurring template whose stored end time precedes
+        its start time (persisted before create/update validation guarded
+        against it) must never expose end_date < start_date in the feed."""
+        user = MockUser()
+        joined_id = uuid4()
+        mock_db = MagicMock()
+        mock_validate.return_value = user
+        mock_joined_group_ids.return_value = [joined_id]
+        mock_groups_by_ids.side_effect = [
+            [MockGroup(joined_id)],
+            [MockGroup(joined_id)],
+        ]
+
+        template = MockEvent(joined_id)
+        # Inverted: the stored end time-of-day precedes the start time-of-day.
+        template.start_date = datetime(2020, 1, 1, 17, 0, tzinfo=tz.utc)
+        template.end_date = datetime(2020, 1, 1, 9, 30, tzinfo=tz.utc)
+
+        mock_get_posts.return_value = ([], 0)
+        mock_build_posts.return_value = []
+        mock_get_events.return_value = ([], 0)
+        mock_get_recurring.return_value = [template]
+        mock_counts.return_value = {}
+        mock_joined.return_value = []
+
+        occurrence_day = (datetime.now(tz.utc) + timedelta(days=5)).date()
+        mock_resolve.return_value = (occurrence_day, occurrence_day, False)
+
+        captured: dict = {}
+
+        def _event_to_dto(event, **kwargs):
+            captured["start_date"] = event.start_date
+            captured["end_date"] = event.end_date
+            return EventDTO(
+                id=event.id,
+                group_id=joined_id,
+                start_date=event.start_date,
+                end_date=event.end_date,
+                is_one_day=True,
+                featured=False,
+                metadata=None,
+                links=[],
+                participant_count=0,
+                is_joined=False,
+                created_at=event.created_at,
+                created_by=event.created_by,
+            )
+
+        mock_event_dto.side_effect = _event_to_dto
+
+        await get_author_group_feed_service(
+            db=mock_db,
+            token="token",
+            should_include_unfollowed=False,
+            skip=0,
+            limit=20,
+        )
+
+        assert captured["end_date"] >= captured["start_date"]
+        assert captured["start_date"] == datetime(
+            occurrence_day.year, occurrence_day.month, occurrence_day.day,
+            17, 0, tzinfo=tz.utc,
+        )
+        assert captured["end_date"] == captured["start_date"]
+
     @patch("pecha_api.author_group_feed.service.get_posts_for_group_ids")
     @patch("pecha_api.author_group_feed.service.get_groups_by_ids")
     @patch("pecha_api.author_group_feed.service.get_joined_group_ids_by_user")
