@@ -12,7 +12,8 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_views imp
     update_collection,
     upload_collection_image,
     add_items_to_collection,
-    delete_collection
+    delete_collection,
+    delete_collection_item
 )
 from pecha_api.plans.users.recitation_collection.recitation_collection_response_models import (
     RecitationCollectionsResponse,
@@ -1263,3 +1264,128 @@ class TestDeleteCollectionView:
             token=token,
             collection_id=collection_id
         )
+
+
+class TestDeleteCollectionItemView:
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.delete_collection_item_service')
+    @pytest.mark.asyncio
+    async def test_delete_collection_item_success(self, mock_service):
+        """Test successful item deletion"""
+        token = "valid_token"
+        collection_id = uuid4()
+        item_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        mock_service.return_value = None
+
+        result = await delete_collection_item(
+            collection_id=collection_id,
+            item_id=item_id,
+            authentication_credential=auth_credentials
+        )
+
+        assert result is None
+
+        mock_service.assert_awaited_once_with(
+            token=token,
+            collection_id=collection_id,
+            item_id=item_id
+        )
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.delete_collection_item_service')
+    @pytest.mark.asyncio
+    async def test_delete_collection_item_collection_not_found(self, mock_service):
+        """Test deleting item from a non-existent collection"""
+        token = "valid_token"
+        collection_id = uuid4()
+        item_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "NOT_FOUND", "message": f"Collection with ID {collection_id} not found"}
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await delete_collection_item(
+                collection_id=collection_id,
+                item_id=item_id,
+                authentication_credential=auth_credentials
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.delete_collection_item_service')
+    @pytest.mark.asyncio
+    async def test_delete_collection_item_not_found(self, mock_service):
+        """Test deleting a non-existent item"""
+        token = "valid_token"
+        collection_id = uuid4()
+        item_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "NOT_FOUND", "message": f"Item with ID {item_id} not found"}
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await delete_collection_item(
+                collection_id=collection_id,
+                item_id=item_id,
+                authentication_credential=auth_credentials
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+        assert exc_info.value.detail["error"] == "NOT_FOUND"
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.delete_collection_item_service')
+    @pytest.mark.asyncio
+    async def test_delete_collection_item_invalid_token(self, mock_service):
+        """Test deleting item with invalid authentication token"""
+        token = "invalid_token"
+        collection_id = uuid4()
+        item_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await delete_collection_item(
+                collection_id=collection_id,
+                item_id=item_id,
+                authentication_credential=auth_credentials
+            )
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.delete_collection_item_service')
+    @pytest.mark.asyncio
+    async def test_delete_collection_item_database_error(self, mock_service):
+        """Test database error during item deletion"""
+        token = "valid_token"
+        collection_id = uuid4()
+        item_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"error": "BAD_REQUEST", "message": "Database error"}
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await delete_collection_item(
+                collection_id=collection_id,
+                item_id=item_id,
+                authentication_credential=auth_credentials
+            )
+
+        assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
