@@ -6,9 +6,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
 from pecha_api.plans.language_constants import language_query_description
+from pecha_api.chat.service import close_group_chat_sockets
 from pecha_api.plans.groups.groups_enums import (
     AuthorGroupInviteStatus,
     AuthorGroupJoinRequestStatus,
+    AuthorGroupStatus,
     AuthorGroupType,
 )
 from pecha_api.plans.groups.groups_response_models import (
@@ -32,6 +34,7 @@ from pecha_api.plans.groups.groups_response_models import (
     ReplaceGroupSocialLinksRequest,
     ReplaceGroupTagsRequest,
     UpdateAuthorGroupRequest,
+    UpdateAuthorGroupStatusRequest,
     TransferGroupOwnershipRequest,
     UpdateGroupMemberRoleRequest,
     UserFollowedAuthorGroupDTO,
@@ -76,6 +79,7 @@ from pecha_api.plans.groups.groups_service import (
     revoke_group_invite,
     unfollow_group,
     update_author_group,
+    update_group_status,
     transfer_group_ownership,
     update_group_member_role,
 )
@@ -152,6 +156,30 @@ def patch_cms_group(
     )
 
 
+@cms_groups_router.patch(
+    "/{group_id}/status",
+    status_code=status.HTTP_200_OK,
+    response_model=AuthorGroupDetailDTO,
+)
+async def patch_cms_group_status(
+    group_id: UUID,
+    update_group_status_request: UpdateAuthorGroupStatusRequest,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
+) -> AuthorGroupDetailDTO:
+    """Publish a group or hide it again. OWNER and ADMIN only.
+
+    Only PUBLISHED groups appear on the app side, independent of is_public.
+    """
+    detail = update_group_status(
+        token=authentication_credential.credentials,
+        group_id=group_id,
+        request=update_group_status_request,
+    )
+    if detail.status != AuthorGroupStatus.PUBLISHED:
+        await close_group_chat_sockets(group_id=group_id)
+    return detail
+
+
 @cms_groups_router.delete("/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_cms_group(
     group_id: UUID,
@@ -196,6 +224,13 @@ def get_cms_groups(
     tag_id: Annotated[Optional[UUID], Query()] = None,
     is_public: Annotated[Optional[bool], Query(description="Filter by public visibility; omit to include all groups")] = None,
     group_type: Annotated[Optional[AuthorGroupType], Query(description="Filter by group type: PAGE or COMMUNITY")] = None,
+    group_status: Annotated[
+        Optional[AuthorGroupStatus],
+        Query(
+            alias="status",
+            description="Filter by publication status: DRAFT, PUBLISHED or UNPUBLISHED; omit to include all",
+        ),
+    ] = None,
     for_transfer: Annotated[bool, Query(description="When true, list all groups for transfer target selection")] = False,
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
@@ -207,6 +242,7 @@ def get_cms_groups(
         tag_id=tag_id,
         is_public=is_public,
         group_type=group_type,
+        group_status=group_status,
         for_transfer=for_transfer,
         skip=skip,
         limit=limit,

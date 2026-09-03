@@ -56,7 +56,8 @@ class UpdateGroupRecitationCollectionRequest(BaseModel):
 
 class AddGroupRecitationCollectionItemsRequest(BaseModel):
     """Request to add items to a collection"""
-    text_ids: List[UUID]
+    # str, not UUID: text_id can hold a non-UUID pecha-style text id.
+    text_ids: List[str]
 
 
 class AddGroupRecitationCollectionItemsResponse(BaseModel):

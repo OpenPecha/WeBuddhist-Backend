@@ -50,6 +50,7 @@ def _message_dto(room_id=None) -> ChatMessageDTO:
         room_id=room_id or uuid4(),
         sender_id=uuid4(),
         sender_email="sender@example.com",
+        sender_name="Sender Name",
         body="Hello",
         created_at=datetime.now(tz.utc).isoformat(),
     )
@@ -359,5 +360,87 @@ class TestWebSocketChatMessages:
             with client.websocket_connect(_ws_url(group_id=uuid4())) as websocket:
                 websocket.receive_json()
                 websocket.send_json({"type": "typing", "is_typing": False})
+                websocket.send_json({"type": "ping"})
+                assert websocket.receive_json()["code"] == "INVALID_MESSAGE"
+
+
+class TestHiddenGroupEndsLiveSession:
+    """A group hidden after a socket opened must stop that socket's live
+    traffic, rather than leaving typing and presence flowing in a group the
+    app can no longer reach."""
+
+    def test_typing_stops_when_room_unreachable(self):
+        with _websocket_env() as (broadcaster, *_):
+            with patch(
+                "pecha_api.chat.service._get_room_or_404",
+                side_effect=HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Not found"
+                ),
+            ):
+                with pytest.raises(WebSocketDisconnect):
+                    with client.websocket_connect(_ws_url(group_id=uuid4())) as websocket:
+                        websocket.receive_json()
+                        websocket.send_json({"type": "typing", "is_typing": True})
+                        assert websocket.receive_json()["type"] == "error"
+                        # Session ended: nothing further is served.
+                        websocket.receive_json()
+
+            broadcaster.broadcast_typing.assert_not_awaited()
+
+    def test_send_404_ends_session(self):
+        with _websocket_env() as (_broadcaster, mock_send_group, *_):
+            mock_send_group.side_effect = HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Not found"
+            )
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(group_id=uuid4())) as websocket:
+                    websocket.receive_json()
+                    websocket.send_json({"type": "message", "body": "hi"})
+                    assert websocket.receive_json()["type"] == "error"
+                    websocket.receive_json()
+
+    def test_per_message_rejection_keeps_socket_open(self):
+        """Regression guard: profanity and similar per-message rejections must
+        not end the session."""
+        with _websocket_env() as (_broadcaster, mock_send_group, *_):
+            mock_send_group.side_effect = HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"code": "INAPPROPRIATE_LANGUAGE", "message": "no"},
+            )
+            with client.websocket_connect(_ws_url(group_id=uuid4())) as websocket:
+                websocket.receive_json()
+                websocket.send_json({"type": "message", "body": "bad"})
+                assert websocket.receive_json()["code"] == "INAPPROPRIATE_LANGUAGE"
+
+                websocket.send_json({"type": "ping"})
+                assert websocket.receive_json()["code"] == "INVALID_MESSAGE"
+
+
+class TestRemoteEviction:
+    """Hiding a group publishes room_closed, which every server holding a
+    socket for that room acts on — this is what makes eviction work when more
+    than one server is running."""
+
+    def test_room_closed_event_ends_the_session(self):
+        pubsub = FakePubSub(messages=[
+            {"type": "message", "data": json.dumps({"type": "room_closed", "reason": "GROUP_UNPUBLISHED"})},
+        ])
+        with _websocket_env(pubsub=pubsub):
+            with pytest.raises(WebSocketDisconnect):
+                with client.websocket_connect(_ws_url(group_id=uuid4())) as websocket:
+                    websocket.receive_json()   # room_info
+                    websocket.receive_json()   # room_closed, forwarded to the client
+                    websocket.receive_json()   # session over
+
+    def test_ordinary_events_do_not_end_the_session(self):
+        """Regression guard: only room_closed evicts."""
+        pubsub = FakePubSub(messages=[
+            {"type": "message", "data": json.dumps({"type": "typing", "user_id": str(uuid4())})},
+        ])
+        with _websocket_env(pubsub=pubsub):
+            with client.websocket_connect(_ws_url(group_id=uuid4())) as websocket:
+                websocket.receive_json()
+                assert websocket.receive_json()["type"] == "typing"
+
                 websocket.send_json({"type": "ping"})
                 assert websocket.receive_json()["code"] == "INVALID_MESSAGE"

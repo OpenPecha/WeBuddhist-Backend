@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from uuid import uuid4
 from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
@@ -9,6 +9,8 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_views imp
     get_user_collections,
     get_collection_detail,
     create_collection,
+    update_collection,
+    upload_collection_image,
     add_items_to_collection,
     delete_collection
 )
@@ -19,9 +21,11 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_response_
     RecitationCollectionItemDTO,
     CreateCollectionRequest,
     CreateCollectionResponse,
+    UpdateCollectionRequest,
     AddItemsRequest,
     AddItemsResponse
 )
+from pecha_api.plans.media.media_response_models import ImageUrlModel, PlanUploadResponse
 
 
 class TestDataFactory:
@@ -565,6 +569,138 @@ class TestCreateCollectionView:
         mock_service.assert_awaited_once_with(token=token, request=request)
 
 
+class TestUpdateCollectionView:
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.update_collection_service')
+    @pytest.mark.asyncio
+    async def test_update_collection_success(self, mock_service):
+        token = "valid_token"
+        collection_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = UpdateCollectionRequest(name="Updated Name", img_url="images/updated.jpg")
+
+        mock_response = CreateCollectionResponse(
+            id=collection_id,
+            name="Updated Name",
+            img_url="https://presigned-url.com/updated.jpg",
+            created_at="2025-06-09T10:00:00",
+            updated_at="2025-06-09T11:00:00"
+        )
+        mock_service.return_value = mock_response
+
+        result = await update_collection(
+            collection_id=collection_id,
+            authentication_credential=auth_credentials,
+            request=request
+        )
+
+        assert isinstance(result, CreateCollectionResponse)
+        assert result.name == "Updated Name"
+        assert result.img_url == "https://presigned-url.com/updated.jpg"
+
+        mock_service.assert_awaited_once_with(
+            token=token,
+            collection_id=collection_id,
+            request=request
+        )
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.update_collection_service')
+    @pytest.mark.asyncio
+    async def test_update_collection_not_found(self, mock_service):
+        token = "valid_token"
+        collection_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = UpdateCollectionRequest(name="Updated Name")
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"error": "NOT_FOUND", "message": f"Collection with ID {collection_id} not found"}
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await update_collection(
+                collection_id=collection_id,
+                authentication_credential=auth_credentials,
+                request=request
+            )
+
+        assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.update_collection_service')
+    @pytest.mark.asyncio
+    async def test_update_collection_invalid_token(self, mock_service):
+        token = "invalid_token"
+        collection_id = uuid4()
+
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+        request = UpdateCollectionRequest(name="Updated Name")
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await update_collection(
+                collection_id=collection_id,
+                authentication_credential=auth_credentials,
+                request=request
+            )
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+class TestUploadCollectionImageView:
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.upload_collection_image_service')
+    @pytest.mark.asyncio
+    async def test_upload_success(self, mock_service):
+        token = "valid_token"
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+
+        mock_response = PlanUploadResponse(
+            image=ImageUrlModel(
+                thumbnail="https://signed/thumb",
+                medium="https://signed/medium",
+                original="https://signed/original",
+            ),
+            key="images/recitation_collection_images/abc",
+            path="images/recitation_collection_images",
+        )
+        mock_service.return_value = mock_response
+
+        result = await upload_collection_image(
+            authentication_credential=auth_credentials,
+            file=MagicMock(),
+        )
+
+        assert isinstance(result, PlanUploadResponse)
+        assert result.key == "images/recitation_collection_images/abc"
+        assert result.image.thumbnail == "https://signed/thumb"
+        mock_service.assert_called_once()
+
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.upload_collection_image_service')
+    @pytest.mark.asyncio
+    async def test_upload_invalid_token(self, mock_service):
+        token = "invalid_token"
+        auth_credentials = TestDataFactory.create_auth_credentials(token=token)
+
+        mock_service.side_effect = HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials"
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await upload_collection_image(
+                authentication_credential=auth_credentials,
+                file=MagicMock(),
+            )
+
+        assert exc_info.value.status_code == status.HTTP_401_UNAUTHORIZED
+
+
 class TestAddItemsToCollectionView:
 
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_views.add_items_to_collection_service')
@@ -572,7 +708,7 @@ class TestAddItemsToCollectionView:
     async def test_add_items_single_success(self, mock_service):
         token = "valid_token"
         collection_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=[text_id])
@@ -612,7 +748,7 @@ class TestAddItemsToCollectionView:
     async def test_add_items_multiple_success(self, mock_service):
         token = "valid_token"
         collection_id = uuid4()
-        text_ids = [uuid4(), uuid4(), uuid4()]
+        text_ids = [str(uuid4()), str(uuid4()), str(uuid4())]
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=text_ids)
@@ -652,7 +788,7 @@ class TestAddItemsToCollectionView:
     async def test_add_items_collection_not_found(self, mock_service):
         token = "valid_token"
         collection_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=[text_id])
@@ -676,7 +812,7 @@ class TestAddItemsToCollectionView:
     async def test_add_items_text_not_found(self, mock_service):
         token = "valid_token"
         collection_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=[text_id])
@@ -700,7 +836,7 @@ class TestAddItemsToCollectionView:
     async def test_add_items_duplicate_item(self, mock_service):
         token = "valid_token"
         collection_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=[text_id])
@@ -725,7 +861,7 @@ class TestAddItemsToCollectionView:
         """Test adding items with invalid authentication token"""
         token = "invalid_token"
         collection_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=[text_id])
@@ -750,7 +886,7 @@ class TestAddItemsToCollectionView:
         """Test adding large batch of items (50 texts)"""
         token = "valid_token"
         collection_id = uuid4()
-        text_ids = [uuid4() for _ in range(50)]
+        text_ids = [str(uuid4()) for _ in range(50)]
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=text_ids)
@@ -793,7 +929,7 @@ class TestAddItemsToCollectionView:
         """Test that display order continues from existing items"""
         token = "valid_token"
         collection_id = uuid4()
-        text_ids = [uuid4(), uuid4()]
+        text_ids = [str(uuid4()), str(uuid4())]
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=text_ids)
@@ -838,7 +974,7 @@ class TestAddItemsToCollectionView:
         """Test adding items with different text types (root_text, translation, etc.)"""
         token = "valid_token"
         collection_id = uuid4()
-        text_ids = [uuid4(), uuid4(), uuid4()]
+        text_ids = [str(uuid4()), str(uuid4()), str(uuid4())]
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=text_ids)
@@ -892,7 +1028,7 @@ class TestAddItemsToCollectionView:
         """Test adding items with different languages"""
         token = "valid_token"
         collection_id = uuid4()
-        text_ids = [uuid4(), uuid4(), uuid4()]
+        text_ids = [str(uuid4()), str(uuid4()), str(uuid4())]
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=text_ids)
@@ -946,7 +1082,7 @@ class TestAddItemsToCollectionView:
         """Test database error handling when adding items"""
         token = "valid_token"
         collection_id = uuid4()
-        text_id = uuid4()
+        text_id = str(uuid4())
 
         auth_credentials = TestDataFactory.create_auth_credentials(token=token)
         request = AddItemsRequest(text_ids=[text_id])

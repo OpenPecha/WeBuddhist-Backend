@@ -31,7 +31,7 @@ class TestSetRecitationByTextIdCache:
         )
         
         recitation_response = RecitationDetailsResponse(
-            text_id=uuid4(),
+            text_id=str(uuid4()),
             title="Test Recitation",
             segments=[]
         )
@@ -79,7 +79,7 @@ class TestSetRecitationByTextIdCache:
         )
         
         recitation_response = RecitationDetailsResponse(
-            text_id=uuid4(),
+            text_id=str(uuid4()),
             title="Empty Segments Recitation",
             segments=[]
         )
@@ -102,8 +102,8 @@ class TestSetRecitationByTextIdCache:
     async def test_set_recitation_by_text_id_cache_with_multiple_segments(self):
         """Test setting cache with multiple segments."""
         text_id = str(uuid4())
-        segment_id_1 = uuid4()
-        segment_id_2 = uuid4()
+        segment_id_1 = str(uuid4())
+        segment_id_2 = str(uuid4())
         
         recitation_request = RecitationDetailsRequest(
             language="en",
@@ -135,7 +135,7 @@ class TestSetRecitationByTextIdCache:
         ]
         
         recitation_response = RecitationDetailsResponse(
-            text_id=uuid4(),
+            text_id=str(uuid4()),
             title="Multi-Segment Recitation",
             segments=segments
         )
@@ -170,7 +170,7 @@ class TestSetRecitationByTextIdCache:
         )
         
         recitation_response = RecitationDetailsResponse(
-            text_id=uuid4(),
+            text_id=str(uuid4()),
             title="Test Recitation",
             segments=[]
         )
@@ -268,7 +268,7 @@ class TestGetRecitationByTextIdCache:
         
         # Mock cache returning a Pydantic model directly
         mock_cache_response = RecitationDetailsResponse(
-            text_id=response_text_id,
+            text_id=str(response_text_id),
             title="Direct Model Response",
             segments=[]
         )
@@ -481,12 +481,12 @@ class TestRecitationCacheIntegration:
         )
         
         recitation_response = RecitationDetailsResponse(
-            text_id=response_text_id,
+            text_id=str(response_text_id),
             title="Integration Test Recitation",
             segments=[
                 RecitationSegment(
-                    recitation={"en": Segment(id=segment_id, content="Test content")},
-                    translations={"bo": Segment(id=segment_id, content="བོད་ཡིག")},
+                    recitation={"en": Segment(id=str(segment_id), content="Test content")},
+                    translations={"bo": Segment(id=str(segment_id), content="བོད་ཡིག")},
                     transliterations={},
                     adaptations={}
                 )

@@ -43,6 +43,8 @@ class MockGroup:
     def __init__(self, id=None, is_public=True):
         self.id = id or uuid4()
         self.is_public = is_public
+        # Published by default; these cases test is_public on live groups.
+        self.status = "PUBLISHED"
 
 
 class MockText:
@@ -305,17 +307,17 @@ class TestGetGroupCollectionDetailService:
 class TestBuildItemsDto:
     """Test cases for _build_items_dto function."""
 
-    @patch('pecha_api.group_recitation_collection.service.get_texts_by_ids')
+    @patch('pecha_api.group_recitation_collection.service.get_texts_by_edition_or_text_ids')
     @pytest.mark.asyncio
     async def test_build_items_dto_success(self, mock_get_texts):
-        """Test building item DTOs with text metadata from MongoDB."""
+        """Test building item DTOs with text metadata fetched from OpenPecha."""
         text_id1 = uuid4()
         text_id2 = uuid4()
         items = [
             MockGroupRecitationCollectionItem(text_id=text_id1, display_order=1),
             MockGroupRecitationCollectionItem(text_id=text_id2, display_order=2),
         ]
-        
+
         mock_get_texts.return_value = {
             str(text_id1): MockText(title="Text 1", language="bo", type="sutra"),
             str(text_id2): MockText(title="Text 2", language="en", type="prayer"),
@@ -327,10 +329,9 @@ class TestBuildItemsDto:
         assert result[0].text_id == str(text_id1)
         assert result[0].title == "Text 1"
         assert result[0].language == "bo"
-        assert result[0].type == "sutra"
         assert result[0].display_order == 1
         assert result[1].title == "Text 2"
-        mock_get_texts.assert_called_once_with(text_ids=[str(text_id1), str(text_id2)])
+        mock_get_texts.assert_called_once_with([str(text_id1), str(text_id2)])
 
     @pytest.mark.asyncio
     async def test_build_items_dto_empty(self):

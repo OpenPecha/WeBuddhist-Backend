@@ -2,8 +2,11 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
-from sqlalchemy import func, or_
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.orm import Session, selectinload
+
+from pecha_api.plans.groups.groups_enums import AuthorGroupStatus
+from pecha_api.plans.groups.groups_models import AuthorGroup
 
 from pecha_api.chat.enums import ChatMessageReportSource, ChatRoomMemberRole
 from pecha_api.chat.models import (
@@ -149,6 +152,22 @@ def list_my_active_rooms(
             ChatRoomMember.user_id == user_id,
             ChatRoomMember.left_at.is_(None),
             ChatRoom.deleted_at.is_(None),
+            # Hide rooms whose group is no longer published. DM rooms have no
+            # group_id and are unaffected. correlate() is required so the
+            # subquery references the outer chat_rooms row instead of joining
+            # its own copy (which would match any published group).
+            or_(
+                ChatRoom.group_id.is_(None),
+                exists(
+                    select(1)
+                    .select_from(AuthorGroup)
+                    .where(
+                        AuthorGroup.id == ChatRoom.group_id,
+                        AuthorGroup.status == AuthorGroupStatus.PUBLISHED,
+                    )
+                    .correlate(ChatRoom)
+                ),
+            ),
         )
     )
     total = query.count()

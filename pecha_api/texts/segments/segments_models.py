@@ -27,29 +27,12 @@ class Segment(Document):
         ]
 
     @classmethod
-    async def get_segments_by_pecha_segment_ids(cls, pecha_segment_ids: List[str]) -> List["Segment"]:
-        pecha_segment_ids = [str(pecha_segment_id) for pecha_segment_id in pecha_segment_ids]
-        return await cls.find({cls.pecha_segment_id: {"$in": pecha_segment_ids}}).to_list()
-
-    @classmethod
     async def get_segment_by_id(cls, segment_id: str) -> Optional["Segment"]:
         return await cls.find_one(cls.id == uuid.UUID(segment_id))
     
     @classmethod
-    async def update_segment_by_pecha_segment_id(cls, pecha_segment_id: str, content: str) -> Optional["Segment"]:
-        return await cls.find_one(cls.pecha_segment_id == pecha_segment_id).update({"$set": {"content": content}})
-    
-    @classmethod
     async def get_segment_by_pecha_segment_id(cls, pecha_segment_id: str) -> Optional["Segment"]:
         return await cls.find_one(cls.pecha_segment_id == pecha_segment_id)
-    @classmethod
-    async def get_segments_by_ids(cls, segment_ids: List[str]) -> List["Segment"]:
-        segment_ids = [uuid.UUID(segment_id) for segment_id in segment_ids]
-        return await cls.find({"_id": {"$in": segment_ids}}).to_list()
-
-    @classmethod
-    async def get_segment_by_id_and_text_id(cls, segment_id: uuid.UUID, text_id: str) -> Optional["Segment"]:
-        return await cls.find_one(cls.id == segment_id, cls.text_id == text_id)
 
     @classmethod
     async def get_segments_by_text_id(cls, text_id: str) -> List["Segment"]:
@@ -86,13 +69,6 @@ class Segment(Document):
     async def get_segments_by_ids(cls, segment_ids: List[str]) -> List["Segment"]:
         segment_ids = [uuid.UUID(segment_id) for segment_id in segment_ids]
         return await cls.find({"_id": {"$in": segment_ids}}).to_list(length=len(segment_ids))
-    @classmethod
-    async def get_first_segment_by_ids_and_type(cls, segment_ids: List[str], segment_type: SegmentType) -> Optional["Segment"]:
-        """Get the first segment matching the IDs and type - optimized for single result"""
-        if not segment_ids:
-            return None
-        segment_uuid_ids = [uuid.UUID(segment_id) for segment_id in segment_ids]
-        return await cls.find_one({"_id": {"$in": segment_uuid_ids}, "type": segment_type})
 
     @classmethod
     async def get_related_mapped_segments(cls, parent_segment_id: str) -> List["Segment"]:
@@ -120,10 +96,6 @@ class Segment(Document):
             query["text_id"] = text_id
         
         return await cls.find(query).to_list()
-
-    @classmethod
-    async def delete_segment_by_text_id(cls, text_id: str):
-        return await cls.find(cls.text_id == text_id).delete()
 
     @classmethod
     async def get_related_mapped_segments_batch(

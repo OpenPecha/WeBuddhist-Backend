@@ -22,5 +22,9 @@ async def list_languages(
         bool,
         Query(description="When true, only return languages with enabled=true"),
     ] = True,
+    recitation_only: Annotated[
+        bool,
+        Query(description="When true, only return languages available in the recitation collection"),
+    ] = False,
 ) -> LanguageListResponse:
-    return list_languages_service(enabled_only=enabled_only)
+    return await list_languages_service(enabled_only=enabled_only, recitation_only=recitation_only)

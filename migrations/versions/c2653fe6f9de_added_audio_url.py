@@ -69,8 +69,10 @@ def upgrade() -> None:
         op.drop_index('idx_plans_search', table_name='plans', postgresql_using='gin')
     op.create_index('idx_plans_search', 'plans', [sa.text("to_tsvector('english', title || ' ' || COALESCE(description, ''))")], unique=False, postgresql_using='gin')
     
-    # Add audio_url column
-    op.add_column('sub_tasks', sa.Column('audio_url', sa.String(length=255), nullable=True))
+    # Add audio_url column only if it doesn't exist
+    sub_tasks_columns = {col['name'] for col in inspector.get_columns('sub_tasks')}
+    if 'audio_url' not in sub_tasks_columns:
+        op.add_column('sub_tasks', sa.Column('audio_url', sa.String(length=255), nullable=True))
 
 
 def downgrade() -> None:

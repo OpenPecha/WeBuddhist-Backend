@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List, Tuple, Optional
+from typing import Callable, List, Tuple, Optional
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -38,10 +38,22 @@ def _persist_link_entries(db: Session, event_id: UUID, link_entries: List) -> No
         )
 
 
-def save_event(db: Session, event: Event, metadata_entries: List, link_entries: Optional[List] = None) -> Event:
+def save_event(
+    db: Session,
+    event: Event,
+    metadata_entries: List,
+    link_entries: Optional[List] = None,
+    after_flush: Optional[Callable[[Event], None]] = None,
+) -> Event:
+    """after_flush runs once event.id is populated and the row is visible
+    in-transaction (e.g. for a dependent row's FK), but before the commit
+    below - so anything it writes on the same session is persisted or rolled
+    back atomically with the event instead of surviving a later failure."""
     try:
         db.add(event)
         db.flush()
+        if after_flush is not None:
+            after_flush(event)
         _persist_metadata_entries(db, event.id, metadata_entries)
         _persist_link_entries(db, event.id, link_entries or [])
         db.commit()

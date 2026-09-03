@@ -1,9 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 from uuid import UUID
 
 
 class CreateCollectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     img_url: str
 
@@ -16,8 +18,16 @@ class CreateCollectionResponse(BaseModel):
     updated_at: str
 
 
+class UpdateCollectionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: Optional[str] = None
+    img_url: Optional[str] = None
+
+
 class AddItemsRequest(BaseModel):
-    text_ids: List[UUID]
+    # str, not UUID: text_id can hold a non-UUID pecha-style text id.
+    text_ids: List[str]
 
 
 class AddItemsResponse(BaseModel):

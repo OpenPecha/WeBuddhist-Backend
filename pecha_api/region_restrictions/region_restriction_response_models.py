@@ -9,7 +9,7 @@ from pecha_api.region_restrictions.region_restriction_enums import RestrictedIte
 class ChinaRestrictedItemDTO(BaseModel):
     id: UUID
     item_type: RestrictedItemType
-    item_id: UUID
+    item_id: str
     title: Optional[str] = None
     subtitle: Optional[str] = None
     created_at: str
@@ -25,11 +25,11 @@ class ChinaRestrictedItemListResponse(BaseModel):
 
 class CreateChinaRestrictedItemRequest(BaseModel):
     item_type: RestrictedItemType
-    item_id: UUID
+    item_id: str
 
 
 class ChinaRestrictionCandidateDTO(BaseModel):
-    id: UUID
+    id: str
     title: str
     subtitle: Optional[str] = None
 
