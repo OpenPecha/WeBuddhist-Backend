@@ -39,6 +39,7 @@ from pecha_api.chat.response_models import (
     UpdateChatRoomRequest,
 )
 from pecha_api.chat.service import (
+    _sender_name,
     get_room_detail_service,
     list_group_people_service,
     list_my_rooms_service,
@@ -146,18 +147,48 @@ def list_room_messages(
     return list_room_messages_service(room_id=room_id, user=user, skip=skip, limit=limit)
 
 
+async def _broadcast_message_deleted_safe(
+    room_id: UUID, message_id: UUID, deleted_by: dict, deleted_at: str
+) -> None:
+    """Push a message_deleted event to the room's live stream. Best-effort:
+    the deletion is already persisted, so a broadcast failure must not fail
+    the request."""
+    try:
+        broadcaster = get_broadcaster()
+        await broadcaster.broadcast_message_deleted(
+            room_id=room_id,
+            message_id=message_id,
+            deleted_by=deleted_by,
+            deleted_at=deleted_at,
+        )
+    except Exception as e:
+        logger.error(f"Failed to broadcast deletion for message {message_id}: {e}")
+
+
 @chat_router.delete(
     "/chat/rooms/{room_id}/messages/{message_id}",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def delete_room_message(
+async def delete_room_message(
     room_id: UUID,
     message_id: UUID,
     authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)],
 ):
-    """Soft-delete a message. Only the sender can delete their own message."""
+    """Soft-delete a message. Only the sender can delete their own message.
+    Broadcasts a message_deleted event so every connected client can grey it
+    out live, WhatsApp-style."""
     user = validate_and_extract_user_details(token=authentication_credential.credentials)
-    delete_message_service(room_id=room_id, message_id=message_id, user=user)
+    deleted_at = delete_message_service(room_id=room_id, message_id=message_id, user=user)
+    await _broadcast_message_deleted_safe(
+        room_id=room_id,
+        message_id=message_id,
+        deleted_by={
+            "user_id": str(user.id),
+            "email": user.email,
+            "name": _sender_name(user),
+        },
+        deleted_at=deleted_at,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

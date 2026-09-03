@@ -109,6 +109,49 @@ class TestBroadcastReactions:
         ]
 
 
+class TestBroadcastMessageDeleted:
+
+    @pytest.mark.asyncio
+    async def test_publishes_message_deleted(self):
+        broadcaster = ChatBroadcaster("redis://test")
+        broadcaster.redis = MagicMock()
+        broadcaster.redis.publish = AsyncMock()
+        room_id = uuid4()
+        message_id = uuid4()
+        deleted_by = {"user_id": str(uuid4()), "email": "a@example.com", "name": "A B"}
+
+        await broadcaster.broadcast_message_deleted(
+            room_id=room_id,
+            message_id=message_id,
+            deleted_by=deleted_by,
+            deleted_at="2026-01-01T00:00:00+00:00",
+        )
+
+        channel, raw = broadcaster.redis.publish.call_args.args
+        assert channel == f"chat:room:{room_id}:messages"
+        payload = json.loads(raw)
+        assert payload == {
+            "type": "message_deleted",
+            "message_id": str(message_id),
+            "deleted_by": deleted_by,
+            "deleted_at": "2026-01-01T00:00:00+00:00",
+        }
+
+    @pytest.mark.asyncio
+    async def test_raises_on_publish_failure(self):
+        broadcaster = ChatBroadcaster("redis://test")
+        broadcaster.redis = MagicMock()
+        broadcaster.redis.publish = AsyncMock(side_effect=ConnectionError("down"))
+
+        with pytest.raises(ConnectionError):
+            await broadcaster.broadcast_message_deleted(
+                room_id=uuid4(),
+                message_id=uuid4(),
+                deleted_by={},
+                deleted_at="2026-01-01T00:00:00+00:00",
+            )
+
+
 class TestReactionEndpointsBroadcast:
 
     @patch('pecha_api.chat.views.get_broadcaster')

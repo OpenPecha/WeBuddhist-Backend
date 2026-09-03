@@ -122,6 +122,30 @@ class ChatBroadcaster:
             logger.error(f"Failed to broadcast reactions to Redis: {e}")
             raise
 
+    async def broadcast_message_deleted(
+        self,
+        room_id: UUID,
+        message_id: UUID,
+        deleted_by: dict,
+        deleted_at: str,
+    ) -> None:
+        """Publish a message deletion to the room, so every connected client
+        can grey it out live (WhatsApp-style) instead of waiting for the next
+        history fetch."""
+        channel = f"chat:room:{room_id}:messages"
+        payload = {
+            "type": "message_deleted",
+            "message_id": str(message_id),
+            "deleted_by": deleted_by,
+            "deleted_at": deleted_at,
+        }
+
+        try:
+            await self.redis.publish(channel, json.dumps(payload))
+        except Exception as e:
+            logger.error(f"Failed to broadcast message deletion to Redis: {e}")
+            raise
+
     async def broadcast_typing(
         self,
         room_id: UUID,

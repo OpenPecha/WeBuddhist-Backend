@@ -235,10 +235,13 @@ class TestDeleteMessageService:
         user_id = uuid4()
         message = MockMessage(sender_id=user_id)
         mock_get_message.return_value = message
+        deleted_at = datetime.now(tz.utc)
+        mock_soft_delete.return_value = deleted_at
 
-        delete_message_service(room_id=uuid4(), message_id=message.id, user=MockUser(user_id=user_id))
+        result = delete_message_service(room_id=uuid4(), message_id=message.id, user=MockUser(user_id=user_id))
 
         mock_soft_delete.assert_called_once()
+        assert result == deleted_at.isoformat()
 
     @patch('pecha_api.chat.message_service.get_message_by_id')
     @patch('pecha_api.chat.message_service._require_active_member')

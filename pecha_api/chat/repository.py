@@ -223,9 +223,11 @@ def get_message_by_id(db: Session, message_id: UUID, room_id: UUID) -> Optional[
     )
 
 
-def soft_delete_message(db: Session, message: ChatMessage) -> None:
-    message.deleted_at = datetime.now(timezone.utc)
+def soft_delete_message(db: Session, message: ChatMessage) -> datetime:
+    deleted_at = datetime.now(timezone.utc)
+    message.deleted_at = deleted_at
     db.commit()
+    return deleted_at
 
 
 def mark_message_notification_dispatched(

@@ -217,6 +217,7 @@ _CHAT_VIEWER_HTML = """
 
         .message-sender { font-weight: 600; color: #1f2937; margin-bottom: 4px; font-size: 13px; }
         .message-body { color: #374151; line-height: 1.4; word-break: break-word; }
+        .message-body.deleted { color: #9ca3af; font-style: italic; }
         .message-time { font-size: 11px; color: #9ca3af; margin-top: 4px; }
 
         .message-parent {
@@ -781,6 +782,8 @@ _CHAT_VIEWER_HTML = """
                     if (message.message.sender_email !== myEmail) setTyping(false);
                 } else if (message.type === "reactions_updated") {
                     applyReactionsUpdate(message.message_id, message.reactions || []);
+                } else if (message.type === "message_deleted") {
+                    applyMessageDeleted(message.message_id, message.deleted_at);
                 } else if (message.type === "typing") {
                     if (message.email !== myEmail) setTyping(message.is_typing, message.email);
                 } else if (message.type === "presence") {
@@ -869,6 +872,7 @@ _CHAT_VIEWER_HTML = """
 
             const div = document.createElement("div");
             const isMine = message.sender_email === myEmail;
+            const isDeleted = !!message.deleted_at;
             div.className = "message" + (isMine ? " mine" : "");
             div.dataset.messageId = message.id;
 
@@ -887,31 +891,85 @@ _CHAT_VIEWER_HTML = """
             div.innerHTML = `
                 ${parentHtml}
                 <div class="message-sender">${escapeHtml(message.sender_email)}</div>
-                <div class="message-body">${escapeHtml(message.body)}</div>
+                <div class="message-body${isDeleted ? " deleted" : ""}">${deletedBodyText(message)}</div>
                 <div class="message-time">${date}</div>
                 <div class="message-reactions"></div>
-                <div class="message-actions">
-                    <button class="action-btn" data-action="react" title="Add reaction">+ React</button>
-                    <button class="action-btn" data-action="reply" title="Reply to this message">Reply</button>
-                    ${isMine ? "" : '<button class="action-btn danger" data-action="report" title="Report this message">Report</button>'}
-                </div>
+                <div class="message-actions"></div>
             `;
 
             const parentEl = div.querySelector(".message-parent");
             if (parentEl) {
                 parentEl.addEventListener("click", () => scrollToMessage(parentEl.dataset.parentId));
             }
-            div.querySelector('[data-action="react"]').addEventListener("click", (e) => showEmojiPicker(e.currentTarget, message.id));
-            div.querySelector('[data-action="reply"]').addEventListener("click", () => startReply(message));
-            const reportBtn = div.querySelector('[data-action="report"]');
-            if (reportBtn) {
-                reportBtn.addEventListener("click", () => openReportModal(message));
-            }
 
-            renderReactions(div, message.reactions || []);
+            if (isDeleted) {
+                renderReactions(div, []);
+            } else {
+                renderActions(div, message, isMine);
+                renderReactions(div, message.reactions || []);
+            }
 
             messagesSection.appendChild(div);
             messagesSection.scrollTop = messagesSection.scrollHeight;
+        }
+
+        function deletedBodyText(message) {
+            if (!message.deleted_at) return escapeHtml(message.body);
+            return "\\ud83d\\udeab This message was deleted";
+        }
+
+        function renderActions(div, message, isMine) {
+            const actions = div.querySelector(".message-actions");
+            actions.innerHTML = `
+                <button class="action-btn" data-action="react" title="Add reaction">+ React</button>
+                <button class="action-btn" data-action="reply" title="Reply to this message">Reply</button>
+                ${isMine ? '<button class="action-btn danger" data-action="delete" title="Delete this message">Delete</button>' : '<button class="action-btn danger" data-action="report" title="Report this message">Report</button>'}
+            `;
+            actions.querySelector('[data-action="react"]').addEventListener("click", (e) => showEmojiPicker(e.currentTarget, message.id));
+            actions.querySelector('[data-action="reply"]').addEventListener("click", () => startReply(message));
+            const deleteBtn = actions.querySelector('[data-action="delete"]');
+            if (deleteBtn) {
+                deleteBtn.addEventListener("click", () => deleteMessage(message.id));
+            }
+            const reportBtn = actions.querySelector('[data-action="report"]');
+            if (reportBtn) {
+                reportBtn.addEventListener("click", () => openReportModal(message));
+            }
+        }
+
+        async function deleteMessage(messageId) {
+            if (!roomId) return;
+            try {
+                const response = await fetch(
+                    `${apiBase}/chat/rooms/${roomId}/messages/${messageId}`,
+                    { method: "DELETE", headers: authHeaders() }
+                );
+                if (!response.ok) {
+                    showError(messagesSection, "Delete failed: " + await readApiError(response));
+                    return;
+                }
+                // The server also broadcasts message_deleted back to this socket;
+                // applying it here too keeps the UI responsive if that race loses.
+                applyMessageDeleted(messageId, new Date().toISOString());
+            } catch (err) {
+                showError(messagesSection, "Delete failed: " + err.message);
+            }
+        }
+
+        function applyMessageDeleted(messageId, deletedAt) {
+            const messageEl = messagesSection.querySelector(`[data-message-id="${messageId}"]`);
+            if (!messageEl) return;
+            if (messageEl.dataset.deleted === "1") return;
+            messageEl.dataset.deleted = "1";
+            const bodyEl = messageEl.querySelector(".message-body");
+            if (bodyEl) {
+                bodyEl.classList.add("deleted");
+                bodyEl.textContent = "\\ud83d\\udeab This message was deleted";
+            }
+            const actionsEl = messageEl.querySelector(".message-actions");
+            if (actionsEl) actionsEl.innerHTML = "";
+            const reactionsEl = messageEl.querySelector(".message-reactions");
+            if (reactionsEl) reactionsEl.innerHTML = "";
         }
 
         function scrollToMessage(messageId) {
