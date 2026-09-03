@@ -44,6 +44,26 @@ def combine_date_with_time_of_day(occurrence_date: date, reference: datetime) ->
     )
 
 
+def combine_occurrence_window(
+    start_d: date, end_d: date, template_start: datetime, template_end: datetime
+) -> tuple[datetime, datetime]:
+    """Combine an occurrence's calendar dates with the template's time-of-day.
+
+    Write-time validation (see `_validate_date_range` calls in event_service)
+    rejects new templates whose start/end time-of-day would invert a one-day
+    (start_d == end_d) occurrence, but that guard can't fix templates that
+    were already persisted before it existed. Clamping end to start here
+    keeps every read path (event lists, featured events, group feeds) from
+    ever surfacing end_date < start_date, regardless of how the underlying
+    row got into that state.
+    """
+    occurrence_start = combine_date_with_time_of_day(start_d, template_start)
+    occurrence_end = combine_date_with_time_of_day(end_d, template_end)
+    if occurrence_end < occurrence_start:
+        occurrence_end = occurrence_start
+    return occurrence_start, occurrence_end
+
+
 def _resolve_gregorian_yearly(
     month: int,
     day: int,
