@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Header, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from starlette import status
 
-from .event_response_models import EventsResponse, EventDTO, EventParticipantsResponse
+from .event_response_models import EventFormat, EventsResponse, EventDTO, EventParticipantsResponse
 from .event_service import (
     EventContentFilter,
     get_events_service,
@@ -37,6 +37,7 @@ def get_events_endpoint(
     mantra_id: Annotated[Optional[UUID], Query(description="Filter by mantra ID")] = None,
     timer_id: Annotated[Optional[UUID], Query(description="Filter by timer ID")] = None,
     group_recitation_collection_id: Annotated[Optional[UUID], Query(description="Filter by group recitation collection ID")] = None,
+    event_format: Annotated[Optional[EventFormat], Query(description="Filter by event format")] = None,
     from_date: Annotated[Optional[datetime], Query(description="Filter events ending on or after this date")] = None,
     to_date: Annotated[Optional[datetime], Query(description="Filter events starting on or before this date")] = None,
     language: Annotated[Optional[str], Query(description="Filter metadata by language code")] = None,
@@ -65,6 +66,7 @@ def get_events_endpoint(
             mantra_id=mantra_id,
             timer_id=timer_id,
             group_recitation_collection_id=group_recitation_collection_id,
+            event_format=event_format,
         ),
         from_date=from_date,
         to_date=to_date,

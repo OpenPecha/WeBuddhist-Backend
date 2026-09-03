@@ -38,6 +38,7 @@ from .event_response_models import (
     CreateEventRequest,
     UpdateEventRequest,
     EventDTO,
+    EventFormat,
     EventMetadataDTO,
     EventLinkDTO,
     EventsResponse,
@@ -303,6 +304,7 @@ class EventContentFilter:
     mantra_id: Optional[UUID] = None
     timer_id: Optional[UUID] = None
     group_recitation_collection_id: Optional[UUID] = None
+    event_format: Optional[EventFormat] = None
 
 
 def get_events_service(
@@ -349,6 +351,7 @@ def get_events_service(
             mantra_id=content_filter.mantra_id,
             timer_id=content_filter.timer_id,
             group_recitation_collection_id=content_filter.group_recitation_collection_id,
+            event_format=content_filter.event_format,
             from_date=from_date,
             to_date=to_date,
             restrict_group_ids=restrict_group_ids,
@@ -365,6 +368,7 @@ def get_events_service(
             mantra_id=content_filter.mantra_id,
             timer_id=content_filter.timer_id,
             group_recitation_collection_id=content_filter.group_recitation_collection_id,
+            event_format=content_filter.event_format,
             restrict_group_ids=restrict_group_ids,
         )
         
@@ -453,6 +457,7 @@ def get_cms_events_service(
     mantra_id: Optional[UUID] = None,
     timer_id: Optional[UUID] = None,
     group_recitation_collection_id: Optional[UUID] = None,
+    event_format: Optional[EventFormat] = None,
     from_date: Optional[datetime] = None,
     to_date: Optional[datetime] = None,
     language: Optional[str] = None,
@@ -477,6 +482,7 @@ def get_cms_events_service(
             mantra_id=mantra_id,
             timer_id=timer_id,
             group_recitation_collection_id=group_recitation_collection_id,
+            event_format=event_format,
         ),
         from_date=from_date,
         to_date=to_date,
