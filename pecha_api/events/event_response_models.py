@@ -99,10 +99,9 @@ class RecurrenceInput(BaseModel):
             if self.day > 30:
                 raise ValueError("Lunar day must be between 1 and 30")
         
-        if self.frequency == RecurrenceFrequency.YEARLY:
-            if self.month is None:
-                raise ValueError("month is required for YEARLY frequency")
-        
+        if self.frequency == RecurrenceFrequency.YEARLY and self.month is None:
+            raise ValueError("month is required for YEARLY frequency")
+
         return self
 
 
