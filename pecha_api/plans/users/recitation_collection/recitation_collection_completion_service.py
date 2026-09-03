@@ -3,6 +3,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
 from starlette import status
 
 from pecha_api.db.database import SessionLocal
@@ -34,7 +35,7 @@ _CHANT_NOT_IN_COLLECTION = "CHANT_NOT_IN_COLLECTION"
 
 
 def _get_collection_or_404(
-    db,
+    db: Session,
     collection_id: UUID,
     user_id: UUID,
 ) -> RecitationCollection:

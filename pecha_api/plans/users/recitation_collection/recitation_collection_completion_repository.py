@@ -65,6 +65,9 @@ def check_completion_exists(
     )
 
 
+_UQ_USER_CHANT_DATE = "uq_recitation_collection_chant_completion_user_chant_date"
+
+
 def create_chant_completion(
     db: Session,
     user_id: UUID,
@@ -76,7 +79,10 @@ def create_chant_completion(
 
     A prior check_completion_exists() call can race with another request for
     the same (user, chant, date); the unique constraint is the real guard, so
-    an IntegrityError here just means someone else already logged it.
+    an IntegrityError on that constraint just means someone else already
+    logged it. Any other IntegrityError (e.g. a foreign-key violation because
+    the collection/chant was deleted after validation) is a real failure and
+    must not be swallowed.
     """
     completion = RecitationCollectionChantCompletion(
         user_id=user_id,
@@ -88,5 +94,8 @@ def create_chant_completion(
     db.add(completion)
     try:
         db.commit()
-    except IntegrityError:
+    except IntegrityError as exc:
         db.rollback()
+        constraint_name = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+        if constraint_name != _UQ_USER_CHANT_DATE:
+            raise
