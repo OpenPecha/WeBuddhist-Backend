@@ -571,11 +571,35 @@ async def _apply_translations(
             )
 
 
+async def _resolve_edition_id_for_details(text_or_edition_id: str) -> Tuple[str, str]:
+    """Accepts either an edition id or a text id and returns (edition_id, text_id).
+
+    Most callers only have a text id on hand (search results, text/version
+    listings, related-segment groups), even though this endpoint's path was
+    historically an edition id. Fall back to the text's first critical
+    edition when the given id isn't already an edition.
+    """
+    try:
+        text_id = await fetch_edition_text_id(edition_id=text_or_edition_id)
+        return text_or_edition_id, text_id
+    except HTTPException as exc:
+        if exc.status_code != status.HTTP_404_NOT_FOUND:
+            raise
+
+    resolved_edition_id = await _fetch_first_critical_edition_id(text_id=text_or_edition_id)
+    if not resolved_edition_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Edition with id '{text_or_edition_id}' not found",
+        )
+    return resolved_edition_id, text_or_edition_id
+
+
 async def get_text_detail_by_id(
     edition_id: str,
     text_details_request: TextDetailsRequest,
 ) -> TextDetailWithContentResponse:
-    text_id = await fetch_edition_text_id(edition_id=edition_id)
+    edition_id, text_id = await _resolve_edition_id_for_details(edition_id)
     text_detail = await fetch_text_detail(text_id=text_id)
 
     segmentations = await fetch_editions_segmentation(edition_id=edition_id)
