@@ -30,6 +30,11 @@ def _event(event_id=None, group_id=None, featured=False):
     event.group_id = group_id or uuid4()
     event.location_id = None
     event.location = None
+    event.plan = None
+    event.accumulator = None
+    event.mantra = None
+    event.timer = None
+    event.group_recitation_collection = None
     event.start_date = now
     event.end_date = now
     event.timezone = None

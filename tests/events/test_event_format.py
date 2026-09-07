@@ -195,7 +195,12 @@ def test_create_event_service_sets_event_format() -> None:
     mock_event.group_recitation_collection_id = None
     mock_event.location_id = None
     mock_event.location = None
-    
+    mock_event.plan = None
+    mock_event.accumulator = None
+    mock_event.mantra = None
+    mock_event.timer = None
+    mock_event.group_recitation_collection = None
+
     with patch("pecha_api.events.event_service.validate_cms_author_details") as mock_auth, \
          patch("pecha_api.events.event_service.SessionLocal") as mock_session, \
          patch("pecha_api.events.event_service.save_event", return_value=mock_event) as mock_save, \
@@ -246,7 +251,12 @@ def test_update_event_service_updates_event_format() -> None:
     mock_event.timer_id = None
     mock_event.group_recitation_collection_id = None
     mock_event.location_id = None
-    
+    mock_event.plan = None
+    mock_event.accumulator = None
+    mock_event.mantra = None
+    mock_event.timer = None
+    mock_event.group_recitation_collection = None
+
     with patch("pecha_api.events.event_service.validate_cms_author_details") as mock_auth, \
          patch("pecha_api.events.event_service.SessionLocal") as mock_session, \
          patch("pecha_api.events.event_service.get_event_by_id", return_value=mock_event), \

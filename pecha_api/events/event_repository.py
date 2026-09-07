@@ -11,6 +11,11 @@ from starlette import status
 from .event_model import Event
 from .event_metadata_model import EventMetadata
 from .event_link_model import EventLink
+from ..accumulator.accumulator_models import Accumulator
+from ..mantra.mantra_model import Mantra
+from ..plans.plans_models import Plan
+from ..timers.timer_model import Timer
+from ..group_recitation_collection.models import GroupRecitationCollection
 
 
 def _persist_metadata_entries(db: Session, event_id: UUID, metadata_entries: List) -> None:
@@ -67,6 +72,20 @@ def save_event(
         )
 
 
+def _linked_resource_options() -> tuple:
+    """Built lazily (not at import time) so mapper configuration only runs
+    once every model across the app has been imported and registered."""
+    return (
+        selectinload(Event.plan),
+        selectinload(Event.accumulator).selectinload(Accumulator.metadata_entries),
+        selectinload(Event.accumulator).selectinload(Accumulator.mala),
+        selectinload(Event.mantra).selectinload(Mantra.metadata_entries),
+        selectinload(Event.mantra).selectinload(Mantra.mala),
+        selectinload(Event.timer),
+        selectinload(Event.group_recitation_collection),
+    )
+
+
 def get_event_by_id(db: Session, event_id: UUID) -> Optional[Event]:
     return (
         db.query(Event)
@@ -74,6 +93,7 @@ def get_event_by_id(db: Session, event_id: UUID) -> Optional[Event]:
             selectinload(Event.metadata_entries),
             selectinload(Event.links),
             selectinload(Event.location),
+            *_linked_resource_options(),
         )
         .filter(Event.id == event_id)
         .first()
@@ -226,6 +246,7 @@ def get_events(
             selectinload(Event.metadata_entries),
             selectinload(Event.links),
             selectinload(Event.location),
+            *_linked_resource_options(),
         ).filter(Event.is_recurring == False),
         group_id=group_id,
         plan_id=plan_id,
@@ -261,6 +282,7 @@ def get_featured_events(
             selectinload(Event.metadata_entries),
             selectinload(Event.links),
             selectinload(Event.location),
+            *_linked_resource_options(),
         )
         .filter(Event.featured == True)
         .filter(Event.is_recurring == False)
@@ -281,6 +303,7 @@ def get_featured_recurring_events(
             selectinload(Event.metadata_entries),
             selectinload(Event.links),
             selectinload(Event.location),
+            *_linked_resource_options(),
         )
         .filter(Event.featured == True)
         .filter(Event.is_recurring == True)
@@ -304,6 +327,7 @@ def get_recurring_events(
         selectinload(Event.metadata_entries),
         selectinload(Event.links),
         selectinload(Event.location),
+        *_linked_resource_options(),
     ).filter(Event.is_recurring == True)
 
     return _apply_event_filters(
