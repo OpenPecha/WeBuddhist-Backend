@@ -179,12 +179,12 @@ async def _resolve_root_text_id(segment_id: str) -> Optional[str]:
     """Callers don't know a segment's root text ahead of time, so resolve it from
     the segment's own text's translation_of/commentary_of pointer (mirrors the
     direction _classify_text uses for translations/commentaries, just inverted).
+
+    Raises on upstream failure rather than swallowing it, so a dependency outage
+    surfaces as a 502 instead of being reported as "this text has no root text".
     """
-    try:
-        segment_details = await fetch_segment_details(segment_id)
-    except Exception:
-        return None
-    text_payload = await _fetch_text_safe(segment_details.get("text_id"))
+    segment_details = await fetch_segment_details(segment_id)
+    text_payload = await fetch_text_by_id(segment_details.get("text_id"))
     if not text_payload:
         return None
     return text_payload.get("translation_of") or text_payload.get("commentary_of")
@@ -197,7 +197,15 @@ async def get_root_text_by_segment_id_from_openpecha(
     limit: int = 10,
 ) -> V2SegmentRootTextResponse:
     if text_id is None:
-        text_id = await _resolve_root_text_id(segment_id)
+        try:
+            text_id = await _resolve_root_text_id(segment_id)
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Failed to resolve root text from upstream service",
+            )
 
     if text_id is None:
         parent_segment = await _fetch_parent_segment(segment_id)

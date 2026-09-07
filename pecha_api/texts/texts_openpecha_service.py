@@ -589,13 +589,20 @@ async def _resolve_edition_id_for_details(text_or_edition_id: str) -> Tuple[str,
         if exc.status_code != status.HTTP_404_NOT_FOUND:
             raise
 
-    resolved_edition_id = await _fetch_first_critical_edition_id(text_id=text_or_edition_id)
-    if not resolved_edition_id:
+    try:
+        editions = await fetch_critical_editions(text_id=text_or_edition_id)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch critical editions from upstream service",
+        ) from exc
+
+    if not editions:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Edition with id '{text_or_edition_id}' not found",
         )
-    return resolved_edition_id, text_or_edition_id
+    return editions[0].id, text_or_edition_id
 
 
 async def get_text_detail_by_id(

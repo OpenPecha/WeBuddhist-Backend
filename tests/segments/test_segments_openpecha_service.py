@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from pecha_api.texts.segments.segments_openpecha_service import (
     _classify_text,
@@ -669,25 +669,26 @@ class TestResolveRootTextId:
         "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
         new_callable=AsyncMock,
     )
-    async def test_returns_none_when_text_lookup_fails(self, mock_fetch_details, mock_fetch_text):
+    async def test_raises_when_text_lookup_fails(self, mock_fetch_details, mock_fetch_text):
+        """An upstream failure while fetching the text must propagate rather than
+        being reported as "this text has no root text"."""
         mock_fetch_details.return_value = {"text_id": ROOT_TEXT_ID}
         mock_fetch_text.side_effect = Exception("upstream failure")
 
-        result = await _resolve_root_text_id(segment_id="seg-1")
-
-        assert result is None
+        with pytest.raises(Exception, match="upstream failure"):
+            await _resolve_root_text_id(segment_id="seg-1")
 
     @pytest.mark.asyncio
     @patch(
         "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
         new_callable=AsyncMock,
     )
-    async def test_returns_none_when_segment_lookup_fails(self, mock_fetch_details):
+    async def test_raises_when_segment_lookup_fails(self, mock_fetch_details):
+        """Same as above, but for the initial segment-details fetch."""
         mock_fetch_details.side_effect = Exception("upstream failure")
 
-        result = await _resolve_root_text_id(segment_id="seg-1")
-
-        assert result is None
+        with pytest.raises(Exception, match="upstream failure"):
+            await _resolve_root_text_id(segment_id="seg-1")
 
 
 class TestGetRootTextBySegmentIdFromOpenpecha:
@@ -755,6 +756,28 @@ class TestGetRootTextBySegmentIdFromOpenpecha:
             offset=0,
             text_id="root-text-id",
         )
+
+    @pytest.mark.asyncio
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_service.fetch_segment_details",
+        new_callable=AsyncMock,
+    )
+    async def test_raises_502_when_root_text_resolution_fails(
+        self,
+        mock_fetch_segment_details,
+    ):
+        """A resolution failure (as opposed to a clean "no root text" result)
+        must surface as a 502, not a misleading empty 200."""
+        mock_fetch_segment_details.side_effect = Exception("upstream failure")
+
+        with pytest.raises(HTTPException) as exc_info:
+            await get_root_text_by_segment_id_from_openpecha(
+                segment_id=PARENT_SEGMENT_ID,
+                skip=0,
+                limit=10,
+            )
+
+        assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
 
     @pytest.mark.asyncio
     @patch(
