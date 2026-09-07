@@ -97,13 +97,18 @@ All 9 phases of the recurring events backend have been successfully implemented 
 **Implementation:**
 - Default expansion window: rolling 12 months from today
 - Fetches one-shot events and recurring templates separately
-- Expands recurring events into occurrences within date range
+- Resolves each recurring template to its single earliest occurrence within
+  the date range (not every occurrence in range) — a template still surfaces
+  as one entry per listing regardless of how many times it recurs within the
+  window
 - Merges and sorts by start_date
 - Applies pagination to merged results
 - Each occurrence shares parent event ID
-- `occurrence_date` field distinguishes expanded occurrences
+- `occurrence_date` field marks an item as an expanded recurring occurrence
+  (present) vs. a one-shot event (absent)
 
-**Status:** ✅ Complete
+**Status:** ✅ Complete (updated 2026-09-07: was originally all occurrences in
+range, now first occurrence only — see "Bug Fixes" below)
 
 ### ✅ Phase 8: Featured Events
 **Status:** ✅ Complete - Existing `get_featured_events_service()` works with recurring events
@@ -164,7 +169,12 @@ POST /cms/events
 GET /events?from_date=2025-01-01&to_date=2025-12-31
 ```
 
-Response includes both one-shot events and expanded recurring occurrences, sorted by `start_date`.
+Response includes one-shot events plus one entry per recurring template — its
+earliest occurrence falling within `[from_date, to_date]` — sorted by
+`start_date`. A recurring event does **not** appear once per occurrence; a
+monthly template covering the full range still contributes a single item,
+not twelve. `total`/`skip`/`limit` are computed over this deduplicated set.
+Use `occurrence_date` on an item to see which occurrence was selected.
 
 ### Today's Events
 ```
@@ -172,7 +182,8 @@ GET /events/today
 X-Timezone: America/New_York
 ```
 
-Returns all events for today, including recurring event occurrences.
+Returns events for today. A recurring event appears only if today falls
+within its earliest matching occurrence for the day's window.
 
 ---
 
@@ -196,6 +207,7 @@ ALTER TABLE events ADD COLUMN duration_days INTEGER NOT NULL DEFAULT 1;
 |----------|--------|-----------|
 | Occurrence ID | Share parent event ID | Simpler v1, participants join template |
 | Expansion window | Rolling 12 months | Practical default, bounded results |
+| Occurrences per template, per listing | One (earliest in window) | See "One Occurrence Per Recurring Event" below — avoids one row per occurrence in list/CMS views |
 | Date fields | Reuse `start_date`/`end_date` | Minimal API surface |
 | CMS edits | Template-level only | Per RFC non-goals |
 | Participant tracking | Template-level | No per-occurrence joins in v1 |
@@ -242,7 +254,10 @@ Per RFC, these are **out of scope** for v1:
 - Per-occurrence edits/exceptions
 - Pre-materialized occurrence rows
 - iCal export
-- `/calendar/resolve` preview endpoint
+- `/calendar/resolve` preview endpoint (would be the place to add a
+  "list every occurrence of this template in a range" capability, now that
+  `GET /events`/`GET /cms/events` only surface one occurrence per template —
+  see "One Occurrence Per Recurring Event in List/CMS" under Bug Fixes)
 
 ---
 
@@ -282,3 +297,13 @@ alembic downgrade -1
 - `get_featured_events()` - now only returns non-recurring featured events
 
 This ensures recurring events are only processed through the expansion logic, not included in the one-shot events list.
+
+### One Occurrence Per Recurring Event in List/CMS (Fixed: September 7, 2026)
+
+**Issue:** A recurring event appeared once per occurrence inside the query window instead of once per template — e.g. a monthly recurring event listed on `GET /events` or `GET /cms/events` over the default 12-month window showed up as ~12 separate rows with the same underlying event ID. This was especially confusing in the CMS events table (`GroupEventsPage`), where each row is meant to represent one manageable event.
+
+**Root Cause:** `get_events_service()` called `expand_occurrences(template, from_date, to_date)` and appended *every* `(start_date, end_date)` pair it returned to the merged listing, rather than picking a single representative occurrence per template — unlike `get_featured_events_service()` and the author-group-feed service, which already used `resolve_current_or_next_occurrence()` to surface just one occurrence.
+
+**Fix:** `get_events_service()` (`pecha_api/events/event_service.py`) now takes only `occurrences[0]` — the earliest occurrence within `[from_date, to_date]` — from `expand_occurrences()` per template, instead of iterating over the full list. This applies to both `GET /events` (public) and `GET /cms/events` (CMS), since both route through the same function.
+
+**Behavior change:** Callers that relied on the list endpoints to enumerate *every* date a recurring event falls on within a range (e.g. rendering all occurrences of a weekly/monthly event on a calendar) will now only see the next/earliest one per request. There is currently no endpoint that returns the full set of occurrences for a template within a range — a dedicated expansion/preview endpoint would be needed if that becomes a requirement (see "Next Steps").
