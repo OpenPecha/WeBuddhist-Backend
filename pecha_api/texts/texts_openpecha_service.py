@@ -529,9 +529,12 @@ async def _apply_translations(
     using the direct (or root-composed) segment alignment OpenPecha stores between editions.
 
     A missing alignment or a segment outside its coverage is skipped rather than failing the
-    whole request; an invalid version_id itself surfaces as a 404 from fetch_edition_text_id.
+    whole request; an invalid version_id itself surfaces as a 404.
+
+    version_id accepts a text id as well as an edition id, since callers pick a version from
+    the translation/version listings, which hand out text ids.
     """
-    version_text_id = await fetch_edition_text_id(edition_id=version_id)
+    version_id, version_text_id = await _resolve_edition_id_for_details(version_id)
     version_text_detail = await fetch_text_detail(text_id=version_text_id)
 
     translation_ids_by_segment = await _resolve_translation_segment_ids(

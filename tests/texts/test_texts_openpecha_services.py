@@ -389,6 +389,59 @@ async def test_get_text_detail_by_id_raises_404_when_text_has_no_critical_editio
 
 
 @pytest.mark.asyncio
+async def test_get_text_detail_by_id_resolves_version_id_text_id_to_critical_edition(mocker):
+    """The translations/versions listings hand out text ids, so a version_id
+    picked from them must resolve to an edition before alignment lookup, which
+    only works between edition ids."""
+    version_text_id = "OP0002"
+    version_edition_id = "ed-2"
+
+    async def fetch_edition_text_id(edition_id: str):
+        if edition_id == EDITION_ID:
+            return TEXT_ID
+        if edition_id == version_edition_id:
+            return version_text_id
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+
+    _patch_common(mocker)
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        side_effect=fetch_edition_text_id,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
+        new_callable=AsyncMock,
+        return_value=[CriticalEditionModel(id=version_edition_id, type="critical")],
+    )
+    mock_alignment_pairs = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_alignment_pairs",
+        new_callable=AsyncMock,
+        return_value=([EditionAlignmentPairModel(source_segment_id="span-1", target_segment_id="t-1")], False),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segment_content",
+        new_callable=AsyncMock,
+        return_value="translated content",
+    )
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(version_id=version_text_id),
+    )
+
+    mock_alignment_pairs.assert_any_call(
+        source_edition_id=EDITION_ID,
+        target_edition_id=version_edition_id,
+        limit=mocker.ANY,
+        offset=0,
+    )
+    translation = _segments(result)[0].translation
+    assert translation.content == "translated content"
+    assert translation.text_id == version_edition_id
+
+
+@pytest.mark.asyncio
 async def test_get_text_detail_by_id_reraises_non_404_edition_lookup_errors(mocker):
     """A non-404 failure while checking the id should propagate as-is rather
     than being swallowed into the text-id fallback path."""
