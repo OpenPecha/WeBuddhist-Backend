@@ -25,11 +25,13 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_repositor
     get_collection_item_counts,
     get_collection_by_id,
     get_collection_items,
+    get_collection_item_by_id,
     save_collection,
     update_collection,
     get_max_display_order_for_collection,
     save_collection_items,
-    delete_collection
+    delete_collection,
+    soft_delete_collection_item
 )
 from pecha_api.plans.users.recitation_collection.recitation_collection_response_models import (
     RecitationCollectionDTO,
@@ -126,7 +128,7 @@ async def get_collection_detail_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=ResponseError(error=NOT_FOUND, message=f"Collection with ID {collection_id} not found").model_dump()
             )
-        
+
         items = get_collection_items(db=db, collection_id=collection_id)
         
         if not items:
@@ -356,3 +358,34 @@ async def delete_collection_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=ResponseError(error=NOT_FOUND, message=f"Collection with ID {collection_id} not found").model_dump()
             )
+
+
+async def delete_collection_item_service(
+    token: str,
+    collection_id: UUID,
+    item_id: UUID
+) -> None:
+
+    current_user = validate_and_extract_user_details(token=token)
+
+    with SessionLocal() as db:
+        collection = get_collection_by_id(
+            db=db,
+            collection_id=collection_id,
+            user_id=current_user.id
+        )
+        validate_collection_exists(collection, collection_id)
+
+        item = get_collection_item_by_id(
+            db=db,
+            item_id=item_id,
+            collection_id=collection_id
+        )
+
+        if not item:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=ResponseError(error=NOT_FOUND, message=f"Item with ID {item_id} not found").model_dump()
+            )
+
+        soft_delete_collection_item(db=db, item=item)

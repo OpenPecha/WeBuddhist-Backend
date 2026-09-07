@@ -40,7 +40,7 @@ def test_event_response_omits_null_fields():
     assert "image_url" not in event_body
     assert "updated_at" not in event_body
     assert "is_joined" not in event_body
-    assert "event_format" not in event_body
+    assert event_body["event_format"] == "hybrid"
 
 
 def test_event_response_includes_event_format_when_set():

@@ -22,6 +22,10 @@ from pecha_api.plans.shared.metadata_utils import (
     filter_by_language_with_fallback,
     format_metadata_response,
 )
+from pecha_api.accumulator.accumulator_service import (
+    resolve_mala_image_fields,
+    _pick_mantra_metadata,
+)
 from pecha_api.plans.shared.permissions import (
     require_can_create_content,
     require_can_read_group_content,
@@ -42,6 +46,7 @@ from .event_response_models import (
     EventMetadataDTO,
     EventLinkDTO,
     EventsResponse,
+    LinkedResourceDTO,
     RecurrenceDTO,
     _validate_date_range,
 )
@@ -157,6 +162,79 @@ def _location_to_dto(event: Event) -> Optional[LocationDTO]:
     )
 
 
+def _presign_image_url(image_url: Optional[str]) -> Optional[str]:
+    if not image_url:
+        return None
+    try:
+        return generate_presigned_access_url(
+            bucket_name=get("AWS_BUCKET_NAME"),
+            s3_key=image_url,
+        )
+    except Exception:
+        return None
+
+
+def _plan_to_linked_resource(event: Event) -> Optional[LinkedResourceDTO]:
+    plan = getattr(event, "plan", None)
+    if plan is None:
+        return None
+    return LinkedResourceDTO(
+        id=plan.id,
+        name=plan.title,
+        image_url=_presign_image_url(plan.image_url),
+    )
+
+
+def _accumulator_to_linked_resource(
+    event: Event, language: Optional[str] = None
+) -> Optional[LinkedResourceDTO]:
+    accumulator = getattr(event, "accumulator", None)
+    if accumulator is None:
+        return None
+    metadata = _pick_mantra_metadata(accumulator.metadata_entries, language)
+    _, mala_image_url = resolve_mala_image_fields(accumulator)
+    return LinkedResourceDTO(
+        id=accumulator.id,
+        name=metadata.name if metadata else None,
+        image_url=mala_image_url,
+    )
+
+
+def _mantra_to_linked_resource(
+    event: Event, language: Optional[str] = None
+) -> Optional[LinkedResourceDTO]:
+    mantra = getattr(event, "mantra", None)
+    if mantra is None:
+        return None
+    metadata = _pick_mantra_metadata(mantra.metadata_entries, language)
+    _, mala_image_url = resolve_mala_image_fields(mantra)
+    return LinkedResourceDTO(
+        id=mantra.id,
+        name=metadata.title if metadata else None,
+        image_url=mala_image_url,
+    )
+
+
+def _timer_to_linked_resource(event: Event) -> Optional[LinkedResourceDTO]:
+    timer = getattr(event, "timer", None)
+    if timer is None:
+        return None
+    return LinkedResourceDTO(id=timer.id, name=timer.name, image_url=None)
+
+
+def _group_recitation_collection_to_linked_resource(
+    event: Event,
+) -> Optional[LinkedResourceDTO]:
+    collection = getattr(event, "group_recitation_collection", None)
+    if collection is None:
+        return None
+    return LinkedResourceDTO(
+        id=collection.id,
+        name=collection.name,
+        image_url=_presign_image_url(collection.img_url),
+    )
+
+
 def _group_avatar_url(avatar_key: Optional[str]) -> Optional[str]:
     if not avatar_key:
         return None
@@ -217,10 +295,15 @@ def _event_to_dto(
     return EventDTO(
         id=event.id,
         plan_id=event.plan_id,
+        plan=_plan_to_linked_resource(event),
         accumulator_id=event.accumulator_id,
+        accumulator=_accumulator_to_linked_resource(event, language=language),
         mantra_id=event.mantra_id,
+        mantra=_mantra_to_linked_resource(event, language=language),
         timer_id=event.timer_id,
+        timer=_timer_to_linked_resource(event),
         group_recitation_collection_id=event.group_recitation_collection_id,
+        group_recitation_collection=_group_recitation_collection_to_linked_resource(event),
         group_id=event.group_id,
         location_id=event.location_id,
         location=_location_to_dto(event),

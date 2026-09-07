@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Index, UniqueConstraint, Integer, String, ForeignKey
+from sqlalchemy import Column, DateTime, Index, Integer, String, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from uuid import uuid4
@@ -30,10 +30,20 @@ class RecitationCollectionItem(Base):
     recitation_collection_id = Column(UUID(as_uuid=True), ForeignKey("recitation_collections.id", ondelete="CASCADE"), nullable=False)
     text_id = Column(String(255), nullable=False)
     display_order = Column(Integer, nullable=False)
+    # Soft delete: keeps the row (and the completion history that references
+    # it via chant_id) alive so removing an item from a collection never
+    # erases a user's persisted chant completion days.
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     collection = relationship("RecitationCollection", back_populates="items")
 
     __table_args__ = (
-        UniqueConstraint("recitation_collection_id", "text_id", name="uq_recitation_collection_items_collection_text"),
+        Index(
+            "uq_recitation_collection_items_collection_text",
+            "recitation_collection_id",
+            "text_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
         Index("idx_recitation_collection_items_collection_id", "recitation_collection_id"),
     )

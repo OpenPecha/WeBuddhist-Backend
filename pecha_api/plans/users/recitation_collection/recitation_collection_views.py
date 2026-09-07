@@ -21,7 +21,8 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_service i
     update_collection_service,
     upload_collection_image_service,
     add_items_to_collection_service,
-    delete_collection_service
+    delete_collection_service,
+    delete_collection_item_service
 )
 
 oauth2_scheme = HTTPBearer()
@@ -150,4 +151,21 @@ async def delete_collection(
     await delete_collection_service(
         token=authentication_credential.credentials,
         collection_id=collection_id
+    )
+
+
+@recitation_collection_router.delete(
+    "/{collection_id}/items/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_collection_item(
+    collection_id: UUID,
+    item_id: UUID,
+    authentication_credential: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)]
+):
+
+    await delete_collection_item_service(
+        token=authentication_credential.credentials,
+        collection_id=collection_id,
+        item_id=item_id
     )
