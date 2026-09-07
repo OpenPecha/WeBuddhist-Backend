@@ -752,52 +752,62 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
         return _event_to_dto(saved)
 
 
-def _apply_recurrence_or_dates(event: Event, request: UpdateEventRequest) -> tuple[bool, bool]:
-    """Applies recurrence/date changes to `event`.
+def _resolve_recurrence_time_window(
+    event: Event,
+    request: UpdateEventRequest,
+    start_date: datetime,
+    end_date: datetime,
+) -> tuple[datetime, datetime]:
+    """Combine a freshly-resolved recurrence occurrence with its time-of-day.
 
-    Returns (should_cancel_reminders, should_reschedule_reminders).
+    The recurrence rule only pins a day/month; the time-of-day rides along
+    on start_date/end_date if the client sent them, falling back to the
+    event's own current time-of-day when it didn't — otherwise every
+    recurrence update would silently reset a timed event to midnight.
     """
-    if request.recurrence is not None:
-        start_date, end_date = compute_initial_dates(request.recurrence)
-        # The recurrence rule only pins a day/month; the time-of-day rides
-        # along on start_date/end_date if the client sent them, falling back
-        # to the event's own current time-of-day when it didn't — otherwise
-        # every recurrence update would silently reset a timed event to
-        # midnight.
-        start_time_source = (
-            request.start_date if request.start_date is not None else event.start_date
-        )
-        end_time_source = (
-            request.end_date if request.end_date is not None else event.end_date
-        )
-        start_date = combine_date_with_time_of_day(start_date.date(), start_time_source)
-        end_date = combine_date_with_time_of_day(end_date.date(), end_time_source)
-        if request.start_date is not None or request.end_date is not None:
-            # The author supplied new time-of-day input, so an inverted
-            # window is theirs to fix — reject it outright.
-            _validate_date_range(start_date, end_date)
-        elif end_date < start_date:
-            # Both times were inherited from the existing template. A
-            # recurrence-only update (e.g. changing the day) that happens
-            # to inherit an already-invalid legacy window (a one-day
-            # occurrence whose end time preceded its start time, from
-            # before this validation existed) must still succeed — the
-            # author never touched the dates — so clamp instead of
-            # raising, matching how reads already guard against it via
-            # combine_occurrence_window.
-            end_date = start_date
-        event.start_date = start_date
-        event.end_date = end_date
-        event.is_recurring = True
-        event.recurrence_frequency = request.recurrence.frequency.value
-        event.recurrence_date_system = request.recurrence.date_system.value
-        event.recurrence_calendar_type = request.recurrence.calendar_type
-        event.recurrence_month = request.recurrence.month
-        event.recurrence_day = request.recurrence.day
-        event.duration_days = request.recurrence.duration_days
-        # Reminders are out of scope for recurring events.
-        return True, False
+    start_time_source = (
+        request.start_date if request.start_date is not None else event.start_date
+    )
+    end_time_source = (
+        request.end_date if request.end_date is not None else event.end_date
+    )
+    start_date = combine_date_with_time_of_day(start_date.date(), start_time_source)
+    end_date = combine_date_with_time_of_day(end_date.date(), end_time_source)
 
+    if request.start_date is not None or request.end_date is not None:
+        # The author supplied new time-of-day input, so an inverted window
+        # is theirs to fix — reject it outright.
+        _validate_date_range(start_date, end_date)
+    elif end_date < start_date:
+        # Both times were inherited from the existing template. A
+        # recurrence-only update (e.g. changing the day) that happens to
+        # inherit an already-invalid legacy window (a one-day occurrence
+        # whose end time preceded its start time, from before this
+        # validation existed) must still succeed — the author never touched
+        # the dates — so clamp instead of raising, matching how reads
+        # already guard against it via combine_occurrence_window.
+        end_date = start_date
+
+    return start_date, end_date
+
+
+def _apply_recurrence_update(event: Event, request: UpdateEventRequest) -> tuple[bool, bool]:
+    start_date, end_date = compute_initial_dates(request.recurrence)
+    event.start_date, event.end_date = _resolve_recurrence_time_window(
+        event, request, start_date, end_date
+    )
+    event.is_recurring = True
+    event.recurrence_frequency = request.recurrence.frequency.value
+    event.recurrence_date_system = request.recurrence.date_system.value
+    event.recurrence_calendar_type = request.recurrence.calendar_type
+    event.recurrence_month = request.recurrence.month
+    event.recurrence_day = request.recurrence.day
+    event.duration_days = request.recurrence.duration_days
+    # Reminders are out of scope for recurring events.
+    return True, False
+
+
+def _apply_date_only_update(event: Event, request: UpdateEventRequest) -> tuple[bool, bool]:
     start_date = request.start_date if request.start_date is not None else event.start_date
     end_date = request.end_date if request.end_date is not None else event.end_date
     start_date_changed = (
@@ -812,6 +822,16 @@ def _apply_recurrence_or_dates(event: Event, request: UpdateEventRequest) -> tup
 
     should_reschedule_reminders = start_date_changed and not event.is_recurring
     return False, should_reschedule_reminders
+
+
+def _apply_recurrence_or_dates(event: Event, request: UpdateEventRequest) -> tuple[bool, bool]:
+    """Applies recurrence/date changes to `event`.
+
+    Returns (should_cancel_reminders, should_reschedule_reminders).
+    """
+    if request.recurrence is not None:
+        return _apply_recurrence_update(event, request)
+    return _apply_date_only_update(event, request)
 
 
 def _apply_simple_field_updates(event: Event, request: UpdateEventRequest) -> None:
