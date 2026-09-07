@@ -1,10 +1,11 @@
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
 from .text_recordings_models import (
+    PersonResponse,
     RecordingCreateMetadata,
     RecordingPatchRequest,
     RecordingResponse,
@@ -14,6 +15,7 @@ from .text_recordings_service import (
     delete_recording,
     get_edition_recordings,
     get_recording,
+    search_persons,
     update_recording,
 )
 
@@ -23,6 +25,23 @@ recordings_router = APIRouter(
     prefix="/cms",
     tags=["CMS Recordings"],
 )
+
+
+@recordings_router.get("/persons")
+async def list_persons(
+    authentication_credential: Annotated[
+        HTTPAuthorizationCredentials, Depends(oauth2_scheme)
+    ],
+    name: Optional[str] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> List[PersonResponse]:
+    return await search_persons(
+        token=authentication_credential.credentials,
+        name=name,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @recordings_router.get("/editions/{edition_id}/recordings")

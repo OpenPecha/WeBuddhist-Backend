@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import IO, Any
 
+import httpx
 from fastapi import HTTPException
 from starlette import status
 
@@ -13,7 +14,7 @@ logger = logging.getLogger(__name__)
 _UNEXPECTED_UPSTREAM_RESPONSE = "Unexpected response from upstream service"
 
 
-def _client():
+def _client() -> httpx.AsyncClient:
     return get_authenticated_open_pecha_client().get_async_httpx_client()
 
 
@@ -46,13 +47,17 @@ async def create_edition_recording(
     metadata_json: str,
     filename: str,
     content_type: str,
-    content: bytes,
+    file: IO[bytes],
 ) -> str:
     try:
+        # Stream directly from the (typically disk-backed, for real-sized
+        # uploads) spooled file instead of taking a `bytes` argument, so this
+        # layer never has to hold a second full-size copy of the recording
+        # in memory alongside FastAPI's own upload buffer.
         response = await _client().post(
             f"/v2/editions/{edition_id}/recordings",
             data={"metadata": metadata_json},
-            files={"audio": (filename, content, content_type)},
+            files={"audio": (filename, file, content_type)},
         )
     except Exception:
         logger.exception("Failed to create edition recording via OpenPecha API")
@@ -78,6 +83,28 @@ async def create_edition_recording(
             detail=_UNEXPECTED_UPSTREAM_RESPONSE,
         )
     return response.json()["id"]
+
+
+async def fetch_persons(name: str | None, limit: int, offset: int) -> list[dict[str, Any]]:
+    params: dict[str, Any] = {"limit": limit, "offset": offset}
+    if name:
+        params["name"] = name
+    try:
+        response = await _client().get("/v2/persons", params=params)
+    except Exception:
+        logger.exception("Failed to fetch persons from OpenPecha API")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to fetch persons from upstream service",
+        )
+
+    if response.status_code != 200:
+        logger.error("Unexpected status %d fetching persons", response.status_code)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=_UNEXPECTED_UPSTREAM_RESPONSE,
+        )
+    return response.json()
 
 
 async def fetch_recording(recording_id: str) -> dict[str, Any]:

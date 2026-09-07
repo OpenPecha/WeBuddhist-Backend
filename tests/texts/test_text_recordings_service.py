@@ -1,3 +1,4 @@
+from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -13,6 +14,7 @@ from pecha_api.texts.text_recordings_service import (
     delete_recording,
     get_edition_recordings,
     get_recording,
+    search_persons,
     update_recording,
     validate_recording_audio_file,
 )
@@ -40,7 +42,9 @@ def _make_upload_file(filename="reading.mp3", content=b"audio-bytes", size=None,
     upload.filename = filename
     upload.size = size if size is not None else len(content)
     upload.content_type = content_type
+    upload.file = BytesIO(content)
     upload.read = AsyncMock(return_value=content)
+    upload.seek = AsyncMock()
     return upload
 
 
@@ -70,6 +74,38 @@ def test_validate_recording_audio_file_rejects_oversized_file(mocker):
 
 def test_validate_recording_audio_file_accepts_valid_file():
     validate_recording_audio_file(_make_upload_file())
+
+
+def test_validate_recording_audio_file_rejects_aac_unsupported_by_openpecha():
+    """AAC isn't in OpenPecha's AudioFormat enum, so accepting it here would
+    only defer the failure to a 422 from the upstream API."""
+    with pytest.raises(HTTPException) as exc_info:
+        validate_recording_audio_file(_make_upload_file(filename="reading.aac"))
+    assert exc_info.value.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_validate_recording_audio_file_accepts_flac():
+    validate_recording_audio_file(_make_upload_file(filename="reading.flac"))
+
+
+# ============================================================================
+# search_persons
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_search_persons_returns_mapped_list(mocker):
+    mock_validate = mocker.patch(f"{SERVICE}.validate_cms_author_details")
+    mocker.patch(
+        f"{SERVICE}.openpecha_api.fetch_persons",
+        new=AsyncMock(return_value=[{"id": "P1", "name": {"en": "Jane"}, "bdrc": "P123"}]),
+    )
+
+    result = await search_persons(token=TOKEN, name="Jane", limit=20, offset=0)
+
+    mock_validate.assert_called_once_with(token=TOKEN)
+    assert len(result) == 1
+    assert result[0].id == "P1"
+    assert result[0].bdrc_id == "P123"
 
 
 # ============================================================================
@@ -124,7 +160,8 @@ async def test_create_edition_recording_uploads_and_refetches(mocker):
     assert kwargs["edition_id"] == EDITION_ID
     assert kwargs["filename"] == "reading.mp3"
     assert kwargs["content_type"] == "audio/mpeg"
-    assert kwargs["content"] == b"audio-bytes"
+    assert kwargs["file"] is file.file
+    file.seek.assert_awaited_once_with(0)
 
 
 @pytest.mark.asyncio

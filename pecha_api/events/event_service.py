@@ -185,6 +185,20 @@ def _plan_to_linked_resource(event: Event) -> Optional[LinkedResourceDTO]:
     )
 
 
+def _series_to_linked_resource(
+    event: Event, language: Optional[str] = None
+) -> Optional[LinkedResourceDTO]:
+    series = getattr(event, "series", None)
+    if series is None:
+        return None
+    metadata = _pick_mantra_metadata(series.metadata_entries, language)
+    return LinkedResourceDTO(
+        id=series.id,
+        name=metadata.title if metadata else None,
+        image_url=_presign_image_url(series.image),
+    )
+
+
 def _accumulator_to_linked_resource(
     event: Event, language: Optional[str] = None
 ) -> Optional[LinkedResourceDTO]:
@@ -197,6 +211,19 @@ def _accumulator_to_linked_resource(
         id=accumulator.id,
         name=metadata.name if metadata else None,
         image_url=mala_image_url,
+    )
+
+
+def _group_accumulator_to_linked_resource(
+    event: Event,
+) -> Optional[LinkedResourceDTO]:
+    group_accumulator = getattr(event, "group_accumulator", None)
+    if group_accumulator is None:
+        return None
+    return LinkedResourceDTO(
+        id=group_accumulator.id,
+        name=group_accumulator.title,
+        image_url=_presign_image_url(group_accumulator.image_key),
     )
 
 
@@ -296,8 +323,12 @@ def _event_to_dto(
         id=event.id,
         plan_id=event.plan_id,
         plan=_plan_to_linked_resource(event),
+        series_id=getattr(event, "series_id", None),
+        series=_series_to_linked_resource(event, language=language),
         accumulator_id=event.accumulator_id,
         accumulator=_accumulator_to_linked_resource(event, language=language),
+        group_accumulator_id=getattr(event, "group_accumulator_id", None),
+        group_accumulator=_group_accumulator_to_linked_resource(event),
         mantra_id=event.mantra_id,
         mantra=_mantra_to_linked_resource(event, language=language),
         timer_id=event.timer_id,
@@ -696,7 +727,9 @@ def create_event_service(token: str, request: CreateEventRequest) -> EventDTO:
 
     event = Event(
         plan_id=request.plan_id,
+        series_id=request.series_id,
         accumulator_id=request.accumulator_id,
+        group_accumulator_id=request.group_accumulator_id,
         mantra_id=request.mantra_id,
         timer_id=request.timer_id,
         group_recitation_collection_id=request.group_recitation_collection_id,
@@ -810,21 +843,29 @@ def _apply_recurrence_or_dates(event: Event, request: UpdateEventRequest) -> tup
 
 
 def _apply_simple_field_updates(event: Event, request: UpdateEventRequest) -> None:
+    fields_set = request.model_fields_set
     if request.timezone is not None:
         event.timezone = request.timezone
     if request.group_id is not None:
         event.group_id = request.group_id
-    if request.plan_id is not None:
+    # plan_id/series_id/accumulator_id/group_accumulator_id/mantra_id/timer_id use
+    # model_fields_set (not `is not None`) so an explicit null in the request
+    # unlinks the field instead of being indistinguishable from "omitted".
+    if "plan_id" in fields_set:
         event.plan_id = request.plan_id
-    if request.accumulator_id is not None:
+    if "series_id" in fields_set:
+        event.series_id = request.series_id
+    if "accumulator_id" in fields_set:
         event.accumulator_id = request.accumulator_id
-    if request.mantra_id is not None:
+    if "group_accumulator_id" in fields_set:
+        event.group_accumulator_id = request.group_accumulator_id
+    if "mantra_id" in fields_set:
         event.mantra_id = request.mantra_id
-    if request.timer_id is not None:
+    if "timer_id" in fields_set:
         event.timer_id = request.timer_id
     if request.image_url is not None:
         event.image_url = request.image_url
-    if "event_format" in request.model_fields_set:
+    if "event_format" in fields_set:
         event.event_format = request.event_format
 
 

@@ -69,6 +69,24 @@ class RecordingContribution(BaseModel):
         )
 
 
+class PersonResponse(BaseModel):
+    id: str
+    bdrc_id: Optional[str] = None
+    wiki: Optional[str] = None
+    name: Dict[str, str]
+    alt_names: Optional[List[Dict[str, str]]] = None
+
+    @classmethod
+    def from_upstream(cls, data: Dict[str, Any]) -> "PersonResponse":
+        return cls(
+            id=data["id"],
+            bdrc_id=data.get("bdrc"),
+            wiki=data.get("wiki"),
+            name=data.get("name") or {},
+            alt_names=data.get("alt_names"),
+        )
+
+
 class RecordingResponse(BaseModel):
     id: str
     edition_id: str

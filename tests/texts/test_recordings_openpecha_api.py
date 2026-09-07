@@ -1,3 +1,4 @@
+from io import BytesIO
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -7,6 +8,7 @@ from pecha_api.texts.recordings_openpecha_api import (
     create_edition_recording,
     delete_recording,
     fetch_edition_recordings,
+    fetch_persons,
     fetch_recording,
     fetch_recording_audio_location,
     patch_recording,
@@ -78,6 +80,44 @@ async def test_fetch_edition_recordings_unexpected_status(mocker):
     assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
 
 
+# ============================================================================
+# fetch_persons
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_fetch_persons_success(mocker):
+    raw_person = {"id": "P1", "name": {"en": "Jane"}, "bdrc": "P123"}
+    mock_client = _make_mock_client(get=_response(200, [raw_person]))
+    mocker.patch(PATCH_TARGET, return_value=mock_client)
+
+    result = await fetch_persons(name="Jane", limit=20, offset=0)
+
+    assert result == [raw_person]
+    mock_client.get_async_httpx_client().get.assert_awaited_once_with(
+        "/v2/persons", params={"limit": 20, "offset": 0, "name": "Jane"}
+    )
+
+
+@pytest.mark.asyncio
+async def test_fetch_persons_omits_blank_name_filter(mocker):
+    mock_client = _make_mock_client(get=_response(200, []))
+    mocker.patch(PATCH_TARGET, return_value=mock_client)
+
+    await fetch_persons(name=None, limit=20, offset=0)
+
+    mock_client.get_async_httpx_client().get.assert_awaited_once_with(
+        "/v2/persons", params={"limit": 20, "offset": 0}
+    )
+
+
+@pytest.mark.asyncio
+async def test_fetch_persons_unexpected_status(mocker):
+    mocker.patch(PATCH_TARGET, return_value=_make_mock_client(get=_response(500)))
+    with pytest.raises(HTTPException) as exc_info:
+        await fetch_persons(name=None, limit=20, offset=0)
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
 @pytest.mark.asyncio
 async def test_fetch_edition_recordings_network_error(mocker):
     mock_client = MagicMock()
@@ -106,7 +146,7 @@ async def test_create_edition_recording_success(mocker):
         metadata_json='{"contributions":[]}',
         filename="reading.mp3",
         content_type="audio/mpeg",
-        content=b"bytes",
+        file=BytesIO(b"bytes"),
     )
     assert result == RECORDING_ID
 
@@ -123,7 +163,7 @@ async def test_create_edition_recording_422(mocker):
             metadata_json="{}",
             filename="reading.mp3",
             content_type="audio/mpeg",
-            content=b"bytes",
+            file=BytesIO(b"bytes"),
         )
     assert exc_info.value.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
 
@@ -137,7 +177,7 @@ async def test_create_edition_recording_404(mocker):
             metadata_json="{}",
             filename="reading.mp3",
             content_type="audio/mpeg",
-            content=b"bytes",
+            file=BytesIO(b"bytes"),
         )
     assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
 

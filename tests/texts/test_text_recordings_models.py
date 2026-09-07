@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from pecha_api.texts.text_recordings_models import (
     AudioFormat,
     LicenseType,
+    PersonResponse,
     RecordingContribution,
     RecordingCreateMetadata,
     RecordingPatchRequest,
@@ -63,6 +64,27 @@ def test_contribution_from_upstream_round_trips():
     )
     assert contribution.id == "PER123"
     assert contribution.name == {"en": "Jane"}
+
+
+# ============================================================================
+# PersonResponse
+# ============================================================================
+
+def test_person_response_from_upstream_maps_bdrc_field():
+    result = PersonResponse.from_upstream(
+        {"id": "P1", "name": {"en": "Jane"}, "bdrc": "P123", "wiki": "Q123"}
+    )
+    assert result.id == "P1"
+    assert result.bdrc_id == "P123"
+    assert result.wiki == "Q123"
+    assert result.name == {"en": "Jane"}
+
+
+def test_person_response_from_upstream_defaults_optional_fields():
+    result = PersonResponse.from_upstream({"id": "P1", "name": {"en": "Jane"}})
+    assert result.bdrc_id is None
+    assert result.wiki is None
+    assert result.alt_names is None
 
 
 # ============================================================================
