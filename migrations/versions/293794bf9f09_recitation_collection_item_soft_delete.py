@@ -10,7 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-from migrations.idempotency import column_exists, fk_exists
+from migrations.idempotency import column_exists
 
 revision: str = "293794bf9f09"
 down_revision: Union[str, None] = "7a1c9e2f4b6d"
@@ -19,8 +19,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 ITEMS_TABLE = "recitation_collection_items"
 OLD_UNIQUE = "uq_recitation_collection_items_collection_text"
-COMPLETIONS_TABLE = "recitation_collection_chant_completions"
-CHANT_FK = "recitation_collection_chant_completions_chant_id_fkey"
+
+# recitation_collections.items has cascade="all, delete-orphan": deleting a
+# collection still hard-deletes its item rows (only single-item removal goes
+# through the new soft delete). chant_id's ON DELETE CASCADE onto those item
+# rows must stay in place, or a collection delete for a collection with
+# completion history would fail with a foreign-key violation.
 
 
 def _constraint_exists(table_name: str, constraint_name: str) -> bool:
@@ -46,6 +50,40 @@ def _index_exists(table_name: str, index_name: str) -> bool:
     return result.scalar() is not None
 
 
+def _collapse_duplicate_items_for_downgrade() -> None:
+    """The old schema can only hold one row per (collection_id, text_id).
+
+    While this migration was applied, an item could be soft-deleted and the
+    same text re-added, leaving two rows sharing that key (one historical,
+    one active). Recreating the strict unique constraint would fail on that
+    duplicate, so collapse each such group down to a single row first:
+    keep the active (deleted_at IS NULL) row when one exists, otherwise keep
+    the most recently soft-deleted row. The rows removed here only ever
+    existed because of the soft-delete feature this migration is undoing, so
+    discarding them (and, via the still-cascading FK, their completions) is
+    the correct behaviour for a full rollback.
+    """
+    op.get_bind().execute(
+        sa.text(
+            """
+            DELETE FROM recitation_collection_items t
+            USING recitation_collection_items keeper
+            WHERE t.recitation_collection_id = keeper.recitation_collection_id
+              AND t.text_id = keeper.text_id
+              AND t.id <> keeper.id
+              AND (
+                    (t.deleted_at IS NOT NULL AND keeper.deleted_at IS NULL)
+                 OR (
+                        t.deleted_at IS NOT NULL
+                    AND keeper.deleted_at IS NOT NULL
+                    AND (t.deleted_at, t.id) < (keeper.deleted_at, keeper.id)
+                    )
+                  )
+            """
+        )
+    )
+
+
 def upgrade() -> None:
     if not column_exists(ITEMS_TABLE, "deleted_at"):
         op.add_column(
@@ -68,36 +106,13 @@ def upgrade() -> None:
             postgresql_where=sa.text("deleted_at IS NULL"),
         )
 
-    # Drop the ON DELETE CASCADE so a (future) hard delete of an item can
-    # never wipe a user's chant completion history. Deletion is soft now, so
-    # the recreated FK simply drops the cascade behaviour.
-    if fk_exists(COMPLETIONS_TABLE, CHANT_FK):
-        op.drop_constraint(CHANT_FK, COMPLETIONS_TABLE, type_="foreignkey")
-        op.create_foreign_key(
-            CHANT_FK,
-            COMPLETIONS_TABLE,
-            ITEMS_TABLE,
-            ["chant_id"],
-            ["id"],
-        )
-
 
 def downgrade() -> None:
-    if fk_exists(COMPLETIONS_TABLE, CHANT_FK):
-        op.drop_constraint(CHANT_FK, COMPLETIONS_TABLE, type_="foreignkey")
-        op.create_foreign_key(
-            CHANT_FK,
-            COMPLETIONS_TABLE,
-            ITEMS_TABLE,
-            ["chant_id"],
-            ["id"],
-            ondelete="CASCADE",
-        )
-
     if _index_exists(ITEMS_TABLE, OLD_UNIQUE):
         op.drop_index(OLD_UNIQUE, table_name=ITEMS_TABLE)
 
     if not _constraint_exists(ITEMS_TABLE, OLD_UNIQUE):
+        _collapse_duplicate_items_for_downgrade()
         op.create_unique_constraint(
             OLD_UNIQUE,
             ITEMS_TABLE,

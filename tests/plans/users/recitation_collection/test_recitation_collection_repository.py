@@ -7,7 +7,7 @@ query filters and the row's actual survival are genuinely verified."""
 from datetime import date, datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -19,6 +19,7 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_completio
     RecitationCollectionChantCompletion,
 )
 from pecha_api.plans.users.recitation_collection.recitation_collection_repository import (
+    delete_collection,
     get_collection_item_by_id,
     get_collection_item_counts,
     get_collection_items,
@@ -28,6 +29,7 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_repositor
 from pecha_api.plans.users.recitation_collection.recitation_collection_completion_repository import (
     count_unique_completion_days,
 )
+from pecha_api.users.users_models import Users
 
 
 def _make_session():
@@ -176,3 +178,64 @@ def test_soft_deleting_an_item_preserves_its_completion_history_and_day_count():
     # The completion row is untouched by the item's (soft) deletion, so the
     # day count the user already earned is not reduced.
     assert count_unique_completion_days(db=db, user_id=user_id, collection_id=collection.id) == 1
+
+
+def _make_session_with_fk_enforcement():
+    """Real foreign-key enforcement (off by default in SQLite) so this proves
+    the chant_id -> items.id FK still cascades, rather than merely failing to
+    raise an error that SQLite wouldn't check anyway."""
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    event.listen(
+        engine,
+        "connect",
+        lambda dbapi_connection, _: dbapi_connection.execute("PRAGMA foreign_keys=ON"),
+    )
+    RecitationCollection.metadata.create_all(
+        bind=engine,
+        tables=[
+            Users.__table__,
+            RecitationCollection.__table__,
+            RecitationCollectionItem.__table__,
+            RecitationCollectionChantCompletion.__table__,
+        ],
+    )
+    return sessionmaker(bind=engine)()
+
+
+def test_deleting_a_collection_with_completion_history_still_succeeds():
+    """Regression test: deleting a whole collection still hard-deletes its
+    items (RecitationCollection.items uses cascade="all, delete-orphan"), so
+    the chant_id -> items.id foreign key must keep its own ON DELETE CASCADE.
+    Dropping that cascade (to protect single-item soft delete) would instead
+    make this raise an IntegrityError - i.e. the collection DELETE endpoint
+    would 400 instead of succeeding - for any collection with completions."""
+    db = _make_session_with_fk_enforcement()
+    user_id = uuid4()
+    db.add(Users(
+        id=user_id,
+        firstname="Test",
+        registration_source="EMAIL",
+    ))
+    db.commit()
+
+    collection = _make_collection(db, user_id)
+    item = _make_item(db, collection.id)
+    db.add(RecitationCollectionChantCompletion(
+        id=uuid4(),
+        user_id=user_id,
+        chant_id=item.id,
+        collection_id=collection.id,
+        completion_date=date(2026, 9, 1),
+        created_at=datetime.now(timezone.utc),
+    ))
+    db.commit()
+
+    deleted = delete_collection(db=db, collection_id=collection.id, user_id=user_id)
+
+    assert deleted is not None
+    assert db.get(RecitationCollection, collection.id) is None
+    assert db.get(RecitationCollectionItem, item.id) is None
