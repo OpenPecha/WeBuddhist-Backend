@@ -462,22 +462,27 @@ def get_events_service(
             restrict_group_ids=restrict_group_ids,
         )
         
-        # Expand recurring events into occurrences
+        # Expand recurring events, keeping only each template's earliest
+        # occurrence within the window so a single recurring event surfaces
+        # once per listing instead of once per occurrence (e.g. 12 rows for
+        # a monthly recurrence over the default 12-month window).
         expanded_occurrences = []
         for template in recurring_templates:
             occurrences = expand_occurrences(template, from_date_obj, to_date_obj)
-            for start_d, end_d in occurrences:
-                # Carry the template's own time-of-day onto each occurrence,
-                # instead of defaulting to midnight / end-of-day.
-                occurrence_start, occurrence_end = combine_occurrence_window(
-                    start_d, end_d, template.start_date, template.end_date
-                )
-                expanded_occurrences.append({
-                    'event': template,
-                    'start_date': occurrence_start,
-                    'end_date': occurrence_end,
-                    'occurrence_date': occurrence_start,
-                })
+            if not occurrences:
+                continue
+            start_d, end_d = occurrences[0]
+            # Carry the template's own time-of-day onto the occurrence,
+            # instead of defaulting to midnight / end-of-day.
+            occurrence_start, occurrence_end = combine_occurrence_window(
+                start_d, end_d, template.start_date, template.end_date
+            )
+            expanded_occurrences.append({
+                'event': template,
+                'start_date': occurrence_start,
+                'end_date': occurrence_end,
+                'occurrence_date': occurrence_start,
+            })
         
         # Merge one-shot events and expanded occurrences
         all_event_items = [
