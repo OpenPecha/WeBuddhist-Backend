@@ -1332,16 +1332,18 @@ class TestDeleteCollectionItemService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.delete_collection_item')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_item_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.soft_delete_collection_item')
     @pytest.mark.asyncio
     async def test_delete_collection_item_success(
         self,
-        mock_delete_item,
+        mock_soft_delete_item,
+        mock_get_item,
         mock_get_collection,
         mock_session,
         mock_validate
     ):
-        """Test successful item deletion"""
+        """Test successful item deletion soft-deletes rather than removing the row"""
         user_id = uuid4()
         collection_id = uuid4()
         item_id = uuid4()
@@ -1353,7 +1355,8 @@ class TestDeleteCollectionItemService:
         mock_session.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_get_collection.return_value = MockCollection(id=collection_id, user_id=user_id)
-        mock_delete_item.return_value = MockCollectionItem(id=item_id, recitation_collection_id=collection_id)
+        item = MockCollectionItem(id=item_id, recitation_collection_id=collection_id)
+        mock_get_item.return_value = item
 
         result = await delete_collection_item_service(
             token="valid_token",
@@ -1364,11 +1367,12 @@ class TestDeleteCollectionItemService:
         assert result is None
 
         mock_validate.assert_called_once_with(token="valid_token")
-        mock_delete_item.assert_called_once_with(
+        mock_get_item.assert_called_once_with(
             db=mock_db,
             item_id=item_id,
             collection_id=collection_id
         )
+        mock_soft_delete_item.assert_called_once_with(db=mock_db, item=item)
 
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
@@ -1405,16 +1409,18 @@ class TestDeleteCollectionItemService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.delete_collection_item')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_item_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.soft_delete_collection_item')
     @pytest.mark.asyncio
     async def test_delete_collection_item_not_found(
         self,
-        mock_delete_item,
+        mock_soft_delete_item,
+        mock_get_item,
         mock_get_collection,
         mock_session,
         mock_validate
     ):
-        """Test deleting a non-existent item from an existing collection"""
+        """Test deleting a non-existent (or already soft-deleted) item from an existing collection"""
         user_id = uuid4()
         collection_id = uuid4()
         item_id = uuid4()
@@ -1426,7 +1432,7 @@ class TestDeleteCollectionItemService:
         mock_session.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_get_collection.return_value = MockCollection(id=collection_id, user_id=user_id)
-        mock_delete_item.return_value = None
+        mock_get_item.return_value = None
 
         with pytest.raises(HTTPException) as exc_info:
             await delete_collection_item_service(
@@ -1437,6 +1443,7 @@ class TestDeleteCollectionItemService:
 
         assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
         assert "not found" in str(exc_info.value.detail).lower()
+        mock_soft_delete_item.assert_not_called()
 
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @pytest.mark.asyncio
@@ -1462,11 +1469,13 @@ class TestDeleteCollectionItemService:
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.validate_and_extract_user_details')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.SessionLocal')
     @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_by_id')
-    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.delete_collection_item')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.get_collection_item_by_id')
+    @patch('pecha_api.plans.users.recitation_collection.recitation_collection_service.soft_delete_collection_item')
     @pytest.mark.asyncio
     async def test_delete_collection_item_database_error(
         self,
-        mock_delete_item,
+        mock_soft_delete_item,
+        mock_get_item,
         mock_get_collection,
         mock_session,
         mock_validate
@@ -1483,7 +1492,8 @@ class TestDeleteCollectionItemService:
         mock_session.return_value.__exit__ = MagicMock(return_value=False)
 
         mock_get_collection.return_value = MockCollection(id=collection_id, user_id=user_id)
-        mock_delete_item.side_effect = HTTPException(
+        mock_get_item.return_value = MockCollectionItem(id=item_id, recitation_collection_id=collection_id)
+        mock_soft_delete_item.side_effect = HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": "BAD_REQUEST", "message": "Database error"}
         )

@@ -25,12 +25,13 @@ from pecha_api.plans.users.recitation_collection.recitation_collection_repositor
     get_collection_item_counts,
     get_collection_by_id,
     get_collection_items,
+    get_collection_item_by_id,
     save_collection,
     update_collection,
     get_max_display_order_for_collection,
     save_collection_items,
     delete_collection,
-    delete_collection_item
+    soft_delete_collection_item
 )
 from pecha_api.plans.users.recitation_collection.recitation_collection_response_models import (
     RecitationCollectionDTO,
@@ -375,7 +376,7 @@ async def delete_collection_item_service(
         )
         validate_collection_exists(collection, collection_id)
 
-        item = delete_collection_item(
+        item = get_collection_item_by_id(
             db=db,
             item_id=item_id,
             collection_id=collection_id
@@ -386,3 +387,5 @@ async def delete_collection_item_service(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=ResponseError(error=NOT_FOUND, message=f"Item with ID {item_id} not found").model_dump()
             )
+
+        soft_delete_collection_item(db=db, item=item)

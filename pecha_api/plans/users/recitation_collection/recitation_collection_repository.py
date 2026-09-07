@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -56,7 +57,8 @@ def get_collection_item_counts(
         RecitationCollectionItem.recitation_collection_id,
         func.count(RecitationCollectionItem.id).label('count')
     ).filter(
-        RecitationCollectionItem.recitation_collection_id.in_(collection_ids)
+        RecitationCollectionItem.recitation_collection_id.in_(collection_ids),
+        RecitationCollectionItem.deleted_at.is_(None)
     ).group_by(
         RecitationCollectionItem.recitation_collection_id
     ).all()
@@ -82,7 +84,8 @@ def get_collection_items(
 ) -> List[RecitationCollectionItem]:
 
     return db.query(RecitationCollectionItem).filter(
-        RecitationCollectionItem.recitation_collection_id == collection_id
+        RecitationCollectionItem.recitation_collection_id == collection_id,
+        RecitationCollectionItem.deleted_at.is_(None)
     ).order_by(RecitationCollectionItem.display_order).all()
 
 
@@ -94,7 +97,8 @@ def get_collection_item_by_id(
 
     return db.query(RecitationCollectionItem).filter(
         RecitationCollectionItem.id == item_id,
-        RecitationCollectionItem.recitation_collection_id == collection_id
+        RecitationCollectionItem.recitation_collection_id == collection_id,
+        RecitationCollectionItem.deleted_at.is_(None)
     ).first()
 
 
@@ -132,7 +136,8 @@ def get_max_display_order_for_collection(
 ) -> Optional[int]:
 
     result = db.query(func.max(RecitationCollectionItem.display_order)).filter(
-        RecitationCollectionItem.recitation_collection_id == collection_id
+        RecitationCollectionItem.recitation_collection_id == collection_id,
+        RecitationCollectionItem.deleted_at.is_(None)
     ).scalar()
     return result
 
@@ -179,20 +184,20 @@ def delete_collection(
         )
 
 
-def delete_collection_item(
+def soft_delete_collection_item(
     db: Session,
-    item_id: UUID,
-    collection_id: UUID
-) -> Optional[RecitationCollectionItem]:
+    item: RecitationCollectionItem
+) -> RecitationCollectionItem:
+    """Soft delete a collection item by setting deleted_at.
 
-    item = get_collection_item_by_id(db=db, item_id=item_id, collection_id=collection_id)
-
-    if not item:
-        return None
-
+    The row is kept (never physically deleted) so completion history
+    referencing it via chant_id survives and the day-count total is not
+    reduced by removing an item from a collection.
+    """
     try:
-        db.delete(item)
+        item.deleted_at = datetime.now(timezone.utc)
         db.commit()
+        db.refresh(item)
         return item
     except IntegrityError as e:
         db.rollback()
