@@ -13,6 +13,7 @@ from pecha_api.texts.segments.segments_response_models import (
     V2SegmentInfo,
     V2SegmentInfoResponse,
     V2SegmentResponse,
+    V2SegmentRootTextResponse,
     V2SegmentTextDetail,
     V2SegmentTextGroup,
     V2SegmentTranslationsResponse,
@@ -195,6 +196,71 @@ class TestSegmentsV2CommentariesEndpoint:
         assert data["commentaries"][0]["segments"][0]["content"] == "Commentary segment content"
 
 
+class TestSegmentsV2RootTextEndpoint:
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_views.get_root_text_by_segment_id_from_openpecha",
+        new_callable=AsyncMock,
+    )
+    def test_get_root_text_without_text_id_succeeds(self, mock_service):
+        """text_id used to be required and a bare GET 422'd; it is now resolved
+        server-side from the segment's own text when omitted."""
+        mock_service.return_value = V2SegmentRootTextResponse(
+            parent_segment=ParentSegment(
+                segment_id="parent-seg-1",
+                content="Parent segment content",
+            ),
+            root_text=[
+                V2SegmentTextGroup(
+                    text_id="root-text-1",
+                    title="Root text",
+                    language="bo",
+                    segments=[
+                        V2RelatedSegmentItem(id="seg-root-1", content="Root segment content"),
+                    ],
+                )
+            ],
+            skip=0,
+            limit=10,
+            has_more=False,
+        )
+
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/root_text")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["root_text"][0]["text_id"] == "root-text-1"
+
+        mock_service.assert_awaited_once_with(
+            segment_id="parent-seg-1",
+            text_id=None,
+            skip=0,
+            limit=10,
+        )
+
+    @patch(
+        "pecha_api.texts.segments.segments_openpecha_views.get_root_text_by_segment_id_from_openpecha",
+        new_callable=AsyncMock,
+    )
+    def test_get_root_text_with_explicit_text_id(self, mock_service):
+        mock_service.return_value = V2SegmentRootTextResponse(
+            parent_segment=ParentSegment(segment_id="parent-seg-1", content="Parent segment content"),
+            root_text=[],
+            skip=0,
+            limit=10,
+            has_more=False,
+        )
+
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/root_text?text_id=root-text-1")
+
+        assert response.status_code == 200
+        mock_service.assert_awaited_once_with(
+            segment_id="parent-seg-1",
+            text_id="root-text-1",
+            skip=0,
+            limit=10,
+        )
+
+
 class TestSegmentsV2ValidationErrors:
     def test_invalid_skip_negative_for_translations(self):
         response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/translations?skip=-1")
@@ -214,6 +280,14 @@ class TestSegmentsV2ValidationErrors:
 
     def test_invalid_limit_zero_for_commentaries(self):
         response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/commentaries?limit=0")
+        assert response.status_code == 422
+
+    def test_invalid_skip_negative_for_root_text(self):
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/root_text?skip=-1")
+        assert response.status_code == 422
+
+    def test_invalid_limit_zero_for_root_text(self):
+        response = client.get(f"{SEGMENTS_ROOT}/parent-seg-1/root_text?limit=0")
         assert response.status_code == 422
 
 
