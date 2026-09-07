@@ -316,6 +316,196 @@ async def test_get_text_detail_by_id_raises_404_when_no_segmentation(mocker):
     assert EDITION_ID in exc_info.value.detail
 
 
+# ============================================================================
+# get_text_detail_by_id -- accepting a text id instead of an edition id
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_resolves_text_id_to_critical_edition(mocker):
+    """Callers across the app (search results, text/version listings, related
+    segments) only have a text id, not an edition id. When fetch_edition_text_id
+    404s on the given id, it should be treated as a text id and resolved to its
+    first critical edition before continuing."""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found"),
+    )
+    mock_fetch_critical_editions = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
+        new_callable=AsyncMock,
+        return_value=[CriticalEditionModel(id=EDITION_ID, type="critical")],
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_text_detail",
+        new_callable=AsyncMock,
+        return_value=MOCK_TEXT_DETAIL.model_copy(),
+    )
+    mock_fetch_segmentation = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_editions_segmentation",
+        new_callable=AsyncMock,
+        return_value=MOCK_SEGMENTATIONS,
+    )
+    mock_fetch_content = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_content",
+        new_callable=AsyncMock,
+        return_value=MOCK_EDITION_CONTENT,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segmentation_segments",
+        new_callable=AsyncMock,
+        return_value=MOCK_SEGMENTS,
+    )
+
+    result = await get_text_detail_by_id(edition_id=TEXT_ID, text_details_request=TextDetailsRequest())
+
+    mock_fetch_critical_editions.assert_called_once_with(text_id=TEXT_ID)
+    mock_fetch_segmentation.assert_called_once_with(edition_id=EDITION_ID)
+    mock_fetch_content.assert_called_once_with(edition_id=EDITION_ID)
+    assert result.content.text_id == TEXT_ID
+    assert result.content.id == EDITION_ID
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_raises_404_when_text_has_no_critical_edition(mocker):
+    """If the id isn't an edition and the text has no critical edition either,
+    surface a 404 instead of an unrelated failure further down the pipeline."""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found"),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
+        new_callable=AsyncMock,
+        return_value=[],
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_text_detail_by_id(edition_id=TEXT_ID, text_details_request=TextDetailsRequest())
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+    assert TEXT_ID in exc_info.value.detail
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_raises_502_when_critical_edition_fetch_fails(mocker):
+    """A dependency failure while fetching critical editions must not be
+    reported as the text simply not having one — that would mask an outage
+    as a permanent 404."""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found"),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
+        new_callable=AsyncMock,
+        side_effect=Exception("upstream failure"),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_text_detail_by_id(edition_id=TEXT_ID, text_details_request=TextDetailsRequest())
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_reraises_404_when_id_is_neither_edition_nor_text(mocker):
+    """An id that is neither a valid edition nor a valid text is a genuine
+    client error, not a dependency failure — fetch_critical_editions itself
+    raises a 404 HTTPException for this case, which must propagate as-is
+    rather than being swallowed into a misleading 502."""
+    bogus_id = "does-not-exist"
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found"),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Text with id '{bogus_id}' not found",
+        ),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_text_detail_by_id(edition_id=bogus_id, text_details_request=TextDetailsRequest())
+
+    assert exc_info.value.status_code == status.HTTP_404_NOT_FOUND
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_resolves_version_id_text_id_to_critical_edition(mocker):
+    """The translations/versions listings hand out text ids, so a version_id
+    picked from them must resolve to an edition before alignment lookup, which
+    only works between edition ids."""
+    version_text_id = "OP0002"
+    version_edition_id = "ed-2"
+
+    async def fetch_edition_text_id(edition_id: str):
+        if edition_id == EDITION_ID:
+            return TEXT_ID
+        if edition_id == version_edition_id:
+            return version_text_id
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="not found")
+
+    _patch_common(mocker)
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        side_effect=fetch_edition_text_id,
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
+        new_callable=AsyncMock,
+        return_value=[CriticalEditionModel(id=version_edition_id, type="critical")],
+    )
+    mock_alignment_pairs = mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_alignment_pairs",
+        new_callable=AsyncMock,
+        return_value=([EditionAlignmentPairModel(source_segment_id="span-1", target_segment_id="t-1")], False),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_segment_content",
+        new_callable=AsyncMock,
+        return_value="translated content",
+    )
+
+    result = await get_text_detail_by_id(
+        edition_id=EDITION_ID,
+        text_details_request=TextDetailsRequest(version_id=version_text_id),
+    )
+
+    mock_alignment_pairs.assert_any_call(
+        source_edition_id=EDITION_ID,
+        target_edition_id=version_edition_id,
+        limit=mocker.ANY,
+        offset=0,
+    )
+    translation = _segments(result)[0].translation
+    assert translation.content == "translated content"
+    assert translation.text_id == version_edition_id
+
+
+@pytest.mark.asyncio
+async def test_get_text_detail_by_id_reraises_non_404_edition_lookup_errors(mocker):
+    """A non-404 failure while checking the id should propagate as-is rather
+    than being swallowed into the text-id fallback path."""
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
+        new_callable=AsyncMock,
+        side_effect=HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="upstream error"),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await get_text_detail_by_id(edition_id=EDITION_ID, text_details_request=TextDetailsRequest())
+
+    assert exc_info.value.status_code == status.HTTP_502_BAD_GATEWAY
+
+
 @pytest.mark.asyncio
 async def test_get_text_detail_by_id_raises_404_when_segment_id_not_found(mocker):
     """Test 404 is raised when the requested segment_id doesn't exist in the segmentation"""
@@ -331,8 +521,11 @@ async def test_get_text_detail_by_id_raises_404_when_segment_id_not_found(mocker
 
 
 @pytest.mark.asyncio
-async def test_get_text_detail_by_id_propagates_fetch_edition_text_id_error(mocker):
-    """Test that an HTTPException from fetch_edition_text_id is propagated"""
+async def test_get_text_detail_by_id_falls_back_to_404_when_edition_lookup_404s_and_no_critical_edition(mocker):
+    """A 404 from fetch_edition_text_id means the given id isn't an edition, so it
+    falls back to treating it as a text id. If that text also has no critical
+    edition, the final result is still a 404 — but critical-edition lookup must
+    be mocked here, or this silently depends on a live upstream call."""
     mocker.patch(
         "pecha_api.texts.texts_openpecha_service.fetch_edition_text_id",
         new_callable=AsyncMock,
@@ -340,6 +533,11 @@ async def test_get_text_detail_by_id_propagates_fetch_edition_text_id_error(mock
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Edition with id '{EDITION_ID}' not found",
         ),
+    )
+    mocker.patch(
+        "pecha_api.texts.texts_openpecha_service.fetch_critical_editions",
+        new_callable=AsyncMock,
+        return_value=[],
     )
 
     with pytest.raises(HTTPException) as exc_info:
