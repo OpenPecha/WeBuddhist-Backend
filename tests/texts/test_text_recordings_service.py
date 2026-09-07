@@ -13,7 +13,6 @@ from pecha_api.texts.text_recordings_service import (
     delete_recording,
     get_edition_recordings,
     get_recording,
-    get_recording_audio_redirect_url,
     update_recording,
     validate_recording_audio_file,
 )
@@ -22,6 +21,7 @@ TOKEN = "token-123"
 EDITION_ID = "ED123"
 RECORDING_ID = "REC1"
 TEXT_ID = "TXT1"
+AUDIO_URL = "https://s3.example.com/signed"
 
 RAW_RECORDING = {
     "id": RECORDING_ID,
@@ -42,6 +42,13 @@ def _make_upload_file(filename="reading.mp3", content=b"audio-bytes", size=None,
     upload.content_type = content_type
     upload.read = AsyncMock(return_value=content)
     return upload
+
+
+def _patch_audio_location(mocker, url=AUDIO_URL):
+    return mocker.patch(
+        f"{SERVICE}.openpecha_api.fetch_recording_audio_location",
+        new=AsyncMock(return_value=url),
+    )
 
 
 # ============================================================================
@@ -77,11 +84,13 @@ async def test_get_edition_recordings_returns_mapped_list(mocker):
         f"{SERVICE}.openpecha_api.fetch_edition_recordings",
         new=AsyncMock(return_value=[RAW_RECORDING]),
     )
+    _patch_audio_location(mocker)
 
     result = await get_edition_recordings(token=TOKEN, edition_id=EDITION_ID)
 
     assert len(result) == 1
     assert result[0].id == RECORDING_ID
+    assert result[0].audio_url == AUDIO_URL
 
 
 # ============================================================================
@@ -97,6 +106,7 @@ async def test_create_edition_recording_uploads_and_refetches(mocker):
     mocker.patch(
         f"{SERVICE}.openpecha_api.fetch_recording", new=AsyncMock(return_value=RAW_RECORDING)
     )
+    _patch_audio_location(mocker)
 
     metadata = RecordingCreateMetadata(
         contributions=[RecordingContribution(type="person", id="PER1", role="narrator")]
@@ -108,6 +118,7 @@ async def test_create_edition_recording_uploads_and_refetches(mocker):
     )
 
     assert result.id == RECORDING_ID
+    assert result.audio_url == AUDIO_URL
     mock_create.assert_awaited_once()
     _, kwargs = mock_create.call_args
     assert kwargs["edition_id"] == EDITION_ID
@@ -138,7 +149,7 @@ async def test_create_edition_recording_rejects_invalid_file_before_upload(mocke
 
 
 # ============================================================================
-# get_recording / get_recording_audio_redirect_url
+# get_recording
 # ============================================================================
 
 @pytest.mark.asyncio
@@ -147,19 +158,12 @@ async def test_get_recording_returns_mapped_response(mocker):
     mocker.patch(
         f"{SERVICE}.openpecha_api.fetch_recording", new=AsyncMock(return_value=RAW_RECORDING)
     )
+    _patch_audio_location(mocker)
+
     result = await get_recording(token=TOKEN, recording_id=RECORDING_ID)
+
     assert result.id == RECORDING_ID
-
-
-@pytest.mark.asyncio
-async def test_get_recording_audio_redirect_url_returns_location(mocker):
-    mocker.patch(f"{SERVICE}.validate_cms_author_details")
-    mocker.patch(
-        f"{SERVICE}.openpecha_api.fetch_recording_audio_location",
-        new=AsyncMock(return_value="https://s3.example.com/signed"),
-    )
-    result = await get_recording_audio_redirect_url(token=TOKEN, recording_id=RECORDING_ID)
-    assert result == "https://s3.example.com/signed"
+    assert result.audio_url == AUDIO_URL
 
 
 # ============================================================================
@@ -173,6 +177,7 @@ async def test_update_recording_sends_patch_when_fields_set(mocker):
     mocker.patch(f"{SERVICE}.openpecha_api.patch_recording", new=mock_patch)
     mock_fetch = AsyncMock(return_value=RAW_RECORDING)
     mocker.patch(f"{SERVICE}.openpecha_api.fetch_recording", new=mock_fetch)
+    _patch_audio_location(mocker)
 
     request = RecordingPatchRequest.model_validate({"duration_ms": 5000})
     result = await update_recording(token=TOKEN, recording_id=RECORDING_ID, request=request)
@@ -189,6 +194,7 @@ async def test_update_recording_skips_upstream_patch_when_nothing_set(mocker):
     mocker.patch(f"{SERVICE}.openpecha_api.patch_recording", new=mock_patch)
     mock_fetch = AsyncMock(return_value=RAW_RECORDING)
     mocker.patch(f"{SERVICE}.openpecha_api.fetch_recording", new=mock_fetch)
+    _patch_audio_location(mocker)
 
     request = RecordingPatchRequest()
     result = await update_recording(token=TOKEN, recording_id=RECORDING_ID, request=request)

@@ -1,7 +1,6 @@
 from typing import Annotated, List
 
 from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
-from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from starlette import status
 
@@ -15,7 +14,6 @@ from .text_recordings_service import (
     delete_recording,
     get_edition_recordings,
     get_recording,
-    get_recording_audio_redirect_url,
     update_recording,
 )
 
@@ -72,20 +70,6 @@ async def fetch_recording(
         token=authentication_credential.credentials,
         recording_id=recording_id,
     )
-
-
-@recordings_router.get("/recordings/{recording_id}/audio")
-async def fetch_recording_audio(
-    recording_id: str,
-    authentication_credential: Annotated[
-        HTTPAuthorizationCredentials, Depends(oauth2_scheme)
-    ],
-) -> RedirectResponse:
-    location = await get_recording_audio_redirect_url(
-        token=authentication_credential.credentials,
-        recording_id=recording_id,
-    )
-    return RedirectResponse(url=location, status_code=status.HTTP_307_TEMPORARY_REDIRECT)
 
 
 @recordings_router.patch("/recordings/{recording_id}")

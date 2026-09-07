@@ -70,7 +70,7 @@ def test_contribution_from_upstream_round_trips():
 # ============================================================================
 
 def test_recording_response_from_upstream():
-    result = RecordingResponse.from_upstream(RAW_RECORDING)
+    result = RecordingResponse.from_upstream(RAW_RECORDING, audio_url="https://s3.example.com/signed")
 
     assert result.id == "REC1"
     assert result.edition_id == "ED123"
@@ -79,11 +79,12 @@ def test_recording_response_from_upstream():
     assert result.license == LicenseType.CC0
     assert len(result.contributions) == 2
     assert result.contributions[0].role.value == "narrator"
+    assert result.audio_url == "https://s3.example.com/signed"
 
 
 def test_recording_response_defaults_license_when_absent():
     data = {key: value for key, value in RAW_RECORDING.items() if key != "license"}
-    result = RecordingResponse.from_upstream(data)
+    result = RecordingResponse.from_upstream(data, audio_url="https://s3.example.com/signed")
     assert result.license == LicenseType.PUBLIC
 
 

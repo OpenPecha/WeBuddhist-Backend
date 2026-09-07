@@ -1,5 +1,6 @@
+import asyncio
 import os
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import HTTPException, UploadFile
 from starlette import status
@@ -30,11 +31,16 @@ def validate_recording_audio_file(file: UploadFile) -> None:
         )
 
 
+async def _to_recording_response(data: Dict[str, Any]) -> RecordingResponse:
+    audio_url = await openpecha_api.fetch_recording_audio_location(recording_id=data["id"])
+    return RecordingResponse.from_upstream(data, audio_url=audio_url)
+
+
 async def get_edition_recordings(token: str, edition_id: str) -> List[RecordingResponse]:
     validate_cms_author_details(token=token)
     await fetch_edition_text_id(edition_id=edition_id)
     recordings = await openpecha_api.fetch_edition_recordings(edition_id=edition_id)
-    return [RecordingResponse.from_upstream(item) for item in recordings]
+    return list(await asyncio.gather(*[_to_recording_response(item) for item in recordings]))
 
 
 async def create_edition_recording(
@@ -56,18 +62,13 @@ async def create_edition_recording(
         content=content,
     )
     data = await openpecha_api.fetch_recording(recording_id=recording_id)
-    return RecordingResponse.from_upstream(data)
+    return await _to_recording_response(data)
 
 
 async def get_recording(token: str, recording_id: str) -> RecordingResponse:
     validate_cms_author_details(token=token)
     data = await openpecha_api.fetch_recording(recording_id=recording_id)
-    return RecordingResponse.from_upstream(data)
-
-
-async def get_recording_audio_redirect_url(token: str, recording_id: str) -> str:
-    validate_cms_author_details(token=token)
-    return await openpecha_api.fetch_recording_audio_location(recording_id=recording_id)
+    return await _to_recording_response(data)
 
 
 async def update_recording(
@@ -81,7 +82,7 @@ async def update_recording(
         data = await openpecha_api.patch_recording(recording_id=recording_id, payload=payload)
     else:
         data = await openpecha_api.fetch_recording(recording_id=recording_id)
-    return RecordingResponse.from_upstream(data)
+    return await _to_recording_response(data)
 
 
 async def delete_recording(token: str, recording_id: str) -> None:

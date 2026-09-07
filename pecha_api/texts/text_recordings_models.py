@@ -81,9 +81,13 @@ class RecordingResponse(BaseModel):
     contributions: List[RecordingContribution] = Field(default_factory=list)
     format: AudioFormat
     size_bytes: int
+    # A presigned, playable URL good for ~1hr - resolved server-side so
+    # browser clients (which can't attach the CMS bearer token to an <audio>
+    # tag) never need to hit an authenticated redirect endpoint themselves.
+    audio_url: str
 
     @classmethod
-    def from_upstream(cls, data: Dict[str, Any]) -> "RecordingResponse":
+    def from_upstream(cls, data: Dict[str, Any], audio_url: str) -> "RecordingResponse":
         return cls(
             id=data["id"],
             edition_id=data["edition_id"],
@@ -99,6 +103,7 @@ class RecordingResponse(BaseModel):
             ],
             format=data["format"],
             size_bytes=data["size_bytes"],
+            audio_url=audio_url,
         )
 
 
