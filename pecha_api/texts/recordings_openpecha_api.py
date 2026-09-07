@@ -104,7 +104,10 @@ async def fetch_persons(name: str | None, limit: int, offset: int) -> list[dict[
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=_UNEXPECTED_UPSTREAM_RESPONSE,
         )
-    return response.json()
+    # Unlike /v2/editions/{id}/recordings, this endpoint responds with a
+    # PaginatedResponse envelope (`{"items": [...], "has_more": ..., ...}`)
+    # rather than a bare array.
+    return response.json()["items"]
 
 
 async def fetch_recording(recording_id: str) -> dict[str, Any]:

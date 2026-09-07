@@ -87,7 +87,12 @@ async def test_fetch_edition_recordings_unexpected_status(mocker):
 @pytest.mark.asyncio
 async def test_fetch_persons_success(mocker):
     raw_person = {"id": "P1", "name": {"en": "Jane"}, "bdrc": "P123"}
-    mock_client = _make_mock_client(get=_response(200, [raw_person]))
+    mock_client = _make_mock_client(
+        get=_response(
+            200,
+            {"items": [raw_person], "has_more": False, "offset": 0, "limit": 20},
+        )
+    )
     mocker.patch(PATCH_TARGET, return_value=mock_client)
 
     result = await fetch_persons(name="Jane", limit=20, offset=0)
@@ -100,7 +105,11 @@ async def test_fetch_persons_success(mocker):
 
 @pytest.mark.asyncio
 async def test_fetch_persons_omits_blank_name_filter(mocker):
-    mock_client = _make_mock_client(get=_response(200, []))
+    mock_client = _make_mock_client(
+        get=_response(
+            200, {"items": [], "has_more": False, "offset": 0, "limit": 20}
+        )
+    )
     mocker.patch(PATCH_TARGET, return_value=mock_client)
 
     await fetch_persons(name=None, limit=20, offset=0)
