@@ -591,6 +591,8 @@ async def _resolve_edition_id_for_details(text_or_edition_id: str) -> Tuple[str,
 
     try:
         editions = await fetch_critical_editions(text_id=text_or_edition_id)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
