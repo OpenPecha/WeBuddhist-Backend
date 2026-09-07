@@ -52,9 +52,12 @@ class RecordingContribution(BaseModel):
         if self.type == "ai":
             return {"type": "ai", "id": self.id, "role": self.role.value}
         payload: Dict[str, Any] = {"type": "person", "role": self.role.value}
+        # Upstream rejects person contributions carrying both fields, so a
+        # person with a linked bdrc_id (e.g. from the persons directory)
+        # still resolves to a single reference - prefer the internal id.
         if self.id:
             payload["id"] = self.id
-        if self.bdrc_id:
+        elif self.bdrc_id:
             payload["bdrc_id"] = self.bdrc_id
         return payload
 

@@ -44,6 +44,26 @@ def test_person_contribution_to_upstream_payload_omits_blank_fields():
     }
 
 
+def test_person_contribution_to_upstream_payload_prefers_id_over_bdrc_id():
+    contribution = RecordingContribution(
+        type="person", id="PER123", bdrc_id="P123", role="narrator"
+    )
+    assert contribution.to_upstream_payload() == {
+        "type": "person",
+        "id": "PER123",
+        "role": "narrator",
+    }
+
+
+def test_person_contribution_to_upstream_payload_falls_back_to_bdrc_id():
+    contribution = RecordingContribution(type="person", bdrc_id="P123", role="narrator")
+    assert contribution.to_upstream_payload() == {
+        "type": "person",
+        "bdrc_id": "P123",
+        "role": "narrator",
+    }
+
+
 def test_ai_contribution_to_upstream_payload():
     contribution = RecordingContribution(type="ai", id="AI-1", role="narrator")
     assert contribution.to_upstream_payload() == {
