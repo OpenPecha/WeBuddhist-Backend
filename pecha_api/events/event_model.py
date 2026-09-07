@@ -68,6 +68,12 @@ class Event(Base):
 
     location = relationship("Location")
 
+    plan = relationship("Plan")
+    accumulator = relationship("Accumulator")
+    mantra = relationship("Mantra")
+    timer = relationship("Timer")
+    group_recitation_collection = relationship("GroupRecitationCollection")
+
     __table_args__ = (
         Index("idx_events_group_id", "group_id"),
         Index("idx_events_location_id", "location_id"),

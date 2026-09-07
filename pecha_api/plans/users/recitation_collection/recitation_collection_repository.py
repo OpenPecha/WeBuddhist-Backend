@@ -163,14 +163,37 @@ def delete_collection(
 ) -> Optional[RecitationCollection]:
 
     collection = get_collection_by_id(db=db, collection_id=collection_id, user_id=user_id)
-    
+
     if not collection:
         return None
-    
+
     try:
         db.delete(collection)
         db.commit()
         return collection
+    except IntegrityError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ResponseError(error=BAD_REQUEST, message=str(e.orig)).model_dump()
+        )
+
+
+def delete_collection_item(
+    db: Session,
+    item_id: UUID,
+    collection_id: UUID
+) -> Optional[RecitationCollectionItem]:
+
+    item = get_collection_item_by_id(db=db, item_id=item_id, collection_id=collection_id)
+
+    if not item:
+        return None
+
+    try:
+        db.delete(item)
+        db.commit()
+        return item
     except IntegrityError as e:
         db.rollback()
         raise HTTPException(

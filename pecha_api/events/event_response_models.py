@@ -105,6 +105,16 @@ class RecurrenceInput(BaseModel):
         return self
 
 
+class LinkedResourceDTO(BaseModel):
+    """Shared shape for a resource an event is merged with (plan, accumulator,
+    mantra, timer, group recitation collection): id + display name + image."""
+    model_config = ConfigDict(ser_json_exclude_none=True)
+
+    id: UUID
+    name: Optional[str] = None
+    image_url: Optional[str] = None
+
+
 class RecurrenceDTO(BaseModel):
     model_config = ConfigDict(ser_json_exclude_none=True)
 
@@ -121,10 +131,15 @@ class EventDTO(BaseModel):
 
     id: UUID
     plan_id: Optional[UUID] = None
+    plan: Optional[LinkedResourceDTO] = None
     accumulator_id: Optional[UUID] = None
+    accumulator: Optional[LinkedResourceDTO] = None
     mantra_id: Optional[UUID] = None
+    mantra: Optional[LinkedResourceDTO] = None
     timer_id: Optional[UUID] = None
+    timer: Optional[LinkedResourceDTO] = None
     group_recitation_collection_id: Optional[UUID] = None
+    group_recitation_collection: Optional[LinkedResourceDTO] = None
     group_id: UUID
     location_id: Optional[UUID] = None
     location: Optional[LocationDTO] = None
