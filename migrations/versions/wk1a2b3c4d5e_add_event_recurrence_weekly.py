@@ -57,13 +57,23 @@ def downgrade() -> None:
     op.drop_constraint('ck_events_monthly_yearly_day', 'events', type_='check')
     op.drop_constraint('ck_events_recurrence_required', 'events', type_='check')
 
-    # WEEKLY rows store their day in `recurrence_day_of_week` and leave
-    # `recurrence_day` NULL; the constraint below requires `recurrence_day`
-    # on every recurring row, so backfill a placeholder first or PostgreSQL
-    # rejects the rollback on any table that already has weekly events.
+    # Pre-weekly schema has no weekday column and no WEEKLY dispatcher.
+    # The old expand_occurrences else-branch treats unknown frequencies as
+    # monthly, so leaving frequency='WEEKLY' plus a placeholder recurrence_day
+    # would render weekly events as "monthly on the 1st" in lists and feeds.
+    # Convert those rows to one-off events (start_date/end_date already hold
+    # the current occurrence) instead of inventing a monthly rule.
     op.execute(
-        "UPDATE events SET recurrence_day = 1 "
-        "WHERE is_recurring = true AND recurrence_day IS NULL"
+        """
+        UPDATE events
+        SET is_recurring = false,
+            recurrence_frequency = NULL,
+            recurrence_date_system = NULL,
+            recurrence_calendar_type = NULL,
+            recurrence_month = NULL,
+            recurrence_day = NULL
+        WHERE is_recurring = true AND recurrence_frequency = 'WEEKLY'
+        """
     )
     op.create_check_constraint(
         'ck_events_recurrence_required',
